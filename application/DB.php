@@ -1,22 +1,18 @@
 <?php
 
-/**
- * Database abstraction class for PDO with security improvements
- */
 class DB {
 
     /**
-     * @var DB Singleton instance
+     * @var DB
      */
     protected static $instance = null;
 
     /**
-     * Data types mapping
      *
      * @var array
      */
     protected $types = array(
-        // Integer types
+        // Interger types
         'int' => PDO::PARAM_INT,
         'integer' => PDO::PARAM_INT,
         // String Types
@@ -32,12 +28,12 @@ class DB {
     /**
      * Default data-type
      *
-     * @var integer
+     * @var interger
      */
     protected $default_type = PDO::PARAM_STR;
 
     /**
-     * Get the singleton DB instance
+     * Get a DB instance
      *
      * @return DB
      */
@@ -49,68 +45,55 @@ class DB {
     }
 
     /**
-     * @var PDO PDO instance
+     * @var PDO
      */
     protected $PDO;
+	/**
+	 * 
+	 * @var array(PDOStatement, array)
+	 */
+	protected $lastStatement;
 
-    /**
-     * @var array Last executed statement and parameters
-     */
-    protected $lastStatement;
-
-    /**
-     * Constructor - Establish PDO connection
-     */
-    protected function __construct() {
+	protected function __construct() {
         $params = (array) Config::get('database');
-    
-        $driver = isset($params['driver']) ? $params['driver'] : 'mysql';
-    
-        if ($driver === 'mysql') {
-            $options = array(
-                'host' => $params['host'],
-                'dbname' => $params['database'],
-                'charset' => $params['encoding'],
-            );
-            if (!empty($params['port'])) {
-                $options['port'] = $params['port'];
-            }
-    
-            $dsn = 'mysql:' . http_build_query($options, '', ';');
-            $this->PDO = new PDO($dsn, $params['login'], $params['password'], array(
-                PDO::ATTR_EMULATE_PREPARES => false,
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES ' . $options['charset'],
-            ));
-    
-            $dt = new DateTime();
-            $offset = $dt->format("P");
-    
-            $this->PDO->exec("SET time_zone='$offset';");
-            $this->PDO->exec("SET SESSION sql_mode='STRICT_ALL_TABLES';");
-        } elseif ($driver === 'sqlite') {
-            $dsn = 'sqlite:' . $params['database'];
-            $this->PDO = new PDO($dsn, null, null, array(
-                PDO::ATTR_EMULATE_PREPARES => false,
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            ));
-        } else {
-            throw new Exception("Unsupported database driver: $driver");
+
+        $options = array(
+            'host' => $params['host'],
+            'dbname' => $params['database'],
+            'charset' => $params['encoding'],
+        );
+        if (!empty($params['port'])) {
+            $options['port'] = $params['port'];
         }
-    }    
+
+        $dsn = 'mysql:' . http_build_query($options, '', ';');
+        $this->PDO = new PDO($dsn, $params['login'], $params['password'], array(
+            PDO::ATTR_EMULATE_PREPARES => false,
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES '.$options['charset'],
+        ));
+
+        $dt = new DateTime();
+        $offset = $dt->format("P");
+
+        $this->PDO->exec("SET time_zone='$offset';");
+        $this->PDO->exec("SET SESSION sql_mode='STRICT_ALL_TABLES';");
+    }
 
     /**
-     * Execute a query with parameters and fetch results
+     * Execute any query with parameters and get results
      *
-     * @param string $query Query string with placeholders
-     * @param array $params Parameters to bind
-     * @param bool $fetchcol [optional] Fetch single column
-     * @param bool $fetchrow [optional] Fetch single row
-     * @return array|mixed Results array or single value
+     * @param string $query Query string with optional placeholders
+     * @param array $params An array of parameters to bind to PDO statement
+     * @param bool $fetchcol
+     * @param bool $fetchrow
+     * @return array Returns an associative array of results
      */
     public function execute($query, $params = array(), $fetchcol = false, $fetchrow = false) {
+        $data = self::parseWhereBindParams($params);
+        $params = $data['params'];
         $stmt = $this->PDO->prepare($query);
-        $this->lastStatement = [$stmt, $params];
+		$this->lastStatement = [$stmt, $params];
         $stmt->execute($params);
         if ($fetchcol) {
             return $stmt->fetchColumn();
@@ -122,109 +105,86 @@ class DB {
     }
 
     /**
-     * Execute an INSERT, UPDATE, or DELETE query
+     * Used for INSERT, UPDATE and DELETE
      *
-     * @param string $query SQL query with placeholders
-     * @param array $params Parameters to bind
-     * @return int Number of affected rows
+     * @param string $query MySQL query with placeholders
+     * @param array $data Optional associative array of parameters that will be bound to the query
+     * @return int Returns the number of affected rows of the query
      */
-    public function exec($query, array $params = array()) {
-        $stmt = $this->PDO->prepare($query);
-        $this->lastStatement = [$stmt, $params];
-        $stmt->execute($params);
-        return $stmt->rowCount();
+    public function exec($query, array $data = array()) {
+        if ($data) {
+            $data = self::parseWhereBindParams($data);
+            $params = $data['params'];
+            $sth = $this->PDO->prepare($query);
+			$this->lastStatement = [$sth, $params];
+            $sth->execute($params);
+            return $sth->rowCount();
+        }
+        return $this->PDO->exec($query);
     }
 
     /**
-     * Execute a raw SQL query
+     * Used for SELECT or 'non-modify' queries
      *
      * @param string $query SQL query to execute
-     * @param bool $return_statement [optional] Return PDOStatement if true
-     * @return PDOStatement|array PDOStatement or result set
+     * @param bool $return_statemnt [optional] If set to true, PDOStatement is always returned
+     * @return mixed Returns a PDOStatement if not selecting else returns selected results in an associative array
      */
-    public function query($query, $return_statement = false) {
+    public function query($query, $return_statemnt = false) {
         $stmt = $this->PDO->query($query);
-        if (preg_match('/^select/i', $query) && $return_statement === false) {
+        if (preg_match('/^select/', strtolower($query)) && $return_statemnt === false) {
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
         return $stmt;
     }
 
     /**
-     * Securely prepare and execute a query with parameters
+     * @param string $query
+     * @param array $params
      *
-     * @param string $query SQL query with placeholders
-     * @param array $params Parameters to bind
-     * @return PDOStatement Executed statement
+     * @return PDOStatement
      */
-    public function rquery($query, $params = array()) {
+    public function rquery($query, $params = array()) { //secured query with prepare and execute
         $stmt = $this->PDO->prepare($query);
-        $this->lastStatement = [$stmt, $params];
+		$this->lastStatement = [$stmt, $params];
         $stmt->execute($params);
+
         return $stmt;
     }
 
     /**
-     * Get the number of rows affected by a query
+     * Get the number of rows in a result
      *
-     * @param string $query SQL query
-     * @param array $params [optional] Parameters to bind
-     * @return int Number of rows
+     * @param string $query
+     * @return mixed
      */
-    public function num_rows($query, $params = array()) {
+    public function num_rows($query) {
+        # create a prepared statement
         $stmt = $this->PDO->prepare($query);
-        $this->lastStatement = [$stmt, $params];
-        $stmt->execute($params);
+		$this->lastStatement = [$stmt, null];
+        $stmt->execute();
         return $stmt->rowCount();
     }
 
-    /**
-     * Check if a table exists in the database
-     *
-     * @param string $table Table name
-     * @return bool True if table exists, false otherwise
-     */
     public function table_exists($table) {
-        // Validate that table name contains only allowed characters
-        if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) {
-            throw new InvalidArgumentException('Invalid table name');
-        }
-
-        // Get the current database name
-        $schema = $this->PDO->query('SELECT DATABASE()')->fetchColumn();
-
-        $query = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = :schema AND table_name = :table";
-        $stmt = $this->PDO->prepare($query);
-        $stmt->execute([
-            ':schema' => $schema,
-            ':table' => $table
-        ]);
-        return $stmt->fetchColumn() > 0;
+        return $this->num_rows("SHOW TABLES LIKE '" . $table . "'") > 0;
     }
 
-    /**
-     * Destructor - Close PDO connection
-     */
     public function __destruct() {
         $this->PDO = null;
     }
 
-    /**
-     * Get error information from last operation
-     *
-     * @return array Error info
-     */
     public function getError() {
         return $this->PDO->errorInfo();
     }
 
     /**
-     * Find records from a table
+     * Find a set of records from db
      *
-     * @param string $table_name Table name
-     * @param string|array $where WHERE clause or parameters
-     * @param array $params [optional] Additional parameters
-     * @return array Result set
+     * @param string $table_name
+     * @param string|aray $where
+     * @param array $params
+     * @return array
      */
     public function find($table_name, $where = null, $params = array()) {
         if (empty($params['cols'])) {
@@ -246,45 +206,24 @@ class DB {
             $select->limit($params['limit'], $offset);
         }
 
-        // Unset parameters not needed for binding
+        // unset all the shit that is not necessary for binding
         unset($params['cols'], $params['order_by'], $params['order'], $params['limit'], $params['offset']);
         if ($params) {
-            $select->bindParams($params);
+            $params = self::parseWhereBindParams($params);
+            $select->setParams($params['binds']);
         }
 
         return $select->fetchAll();
     }
 
-    /**
-     * Find a single row from a table
-     *
-     * @param string $table_name Table name
-     * @param string|array $where WHERE clause or parameters
-     * @param array $cols [optional] Columns to select
-     * @return array|null Single row or null
-     */
     public function findRow($table_name, $where = null, $cols = array()) {
         return $this->select($cols)->from($table_name)->where($where)->limit(1)->fetch();
     }
 
-    /**
-     * Find a single value from a table
-     *
-     * @param string $table_name Table name
-     * @param string|array $where WHERE clause or parameters
-     * @param array $cols [optional] Columns to select
-     * @return mixed Single value
-     */
     public function findValue($table_name, $where = null, $cols = array()) {
         return $this->select($cols)->from($table_name)->where($where)->limit(1)->fetchColumn();
     }
 
-    /**
-     * Create a new SELECT query builder
-     *
-     * @param array|string $cols [optional] Columns to select
-     * @return DB_Select
-     */
     public function select($cols = array()) {
         if (is_string($cols)) {
             $cols = explode(',', $cols);
@@ -293,243 +232,166 @@ class DB {
     }
 
     /**
-     * Count the number of rows matching criteria
+     * Count
      *
-     * @param string $table_name Table name
-     * @param array|string $where WHERE clause or parameters
-     * @param string $col [optional] Column to count
-     * @return int Count result
+     * @param string $table_name
+     * @param array|string $where If a string is given, it must be properly escaped
+     * @param string $col specify some column name to count
+     * @return int
      */
     public function count($table_name, $where = array(), $col = '*') {
-        $table_name = self::quoteIdentifier($table_name);
-        $col = $col === '*' ? '*' : self::quoteIdentifier($col);
-
-        $query = "SELECT COUNT($col) FROM $table_name";
+        $query = "SELECT count({$col}) FROM {$table_name}";
         $params = array();
         if ($where && is_array($where)) {
-            $wc = $this->parseConditions($where);
-            $query .= " WHERE {$wc['clause']}";
+            $wc = self::parseWhereBindParams($where);
+            $query .= " WHERE {$wc['clauses_str']}";
             $params = $wc['params'];
         } elseif ($where && is_string($where)) {
             $query .= " WHERE $where";
         }
 
         $stmt = $this->PDO->prepare($query);
-        $this->lastStatement = [$stmt, $params];
+		$this->lastStatement = [$stmt, $params];
         $stmt->execute($params);
         return $stmt->fetchColumn();
     }
 
     /**
-     * Check if an entry exists in a table
+     * Assert the existence of rows in a table
      *
-     * @param string $table_name Table name
-     * @param array|string $where WHERE clause or parameters
-     * @return bool True if exists, false otherwise
+     * @param string $table_name
+     * @param array|string $where If a string is given, it must be properly escaped
+     * @return boolean
      */
     public function entry_exists($table_name, $where) {
         return $this->count($table_name, $where) > 0;
     }
 
     /**
-     * Insert data into a table
+     * Insert Data into a MySQL Table
      *
-     * @param string $table_name Table name
-     * @param array $data Data to insert
-     * @param array $types [optional] Data types
-     * @return mixed Last insert ID or null
+     * @param string $table_name Table Name
+     * @param array $data An associative array of data with keys representing column names
+     * @param array $types A numerically indexed array representing the data-types of the value in the $data array.
+     * @throws Exception
+     * @return mix Returns an integer if last insert id was set else returns null
      */
     public function insert($table_name, array $data, array $types = array()) {
         if (!$this->checkTypeCount($data, $types)) {
             throw new Exception("Array count for data and data-types do not match");
         }
 
-        $columns = array();
-        $placeholders = array();
-        $params = array();
-        $paramCounter = 0;
+        $keys = array_map(array('DB', 'pkey'), array_keys($data));
+        $cols = array_map(array('DB', 'quoteCol'), array_keys($data));
 
-        foreach ($data as $key => $value) {
-            $columns[] = self::quoteIdentifier($key);
-            $placeholder = self::pkey('param_' . $paramCounter++);
-            $placeholders[] = $placeholder;
-            $params[$placeholder] = $value;
-        }
+        $query = self::replace("INSERT INTO %{table_name} (%{cols}) VALUES (%{values})", array(
+                    'cols' => implode(', ', $cols),
+                    'values' => implode(', ', $keys),
+                    'table_name' => $table_name,
+        ));
 
-        $columns_str = implode(', ', $columns);
-        $placeholders_str = implode(', ', $placeholders);
-        $table_name = self::quoteIdentifier($table_name);
-
-        $query = "INSERT INTO $table_name ($columns_str) VALUES ($placeholders_str)";
-
+        /* @var $stmt PDOStatement */
         $stmt = $this->PDO->prepare($query);
-        $stmt = $this->bindValues($stmt, $params, array_values($types), false, true);
-        $this->lastStatement = [$stmt, $params];
+        $stmt = $this->bindValues($stmt, $data, array_values($types), false, true);
+		$this->lastStatement = [$stmt, $data];
         $stmt->execute();
         return $this->lastInsertId();
     }
 
     /**
-     * Insert data and update on duplicate key
+     * Insert data and update values on duplicate keys
      *
      * @param string $table Table name
-     * @param array $data Data to insert
-     * @param array $updates [optional] Data to update on duplicate key
-     * @return int Number of affected rows
+     * @param array $data An associative array of key,value pairs representing data to insert
+     * @param array $updates [optional] Optional column names representing what values to update
+     * @return int Returns number of affected rows
      */
     public function insert_update($table, array $data, array $updates = array()) {
-        // Quote the table name
-        $table = self::quoteIdentifier($table);
-
-        // Prepare columns and placeholders for insert
-        $columns = [];
-        $placeholders = [];
-        $params = [];
-        $paramCounter = 0;
-
-        foreach ($data as $col => $value) {
-            $columns[] = self::quoteIdentifier($col);
-            $placeholder = self::pkey('param_' . $paramCounter++);
-            $placeholders[] = $placeholder;
-            $params[$placeholder] = $value;
+        $columns = array_map(array('DB', 'quoteCol'), array_keys($data));
+        $values = array_map(array('DB', 'pkey'), array_keys($data));
+        if (!$updates) {
+            $updates = array_keys($data);
         }
+        $table = self::quoteCol($table);
 
-        // If no updates specified, default to updating all columns in $data
-        if (empty($updates)) {
-            $updates = $data;
-        }
+        $columns_str = implode(',', $columns);
+        $values_str = implode(',', $values);
+        $updates_str = $this->getDuplicateUpdateString($updates);
 
-        // Prepare the ON DUPLICATE KEY UPDATE clause with parameter binding
-        $updates_str = [];
-        foreach ($updates as $col => $value) {
-            $col_quoted = self::quoteIdentifier($col);
-            $placeholder = self::pkey('update_param_' . $paramCounter++);
-            $updates_str[] = "$col_quoted = $placeholder";
-            $params[$placeholder] = $value;
-        }
-        $updates_clause = implode(', ', $updates_str);
-
-        // Build the query
-        $columns_str = implode(', ', $columns);
-        $placeholders_str = implode(', ', $placeholders);
-
-        $query = "INSERT INTO $table ($columns_str) VALUES ($placeholders_str) ON DUPLICATE KEY UPDATE $updates_clause";
-
-        // Prepare and execute the statement
-        $stmt = $this->PDO->prepare($query);
-        $this->lastStatement = [$stmt, $params];
-        $stmt->execute($params);
-        return $stmt->rowCount();
+        $query = "INSERT INTO $table ($columns_str) VALUES ($values_str) ON DUPLICATE KEY UPDATE $updates_str";
+        return $this->exec($query, $data);
     }
 
-    /**
-     * Update records in a table
-     *
-     * @param string $table_name Table name
-     * @param array $data Data to update
-     * @param array $where WHERE conditions
-     * @param array $data_types [optional] Data types for data
-     * @param array $where_types [optional] Data types for where
-     * @return int Number of affected rows
-     * @throws Exception
-     */
     public function update($table_name, array $data, array $where, array $data_types = array(), array $where_types = array()) {
         if (!$this->checkTypeCount($data, $data_types)) {
             throw new Exception("Array count for data and data-types do not match");
         }
-    
+
         if (!$this->checkTypeCount($where, $where_types)) {
             throw new Exception("Array count for where clause and where clause data-types do not match");
         }
-    
-        // Prepare the SET clause
-        $set_parts = [];
-        $params = [];
-        $paramCounter = 0;
-    
-        foreach ($data as $col => $value) {
-            $col_quoted = self::quoteIdentifier($col);
-            $placeholder = self::pkey('param_' . $paramCounter++);
-            $set_parts[] = "$col_quoted = $placeholder";
-            $params[$placeholder] = $value;
-        }
-    
-        // Prepare the WHERE clause
-        $whereParsed = $this->parseConditions($where, $paramCounter);
-        $where_str = $whereParsed['clause'];
-        $params = array_merge($params, $whereParsed['params']);
-    
-        $table_name = self::quoteIdentifier($table_name);
-        $set_str = implode(', ', $set_parts);
-    
-        $query = "UPDATE $table_name SET $set_str WHERE ($where_str)";
-    
-        $stmt = $this->PDO->prepare($query);
-        $stmt = $this->bindValues($stmt, $params, array_merge(array_values($data_types), array_values($where_types)), false, true);
-        $this->lastStatement = [$stmt, $params];
-        $stmt->execute();
-        return $stmt->rowCount();
-    }
-    
-    /**
-     * Delete records from a table
-     *
-     * @param string $table_name Table name
-     * @param array $where WHERE conditions
-     * @param array $types [optional] Data types
-     * @return int Number of affected rows
-     */
-    public function delete($table_name, array $where, array $types = array()) {
-        $params = [];
-        $paramCounter = 0;
-        $whereParsed = $this->parseConditions($where, $paramCounter);
-        $where_str = $whereParsed['clause'];
-        $params = $whereParsed['params'];
-        $table_name = self::quoteIdentifier($table_name);
 
-        $query = "DELETE FROM $table_name WHERE ($where_str)";
-
-        $stmt = $this->PDO->prepare($query);
-        $stmt = $this->bindValues($stmt, $params, array_values($types), false, true);
-        $this->lastStatement = [$stmt, $params];
-        $stmt->execute();
-        return $stmt->rowCount();
-    }
-
-    /**
-     * Parse conditions and generate SQL parts and parameters
-     *
-     * @param array $conditions Conditions array
-     * @param int &$paramCounter Parameter counter (by reference)
-     * @return array SQL clause and parameters
-     */
-    private function parseConditions(array $conditions, int &$paramCounter = 0) {
-        $clauses = [];
-        $params = [];
-
-        foreach ($conditions as $col_condition => $value) {
+        // remove signs from where clauses (<, >, <= , >=, != can be used in array keys of $where array. E.g $where['id >'] = 45)
+        $cols_where = array_keys($where);
+        $signs = array();
+        foreach ($cols_where as $i => $col_condition) {
             $col_condition = trim($col_condition);
-            $operator = '=';
-            if (preg_match('/^(.*?)(\s+|)(>=|<=|<>|>|<|!=|=)$/', $col_condition, $matches)) {
-                $col = trim($matches[1]);
-                $operator = $matches[3];
+            $col_condition = preg_replace('/\s+/', ' ', $col_condition);
+            $parts = array_filter(explode(' ', $col_condition));
+            if (count($parts) === 1) {
+                $signs[$i] = '=';
             } else {
-                $col = $col_condition;
+                $signs[$i] = $parts[1];
             }
-            $col_quoted = self::quoteIdentifier($col);
-            $placeholder = self::pkey('param_' . $paramCounter++);
-            $clauses[] = "$col_quoted $operator $placeholder";
-            $params[$placeholder] = $value;
+            $cols_where[$i] = $parts[0];
         }
-        $clause_str = implode(' AND ', $clauses);
-        return ['clause' => $clause_str, 'params' => $params];
+
+        $cols = array_map(array('DB', 'quoteCol'), array_keys($data));
+        $cols_where = array_map(array('DB', 'quoteCol'), $cols_where);
+        $set_values = $where_values = array();
+
+        foreach ($cols as $col) {
+            $set_values[] = "$col = ?";
+        }
+
+        foreach ($cols_where as $i => $col) {
+            $sign = !empty($signs[$i]) ? $signs[$i] : '=';
+            $where_values[] = "$col $sign ?";
+        }
+
+        $query = self::replace("UPDATE %{table_name} SET %{set_values} WHERE (%{where_values})", array(
+                    'where_values' => implode(' AND ', $where_values),
+                    'set_values' => implode(', ', $set_values),
+                    'table_name' => $table_name,
+        ));
+
+        /* @var $stmt PDOStatement */
+        $stmt = $this->PDO->prepare($query);
+        $stmt = $this->bindValues($stmt, $data, array_values($data_types), true, true);
+        $stmt = $this->bindValues($stmt, $where, array_values($where_types));
+		$this->lastStatement = [$stmt, $data];
+        $stmt->execute();
+        return $stmt->rowCount();
+    }
+
+    public function delete($table_name, array $data, array $types = array()) {
+        $cols = array_map(array('DB', 'pCol'), array_keys($data));
+        $query = self::replace("DELETE FROM %{table_name} WHERE (%{values})", array(
+                    'values' => implode(' AND ', $cols),
+                    'table_name' => self::quoteCol($table_name),
+        ));
+
+        /* @var $stmt PDOStatement */
+        $stmt = $this->PDO->prepare($query);
+        $stmt = $this->bindValues($stmt, $data, array_values($types), false, true);
+		$this->lastStatement = [$stmt, $data];
+        $stmt->execute();
+        return $stmt->rowCount();
     }
 
     /**
-     * Prepare a SQL statement
-     *
-     * @param string $query SQL query
-     * @param array $options [optional] Driver options
+     * @param string $query
+     * @param array $options [optional] driver options
      * @return PDOStatement
      */
     public function prepare($query, $options = array()) {
@@ -537,41 +399,33 @@ class DB {
     }
 
     /**
-     * Quote a string for use in a query
+     * Quote a string for sql query
      *
-     * @param string $string String to quote
-     * @return string Quoted string
+     * @param string $string
+     * @return string
      */
     public function quote($string) {
         return $this->PDO->quote($string);
     }
 
     /**
-     * Get the underlying PDO instance
-     *
      * @return PDO
      */
     public function pdo() {
         return $this->PDO;
     }
 
-    /**
-     * Get the last insert ID
-     *
-     * @return string Last insert ID
-     */
     public function lastInsertId() {
         return $this->PDO->lastInsertId();
     }
 
     /**
-     * Bind values to a PDOStatement
-     *
-     * @param PDOStatement $stmt Prepared statement
-     * @param array $data Parameters to bind
-     * @param array $types [optional] Data types
-     * @param bool $numeric [optional] Use numeric indexes
-     * @param bool $reset [optional] Reset internal counter
+     * 
+     * @param PDOStatement $stmt
+     * @param array $data
+     * @param array $types
+     * @param bool $numeric
+     * #param bool $reset
      * @return PDOStatement
      */
     private function bindValues($stmt, $data, $types, $numeric = true, $reset = false) {
@@ -584,23 +438,15 @@ class DB {
             if (isset($types[$i]) && isset($this->types[$types[$i]])) {
                 $type = $this->types[$types[$i]];
             }
-            if (is_array($value)) {
-                $value = json_encode($value);
-            }
-            $param = ($numeric ? $i + 1 : $key);
-            $stmt->bindValue($param, $value, $type);
+			if (is_array($value)) {
+				$value = json_encode($value);
+			}
+            $stmt->bindValue(($numeric ? $i + 1 : self::pkey($key)), $value, $type);
             $i++;
         }
         return $stmt;
     }
 
-    /**
-     * Check if data and types arrays have matching counts
-     *
-     * @param array $data Data array
-     * @param array $types Types array
-     * @return bool True if counts match or types array is empty
-     */
     private function checkTypeCount(array $data, array $types) {
         if (!$types) {
             return true;
@@ -608,36 +454,80 @@ class DB {
         return count($types) === count($data);
     }
 
-    /**
-     * Quote an identifier (e.g., table or column name)
-     *
-     * @param string $identifier Identifier to quote
-     * @return string Quoted identifier
-     */
-    public static function quoteIdentifier($identifier) {
-        // Replace backticks and null bytes to prevent injection
-        $identifier = str_replace(["`", "\0"], ["``", ""], $identifier);
-        if (!preg_match('/^[a-zA-Z0-9_]+$/', $identifier)) {
-            throw new InvalidArgumentException('Invalid identifier name');
+    public function getDuplicateUpdateString($columns) {
+        foreach ($columns as $i => $column) {
+            if (is_numeric($i)) {
+                $column = trim($column, '`');
+                $columns[$i] = "`$column` = VALUES(`$column`)";
+            } else {
+                $value = strstr($column, '::') !== false ? str_replace('::', '', $column) : $this->PDO->quote($column);
+                $column = trim($i, '`');
+                $columns[$i] = "`$column` = $value";
+            }
         }
-
-        return "`$identifier`";
+        return implode(', ', $columns);
     }
 
-    /**
-     * Generate a parameter placeholder
-     *
-     * @param string $key Parameter key
-     * @return string Parameter placeholder
-     */
     public static function pkey($key) {
         $key = trim($key);
-        $key = trim($key, ':');
+        $key = trim($key, '`:');
         return ':' . $key;
     }
 
+    public static function pCol($col) {
+        $col = trim($col);
+        $col = trim($col, '`:');
+        $col = "`$col` = :$col";
+        return $col;
+    }
+
+    public static function quoteCol($col, $table = null) {
+        $col = trim($col);
+        $col = trim($col, '`');
+        return $table !== null ? "`$table`.`$col`" : "`$col`";
+    }
+
+    public static function parseColName($string) {
+        if (strpos($string, '.') !== false) {
+            $string = explode('.', $string, 2);
+            $tableName = self::quoteCol($string[0]);
+            $fieldName = self::quoteCol($string[1]);
+            return $tableName . '.' . $fieldName;
+        }
+        return self::quoteCol($string);
+    }
+
+    public static function parseWhereBindParams(array $array) {
+        $cols = array_keys($array);
+        $values = array_values($array);
+
+        $clauses = array_map(array('DB', 'pCol'), $cols);
+        $params = array();
+
+        foreach ($cols as $i => $col) {
+            $params[self::pkey($col)] = $values[$i];
+        }
+        return array(
+            'clauses' => $clauses,
+            'clauses_str' => implode(' AND ', $clauses),
+            'params' => $params,
+        );
+    }
+
+    public static function replace($string, $params = array()) {
+        foreach ($params as $key => $value) {
+            $key = "%{" . $key . "}";
+            $string = str_replace($key, $value, $string);
+        }
+        return $string;
+    }
+
     /**
-     * Begin a database transaction
+     * For transactions just use same calls
+     */
+
+    /**
+     * {inherit PDO doc}
      */
     public function beginTransaction() {
         if (!$this->PDO->inTransaction()) {
@@ -646,7 +536,7 @@ class DB {
     }
 
     /**
-     * Commit a database transaction
+     * {inherit PDO doc}
      */
     public function commit() {
         if ($this->PDO->inTransaction()) {
@@ -655,7 +545,7 @@ class DB {
     }
 
     /**
-     * Rollback a database transaction
+     * {inherit PDO doc}
      */
     public function rollBack() {
         if ($this->PDO->inTransaction()) {
@@ -663,27 +553,13 @@ class DB {
         }
     }
 
-    /**
-     * Get table definition
-     *
-     * @param string $table Table name
-     * @param string $property [optional] Property to filter by
-     * @return array Table definition
-     */
     public function getTableDefinition($table, $property = null) {
-        // Validate that table name contains only allowed characters
-        if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) {
-            throw new InvalidArgumentException('Invalid table name');
-        }
-
         if (!$this->table_exists($table)) {
             return array();
         }
 
-        $tableQuoted = self::quoteIdentifier($table);
-
-        $stmt = $this->PDO->prepare("SHOW COLUMNS FROM $tableQuoted");
-        $stmt->execute();
+        $query = "SHOW COLUMNS FROM `$table`";
+        $stmt = $this->PDO->query($query);
         $cols = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if ($property === null) {
             return $cols;
@@ -695,40 +571,24 @@ class DB {
         return $filtered;
     }
 
-    /**
-     * Check if exception is a transaction retry error
-     *
-     * @param Exception $e Exception to check
-     * @return bool True if retryable, false otherwise
-     */
     public function retryTransaction(Exception $e) {
         return strstr($e->getMessage(), 'try restarting transaction') !== false;
     }
-
-    /**
-     * Log the last executed statement
-     *
-     * @param Exception $e Exception that occurred
-     */
+    
     public function logLastStatement(Exception $e) {
         $interestingCodes = ['HY000', '23000', '40001'];
         if (in_array($e->getCode(), $interestingCodes) && $this->lastStatement) {
-            // Ensure sensitive data is not logged
-            formr_log($this->lastStatement[0]->queryString, 'MySQL_QUERY');
-            // Do not log parameters directly if they may contain sensitive data
-            // formr_log($this->lastStatement[1], 'MySQL_PARAMS');
-        }
+			formr_log($this->lastStatement[0]->queryString, 'MySQL_QUERY');
+			formr_log($this->lastStatement[1], 'MySQL_PARAMS');
+		}
     }
 
 }
 
-/**
- * Database SELECT query builder with security enhancements
- */
 class DB_Select {
 
     /**
-     * @var PDO PDO instance
+     * @var PDO
      */
     protected $PDO;
 
@@ -738,161 +598,60 @@ class DB_Select {
      * @var string
      */
     protected $query;
-
-    /**
-     * WHERE clauses
-     *
-     * @var array
-     */
     protected $where = array();
-
-    /**
-     * JOIN clauses
-     *
-     * @var array
-     */
+    protected $or_where = array();
     protected $joins = array();
-
-    /**
-     * Columns to select
-     *
-     * @var array
-     */
     protected $columns = array('*');
-
-    /**
-     * Parameters to bind
-     *
-     * @var array
-     */
     protected $params = array();
-
-    /**
-     * ORDER BY clauses
-     *
-     * @var array
-     */
     protected $order = array();
-
-    /**
-     * LIMIT value
-     *
-     * @var int
-     */
     protected $limit;
-
-    /**
-     * OFFSET value
-     *
-     * @var int
-     */
     protected $offset;
-
-    /**
-     * Table to select from
-     *
-     * @var string
-     */
     protected $table;
 
-    /**
-     * Parameter counter for unique parameter names
-     *
-     * @var int
-     */
-    private $paramCounter = 0;
-
-    /**
-     * Constructor
-     *
-     * @param PDO $pdo PDO instance
-     * @param array $cols [optional] Columns to select
-     */
     public function __construct(PDO $pdo, array $cols = array()) {
         $this->PDO = $pdo;
         $this->columns($cols);
     }
 
-    /**
-     * Destructor
-     */
     public function __destruct() {
         $this->PDO = null;
     }
 
-    /**
-     * Set columns to select
-     *
-     * @param array $cols Columns to select
-     */
     public function columns(array $cols) {
         if ($cols) {
             $this->columns = $this->parseCols($cols);
         }
     }
 
-    /**
-     * Set the FROM clause
-     *
-     * @param string $table Table name
-     * @return $this
-     */
     public function from($table) {
-        $this->table = DB::quoteIdentifier($table);
+        $this->table = DB::quoteCol($table);
         return $this;
     }
 
-    /**
-     * Add a LEFT JOIN clause
-     *
-     * @param string $table Table to join
-     * @param string $condition Join condition
-     * @return $this
-     */
     public function leftJoin($table, $condition) {
-        $table = DB::quoteIdentifier($table);
+        $table = DB::quoteCol($table);
         $condition = $this->parseJoinConditions(func_get_args());
         $this->joins[] = " LEFT JOIN $table ON ($condition)";
         return $this;
     }
 
-    /**
-     * Add a RIGHT JOIN clause
-     *
-     * @param string $table Table to join
-     * @param string $condition Join condition
-     * @return $this
-     */
     public function rightJoin($table, $condition) {
-        $table = DB::quoteIdentifier($table);
+        $table = DB::quoteCol($table);
         $condition = $this->parseJoinConditions(func_get_args());
         $this->joins[] = " RIGHT JOIN $table ON ($condition)";
         return $this;
     }
 
-    /**
-     * Add an INNER JOIN clause
-     *
-     * @param string $table Table to join
-     * @param string $condition Join condition
-     * @return $this
-     */
     public function join($table, $condition) {
-        $table = DB::quoteIdentifier($table);
+        $table = DB::quoteCol($table);
         $condition = $this->parseJoinConditions(func_get_args());
         $this->joins[] = " INNER JOIN $table ON ($condition)";
         return $this;
     }
 
-    /**
-     * Add a WHERE clause
-     *
-     * @param array|string $where WHERE conditions
-     * @return $this
-     */
     public function where($where) {
         if (is_array($where)) {
-            $whereParsed = $this->parseConditions($where);
+            $whereParsed = $this->parseWhere($where);
             $this->where = array_merge($this->where, $whereParsed['clauses']);
             $this->params = array_merge($this->params, $whereParsed['params']);
         } elseif (is_string($where)) {
@@ -901,34 +660,12 @@ class DB_Select {
         return $this;
     }
 
-    /**
-     * Add a WHERE IN clause with parameter binding
-     *
-     * @param string $field Field name
-     * @param array $values Values for IN clause
-     * @return $this
-     */
     public function whereIn($field, array $values) {
         $field = $this->parseColName($field);
-        $placeholders = [];
-        foreach ($values as $value) {
-            $paramKey = ':param_' . $this->paramCounter++;
-            $placeholders[] = $paramKey;
-            $this->params[$paramKey] = $value;
-        }
-        $placeholders_str = implode(', ', $placeholders);
-        $this->where[] = "$field IN ($placeholders_str)";
-        return $this;
+        $values = array_map(array($this->PDO, 'quote'), $values);
+        $this->where[] = "{$field} IN (" . implode(',', $values) . ")";
     }
 
-    /**
-     * Add a LIKE clause with parameter binding
-     *
-     * @param string $colname Column name
-     * @param string $value Value to match
-     * @param string $pad [optional] Padding direction ('both', 'left', 'right')
-     * @return $this
-     */
     public function like($colname, $value, $pad = 'both') {
         $colname = $this->parseColName($colname);
         if ($pad === 'right') {
@@ -938,63 +675,39 @@ class DB_Select {
         } else {
             $value = "%$value%";
         }
-        $paramKey = ':param_' . $this->paramCounter++;
-        $this->where[] = "$colname LIKE $paramKey";
-        $this->params[$paramKey] = $value;
+        $this->PDO->quote($value);
+        $this->where("$colname LIKE '$value'");
         return $this;
     }
 
-    /**
-     * Set the LIMIT clause
-     *
-     * @param int $limit Limit value
-     * @param int $offset [optional] Offset value
-     * @return $this
-     */
     public function limit($limit, $offset = 0) {
         $this->limit = (int) $limit;
         $this->offset = (int) $offset;
         return $this;
     }
 
-    /**
-     * Set the ORDER BY clause
-     *
-     * @param string $by Column to order by
-     * @param string|null $order [optional] Order direction ('ASC', 'DESC')
-     * @return $this
-     * @throws Exception
-     */
-    public function order($by, $order = 'ASC') {
-        $byUpper = strtoupper($by);
-
-        // Handle ordering by RAND()
-        if ($byUpper === 'RAND' || $byUpper === 'RAND()') {
+    public function order($by, $order = 'asc') {
+        if ($by === 'RAND') {
             $this->order[] = 'RAND()';
             return $this;
         }
 
-        // If $order is null or empty, add $by directly to the order clause
-        if ($order === null || $order === '') {
+        if ($order === null) {
             $this->order[] = $by;
             return $this;
         }
 
-        $orderUpper = strtoupper($order);
-
-        if (!in_array($orderUpper, array('ASC', 'DESC'))) {
-            throw new Exception("Invalid order direction: $order");
+        $order = strtoupper($order);
+        if (!in_array($order, array('ASC', 'DESC'))) {
+            throw new Exception("Invalid Order");
         }
         $by = $this->parseColName($by);
-        $this->order[] = "$by $orderUpper";
+        $this->order[] = "$by $order";
         return $this;
     }
 
     /**
-     * Fetch all results
-     *
-     * @param int $fetch_style [optional] PDO fetch style
-     * @return array Result set
+     * {inherit PDO doc}
      */
     public function fetchAll($fetch_style = PDO::FETCH_ASSOC) {
         $this->constructQuery();
@@ -1005,10 +718,7 @@ class DB_Select {
     }
 
     /**
-     * Fetch a single row
-     *
-     * @param int $fetch_style [optional] PDO fetch style
-     * @return mixed Single row or false
+     * {inherit PDO doc}
      */
     public function fetch($fetch_style = PDO::FETCH_ASSOC) {
         $this->constructQuery();
@@ -1019,9 +729,7 @@ class DB_Select {
     }
 
     /**
-     * Fetch a single column value
-     *
-     * @return mixed Single column value or false
+     * {inherit PDO doc}
      */
     public function fetchColumn() {
         $this->constructQuery();
@@ -1032,7 +740,7 @@ class DB_Select {
     }
 
     /**
-     * Get the executed PDO statement
+     * Returns executed PDO statement of current query
      *
      * @return PDOStatement
      */
@@ -1040,101 +748,69 @@ class DB_Select {
         $this->constructQuery();
         $query = $this->trimQuery();
         $stmt = $this->PDO->prepare($query);
-        $stmt->execute($this->params);
+        if ($this->params) {
+            foreach ($this->params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+        }
+
+        $stmt->execute();
         return $stmt;
     }
 
-    /**
-     * Get the parameters bound to the query
-     *
-     * @return array Parameters
-     */
     public function getParams() {
         return $this->params;
     }
 
-    /**
-     * Set parameters for the query
-     *
-     * @param array $params Parameters to bind
-     * @return $this
-     */
     public function setParams(array $params) {
         $this->params = $params;
         return $this;
     }
 
-    /**
-     * Bind additional parameters to the query
-     *
-     * @param array $params Parameters to bind
-     * @return $this
-     */
     public function bindParams(array $params) {
-        $parsedParams = [];
-        foreach ($params as $key => $value) {
-            $paramKey = strpos($key, ':') === 0 ? $key : ':' . $key;
-            $parsedParams[$paramKey] = $value;
-        }
-        $this->params = array_merge($this->params, $parsedParams);
+        $params = $this->parseWhere($params);
+        $this->params = array_merge($this->params, $params['params']);
         return $this;
     }
 
-    /**
-     * Get the last constructed query
-     *
-     * @return string SQL query
-     */
     public function lastQuery() {
         $this->constructQuery();
         return $this->query;
     }
 
-    /**
-     * Remove newlines from the query
-     *
-     * @return string Trimmed query
-     */
     private function trimQuery() {
-        return str_replace("\n", " ", $this->query);
+        return str_replace("\n", "", $this->query);
     }
 
     /**
-     * Construct the SQL query
+     * @todo Add or_where and or_like clauses
      */
     private function constructQuery() {
         $columns = implode(', ', $this->columns);
 
-        $query = "SELECT $columns FROM {$this->table}";
+        $query = "SELECT $columns FROM {$this->table} \n";
         if ($this->joins) {
-            $query .= " " . implode(" ", $this->joins);
+            $query .= implode(" \n", $this->joins);
         }
 
         if ($this->where) {
             $where = implode(' AND ', $this->where);
-            $query .= " WHERE $where";
+            $query .= " WHERE ($where)";
         }
 
         if ($this->order) {
             $order = implode(', ', $this->order);
-            $query .= " ORDER BY $order";
+            $query .= " \nORDER BY " . $order;
         }
 
-        if ($this->limit !== null) {
-            $offset = $this->offset !== null ? $this->offset : 0;
-            $query .= " LIMIT $offset, {$this->limit}";
+        if ($this->limit) {
+            $query .= " \nLIMIT {$this->offset}, {$this->limit}";
         }
         $this->query = $query;
     }
 
-    /**
-     * Parse JOIN conditions
-     *
-     * @param array $conditions Conditions
-     * @return string Parsed conditions
-     */
     private function parseJoinConditions($conditions) {
-        array_shift($conditions); // Remove table name from arguments
+        array_shift($conditions); // first arguement is the table name
         $parsed = array();
         foreach ($conditions as $condition) {
             $parsed[] = $this->parseJoinCondition($condition);
@@ -1142,124 +818,78 @@ class DB_Select {
         return implode(' AND ', $parsed);
     }
 
-    /**
-     * Parse a single JOIN condition
-     *
-     * @param string $condition Condition
-     * @return string Parsed condition
-     * @throws Exception
-     */
     private function parseJoinCondition($condition) {
-        $operators = ['=', '>', '<', '>=', '<=', '<>'];
-        foreach ($operators as $operator) {
-            if (strpos($condition, $operator) !== false) {
-                $parts = explode($operator, $condition, 2);
-                if (count($parts) == 2) {
-                    $left = $this->parseColName(trim($parts[0]));
-                    $right = $this->parseColName(trim($parts[1]));
-                    return "$left $operator $right";
-                }
-            }
+        $conditions = explode('=', $condition, 2);
+        if (count($conditions) != 2) {
+            throw new Exception("Unable to get join condition clauses");
         }
-        throw new Exception("Invalid join condition: $condition");
+        $conditions = $this->parseCols($conditions);
+        return implode(' = ', $conditions);
     }
 
-    /**
-     * Parse column names
-     *
-     * @param array $cols Columns
-     * @return array Parsed columns
-     */
     private function parseCols(array $cols) {
-        $parsed = array();
+        $select = array();
         foreach ($cols as $key => $val) {
             if (is_numeric($key)) {
-                // Handle column with possible alias, e.g., 'u.id AS user_id'
-                if (preg_match('/\s+AS\s+/i', $val)) {
-                    $parts = preg_split('/\s+AS\s+/i', $val);
-                    $parsed[] = $this->parseColName($parts[0]) . ' AS ' . DB::quoteIdentifier($parts[1]);
-                } else {
-                    $parsed[] = $this->parseColName($val);
-                }
+                $select[] = $this->parseColName($val);
             } else {
-                $parsed[] = $this->parseColName($key) . ' AS ' . DB::quoteIdentifier($val);
+                $select[] = $this->parseColName($key) . ' AS ' . $this->parseColName($val);
             }
         }
-        return $parsed;
+        return $select;
     }
 
-    /**
-     * Parse a column name, safely quoting identifiers
-     *
-     * @param string $string Column name
-     * @return string Parsed column name
-     */
     private function parseColName($string) {
         $string = trim($string);
-    
-        // Remove existing backticks to prevent double quoting
-        $string = str_replace('`', '', $string);
-    
-        // If the string is '*', return it directly
-        if ($string === '*') {
-            return '*';
-        }
-    
-        // Handle functions and expressions
-        if (preg_match('/\b(AVG|COUNT|MIN|MAX|SUM)\s*\(/i', $string) || preg_match('/[\(\)\+\-\/\*\s,]/', $string)) {
-            // Contains SQL functions or operators, return as is
+        // If the column is not one of these then maybe some mysql func or so is called
+        if (preg_match('/[^a-zA-Z0-9_\.\`]/i', $string, $matches)) {
             return $string;
         }
-    
-        // Handle table.column format
+
+        $string = trim($string, '`');
+
         if (strpos($string, '.') !== false) {
-            list($table, $column) = explode('.', $string, 2);
-            $table = DB::quoteIdentifier($table);
-            if ($column === '*') {
-                // Do not quote the '*'
-                return $table . '.*';
-            } else {
-                $column = DB::quoteIdentifier($column);
-                return $table . '.' . $column;
-            }
+            $string = explode('.', $string, 2);
+            $tableName = DB::quoteCol($string[0]);
+            $fieldName = DB::quoteCol($string[1]);
+            return $tableName . '.' . $fieldName;
         }
-    
-        // Otherwise, quote the column name
-        return DB::quoteIdentifier($string);
+        return DB::quoteCol($string);
     }
 
-    /**
-     * Parse conditions and bind parameters
-     *
-     * @param array $conditions Conditions array
-     * @return array Parsed clauses and parameters
-     */
-    private function parseConditions(array $conditions) {
-        $clauses = [];
-        $params = [];
-        foreach ($conditions as $col_condition => $value) {
-            $col_condition = trim($col_condition);
-            $operator = '=';
-            if (preg_match('/^(.*?)(\s+|)(>=|<=|<>|>|<|!=|=)$/', $col_condition, $matches)) {
-                $col = trim($matches[1]);
-                $operator = $matches[3];
+    private function parseWhere(array $array) {
+        $cols = array_keys($array);
+        $values = array_values($array);
+
+        $signs = array();
+        foreach ($cols as $i => $col_condition) {
+            $col_condition = preg_replace('/\s+/', ' ', trim($col_condition));
+            $parts = array_filter(explode(' ', $col_condition));
+            if (count($parts) === 1) {
+                $signs[$i] = '=';
             } else {
-                $col = $col_condition;
+                $signs[$i] = $parts[1];
             }
-            $colName = $this->parseColName($col);
-            $paramKey = ':param_' . $this->paramCounter++;
-            $clauses[] = "$colName $operator $paramKey";
-            $params[$paramKey] = $value;
+            $cols[$i] = $parts[0];
         }
+
+        $clauses = array(); //array_map(array('DB', 'pCol'), $cols);
+        $params = array();
+        foreach ($cols as $i => $col) {
+            $sign = !empty($signs[$i]) ? $signs[$i] : '=';
+            $param = $col;
+            if (strstr($col, '.') !== false) {
+                list($c, $param) = explode('.', $col, 2);
+            }
+            $col = $this->parseColName($col);
+            $clauses[] = "$col $sign :$param";
+            $params[DB::pkey($param)] = $values[$i];
+        }
+
         return array(
             'clauses' => $clauses,
             'params' => $params,
         );
-    }
-
-    public function showQuery() {
-        $this->constructQuery();
-        return $this->query;
     }
 
 }
