@@ -14,6 +14,7 @@ class RunSession extends Model {
     public $deactivated = 0;
     public $no_email;
     public $testing = 0;
+    private $run_owner_id;
     /**
      * 
      * @var Run
@@ -161,8 +162,6 @@ class RunSession extends Model {
      * @return \RunSession
      */
     public function createUnitSession(RunUnit $unit, $setAsCurrent = true, $save = true) {
-        $this->debug('--', true);
-        $this->debug("CREATE {$unit->type}", true);
         
         $unitSession = new UnitSession($this, $unit);
         if ($save === false) {
@@ -171,8 +170,6 @@ class RunSession extends Model {
         }
 
         $this->currentUnitSession = $unitSession->create($setAsCurrent);
-        
-        $this->debug("Created");
         return $this;
     }
 

@@ -282,7 +282,7 @@ class DB {
     /**
      * Create a new SELECT query builder
      *
-     * @param array $cols [optional] Columns to select
+     * @param array|string $cols [optional] Columns to select
      * @return DB_Select
      */
     public function select($cols = array()) {
@@ -307,8 +307,8 @@ class DB {
         $query = "SELECT COUNT($col) FROM $table_name";
         $params = array();
         if ($where && is_array($where)) {
-            $wc = self::parseWhereBindParams($where);
-            $query .= " WHERE {$wc['clauses_str']}";
+            $wc = $this->parseConditions($where);
+            $query .= " WHERE {$wc['clause']}";
             $params = $wc['params'];
         } elseif ($where && is_string($where)) {
             $query .= " WHERE $where";
@@ -347,10 +347,11 @@ class DB {
         $columns = array();
         $placeholders = array();
         $params = array();
+        $paramCounter = 0;
 
         foreach ($data as $key => $value) {
             $columns[] = self::quoteIdentifier($key);
-            $placeholder = self::pkey($key);
+            $placeholder = self::pkey('param_' . $paramCounter++);
             $placeholders[] = $placeholder;
             $params[$placeholder] = $value;
         }
@@ -384,10 +385,11 @@ class DB {
         $columns = [];
         $placeholders = [];
         $params = [];
+        $paramCounter = 0;
 
         foreach ($data as $col => $value) {
             $columns[] = self::quoteIdentifier($col);
-            $placeholder = self::pkey($col);
+            $placeholder = self::pkey('param_' . $paramCounter++);
             $placeholders[] = $placeholder;
             $params[$placeholder] = $value;
         }
@@ -401,7 +403,7 @@ class DB {
         $updates_str = [];
         foreach ($updates as $col => $value) {
             $col_quoted = self::quoteIdentifier($col);
-            $placeholder = self::pkey('update_' . $col);
+            $placeholder = self::pkey('update_param_' . $paramCounter++);
             $updates_str[] = "$col_quoted = $placeholder";
             $params[$placeholder] = $value;
         }
@@ -435,62 +437,54 @@ class DB {
         if (!$this->checkTypeCount($data, $data_types)) {
             throw new Exception("Array count for data and data-types do not match");
         }
-
+    
         if (!$this->checkTypeCount($where, $where_types)) {
             throw new Exception("Array count for where clause and where clause data-types do not match");
         }
-
+    
+        // Prepare the SET clause
         $set_parts = [];
         $params = [];
-
+        $paramCounter = 0;
+    
         foreach ($data as $col => $value) {
             $col_quoted = self::quoteIdentifier($col);
-            $placeholder = self::pkey($col);
+            $placeholder = self::pkey('param_' . $paramCounter++);
             $set_parts[] = "$col_quoted = $placeholder";
             $params[$placeholder] = $value;
         }
-
-        $where_parts = [];
-        foreach ($where as $col => $value) {
-            $col_quoted = self::quoteIdentifier($col);
-            $placeholder = self::pkey('where_' . $col);
-            $where_parts[] = "$col_quoted = $placeholder";
-            $params[$placeholder] = $value;
-        }
-
+    
+        // Prepare the WHERE clause
+        $whereParsed = $this->parseConditions($where, $paramCounter);
+        $where_str = $whereParsed['clause'];
+        $params = array_merge($params, $whereParsed['params']);
+    
         $table_name = self::quoteIdentifier($table_name);
         $set_str = implode(', ', $set_parts);
-        $where_str = implode(' AND ', $where_parts);
-
+    
         $query = "UPDATE $table_name SET $set_str WHERE ($where_str)";
-
+    
         $stmt = $this->PDO->prepare($query);
         $stmt = $this->bindValues($stmt, $params, array_merge(array_values($data_types), array_values($where_types)), false, true);
         $this->lastStatement = [$stmt, $params];
         $stmt->execute();
         return $stmt->rowCount();
     }
-
+    
     /**
      * Delete records from a table
      *
      * @param string $table_name Table name
-     * @param array $data WHERE conditions
+     * @param array $where WHERE conditions
      * @param array $types [optional] Data types
      * @return int Number of affected rows
      */
-    public function delete($table_name, array $data, array $types = array()) {
-        $where_parts = [];
+    public function delete($table_name, array $where, array $types = array()) {
         $params = [];
-
-        foreach ($data as $col => $value) {
-            $col_quoted = self::quoteIdentifier($col);
-            $placeholder = self::pkey($col);
-            $where_parts[] = "$col_quoted = $placeholder";
-            $params[$placeholder] = $value;
-        }
-
-        $where_str = implode(' AND ', $where_parts);
+        $paramCounter = 0;
+        $whereParsed = $this->parseConditions($where, $paramCounter);
+        $where_str = $whereParsed['clause'];
+        $params = $whereParsed['params'];
         $table_name = self::quoteIdentifier($table_name);
 
         $query = "DELETE FROM $table_name WHERE ($where_str)";
@@ -500,6 +494,35 @@ class DB {
         $this->lastStatement = [$stmt, $params];
         $stmt->execute();
         return $stmt->rowCount();
+    }
+
+    /**
+     * Parse conditions and generate SQL parts and parameters
+     *
+     * @param array $conditions Conditions array
+     * @param int &$paramCounter Parameter counter (by reference)
+     * @return array SQL clause and parameters
+     */
+    private function parseConditions(array $conditions, int &$paramCounter = 0) {
+        $clauses = [];
+        $params = [];
+
+        foreach ($conditions as $col_condition => $value) {
+            $col_condition = trim($col_condition);
+            $operator = '=';
+            if (preg_match('/^(.*?)(\s+|)(>=|<=|<>|>|<|!=|=)$/', $col_condition, $matches)) {
+                $col = trim($matches[1]);
+                $operator = $matches[3];
+            } else {
+                $col = $col_condition;
+            }
+            $col_quoted = self::quoteIdentifier($col);
+            $placeholder = self::pkey('param_' . $paramCounter++);
+            $clauses[] = "$col_quoted $operator $placeholder";
+            $params[$placeholder] = $value;
+        }
+        $clause_str = implode(' AND ', $clauses);
+        return ['clause' => $clause_str, 'params' => $params];
     }
 
     /**
@@ -594,6 +617,10 @@ class DB {
     public static function quoteIdentifier($identifier) {
         // Replace backticks and null bytes to prevent injection
         $identifier = str_replace(["`", "\0"], ["``", ""], $identifier);
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $identifier)) {
+            throw new InvalidArgumentException('Invalid identifier name');
+        }
+
         return "`$identifier`";
     }
 
@@ -607,36 +634,6 @@ class DB {
         $key = trim($key);
         $key = trim($key, ':');
         return ':' . $key;
-    }
-
-    /**
-     * Parse WHERE clauses and bind parameters
-     *
-     * @param array $array WHERE conditions
-     * @return array Parsed clauses and parameters
-     */
-    public static function parseWhereBindParams(array $array) {
-        $clauses = [];
-        $params = [];
-
-        foreach ($array as $col => $value) {
-            $col = trim($col);
-            $operator = '=';
-            if (preg_match('/^(.*)\s+(>=|<=|<>|>|<|!=|=)$/', $col, $matches)) {
-                $col = $matches[1];
-                $operator = $matches[2];
-            }
-            $col_quoted = self::quoteIdentifier($col);
-            $placeholder = self::pkey($col);
-            $clauses[] = "$col_quoted $operator $placeholder";
-            $params[$placeholder] = $value;
-        }
-
-        return array(
-            'clauses' => $clauses,
-            'clauses_str' => implode(' AND ', $clauses),
-            'params' => $params,
-        );
     }
 
     /**
@@ -895,7 +892,7 @@ class DB_Select {
      */
     public function where($where) {
         if (is_array($where)) {
-            $whereParsed = $this->parseWhere($where);
+            $whereParsed = $this->parseConditions($where);
             $this->where = array_merge($this->where, $whereParsed['clauses']);
             $this->params = array_merge($this->params, $whereParsed['params']);
         } elseif (is_string($where)) {
@@ -1074,8 +1071,12 @@ class DB_Select {
      * @return $this
      */
     public function bindParams(array $params) {
-        $paramsParsed = $this->parseWhere($params);
-        $this->params = array_merge($this->params, $paramsParsed['params']);
+        $parsedParams = [];
+        foreach ($params as $key => $value) {
+            $paramKey = strpos($key, ':') === 0 ? $key : ':' . $key;
+            $parsedParams[$paramKey] = $value;
+        }
+        $this->params = array_merge($this->params, $parsedParams);
         return $this;
     }
 
@@ -1149,12 +1150,18 @@ class DB_Select {
      * @throws Exception
      */
     private function parseJoinCondition($condition) {
-        $conditions = explode('=', $condition, 2);
-        if (count($conditions) != 2) {
-            throw new Exception("Invalid join condition: $condition");
+        $operators = ['=', '>', '<', '>=', '<=', '<>'];
+        foreach ($operators as $operator) {
+            if (strpos($condition, $operator) !== false) {
+                $parts = explode($operator, $condition, 2);
+                if (count($parts) == 2) {
+                    $left = $this->parseColName(trim($parts[0]));
+                    $right = $this->parseColName(trim($parts[1]));
+                    return "$left $operator $right";
+                }
+            }
         }
-        $conditions = $this->parseCols($conditions);
-        return implode(' = ', $conditions);
+        throw new Exception("Invalid join condition: $condition");
     }
 
     /**
@@ -1189,18 +1196,21 @@ class DB_Select {
      */
     private function parseColName($string) {
         $string = trim($string);
-
+    
+        // Remove existing backticks to prevent double quoting
+        $string = str_replace('`', '', $string);
+    
         // If the string is '*', return it directly
         if ($string === '*') {
             return '*';
         }
-
+    
         // Handle functions and expressions
-        if (preg_match('/[\(\)\+\-\/\*\s,]/', $string)) {
-            // Contains operators or function calls, return as is
+        if (preg_match('/\b(AVG|COUNT|MIN|MAX|SUM)\s*\(/i', $string) || preg_match('/[\(\)\+\-\/\*\s,]/', $string)) {
+            // Contains SQL functions or operators, return as is
             return $string;
         }
-
+    
         // Handle table.column format
         if (strpos($string, '.') !== false) {
             list($table, $column) = explode('.', $string, 2);
@@ -1213,41 +1223,43 @@ class DB_Select {
                 return $table . '.' . $column;
             }
         }
-
+    
         // Otherwise, quote the column name
         return DB::quoteIdentifier($string);
     }
 
     /**
-     * Parse WHERE conditions and bind parameters
+     * Parse conditions and bind parameters
      *
-     * @param array $array Conditions
+     * @param array $conditions Conditions array
      * @return array Parsed clauses and parameters
      */
-    private function parseWhere(array $array) {
+    private function parseConditions(array $conditions) {
         $clauses = [];
         $params = [];
-
-        foreach ($array as $col_condition => $value) {
+        foreach ($conditions as $col_condition => $value) {
             $col_condition = trim($col_condition);
             $operator = '=';
-            if (preg_match('/^(.*)\s+(>=|<=|<>|>|<|!=|=)$/', $col_condition, $matches)) {
-                $col = $matches[1];
-                $operator = $matches[2];
+            if (preg_match('/^(.*?)(\s+|)(>=|<=|<>|>|<|!=|=)$/', $col_condition, $matches)) {
+                $col = trim($matches[1]);
+                $operator = $matches[3];
             } else {
                 $col = $col_condition;
             }
-
             $colName = $this->parseColName($col);
             $paramKey = ':param_' . $this->paramCounter++;
             $clauses[] = "$colName $operator $paramKey";
             $params[$paramKey] = $value;
         }
-
         return array(
             'clauses' => $clauses,
             'params' => $params,
         );
+    }
+
+    public function showQuery() {
+        $this->constructQuery();
+        return $this->query;
     }
 
 }
