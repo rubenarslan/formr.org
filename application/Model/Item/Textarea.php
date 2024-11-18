@@ -1,13 +1,9 @@
 <?php
 
-class Textarea_Item extends Item {
+class Textarea_Item extends Text_Item {
 
     public $type = 'textarea';
-    public $mysql_field = 'TEXT DEFAULT NULL'; // change to mediumtext to get 64KiB to 16MiB
-
-    protected function setMoreOptions() {
-        $this->classes_input[] = 'form-control';
-    }
+    public $mysql_field = 'MEDIUMTEXT DEFAULT NULL';
 
     protected function render_input() {
         if ($this->value_validated) {
