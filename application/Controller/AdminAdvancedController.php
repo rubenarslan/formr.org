@@ -243,6 +243,8 @@ class AdminAdvancedController extends AdminController {
                 'content:publications:show' => true, 
                 'content:publications' => false,
                 'content:terms_of_service' => false,
+                'content:file_upload_terms' => false,
+                'content:file_upload_require_active_consent' => true,
                 'footer:link:policyurl' => false, 
                 'footer:link:logourl' => false, 
                 'footer:link:logolink' => false, 

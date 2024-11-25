@@ -31,12 +31,19 @@
                                     Users can always take a photo of the screen, even if you could prevent screenshots. Hence, we saw no point in generating single-use links for the images (so that users can't share the picture directly). Please be aware of this and don't use formr to show confidential information in an un-supervised setting. However, because the links are large random numbers, it's fairly safe to use formr to upload confidential information to be shown in the lab, the images cannot be discovered by people who don't have access to the study.</li>
                                 <li><i class="fa-li fa fa-file"></i>The following file types are allowed: <?php echo  implode(", ", Config::get('allowed_file_endings_for_run_upload')); ?></li>
                             </ul>
+                            <?php
+                                echo Site::getSettings('content:file_upload_terms'); 
+                            ?>
                         </div>
 
                         <h4>Files to upload: </h4>
                         <form action="<?= admin_run_url($run->name, 'upload_files') ?>" class="dropzone form-inline" enctype="multipart/form-data"  id="upload_files" name="upload_files" method="post">
                         <p>
-                            <label><input type="checkbox" required value="1" name="confirm_rights">
+                                <?php
+                                $val = Site::getSettings('content:file_upload_require_active_consent', 'false') === "true";
+                                $checked = $val ? 'checked="checked"' : ''; 
+                                ?>
+                            <label><input type="checkbox" required value="1" name="confirm_rights" <?php echo $checked;  ?>>
                             I confirm that I will only upload files that fulfill the conditions above (have the necessary rights, respect privacy).</label>
                             </p>
                     <p>
