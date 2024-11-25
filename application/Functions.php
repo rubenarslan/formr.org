@@ -1762,6 +1762,21 @@ function formr_in_console() {
 	return php_sapi_name() === 'cli';
 }
 
-function formr_search_highlight($search, $subject) {
-    return str_replace($search, '<span class="search-highlight">'.$search.'</span>', $subject);
+
+// Convert php.ini values to bytes
+function convertToBytes($value) {
+    $value = trim($value);
+    $lastChar = strtolower($value[strlen($value) - 1]);
+    $value = (int) $value;
+    
+    switch ($lastChar) {
+        case 'g':
+            $value *= 1024;
+        case 'm':
+            $value *= 1024;
+        case 'k':
+            $value *= 1024;
+    }
+    
+    return $value;
 }

@@ -170,7 +170,21 @@ class Survey extends RunUnit {
             $run = $unitSession->runSession->getRun();
             $study = $this->surveyStudy;
 
+            // Check for exceeded limits
+            $postMaxSize = convertToBytes(ini_get('post_max_size'));
+            if(isset($_SERVER['CONTENT_LENGTH'])) {
+                $contentLength = (int) $_SERVER['CONTENT_LENGTH'];
+            } else {
+                $contentLength = 0;
+            }
+
+            if (Request::isHTTPPostRequest() && $contentLength > $postMaxSize) {
+              alert("The uploaded file exceeds the server's maximum file size limit.", "alert-danger");
+             return ['redirect' => run_url($run->name)];
+            }
+
             if (Request::isHTTPPostRequest() && !Session::canValidateRequestToken($request)) {
+                alert("Invalid request token.", "alert-danger");
                 return ['redirect' => run_url($run->name)];
             }
 
