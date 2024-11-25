@@ -354,6 +354,34 @@ var is = {
                 }
                 return true;
             }, 'Cannot submit while there are problems with openCPU.');
+
+                // Find all file inputs with the 'data-max-size' attribute
+            $('input[type="file"][data-max-size]').each(function () {
+                const $input = $(this);
+                const maxSize = parseInt($input.data('max-size'), 10);
+
+                // Attach a change event handler to the file input
+                $input.on('change', function () {
+                    let isValid = true;
+                    
+                    // Check each selected file's size
+                    if (this.files) {
+                        for (let i = 0; i < this.files.length; i++) {
+                            if (this.files[i].size > maxSize) {
+                                isValid = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Apply the validation using webshim
+                    $input[0].setCustomValidity(
+                        isValid ? '' : ('Selected file exceeds the maximum size limit of ' + maxSize/1024/1024 + 'MB'));
+                    $input[0].reportValidity(); // Temporary marker for custom rule
+                });
+            });
+
+        
             webshim.refreshCustomValidityRules();
         });
 
