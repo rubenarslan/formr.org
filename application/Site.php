@@ -189,7 +189,7 @@ class Site {
             endif;
         } elseif (isset($_GET['run_name']) && isset($user->user_code)) {
             return $user;
-        } else {
+        } else { // TODO fallback to Request::isHTTPPostRequest() and $_POST['_formr_code']
             alert("<strong>Sorry.</strong> Something went wrong when you tried to access.", 'alert-danger');
             redirect_to("index");
         }
