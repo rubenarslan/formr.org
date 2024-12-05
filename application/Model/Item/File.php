@@ -49,14 +49,16 @@ class File_Item extends Item {
             if (filesize($reply['tmp_name']) < $this->max_size) {
                 $finfo = new finfo(FILEINFO_MIME_TYPE);
                 $mime = $finfo->file($reply['tmp_name']);
-                $new_file_name = crypto_token(66) . $this->file_endings[$mime];
                 if (!in_array($mime, array_keys($this->file_endings))) {
-                    $this->error = 'Files of type' . $mime . ' are not allowed to be uploaded.';
-                } elseif (move_uploaded_file($reply['tmp_name'], APPLICATION_ROOT . 'webroot/assets/tmp/' . $new_file_name)) {
-                    $public_path = WEBROOT . 'assets/tmp/' . $new_file_name;
-                    $reply = __($this->embed_html, $public_path);
+                    $this->error = 'Files of type ' . $mime . ' are not allowed to be uploaded.';
                 } else {
-                    $this->error = __("Unable to save uploaded file");
+                    $new_file_name = crypto_token(66) . $this->file_endings[$mime];
+                    if (move_uploaded_file($reply['tmp_name'], APPLICATION_ROOT . 'webroot/assets/tmp/' . $new_file_name)) {
+                        $public_path = WEBROOT . 'assets/tmp/' . $new_file_name;
+                        $reply = __($this->embed_html, $public_path);
+                    } else {
+                        $this->error = __("Unable to save uploaded file");
+                    }
                 }
             } else {
                 $this->error = __("This file is too big the maximum is %d megabytes.", round($this->max_size / 1048576, 2));
