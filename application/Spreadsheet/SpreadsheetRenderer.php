@@ -342,8 +342,8 @@ class SpreadsheetRenderer {
             $this->answered($hiddenItems);
         } elseif ($hiddenItems && !$updated) {
             $this->validationErrors = $this->unitSession->errors;
-            $items = array_merge($items, $this->unitSession->validatedStudyItems);
         }
+        $items = array_merge($items, $this->unitSession->validatedStudyItems);
 
         // return possibly shortened item array
         return $items;
