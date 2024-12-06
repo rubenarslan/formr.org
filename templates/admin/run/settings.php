@@ -63,9 +63,9 @@
                                                         look and feel for your study. Some input items from third party packages
                                                         may not change though.
                                                     </p>
-                                                    <label>
+                                                    <label title="Material Design style is deprecated as of v0.22.0.">
                                                         <input type="hidden" name="use_material_design" value="0" />
-                                                        <input type="checkbox" name="use_material_design" <?= ($run->use_material_design) ? 'checked' : '' ?> value="1"> Enable Material Design.
+                                                        <input type="checkbox" name="use_material_design" <?= ($run->use_material_design) ? 'checked' : 'disabled' ?> value="1"> Enable Material Design.
                                                     </label>
 
                                                 </div>

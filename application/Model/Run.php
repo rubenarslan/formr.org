@@ -208,7 +208,7 @@ class Run extends Model {
             'modified' => mysql_now(),
             'api_secret_hash' => $new_secret,
             'cron_active' => 1,
-            'use_material_design' => 1,
+            'use_material_design' => 0,
             'expire_cookie' => 0,
             'public' => 0,
             'footer_text' => "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
