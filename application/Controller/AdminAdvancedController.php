@@ -136,13 +136,14 @@ class AdminAdvancedController extends AdminController {
                 $content = array('success' => true, 'data' => array('client_id' => '', 'client_secret' => '', 'user' => $user->email));
             } else {
                 $client['user'] = $user->email;
+                $client['client_secret'] = "hidden";
                 $content = array('success' => true, 'data' => $client);
             }
         } elseif ($action === 'delete') {
             if (OAuthHelper::getInstance()->deleteClient($user)) {
                 $content = array('success' => true, 'message' => 'Credentials revoked for user ' . $user->email);
             } else {
-                $content = array('success' => false, 'message' => 'An error occured');
+                $content = array('success' => false, 'message' => 'An error occurred');
             }
         } elseif ($action === 'change') {
             $client = OAuthHelper::getInstance()->refreshToken($user);
