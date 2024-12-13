@@ -79,11 +79,21 @@ var is = {
             $('<div class="submit_fuse_box"><div class="submit_fuse"></div></div>').appendTo(elm);
             $(window).on("load", function () {
                 var timeout = $(elm).data('timeout');
+                if(timeout < 0) { // wait until you can submit
+                    $(elm).prop('disabled', true);
+                    $(elm).removeClass('btn-info');
+                    window.setTimeout(function () {
+                        $(elm).prop('disabled', false);
+                        $(elm).addClass('btn-info');
+                    }, -1 * timeout);
+                    $(".submit_fuse").animate({"width": 0}, -1 * timeout);
+                } else { // submit before it gets auto-submitted
+                    window.setTimeout(function () {
+                        $(elm).click();
+                    }, timeout);
+                    $(".submit_fuse").animate({"width": 0}, timeout);
+                }
                 $(".white_cover").remove();
-                window.setTimeout(function () {
-                    $(elm).click();
-                }, timeout);
-                $(".submit_fuse").animate({"width": 0}, timeout);
             });
         });
 

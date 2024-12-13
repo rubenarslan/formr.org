@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   * improved default footer text/imprint to include admin email address, links to privacy policy, ToS, settings, make referral tokens optional
   * added setting for extended agreements to conditions when uploading files in runs
 * audio type items, including `record_audio` class for a recorder button
+* video type items
+* the submit button item now allows for negative "timeouts" — i.e. the user has to wait until they can submit 
 
 ## [v0.21.4] - 10.07.2024
 ### Fixed
