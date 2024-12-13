@@ -5,16 +5,23 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [v0.22.0] - 01.10.2024
 ### Fixed
 * superadmin OpenCPU timing graph
-* 
+* bug where (backup) server-side errors for invalid items weren't displayed
+* issues with file uploads in the survey where error messages were not displayed, could be cryptic
+* maxlength for textarea items was not respected
+* fixed an issue where a minimum of 0 for number-type inputs was not respected
+
 ### Added
 * compliance work
-  * added special user*facing static pages for privacy policy and terms of service
+  * added special user-facing static pages for privacy policy and terms of service
   * added an option to require that a privacy policy exists before studies go public
   * improved default footer text/imprint to include admin email address, links to privacy policy, ToS, settings, make referral tokens optional
+  * added setting for extended agreements to conditions when uploading files in runs
+* audio type items, including `record_audio` class for a recorder button
 
 ## [v0.21.4] - 10.07.2024
 ### Fixed
 * bug fix for default session code regex
+
 ### Added
 * implement JS changes for material design too
 * default to exporting items when exporting run JSONs
