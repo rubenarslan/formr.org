@@ -245,3 +245,35 @@ These items don't require the user to do anything, so including them simply mean
     </dd>
 
 </dl>
+
+
+<h4><i class="fa fa-fw fa-file"></i> File uploads</h4>
+You can ask study participants to upload image, audio, video, text, and PDF files in formr. Server-side limits for the maximal file sizes apply, you can also set lower limits per item. 
+
+<dl class="dl-horizontal dl-wider">
+    <dt>
+        file <i>max_size_in_bytes</i>
+    </dt>
+    <dd>
+        Permits all of the file types allowed by audio, video, image plus PDFs and some text files.
+    </dd>
+    <dt>
+        audio <i>max_size_in_bytes</i>
+    </dt>
+    <dd>
+        Upload audio files. If you assign the class "record_audio" in the class column, a little recording interface will be shown. It will use the device microphone.
+    </dd>
+    <dt>
+        video <i>max_size_in_bytes</i>
+    </dt>
+    <dd>
+        Upload video files.
+    </dd>
+    <dt>
+        image <i>max_size_in_bytes</i>
+    </dt>
+    <dd>
+        Upload image files. On smartphones, this can trigger the camera app.
+    </dd>
+
+</dl>
