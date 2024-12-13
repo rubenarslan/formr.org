@@ -241,7 +241,7 @@ class RunSession extends Model {
             // We maybe all previous unit sessions have ended so move on
             return $this->moveOn();
         } else {
-            // Currently active unit session. Should most likey be a survey or pause
+            // Currently active unit session. Should most likely be a survey or pause
             $this->currentUnitSession = $currentUnitSession;
         }
 
@@ -330,6 +330,9 @@ class RunSession extends Model {
             return ['body' => $result['content']];
         }
 
+        return $this->moveOn();
+
+        alert('Error: Premature study end.', "alert-danger");
         return ['body' => 'FORMR_END'];
     }
 
@@ -657,19 +660,19 @@ class RunSession extends Model {
         return $this->run->isStudyTest() || $this->id === -1;
     }
     
-    protected function debug($messsage = '', $only = false) {
+    protected function debug($message = '', $only = false) {
         if (!DEBUG) {
             return;
         }
-        if (is_array($messsage)) {
-             unset($messsage['content']);
+        if (is_array($message)) {
+             unset($message['content']);
         }
-        $messsage = "(Count {$this->executionCount}) " . print_r($messsage, true);
+        $message = "(Count {$this->executionCount}) " . print_r($message, true);
 
         if ($this->currentUnitSession && $only === false) {
-            formr_log("{$messsage} {$this->currentUnitSession->runUnit->type} [{$this->currentUnitSession->id}]", $this->id);
+            formr_log("{$message} {$this->currentUnitSession->runUnit->type} [{$this->currentUnitSession->id}]", $this->id);
         } else {
-            formr_log($messsage, $this->id);
+            formr_log($message, $this->id);
         }
     }
 
