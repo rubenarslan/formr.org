@@ -217,35 +217,39 @@ class Email extends RunUnit {
                 (($user = Site::getCurrentUser()) && $user->email === $this->recipient) ||
                 ($this->run && $this->run->getOwner()->email === $this->recipient);
 
-        $mails_sent = $this->numberOfEmailsSent();
         $error = null;
         $warning = null;
+        $mails_sent = $this->numberOfEmailsSent();
+        
+        $thresholds = Config::get("email_thresholds");
+
         if (!$mailing_themselves):
-            if ($mails_sent['in_last_1m'] > 0):
-                if ($mails_sent['in_last_1m'] < 3 && $testing):
+
+            if ($mails_sent['in_last_1m'] >= $thresholds['in_last_1m']):
+                if ($mails_sent['in_last_1m'] <= $thresholds['in_last_1m'] && $testing):
                     $warning = sprintf("We already sent %d mail to this recipient in the last minute. An email was sent, because you're currently testing, but it would have been delayed for a real user, to avoid allegations of spamming.", $mails_sent['in_last_1m']);
                 else:
                     $error = sprintf("We already sent %d mail to this recipient in the last minute. No email was sent.", $mails_sent['in_last_1m']);
                 endif;
-            elseif ($mails_sent['in_last_10m'] > 1):
-                if ($mails_sent['in_last_10m'] < 10 && $testing):
+            elseif ($mails_sent['in_last_10m'] >= $thresholds['in_last_10m']):
+                if ($mails_sent['in_last_10m'] <= $thresholds['in_last_10m_testing'] && $testing):
                     $warning = sprintf("We already sent %d mail to this recipient in the last 10 minutes. An email was sent, because you're currently testing, but it would have been delayed for a real user, to avoid allegations of spamming.", $mails_sent['in_last_10m']);
                 else:
                     $error = sprintf("We already sent %d mail to this recipient in the last 10 minutes. No email was sent.", $mails_sent['in_last_10m']);
                 endif;
-            elseif ($mails_sent['in_last_1h'] > 2):
-                if ($mails_sent['in_last_1h'] < 10 && $testing):
+            elseif ($mails_sent['in_last_1h'] >= $thresholds['in_last_1h']):
+                if ($mails_sent['in_last_1h'] <= $thresholds['in_last_1h_testing'] && $testing):
                     $warning = sprintf("We already sent %d mails to this recipient in the last hour. An email was sent, because you're currently testing, but it would have been delayed for a real user, to avoid allegations of spamming.", $mails_sent['in_last_1h']);
                 else:
                     $error = sprintf("We already sent %d mails to this recipient in the last hour. No email was sent.", $mails_sent['in_last_1h']);
                 endif;
-            elseif ($mails_sent['in_last_1d'] > 9 && !$testing):
+            elseif ($mails_sent['in_last_1d'] >= $thresholds['in_last_1d'] && !$testing):
                 $error = sprintf("We already sent %d mails to this recipient in the last day. No email was sent.", $mails_sent['in_last_1d']);
-            elseif ($mails_sent['in_last_1w'] > 60 && !$testing):
+            elseif ($mails_sent['in_last_1w'] >= $thresholds['in_last_1w'] && !$testing):
                 $error = sprintf("We already sent %d mails to this recipient in the last week. No email was sent.", $mails_sent['in_last_1w']);
             endif;
         else:
-            if ($mails_sent['in_last_1m'] > 1 || $mails_sent['in_last_1d'] > 100):
+            if ($mails_sent['in_last_1m'] >= $thresholds['in_last_1m_testing'] || $mails_sent['in_last_1d'] >= $thresholds['in_last_1d_testing']):
                 $error = sprintf("Too many emails are being sent to the study administrator, %d mails today. Please wait a little.", $mails_sent['in_last_1d']);
             endif;
         endif;

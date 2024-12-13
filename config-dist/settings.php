@@ -84,6 +84,19 @@ $settings['display_errors_when_live'] = 0;
 $settings['display_errors'] = 0;
 $settings['error_to_stderr'] = 0;
 
+// how many emails can be maximally sent to one email address during certain time periods
+$settings['email_thresholds'] = [
+	'in_last_1m' => 1,
+	'in_last_1m_testing' => 3,
+	'in_last_10m' => 2,
+	'in_last_10m_testing' => 10,
+	'in_last_1h' => 4,
+	'in_last_1h_testing' => 10,
+	'in_last_1d' => 10,
+	'in_last_1d_testing' => 100,
+	'in_last_1w' => 60
+];
+
 // What regular expression should the user codes match? Make sure your RegEx allows 64 character base64 like ^[A-Za-z0-9+-_~]{64}, as these are the codes formr generates. You can generate shorter/longer codes yourself though.
 $settings['user_code_regular_expression'] = "/^[A-Za-z0-9+-_~]{64}$/";
 
