@@ -1,8 +1,11 @@
 # formr survey framework
-#### how to cite
+## Contributing
+See [Contributing](https://github.com/rubenarslan/formr.org/blob/master/CONTRIBUTING.md) if you want to help improve formr?
+
+## Citation
 See [formr.org/public/about](https://formr.org/public/about) if you are publishing research conducted using formr.
 
-#### chain simple forms & surveys into long runs, use the power of R to generate pretty feedback and complex designs
+## chain simple forms & surveys into long runs, use the power of R to generate pretty feedback and complex designs
 
 This is a framework that allows you to create simple and complex studies using items spreadsheets for the surveys and "runs" for chaining together various modules. 
 
@@ -14,7 +17,7 @@ There are three main components: surveys, runs and the R package.
 #### ask questions, get data
 Surveys are simple or complicated forms and surveys used to gather information in a single session.
 
-There is a wide variety of items to choose from: text and number inputs, Likert scales, sliders, geolocation, date pickers, dropdowns and many more. They are geared towards power users, so instead of dragging and dropping elements till your fingers bleed, you upload item spreadsheets that can easily be re-used, combined and shared.
+There is a wide variety of items to choose from: text and number inputs, Likert scales, sliders, geolocation, date pickers, dropdowns and many more. They are geared towards power users, so instead of dragging and dropping elements till your fingers bleed, you upload item spreadsheets that can easily be re-used, combined and shared. The format is loosely based on the [XLSform standard](https://xlsform.org/).
 
 ## Runs
 #### control your study like a boombox
@@ -44,8 +47,8 @@ The following designs and many more are possible:
 
 Wherever you use R in formr you can also use the functions in its R package. If you want to use the package in a different environment, you'll need to install it using these two lines of code.
 
-	install.packages("devtools")
-	devtools::install_github("rubenarslan/formr")
+	install.packages('formr', repos = c('https://rforms.r-universe.dev', 'https://cloud.r-project.org'))
+
 
 The package currently has the following feature sets
 
