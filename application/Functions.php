@@ -1737,9 +1737,9 @@ function knitting_needed($source) {
 function get_db_non_user_tables() {
     return [
         'survey_users' => array("created", "modified", "user_code", "email", "email_verified", "mobile_number", "mobile_verified"),
-        'survey_run_sessions' => array("session", "created", "last_access", "position", "current_unit_id", "deactivated", "no_email"),
-        'survey_unit_sessions' => array("created", "ended", 'expired', "unit_id", "position", "type"),
-        'externals' => array("created", "ended", 'expired', "position"),
+        'survey_run_sessions' => array("session", "created", "ended", "last_access", "position", "current_unit_id", "deactivated", "no_email"),
+        'survey_unit_sessions' => array("created", "ended", "expired", "unit_id", "position", "type"),
+        'externals' => array("created", "ended", "position"),
         'survey_items_display' => array("created", "answered_time", "answered", "displaycount", "item_id"),
         'survey_email_log' => array("email_id", "created", "recipient"),
         'shuffle' => array("unit_id", "created", "group"),
