@@ -19,18 +19,18 @@
 </p>
 <p>
     <strong>2. Manage your survey</strong>: 
-    If your spreadsheet was well formed (as described <a href="<?= site_url('documentation#sample_survey_sheet') ?>">here</a>) and the items were successfully uploaded, you survey will be added
+    If your spreadsheet was well formed (as described <a href="<?= site_url('documentation#sample_survey_sheet') ?>">here</a>) and the items were successfully uploaded, your survey will be added
     to the <b>Surveys</b> menu. To manage your created survey, go to <strong>Surveys > <i>YourSurveyName</i></strong>.<br />
-    In the survey admin area you can test your study, change some survey settings, view and download results, upload and delete survey items etc.
-    The survey menu to the left in the survey admin area contains hints that are self explanatory.
+    In the survey admin area you can test your survey, change survey settings, view and download results, upload and delete survey items etc.
+    The survey menu to the left in the survey admin area contains hints that you can trigger by hovering over the link.
 </p>
 <p>
-    <strong>3.Create a Run</strong>: 
-    A formr "run" contains your study's complete design. Designs can range from the simple (a single survey or a randomized experiment) to the complex (like a diary study with daily reminders by email and text message or a longitudinal study tracking social network changes).
-    It is recommended you <a href="<?= site_url('documentation#run_module_explanations') ?>">read more about runs</a> before you begin. To create a run go to <strong>Runs > Create a new Run</strong>. Enter a meaningful run name which should contain only of alphanumeric characters.
-    If the run was created successfully, it will be added to the <strong>Runs</strong> menu and you will be redirected to the run admin area.
+    <strong>3.Create a Run/Study</strong>: 
+    A formr "run" contains your study's complete design. All the things that a single participant is going to do in your study should take place in one run. Designs can range from the simple (a single survey or a randomized experiment) to the complex (like a diary study with daily reminders by email and text message or a longitudinal study tracking social network changes).
+    If you want to go beyond simply surveys, we recommended you <a href="<?= site_url('documentation#run_module_explanations') ?>">read more about runs</a> before you begin. To create a run go to <strong>Runs > Create a new Run</strong>. Enter a meaningful run name which should contain only of alphanumeric characters and the dash. The name will be shown in the URL of the study, so unlike survey names your participants will see it.
+    If the name was valid and not taken, the run will be added to the <strong>Runs</strong> menu and you will be redirected to the run admin area.
     Here you can add <a href="<?= site_url('documentation#run_module_explanations') ?>">Run Units</a>, design the complexity of your study and test your study. To modify your study definition later, you can go to <strong>Runs > <i>YourRunName</i></strong>.
-    Your run is the entry point of your study. For participants to access your study, you need to <i>set you run as public or protected</i> in the admin area and it will be accessible under the URL <strong><?= run_url('YourRunName') ?></strong>
+    Your run is the entry point of your study. By default, it is accessible only to you and test users, that you can create. For participants to access your study, you need to <i>set your run as public</i> in the admin area and it will be accessible under the URL <strong><?= run_url('YourRunName') ?></strong>
 </p>
 
 
