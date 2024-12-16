@@ -10,7 +10,7 @@
         <div id="more_run" class="panel-collapse collapse more_run">
             <div class="panel-body">
                 <p>
-                    Inside a run, participants' data is connected, so you can track how many times a participant filled out her diary or whether her social network grew in size since the first measurement timepoint.
+                    Inside a run, participants' data is connected, so you can track how many times a participant filled out her diary or whether her social network grew in size since the first measurement time point.
                 </p>
                 <p>
                     So, why "run"? In formr, runs consist of simple modules that are chained together linearly. Because most modules are boombox-themed, it may help to think of a tape running. Using controls such as the skip backward button, the pause button and the stop button, you control the participant's progression along the run. Surveys can be thought of as the record button: whenever you place a survey in your run, the participant can input data.
