@@ -88,7 +88,28 @@
                 <div class="box box-primary">
                     <div class="box-body">
                         <?php Template::loadChild('public/documentation/run_module_explanations'); ?>
+                        <div class="panel-group">
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <a class="accordion-toggle" data-toggle="collapse" href="#r_helpers">How to use R in formr<br></a>
+                                </div>
+                                <div id="r_helpers" class="panel-collapse collapse">
+                                    <div class="panel-body">
+                                    <?php Template::loadChild('public/documentation/r_helpers'); ?>
+                                </div>
+                            </div>
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <a class="accordion-toggle" data-toggle="collapse" href="#markdown">Knitr & Markdown<br></a>
+                                </div>
+                                <div id="markdown" class="panel-collapse collapse">
+                                    <div class="panel-body">
+                                    <?php Template::loadChild('public/documentation/knitr_markdown'); ?>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+
                 </div>
 
             </div>

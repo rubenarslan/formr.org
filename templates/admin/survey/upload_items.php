@@ -15,7 +15,7 @@ $resultCount = $study->getResultCount();
                 <?php Template::loadChild('admin/survey/menu'); ?>
             </div>
 
-            <div class="col-md-8">
+            <div class="col-md-7">
                 <div class="box box-primary">
                     <div class="box-header with-border">
                         <h3 class="box-title">Import Survey Items</h3>
@@ -26,7 +26,7 @@ $resultCount = $study->getResultCount();
                             <?php Template::loadChild('public/alerts'); ?>
 
                             <div class="callout callout-info">
-                                <h4>Please keep this in mind when uploading surveys!</h4>
+                                <h4>Please keep this in mind when uploading surveys:</h4>
                                 <ul class="fa-ul fa-ul-more-padding">
                                     <li>
                                         <i class="fa-li fa fa-table"></i> The format must be one of <abbr title="" data-original-title="Old-style Excel spreadsheets">.xls</abbr>, <abbr title="" data-original-title="New-style Excel spreadsheets, Office Open XML">.xlsx</abbr>, <abbr title="" data-original-title="OpenOffice spreadsheets / Open document format for Office Applications">.ods</abbr>, <abbr title="" data-original-title="extensible markup language">.xml</abbr>, <abbr title="" data-original-title="text files">.txt</abbr>, or <abbr title="" data-original-title=".csv-files (comma-separated value) have to use the comma as a separator, &quot;&quot; as escape characters and UTF-8 as the charset. Because there are inconsistencies when creating CSV files using various spreadsheet programs (e.g. German excel), you should probably steer clear of this.">.csv</abbr>.
@@ -115,6 +115,34 @@ $resultCount = $study->getResultCount();
                 <p>&nbsp;</p>
                 <a href="<?= site_url('documentation/#sample_survey_sheet') ?>" target="_blank"><i class="fa fa-question-circle"></i> more help on creating survey sheets</a>
 
+            </div>
+            <div class="col-md-3">
+                <div class="box box-primary">
+                    <div class="box-body">
+                        <h4>Help</h4>
+                        <div class="panel-group">
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <a class="accordion-toggle" data-toggle="collapse" href="#survey_sheet">Survey sheet definition<br></a>
+                                </div>
+                                <div id="survey_sheet" class="panel-collapse collapse">
+                                    <div class="panel-body">
+                                        <?php Template::loadChild('public/documentation/sample_survey_sheet'); ?>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <a class="accordion-toggle" data-toggle="collapse" href="#choices_sheet">Choice sheet definition<br></a>
+                                </div>
+                                <div id="choices_sheet" class="panel-collapse collapse">
+                                    <div class="panel-body">
+                                        <?php Template::loadChild('public/documentation/sample_choices_sheet'); ?>
+                                    </div>
+                                </div>
+                            </div>
+                    </div>
+                </div>
             </div>
             <div class="clear clearfix"></div>
         </div>

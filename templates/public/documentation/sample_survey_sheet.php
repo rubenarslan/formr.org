@@ -13,6 +13,7 @@
         Make text <strong>bold</strong> using  <code>__bold__</code>, make it <em>italic</em> using <code>*italic*</code>.
     </li>
 </ul>
+<div class="table-responsive">
 <table class='table table-striped'>
     <thead>
         <tr>
@@ -117,6 +118,7 @@
         </tr>
     </tbody>
 </table>
+</div>
 
 <h3>Available columns</h3>
 <p>You can use more columns than the ones shown above. Unknown column types are simply ignored, so you can use them for other information.</p>
