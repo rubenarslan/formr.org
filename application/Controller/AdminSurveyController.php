@@ -42,17 +42,17 @@ class AdminSurveyController extends AdminController {
         
         if (Request::isHTTPPostRequest()) {
 
-            if ($this->request->google_sheet && $this->request->survey_name) {
+            if (isset($_FILES['uploaded'])) {
+                // Excel file was uploaded
+                $file = $_FILES['uploaded'];
+            } elseif ($this->request->google_sheet) {
                 // Google sheet was used
-                $file = google_download_survey_sheet($this->request->survey_name, $this->request->google_sheet);
+                $file = google_download_survey_sheet($this->request->google_sheet);
                 if (!$file) {
                     alert("Unable to download the file at '{$this->request->google_sheet}'", 'alert-danger');
                     return $this->request->redirect('admin/survey');
                 }
-            } elseif (isset($_FILES['uploaded'])) {
-                // Excel file was uploaded
-                $file = $_FILES['uploaded'];
-            } else {
+            }  else {
                 // Nothing was uploaded
                 alert('<strong>Error:</strong> You have to select an item table file here.', 'alert-danger');
                 return $this->request->redirect('admin/survey');
@@ -105,7 +105,7 @@ class AdminSurveyController extends AdminController {
         
         $name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", basename($file['name']));
         if (!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/", (string)$name)) {
-            alert("<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.
+            alert("<strong>Error:</strong> The study name (the name of the file or Google sheet you uploaded, \"".(string)$file['name']."\") can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.
                     The name has to at least 2, at most 64 characters long. It needs to start with a letter. No dots, no spaces, no dashes, no umlauts please. 
                     The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>, but they will be ignored.", 'alert-danger');
             return false;
@@ -152,7 +152,7 @@ class AdminSurveyController extends AdminController {
             
             if ($this->request->google_sheet) {
                 // Google sheet was used
-                $file = google_download_survey_sheet($study->name, $this->request->google_sheet);
+                $file = google_download_survey_sheet($this->request->google_sheet);
                 if (!$file) {
                     alert("Unable to download the file at '{$this->request->google_sheet}'", 'alert-danger');
                     return $this->request->redirect(admin_study_url($study->name, 'upload_items'));
@@ -175,7 +175,7 @@ class AdminSurveyController extends AdminController {
             if ($this->validateUploadedFile($file, true)) {
                 $survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", basename($file['name']));
                 if ($study->name !== $survey_name) {
-                    alert('<strong>Error:</strong> The uploaded file name <code>' . htmlspecialchars($survey_name) . '</code> did not match the study name <code>' . $study->name . '</code>.', 'alert-danger');
+                    alert('<strong>Error:</strong> The uploaded file name <code>' . htmlspecialchars($file['name']) . '</code> did not match the study name <code>' . $study->name . '</code>.', 'alert-danger');
                     delete_tmp_file($file);
                     return $this->request->redirect(admin_study_url($study->name, 'upload_items'));
                 }

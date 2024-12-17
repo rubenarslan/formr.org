@@ -1473,18 +1473,17 @@ function delete_tmp_file($file) {
 /**
  * Hackathon to dwnload an excel sheet from google
  *
- * @param string $survey_name
  * @param string $google_link The URL of the Google Sheet
  * @return array|boolean Returns an array similar to that of an 'uploaded-php-file' or FALSE otherwise;
  */
-function google_download_survey_sheet($survey_name, $google_link) {
+function google_download_survey_sheet($google_link) {
     $google_id = google_get_sheet_id($google_link);
     if (!$google_id) {
         return false;
     }
 
     $destination_file = Config::get('survey_upload_dir') . '/googledownload-' . $google_id . '.xlsx';
-    $google_download_link = "http://docs.google.com/spreadsheets/d/{$google_id}/export?format=xlsx&{$google_id}";
+    $google_download_link = "http://docs.google.com/spreadsheets/d/{$google_id}/export?format=xlsx";
     $info = array();
 
     try {
@@ -1494,6 +1493,7 @@ function google_download_survey_sheet($survey_name, $google_link) {
         $options = array(
             CURLOPT_SSL_VERIFYHOST => 0,
             CURLOPT_SSL_VERIFYPEER => 0,
+            'DOWNLOAD_FILTERS' => 1
         );
 
         CURL::DownloadUrl($google_download_link, $destination_file, null, CURL::HTTP_METHOD_GET, $options, $info);
@@ -1502,9 +1502,15 @@ function google_download_survey_sheet($survey_name, $google_link) {
             throw new Exception("The google sheet at {$link} could not be downloaded. Please make sure everyone with the link can access the sheet!");
         }
 
+        if($info['filename'] === NULL) {
+            $link = google_get_sheet_link($google_id);
+            throw new Exception("The google sheet at {$link} did not specify a name for the survey.");
+        }
+
         $ret = array(
-            'name' => $survey_name . '.xlsx',
+            'name' => $info['filename'] . '.xlsx',
             'tmp_name' => $destination_file,
+            'filename' => $info['filename'],
             'size' => filesize($destination_file),
             'google_id' => $google_id,
             'google_file_id' => $google_id,
