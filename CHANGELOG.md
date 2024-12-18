@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 * maxlength for textarea items was not respected
 * fixed an issue where a minimum of 0 for number-type inputs was not respected
 
+### Changed
+* when you upload a survey from a Google spreadsheet, the name of a survey is now automatically read from the spreadsheet file. The name set in formr has to match the Google spreadsheet name to ensure consistency
+* documentation has been updated for item types, on how formr auto-enriches data in R code etc. In addition, documentation is available in more places.
+
 ### Added
 * compliance work
   * added special user-facing static pages for privacy policy and terms of service
@@ -19,7 +23,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 * audio type items, including `record_audio` class for a recorder button
 * video type items
 * the submit button item now allows for negative "timeouts" — i.e. the user has to wait until they can submit 
-* improved documentation
 
 ## [v0.21.4] - 10.07.2024
 ### Fixed
