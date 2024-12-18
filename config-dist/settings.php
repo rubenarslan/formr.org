@@ -84,11 +84,66 @@ $settings['display_errors_when_live'] = 0;
 $settings['display_errors'] = 0;
 $settings['error_to_stderr'] = 0;
 
+// how many emails can be maximally sent to one email address during certain time periods
+$settings['email_thresholds'] = [
+	'in_last_1m' => 1,
+	'in_last_1m_testing' => 3,
+	'in_last_10m' => 2,
+	'in_last_10m_testing' => 10,
+	'in_last_1h' => 4,
+	'in_last_1h_testing' => 10,
+	'in_last_1d' => 10,
+	'in_last_1d_testing' => 100,
+	'in_last_1w' => 60
+];
+
 // What regular expression should the user codes match? Make sure your RegEx allows 64 character base64 like ^[A-Za-z0-9+-_~]{64}, as these are the codes formr generates. You can generate shorter/longer codes yourself though.
 $settings['user_code_regular_expression'] = "/^[A-Za-z0-9+-_~]{64}$/";
 
+// This is the message shown on the cookie banner.
+$default_cookie_consent = <<<EOD
+{
+   "content":{
+      "message":"On our website we're using cookies to optimize user experience and to improve our website. By using our website you agree that cookies can be stored on your local computer"
+   },
+   "palette":{
+      "popup":{
+         "background":"#333333",
+         "text":"#fff",
+         "link":"#fff"
+      },
+      "button":{
+         "background":"#8dc63f",
+         "text":"#fff"
+      }
+   },
+   "href": "/"
+}
+EOD;
+
 // Should studies be required to have a non-empty privacy policy before they can go live/public?
-$settings['require_privacy_policy'] = false;
+$settings['content_settings']['studies:require_privacy_policy'] = false;
+
+$settings['content_settings']['content:about:show'] = true;
+$settings['content_settings']['content:docu:show'] = true;
+$settings['content_settings']['content:docu:support_email'] = "email@example.com";
+$settings['content_settings']['content:studies:show'] = true;
+$settings['content_settings']['content:publications:show'] = true;
+$settings['content_settings']['content:publications'] = '';
+$settings['content_settings']['content:terms_of_service'] = '';
+$settings['content_settings']['content:file_upload_terms'] = '';
+$settings['content_settings']['content:file_upload_require_active_consent'] = false;
+
+$settings['content_settings']['footer:link:policyurl'] = '/info';
+$settings['content_settings']['footer:link:logourl'] = '';
+$settings['content_settings']['footer:link:logolink'] = '';
+$settings['content_settings']['footer:imprint'] = '';
+
+$settings['content_settings']['signup:allow'] = true;
+$settings['content_settings']['signup:message'] = '';
+$settings['content_settings']['signup:enable_referral_token'] = true;
+
+$settings['content_settings']['js:cookieconsent'] = $default_cookie_consent;
 
 // Session expiration related settings
 // (for unregistered users. in seconds (defaults to a year))

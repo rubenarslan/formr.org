@@ -32,6 +32,15 @@ class PublicController extends Controller {
         return $this->sendResponse();
     }
 
+    public function termsOfServiceAction() {
+        if (Site::getSettings('content:terms_of_service') == '') {
+            formr_error(403, 'Not Public', 'Page cannot be displayed');
+        }
+        
+        $this->setView('public/terms_of_service', array('runs' => RunHelper::getPublicRuns()));
+        return $this->sendResponse();
+    }
+
     public function aboutAction() {
         if (Site::getSettings('content:about:show', 'true') !== 'true') {
             formr_error(403, 'Not Public', 'Page cannot be displayed');

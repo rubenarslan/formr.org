@@ -63,9 +63,9 @@
                                                         look and feel for your study. Some input items from third party packages
                                                         may not change though.
                                                     </p>
-                                                    <label>
+                                                    <label title="Material Design style is deprecated as of v0.22.0.">
                                                         <input type="hidden" name="use_material_design" value="0" />
-                                                        <input type="checkbox" name="use_material_design" <?= ($run->use_material_design) ? 'checked' : '' ?> value="1"> Enable Material Design.
+                                                        <input type="checkbox" name="use_material_design" <?= ($run->use_material_design) ? 'checked' : 'disabled' ?> value="1"> Enable Material Design.
                                                     </label>
 
                                                 </div>
@@ -155,7 +155,7 @@
                                         <h4><i class="fa fa-css3"></i> Cascading style sheets</h4>
                                         <p>
                                             CSS allows you to apply custom styles to every page of your study. If you want to limit styles to
-                                            certain pages, you can use CSS classes referring to either position in the run (e.g. <code class="css">.run_position_10 {}</code>) or module type (e.g. <code class="css">.run_unit_type_Survey {}</code>). Learn about <a href="http://docs.webplatform.org/wiki/guides/getting_started_with_css">CSS at Webplatform.org</a>.
+                                            certain pages, you can use CSS classes referring to either position in the run (e.g. <code class="css">.run_position_10 {}</code>) or module type (e.g. <code class="css">.run_unit_type_Survey {}</code>). Learn about <a href="https://developer.mozilla.org/en-US/docs/Learn/CSS/First_steps/Getting_started">CSS at Mozilla Developer Network</a>. A chat bot could also help you get the requested result.
                                         </p>
                                         <div class="form-group col-md-12">
                                             <textarea data-editor="css" placeholder="Enter your custom CSS here" name="custom_css" rows="40" cols="80" class="big_ace_editor form-control"><?= h($run->getCustomCSS()); ?></textarea>

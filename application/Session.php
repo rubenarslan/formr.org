@@ -111,7 +111,7 @@ class Session {
         $token = $request->getParam(self::REQUEST_TOKENS);
         $tokens = self::get(self::REQUEST_TOKENS, array());
         if (!empty($tokens[$token]) && array_val($_COOKIE, self::REQUEST_TOKENS_COOKIE) == $token) {
-            // a valid request token dies after it's validity is retrived :P
+            // a valid request token dies after it's validity is retrieved :P
             unset($tokens[$token]);
             setcookie(self::REQUEST_TOKENS_COOKIE, '', 
                 ['expires' => -3600, 

@@ -20,7 +20,7 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         submit <i>timeout</i>
     </dt>
     <dd>
-        display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for <code>showif</code> or for dynamically generating item text have been given. If you specify the optional timeout (an integer, milliseconds), the submit button will automatically submit after that time has passed. However, if not all items are answered or optional, the user will end up on the same page. Together with optional items, this is a way to use timed submissions. The data in the item display table can be used to check how long an item was displayed and whether this matches with the server's time for when it sent the item and received the response.
+        display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for <code>showif</code> or for dynamically generating item text have been given. <br>You can specify an optional timeout/delay (in milliseconds). <br>Negative values mean that the user has to wait that long until they can click submit. <br>Positive values mean the submit button will automatically submit after that time has passed. However, if not all items are answered or optional, the user will end up on the same page and the timer will restart. To avoid that, you have to use it together with optional items. Then, it's a way to use timed submissions. The data in the item display table can be used to check how long an item was displayed and whether this matches with the server's time for when it sent the item and received the response.
     </dd>
 </dl>
 <h4><i class="fa fa-fw fa-keyboard-o"></i> Simple input family</h4>
@@ -242,6 +242,38 @@ These items don't require the user to do anything, so including them simply mean
     </dt>
     <dd>
         Blocks progress. You can give this item a showif such as <code>(item1 + item2) > 100</code> to add further requirements.
+    </dd>
+
+</dl>
+
+
+<h4><i class="fa fa-fw fa-file"></i> File uploads</h4>
+You can ask study participants to upload image, audio, video, text, and PDF files in formr. Server-side limits for the maximal file sizes apply, you can also set lower limits per item. 
+
+<dl class="dl-horizontal dl-wider">
+    <dt>
+        file <i>max_size_in_bytes</i>
+    </dt>
+    <dd>
+        Permits all of the file types allowed by audio, video, image plus PDFs and some text files.
+    </dd>
+    <dt>
+        audio <i>max_size_in_bytes</i>
+    </dt>
+    <dd>
+        Upload audio files. If you assign the class "record_audio" in the class column, a little recording interface will be shown. It will use the device microphone.
+    </dd>
+    <dt>
+        video <i>max_size_in_bytes</i>
+    </dt>
+    <dd>
+        Upload video files.
+    </dd>
+    <dt>
+        image <i>max_size_in_bytes</i>
+    </dt>
+    <dd>
+        Upload image files. On smartphones, this can trigger the camera app.
     </dd>
 
 </dl>

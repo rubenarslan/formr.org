@@ -2,17 +2,12 @@
 
 <!-- Content Wrapper. Contains page content -->
 <div class="content-wrapper">
-    <!-- Content Header (Page header) -->
-    <section class="content-header">
-        <h1>Runs <small>Add New</small></h1>
-    </section>
-
     <!-- Main content -->
     <section class="content">
         <div class="col-md-6 col-md-offset-3">
             <div class="box box-primary">
                 <div class="box-header with-border">
-                    <h3 class="box-title">Create new run</h3>
+                <h2><i class="fa fa-plus-circle"></i> Add new Run <small>Create a new study</small></h2>
                 </div>
 
                 <form action="<?php echo admin_url('run/add_run'); ?>" role="form" enctype="multipart/form-data"  id="add_study" name="add_study" method="post">
@@ -20,12 +15,12 @@
                         <?php Template::loadChild('public/alerts'); ?>
 
                         <div class="callout callout-info">
-                            <h4>Enter Run shorthand</h4>
+                            <h4>Name your study</h4>
                             <ul class="fa-ul fa-ul-more-padding">
                                 <li><i class="fa-li fa fa-exclamation-triangle"></i> This is the name that users will see in their browser's address bar for your study, possibly elsewhere too.</li>
-                                <li><i class="fa-li fa fa-unlock"></i> It can be changed later, but it also changes the link to your study, so don't change it once you're live.</li>
-                                <li><i class="fa-li fa fa-lightbulb-o"></i> Ideally, it should be the memorable name of your study.</li>
-                                <li><i class="fa-li fa fa-edit"></i> Name should contain only alpha-numeric characters and no spaces. It needs to start with a letter.</li>
+                                <li><i class="fa-li fa fa-unlock"></i> It can be changed later, but that also changes the link to your study, so you don't want to change it once you're live.</li>
+                                <li><i class="fa-li fa fa-lightbulb-o"></i> Ideally, it should be the memorable, short name of your study.</li>
+                                <li><i class="fa-li fa fa-edit"></i> Name should contain only alpha-numeric characters (a-Z, 0-9), the dash (-), and no spaces. It needs to start with a letter.</li>
                             </ul>
                         </div>
                         <div class="form-group">

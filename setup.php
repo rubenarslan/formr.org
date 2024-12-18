@@ -1,19 +1,20 @@
 <?php
 
-define('FORMR_VERSION', 'v0.21.4');
+define('FORMR_VERSION', 'v0.22.0');
 
 define('APPLICATION_ROOT', __DIR__ . '/');
 define('INCLUDE_ROOT', APPLICATION_ROOT);
 
 define('APPLICATION_PATH', APPLICATION_ROOT . 'application/');
 
-define('APPPLICATION_CRYPTO_KEY_FILE', APPLICATION_ROOT . 'formr-crypto.key');
+define('APPLICATION_CRYPTO_KEY_FILE', APPLICATION_ROOT . 'formr-crypto.key');
 
 // Load composer Autoloader
 require_once APPLICATION_ROOT . 'vendor/autoload.php';
 
 // Initialize settings array and define routes
 $settings = array();
+$settings['content_settings'] = array();
 $settings['routes'] = array(
 	'admin'          => 'AdminController',
 	'admin/run'      => 'AdminRunController',

@@ -1,6 +1,6 @@
 <h3>formr <i>Runs</i></h3><hr />
 <p>
-    A formr "run" contains your study's complete design. Designs can range from the simple (a single survey or a randomised experiment) to the complex (like a diary study with daily reminders by email and text message or a longitudinal study tracking social network changes).
+    A formr "run" contains your study's complete design. All the things that a single participant is going to do in your study should take place in one run. Designs can range from the simple (a single survey or a randomised experiment) to the complex (like a diary study with daily reminders by email and text message or a longitudinal study tracking social network changes).
 </p>
 <div class="panel-group">
     <div class="panel panel-default">
@@ -10,19 +10,19 @@
         <div id="more_run" class="panel-collapse collapse more_run">
             <div class="panel-body">
                 <p>
-                    Inside a run, participants' data can be connected, so you can track how many times a participant filled out her diary or whether her social network grew in size since the first measurement timepoint.
+                    Inside a run, participants' data is connected, so you can track how many times a participant filled out her diary or whether her social network grew in size since the first measurement time point.
                 </p>
                 <p>
                     So, why "run"? In formr, runs consist of simple modules that are chained together linearly. Because most modules are boombox-themed, it may help to think of a tape running. Using controls such as the skip backward button, the pause button and the stop button, you control the participant's progression along the run. Surveys can be thought of as the record button: whenever you place a survey in your run, the participant can input data.
                 </p>
                 <p>
-                    Because data are supplied on-the-fly to the statistics programming language R, you can dynamically generate feedback graphics for your participants with minimal programming knowledge. With more programming knowledge, nothing keeps you from making full use of R. You could for example conduct complex sentiment analyses on participants' tweets and invite them to follow-up surveys only if they express anger.	
+                    Data for the control units are supplied on-the-fly to the statistics programming language R. Therefore, you can dynamically generate feedback graphics for your participants with minimal programming knowledge. With more programming knowledge, nothing keeps you from making full use of R. You could for example conduct complex sentiment analyses on participants' tweets and invite them to follow-up surveys only if they express anger.
                 </p>
                 <p>
-                    Since runs contain your study's complete design, it makes sense that runs' administration side is where every user management-related action takes place. There is an overview of users, where you can see at which position in the run each participant is and when they were last active. Here, you can send people custom reminders (if they are running late), shove them to a different position in the run (if they get lost somewhere due to an unforeseen complication) or see what the study looks like for them (if they report problems).
+                    Since runs contain your study's complete design, it makes sense that runs' administration side is where every user management-related action takes place. There is a user overview, where you can see at which position in the run each participant is and when they were last active. Here, you can send people custom reminders (if they are running late), shove them to a different position in the run (if they get lost somewhere due to an unforeseen complication) or see what the study looks like for them (if they report problems).
                 </p>
                 <p>
-                    Runs are also where you customise your study's look, upload files (such as images), control access and enrollment. In addition, there are logs of every email sent, every position a participant has visited and of automatic progressions (the cron job).
+                    Runs are also where you customise your study's look, upload files (such as images, videos, Javascript files), control access and enrollment. In addition, there are logs of every email sent, every position a participant has visited and of automatic progressions.
                 </p>
             </div>
         </div>
@@ -45,20 +45,20 @@
                     Surveys are series of questions (or other items) that are created using simple spreadsheets/<a href="<?= site_url('public/documentation#sample_survey_sheet') ?>">item tables</a> (e.g. Excel).
                 </p>
                 <p>
-                    Survey item tables are just spreadsheets – and they can just as easily be shared, reused, recycled and collaboratively edited using e.g. Google Sheets.
+                    Survey item tables are just spreadsheets and they can just as easily be shared, reused, recycled and collaboratively edited using e.g. Google Sheets.
                 </p>
                 <p>
-                    Surveys can remain fairly simple: a bunch of items that belong together and that a participant can respond to in one sitting. For some people, simple surveys are all they need, but in formr a survey always has to be part of a (simple) run.
+                    Surveys can remain fairly simple: a bunch of items that belong together and that a participant can respond to in one sitting. For some people, simple surveys are all they need, but in formr a survey always has to be part of a (simple) run/study.
                 </p>
                 <p>
                     Surveys can feature various items, allowing e.g. numeric, textual input, agreement on a Likert scale, geolocation and so on.
                 </p>
                 <p>
-                    Items can be optionally shown depending on the participant's responses in the same survey, in previous surveys and entirely different data sources (e.g. data gleaned from Facebook activity). Item labels and choice labels can also be customised using <a href="<?= site_url("public/documentation#knitr_markdown") ?>">knitr</a>, so you can e.g. refer to a participant's pet or last holiday location by name or address men and women differently.
+                    Items can be optionally shown depending on the participant's responses in the same survey, in previous surveys and entirely different data sources (e.g. data gleaned from Facebook activity). Item labels and choice labels can also be customised using <a href="<?= site_url("public/documentation#knitr_markdown") ?>">knitr</a>, so you can e.g. refer to a participant's pet or last holiday location by name or use people's preferred term of address.
                 </p>
                 <p>
-                    For R-savvy personality psychologists, formr includes a few nice timesavers. Data import can be automated without any funny format business and items will be correctly typed according to the item table, not according to flawed heuristics.<br>
-                    If you name your items according to the schema <code>BFI_extra_2<i>R</i></code>, items with an R at the end can be automatically reversed and items ending on consecutive numbers with the same prefix will be aggregated to a mean score (with the name of the prefix). Internal consistency analyses and item frequency plots can also be automatically generated. Hence, some tedious manual data wrangling can be avoided and as an added benefit, you will start giving your items meaningful and memorable names early on. The relevant functions can be found in the <a href="https://github.com/rubenarslan/formr"><i class="fa fa-github-alt fa-fw"></i> R package on Github</a>. The functions are also always available, whenever you use R inside formr runs and surveys.
+                    If you use R, formr includes a few nice timesavers in its <a href="https://github.com/rubenarslan/formr"><i class="fa fa-github-alt fa-fw"></i> R package on Github</a>. Data import can be automated without any funny format business. Items will be correctly typed according to the item table, not according to flawed heuristics. You will also have item and value labels available in R. <br>
+                    If you name your items according to the schema <code>BFI_extra_2<i>R</i></code>, items with an R at the end can be automatically reversed and items ending on consecutive numbers with the same prefix will be aggregated to a mean score (with the name of the prefix). Using our <a href="https://cran.r-project.org/package=codebook">R package <i>codebook</i></a> you can then document the data, as well as automatically generate internal consistency analyses and item frequency plots. Hence, some tedious manual data wrangling can be avoided, especially if you start giving your items meaningful and memorable names early on. The <i>formr::</i> functions are also always available, whenever you use R inside formr runs and surveys.
                 </p>
             </div>
         </div>
@@ -73,7 +73,7 @@
         <div id="external" class="panel-collapse collapse external">
             <div class="panel-body">
                 <p>
-                    These are external links - use them to send participants to other, specialised data collection modules, such as a social network generator, a reaction time task, another survey software (we won't be too sad), anything really. However, you can also simply call upon external functionality without sending the participant anywhere – one popular application of this is sending text messages.
+                    These are external links - use them to send participants to other, specialised data collection modules, such as a social network generator, a reaction time task, another survey software (we won't be too sad), anything really. However, you can also simply call upon external functionality without sending the participant anywhere – one popular application of this is sending text messages via an R <abbr class="initialism" title="Application programming interface.">API</abbr> call.
                 </p>
                 <p>
                     If you insert the placeholder <code>{{login_code}}</code>, it will be replaced by the participant's run session code, allowing you to link data later (but only if your external module picks this variable up!).
@@ -143,7 +143,7 @@
                     What would happen?
                 </h5>
                 <p>
-                    A participant fills out your survey. After completing it, they see the thank you note at pos. 30. Before they see the page marked by the stop point, an email is sent off to <em>youremailaddress@example.org</em> - this way you (or whoever's email address you use here) would get an email notification for every notification. This might be helpful in longitudinal surveys where experimenter intervention is required to e.g. set up a phone interview or in a clinical study where you want to do a structured interview after a screening task.
+                    A participant fills out your survey. After completing it, they see the thank you note at pos. 30. Before they see the page marked by the stop point, an email is sent off to <em>youremailaddress@example.org</em> - this way you (or whoever's email address you use here) would get an email notification for every participant. This might be helpful in longitudinal surveys where experimenter intervention is required to e.g. set up a phone interview, in an assessment context when you want the scores to be automatically generated, or in a clinical study where you want to do a structured interview after a screening task.
                 </p>
                 <p>
                     See the  <a href="<?= site_url("public/documentation#knitr_markdown") ?>">Knitr &amp; Markdown</a> section to find out how to generate personalised emails, which contain feedback, including plots. In the <a href="<?= site_url("public/documentation#skip_backward") ?>">next section</a>, you'll learn how to use the email module for invitations in a diary study.

@@ -217,8 +217,8 @@ class CURL {
 
     /**
      * 
-     * @param type $filename
-     * @param type $postname
+     * @param string $filename
+     * @param string $postname
      * @return mixed Returns a string if CURLFile class is not present else returns an instance of curl file
      *
      * @todo Detect mime type automatically
@@ -253,6 +253,14 @@ class CURL {
 
             // pre-check with HEAD request
             self::HttpRequest($url, $params, self::HTTP_METHOD_HEAD, $options, $info);
+            $file_header = $info[self::RESPONSE_HEADERS]['Content-Disposition'];
+
+            // extract file name if exists
+            if (preg_match('/filename\*?=.*?([\'"]?)([^;\'".]+)\1/', $file_header, $matches)) {
+                $filename = $matches[2];
+            } else {
+                $filename = NULL;
+            }
 
             // extract Last-Modified header to save timestamp later
             if (!empty($filters[self::DOWNLOAD_FILTER_KEEP_LAST_MODIFIED])) {
@@ -293,11 +301,13 @@ class CURL {
             CURLOPT_TIMEOUT => 10 * 60,
         );
 
-        // overrride, must be this or the method will fail
+        // override, must be this or the method will fail
         $options[CURLOPT_RETURNTRANSFER] = false;
         $options[CURLOPT_FILE] = $fp;
 
         $res = self::HttpRequest($url, $params, $method, $options, $info);
+        $info['filename'] = $filename;
+        
         if (fclose($fp) !== true) {
             throw new Exception("Unable to save download result");
         }

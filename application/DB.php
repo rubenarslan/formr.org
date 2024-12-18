@@ -12,7 +12,7 @@ class DB {
      * @var array
      */
     protected $types = array(
-        // Interger types
+        // Integer types
         'int' => PDO::PARAM_INT,
         'integer' => PDO::PARAM_INT,
         // String Types

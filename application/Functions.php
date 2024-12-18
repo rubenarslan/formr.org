@@ -145,7 +145,7 @@ function formr_error_feature_unavailable() {
 }
 
 function h($text) {
-    if (!$text) {
+    if ($text === null) {
         return null;
     }
     
@@ -1473,18 +1473,17 @@ function delete_tmp_file($file) {
 /**
  * Hackathon to dwnload an excel sheet from google
  *
- * @param string $survey_name
  * @param string $google_link The URL of the Google Sheet
  * @return array|boolean Returns an array similar to that of an 'uploaded-php-file' or FALSE otherwise;
  */
-function google_download_survey_sheet($survey_name, $google_link) {
+function google_download_survey_sheet($google_link) {
     $google_id = google_get_sheet_id($google_link);
     if (!$google_id) {
         return false;
     }
 
     $destination_file = Config::get('survey_upload_dir') . '/googledownload-' . $google_id . '.xlsx';
-    $google_download_link = "http://docs.google.com/spreadsheets/d/{$google_id}/export?format=xlsx&{$google_id}";
+    $google_download_link = "http://docs.google.com/spreadsheets/d/{$google_id}/export?format=xlsx";
     $info = array();
 
     try {
@@ -1494,6 +1493,7 @@ function google_download_survey_sheet($survey_name, $google_link) {
         $options = array(
             CURLOPT_SSL_VERIFYHOST => 0,
             CURLOPT_SSL_VERIFYPEER => 0,
+            'DOWNLOAD_FILTERS' => 1
         );
 
         CURL::DownloadUrl($google_download_link, $destination_file, null, CURL::HTTP_METHOD_GET, $options, $info);
@@ -1502,9 +1502,15 @@ function google_download_survey_sheet($survey_name, $google_link) {
             throw new Exception("The google sheet at {$link} could not be downloaded. Please make sure everyone with the link can access the sheet!");
         }
 
+        if($info['filename'] === NULL) {
+            $link = google_get_sheet_link($google_id);
+            throw new Exception("The google sheet at {$link} did not specify a name for the survey.");
+        }
+
         $ret = array(
-            'name' => $survey_name . '.xlsx',
+            'name' => $info['filename'] . '.xlsx',
             'tmp_name' => $destination_file,
+            'filename' => $info['filename'],
             'size' => filesize($destination_file),
             'google_id' => $google_id,
             'google_file_id' => $google_id,
@@ -1737,9 +1743,9 @@ function knitting_needed($source) {
 function get_db_non_user_tables() {
     return [
         'survey_users' => array("created", "modified", "user_code", "email", "email_verified", "mobile_number", "mobile_verified"),
-        'survey_run_sessions' => array("session", "created", "last_access", "position", "current_unit_id", "deactivated", "no_email"),
-        'survey_unit_sessions' => array("created", "ended", 'expired', "unit_id", "position", "type"),
-        'externals' => array("created", "ended", 'expired', "position"),
+        'survey_run_sessions' => array("session", "created", "ended", "last_access", "position", "current_unit_id", "deactivated", "no_email"),
+        'survey_unit_sessions' => array("created", "ended", "expired", "unit_id", "position", "type"),
+        'externals' => array("created", "ended", "position"),
         'survey_items_display' => array("created", "answered_time", "answered", "displaycount", "item_id"),
         'survey_email_log' => array("email_id", "created", "recipient"),
         'shuffle' => array("unit_id", "created", "group"),
@@ -1764,4 +1770,22 @@ function formr_in_console() {
 
 function formr_search_highlight($search, $subject) {
     return str_replace($search, '<span class="search-highlight">'.$search.'</span>', $subject);
+}
+
+// Convert php.ini values to bytes
+function convertToBytes($value) {
+    $value = trim($value);
+    $lastChar = strtolower($value[strlen($value) - 1]);
+    $value = (int) $value;
+    
+    switch ($lastChar) {
+        case 'g':
+            $value *= 1024;
+        case 'm':
+            $value *= 1024;
+        case 'k':
+            $value *= 1024;
+    }
+    
+    return $value;
 }

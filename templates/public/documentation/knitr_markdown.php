@@ -1,7 +1,7 @@
 <h3>Knit R &amp; Markdown</h3><hr />
 
 <h4>
-    This section gives some guidance on how to format and customise text in formr. In many cases you'll do it right by default.
+    This section gives some guidance on how to format and customise text in formr. In many cases you'll do it right by default. You'll also see how to access the data you just collected in formr in R — for example to score an assessment, give feedback, or customise the study in other ways.
 </h4>
 <h5>
     Markdown
@@ -43,7 +43,8 @@
     Knitr
 </h5>
 <p>
-    If you want to customise the text or generate custom feedback, including plots, you can use <a href="http://yihui.name/knitr/">Knitr</a>. Thanks to Knitr you can freely mix Markdown and chunks of R. Some examples:
+    If you want to customise the text or generate custom feedback, including plots, you can use <a href="http://yihui.name/knitr/">Knitr</a>. Thanks to Knitr you can freely mix Markdown and chunks of R. You can load data using R commands, but the data you just collected for this participant will automatically be made available as R data frames. See <a href="<?=site_url("documentation/#r_helpers")?>">R helpers</a> for more information.
+     Some examples:
 </p>
 <ul class="fa-ul">
     <li>

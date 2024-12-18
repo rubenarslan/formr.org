@@ -12,7 +12,7 @@
             <div class="form-check">
                 <label class="form-check-label" for="about-page-show"> 
                     <input type="hidden" name="content:about:show" value="false" />
-                    <input id="about-page-show" class="form-check-input" <?= $checked ?> type="checkbox" value="true" name="content:about:show" disabled>
+                    <input id="about-page-show" class="form-check-input" <?= $checked ?> type="checkbox" value="true" name="content:about:show">
                     Show 'About' Page
                 </label>
               </div>
