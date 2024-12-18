@@ -238,7 +238,8 @@ class AdminRunController extends AdminController {
     private function uploadFilesAction() {
         $run = $this->run;
 
-        if (!empty($_FILES['uploaded_files'])) {
+        if (!empty($_FILES['uploaded_files']) && 
+            $this->request->int("confirm_rights") === 1) {
             if ($run->uploadFiles($_FILES['uploaded_files'])) {
                 alert('<strong>Success.</strong> The files were uploaded.', 'alert-success');
                 if (!empty($run->messages)) {
@@ -663,7 +664,7 @@ class AdminRunController extends AdminController {
         $updated = $this->fdb->update('survey_runs', $settings, array('id' => $this->run->id));
         if ($updated) {
             $msg = array("Panic mode activated for '{$this->run->name}'");
-            $msg[] = " - Only you can access this run";
+            $msg[] = " - Only you and test users can access this run";
             $msg[] = " - The cron job for this run has been deactivated";
             $msg[] = " - The run has been 'locked' for editing";
             alert(implode("\n", $msg), 'alert-success');

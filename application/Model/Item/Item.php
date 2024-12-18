@@ -93,6 +93,9 @@ class Item {
     public $allowed_classes = array();
     public $skip_validation = false;
     public $data_showif = false;
+    public $val_error;
+    public $openCPU_errors;
+
     protected $prepend = null;
     protected $append = null;
     protected $type_options_array = array();

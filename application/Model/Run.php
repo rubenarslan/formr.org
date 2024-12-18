@@ -47,6 +47,8 @@ class Run extends Model {
     public $osf_project_id = null;
     public $footer_text = null;
     public $public_blurb = null;
+    public $privacy = null;
+    public $tos = null;
     public $use_material_design = false;
     public $expire_cookie = 0;
     public $expire_cookie_value = 0;
@@ -62,11 +64,14 @@ class Run extends Model {
     protected $description_parsed = null;
     protected $footer_text_parsed = null;
     protected $public_blurb_parsed = null;
+    protected $privacy_parsed = null;
+    protected $tos_parsed = null;
     protected $api_secret_hash = null;
     protected $owner = null;
     protected $run_settings = array(
         "header_image_path", "title", "description",
-        "footer_text", "public_blurb", "custom_css",
+        "footer_text", "public_blurb", "privacy",
+        "tos", "custom_css",
         "custom_js", "cron_active", "osf_project_id",
         "use_material_design", "expire_cookie",
         "expire_cookie_value", "expire_cookie_unit",
@@ -108,7 +113,7 @@ class Run extends Model {
             return;
         }
 
-        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie";
+        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
 
@@ -173,6 +178,12 @@ class Run extends Model {
         if (!in_array($public, range(0, 3))) {
             return false;
         }
+        $require_privacy = Config::get("require_privacy_policy", false);
+        if ($require_privacy AND !$this->hasPrivacy() && $public > 0) {
+            alert('You cannot make this run public because it does not have a privacy policy. Set them first in the settings tab.', 'alert-warning');
+            $this->db->update('survey_runs', array('public' => 0), array('id' => $this->id));
+            return false;
+        }
 
         $updated = $this->db->update('survey_runs', array('public' => $public), array('id' => $this->id));
         return $updated !== false;
@@ -197,7 +208,7 @@ class Run extends Model {
             'modified' => mysql_now(),
             'api_secret_hash' => $new_secret,
             'cron_active' => 1,
-            'use_material_design' => 1,
+            'use_material_design' => 0,
             'expire_cookie' => 0,
             'public' => 0,
             'footer_text' => "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
@@ -207,6 +218,13 @@ class Run extends Model {
         $this->name = $name;
         $this->load();
 
+        $owner = $this->getOwner();
+        $privacy_url = run_url($name, "privacy");
+        $tos_url = run_url($name, "terms_of_service");
+        $settings_url = run_url($name, "settings");
+        $footer = "Contact the [study administration](mailto:{$owner->email}) in case of questions. [Privacy Policy]($privacy_url). [Terms of Service]($tos_url). [Settings]($settings_url).";
+        $this->saveSettings(array("footer_text" => $footer));
+
         // create default run service message
         $props = RunUnit::getDefaults('ServiceMessagePage');
         $unit = RunUnitFactory::make($this, $props)->create();
@@ -215,11 +233,29 @@ class Run extends Model {
     }
 
     public function getUploadedFiles() {
-        return $this->db->select('id, created, original_file_name, new_file_path')
+        return $this->db->select('id, created, modified, original_file_name, new_file_path')
                         ->from('survey_uploaded_files')
                         ->where(array('run_id' => $this->id))
                         ->order('created', 'desc')
                         ->fetchAll();
+    }
+
+    private $batch_directory;
+
+    private function makeBatchDirectory() {
+        if (!isset($this->batch_directory)) {
+            // Generate a random directory name for this batch
+            $this->batch_directory = 'assets/tmp/admin/' . crypto_token(15, true) . '/';
+    
+            // Ensure the batch directory exists
+            $local_path = APPLICATION_ROOT . 'webroot/';
+            $destination_dir = $local_path . $this->batch_directory;
+            if (!is_dir($destination_dir)) {
+                mkdir($destination_dir, 0777, true);
+            }
+        }
+    
+        return $this->batch_directory;
     }
 
     public function uploadFiles($files) {
@@ -233,14 +269,8 @@ class Run extends Model {
             $files_by_names[$existing_file['original_file_name']] = $existing_file['new_file_path'];
         }
     
-        // Generate a random directory name for this batch
-        $batch_directory = 'assets/tmp/admin/' . crypto_token(15, true) . '/';
-    
         // Ensure the batch directory exists
-        $destination_dir = APPLICATION_ROOT . 'webroot/' . $batch_directory;
-        if (!is_dir($destination_dir)) {
-            mkdir($destination_dir, 0777, true);
-        }
+        $local_path = APPLICATION_ROOT . 'webroot/' ;
     
         // loop through files and modify them if necessary
         for ($i = 0; $i < count($files['tmp_name']); $i++) {
@@ -308,20 +338,29 @@ class Run extends Model {
                 $this->errors[] = __('The file "%s" has an invalid file extension %s. Expected %s for MIME type %s.', $original_file_name, $file_extension, $allowed_file_endings[$mime], $mime);
                 continue;
             }
-    
-            // Sanitize file name to remove control characters
-            $sanitized_file_name = preg_replace('/[\x00-\x1F\x7F]/u', '', $original_file_name);  // Remove control characters
-            $new_file_path = $batch_directory . $sanitized_file_name;
 
-            // Ensure the destination path is within the intended directory
-            $intended_path = $destination_dir . $sanitized_file_name;
-            if (strpos(realpath(dirname($intended_path)), realpath($destination_dir)) !== 0) {
-                $this->errors[] = __("The file '%s' could not be uploaded due to an invalid file path.", $sanitized_file_name);
-                continue;
+            // Keep old file path if a file of the same name has been uploaded before
+            if(array_key_exists($original_file_name, $files_by_names)) {
+                $new_file_path = $files_by_names[$original_file_name]; // web, below webroot
+                $local_file_path = $local_path . $new_file_path;
+            } else {
+            // New path name if file name is new
+                $batch_directory = $this->makeBatchDirectory();
+                $destination_dir = $local_path . $batch_directory;
+                // Sanitize file name to remove control characters
+                $sanitized_file_name = preg_replace('/[\x00-\x1F\x7F]/u', '', $original_file_name);  // Remove control characters
+
+                // Ensure the destination path is within the intended directory
+                $new_file_path = $batch_directory . $sanitized_file_name;
+                $local_file_path = $local_path . $new_file_path;
+                if (strpos(realpath(dirname($local_file_path)), realpath($destination_dir)) !== 0) {
+                    $this->errors[] = __("The file '%s' could not be uploaded due to an invalid file path.", $sanitized_file_name);
+                    continue;
+                }
             }
 
             // save file
-            if (move_uploaded_file($files['tmp_name'][$i], $destination_dir . $original_file_name)) {
+            if (move_uploaded_file($files['tmp_name'][$i], $local_file_path)) {
                 $this->db->insert_update('survey_uploaded_files', array(
                     'run_id' => $this->id,
                     'created' => mysql_now(),
@@ -330,7 +369,7 @@ class Run extends Model {
                 ), array(
                     'modified' => mysql_now()
                 ));
-                $this->messages[] = __('The file "%s" was successfully uploaded.', $original_file_name);
+                $this->messages[] = __('The file "%s" was successfully uploaded to %s.', $original_file_name, $new_file_path);
             } else {
                 $this->errors[] = __("Unable to move uploaded file '%s' to storage location.", $files['name'][$i]);
             }
@@ -407,6 +446,31 @@ class Run extends Model {
         }
 
         return null;
+    }
+
+    public function getParsedPrivacyField($field) {
+        return match ($field) {
+            'privacy-policy' => $this->privacy_parsed,
+            'terms-of-service' => $this->tos_parsed,
+            default => "",
+        };
+    }
+
+    public function hasPrivacyUnit() {
+        $select = $this->db->select(array('unit_id'));
+        $select->from('survey_run_units');
+        $select->join('survey_units', 'survey_units.id = survey_run_units.unit_id');
+        $select->where(array('run_id' => $this->id, 'type' => 'Privacy'));
+
+        return $select->fetchColumn() !== false;
+    }
+
+    public function hasPrivacy() {
+        return $this->privacy !== null AND trim($this->privacy) !== '';
+    }
+
+    public function hasToS() {
+        return $this->tos !== null AND trim($this->tos) !== '';
     }
 
     public function getAllUnitTypes() {
@@ -588,6 +652,19 @@ class Run extends Model {
         if (isset($posted['footer_text'])) {
             $posted['footer_text_parsed'] = $parsedown->text($posted['footer_text']);
             $this->run_settings[] = 'footer_text_parsed';
+        }
+        $require_privacy = Config::get("require_privacy_policy", false);
+        if ($require_privacy AND ((isset($posted['privacy']) && trim($posted['privacy']) == '')) && $this->public > 0) {
+            alert("This run is public, but you have removed the privacy policy. We've set it to private for you. Add a privacy policy before setting the run to public again.", 'alert-danger');
+            $this->db->update('survey_runs', array('public' => 0), array('id' => $this->id));
+        }
+        if (isset($posted['privacy'])) {
+            $posted['privacy_parsed'] = $parsedown->text($posted['privacy']);
+            $this->run_settings[] = 'privacy_parsed';
+        }
+        if (isset($posted['tos'])) {
+            $posted['tos_parsed'] = $parsedown->text($posted['tos']);
+            $this->run_settings[] = 'tos_parsed';
         }
 
         $cookie_units = array_keys($this->expire_cookie_units);
@@ -855,6 +932,20 @@ class Run extends Model {
         }
         if (!$this->renderedDescAndFooterAlready && !empty($this->footer_text_parsed)) {
             $run_content .= $this->footer_text_parsed;
+            $privacy_pages = [];
+            $run_url = run_url($this->name) . '?show-privacy-page=';
+            if ($this->hasPrivacy()) {
+                $privacy_pages[] = '<a href="' . $run_url . 'privacy-policy" target="_blank">Privacy Policy</a>';
+            }
+            if ($this->hasToS()) {
+                $privacy_pages[] = '<a href="' . $run_url . 'terms-of-service" target="_blank">Terms of Service</a>';
+            }
+
+            if (!empty($privacy_pages)) {
+                $run_content .= '<br><div class="privacy-footer">';
+                $run_content .= implode(' | ', $privacy_pages);
+                $run_content .= '</div>';
+            }
         }
 
         if ($runSession->isTesting()) {
@@ -908,6 +999,8 @@ class Run extends Model {
             'description' => $this->description,
             'footer_text' => $this->footer_text,
             'public_blurb' => $this->public_blurb,
+            'privacy' => $this->privacy,
+            'tos' => $this->tos,
             'cron_active' => (int) $this->cron_active,
             'custom_js' => $this->getCustomJS(),
             'custom_css' => $this->getCustomCSS(),

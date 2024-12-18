@@ -23,6 +23,7 @@
                         <div class="nav-tabs-custom">
                             <ul class="nav nav-tabs">
                                 <li class="active"><a href="#settings" data-toggle="tab" aria-expanded="true">General</a></li>
+                                <li><a href="#privacy" data-toggle="tab" aria-expanded="false">Privacy</a></li>
                                 <li><a href="#css" data-toggle="tab" aria-expanded="false">CSS</a></li>
                                 <li><a href="#js" data-toggle="tab" aria-expanded="false">JS</a></li>
                                 <li><a href="#service_message" data-toggle="tab" aria-expanded="false">Service message</a></li>
@@ -62,9 +63,9 @@
                                                         look and feel for your study. Some input items from third party packages
                                                         may not change though.
                                                     </p>
-                                                    <label>
+                                                    <label title="Material Design style is deprecated as of v0.22.0.">
                                                         <input type="hidden" name="use_material_design" value="0" />
-                                                        <input type="checkbox" name="use_material_design" <?= ($run->use_material_design) ? 'checked' : '' ?> value="1"> Enable Material Design.
+                                                        <input type="checkbox" name="use_material_design" <?= ($run->use_material_design) ? 'checked' : 'disabled' ?> value="1"> Enable Material Design.
                                                     </label>
 
                                                 </div>
@@ -95,7 +96,8 @@
                                                 <textarea data-editor="markdown" placeholder="Description" name="description" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->description); ?></textarea>
                                             </div>
                                             <div class="form-group">
-                                                <label title="Will be shown on every page of the run, good for contact info">Footer text</label>
+                                                <p>Your Imprint should contain information about who is responsible for the study, and how they can be contacted. It should also link to your privacy policy and in some cases to the settings page, where users can unsubscribe from emails and log out.</p>
+                                                <label title="Will be shown on every page of the run, good for contact info">Imprint/Footer text</label>
                                                 <textarea data-editor="markdown" placeholder="Footer text" name="footer_text" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->footer_text); ?></textarea>
                                             </div>
                                             <div class="form-group">
@@ -109,6 +111,41 @@
                                     </form>
                                     <div class="clear clearfix"></div>
                                 </div>
+                                <div class="tab-pane" id="privacy">
+                                    <form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
+                                        <p class="pull-right">
+                                            <input type="submit" name="submit_settings" value="Save" class="btn btn-primary save_settings">
+                                        </p>
+                                        <h4><i class="fa fa-vcard"></i> Privacy</h4>
+                                        <p>
+                                            The following settings are used by the Privacy Run Unit. They are used to inform users about the privacy policy, terms of service and imprint of your study.
+                                            These are required by law in some countries. Add a Privacy Consent Unit to your run to make use of these settings.
+                                            You can use Markdown to format the text.
+                                        </p>
+                                        <p>
+                                            A Privacy Policy and Imprint are required by law in some countries. That's why we require you to provide them.
+                                        </p>
+                                        <div class="col-md-12">
+                                            <div class="form-group">
+                                                <p>
+                                                    Your Privacy Policy should contain information about the data you collect, how you collect it, how you store it, how you use it and how you protect it.
+                                                    You should also provide information about how users can contact you to request information about the data you have collected about them, and how they can request that you delete that data.
+                                                    For more information and a template, see <a href="https://gdpr.eu/privacy-notice/">the guide at gdpr.eu</a>.
+                                                </p>
+                                                <label title="Used by the Privacy Run Unit">Privacy Policy (<a href="<?php echo run_url($run->name, '', ['show-privacy-page' => 'privacy-policy']); ?>" target="_blank">View</a>)</label>
+                                                <textarea data-editor="markdown" placeholder="Privacy Policy" name="privacy" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->privacy); ?></textarea>
+                                            </div>
+                                            <div class="form-group">
+                                                <p>
+                                                    Your Terms of Service should contain information about how users are allowed to use your study, and what they are not allowed to do.
+                                                </p>
+                                                <label title="Used by the Privacy Run Unit">Terms of Service (<a href="<?php echo run_url($run->name, '', ['show-privacy-page' => 'terms-of-service']); ?>" target="_blank">View</a>)</label>
+                                                <textarea data-editor="markdown" placeholder="Terms of Service" name="tos" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->tos); ?></textarea>
+                                            </div>
+                                        </div>
+                                    </form>
+                                    <div class="clear clearfix"></div>
+                                </div>
                                 <!-- /.tab-pane -->
                                 <div class="tab-pane" id="css">
                                     <form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
@@ -118,7 +155,7 @@
                                         <h4><i class="fa fa-css3"></i> Cascading style sheets</h4>
                                         <p>
                                             CSS allows you to apply custom styles to every page of your study. If you want to limit styles to
-                                            certain pages, you can use CSS classes referring to either position in the run (e.g. <code class="css">.run_position_10 {}</code>) or module type (e.g. <code class="css">.run_unit_type_Survey {}</code>). Learn about <a href="http://docs.webplatform.org/wiki/guides/getting_started_with_css">CSS at Webplatform.org</a>.
+                                            certain pages, you can use CSS classes referring to either position in the run (e.g. <code class="css">.run_position_10 {}</code>) or module type (e.g. <code class="css">.run_unit_type_Survey {}</code>). Learn about <a href="https://developer.mozilla.org/en-US/docs/Learn/CSS/First_steps/Getting_started">CSS at Mozilla Developer Network</a>. A chat bot could also help you get the requested result.
                                         </p>
                                         <div class="form-group col-md-12">
                                             <textarea data-editor="css" placeholder="Enter your custom CSS here" name="custom_css" rows="40" cols="80" class="big_ace_editor form-control"><?= h($run->getCustomCSS()); ?></textarea>

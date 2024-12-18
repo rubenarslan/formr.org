@@ -363,7 +363,7 @@ class UnitSession extends Model {
         /** @var SurveyStudy $study */
         $study = $this->runUnit->surveyStudy;
 
-        // remove variables user is not allowed to overrite (they should not be sent to user in the first place if not used in request)
+        // remove variables user is not allowed to overwrite (they should not be sent to user in the first place if not used in request)
         unset($posted['id'], $posted['session'], $posted['session_id'], $posted['study_id'], $posted['created'], $posted['modified'], $posted['ended']);
 
         if (!$posted) {
@@ -388,7 +388,7 @@ class UnitSession extends Model {
             'values' => array_keys($posted),
         ));
 
-        // Validate items and if any fails return user to same page with all unansered items and error messages
+        // Validate items and if any fails return user to same page with all unanswered items and error messages
         // This loop also accumulates potential update data
         $update_data = array();
         foreach ($posted as $item_name => $item_value) {

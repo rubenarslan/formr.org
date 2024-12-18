@@ -1,6 +1,6 @@
 --
 -- Database: `formr`
--- Schema Updated: 10.05.2021
+-- Schema Updated: 01.10.2024
 --
 SET NAMES utf8mb4;
 CREATE DATABASE IF NOT EXISTS formr CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -171,6 +171,10 @@ CREATE TABLE `survey_runs` (
   `header_image_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `footer_text` mediumtext COLLATE utf8mb4_unicode_ci,
   `footer_text_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
+  `privacy` mediumtext COLLATE utf8mb4_unicode_ci,
+  `privacy_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
+  `tos` mediumtext COLLATE utf8mb4_unicode_ci,
+  `tos_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
   `custom_css_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `custom_js_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `osf_project_id` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,

@@ -31,15 +31,29 @@
                                     Users can always take a photo of the screen, even if you could prevent screenshots. Hence, we saw no point in generating single-use links for the images (so that users can't share the picture directly). Please be aware of this and don't use formr to show confidential information in an un-supervised setting. However, because the links are large random numbers, it's fairly safe to use formr to upload confidential information to be shown in the lab, the images cannot be discovered by people who don't have access to the study.</li>
                                 <li><i class="fa-li fa fa-file"></i>The following file types are allowed: <?php echo  implode(", ", Config::get('allowed_file_endings_for_run_upload')); ?></li>
                             </ul>
+                            <?php
+                                echo Site::getSettings('content:file_upload_terms'); 
+                            ?>
                         </div>
 
                         <h4>Files to upload: </h4>
                         <form action="<?= admin_run_url($run->name, 'upload_files') ?>" class="dropzone form-inline" enctype="multipart/form-data"  id="upload_files" name="upload_files" method="post">
-                            <div class="input-group">
+                        <p>
+                                <?php
+                                $val = Site::getSettings('content:file_upload_require_active_consent', 'false') === "true";
+                                $checked = $val ? 'checked="checked"' : ''; 
+                                ?>
+                            <label><input type="checkbox" required value="1" name="confirm_rights" <?php echo $checked;  ?>>
+                            I confirm that I will only upload files that fulfill the conditions above (have the necessary rights, respect privacy).</label>
+                            </p>
+                    <p>
+
                                 <input required multiple type="file" accept="video/*,image/*,audio/*,text/*" name="uploaded_files[]" id="uploaded_files"/>
-                            </div>
+                    </p> 
+                    <p>
 
                             <button type="submit" class="btn btn-default"><i class="fa fa-upload"></i> Upload all files</button>
+                    </p>
                         </form>
 
                         <hr />
@@ -50,6 +64,7 @@
                                     <tr>
                                         <th>File Name</th>
                                         <th>Created</th>
+                                        <th>Modified</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
@@ -58,6 +73,7 @@
                                         <tr>
                                             <td><?php echo $row['original_file_name']; ?></td>
                                             <td><abbr title="<?php echo $row['created']; ?>"><?php echo timetostr(strtotime($row['created'])); ?></abbr></td>
+                                            <td><abbr title="<?php echo $row['modified']; ?>"><?php echo timetostr(strtotime($row['modified'])); ?></abbr></td>
                                             <td>
                                                 <a href="<?php echo asset_url($row['new_file_path']); ?>" class="btn btn-sm btn-default"><i class="fa fa-eye"></i> View File</a>
                                                 <a href="javascript:void(0);" data-url="<?php echo asset_url($row['new_file_path']); ?>" class="btn btn-sm btn-primary copy-url"><i class="fa fa-copy"></i> Copy URL</a>

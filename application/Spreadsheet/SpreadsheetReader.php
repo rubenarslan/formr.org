@@ -3,9 +3,7 @@
 class SpreadsheetReader {
 
     private $choices_columns = array('list_name', 'name', 'label');
-    private $survey_columns = array('name', 'type', 'label', 'optional', 'class', 'showif', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14', 'value', 'order', 'block_order', 'item_order',
-        # legacy
-        'variablenname', 'wortlaut', 'typ', 'ratinguntererpol', 'ratingobererpol', 'mcalt1', 'mcalt2', 'mcalt3', 'mcalt4', 'mcalt5', 'mcalt6', 'mcalt7', 'mcalt8', 'mcalt9', 'mcalt10', 'mcalt11', 'mcalt12', 'mcalt13', 'mcalt14',);
+    private $survey_columns = array('name', 'type', 'label', 'optional', 'class', 'showif', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14', 'value', 'order', 'block_order', 'item_order');
     private $internal_columns = array('choice_list', 'type_options', 'label_parsed');
     private $existing_choice_lists = array();
     public $messages = array();
@@ -32,6 +30,7 @@ class SpreadsheetReader {
         $objPhpSpreadsheet = $this->objectFromArray($array);
 
         $objWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($objPhpSpreadsheet, 'Csv');
+        /** @var \PhpOffice\PhpSpreadsheet\Writer\Csv $objWriter */
         $objWriter->setDelimiter("\t");
         $objWriter->setEnclosure("");
 
@@ -63,7 +62,7 @@ class SpreadsheetReader {
     /**
      * 
      * @param PDOStatement $stmt
-     * @return \PhpOffice\PhpSpreadsheet\Spreadsheet;
+     * @return \PhpOffice\PhpSpreadsheet\Spreadsheet
      */
     protected function objectFromPDOStatement(PDOStatement $stmt) {
         $PhpSpreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
@@ -175,6 +174,7 @@ class SpreadsheetReader {
 
         try {
             $phpSpreadsheet = $this->objectFromPDOStatement($stmt);
+            /** @var \PhpOffice\PhpSpreadsheet\Writer\Csv $phpSpreadsheetWriter */
             $phpSpreadsheetWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($phpSpreadsheet, 'Csv');
             $phpSpreadsheetWriter->setDelimiter("\t");
             $phpSpreadsheetWriter->setEnclosure("");
@@ -203,6 +203,7 @@ class SpreadsheetReader {
 
         try {
             $phpSpreadsheet = $this->objectFromPDOStatement($stmt);
+            /** @var \PhpOffice\PhpSpreadsheet\Writer\Csv $phpSpreadsheetWriter */
             $phpSpreadsheetWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($phpSpreadsheet, 'Csv');
             $phpSpreadsheetWriter->setDelimiter(';');
             $phpSpreadsheetWriter->setEnclosure('"');
@@ -405,49 +406,6 @@ class SpreadsheetReader {
         }
     }
 
-    private function translateLegacyColumn($col) {
-        $col = trim(mb_strtolower($col));
-        $translations = array(
-            'variablenname' => 'name',
-            'typ' => 'type',
-            'wortlaut' => 'label',
-            'text' => 'label',
-            'ratinguntererpol' => 'choice1',
-            'ratingobererpol' => 'choice2',
-        );
-
-        if (mb_substr($col, 0, 5) == 'mcalt') {
-            return 'choice' . mb_substr($col, 5);
-        } else {
-            return isset($translations[$col]) ? $translations[$col] : $col;
-        }
-    }
-
-    private function translateLegacyType($type) {
-        $type = trim(mb_strtolower($type));
-        $translations = array(
-            'offen' => 'text',
-            'instruktion' => 'note',
-            'instruction' => 'note',
-            'fork' => 'note',
-            'rating' => 'rating_button',
-            'mmc' => 'mc_multiple',
-            'select' => 'select_one',
-            'mselect' => 'select_multiple',
-            'select_or_add' => 'select_or_add_one',
-            'mselect_add' => 'select_or_add_multiple',
-            'btnrating' => 'rating_button',
-            'range_list' => 'range_ticks',
-            'btnradio' => 'mc_button',
-            'btncheckbox' => 'mc_multiple_button',
-            'btncheck' => 'check_button',
-            'geolocation' => 'geopoint',
-            'mcnt' => 'mc',
-        );
-
-        return isset($translations[$type]) ? $translations[$type] : $type;
-    }
-
     public function addSurveyItem(array $row) {
         // @todo validate items in $data
         if (empty($row['name'])) {
@@ -512,11 +470,14 @@ class SpreadsheetReader {
         //  Get worksheet dimensions
         // non-allowed columns will be ignored, allows to specify auxiliary information if needed
         $skippedColumns = $columns = array();
+        $lastListName = null;
         $colCount = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($worksheet->getHighestDataColumn());
         $rowCount = $worksheet->getHighestDataRow();
 
         for ($i = 1; $i <= $colCount; $i++) {
-            $colName = mb_strtolower((string)$worksheet->getCellByColumnAndRow($i, 1)->getValue());
+            $cellCoordinate = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i) . '1';
+            $colName = mb_strtolower((string)$worksheet->getCell($cellCoordinate)->getValue());
+
             if (in_array($colName, $this->choices_columns)) {
                 $columns[$i] = $colName;
             } else {
@@ -673,17 +634,15 @@ class SpreadsheetReader {
 
         $blankColCount = 0; // why should this be set to 1 by default? 
         for ($i = 1; $i <= $colCount; $i++) {
-            $colName = trim(mb_strtolower((string)$worksheet->getCellByColumnAndRow($i, 1)->getValue()));
+            $cellCoordinate = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i) . '1';
+            $colName = mb_strtolower((string)$worksheet->getCell($cellCoordinate)->getValue());
+
             if (!$colName) {
                 $blankColCount++;
                 continue;
             }
             if (in_array($colName, $this->survey_columns)) {
-                $trColName = $this->translateLegacyColumn($colName);
-                if ($colName != $trColName) {
-                    $this->warnings[] = __('The column "<em>%s</em>" is deprecated and was automatically translated to "<em>%s</em>"', $colName, $trColName);
-                }
-                $columns[$i] = $trColName;
+                $columns[$i] = $colName;
             } else {
                 $skippedColumns[$i] = $colName;
             }
@@ -771,11 +730,7 @@ class SpreadsheetReader {
                         $cellValue = $type;
                     }
 
-                    $trType = $this->translateLegacyType($cellValue);
-                    if ($trType != $cellValue) {
-                        $this->warnings[] = __('The type "<em>%s</em>" is deprecated and was automatically translated to "<em>%s</em>"', $cellValue, $trType);
-                    }
-                    $cellValue = $trType;
+                    $cellValue = $cellValue;
                 } elseif ($colName == 'optional') {
                     if ($cellValue === '*') {
                         $cellValue = 1;

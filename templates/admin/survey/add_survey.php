@@ -4,7 +4,7 @@
 <div class="content-wrapper">
     <!-- Content Header (Page header) -->
     <section class="content-header">
-        <h1>Surveys <small>Add New</small></h1>
+        <h1><i class="fa fa-plus-circle"></i> Surveys <small>Add New</small></h1>
     </section>
 
     <!-- Main content -->
@@ -65,14 +65,12 @@
                 <form role="form" id="add_study_google" name="add_study" method="post" action="<?php echo admin_url('survey/add_survey'); ?>">
                     <div class="box-body">
                         <div class="form-group">
-                            <label>Survey Name</label>
-                            <input name="survey_name" type="text" class="form-control" placeholder="Survey Name">
-                            <small class="help-block"><i class="fa fa-info-circle"></i> Enter a survey name following the hints above..</small>
-                        </div>
-                        <div class="form-group">
                             <label>Sheet link</label>
                             <textarea name="google_sheet" class="form-control" rows="3" placeholder="Enter Googlesheet share link"></textarea>
                             <small class="help-block"><i class="fa fa-info-circle"></i> Make sure this sheet is accessible by anyone with the link</small>
+                        </div>
+                        <div class="form-group has-warning">
+                            <small class="help-block"><i class="fa fa-warning"></i> Previously, we let you specify the name of the survey above. Since formr v0.22.0, we take the name directly from the Google sheet's name. This name is then also checked and compared, when you update items. We made this change to ensure you do not accidentally overwrite a survey with a different one, and so your files are named consistently with your study.</small>
                         </div>
                     </div>
                     <!-- /.box-body -->

@@ -5,6 +5,7 @@ class SelectOrAddMultiple_Item extends SelectOrAddOne_Item {
     public $type = 'select_or_add_multiple';
     public $mysql_field = 'TEXT DEFAULT NULL';
     public $input_attributes = array('type' => 'text');
+    public $text_choices;
 
     protected function setMoreOptions() {
         parent::setMoreOptions();

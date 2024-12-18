@@ -125,9 +125,20 @@ class AdminAccountController extends Controller {
             $this->request->redirect('index');
         }
 
-        if ($this->request->isHTTPPostRequest() && $site->request->str('email') && filter_var($this->request->str('email'), FILTER_VALIDATE_EMAIL)) {
-            if (!Session::canValidateRequestToken($site->request) || Site::getSettings('signup:allow', 'true') !== 'true') {
+        if ($this->request->isHTTPPostRequest() && 
+        $site->request->str('email') && 
+        filter_var($this->request->str('email'), FILTER_VALIDATE_EMAIL)) {
+            if (!Session::canValidateRequestToken($site->request)) {
                 alert('Could not process your request please try again later', 'alert-danger');
+                return $this->request->redirect('admin/account/register');
+            }
+            if(Site::getSettings('signup:allow', 'true') !== 'true') {
+                alert('Signing up has been disabled for the moment.', 'alert-info');
+                return $this->request->redirect('admin/account/register');
+           }
+
+            if(!$this->request->str('agree_tos')) {
+                alert('You cannot sign up if you don\'t agree to the terms and conditions.', 'alert-danger');
                 return $this->request->redirect('admin/account/register');
             }
 

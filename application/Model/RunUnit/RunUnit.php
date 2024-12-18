@@ -64,6 +64,8 @@ class RunUnit extends Model {
 
     public $icon = "fa-question";
 
+    public $surveyStudy;
+
     protected $body = '';
     
     protected $body_parsed = '';

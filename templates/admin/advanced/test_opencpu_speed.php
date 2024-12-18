@@ -1,96 +1,107 @@
 <?php
 
-Template::loadChild('header');
-Template::loadChild('acp_nav');
+Template::loadChild('admin/header');
 
-$openCPU = new OpenCPU(Config::get('alternative_opencpu_instance'));
+// Get the OpenCPU instance
+$openCPU = OpenCPU::getInstance();
 
 echo "<h2>OpenCPU test</h2>";
-echo '<h5>testing ' . Config::get('alternative_opencpu_instance') . '</h5>';
+echo '<h5>Testing ' . Config::get('opencpu_instance')['public_url'] . '</h5>';
 
 $max = 30;
+
+// Check if OpenCPU instance requires authentication
+$requires_auth = Config::get('opencpu_instance')['requires_auth'] ?? false;
+$auth_token = null;
+
+// If authentication is required, retrieve the token
+if ($requires_auth) {
+    $auth_token = Config::get('opencpu_instance')['auth_token'];
+}
+
 for ($i = 0; $i < $max; $i++):
-    $openCPU->clearUserData();
+
     $source = '{' .
-            mt_rand() . '
-		' .
-            str_repeat(" ", $i) .
-            '
-		library(knitr)
-		knit2html(text = "' . addslashes("__Hello__ World `r 1`
-		```{r}
-		library(ggplot2)  
-		qplot(rnorm(100))
-		qplot(rnorm(1000), rnorm(1000))
-		library(formr)
-		'blabla' %contains% 'bla'
-		```
-		") . '",
-		fragment.only = T, options=c("base64_images","smartypants")
-		)
-		' .
-            str_repeat(" ", $max - $i) .
-            '
-	}';
+        mt_rand() . '
+        ' . str_repeat(" ", $i) . '
+        library(knitr)
+        knit2html(text = "' . addslashes("__Hello__ World `r 1`
+        ```{r}
+        library(ggplot2)  
+        qplot(rnorm(100))
+        qplot(rnorm(1000), rnorm(1000))
+        library(formr)
+        'blabla' %contains% 'bla'
+        ```
+        ") . '",
+        fragment.only = TRUE, options = c("base64_images", "smartypants")
+        )
+        ' . str_repeat(" ", $max - $i) . '
+    }';
 
     $start_time = microtime(true);
-    $results = $openCPU->identity(array('x' => $source), '', true);
-    $responseHeaders = $openCPU->responseHeaders();
+
+    // Execute the R code snippet
+    $results = $openCPU->snippet($source);
+    $responseHeaders = $openCPU->getResponseHeaders();
+
+    // Get the HTTP status from the curl_info array
+    $http_status = $openCPU->getRequestInfo('http_code');
 
     $alert_type = 'alert-success';
-    if ($openCPU->http_status > 302 || $openCPU->http_status === 0) {
+
+    // Handle HTTP status and errors
+    if ($http_status > 302 || $http_status === 0) {
         $alert_type = 'alert-danger';
     }
 
-    alert('1. HTTP status: ' . $openCPU->http_status, $alert_type);
+    alert('1. HTTP status: ' . $http_status, $alert_type);
 
-    $accordion = $openCPU->debugCall($results);
+    // Check if total_time is present in the headers before adding it
     $responseHeaders['total_time_php'] = round(microtime(true) - $start_time, 3);
-
-    if (isset($times)):
+    
+    if (isset($responseHeaders['total_time'])) {
         $times['total_time'][] = $responseHeaders['total_time'];
+    }
+    if (isset($responseHeaders['total_time_php'])) {
         $times['total_time_php'][] = $responseHeaders['total_time_php'];
-    else:
-        $times = array();
-        $times['total_time'] = array($responseHeaders['total_time']);
-        $times['total_time_php'] = array($responseHeaders['total_time_php']);
-    endif;
+    }
 
 endfor;
 
-$datasets = array('times' => $times);
+$data = 'times = "' . json_encode($times['total_time_php']).'"';
+
+// Prepare the R code snippet to generate the plot
 $source = '
-# plot times
-```{r}
+'. $data .'
+times = jsonlite::fromJSON(times)
 library(ggplot2)
 library(stringr)
-library(reshape2)
-just_times = times[,str_detect(names(times), "time")]
-times_m = melt(just_times)
-# qplot(value, data = times_m) + facet_wrap(~ variable)
-# just_size = times[,str_detect(names(times),"_size")]
-# size_m = melt(just_size)
-# qplot(value, data = size_m) + facet_wrap(~ variable)
-summary(times)
-```';
-unset($times['certinfo']);
+p <- qplot(times)
+print(p)';
 
-$openCPU->addUserData(array('datasets' => $datasets));
-$accordion = $openCPU->knitForAdminDebug($source);
-$alert_type = 'alert-success';
+// Submit the R code to generate the plot
+$results = $openCPU->snippet($source);
+$responseHeaders = $openCPU->getResponseHeaders();
 
-if ($openCPU->http_status > 302 OR $openCPU->http_status === 0) {
-    $alert_type = 'alert-danger';
+echo opencpu_debug($results);
+// Get the HTTP status from the curl_info array
+$http_status = $openCPU->getRequestInfo('http_code');
+
+// If the HTTP status is successful, retrieve the plot
+if ($http_status >= 200 && $http_status <= 302) {
+    // Retrieve the file path for the plot (usually a PNG)
+    $files = $results->getFiles('/graphics/');
+
+    if (!empty($files)) {
+        // Display the plot image in the HTML
+        $plot_url = array_values($files)[0]; // Assuming the first file is the plot
+        echo "<img src='{$plot_url}' alt='Plot'>";
+    } else {
+        echo "<p>No plot was generated.</p>";
+    }
+} else {
+    alert('Error: Failed to generate plot. HTTP status: ' . $http_status, 'alert-danger');
 }
-alert('1. HTTP status: ' . $openCPU->http_status, $alert_type);
 
-echo $accordion;
-
-$alerts = $site->renderAlerts();
-if (!empty($alerts)):
-    echo '<div class="row"><div class="col-md-8 all-alerts">';
-    echo $alerts;
-    echo '</div></div>';
-endif;
-
-Template::loadChild('footer');
+Template::loadChild('admin/footer');

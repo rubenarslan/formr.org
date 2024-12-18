@@ -1,9 +1,5 @@
 <?php
 
-require_once '../application/Library/Config.php';
-require_once '../application/Library/CURL.php';
-require_once '../application/Library/OpenCPU.php';
-
 /*
  * Test Config class
  */
