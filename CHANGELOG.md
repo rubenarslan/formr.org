@@ -1,8 +1,11 @@
 # Formr.org Change Log (check previous change logs in CHANGELOG-v1.md)
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
+## [v0.22.1] - 24.12.2024
+### Fixed
+* link to ToS on signup page was incorrect
 
-## [v0.22.0] - 01.10.2024
+## [v0.22.0] - 19.12.2024
 ### Fixed
 * superadmin OpenCPU timing graph
 * bug where (backup) server-side errors for invalid items weren't displayed

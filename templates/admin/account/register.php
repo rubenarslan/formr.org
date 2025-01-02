@@ -72,7 +72,7 @@
                                                 <?php endif; ?>
 
                                                 <div>
-                                                    <label><input type="checkbox" name="agree_tos" value="1" required> I agree to the <a href="/tos">terms and conditions</a> and the <a href="/privacy">privacy</a> policy.
+                                                    <label><input type="checkbox" name="agree_tos" value="1" required> I agree to the <a href="<?=site_url("terms_of_service") ?>">terms and conditions</a> and the <a href="<?=run_url("privacy") ?>">privacy</a> policy.
                                                 </div>
 
                                                 <button type="submit" class="btn btn-sup btn-material-pink btn-raised"><i class="fa fa-pencil fa-fw"></i> Sign Up</button>
