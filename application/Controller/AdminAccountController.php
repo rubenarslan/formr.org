@@ -1,4 +1,5 @@
 <?php
+use RobThree\Auth\TwoFactorAuth;
 
 class AdminAccountController extends Controller {
 
@@ -83,12 +84,20 @@ class AdminAccountController extends Controller {
                 'password' => $this->request->str('password'),
             );
             if ($this->user->login($info)) {
-                alert('<strong>Success!</strong> You were logged in!', 'alert-success');
-                Session::set('user', serialize($this->user));
-                Session::setAdminCookie($this->user);
+                if($this->user->is2FAenabled()) {
+                    // 2fa enabled, redirect to 2fa page
+                    // temporary store user info in session until we confirm 2FA
+                    Session::set('user_temp', serialize($this->user));
+                    $this->request->redirect('admin/account/twoFactor');
+                } else {
+                    // 2fa not enabled, log user in
+                    alert('<strong>Success!</strong> You were logged in!', 'alert-success');
+                    Session::set('user', serialize($this->user));
+                    Session::setAdminCookie($this->user);
 
-                $redirect = $this->user->isAdmin() ? 'admin' : 'admin/account';
-                $this->request->redirect($redirect);
+                    $redirect = $this->user->isAdmin() ? 'admin' : 'admin/account';
+                    $this->request->redirect($redirect);
+                }
             } else {
                 alert(implode($this->user->errors), 'alert-danger');
             }
@@ -96,6 +105,24 @@ class AdminAccountController extends Controller {
 
         $this->registerAssets('bootstrap-material-design');
         $this->setView('admin/account/login', array('alerts' => $this->site->renderAlerts()));
+        return $this->sendResponse();
+    }
+
+    public function twoFactorAction() {
+        $this->registerAssets('bootstrap-material-design');
+        if($this->request->str('2facode')){
+            if($this->user->verify2FACode($this->request->str('2facode'))) {
+                $this->user = unserialize(Session::get('user_temp'));
+                Session::set('user', serialize($this->user));
+                Session::setAdminCookie($this->user);
+                SESSION::delete('user_temp');
+
+                $this->request->redirect('admin');
+            } else {
+                alert('Please enter a correct 2FA code!', 'alert-danger');
+            }
+        }
+        $this->setView('admin/account/two_factor', array('alerts' => $this->site->renderAlerts()));
         return $this->sendResponse();
     }
 
@@ -113,6 +140,49 @@ class AdminAccountController extends Controller {
             $redirect_to = $this->request->getParam('_rdir');
             $this->request->redirect($redirect_to);
         }
+    }
+
+    public function setupTwoFactorAction() {
+        if (!$this->user->loggedIn()) {
+            alert('You need to be logged in to setup 2FA.', 'alert-info');
+            $this->request->redirect('login');
+        }
+
+        $tfa = new TwoFactorAuth();
+
+        if($this->request->str('reset_code')) {
+            if($this->user->verify2FACode($this->request->str('reset_code'))) {
+                $this->user->set2FAsecret('');
+                $this->user->set2FABackupCodes('');
+                alert('2FA reset successfully!', 'alert-success');
+                $this->request->redirect('admin/account');
+            } else {
+                alert('Wrong 2FA code, try again!', 'alert-danger');
+            }
+        } else if($this->request->str('code')) {
+            $secret = Session::get('2fa_secret');
+            $result = $tfa->verifyCode($secret, $this->request->str('code'));
+            if($result) {
+                $backupCodes = join(' ', $this->user->generateAndSet2FABackupCodes());
+                $this->user->set2FAsecret(Session::get('2fa_secret'));
+                Session::delete('2fa_secret');
+                alert('2FA setup successfully!', 'alert-success');
+                alert('Please <b>save</b> your 2FA backup codes! These are only shown <b>ONCE</b> <br/>' . $backupCodes, 'alert-warning');
+                $this->request->redirect('admin/account');
+            } else {
+                alert('Wrong 2FA code, try again!', 'alert-danger');
+            }
+        } else {
+            Session::set('2fa_secret', $tfa->createSecret());
+        }
+
+        $this->registerAssets('bootstrap-material-design');
+        if($this->user->is2FAenabled()) {
+            $this->setView('admin/account/reset_two_factor', array('alerts' => $this->site->renderAlerts()));
+        } else {
+            $this->setView('admin/account/setup_two_factor', array('alerts' => $this->site->renderAlerts(), 'username' => $this->user->email));
+        }
+        return $this->sendResponse();   
     }
 
     public function registerAction() {

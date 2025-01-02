@@ -56,19 +56,18 @@ class AdminAdvancedController extends AdminController {
 
         if ($request->user_delete) {
             $user = (new User())->refresh(['id' => (int)$request->user_id, 'email' => $request->user_email]);
-            if ($user->isSuperAdmin()) {
-                alert('A super administrator cannot be deleted. Set admin level to 1 or below to delete', 'alert-danger');
+            $error_msg = $user->carefulDelete();
+            if($error_msg!==''){
+                alert($error_msg, 'alert-danger');
+                $this->response->setContentType('application/json');
+                $this->response->setJsonContent(['success' => false]);
+                return $this->sendResponse();
+            } else {
+                alert('User ' . h($request->user_email) .' deleted.', 'alert-success');
                 $this->response->setContentType('application/json');
                 $this->response->setJsonContent(['success' => true]);
                 return $this->sendResponse();
             }
-            
-            $user->delete();
-
-            alert('User and associated data have been deleted.', 'alert-success');
-            $this->response->setContentType('application/json');
-            $this->response->setJsonContent(['success' => true]);
-            return $this->sendResponse();
         }
 
         if ($request->verify_email_manually) {

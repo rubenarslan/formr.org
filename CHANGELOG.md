@@ -2,6 +2,8 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+- added OAuth
+
 ## [v0.22.0] - 01.10.2024
 ### Fixed
 * superadmin OpenCPU timing graph

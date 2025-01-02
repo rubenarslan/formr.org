@@ -57,6 +57,7 @@
                     <ul class="nav nav-tabs">
                         <li class="active"><a href="#settings" data-toggle="tab" aria-expanded="true">Account Settings</a></li>
                         <li class=""><a href="#api" data-toggle="tab" aria-expanded="false">API Credentials</a></li>
+                        <li class=""><a href="#data" data-toggle="tab" aria-expanded="false">Manage collected data</a></li>
                     </ul>
                     <div class="tab-content">
                         <div class="tab-pane active" id="settings">
@@ -109,6 +110,15 @@
                             </div>
                             <div class="clearfix"></div>
                         </form>
+
+
+                        <form method="post" action="<?= admin_url('account/setupTwoFactor') ?>">
+                                <h4 class="lead"> <i class="fa fa-user"></i> Login security</h4>
+                                <div class="form-group  col-md-6">
+                                    <button type="submit" class="btn btn-raised btn-primary btn-flat"><i class="fa fa-save"></i> Setup 2FA</button>
+                                </div>
+                        </form>
+                        <div class="clearfix"></div>
                         </div>
 
                         <div class="tab-pane" id="api">
@@ -128,6 +138,22 @@
                                 <p> &nbsp; </p>
                             <?php endif; ?>
                         </div>
+                        <!-- /.tab-pane -->
+                        <div class="tab-pane" id="data">
+                            <form method="post" action="">
+                                <h4 class="lead"> <i class="fa fa-user"></i> Data management</h4>
+                                <label class="control-label" for="pass"><i class="fa fa-check-circle"></i> Delete your account and all associated data</label>
+                                <div class="input-group input-group">
+                                    <input class="form-control" type="password" id="deleteAcc" name="confirm-delete" autocomplete="new-password" placeholder="Type 'yes' to confirm">
+                                    <span class="input-group-btn">
+                                      <button type="submit" name="deleteAccBtn" class="btn btn-raised btn-primary btn-flat"><i class="fa fa-save"></i> Delete account</button>
+                                    </span>
+                                </div>
+                                <div class="clearfix"></div>
+                                </div>
+                            </form>
+                            </div>
+
                         <!-- /.tab-pane -->
                     </div>
                     <!-- /.tab-content -->

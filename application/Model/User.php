@@ -1,4 +1,5 @@
 <?php
+use RobThree\Auth\TwoFactorAuth;
 
 class User extends Model {
 
@@ -466,6 +467,81 @@ class User extends Model {
         $this->db->delete('survey_email_accounts', ['user_id' => $this->id]);
 
         return parent::delete();
+    }
+
+
+    public function carefulDelete(){
+        if ($this->isSuperAdmin()) {
+            return 'A super administrator cannot be deleted. Set admin level to 1 or below to delete';
+        }
+
+        $runs = $this->getRuns();
+        foreach ($runs as $row) {
+            $run = new Run(null, $row['id']);
+            $run->emptySelf();
+            $run->deleteUnits();
+            $run->delete();
+        }
+
+        $studies = $this->getStudies('id DESC', null, 'id');
+        foreach ($studies as $row) {
+            $study = new SurveyStudy($row['id']);
+            $study->delete();
+        }
+
+        $this->delete();
+
+        return '';
+    }
+
+    public function is2FAenabled(){
+        return !($this->get2FASecret()=='');
+    }
+
+    public function get2FASecret(){
+        $secret = $this->db->find('survey_users', array('id' => $this->id), array('cols' => '2fa_code'));
+        return $secret[0]['2fa_code'];
+    }
+
+    public function set2FASecret($secret){
+        $this->db->update('survey_users', array('2fa_code' => $secret), array('id'=> $this->id), array('varchar(16)'));
+    }
+
+    public function get2FABackupCodes(){
+        $codes = $this->db->find('survey_users', array('id' => $this->id), array('cols' => 'backup_codes'));
+        return $codes[0]['backup_codes'];
+    }
+
+    public function set2FABackupCodes($codes){
+        $this->db->update('survey_users', array('backup_codes' => $codes), array('id'=> $this->id), array('varchar(255)'));
+    }
+
+    public function verify2FACode($code){
+        $backup_codes = $this->get2FABackupCodes();
+        if($backup_codes != "") {
+            // no backup codes saved
+            $backup_codes_array = explode(';', $backup_codes);
+            if (in_array($code, $backup_codes_array)){
+                $key = array_search($code, $backup_codes_array);
+                unset($backup_codes_aray[$key]);
+                $this->set2FABackupCodes(implode(';', $backup_codes_array));
+                return true;
+            }
+        }
+        $secret = $this->get2FASecret();
+        $tfa = new TwoFactorAuth();
+        return $tfa->verifyCode($secret, $code);
+    }
+
+    public function generateAndSet2FABackupCodes(){
+        $codes = [];
+        for ($i = 0; $i < 10; $i++) {
+            $randomBytes = random_bytes(3);
+            $code = strtoupper(bin2hex($randomBytes));
+            array_push($codes, $code);
+        }
+        $this->set2FABackupCodes(implode(';', $codes));
+        return $codes;
     }
 
 }
