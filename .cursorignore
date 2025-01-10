@@ -1,0 +1,14 @@
+# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
+
+/vendor/*
+webroot/assets/bower_components
+webroot/assets/build/*
+*.min.js
+*.min.css
+*.map       # Source map files for debugging minified code
+.sass-cache # Sass/SCSS compilation cache
+webroot/assets/node_modules # NPM dependencies
+webroot/assets/tmp/*       # Temporary files
+tmp/*       # Temporary files
+dist/*      # Distribution builds
+.DS_Store   # Mac OS system files
