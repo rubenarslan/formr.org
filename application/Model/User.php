@@ -387,8 +387,10 @@ class User extends Model {
             return false;
         }
         if (password_verify($token, (string)$verify_data['email_verification_hash'])) {
-            return $this->setVerified($email);
+            $result = $this->setVerified($email);
+            return $result;
         }
+        return false;
     }
 
     public function resendVerificationEmail($verificationHash) {

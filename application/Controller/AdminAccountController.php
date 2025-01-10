@@ -73,12 +73,23 @@ class AdminAccountController extends Controller {
         return $this->sendResponse();
     }
 
+    protected function minimumWait($start_time = null, $min_seconds = 1.0) {
+        if ($start_time === null) {
+            return microtime(true);
+        }
+        $elapsed = microtime(true) - $start_time;
+        if ($elapsed < $min_seconds) {
+            usleep(($min_seconds - $elapsed) * 1000000);
+        }
+    }
+
     public function loginAction() {
         if ($this->user->loggedIn()) {
             $this->request->redirect('admin/account');
         }
 
         if ($this->request->str('email') && $this->request->str('password') && filter_var($this->request->str('email'), FILTER_VALIDATE_EMAIL)) {
+            $start = $this->minimumWait(null, 0.3); // faster for login
             $info = array(
                 'email' => $this->request->str('email'),
                 'password' => $this->request->str('password'),
@@ -88,6 +99,7 @@ class AdminAccountController extends Controller {
                     // 2fa enabled, redirect to 2fa page
                     // temporary store user info in session until we confirm 2FA
                     Session::set('user_temp', serialize($this->user));
+                    $this->minimumWait($start, 0.3);
                     $this->request->redirect('admin/account/twoFactor');
                 } else {
                     // 2fa not enabled, log user in
@@ -95,11 +107,14 @@ class AdminAccountController extends Controller {
                     Session::set('user', serialize($this->user));
                     Session::setAdminCookie($this->user);
 
+                    $this->minimumWait($start, 0.3);
                     $redirect = $this->user->isAdmin() ? 'admin' : 'admin/account';
                     $this->request->redirect($redirect);
                 }
             } else {
+                $this->response->setStatusCode(Response::STATUS_UNAUTHORIZED);
                 alert(implode($this->user->errors), 'alert-danger');
+                $this->minimumWait($start, 0.3);
             }
         }
 
@@ -111,15 +126,19 @@ class AdminAccountController extends Controller {
     public function twoFactorAction() {
         $this->registerAssets('bootstrap-material-design');
         if($this->request->str('2facode')){
+            $start = $this->minimumWait(null, 0.3); // faster for 2FA
             if($this->user->verify2FACode($this->request->str('2facode'))) {
                 $this->user = unserialize(Session::get('user_temp'));
                 Session::set('user', serialize($this->user));
                 Session::setAdminCookie($this->user);
                 SESSION::delete('user_temp');
 
+                $this->minimumWait($start, 0.3);
                 $this->request->redirect('admin');
             } else {
+                $this->response->setStatusCode(Response::STATUS_UNAUTHORIZED);
                 alert('Please enter a correct 2FA code!', 'alert-danger');
+                $this->minimumWait($start, 0.3);
             }
         }
         $this->setView('admin/account/two_factor', array('alerts' => $this->site->renderAlerts()));
@@ -242,6 +261,7 @@ class AdminAccountController extends Controller {
             if ($user->register($info)) {
                 $this->request->redirect('admin/account/register');
             } else {
+                $this->response->setStatusCode(Response::STATUS_BAD_REQUEST);
                 alert(implode($user->errors), 'alert-danger');
             }
         }
@@ -257,15 +277,20 @@ class AdminAccountController extends Controller {
         $email = $this->request->str('email');
 
         if ($this->request->isHTTPGetRequest() && $this->request->str('token')) {
+            $start = $this->minimumWait(null, 1.0); // slower for security
             $user->resendVerificationEmail($this->request->str('token'));
+            $this->minimumWait($start, 1.0);
             $this->request->redirect('admin/account/login');
         } elseif (!$verification_token || !$email) {
+            $this->response->setStatusCode(Response::STATUS_BAD_REQUEST);
             alert("You need to follow the link you received in your verification mail.");
             $this->request->redirect('admin/account/login');
         } else {
+            $start = $this->minimumWait(null, 1.0); // slower for security
             $user->verifyEmail($email, $verification_token);
+            $this->minimumWait($start, 1.0);
             $this->request->redirect('admin/account/login');
-        };
+        }
     }
 
     public function forgotPasswordAction() {
@@ -274,7 +299,16 @@ class AdminAccountController extends Controller {
         }
 
         if ($this->request->str('email')) {
-            $this->user->forgotPassword($this->request->str('email'));
+            $start = $this->minimumWait(null, 1.0); // slower for security
+            if (!filter_var($this->request->str('email'), FILTER_VALIDATE_EMAIL)) {
+                $this->response->setStatusCode(Response::STATUS_UNAUTHORIZED);
+                alert('Please enter a valid email address.', 'alert-danger');
+            } else {
+                $result = $this->user->forgotPassword($this->request->str('email'));
+                $this->response->setStatusCode(Response::STATUS_UNAUTHORIZED);
+                alert('If an account exists for this email address, you will receive password reset instructions.', 'alert-info');
+            }
+            $this->minimumWait($start, 1.0);
         }
 
         $this->registerAssets('bootstrap-material-design');
@@ -292,6 +326,7 @@ class AdminAccountController extends Controller {
             alert('You need to follow the link you received in your password reset mail');
             $this->request->redirect('admin/account/forgot-password');
         } elseif ($this->request->isHTTPPostRequest()) {
+            $start = $this->minimumWait(null, 1.0); // slower for security
             $postRequest = new Request($_POST);
             $info = array(
                 'email' => $postRequest->str('email'),
@@ -300,7 +335,12 @@ class AdminAccountController extends Controller {
                 'new_password_confirm' => $postRequest->str('new_password_c'),
             );
             if (($done = $user->resetPassword($info))) {
+                $this->minimumWait($start, 1.0);
                 $this->request->redirect('admin/account/login');
+            } else {
+                alert('Invalid or expired password reset link. Please request a new one.', 'alert-danger');
+                $this->minimumWait($start, 1.0);
+                $this->request->redirect('admin/account/forgot-password');
             }
         }
 
