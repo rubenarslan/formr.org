@@ -79,7 +79,7 @@ class AdminAccountController extends Controller {
         }
         $elapsed = microtime(true) - $start_time;
         if ($elapsed < $min_seconds) {
-            usleep(($min_seconds - $elapsed) * 1000000);
+            usleep((int)(($min_seconds - $elapsed) * 1000000));
         }
     }
 
@@ -174,10 +174,18 @@ class AdminAccountController extends Controller {
 
         if($this->request->str('reset')) {
             if($this->user->verify2FACode($this->request->str('reset_code'))) {
-                $setup = $this->user->reset2FA();
-                alert('2FA has been reset. Please set up your authenticator with the new credentials.', 'alert-success');
-                Session::set('2fa_setup', $setup);
-                $this->request->redirect('admin/account/setup-two-factor');
+                // First disable 2FA completely
+                $this->user->disable2FA();
+                // Then start new setup if requested
+                if ($this->request->str('setup_new') !== null) {
+                    $setup = $this->user->setup2FA();
+                    alert('2FA has been reset. Please set up your authenticator with the new credentials.', 'alert-success');
+                    Session::set('2fa_setup', $setup);
+                    $this->request->redirect('admin/account/setup-two-factor');
+                } else {
+                    alert('2FA has been disabled.', 'alert-success');
+                    $this->request->redirect('admin/account');
+                }
             } else {
                 alert('Wrong 2FA code, try again!', 'alert-danger');
             }
@@ -200,7 +208,12 @@ class AdminAccountController extends Controller {
             if($tfa->verifyCode($setup['secret'], $this->request->str('code'))) {
                 Session::delete('2fa_setup');
                 alert('2FA setup successfully!', 'alert-success');
-                alert('Please <b>save</b> your 2FA backup codes! These are only shown <b>ONCE</b> <br/>' . implode(' ', $setup['backup_codes']), 'alert-warning');
+                alert('IMPORTANT: Save your backup codes in a secure location NOW! Store them in:<br/>
+                    - A password manager like 1Password, LastPass, or Bitwarden<br/>
+                    - An encrypted file on your computer<br/>
+                    - Print them and store in a secure physical location<br/>
+                    Your backup codes are: <b>' . implode(' ', $setup['backup_codes']) . '</b><br/>
+                    <br/>WARNING: If you lose access to your 2FA device AND your backup codes, you will need to contact an instance administrator to restore access to your account.', 'alert-warning');
                 $this->request->redirect('admin/account');
             } else {
                 alert('Wrong 2FA code, try again!', 'alert-danger');
