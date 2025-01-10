@@ -232,7 +232,7 @@ class AdminAccountController extends Controller {
 
             if ($this->request->str('reset')) {
                 if ($this->user->verify2FACode($this->request->str('reset_code'))) {
-                    if ($this->user->disable2FA()) {
+                    if ($this->user->reset2FA()) {
                         if ($this->request->str('setup_new') !== null) {
                             $this->request->redirect('admin/account/setup-two-factor');
                         } else {
@@ -252,7 +252,7 @@ class AdminAccountController extends Controller {
                 }
             } else if ($this->request->str('disable')) {
                 if ($this->user->verify2FACode($this->request->str('disable_code'))) {
-                    if ($this->user->disable2FA()) {
+                    if ($this->user->reset2FA()) {
                         alert('2FA has been disabled.', 'alert-success');
                         $this->minimumWait($start, 0.3);
                         $this->request->redirect('admin/account');

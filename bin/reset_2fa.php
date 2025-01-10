@@ -79,7 +79,7 @@ if (strtolower(trim($line)) != 'y') {
 }
 
 // Reset 2FA
-if ($user->disable2FA()) {
+if ($user->reset2FA()) {
     echo "Successfully reset 2FA for {$email}. Login in again to set up 2FA again.\n";
     exit(0);
 } else {

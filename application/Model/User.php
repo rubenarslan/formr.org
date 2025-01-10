@@ -548,11 +548,6 @@ class User extends Model {
     }
 
     public function reset2FA() {
-        // Instead of disabling, we generate new secrets
-        return $this->setup2FA();
-    }
-
-    public function disable2FA() {
         $this->set2FASecret('');
         $this->set2FABackupCodes('');
         return true;
@@ -569,11 +564,29 @@ class User extends Model {
         $this->db->update('survey_users', array('backup_codes' => $encrypted), array('id'=> $this->id), array('varchar(255)'));
     }
 
+    private function generate_code($length = 6) {
+        $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ23456789';
+        $max = strlen($alphabet) - 1;
+        $code = '';
+        
+        // We need 5.5 bits of entropy per character (log2(34)), so for 6 characters
+        // we need at least 33 bits of entropy. We'll use 5 bytes (40 bits) to be safe.
+        $randomBytes = random_bytes(5);
+        
+        // Use the random bytes to select characters from our alphabet
+        for ($i = 0; $i < $length; $i++) {
+            // Use last byte for first iteration, then shift right and use next byte
+            $byte = ord($randomBytes[$i % 5]);
+            $code .= $alphabet[$byte % 34];
+        }
+        
+        return $code;
+    }
+
     public function generateAndSet2FABackupCodes(){
         $codes = [];
         for ($i = 0; $i < 10; $i++) {
-            $randomBytes = random_bytes(3);
-            $code = strtoupper(bin2hex($randomBytes));
+            $code = $this->generate_code();
             array_push($codes, $code);
         }
         $this->set2FABackupCodes(implode(';', $codes));
