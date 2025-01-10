@@ -1,7 +1,5 @@
 <!DOCTYPE html>
-<?php
-    use chillerlan\QRCode\QRCode;
-?>
+
 <html>
     <head>
         <meta charset="utf-8">
@@ -34,7 +32,6 @@
                         <div class="fmr-intro">
                             <div class="row">
                                 <div class="fmr-intro-text">
-                                    <div class="container top-alerts"><?= Template::loadChild('public/alerts') ?></div>
                                     <div class="login-form">
                                         <span class="close"><a href="<?= site_url() ?>">&times</a></span>
                                         <div>
@@ -52,12 +49,22 @@
                                             <div class="row">
                                                 <div class="col-md-6">
                                                     <h3>Reset 2FA</h3>
-                                                    <p>If you need to set up 2FA on a new device, you can reset it here. You'll need to verify your current 2FA code first.</p>
-                                                    <form id="2faReset" name="2faReset" method="post" action="<?= admin_url('account/setupTwoFactor') ?>">
-                                                        <input type="text" name="reset_code" class="form-control" placeholder="Enter current 2FA code" required />
-                                                        <input type="hidden" name="reset" value="1" />
-                                                        <button type="submit" class="btn btn-warning">Reset 2FA</button>
-                                                    </form>
+                                                    <?php if(Config::get('2fa.required', false)): ?>
+                                                        <div class="alert alert-warning">
+                                                            Two-factor authentication is required by this instance and cannot be disabled.
+                                                        </div>
+                                                    <?php elseif($user->admin === 100): ?>
+                                                        <div class="alert alert-warning">
+                                                            For security reasons, superadmins cannot reset their 2FA through the web interface. Please use the command line tool or contact another superadmin.
+                                                        </div>
+                                                    <?php else: ?>
+                                                        <p>If you need to set up 2FA on a new device, you can reset it here. You'll need to verify your current 2FA code first.</p>
+                                                        <form id="2faReset" name="2faReset" method="post" action="<?= admin_url('account/manageTwoFactor') ?>">
+                                                            <input type="text" name="reset_code" class="form-control" placeholder="Enter current 2FA code" required />
+                                                            <input type="hidden" name="reset" value="1" />
+                                                            <button type="submit" class="btn btn-warning">Reset 2FA</button>
+                                                        </form>
+                                                    <?php endif; ?>
                                                 </div>
 
                                                 <div class="col-md-6">
@@ -66,9 +73,13 @@
                                                         <div class="alert alert-warning">
                                                             Two-factor authentication is required by this instance and cannot be disabled.
                                                         </div>
+                                                    <?php elseif($user->admin === 100): ?>
+                                                        <div class="alert alert-warning">
+                                                            For security reasons, superadmins cannot disable their 2FA through the web interface. Please use the command line tool or contact another superadmin.
+                                                        </div>
                                                     <?php else: ?>
                                                         <p>If you want to disable 2FA completely, you can do so here. You'll need to verify your current 2FA code first.</p>
-                                                        <form id="2faDisable" name="2faDisable" method="post" action="<?= admin_url('account/setupTwoFactor') ?>">
+                                                        <form id="2faDisable" name="2faDisable" method="post" action="<?= admin_url('account/manageTwoFactor') ?>">
                                                             <input type="text" name="disable_code" class="form-control" placeholder="Enter current 2FA code" required />
                                                             <input type="hidden" name="disable" value="1" />
                                                             <button type="submit" class="btn btn-danger">Disable 2FA</button>

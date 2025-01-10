@@ -43,7 +43,12 @@
                                         <?= Template::loadChild('public/alerts') ?>
                                         
                                         <div style="margin-top: 55px;">
-                                            
+                                            <div class="alert alert-info text-left">
+                                                <p><i class="fa fa-info-circle"></i> Please open your two-factor authentication app (like Google Authenticator) and enter the 6-digit code shown for formr.</p>
+                                                <p>If you have lost your 2FA device, you can use your backup codes to login.</p>
+                                                <p>If you have lost your backup codes as well, you will need to contact an instance administrator to restore access to your account.</p>
+                                                <p>Make sure to enter the code before it expires - codes typically refresh every 30 seconds.</p>
+                                            </div>
                                             <form class="" id="loginf2a" name="login2fa" method="post" action="<?= admin_url('account/twoFactor') ?>">
                                                 <div class="form-group label-floating">
                                                     <label class="control-label" for="email"><i class="fa fa-envelope"></i> 2FA Code</label>

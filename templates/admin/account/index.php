@@ -113,10 +113,30 @@
 
 
                         <form method="post" action="<?= admin_url('account/setupTwoFactor') ?>">
-                                <h4 class="lead"> <i class="fa fa-user"></i> Login security</h4>
-                                <div class="form-group  col-md-6">
-                                    <button type="submit" class="btn btn-raised btn-primary btn-flat"><i class="fa fa-save"></i> Setup 2FA</button>
-                                </div>
+                                <h4 class="lead"> <i class="fa fa-lock"></i> Login security</h4>
+                                <?php if (!Config::get('2fa.enabled', true)): ?>
+                                    <div class="alert alert-info">
+                                        <i class="fa fa-info-circle"></i> Two-factor authentication is not enabled on this instance.
+                                    </div>
+                                <?php elseif ($user->is2FAenabled()): ?>
+                                    <div class="alert alert-success">
+                                        <i class="fa fa-check-circle"></i> Two-factor authentication is enabled for your account.
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <a href="<?= admin_url('account/manage-two-factor') ?>" class="btn btn-raised btn-warning">
+                                            <i class="fa fa-cog"></i> Manage 2FA Settings
+                                        </a>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="alert alert-warning">
+                                        <i class="fa fa-warning"></i> Two-factor authentication is not enabled for your account. Enable it to add an extra layer of security.
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <a href="<?= admin_url('account/setup-two-factor') ?>" class="btn btn-raised btn-primary">
+                                            <i class="fa fa-lock"></i> Setup 2FA
+                                        </a>
+                                    </div>
+                                <?php endif; ?>
                         </form>
                         <div class="clearfix"></div>
                         </div>

@@ -1,6 +1,3 @@
-<?php
-    use chillerlan\QRCode\QRCode;
-?>
 <!DOCTYPE html>
 <html>
     <head>
@@ -36,7 +33,6 @@
                         <div class="fmr-intro">
                             <div class="row">
                                 <div class="fmr-intro-text">
-                                    <div class="container top-alerts"><?= Template::loadChild('public/alerts') ?></div>
                                     <div class="login-form">
                                         <span class="close"><a href="<?= site_url() ?>">&times</a></span>
                                         <div>
@@ -47,17 +43,23 @@
                                         <?= Template::loadChild('public/alerts') ?>
 
                                         <div style="margin-top: 15px;">
+                                            <?php if (isset($qr_url)): ?>
                                             <p>Scan the QR code below with your 2FA app (e.g. Google Authenticator) and enter the code displayed in the app to enable 2FA.</p>
                                             <?php
-                                                $site_url = parse_url(site_url(), PHP_URL_HOST);
-                                                $data = 'otpauth://totp/' . urlencode($username) . '?secret=' . Session::get('2fa_setup')['secret'] . '&issuer=' . urlencode($site_url);
-                                                echo '<img width="80%" src="'.(new QRCode)->render($data).'" alt="QR Code for 2FA code" />';
+                                                echo '<img width="80%" src="' . $qr_url . '" alt="QR Code for 2FA code" />';
                                             ?><br/>
                                             Secret: <?= Session::get('2fa_setup')['secret'] ?>
                                             <form id="2faSetup" name="2faSetup" method="post" action="<?= admin_url('account/setupTwoFactor') ?>">
                                                 <input type="text" name="code" placeholder="Enter code for confirmation" />
                                                 <input type="submit" value="Enable 2FA" />
                                             </form>
+                                            <?php else: ?>
+                                            <p>Two-factor authentication adds an extra layer of security to your account. Once enabled, you'll need both your password and a code from your authenticator app to log in.</p>
+                                            <form method="post" action="<?= admin_url('account/setupTwoFactor') ?>">
+                                                <input type="hidden" name="setup" value="1" />
+                                                <input type="submit" class="btn btn-primary" value="Begin 2FA Setup" />
+                                            </form>
+                                            <?php endif; ?>
                                         </div>
 
                                     </div>

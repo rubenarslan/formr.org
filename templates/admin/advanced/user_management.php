@@ -64,6 +64,9 @@ $has_default_email= $default_email !== null && $default_email['host'] !== null;
                                             <button type="button" class="btn api-btn hastooltip" title="Manage API Access" data-user="<?= $userx['id'] ?>" data-email="<?= h($userx['email']) ?>"><i class="fa fa-cloud"></i></button>
                                             <?php echo  $has_default_email ? '<button type="button" class="btn add-email-btn hastooltip" title="Add default email account" data-user="'. $userx['id']. '" data-email="'. h($userx['email']).'"><i class="fa fa-plus"></i> <i class="fa fa-envelope"></i></button>' :'' ?>
                                             <?php echo $userx['email_verified'] ? '' : '<button type="button" class="btn verify-email-btn hastooltip" title="Verify email address manually" data-user="'. $userx['id']. '" data-email="'. h($userx['email']).'"><i class="fa fa-envelope"></i><i class="fa fa-check"></i></button>' ?>
+                                            <?php if ($userx['admin'] != 100): ?>
+                                                <button type="button" class="btn reset-2fa-btn hastooltip" title="Reset 2FA" data-user="<?= $userx['id'] ?>" data-email="<?= h($userx['email']) ?>"><i class="fa fa-key"></i></button>
+                                            <?php endif; ?>
                                             <button type="button" class="btn del-btn hastooltip" title="Delete User" data-user="<?= $userx['id'] ?>" data-email="<?= h($userx['email']) ?>"><i class="fa fa-trash"></i></button>
                                         </td>
                                     </tr>
@@ -145,8 +148,66 @@ $has_default_email= $default_email !== null && $default_email['host'] !== null;
    </div>
 </div>
 </script>
+<script id="tpl-reset-2fa" type="text/formr">
+<div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="Reset2FA" aria-hidden="true">
+   <div class="modal-dialog">
+      <div class="modal-content">
+         <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+            <h3>Reset 2FA for '%{user}'</h3>
+         </div>
+         <div class="modal-body">
+            <h4>Are you sure you want to reset two-factor authentication for this user?</h4>
+            <div class="alert alert-warning">This will disable 2FA for the user. They will need to set it up again to use 2FA.</div>
+            <div class="form-group">
+                <label>Enter your 2FA code to confirm:</label>
+                <input type="text" class="form-control" name="admin_2fa_code" placeholder="Enter your 2FA code">
+            </div>
+            <div class="clearfix"></div>
+         </div>
+         <div class="modal-footer">
+            <button class="btn btn-warning reset-2fa-confirm" aria-hidden="true">Reset 2FA</button>
+            <button class="btn" data-dismiss="modal" aria-hidden="true">Cancel</button>
+         </div>
+      </div>
+   </div>
+</div>
+</script>
+
 <script type="text/javascript">
-    var saAjaxUrl = <?php echo json_encode(site_url('admin/advanced/ajax_admin')); ?>
+    var saAjaxUrl = <?php echo json_encode(site_url('admin/advanced/ajax_admin')); ?>;
+    
+    $(document).ready(function() {
+        // Existing code...
+        
+        $('.reset-2fa-btn').click(function() {
+            var userId = $(this).data('user');
+            var userEmail = $(this).data('email');
+            
+            var template = $('#tpl-reset-2fa').html();
+            template = template.replace(/%{user}/g, userEmail);
+            
+            var $modal = $(template);
+            $modal.modal('show');
+            
+            $modal.find('.reset-2fa-confirm').click(function() {
+                var adminCode = $modal.find('input[name="admin_2fa_code"]').val();
+                
+                $.post(saAjaxUrl, {
+                    reset_2fa: true,
+                    user_id: userId,
+                    user_email: userEmail,
+                    admin_2fa_code: adminCode
+                }, function(response) {
+                    if (response.success) {
+                        window.location.reload();
+                    } else {
+                        alert(response.message || 'Failed to reset 2FA');
+                    }
+                });
+            });
+        });
+    });
 </script>
 
 <?php Template::loadChild('admin/footer'); ?>

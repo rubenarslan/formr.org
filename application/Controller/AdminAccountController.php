@@ -161,7 +161,75 @@ class AdminAccountController extends Controller {
         }
     }
 
+    public function manageTwoFactorAction() {
+        // 1. Basic access checks
+        if (!$this->user->loggedIn()) {
+            alert('You need to be logged in to manage 2FA.', 'alert-info');
+            $this->request->redirect('login');
+        }
+
+        if (!Config::get('2fa.enabled', true)) {
+            alert('Two-factor authentication is not enabled on this instance.', 'alert-info');
+            $this->request->redirect('admin/account');
+        }
+
+        if (!$this->user->is2FAenabled()) {
+            alert('2FA is not enabled for your account.', 'alert-info');
+            $this->request->redirect('admin/account/setup-two-factor');
+        }
+
+        // Handle POST actions
+        if ($this->request->isHTTPPostRequest()) {
+            $start = $this->minimumWait(null, 0.3);
+
+            if ($this->request->str('reset')) {
+                if ($this->user->verify2FACode($this->request->str('reset_code'))) {
+                    if ($this->user->disable2FA()) {
+                        if ($this->request->str('setup_new') !== null) {
+                            $this->request->redirect('admin/account/setup-two-factor');
+                        } else {
+                            alert('2FA has been disabled.', 'alert-success');
+                            $this->minimumWait($start, 0.3);
+                            $this->request->redirect('admin/account');
+                        }
+                    } else {
+                        $this->response->setStatusCode(Response::STATUS_BAD_REQUEST);
+                        alert('Failed to disable 2FA.', 'alert-danger');
+                        $this->minimumWait($start, 0.3);
+                    }
+                } else {
+                    $this->response->setStatusCode(Response::STATUS_UNAUTHORIZED);
+                    alert('Wrong 2FA code, try again!', 'alert-danger');
+                    $this->minimumWait($start, 0.3);
+                }
+            } else if ($this->request->str('disable')) {
+                if ($this->user->verify2FACode($this->request->str('disable_code'))) {
+                    if ($this->user->disable2FA()) {
+                        alert('2FA has been disabled.', 'alert-success');
+                        $this->minimumWait($start, 0.3);
+                        $this->request->redirect('admin/account');
+                    } else {
+                        $this->response->setStatusCode(Response::STATUS_BAD_REQUEST);
+                        alert('Failed to disable 2FA.', 'alert-danger');
+                        $this->minimumWait($start, 0.3);
+                    }
+                } else {
+                    $this->response->setStatusCode(Response::STATUS_UNAUTHORIZED);
+                    alert('Wrong 2FA code, try again!', 'alert-danger');
+                    $this->minimumWait($start, 0.3);
+                }
+            }
+        }
+
+        $this->registerAssets('bootstrap-material-design');
+        $this->setView('admin/account/manage_two_factor', array(
+            'alerts' => $this->site->renderAlerts()
+        ));
+        return $this->sendResponse();
+    }
+
     public function setupTwoFactorAction() {
+        // 1. Basic access checks
         if (!$this->user->loggedIn()) {
             alert('You need to be logged in to setup 2FA.', 'alert-info');
             $this->request->redirect('login');
@@ -172,70 +240,59 @@ class AdminAccountController extends Controller {
             $this->request->redirect('admin/account');
         }
 
-        if($this->request->str('reset')) {
-            if($this->user->verify2FACode($this->request->str('reset_code'))) {
-                // First disable 2FA completely
-                $this->user->disable2FA();
-                // Then start new setup if requested
-                if ($this->request->str('setup_new') !== null) {
-                    $setup = $this->user->setup2FA();
-                    alert('2FA has been reset. Please set up your authenticator with the new credentials.', 'alert-success');
-                    Session::set('2fa_setup', $setup);
-                    $this->request->redirect('admin/account/setup-two-factor');
-                } else {
-                    alert('2FA has been disabled.', 'alert-success');
+        if ($this->user->is2FAenabled()) {
+            alert('2FA is already enabled for your account.', 'alert-info');
+            $this->request->redirect('admin/account/manage-two-factor');
+        }
+
+        // Handle POST actions
+        if ($this->request->isHTTPPostRequest()) {
+            $start = $this->minimumWait(null, 0.3);
+
+            if ($this->request->str('code')) {
+                $setup = Session::get('2fa_setup');
+                if (!$setup) {
+                    $this->response->setStatusCode(Response::STATUS_BAD_REQUEST);
+                    alert('Setup session expired. Please try again.', 'alert-danger');
+                    $this->minimumWait($start, 0.3);
                     $this->request->redirect('admin/account');
                 }
-            } else {
-                alert('Wrong 2FA code, try again!', 'alert-danger');
-            }
-        } else if($this->request->str('disable')) {
-            if($this->user->verify2FACode($this->request->str('disable_code'))) {
-                $this->user->disable2FA();
-                alert('2FA has been disabled.', 'alert-success');
-                $this->request->redirect('admin/account');
-            } else {
-                alert('Wrong 2FA code, try again!', 'alert-danger');
-            }
-        } else if($this->request->str('code')) {
-            $setup = Session::get('2fa_setup');
-            if(!$setup) {
-                alert('Setup session expired. Please try again.', 'alert-danger');
-                $this->request->redirect('admin/account');
-            }
 
-            $tfa = new TwoFactorAuth();
-            if($tfa->verifyCode($setup['secret'], $this->request->str('code'))) {
-                Session::delete('2fa_setup');
-                alert('2FA setup successfully!', 'alert-success');
-                alert('IMPORTANT: Save your backup codes in a secure location NOW! Store them in:<br/>
-                    - A password manager like 1Password, LastPass, or Bitwarden<br/>
-                    - An encrypted file on your computer<br/>
-                    - Print them and store in a secure physical location<br/>
-                    Your backup codes are: <b>' . implode(' ', $setup['backup_codes']) . '</b><br/>
-                    <br/>WARNING: If you lose access to your 2FA device AND your backup codes, you will need to contact an instance administrator to restore access to your account.', 'alert-warning');
-                $this->request->redirect('admin/account');
-            } else {
-                alert('Wrong 2FA code, try again!', 'alert-danger');
+                $tfa = new TwoFactorAuth();
+                if ($tfa->verifyCode($setup['secret'], $this->request->str('code'))) {
+                    // Save the 2FA setup
+                    $this->user->set2FASecret($setup['secret']);
+                    $this->user->set2FABackupCodes(implode(';', $setup['backup_codes']));
+                    Session::delete('2fa_setup');
+                    alert('2FA setup successfully!', 'alert-success');
+                    alert('IMPORTANT: Save your backup codes in a secure location NOW! Store them in:<br/>
+                        - A password manager like 1Password, LastPass, or Bitwarden<br/>
+                        - An encrypted file on your computer<br/>
+                        - Print them and store in a secure physical location<br/>
+                        Your backup codes are: <b>' . implode(' ', $setup['backup_codes']) . '</b><br/>
+                        <br/>WARNING: If you lose access to your 2FA device AND your backup codes, you will need to contact an instance administrator to restore access to your account.', 'alert-warning');
+                    $this->minimumWait($start, 0.3);
+                    $this->request->redirect('admin/account');
+                } else {
+                    $this->response->setStatusCode(Response::STATUS_UNAUTHORIZED);
+                    alert('Wrong 2FA code, try again!', 'alert-danger');
+                    $this->minimumWait($start, 0.3);
+                }
+            } else if ($this->request->str('setup')) {
+                $setup = $this->user->setup2FA();
+                Session::set('2fa_setup', $setup);
+                $this->minimumWait($start, 0.3);
             }
-        } else {
-            $setup = $this->user->setup2FA();
-            Session::set('2fa_setup', $setup);
         }
 
         $this->registerAssets('bootstrap-material-design');
-        if($this->user->is2FAenabled()) {
-            $this->setView('admin/account/manage_two_factor', array(
-                'alerts' => $this->site->renderAlerts()
-            ));
-        } else {
-            $this->setView('admin/account/setup_two_factor', array(
-                'alerts' => $this->site->renderAlerts(),
-                'username' => $this->user->email,
-                'qr_url' => Session::get('2fa_setup')['qr_url']
-            ));
-        }
-        return $this->sendResponse();   
+        $setup = Session::get('2fa_setup');
+        $this->setView('admin/account/setup_two_factor', array(
+            'alerts' => $this->site->renderAlerts(),
+            'username' => $this->user->email,
+            'qr_url' => $setup['qr_url'] ?? null
+        ));
+        return $this->sendResponse();
     }
 
     public function registerAction() {

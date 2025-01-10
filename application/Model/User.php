@@ -579,6 +579,7 @@ class User extends Model {
     public function disable2FA() {
         $this->set2FASecret('');
         $this->set2FABackupCodes('');
+        return true;
     }
 
     public function get2FABackupCodes(){
