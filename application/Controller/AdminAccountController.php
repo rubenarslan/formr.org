@@ -226,6 +226,12 @@ class AdminAccountController extends Controller {
             $this->request->redirect('admin/account/setup-two-factor');
         }
 
+        // Prevent superadmins from disabling their 2FA via web interface
+        if ($this->user->isSuperAdmin()) {
+            alert('Superadmins cannot disable 2FA through the web interface for security reasons.', 'alert-error');
+            $this->request->redirect('admin/account');
+        }
+
         // Handle POST actions
         if ($this->request->isHTTPPostRequest()) {
             $start = $this->minimumWait(null, 0.3);

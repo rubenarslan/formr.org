@@ -52,7 +52,7 @@
                                                 To confirm that you are the owner of this account, please enter a code from your 2FA app below.
                                                 If you don't have access to your 2FA app anymore, please contact the administrator.
                                             </p>
-                                            <form id="2faReset" name="2faReset" method="post" action="<?= admin_url('account/resetTwoFactor') ?>">
+                                            <form id="2faReset" name="2faReset" method="post" action="<?= admin_url('account/manageTwoFactor') ?>">
                                                 <input type="text" name="reset_code" placeholder="Enter code for confirmation" />
                                                 <input type="submit" value="Disable 2FA" />
                                             </form>

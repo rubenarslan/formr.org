@@ -585,7 +585,7 @@ class User extends Model {
 
     public function generateAndSet2FABackupCodes(){
         $codes = [];
-        for ($i = 0; $i < 10; $i++) {
+        for ($i = 0; $i < 5; $i++) {
             $code = $this->generate_code();
             array_push($codes, $code);
         }
