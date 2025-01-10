@@ -49,11 +49,7 @@
                                             <div class="row">
                                                 <div class="col-md-6">
                                                     <h3>Reset 2FA</h3>
-                                                    <?php if(Config::get('2fa.required', false)): ?>
-                                                        <div class="alert alert-warning">
-                                                            Two-factor authentication is required by this instance and cannot be disabled.
-                                                        </div>
-                                                    <?php elseif($user->admin === 100): ?>
+                                                    <?php if($user->admin === 100): ?>
                                                         <div class="alert alert-warning">
                                                             For security reasons, superadmins cannot reset their 2FA through the web interface. Please use the command line tool or contact another superadmin.
                                                         </div>

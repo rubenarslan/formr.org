@@ -17,6 +17,12 @@ class AdminAccountController extends Controller {
             $this->request->redirect('admin/account/login');
         }
 
+        // Check if 2FA is required but not set up
+        if (Config::get('2fa.required', false) && !$this->user->is2FAenabled()) {
+            alert('Two-factor authentication is required. Please set it up now.', 'alert-warning');
+            $this->request->redirect('admin/account/setup-two-factor');
+        }
+
         $vars = array('showform' => false);
         if ($this->request->isHTTPPostRequest()) {
             $redirect = false;
@@ -85,6 +91,11 @@ class AdminAccountController extends Controller {
 
     public function loginAction() {
         if ($this->user->loggedIn()) {
+            // Check if 2FA is required but not set up
+            if (Config::get('2fa.required', false) && !$this->user->is2FAenabled()) {
+                alert('Two-factor authentication is required. Please set it up now.', 'alert-warning');
+                $this->request->redirect('admin/account/setup-two-factor');
+            }
             $this->request->redirect('admin/account');
         }
 
@@ -101,8 +112,15 @@ class AdminAccountController extends Controller {
                     Session::set('user_temp', serialize($this->user));
                     $this->minimumWait($start, 0.3);
                     $this->request->redirect('admin/account/twoFactor');
+                } else if (Config::get('2fa.required', false)) {
+                    // 2FA is required but not set up, store user info and redirect to setup
+                    Session::set('user', serialize($this->user));
+                    Session::setAdminCookie($this->user);
+                    alert('Two-factor authentication is required. Please set it up now.', 'alert-warning');
+                    $this->minimumWait($start, 0.3);
+                    $this->request->redirect('admin/account/setup-two-factor');
                 } else {
-                    // 2fa not enabled, log user in
+                    // 2fa not enabled and not required, log user in
                     alert('<strong>Success!</strong> You were logged in!', 'alert-success');
                     Session::set('user', serialize($this->user));
                     Session::setAdminCookie($this->user);
