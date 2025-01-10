@@ -143,13 +143,42 @@ class AdminAccountController extends Controller {
 
     public function twoFactorAction() {
         $this->registerAssets('bootstrap-material-design');
+
+        // First check if we have a temporary user session
+        $temp_user_data = Session::get('user_temp');
+        if (!$temp_user_data) {
+            alert('Invalid authentication session. Please login again.', 'alert-danger');
+            $this->request->redirect('admin/account/login');
+        }
+
+        // Safely reconstruct the user object from session data
+        try {
+            $temp_user = unserialize($temp_user_data);
+            if (!($temp_user instanceof User)) {
+                $this->response->setStatusCode(Response::STATUS_UNAUTHORIZED);
+                throw new Exception('Invalid user data');
+            }
+            // Initialize a fresh user object with the stored credentials
+            $this->user = new User($temp_user->id, null);
+            if (!$this->user->email) {
+                $this->response->setStatusCode(Response::STATUS_UNAUTHORIZED);
+                throw new Exception('Invalid user data');
+            }
+        } catch (Exception $e) {
+            Session::delete('user_temp');
+            $this->response->setStatusCode(Response::STATUS_UNAUTHORIZED);
+            alert('Invalid session data. Please login again.', 'alert-danger');
+            $this->request->redirect('admin/account/login');
+        }
+
         if($this->request->str('2facode')){
             $start = $this->minimumWait(null, 0.3); // faster for 2FA
+            
             if($this->user->verify2FACode($this->request->str('2facode'))) {
-                $this->user = unserialize(Session::get('user_temp'));
+                // On successful 2FA, store only the minimum required user data
                 Session::set('user', serialize($this->user));
                 Session::setAdminCookie($this->user);
-                SESSION::delete('user_temp');
+                Session::delete('user_temp'); // Fix the typo and clean up temp session
 
                 $this->minimumWait($start, 0.3);
                 $this->request->redirect('admin');
@@ -159,6 +188,7 @@ class AdminAccountController extends Controller {
                 $this->minimumWait($start, 0.3);
             }
         }
+
         $this->setView('admin/account/two_factor', array('alerts' => $this->site->renderAlerts()));
         return $this->sendResponse();
     }
