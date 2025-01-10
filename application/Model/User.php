@@ -496,31 +496,6 @@ class User extends Model {
         return '';
     }
 
-    protected function getEncryptionKey() {
-        $keyFile = Config::get('2fa.encryption_key_file', APPLICATION_ROOT . 'formr-2fa.key');
-        if (!file_exists($keyFile)) {
-            $key = random_bytes(32);
-            file_put_contents($keyFile, $key);
-            chmod($keyFile, 0640);
-        }
-        return file_get_contents($keyFile);
-    }
-
-    protected function encrypt($data) {
-        $key = $this->getEncryptionKey();
-        $iv = random_bytes(16);
-        $encrypted = openssl_encrypt($data, 'AES-256-CBC', $key, 0, $iv);
-        return base64_encode($iv . $encrypted);
-    }
-
-    protected function decrypt($data) {
-        $key = $this->getEncryptionKey();
-        $data = base64_decode($data);
-        $iv = substr($data, 0, 16);
-        $encrypted = substr($data, 16);
-        return openssl_decrypt($encrypted, 'AES-256-CBC', $key, 0, $iv);
-    }
-
     public function is2FAenabled() {
         return !empty($this->get2FASecret());
     }
@@ -528,11 +503,11 @@ class User extends Model {
     public function get2FASecret() {
         $secret = $this->db->find('survey_users', array('id' => $this->id), array('cols' => '2fa_code'));
         $encrypted = $secret[0]['2fa_code'] ?? '';
-        return $encrypted ? $this->decrypt($encrypted) : '';
+        return $encrypted ? Crypto::decrypt($encrypted) : '';
     }
 
     public function set2FASecret($secret) {
-        $encrypted = $secret ? $this->encrypt($secret) : '';
+        $encrypted = $secret ? Crypto::encrypt($secret) : '';
         $this->db->update('survey_users', array('2fa_code' => $encrypted), array('id'=> $this->id), array('varchar(255)'));
     }
 
@@ -586,11 +561,11 @@ class User extends Model {
     public function get2FABackupCodes(){
         $codes = $this->db->find('survey_users', array('id' => $this->id), array('cols' => 'backup_codes'));
         $encrypted = $codes[0]['backup_codes'] ?? '';
-        return $encrypted ? $this->decrypt($encrypted) : '';
+        return $encrypted ? Crypto::decrypt($encrypted) : '';
     }
 
     public function set2FABackupCodes($codes){
-        $encrypted = $codes ? $this->encrypt($codes) : '';
+        $encrypted = $codes ? Crypto::encrypt($codes) : '';
         $this->db->update('survey_users', array('backup_codes' => $encrypted), array('id'=> $this->id), array('varchar(255)'));
     }
 
