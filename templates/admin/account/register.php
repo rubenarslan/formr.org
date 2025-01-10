@@ -75,6 +75,18 @@
                                                     <label><input type="checkbox" name="agree_tos" value="1" required> I agree to the <a href="/tos">terms and conditions</a> and the <a href="/privacy">privacy</a> policy.
                                                 </div>
 
+                                                <?php if(Config::get('2fa.enabled', true) && Config::get('2fa.allow_during_signup', false)): ?>
+                                                <div class="form-group">
+                                                    <label><input type="checkbox" name="setup_2fa" value="1" <?php echo Config::get('2fa.required', false) ? 'required checked disabled' : ''; ?>> 
+                                                    Enable Two-Factor Authentication (2FA) 
+                                                    <?php if(Config::get('2fa.required', false)): ?>
+                                                        <span class="text-muted">(required)</span>
+                                                    <?php endif; ?>
+                                                    </label>
+                                                    <p class="help-block">You will be prompted to set up 2FA after email verification.</p>
+                                                </div>
+                                                <?php endif; ?>
+
                                                 <button type="submit" class="btn btn-sup btn-material-pink btn-raised"><i class="fa fa-pencil fa-fw"></i> Sign Up</button>
                                             </form>
                                             <p>&nbsp;</p>

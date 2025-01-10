@@ -304,3 +304,11 @@ $settings['copy_context'] = array(
 		"verify_peer_name" => false,
 	)
 );
+
+// Settings for 2FA
+$settings['2fa'] = array(
+    'enabled' => true, // whether 2FA is enabled for the instance
+    'required' => false, // whether 2FA is required for all users
+    'allow_during_signup' => false, // whether users can set up 2FA during signup
+    'encryption_key_file' => null, // path to encryption key file for TOTP secrets, defaults to {APPLICATION_ROOT}/formr-2fa.key
+);

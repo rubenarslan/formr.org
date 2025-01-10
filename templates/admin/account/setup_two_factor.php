@@ -49,10 +49,11 @@
                                         <div style="margin-top: 15px;">
                                             <p>Scan the QR code below with your 2FA app (e.g. Google Authenticator) and enter the code displayed in the app to enable 2FA.</p>
                                             <?php
-                                                $data = 'otpauth://totp/' . $username . '?secret=' . Session::get('2fa_secret') . '&issuer=formr';
+                                                $site_url = parse_url(site_url(), PHP_URL_HOST);
+                                                $data = 'otpauth://totp/' . urlencode($username) . '?secret=' . Session::get('2fa_setup')['secret'] . '&issuer=' . urlencode($site_url);
                                                 echo '<img width="80%" src="'.(new QRCode)->render($data).'" alt="QR Code for 2FA code" />';
                                             ?><br/>
-                                            Secret: <?= Session::get('2fa_secret') ?>
+                                            Secret: <?= Session::get('2fa_setup')['secret'] ?>
                                             <form id="2faSetup" name="2faSetup" method="post" action="<?= admin_url('account/setupTwoFactor') ?>">
                                                 <input type="text" name="code" placeholder="Enter code for confirmation" />
                                                 <input type="submit" value="Enable 2FA" />

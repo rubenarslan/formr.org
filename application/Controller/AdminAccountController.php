@@ -148,39 +148,60 @@ class AdminAccountController extends Controller {
             $this->request->redirect('login');
         }
 
-        $tfa = new TwoFactorAuth();
+        if (!Config::get('2fa.enabled', true)) {
+            alert('Two-factor authentication is not enabled on this instance.', 'alert-info');
+            $this->request->redirect('admin/account');
+        }
 
-        if($this->request->str('reset_code')) {
+        if($this->request->str('reset')) {
             if($this->user->verify2FACode($this->request->str('reset_code'))) {
-                $this->user->set2FAsecret('');
-                $this->user->set2FABackupCodes('');
-                alert('2FA reset successfully!', 'alert-success');
+                $setup = $this->user->reset2FA();
+                alert('2FA has been reset. Please set up your authenticator with the new credentials.', 'alert-success');
+                Session::set('2fa_setup', $setup);
+                $this->request->redirect('admin/account/setup-two-factor');
+            } else {
+                alert('Wrong 2FA code, try again!', 'alert-danger');
+            }
+        } else if($this->request->str('disable')) {
+            if($this->user->verify2FACode($this->request->str('disable_code'))) {
+                $this->user->disable2FA();
+                alert('2FA has been disabled.', 'alert-success');
                 $this->request->redirect('admin/account');
             } else {
                 alert('Wrong 2FA code, try again!', 'alert-danger');
             }
         } else if($this->request->str('code')) {
-            $secret = Session::get('2fa_secret');
-            $result = $tfa->verifyCode($secret, $this->request->str('code'));
-            if($result) {
-                $backupCodes = join(' ', $this->user->generateAndSet2FABackupCodes());
-                $this->user->set2FAsecret(Session::get('2fa_secret'));
-                Session::delete('2fa_secret');
+            $setup = Session::get('2fa_setup');
+            if(!$setup) {
+                alert('Setup session expired. Please try again.', 'alert-danger');
+                $this->request->redirect('admin/account');
+            }
+
+            $tfa = new TwoFactorAuth();
+            if($tfa->verifyCode($setup['secret'], $this->request->str('code'))) {
+                Session::delete('2fa_setup');
                 alert('2FA setup successfully!', 'alert-success');
-                alert('Please <b>save</b> your 2FA backup codes! These are only shown <b>ONCE</b> <br/>' . $backupCodes, 'alert-warning');
+                alert('Please <b>save</b> your 2FA backup codes! These are only shown <b>ONCE</b> <br/>' . implode(' ', $setup['backup_codes']), 'alert-warning');
                 $this->request->redirect('admin/account');
             } else {
                 alert('Wrong 2FA code, try again!', 'alert-danger');
             }
         } else {
-            Session::set('2fa_secret', $tfa->createSecret());
+            $setup = $this->user->setup2FA();
+            Session::set('2fa_setup', $setup);
         }
 
         $this->registerAssets('bootstrap-material-design');
         if($this->user->is2FAenabled()) {
-            $this->setView('admin/account/reset_two_factor', array('alerts' => $this->site->renderAlerts()));
+            $this->setView('admin/account/manage_two_factor', array(
+                'alerts' => $this->site->renderAlerts()
+            ));
         } else {
-            $this->setView('admin/account/setup_two_factor', array('alerts' => $this->site->renderAlerts(), 'username' => $this->user->email));
+            $this->setView('admin/account/setup_two_factor', array(
+                'alerts' => $this->site->renderAlerts(),
+                'username' => $this->user->email,
+                'qr_url' => Session::get('2fa_setup')['qr_url']
+            ));
         }
         return $this->sendResponse();   
     }
@@ -279,7 +300,7 @@ class AdminAccountController extends Controller {
                 'new_password_confirm' => $postRequest->str('new_password_c'),
             );
             if (($done = $user->resetPassword($info))) {
-                $this->request->redirect('admin/account/forgot-password');
+                $this->request->redirect('admin/account/login');
             }
         }
 

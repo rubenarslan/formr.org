@@ -494,43 +494,100 @@ class User extends Model {
         return '';
     }
 
-    public function is2FAenabled(){
-        return !($this->get2FASecret()=='');
+    protected function getEncryptionKey() {
+        $keyFile = Config::get('2fa.encryption_key_file', APPLICATION_ROOT . 'formr-2fa.key');
+        if (!file_exists($keyFile)) {
+            $key = random_bytes(32);
+            file_put_contents($keyFile, $key);
+            chmod($keyFile, 0640);
+        }
+        return file_get_contents($keyFile);
     }
 
-    public function get2FASecret(){
+    protected function encrypt($data) {
+        $key = $this->getEncryptionKey();
+        $iv = random_bytes(16);
+        $encrypted = openssl_encrypt($data, 'AES-256-CBC', $key, 0, $iv);
+        return base64_encode($iv . $encrypted);
+    }
+
+    protected function decrypt($data) {
+        $key = $this->getEncryptionKey();
+        $data = base64_decode($data);
+        $iv = substr($data, 0, 16);
+        $encrypted = substr($data, 16);
+        return openssl_decrypt($encrypted, 'AES-256-CBC', $key, 0, $iv);
+    }
+
+    public function is2FAenabled() {
+        return !empty($this->get2FASecret());
+    }
+
+    public function get2FASecret() {
         $secret = $this->db->find('survey_users', array('id' => $this->id), array('cols' => '2fa_code'));
-        return $secret[0]['2fa_code'];
+        $encrypted = $secret[0]['2fa_code'] ?? '';
+        return $encrypted ? $this->decrypt($encrypted) : '';
     }
 
-    public function set2FASecret($secret){
-        $this->db->update('survey_users', array('2fa_code' => $secret), array('id'=> $this->id), array('varchar(16)'));
+    public function set2FASecret($secret) {
+        $encrypted = $secret ? $this->encrypt($secret) : '';
+        $this->db->update('survey_users', array('2fa_code' => $encrypted), array('id'=> $this->id), array('varchar(255)'));
     }
 
-    public function get2FABackupCodes(){
-        $codes = $this->db->find('survey_users', array('id' => $this->id), array('cols' => 'backup_codes'));
-        return $codes[0]['backup_codes'];
-    }
-
-    public function set2FABackupCodes($codes){
-        $this->db->update('survey_users', array('backup_codes' => $codes), array('id'=> $this->id), array('varchar(255)'));
-    }
-
-    public function verify2FACode($code){
+    public function verify2FACode($code) {
+        // First check backup codes
         $backup_codes = $this->get2FABackupCodes();
-        if($backup_codes != "") {
-            // no backup codes saved
+        if(!empty($backup_codes)) {
             $backup_codes_array = explode(';', $backup_codes);
-            if (in_array($code, $backup_codes_array)){
+            if (in_array($code, $backup_codes_array)) {
                 $key = array_search($code, $backup_codes_array);
-                unset($backup_codes_aray[$key]);
+                unset($backup_codes_array[$key]);
                 $this->set2FABackupCodes(implode(';', $backup_codes_array));
                 return true;
             }
         }
+
+        // Then check TOTP
         $secret = $this->get2FASecret();
+        if (empty($secret)) {
+            return false;
+        }
+        
         $tfa = new TwoFactorAuth();
-        return $tfa->verifyCode($secret, $code);
+        return $tfa->verifyCode($secret, $code, 2); // 2 * 30sec time window
+    }
+
+    public function setup2FA() {
+        $tfa = new TwoFactorAuth();
+        $secret = $tfa->createSecret();
+        $this->set2FASecret($secret);
+        $backup_codes = $this->generateAndSet2FABackupCodes();
+        return array(
+            'secret' => $secret,
+            'backup_codes' => $backup_codes,
+            'qr_url' => $tfa->getQRCodeImageAsDataUri($this->email, $secret)
+        );
+    }
+
+    public function reset2FA() {
+        // Instead of disabling, we generate new secrets
+        return $this->setup2FA();
+    }
+
+    public function disable2FA() {
+        $this->set2FASecret('');
+        $this->set2FABackupCodes('');
+    }
+
+    public function get2FABackupCodes(){
+        $codes = $this->db->find('survey_users', array('id' => $this->id), array('cols' => 'backup_codes'));
+        $encrypted = $codes[0]['backup_codes'] ?? '';
+        return $encrypted ? $this->decrypt($encrypted) : '';
+    }
+
+    public function set2FABackupCodes($codes){
+        $encrypted = $codes ? $this->encrypt($codes) : '';
+        $this->db->update('survey_users', array('backup_codes' => $encrypted), array('id'=> $this->id), array('varchar(255)'));
     }
 
     public function generateAndSet2FABackupCodes(){

@@ -142,7 +142,7 @@
                         <div class="tab-pane" id="data">
                             <form method="post" action="">
                                 <h4 class="lead"> <i class="fa fa-user"></i> Data management</h4>
-                                <label class="control-label" for="pass"><i class="fa fa-check-circle"></i> Delete your account and all associated data</label>
+                                <label class="control-label" for="deleteAcc"><i class="fa fa-check-circle"></i> Delete your account and all associated data</label>
                                 <div class="input-group input-group">
                                     <input class="form-control" type="password" id="deleteAcc" name="confirm-delete" autocomplete="new-password" placeholder="Type 'yes' to confirm">
                                     <span class="input-group-btn">
@@ -150,10 +150,8 @@
                                     </span>
                                 </div>
                                 <div class="clearfix"></div>
-                                </div>
                             </form>
-                            </div>
-
+                        </div>
                         <!-- /.tab-pane -->
                     </div>
                     <!-- /.tab-content -->
