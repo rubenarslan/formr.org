@@ -560,7 +560,8 @@ class User extends Model {
     }
 
     public function setup2FA() {
-        $tfa = new TwoFactorAuth();
+        $site_url = parse_url(site_url(), PHP_URL_HOST);
+        $tfa = new TwoFactorAuth($site_url);
         $secret = $tfa->createSecret();
         $this->set2FASecret($secret);
         $backup_codes = $this->generateAndSet2FABackupCodes();
