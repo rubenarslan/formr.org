@@ -52,7 +52,7 @@
                                             <form class="" id="loginf2a" name="login2fa" method="post" action="<?= admin_url('account/twoFactor') ?>">
                                                 <div class="form-group label-floating">
                                                     <label class="control-label" for="email"><i class="fa fa-envelope"></i> 2FA Code</label>
-                                                    <input class="form-control" type="text" id="2facode" name="2facode">
+                                                    <input class="form-control" type="text" id="2facode" name="2facode" autocomplete="one-time-code">
                                                 </div>
 
                                                 <button type="submit" class="btn btn-sup btn-material-pink btn-raised">Login</button>

@@ -26,33 +26,74 @@ class AdminAccountController extends Controller {
         $vars = array('showform' => false);
         if ($this->request->isHTTPPostRequest()) {
             $redirect = false;
-            $oldEmail = $this->user->email;
-
-            // Change basic info + email
-            $change = $this->user->changeData($this->request->str('password'), $this->request->getParams());
-            if (!$change) {
-                alert(nl2br(implode("\n", $this->user->errors)), 'alert-danger');
-                $vars['showform'] = 'show-form';
-            } elseif ($oldEmail != $this->request->str('new_email')) {
-                $redirect = 'logout';
+            
+            // Handle account deletion
+            if ($this->request->str('delete_account')) {
+                $errors = [];
+                
+                // Verify password
+                $info = array(
+                    'email' => $this->user->email,
+                    'password' => $this->request->str('delete_password')
+                );
+                if (!$this->user->login($info)) {
+                    $errors[] = 'Incorrect password.';
+                }
+                
+                // Verify 2FA if enabled
+                if ($this->user->is2FAenabled()) {
+                    if (!$this->user->verify2FACode($this->request->str('delete_2fa'))) {
+                        $errors[] = 'Invalid 2FA code.';
+                    }
+                }
+                
+                // Verify confirmation text
+                if ($this->request->str('delete_confirm') !== 'I understand my data will be gone') {
+                    $errors[] = 'Please type exactly "I understand my data will be gone" to confirm deletion.';
+                }
+                
+                if (empty($errors)) {
+                    $result = $this->user->carefulDelete();
+                    if ($result === '') {
+                        alert('Your account has been successfully deleted.', 'alert-success');
+                        $this->request->redirect('admin/account/logout');
+                        return;
+                    } else {
+                        alert($result, 'alert-danger');
+                    }
+                } else {
+                    alert('Account deletion failed:<br>' . implode('<br>', $errors), 'alert-danger');
+                }
             }
 
-            // Change password
-            $passwords = array(
-                'email' => $this->user->email,
-                'password' => $this->request->str('password'),
-                'new_password' => $this->request->str('new_password'),
-            );
-            if ($passwords['new_password']) {
-                if ($this->request->str('new_password') !== $this->request->str('new_password_c')) {
-                    alert('The new passwords do not match', 'alert-danger');
+            // Change basic info + email
+            if ($this->request->str('password')) {
+                $oldEmail = $this->user->email;
+                $change = $this->user->changeData($this->request->str('password'), $this->request->getParams());
+                if (!$change) {
+                    alert(nl2br(implode("\n", $this->user->errors)), 'alert-danger');
                     $vars['showform'] = 'show-form';
-                } elseif ($this->user->changePassword($passwords)) {
-                    alert('<strong>Success!</strong> Your password was changed! Please sign-in with your new password.', 'alert-success');
+                } elseif ($oldEmail != $this->request->str('new_email')) {
                     $redirect = 'logout';
-                } else {
-                    alert(implode($this->user->errors), 'alert-danger');
-                    $vars['showform'] = 'show-form';
+                }
+
+                // Change password
+                $passwords = array(
+                    'email' => $this->user->email,
+                    'password' => $this->request->str('password'),
+                    'new_password' => $this->request->str('new_password'),
+                );
+                if ($passwords['new_password']) {
+                    if ($this->request->str('new_password') !== $this->request->str('new_password_c')) {
+                        alert('The new passwords do not match', 'alert-danger');
+                        $vars['showform'] = 'show-form';
+                    } elseif ($this->user->changePassword($passwords)) {
+                        alert('<strong>Success!</strong> Your password was changed! Please sign-in with your new password.', 'alert-success');
+                        $redirect = 'logout';
+                    } else {
+                        alert(implode($this->user->errors), 'alert-danger');
+                        $vars['showform'] = 'show-form';
+                    }
                 }
             }
 

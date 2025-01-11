@@ -57,7 +57,7 @@
                     <ul class="nav nav-tabs">
                         <li class="active"><a href="#settings" data-toggle="tab" aria-expanded="true">Account Settings</a></li>
                         <li class=""><a href="#api" data-toggle="tab" aria-expanded="false">API Credentials</a></li>
-                        <li class=""><a href="#data" data-toggle="tab" aria-expanded="false">Manage collected data</a></li>
+                        <li class=""><a href="#data" data-toggle="tab" aria-expanded="false">Account Deletion</a></li>
                     </ul>
                     <div class="tab-content">
                         <div class="tab-pane active" id="settings">
@@ -161,15 +161,35 @@
                         <!-- /.tab-pane -->
                         <div class="tab-pane" id="data">
                             <form method="post" action="">
-                                <h4 class="lead"> <i class="fa fa-user"></i> Data management</h4>
-                                <label class="control-label" for="deleteAcc"><i class="fa fa-check-circle"></i> Delete your account and all associated data</label>
-                                <div class="input-group input-group">
-                                    <input class="form-control" type="password" id="deleteAcc" name="confirm-delete" autocomplete="new-password" placeholder="Type 'yes' to confirm">
-                                    <span class="input-group-btn">
-                                      <button type="submit" name="deleteAccBtn" class="btn btn-raised btn-primary btn-flat"><i class="fa fa-save"></i> Delete account</button>
-                                    </span>
+                                <h4 class="lead"> <i class="fa fa-trash"></i> Account Deletion</h4>
+                                <div class="alert alert-danger">
+                                    <strong>Warning!</strong> This action cannot be undone. All your data, including surveys, runs, and email accounts will be permanently deleted.
                                 </div>
-                                <div class="clearfix"></div>
+
+                                <div class="form-group">
+                                    <label class="control-label" for="delete_confirm">Type "I understand my data will be gone"</label>
+                                    <input class="form-control" type="text" id="delete_confirm" name="delete_confirm" required 
+                                           placeholder="I understand my data will be gone" autocomplete="off">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="control-label" for="delete_password">Current Password</label>
+                                    <input class="form-control" type="password" id="delete_password" name="delete_password" required autocomplete="current-password">
+                                </div>
+
+                                <?php if ($user->is2FAenabled()): ?>
+                                <div class="form-group">
+                                    <label class="control-label" for="delete_2fa">Two-Factor Authentication Code</label>
+                                    <input class="form-control" type="text" id="delete_2fa" name="delete_2fa" required placeholder="Enter your 2FA code" autocomplete="one-time-code">
+                                </div>
+                                <?php endif; ?>
+
+
+                                <div class="form-group">
+                                    <button type="submit" name="delete_account" value="true" class="btn btn-danger btn-raised">
+                                        <i class="fa fa-trash"></i> Permanently Delete Account
+                                    </button>
+                                </div>
                             </form>
                         </div>
                         <!-- /.tab-pane -->
