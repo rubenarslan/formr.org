@@ -31,6 +31,11 @@ class AdminAccountController extends Controller {
             if ($this->request->str('delete_account')) {
                 $errors = [];
                 
+                // Verify email
+                if ($this->request->str('delete_email') !== $this->user->email) {
+                    $errors[] = 'The email address you entered does not match your current email.';
+                }
+                
                 // Verify password
                 $info = array(
                     'email' => $this->user->email,
@@ -39,7 +44,7 @@ class AdminAccountController extends Controller {
                 if (!$this->user->login($info)) {
                     $errors[] = 'Incorrect password.';
                 }
-                
+                                
                 // Verify 2FA if enabled
                 if ($this->user->is2FAenabled()) {
                     if (!$this->user->verify2FACode($this->request->str('delete_2fa'))) {
@@ -51,7 +56,7 @@ class AdminAccountController extends Controller {
                 if ($this->request->str('delete_confirm') !== 'I understand my data will be gone') {
                     $errors[] = 'Please type exactly "I understand my data will be gone" to confirm deletion.';
                 }
-                
+                                
                 if (empty($errors)) {
                     $result = $this->user->carefulDelete();
                     if ($result === '') {

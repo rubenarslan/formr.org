@@ -166,10 +166,18 @@
                                     <strong>Warning!</strong> This action cannot be undone. All your data, including surveys, runs, and email accounts will be permanently deleted.
                                 </div>
 
+
+
                                 <div class="form-group">
                                     <label class="control-label" for="delete_confirm">Type "I understand my data will be gone"</label>
                                     <input class="form-control" type="text" id="delete_confirm" name="delete_confirm" required 
                                            placeholder="I understand my data will be gone" autocomplete="off">
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="control-label" for="delete_email">Type your current email address</label>
+                                    <input class="form-control" type="text" id="delete_email" name="delete_email" required 
+                                           placeholder="<?= h($user->email) ?>" autocomplete="off">
                                 </div>
                                 
                                 <div class="form-group">
