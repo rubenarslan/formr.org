@@ -37,3 +37,4 @@ formr.feature_dockerprep.version
 webroot/study
 bin/create-named-sessions.php
 tests/.phpunit.result.cache
+.vscode/launch.json

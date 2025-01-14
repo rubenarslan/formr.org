@@ -47,8 +47,6 @@ class Run extends Model {
     public $osf_project_id = null;
     public $footer_text = null;
     public $public_blurb = null;
-    public $privacy = null;
-    public $tos = null;
     public $use_material_design = false;
     public $expire_cookie = 0;
     public $expire_cookie_value = 0;
@@ -75,8 +73,10 @@ class Run extends Model {
         "custom_js", "cron_active", "osf_project_id",
         "use_material_design", "expire_cookie",
         "expire_cookie_value", "expire_cookie_unit",
+        "expiresOn",
     );
     public $renderedDescAndFooterAlready = false;
+    public $expiresOn = null;
 
     /**
      *
@@ -113,9 +113,11 @@ class Run extends Model {
             return;
         }
 
-        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie";
+        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie, expiresOn";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
+
+        $vars['expiresOn'] = date('Y-m-d', strtotime($vars['expiresOn']));
 
         if ($vars) {
             $this->assignProperties($vars);
@@ -158,9 +160,10 @@ class Run extends Model {
 
     public function delete() {
         try {
+            $this->deleteFiles();
+
             $this->db->delete('survey_runs', array('id' => $this->id));
             alert("<strong>Success.</strong> Successfully deleted run '{$this->name}'.", 'alert-success');
-            $this->deleteFiles();
             return true;
         } catch (Exception $e) {
             formr_log_exception($e, __METHOD__);
@@ -208,8 +211,9 @@ class Run extends Model {
             'modified' => mysql_now(),
             'api_secret_hash' => $new_secret,
             'cron_active' => 1,
-            'use_material_design' => 0,
+            'use_material_design' => 1,
             'expire_cookie' => 0,
+            'expiresOn' => $options['expiresOn'],
             'public' => 0,
             'footer_text' => "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
             'footer_text_parsed' => "Remember to add your contact info here! Contact the <a href='mailto:email@example.com'>study administration</a> in case of questions.",
@@ -722,20 +726,30 @@ class Run extends Model {
                     $value = $asset_path;
                 }
             }
-
-            $updates[$name] = $value;
+            if($name!='expiresOn'){
+                $updates[$name] = $value;
+            }
         }
+
+        $error = '';
+
+        if (!$posted['expiresOn']){
+            $error = 'The expiration date must be in a valid format.';
+        } elseif ($posted['expiresOn'] < date('Y-m-d', time())){
+            $error = 'The expiration date cant be in the past.';
+        } elseif ($posted['expiresOn'] > date('Y-m-d', strtotime('+2 years'))){
+            $error = 'The expiration date should be within the next two years at the latest.';
+        } else {
+            $updates['expiresOn'] = $posted['expiresOn'];
+        }
+
 
         if ($updates) {
             $updates['modified'] = mysql_now();
             $this->db->update('survey_runs', $updates, array('id' => $this->id));
         }
 
-        if (!in_array(false, $successes)) {
-            return true;
-        }
-
-        return false;
+        return $error;
     }
 
     public function getAllSurveys() {
