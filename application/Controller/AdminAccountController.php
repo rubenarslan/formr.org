@@ -156,6 +156,7 @@ class AdminAccountController extends Controller {
                     // 2fa enabled, redirect to 2fa page
                     // temporary store user info in session until we confirm 2FA
                     Session::set('user_temp', serialize($this->user));
+                    Session::set('2fa_login_started', time()); // Track when 2FA login started
                     $this->minimumWait($start, 0.3);
                     $this->request->redirect('admin/account/twoFactor');
                 } else if (Config::get('2fa.required', false)) {
@@ -188,6 +189,13 @@ class AdminAccountController extends Controller {
     }
 
     public function twoFactorAction() {
+        $login_started = Session::get('2fa_login_started');
+        if (!$login_started || (time() - $login_started > 300)) { // 5 minute timeout
+            Session::delete('user_temp');
+            Session::delete('2fa_login_started');
+            alert('2FA session expired. Please login again.', 'alert-danger');
+            $this->request->redirect('admin/account/login');
+        }
         $this->registerAssets('bootstrap-material-design');
 
         // First check if we have a temporary user session
@@ -212,19 +220,30 @@ class AdminAccountController extends Controller {
             }
         } catch (Exception $e) {
             Session::delete('user_temp');
+            Session::delete('2fa_login_started');
             $this->response->setStatusCode(Response::STATUS_UNAUTHORIZED);
             alert('Invalid session data. Please login again.', 'alert-danger');
             $this->request->redirect('admin/account/login');
         }
 
         if($this->request->str('2facode')){
+            // Check 2FA timeout again before processing code
+            if (time() - $login_started > 300) {
+                Session::delete('user_temp');
+                Session::delete('2fa_login_started');
+                alert('2FA session expired. Please login again.', 'alert-danger');
+                $this->request->redirect('admin/account/login');
+            }
+            
             $start = $this->minimumWait(null, 0.3); // faster for 2FA
             
             if($this->user->verify2FACode($this->request->str('2facode'))) {
+                alert('<strong>Success!</strong> You were logged in!', 'alert-success');
                 // On successful 2FA, store only the minimum required user data
                 Session::set('user', serialize($this->user));
                 Session::setAdminCookie($this->user);
-                Session::delete('user_temp'); // Fix the typo and clean up temp session
+                Session::delete('user_temp');
+                Session::delete('2fa_login_started');
 
                 $this->minimumWait($start, 0.3);
                 $this->request->redirect('admin');
