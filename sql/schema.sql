@@ -182,6 +182,7 @@ CREATE TABLE `survey_runs` (
   `cron_fork` tinyint(3) unsigned NOT NULL DEFAULT '1',
   `use_material_design` tinyint(1) NOT NULL DEFAULT '0',
   `expire_cookie` INT UNSIGNED NOT NULL DEFAULT '0',
+  `expiresOn` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `fk_runs_survey_users1_idx` (`user_id`),
   KEY `fk_survey_runs_survey_units1_idx` (`reminder_email`),
@@ -654,5 +655,31 @@ CREATE TABLE `survey_settings` (
   `value` text COLLATE utf8mb4_unicode_ci NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `setting` (`setting`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Table structure for table `user_uploaded_files`
+--
+
+CREATE TABLE `user_uploaded_files` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `study_id` INT UNSIGNED NULL,
+  `unit_session_id` INT UNSIGNED NULL,
+  `original_filename` VARCHAR(255) NOT NULL,
+  `stored_path` VARCHAR(1000) NOT NULL,
+  `created` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  INDEX `idx_user_uploaded_files_study` (`study_id`),
+  INDEX `idx_user_uploaded_files_session` (`unit_session_id`),
+  CONSTRAINT `fk_user_uploaded_files_study`
+      FOREIGN KEY (`study_id`)
+      REFERENCES `survey_studies` (`id`)
+      ON DELETE SET NULL
+      ON UPDATE NO ACTION,
+  CONSTRAINT `fk_user_uploaded_files_session`
+      FOREIGN KEY (`unit_session_id`)
+      REFERENCES `survey_unit_sessions` (`id`)
+      ON DELETE SET NULL
+      ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

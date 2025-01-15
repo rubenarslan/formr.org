@@ -419,7 +419,7 @@ class UnitSession extends Model {
                     if ($item instanceof File_Item) {
                         $fileInfo = $item->getFileInfo();
                         if ($fileInfo) {
-                            $this->db->insert('survey_uploaded_files', array_merge($fileInfo, [
+                            $this->db->insert('user_uploaded_files', array_merge($fileInfo, [
                                 'study_id' => $study->id,
                                 'unit_session_id' => $this->id,
                                 'created' => mysql_now()
