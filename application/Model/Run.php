@@ -62,8 +62,8 @@ class Run extends Model {
     protected $description_parsed = null;
     protected $footer_text_parsed = null;
     protected $public_blurb_parsed = null;
-    protected $privacy = null;
-    protected $tos = null;
+    public $privacy = null;
+    public $tos = null;
     protected $privacy_parsed = null;
     protected $tos_parsed = null;
     protected $api_secret_hash = null;
