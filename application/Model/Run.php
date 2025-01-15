@@ -1036,6 +1036,22 @@ class Run extends Model {
         return $export;
     }
 
+    public function exportStructure() {
+        $unitIds = $this->getAllUnitTypes();
+        $units = array();
+
+        /* @var RunUnit $u */
+        foreach ($unitIds as $u) {
+            $unit = RunUnitFactory::make($this, $u);
+            $ex_unit = $unit->getExportUnit();
+            $ex_unit['unit_id'] = $unit->id;
+            $units[] = (object) $ex_unit;
+        }
+        $export = $this->export($this->name, $units, true);
+
+        return $export;
+    }
+
     /**
      * Import a set of run units into current run by parsing a valid json string.
      * Existing exported run units are read from configured dir $settings[run_exports_dir]

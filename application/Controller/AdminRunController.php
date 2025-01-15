@@ -331,6 +331,13 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
+    private function exportRunStructureAction() {
+        $run = $this->run;
+        $export = $run->exportStructure();
+        $SPR = new SpreadsheetReader();
+        $SPR->exportJSON($export, $run->name);
+    }
+
     private function exportDataAction() {
         $run = $this->run;
         $format = $this->request->str('format');
