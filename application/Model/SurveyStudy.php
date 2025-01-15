@@ -1070,13 +1070,19 @@ class SurveyStudy extends Model {
     }
 
     /**
+     * Fetch all uploaded files associated with this study
+     */
+    public function getUploadedFiles() {
+        return $this->db->select(['id', 'study_id', 'unit_session_id', 'original_filename', 'created', 'stored_path'])
+            ->from('user_uploaded_files')
+            ->where(['study_id' => $this->id]);
+    }
+
+    /**
      * Delete all uploaded files associated with this study
      */
     protected function deleteUploadedFiles() {
-        $files = $this->db->select('stored_path')
-            ->from('survey_uploaded_files')
-            ->where(['study_id' => $this->id])
-            ->fetchAll();
+        $files = $this->getUploadedFiles()->fetchAll();
 
         foreach ($files as $file) {
             $filepath = APPLICATION_ROOT . $file['stored_path'];
