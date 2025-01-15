@@ -62,6 +62,8 @@ class Run extends Model {
     protected $description_parsed = null;
     protected $footer_text_parsed = null;
     protected $public_blurb_parsed = null;
+    protected $privacy = null;
+    protected $tos = null;
     protected $privacy_parsed = null;
     protected $tos_parsed = null;
     protected $api_secret_hash = null;
@@ -116,8 +118,10 @@ class Run extends Model {
         $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie, expiresOn";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
-
-        $vars['expiresOn'] = date('Y-m-d', strtotime($vars['expiresOn']));
+        
+        if($vars['expiresOn'] !== null) {
+            $vars['expiresOn'] = date('Y-m-d', strtotime($vars['expiresOn']));
+        }
 
         if ($vars) {
             $this->assignProperties($vars);
