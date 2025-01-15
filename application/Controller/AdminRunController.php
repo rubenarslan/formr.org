@@ -331,12 +331,6 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
-    private function exportRunStructureAction() {
-        $run = $this->run;
-        $export = $run->exportStructure();
-        $SPR = new SpreadsheetReader();
-        $SPR->exportJSON($export, $run->name);
-    }
 
     private function exportDataAction() {
         $run = $this->run;
@@ -597,8 +591,23 @@ class AdminRunController extends AdminController {
                 $SPR->exportJSON($export, $name);
             }
         } else {
-            alert('Run Export: Missing run units or invalid run name enterd.', 'alert-danger');
+            alert('Run Export: Missing run units or invalid run name entered.', 'alert-danger');
             $this->request->redirect(admin_run_url($run->name));
+        }
+    }
+
+
+    private function exportRunStructureAction() {
+        $run = $this->run;
+        $name = $run->name;
+        $site = $this->site;
+
+        if (!($export = $run->exportStructure())) {
+            $this->response->setStatusCode(500, 'Bad Request');
+            return $this->sendResponse($site->renderAlerts());
+        } else {
+            $SPR = new SpreadsheetReader();
+            $SPR->exportJSON($export, $name);
         }
     }
 

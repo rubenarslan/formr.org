@@ -737,11 +737,14 @@ class Run extends Model {
 
         $error = '';
 
-        if (!$posted['expiresOn']){
+        if (!isset($posted['expiresOn'])) {
+            // Keep existing expiration date if not set
+            $updates['expiresOn'] = $this->expiresOn;
+        } elseif (!$posted['expiresOn']) {
             $error = 'The expiration date must be in a valid format.';
-        } elseif ($posted['expiresOn'] < date('Y-m-d', time())){
+        } elseif ($posted['expiresOn'] < date('Y-m-d', time())) {
             $error = 'The expiration date cant be in the past.';
-        } elseif ($posted['expiresOn'] > date('Y-m-d', strtotime('+2 years'))){
+        } elseif ($posted['expiresOn'] > date('Y-m-d', strtotime('+2 years'))) {
             $error = 'The expiration date should be within the next two years at the latest.';
         } else {
             $updates['expiresOn'] = $posted['expiresOn'];
@@ -1022,6 +1025,7 @@ class Run extends Model {
             'cron_active' => (int) $this->cron_active,
             'custom_js' => $this->getCustomJS(),
             'custom_css' => $this->getCustomCSS(),
+            'expiresOn' => $this->expiresOn,
         );
 
         // save run files
@@ -1046,6 +1050,7 @@ class Run extends Model {
 
         /* @var RunUnit $u */
         foreach ($unitIds as $u) {
+            $u['id'] = $u['unit_id'];
             $unit = RunUnitFactory::make($this, $u);
             $ex_unit = $unit->getExportUnit();
             $ex_unit['unit_id'] = $unit->id;
