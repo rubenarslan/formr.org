@@ -414,6 +414,18 @@ class UnitSession extends Model {
 						$answer = json_encode($answer);
 					}
                     $update_data[$item_name] = $answer;
+                    
+                    // Track uploaded files
+                    if ($item instanceof File_Item) {
+                        $fileInfo = $item->getFileInfo();
+                        if ($fileInfo) {
+                            $this->db->insert('survey_uploaded_files', array_merge($fileInfo, [
+                                'study_id' => $study->id,
+                                'unit_session_id' => $this->id,
+                                'created' => mysql_now()
+                            ]));
+                        }
+                    }
                 }
                 $item->value_validated = $item_value;
                 $items[$item_name] = $item;

@@ -958,7 +958,11 @@ class SurveyStudy extends Model {
             $this->errors[] = 'Deleting run specific results for a survey is not yet implemented';
             return false;
         } elseif ($this->backupResults()) {
+
+            // Delete results table
             $delete = $this->db->query("TRUNCATE TABLE `{$this->results_table}`");
+
+            // Delete unit sessions/long format results
             $delete_item_disp = $this->db->delete('survey_unit_sessions', array('unit_id' => $this->id));
             return $delete && $delete_item_disp;
         } else {
@@ -1057,12 +1061,29 @@ class SurveyStudy extends Model {
             if (($filename = $this->getOriginalFileName())) {
                 @unlink(Config::get('survey_upload_dir') . '/' . $filename);
             }
-            
+                        
             $this->db->query('DELETE FROM survey_items WHERE study_id = ' . $this->id);
             return $this->db->query('DELETE FROM survey_units WHERE id = ' . $this->id);
         }
         
         return false;
+    }
+
+    /**
+     * Delete all uploaded files associated with this study
+     */
+    protected function deleteUploadedFiles() {
+        $files = $this->db->select('stored_path')
+            ->from('survey_uploaded_files')
+            ->where(['study_id' => $this->id])
+            ->fetchAll();
+
+        foreach ($files as $file) {
+            $filepath = APPLICATION_ROOT . $file['stored_path'];
+            if (file_exists($filepath)) {
+                @unlink($filepath);
+            }
+        }
     }
 
     /**
