@@ -179,12 +179,17 @@ class RunExpiresOnCron extends Cron {
 
     private function processExpiredRuns() {
         try {
-            // Only get expired runs that have received at least 2 reminders
+            // Only get expired runs that have received at least 2 reminders and still have sessions
             $query = "
                 SELECT r.name, COUNT(er.id) as reminder_count
                 FROM survey_runs r
                 JOIN survey_run_expiry_reminders er ON er.run_id = r.id
                 WHERE r.expiresOn < NOW()
+                AND EXISTS (
+                    SELECT 1 
+                    FROM survey_run_sessions rs 
+                    WHERE rs.run_id = r.id
+                )
                 GROUP BY r.id
                 HAVING reminder_count >= 2
                 FOR UPDATE";
@@ -219,14 +224,13 @@ class RunExpiresOnCron extends Cron {
         }
     }
 
-    private function deleteRuns($namesOfRuns): void
-    {
-        foreach ($namesOfRuns as $runName){
+    private function deleteRuns($namesOfRuns): void {
+        foreach ($namesOfRuns as $runName) {
             $run = new Run($runName['name']);
             $email = $run->getOwner()->getEmail();
             $run->emptySelf();
             formr_log("Deleted All Data in Run {$run->name} due to expiration", 'RUN_DELETE');
-            $this->sendDeleteNotification($run,$email);
+            $this->sendDeleteNotification($run, $email);
         }
     }
 }

@@ -1148,4 +1148,13 @@ class Run extends Model {
         return sprintf('FRS_%s', $this->id);
     }
 
+    public function isEmpty(): bool {
+        $count = $this->db->select('COUNT(*) as count')
+            ->from('survey_run_sessions')
+            ->where(['run_id' => $this->id])
+            ->fetchColumn();
+        
+        return $count == 0;
+    }
+
 }
