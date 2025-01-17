@@ -1,100 +1,208 @@
 <?php
 
-class RunExpiresOnCron {
+class RunExpiresOnCron extends Cron {
+    protected $name = 'Formr.RunExpiresOnCron';
 
-    /**
-     * @var DB
-     */
-    protected $db;
-
-    /**
-     * @var Site
-     */
-    protected $site;
-
-    /**
-     * @var User
-     */
-    protected $user;
-    protected $debug = false;
-    protected $name = 'Formr.Cron';
-    protected $config = array();
-    protected $params = array();
-    protected $logfile;
-    protected $lockfile;
-    protected $start_datastamp;
-
-    public function __construct(DB $db, Site $site, User $user, $config, $params) {
-        $this->db = $db;
-        $this->site = $site;
-        $this->user = $user;
-        $this->config = $config;
-        $this->logfile = $params['logfile'];
-        $this->lockfile = $params['lockfile'];
-        $this->start_datastamp = date('r');
-
-        $this->setUp();
+    protected function process(): void {
+        $this->processReminders();
+        $this->processExpiredRuns();
     }
 
-    protected function setUp() {
-        // Check if lock exists and exit if it does to avoid running similar process
-        if ($this->lockExists()) {
-            exit(1);
-        }
+    private function processReminders() {
+        $reminderIntervals = [
+            '6_months' => 'INTERVAL 6 MONTH',
+            '2_months' => 'INTERVAL 2 MONTH',
+            '1_month' => 'INTERVAL 1 MONTH',
+            '1_week' => 'INTERVAL 1 WEEK',
+            '1_day' => 'INTERVAL 1 DAY'
+        ];
 
-        set_time_limit($this->config['ttl_cron']);
-        register_shutdown_function(array($this, 'cleanup'));
+        try {
+            foreach ($reminderIntervals as $type => $interval) {
+                // Get all runs that need this reminder and haven't received it yet
+                $query = "
+                    SELECT r.name, r.id, r.expiresOn, r.title, u.email, u.first_name, u.last_name, u.user_code
+                    FROM survey_runs r
+                    JOIN survey_users u ON r.user_id = u.id
+                    LEFT JOIN survey_run_expiry_reminders er 
+                        ON er.run_id = r.id AND er.reminder_type = :reminder_type
+                    WHERE r.expiresOn IS NOT NULL
+                        AND r.expiresOn > NOW()
+                        AND r.expiresOn <= NOW() + {$interval}
+                        AND er.id IS NULL
+                    FOR UPDATE";  // Lock these rows to prevent race conditions
+                
+                $this->db->beginTransaction();
+                try {
+                    $stmt = $this->db->prepare($query);
+                    $stmt->execute(['reminder_type' => $type]);
+                    $runsNeedingReminder = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Register signal handlers that should be able to kill the cron in case some other weird stuff happens
-        // apart from cron exiting cleanly
-        // declare signal handlers
-        if (extension_loaded('pcntl')) {
-            declare(ticks = 1);
+                    foreach ($runsNeedingReminder as $run) {
+                        // Calculate time until expiry
+                        $expiryDate = new DateTime($run['expiresOn']);
+                        $now = new DateTime();
+                        $interval = $now->diff($expiryDate);
+                        
+                        $timeUntilExpiry = $this->formatTimeUntilExpiry($interval);
 
-            pcntl_signal(SIGINT, array(&$this, 'interrupt'));
-            pcntl_signal(SIGTERM, array(&$this, 'interrupt'));
-            pcntl_signal(SIGUSR1, array(&$this, 'interrupt'));
-        } else {
-            $this->debug = true;
-            $this->dbg('pcntl extension is not loaded');
+                        // Send reminder
+                        $success = $this->sendReminderEmail(
+                            $run['email'],
+                            $run['name'],
+                            $run['title'],
+                            $run['first_name'] . ' ' . $run['last_name'],
+                            $run['expiresOn'],
+                            $timeUntilExpiry
+                        );
+
+                        if ($success) {
+                            // Record the reminder
+                            $this->db->insert('survey_run_expiry_reminders', [
+                                'run_id' => $run['id'],
+                                'reminder_type' => $type,
+                                'sent_at' => date('Y-m-d H:i:s')
+                            ]);
+                        }
+                    }
+                    $this->db->commit();
+                } catch (Exception $e) {
+                    $this->db->rollBack();
+                    formr_log("Error processing reminders for interval {$type}: " . $e->getMessage(), 'CRON_ERROR');
+                }
+            }
+
+            // Check for any runs that might have missed reminders due to expiry date changes
+            $this->processMissedReminders();
+
+        } catch (Exception $e) {
+            formr_log("Fatal error in processReminders: " . $e->getMessage(), 'CRON_ERROR');
         }
     }
 
-    public function execute() {
-        if (!$this->lock()) {
-            $this->dbg('Unable to LOCK cron.. exiting');
-            exit(1);
+    private function processMissedReminders() {
+        $intervals = [
+            ['type' => '1_day', 'days' => 1],
+            ['type' => '1_week', 'days' => 7],
+            ['type' => '1_month', 'days' => 30],
+            ['type' => '2_months', 'days' => 60],
+            ['type' => '6_months', 'days' => 180]
+        ];
+
+        foreach ($intervals as $interval) {
+            $query = "
+                SELECT r.name, r.id, r.expiresOn, r.title, u.email, u.first_name, u.last_name, u.user_code
+                FROM survey_runs r
+                JOIN survey_users u ON r.user_id = u.id
+                LEFT JOIN survey_run_expiry_reminders er 
+                    ON er.run_id = r.id AND er.reminder_type = :reminder_type
+                WHERE r.expiresOn IS NOT NULL
+                    AND r.expiresOn > NOW()
+                    AND r.expiresOn <= DATE_ADD(NOW(), INTERVAL :days DAY)
+                    AND er.id IS NULL
+                FOR UPDATE";
+
+            $this->db->beginTransaction();
+            try {
+                $stmt = $this->db->prepare($query);
+                $stmt->execute([
+                    'reminder_type' => $interval['type'],
+                    'days' => $interval['days']
+                ]);
+                $missedRuns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                foreach ($missedRuns as $run) {
+                    $expiryDate = new DateTime($run['expiresOn']);
+                    $now = new DateTime();
+                    $timeInterval = $now->diff($expiryDate);
+                    
+                    // Only send if this reminder should have already been sent
+                    if ($timeInterval->days <= $interval['days']) {
+                        $timeUntilExpiry = $this->formatTimeUntilExpiry($timeInterval);
+
+                        $success = $this->sendReminderEmail(
+                            $run['email'],
+                            $run['name'],
+                            $run['title'],
+                            $run['first_name'] . ' ' . $run['last_name'],
+                            $run['expiresOn'],
+                            $timeUntilExpiry
+                        );
+
+                        if ($success) {
+                            $this->db->insert('survey_run_expiry_reminders', [
+                                'run_id' => $run['id'],
+                                'reminder_type' => $interval['type'],
+                                'sent_at' => date('Y-m-d H:i:s')
+                            ]);
+                        }
+                    }
+                }
+                $this->db->commit();
+            } catch (Exception $e) {
+                $this->db->rollBack();
+                formr_log("Error processing missed reminders for interval {$interval['type']}: " . $e->getMessage(), 'CRON_ERROR');
+            }
         }
-
-        /** Start */
-        $this->dbg(".... RunExpiresOnCron started .... {$this->start_datastamp}");
-        $start_time = microtime(true);
-
-        /** Work */
-        $namesOfExpiredRuns = $this->getExpiredRuns();
-        $this->deleteRuns($namesOfExpiredRuns);
-        $expiredInOneWeek = $this -> getRunsExpiredInOneWeek();
-        foreach ($expiredInOneWeek as $row){
-            $run = new Run($row['name']);
-            $email = $run->getOwner()->getEmail();
-            $this->sendReminder($run, $email);
-        }
-
-        /** End */
-        $minutes = round((microtime(true) - $start_time) / 60, 3);
-        $end_date = date('r');
-        $this->dbg(".... Cron ended .... {$end_date}. Took ~{$minutes} minutes");
-
-        $this->unLock();
-        $this->cleanup();
     }
 
-    private function getExpiredRuns(){
-        return $this->db->select('name')
-            ->from('survey_runs')
-            ->where('expiresOn < NOW()')
-            ->fetchAll();
+    private function formatTimeUntilExpiry(DateInterval $interval): string {
+        if ($interval->y > 0) {
+            return "in {$interval->y} year(s)";
+        } elseif ($interval->m > 0) {
+            return "in {$interval->m} month(s)";
+        } elseif ($interval->d > 0) {
+            return "in {$interval->d} day(s)";
+        }
+        return "today";
     }
+
+    private function sendReminderEmail(string $email, string $runName, string $title, string $userName, string $expiryDate, string $timeUntilExpiry): bool {
+        $mail = $this->site->makeAdminMailer();
+        $mail->AddAddress($email);
+        $mail->Subject = "formr: Reminder! Run {$runName} will be deleted!";
+        $mail->Body = Template::get_replace('email/auto-delete-reminder.ftpl', array(
+            'user' => $userName,
+            'title' => $title,
+            'expiryDate' => $expiryDate,
+            'timeUntilExpiry' => $timeUntilExpiry
+        ));
+
+        if (!$mail->Send()) {
+            formr_log("Error sending reminder email for run {$runName}: " . $mail->ErrorInfo, 'MAIL_ERROR');
+            return false;
+        }
+
+        formr_log("A Reminder for the Run {$runName} was sent to {$email}", 'MAIL_INFO');
+        return true;
+    }
+
+    private function processExpiredRuns() {
+        try {
+            // Only get expired runs that have received at least 2 reminders
+            $query = "
+                SELECT r.name, COUNT(er.id) as reminder_count
+                FROM survey_runs r
+                JOIN survey_run_expiry_reminders er ON er.run_id = r.id
+                WHERE r.expiresOn < NOW()
+                GROUP BY r.id
+                HAVING reminder_count >= 2
+                FOR UPDATE";
+
+            $this->db->beginTransaction();
+            try {
+                $expiredRuns = $this->db->query($query);
+                $this->deleteRuns($expiredRuns);
+                $this->db->commit();
+            } catch (Exception $e) {
+                $this->db->rollBack();
+                formr_log("Error processing expired runs: " . $e->getMessage(), 'CRON_ERROR');
+            }
+        } catch (Exception $e) {
+            formr_log("Fatal error in processExpiredRuns: " . $e->getMessage(), 'CRON_ERROR');
+        }
+    }
+
     private function sendDeleteNotification(Run $run, string $email){
         $mail = $this->site->makeAdminMailer();
         $mail->AddAddress($email);
@@ -105,106 +213,20 @@ class RunExpiresOnCron {
             'expiryDate' => $run->expiresOn,
         ));
         if (!$mail->Send()) {
-            $this->dbg("Error: ". $mail->ErrorInfo);
+            formr_log("Error: ". $mail->ErrorInfo, 'MAIL_ERROR');
         }else{
-            $this->dbg("The Delete-Notification for the Run {$run->name} was send to {$email}");
+            formr_log("The Delete-Notification for the Run {$run->name} was sent to {$email}", 'MAIL_INFO');
         }
     }
+
     private function deleteRuns($namesOfRuns): void
     {
         foreach ($namesOfRuns as $runName){
             $run = new Run($runName['name']);
             $email = $run->getOwner()->getEmail();
             $run->emptySelf();
-            $this->dbg("Deleted All Data in Run {$run->name} due to expiration");
+            formr_log("Deleted All Data in Run {$run->name} due to expiration", 'RUN_DELETE');
             $this->sendDeleteNotification($run,$email);
         }
     }
-    private function getRunsExpiredInOneWeek(){
-        return $this->db->select('name')
-            ->from('survey_runs')
-            ->where('expiresOn < NOW() + INTERVAL 1 WEEK')
-            ->fetchAll();
-    }
-    private function sendReminder(Run $run, string $email){
-        $owner = $run->getOwner();
-        $mail = $this->site->makeAdminMailer();
-        $mail->AddAddress($email);
-        $mail->Subject = "formr: Reminder! Run {$run->name} will be deleted!";
-        $mail->Body = Template::get_replace('email/auto-delete-reminder.ftpl', array(
-            'user' => $owner->first_name . " " . $owner->last_name,
-            'title' => $run->title,
-            'expiryDate' => $run->expiresOn,
-        ));
-        if (!$mail->Send()) {
-            $this->dbg("Error: ". $mail->ErrorInfo);
-        }else{
-            $this->dbg("A Reminder for the Run {$run->name} was send to {$email}");
-        }
-    }
-    public function cleanup() {
-        $this->unLock();
-    }
-
-    protected function lock() {
-        return file_put_contents($this->lockfile, $this->start_datastamp);
-    }
-
-    protected function unLock() {
-        if (file_exists($this->lockfile)) {
-            unlink($this->lockfile);
-            $this->dbg(".... Cronfile cleanup complete");
-        }
-    }
-
-    protected function lockExists($lockfile = null) {
-        if ($lockfile === null) {
-            $lockfile = $this->lockfile;
-        }
-
-        if (file_exists($lockfile)) {
-            $started = file_get_contents($lockfile);
-            $this->dbg("Cron overlapped. Started: $started, Overlapped: {$this->start_datastamp}");
-
-            // hack to delete $lockfile if cron hangs for more that 30 mins
-            if ((strtotime($started) + ((int) $this->config['ttl_lockfile'] * 60)) < time()) {
-                $this->dbg("Forced delete of {$lockfile}");
-                unlink($lockfile);
-                return false;
-            }
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    /**
-     * Signal handler
-     *
-     * @param integer $signo
-     */
-    public function interrupt($signo) {
-        switch ($signo) {
-            // Set terminated flag to be able to terminate program securely
-            // to prevent from terminating in the middle of the process
-            // Use Ctrl+C to send interruption signal to a running program
-            case SIGINT:
-            case SIGTERM:
-                $this->dbg("%s Received termination signal", getmypid());
-                break;
-
-            case SIGUSR1:
-                break;
-        }
-    }
-
-    protected function dbg($message) {
-        $message = date('Y-m-d H:i:s') . ' ' . $message . "\n";
-        if ($this->logfile) {
-            return error_log($message, 3, $this->logfile);
-        }
-        // else echo to STDOUT instead
-        echo $message;
-    }
-
 }

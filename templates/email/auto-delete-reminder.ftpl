@@ -1,6 +1,6 @@
 Dear %{user},
 <br /><br />
-We hope this email finds you well. This is an automated message to inform you that one run/study you created is set to expire soon.
+We hope this email finds you well. This is an automated message to inform you that one run/study you created is set to expire %{timeUntilExpiry}.
 <br /><br />
 Survey Details:
 <br /><br />

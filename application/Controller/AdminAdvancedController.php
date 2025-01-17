@@ -158,30 +158,6 @@ class AdminAdvancedController extends AdminController {
         return $content;
     }
 
-    public function cronLogParsed() {
-        $parser = new LogParser();
-        $files = $parser->getCronLogFiles();
-        $file = $this->request->getParam('f');
-        $expand = $this->request->getParam('e');
-        $parse = null;
-        if ($file && isset($files[$file])) {
-            $parse = $file;
-        }
-
-        $this->setView('advanced/cron_log_parsed', array(
-            'files' => $files,
-            'parse' => $parse,
-            'parser' => $parser,
-            'expand_logs' => $expand,
-        ));
-
-        return $this->sendResponse();
-    }
-
-    public function cronLogAction() {
-        return $this->cronLogParsed();
-    }
-
     public function userManagementAction() {
         $table = UserHelper::getUserManagementTablePdoStatement($this->request->getParams());
         $this->setView('advanced/user_management', $table);
