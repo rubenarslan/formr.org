@@ -189,7 +189,7 @@ class Run extends Model {
         if($public > 0) {
             $run_expiry = $this->expiresOn;
             $problem = false;
-            if($run_expiry !== null && Config::get('keep_study_data_for_months_maximum') !== INF) {
+            if($run_expiry === null && Config::get('keep_study_data_for_months_maximum') !== INF) {
                 alert("You cannot make this study public yet. First, you need to define when the data can be deleted in the run settings.", 'alert-warning');
                 $problem = true;
             }
@@ -229,7 +229,7 @@ class Run extends Model {
             'modified' => mysql_now(),
             'api_secret_hash' => $new_secret,
             'cron_active' => 1,
-            'use_material_design' => 1,
+            'use_material_design' => 0,
             'expire_cookie' => 0,
             'expiresOn' => null,
             'public' => 0,

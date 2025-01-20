@@ -8,7 +8,7 @@ SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 # Expiration Cron Job at 02:08 o'clock
-8 2 * * * root php /var/www/formr/bin/cron_run_expiry.php 1>&2
+8 2 * * * www-data php /var/www/formr/bin/cron_run_expiry.php 1>&2
 
 # Cleanup orphaned files at 03:15 o'clock
-15 3 * * * root php /var/www/formr/bin/cron_cleanup_orphaned_files.php 1>&2
+15 3 * * * www-data php /var/www/formr/bin/cron_cleanup_orphaned_files.php 1>&2

@@ -15,9 +15,12 @@ class CleanupOrphanedFilesOnCron extends Cron {
             ->fetchAll();
 
         foreach ($orphanedFiles as $file) {
+            // Create absolute path by prefixing with APPLICATION_ROOT
+            $absolutePath = APPLICATION_ROOT . '/' . ltrim($file['stored_path'], '/');
+            
             // Delete physical file if it exists
-            if (file_exists($file['stored_path'])) {
-                @unlink($file['stored_path']);
+            if (file_exists($absolutePath)) {
+                @unlink($absolutePath);
             }
 
             // Delete database record

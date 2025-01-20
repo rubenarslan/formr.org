@@ -88,14 +88,14 @@ class RunExpiresOnCron extends Cron {
                 foreach ($runsNeedingAction as $run) {
                     # If the run is expired, we need to consider the reminders differently
                     if ($interval['type'] === 'expired') {
-                        if(strtotime($run['earliest_reminder']) > strtotime('-2 weeks')) {
-                            # If the run has not yet received a reminder in the last 2 weeks, we need to consider sending a reminder
+                        if(!$run['earliest_reminder'] || strtotime($run['earliest_reminder']) > strtotime('-2 weeks')) {
+                            # If the run has not yet received any reminders or the earliest reminder was less than 2 weeks ago
                             $this->considerReminder($run, $interval);
                         } else if($run['reminder_count'] < 2) {
                             # If the run has not yet received 2 reminders, we need to consider sending a reminder
                             $this->considerReminder($run, $interval);
                         } else {
-                            # If the run has received 2 reminders and the first reminders was at least two weeks ago, we can delete the run data
+                            # If the run has received 2 reminders and the first reminder was at least two weeks ago, we can delete the run data
                             $this->deleteRunData($run);
                         }
                     } else {
@@ -166,14 +166,25 @@ class RunExpiresOnCron extends Cron {
     }
 
     private function formatTimeUntilExpiry(DateInterval $interval): string {
-        if ($interval->y > 0) {
-            return "in {$interval->y} year(s)";
-        } elseif ($interval->m > 0) {
-            return "in {$interval->m} month(s)";
-        } elseif ($interval->d > 0) {
-            return "in {$interval->d} day(s)";
+        if ($interval->invert === 1) {
+            if ($interval->y > 0) {
+                return "{$interval->y} year(s) ago";
+            } elseif ($interval->m > 0) {
+                return "{$interval->m} month(s) ago";
+            } elseif ($interval->d > 0) {
+                return "{$interval->d} day(s) ago";
+            }
+            return "today";
+        } else {
+            if ($interval->y > 0) {
+                return "in {$interval->y} year(s)";
+            } elseif ($interval->m > 0) {
+                return "in {$interval->m} month(s)";
+            } elseif ($interval->d > 0) {
+                return "in {$interval->d} day(s)";
+            }
+            return "today";
         }
-        return "today";
     }
 
     private function sendReminderEmail(string $email, string $runName, string $title, string $userName, string $expiryDate, string $timeUntilExpiry, string $siteUrl): bool {
@@ -201,8 +212,12 @@ class RunExpiresOnCron extends Cron {
         $mail = $this->getMailer();
         $mail->AddAddress($email);
         $mail->Subject = "formr: Run {$run->name} automatically deleted";
+
+        $owner = $run->getOwner();
+        $userName = !empty($owner->first_name) ? $owner->first_name . ' ' . $owner->last_name : $email;
+
         $mail->Body = Template::get_replace('email/auto-delete-notification.ftpl', array(
-            'user' => $run->getOwner()->user_code,
+            'user' => $userName,
             'title' => $run->title,
             'expiryDate' => $run->expiresOn
         ));
