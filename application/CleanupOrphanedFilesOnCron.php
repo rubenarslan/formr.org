@@ -18,15 +18,19 @@ class CleanupOrphanedFilesOnCron extends Cron {
             // Create absolute path by prefixing with APPLICATION_ROOT
             $absolutePath = APPLICATION_ROOT . '/' . ltrim($file['stored_path'], '/');
             
-            // Delete physical file if it exists
-            if (file_exists($absolutePath)) {
-                @unlink($absolutePath);
-            }
+            // Delete physical file if it exists and is a descendant of APPLICATION_ROOT/webroot/assets/tmp
+			if(strpos($absolutePath, APPLICATION_ROOT . '/webroot/assets/tmp') !== false) {
+				if (file_exists($absolutePath)) {
+					@unlink($absolutePath);
+				}
 
-            // Delete database record
-            $this->db->delete('user_uploaded_files', ['id' => $file['id']]);
+				// Delete database record
+				$this->db->delete('user_uploaded_files', ['id' => $file['id']]);
 
-            formr_log("Deleted orphaned file: {$file['original_filename']} (ID: {$file['id']})", 'CRON_INFO');
+	            formr_log("Deleted orphaned file: {$file['original_filename']} (ID: {$file['id']})", 'CRON_INFO');
+			} else {
+				formr_log("Orphaned file not deleted because it is not in the tmp directory: {$file['original_filename']} (ID: {$file['id']})", 'CRON_ERROR');
+			}
         }
     }
 } 
