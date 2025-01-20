@@ -185,11 +185,25 @@ class Run extends Model {
         if (!in_array($public, range(0, 3))) {
             return false;
         }
-        $require_privacy = Config::get("require_privacy_policy", false);
-        if ($require_privacy AND !$this->hasPrivacy() && $public > 0) {
-            alert('You cannot make this run public because it does not have a privacy policy. Set them first in the settings tab.', 'alert-warning');
-            $this->db->update('survey_runs', array('public' => 0), array('id' => $this->id));
-            return false;
+
+        if($public > 0) {
+            $run_expiry = $this->expiresOn;
+            $problem = false;
+            if($run_expiry !== null && Config::get('keep_study_data_for_months_maximum') !== INF) {
+                alert("You cannot make this study public yet. First, you need to define when the data can be deleted in the run settings.", 'alert-warning');
+                $problem = true;
+            }
+
+            // Check if the run has a privacy policy
+            $require_privacy = Config::get("require_privacy_policy", false);
+            if ($require_privacy AND !$this->hasPrivacy()) {
+                alert('You cannot make this study public because it does not have a privacy policy. Define one first in the run settings tab.', 'alert-warning');
+                $this->db->update('survey_runs', array('public' => 0), array('id' => $this->id));
+                $problem = true;
+            }
+            if($problem) {
+                return false;
+            }
         }
 
         $updated = $this->db->update('survey_runs', array('public' => $public), array('id' => $this->id));
@@ -217,7 +231,7 @@ class Run extends Model {
             'cron_active' => 1,
             'use_material_design' => 1,
             'expire_cookie' => 0,
-            'expiresOn' => $options['expiresOn'],
+            'expiresOn' => null,
             'public' => 0,
             'footer_text' => "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
             'footer_text_parsed' => "Remember to add your contact info here! Contact the <a href='mailto:email@example.com'>study administration</a> in case of questions.",
@@ -661,6 +675,14 @@ class Run extends Model {
             $posted['footer_text_parsed'] = $parsedown->text($posted['footer_text']);
             $this->run_settings[] = 'footer_text_parsed';
         }
+        if (isset($posted['expiresOn'])) {
+            $posted['expiresOn'] = date('Y-m-d', strtotime($posted['expiresOn']));
+            if (Config::get('keep_study_data_for_months_maximum') !== INF &&
+                strtotime($posted['expiresOn']) > strtotime('+' . Config::get('keep_study_data_for_months_maximum') . ' months')) {
+                alert('The expiry date cannot be set to more than ' . Config::get('keep_study_data_for_months_maximum') . ' months in the future.', 'alert-danger');
+                $posted['expiresOn'] = date('Y-m-d', strtotime('+' . Config::get('keep_study_data_for_months_maximum') . ' months'));
+            }
+        }
         $require_privacy = Config::get("require_privacy_policy", false);
         if ($require_privacy AND ((isset($posted['privacy']) && trim($posted['privacy']) == '')) && $this->public > 0) {
             alert("This run is public, but you have removed the privacy policy. We've set it to private for you. Add a privacy policy before setting the run to public again.", 'alert-danger');
@@ -730,25 +752,9 @@ class Run extends Model {
                     $value = $asset_path;
                 }
             }
-            if($name!='expiresOn'){
-                $updates[$name] = $value;
-            }
+            $updates[$name] = $value;
         }
 
-        $error = '';
-
-        if (!isset($posted['expiresOn'])) {
-            // Keep existing expiration date if not set
-            $updates['expiresOn'] = $this->expiresOn;
-        } elseif (!$posted['expiresOn']) {
-            $error = 'The expiration date must be in a valid format.';
-        } elseif ($posted['expiresOn'] < date('Y-m-d', time())) {
-            $error = 'The expiration date cant be in the past.';
-        } elseif ($posted['expiresOn'] > date('Y-m-d', strtotime('+2 years'))) {
-            $error = 'The expiration date should be within the next two years at the latest.';
-        } else {
-            $updates['expiresOn'] = $posted['expiresOn'];
-        }
 
 
         if ($updates) {
@@ -756,7 +762,7 @@ class Run extends Model {
             $this->db->update('survey_runs', $updates, array('id' => $this->id));
         }
 
-        return $error;
+        return true;
     }
 
     public function getAllSurveys() {

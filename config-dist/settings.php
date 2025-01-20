@@ -304,3 +304,8 @@ $settings['copy_context'] = array(
 		"verify_peer_name" => false,
 	)
 );
+
+// How long to keep study data, i.e. what is the maxmimum expiry that can be set in a run
+// To allow users to keep study data indefinitely, set this to INF
+$settings['keep_study_data_for_months_maximum'] = 84;
+
