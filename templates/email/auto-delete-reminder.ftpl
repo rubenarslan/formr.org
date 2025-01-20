@@ -1,22 +1,23 @@
 Dear %{user},
-<br /><br />
-We hope this email finds you well. This is an automated message to inform you that one run/study you created is set to expire %{timeUntilExpiry}.
-<br /><br />
-Survey Details:
-<br /><br />
-Run Title: %{title}<br />
-Expiry Date: %{expiryDate}<br />
-<br /><br />
-We want to remind you that you have the option to extend the expiry date of your run.
-Otherwise the run will be automatically deleted on %{expiryDate} due to privacy considerations for survey participants.
-Extending the expiry date is a feature designed with participant privacy in mind. Typically, extending the survey duration requires acceptance from the participants.
-<br /><br />
-Steps to Extend Expiry Date:<br /><br />
-1. Log in to your user account.<br />
-2. Navigate to the dashboard of your run.<br />
-3. Go to Settings<br />
-4. Adjust the expiry date according to your requirements.<br />
-Thank you for your cooperation and understanding. If you have any further questions, feel free to reach out to us.
-<br /><br />
-Best in Binary,<br />
+
+We hope this email finds you well. This is an automated message to inform you that the data in your run/study titled "%{title}" is set to expire %{timeUntilExpiry}.
+
+Study Details:
+Run Title: %{title}
+Expiry Date: %{expiryDate}
+
+Until the study's data is deleted, you might receive further reminders. If you delete the data yourself, you will not receive further reminders.
+
+You have the option to extend the expiry date of your study. Otherwise the data in your study will be automatically deleted on %{expiryDate} to comply with the General Data Protection Regulation (GDPR). You may want to create a full, local backup of your data before this date, using for example formr::formr_backup_study. Unless you have a reason to need personal data, we recommend anonymizing the data to keep copies indefinitely.
+The automatic deletion only applies to the data in your study. The study itself (items, settings, etc.) will remain in the system.
+
+Here are your options:
+1. Log in to your user account at %{site_url}
+2. Navigate to the dashboard of your run/study.
+3a. Go to Settings and adjust the expiry date according to your requirements.
+3b. Alternatively, you can go to "Empty Run" in the "Danger Zone" section and delete the data.
+
+Thank you for your understanding.
+
+Best in Binary,
 formr robots
