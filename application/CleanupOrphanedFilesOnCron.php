@@ -9,7 +9,7 @@ class CleanupOrphanedFilesOnCron extends Cron {
 
     private function cleanupOrphanedFiles() {
         // Get orphaned file records
-        $orphanedFiles = $this->db->select('id, stored_path')
+        $orphanedFiles = $this->db->select('id, stored_path, original_filename')
             ->from('user_uploaded_files')
             ->where('study_id IS NULL OR unit_session_id IS NULL')
             ->fetchAll();
