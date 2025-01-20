@@ -155,7 +155,17 @@ class RunExpiresOnCron extends Cron {
             $this->db->beginTransaction();
             $runObj = new Run($run['name']);
             $email = $runObj->getOwner()->getEmail();
+            // Delete all data in the run
             $runObj->emptySelf();
+            // Set the run to private
+            $runObj->togglePublic(0);
+            // Set the expiry date to null and disable automated actions
+            // The issue is likely in the Run::saveSettings() method converting null to ''
+            // Let's try direct DB update instead
+            $this->db->update('survey_runs', 
+                ['expiresOn' => null, 'cron_active' => 0], 
+                ['id' => $runObj->id]
+            );
             formr_log("Deleted All Data in Run {$runObj->name} due to expiration", 'RUN_DELETE');
             $this->sendDeleteNotification($runObj, $email);
             $this->db->commit();
