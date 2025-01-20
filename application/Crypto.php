@@ -1,4 +1,5 @@
 <?php
+use ParagonIE\Halite\HiddenString;
 
 class Crypto {
 
@@ -51,8 +52,8 @@ class Crypto {
         if (is_array($data)) {
             $data = implode($glue, $data);
         }
-        if (class_exists('\ParagonIE\Halite\HiddenString') && !$data instanceof \ParagonIE\Halite\HiddenString) {
-            $data = new \ParagonIE\Halite\HiddenString($data, true);
+        if (!$data instanceof HiddenString) {
+            $data = new HiddenString($data, true);
         }
         try {
             return \ParagonIE\Halite\Symmetric\Crypto::encrypt($data, self::getKey());
