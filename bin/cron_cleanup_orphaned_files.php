@@ -6,8 +6,7 @@ require_once dirname(__FILE__) . '/../application/CleanupOrphanedFilesOnCron.php
 // Global required variables
 $site = Site::getInstance();
 $fdb = DB::getInstance();
-$user = new User($fdb, null, null);
-$user->cron = true;
+$user = new User(null, null, ['cron' => true]);
 $cronConfig = Config::get('cron');
 
 $params['lockfile'] = APPLICATION_ROOT . 'cleanupOrphanedFilesCron.lock';

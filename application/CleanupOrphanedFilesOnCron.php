@@ -9,8 +9,10 @@ class CleanupOrphanedFilesOnCron extends Cron {
 
     private function cleanupOrphanedFiles() {
         // Get orphaned file records
-        $query = "SELECT * FROM user_uploaded_files WHERE study_id IS NULL OR unit_session_id IS NULL";
-        $orphanedFiles = $this->db->query($query)->fetchAll(PDO::FETCH_ASSOC);
+        $orphanedFiles = $this->db->select('id, stored_path')
+            ->from('user_uploaded_files')
+            ->where('study_id IS NULL OR unit_session_id IS NULL')
+            ->fetchAll();
 
         foreach ($orphanedFiles as $file) {
             // Delete physical file if it exists
@@ -19,10 +21,7 @@ class CleanupOrphanedFilesOnCron extends Cron {
             }
 
             // Delete database record
-            $this->db->query(
-                "DELETE FROM user_uploaded_files WHERE id = ?",
-                [$file['id']]
-            );
+            $this->db->delete('user_uploaded_files', ['id' => $file['id']]);
 
             formr_log("Deleted orphaned file: {$file['original_filename']} (ID: {$file['id']})", 'CRON_INFO');
         }
