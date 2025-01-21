@@ -2,13 +2,10 @@
 # Installation:
 #   - copy file to ./config/formr_crontab
 #   - activate the relevant command below
-#   - Add to crontab preferably by symbolic link. Eg.: ln -s /var/www/formr/config/formr_crontab /etc/cron.d/formr
-
-SHELL=/bin/bash
-PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+#   - Add to crontab preferably by using crontab 
 
 # Expiration Cron Job at 02:08 o'clock
-8 2 * * * www-data php /var/www/formr/bin/cron_run_expiry.php 1>&2
+8 2 * * * php /var/www/formr/bin/cron_run_expiry.php 1>&2
 
 # Cleanup orphaned files at 03:15 o'clock
-15 3 * * * www-data php /var/www/formr/bin/cron_cleanup_orphaned_files.php 1>&2
+15 3 * * * php /var/www/formr/bin/cron_cleanup_orphaned_files.php 1>&2
