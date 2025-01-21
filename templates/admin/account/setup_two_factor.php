@@ -39,26 +39,36 @@
                                             <a href="<?= site_url() ?>" class="login-form-logo"><?=Config::get('brand')?></a>
                                         </div>
 
-                                        <h2>Setup Two Factor</h2>
+                                        <h3>Two-Factor Authentication Setup</h3>
                                         <?= Template::loadChild('public/alerts') ?>
 
                                         <div style="margin-top: 15px;">
                                             <?php if (isset($qr_url)): ?>
-                                            <p>Scan the QR code below with your 2FA app (e.g. Google Authenticator) and enter the code displayed in the app to enable 2FA.</p>
-                                            <?php
-                                                echo '<img width="80%" src="' . $qr_url . '" alt="QR Code for 2FA code" />';
-                                            ?><br/>
-                                            Secret: <?= Session::get('2fa_setup')['secret'] ?>
-                                            <form id="2faSetup" name="2faSetup" method="post" action="<?= admin_url('account/setupTwoFactor') ?>">
-                                                <input type="text" name="code" placeholder="Enter code for confirmation" />
-                                                <input type="submit" value="Enable 2FA" />
-                                            </form>
+                                                <p>Scan the QR code below with your 2FA app (e.g. Google Authenticator) and enter the code displayed in the app to enable 2FA.</p>
+                                                <div>
+                                                    <img src="<?= $qr_url ?>" alt="QR Code for 2FA code" /> 
+                                                </div>  
+                                                <p>
+                                                    Secret: <?= Session::get('2fa_setup')['secret'] ?>
+                                                </p>
+                                                
+                                                <form id="2faSetup" name="2faSetup" method="post" action="<?= admin_url('account/setup-two-factor') ?>">
+                                                    <div class="form-group label-floating">
+                                                        <label class="control-label text-center" for="code"><i class="fa fa-code"></i> Enter Confirmation Code</label>
+                                                        <input class="form-control" type="text" id="code" name="code">
+                                                    </div>
+                                                    <div class="text-center">
+                                                        <button type="submit" class="btn btn-primary btn-raised">Enable 2FA</button>
+                                                    </div>
+                                                </form>
                                             <?php else: ?>
-                                            <p>Two-factor authentication adds an extra layer of security to your account. Once enabled, you'll need both your password and a code from your authenticator app to log in.</p>
-                                            <form method="post" action="<?= admin_url('account/setupTwoFactor') ?>">
-                                                <input type="hidden" name="setup" value="1" />
-                                                <input type="submit" class="btn btn-primary" value="Begin 2FA Setup" />
-                                            </form>
+                                                <p class="text-left" style="margin-top: 25px; width: 100%; margin: 0 auto;">Two-factor authentication adds an extra layer of security to your account. Once enabled, you'll need both your password and a code from your authenticator app to log in.</p>
+                                                <form method="post" action="<?= admin_url('account/setup-two-factor') ?>">
+                                                    <input type="hidden" name="setup" value="true" />
+                                                    <div class="text-center">
+                                                        <button type="submit" class="btn btn-primary btn-raised">Begin 2FA Setup</button>
+                                                    </div>
+                                                </form>
                                             <?php endif; ?>
                                         </div>
 

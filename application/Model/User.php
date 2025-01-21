@@ -538,8 +538,9 @@ class User extends Model {
         $site_url = parse_url(site_url(), PHP_URL_HOST);
         $tfa = new TwoFactorAuth($site_url);
         $secret = $tfa->createSecret();
-        $this->set2FASecret($secret);
+        //$this->set2FASecret($secret);
         $backup_codes = $this->generateAndSet2FABackupCodes();
+
         return array(
             'secret' => $secret,
             'backup_codes' => $backup_codes,
@@ -589,7 +590,7 @@ class User extends Model {
             $code = $this->generate_code();
             array_push($codes, $code);
         }
-        $this->set2FABackupCodes(implode(';', $codes));
+        //$this->set2FABackupCodes(implode(';', $codes));
         return $codes;
     }
 
