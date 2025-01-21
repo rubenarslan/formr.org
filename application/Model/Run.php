@@ -192,13 +192,18 @@ class Run extends Model {
             if($run_expiry === null && Config::get('keep_study_data_for_months_maximum') !== INF) {
                 alert("You cannot make this study public yet. First, you need to define when the data can be deleted in the run settings.", 'alert-warning');
                 $problem = true;
+            } elseif($run_expiry !== null) {
+                $expiry_timestamp = strtotime($run_expiry);
+                if($expiry_timestamp === false || $expiry_timestamp <= time()) {
+                    alert("You cannot make this study public because it has an invalid or past expiry date. Please update the expiry date in run settings.", 'alert-warning');
+                    $problem = true;
+                }
             }
 
             // Check if the run has a privacy policy
             $require_privacy = Config::get("require_privacy_policy", false);
             if ($require_privacy AND !$this->hasPrivacy()) {
                 alert('You cannot make this study public because it does not have a privacy policy. Define one first in the run settings tab.', 'alert-warning');
-                $this->db->update('survey_runs', array('public' => 0), array('id' => $this->id));
                 $problem = true;
             }
             if($problem) {
@@ -676,11 +681,29 @@ class Run extends Model {
             $this->run_settings[] = 'footer_text_parsed';
         }
         if (isset($posted['expiresOn'])) {
-            $posted['expiresOn'] = date('Y-m-d', strtotime($posted['expiresOn']));
-            if (Config::get('keep_study_data_for_months_maximum') !== INF &&
-                strtotime($posted['expiresOn']) > strtotime('+' . Config::get('keep_study_data_for_months_maximum') . ' months')) {
-                alert('The expiry date cannot be set to more than ' . Config::get('keep_study_data_for_months_maximum') . ' months in the future.', 'alert-danger');
-                $posted['expiresOn'] = date('Y-m-d', strtotime('+' . Config::get('keep_study_data_for_months_maximum') . ' months'));
+            // Handle empty or invalid expiry date
+            if (empty($posted['expiresOn'])) {
+                $posted['expiresOn'] = null;
+            } else {
+                $timestamp = strtotime($posted['expiresOn']);
+                if ($timestamp === false) {
+                    alert('Invalid expiry date format provided. Please use YYYY-MM-DD format.', 'alert-danger');
+                    unset($posted['expiresOn']);
+                } else {
+                    $posted['expiresOn'] = date('Y-m-d', $timestamp);
+                    if($timestamp < time()) {
+                        alert('The expiry date cannot be set to a past date.', 'alert-danger');
+
+                        $posted['expiresOn'] = null;
+                    }
+                    if (Config::get('keep_study_data_for_months_maximum') !== INF) {
+                        $max_date = strtotime('+' . Config::get('keep_study_data_for_months_maximum') . ' months');
+                        if ($timestamp > $max_date) {
+                            alert('The expiry date cannot be set to more than ' . Config::get('keep_study_data_for_months_maximum') . ' months in the future.', 'alert-danger');
+                            $posted['expiresOn'] = date('Y-m-d', $max_date);
+                        }
+                    }
+                }
             }
         }
         $require_privacy = Config::get("require_privacy_policy", false);
@@ -708,7 +731,9 @@ class Run extends Model {
 
         $updates = array();
         foreach ($posted as $name => $value) {
-            $value = trim((string)$value);
+            if($name != 'expiresOn') {
+                $value = trim((string)$value);
+            }
 
             if (!in_array($name, $this->run_settings)) {
                 $this->errors[] = "Invalid setting " . h($name);

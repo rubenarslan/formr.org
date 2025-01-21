@@ -155,6 +155,8 @@ class RunExpiresOnCron extends Cron {
             $this->db->beginTransaction();
             $runObj = new Run($run['name']);
             $email = $runObj->getOwner()->getEmail();
+            // Store the original expiry date before emptying
+            $originalExpiryDate = $runObj->expiresOn;
             // Delete all data in the run
             $runObj->emptySelf();
             // Set the run to private
@@ -167,7 +169,7 @@ class RunExpiresOnCron extends Cron {
                 ['id' => $runObj->id]
             );
             formr_log("Deleted All Data in Run {$runObj->name} due to expiration", 'RUN_DELETE');
-            $this->sendDeleteNotification($runObj, $email);
+            $this->sendDeleteNotification($runObj, $email, $originalExpiryDate);
             $this->db->commit();
         } catch (Exception $e) {
             $this->db->rollBack();
@@ -218,7 +220,7 @@ class RunExpiresOnCron extends Cron {
         return true;
     }
 
-    private function sendDeleteNotification(Run $run, string $email) {
+    private function sendDeleteNotification(Run $run, string $email, string $originalExpiryDate) {
         $mail = $this->getMailer();
         $mail->AddAddress($email);
         $mail->Subject = "formr: Run {$run->name} automatically deleted";
@@ -229,7 +231,7 @@ class RunExpiresOnCron extends Cron {
         $mail->Body = Template::get_replace('email/auto-delete-notification.ftpl', array(
             'user' => $userName,
             'title' => $run->title,
-            'expiryDate' => $run->expiresOn
+            'expiryDate' => $originalExpiryDate
         ));
         if (!$mail->Send()) {
             formr_log("Error: ". $mail->ErrorInfo, 'MAIL_ERROR');
