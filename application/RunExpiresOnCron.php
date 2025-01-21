@@ -15,7 +15,13 @@ class RunExpiresOnCron extends Cron {
             }
         }
     }
-
+    /*
+     * getMailer()
+     * 
+     * Get the mailer instance. If a mailer has been created, it will reuse it. Will also clear previous emails.
+     * 
+     * @return Mailer
+     */
     private function getMailer() {
         if ($this->mailer === null) {
             $this->mailer = $this->site->makeAdminMailer();
@@ -108,6 +114,15 @@ class RunExpiresOnCron extends Cron {
         }
     }
 
+    /**
+     * considerReminder()
+     * 
+     * Check if a reminder should be sent. If there's no last reminder or the last reminder was more than 6 days ago, send a reminder.
+     * 
+     * @param array $run The run data
+     * @param array $interval The reminder interval
+     * @return bool True if a reminder was sent, false otherwise
+     */
     private function considerReminder($run, $interval) {
         # If there's no last reminder or the last reminder was more than 6 days ago, send a reminder
         if (!$run['last_reminder'] || strtotime($run['last_reminder']) < strtotime('-6 days')) {
@@ -117,6 +132,15 @@ class RunExpiresOnCron extends Cron {
         }
     }
 
+    /**
+     * sendReminder()
+     * 
+     * Send a reminder email to the run owner.
+     * 
+     * @param array $run The run data
+     * @param array $interval The reminder interval
+     * @return bool True if a reminder was sent, false otherwise
+     */
     private function sendReminder($run, $interval) {
         $expiryDate = new DateTime($run['expiresOn']);
         $now = new DateTime();
@@ -150,6 +174,14 @@ class RunExpiresOnCron extends Cron {
         return true;
     }
 
+    /**
+     * deleteRunData()
+     * 
+     * Delete all data in the run and set the run to private.
+     * 
+     * @param array $run The run data
+     * @return void
+     */
     private function deleteRunData($run) {
         try {
             $this->db->beginTransaction();
@@ -177,6 +209,14 @@ class RunExpiresOnCron extends Cron {
         }
     }
 
+    /**
+     * formatTimeUntilExpiry()
+     * 
+     * Format the time until expiry.
+     * 
+     * @param DateInterval $interval The time interval
+     * @return string The formatted time until expiry
+     */
     private function formatTimeUntilExpiry(DateInterval $interval): string {
         if ($interval->invert === 1) {
             if ($interval->y > 0) {
@@ -199,6 +239,20 @@ class RunExpiresOnCron extends Cron {
         }
     }
 
+    /**
+     * sendReminderEmail()
+     * 
+     * Send a reminder email to the run owner.
+     * 
+     * @param string $email The email address of the run owner
+     * @param string $runName The name of the run
+     * @param string $title The title of the run
+     * @param string $userName The name of the run owner
+     * @param string $expiryDate The expiry date of the run
+     * @param string $timeUntilExpiry The time until expiry
+     * @param string $siteUrl The URL of the site
+     * @return bool True if the email was sent, false otherwise
+     */
     private function sendReminderEmail(string $email, string $runName, string $title, string $userName, string $expiryDate, string $timeUntilExpiry, string $siteUrl): bool {
         $mail = $this->getMailer();
         $mail->AddAddress($email);
@@ -220,6 +274,16 @@ class RunExpiresOnCron extends Cron {
         return true;
     }
 
+    /**
+     * sendDeleteNotification()
+     * 
+     * Send a delete notification email to the run owner.
+     * 
+     * @param Run $run The run object
+     * @param string $email The email address of the run owner
+     * @param string $originalExpiryDate The original expiry date of the run
+     * @return void
+     */
     private function sendDeleteNotification(Run $run, string $email, string $originalExpiryDate) {
         $mail = $this->getMailer();
         $mail->AddAddress($email);
