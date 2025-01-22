@@ -28,14 +28,14 @@
     <div class="wrapper">
         <div class="content-wrapper">
 
-            <section id="fmr-hero" class="js-fullheight full" data-next="yes">
+            <section id="fmr-hero" data-next="yes">
                 <div class="fmr-overlay"></div>
                 <div class="container">
                     <div class="fmr-intro">
                         <div class="row">
                             <div class="fmr-intro-text">
                                 <div class="login-form">
-                                    <span class="close"><a href="<?= site_url() ?>">&times</a></span>
+                                    <span class="close"><a href="<?= site_url() ?>">&times;</a></span>
                                     <div>
                                         <a href="<?= site_url() ?>" class="login-form-logo"><?= Config::get('brand') ?></a>
                                     </div>

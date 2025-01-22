@@ -5,7 +5,18 @@
 
 <div style="margin-top: 15px;">
     <?php if (isset($qr_url)): ?>
-        <p>Scan the QR code below with your 2FA app (e.g. Google Authenticator) and enter the code displayed in the app to enable 2FA.</p>
+        <p>
+            To set up two-factor authentication, scan or import the QR code below with your preferred 2FA app (e.g., Google Authenticator, Microsoft Authenticator, Authy). 
+        </p>
+        <p>
+            On a Mac or iOS device, you can right-click (or long-press on mobile) the QR code to add it to your built-in Passwords app. That way, access to your account will be secured using your OS' authentication method (e.g., Touch ID, Face ID).
+        </p>
+        <p>
+            If you're unable to scan the code, you may manually enter the secret key shown below in your authenticator app. 
+        </p>
+        <p>
+            After the QR code is scanned or the secret is entered, use the app-generated code to confirm and enable 2FA.
+        </p>
         <div>
             <img src="<?= $qr_url ?>" alt="QR Code for 2FA code" />
         </div>
