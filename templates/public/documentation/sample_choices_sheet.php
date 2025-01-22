@@ -1,14 +1,14 @@
 <h3>Choices Spreadsheet</h3><hr />
 
 <p>
-Choices sheets are fairly simple. The <code>list_name</code> column defines the choice set. By using that name in the type column of a multiple-choice item, you assign that choice set. As you'd expect, the <code>value</code> column defines the value recorded in the database, the <code>label</code> defines what participants see by default. It is not currently possible to randomly order choice sets. You can use Javascript to achieve this.
+Choices sheets are fairly simple. The <code>list_name</code> column defines the choice set. By using that name in the type column of a multiple-choice item, you assign that choice set. As you'd expect, the <code>name</code> column defines the value recorded in the database, the <code>label</code> defines what participants see by default. It is not currently possible to randomly order choice sets. You can use Javascript to achieve this.
 </p>
 
 <p>
 You can <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw/" title="Select File->Make a copy if you have a Google account, or download it as an Excel file, if you don't">clone a Google spreadsheet</a> to get started.
 </p>
 <div class="table-responsive">
-<table class='table table-striped'>
+<table class="table table-striped">
     <thead>
         <tr>
             <th>
@@ -80,4 +80,4 @@ You can <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUm
         </tr>
     </tbody>
 </table>
-<div>
+</div>
