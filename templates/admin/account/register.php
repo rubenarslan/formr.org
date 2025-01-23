@@ -32,7 +32,7 @@
             <?php endif; ?>
 
             <div>
-                <label><input type="checkbox" name="agree_tos" value="1" required> I agree to the <a href="/tos">terms and conditions</a> and the <a href="/privacy">privacy</a> policy.
+                <label><input type="checkbox" name="agree_tos" value="1" required> I agree to the <a href="<?=site_url("terms_of_service") ?>">terms and conditions</a> and the <a href="<?=run_url("privacy") ?>">privacy</a> policy.</label>
             </div>
 
             <?php if (Config::get('2fa.enabled', true) && Config::get('2fa.allow_during_signup', false)): ?>
@@ -57,9 +57,5 @@
     <p>Already signed up?</p>
     <p><a href="<?php echo admin_url('account/login'); ?>" class="btn btn-sup btn-material-pink btn-raised">Sign In</a></p>
 </div>
-<style>
-    .login-form {
-        min-height: 860px !important;
-    }
-</style>
+
 <?= Template::loadChild('admin/account/parts/footer') ?>

@@ -221,7 +221,7 @@ class AdminAdvancedController extends AdminController {
                 'require_privacy_policy' => true,
                 'content:about:show' => true,
                 'content:docu:show' => true, 
-                'content:docu:support_email',
+                'content:docu:support_email' => false,
                 'content:studies:show' => true,
                 'content:publications:show' => true, 
                 'content:publications' => false,
