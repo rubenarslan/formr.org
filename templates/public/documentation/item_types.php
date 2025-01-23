@@ -109,7 +109,7 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         mc <i>choice_list</i>
     </dt>
     <dd>
-        multipe choice (radio buttons), you can choose only one.
+        multiple choice (radio buttons), you can choose only one.
     </dd>
     <dt>
         mc_button <i>choice_list</i>

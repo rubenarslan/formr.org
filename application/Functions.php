@@ -1468,7 +1468,7 @@ function delete_tmp_file($file) {
 }
 
 /**
- * Hackathon to dwnload an excel sheet from google
+ * Function to dwnload an excel sheet from google
  *
  * @param string $google_link The URL of the Google Sheet
  * @return array|boolean Returns an array similar to that of an 'uploaded-php-file' or FALSE otherwise;

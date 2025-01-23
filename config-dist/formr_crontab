@@ -2,8 +2,10 @@
 # Installation:
 #   - copy file to ./config/formr_crontab
 #   - activate the relevant command below
-#   - Add to crontab preferably by symbolic link. Eg.: ln -s /var/www/formr/config/formr_crontab /etc/cron.d/formr
-# You must activate ONLY one, not both. The second uses gearman to process jobs in the background. It is your responsibility to setup gearman server and client.
-# **IMPORTANT** If any of these is activated, then make sure the deamon is NOT running in the background or you might get duplicate run processes.
-#*/10 * * * * www-data /var/www/formr/bin/cron.php >/dev/null
-#*/10 * * * * www-data /var/www/formr/bin/deamon.php -c >/dev/null
+#   - Add to crontab preferably by using crontab 
+
+# Expiration Cron Job at 02:08 o'clock
+8 2 * * * php /var/www/formr/bin/cron_run_expiry.php 1>&2
+
+# Cleanup orphaned files at 03:15 o'clock
+15 3 * * * php /var/www/formr/bin/cron_cleanup_orphaned_files.php 1>&2

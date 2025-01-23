@@ -402,6 +402,16 @@ class AdminSurveyController extends AdminController {
         return $this->sendResponse();
     }
 
+    private function exportUploadedFilesAction() {
+        $study = $this->study;
+        $files = $study->getUploadedFiles()->fetchAll();
+        $format = $this->request->getParam('format');
+
+        $SPR = new SpreadsheetReader();
+
+        $SPR->exportJSON($files, $study->name . "_uploaded_files");
+    }
+
     private function exportItemTableAction() {
         $study = $this->study;
 

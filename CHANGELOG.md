@@ -2,7 +2,17 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-- added OAuth
+## [v0.23.0] - 23.01.2025
+### Added
+* Added two-factor authentication (2FA)
+* Process runs that need to be reminded or deleted
+     * We loop over the reminder intervals and process the runs that need to be reminded or deleted.
+     * Reminders are sent once per interval. 
+     * To avoid spamming, we only send a reminder if the run has not received a reminder in the last 6 days.
+     * If the run has received 2 reminders and the first reminder was at least two weeks ago, we delete the run data.
+     * 
+     * The expiry routine is configured in such a way that run data may not be deleted on the day of expiry if the study owner was not given sufficient notice (e.g., because of problems with the email server or because they recently changed their expiry date).
+* Orphaned files which were uploaded within a survey are now automatically deleted every night.
 
 ## [v0.22.0] - 01.10.2024
 ### Fixed

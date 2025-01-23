@@ -331,6 +331,7 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
+
     private function exportDataAction() {
         $run = $this->run;
         $format = $this->request->str('format');
@@ -538,15 +539,6 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
-    private function cronLogAction() {
-        $parser = new LogParser();
-        $parse = $this->run->name . '.log';
-        $vars = get_defined_vars();
-
-        $this->setView('run/cron_log_parsed', $vars);
-        return $this->sendResponse();
-    }
-    
     private function sessionsQueueAction() {
         $this->setView('run/sessions_queue', array(
             'stmt' => UnitSessionQueue::getRunItems($this->run),
@@ -590,8 +582,23 @@ class AdminRunController extends AdminController {
                 $SPR->exportJSON($export, $name);
             }
         } else {
-            alert('Run Export: Missing run units or invalid run name enterd.', 'alert-danger');
+            alert('Run Export: Missing run units or invalid run name entered.', 'alert-danger');
             $this->request->redirect(admin_run_url($run->name));
+        }
+    }
+
+
+    private function exportRunStructureAction() {
+        $run = $this->run;
+        $name = $run->name;
+        $site = $this->site;
+
+        if (!($export = $run->exportStructure())) {
+            $this->response->setStatusCode(500, 'Bad Request');
+            return $this->sendResponse($site->renderAlerts());
+        } else {
+            $SPR = new SpreadsheetReader();
+            $SPR->exportJSON($export, $name);
         }
     }
 

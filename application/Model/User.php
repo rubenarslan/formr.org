@@ -29,7 +29,10 @@ class User extends Model {
             $this->load(); // load his stuff
         } elseif ($user_code !== null) {
             $this->user_code = $user_code; // if there is someone who has been browsing the site
-        } else {
+        } else if ($this->cron) {
+            $this->id = null;
+        }
+        else {
             $this->user_code = crypto_token(48); // a new arrival
         }
     }
