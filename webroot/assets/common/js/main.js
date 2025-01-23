@@ -253,6 +253,19 @@ function cookies_enabled() {
 			} catch (err) {
 			}
 		});
+		$('.copy-on-click').click(function () {
+			try {
+				const code = $(this).text();
+				const range = document.createRange();
+				range.selectNodeContents(this);
+				const selection = window.getSelection();
+				selection.removeAllRanges();
+				selection.addRange(range);
+				navigator.clipboard.writeText(code);
+				$(this).tooltip({title: "Code was copied to clipboard.", position: 'top'}).tooltip('show');
+			} catch (err) {
+			}
+		});
 		// Append monkey bar modals to <body> element
 		if ($('.monkey-bar-modal').length) {
 			$('.monkey-bar-modal').appendTo('body');

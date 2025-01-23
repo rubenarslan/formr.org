@@ -23,6 +23,12 @@
         <p>
             Secret: <?= Session::get('2fa_setup')['secret'] ?>
         </p>
+        <p>
+            If you plan to use the formr R package, you can also use the secret key to set up 2FA there. Now is a good time, because you will not be able to look up the secret key again. Use the following command to set up 2FA:
+        </p>
+        <p>
+        <i class="fa fa-copy"></i> <code class="copy-on-click">formr::formr_store_keys(account_name = "https://<?= Config::get('admin_domain') ?>", email = "<?= $username ?>", secret_2fa = "<?= Session::get('2fa_setup')['secret'] ?>")</code>
+        </p>
 
         <form id="2faSetup" name="2faSetup" method="post" action="<?= admin_url('account/setup-two-factor') ?>">
             <div class="form-group label-floating">
