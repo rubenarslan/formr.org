@@ -32,7 +32,7 @@
             <?php endif; ?>
 
             <div>
-                <label><input type="checkbox" name="agree_tos" value="1" required> I agree to the <a href="<?=site_url("terms_of_service") ?>">terms and conditions</a> and the <a href="<?=run_url("privacy") ?>">privacy</a> policy.</label>
+                <label><input type="checkbox" name="agree_tos" value="1" required> I agree to the <a href="<?=site_url("terms_of_service") ?>" target="_blank">terms and conditions</a> and the <a href="<?=site_url("privacy_policy") ?>" target="_blank">privacy policy</a>.</label>
             </div>
 
             <?php if (Config::get('2fa.enabled', true) && Config::get('2fa.allow_during_signup', false)): ?>

@@ -131,10 +131,10 @@ $settings['content_settings']['content:studies:show'] = true;
 $settings['content_settings']['content:publications:show'] = true;
 $settings['content_settings']['content:publications'] = '';
 $settings['content_settings']['content:terms_of_service'] = '';
+$settings['content_settings']['content:privacy_policy'] = '';
 $settings['content_settings']['content:file_upload_terms'] = '';
 $settings['content_settings']['content:file_upload_require_active_consent'] = false;
 
-$settings['content_settings']['footer:link:policyurl'] = '/info';
 $settings['content_settings']['footer:link:logourl'] = '';
 $settings['content_settings']['footer:link:logolink'] = '';
 $settings['content_settings']['footer:imprint'] = '';

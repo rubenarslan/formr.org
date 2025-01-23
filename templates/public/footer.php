@@ -14,7 +14,7 @@
 						<?php if (array_val($settings, 'content:studies:show', 'true') === 'true'): ?>
                             <li><a href="<?php echo site_url('studies'); ?>">Studies</a></li>
                         <?php endif; ?>
-						<li><a href="<?= array_val($settings, 'footer:link:policyurl') ?>" target="_blank">Privacy Policy</a></li>
+						<li><a href="<?= site_url("privacy_policy") ?>">Privacy Policy</a></li>
 					</ul>
 				</div>
 			</div>
