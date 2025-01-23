@@ -1,4 +1,5 @@
 <?php
+use RobThree\Auth\TwoFactorAuth;
 
 class User extends Model {
 
@@ -386,8 +387,10 @@ class User extends Model {
             return false;
         }
         if (password_verify($token, (string)$verify_data['email_verification_hash'])) {
-            return $this->setVerified($email);
+            $result = $this->setVerified($email);
+            return $result;
         }
+        return false;
     }
 
     public function resendVerificationEmail($verificationHash) {
@@ -466,6 +469,129 @@ class User extends Model {
         $this->db->delete('survey_email_accounts', ['user_id' => $this->id]);
 
         return parent::delete();
+    }
+
+
+    public function carefulDelete(){
+        if ($this->isSuperAdmin()) {
+            return 'A super administrator cannot be deleted. Set admin level to 1 or below to delete';
+        }
+
+        $runs = $this->getRuns();
+        foreach ($runs as $row) {
+            $run = new Run(null, $row['id']);
+            $run->emptySelf();
+            $run->deleteUnits();
+            $run->delete();
+        }
+
+        $studies = $this->getStudies('id DESC', null, 'id');
+        foreach ($studies as $row) {
+            $study = new SurveyStudy($row['id']);
+            $study->delete();
+        }
+
+        $this->delete();
+
+        return '';
+    }
+
+    public function is2FAenabled() {
+        return !empty($this->get2FASecret());
+    }
+
+    public function get2FASecret() {
+        $secret = $this->db->find('survey_users', array('id' => $this->id), array('cols' => '2fa_code'));
+        $encrypted = $secret[0]['2fa_code'] ?? '';
+        return $encrypted ? Crypto::decrypt($encrypted) : '';
+    }
+
+    public function set2FASecret($secret) {
+        $encrypted = $secret ? Crypto::encrypt($secret) : '';
+        $this->db->update('survey_users', array('2fa_code' => $encrypted), array('id'=> $this->id), array('varchar(255)'));
+    }
+
+    public function verify2FACode($code) {
+        // First check backup codes
+        $backup_codes = $this->get2FABackupCodes();
+        if(!empty($backup_codes)) {
+            $backup_codes_array = explode(';', $backup_codes);
+            if (in_array($code, $backup_codes_array)) {
+                $key = array_search($code, $backup_codes_array);
+                unset($backup_codes_array[$key]);
+                $this->set2FABackupCodes(implode(';', $backup_codes_array));
+                return true;
+            }
+        }
+
+        // Then check TOTP
+        $secret = $this->get2FASecret();
+        if (empty($secret)) {
+            return false;
+        }
+        
+        $tfa = new TwoFactorAuth();
+        return $tfa->verifyCode($secret, $code, 2); // 2 * 30sec time window
+    }
+
+    public function setup2FA() {
+        $site_url = parse_url(site_url(), PHP_URL_HOST);
+        $tfa = new TwoFactorAuth($site_url);
+        $secret = $tfa->createSecret();
+        //$this->set2FASecret($secret);
+        $backup_codes = $this->generateAndSet2FABackupCodes();
+
+        return array(
+            'secret' => $secret,
+            'backup_codes' => $backup_codes,
+            'qr_url' => $tfa->getQRCodeImageAsDataUri($this->email, $secret)
+        );
+    }
+
+    public function reset2FA() {
+        $this->set2FASecret('');
+        $this->set2FABackupCodes('');
+        return true;
+    }
+
+    public function get2FABackupCodes(){
+        $codes = $this->db->find('survey_users', array('id' => $this->id), array('cols' => 'backup_codes'));
+        $encrypted = $codes[0]['backup_codes'] ?? '';
+        return $encrypted ? Crypto::decrypt($encrypted) : '';
+    }
+
+    public function set2FABackupCodes($codes){
+        $encrypted = $codes ? Crypto::encrypt($codes) : '';
+        $this->db->update('survey_users', array('backup_codes' => $encrypted), array('id'=> $this->id), array('varchar(255)'));
+    }
+
+    private function generate_code($length = 6) {
+        $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ23456789';
+        $max = strlen($alphabet) - 1;
+        $code = '';
+        
+        // We need 5.5 bits of entropy per character (log2(34)), so for 6 characters
+        // we need at least 33 bits of entropy. We'll use 5 bytes (40 bits) to be safe.
+        $randomBytes = random_bytes(5);
+        
+        // Use the random bytes to select characters from our alphabet
+        for ($i = 0; $i < $length; $i++) {
+            // Use last byte for first iteration, then shift right and use next byte
+            $byte = ord($randomBytes[$i % 5]);
+            $code .= $alphabet[$byte % 34];
+        }
+        
+        return $code;
+    }
+
+    public function generateAndSet2FABackupCodes(){
+        $codes = [];
+        for ($i = 0; $i < 5; $i++) {
+            $code = $this->generate_code();
+            array_push($codes, $code);
+        }
+        //$this->set2FABackupCodes(implode(';', $codes));
+        return $codes;
     }
 
 }

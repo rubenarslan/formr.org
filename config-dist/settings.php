@@ -304,3 +304,10 @@ $settings['copy_context'] = array(
 		"verify_peer_name" => false,
 	)
 );
+
+// Settings for 2FA
+$settings['2fa'] = array(
+    'enabled' => true, // whether 2FA is enabled for the instance
+    'required' => false, // whether 2FA is required for all users
+    'allow_during_signup' => false
+);

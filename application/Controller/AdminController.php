@@ -98,6 +98,12 @@ class AdminController extends Controller {
         
         $this->user = new User($cookie[0], $cookie[1]);
 
+        // Check if 2FA is required but not set up
+        if (Config::get('2fa.required', false) && !$this->user->is2FAenabled()) {
+            alert('Two-factor authentication is required. Please set it up now.', 'alert-warning');
+            $this->request->redirect('admin/account/setup-two-factor');
+        }
+
         if (!$this->user->isAdmin()) {
             $docLink = site_url('documentation/#get_started');
             alert('You need to request for an admin account in order to access this section. <a href="'.$docLink.'">See Documentation</a>.', 'alert-warning');

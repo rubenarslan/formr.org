@@ -47,6 +47,13 @@ class AdminAdvancedController extends AdminController {
             return $this->sendResponse($content);
         }
 
+        if ($request->reset_2fa) {
+            $content = $this->reset2FA($request->user_id, $request->user_email, $request->admin_2fa_code);
+            $this->response->setContentType('application/json');
+            $this->response->setJsonContent($content);
+            return $this->sendResponse();
+        }
+
         if ($request->user_api) {
             $content = $this->apiUserManagement($request->user_id, $request->user_email, $request->api_action);
             $this->response->setContentType('application/json');
@@ -56,19 +63,18 @@ class AdminAdvancedController extends AdminController {
 
         if ($request->user_delete) {
             $user = (new User())->refresh(['id' => (int)$request->user_id, 'email' => $request->user_email]);
-            if ($user->isSuperAdmin()) {
-                alert('A super administrator cannot be deleted. Set admin level to 1 or below to delete', 'alert-danger');
+            $error_msg = $user->carefulDelete();
+            if($error_msg!==''){
+                alert($error_msg, 'alert-danger');
+                $this->response->setContentType('application/json');
+                $this->response->setJsonContent(['success' => false]);
+                return $this->sendResponse();
+            } else {
+                alert('User ' . h($request->user_email) .' deleted.', 'alert-success');
                 $this->response->setContentType('application/json');
                 $this->response->setJsonContent(['success' => true]);
                 return $this->sendResponse();
             }
-            
-            $user->delete();
-
-            alert('User and associated data have been deleted.', 'alert-success');
-            $this->response->setContentType('application/json');
-            $this->response->setJsonContent(['success' => true]);
-            return $this->sendResponse();
         }
 
         if ($request->verify_email_manually) {
@@ -377,6 +383,34 @@ class AdminAdvancedController extends AdminController {
             'data' => $this->fdb->execute($itemsQuery, $queryParams),
             'pagination' => "",
         );
+    }
+
+    private function reset2FA($user_id, $user_email, $admin_2fa_code) {
+        if (!$this->user->isSuperAdmin()) {
+            return array('success' => false, 'message' => 'Only superadmins can reset 2FA');
+        }
+
+        $target_user = new User($user_id, null);
+        if (!$target_user || $target_user->email !== $user_email) {
+            return array('success' => false, 'message' => 'Invalid user');
+        }
+
+        // Don't allow resetting 2FA for other superadmins
+        if ($target_user->isSuperAdmin()) {
+            return array('success' => false, 'message' => 'Cannot reset 2FA for superadmins');
+        }
+
+        // Verify admin's 2FA code
+        if (!$this->user->verify2FACode($admin_2fa_code)) {
+            return array('success' => false, 'message' => 'Invalid 2FA code');
+        }
+
+        if ($target_user->reset2FA()) {
+            alert('2FA has been reset for user ' . h($user_email), 'alert-success');
+            return array('success' => true);
+        }
+
+        return array('success' => false, 'message' => 'Failed to reset 2FA');
     }
 
 }

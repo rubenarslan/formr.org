@@ -27,7 +27,9 @@
         "atrox/haikunator": "1.*",
         "paragonie/halite": "^5",
         "phpoffice/phpspreadsheet": "1.*",
-        "phpmailer/phpmailer": "6.*"
+        "phpmailer/phpmailer": "6.*",
+		"robthree/twofactorauth": "2.1.0",
+		"chillerlan/php-qrcode": "^5.0"
     },
     "require-dev": {
         "phpunit/phpunit": "11.*"
