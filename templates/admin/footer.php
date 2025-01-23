@@ -1,6 +1,10 @@
 
             <footer class="main-footer">
-                <div class="pull-right hidden-xs">Copyright &copy; <?= date('Y') ?> formr - <?= FORMR_VERSION ?></div>
+                <div class="pull-right hidden-xs">Copyright &copy; <?= date('Y') ?> formr<?php
+				if (!empty($user) && $user->loggedIn()) {
+					echo ' - ' . FORMR_VERSION;
+				}
+					?></div>
                 <ul class="nav navbar-nav">
                     <li><a href="https://github.com/rubenarslan/formr.org" target="_blank"><i class="fa fa-github-alt fa-fw"></i> Github repository </a></li>
                     <li><a href="https://github.com/rubenarslan/formr" target="_blank"><i class="fa fa-github-alt fa-fw"></i> R package on Github </a></li>

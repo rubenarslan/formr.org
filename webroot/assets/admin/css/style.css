@@ -297,10 +297,10 @@ body.skin-black .content-wrapper {
 
 .main-footer {
     flex-shrink: 0;
-    width: 100%;
+    width: 100vw;
     min-height: 40px;
     margin-top: 100px;
-    box-sizing: content-box;
+    box-sizing: border-box;
     border-top: 1px solid #efefef;
     padding: 15px;
 }
