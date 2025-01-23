@@ -3,7 +3,7 @@
 <p>
     Survey spreadsheets contain the questions on a first sheet called "survey". They can optionally have a second sheet called "choices" where you define choices for multiple choice items in a long format. They can also optionally have a third sheet called "settings" where you define settings such as pagination and validation (most set these settings after uploading the survey though).
 </p>
-<p>You can <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw/" title="Select File->Make a copy if you have a Google account, or download it as an Excel file, if you don't">clone a Google spreadsheet</a> to get started or start with an <a href="<?= asset_url("assets/example_surveys/empty_survey.xlsx")?>">empty spread sheet</a>.</p>
+<p>You can <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw/" title="Select File->Make a copy if you have a Google account, or download it as an Excel file, if you don't">clone a Google spreadsheet</a> to get started or start with an <a href="<?= asset_url("assets/example_surveys/empty_survey.xlsx")?>">empty spreadsheet</a>.</p>
 <p>Some helpful tips:</p>
 <ul>
     <li>
@@ -163,15 +163,14 @@
     <dt>
         class
     </dt>
+    <dd>
+        This column can optionally be added to visually style items. Find the available classes below.
+    </dd>
     <dt>
         choice1 - choice12
     </dt>
     <dd>
         For multiple choice items, you can define the labels of the different choices here. In the database, the corresponding number will be stored (e.g., if choice1 is "honey", then the DB will record "1"). You can define at most 12 choices this way and you have no control over the value stored in the database. To define more than 12 choices or to reuse choice lists, use the choices sheet.
-    </dd>
-
-    <dd>
-        This column can optionally be added to visually style items. Find the available classes below.
     </dd>
     <dt>
         item_order

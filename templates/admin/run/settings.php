@@ -47,35 +47,17 @@
                                                 <input type="text" maxlength="255" placeholder="URL" name="header_image_path" class="form-control" value="<?= h($run->header_image_path); ?>" />
                                             </div>
 
-                                            <div class="checkbox form-group"  style="margin-bottom: 15px;">
-                                                <div class="col-md-6">
-                                                    <strong>Cron</strong>
-                                                    <p>Enable pause expiration, automatic email sending and other automated operations.</p>
-                                                    <label>
-                                                        <input type="hidden" name="cron_active" value="0" />
-                                                        <input type="checkbox" name="cron_active" <?= ($run->cron_active) ? 'checked' : '' ?> value="1"> Enable cron.
-                                                    </label>
-                                                </div>
-                                                <div class="checkbox col-md-6">
-                                                    <strong>Look &amp; Feel</strong>
-                                                    <p>
-                                                        You can enable <a target="_blank" href="http://fezvrasta.github.io/bootstrap-material-design/">Material Design</a> to have a nicer
-                                                        look and feel for your study. Some input items from third party packages
-                                                        may not change though.
-                                                    </p>
-                                                    <label title="Material Design style is deprecated as of v0.22.0.">
-                                                        <input type="hidden" name="use_material_design" value="0" />
-                                                        <input type="checkbox" name="use_material_design" <?= ($run->use_material_design) ? 'checked' : 'disabled' ?> value="1"> Enable Material Design.
-                                                    </label>
-
-                                                </div>
-
-                                            </div>
                                             <div class="form-group" style="margin-bottom: 15px;">
                                                 <div class="col-md-6">
-                                                    <strong>Session Lifetime</strong>
+                                                    <label for="expiresOn">Expires On</label>
+                                                    <p>If set, the data in this run will be deleted after the specified date. You will receive email reminders before this happens. Under <abbr title="General Data Protection Regulation">GDPR</abbr>, you are required to delete personal data once it is no longer necessary for the purpose for which it was collected. It is up to you to know what period of data retention is reasonable. <br>If you did not collect personal data, you do not need to delete data. However, do consider that even seemingly anonymous data can sometimes be combined with other data to identify individuals, so deletion may still be prudent.</p>
+                                                    <p>The maximum expiry date is in <?php echo Config::get('keep_study_data_for_months_maximum'); ?> months.</p>
+                                                    <input class="form-control" type="date" name="expiresOn" id="expiresOn" placeholder="<?php echo date('Y-m-d', strtotime('+' . Config::get('keep_study_data_for_months_maximum') . ' months')); ?>" value="<?php echo $run->expiresOn; ?>">
+                                               </div>
+                                                <div class="col-md-6">
+                                                    <strong>Cookie/Session Lifetime</strong>
                                                     <p>
-                                                        Configure how long a study session is allowed to expire. This is the amount of time a participant is given to complete a study from the time he/she last accessed the study.
+                                                        Configure how long a user session cookie will last. Once the cookie expires, the user will be logged out.
                                                     </p>
                                                     <div class="input-group">
                                                         <div class="input-group-addon"> Expire After </div>
@@ -91,18 +73,44 @@
                                                     </div>
                                                 </div>
                                             </div>
+
+
+                                            <div class="checkbox form-group"  style="margin-bottom: 15px;">
+                                                <div class="col-md-6">
+                                                    <strong>Automated actions</strong>
+                                                    <p>Enable pause expiration, automatic email sending and other automated operations. Disable if automated actions are not desired, necessary or something seems to be going wrong.</p>
+                                                    <label>
+                                                        <input type="hidden" name="cron_active" value="0" />
+                                                        <input type="checkbox" name="cron_active" <?= ($run->cron_active) ? 'checked' : '' ?> value="1"> Enable automated actions.
+                                                    </label>
+                                                </div>
+                                                <div class="checkbox col-md-6">
+                                                    <strong>Look &amp; Feel</strong>
+                                                    <p>
+                                                        We previously offered an alternative style for surveys, <a target="_blank" href="http://fezvrasta.github.io/bootstrap-material-design/">Material Design</a>. To reduce maintenance burden, we have deprecated this option. If you previously enabled this option, you can still use it, but once you turn it off, you will not be able to turn it back on.
+                                                    </p>
+                                                    <label title="Material Design style is deprecated as of v0.22.0.">
+                                                        <input type="hidden" name="use_material_design" value="0" />
+                                                        <input type="checkbox" name="use_material_design" <?= ($run->use_material_design) ? 'checked' : 'disabled' ?> value="1"> Enable Material Design.
+                                                    </label>
+
+                                                </div>
+                                            </div>
+                                            
                                             <div class="form-group">
-                                                <label title="Will be shown on every page of the run">Description</label>
-                                                <textarea data-editor="markdown" placeholder="Description" name="description" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->description); ?></textarea>
+                                                <label for="description">Description</label>
+                                                <p>Will be shown at the top of every page of the study. Optional.</p>
+                                                <textarea data-editor="markdown" placeholder="Description" name="description" id="description" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->description); ?></textarea>
                                             </div>
                                             <div class="form-group">
                                                 <p>Your Imprint should contain information about who is responsible for the study, and how they can be contacted. It should also link to your privacy policy and in some cases to the settings page, where users can unsubscribe from emails and log out.</p>
-                                                <label title="Will be shown on every page of the run, good for contact info">Imprint/Footer text</label>
-                                                <textarea data-editor="markdown" placeholder="Footer text" name="footer_text" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->footer_text); ?></textarea>
+                                                <label title="Will be shown on every page of the run, good for contact info" for="footer_text">Imprint/Footer text</label>
+                                                <textarea data-editor="markdown" placeholder="Footer text" name="footer_text" id="footer_text" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->footer_text); ?></textarea>
                                             </div>
                                             <div class="form-group">
-                                                <label title="This will be the description of your study shown on the public page">Public blurb</label>
-                                                <textarea data-editor="markdown" placeholder="Blurb" name="public_blurb" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->public_blurb); ?></textarea>
+                                                <label title="This will be the description of your study shown on the public page" for="public_blurb">Public blurb</label>
+                                                <p>This will be the description of your study shown on the <a href="<?php echo site_url("/public/studies"); ?>" target="_blank">public page</a>. Optional.</p>
+                                                <textarea data-editor="markdown" placeholder="Blurb" name="public_blurb" id="public_blurb" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->public_blurb); ?></textarea>
                                             </div>
 
 
@@ -238,10 +246,10 @@
                                             <ul class="fa-ul fa-ul-more-padding">
                                                 <li><i class="fa-li fa fa-code"></i> In here, you can use Markdown and R interspersed to make a custom overview for your study.</li>
                                                 <li><i class="fa-li fa fa-lg fa-thumb-tack"></i> Useful commands to start might be <pre><code class="r">nrow(survey_name) # get the number of entries
-        table(is.na(survey_name$ended)) # get finished/unfinished entries
-        table(is.na(survey_name$modified)) # get entries where any data was entered vs not
-        library(ggplot2)
-        qplot(survey_name$created) # plot entries by startdate</code></pre></li>
+table(is.na(survey_name$ended)) # get finished/unfinished entries
+table(is.na(survey_name$modified)) # get entries where any data was entered vs not
+library(ggplot2)
+qplot(survey_name$created) # plot entries by startdate</code></pre></li>
                                             </ul>
                                             <?php if (empty($overview_scripts)): ?>
                                                 <a href="<?= admin_run_url($run->name, 'create_run_unit?type=Page&special=OverviewScriptPage&redirect=settings:::overview_script') ?>" class="btn btn-default pull-right add_run_unit"><i class="fa fa-plus"></i> Add Overview Script</a>

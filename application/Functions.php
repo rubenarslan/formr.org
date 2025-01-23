@@ -259,15 +259,12 @@ if (!function_exists('__')) {
 
 if (!function_exists('__n')) {
 
-    /**
-      taken from cakePHP
-     */
     function __n($singular, $plural, $count, $args = null) {
         if (!$singular) {
             return;
         }
 
-        $translated = ngettext($singular, $plural, null, 6, $count);
+        $translated = ngettext($singular, $plural, 6, $count);
         if ($args === null) {
             return $translated;
         } elseif (!is_array($args)) {
@@ -1258,7 +1255,7 @@ function opencpu_multistring_parse(UnitSession $unitSession, array $string_templ
     $opencpu_vars = $unitSession->getRunData($markdown, $survey->name);
     $session = opencpu_knitdisplay($markdown, $opencpu_vars, true, $survey->name);
 
-    if ($session AND!$session->hasError()) {
+    if ($session && !$session->hasError()) {
         print_hidden_opencpu_debug_message($session, "OpenCPU debugger for dynamic values and showifs.");
         $parsed_strings = $session->getJSONObject();
         $strings = explode(OpenCPU::STRING_DELIMITER_PARSED, $parsed_strings);
@@ -1471,7 +1468,7 @@ function delete_tmp_file($file) {
 }
 
 /**
- * Hackathon to dwnload an excel sheet from google
+ * Function to dwnload an excel sheet from google
  *
  * @param string $google_link The URL of the Google Sheet
  * @return array|boolean Returns an array similar to that of an 'uploaded-php-file' or FALSE otherwise;

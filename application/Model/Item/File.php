@@ -69,6 +69,7 @@ class File_Item extends Item {
     );
     protected $embed_html = '%s';
     protected $max_size = NULL;
+    protected $uploaded_file_info = null;
 
     protected function setMoreOptions() {
         if (is_array($this->type_options_array) && count($this->type_options_array) == 1) {
@@ -111,6 +112,13 @@ class File_Item extends Item {
                     $new_file_name = crypto_token(66) . $this->file_endings[$mime];
                     if (move_uploaded_file($reply['tmp_name'], APPLICATION_ROOT . 'webroot/assets/tmp/' . $new_file_name)) {
                         $public_path = WEBROOT . 'assets/tmp/' . $new_file_name;
+                        
+                        // Store file info during validation
+                        $this->uploaded_file_info = [
+                            'original_filename' => $reply['name'],
+                            'stored_path' => 'webroot/assets/tmp/' . $new_file_name
+                        ];
+                        
                         $reply = __($this->embed_html, $public_path);
                     } else {
                         $this->error = __("Unable to save uploaded file");
@@ -132,6 +140,14 @@ class File_Item extends Item {
 
     public function getReply($reply) {
         return $this->reply;
+    }
+
+    /**
+     * Get information about the uploaded file from a validated reply
+     * @return array|null Array containing file info or null if no file was uploaded
+     */
+    public function getFileInfo() {
+        return $this->uploaded_file_info;
     }
 
 }

@@ -47,8 +47,6 @@ class Run extends Model {
     public $osf_project_id = null;
     public $footer_text = null;
     public $public_blurb = null;
-    public $privacy = null;
-    public $tos = null;
     public $use_material_design = false;
     public $expire_cookie = 0;
     public $expire_cookie_value = 0;
@@ -64,6 +62,8 @@ class Run extends Model {
     protected $description_parsed = null;
     protected $footer_text_parsed = null;
     protected $public_blurb_parsed = null;
+    public $privacy = null;
+    public $tos = null;
     protected $privacy_parsed = null;
     protected $tos_parsed = null;
     protected $api_secret_hash = null;
@@ -75,8 +75,10 @@ class Run extends Model {
         "custom_js", "cron_active", "osf_project_id",
         "use_material_design", "expire_cookie",
         "expire_cookie_value", "expire_cookie_unit",
+        "expiresOn",
     );
     public $renderedDescAndFooterAlready = false;
+    public $expiresOn = null;
 
     /**
      *
@@ -113,9 +115,13 @@ class Run extends Model {
             return;
         }
 
-        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie";
+        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie, expiresOn";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
+        
+        if($vars['expiresOn'] !== null) {
+            $vars['expiresOn'] = date('Y-m-d', strtotime($vars['expiresOn']));
+        }
 
         if ($vars) {
             $this->assignProperties($vars);
@@ -158,9 +164,10 @@ class Run extends Model {
 
     public function delete() {
         try {
+            $this->deleteFiles();
+
             $this->db->delete('survey_runs', array('id' => $this->id));
             alert("<strong>Success.</strong> Successfully deleted run '{$this->name}'.", 'alert-success');
-            $this->deleteFiles();
             return true;
         } catch (Exception $e) {
             formr_log_exception($e, __METHOD__);
@@ -178,11 +185,30 @@ class Run extends Model {
         if (!in_array($public, range(0, 3))) {
             return false;
         }
-        $require_privacy = Config::get("require_privacy_policy", false);
-        if ($require_privacy AND !$this->hasPrivacy() && $public > 0) {
-            alert('You cannot make this run public because it does not have a privacy policy. Set them first in the settings tab.', 'alert-warning');
-            $this->db->update('survey_runs', array('public' => 0), array('id' => $this->id));
-            return false;
+
+        if($public > 0) {
+            $run_expiry = $this->expiresOn;
+            $problem = false;
+            if($run_expiry === null && Config::get('keep_study_data_for_months_maximum') !== INF) {
+                alert("You cannot make this study public yet. First, you need to define when the data can be deleted in the run settings.", 'alert-warning');
+                $problem = true;
+            } elseif($run_expiry !== null) {
+                $expiry_timestamp = strtotime($run_expiry);
+                if($expiry_timestamp === false || $expiry_timestamp <= time()) {
+                    alert("You cannot make this study public because it has an invalid or past expiry date. Please update the expiry date in run settings.", 'alert-warning');
+                    $problem = true;
+                }
+            }
+
+            // Check if the run has a privacy policy
+            $require_privacy = Config::get("require_privacy_policy", false);
+            if ($require_privacy AND !$this->hasPrivacy()) {
+                alert('You cannot make this study public because it does not have a privacy policy. Define one first in the run settings tab.', 'alert-warning');
+                $problem = true;
+            }
+            if($problem) {
+                return false;
+            }
         }
 
         $updated = $this->db->update('survey_runs', array('public' => $public), array('id' => $this->id));
@@ -210,6 +236,7 @@ class Run extends Model {
             'cron_active' => 1,
             'use_material_design' => 0,
             'expire_cookie' => 0,
+            'expiresOn' => null,
             'public' => 0,
             'footer_text' => "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
             'footer_text_parsed' => "Remember to add your contact info here! Contact the <a href='mailto:email@example.com'>study administration</a> in case of questions.",
@@ -653,6 +680,32 @@ class Run extends Model {
             $posted['footer_text_parsed'] = $parsedown->text($posted['footer_text']);
             $this->run_settings[] = 'footer_text_parsed';
         }
+        if (isset($posted['expiresOn'])) {
+            // Handle empty or invalid expiry date
+            if (empty($posted['expiresOn'])) {
+                $posted['expiresOn'] = null;
+            } else {
+                $timestamp = strtotime($posted['expiresOn']);
+                if ($timestamp === false) {
+                    alert('Invalid expiry date format provided. Please use YYYY-MM-DD format.', 'alert-danger');
+                    unset($posted['expiresOn']);
+                } else {
+                    $posted['expiresOn'] = date('Y-m-d', $timestamp);
+                    if($timestamp < time()) {
+                        alert('The expiry date cannot be set to a past date.', 'alert-danger');
+
+                        $posted['expiresOn'] = null;
+                    }
+                    if (Config::get('keep_study_data_for_months_maximum') !== INF) {
+                        $max_date = strtotime('+' . Config::get('keep_study_data_for_months_maximum') . ' months');
+                        if ($timestamp > $max_date) {
+                            alert('The expiry date cannot be set to more than ' . Config::get('keep_study_data_for_months_maximum') . ' months in the future.', 'alert-danger');
+                            $posted['expiresOn'] = date('Y-m-d', $max_date);
+                        }
+                    }
+                }
+            }
+        }
         $require_privacy = Config::get("require_privacy_policy", false);
         if ($require_privacy AND ((isset($posted['privacy']) && trim($posted['privacy']) == '')) && $this->public > 0) {
             alert("This run is public, but you have removed the privacy policy. We've set it to private for you. Add a privacy policy before setting the run to public again.", 'alert-danger');
@@ -678,7 +731,9 @@ class Run extends Model {
 
         $updates = array();
         foreach ($posted as $name => $value) {
-            $value = trim((string)$value);
+            if($name != 'expiresOn') {
+                $value = trim((string)$value);
+            }
 
             if (!in_array($name, $this->run_settings)) {
                 $this->errors[] = "Invalid setting " . h($name);
@@ -722,20 +777,17 @@ class Run extends Model {
                     $value = $asset_path;
                 }
             }
-
             $updates[$name] = $value;
         }
+
+
 
         if ($updates) {
             $updates['modified'] = mysql_now();
             $this->db->update('survey_runs', $updates, array('id' => $this->id));
         }
 
-        if (!in_array(false, $successes)) {
-            return true;
-        }
-
-        return false;
+        return true;
     }
 
     public function getAllSurveys() {
@@ -1004,6 +1056,7 @@ class Run extends Model {
             'cron_active' => (int) $this->cron_active,
             'custom_js' => $this->getCustomJS(),
             'custom_css' => $this->getCustomCSS(),
+            'expiresOn' => $this->expiresOn,
         );
 
         // save run files
@@ -1019,6 +1072,23 @@ class Run extends Model {
             'settings' => $settings,
             'files' => $files,
         );
+        return $export;
+    }
+
+    public function exportStructure() {
+        $unitIds = $this->getAllUnitTypes();
+        $units = array();
+
+        /* @var RunUnit $u */
+        foreach ($unitIds as $u) {
+            $u['id'] = $u['unit_id'];
+            $unit = RunUnitFactory::make($this, $u);
+            $ex_unit = $unit->getExportUnit();
+            $ex_unit['unit_id'] = $unit->id;
+            $units[] = (object) $ex_unit;
+        }
+        $export = $this->export($this->name, $units, true);
+
         return $export;
     }
 
@@ -1107,6 +1177,15 @@ class Run extends Model {
 
     public function getCookieName() {
         return sprintf('FRS_%s', $this->id);
+    }
+
+    public function isEmpty(): bool {
+        $count = $this->db->select('COUNT(*) as count')
+            ->from('survey_run_sessions')
+            ->where(['run_id' => $this->id])
+            ->fetchColumn();
+        
+        return $count == 0;
     }
 
 }

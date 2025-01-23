@@ -2,7 +2,31 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.23.0] - 23.01.2025
+### Added
+* Added two-factor authentication (2FA) thanks to groundwork by @EliasAhlers and @Epd02
+  * 2FA is now enabled by default
+  * 2FA can be made required for all users
+  * The formr R package now supports 2FA
+* Runs/Studies can now be exported noninteractively
+  * This enables a new R package function `formr::formr_backup_study()` which can be used to export runs/studies, all user data, and all user uploaded files
+* Authentication was improved
+  * Minimal wait times to avoid timing attacks and brute force attacks
+* Process runs that need to be reminded or deleted (thanks to @eliasheithecker for some groundwork) for simpler compliance with GDPR and other regulations
+  * Autodeletion is not turned on by default, but can be required in settings.php
+  * We loop over the reminder intervals and process the runs that need to be reminded or deleted.
+  * Reminders are sent 6, 2, and 1 month(s) and 1 week and 1 day before expiry.
+  * To avoid spamming, we only send a reminder if the run has not received a reminder in the last 6 days.
+  * If the study owner has received 2 reminders and the first reminder was at least two weeks ago, we delete the run data.
+  * The expiry routine is configured in such a way that run data may not be deleted on the day of expiry if the study owner was not given sufficient notice (e.g., because of problems with the email server or because they recently changed their expiry date).
+* Orphaned files which were uploaded within a survey are now automatically deleted every night.
+
+### Fixed
+* User account deletion is now working again
+* link to ToS on signup page was incorrect
+
 ## [v0.22.0] - 01.10.2024
+## [v0.22.0] - 19.12.2024
 ### Fixed
 * superadmin OpenCPU timing graph
 * bug where (backup) server-side errors for invalid items weren't displayed

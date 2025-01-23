@@ -35,18 +35,7 @@ class AdminController extends Controller {
                 throw new Exception('Invalid Request');
             }
 
-            $unitIds = $run->getAllUnitTypes();
-            $units = array();
-
-            /* @var RunUnit $u */
-            foreach ($unitIds as $u) {
-                $unit = RunUnitFactory::make($run, $u);
-                $ex_unit = $unit->getExportUnit();
-                $ex_unit['unit_id'] = $unit->id;
-                $units[] = (object) $ex_unit;
-            }
-
-            $export = $run->export($run->name, $units, true);
+            $export = $run->exportStructure();
             $export_file = Config::get('survey_upload_dir') . '/run-' . time() . '-' . $run->name . '.json';
             $create = file_put_contents($export_file, json_encode($export, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK));
             $response = $osf->upload($osf_project, $export_file, $run->name . '-' . date('YmdHis') . '.json');
@@ -97,6 +86,12 @@ class AdminController extends Controller {
         }
         
         $this->user = new User($cookie[0], $cookie[1]);
+
+        // Check if 2FA is required but not set up
+        if (Config::get('2fa.required', false) && !$this->user->is2FAenabled()) {
+            alert('Two-factor authentication is required. Please set it up now.', 'alert-warning');
+            $this->request->redirect('admin/account/setup-two-factor');
+        }
 
         if (!$this->user->isAdmin()) {
             $docLink = site_url('documentation/#get_started');

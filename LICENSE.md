@@ -1,5 +1,5 @@
 Survey framework
-Copyright (c) 2013, Ruben C. Arslan <ruben.arslan at gmail>
+Copyright (c) 2013-2025, Ruben C. Arslan <ruben.arslan at gmail>
 All rights reserved.
 
 Based on survey framework by

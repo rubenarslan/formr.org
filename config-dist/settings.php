@@ -131,10 +131,10 @@ $settings['content_settings']['content:studies:show'] = true;
 $settings['content_settings']['content:publications:show'] = true;
 $settings['content_settings']['content:publications'] = '';
 $settings['content_settings']['content:terms_of_service'] = '';
+$settings['content_settings']['content:privacy_policy'] = '';
 $settings['content_settings']['content:file_upload_terms'] = '';
 $settings['content_settings']['content:file_upload_require_active_consent'] = false;
 
-$settings['content_settings']['footer:link:policyurl'] = '/info';
 $settings['content_settings']['footer:link:logourl'] = '';
 $settings['content_settings']['footer:link:logolink'] = '';
 $settings['content_settings']['footer:imprint'] = '';
@@ -304,3 +304,14 @@ $settings['copy_context'] = array(
 		"verify_peer_name" => false,
 	)
 );
+
+// Settings for 2FA
+$settings['2fa'] = array(
+    'enabled' => true, // whether 2FA is enabled for the instance
+    'required' => false, // whether 2FA is required for all users
+    'allow_during_signup' => false
+);
+// How long to keep study data, i.e. what is the maxmimum expiry that can be set in a run
+// To allow users to keep study data indefinitely, set this to INF
+$settings['keep_study_data_for_months_maximum'] = 84;
+

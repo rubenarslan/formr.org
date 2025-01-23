@@ -41,6 +41,15 @@ class PublicController extends Controller {
         return $this->sendResponse();
     }
 
+    public function privacyPolicyAction() {
+        if (Site::getSettings('content:privacy_policy') == '') {
+            formr_error(403, 'Not Public', 'Page cannot be displayed');
+        }
+        
+        $this->setView('public/privacy_policy', array('runs' => RunHelper::getPublicRuns()));
+        return $this->sendResponse();
+    }
+
     public function aboutAction() {
         if (Site::getSettings('content:about:show', 'true') !== 'true') {
             formr_error(403, 'Not Public', 'Page cannot be displayed');
