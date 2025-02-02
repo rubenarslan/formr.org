@@ -1,20 +1,22 @@
 # Turning formr into a PWA
 
 ## Change the studies view
-- [ ] Add a service worker
+- [x] Add a service worker
   - [ ] [push.js](https://github.com/Nickersoft/push.js)?
   - [ ] Workbox?
-- [ ] Add a manifest.json
-- [ ] Add icon and a splash screen
-  - [ ] Autogenerate relevant images?
-- [ ] Add relevant settings to @application/Controller/AdminSurveyController.php and @templates/admin/survey/index.php
+- [x] Add a manifest.json
+- [x] Add icon 
+- [ ] Add a splash screen
+- [ ] Autogenerate relevant images?
+- [x] Add relevant settings to @application/Controller/AdminSurveyController.php and @templates/admin/survey/index.php
 
 ## Add item to request adding to home screen
 - [ ] Item inheriting from @application/Model/Item/Item.php
-   - [ ] A button to request adding to home screen, guide/QR code to switch to a browser that supports PWA-homescreen (e.g., Safari on iOS)
+   - [x] A button to request adding to home screen, 
+   - [ ] guide/QR code to switch to a browser that supports PWA-homescreen (e.g., Safari on iOS)
    - [ ] Store whether it has been added to home screen
-- [ ] Item to request permission to send push notifications, inheriting from @application/Model/Item/Item.php
-   - [ ] A button to request push permission
+- [x] Item to request permission to send push notifications, inheriting from @application/Model/Item/Item.php
+   - [x] A button to request push permission
    - [ ] Store whether permission has been granted
 
 ## Add new model for push notifications

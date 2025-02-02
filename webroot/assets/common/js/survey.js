@@ -5,6 +5,10 @@ var is = {
 };
 
 (function ($) {
+
+    /* 
+     add shadow dom to the button group
+    */
     function ButtonGroup(item) {
         this.$item = $(item);
         this.$button_group = this.$item.find(".btn-group");
@@ -182,6 +186,7 @@ var is = {
                     webshim.addShadowDom(slct, slct.select2("container"));
                 });
             });
+
             $(".select2pills select").each(function (i, elm)
             {
                 "use strict";
@@ -212,6 +217,7 @@ var is = {
                     webshim.addShadowDom(slct, slct.select2("container"));
                 });
             });
+
             $(".clickable_map").each(function (i, elm)
             {
                 "use strict";
@@ -341,6 +347,111 @@ var is = {
                 });
             });        
         
+
+            // Push Notification Permission functionality
+            $('.push-notification-permission').click(function(e) {
+                e.preventDefault();
+                const $btn = $(this);
+                const $wrapper = $btn.closest('.push-notification-wrapper');
+                const $status = $wrapper.find('.status-message');
+                let post = {};
+
+                // Check if the browser supports notifications
+                if (!('Notification' in window)) {
+                    post[$btn.attr('name')] = 'not_supported';
+                    $status.html('Sorry, your browser does not support push notifications.');
+                } else {
+                    // Check if permission has already been granted
+                    if (Notification.permission === 'granted') {
+                        post[$btn.attr('name')] = 'granted';
+                        $status.html('Push notifications are already enabled.');
+                    } else if (Notification.permission === 'denied') {
+                        post[$btn.attr('name')] = 'denied';
+                        $status.html('You have blocked push notifications. Please update your browser settings to enable them.');
+                    } else {
+                        // Request permission
+                        Notification.requestPermission()
+                            .then(function(permission) {
+                                if (permission === 'granted') {
+                                    post[$btn.attr('name')] = 'granted';
+                                    $status.html('Thank you! You will now receive push notifications.');
+                                } else if (permission === 'denied') {
+                                    post[$btn.attr('name')] = 'denied';
+                                    $status.html('You have declined push notifications. You can enable them later in your browser settings.');
+                                } else {
+                                    post[$btn.attr('name')] = 'default';
+                                    $status.html('You can enable push notifications at any time.');
+                                }
+                                // Store the result
+                                $btn.val(post[$btn.attr('name')]);
+                                $.post(window.location.href, post);
+                            });
+                    }
+                }
+
+                if (post[$btn.attr('name')]) {
+                    $btn.val(post[$btn.attr('name')]);
+                    $.post(window.location.href, post);
+                }
+                return false;
+            });
+
+            // Add to Home Screen functionality
+            var deferredPrompt;
+
+            // Listen for the beforeinstallprompt event
+            window.addEventListener('beforeinstallprompt', function(e) {
+                // Prevent Chrome 67 and earlier from automatically showing the prompt
+                e.preventDefault();
+                // Stash the event so it can be triggered later
+                deferredPrompt = e;
+            });
+
+            // Handle add to home screen button click
+            $('.add-to-homescreen').click(function(e) {
+                e.preventDefault();
+                var $btn = $(this);
+                var $wrapper = $btn.closest('.add-to-homescreen-wrapper');
+                var $status = $wrapper.find('.status-message');
+                var platform = $btn.data('platform');
+
+
+                let post = {};
+                post[$btn.attr('name')] = 'not_prompted';
+                if (platform === 'ios') {
+                    $status.html('Please follow the instructions above to add this app to your home screen.');
+                    post[$btn.attr('name')] = 'ios_not_prompted';
+                } else if (deferredPrompt) {
+                    // Show the prompt if available
+                    deferredPrompt.prompt();
+                    
+                    // Wait for the user to respond to the prompt
+                    deferredPrompt.userChoice.then(function(choiceResult) {
+                        if (choiceResult.outcome === 'accepted') {
+                            // Store the result
+                            post[$btn.attr('name')] = 'added';
+                            $status.html('Thank you! The app has been added to your home screen.');
+                        } else {
+                            post[$btn.attr('name')] = 'not_added';
+                            $status.html('You can add this app to your home screen at any time from your browser\'s menu.');
+                        }
+                        // Clear the prompt reference
+                        deferredPrompt = null;
+                    });
+                } else {
+                    // If can't show prompt (already installed or not supported)
+                    if (window.matchMedia('(display-mode: standalone)').matches) {
+                        post[$btn.attr('name')] = 'already_added';
+                        $status.html('This app is already installed on your home screen.');
+                    } else {
+                        post[$btn.attr('name')] = 'no_support';
+                        $status.html('Your browser doesn\'t support adding to home screen automatically. You can add it manually from your browser\'s menu.');
+                    }
+                }
+                $btn.val(post[$btn.attr('name')]);
+                $.post(window.location.href, post);
+                return false;
+            });
 
             $(".people_list textarea").each(function (i, elm)
             {

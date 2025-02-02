@@ -14,13 +14,14 @@
     // Register Service Worker
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            // Collect all CSS and JS files from the DOM
+            // Collect all CSS and JS files from the DOM that match the current domain
+            const currentDomain = window.location.hostname;
             const stylesheets = Array.from(document.styleSheets)
                 .map(stylesheet => stylesheet.href)
-                .filter(href => href !== null);
+                .filter(href => href !== null && href.includes(currentDomain));
             const scripts = Array.from(document.scripts)
                 .map(script => script.src)
-                .filter(src => src !== '');
+                .filter(src => src !== '' && src.includes(currentDomain));
 
             const filesToCache = [...new Set([...stylesheets, ...scripts])];
 
