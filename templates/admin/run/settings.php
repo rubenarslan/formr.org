@@ -26,6 +26,7 @@
                                 <li><a href="#privacy" data-toggle="tab" aria-expanded="false">Privacy</a></li>
                                 <li><a href="#css" data-toggle="tab" aria-expanded="false">CSS</a></li>
                                 <li><a href="#js" data-toggle="tab" aria-expanded="false">JS</a></li>
+                                <li><a href="#manifest" data-toggle="tab" aria-expanded="false">Manifest</a></li>
                                 <li><a href="#service_message" data-toggle="tab" aria-expanded="false">Service message</a></li>
                                 <li><a href="#reminder" data-toggle="tab" aria-expanded="false">Reminder</a></li>
                                 <li><a href="#overview_script" data-toggle="tab" aria-expanded="false">Overview</a></li>
@@ -190,6 +191,22 @@
                                     <div class="clear clearfix"></div>
                                 </div>
                                 <!-- /.tab-pane -->
+                                <div class="tab-pane" id="manifest">
+                                    <form class="form-horizontal" enctype="multipart/form-data" id="run_settings" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
+                                        <p class="pull-right">
+                                            <button data-href="<?php echo admin_run_url($run->name, 'ajax_generate_manifest'); ?>" class="btn btn-default generate-manifest"><i class="fa fa-magic"></i> Generate Manifest</button>
+                                            <input type="submit" name="submit_settings" value="Save" class="btn btn-primary save_settings">
+                                        </p>
+                                        <h4><i class="fa fa-file-alt"></i> Manifest JSON</h4>
+                                        <p>
+                                            Define the manifest.json for your run. This JSON file serves as a metadata file for your study.
+                                        </p>
+                                        <div class="form-group col-md-12">
+                                            <textarea data-editor="json" placeholder="Enter your manifest JSON here" name="manifest_json"  id="manifest_json" rows="40" cols="80" class="big_ace_editor form-control"><?= h($run->getManifestJSON()); ?></textarea>
+                                        </div>
+                                    </form>
+                                    <div class="clear clearfix"></div>
+                                </div>
                                 <div class="tab-pane" id="service_message">
                                     <div class="col-md-12">
                                         <div class="add">

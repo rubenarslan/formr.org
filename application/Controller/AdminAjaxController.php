@@ -507,6 +507,25 @@ class AdminAjaxController {
         return $this->response->setJsonContent($res);
     }
 
+    private function ajaxGenerateManifest() {
+        if (!Request::isAjaxRequest()) {
+            formr_error(406, 'Not Acceptable');
+        }
+
+        $run = $this->controller->run;
+        $result = $run->generateManifest();
+        
+        if ($result === false) {
+            $this->response->setStatusCode(500, 'Bad Request');
+            $content = array('error' => 'Failed to generate manifest');
+        } else {
+            $content = $result;
+        }
+
+        $this->response->setContentType('application/json');
+        return $this->response->setJsonContent($content);
+    }
+
     protected function getPrivateAction($name) {
         $parts = array_filter(explode('_', $name));
         $action = array_shift($parts);

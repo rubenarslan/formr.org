@@ -41,6 +41,7 @@ class Run extends Model {
     public $messages = array();
     public $custom_css_path = null;
     public $custom_js_path = null;
+    public $manifest_json_path = null;
     public $header_image_path = null;
     public $title = null;
     public $description = null;
@@ -72,7 +73,7 @@ class Run extends Model {
         "header_image_path", "title", "description",
         "footer_text", "public_blurb", "privacy",
         "tos", "custom_css",
-        "custom_js", "cron_active", "osf_project_id",
+        "custom_js", "manifest_json", "cron_active", "osf_project_id",
         "use_material_design", "expire_cookie",
         "expire_cookie_value", "expire_cookie_unit",
         "expiresOn",
@@ -115,7 +116,7 @@ class Run extends Model {
             return;
         }
 
-        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie, expiresOn";
+        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, manifest_json_path, osf_project_id, use_material_design, expire_cookie, expiresOn";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
         
@@ -647,17 +648,27 @@ class Run extends Model {
         return "";
     }
 
+    public function getManifestJSON() {
+        if ($this->manifest_json_path != null) {
+            return $this->getFileContent($this->manifest_json_path);
+        }
+
+        return "";
+    }
+
+    public function getManifestJSONPath() {
+        return $this->manifest_json_path;
+    }
+
     private function getFileContent($path) {
-        $path = new SplFileInfo(APPLICATION_ROOT . "webroot/" . $path);
-        $exists = file_exists($path->getPathname());
-        if ($exists) {
-            $file = $path->openFile('c+');
+        $filePath = APPLICATION_ROOT . "webroot/" . $path;
+        if (file_exists($filePath)) {
+            $file = fopen($filePath, 'r');
             $data = '';
-            $file->next();
-            while ($file->valid()) {
-                $data .= $file->current();
-                $file->next();
+            while (!feof($file)) {
+                $data .= fgets($file);
             }
+            fclose($file);
             return $data;
         }
 
@@ -740,42 +751,21 @@ class Run extends Model {
                 continue;
             }
 
-            if ($name == "custom_js" || $name == "custom_css") {
+            if ($name == "custom_js" || $name == "custom_css" || $name == "manifest_json") {
                 if ($name == "custom_js") {
                     $asset_path = $this->custom_js_path;
                     $file_ending = '.js';
-                } else {
+                } elseif ($name == "custom_css") {
                     $asset_path = $this->custom_css_path;
                     $file_ending = '.css';
+                } elseif ($name == "manifest_json") {
+                    $asset_path = $this->manifest_json_path;
+                    $file_ending = '.json';
                 }
 
                 $name = $name . "_path";
-                $asset_file = APPLICATION_ROOT . "webroot/" . $asset_path;
-                // Delete old file if css/js was emptied
-                if (!$value && $asset_path) {
-                    if (file_exists($asset_file) && !unlink($asset_file)) {
-                        alert("Could not delete old file ({$asset_path}).", 'alert-warning');
-                    }
-                    $value = null;
-                } elseif ($value) {
-                    // if $asset_path has not been set it means neither JS or CSS has been entered so create a new path
-                    if (!$asset_path) {
-                        $asset_path = 'assets/tmp/admin/' . crypto_token(33, true) . $file_ending;
-                        $asset_file = APPLICATION_ROOT . 'webroot/' . $asset_path;
-                    }
-
-                    $path = new SplFileInfo($asset_file);
-                    if (file_exists($path->getPathname())):
-                        $file = $path->openFile('c+');
-                        $file->rewind();
-                        $file->ftruncate(0); // truncate any existing file
-                    else:
-                        $file = $path->openFile('c+');
-                    endif;
-                    $file->fwrite($value);
-                    $file->fflush();
-                    $value = $asset_path;
-                }
+                $asset_path = $this->writeAssetFile($value, $asset_path, $file_ending);
+                $value = $asset_path;
             }
             $updates[$name] = $value;
         }
@@ -1188,4 +1178,74 @@ class Run extends Model {
         return $count == 0;
     }
 
+    private function writeAssetFile($value, $asset_path, $file_ending) {
+        if ($value) {
+            // if $asset_path has not been set or is null, create a new path
+            if (empty($asset_path)) {
+                $asset_path = 'assets/tmp/admin/' . crypto_token(33, true) . $file_ending;
+            }
+
+            // Ensure the directory exists
+            $dir = dirname(APPLICATION_ROOT . 'webroot/' . $asset_path);
+            if (!is_dir($dir)) {
+                mkdir($dir, 0777, true);
+            }
+
+            $asset_file = APPLICATION_ROOT . 'webroot/' . $asset_path;
+            $path = new SplFileInfo($asset_file);
+            if (file_exists($path->getPathname())):
+                $file = $path->openFile('c+');
+                $file->rewind();
+                $file->ftruncate(0); // truncate any existing file
+            else:
+                $file = $path->openFile('c+');
+            endif;
+            $file->fwrite($value);
+            $file->fflush();
+            $value = $asset_path;
+        }
+        return $value;
+    }
+
+    public function generateManifest() {
+        // Read the template
+        $template_path = APPLICATION_ROOT . 'templates/run/manifest_template.json';
+        if (!file_exists($template_path)) {
+            return false;
+        }
+
+        $template = file_get_contents($template_path);
+        
+        // Replace placeholders
+        $manifest = str_replace(
+            array('{APP_NAME}', '{DESCRIPTION}', '{SCOPE}', '{ID}', '{START_URL}'),
+            array(
+                $this->name,
+                $this->description ?: '',
+                run_url($this->name),
+                run_url($this->name),
+                run_url($this->name)
+            ),
+            $template
+        );
+
+        // Generate new asset path if none exists
+        if ($this->manifest_json_path) {
+            $path = $this->manifest_json_path . ".json";
+        } else {
+            $path = NULL;
+        }
+
+        // Write the file using writeAssetFile
+        $written_path = $this->writeAssetFile($manifest, $path, '.json');
+        if ($written_path === false) {
+            return false;
+        }
+
+        // Update the path in the database
+        $this->manifest_json_path = $written_path;
+        $this->save();
+
+        return $manifest;
+    }
 }

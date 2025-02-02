@@ -21,6 +21,9 @@
         editor.setTheme("ace/theme/textmate");
         var session = editor.getSession();
         session.setValue(textarea.val());
+        textarea.on('change', function () {
+            session.setValue(textarea.val());
+        });
 
         session.setUseWrapMode(true);
         session.setMode("ace/mode/" + mode);
@@ -63,5 +66,45 @@
     $(function () {
         $('textarea.big_ace_editor').each(make_editor);
         $(".save_settings").each(save_settings);
+        // Handle manifest generation
+        $('.generate-manifest').on('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('clicked');
+            e.stopImmediatePropagation(); // Stop any other click handlers on this element
+            
+            var $btn = $(this);
+            var originalHtml = $btn.html();
+            
+            // Show loading state
+            $btn.html('<i class="fa fa-spinner fa-spin"></i> Generating...').prop('disabled', true);
+            
+            $.ajax({
+                url: $btn.data('href'),
+                type: 'POST',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.error) {
+                        alert(response.error);
+                    } else {
+                        // Update the manifest textarea if it exists
+                        var $manifestArea = $('#manifest_json');
+                        if ($manifestArea.length) {
+                            const manifest_json = JSON.stringify(response, null, 2);
+                            $manifestArea.val(manifest_json);
+                            $manifestArea.trigger('change');
+                        }
+                    }
+                },
+                error: function(xhr) {
+                    alert('Failed to generate manifest: ' + (xhr.responseText || 'Unknown error'));
+                },
+                complete: function() {
+                    // Restore button state
+                    $btn.html(originalHtml).prop('disabled', false);
+                }
+            });
+        });
     });
+
 }(jQuery));

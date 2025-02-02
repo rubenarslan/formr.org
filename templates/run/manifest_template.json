@@ -1,0 +1,62 @@
+{
+  "name": "{APP_NAME}",
+  "short_name": "{APP_NAME}",
+  "description": "{DESCRIPTION}",
+  "id": "{ID}",
+  "start_url": "{START_URL}",
+  "scope": "{SCOPE}",
+  "display": "standalone",
+  "background_color": "#e6ddcc",
+  "theme_color": "#2196F3",
+  "orientation": "any",
+  "icons": [
+    {
+      "purpose": "any",
+      "sizes": "512x512",
+      "src": "/assets/pwa/maskable_icon_x512.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "maskable",
+      "sizes": "48x48",
+      "src": "/assets/pwa/maskable_icon_x48.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "maskable",
+      "sizes": "72x72",
+      "src": "/assets/pwa/maskable_icon_x72.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "maskable",
+      "sizes": "96x96",
+      "src": "/assets/pwa/maskable_icon_x96.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "maskable",
+      "sizes": "128x128",
+      "src": "/assets/pwa/maskable_icon_x128.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "maskable",
+      "sizes": "192x192",
+      "src": "/assets/pwa/maskable_icon_x192.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "maskable",
+      "sizes": "384x384",
+      "src": "/assets/pwa/maskable_icon_x384.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "maskable",
+      "sizes": "512x512",
+      "src": "/assets/pwa/maskable_icon_x512.png",
+      "type": "image/png"
+    }
+  ]
+} 
