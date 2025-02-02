@@ -10,8 +10,13 @@ class AddToHomeScreen_Item extends Item {
     protected function setMoreOptions() {
         // Add Font Awesome icon and text for the button
         $this->input_attributes['type'] = 'button';
-        $this->input_attributes['value'] = 'not_clicked';
+        // Remove value from button as it will be stored in hidden input
+        unset($this->input_attributes['value']);
         $this->input_attributes['data-platform'] = $this->detectPlatform();
+    }
+
+    public function getResultField() {
+        return "`{$this->name}` {$this->mysql_field}";
     }
 
     protected function detectPlatform() {
@@ -32,6 +37,12 @@ class AddToHomeScreen_Item extends Item {
             ? 'To add this app to your home screen, use the share menu <i class="fa fa-share-square-o"></i> and then select "Add to Home Screen"'
             : 'Click the button below to add this app to your home screen';
 
+        // Create hidden input with same name as button
+        $hidden_input = sprintf(
+            '<input type="hidden" name="%s" value="not_clicked" />',
+            $this->name
+        );
+
         $button_label = 'Add to Home Screen';
         if(count($this->choices) > 0) {
             $button_label = reset($this->choices);
@@ -46,11 +57,12 @@ class AddToHomeScreen_Item extends Item {
             <div class="add-to-homescreen-wrapper">
                 <p class="instructions">%s</p>
                 %s
+                %s
                 <div class="status-message"></div>
             </div>
         ';
 
-        return sprintf($template, $instructions, $button);
+        return sprintf($template, $instructions, $hidden_input, $button);
     }
 
     public function validateInput($reply) {

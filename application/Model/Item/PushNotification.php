@@ -10,7 +10,12 @@ class PushNotification_Item extends Item {
     protected function setMoreOptions() {
         // Add Font Awesome icon and text for the button
         $this->input_attributes['type'] = 'button';
-        $this->input_attributes['value'] = 'not_requested';
+        // Remove value from button as it will be stored in hidden input
+        unset($this->input_attributes['value']);
+    }
+
+    public function getResultField() {
+        return "`{$this->name}` {$this->mysql_field}";
     }
 
     protected function render_input() {
@@ -18,6 +23,12 @@ class PushNotification_Item extends Item {
         if(count($this->choices) > 0) {
             $button_label = reset($this->choices);
         }
+
+        // Create hidden input with same name as button
+        $hidden_input = sprintf(
+            '<input type="hidden" name="%s" value="not_requested" />',
+            $this->name
+        );
 
         $button = sprintf(
             '<button %s><i class="fa fa-bell"></i> %s</button>',
@@ -29,11 +40,12 @@ class PushNotification_Item extends Item {
             <div class="push-notification-wrapper">
                 <p class="instructions">Allow us to send you important notifications about your study progress.</p>
                 %s
+                %s
                 <div class="status-message"></div>
             </div>
         ';
 
-        return sprintf($template, $button);
+        return sprintf($template, $hidden_input, $button);
     }
 
     public function validateInput($reply) {

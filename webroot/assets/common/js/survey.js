@@ -354,43 +354,44 @@ var is = {
                 const $btn = $(this);
                 const $wrapper = $btn.closest('.push-notification-wrapper');
                 const $status = $wrapper.find('.status-message');
+                const $hiddenInput = $wrapper.find('input[type="hidden"]');
                 let post = {};
 
                 // Check if the browser supports notifications
                 if (!('Notification' in window)) {
-                    post[$btn.attr('name')] = 'not_supported';
+                    post[$hiddenInput.attr('name')] = 'not_supported';
                     $status.html('Sorry, your browser does not support push notifications.');
                 } else {
                     // Check if permission has already been granted
                     if (Notification.permission === 'granted') {
-                        post[$btn.attr('name')] = 'granted';
+                        post[$hiddenInput.attr('name')] = 'granted';
                         $status.html('Push notifications are already enabled.');
                     } else if (Notification.permission === 'denied') {
-                        post[$btn.attr('name')] = 'denied';
+                        post[$hiddenInput.attr('name')] = 'denied';
                         $status.html('You have blocked push notifications. Please update your browser settings to enable them.');
                     } else {
                         // Request permission
                         Notification.requestPermission()
                             .then(function(permission) {
                                 if (permission === 'granted') {
-                                    post[$btn.attr('name')] = 'granted';
+                                    post[$hiddenInput.attr('name')] = 'granted';
                                     $status.html('Thank you! You will now receive push notifications.');
                                 } else if (permission === 'denied') {
-                                    post[$btn.attr('name')] = 'denied';
+                                    post[$hiddenInput.attr('name')] = 'denied';
                                     $status.html('You have declined push notifications. You can enable them later in your browser settings.');
                                 } else {
-                                    post[$btn.attr('name')] = 'default';
+                                    post[$hiddenInput.attr('name')] = 'default';
                                     $status.html('You can enable push notifications at any time.');
                                 }
-                                // Store the result
-                                $btn.val(post[$btn.attr('name')]);
+                                // Store the result in hidden input and post
+                                $hiddenInput.val(post[$hiddenInput.attr('name')]);
                                 $.post(window.location.href, post);
                             });
                     }
                 }
 
-                if (post[$btn.attr('name')]) {
-                    $btn.val(post[$btn.attr('name')]);
+                if (post[$hiddenInput.attr('name')]) {
+                    $hiddenInput.val(post[$hiddenInput.attr('name')]);
                     $.post(window.location.href, post);
                 }
                 return false;
@@ -449,7 +450,6 @@ var is = {
                     }
                 }
                 $btn.val(post[$btn.attr('name')]);
-                $.post(window.location.href, post);
                 return false;
             });
 
