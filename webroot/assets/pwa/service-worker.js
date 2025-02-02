@@ -4,6 +4,22 @@ const ASSETS_TO_CACHE = [
   '/assets/build/js/formr.min.js'
 ];
 
+// Add message event listener to handle asset caching
+self.addEventListener('message', (event) => {
+  if (event.data.type === 'CACHE_ASSETS') {
+    event.waitUntil(
+      caches.open(CACHE_NAME)
+        .then((cache) => {
+          const assets = [...new Set([...ASSETS_TO_CACHE, ...event.data.assets])];
+          return cache.addAll(assets);
+        })
+        .catch(error => {
+          console.error('Error caching page assets:', error);
+        })
+    );
+  }
+});
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
