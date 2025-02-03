@@ -14,10 +14,10 @@
 - [ ] Item inheriting from @application/Model/Item/Item.php
    - [x] A button to request adding to home screen, 
    - [ ] guide/QR code to switch to a browser that supports PWA-homescreen (e.g., Safari on iOS)
-   - [ ] Store whether it has been added to home screen
+   - [x] Store whether it has been added to home screen
 - [x] Item to request permission to send push notifications, inheriting from @application/Model/Item/Item.php
    - [x] A button to request push permission
-   - [ ] Store whether permission has been granted
+   - [x] Store whether permission has been granted
 
 ## Add new model for push notifications
 - [ ] Similar to @application/Services/OpenCPU.php
