@@ -799,19 +799,23 @@ function admin_run_url($name = '', $action = '', $params = array()) {
  *  file's mtime, i.e. /css/base.1221534296.css.
  *  
  *  @param $file  The file to be loaded. Must not start with a slash.
+ *  @param $add_mtime  Whether to add the mtime to the file name.
  */
-function asset_url($file) {
+function asset_url($file, $add_mtime = true) {
     if (strpos($file, 'http') !== false || strpos($file, '//') === 0) {
         return $file;
     }
     if (strpos($file, 'assets') === false) {
         $file = 'assets/' . $file;
     }
-    $mtime = @filemtime(APPLICATION_ROOT . "webroot/" . $file);
-    if (!$mtime) {
-        return site_url($file);
+    if($add_mtime) {
+        $mtime = @filemtime(APPLICATION_ROOT . "webroot/" . $file);
+        if (!$mtime) {
+            return site_url($file);
+        }
+        return site_url($file . "?v=" . $mtime);
     }
-    return site_url($file . "?v" . $mtime);
+    return site_url($file);
 }
 
 function monkeybar_url($run_name, $action = '', $params = array()) {
