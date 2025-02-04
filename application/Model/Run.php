@@ -660,6 +660,16 @@ class Run extends Model {
         return $this->manifest_json_path;
     }
 
+    /**
+     * Get the VAPID public key for this run
+     * 
+     * @return string|null The VAPID public key or null if not set
+     */
+    public function getVapidPublicKey() {
+        $vapidKeys = $this->db->findRow('survey_runs', ['id' => $this->id], ['vapid_public_key']);
+        return $vapidKeys ? $vapidKeys['vapid_public_key'] : null;
+    }
+
     private function getFileContent($path) {
         $filePath = APPLICATION_ROOT . "webroot/" . $path;
         if (file_exists($filePath)) {

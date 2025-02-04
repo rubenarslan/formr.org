@@ -4,7 +4,7 @@ class PushNotification_Item extends Item {
     public $type = 'push_notification';
     public $no_user_input_required = false;
     public $hasChoices = true;
-    public $mysql_field = 'VARCHAR(20) DEFAULT NULL';
+    public $mysql_field = 'TEXT DEFAULT NULL';
     protected $classes_input = array('btn', 'btn-primary', 'push-notification-permission');
 
     protected function setMoreOptions() {
@@ -24,7 +24,7 @@ class PushNotification_Item extends Item {
             $button_label = reset($this->choices);
         }
 
-        // Create hidden input with same name as button
+        // Create hidden input with same name as button to store subscription data
         $hidden_input = sprintf(
             '<input type="hidden" name="%s" value="not_requested" />',
             $this->name
@@ -50,9 +50,22 @@ class PushNotification_Item extends Item {
 
     public function validateInput($reply) {
         // Valid states for push notification permission
-        if (in_array($reply, array('granted', 'denied', 'default', 'not_supported', 'not_requested'))) {
+        if ($reply === 'not_requested' || $reply === 'not_supported') {
             return $reply;
         }
+        
+        // Validate subscription JSON
+        if ($reply) {
+            $data = json_decode($reply, true);
+            if (json_last_error() === JSON_ERROR_NONE && 
+                isset($data['endpoint']) && 
+                isset($data['keys']) && 
+                isset($data['keys']['p256dh']) && 
+                isset($data['keys']['auth'])) {
+                return $reply; // Valid subscription JSON
+            }
+        }
+        
         return null;
     }
 } 

@@ -349,7 +349,7 @@ var is = {
         
 
             // Push Notification Permission functionality
-            $('.push-notification-permission').click(function(e) {
+            $('.push-notification-permission').click(async function(e) {
                 e.preventDefault();
                 const $btn = $(this);
                 const $wrapper = $btn.closest('.push-notification-wrapper');
@@ -357,45 +357,72 @@ var is = {
                 const $hiddenInput = $wrapper.find('input[type="hidden"]');
                 let post = {};
 
-                // Check if the browser supports notifications
-                if (!('Notification' in window)) {
+                // Check if the browser supports notifications and service workers
+                if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
                     post[$hiddenInput.attr('name')] = 'not_supported';
                     $status.html('Sorry, your browser does not support push notifications.');
-                } else {
-                    // Check if permission has already been granted
-                    if (Notification.permission === 'granted') {
-                        post[$hiddenInput.attr('name')] = 'granted';
-                        $status.html('Push notifications are already enabled.');
-                    } else if (Notification.permission === 'denied') {
-                        post[$hiddenInput.attr('name')] = 'denied';
-                        $status.html('You have blocked push notifications. Please update your browser settings to enable them.');
-                    } else {
-                        // Request permission
-                        Notification.requestPermission()
-                            .then(function(permission) {
-                                if (permission === 'granted') {
-                                    post[$hiddenInput.attr('name')] = 'granted';
-                                    $status.html('Thank you! You will now receive push notifications.');
-                                } else if (permission === 'denied') {
-                                    post[$hiddenInput.attr('name')] = 'denied';
-                                    $status.html('You have declined push notifications. You can enable them later in your browser settings.');
-                                } else {
-                                    post[$hiddenInput.attr('name')] = 'default';
-                                    $status.html('You can enable push notifications at any time.');
-                                }
-                                // Store the result in hidden input and post
-                                $hiddenInput.val(post[$hiddenInput.attr('name')]);
-                                $.post(window.location.href, post);
-                            });
-                    }
-                }
-
-                if (post[$hiddenInput.attr('name')]) {
                     $hiddenInput.val(post[$hiddenInput.attr('name')]);
                     $.post(window.location.href, post);
+                    return false;
                 }
+
+                try {
+                    // Request notification permission
+                    const permission = await Notification.requestPermission();
+                    
+                    if (permission === 'granted') {
+                        // Register service worker if not already registered
+                        const registration = await navigator.serviceWorker.register('/assets/pwa/service-worker.js');
+                        
+                        // Get push subscription
+                        const subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlBase64ToUint8Array(window.vapidPublicKey)
+                        });
+                        
+                        // Store subscription data
+                        const subscriptionJson = JSON.stringify(subscription);
+                        post[$hiddenInput.attr('name')] = subscriptionJson;
+                        $hiddenInput.val(subscriptionJson);
+                        $status.html('Thank you! You will now receive push notifications.');
+                        
+                    } else if (permission === 'denied') {
+                        post[$hiddenInput.attr('name')] = 'not_requested';
+                        $status.html('You have declined push notifications. You can enable them later in your browser settings.');
+                    } else {
+                        post[$hiddenInput.attr('name')] = 'not_requested';
+                        $status.html('You can enable push notifications at any time.');
+                    }
+                    
+                    // Send the subscription to the server
+                    $.post(window.location.href, post);
+                    
+                } catch (error) {
+                    console.error('Error during push notification setup:', error);
+                    post[$hiddenInput.attr('name')] = 'not_requested';
+                    $hiddenInput.val('not_requested');
+                    $status.html('There was an error setting up push notifications. Please try again later.');
+                    $.post(window.location.href, post);
+                }
+                
                 return false;
             });
+
+            // Helper function to convert VAPID public key
+            function urlBase64ToUint8Array(base64String) {
+                const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                const base64 = (base64String + padding)
+                    .replace(/\-/g, '+')
+                    .replace(/_/g, '/');
+
+                const rawData = window.atob(base64);
+                const outputArray = new Uint8Array(rawData.length);
+
+                for (let i = 0; i < rawData.length; ++i) {
+                    outputArray[i] = rawData.charCodeAt(i);
+                }
+                return outputArray;
+            }
 
             // Add to Home Screen functionality
             var deferredPrompt;

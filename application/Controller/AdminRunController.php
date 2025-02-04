@@ -700,6 +700,10 @@ class AdminRunController extends AdminController {
                 'title' => 'Add Email',
                 'icon' => 'fa-envelope',
             ),
+            'PushMessage' => array(
+                'title' => 'Add Push Notification',
+                'icon' => 'fa-bell',
+            ),
             'SkipBackward' => array(
                 'title' => 'Add a loop (Skip Backwards)',
                 'icon' => 'fa-backward',

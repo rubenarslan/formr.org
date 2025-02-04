@@ -663,6 +663,58 @@
 		});
     };
 
+    // Add validation for PushMessage settings
+    function validatePushMessage($block) {
+        var $message = $block.find('textarea[name="message"]');
+        var $timeToLive = $block.find('input[name="time_to_live"]');
+        var $badgeCount = $block.find('input[name="badge_count"]');
+        var $saveButton = $block.find('a.unit_save');
+        var $silent = $block.find('input[name="silent"]');
+        var $vibrate = $block.find('input[name="vibrate"]');
+        var isValid = true;
+        var errors = [];
+
+        // Message is required
+        if (!$message.val().trim()) {
+            errors.push("Message is required");
+            isValid = false;
+        }
+
+        // Time to live must be between 0 and 2419200 (28 days)
+        var ttl = parseInt($timeToLive.val());
+        if (isNaN(ttl) || ttl < 0 || ttl > 2419200) {
+            errors.push("Time to live must be between 0 and 2419200 seconds (28 days)");
+            isValid = false;
+        }
+
+        // Badge count must be a positive number if set
+        var badge = parseInt($badgeCount.val());
+        if ($badgeCount.val() && (isNaN(badge) || badge < 0)) {
+            errors.push("Badge count must be a positive number");
+            isValid = false;
+        }
+
+        // Silent notifications can't vibrate
+        if ($silent.prop('checked') && $vibrate.prop('checked')) {
+            errors.push("Silent notifications cannot vibrate");
+            isValid = false;
+        }
+
+        // Update UI
+        if (!isValid) {
+            $saveButton.attr('disabled', 'disabled')
+                      .attr('title', errors.join('\n'))
+                      .tooltip('dispose')
+                      .tooltip();
+        } else {
+            $saveButton.removeAttr('disabled')
+                      .removeAttr('title')
+                      .tooltip('dispose');
+        }
+
+        return isValid;
+    }
+
     Run.prototype.publicToggle = function (e) {
         var $this = $(this);
         $this.parents(".btn-group").find(".btn-checked").removeClass("btn-checked");

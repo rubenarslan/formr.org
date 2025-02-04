@@ -10,6 +10,17 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="msapplication-starturl" content="<?php echo run_url($run->name); ?>">
 
+    <?php
+    // Get VAPID public key from the run
+    $vapidPublicKey = $run->getVapidPublicKey();
+    if ($vapidPublicKey):
+    ?>
+    <script>
+        // Make VAPID public key available globally
+        window.vapidPublicKey = <?php echo json_encode($vapidPublicKey); ?>;
+    </script>
+    <?php endif; ?>
+
     <script>
     // Register Service Worker
     if ('serviceWorker' in navigator) {
@@ -26,20 +37,21 @@
             const filesToCache = [...new Set([...stylesheets, ...scripts])];
 
             // Register service worker
-            navigator.serviceWorker.register('/assets/pwa/service-worker.js')
-                .then(registration => {
-                    console.log('ServiceWorker registration successful');
-                    // Send the files to cache to the service worker
-                    if (registration.active) {
-                        registration.active.postMessage({
-                            type: 'CACHE_ASSETS',
-                            assets: filesToCache
-                        });
-                    }
-                })
-                .catch(err => {
-                    console.log('ServiceWorker registration failed: ', err);
-                });
+            navigator.serviceWorker.register('/assets/pwa/service-worker.js', {
+                scope: '/'
+            }).then(registration => {
+                console.log('ServiceWorker registration successful');
+                // Send the files to cache and manifest path to the service worker
+                if (registration.active) {
+                    registration.active.postMessage({
+                        type: 'CACHE_ASSETS',
+                        assets: filesToCache,
+                        manifestPath: '<?php echo $run->getManifestJSONPath(); ?>'
+                    });
+                }
+            }).catch(err => {
+                console.log('ServiceWorker registration failed: ', err);
+            });
         });
     }
     </script>

@@ -5,7 +5,9 @@ namespace App\Services;
 use Minishlink\WebPush\WebPush;
 use Minishlink\WebPush\Subscription;
 use Exception;
-use PDO;
+use DB;
+use App\Services\RateLimitService;
+use Run;
 
 class PushNotificationService
 {
@@ -14,35 +16,39 @@ class PushNotificationService
     protected int $maxRetries;
     protected int $batchSize;
     protected int $rateLimit; // messages per minute per session
-    protected PDO $db;
-    // Rate limits stored as: [session_id => ['count' => int, 'start' => timestamp]]
-    protected array $rateLimits = [];
+    protected DB $db;
+    protected Run $run;
+    protected $runSession;
 
     /**
-     * @param int   $runId  The survey_runs id used to retrieve VAPID keys.
-     * @param PDO   $db     A PDO instance.
-     * @param array $config Optional configuration: max_retries, batch_size, rate_limit.
+     * @param Run    $run    The Run object representing the PWA/study
+     * @param DB     $db     A DB instance.
+     * @param array  $config Optional configuration: max_retries, batch_size, rate_limit.
      */
-    public function __construct(int $runId, PDO $db, array $config = [])
+    public function __construct(Run $run, DB $db, array $config = [])
     {
         $this->db = $db;
+        $this->run = $run;
 
         // Set defaults; override if provided in $config.
         $this->maxRetries = $config['max_retries'] ?? 3;
         $this->batchSize  = $config['batch_size']  ?? 10;
         $this->rateLimit  = $config['rate_limit']  ?? 60;
 
-        // Retrieve VAPID keys from survey_runs table.
-        $this->vapidKeys = $this->getVapidKeys($runId);
-        if (!$this->vapidKeys ||
-            empty($this->vapidKeys['publicKey']) ||
-            empty($this->vapidKeys['privateKey'])) {
-            throw new Exception("VAPID keys not found for run ID: {$runId}");
+        // Get VAPID keys from the run
+        $this->vapidKeys = [
+            'publicKey' => $run->getVapidPublicKey(),
+            'privateKey' => $this->getVapidPrivateKey($run->id)
+        ];
+
+        if (!$this->vapidKeys['publicKey'] || !$this->vapidKeys['privateKey']) {
+            throw new Exception("VAPID keys not found for run: {$run->name}");
         }
 
+        $owner = $run->getOwner();
         $this->webPush = new WebPush([
             'VAPID' => [
-                'subject'    => 'mailto:admin@example.com', // adjust as needed
+                'subject'    => "mailto:{$owner->email}",
                 'publicKey'  => $this->vapidKeys['publicKey'],
                 'privateKey' => $this->vapidKeys['privateKey'],
             ]
@@ -50,25 +56,72 @@ class PushNotificationService
     }
 
     /**
-     * Retrieve VAPID keys from the survey_runs table.
+     * Retrieve encrypted VAPID private key from the survey_runs table.
      *
      * @param int $runId
-     * @return array|null
+     * @return string|null
      */
-    protected function getVapidKeys(int $runId): ?array
+    protected function getVapidPrivateKey(int $runId): ?string
     {
-        $stmt = $this->db->prepare(
-            "SELECT vapid_public_key, vapid_private_key FROM survey_runs WHERE id = :runId"
-        );
-        $stmt->execute([':runId' => $runId]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $row = $this->db->findRow('survey_runs', ['id' => $runId], ['vapid_private_key']);
         if (!$row) {
             return null;
         }
-        return [
-            'publicKey'  => $row['vapid_public_key'],
-            'privateKey' => $row['vapid_private_key'],
-        ];
+        
+        // Decrypt the private key
+        return \Crypto::decrypt($row['vapid_private_key']);
+    }
+
+    /**
+     * Send a single push notification with retry logic.
+     *
+     * @param int   $sessionId      Session ID for logging and rate limiting.
+     * @param array $subscription   Subscription data.
+     * @param string $message       Message to send.
+     * @param int   $attempt        Current attempt count.
+     *
+     * @throws Exception on final failure.
+     */
+    public function sendPushMessage(
+        int $sessionId,
+        array $subscription,
+        string $message,
+        int $attempt = 1
+    ) {
+        // Check rate limits before sending
+        $rateLimit = new RateLimitService($this->db, false, false);
+        $result = $rateLimit->isAllowedToSend((string)$sessionId, 'push_logs');
+        
+        if (!$result['allowed']) {
+            throw new Exception($result['message']);
+        }
+
+        if ($result['message'] !== null) {
+            error_log("Push notification warning: " . $result['message']);
+        }
+
+        $sub = Subscription::create($subscription);
+        $payload = json_encode([
+            'title' => $this->run->title ?? $this->run->name,
+            'body'  => $message,
+            'clickTarget' => run_url($this->run->name),
+            'icon'  => asset_url('pwa/maskable_icon_x192.png')
+        ]);
+        $this->webPush->queueNotification($sub, $payload);
+
+        foreach ($this->webPush->flush() as $report) {
+            if (!$report->isSuccess()) {
+                $this->logPushFailure($sessionId, $message, $report->getReason(), $attempt);
+                if ($attempt < $this->maxRetries) {
+                    sleep(pow(2, $attempt)); // exponential backoff
+                    $this->sendPushMessage($sessionId, $subscription, $message, $attempt + 1);
+                } else {
+                    throw new Exception("Push notification permanently failed: " . $report->getReason());
+                }
+            } else {
+                $this->logPushSuccess($sessionId, $message);
+            }
+        }
     }
 
     /**
@@ -76,7 +129,6 @@ class PushNotificationService
      *
      * Each notification should be an array with:
      *  - session_id: int
-     *  - run_id: int (should match the run id used in the constructor)
      *  - subscription: array (subscription data for WebPush\Subscription::create)
      *  - message: string
      *
@@ -90,13 +142,11 @@ class PushNotificationService
         foreach ($batches as $batch) {
             foreach ($batch as $notification) {
                 $sessionId      = $notification['session_id'];
-                $runId          = $notification['run_id'];
                 $subscription   = $notification['subscription'];
                 $message        = $notification['message'];
 
                 try {
-                    $this->checkRateLimit($sessionId);
-                    $this->sendPushMessage($sessionId, $runId, $subscription, $message);
+                    $this->sendPushMessage($sessionId, $subscription, $message);
                     $sentCount++;
                 } catch (Exception $e) {
                     error_log("Push notification failed for session {$sessionId}: " . $e->getMessage());
@@ -109,92 +159,22 @@ class PushNotificationService
     }
 
     /**
-     * Send a single push notification with retry logic.
-     *
-     * @param int   $sessionId      Session ID for logging and rate limiting.
-     * @param int   $runId          Run ID (must match constructor run id).
-     * @param array $subscription   Subscription data.
-     * @param string $message       Message to send.
-     * @param int   $attempt        Current attempt count.
-     *
-     * @throws Exception on final failure.
-     */
-    public function sendPushMessage(
-        int $sessionId,
-        int $runId,
-        array $subscription,
-        string $message,
-        int $attempt = 1
-    ) {
-        $sub = Subscription::create($subscription);
-        $payload = json_encode([
-            'title' => 'Notification',
-            'body'  => $message,
-            'icon'  => '/path/to/icon.png'
-        ]);
-        $this->webPush->queueNotification($sub, $payload);
-
-        foreach ($this->webPush->flush() as $report) {
-            if (!$report->isSuccess()) {
-                $this->logPushFailure($sessionId, $runId, $message, $report->getReason(), $attempt);
-                if ($attempt < $this->maxRetries) {
-                    sleep(pow(2, $attempt)); // exponential backoff
-                    $this->sendPushMessage($sessionId, $runId, $subscription, $message, $attempt + 1);
-                } else {
-                    throw new Exception("Push notification permanently failed: " . $report->getReason());
-                }
-            } else {
-                $this->logPushSuccess($sessionId, $runId, $message);
-            }
-        }
-    }
-
-    /**
-     * Enforce rate limiting for a given session.
-     *
-     * @param int $sessionId
-     * @throws Exception if rate limit is exceeded.
-     */
-    protected function checkRateLimit(int $sessionId)
-    {
-        $currentTime = time();
-        if (!isset($this->rateLimits[$sessionId])) {
-            $this->rateLimits[$sessionId] = ['count' => 0, 'start' => $currentTime];
-        }
-
-        $data = $this->rateLimits[$sessionId];
-
-        // If more than 60 seconds have elapsed, reset the counter.
-        if ($currentTime - $data['start'] >= 60) {
-            $this->rateLimits[$sessionId] = ['count' => 0, 'start' => $currentTime];
-        }
-
-        if ($this->rateLimits[$sessionId]['count'] >= $this->rateLimit) {
-            throw new Exception("Rate limit exceeded for session {$sessionId}.");
-        }
-
-        $this->rateLimits[$sessionId]['count']++;
-    }
-
-    /**
      * Log a successful push notification to the push_logs table.
      *
      * @param int    $sessionId
-     * @param int    $runId
      * @param string $message
      */
-    protected function logPushSuccess(int $sessionId, int $runId, string $message)
+    protected function logPushSuccess(int $sessionId, string $message)
     {
-        $stmt = $this->db->prepare(
-            "INSERT INTO push_logs 
-                (session_id, run_id, message, status, error_message, attempt, created_at)
-             VALUES 
-                (:session_id, :run_id, :message, 'success', NULL, 1, NOW())"
-        );
-        $stmt->execute([
-            ':session_id' => $sessionId,
-            ':run_id'     => $runId,
-            ':message'    => $message
+        $this->db->insert('push_logs', [
+            'unit_session_id' => $sessionId,
+            'session_id' => $this->runSession->id,
+            'run_id' => $this->run->id,
+            'message' => $message,
+            'status' => 'success',
+            'error_message' => null,
+            'attempt' => 1,
+            'created_at' => mysql_now()
         ]);
     }
 
@@ -202,30 +182,25 @@ class PushNotificationService
      * Log a failed push notification to the push_logs table.
      *
      * @param int    $sessionId
-     * @param int    $runId
      * @param string $message
      * @param string $error
      * @param int    $attempt
      */
     protected function logPushFailure(
         int $sessionId,
-        int $runId,
         string $message,
         string $error,
         int $attempt
     ) {
-        $stmt = $this->db->prepare(
-            "INSERT INTO push_logs 
-                (session_id, run_id, message, status, error_message, attempt, created_at)
-             VALUES 
-                (:session_id, :run_id, :message, 'failed', :error_message, :attempt, NOW())"
-        );
-        $stmt->execute([
-            ':session_id'    => $sessionId,
-            ':run_id'        => $runId,
-            ':message'       => $message,
-            ':error_message' => $error,
-            ':attempt'       => $attempt
+        $this->db->insert('push_logs', [
+            'unit_session_id' => $sessionId,
+            'session_id' => $this->runSession->id,
+            'run_id' => $this->run->id,
+            'message' => $message,
+            'status' => 'failed',
+            'error_message' => $error,
+            'attempt' => $attempt,
+            'created_at' => mysql_now()
         ]);
     }
 }

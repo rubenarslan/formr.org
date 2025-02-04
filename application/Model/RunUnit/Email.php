@@ -203,13 +203,12 @@ class Email extends RunUnit {
         }
 
         if ($this->account_id === null) {
-            alert("The study administrator (you?) did not set up an email account. <a href='" . admin_url('mail') . "'>Do it now</a> and then select the account in the email dropdown.", 'alert-danger');
+            alert("The study administrator (you?) did not set up an email account. <a href='" . admin_url('mail') . "'>Do it now</a> and then select the account in the dropdown.", 'alert-danger');
             $this->errors['log'] = $this->getLogMessage('no_recipient', "The study administrator (you?) did not set up an email account.");
             return false;
         }
 
         $run_session = $unitSession->runSession;
-
         $testing = !$run_session || $run_session->isTesting();
 
         $acc = new EmailAccount($this->account_id, null);
@@ -217,53 +216,20 @@ class Email extends RunUnit {
                 (($user = Site::getCurrentUser()) && $user->email === $this->recipient) ||
                 ($this->run && $this->run->getOwner()->email === $this->recipient);
 
-        $error = null;
-        $warning = null;
-        $mails_sent = $this->numberOfEmailsSent();
-        
-        $thresholds = Config::get("email_thresholds");
+        // Use the new RateLimitService for rate limiting
+        $rateLimit = new \App\Services\RateLimitService($this->db, $testing, $mailing_themselves);
+        $result = $rateLimit->isAllowedToSend($this->recipient, 'survey_email_log');
 
-        if (!$mailing_themselves):
-
-            if ($mails_sent['in_last_1m'] >= $thresholds['in_last_1m']):
-                if ($mails_sent['in_last_1m'] <= $thresholds['in_last_1m'] && $testing):
-                    $warning = sprintf("We already sent %d mail to this recipient in the last minute. An email was sent, because you're currently testing, but it would have been delayed for a real user, to avoid allegations of spamming.", $mails_sent['in_last_1m']);
-                else:
-                    $error = sprintf("We already sent %d mail to this recipient in the last minute. No email was sent.", $mails_sent['in_last_1m']);
-                endif;
-            elseif ($mails_sent['in_last_10m'] >= $thresholds['in_last_10m']):
-                if ($mails_sent['in_last_10m'] <= $thresholds['in_last_10m_testing'] && $testing):
-                    $warning = sprintf("We already sent %d mail to this recipient in the last 10 minutes. An email was sent, because you're currently testing, but it would have been delayed for a real user, to avoid allegations of spamming.", $mails_sent['in_last_10m']);
-                else:
-                    $error = sprintf("We already sent %d mail to this recipient in the last 10 minutes. No email was sent.", $mails_sent['in_last_10m']);
-                endif;
-            elseif ($mails_sent['in_last_1h'] >= $thresholds['in_last_1h']):
-                if ($mails_sent['in_last_1h'] <= $thresholds['in_last_1h_testing'] && $testing):
-                    $warning = sprintf("We already sent %d mails to this recipient in the last hour. An email was sent, because you're currently testing, but it would have been delayed for a real user, to avoid allegations of spamming.", $mails_sent['in_last_1h']);
-                else:
-                    $error = sprintf("We already sent %d mails to this recipient in the last hour. No email was sent.", $mails_sent['in_last_1h']);
-                endif;
-            elseif ($mails_sent['in_last_1d'] >= $thresholds['in_last_1d'] && !$testing):
-                $error = sprintf("We already sent %d mails to this recipient in the last day. No email was sent.", $mails_sent['in_last_1d']);
-            elseif ($mails_sent['in_last_1w'] >= $thresholds['in_last_1w'] && !$testing):
-                $error = sprintf("We already sent %d mails to this recipient in the last week. No email was sent.", $mails_sent['in_last_1w']);
-            endif;
-        else:
-            if ($mails_sent['in_last_1m'] >= $thresholds['in_last_1m_testing'] || $mails_sent['in_last_1d'] >= $thresholds['in_last_1d_testing']):
-                $error = sprintf("Too many emails are being sent to the study administrator, %d mails today. Please wait a little.", $mails_sent['in_last_1d']);
-            endif;
-        endif;
-
-        if ($error !== null) {
-            $this->errors['log'] = $this->getLogMessage('error_send_eligible', $error);
-            $error = "Session: {$unitSession->runSession->session}:\n {$error}";
+        if (!$result['allowed']) {
+            $this->errors['log'] = $this->getLogMessage('error_send_eligible', $result['message']);
+            $error = "Session: {$unitSession->runSession->session}:\n {$result['message']}";
             alert(nl2br($error), 'alert-danger');
             return false;
         }
 
-        if ($warning !== null) {
-            $this->messages['log'] = $this->getLogMessage(null, $warning);
-            $warning = "Session: {$unitSession->runSession->session}:\n {$warning}";
+        if ($result['message'] !== null) {
+            $this->messages['log'] = $this->getLogMessage(null, $result['message']);
+            $warning = "Session: {$unitSession->runSession->session}:\n {$result['message']}";
             alert(nl2br($warning), 'alert-info');
         }
 
@@ -319,7 +285,9 @@ class Email extends RunUnit {
         foreach ($this->images as $image_id => $image) {
             $local_image = APPLICATION_ROOT . 'tmp/' . uniqid() . $image_id;
             copy($image, $local_image);
-            register_shutdown_function(create_function('', "unlink('{$local_image}');"));
+            register_shutdown_function(function() use ($local_image) {
+                unlink($local_image);
+            });
 
             if (!$mail->AddEmbeddedImage($local_image, $image_id, $image_id, 'base64', 'image/png')) {
                 alert("Could not embed image with id '{$image_id}'", 'alert-danger');
@@ -328,7 +296,7 @@ class Email extends RunUnit {
         
         if ($mail->Send()) {
             $this->mail_sent = true;
-            $this->logMail($$unitSession); 
+            $this->logMail($unitSession); 
         } else {
             alert('Email with the subject "' . h($mail->Subject) . '" was not sent to ' . h($this->recipient) . ':<br>' . $mail->ErrorInfo, 'alert-danger');
         }
