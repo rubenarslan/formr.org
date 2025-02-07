@@ -110,13 +110,13 @@ class File_Item extends Item {
                     $this->error = 'Files of type ' . $mime . ' are not allowed to be uploaded.';
                 } else {
                     $new_file_name = crypto_token(66) . $this->file_endings[$mime];
-                    if (move_uploaded_file($reply['tmp_name'], APPLICATION_ROOT . 'webroot/assets/tmp/' . $new_file_name)) {
-                        $public_path = WEBROOT . 'assets/tmp/' . $new_file_name;
+                    if (move_uploaded_file($reply['tmp_name'], APPLICATION_ROOT . 'webroot/assets/tmp/user_uploaded_files/' . $new_file_name)) {
+                        $public_path = asset_url('tmp/user_uploaded_files/' . $new_file_name, false);
                         
                         // Store file info during validation
                         $this->uploaded_file_info = [
                             'original_filename' => $reply['name'],
-                            'stored_path' => 'webroot/assets/tmp/' . $new_file_name
+                            'stored_path' => $public_path
                         ];
                         
                         $reply = __($this->embed_html, $public_path);
