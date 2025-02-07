@@ -1,7 +1,7 @@
 -- Modify the survey_runs table to store VAPID keys
 ALTER TABLE survey_runs 
-    ADD COLUMN vapid_public_key TEXT NOT NULL,
-    ADD COLUMN vapid_private_key TEXT NOT NULL;
+    ADD COLUMN vapid_public_key TEXT NULL,
+    ADD COLUMN vapid_private_key TEXT NULL;
 
 -- Fix survey_run_sessions.id to be unsigned
 ALTER TABLE survey_unit_sessions
