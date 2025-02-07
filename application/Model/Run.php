@@ -1239,10 +1239,12 @@ class Run extends Model {
             $template
         );
 
-        // Generate new asset path if none exists
+        // Generate new asset path if none exists or use existing one
         if ($this->manifest_json_path) {
-            $path = $this->manifest_json_path . ".json";
+            // Remove .json extension if it exists, then ensure it's added correctly
+            $path = preg_replace('/\.json$/', '', $this->manifest_json_path);
         } else {
+            // Generate a new path in the assets directory
             $path = NULL;
         }
 
