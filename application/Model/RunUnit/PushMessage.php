@@ -16,7 +16,6 @@ class PushMessage extends RunUnit {
     public $require_interaction = false;
     public $renotify = false;
     public $silent = false;
-    public $showif;
 
     protected $defaults = array(
         'message' => '',
@@ -24,33 +23,44 @@ class PushMessage extends RunUnit {
         'priority' => 'normal',
         'time_to_live' => 86400,
         'badge_count' => null,
-        'icon' => null,
         'vibrate' => true,
         'require_interaction' => false,
         'renotify' => false,
-        'silent' => false,
-        'showif' => null
+        'silent' => false
     );
+
+    public function __construct(Run $run, array $props = []) {
+        parent::__construct($run, $props);
+
+        if ($this->id) {
+            $vars = $this->db->findRow('push_messages', array('id' => $this->id), 'message, topic, priority, time_to_live, badge_count, vibrate, require_interaction, renotify, silent');
+            if ($vars) {
+                $vars['valid'] = true;
+                $this->assignProperties($vars);
+            }
+        }
+    }
 
     public function create($options = array()) {
         $this->assignProperties($this->defaults);
-        $this->assignProperties($options);
-
-        $unit = array(
-            'type' => $this->type,
-            'created' => mysql_now(),
-            'modified' => mysql_now()
-        );
-
-        $this->id = $this->db->insert('survey_units', $unit);
-        if (!$this->id) {
-            return false;
+        if (isset($options['message'])) {
+            array_walk($options, "emptyNull");
+            // Convert checkbox values to booleans
+            $options['vibrate'] = isset($options['vibrate']) && $options['vibrate'];
+            $options['require_interaction'] = isset($options['require_interaction']) && $options['require_interaction'];
+            $options['renotify'] = isset($options['renotify']) && $options['renotify'];
+            $options['silent'] = isset($options['silent']) && $options['silent'];
+            $this->assignProperties($options);
         }
-
+        
+        // Use parent create method which handles both new units and updates
+        parent::create($options);
+        
+        // Save PushMessage-specific settings after parent creates/updates base unit
         $this->saveSettings();
-		$this->valid = true;
+        $this->valid = true;
 
-        return $this->addToRun($options);
+        return $this;
     }
 
     public function saveSettings() {
@@ -58,14 +68,12 @@ class PushMessage extends RunUnit {
             'message' => $this->message,
             'topic' => $this->topic,
             'priority' => $this->priority,
-            'time_to_live' => $this->time_to_live,
-            'badge_count' => $this->badge_count,
-            'icon' => $this->icon,
-            'vibrate' => $this->vibrate ? 1 : 0,
-            'require_interaction' => $this->require_interaction ? 1 : 0,
-            'renotify' => $this->renotify ? 1 : 0,
-            'silent' => $this->silent ? 1 : 0,
-            'showif' => $this->showif
+            'time_to_live' => (int)$this->time_to_live,
+            'badge_count' => (int)$this->badge_count,
+            'vibrate' => (bool)$this->vibrate ? 1 : 0,
+            'require_interaction' => (bool)$this->require_interaction ? 1 : 0,
+            'renotify' => (bool)$this->renotify ? 1 : 0,
+            'silent' => (bool)$this->silent ? 1 : 0
         );
 
         $this->db->insert_update('push_messages', array_merge(
@@ -86,17 +94,6 @@ class PushMessage extends RunUnit {
     public function getUnitSessionOutput(UnitSession $unitSession) {
         $output = array();
         $output['log'] = array();
-
-        // Check if we should send based on showif condition
-        if ($this->showif) {
-            $opencpu_vars = $unitSession->getRunData($this->showif);
-            $send = opencpu_evaluate($this->showif, $opencpu_vars);
-            if (!$send) {
-                $output['log']['result'] = 'skipped_showif';
-                $output['move_on'] = true;
-                return $output;
-            }
-        }
 
         try {
             // Get subscription from the user's session
@@ -169,6 +166,7 @@ class PushMessage extends RunUnit {
     }
 
 	public function displayForRun($prepend = '') {
+
         $dialog = Template::get($this->getTemplatePath(), array(
             'push_message' => $this,
             'prepend' => $prepend,
@@ -185,8 +183,7 @@ class PushMessage extends RunUnit {
             'vibrate' => $this->vibrate,
             'require_interaction' => $this->require_interaction,
             'renotify' => $this->renotify,
-            'silent' => $this->silent,
-            'showif' => $this->showif
+            'silent' => $this->silent
         ));
 
         return parent::runDialog($dialog);
@@ -200,13 +197,17 @@ class PushMessage extends RunUnit {
             'priority' => $this->priority,
             'time_to_live' => $this->time_to_live,
             'badge_count' => $this->badge_count,
-            'icon' => $this->icon,
             'vibrate' => $this->vibrate,
             'require_interaction' => $this->require_interaction,
             'renotify' => $this->renotify,
-            'silent' => $this->silent,
-            'showif' => $this->showif
+            'silent' => $this->silent
         ));
         return $unit;
+    }
+
+    public function modify($options = []) {
+        parent::modify($options);
+        $this->saveSettings();
+        return true;
     }
 } 

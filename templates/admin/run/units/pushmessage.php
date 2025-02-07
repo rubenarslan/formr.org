@@ -53,19 +53,19 @@
 <p>
 	Options: 
     <label class="checkbox hastooltip" title="Vibrate when delivering notification">
-        <input type="checkbox" name="vibrate" value="1" <?= $vibrate ? 'checked' : '' ?>>
+        <input type="checkbox" name="vibrate" value="1" <?= $vibrate ? 'checked="checked"' : '' ?>>
         <i class="fa fa-mobile"></i>
     </label>
     <label class="checkbox hastooltip" title="Require user interaction to dismiss">
-        <input type="checkbox" name="require_interaction" value="1" <?= $require_interaction ? 'checked' : '' ?>>
+        <input type="checkbox" name="require_interaction" value="1" <?= $require_interaction ? 'checked="checked"' : '' ?>>
         <i class="fa fa-hand-pointer-o"></i>
     </label>
     <label class="checkbox hastooltip" title="Show new notification even if one exists">
-        <input type="checkbox" name="renotify" value="1" <?= $renotify ? 'checked' : '' ?>>
+        <input type="checkbox" name="renotify" value="1" <?= $renotify ? 'checked="checked"' : '' ?>>
         <i class="fa fa-bell"></i>
     </label>
     <label class="checkbox hastooltip" title="Deliver silently without interruption">
-        <input type="checkbox" name="silent" value="1" <?= $silent ? 'checked' : '' ?>>
+        <input type="checkbox" name="silent" value="1" <?= $silent ? 'checked="checked"' : '' ?>>
         <i class="fa fa-bell-slash-o"></i>
     </label>
 </p>
