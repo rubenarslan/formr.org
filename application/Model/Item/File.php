@@ -5,6 +5,7 @@ class File_Item extends Item {
     public $type = 'file';
     public $input_attributes = array('type' => 'file', 'accept' => "image/*,video/*,audio/*,text/*");
     public $mysql_field = 'VARCHAR(1000) DEFAULT NULL';
+    public $hasChoices = false;
     protected $file_endings = array(
                 // JPEG image files
         'image/jpeg' => '.jpg', // JPEG (Joint Photographic Experts Group), widely used for photos and web images
