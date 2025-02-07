@@ -689,7 +689,7 @@
 
         // Badge count must be a positive number if set
         var badge = parseInt($badgeCount.val());
-        if ($badgeCount.val() && (isNaN(badge) || badge < 0)) {
+        if (!isNaN(badge) && badge < 0) {
             errors.push("Badge count must be a positive number");
             isValid = false;
         }
