@@ -360,4 +360,27 @@ class RunHelper {
         );
     }
 
+    public function getPushMessageLogTable($params) {
+        $sql = "SELECT 
+                    pl.*,
+                    sru.position as position_in_run,
+                    pm.message as template_message,
+                    pm.topic,
+                    pm.priority
+                FROM push_logs pl
+                LEFT JOIN survey_unit_sessions sus ON pl.unit_session_id = sus.id 
+                LEFT JOIN survey_run_units sru ON sus.unit_id = sru.unit_id AND sru.run_id = pl.run_id
+                LEFT JOIN push_messages pm ON sus.unit_id = pm.id
+                WHERE pl.run_id = :run_id 
+                ORDER BY pl.created_at DESC";
+                
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        
+        return array(
+            'data' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+            'pagination' => new Pagination($stmt->rowCount(), 50)
+        );
+    }
+
 }

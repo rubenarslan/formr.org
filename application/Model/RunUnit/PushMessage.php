@@ -1,5 +1,4 @@
 <?php
-
 class PushMessage extends RunUnit {
     public $type = 'PushMessage';
     public $message;
@@ -113,7 +112,7 @@ class PushMessage extends RunUnit {
             }
 
             // Send push notification
-            $pushService = new \App\Services\PushNotificationService(
+            $pushService = new PushNotificationService(
                 $unitSession->runSession->getRun(),
                 $this->db
             );

@@ -217,7 +217,7 @@ class Email extends RunUnit {
                 ($this->run && $this->run->getOwner()->email === $this->recipient);
 
         // Use the new RateLimitService for rate limiting
-        $rateLimit = new \App\Services\RateLimitService($this->db, $testing, $mailing_themselves);
+        $rateLimit = new RateLimitService($this->db, $testing, $mailing_themselves);
         $result = $rateLimit->isAllowedToSend($this->recipient, 'survey_email_log');
 
         if (!$result['allowed']) {

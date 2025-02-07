@@ -2,10 +2,6 @@
 
 use Minishlink\WebPush\WebPush;
 use Minishlink\WebPush\Subscription;
-use Exception;
-use DB;
-use App\Services\RateLimitService;
-use Run;
 
 class PushNotificationService
 {

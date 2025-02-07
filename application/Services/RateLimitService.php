@@ -1,9 +1,5 @@
 <?php
 
-namespace App\Services;
-
-use DB;
-
 class RateLimitService
 {
     protected DB $db;
