@@ -362,7 +362,6 @@ var is = {
                     post[$hiddenInput.attr('name')] = 'not_supported';
                     $status.html('Sorry, your browser does not support push notifications.');
                     $hiddenInput.val(post[$hiddenInput.attr('name')]);
-                    $.post(window.location.href, post);
                     return false;
                 }
 
@@ -372,12 +371,24 @@ var is = {
                     
                     if (permission === 'granted') {
                         // Register service worker if not already registered
-                        const registration = await navigator.serviceWorker.register('/assets/pwa/service-worker.js');
+                        const registration = await navigator.serviceWorker.register('/service-worker.js', { scope: '/' });
                         
-                        // Get push subscription
+                        // Add this validation before using the VAPID key
+                        if (!window.vapidPublicKey || typeof window.vapidPublicKey !== 'string' || window.vapidPublicKey.length < 10) {
+                            console.error('Invalid VAPID public key');
+                            post[$hiddenInput.attr('name')] = 'invalid_config';
+                            $hiddenInput.val('invalid_config');
+                            $status.html('Server configuration error. Please contact support.');
+                            return false;
+                        }
+
+                        // Update the subscription code to include error handling
                         const subscription = await registration.pushManager.subscribe({
                             userVisibleOnly: true,
                             applicationServerKey: urlBase64ToUint8Array(window.vapidPublicKey)
+                        }).catch(error => {
+                            console.error('Error subscribing to push:', error);
+                            throw error;
                         });
                         
                         // Store subscription data
@@ -394,15 +405,11 @@ var is = {
                         $status.html('You can enable push notifications at any time.');
                     }
                     
-                    // Send the subscription to the server
-                    $.post(window.location.href, post);
-                    
                 } catch (error) {
                     console.error('Error during push notification setup:', error);
                     post[$hiddenInput.attr('name')] = 'not_requested';
                     $hiddenInput.val('not_requested');
                     $status.html('There was an error setting up push notifications. Please try again later.');
-                    $.post(window.location.href, post);
                 }
                 
                 return false;
@@ -441,6 +448,7 @@ var is = {
                 var $btn = $(this);
                 var $wrapper = $btn.closest('.add-to-homescreen-wrapper');
                 var $status = $wrapper.find('.status-message');
+                var $hiddenInput = $wrapper.find('input[type="hidden"]');
                 var platform = $btn.data('platform');
 
 
@@ -457,10 +465,12 @@ var is = {
                     deferredPrompt.userChoice.then(function(choiceResult) {
                         if (choiceResult.outcome === 'accepted') {
                             // Store the result
-                            post[$btn.attr('name')] = 'added';
+                            post[$hiddenInput.attr('name')] = 'added';
+                            $hiddenInput.val('added');
                             $status.html('Thank you! The app has been added to your home screen.');
                         } else {
-                            post[$btn.attr('name')] = 'not_added';
+                            post[$hiddenInput.attr('name')] = 'not_added';
+                            $hiddenInput.val('not_added');
                             $status.html('You can add this app to your home screen at any time from your browser\'s menu.');
                         }
                         // Clear the prompt reference
@@ -469,14 +479,16 @@ var is = {
                 } else {
                     // If can't show prompt (already installed or not supported)
                     if (window.matchMedia('(display-mode: standalone)').matches) {
-                        post[$btn.attr('name')] = 'already_added';
+                        post[$hiddenInput.attr('name')] = 'already_added';
+                        $hiddenInput.val('already_added');
                         $status.html('This app is already installed on your home screen.');
                     } else {
-                        post[$btn.attr('name')] = 'no_support';
+                        post[$hiddenInput.attr('name')] = 'no_support';
+                        $hiddenInput.val('no_support');
                         $status.html('Your browser doesn\'t support adding to home screen automatically. You can add it manually from your browser\'s menu.');
                     }
                 }
-                $btn.val(post[$btn.attr('name')]);
+                $hiddenInput.val(post[$hiddenInput.attr('name')]);
                 return false;
             });
 

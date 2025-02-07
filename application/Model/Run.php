@@ -52,6 +52,7 @@ class Run extends Model {
     public $expire_cookie = 0;
     public $expire_cookie_value = 0;
     public $expire_cookie_unit;
+    public $vapid_public_key = null;
     public $expire_cookie_units = array(
         'seconds' => 'Seconds',
         'minutes' => 'Minutes',
@@ -77,6 +78,7 @@ class Run extends Model {
         "use_material_design", "expire_cookie",
         "expire_cookie_value", "expire_cookie_unit",
         "expiresOn",
+        "vapid_public_key", "vapid_private_key"
     );
     public $renderedDescAndFooterAlready = false;
     public $expiresOn = null;
@@ -116,7 +118,7 @@ class Run extends Model {
             return;
         }
 
-        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, manifest_json_path, osf_project_id, use_material_design, expire_cookie, expiresOn";
+        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, manifest_json_path, osf_project_id, use_material_design, expire_cookie, expiresOn, vapid_public_key";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
         
@@ -666,8 +668,7 @@ class Run extends Model {
      * @return string|null The VAPID public key or null if not set
      */
     public function getVapidPublicKey() {
-        $vapidKeys = $this->db->findRow('survey_runs', ['id' => $this->id], ['vapid_public_key']);
-        return $vapidKeys ? $vapidKeys['vapid_public_key'] : null;
+        return $this->vapid_public_key;
     }
 
     private function getFileContent($path) {
@@ -1217,7 +1218,43 @@ class Run extends Model {
         return $value;
     }
 
+    /**
+     * Generate VAPID keys for the run
+     * 
+     * @return void
+     */
+    public function generateVapidKeys() {
+        // Check if keys already exist
+        $existingPublicKey = $this->getVapidPublicKey();
+        if ($existingPublicKey) {
+            return; // Keys already exist
+        }
+    
+        // Generate new VAPID keys using web-push library
+        $vapidKeys = \Minishlink\WebPush\VAPID::createVapidKeys();
+    
+        // Encrypt the private key before storage
+        $encryptedPrivate = \Crypto::encrypt($vapidKeys['privateKey']);
+    
+        // Store both keys in the database
+        $this->db->update('survey_runs', [
+            'vapid_public_key' => $vapidKeys['publicKey'],
+            'vapid_private_key' => $encryptedPrivate,
+            'modified' => mysql_now()
+        ], ['id' => $this->id]);
+    
+        // Refresh model properties
+        $this->vapid_public_key = $vapidKeys['publicKey'];
+    }
+
+    /**
+     * Generate the manifest file for the run
+     * 
+     * @return bool Returns true if the manifest was generated successfully, false otherwise
+     */
     public function generateManifest() {
+
+        $this->generateVapidKeys();
         // Read the template
         $template_path = APPLICATION_ROOT . 'templates/run/manifest_template.json';
         if (!file_exists($template_path)) {

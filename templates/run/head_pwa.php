@@ -1,4 +1,5 @@
-<?php if ($run->getManifestJSONPath()): ?>
+<?php 
+if ($run->getManifestJSONPath()): ?>
     <link rel="manifest" href="<?php echo $run->getManifestJSONPath(); ?>">
     <link rel="apple-touch-icon" href="<?php echo asset_url('pwa/maskable_icon_x192.png'); ?>">
     <meta name="mobile-web-app-capable" content="yes">
@@ -37,7 +38,7 @@
             const filesToCache = [...new Set([...stylesheets, ...scripts])];
 
             // Register service worker
-            navigator.serviceWorker.register('/assets/pwa/service-worker.js', {
+            navigator.serviceWorker.register('/service-worker.js', {
                 scope: '/'
             }).then(registration => {
                 console.log('ServiceWorker registration successful');

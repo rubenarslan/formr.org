@@ -39,7 +39,8 @@ class AddToHomeScreen_Item extends Item {
 
         // Create hidden input with same name as button
         $hidden_input = sprintf(
-            '<input type="hidden" name="%s" value="not_clicked" />',
+            '<input type="hidden" name="%s" value="not_clicked" id="%s" />',
+            $this->name,
             $this->name
         );
 
