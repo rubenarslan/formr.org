@@ -460,8 +460,18 @@ class DB {
                 $column = trim($column, '`');
                 $columns[$i] = "`$column` = VALUES(`$column`)";
             } else {
-                $value = $column !== null && strstr($column, '::') !== false ? str_replace('::', '', $column) : $this->PDO->quote($column);
+                $value = $column;
                 $column = trim($i, '`');
+
+                if ($value !== null) {
+                    if (strstr($value, '::') !== false) {
+                        $value = str_replace('::', '', $value);
+                    } else {
+                        $value = $this->PDO->quote($value);
+                    }
+                } else {
+                    $value = 'NULL';
+                }
                 $columns[$i] = "`$column` = $value";
             }
         }
