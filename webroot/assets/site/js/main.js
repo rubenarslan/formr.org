@@ -1,6 +1,6 @@
-import jQuery from 'jquery';
-import 'bootstrap';
+//import jQuery from 'jquery';
 // Bootstrap
+import 'bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 // Robot font
 import '../../common/css/roboto-font.css';
@@ -26,9 +26,6 @@ import 'cookieconsent/src/styles/base.css';
 import 'cookieconsent/src/styles/layout.css';
 import 'cookieconsent/src/styles/media.css';
 import 'cookieconsent/src/styles/themes/classic.css';
-
-
-
 
 // Common JS
 import '../../common/js/main.js';

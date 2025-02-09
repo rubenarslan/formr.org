@@ -1,6 +1,7 @@
-import jQuery from 'jquery';
-import 'bootstrap';
+//import jQuery from 'jquery';
+
 // Bootstrap
+import 'bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 // Robot font
 import '../../common/css/roboto-font.css';
