@@ -162,13 +162,12 @@ class PushNotificationService
     {
         $this->db->insert('push_logs', [
             'unit_session_id' => $sessionId,
-            'session_id' => $this->runSession->id,
             'run_id' => $this->run->id,
             'message' => $message,
             'status' => 'success',
             'error_message' => null,
             'attempt' => 1,
-            'created_at' => mysql_now()
+            'created' => mysql_now()
         ]);
     }
 
@@ -188,13 +187,12 @@ class PushNotificationService
     ) {
         $this->db->insert('push_logs', [
             'unit_session_id' => $sessionId,
-            'session_id' => $this->runSession->id,
             'run_id' => $this->run->id,
             'message' => $message,
             'status' => 'failed',
             'error_message' => $error,
             'attempt' => $attempt,
-            'created_at' => mysql_now()
+            'created' => mysql_now()
         ]);
     }
 }

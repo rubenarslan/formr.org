@@ -23,10 +23,8 @@
                                 <thead>
                                     <tr>
                                         <th>Message</th>
-                                        <th>Topic</th>
                                         <th>Status</th>
                                         <th>Error</th>
-                                        <th>Position</th>
                                         <th>Attempt</th>
                                         <th>Date and time</th>
                                     </tr>
@@ -34,13 +32,7 @@
                                 <tbody>
                                     <?php foreach ($messages as $message): ?>
                                     <tr>
-                                        <td>
-                                            <?= h($message['message']) ?>
-                                            <?php if ($message['template_message'] != $message['message']): ?>
-                                                <br><small class="text-muted">Template: <?= h($message['template_message']) ?></small>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td><?= h($message['topic']) ?></td>
+                                        <td><?= h($message['message']) ?></td>
                                         <td>
                                             <?php 
                                             $label_class = "label-default";
@@ -48,12 +40,6 @@
                                             if($message['status'] === 'failed') {
                                                 $label_class = "label-danger";
                                                 $icon = 'fa-times-circle';
-                                            } else if ($message['status'] === 'pending') {
-                                                $label_class = "label-info";
-                                                $icon = 'fa-hourglass-half';
-                                            } else if ($message['status'] === 'sent') {
-                                                $label_class = "label-success";
-                                                $icon = 'fa-check-circle';
                                             }
                                             ?>
                                             <small class='label <?= $label_class ?> hastooltip' title='<?= h($message['error_message']) ?>'>
@@ -61,11 +47,10 @@
                                             </small>
                                         </td>
                                         <td><?= h($message['error_message']) ?></td>
-                                        <td><?= $message['position_in_run'] ?></td>
                                         <td><?= $message['attempt'] ?></td>
                                         <td>
-                                            <abbr title="<?= $message['created_at']?>">
-                                                <?= timetostr(strtotime($message['created_at'])) ?>
+                                            <abbr title="<?= $message['created']?>">
+                                                <?= timetostr(strtotime($message['created'])) ?>
                                             </abbr>
                                         </td>
                                     </tr>

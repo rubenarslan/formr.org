@@ -138,7 +138,7 @@ class RateLimitService
     protected function getMessageCounts(string $recipient, string $table): array
     {
         $statusField = $table === 'survey_email_log' ? 'status = 1' : "status = 'success'";
-        $recipientField = $table === 'survey_email_log' ? 'recipient' : 'session_id';
+        $recipientField = $table === 'survey_email_log' ? 'recipient' : 'unit_session_id';
 
         $sql = "SELECT
             SUM(created > DATE_SUB(NOW(), INTERVAL 1 MINUTE)) AS in_last_1m,
