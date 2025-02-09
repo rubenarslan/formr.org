@@ -67,7 +67,7 @@ class AddToHomeScreen_Item extends Item {
     }
 
     public function validateInput($reply) {
-        if (in_array($reply, array('added', 'ios_not_prompted', 'not_clicked', 'not_prompted', 'already_added', 'no_support'))) {
+        if (in_array($reply, array('added', 'ios_not_prompted', 'not_clicked', 'not_prompted', 'already_added', 'no_support', 'not_added'))) {
             return $reply;
         }
         return null;

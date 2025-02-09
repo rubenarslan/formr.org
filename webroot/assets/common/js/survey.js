@@ -463,6 +463,7 @@ var is = {
                 var $status = $wrapper.find('.status-message');
                 var $hiddenInput = $wrapper.find('input[type="hidden"]');
                 var platform = $btn.data('platform');
+                var isRequired = $wrapper.closest('.form-group').hasClass('required');
 
                 let post = {};
                 
@@ -470,6 +471,11 @@ var is = {
                     post[$btn.attr('name')] = 'ios_not_prompted';
                     $status.html('Please follow the instructions above to add this app to your home screen.');
                     $hiddenInput.val('ios_not_prompted');
+                    
+                    // For required items on iOS, we can't programmatically verify installation
+                    if (isRequired) {
+                        $status.append('<br><strong>Note: This step is required to continue.</strong>');
+                    }
                 } else if (deferredPrompt) {
                     // Show the prompt if available
                     deferredPrompt.prompt();
@@ -477,19 +483,26 @@ var is = {
                     // Wait for the user to respond to the prompt
                     deferredPrompt.userChoice.then(function(choiceResult) {
                         if (choiceResult.outcome === 'accepted') {
-                            // Store the result
                             post[$hiddenInput.attr('name')] = 'added';
                             $hiddenInput.val('added');
                             $status.html('Thank you! The app has been added to your home screen.');
+                            if (isRequired) {
+                                $wrapper.closest('.form-group').addClass('formr_answered');
+                            }
                         } else {
                             post[$hiddenInput.attr('name')] = 'not_added';
                             $hiddenInput.val('not_added');
-                            $status.html('You can add this app to your home screen at any time from your browser\'s menu.');
+                            if (isRequired) {
+                                $status.html('This step is required. Please add the app to your home screen to continue.');
+                                $wrapper.closest('.form-group').removeClass('formr_answered');
+                            } else {
+                                $status.html('You can add this app to your home screen at any time from your browser\'s menu.');
+                                $wrapper.closest('.form-group').addClass('formr_answered');
+                            }
                         }
                         // Clear the prompt reference
                         deferredPrompt = null;
                     });
-                    // Don't set the hidden input value here - let the promise handle it
                     return false;
                 } else {
                     // If can't show prompt (already installed or not supported)
@@ -497,10 +510,17 @@ var is = {
                         post[$hiddenInput.attr('name')] = 'already_added';
                         $hiddenInput.val('already_added');
                         $status.html('This app is already installed on your home screen.');
+                        $wrapper.closest('.form-group').addClass('formr_answered');
                     } else {
                         post[$hiddenInput.attr('name')] = 'no_support';
                         $hiddenInput.val('no_support');
-                        $status.html('Your browser doesn\'t support adding to home screen automatically. You can add it manually from your browser\'s menu.');
+                        if (isRequired) {
+                            $status.html('Sorry, your browser doesn\'t support adding to home screen. Please use a supported browser to continue.');
+                            $wrapper.closest('.form-group').removeClass('formr_answered');
+                        } else {
+                            $status.html('Your browser doesn\'t support adding to home screen automatically. You can add it manually from your browser\'s menu.');
+                            $wrapper.closest('.form-group').addClass('formr_answered');
+                        }
                     }
                 }
                 // Only set the hidden input value for non-deferred cases
@@ -508,6 +528,32 @@ var is = {
                     $hiddenInput.val(post[$hiddenInput.attr('name')]);
                 }
                 return false;
+            });
+
+            // Add form validation for required add-to-homescreen items
+            $('form.main_formr_survey').on('submit', function(e) {
+                var $form = $(this);
+                var $requiredHomescreen = $form.find('.form-group.required .add-to-homescreen');
+                
+                if ($requiredHomescreen.length) {
+                    var isValid = true;
+                    $requiredHomescreen.each(function() {
+                        var $input = $(this).closest('.add-to-homescreen-wrapper').find('input[type="hidden"]');
+                        var value = $input.val();
+                        // Check if the value indicates successful addition or valid state
+                        if (!value || value === 'not_clicked' || value === 'not_added' || 
+                            (value === 'no_support' && !window.matchMedia('(display-mode: standalone)').matches)) {
+                            isValid = false;
+                            $(this).closest('.form-group').find('.status-message')
+                                .html('<strong style="color: red;">Please complete this required step before continuing.</strong>');
+                        }
+                    });
+                    
+                    if (!isValid) {
+                        e.preventDefault();
+                        return false;
+                    }
+                }
             });
 
             $(".people_list textarea").each(function (i, elm)

@@ -771,13 +771,16 @@ class Run extends Model {
                 }
 
                 $name = $name . "_path";
-                $asset_path = $this->writeAssetFile($value, $asset_path, $file_ending);
-                $value = $asset_path;
+                $written_path = $this->writeAssetFile($value, $asset_path, $file_ending);
+                if ($written_path === false) {
+                    // Skip updating this field if writing failed
+                    alert("Failed to save {$name}. Skipping this update.", 'alert-danger');
+                    continue;
+                }
+                $value = $written_path;
             }
             $updates[$name] = $value;
         }
-
-
 
         if ($updates) {
             $updates['modified'] = mysql_now();

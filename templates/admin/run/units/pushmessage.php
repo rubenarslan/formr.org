@@ -72,6 +72,6 @@
 
 <div class="clearfix clear"></div>
 <p class="btn-group">
-    <a class="btn btn-default xxx unit_save" href="ajax_save_run_unit?type=PushMessage">Save</a>
+    <a class="btn btn-default unit_save" href="ajax_save_run_unit?type=PushMessage">Save</a>
     <a class="btn btn-default unit_test" href="ajax_test_unit?type=PushMessage">Test</a>
 </p>

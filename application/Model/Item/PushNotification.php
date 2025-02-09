@@ -50,12 +50,16 @@ class PushNotification_Item extends Item {
     }
 
     public function validateInput($reply) {
-        // Valid states for push notification permission
-        if ($reply === 'not_requested' || $reply === 'not_supported') {
-            return $reply;
+        // For optional items, accept all valid states
+        if ($this->optional) {
+            if ($reply === 'not_requested' || 
+                $reply === 'not_supported' || 
+                $reply === 'permission_denied') {
+                return $reply;
+            }
         }
         
-        // Validate subscription JSON
+        // Validate subscription JSON - required for non-optional items
         if ($reply) {
             $data = json_decode($reply, true);
             if (json_last_error() === JSON_ERROR_NONE && 

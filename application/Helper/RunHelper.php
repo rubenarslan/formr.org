@@ -367,8 +367,7 @@ class RunHelper {
                     pm.message as template_message,
                     pm.topic,
                     pm.priority,
-                    rs.session as `session`,
-                    sru.position as position_in_run
+                    rs.session as `session`
                 FROM push_logs pl
                 LEFT JOIN survey_unit_sessions sus ON pl.unit_session_id = sus.id 
                 LEFT JOIN survey_run_sessions rs ON rs.id = sus.run_session_id

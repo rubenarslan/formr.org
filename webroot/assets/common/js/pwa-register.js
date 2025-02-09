@@ -41,7 +41,11 @@ if ('serviceWorker' in navigator) {
             }
 
             // Listen for state changes to catch when a new service worker becomes active
-            registration.addEventListener('activate', sendMessage);
+            registration.addEventListener('statechange', () => {
+                if (registration.active) {
+                    sendMessage();
+                }
+            });
         }).catch(err => {
             console.log('ServiceWorker registration failed: ', err);
         });

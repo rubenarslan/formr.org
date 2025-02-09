@@ -134,9 +134,16 @@ class RateLimitService
      * @param string $recipient The recipient's identifier
      * @param string $table The log table to check
      * @return array Message counts for different time periods
+     * @throws \InvalidArgumentException If invalid table name provided
      */
     protected function getMessageCounts(string $recipient, string $table): array
     {
+        // Whitelist allowed table names
+        $allowedTables = ['survey_email_log', 'push_logs'];
+        if (!in_array($table, $allowedTables, true)) {
+            throw new \InvalidArgumentException('Invalid table name provided');
+        }
+
         $statusField = $table === 'survey_email_log' ? 'status = 1' : "status = 'success'";
         $recipientField = $table === 'survey_email_log' ? 'recipient' : 'unit_session_id';
 
