@@ -22,39 +22,6 @@ if ($run->getManifestJSONPath()): ?>
     </script>
     <?php endif; ?>
 
-    <script>
-    // Register Service Worker
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            // Collect all CSS and JS files from the DOM that match the current domain
-            const currentDomain = window.location.hostname;
-            const stylesheets = Array.from(document.styleSheets)
-                .map(stylesheet => stylesheet.href)
-                .filter(href => href !== null && href.includes(currentDomain));
-            const scripts = Array.from(document.scripts)
-                .map(script => script.src)
-                .filter(src => src !== '' && src.includes(currentDomain));
-
-            const filesToCache = [...new Set([...stylesheets, ...scripts])];
-
-            // Register service worker
-            navigator.serviceWorker.register('/service-worker.js', {
-                scope: '/'
-            }).then(registration => {
-                console.log('ServiceWorker registration successful');
-                // Send the files to cache and manifest path to the service worker
-                if (registration.active) {
-                    registration.active.postMessage({
-                        type: 'CACHE_ASSETS',
-                        assets: filesToCache,
-                        manifestPath: '<?php echo $run->getManifestJSONPath(); ?>'
-                    });
-                }
-            }).catch(err => {
-                console.log('ServiceWorker registration failed: ', err);
-            });
-        });
-    }
-    </script>
+    <script src="<?php echo asset_url('common/js/pwa-register.js'); ?>"></script>
 <?php endif; ?>
 

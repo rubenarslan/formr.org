@@ -206,6 +206,15 @@ class PushMessage extends RunUnit {
 
     public function modify($options = []) {
         parent::modify($options);
+        // Add property assignment from options
+        if ($options) {
+            array_walk($options, "emptyNull");
+            $options['vibrate'] = isset($options['vibrate']) && $options['vibrate'];
+            $options['require_interaction'] = isset($options['require_interaction']) && $options['require_interaction'];
+            $options['renotify'] = isset($options['renotify']) && $options['renotify'];
+            $options['silent'] = isset($options['silent']) && $options['silent'];
+            $this->assignProperties($options);
+        }
         $this->saveSettings();
         return true;
     }

@@ -355,18 +355,34 @@ var is = {
                 const $wrapper = $btn.closest('.push-notification-wrapper');
                 const $status = $wrapper.find('.status-message');
                 const $hiddenInput = $wrapper.find('input[type="hidden"]');
-                let post = {};
 
                 // Check if the browser supports notifications and service workers
                 if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
-                    post[$hiddenInput.attr('name')] = 'not_supported';
+                    $hiddenInput.val('not_supported');
                     $status.html('Sorry, your browser does not support push notifications.');
-                    $hiddenInput.val(post[$hiddenInput.attr('name')]);
                     return false;
                 }
 
                 try {
-                    // Request notification permission
+                    // First check if permission was already granted
+                    const existingPermission = Notification.permission;
+                    
+                    if (existingPermission === 'granted') {
+                        // Check for existing subscription
+                        const registration = await navigator.serviceWorker.getRegistration();
+                        if (registration) {
+                            const existingSubscription = await registration.pushManager.getSubscription();
+                            if (existingSubscription) {
+                                // Store existing subscription
+                                const subscriptionJson = JSON.stringify(existingSubscription);
+                                $hiddenInput.val(subscriptionJson);
+                                $status.html('Push notifications are already enabled.');
+                                return false;
+                            }
+                        }
+                    }
+
+                    // Request notification permission if not already granted
                     const permission = await Notification.requestPermission();
                     
                     if (permission === 'granted') {
@@ -376,7 +392,6 @@ var is = {
                         // Add this validation before using the VAPID key
                         if (!window.vapidPublicKey || typeof window.vapidPublicKey !== 'string' || window.vapidPublicKey.length < 10) {
                             console.error('Invalid VAPID public key');
-                            post[$hiddenInput.attr('name')] = 'invalid_config';
                             $hiddenInput.val('invalid_config');
                             $status.html('Server configuration error. Please contact support.');
                             return false;
@@ -393,22 +408,20 @@ var is = {
                         
                         // Store subscription data
                         const subscriptionJson = JSON.stringify(subscription);
-                        post[$hiddenInput.attr('name')] = subscriptionJson;
                         $hiddenInput.val(subscriptionJson);
                         $status.html('Thank you! You will now receive push notifications.');
                         
                     } else if (permission === 'denied') {
-                        post[$hiddenInput.attr('name')] = 'not_requested';
+                        $hiddenInput.val('permission_denied');
                         $status.html('You have declined push notifications. You can enable them later in your browser settings.');
                     } else {
-                        post[$hiddenInput.attr('name')] = 'not_requested';
+                        $hiddenInput.val('not_requested');
                         $status.html('You can enable push notifications at any time.');
                     }
                     
                 } catch (error) {
                     console.error('Error during push notification setup:', error);
-                    post[$hiddenInput.attr('name')] = 'not_requested';
-                    $hiddenInput.val('not_requested');
+                    $hiddenInput.val('error');
                     $status.html('There was an error setting up push notifications. Please try again later.');
                 }
                 
@@ -451,12 +464,12 @@ var is = {
                 var $hiddenInput = $wrapper.find('input[type="hidden"]');
                 var platform = $btn.data('platform');
 
-
                 let post = {};
-                post[$btn.attr('name')] = 'not_prompted';
+                
                 if (platform === 'ios') {
-                    $status.html('Please follow the instructions above to add this app to your home screen.');
                     post[$btn.attr('name')] = 'ios_not_prompted';
+                    $status.html('Please follow the instructions above to add this app to your home screen.');
+                    $hiddenInput.val('ios_not_prompted');
                 } else if (deferredPrompt) {
                     // Show the prompt if available
                     deferredPrompt.prompt();
@@ -476,6 +489,8 @@ var is = {
                         // Clear the prompt reference
                         deferredPrompt = null;
                     });
+                    // Don't set the hidden input value here - let the promise handle it
+                    return false;
                 } else {
                     // If can't show prompt (already installed or not supported)
                     if (window.matchMedia('(display-mode: standalone)').matches) {
@@ -488,7 +503,10 @@ var is = {
                         $status.html('Your browser doesn\'t support adding to home screen automatically. You can add it manually from your browser\'s menu.');
                     }
                 }
-                $hiddenInput.val(post[$hiddenInput.attr('name')]);
+                // Only set the hidden input value for non-deferred cases
+                if (!deferredPrompt) {
+                    $hiddenInput.val(post[$hiddenInput.attr('name')]);
+                }
                 return false;
             });
 

@@ -6,17 +6,34 @@ const ASSETS_TO_CACHE = [
 
 let manifestData = null;
 
+// Helper function to validate URLs
+function isValidUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    // Only allow URLs from our origin or HTTPS URLs, and only paths containing /assets/
+    return (urlObj.protocol === 'https:' || urlObj.origin === self.location.origin) 
+           && urlObj.pathname.includes('/assets/');
+  } catch {
+    return false;
+  }
+}
+
 // Add message event listener to handle asset caching and manifest path
 self.addEventListener('message', (event) => {
   if (event.data.type === 'CACHE_ASSETS') {
-    // Add manifest to assets to cache
-    const assetsWithManifest = [...new Set([...ASSETS_TO_CACHE, ...event.data.assets, event.data.manifestPath])];
+    // Filter and deduplicate assets
+    const validAssets = [...new Set([
+      ...ASSETS_TO_CACHE,
+      ...event.data.assets.filter(isValidUrl),
+      event.data.manifestPath
+    ])].filter(isValidUrl);
     
-    event.waitUntil(
+    // Return the Promise chain directly instead of using event.waitUntil
+    event.ports[0]?.postMessage(
       Promise.all([
         // Cache assets
         caches.open(CACHE_NAME).then((cache) => {
-          return cache.addAll(assetsWithManifest);
+          return cache.addAll(validAssets);
         }),
         // Fetch and store manifest data
         fetch(event.data.manifestPath)
@@ -35,12 +52,24 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        return cache.addAll(ASSETS_TO_CACHE);
+        // Filter ASSETS_TO_CACHE through isValidUrl as well
+        const validAssets = ASSETS_TO_CACHE.filter(isValidUrl);
+        return cache.addAll(validAssets);
       })
   );
 });
 
 self.addEventListener('fetch', (event) => {
+  // Only handle GET requests
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  // Only handle valid URLs (which now must include /assets/)
+  if (!isValidUrl(event.request.url)) {
+    return fetch(event.request);  // Don't cache, just fetch normally
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
@@ -52,11 +81,14 @@ self.addEventListener('fetch', (event) => {
             if (!response || response.status !== 200 || response.type !== 'basic') {
               return response;
             }
+            
+            // URL is already validated by isValidUrl above
             const responseToCache = response.clone();
             caches.open(CACHE_NAME)
               .then((cache) => {
                 cache.put(event.request, responseToCache);
               });
+            
             return response;
           });
       })

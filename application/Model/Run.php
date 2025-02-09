@@ -1190,30 +1190,51 @@ class Run extends Model {
     }
 
     private function writeAssetFile($value, $asset_path, $file_ending) {
+        // Delete old file if value is empty but asset_path exists
+        if (empty($value) && !empty($asset_path)) {
+            $old_file = APPLICATION_ROOT . 'webroot/' . $asset_path;
+            if (file_exists($old_file) && !unlink($old_file)) {
+                alert("Could not delete old file ({$asset_path}).", 'alert-warning');
+            }
+            return null;
+        }
+
         if ($value) {
             // if $asset_path has not been set or is null, create a new path
             if (empty($asset_path)) {
                 $asset_path = 'assets/tmp/admin/' . crypto_token(33, true) . $file_ending;
             }
 
-            // Ensure the directory exists
+            // Ensure the directory exists with proper permissions
             $dir = dirname(APPLICATION_ROOT . 'webroot/' . $asset_path);
             if (!is_dir($dir)) {
-                mkdir($dir, 0777, true);
+                // Use 0755 for more restrictive permissions
+                // Owner can read/write/execute, others can read/execute
+                if (!mkdir($dir, 0755, true)) {
+                    alert("Could not create directory for asset file.", 'alert-warning');
+                    return false;
+                }
             }
 
             $asset_file = APPLICATION_ROOT . 'webroot/' . $asset_path;
             $path = new SplFileInfo($asset_file);
-            if (file_exists($path->getPathname())):
-                $file = $path->openFile('c+');
-                $file->rewind();
-                $file->ftruncate(0); // truncate any existing file
-            else:
-                $file = $path->openFile('c+');
-            endif;
-            $file->fwrite($value);
-            $file->fflush();
-            $value = $asset_path;
+            
+            try {
+                if (file_exists($path->getPathname())):
+                    $file = $path->openFile('c+');
+                    $file->rewind();
+                    $file->ftruncate(0); // truncate any existing file
+                else:
+                    $file = $path->openFile('c+');
+                endif;
+                
+                $file->fwrite($value);
+                $file->fflush();
+                $value = $asset_path;
+            } catch (Exception $e) {
+                alert("Could not write to asset file ({$asset_path}).", 'alert-warning');
+                return false;
+            }
         }
         return $value;
     }

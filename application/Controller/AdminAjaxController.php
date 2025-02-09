@@ -519,7 +519,12 @@ class AdminAjaxController {
             $this->response->setStatusCode(500, 'Bad Request');
             $content = array('error' => 'Failed to generate manifest');
         } else {
-            $content = $result;
+            // Decode JSON string if result is a JSON string, otherwise use as-is
+            $content = is_string($result) ? json_decode($result, true) : $result;
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                // If JSON decoding fails, return the raw result
+                $content = array('data' => $result);
+            }
         }
 
         $this->response->setContentType('application/json');
