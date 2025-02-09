@@ -122,7 +122,7 @@ class Run extends Model {
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
         
-        if($vars['expiresOn'] !== null) {
+        if($vars && isset($vars['expiresOn']) && $vars['expiresOn'] !== null) {
             $vars['expiresOn'] = date('Y-m-d', strtotime($vars['expiresOn']));
         }
 
