@@ -38,3 +38,4 @@ webroot/study
 bin/create-named-sessions.php
 tests/.phpunit.result.cache
 .vscode/*
+node_modules

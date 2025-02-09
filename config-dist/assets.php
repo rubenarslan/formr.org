@@ -7,7 +7,7 @@
 /** <global> @var $settings  */
 
 $settings['default_assets'] = $assets = array();
-$assets_file = realpath(APPLICATION_ROOT . 'webroot/assets/assets.json');
+$assets_file = realpath(APPLICATION_ROOT . 'build-scripts/assets.json');
 if (!is_file($assets_file)) {
 	throw new RuntimeException('Unable to read assets.json');
 }
