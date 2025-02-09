@@ -95,7 +95,7 @@ function prefexAndMinify() {
             }
 
             // Banner to be added to the minified CSS file
-            const banner = `/* Created on ${new Date().toISOString()} */\n`;
+            const banner = `/* formr ${new Date().toISOString()} */\n`;
 
             //  Process CSS with PostCSS, Autoprefixer, and cssnano
             const result = await postcss([

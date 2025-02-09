@@ -81,7 +81,7 @@ const concatJsFiles = () => {
 };
 
 const uglifyJsFiles = async () => {
-    const banner = `/* Created on ${new Date().toISOString()} */\n`;
+    const banner = `/* formr ${new Date().toISOString()} */\n`;
 
     const options = {
         warnings: true,
