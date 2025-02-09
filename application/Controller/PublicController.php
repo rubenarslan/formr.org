@@ -5,8 +5,7 @@ class PublicController extends Controller {
     public function __construct(Site &$site) {
         parent::__construct($site);
         if (!Request::isAjaxRequest()) {
-            $default_assets = get_default_assets('site');
-            $this->registerAssets($default_assets);
+            $this->registerAssets('frontend');
         }
     }
 

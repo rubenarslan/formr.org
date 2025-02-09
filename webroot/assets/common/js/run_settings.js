@@ -1,3 +1,5 @@
+import { ajaxErrorHandling } from './main.js';
+
 (function ($) {
     "use strict";
     function make_editor(i, elm) {

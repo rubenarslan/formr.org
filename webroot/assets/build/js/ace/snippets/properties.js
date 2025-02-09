@@ -1,8 +1,1 @@
-;                (function() {
-                    ace.require(["ace/snippets/properties"], function(m) {
-                        if (typeof module == "object" && typeof exports == "object" && module) {
-                            module.exports = m;
-                        }
-                    });
-                })();
-            
+ace.require(["ace/snippets/properties"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

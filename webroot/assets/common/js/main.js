@@ -1,6 +1,6 @@
 window.formr = window.formr || {};
 
-function mysql_datetime() {
+export function mysql_datetime() {
 	return (new Date()).toISOString().slice(0, 19).replace('T', ' ');
 }
 
@@ -13,7 +13,7 @@ performance.now = (function () {
 			performance.webkitNow;
 })();
 
-function flatStringifyGeo(geo) {
+export function flatStringifyGeo(geo) {
 	var result = {};
 	result.timestamp = geo.timestamp;
 	var coords = {};
@@ -28,11 +28,11 @@ function flatStringifyGeo(geo) {
 	return JSON.stringify(result);
 }
 
-function general_alert(message, place) {
+export function general_alert(message, place) {
 	$(place).append(message);
 }
 
-function bootstrap_alert(message, bold, where, cls) {
+export function bootstrap_alert(message, bold, where, cls) {
 	cls = cls || 'alert-danger';
 	where = where || '.alerts-container';
 	var $alert = $('<div class="row"><div class="col-lg-12 all-alerts"><div class="alert ' + cls + '"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>' + (bold ? bold : 'Problem') + '</strong> ' + message + '</div></div></div>');
@@ -40,7 +40,7 @@ function bootstrap_alert(message, bold, where, cls) {
 	$alert[0].scrollIntoView(false);
 }
 
-function bootstrap_modal(header, body, t) {
+export function bootstrap_modal(header, body, t) {
 	t = t || 'tpl-feedback-modal';
 	var $modal = $($.parseHTML(getHTMLTemplate(t, {'body': body, 'header': header})));
 	$modal.modal('show').on('hidden.bs.modal', function () {
@@ -49,11 +49,11 @@ function bootstrap_modal(header, body, t) {
 	return $modal;
 }
 
-function bootstrap_spinner() {
+export function bootstrap_spinner() {
 	return ' <i class="fa fa-spinner fa-spin"></i>';
 }
 
-function ajaxErrorHandling(e, x, settings, exception) {
+export function ajaxErrorHandling(e, x, settings, exception) {
 	var message;
 	var statusErrorMap = {
 		'400': "Server understood the request but request content was invalid.",
@@ -87,7 +87,7 @@ function ajaxErrorHandling(e, x, settings, exception) {
 	bootstrap_alert(message, 'Error.', '.alerts-container');
 }
 
-function stringTemplate(string, params) {
+export function stringTemplate(string, params) {
 	for (var i in params) {
 		var t = "%?\{" + i + "\}";
 		string = string.replace((new RegExp(t, 'g')), params[i]);
@@ -95,18 +95,18 @@ function stringTemplate(string, params) {
 	return string;
 }
 
-function getHTMLTemplate(id, params) {
+export function getHTMLTemplate(id, params) {
 	var $tpl = jQuery('#' + id);
 	if (!$tpl.length)
 		return;
 	return stringTemplate($.trim($tpl.html()), params);
 }
 
-function toggleElement(id) {
+export function toggleElement(id) {
 	$('#' + id).toggleClass('hidden');
 }
 
-function download(filename, text) {
+export function download(filename, text) {
 	var element = document.createElement('a');
 	element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
 	element.setAttribute('download', filename);
@@ -119,13 +119,13 @@ function download(filename, text) {
 	document.body.removeChild(element);
 }
 
-function download_next_textarea(link) {
+export function download_next_textarea(link) {
 	var $link = $(link);
 	download($link.data("filename"), $link.parent().find("textarea").val());
 	return false;
 }
 
-function cookies_enabled() {
+export function cookies_enabled() {
 	try {
 		document.cookie = 'cookietest=1';
 		var ret = document.cookie.indexOf('cookietest=') != -1;
@@ -277,4 +277,6 @@ function cookies_enabled() {
 			bootstrap_modal('Cookies Disabled', msg);
 		}
 	});
+
+    console.log('common/main.js loaded');
 }(jQuery));

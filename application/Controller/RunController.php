@@ -6,8 +6,7 @@ class RunController extends Controller {
         
         parent::__construct($site);
         if (!Request::isAjaxRequest()) {
-            $default_assets = get_default_assets('site');
-            $this->registerAssets($default_assets);
+            $this->registerAssets('frontend');
         }
     }
 
@@ -252,17 +251,10 @@ class RunController extends Controller {
     private function filterAssets($assets) {
         $vars = array();
         if ($this->run->use_material_design || $this->request->str('tmd') === 'true') {
-            if (DEBUG) {
-                $this->unregisterAssets('site:custom');
-                $this->registerAssets('bootstrap-material-design');
-                $this->registerAssets('site:custom');
-            } else {
-                $this->replaceAssets('site', 'site:material');
-            }
-            $vars['bodyClass'] = 'bs-material fmr-run';
+            $this->registerAssets('material');
         }
-        $this->registerCSS($assets['css'], $this->run->name);
-        $this->registerJS($assets['js'], $this->run->name);
+        //$this->registerCSS($assets['css'], $this->run->name);
+        //$this->registerJS($assets['js'], $this->run->name);
         return $vars;
     }
 
