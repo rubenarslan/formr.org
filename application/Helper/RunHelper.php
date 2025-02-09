@@ -366,9 +366,12 @@ class RunHelper {
                     sru.position as position_in_run,
                     pm.message as template_message,
                     pm.topic,
-                    pm.priority
+                    pm.priority,
+                    rs.session as `session`,
+                    sru.position as position_in_run
                 FROM push_logs pl
                 LEFT JOIN survey_unit_sessions sus ON pl.unit_session_id = sus.id 
+                LEFT JOIN survey_run_sessions rs ON rs.id = sus.run_session_id
                 LEFT JOIN survey_run_units sru ON sus.unit_id = sru.unit_id AND sru.run_id = pl.run_id
                 LEFT JOIN push_messages pm ON sus.unit_id = pm.id
                 WHERE pl.run_id = :run_id 

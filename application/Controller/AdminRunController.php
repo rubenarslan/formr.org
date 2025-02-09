@@ -530,6 +530,7 @@ class AdminRunController extends AdminController {
 
         $this->setView('run/push_message_log', array(
             'messages' => $table['data'],
+            'currentUser' => $this->user,
             'pagination' => $table['pagination'],
         ));
         

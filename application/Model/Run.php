@@ -673,16 +673,12 @@ class Run extends Model {
 
     private function getFileContent($path) {
         $filePath = APPLICATION_ROOT . "webroot/" . $path;
-        if (file_exists($filePath)) {
-            $file = fopen($filePath, 'r');
-            $data = '';
-            while (!feof($file)) {
-                $data .= fgets($file);
-            }
-            fclose($file);
-            return $data;
+        // Check if path is a readable file before attempting to read
+        if (is_file($filePath) && is_readable($filePath)) {
+            // Use file_get_contents for simpler error handling
+            $content = file_get_contents($filePath);
+            return $content !== false ? $content : '';
         }
-
         return '';
     }
 

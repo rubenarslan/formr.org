@@ -22,20 +22,38 @@
                             <table class="table table-striped">
                                 <thead>
                                     <tr>
+                                        <th>Session</th>
+                                        <th>Position</th>
                                         <th>Message</th>
                                         <th>Status</th>
                                         <th>Error</th>
                                         <th>Attempt</th>
                                         <th>Date and time</th>
+                                        <th>User Detail</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach ($messages as $message): ?>
                                     <tr>
+                                        <td>
+                                            <?php if ($currentUser->user_code == $message['session']): ?>
+                                                <i class="fa fa-user-md" class="hastooltip" title="This is you"></i>
+                                                <?php
+                                            endif;
+
+                                            $animal_end = strpos($message['session'], "XXX");
+                                            if ($animal_end === false) {
+                                                $animal_end = 10;
+                                            }
+                                            $short_session = substr($message['session'], 0, $animal_end);
+                                            ?>
+                                            <small><abbr class="abbreviated_session" title="Click to show the full session" data-full-session="<?php echo $message['session']; ?>"><?php echo $short_session ?>…</abbr></small>
+                                        </td>
+                                        <td><?= h($message['position_in_run']) ?></td>
                                         <td><?= h($message['message']) ?></td>
                                         <td>
                                             <?php 
-                                            $label_class = "label-default";
+                                            $label_class = "label-success";
                                             $icon = 'fa-check-circle';
                                             if($message['status'] === 'failed') {
                                                 $label_class = "label-danger";
@@ -52,6 +70,9 @@
                                             <abbr title="<?= $message['created']?>">
                                                 <?= timetostr(strtotime($message['created'])) ?>
                                             </abbr>
+                                        </td>
+                                        <td>
+                                            <a href="<?php echo admin_run_url($run->name, "user_detail?session=" . urlencode(substr($message['session'], 0, 15))); ?>" title="Go to user detail"><i class="fa fa-list"></i></a>
                                         </td>
                                     </tr>
                                     <?php endforeach; ?>
