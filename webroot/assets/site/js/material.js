@@ -1,4 +1,7 @@
 //import './main.js';
+import $ from 'jquery';
+$.noConflict(true);
+
 import 'bootstrap-material-design/dist/js/material.js';
 import 'bootstrap-material-design/dist/js/ripples.js';
 import 'bootstrap-material-design/dist/css/bootstrap-material-design.css';

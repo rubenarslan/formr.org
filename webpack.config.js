@@ -1,7 +1,6 @@
 const path = require('path');
 const webpack = require('webpack');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
-const FormrCopyPlugin = require('./build-scripts/webpack.copy.js');
 
 module.exports = (env, argv) => {
     const isWatchMode = argv.watch || false;
@@ -26,8 +25,24 @@ module.exports = (env, argv) => {
         module: {
             rules: [
                 {
+                    test: require.resolve('jquery'),
+                    loader: 'expose-loader',
+                    options: {
+                        exposes: [
+                            {
+                                globalName: '$',
+                                override: true,
+                            },
+                            {
+                                globalName: 'jQuery',
+                                override: true,
+                            },
+                        ],
+                    },
+                },
+                {
                     test: /\.js$/,
-                    exclude: /(node_modules|build)/,
+                    exclude: /node_modules/,
                     use: 'babel-loader'
                 },
                 {
@@ -99,7 +114,7 @@ module.exports = (env, argv) => {
             open: true,
         },
         externals: {
-            //jquery: 'jQuery', // Make jQuery available globally
+            // jquery: 'jQuery',
             //bootstrap: 'bootstrap', // Bootstrap is optional here since it relies on styles more
         }
     }

@@ -19,7 +19,7 @@ $settings['assets'] = array(
         'css' => [],
     ],
     'admin' => [
-        'js' => ["{$buildDir}/js/ace/ace.js', '{$buildDir}/js/admin.bundle.js"],
+        'js' => ["{$buildDir}/js/ace/ace.js", "{$buildDir}/js/admin.bundle.js"],
         'css' => [],
     ],
 );
