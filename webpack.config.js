@@ -67,7 +67,7 @@ module.exports = (env, argv) => {
                     // Ace editor
                     {
                         from: 'node_modules/ace-builds/src-min-noconflict',
-                        to: outputDir + '/js/ace',
+                        to: path.resolve(__dirname, outputDir + '/js/ace'),
                         info: { minimized: false },
                     },
                     // Webshim
