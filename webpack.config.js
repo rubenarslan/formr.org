@@ -1,6 +1,7 @@
 const path = require('path');
 const webpack = require('webpack');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+const FormrCopyPlugin = require('./build-scripts/webpack.copy.js');
 
 module.exports = {
     mode: 'development', // Change to 'production' for optimized builds
@@ -21,27 +22,27 @@ module.exports = {
         rules: [
             {
                 test: /\.js$/,
-                exclude: /node_modules/,
+                exclude: /(node_modules|build)/,
                 use: 'babel-loader'
             },
             {
                 test: /\.css$/,
-                use: ['style-loader', 'css-loader'], // Handle CSS files
+                use: ['style-loader', 'css-loader'],
             },
             // Fonts
             {
-                test: /\.(woff(2)?|eot|ttf|otf|svg)$/, // Match font files
-                type: 'asset/resource', // Copy the files to the output directory
+                test: /\.(woff(2)?|eot|ttf|otf|svg)$/,
+                type: 'asset/resource', 
                 generator: {
-                    filename: 'fonts/[name][ext]', // Place them in the 'fonts' folder
+                    filename: 'fonts/[name][ext]',
                 },
             },
             // Images
             {
-                test: /\.(jpeg|jpg|png|gif)$/, // Match font files
-                type: 'asset/resource', // Copy the files to the output directory
+                test: /\.(jpeg|jpg|png|gif)$/,
+                type: 'asset/resource',
                 generator: {
-                    filename: 'img/[name][ext]', // Place them in the 'fonts' folder
+                    filename: 'img/[name][ext]',
                 },
             }
         ],
@@ -55,28 +56,32 @@ module.exports = {
             hljs: 'highlight.js',
             'window.hljs': 'highlight.js',
         }),
-        
+
         new CopyWebpackPlugin({
             patterns: [
                 // Ace editor
                 {
-                    from: path.resolve(__dirname, 'node_modules/ace-builds/src-noconflict'), // Path to Ace in node_modules
-                    to: path.resolve(__dirname, 'webroot/assets/build/js/ace'), // Copy to 'build/ace'
+                    from: 'node_modules/ace-builds/src-min-noconflict',
+                    to: 'webroot/assets/build/js/ace',
+                    info: { minimized: false },
                 },
                 // Webshim
                 {
-                    from: path.resolve(__dirname, 'node_modules/webshim/js-webshim/minified/shims'), // Path to Ace in node_modules
-                    to: path.resolve(__dirname, 'webroot/assets/build/js/shims'), // Copy to 'build/ace'
+                    from: path.resolve(__dirname, 'node_modules/webshim/js-webshim/minified/shims'), 
+                    to: path.resolve(__dirname, 'webroot/assets/build/js/shims'),
+                    info: { minimized: false },
                 },
                 // Site Images
                 {
-                    from: path.resolve(__dirname, 'webroot/assets/site/img/'), // Path to Ace in node_modules
-                    to: path.resolve(__dirname, 'webroot/assets/build/img/'), // Copy to 'build/ace'
+                    from: path.resolve(__dirname, 'webroot/assets/site/img/'), 
+                    to: path.resolve(__dirname, 'webroot/assets/build/img/'),
+                    info: { minimized: false },
                 },
                 // Admin Images
                 {
-                    from: path.resolve(__dirname, 'webroot/assets/admin/img/'), // Path to Ace in node_modules
-                    to: path.resolve(__dirname, 'webroot/assets/build/img/'), // Copy to 'build/ace'
+                    from: path.resolve(__dirname, 'webroot/assets/admin/img/'), 
+                    to: path.resolve(__dirname, 'webroot/assets/build/img/'),
+                    info: { minimized: false },
                 },
             ],
         }),
@@ -89,7 +94,7 @@ module.exports = {
         open: true,
     },
     externals: {
-        // jquery: 'jQuery', // Make jQuery available globally
+        //jquery: 'jQuery', // Make jQuery available globally
         //bootstrap: 'bootstrap', // Bootstrap is optional here since it relies on styles more
-    },
+    }
 };
