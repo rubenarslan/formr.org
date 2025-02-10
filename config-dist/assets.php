@@ -7,17 +7,19 @@
 
 /** <global> @var $settings  */
 
+$buildDir = !empty($settings['display_errors']) ? 'dev-build' : 'build';
+
 $settings['assets'] = array(
     'frontend' => [
-        'js' => ['build/js/frontend.bundle.js'],
+        'js' => ["{$buildDir}/js/frontend.bundle.js"],
         'css' => [],
     ],
     'material' => [
-        'js' => ['build/js/material.bundle.js'],
+        'js' => ["{$buildDir}/js/material.bundle.js"],
         'css' => [],
     ],
     'admin' => [
-        'js' => ['build/js/ace/ace.js', 'build/js/admin.bundle.js'],
+        'js' => ["{$buildDir}/js/ace/ace.js', '{$buildDir}/js/admin.bundle.js"],
         'css' => [],
     ],
 );

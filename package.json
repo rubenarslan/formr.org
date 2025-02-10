@@ -13,7 +13,7 @@
         "build:js": "node build-scripts/js.js",
         "build": "npm run build:copy && npm run build:css && npm run build:js",
         "webpack:build": "webpack --mode production",
-        "webpack:watch": "webpack --watch",
+        "webpack:watch": "webpack --watch --env WEBPACK_WATCH=true",
         "webpack:start": "webpack serve"
     },
     "devDependencies": {

@@ -39,3 +39,4 @@ bin/create-named-sessions.php
 tests/.phpunit.result.cache
 .vscode/*
 node_modules
+webroot/assets/dev-build
