@@ -134,14 +134,29 @@ self.addEventListener('push', (event) => {
       body: data.body || '',
       icon: data.icon || getBestIcon('any'),
       badge: getBestIcon('badge') || getBestIcon('maskable') || getBestIcon('any'),
-      vibrate: [100, 50, 100],
+      // Map priority to urgency
+      urgency: data.priority || 'normal',
+      // Use configured vibration pattern or disable if vibrate is false
+      vibrate: data.vibrate ? [100, 50, 100] : undefined,
+      // Add additional configurable options
+      requireInteraction: data.requireInteraction || false,
+      renotify: data.renotify || false,
+      silent: data.silent || false,
+      // If badge count is set, include it
+      badge: data.badgeCount ? String(data.badgeCount) : undefined,
       data: {
         dateOfArrival: Date.now(),
         primaryKey: 1,
-        clickTarget: data.clickTarget || '/'
+        clickTarget: data.clickTarget || (manifestData?.start_url || '/'),
+        topic: data.topic || undefined
       },
       actions: data.actions || []
     };
+
+    // Set time to live if provided
+    if (data.timeToLive) {
+      options.timestamp = Date.now() + (data.timeToLive * 1000);
+    }
 
     event.waitUntil(
       self.registration.showNotification(data.title || 'Notification', options)
@@ -155,8 +170,8 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  // Get the click target URL from the notification data
-  const clickTarget = event.notification.data.clickTarget || '/';
+  // Get the click target URL from the notification data, fallback to manifest start_url
+  const clickTarget = event.notification.data.clickTarget || (manifestData?.start_url || '/');
 
   // This ensures the browser doesn't kill the service worker before the page is opened
   event.waitUntil(
