@@ -1,6 +1,7 @@
+import $ from 'jquery';
 import { ajaxErrorHandling } from './main.js';
 
-(function ($) {
+(function () {
     "use strict";
     function make_editor(i, elm) {
         var textarea = $(elm);
@@ -66,4 +67,4 @@ import { ajaxErrorHandling } from './main.js';
         $('textarea.big_ace_editor').each(make_editor);
         $(".save_settings").each(save_settings);
     });
-}(jQuery));
+})();
