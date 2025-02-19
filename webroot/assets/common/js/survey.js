@@ -698,7 +698,9 @@ var is = {
             try {
                 // Use new Function() to create a function in the context of the data
                 const context = { ..._survey.data }; // Spread _survey.data into the context object
-                
+                // strip comments
+                _showif = _showif.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '').trim();
+
                 // Create a function dynamically, passing the context as a parameter
                 const fn = new Function('context', `
                     with (context) {
