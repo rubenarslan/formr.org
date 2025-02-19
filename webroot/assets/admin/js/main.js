@@ -22,8 +22,6 @@ import '../../common/js/highlight/styles/vs.css';
 // Cookie Consent
 import 'cookieconsent';
 import '../../common/js/cookieconsent.js';
-import 'cookieconsent';
-import '../../common/js/cookieconsent.js';
 import 'cookieconsent/src/styles/animation.css';
 import 'cookieconsent/src/styles/base.css';
 import 'cookieconsent/src/styles/layout.css';
