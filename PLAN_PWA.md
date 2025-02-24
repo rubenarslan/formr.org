@@ -2,7 +2,6 @@
 
 ## Change the studies view
 - [x] Add a service worker
-  - [ ] [push.js](https://github.com/Nickersoft/push.js)?
   - [ ] Workbox?
 - [x] Add a manifest.json
 - [x] Add icon 
