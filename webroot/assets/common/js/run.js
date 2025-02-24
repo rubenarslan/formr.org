@@ -1,4 +1,15 @@
 /*jshint scripturl:true*/
+/* global hljs,  */
+import hljs from 'highlight.js';
+import { 
+    bootstrap_alert, 
+    bootstrap_modal, 
+    ajaxErrorHandling, 
+    download_next_textarea, 
+    getHTMLTemplate, 
+    bootstrap_spinner  
+} from './main.js';
+
 (function ($) {
     "use strict";
     function RunUnit(run) {

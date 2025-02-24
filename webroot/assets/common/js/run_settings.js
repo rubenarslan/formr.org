@@ -1,4 +1,7 @@
-(function ($) {
+import $ from 'jquery';
+import { ajaxErrorHandling } from './main.js';
+
+(function () {
     "use strict";
     function make_editor(i, elm) {
         var textarea = $(elm);
@@ -106,5 +109,4 @@
             });
         });
     });
-
-}(jQuery));
+})();

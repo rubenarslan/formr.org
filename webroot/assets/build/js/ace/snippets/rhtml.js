@@ -1,4 +1,1 @@
-ace.define("ace/snippets/rhtml", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "rhtml"
-})
+ace.require(["ace/snippets/rhtml"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

@@ -1,4 +1,1 @@
-ace.define("ace/snippets/haskell_cabal", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "haskell_cabal"
-})
+ace.require(["ace/snippets/haskell_cabal"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

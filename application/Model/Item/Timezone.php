@@ -50,7 +50,10 @@ class Timezone_Item extends SelectOne_Item {
     timezone = timezone.replace(/\//g, ' - ');
 
     // Get the select element by its name attribute
-    const selectElement = document.querySelector('select[name=\"timezone\"]');
+    const selectElement = document.querySelector('select[name=\"{$this->name}\"]');
+    if (!selectElement) {
+        return;
+    }
     const options = selectElement.options;
 
     // Find the option that matches the browser's timezone and select it
