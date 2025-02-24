@@ -59,7 +59,7 @@ class AddToHomeScreen_Item extends Item {
                 <p class="instructions">%s</p>
                 %s
                 %s
-                <pwa-install manual-chrome="true" style="display: none;"></pwa-install>
+                <pwa-install manifest-url="" style="display: none;"></pwa-install>
                 <div class="status-message"></div>
             </div>
         ';

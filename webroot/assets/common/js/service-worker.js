@@ -1,4 +1,4 @@
-const CACHE_NAME = 'formr-v1';
+const CACHE_NAME = 'formr-' + self.location.hostname + self.location.pathname.split('/').slice(0, -1).join('-');
 const ASSETS_TO_CACHE = [
   '/assets/build/css/formr.min.css',
   '/assets/build/js/formr.min.js'

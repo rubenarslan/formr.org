@@ -320,4 +320,40 @@ class RunController extends Controller {
         return new User($id, $loginCode);
     }
 
+    /**
+     * Serve the service worker file with appropriate headers for the run
+     */
+    public function serviceWorkerAction() {
+        $run = $this->getRun();
+        
+        // Set appropriate headers
+        header('Content-Type: application/javascript');
+        
+        // Set Service-Worker-Allowed header based on the deployment type (subdomain vs folder)
+        if (Config::get('use_study_subdomains') && FMRSD_CONTEXT) {
+            // For subdomain deployments
+            header('Service-Worker-Allowed: /');
+        } else {
+            // For folder deployments, scope to the run path
+            $runPath = run_url($run->name, '');
+            $parsedUrl = parse_url($runPath);
+            header('Service-Worker-Allowed: ' . $parsedUrl['path']);
+        }
+        
+        // No caching for development, adjust for production if needed
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        
+        // Serve the service worker file
+        $serviceWorkerPath = APPLICATION_ROOT . 'webroot/assets/common/js/service-worker.js';
+        if (file_exists($serviceWorkerPath)) {
+            readfile($serviceWorkerPath);
+            exit;
+        } 
+        
+        // If file doesn't exist, return 404
+        header('HTTP/1.0 404 Not Found');
+        echo "Service worker not found";
+        exit;
+    }
+
 }

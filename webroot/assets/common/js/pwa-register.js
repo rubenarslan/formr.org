@@ -1,6 +1,12 @@
 // Register Service Worker
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
+        // Make sure formr configuration is available
+        if (!window.formr || !window.formr.run_url) {
+            console.warn('formr configuration not found or missing run_url');
+            return;
+        }
+        
         // Get manifest path from the link element
         const manifestLink = document.querySelector('link[rel="manifest"]');
         if (!manifestLink) {
@@ -20,11 +26,29 @@ if ('serviceWorker' in navigator) {
 
         const filesToCache = [...new Set([...stylesheets, ...scripts])];
 
-        // Register service worker
-        navigator.serviceWorker.register('/service-worker.js', {
-            scope: '/'
+        // Parse the run_url to determine the service worker path and scope
+        let serviceWorkerPath = '/service-worker';
+        let scope = '/';
+        let runUrl = new URL(window.formr.run_url);
+        let siteUrl = new URL(window.formr.site_url);
+        
+        console.log('run_url:', window.formr.run_url);
+        // If run_url is same as site_url, we're using paths, not study specific subdomains
+        if (runUrl.hostname === siteUrl.hostname) {
+            // Remove trailing slash if present
+            const pathWithoutTrailingSlash = runUrl.pathname.replace(/\/$/, '');
+            serviceWorkerPath = `${pathWithoutTrailingSlash}/service-worker`;
+            scope = pathWithoutTrailingSlash + '/';
+            console.log('Using path-based service worker:', serviceWorkerPath, 'with scope:', scope);
+        } else {
+            console.log('Using subdomain-based service worker:', serviceWorkerPath, 'with scope:', scope);
+        }
+        
+        // Register service worker with the correct path and scope
+        navigator.serviceWorker.register(serviceWorkerPath, {
+            scope: scope
         }).then(registration => {
-            console.log('ServiceWorker registration successful');
+            console.log('ServiceWorker registration successful with scope:', registration.scope);
             
             // Function to send message to active service worker
             const sendMessage = () => {
