@@ -1,4 +1,1 @@
-ace.define("ace/snippets/ini", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "ini"
-})
+ace.require(["ace/snippets/ini"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

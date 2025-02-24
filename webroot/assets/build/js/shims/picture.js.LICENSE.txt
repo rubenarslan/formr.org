@@ -1,0 +1,6 @@
+/*! Respimg - Responsive Images that work today.
+ *  Author: Alexander Farkas, 2014
+ *  Author: Scott Jehl, Filament Group, 2012 ( new proposal implemented by Shawn Jansepar )
+ *  License: MIT
+ *  Spec: http://picture.responsiveimages.org/
+ */

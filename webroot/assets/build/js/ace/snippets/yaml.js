@@ -1,4 +1,1 @@
-ace.define("ace/snippets/yaml", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "yaml"
-})
+ace.require(["ace/snippets/yaml"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

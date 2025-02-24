@@ -1,3 +1,5 @@
+import { mysql_datetime, flatStringifyGeo  } from './main.js';
+
 var is = {
     na: function(x) {
         return typeof x === "undefined";
@@ -589,8 +591,11 @@ var is = {
 
     Survey.prototype.getData = function () {
         var allItems = [];
+        if (!this.$form[0]) {
+            return;
+        }
 
-        $.each( this.$form[0].elements, function(){
+        $.each(this.$form[0].elements, function(){
             if( $.inArray( this.name, allItems ) < 0 ){
                 allItems.push(this.name); 
             }
@@ -687,23 +692,35 @@ var is = {
         _survey.items_with_showifs.each(function (i, elm) { // walk through all form elements that are dynamically shown/hidden
             var $elm = $(elm);
             var _showif = $elm.data('showif'); // get specific condition
-            with (_survey.data) { // using the form data as the environment
-                var _hide = true; // hiding is the default, if the try..catch fails
-                try {
-                    _hide = !eval(_showif); // evaluate the condition
-                } catch (e) {
-                    if (window.console) {
-                        console.log("JS showif failed", _showif, e, $elm.find('input').attr('name'));
-                    }
-                    // Maybe show-if relies on an data that is on a previous page.
-                    // So use the data-show attribute which is set based on show-if evaluated in R, using data from previous page.
-                    if($elm.data('show')) {
-                        _hide = false;
-                    }
-                }
+            /* eslint-disable */
+            const context = { ..._survey.data };
+            var _hide = true;
+            try {
+                // Use new Function() to create a function in the context of the data
+                const context = { ..._survey.data }; // Spread _survey.data into the context object
+                // strip comments
+                _showif = _showif.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '').trim();
 
-                any_change = _survey.setItemVisibility($elm, _hide);
+                // Create a function dynamically, passing the context as a parameter
+                const fn = new Function('context', `
+                    with (context) {
+                        return !(${_showif});
+                    }
+                `);
+            
+                _hide = fn(context); // Call the function with context
+            } catch (e) {
+                if (window.console) {
+                    console.log("JS showif failed", _showif, e, $elm.find('input').attr('name'));
+                }
+                // Fallback logic
+                if ($elm.data('show')) {
+                    _hide = false;
+                }
             }
+
+            any_change = _survey.setItemVisibility($elm, _hide);
+            /* eslint-enable */
         });
         return any_change;
     };

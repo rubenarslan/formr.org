@@ -1,4 +1,1 @@
-ace.define("ace/snippets/kotlin", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = ""
-})
+ace.require(["ace/snippets/kotlin"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

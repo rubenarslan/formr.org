@@ -3,6 +3,7 @@ webshim.setOptions({
     waitReady: false,
     loadStyles: true,
     replaceUI: true,
+    basePath: '/assets/build/js/shims/',
     forms: {
         addValidators: true,
         iVal: {

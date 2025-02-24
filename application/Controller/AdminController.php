@@ -6,9 +6,7 @@ class AdminController extends Controller {
         parent::__construct($site);
         $this->header();
         if (!Request::isAjaxRequest()) {
-            $default_assets = get_default_assets('admin');
-            $this->registerAssets($default_assets);
-            $this->registerAssets('ace');
+            $this->registerAssets('admin');
         }
     }
 

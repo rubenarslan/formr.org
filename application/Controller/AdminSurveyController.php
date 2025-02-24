@@ -491,7 +491,7 @@ class AdminSurveyController extends AdminController {
 
         if (!$download_successfull) {
             alert('An error occured during results download.', 'alert-danger');
-            $this->request->redirect(admin_study_url($filename, 'show_results'));
+            $this->request->redirect(admin_study_url($study->name, 'show_results'));
         }
     }
     
