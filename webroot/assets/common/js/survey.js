@@ -545,15 +545,18 @@ var is = {
                 return false;
             });
 
-            // Initialize pwa-install element once on page load
+            // Initialize pwa-install element
             var installer = document.querySelector('pwa-install');
             if (!installer) {
+                // Create a new pwa-install element
                 installer = document.createElement('pwa-install');
+                
                 // Get manifest URL from link tag
                 var manifestLink = document.querySelector('link[rel="manifest"]');
                 if (manifestLink) {
                     installer.setAttribute('manifest-url', manifestLink.href);
                 }
+                
                 installer.setAttribute('manual-chrome', 'true');
                 installer.setAttribute('use-local-storage', 'true'); // Use localStorage to remember preferences
                 installer.style.display = 'none';
@@ -635,8 +638,11 @@ var is = {
                         return false;
                     }
 
+                    // Get the installer element
+                    var installer = document.querySelector('pwa-install');
+                    
                     // Check if installation is available
-                    if (!installer.isInstallAvailable) {
+                    if (!installer || !installer.isInstallAvailable) {
                         $hiddenInput.val('no_support');
                         if (isRequired) {
                             $status.html('Sorry, your browser doesn\'t support adding to home screen. Please use a supported browser to continue.');

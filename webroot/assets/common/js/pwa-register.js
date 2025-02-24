@@ -43,6 +43,19 @@ if ('serviceWorker' in navigator) {
         } else {
             console.log('Using subdomain-based service worker:', serviceWorkerPath, 'with scope:', scope);
         }
+
+        // Log manifest information for debugging
+        console.log('Manifest link element found:', manifestLink);
+        console.log('Manifest path:', manifestPath);
+
+        // Ensure the manifest path is absolute
+        let absoluteManifestPath = manifestPath;
+        if (!manifestPath.startsWith('http')) {
+            // Convert relative URL to absolute
+            const baseUrl = window.location.origin;
+            absoluteManifestPath = new URL(manifestPath, baseUrl).href;
+            console.log('Converted manifest path to absolute URL:', absoluteManifestPath);
+        }
         
         // Register service worker with the correct path and scope
         navigator.serviceWorker.register(serviceWorkerPath, {
@@ -55,7 +68,7 @@ if ('serviceWorker' in navigator) {
                 registration.active.postMessage({
                     type: 'CACHE_ASSETS',
                     assets: filesToCache,
-                    manifestPath: manifestPath
+                    manifestPath: absoluteManifestPath
                 });
             };
 
