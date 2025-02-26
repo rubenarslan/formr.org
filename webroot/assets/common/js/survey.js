@@ -367,8 +367,88 @@ var is = {
                 return outputArray;
             }
 
+            // Unified Push Notification Manager using jQuery
+            const PushNotificationManager = {
+                // Check if browser supports push notifications
+                isSupported: function() {
+                    return ('Notification' in window) && ('serviceWorker' in navigator) && ('PushManager' in window);
+                },
+
+                // Check iOS version compatibility
+                isIOSCompatible: function() {
+                    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                    if (!isIOS) return true;
+                    
+                    // Extract iOS version from user agent
+                    const versionMatch = navigator.userAgent.match(/OS (\d+)_/);
+                    if (versionMatch && versionMatch[1]) {
+                        return parseInt(versionMatch[1]) >= 16;
+                    }
+                    return false; // If we can't determine version, assume incompatible
+                },
+
+                // Get existing service worker registration
+                getRegistration: async function() {
+                    try {
+                        return await navigator.serviceWorker.getRegistration();
+                    } catch (error) {
+                        console.error('Error getting service worker registration:', error);
+                        return null;
+                    }
+                },
+
+                // Check current subscription status
+                checkSubscription: async function(registration) {
+                    if (!registration) return { subscribed: false, reason: 'no_registration' };
+                    
+                    try {
+                        const subscription = await registration.pushManager.getSubscription();
+                        return { 
+                            subscribed: !!subscription, 
+                            subscription: subscription
+                        };
+                    } catch (error) {
+                        console.error('Error checking subscription:', error);
+                        return { subscribed: false, reason: 'error', error };
+                    }
+                },
+
+                // Subscribe to push notifications
+                subscribe: async function(registration) {
+                    if (!registration) return { success: false, reason: 'no_registration' };
+                    
+                    try {
+                        // Request notification permission
+                        const permission = await Notification.requestPermission();
+                        if (permission !== 'granted') {
+                            return { success: false, reason: 'permission_denied' };
+                        }
+                        
+                        // Validate VAPID key
+                        if (!window.vapidPublicKey || typeof window.vapidPublicKey !== 'string' || window.vapidPublicKey.length < 10) {
+                            console.error('Invalid VAPID public key');
+                            return { success: false, reason: 'invalid_config' };
+                        }
+
+                        // Subscribe to push manager
+                        const subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlBase64ToUint8Array(window.vapidPublicKey)
+                        });
+                        
+                        // Store subscription status in localStorage
+                        localStorage.setItem('push-notification-subscribed', 'true');
+                        
+                        return { success: true, subscription };
+                    } catch (error) {
+                        console.error('Error subscribing to push:', error);
+                        return { success: false, reason: 'subscription_error', error };
+                    }
+                }
+            };
+
             // Initialize push notification state for all push notification elements on page load
-            $('.push-notification-wrapper').each(function() {
+            $('.push-notification-wrapper').each(async function() {
                 var $wrapper = $(this);
                 var $status = $wrapper.find('.status-message');
                 var $hiddenInput = $wrapper.find('input[type="hidden"]');
@@ -376,7 +456,7 @@ var is = {
                 var isRequired = $wrapper.closest('.form-group').hasClass('required');
 
                 // Check if the browser supports notifications and service workers
-                if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+                if (!PushNotificationManager.isSupported()) {
                     $hiddenInput.val('not_supported');
                     $status.html('Sorry, your browser does not support push notifications.');
                     $button.prop('disabled', true);
@@ -384,56 +464,77 @@ var is = {
                     return;
                 }
 
-                // Check localStorage first for subscription status
-                if (localStorage.getItem('push-notification-subscribed') === 'true') {
-                    $hiddenInput.val('subscribed');
-                    $status.html('Push notifications are enabled.');
-                    $button.removeClass('btn-primary').addClass('btn-success');
+                // Check iOS compatibility
+                if (!PushNotificationManager.isIOSCompatible()) {
+                    $hiddenInput.val('ios_version_not_supported');
+                    $status.html('Sorry, push notifications require iOS 16.4 or later.');
                     $button.prop('disabled', true);
-                    $button.html('<i class="fa fa-check"></i> Notifications Enabled');
-                    $wrapper.closest('.form-group').addClass('formr_answered');
+                    $button.removeClass('btn-primary').addClass('btn-default');
                     return;
                 }
 
-                // Check current permission state
-                checkExistingPushPermission($wrapper, $button, $status, $hiddenInput, isRequired);
-            });
-
-            // Helper function to check for existing push permission and subscription
-            async function checkExistingPushPermission($wrapper, $button, $status, $hiddenInput, isRequired) {
-                try {
-                    const existingPermission = Notification.permission;
-                    
-                    if (existingPermission === 'granted') {
-                        // Check for actual subscription
-                        const registration = await navigator.serviceWorker.getRegistration();
-                        if (registration) {
-                            const existingSubscription = await registration.pushManager.getSubscription();
-                            if (existingSubscription) {
-                                // Store existing subscription
-                                const subscriptionJson = JSON.stringify(existingSubscription);
-                                $hiddenInput.val(subscriptionJson);
-                                $status.html('Push notifications are enabled.');
-                                $button.removeClass('btn-primary').addClass('btn-success');
-                                $button.prop('disabled', true);
-                                $button.html('<i class="fa fa-check"></i> Notifications Enabled');
-                                $wrapper.closest('.form-group').addClass('formr_answered');
-                                
-                                // Store in localStorage
-                                localStorage.setItem('push-notification-subscribed', 'true');
-                            }
-                        }
-                    } else if (existingPermission === 'denied') {
-                        $hiddenInput.val('permission_denied');
-                        $status.html('You have declined push notifications. You can enable them in your browser settings.');
-                        $button.prop('disabled', true);
-                        $button.removeClass('btn-primary').addClass('btn-default');
-                        $button.html('<i class="fa fa-times"></i> Notifications Blocked');
-                    }
-                } catch (error) {
-                    console.error('Error checking push permission:', error);
+                // Get existing service worker registration (registered by pwa-register.js)
+                const registration = await PushNotificationManager.getRegistration();
+                if (!registration) {
+                    $hiddenInput.val('no_service_worker');
+                    $status.html('Service worker not registered. Please reload the page and try again.');
+                    $button.prop('disabled', true);
+                    $button.removeClass('btn-primary').addClass('btn-default');
+                    return;
                 }
-            }
+
+                // Check localStorage first for subscription status
+                if (localStorage.getItem('push-notification-subscribed') === 'true') {
+                    // Verify the subscription is actually still valid
+                    const subResult = await PushNotificationManager.checkSubscription(registration);
+                    
+                    if (subResult.subscribed) {
+                        $hiddenInput.val(JSON.stringify(subResult.subscription));
+                        $status.html('Push notifications are enabled.');
+                        $button.removeClass('btn-primary').addClass('btn-success');
+                        $button.prop('disabled', true);
+                        $button.html('<i class="fa fa-check"></i> Notifications Enabled');
+                        $wrapper.closest('.form-group').addClass('formr_answered');
+                        return;
+                    } else {
+                        // Subscription not found despite localStorage flag, clear it
+                        localStorage.removeItem('push-notification-subscribed');
+                    }
+                }
+
+                // Check current permission state
+                const existingPermission = Notification.permission;
+                
+                if (existingPermission === 'granted') {
+                    // Check for actual subscription
+                    const subResult = await PushNotificationManager.checkSubscription(registration);
+                    
+                    if (subResult.subscribed) {
+                        // Store existing subscription
+                        const subscriptionJson = JSON.stringify(subResult.subscription);
+                        $hiddenInput.val(subscriptionJson);
+                        $status.html('Push notifications are enabled.');
+                        $button.removeClass('btn-primary').addClass('btn-success');
+                        $button.prop('disabled', true);
+                        $button.html('<i class="fa fa-check"></i> Notifications Enabled');
+                        $wrapper.closest('.form-group').addClass('formr_answered');
+                        
+                        // Store in localStorage
+                        localStorage.setItem('push-notification-subscribed', 'true');
+                    } else {
+                        // Permission granted but no subscription, enable the button
+                        $hiddenInput.val('no_subscription');
+                        $status.html('Click the button to enable push notifications.');
+                        $button.html('<i class="fa fa-bell"></i> Enable Notifications');
+                    }
+                } else if (existingPermission === 'denied') {
+                    $hiddenInput.val('permission_denied');
+                    $status.html('You have declined push notifications. You can enable them in your browser settings.');
+                    $button.prop('disabled', true);
+                    $button.removeClass('btn-primary').addClass('btn-default');
+                    $button.html('<i class="fa fa-times"></i> Notifications Blocked');
+                }
+            });
 
             // Push Notification Permission functionality - updated click handler
             $('.push-notification-permission').click(async function(e) {
@@ -450,10 +551,19 @@ var is = {
                 const $hiddenInput = $wrapper.find('input[type="hidden"]');
                 const isRequired = $wrapper.closest('.form-group').hasClass('required');
 
-                // Check if the browser supports notifications and service workers
-                if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+                // Check if the browser supports notifications
+                if (!PushNotificationManager.isSupported()) {
                     $hiddenInput.val('not_supported');
                     $status.html('Sorry, your browser does not support push notifications.');
+                    $btn.prop('disabled', true);
+                    $btn.removeClass('btn-primary').addClass('btn-default');
+                    return false;
+                }
+
+                // Check iOS compatibility
+                if (!PushNotificationManager.isIOSCompatible()) {
+                    $hiddenInput.val('ios_version_not_supported');
+                    $status.html('Sorry, push notifications require iOS 16.4 or later.');
                     $btn.prop('disabled', true);
                     $btn.removeClass('btn-primary').addClass('btn-default');
                     return false;
@@ -463,76 +573,56 @@ var is = {
                     // Show processing state on button
                     $btn.html('<i class="fa fa-spinner fa-spin"></i> Processing...');
                     
-                    // Check if permission is already granted
-                    const existingPermission = Notification.permission;
+                    // Get existing service worker registration (registered by pwa-register.js)
+                    const registration = await PushNotificationManager.getRegistration();
+                    if (!registration) {
+                        $hiddenInput.val('no_service_worker');
+                        $status.html('Service worker not registered. Please reload the page and try again.');
+                        $btn.html('<i class="fa fa-exclamation-triangle"></i> Error');
+                        return false;
+                    }
                     
-                    if (existingPermission === 'granted') {
-                        // Check for existing subscription
-                        const registration = await navigator.serviceWorker.getRegistration();
-                        if (registration) {
-                            const existingSubscription = await registration.pushManager.getSubscription();
-                            if (existingSubscription) {
-                                // Store existing subscription
-                                const subscriptionJson = JSON.stringify(existingSubscription);
-                                $hiddenInput.val(subscriptionJson);
-                                $status.html('Push notifications are already enabled.');
-                                $btn.removeClass('btn-primary').addClass('btn-success');
-                                $btn.prop('disabled', true);
-                                $btn.html('<i class="fa fa-check"></i> Notifications Enabled');
-                                $wrapper.closest('.form-group').addClass('formr_answered');
-                                localStorage.setItem('push-notification-subscribed', 'true');
-                                return false;
-                            }
-                        }
+                    // Check if a subscription already exists
+                    const subResult = await PushNotificationManager.checkSubscription(registration);
+                    if (subResult.subscribed) {
+                        // A subscription already exists, update the UI
+                        const subscriptionJson = JSON.stringify(subResult.subscription);
+                        $hiddenInput.val(subscriptionJson);
+                        $status.html('Push notifications are already enabled.');
+                        $btn.removeClass('btn-primary').addClass('btn-success');
+                        $btn.prop('disabled', true);
+                        $btn.html('<i class="fa fa-check"></i> Notifications Enabled');
+                        $wrapper.closest('.form-group').addClass('formr_answered');
+                        localStorage.setItem('push-notification-subscribed', 'true');
+                        return false;
                     }
 
-                    // Request notification permission if not already granted
-                    const permission = await Notification.requestPermission();
+                    // Subscribe to push notifications
+                    const result = await PushNotificationManager.subscribe(registration);
                     
-                    if (permission === 'granted') {
-                        // Register service worker if not already registered
-                        const registration = await navigator.serviceWorker.register('/service-worker.js', { scope: '/' });
-                        
-                        // Validate VAPID key
-                        if (!window.vapidPublicKey || typeof window.vapidPublicKey !== 'string' || window.vapidPublicKey.length < 10) {
-                            console.error('Invalid VAPID public key');
-                            $hiddenInput.val('invalid_config');
-                            $status.html('Server configuration error. Please contact support.');
-                            $btn.html('<i class="fa fa-exclamation-triangle"></i> Configuration Error');
-                            return false;
-                        }
-
-                        // Subscribe to push
-                        const subscription = await registration.pushManager.subscribe({
-                            userVisibleOnly: true,
-                            applicationServerKey: urlBase64ToUint8Array(window.vapidPublicKey)
-                        }).catch(error => {
-                            console.error('Error subscribing to push:', error);
-                            throw error;
-                        });
-                        
+                    if (result.success) {
                         // Store subscription data
-                        const subscriptionJson = JSON.stringify(subscription);
+                        const subscriptionJson = JSON.stringify(result.subscription);
                         $hiddenInput.val(subscriptionJson);
                         $status.html('Thank you! You will now receive push notifications.');
                         $btn.removeClass('btn-primary').addClass('btn-success');
                         $btn.prop('disabled', true);
                         $btn.html('<i class="fa fa-check"></i> Notifications Enabled');
                         $wrapper.closest('.form-group').addClass('formr_answered');
-                        
-                        // Store subscription status in localStorage
-                        localStorage.setItem('push-notification-subscribed', 'true');
-                        
-                    } else if (permission === 'denied') {
+                    } else if (result.reason === 'permission_denied') {
                         $hiddenInput.val('permission_denied');
                         $status.html('You have declined push notifications. You can enable them later in your browser settings.');
                         $btn.prop('disabled', true);
                         $btn.removeClass('btn-primary').addClass('btn-default');
                         $btn.html('<i class="fa fa-times"></i> Notifications Blocked');
+                    } else if (result.reason === 'invalid_config') {
+                        $hiddenInput.val('invalid_config');
+                        $status.html('Server configuration error. Please contact support.');
+                        $btn.html('<i class="fa fa-exclamation-triangle"></i> Configuration Error');
                     } else {
-                        $hiddenInput.val('not_requested');
-                        $status.html('You can enable push notifications at any time.');
-                        $btn.html('<i class="fa fa-bell"></i> Enable Notifications');
+                        $hiddenInput.val('error');
+                        $status.html('There was an error setting up push notifications. Please try again later.');
+                        $btn.html('<i class="fa fa-exclamation-triangle"></i> Error');
                     }
                     
                 } catch (error) {
@@ -557,8 +647,12 @@ var is = {
                     installer.setAttribute('manifest-url', manifestLink.href);
                 }
                 
+                // Configure the installer with appropriate attributes
                 installer.setAttribute('manual-chrome', 'true');
+                installer.setAttribute('manual-apple', 'true'); // Ensure manual control for iOS
                 installer.setAttribute('use-local-storage', 'true'); // Use localStorage to remember preferences
+                
+                // Hide initially
                 installer.style.display = 'none';
                 document.body.appendChild(installer);
             }
@@ -578,27 +672,82 @@ var is = {
                 var $hiddenInput = $wrapper.find('input[type="hidden"]');
                 var isRequired = $wrapper.closest('.form-group').hasClass('required');
                 var $button = $wrapper.find('.add-to-homescreen');
+                var $instructions = $wrapper.find('.instructions');
                 
-                // Check if we're in standalone mode (app is running)
-                if (window.matchMedia('(display-mode: standalone)').matches) {
+                updateInstallButtonState($wrapper);
+            });
+            
+            // Update the state of installation button and related UI elements
+            function updateInstallButtonState($wrapper) {
+                var $button = $wrapper.find('.add-to-homescreen');
+                var $status = $wrapper.find('.status-message');
+                var $hiddenInput = $wrapper.find('input[type="hidden"]');
+                var $instructions = $wrapper.find('.instructions');
+                var isRequired = $wrapper.closest('.form-group').hasClass('required');
+                
+                // Get or create the installer element if it doesn't exist
+                if (!installer) {
+                    installer = document.querySelector('pwa-install');
+                    if (!installer) {
+                        $hiddenInput.val('no_support');
+                        $status.html('Installation component not available. Please try again later.');
+                        $button.prop('disabled', true);
+                        return;
+                    }
+                }
+                
+                // Check if we're in standalone mode or the app is already installed
+                if (installer.isUnderStandaloneMode) {
                     $hiddenInput.val('already_added');
                     $status.html('You are currently using the installed app.');
                     $wrapper.closest('.form-group').addClass('formr_answered');
-                    
-                    // Update button appearance - turn it green and disable it
                     $button.removeClass('btn-primary').addClass('btn-success');
                     $button.prop('disabled', true);
                     $button.html('<i class="fa fa-check"></i> Installed');
+                    return;
                 }
-                // Check localStorage for previous installation status
-                else if (localStorage.getItem('pwa-app-installed') === 'true') {
+                
+                // Check localStorage for previous installation status (for cross-browser compatibility)
+                if (localStorage.getItem('pwa-app-installed') === 'true') {
                     $hiddenInput.val('already_added');
                     $status.html('This app is already installed. <a href="' + window.location.href + '" target="_blank">Open in installed app</a>');
                     $wrapper.closest('.form-group').addClass('formr_answered');
+                    $button.removeClass('btn-primary').addClass('btn-success');
+                    $button.prop('disabled', true);
+                    $button.html('<i class="fa fa-check"></i> Installed');
+                    return;
                 }
-            });
-            
-            // Button click handler
+                
+                // Set platform-specific text for the button and instructions
+                if (installer.isAppleMobilePlatform || installer.isAppleDesktopPlatform) {
+                    // iOS devices
+                    $button.html('<i class="fa fa-info-circle"></i> Show Installation Guide');
+                    $instructions.html('<p>Add this app to your home screen for easier access.</p>');
+                } else {
+                    // Other devices (Android, Chrome, etc.)
+                    $button.html('<i class="fa fa-plus-square"></i> Add to Home Screen');
+                    $instructions.html('<p>Add this app to your home screen for easier access.</p>');
+                }
+                
+                // Show "required" notice if needed
+                if (isRequired) {
+                    $instructions.append('<p><strong>This step is required to continue.</strong></p>');
+                }
+                
+                // Set initial state for the hidden input
+                if (!$hiddenInput.val()) {
+                    $hiddenInput.val('not_started');
+                }
+                
+                // Enable the button if installation is available
+                $button.prop('disabled', !installer.isInstallAvailable);
+                if (!installer.isInstallAvailable) {
+                    $hiddenInput.val('no_support');
+                    $status.html('Your browser doesn\'t support adding to home screen automatically.');
+                }
+            }
+
+            // Button click handler - simplified to use the element's capabilities
             $('.add-to-homescreen').click(function(e) {
                 e.preventDefault();
                 var $btn = $(this);
@@ -611,114 +760,149 @@ var is = {
                 var $wrapper = $btn.closest('.add-to-homescreen-wrapper');
                 var $status = $wrapper.find('.status-message');
                 var $hiddenInput = $wrapper.find('input[type="hidden"]');
-                var platform = $btn.data('platform');
-                var isRequired = $wrapper.closest('.form-group').hasClass('required');
+                
+                // Get the installer element
+                if (!installer || !installer.isInstallAvailable) {
+                    $hiddenInput.val('no_support');
+                    $status.html('Installation is not supported in your browser.');
+                    return false;
+                }
+                
+                // Update the hidden input to indicate we've started
+                $hiddenInput.val('prompted');
+                
+                // Show processing state
+                $status.html('Preparing installation...');
+                $btn.html('<i class="fa fa-spinner fa-spin"></i> Processing...');
+                
+                // Show the installation dialog
+                installer.style.display = '';
+                installer.showDialog();
+                
+                return false;
+            });
 
-                if (platform === 'ios') {
-                    $status.html('Please follow the instructions above to add this app to your home screen.');
-                    $hiddenInput.val('ios_not_prompted');
-                    // For required items on iOS, we can\'t programmatically verify installation
-                    if (isRequired) {
-                        $status.append('<br><strong>Note: This step is required to continue.</strong>');
-                    }
-                } else {
-                    // First check if we're already in standalone mode
-                    if (window.matchMedia('(display-mode: standalone)').matches) {
-                        $hiddenInput.val('already_added');
-                        $status.html('You are currently using the installed app.');
-                        $wrapper.closest('.form-group').addClass('formr_answered');
-                        return false;
-                    }
+            // Set up event listeners for the pwa-install element
+            if (installer) {
+                // Handle various events from the pwa-install element
+                
+                // When installation is successful (Chrome/Android only)
+                installer.addEventListener('pwa-install-success-event', function(e) {
+                    console.log('Installation successful:', e.detail);
+                    localStorage.setItem('pwa-app-installed', 'true');
                     
-                    // Check localStorage for previous installation
-                    if (localStorage.getItem('pwa-app-installed') === 'true') {
-                        $hiddenInput.val('already_added');
-                        $status.html('This app is already installed. <a href="' + window.location.href + '" target="_blank">Open in installed app</a>');
+                    // Update all install buttons
+                    $('.add-to-homescreen-wrapper').each(function() {
+                        var $wrapper = $(this);
+                        var $status = $wrapper.find('.status-message');
+                        var $hiddenInput = $wrapper.find('input[type="hidden"]');
+                        var $button = $wrapper.find('.add-to-homescreen');
+                        
+                        $hiddenInput.val('installed');
+                        $status.html('Thank you! The app has been added to your home screen.');
                         $wrapper.closest('.form-group').addClass('formr_answered');
-                        return false;
-                    }
-
-                    // Get the installer element
-                    var installer = document.querySelector('pwa-install');
+                        $button.removeClass('btn-primary').addClass('btn-success');
+                        $button.prop('disabled', true);
+                        $button.html('<i class="fa fa-check"></i> Installed');
+                    });
                     
-                    // Check if installation is available
-                    if (!installer || !installer.isInstallAvailable) {
-                        $hiddenInput.val('no_support');
-                        if (isRequired) {
-                            $status.html('Sorry, your browser doesn\'t support adding to home screen. Please use a supported browser to continue.');
-                            $wrapper.closest('.form-group').removeClass('formr_answered');
-                        } else {
-                            $status.html('Your browser doesn\'t support adding to home screen automatically. You can add it manually from your browser\'s menu.');
+                    // Hide the installer element
+                    installer.style.display = 'none';
+                });
+                
+                // When installation fails (Chrome/Android only)
+                installer.addEventListener('pwa-install-fail-event', function(e) {
+                    console.log('Installation failed:', e.detail);
+                    
+                    // Update all install buttons
+                    $('.add-to-homescreen-wrapper').each(function() {
+                        var $wrapper = $(this);
+                        var $status = $wrapper.find('.status-message');
+                        var $hiddenInput = $wrapper.find('input[type="hidden"]');
+                        var $button = $wrapper.find('.add-to-homescreen');
+                        
+                        if (installer.isUnderStandaloneMode) {
+                            // It's already installed
+                            $hiddenInput.val('already_added');
+                            $status.html('You are currently using the installed app.');
                             $wrapper.closest('.form-group').addClass('formr_answered');
+                            $button.prop('disabled', true);
+                            $button.html('<i class="fa fa-check"></i> Installed');
+                        } else {
+                            // Installation failed
+                            $hiddenInput.val('failed');
+                            $status.html('Installation failed. You can try again or add to home screen manually from your browser menu.');
+                            $button.html('<i class="fa fa-plus-square"></i> Add to Home Screen');
                         }
-                        return false;
-                    }
-
-                    // Show the installer element before showing the dialog
-                    installer.style.display = '';
-
-                    // Remove any existing event listeners
-                    installer.removeEventListener('pwa-user-choice-result-event', userChoiceHandler);
-                    installer.removeEventListener('pwa-install-fail-event', installFailHandler);
+                    });
                     
-                    // Define event handlers
-                    function userChoiceHandler(e) {
-                        var accepted = (e.detail.userChoiceResult === 'accepted');
+                    // Hide the installer element
+                    installer.style.display = 'none';
+                });
+                
+                // User made a choice about installation
+                installer.addEventListener('pwa-user-choice-result-event', function(e) {
+                    console.log('User choice:', e.detail);
+                    var accepted = (e.detail.userChoiceResult === 'accepted');
+                    
+                    // Update all install buttons
+                    $('.add-to-homescreen-wrapper').each(function() {
+                        var $wrapper = $(this);
+                        var $status = $wrapper.find('.status-message');
+                        var $hiddenInput = $wrapper.find('input[type="hidden"]');
+                        var $button = $wrapper.find('.add-to-homescreen');
+                        var isRequired = $wrapper.closest('.form-group').hasClass('required');
+                        
                         if (accepted) {
                             $hiddenInput.val('added');
-                            var message = 'Thank you! The app has been added to your home screen.';
-                            if (!window.matchMedia('(display-mode: standalone)').matches) {
-                                message += ' <a href="' + window.location.href + '" target="_blank">Open in installed app</a>';
-                            }
-                            $status.html(message);
-                            if (isRequired) {
-                                $wrapper.closest('.form-group').addClass('formr_answered');
-                            }
-                            // Store installation status in localStorage
+                            $status.html('Thank you! The app has been added to your home screen.');
+                            $wrapper.closest('.form-group').addClass('formr_answered');
+                            $button.removeClass('btn-primary').addClass('btn-success');
+                            $button.prop('disabled', true);
+                            $button.html('<i class="fa fa-check"></i> Installed');
                             localStorage.setItem('pwa-app-installed', 'true');
                         } else {
-                            $hiddenInput.val('not_added');
+                            $hiddenInput.val('declined');
                             if (isRequired) {
                                 $status.html('This step is required. Please add the app to your home screen to continue.');
                                 $wrapper.closest('.form-group').removeClass('formr_answered');
                             } else {
-                                $status.html('You can add the app to your home screen at any time from your browser\'s menu.');
+                                $status.html('You can add the app to your home screen at any time.');
                                 $wrapper.closest('.form-group').addClass('formr_answered');
                             }
+                            $button.html('<i class="fa fa-plus-square"></i> Add to Home Screen');
                         }
-                        // Hide the installer element after the dialog is closed
-                        installer.style.display = 'none';
-                    }
-
-                    function installFailHandler(e) {
-                        if (window.matchMedia('(display-mode: standalone)').matches) {
-                            $hiddenInput.val('already_added');
-                            $status.html('You are currently using the installed app.');
-                            $wrapper.closest('.form-group').addClass('formr_answered');
-                            // Store installation status in localStorage
-                            localStorage.setItem('pwa-app-installed', 'true');
-                        } else {
-                            $hiddenInput.val('no_support');
-                            if (isRequired) {
-                                $status.html('Sorry, your browser doesn\'t support adding to home screen. Please use a supported browser to continue.');
-                                $wrapper.closest('.form-group').removeClass('formr_answered');
-                            } else {
-                                $status.html('Your browser doesn\'t support adding to home screen automatically. You can add it manually from your browser\'s menu.');
-                                $wrapper.closest('.form-group').addClass('formr_answered');
-                            }
-                        }
-                        // Hide the installer element after failure
-                        installer.style.display = 'none';
-                    }
+                    });
                     
-                    // Add event listeners
-                    installer.addEventListener('pwa-user-choice-result-event', userChoiceHandler);
-                    installer.addEventListener('pwa-install-fail-event', installFailHandler);
+                    // Hide the installer element
+                    installer.style.display = 'none';
+                });
+                
+                // When "how to install" is shown (typically for iOS)
+                installer.addEventListener('pwa-install-how-to-event', function(e) {
+                    console.log('How to install shown:', e.detail);
                     
-                    installer.showDialog();
-                }
-                return false;
-            });
+                    // Update all install buttons to reflect that instructions are shown
+                    $('.add-to-homescreen-wrapper').each(function() {
+                        var $wrapper = $(this);
+                        var $status = $wrapper.find('.status-message');
+                        var $hiddenInput = $wrapper.find('input[type="hidden"]');
+                        
+                        $hiddenInput.val('instructed');
+                        $status.html('Follow the instructions to add this app to your home screen.');
+                    });
+                });
+                
+                // Installation availability detected
+                installer.addEventListener('pwa-install-available-event', function(e) {
+                    console.log('Installation available:', e.detail);
+                    
+                    // Re-check installation button states
+                    $('.add-to-homescreen-wrapper').each(function() {
+                        updateInstallButtonState($(this));
+                    });
+                });
+            }
 
             // Add form validation for required add-to-homescreen items
             $('form.main_formr_survey').on('submit', function(e) {
@@ -730,9 +914,20 @@ var is = {
                     $requiredHomescreen.each(function() {
                         var $input = $(this).closest('.add-to-homescreen-wrapper').find('input[type="hidden"]');
                         var value = $input.val();
+                        
+                        // Valid states: 'installed', 'added', 'already_added', 'instructed' (for iOS)
+                        // Invalid states: 'not_started', 'declined', 'failed', 'no_support', 'prompted'
+                        
+                        // Special handling for iOS - we can't verify the installation, so count 'instructed' as valid
+                        var isIOSInstructed = (installer && 
+                            (installer.isAppleMobilePlatform || installer.isAppleDesktopPlatform) && 
+                            value === 'instructed');
+                            
                         // Check if the value indicates successful addition or valid state
-                        if (!value || value === 'not_clicked' || value === 'not_added' || 
-                            (value === 'no_support' && !window.matchMedia('(display-mode: standalone)').matches)) {
+                        if (!value || 
+                            (['not_started', 'declined', 'failed', 'prompted'].indexOf(value) !== -1) || 
+                            (value === 'no_support' && !(installer && installer.isUnderStandaloneMode)) && 
+                            !isIOSInstructed) {
                             isValid = false;
                             $(this).closest('.form-group').find('.status-message')
                                 .html('<strong style="color: red;">Please complete this required step before continuing.</strong>');
@@ -1391,6 +1586,5 @@ var is = {
             $("button.monkey").attr('disabled', false);
         }
     });
-
 
 }(jQuery));

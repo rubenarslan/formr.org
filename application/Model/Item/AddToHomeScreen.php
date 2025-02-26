@@ -12,31 +12,14 @@ class AddToHomeScreen_Item extends Item {
         $this->input_attributes['type'] = 'button';
         // Remove value from button as it will be stored in hidden input
         unset($this->input_attributes['value']);
-        $this->input_attributes['data-platform'] = $this->detectPlatform();
+        // Platform detection will be handled in JavaScript
     }
 
     public function getResultField() {
         return "`{$this->name}` {$this->mysql_field}";
     }
 
-    protected function detectPlatform() {
-        // This will be used by JavaScript to show appropriate instructions
-        if (strpos($_SERVER['HTTP_USER_AGENT'], 'iPhone') !== false || 
-            strpos($_SERVER['HTTP_USER_AGENT'], 'iPad') !== false || 
-            strpos($_SERVER['HTTP_USER_AGENT'], 'iPod') !== false) {
-            return 'ios';
-        }
-        return 'other';
-    }
-
     protected function render_input() {
-        $platform = $this->input_attributes['data-platform'];
-        
-        // Different instructions based on platform
-        $instructions = $platform === 'ios' 
-            ? 'To add this app to your home screen, use the share menu <i class="fa fa-share-square-o"></i> and then select "Add to Home Screen"'
-            : 'Click the button below to add this app to your home screen';
-
         // Create hidden input with same name as button
         $hidden_input = sprintf(
             '<input type="hidden" name="%s" value="not_clicked" id="%s" />',
@@ -56,14 +39,14 @@ class AddToHomeScreen_Item extends Item {
 
         $template = '
             <div class="add-to-homescreen-wrapper">
-                <p class="instructions">%s</p>
+                <p class="instructions"></p>
                 %s
                 %s
                 <div class="status-message"></div>
             </div>
         ';
 
-        return sprintf($template, $instructions, $hidden_input, $button);
+        return sprintf($template, $hidden_input, $button);
     }
 
     public function validateInput($reply) {
