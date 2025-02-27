@@ -111,8 +111,6 @@ function updateInstallButtonState() {
         $button.prop('disabled', true);
         return;
     }
-    debugger;
-
     
     // Check if we're in standalone mode
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
@@ -151,11 +149,7 @@ function updateInstallButtonState() {
         $button.prop('disabled', true);
     } else {
         // If not already installed, set platform-specific text.
-        if (installer.isAppleMobilePlatform || installer.isAppleDesktopPlatform) {
-            $instructions.html('<p>Add this app to your home screen for easier access.</p>');
-        } else {
-            $instructions.html('<p>Add this app to your home screen for easier access.</p>');
-        }
+        $instructions.html('<p>Add this app to your home screen for easier access.</p>');
     }
     
     if (!$hiddenInput.val()) {
@@ -267,17 +261,9 @@ export function initializePWAInstaller() {
                 var $hiddenInput = $wrapper.find('input[type="hidden"]');
                 var $button = $wrapper.find('.add-to-homescreen');
                 
-                if (installer.isUnderStandaloneMode) {
-                    $hiddenInput.val('already_added');
-                    $status.html('You are currently using the installed app.');
-                    $wrapper.closest('.form-group').addClass('formr_answered');
-                    $button.prop('disabled', true);
-                    $button.html('<i class="fa fa-check"></i> Installed');
-                } else {
-                    $hiddenInput.val('failed');
-                    $status.html('Installation failed. You can try again or add to home screen manually from your browser menu.');
-                    $button.html('<i class="fa fa-plus-square"></i> Add to Home Screen');
-                }
+                $hiddenInput.val('failed');
+                $status.html('Installation failed. You can try again or add to home screen manually from your browser menu.');
+                $button.html('<i class="fa fa-plus-square"></i> Add to Home Screen');
             });
             
             installer.style.display = 'none';
