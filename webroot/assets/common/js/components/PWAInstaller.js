@@ -106,9 +106,13 @@ function updateInstallButtonState() {
     const $button = $wrapper.find('.add-to-homescreen');
     const $status = $wrapper.find('.status-message');
     const $hiddenInput = $wrapper.find('input[type="hidden"]');
-    const $instructions = $wrapper.find('.instructions');
     const installer = document.querySelector('pwa-install');
-    
+
+    // When first called, store the default text on the button in a data attribute.
+    if (!$button.data('default-text')) {
+        $button.data('default-text', $button.html());
+    }
+
     if (!installer) {
         $hiddenInput.val('no_support');
         $status.html('Installation component not available. Please try again later.');
@@ -151,9 +155,13 @@ function updateInstallButtonState() {
         $hiddenInput.val('cannot_install');
         $status.html("This app is not available for installation. Maybe you already installed the app or you need to switch to a different browser.");
         $button.prop('disabled', true);
+        $button.html("Cannot install app");
     } else {
+        $hiddenInput.val('not_started');
         // If not already installed, set platform-specific text.
-        $instructions.html('<p>Add this app to your home screen for easier access.</p>');
+        $status.html('<p>Add this app to your home screen for easier access.</p>');
+        $button.prop('disabled', false);
+        $button.html($button.data('default-text'));
     }
     
     if (!$hiddenInput.val()) {
