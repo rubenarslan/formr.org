@@ -1,5 +1,12 @@
+import $ from 'jquery';
+import webshim from 'webshim';
 import { mysql_datetime, flatStringifyGeo  } from './main.js';
 import '@khmyznikov/pwa-install';
+import { ButtonGroup, initializeButtonGroups } from './components/ButtonGroup';
+import { initializeAudioRecorders } from './components/AudioRecorder';
+import { initializePWAInstaller, initializePushNotifications } from './components/PWAInstaller';
+import { initializeSelect2Components } from './components/Select2Initializer';
+import { FormMonkey } from './components/FormMonkey';
 
 var is = {
     na: function(x) {
@@ -7,7 +14,7 @@ var is = {
     }
 };
 
-(function ($) {
+(function () {
 
     /* 
      add shadow dom to the button group
@@ -77,11 +84,26 @@ var is = {
         this.dont_update = false;
         this.spinner = ' <i class="fa fa-spinner fa-spin"></i>';
         this.counterBtns = $('<div class="btn-group"><button class="btn btn-lg btn-down"><i class="fa fa-minus-circle"></i></button><button class="btn btn-lg btn-up"><i class="fa fa-plus-circle"></i></button></div>');
-        var survey = this;
+        this.initializeComponents();
+    }
 
-        // initialising special items
-        // --------------------------
+    Survey.prototype.initializeComponents = function() {
+        // Initialize all components
+        initializeButtonGroups();
+        initializeAudioRecorders();
+        initializePWAInstaller();
+        initializePushNotifications();
+        initializeSelect2Components();
+        this.initializeCounters();
+        this.initializeFormValidation();
+        this.initializeFormSubmission();
+        this.initializeItemTracking();
+        this.initializeClickableMap();
+        this.initializeAutoSubmit();
+        this.initializeGeolocation();
+    }
 
+    Survey.prototype.initializeAutoSubmit = function() {
         $("button.submit_automatically_after_timeout").each(function (i, elm) {
             $('<div class="submit_fuse_box"><div class="submit_fuse"></div></div>').appendTo(elm);
             $(window).on("load", function () {
@@ -103,11 +125,11 @@ var is = {
                 $(".white_cover").remove();
             });
         });
+    }
 
+    Survey.prototype.initializeGeolocation = function() {
         webshim.ready('DOM geolocation', function () {
-            "use strict";
-            $('.geolocator').click(function ()
-            {
+            $('.geolocator').click(function () {
                 var real_loc = $(this).closest('.controls').find('input[type=hidden]');
                 var enter_loc = $(this).closest('.controls').find('input[type=text]');
 
@@ -115,960 +137,82 @@ var is = {
                 enter_loc.prop('readonly', false);
 
                 navigator.geolocation.getCurrentPosition(
-                        function (pos) {
-                            real_loc.val(flatStringifyGeo(pos));
-                            enter_loc.val("lat:" + pos.coords.latitude + "/long:" + pos.coords.longitude);
-                            enter_loc.prop('readonly', true); // fixme: for some reason, if there is user entered text, FF doesn't show new JS-set text
-                        },
-                        function (err)
-                        {
-                            // error handling - this isn't called in firefox, when the user clicks "Not now".
-                        }
-                /*
-                 todo: would be a nice options thing for geoloc
-                 interface PositionOptions {
-                 attribute boolean enableHighAccuracy;
-                 attribute long timeout;
-                 attribute long maximumAge;
-                 };*/
+                    function (pos) {
+                        real_loc.val(flatStringifyGeo(pos));
+                        enter_loc.val("lat:" + pos.coords.latitude + "/long:" + pos.coords.longitude);
+                        enter_loc.prop('readonly', true);
+                    },
+                    function (err) {
+                        // error handling - this isn't called in firefox, when the user clicks "Not now".
+                    }
                 );
                 return false;
             }).each(function () {
                 $(this).closest('.input-group-btn.hidden').removeClass('hidden');
             });
         });
+    }
 
-        webshim.ready('DOM forms forms-ext dom-extend', function () {
-            var mc_buttons = $('div.btn-radio, div.btn-checkbox, div.btn-check');
-            mc_buttons.each(function (i, elm) {
-                new ButtonGroup(elm);
-            });
-
-            $('.item-number.counter input[type=number]').each(function () {
-                var $input = $(this);
-                $input.parents("span").hide();
-                var btns = survey.counterBtns;
-                btns.insertAfter($input.parents("span"));
-                btns.find(".btn-down").click(function ()
-                {
-                    var val = 1;
-                    if ($input.attr('value'))
-                        val = +$input.attr('value');
-                    if ($input.attr('min') < val)
-                    {
-                        $input.attr('value', val - 1);
-                        $input.change();
-                    }
-                    return false;
-                });
-                btns.find(".btn-up").click(function ()
-                {
-                    var val = 1;
-                    if ($input.attr('value'))
-                        val = +$input.attr('value');
-                    if ($input.attr('max') > val)
-                    {
-                        $input.attr('value', val + 1);
-                        $input.change();
-                    }
-                    return false;
-                });
-                webshim.ready("dom-extend", function () {
-                    webshim.addShadowDom($input, btns);
-                });
-
-            });
-            survey.setUpCounters();
-
-            $("select.select2zone, .form-group.select2 select").each(function (i, elm)
-            {
-                "use strict";
-                var slct = $(elm);
-                slct.select2();
-                webshim.ready("dom-extend", function () {
-                    webshim.addShadowDom(slct, slct.select2("container"));
-                });
-            });
-
-            $(".select2pills select").each(function (i, elm)
-            {
-                "use strict";
-                var slct = $(elm);
-                slct.select2({
-                    width: "width:300px",
-                    dropdownCssClass: "bigdrop", // apply css that makes the dropdown taller
-                    maximumSelectionSize: slct.data('select2maximumSelectionSize'),
-                    maximumInputLength: slct.data('select2maximumInputLength'),
-                    formatResult: function (pill) {
-                        if (pill.id !== '')
-                        {
-                            var markup = "<strong>" + pill.text + "</strong><br><img width='200px' alt='" + pill.text + "' src='assets/img/pills/" + pill.id + ".jpg'/>";
-                            return markup;
-                        } else
-                            return '';
-                    },
-                    formatSelection: function (pill) {
-                        return pill.text;
-                    },
-                    escapeMarkup: function (m) {
-                        return m;
-                    }
-                }).on("change select2-open", function (e) {
-                    document.activeElement.blur();
-                });
-                webshim.ready("dom-extend", function () {
-                    webshim.addShadowDom(slct, slct.select2("container"));
-                });
-            });
-
-            $(".clickable_map").each(function (i, elm)
-            {
-                "use strict";
-                var $elm = $(elm);
-                $elm.find("label").attr("for", null);
-                var img = $elm.find("label img");
-                var four_corners = $("<div class='map_link_container'><a class='topleft'></a><a class='topright'></a><a class='bottomleft'></a><a class='bottomright'></a></div>");
-                four_corners.appendTo($elm.find("label"));
-                img.appendTo(four_corners);
-                $elm.find("label div a").click(function (e) {
-                    $elm.find('.selected').removeClass("selected");
-                    $elm.find("input[type=text]").val($(this).attr("class")).change();
-                    $(this).addClass("selected");
-                    return false;
-                });
-            });
-
-            const recordAudioClass = '.record_audio';
-
-            $(recordAudioClass).each(function () {
-                const $container = $(this);
-                const $fileInput = $container.find('input[type="file"]');
-                $fileInput.addClass("hidden");
-                const $audioWidget = $('<div class="audio-widget"></div>');
-                const $recordBtn = $('<button type="button" class="record-btn btn"><i class="fa fa-microphone"></i></button>');
-                const $playBtn = $('<button type="button" class="play-btn btn" disabled><i class="fa fa-play"></i></button>');
-                const $deleteBtn = $('<button type="button" class="delete-btn btn" disabled><i class="fa fa-trash"></i></button>');
-                const $audioLength = $('<span class="audio-length"></span>');
-                let mediaRecorder = null;
-                const button_group = $('<div class="btn-group"></div>');
-                button_group.append($recordBtn, $playBtn, $deleteBtn);
-                let audioChunks = [];
-                let audioBlob = null;
-        
-                $audioWidget.append(button_group, $audioLength);
-                $container.find('.controls-inner').append($audioWidget);
-        
-                const initMediaRecorder = async () => {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                
-                    // Check for supported MIME types
-                    const mimeType = MediaRecorder.isTypeSupported('audio/webm')
-                    ? 'audio/webm'
-                    : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-                    ? 'audio/webm;codecs=opus'
-                    : MediaRecorder.isTypeSupported('audio/mp4')
-                    ? 'audio/mp4'
-                    : MediaRecorder.isTypeSupported('audio/aac')
-                    ? 'audio/aac'
-                    : MediaRecorder.isTypeSupported('audio/x-m4a')
-                    ? 'audio/x-m4a'
-                    : '';
-
-                
-                    if (!mimeType) {
-                        alert('Your browser does not support recording in the required format.');
-                        return;
-                    }
-                
-                    mediaRecorder = new MediaRecorder(stream, { mimeType });
-                
-                    mediaRecorder.ondataavailable = (e) => {
-                        audioChunks.push(e.data);
-                    };
-                
-                    mediaRecorder.onstop = async () => {
-                        audioBlob = new Blob(audioChunks, { type: mimeType }); // Use the correct MIME type
-                        const audioURL = URL.createObjectURL(audioBlob);
-                
-                        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                        try {
-                            const arrayBuffer = await audioBlob.arrayBuffer(); // Get array buffer from blob
-                            const decodedData = await audioContext.decodeAudioData(arrayBuffer); // Decode audio data
-                            const duration = decodedData.duration; // Get the duration
-                
-                            // Format duration to mm:ss
-                            const minutes = Math.floor(duration / 60).toString().padStart(2, '0');
-                            const seconds = Math.floor(duration % 60).toString().padStart(2, '0');
-                            $audioLength.text(` ${minutes}:${seconds}`);
-                        } catch (error) {
-                            console.error('Error decoding audio data:', error);
-                            $audioLength.text(' 00:00'); // Fallback if duration can't be determined
-                        }
-                
-                        // Assign Blob to file input
-                        const dataTransfer = new DataTransfer();
-                        const file = new File([audioBlob], "recording.webm", { type: mimeType });
-                        dataTransfer.items.add(file);
-                        $fileInput[0].files = dataTransfer.files;
-                
-                        $playBtn.prop('disabled', false);
-                        $deleteBtn.prop('disabled', false);
-                    };
-                };
-                
-        
-                $recordBtn.on('click', async function () {
-                    if (!mediaRecorder) {
-                        await initMediaRecorder(); // Ensure MediaRecorder is initialized before recording
-                    }
-        
-                    if (mediaRecorder.state === 'inactive') {
-                        audioChunks = [];
-                        mediaRecorder.start();
-                        $recordBtn.find('i').removeClass('fa-microphone').addClass('fa-stop');
-                    } else {
-                        mediaRecorder.stop();
-                        $recordBtn.find('i').removeClass('fa-stop').addClass('fa-microphone');
-                    }
-                });
-        
-                $playBtn.on('click', function () {
-                    if (audioBlob) {
-                        const audioURL = URL.createObjectURL(audioBlob);
-                        const audio = new Audio(audioURL);
-                        audio.play();
-                    }
-                });
-        
-                $deleteBtn.on('click', function () {
-                    audioChunks = [];
-                    audioBlob = null;
-                    $fileInput.val('');
-                    $audioLength.text('');
-                    $playBtn.prop('disabled', true);
-                    $deleteBtn.prop('disabled', true);
-                });
-            });        
-        
-
-            // Helper function to convert VAPID public key
-            function urlBase64ToUint8Array(base64String) {
-                const padding = '='.repeat((4 - base64String.length % 4) % 4);
-                const base64 = (base64String + padding)
-                    .replace(/\-/g, '+')
-                    .replace(/_/g, '/');
-
-                const rawData = window.atob(base64);
-                const outputArray = new Uint8Array(rawData.length);
-
-                for (let i = 0; i < rawData.length; ++i) {
-                    outputArray[i] = rawData.charCodeAt(i);
-                }
-                return outputArray;
-            }
-
-            // Unified Push Notification Manager using jQuery
-            const PushNotificationManager = {
-                // Check if browser supports push notifications
-                isSupported: function() {
-                    return ('Notification' in window) && ('serviceWorker' in navigator) && ('PushManager' in window);
-                },
-
-                // Check iOS version compatibility
-                isIOSCompatible: function() {
-                    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-                    if (!isIOS) return true;
-                    
-                    // Extract iOS version from user agent
-                    const versionMatch = navigator.userAgent.match(/OS (\d+)_/);
-                    if (versionMatch && versionMatch[1]) {
-                        return parseInt(versionMatch[1]) >= 16;
-                    }
-                    return false; // If we can't determine version, assume incompatible
-                },
-
-                // Get existing service worker registration
-                getRegistration: async function() {
-                    try {
-                        return await navigator.serviceWorker.getRegistration();
-                    } catch (error) {
-                        console.error('Error getting service worker registration:', error);
-                        return null;
-                    }
-                },
-
-                // Check current subscription status
-                checkSubscription: async function(registration) {
-                    if (!registration) return { subscribed: false, reason: 'no_registration' };
-                    
-                    try {
-                        const subscription = await registration.pushManager.getSubscription();
-                        return { 
-                            subscribed: !!subscription, 
-                            subscription: subscription
-                        };
-                    } catch (error) {
-                        console.error('Error checking subscription:', error);
-                        return { subscribed: false, reason: 'error', error };
-                    }
-                },
-
-                // Subscribe to push notifications
-                subscribe: async function(registration) {
-                    if (!registration) return { success: false, reason: 'no_registration' };
-                    
-                    try {
-                        // Request notification permission
-                        const permission = await Notification.requestPermission();
-                        if (permission !== 'granted') {
-                            return { success: false, reason: 'permission_denied' };
-                        }
-                        
-                        // Validate VAPID key
-                        if (!window.vapidPublicKey || typeof window.vapidPublicKey !== 'string' || window.vapidPublicKey.length < 10) {
-                            console.error('Invalid VAPID public key');
-                            return { success: false, reason: 'invalid_config' };
-                        }
-
-                        // Subscribe to push manager
-                        const subscription = await registration.pushManager.subscribe({
-                            userVisibleOnly: true,
-                            applicationServerKey: urlBase64ToUint8Array(window.vapidPublicKey)
-                        });
-                        
-                        // Store subscription status in localStorage
-                        localStorage.setItem('push-notification-subscribed', 'true');
-                        
-                        return { success: true, subscription };
-                    } catch (error) {
-                        console.error('Error subscribing to push:', error);
-                        return { success: false, reason: 'subscription_error', error };
-                    }
-                }
-            };
-
-            // Initialize push notification state for all push notification elements on page load
-            $('.push-notification-wrapper').each(async function() {
-                var $wrapper = $(this);
-                var $status = $wrapper.find('.status-message');
-                var $hiddenInput = $wrapper.find('input[type="hidden"]');
-                var $button = $wrapper.find('.push-notification-permission');
-                var isRequired = $wrapper.closest('.form-group').hasClass('required');
-
-                // Check if the browser supports notifications and service workers
-                if (!PushNotificationManager.isSupported()) {
-                    $hiddenInput.val('not_supported');
-                    $status.html('Sorry, your browser does not support push notifications.');
-                    $button.prop('disabled', true);
-                    $button.removeClass('btn-primary').addClass('btn-default');
-                    return;
-                }
-
-                // Check iOS compatibility
-                if (!PushNotificationManager.isIOSCompatible()) {
-                    $hiddenInput.val('ios_version_not_supported');
-                    $status.html('Sorry, push notifications require iOS 16.4 or later.');
-                    $button.prop('disabled', true);
-                    $button.removeClass('btn-primary').addClass('btn-default');
-                    return;
-                }
-
-                // Get existing service worker registration (registered by pwa-register.js)
-                const registration = await PushNotificationManager.getRegistration();
-                if (!registration) {
-                    $hiddenInput.val('no_service_worker');
-                    $status.html('Service worker not registered. Please reload the page and try again.');
-                    $button.prop('disabled', true);
-                    $button.removeClass('btn-primary').addClass('btn-default');
-                    return;
-                }
-
-                // Check localStorage first for subscription status
-                if (localStorage.getItem('push-notification-subscribed') === 'true') {
-                    // Verify the subscription is actually still valid
-                    const subResult = await PushNotificationManager.checkSubscription(registration);
-                    
-                    if (subResult.subscribed) {
-                        $hiddenInput.val(JSON.stringify(subResult.subscription));
-                        $status.html('Push notifications are enabled.');
-                        $button.removeClass('btn-primary').addClass('btn-success');
-                        $button.prop('disabled', true);
-                        $button.html('<i class="fa fa-check"></i> Notifications Enabled');
-                        $wrapper.closest('.form-group').addClass('formr_answered');
-                        return;
-                    } else {
-                        // Subscription not found despite localStorage flag, clear it
-                        localStorage.removeItem('push-notification-subscribed');
-                    }
-                }
-
-                // Check current permission state
-                const existingPermission = Notification.permission;
-                
-                if (existingPermission === 'granted') {
-                    // Check for actual subscription
-                    const subResult = await PushNotificationManager.checkSubscription(registration);
-                    
-                    if (subResult.subscribed) {
-                        // Store existing subscription
-                        const subscriptionJson = JSON.stringify(subResult.subscription);
-                        $hiddenInput.val(subscriptionJson);
-                        $status.html('Push notifications are enabled.');
-                        $button.removeClass('btn-primary').addClass('btn-success');
-                        $button.prop('disabled', true);
-                        $button.html('<i class="fa fa-check"></i> Notifications Enabled');
-                        $wrapper.closest('.form-group').addClass('formr_answered');
-                        
-                        // Store in localStorage
-                        localStorage.setItem('push-notification-subscribed', 'true');
-                    } else {
-                        // Permission granted but no subscription, enable the button
-                        $hiddenInput.val('no_subscription');
-                        $status.html('Click the button to enable push notifications.');
-                        $button.html('<i class="fa fa-bell"></i> Enable Notifications');
-                    }
-                } else if (existingPermission === 'denied') {
-                    $hiddenInput.val('permission_denied');
-                    $status.html('You have declined push notifications. You can enable them in your browser settings.');
-                    $button.prop('disabled', true);
-                    $button.removeClass('btn-primary').addClass('btn-default');
-                    $button.html('<i class="fa fa-times"></i> Notifications Blocked');
-                }
-            });
-
-            // Push Notification Permission functionality - updated click handler
-            $('.push-notification-permission').click(async function(e) {
-                e.preventDefault();
-                const $btn = $(this);
-                
-                // Don't do anything if the button is disabled
-                if ($btn.prop('disabled')) {
-                    return false;
-                }
-                
-                const $wrapper = $btn.closest('.push-notification-wrapper');
-                const $status = $wrapper.find('.status-message');
-                const $hiddenInput = $wrapper.find('input[type="hidden"]');
-                const isRequired = $wrapper.closest('.form-group').hasClass('required');
-
-                // Check if the browser supports notifications
-                if (!PushNotificationManager.isSupported()) {
-                    $hiddenInput.val('not_supported');
-                    $status.html('Sorry, your browser does not support push notifications.');
-                    $btn.prop('disabled', true);
-                    $btn.removeClass('btn-primary').addClass('btn-default');
-                    return false;
-                }
-
-                // Check iOS compatibility
-                if (!PushNotificationManager.isIOSCompatible()) {
-                    $hiddenInput.val('ios_version_not_supported');
-                    $status.html('Sorry, push notifications require iOS 16.4 or later.');
-                    $btn.prop('disabled', true);
-                    $btn.removeClass('btn-primary').addClass('btn-default');
-                    return false;
-                }
-
-                try {
-                    // Show processing state on button
-                    $btn.html('<i class="fa fa-spinner fa-spin"></i> Processing...');
-                    
-                    // Get existing service worker registration (registered by pwa-register.js)
-                    const registration = await PushNotificationManager.getRegistration();
-                    if (!registration) {
-                        $hiddenInput.val('no_service_worker');
-                        $status.html('Service worker not registered. Please reload the page and try again.');
-                        $btn.html('<i class="fa fa-exclamation-triangle"></i> Error');
-                        return false;
-                    }
-                    
-                    // Check if a subscription already exists
-                    const subResult = await PushNotificationManager.checkSubscription(registration);
-                    if (subResult.subscribed) {
-                        // A subscription already exists, update the UI
-                        const subscriptionJson = JSON.stringify(subResult.subscription);
-                        $hiddenInput.val(subscriptionJson);
-                        $status.html('Push notifications are already enabled.');
-                        $btn.removeClass('btn-primary').addClass('btn-success');
-                        $btn.prop('disabled', true);
-                        $btn.html('<i class="fa fa-check"></i> Notifications Enabled');
-                        $wrapper.closest('.form-group').addClass('formr_answered');
-                        localStorage.setItem('push-notification-subscribed', 'true');
-                        return false;
-                    }
-
-                    // Subscribe to push notifications
-                    const result = await PushNotificationManager.subscribe(registration);
-                    
-                    if (result.success) {
-                        // Store subscription data
-                        const subscriptionJson = JSON.stringify(result.subscription);
-                        $hiddenInput.val(subscriptionJson);
-                        $status.html('Thank you! You will now receive push notifications.');
-                        $btn.removeClass('btn-primary').addClass('btn-success');
-                        $btn.prop('disabled', true);
-                        $btn.html('<i class="fa fa-check"></i> Notifications Enabled');
-                        $wrapper.closest('.form-group').addClass('formr_answered');
-                    } else if (result.reason === 'permission_denied') {
-                        $hiddenInput.val('permission_denied');
-                        $status.html('You have declined push notifications. You can enable them later in your browser settings.');
-                        $btn.prop('disabled', true);
-                        $btn.removeClass('btn-primary').addClass('btn-default');
-                        $btn.html('<i class="fa fa-times"></i> Notifications Blocked');
-                    } else if (result.reason === 'invalid_config') {
-                        $hiddenInput.val('invalid_config');
-                        $status.html('Server configuration error. Please contact support.');
-                        $btn.html('<i class="fa fa-exclamation-triangle"></i> Configuration Error');
-                    } else {
-                        $hiddenInput.val('error');
-                        $status.html('There was an error setting up push notifications. Please try again later.');
-                        $btn.html('<i class="fa fa-exclamation-triangle"></i> Error');
-                    }
-                    
-                } catch (error) {
-                    console.error('Error during push notification setup:', error);
-                    $hiddenInput.val('error');
-                    $status.html('There was an error setting up push notifications. Please try again later.');
-                    $btn.html('<i class="fa fa-exclamation-triangle"></i> Error');
-                }
-                
+    Survey.prototype.initializeClickableMap = function() {
+        $(".clickable_map").each(function (i, elm) {
+            var $elm = $(elm);
+            $elm.find("label").attr("for", null);
+            var img = $elm.find("label img");
+            var four_corners = $("<div class='map_link_container'><a class='topleft'></a><a class='topright'></a><a class='bottomleft'></a><a class='bottomright'></a></div>");
+            four_corners.appendTo($elm.find("label"));
+            img.appendTo(four_corners);
+            $elm.find("label div a").click(function (e) {
+                $elm.find('.selected').removeClass("selected");
+                $elm.find("input[type=text]").val($(this).attr("class")).change();
+                $(this).addClass("selected");
                 return false;
             });
+        });
+    }
 
-            // Initialize pwa-install element
-            var installer = document.querySelector('pwa-install');
-            if (!installer) {
-                // Create a new pwa-install element
-                installer = document.createElement('pwa-install');
-                
-                // Get manifest URL from link tag
-                var manifestLink = document.querySelector('link[rel="manifest"]');
-                if (manifestLink) {
-                    installer.setAttribute('manifest-url', manifestLink.href);
-                }
-                
-                // Configure the installer with appropriate attributes
-                installer.setAttribute('manual-chrome', 'true');
-                installer.setAttribute('manual-apple', 'true'); // Ensure manual control for iOS
-                installer.setAttribute('use-local-storage', 'true'); // Use localStorage to remember preferences
-                
-                // Hide initially
-                installer.style.display = 'none';
-                document.body.appendChild(installer);
-            }
-            
-            // Handle beforeinstallprompt event
-            window.addEventListener('beforeinstallprompt', function(e) {
-                e.preventDefault();
-                if (installer) {
-                    installer.externalPromptEvent = e;
-                }
-            });
-            
-            // Check installation status for all add-to-homescreen elements on page load
-            $('.add-to-homescreen-wrapper').each(function() {
-                var $wrapper = $(this);
-                var $status = $wrapper.find('.status-message');
-                var $hiddenInput = $wrapper.find('input[type="hidden"]');
-                var isRequired = $wrapper.closest('.form-group').hasClass('required');
-                var $button = $wrapper.find('.add-to-homescreen');
-                var $instructions = $wrapper.find('.instructions');
-                
-                updateInstallButtonState($wrapper);
-            });
-            
-            // Update the state of installation button and related UI elements
-            function updateInstallButtonState($wrapper) {
-                var $button = $wrapper.find('.add-to-homescreen');
-                var $status = $wrapper.find('.status-message');
-                var $hiddenInput = $wrapper.find('input[type="hidden"]');
-                var $instructions = $wrapper.find('.instructions');
-                var isRequired = $wrapper.closest('.form-group').hasClass('required');
-                
-                // Get or create the installer element if it doesn't exist
-                if (!installer) {
-                    installer = document.querySelector('pwa-install');
-                    if (!installer) {
-                        $hiddenInput.val('no_support');
-                        $status.html('Installation component not available. Please try again later.');
-                        $button.prop('disabled', true);
-                        return;
-                    }
-                }
-                
-                // Check if we're in standalone mode or the app is already installed
-                if (installer.isUnderStandaloneMode) {
-                    $hiddenInput.val('already_added');
-                    $status.html('You are currently using the installed app.');
-                    $wrapper.closest('.form-group').addClass('formr_answered');
-                    $button.removeClass('btn-primary').addClass('btn-success');
-                    $button.prop('disabled', true);
-                    $button.html('<i class="fa fa-check"></i> Installed');
-                    return;
-                }
-                
-                // Check localStorage for previous installation status (for cross-browser compatibility)
-                if (localStorage.getItem('pwa-app-installed') === 'true') {
-                    $hiddenInput.val('already_added');
-                    $status.html('This app is already installed. <a href="' + window.location.href + '" target="_blank">Open in installed app</a>');
-                    $wrapper.closest('.form-group').addClass('formr_answered');
-                    $button.removeClass('btn-primary').addClass('btn-success');
-                    $button.prop('disabled', true);
-                    $button.html('<i class="fa fa-check"></i> Installed');
-                    return;
-                }
-                
-                // Set platform-specific text for the button and instructions
-                if (installer.isAppleMobilePlatform || installer.isAppleDesktopPlatform) {
-                    // iOS devices
-                    $button.html('<i class="fa fa-info-circle"></i> Show Installation Guide');
-                    $instructions.html('<p>Add this app to your home screen for easier access.</p>');
-                } else {
-                    // Other devices (Android, Chrome, etc.)
-                    $button.html('<i class="fa fa-plus-square"></i> Add to Home Screen');
-                    $instructions.html('<p>Add this app to your home screen for easier access.</p>');
-                }
-                
-                // Show "required" notice if needed
-                if (isRequired) {
-                    $instructions.append('<p><strong>This step is required to continue.</strong></p>');
-                }
-                
-                // Set initial state for the hidden input
-                if (!$hiddenInput.val()) {
-                    $hiddenInput.val('not_started');
-                }
-                
-                // Enable the button if installation is available
-                $button.prop('disabled', !installer.isInstallAvailable);
-                if (!installer.isInstallAvailable) {
-                    $hiddenInput.val('no_support');
-                    $status.html('Your browser doesn\'t support adding to home screen automatically.');
-                }
-            }
+    Survey.prototype.initializeItemTracking = function() {
+        var pageload_time = mysql_datetime();
+        var relative_time = window.performance.now ? performance.now() : null;
+        $(".form-group:not([data-showif])").each(function (i, elm) {
+            $(elm).find("input.item_shown").val(pageload_time);
+            $(elm).find("input.item_shown_relative").val(relative_time);
+        });
 
-            // Button click handler - simplified to use the element's capabilities
-            $('.add-to-homescreen').click(function(e) {
-                e.preventDefault();
-                var $btn = $(this);
-                
-                // Don't do anything if the button is disabled
-                if ($btn.prop('disabled')) {
-                    return false;
-                }
-                
-                var $wrapper = $btn.closest('.add-to-homescreen-wrapper');
-                var $status = $wrapper.find('.status-message');
-                var $hiddenInput = $wrapper.find('input[type="hidden"]');
-                
-                // Get the installer element
-                if (!installer || !installer.isInstallAvailable) {
-                    $hiddenInput.val('no_support');
-                    $status.html('Installation is not supported in your browser.');
-                    return false;
-                }
-                
-                // Update the hidden input to indicate we've started
-                $hiddenInput.val('prompted');
-                
-                // Show processing state
-                $status.html('Preparing installation...');
-                $btn.html('<i class="fa fa-spinner fa-spin"></i> Processing...');
-                
-                // Show the installation dialog
-                installer.style.display = '';
-                installer.showDialog();
-                
-                return false;
-            });
-
-            // Set up event listeners for the pwa-install element
-            if (installer) {
-                // Handle various events from the pwa-install element
-                
-                // When installation is successful (Chrome/Android only)
-                installer.addEventListener('pwa-install-success-event', function(e) {
-                    console.log('Installation successful:', e.detail);
-                    localStorage.setItem('pwa-app-installed', 'true');
-                    
-                    // Update all install buttons
-                    $('.add-to-homescreen-wrapper').each(function() {
-                        var $wrapper = $(this);
-                        var $status = $wrapper.find('.status-message');
-                        var $hiddenInput = $wrapper.find('input[type="hidden"]');
-                        var $button = $wrapper.find('.add-to-homescreen');
-                        
-                        $hiddenInput.val('installed');
-                        $status.html('Thank you! The app has been added to your home screen.');
-                        $wrapper.closest('.form-group').addClass('formr_answered');
-                        $button.removeClass('btn-primary').addClass('btn-success');
-                        $button.prop('disabled', true);
-                        $button.html('<i class="fa fa-check"></i> Installed');
-                    });
-                    
-                    // Hide the installer element
-                    installer.style.display = 'none';
-                });
-                
-                // When installation fails (Chrome/Android only)
-                installer.addEventListener('pwa-install-fail-event', function(e) {
-                    console.log('Installation failed:', e.detail);
-                    
-                    // Update all install buttons
-                    $('.add-to-homescreen-wrapper').each(function() {
-                        var $wrapper = $(this);
-                        var $status = $wrapper.find('.status-message');
-                        var $hiddenInput = $wrapper.find('input[type="hidden"]');
-                        var $button = $wrapper.find('.add-to-homescreen');
-                        
-                        if (installer.isUnderStandaloneMode) {
-                            // It's already installed
-                            $hiddenInput.val('already_added');
-                            $status.html('You are currently using the installed app.');
-                            $wrapper.closest('.form-group').addClass('formr_answered');
-                            $button.prop('disabled', true);
-                            $button.html('<i class="fa fa-check"></i> Installed');
-                        } else {
-                            // Installation failed
-                            $hiddenInput.val('failed');
-                            $status.html('Installation failed. You can try again or add to home screen manually from your browser menu.');
-                            $button.html('<i class="fa fa-plus-square"></i> Add to Home Screen');
-                        }
-                    });
-                    
-                    // Hide the installer element
-                    installer.style.display = 'none';
-                });
-                
-                // User made a choice about installation
-                installer.addEventListener('pwa-user-choice-result-event', function(e) {
-                    console.log('User choice:', e.detail);
-                    var accepted = (e.detail.userChoiceResult === 'accepted');
-                    
-                    // Update all install buttons
-                    $('.add-to-homescreen-wrapper').each(function() {
-                        var $wrapper = $(this);
-                        var $status = $wrapper.find('.status-message');
-                        var $hiddenInput = $wrapper.find('input[type="hidden"]');
-                        var $button = $wrapper.find('.add-to-homescreen');
-                        var isRequired = $wrapper.closest('.form-group').hasClass('required');
-                        
-                        if (accepted) {
-                            $hiddenInput.val('added');
-                            $status.html('Thank you! The app has been added to your home screen.');
-                            $wrapper.closest('.form-group').addClass('formr_answered');
-                            $button.removeClass('btn-primary').addClass('btn-success');
-                            $button.prop('disabled', true);
-                            $button.html('<i class="fa fa-check"></i> Installed');
-                            localStorage.setItem('pwa-app-installed', 'true');
-                        } else {
-                            $hiddenInput.val('declined');
-                            if (isRequired) {
-                                $status.html('This step is required. Please add the app to your home screen to continue.');
-                                $wrapper.closest('.form-group').removeClass('formr_answered');
-                            } else {
-                                $status.html('You can add the app to your home screen at any time.');
-                                $wrapper.closest('.form-group').addClass('formr_answered');
-                            }
-                            $button.html('<i class="fa fa-plus-square"></i> Add to Home Screen');
-                        }
-                    });
-                    
-                    // Hide the installer element
-                    installer.style.display = 'none';
-                });
-                
-                // When "how to install" is shown (typically for iOS)
-                installer.addEventListener('pwa-install-how-to-event', function(e) {
-                    console.log('How to install shown:', e.detail);
-                    
-                    // Update all install buttons to reflect that instructions are shown
-                    $('.add-to-homescreen-wrapper').each(function() {
-                        var $wrapper = $(this);
-                        var $status = $wrapper.find('.status-message');
-                        var $hiddenInput = $wrapper.find('input[type="hidden"]');
-                        
-                        $hiddenInput.val('instructed');
-                        $status.html('Follow the instructions to add this app to your home screen.');
-                    });
-                });
-                
-                // Installation availability detected
-                installer.addEventListener('pwa-install-available-event', function(e) {
-                    console.log('Installation available:', e.detail);
-                    
-                    // Re-check installation button states
-                    $('.add-to-homescreen-wrapper').each(function() {
-                        updateInstallButtonState($(this));
-                    });
-                });
-            }
-
-            // Add form validation for required add-to-homescreen items
-            $('form.main_formr_survey').on('submit', function(e) {
-                var $form = $(this);
-                var $requiredHomescreen = $form.find('.form-group.required .add-to-homescreen');
-                
-                if ($requiredHomescreen.length) {
-                    var isValid = true;
-                    $requiredHomescreen.each(function() {
-                        var $input = $(this).closest('.add-to-homescreen-wrapper').find('input[type="hidden"]');
-                        var value = $input.val();
-                        
-                        // Valid states: 'installed', 'added', 'already_added', 'instructed' (for iOS)
-                        // Invalid states: 'not_started', 'declined', 'failed', 'no_support', 'prompted'
-                        
-                        // Special handling for iOS - we can't verify the installation, so count 'instructed' as valid
-                        var isIOSInstructed = (installer && 
-                            (installer.isAppleMobilePlatform || installer.isAppleDesktopPlatform) && 
-                            value === 'instructed');
-                            
-                        // Check if the value indicates successful addition or valid state
-                        if (!value || 
-                            (['not_started', 'declined', 'failed', 'prompted'].indexOf(value) !== -1) || 
-                            (value === 'no_support' && !(installer && installer.isUnderStandaloneMode)) && 
-                            !isIOSInstructed) {
-                            isValid = false;
-                            $(this).closest('.form-group').find('.status-message')
-                                .html('<strong style="color: red;">Please complete this required step before continuing.</strong>');
-                        }
-                    });
-                    
-                    if (!isValid) {
-                        e.preventDefault();
-                        return false;
-                    }
-                }
-            });
-
-            $(".people_list textarea").each(function (i, elm)
-            {
-                "use strict";
-
-                var slct = $(elm);
-                slct.select2({
-                    width: "element",
-                    height: "2000px",
-                    data: [],
-                    formatNoMatches: function (term)
-                    {
-                        if (term !== '')
-                            return "Füge '" + term + "' hinzu!";
-                        else
-                            return "Weitere Personen hinzufügen.";
-                    },
-                    tokenSeparators: ["\n"],
-                    separator: '\n',
-                    createSearchChoice: function (term, data)
-                    {
-                        if ($(data).filter(function () {
-                            return this.text.localeCompare(term) === 0;
-                        }).length === 0)
-                        {
-                            term = term.replace("\n", '; ');
-                            return {id: term, text: term};
-                        }
-                    },
-                    initSelection: function (element, callback)
-                    {
-                        var elements = element.val().split("\n");
-                        var data = [];
-                        for (var i = 0; i < elements.length; i++)
-                        {
-                            data.push({id: elements[i], text: elements[i]});
-                        }
-                        callback(data);
-                    },
-                    maximumSelectionSize: 15,
-                    maximumInputLength: 50,
-                    formatResultCssClass: function (obj) {
-                        return "people_list_results";
-                    },
-                    multiple: true,
-                    allowClear: true,
-                    escapeMarkup: function (m) {
-                        return m;
-                    }
-                }).removeClass("form-control");
-                var plus = $("<span class='select2-plus'>+</span>");
-                plus.insertBefore(slct.select2("container").find('.select2-search-field input'));
-                webshim.ready("dom-extend", function () {
-                    webshim.addShadowDom(slct, slct.select2("container"));
-                });
-            });
-
-            $("input.select2add").each(function (i, elm)
-            {
-                var slct = $(elm);
-                if (slct.select2("container").hasClass("select2-container")) // is already select2
-                    return;
-                var slctdata0 = slct.attr('data-select2add');
-                if (typeof slctdata0 != 'object') {
-                    slctdata0 = $.parseJSON(slctdata0);
-                }
-                var slctdata_arr;
-                var slctdata = [];
-                for (var u = 0; u < slctdata0.length; u++) {
-                    slctdata_arr = slctdata0[u].id.split(",");
-                    for (var j = 0; j < slctdata_arr.length; j++) {
-                        if (slctdata_arr[j].trim().length > 0) {
-                            slctdata.push({"id": slctdata_arr[j], "text": slctdata_arr[j]});
-                        }
-                    }
-                }
-
-                var is_network_selector = $(elm).parents(".form-group").hasClass("network_select") || $(elm).parents(".form-group").hasClass("ratgeber_class") || $(elm).parents(".form-group").hasClass("cant_add_choice");
-
-                slct.select2({
-                    createSearchChoice: function (term, data)
-                    {
-                        if (is_network_selector)
-                            return null; // don't allow choice creation
-
-                        if ($(data).filter(function () {
-                            return this.text.localeCompare(term) === 0;
-                        }).length === 0)
-                        {
-                            term = term.replace(',', ';');
-                            return {id: term, text: term};
-                        }
-                    },
-                    initSelection: function (element, callback)
-                    {
-                        var data;
-                        if (!!slct.data('select2multiple')) {
-                            var intermed = element.val().split(",");
-                            data = new Array(intermed.length);
-                            for (var e = 0; e < intermed.length; e++) {
-                                data[e] = {id: intermed[e], text: intermed[e]};
-                            }
-                        } else {
-                            data = {id: element.val(), text: element.val()};
-                        }
-                        $.each(slctdata, function (k, v) {
-                            if (v.id === element.val()) {
-                                data = v;
-                                return false;
-                            }
-                        });
-                        callback(data);
-                    },
-                    maximumSelectionSize: slct.data('select2maximumSelectionSize'),
-                    maximumInputLength: slct.data('select2maximumInputLength'),
-                    data: slctdata,
-                    multiple: !!slct.data('select2multiple'),
-                    allowClear: true,
-                    escapeMarkup: function (m) {
-                        return m;
-                    }
-                });
-                webshim.ready('forms forms-ext dom-extend form-validators', function () {
-                    webshim.addShadowDom(slct, slct.select2("container"));
-                });
-
+        $(".form-group").each(function (i, elm) {
+            $(elm).change(function () {
+                $(this).addClass('formr_answered');
+                $(this).find("input.item_answered").val(mysql_datetime());
+                $(this).find("input.item_answered_relative").val(window.performance.now ? performance.now() : null);
             });
         });
 
+        $(".form-group.item-submit").each(function (i, elm) {
+            $(elm).find("button").click(function () {
+                $(elm).find("input.item_answered").val(mysql_datetime());
+                $(elm).find("input.item_answered_relative").val(window.performance.now ? performance.now() : null);
+            });
+        });
+    }
+
+    Survey.prototype.initializeFormSubmission = function() {
+        var survey = this;
+        $('form.main_formr_survey').bind('submit', function(e) {
+            var $form = $(this);
+            var $button = $form.find('.form-group.item-submit button');
+            if ($button.find('.fa-spinner').length) {
+                return false;
+            }
+            if ($form.checkValidity()) {
+                $button.append(survey.spinner);
+                $button.prop('disabled', true);
+                return true;
+            } else {
+                return false;
+            }
+        });
+    }
+
+    Survey.prototype.initializeFormValidation = function() {
         webshim.ready('forms forms-ext dom-extend form-validators', function () {
             webshim.addCustomValidityRule('always_invalid', function (elem, val) {
                 if (!$(elem).hasClass('always_invalid')) {
@@ -1077,7 +221,7 @@ var is = {
                 return true;
             }, 'Cannot submit while there are problems with openCPU.');
 
-                // Find all file inputs with the 'data-max-size' attribute
+            // Find all file inputs with the 'data-max-size' attribute
             $('input[type="file"][data-max-size]').each(function () {
                 const $input = $(this);
                 const maxSize = parseInt($input.data('max-size'), 10);
@@ -1099,48 +243,71 @@ var is = {
                     // Apply the validation using webshim
                     $input[0].setCustomValidity(
                         isValid ? '' : ('Selected file exceeds the maximum size limit of ' + maxSize/1024/1024 + 'MB'));
-                    $input[0].reportValidity(); // Temporary marker for custom rule
+                    $input[0].reportValidity();
                 });
             });
 
-        
             webshim.refreshCustomValidityRules();
         });
+    }
 
-        var pageload_time = mysql_datetime();
-        var relative_time = window.performance.now ? performance.now() : null;
-        $(".form-group:not([data-showif])").each(function (i, elm) // walk through all form elements that are automatically shown
-        {
-            $(elm).find("input.item_shown").val(pageload_time);
-            $(elm).find("input.item_shown_relative").val(relative_time);
-        });
+    Survey.prototype.initializeCounters = function() {
+        var survey = this;
+        webshim.ready('DOM forms forms-ext dom-extend', function () {
+            $('.form-group.item-number.is-counter .controls input').each(function () {
+                var $input = $(this);
+                var $parent = $input.parents('span');
+                var $btns = survey.counterBtns;
 
-        $(".form-group").each(function (i, elm) { // initialise ever changed tracker
-            $(elm).change(function () {
-                $(this).addClass('formr_answered');
-                $(this).find("input.item_answered").val(mysql_datetime());
-                $(this).find("input.item_answered_relative").val(window.performance.now ? performance.now() : null);
+                $parent.hide();
+                $btns.insertAfter($parent);
+                toggleCounterElements($input.val());
+
+                // bind-clicks
+                $btns.find('.btn').click(function (e) {
+                    e.preventDefault();
+                    var $btn = $(this);
+                    var val = 1;
+                    if ($input.val()) {
+                        val = +$input.val();
+                    }
+ 
+                    if ($btn.is('.btn-down') && $input.attr('min') < val) {
+                        val -= 1;
+                    } else if ($btn.is('.btn-up') && $input.attr('max') > val) {
+                        val += 1;
+                    }
+
+                    toggleCounterElements(val);
+                    return false;
+                });
+
+                function toggleCounterElements(val) {
+                    // get the counter name and show/hide corresponding elements
+                    var classList = $input.parents('.is-counter').attr('class').replace(/\s+/g, ' ').split(' ');
+                    var counterName = null;
+                    for (var i in classList) {
+                        if (classList[i].indexOf('-counter') !== -1 && classList[i] !== "is-counter") {
+                            counterName = classList[i];
+                            break;
+                        }
+                    }
+                    // If there is no DOM element having the counter name value then return;
+                    if (!$('.' + counterName + '-' + val).length) {
+                        return false;
+                    }
+                    // Set value
+                    $input.attr('value', val);
+                    if (counterName) {
+                        $('div[class*='+counterName+'-]').each(function() {
+                            survey.setItemVisibility($(this), true);
+                        });
+                        for (var s = 1; s <= val; s++) {
+                            survey.setItemVisibility($('.' + counterName + '-' + s), false);
+                        }
+                    }
+                }
             });
-        });
-        $(".form-group.item-submit").each(function (i, elm) { // track submit buttons too
-            $(elm).find("button").click(function () {
-                $(elm).find("input.item_answered").val(mysql_datetime());
-                $(elm).find("input.item_answered_relative").val(window.performance.now ? performance.now() : null);
-            });
-        });
-        $('form.main_formr_survey').bind('submit', function(e) {
-            var $form = $(this);
-            var $button = $form.find('.form-group.item-submit button');
-            if ($button.find('.fa-spinner').length) {
-                return false;
-            }
-            if ($form.checkValidity()) {
-                $button.append(survey.spinner);
-                $button.prop('disabled', true);
-                return true;
-            } else {
-                return false;
-            }
         });
     }
 
@@ -1579,12 +746,13 @@ var is = {
             $(".show_hidden_items").attr('disabled', false);
         }
         if ($("button.monkey").length > 0) {
+            var formMonkey = new FormMonkey(survey);
             $("button.monkey").click(function () {
-                survey.doMonkey(0);
+                formMonkey.doMonkey(0);
                 return false;
             });
             $("button.monkey").attr('disabled', false);
         }
     });
 
-}(jQuery));
+}());
