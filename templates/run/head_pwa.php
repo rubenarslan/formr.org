@@ -1,6 +1,6 @@
 <?php 
 if ($run->getManifestJSONPath()): ?>
-    <link rel="manifest" href="<?php echo $run->getManifestJSONPath(); ?>">
+    <link rel="manifest" href="<?php echo asset_url($run->getManifestJSONPath() ); ?>">
     
     <!-- Safari specific icons -->
     <link rel="apple-touch-icon" href="<?php echo asset_url('pwa/maskable_icon_x192.png'); ?>" sizes="192x192">

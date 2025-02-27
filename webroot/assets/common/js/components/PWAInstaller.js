@@ -40,10 +40,12 @@ const PushNotificationManager = {
         return false; // If we can't determine version, assume incompatible
     },
 
-    // Get existing service worker registration
+    // Get existing service worker registration using navigator.serviceWorker.ready
     getRegistration: async function() {
         try {
-            return await navigator.serviceWorker.getRegistration();
+            // Use navigator.serviceWorker.ready which returns a promise that resolves
+            // only when an active service worker is available
+            return await navigator.serviceWorker.ready;
         } catch (error) {
             console.error('Error getting service worker registration:', error);
             return null;
@@ -412,6 +414,8 @@ export function initializePushNotifications() {
             $button.prop('disabled', true);
             $button.removeClass('btn-primary').addClass('btn-default');
             return;
+        } else {
+            console.log('Service worker registered');
         }
 
         // Check localStorage first for subscription status

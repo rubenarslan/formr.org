@@ -1,6 +1,6 @@
 // Register Service Worker
 if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
+    window.addEventListener('DOMContentLoaded', () => {
         // Make sure formr configuration is available
         if (!window.formr || !window.formr.run_url) {
             console.warn('formr configuration not found or missing run_url');
@@ -38,7 +38,7 @@ if ('serviceWorker' in navigator) {
             // Remove trailing slash if present
             const pathWithoutTrailingSlash = runUrl.pathname.replace(/\/$/, '');
             serviceWorkerPath = `${pathWithoutTrailingSlash}/service-worker`;
-            scope = pathWithoutTrailingSlash + '/';
+            scope = pathWithoutTrailingSlash;
             console.log('Using path-based service worker:', serviceWorkerPath, 'with scope:', scope);
         } else {
             console.log('Using subdomain-based service worker:', serviceWorkerPath, 'with scope:', scope);
@@ -60,9 +60,13 @@ if ('serviceWorker' in navigator) {
         // Register service worker with the correct path and scope
         navigator.serviceWorker.register(serviceWorkerPath, {
             scope: scope
-        }).then(registration => {
+        }).then(
+            (registration) => {
             console.log('ServiceWorker registration successful with scope:', registration.scope);
-            
+            navigator.serviceWorker.ready.then(registration => {
+                console.log('ServiceWorker ready with scope:', registration.scope);
+            });
+
             // Function to send message to active service worker
             const sendMessage = () => {
                 registration.active.postMessage({
@@ -83,8 +87,9 @@ if ('serviceWorker' in navigator) {
                     sendMessage();
                 }
             });
-        }).catch(err => {
-            console.log('ServiceWorker registration failed: ', err);
+        },
+        (error) => {
+            console.log('ServiceWorker registration failed: ', error);
         });
     });
 } 
