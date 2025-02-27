@@ -29,9 +29,13 @@ const PushNotificationManager = {
         if (!isIOS) return true;
         
         // Extract iOS version from user agent
-        const versionMatch = navigator.userAgent.match(/OS (\d+)_/);
-        if (versionMatch && versionMatch[1]) {
-            return parseInt(versionMatch[1]) >= 16;
+        const versionMatch = navigator.userAgent.match(/OS (\d+)_(\d+)/);
+        if (versionMatch && versionMatch[1] && versionMatch[2]) {
+            const majorVersion = parseInt(versionMatch[1]);
+            const minorVersion = parseInt(versionMatch[2]);
+            
+            // Return true if iOS 16.4 or later
+            return (majorVersion > 16) || (majorVersion === 16 && minorVersion >= 4);
         }
         return false; // If we can't determine version, assume incompatible
     },
