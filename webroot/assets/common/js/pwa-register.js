@@ -27,7 +27,7 @@ if ('serviceWorker' in navigator) {
         const filesToCache = [...new Set([...stylesheets, ...scripts])];
 
         // Parse the run_url to determine the service worker path and scope
-        let serviceWorkerPath = '/service-worker';
+        let serviceWorkerPath = '/service-worker/';
         let scope = '/';
         let runUrl = new URL(window.formr.run_url);
         let siteUrl = new URL(window.formr.site_url);
@@ -37,8 +37,8 @@ if ('serviceWorker' in navigator) {
         if (runUrl.hostname === siteUrl.hostname) {
             // Remove trailing slash if present
             const pathWithoutTrailingSlash = runUrl.pathname.replace(/\/$/, '');
-            serviceWorkerPath = `${pathWithoutTrailingSlash}/service-worker`;
-            scope = pathWithoutTrailingSlash;
+            serviceWorkerPath = `${pathWithoutTrailingSlash}/service-worker/`;
+            scope = runUrl.pathname;
             console.log('Using path-based service worker:', serviceWorkerPath, 'with scope:', scope);
         } else {
             console.log('Using subdomain-based service worker:', serviceWorkerPath, 'with scope:', scope);
