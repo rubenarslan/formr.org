@@ -165,11 +165,6 @@ function updateInstallButtonState() {
         $button.prop('disabled', false);
         $button.html($button.data('default-text'));
     }
-    
-    if (!$hiddenInput.val()) {
-        $hiddenInput.val('not_started');
-    }
-    
 }
 
 export function initializePWAInstaller() {
@@ -183,7 +178,7 @@ export function initializePWAInstaller() {
     }
     
     installer.setAttribute('use-local-storage', 'true');
-    installer.style.display = 'none';
+    installer.hideDialog();
     document.body.appendChild(installer);
     
     // Handle beforeinstallprompt event
@@ -207,7 +202,7 @@ export function initializePWAInstaller() {
     updateInstallButtonState();
 
     // Button click handler
-    $('.add-to-homescreen').click(function(e) {
+    $('.add-to-homescreen').on('click', function(e) {
         e.preventDefault();
         var $btn = $(this);
         
@@ -225,7 +220,7 @@ export function initializePWAInstaller() {
             return false;
         }
         
-        installer.style.display = '';
+        installer.showDialog();
         const res = installer.showDialog(true);
         $hiddenInput.val('prompted');
         $status.html('Preparing installation...');
@@ -241,28 +236,10 @@ export function initializePWAInstaller() {
         installer.addEventListener('pwa-install-success-event', function(e) {
 			console.log('Installation successful:', e.detail);
 			localStorage.setItem('pwa-app-installed', 'true');
+
+            updateInstallButtonState();
 			
-			$('.add-to-homescreen-wrapper').each(function() {
-				var $wrapper = $(this);
-				var $status = $wrapper.find('.status-message');
-				var $hiddenInput = $wrapper.find('input[type="hidden"]');
-				var $button = $wrapper.find('.add-to-homescreen');
-				
-				$hiddenInput.val('installed');
-				$status.html('Thank you! The app has been added to your home screen.');
-				$wrapper.closest('.form-group').addClass('formr_answered');
-				
-				$button.removeClass('btn-primary').addClass('btn-success');
-				// Only disable the button if we are in standalone mode.
-				if (installer.isUnderStandaloneMode) {
-					$button.prop('disabled', true);
-					$button.html('<i class="fa fa-check"></i> Installed');
-				} else {
-					$button.html('<i class="fa fa-check"></i> Installed');
-				}
-			});
-			
-			installer.style.display = 'none';
+			installer.hideDial
 		});
         
         // Installation failed
@@ -280,7 +257,7 @@ export function initializePWAInstaller() {
                 $button.html('<i class="fa fa-plus-square"></i> Add to Home Screen');
             });
             
-            installer.style.display = 'none';
+            installer.hideDialog();
         });
         
         // User choice result
@@ -296,18 +273,7 @@ export function initializePWAInstaller() {
 				var isRequired = $wrapper.closest('.form-group').hasClass('required');
 				
 				if (accepted) {
-					$hiddenInput.val('added');
-					$status.html('Thank you! The app has been added to your home screen.');
-					$wrapper.closest('.form-group').addClass('formr_answered');
-					$button.removeClass('btn-primary').addClass('btn-success');
-					localStorage.setItem('pwa-app-installed', 'true');
-					
-					if (installer.isUnderStandaloneMode) {
-						$button.prop('disabled', true);
-						$button.html('<i class="fa fa-check"></i> Installed');
-					} else {
-						$button.html('<i class="fa fa-check"></i> Installed');
-					}
+					updateInstallButtonState();
 				} else {
 					$hiddenInput.val('declined');
 					if (isRequired) {
@@ -321,7 +287,7 @@ export function initializePWAInstaller() {
 				}
 			});
 			
-			installer.style.display = 'none';
+			installer.hideDialog();
 		});
         
         // How to install shown
