@@ -8,11 +8,11 @@
     <form class="" id="login" name="login" method="post" action="<?= admin_url('account/login') ?>">
         <div class="form-group label-floating">
             <label class="control-label" for="email"><i class="fa fa-envelope"></i> Email</label>
-            <input class="form-control" type="email" id="email" name="email">
+            <input class="form-control" type="email" id="email" name="email" autocomplete="username">
         </div>
         <div class="form-group label-floating">
-            <label class="control-label" for="email"><i class="fa fa-lock"></i> Password</label>
-            <input class="form-control" type="password" id="pass" name="password">
+            <label class="control-label" for="pass"><i class="fa fa-lock"></i> Password</label>
+            <input class="form-control" type="password" id="pass" name="password" autocomplete="current-password">
         </div>
 
         <button type="submit" class="btn btn-sup btn-material-pink btn-raised">Sign In</button>

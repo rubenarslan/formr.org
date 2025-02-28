@@ -15,6 +15,11 @@ class RunController extends Controller {
         $_GET['run_name'] = $runName;
         $this->site->request->run_name = $runName;
         $pageNo = null;
+        
+        // If the request does not have a trailing slash, redirect to the same URL with a trailing slash
+        if (substr($_SERVER['REQUEST_URI'], -1) !== '/') {
+            $this->request->redirect($_SERVER['REQUEST_URI'] . '/');
+        }
 
         if ($method = $this->getPrivateActionMethod($privateAction)) {
             $args = array_slice(func_get_args(), 2);

@@ -25,15 +25,25 @@ class Session {
         self::$lifetime = Config::get('session_cookie_lifetime');
         self::$secure = SSL;
 
-        self::$path = '/';
+        // Set path based on the detected context
+        self::$path = defined('SESSION_PATH') ? SESSION_PATH : '/';
+        
+        // empty domain for strictest domain matching
         self::$domain = '';
     }
+
 
     /**
      * Start a PHP session
      */
     public static function start() {
         session_name(self::$name);
+        
+        // Log session parameters for debugging if needed
+        if (DEBUG) {
+            error_log("Session starting with path: " . self::$path . ", domain: " . self::$domain);
+        }
+        
         session_set_cookie_params([
             "lifetime" => self::$lifetime, 
             "path" => self::$path, 
@@ -148,10 +158,14 @@ class Session {
   
     public static function setAdminCookie(User $admin) {
         $data = [$admin->id, $admin->user_code, time()];
+        
+        // Admin cookies should always be set with admin path
+        $admin_path = '/admin/';
+        
         $cookie = self::setCookie(self::ADMIN_COOKIE, 
             Crypto::encrypt($data, '-'), 
             self::$lifetime,
-            "/", '');
+            $admin_path, self::$domain);
         if (!$cookie) {
             formr_error(505, 'Invalid Token', 'Unable to set admin token');
         }
