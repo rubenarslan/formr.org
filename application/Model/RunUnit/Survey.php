@@ -179,13 +179,49 @@ class Survey extends RunUnit {
             }
 
             if (Request::isHTTPPostRequest() && $contentLength > $postMaxSize) {
-              alert("The uploaded file exceeds the server's maximum file size limit.", "alert-danger");
-             return ['redirect' => run_url($run->name)];
+                alert("The uploaded file exceeds the server's maximum file size limit.", "alert-danger");
+                return ['redirect' => run_url($run->name)];
             }
 
-            if (Request::isHTTPPostRequest() && !Session::canValidateRequestToken($request)) {
-                alert("Invalid request token.", "alert-danger");
-                return ['redirect' => run_url($run->name)];
+            // Validate request token for POST requests only
+            if (Request::isHTTPPostRequest() AND !Request::isAjaxRequest()) {
+                // Check if it's actually a form submission or possibly an asset request
+                $isFormSubmission = false;
+                
+                // Determine if this is likely a form submission by checking for common form fields
+                // This helps distinguish between actual form submissions and asset requests
+                if (!empty($_POST)) {
+                    // If POST has data, it's likely a form submission
+                    $isFormSubmission = true;
+                }
+                
+                if ($isFormSubmission) {
+                    // Log details about the form submission before validation
+                    if (DEBUG) {
+                        error_log("Processing form submission in survey: " . $run->name);
+                        error_log("Form fields: " . implode(", ", array_keys($_POST)));
+                    }
+                    
+                    // Attempt token validation
+                    $isValid = Session::canValidateRequestToken($request);
+                    
+                    if (!$isValid) {
+                        // Log detailed information about the failed validation
+                        if (DEBUG) {
+                            error_log("Form submission failed token validation in survey: " . $run->name);
+                            error_log("POST data keys: " . implode(", ", array_keys($_POST)));
+                            error_log("Referrer: " . (isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : 'not set'));
+                            error_log("User Agent: " . (isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : 'not set'));
+                        }
+                        
+                        // Add a more descriptive error message with recovery suggestion
+                        alert("Your form could not be submitted due to a security verification issue. This can happen if the page has been open for a long time or was refreshed in another tab. Please try again from this page.", "alert-warning");
+                        
+                        // Return to the same page rather than redirecting back to run
+                        // This gives the user another chance to submit without losing their data
+                        return ['refresh' => true, 'log' => $this->getLogMessage('security_token_error')];
+                    }
+                }
             }
 
             $unitSession->createSurveyStudyRecord();

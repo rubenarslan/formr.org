@@ -103,41 +103,6 @@ class Cookie {
         return $this->data['expires'] < time();
     }
 
-    public function getRequestToken() {
-        $token = sha1(mt_rand());
-        if (!$tokens = $this->getData(self::REQUEST_TOKENS)) {
-            $tokens = array($token => 1);
-        } else {
-            $tokens[$token] = 1;
-        }
-
-        $this->saveData(array(self::REQUEST_TOKENS => $tokens));
-        return $token;
-    }
-
-    public function canValidateRequestToken(Request $request) {
-        $token = $request->getParam(self::REQUEST_TOKENS);
-        $tokens = $this->getData(self::REQUEST_TOKENS, array());
-        //$cookie = $request->getParam(self::REQUEST_NAME);
-        $code = $request->getParam(self::REQUEST_USER_CODE);
-        $validated = false;
-
-        if (!$this->isBrowserCookie) {
-            $validated = $code == $this->getData('code') && !empty($tokens[$token]);
-            error_log('Validated: ' . $validated);
-            error_log('POSTed cookie: ' . print_r($this->getData(), 1));
-        } else {
-            $validated = !empty($tokens[$token]);
-            if ($validated) {
-                unset($tokens[$token]);
-                $this->saveData(array(self::REQUEST_TOKENS => $tokens));
-            }
-            error_log('Browser cookie: ' . print_r($this->getData(), 1));
-        }
-
-        return $validated;
-    }
-
     public function getName() {
         return $this->name;
     }
