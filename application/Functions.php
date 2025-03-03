@@ -741,8 +741,8 @@ function site_url($uri = '', $params = array()) {
         $uri = rtrim($uri, '/');
         if ($uri) {
             $url .= $uri;
-            // Only add trailing slash if there's no hash or query string
-            if (strpos($uri, '#') === false && strpos($uri, '?') === false) {
+            // Only add trailing slash if there's no hash or query string or extension
+            if (strpos($uri, '#') === false && strpos($uri, '?') === false && strpos($uri, '.') === false) {
                 $url .= '/';
             }
         }
