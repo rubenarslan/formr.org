@@ -94,6 +94,8 @@ const PushNotificationManager = {
             // Store subscription status in localStorage
             localStorage.setItem('push-notification-subscribed', 'true');
             
+            // Note: Test notification is now handled in the click handler and after subscription
+            
             return { success: true, subscription };
         } catch (error) {
             console.error('Error subscribing to push:', error);
@@ -387,7 +389,23 @@ export function initializePushNotifications() {
             
             if (subResult.subscribed) {
                 $hiddenInput.val(JSON.stringify(subResult.subscription));
-                $status.html('Push notifications are enabled.');
+                $status.html(`
+                    <div>
+                        <p>Push notifications are enabled.</p>
+                        <button type="button" class="btn btn-sm btn-default test-notification-button"><i class="fa fa-bell"></i> Test notification</button>
+                        <button type="button" class="btn btn-link show-notification-help">Show troubleshooting tips</button>
+                    </div>
+                `);
+                
+                // Add click handlers for buttons
+                $wrapper.find('.test-notification-button').on('click', async function() {
+                    await sendTestNotification(registration);
+                });
+                
+                $wrapper.find('.show-notification-help').on('click', function() {
+                    showNotificationHelp($wrapper);
+                });
+                
                 $button.removeClass('btn-primary').addClass('btn-success');
                 $button.prop('disabled', true);
                 $button.html('<i class="fa fa-check"></i> Notifications Enabled');
@@ -407,7 +425,23 @@ export function initializePushNotifications() {
             if (subResult.subscribed) {
                 const subscriptionJson = JSON.stringify(subResult.subscription);
                 $hiddenInput.val(subscriptionJson);
-                $status.html('Push notifications are enabled.');
+                $status.html(`
+                    <div>
+                        <p>Push notifications are enabled.</p>
+                        <button type="button" class="btn btn-sm btn-default test-notification-button"><i class="fa fa-bell"></i> Test notification</button>
+                        <button type="button" class="btn btn-link show-notification-help">Show troubleshooting tips</button>
+                    </div>
+                `);
+                
+                // Add click handlers for buttons
+                $wrapper.find('.test-notification-button').on('click', async function() {
+                    await sendTestNotification(registration);
+                });
+                
+                $wrapper.find('.show-notification-help').on('click', function() {
+                    showNotificationHelp($wrapper);
+                });
+                
                 $button.removeClass('btn-primary').addClass('btn-success');
                 $button.prop('disabled', true);
                 $button.html('<i class="fa fa-check"></i> Notifications Enabled');
@@ -472,7 +506,23 @@ export function initializePushNotifications() {
             if (subResult.subscribed) {
                 const subscriptionJson = JSON.stringify(subResult.subscription);
                 $hiddenInput.val(subscriptionJson);
-                $status.html('Push notifications are already enabled.');
+                $status.html(`
+                    <div>
+                        <p>Push notifications are already enabled.</p>
+                        <button type="button" class="btn btn-sm btn-default test-notification-button"><i class="fa fa-bell"></i> Test notification</button>
+                        <button type="button" class="btn btn-link show-notification-help">Show troubleshooting tips</button>
+                    </div>
+                `);
+                
+                // Add click handlers for buttons
+                $wrapper.find('.test-notification-button').on('click', async function() {
+                    await sendTestNotification(registration);
+                });
+                
+                $wrapper.find('.show-notification-help').on('click', function() {
+                    showNotificationHelp($wrapper);
+                });
+                
                 $btn.removeClass('btn-primary').addClass('btn-success');
                 $btn.prop('disabled', true);
                 $btn.html('<i class="fa fa-check"></i> Notifications Enabled');
@@ -486,7 +536,40 @@ export function initializePushNotifications() {
             if (result.success) {
                 const subscriptionJson = JSON.stringify(result.subscription);
                 $hiddenInput.val(subscriptionJson);
-                $status.html('Thank you! You will now receive push notifications.');
+                
+                // Success message with additional guidance and platform-specific notes
+                let platformSpecificNote = '';
+                
+                // Add Android-specific guidance
+                if (/android/i.test(navigator.userAgent)) {
+                    platformSpecificNote = `
+                        <p><strong>Note for Android users:</strong> On some Android devices, you may need to restart your browser 
+                        or add this app to your home screen for notifications to work properly.</p>
+                    `;
+                }
+                
+                $status.html(`
+                    <div>
+                        <p><strong>Push notifications enabled successfully!</strong></p>
+                        <p>A test notification was sent. If you didn't see it, your system settings might be blocking notifications.</p>
+                        ${platformSpecificNote}
+                        <button type="button" class="btn btn-sm btn-default test-notification-button"><i class="fa fa-bell"></i> Test notification</button>
+                        <button type="button" class="btn btn-link show-notification-help">Show troubleshooting tips</button>
+                    </div>
+                `);
+                
+                // Add click handlers for buttons
+                $wrapper.find('.test-notification-button').on('click', async function() {
+                    await sendTestNotification(registration);
+                });
+                
+                $wrapper.find('.show-notification-help').on('click', function() {
+                    showNotificationHelp($wrapper);
+                });
+                
+                // Send a test notification immediately
+                await sendTestNotification(registration);
+                
                 $btn.removeClass('btn-primary').addClass('btn-success');
                 $btn.prop('disabled', true);
                 $btn.html('<i class="fa fa-check"></i> Notifications Enabled');
@@ -516,4 +599,174 @@ export function initializePushNotifications() {
         
         return false;
     });
+}
+
+// Add this as a global function in the file
+function showNotificationHelp($wrapper) {
+    // Create help content based on OS
+    const userAgent = navigator.userAgent.toLowerCase();
+    let helpContent = '';
+    
+    if (/windows/.test(userAgent)) {
+        helpContent = `
+            <div class="notification-help">
+                <p>On Windows, notifications might be blocked by:</p>
+                <ol>
+                    <li>Open <strong>Settings</strong> &gt; <strong>System</strong> &gt; <strong>Notifications &amp; actions</strong></li>
+                    <li>Make sure <strong>Get notifications from apps and other senders</strong> is ON</li>
+                    <li>Scroll down and ensure your browser is enabled</li>
+                    <li>Check if <strong>Focus assist</strong> is turned off or configured to allow notifications</li>
+                    <li>After changing settings, please reload this page and try again</li>
+                </ol>
+            </div>`;
+    } else if (/macintosh/.test(userAgent)) {
+        helpContent = `
+            <div class="notification-help">
+                <p>On macOS, notifications might be blocked by:</p>
+                <ol>
+                    <li>Open <strong>System Preferences</strong> &gt; <strong>Notifications</strong></li>
+                    <li>Find and select your browser (Safari, Chrome, etc.)</li>
+                    <li>Ensure <strong>Allow Notifications</strong> is checked</li>
+                    <li>Check that <strong>Do Not Disturb</strong> is turned off</li>
+                    <li>After changing settings, please reload this page and try again</li>
+                </ol>
+            </div>`;
+    } else if (/android/.test(userAgent)) {
+        helpContent = `
+            <div class="notification-help">
+                <p>On Android, notifications might be blocked by:</p>
+                <ol>
+                    <li>Open <strong>Settings</strong> &gt; <strong>Apps</strong> or <strong>Applications</strong></li>
+                    <li>Find and tap your browser app (Chrome, Firefox, etc.)</li>
+                    <li>Tap <strong>Notifications</strong> and ensure they are <strong>Allowed</strong></li>
+                    <li>Check if <strong>Do Not Disturb</strong> mode is enabled (under Sound settings)</li>
+                    <li>Some manufacturers have additional battery optimization settings that can block notifications</li>
+                    <li>Try adding this app to your home screen for better notification support</li>
+                    <li>On some devices, you may need to restart Chrome after enabling notifications</li>
+                    <li>After changing settings, please reload this page and try again</li>
+                </ol>
+            </div>`;
+    } else if (/iphone|ipad|ipod/.test(userAgent)) {
+        helpContent = `
+            <div class="notification-help">
+                <p>On iOS, notifications might be blocked by:</p>
+                <ol>
+                    <li>Open <strong>Settings</strong> &gt; <strong>Notifications</strong></li>
+                    <li>Find and tap on Safari (or your browser app)</li>
+                    <li>Enable <strong>Allow Notifications</strong></li>
+                    <li>Ensure <strong>Focus</strong> mode is not blocking notifications</li>
+                    <li>For home screen apps, check <strong>Settings</strong> &gt; <strong>Screen Time</strong> &gt; <strong>Content &amp; Privacy Restrictions</strong></li>
+                    <li>After changing settings, please reload this page and try again</li>
+                </ol>
+            </div>`;
+    } else {
+        helpContent = `
+            <div class="notification-help">
+                <p>To enable notifications:</p>
+                <ol>
+                    <li>Check your system notification settings</li>
+                    <li>Ensure notifications are allowed for this browser</li>
+                    <li>Disable Do Not Disturb or similar modes</li>
+                    <li>After changing settings, please reload this page and try again</li>
+                </ol>
+            </div>`;
+    }
+    
+    // Add some basic styling if not already added
+    if (!$('style.notification-help-styles').length) {
+        $('head').append(`
+            <style class="notification-help-styles">
+                .notification-help {
+                    margin-top: 10px;
+                    padding: 10px;
+                    border-left: 3px solid #f0ad4e;
+                    background-color: #fcf8e3;
+                }
+                .notification-help p {
+                    font-weight: bold;
+                    margin-bottom: 10px;
+                }
+                .notification-help ol {
+                    padding-left: 20px;
+                }
+                .notification-help li {
+                    margin-bottom: 5px;
+                }
+                .notification-help-container {
+                    margin-top: 10px;
+                }
+            </style>
+        `);
+    }
+    
+    // Create or update help container
+    let $helpContainer = $wrapper.find('.notification-help-container');
+    if ($helpContainer.length === 0) {
+        $helpContainer = $('<div class="notification-help-container"></div>');
+        $wrapper.find('.status-message').after($helpContainer);
+    }
+    
+    $helpContainer.html(helpContent);
+    
+    // Replace show button with hide button
+    $wrapper.find('.show-notification-help').text('Hide troubleshooting tips').removeClass('show-notification-help').addClass('hide-notification-help');
+    
+    // Add click handler for the hide button
+    $wrapper.find('.hide-notification-help').off('click').on('click', function() {
+        $helpContainer.empty();
+        $(this).text('Show troubleshooting tips').removeClass('hide-notification-help').addClass('show-notification-help');
+        
+        // Re-attach show handler
+        $(this).off('click').on('click', function() {
+            showNotificationHelp($wrapper);
+        });
+    });
+}
+
+// Add this function at the global level in the file
+async function sendTestNotification(registration) {
+    if (!registration) {
+        console.error('Cannot send test notification: no service worker registration');
+        return false;
+    }
+    
+    try {
+        // Try to use the service worker showNotification method (works better on Android)
+        if (registration.showNotification) {
+            await registration.showNotification('Test notification', {
+                body: 'This is a test notification. If you can see this, notifications are working!',
+                icon: '/favicon.ico',
+                tag: 'test-notification'
+            });
+            
+            // Close the notification after 5 seconds (for supported browsers)
+            setTimeout(async () => {
+                try {
+                    const notifications = await registration.getNotifications({tag: 'test-notification'});
+                    notifications.forEach(notification => notification.close());
+                } catch (e) {
+                    console.log('Could not close notification automatically, this is normal on some platforms');
+                }
+            }, 5000);
+            
+            return true;
+        } else {
+            // Fallback to using the Notification constructor directly
+            const testNotification = new Notification('Test notification', {
+                body: 'This is a test notification. If you can see this, notifications are working!',
+                icon: '/favicon.ico',
+                tag: 'test-notification'
+            });
+            
+            // Close the test notification after 5 seconds
+            setTimeout(() => {
+                testNotification.close();
+            }, 5000);
+            
+            return true;
+        }
+    } catch (error) {
+        console.error('Error creating test notification:', error);
+        return false;
+    }
 } 
