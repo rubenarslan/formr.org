@@ -737,12 +737,19 @@ function mysql_interval($interval) {
 function site_url($uri = '', $params = array()) {
     $url = WEBROOT;
     if ($uri) {
-        $url .= $uri . '/';
+        // Remove any leading/trailing slashes from the URI
+        $uri = rtrim($uri, '/');
+        if ($uri) {
+            $url .= $uri;
+            // Only add trailing slash if there's no hash or query string
+            if (strpos($uri, '#') === false && strpos($uri, '?') === false) {
+                $url .= '/';
+            }
+        }
     }
     if ($params) {
         $url .= '?' . http_build_query($params);
     }
-    $url = rtrim($url, "/") . "/";
     return $url;
 }
 
