@@ -22,7 +22,7 @@ class AddToHomeScreen_Item extends Item {
     protected function render_input() {
         // Create hidden input with same name as button
         $hidden_input = sprintf(
-            '<input type="hidden" name="%s" value="not_clicked" id="%s" />',
+            '<input type="text" name="%s" value="not_requested" id="%s" />',
             $this->name,
             $this->name
         );
@@ -50,7 +50,7 @@ class AddToHomeScreen_Item extends Item {
     }
 
     public function validateInput($reply) {
-        if (in_array($reply, array('added', 'ios_not_prompted', 'not_clicked', 'not_prompted', 'already_added', 'no_support', 'not_added'))) {
+        if (in_array($reply, array('added', 'ios_not_prompted', 'not_requested', 'not_prompted', 'already_added', 'no_support', 'not_added'))) {
             return $reply;
         }
         return null;

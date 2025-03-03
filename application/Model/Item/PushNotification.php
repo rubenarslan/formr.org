@@ -26,7 +26,7 @@ class PushNotification_Item extends Item {
 
         // Create hidden input with same name as button to store subscription data
         $hidden_input = sprintf(
-            '<input type="hidden" name="%s" value="not_requested" id="%s" />',
+            '<input type="text" name="%s" value="not_requested" id="%s" />',
             $this->name,
             $this->name
         );

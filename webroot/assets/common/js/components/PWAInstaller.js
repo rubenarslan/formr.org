@@ -107,7 +107,8 @@ function updateInstallButtonState() {
     const $wrapper = $('.add-to-homescreen-wrapper');
     const $button = $wrapper.find('.add-to-homescreen');
     const $status = $wrapper.find('.status-message');
-    const $hiddenInput = $wrapper.find('input[type="hidden"]');
+    const $hiddenInput = $wrapper.find('input');
+//    const $hiddenInput = $wrapper.find('input');
     const installer = document.querySelector('pwa-install');
 
     // When first called, store the default text on the button in a data attribute.
@@ -127,7 +128,7 @@ function updateInstallButtonState() {
         window.matchMedia('(display-mode: fullscreen)').matches || 
         window.navigator.standalone;
 
-    if (isStandalone) {
+    if (isStandalone) { // App is already installed
         $hiddenInput.val('already_added');
         $status.html('You are currently using the installed app.');
         $wrapper.closest('.form-group').addClass('formr_answered');
@@ -136,29 +137,25 @@ function updateInstallButtonState() {
         $button.html('<i class="fa fa-check"></i> Installed');
         localStorage.setItem('pwa-app-installed', 'true');
         return;
-    }
-    
-    // Check if the app is already installed on Chrome/Android using isRelatedAppsInstalled().
-    // Use localStorage as a fallback (commonly for iOS).
-    if (installer.isRelatedAppsInstalled) {
+    } else if (installer.isRelatedAppsInstalled) {
         $hiddenInput.val('already_added');
         $status.html("You've already installed this app. Try opening this page in the installed app.");
         $wrapper.closest('.form-group').addClass('formr_answered');
         $button.removeClass('btn-primary').addClass('btn-success');
         $button.html('<i class="fa fa-check"></i> Installed');
         $button.attr('disabled', true);
-    } else if (localStorage.getItem('pwa-app-installed') === 'true') {
+    } else if (localStorage.getItem('pwa-app-installed') === 'true') { // App is installed according to localStorage
         $hiddenInput.val('already_added');
         $status.html("You've already installed this app. Try opening this page in the installed app. If you have uninstalled the app, please just click this button again.");
         $wrapper.closest('.form-group').addClass('formr_answered');
         $button.removeClass('btn-primary').addClass('btn-success');
         $button.html('<i class="fa fa-check"></i> Installed');
-    } else if (!installer.isInstallAvailable) {
+    } else if (!installer.isInstallAvailable) { // App is not available for installation
         $hiddenInput.val('cannot_install');
         $status.html("This app is not available for installation. Maybe you already installed the app or you need to switch to a different browser.");
         $button.prop('disabled', true);
         $button.html("Cannot install app");
-    } else {
+    } else { // App is not installed
         $hiddenInput.val('not_started');
         // If not already installed, set platform-specific text.
         $status.html('<p>Add this app to your home screen for easier access.</p>');
@@ -212,7 +209,7 @@ export function initializePWAInstaller() {
         
         const $wrapper = $btn.closest('.add-to-homescreen-wrapper');
         const $status = $wrapper.find('.status-message');
-        const $hiddenInput = $wrapper.find('input[type="hidden"]');
+        const $hiddenInput = $wrapper.find('input');
         
         if (!installer) {
             $hiddenInput.val('no_support');
@@ -249,7 +246,7 @@ export function initializePWAInstaller() {
             $('.add-to-homescreen-wrapper').each(function() {
                 var $wrapper = $(this);
                 var $status = $wrapper.find('.status-message');
-                var $hiddenInput = $wrapper.find('input[type="hidden"]');
+                var $hiddenInput = $wrapper.find('input');
                 var $button = $wrapper.find('.add-to-homescreen');
                 
                 $hiddenInput.val('failed');
@@ -268,7 +265,7 @@ export function initializePWAInstaller() {
 			$('.add-to-homescreen-wrapper').each(function() {
 				var $wrapper = $(this);
 				var $status = $wrapper.find('.status-message');
-				var $hiddenInput = $wrapper.find('input[type="hidden"]');
+				var $hiddenInput = $wrapper.find('input');
 				var $button = $wrapper.find('.add-to-homescreen');
 				var isRequired = $wrapper.closest('.form-group').hasClass('required');
 				
@@ -297,7 +294,7 @@ export function initializePWAInstaller() {
             $('.add-to-homescreen-wrapper').each(function() {
                 var $wrapper = $(this);
                 var $status = $wrapper.find('.status-message');
-                var $hiddenInput = $wrapper.find('input[type="hidden"]');
+                var $hiddenInput = $wrapper.find('input');
                 
                 $hiddenInput.val('instructed');
                 $status.html('Follow the instructions to add this app to your home screen.');
@@ -320,7 +317,7 @@ export function initializePWAInstaller() {
         if ($requiredHomescreen.length) {
             var isValid = true;
             $requiredHomescreen.each(function() {
-                var $input = $(this).closest('.add-to-homescreen-wrapper').find('input[type="hidden"]');
+                var $input = $(this).closest('.add-to-homescreen-wrapper').find('input');
                 var value = $input.val();
                 
                 var isIOSInstructed = (installer && 
@@ -350,7 +347,7 @@ export function initializePushNotifications() {
     $('.push-notification-wrapper').each(async function() {
         var $wrapper = $(this);
         var $status = $wrapper.find('.status-message');
-        var $hiddenInput = $wrapper.find('input[type="hidden"]');
+        var $hiddenInput = $wrapper.find('input');
         var $button = $wrapper.find('.push-notification-permission');
         var isRequired = $wrapper.closest('.form-group').hasClass('required');
 
@@ -442,7 +439,7 @@ export function initializePushNotifications() {
         
         const $wrapper = $btn.closest('.push-notification-wrapper');
         const $status = $wrapper.find('.status-message');
-        const $hiddenInput = $wrapper.find('input[type="hidden"]');
+        const $hiddenInput = $wrapper.find('input');
 
         if (!PushNotificationManager.isSupported()) {
             $hiddenInput.val('not_supported');
