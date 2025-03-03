@@ -4,7 +4,7 @@ import { mysql_datetime, flatStringifyGeo  } from './main.js';
 import '@khmyznikov/pwa-install';
 import { ButtonGroup, initializeButtonGroups } from './components/ButtonGroup';
 import { initializeAudioRecorders } from './components/AudioRecorder';
-import { initializePWAInstaller, initializePushNotifications } from './components/PWAInstaller';
+import { initializePWAInstaller, initializePushNotifications, initializeRequestPhone } from './components/PWAInstaller';
 import { initializeSelect2Components } from './components/Select2Initializer';
 import { FormMonkey } from './components/FormMonkey';
 
@@ -93,6 +93,7 @@ var is = {
         initializeAudioRecorders();
         initializePWAInstaller();
         initializePushNotifications();
+        initializeRequestPhone();
         initializeSelect2Components();
         this.initializeCounters();
         this.initializeFormValidation();

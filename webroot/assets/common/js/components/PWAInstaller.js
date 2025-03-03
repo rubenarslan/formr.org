@@ -1,4 +1,5 @@
 import $ from 'jquery';
+import QRCodeStyling from "qr-code-styling";
 
 // Helper function to convert VAPID public key
 function urlBase64ToUint8Array(base64String) {
@@ -769,4 +770,174 @@ async function sendTestNotification(registration) {
         console.error('Error creating test notification:', error);
         return false;
     }
+}
+
+// Function to detect if the user is on a mobile device
+function isMobileDevice() {
+    const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+    return mobileRegex.test(navigator.userAgent);
+}
+
+// Function to generate a QR code with the current page URL
+function generateQRCode(container, logoUrl) {
+    // Get the current URL
+    let currentUrl = window.location.href;
+    
+    // Check if _formr_code input exists
+    const formrCodeInput = document.querySelector('input[name="_formr_code"]');
+    if (formrCodeInput && formrCodeInput.value) {
+        // Append the code as a query parameter
+        const code = formrCodeInput.value;
+        
+        // Check if URL already has parameters
+        const hasParams = currentUrl.includes('?');
+        if (hasParams) {
+            currentUrl += `&code=${encodeURIComponent(code)}`;
+        } else {
+            currentUrl += `?code=${encodeURIComponent(code)}`;
+        }
+    }
+    
+    // Create a new QR Code instance
+    const qrCode = new QRCodeStyling({
+        width: 250,
+        height: 250,
+        type: "svg",
+        data: currentUrl,
+        dotsOptions: {
+            color: "#000000",
+            type: "rounded"
+        },
+        backgroundOptions: {
+            color: "#ffffff",
+        },
+        cornersSquareOptions: {
+            color: "#2196F3",
+            type: "extra-rounded"
+        },
+        cornersDotOptions: {
+            color: "#2196F3",
+            type: "dot"
+        },
+        imageOptions: {
+            crossOrigin: "anonymous",
+            margin: 10,
+            imageSize: 0.4
+        }
+    });
+    
+    // Set the logo if available
+    if (logoUrl) {
+        qrCode.update({
+            image: logoUrl
+        });
+    }
+    
+    // Clear the container and append the QR code
+    container.innerHTML = '';
+    qrCode.append(container);
+    
+    // Return the URL for display
+    return currentUrl;
+}
+
+// Function to get the logo URL from the manifest
+async function getLogoUrlFromManifest() {
+    try {
+        const manifestLink = document.querySelector('link[rel="manifest"]');
+        if (!manifestLink) return null;
+        
+        const response = await fetch(manifestLink.href);
+        if (!response.ok) return null;
+        
+        const manifest = await response.json();
+        if (!manifest.icons || !manifest.icons.length) return null;
+        
+        // Get the icon with the largest size (usually the 512x512 one)
+        const sortedIcons = [...manifest.icons].sort((a, b) => {
+            const sizeA = parseInt(a.sizes.split('x')[0], 10) || 0;
+            const sizeB = parseInt(b.sizes.split('x')[0], 10) || 0;
+            return sizeB - sizeA;
+        });
+        
+        // Get the absolute URL of the icon
+        const iconPath = sortedIcons[0].src;
+        const baseUrl = window.location.origin;
+        return new URL(iconPath, baseUrl).href;
+    } catch (error) {
+        console.error('Error getting logo from manifest:', error);
+        return null;
+    }
+}
+
+// Function to initialize the RequestPhone item
+export function initializeRequestPhone() {
+    $('.item-request_phone').each(async function() {
+        const $item = $(this);
+        const $wrapper = $item.find('.request-phone-wrapper');
+        const $status = $wrapper.find('.status-message');
+        const $qrContainer = $wrapper.find('.qr-code-container')[0];
+        const $hiddenInput = $wrapper.find('input');
+        const $instructions = $wrapper.find('.instructions');
+        
+        const isOnMobile = isMobileDevice();
+        
+        if (isOnMobile) {
+            // User is on a mobile device
+            $hiddenInput.val('is_phone');
+            $instructions.html('<p>You are using a mobile device. You can proceed with the survey.</p>');
+            $wrapper.closest('.form-group').addClass('formr_answered');
+        } else {
+            // User is on desktop, show QR code
+            $hiddenInput.val('is_desktop');
+            $instructions.html('<p>Please scan this QR code with your mobile device to continue the survey on your phone:</p>');
+            
+            // Show QR code container
+            $($qrContainer).show();
+            
+            // Get logo from manifest
+            const logoUrl = await getLogoUrlFromManifest();
+            
+            // Generate QR code and get URL
+            const qrUrl = generateQRCode($qrContainer, logoUrl);
+            
+            // Create a clickable link element
+            const linkHtml = `
+                <div class="qr-code-link" style="margin: 10px auto; text-align: center; word-break: break-all;">
+                    <p>Or open this link on your phone:</p>
+                    <a href="${qrUrl}" target="_blank">${qrUrl}</a>
+                </div>
+            `;
+            
+            $status.html(
+                '<p>Once you scan the QR code, you can continue the survey on your phone.</p>' +
+                linkHtml
+            );
+        }
+    });
+
+    // Add form validation for required request-phone items
+    $('form.main_formr_survey').on('submit', function(e) {
+        var $form = $(this);
+        var $requiredPhone = $form.find('.form-group.required.item-request_phone');
+        debugger;
+        if ($requiredPhone.length) {
+            var isValid = true;
+            $requiredPhone.each(function() {
+                var $input = $(this).find('input');
+                var value = $input.val();
+                
+                if (!value || value === 'not_checked' || value === 'is_desktop') {
+                    isValid = false;
+                    $(this).closest('.form-group').find('.status-message')
+                        .html('<strong style="color: red;">This step requires you to continue on a mobile device before proceeding.</strong>');
+                }
+            });
+            
+            if (!isValid) {
+                e.preventDefault();
+                return false;
+            }
+        }
+    });
 } 
