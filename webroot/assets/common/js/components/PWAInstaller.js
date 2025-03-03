@@ -1,6 +1,83 @@
 import $ from 'jquery';
 import QRCodeStyling from "qr-code-styling";
 
+// Add German translations to window.formrLanguage
+window.formrTranslations.de = {
+    // Installation related
+    'Installation component not available. Please try again later.': 'Installationskomponente nicht verfügbar. Bitte versuchen Sie es später erneut.',
+    'You are currently using the installed app.': 'Sie verwenden derzeit die installierte App.',
+    'Installed': 'Installiert',
+    "You've already installed this app. Try opening this page in the installed app.": 'Sie haben diese App bereits installiert. Öffnen Sie diese Seite in der installierten App.',
+    "You've already installed this app. Try opening this page in the installed app. If you have uninstalled the app, please just click this button again.": 'Sie haben diese App bereits installiert. Öffnen Sie diese Seite in der installierten App. Wenn Sie die App deinstalliert haben, klicken Sie einfach erneut auf diese Schaltfläche.',
+    "This app is not available for installation. Maybe you already installed the app or you need to switch to a different browser.": 'Diese App kann nicht installiert werden. Möglicherweise haben Sie die App bereits installiert oder müssen zu einem anderen Browser wechseln.',
+    "Cannot install app": 'App kann nicht installiert werden',
+    'Add this app to your home screen for easier access.': 'Fügen Sie diese App zu Ihrem Startbildschirm hinzu für einfacheren Zugriff.',
+    'Follow the instructions to add this app to your home screen.': 'Folgen Sie den Anweisungen, um diese App zu Ihrem Startbildschirm hinzuzufügen.',
+
+    // Push notification related
+    'Sorry, your browser does not support push notifications.': 'Ihr Browser unterstützt leider keine Push-Benachrichtigungen.',
+    'Sorry, push notifications require iOS 16.4 or later.': 'Push-Benachrichtigungen erfordern iOS 16.4 oder höher.',
+    'Service worker not registered. Please reload the page and try again.': 'Service Worker nicht registriert. Bitte laden Sie die Seite neu und versuchen Sie es erneut.',
+    'Push notifications are enabled.': 'Push-Benachrichtigungen sind aktiviert.',
+    'Test notification': 'Test-Benachrichtigung',
+    'Show troubleshooting tips': 'Fehlerbehebungstipps anzeigen',
+    'Hide troubleshooting tips': 'Fehlerbehebungstipps ausblenden',
+    'Notifications Enabled': 'Benachrichtigungen aktiviert',
+    'Click the button to enable push notifications.': 'Klicken Sie auf die Schaltfläche, um Push-Benachrichtigungen zu aktivieren.',
+    'Enable Notifications': 'Benachrichtigungen aktivieren',
+    'You have declined push notifications. You can enable them in your browser settings.': 'Sie haben Push-Benachrichtigungen abgelehnt. Sie können sie in Ihren Browser-Einstellungen aktivieren.',
+    'Notifications Blocked': 'Benachrichtigungen blockiert',
+    'Processing...': 'Wird verarbeitet...',
+    'Error': 'Fehler',
+    'Push notifications are already enabled.': 'Push-Benachrichtigungen sind bereits aktiviert.',
+    'Push notifications enabled successfully!': 'Push-Benachrichtigungen erfolgreich aktiviert!',
+    "A test notification was sent. If you didn't see it, your system settings might be blocking notifications.": 'Eine Test-Benachrichtigung wurde gesendet. Wenn Sie sie nicht sehen, blockieren möglicherweise Ihre Systemeinstellungen Benachrichtigungen.',
+    'Note for Android users:': 'Hinweis für Android-Benutzer:',
+    'On some Android devices, you may need to restart your browser or add this app to your home screen for notifications to work properly.': 'Auf einigen Android-Geräten müssen Sie möglicherweise Ihren Browser neu starten oder diese App zum Startbildschirm hinzufügen, damit Benachrichtigungen richtig funktionieren.',
+    'Server configuration error. Please contact support.': 'Serverkonfigurationsfehler. Bitte kontaktieren Sie den Support.',
+    'There was an error setting up push notifications. Please try again later.': 'Beim Einrichten der Push-Benachrichtigungen ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.',
+    'This is a test notification. If you can see this, notifications are working!': 'Dies ist eine Test-Benachrichtigung. Wenn Sie diese sehen können, funktionieren die Benachrichtigungen!',
+
+    // OS-specific help content
+    'On Windows, notifications might be blocked by:': 'Unter Windows können Benachrichtigungen blockiert sein durch:',
+    'Open': 'Öffnen',
+    'Settings': 'Einstellungen',
+    'System': 'System',
+    'Notifications & actions': 'Benachrichtigungen & Aktionen',
+    'Make sure': 'Stellen Sie sicher, dass',
+    'Get notifications from apps and other senders': 'Benachrichtigungen von Apps und anderen Absendern erhalten',
+    'is ON': 'aktiviert ist',
+    'Scroll down and ensure your browser is enabled': 'Scrollen Sie nach unten und stellen Sie sicher, dass Ihr Browser aktiviert ist',
+    'Check if': 'Prüfen Sie, ob',
+    'Focus assist': 'Fokusassistent',
+    'is turned off or configured to allow notifications': 'ausgeschaltet ist oder so konfiguriert ist, dass Benachrichtigungen zugelassen werden',
+    'After changing settings, please reload this page and try again': 'Laden Sie nach dem Ändern der Einstellungen diese Seite neu und versuchen Sie es erneut',
+
+    'On macOS, notifications might be blocked by:': 'Unter macOS können Benachrichtigungen blockiert sein durch:',
+    'System Preferences': 'Systemeinstellungen',
+    'Notifications': 'Benachrichtigungen',
+    'Find and select your browser (Safari, Chrome, etc.)': 'Suchen und wählen Sie Ihren Browser (Safari, Chrome, etc.)',
+    'Ensure': 'Stellen Sie sicher, dass',
+    'Allow Notifications': 'Benachrichtigungen zulassen',
+    'is checked': 'aktiviert ist',
+    'Check that': 'Prüfen Sie, ob',
+    'Do Not Disturb': 'Nicht stören',
+    'is turned off': 'ausgeschaltet ist',
+
+    // Phone request related
+    'You are using a mobile device. You can proceed with the survey.': 'Sie verwenden ein mobiles Gerät. Sie können mit der Umfrage fortfahren.',
+    'Please scan this QR code with your mobile device to continue the survey on your phone:': 'Bitte scannen Sie diesen QR-Code mit Ihrem Mobilgerät, um die Umfrage auf Ihrem Telefon fortzusetzen:',
+    'Or open this link on your phone:': 'Oder öffnen Sie diesen Link auf Ihrem Telefon:',
+    'Once you scan the QR code, you can continue the survey on your phone.': 'Sobald Sie den QR-Code gescannt haben, können Sie die Umfrage auf Ihrem Telefon fortsetzen.',
+    'This step requires you to continue on a mobile device before proceeding.': 'Dieser Schritt erfordert, dass Sie auf einem mobilen Gerät fortfahren, bevor Sie fortfahren können.',
+    'Please complete this required step before continuing.': 'Bitte führen Sie diesen erforderlichen Schritt aus, bevor Sie fortfahren.'
+};
+
+// Use the centralized translation helper
+function t(text) {
+    return window.formrLanguage.translate(text);
+}
+
 // Helper function to convert VAPID public key
 function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -111,7 +188,6 @@ function updateInstallButtonState() {
     const $button = $wrapper.find('.add-to-homescreen');
     const $status = $wrapper.find('.status-message');
     const $hiddenInput = $wrapper.find('input');
-//    const $hiddenInput = $wrapper.find('input');
     const installer = document.querySelector('pwa-install');
 
     // When first called, store the default text on the button in a data attribute.
@@ -121,7 +197,7 @@ function updateInstallButtonState() {
 
     if (!installer) {
         $hiddenInput.val('no_support');
-        $status.html('Installation component not available. Please try again later.');
+        $status.html(t('Installation component not available. Please try again later.'));
         $button.prop('disabled', true);
         return;
     }
@@ -133,35 +209,35 @@ function updateInstallButtonState() {
 
     if (isStandalone) { // App is already installed
         $hiddenInput.val('already_added');
-        $status.html('You are currently using the installed app.');
+        $status.html(t('You are currently using the installed app.'));
         $wrapper.closest('.form-group').addClass('formr_answered');
         $button.removeClass('btn-primary').addClass('btn-success');
         $button.prop('disabled', true);
-        $button.html('<i class="fa fa-check"></i> Installed');
+        $button.html(`<i class="fa fa-check"></i> ${t('Installed')}`);
         localStorage.setItem('pwa-app-installed', 'true');
         return;
     } else if (installer.isRelatedAppsInstalled) {
         $hiddenInput.val('already_added');
-        $status.html("You've already installed this app. Try opening this page in the installed app.");
+        $status.html(t("You've already installed this app. Try opening this page in the installed app."));
         $wrapper.closest('.form-group').addClass('formr_answered');
         $button.removeClass('btn-primary').addClass('btn-success');
-        $button.html('<i class="fa fa-check"></i> Installed');
+        $button.html(`<i class="fa fa-check"></i> ${t('Installed')}`);
         $button.attr('disabled', true);
     } else if (localStorage.getItem('pwa-app-installed') === 'true') { // App is installed according to localStorage
         $hiddenInput.val('already_added');
-        $status.html("You've already installed this app. Try opening this page in the installed app. If you have uninstalled the app, please just click this button again.");
+        $status.html(t("You've already installed this app. Try opening this page in the installed app. If you have uninstalled the app, please just click this button again."));
         $wrapper.closest('.form-group').addClass('formr_answered');
         $button.removeClass('btn-primary').addClass('btn-success');
-        $button.html('<i class="fa fa-check"></i> Installed');
+        $button.html(`<i class="fa fa-check"></i> ${t('Installed')}`);
     } else if (!installer.isInstallAvailable) { // App is not available for installation
         $hiddenInput.val('cannot_install');
-        $status.html("This app is not available for installation. Maybe you already installed the app or you need to switch to a different browser.");
+        $status.html(t("This app is not available for installation. Maybe you already installed the app or you need to switch to a different browser."));
         $button.prop('disabled', true);
-        $button.html("Cannot install app");
+        $button.html(t("Cannot install app"));
     } else { // App is not installed
         $hiddenInput.val('not_started');
         // If not already installed, set platform-specific text.
-        $status.html('<p>Add this app to your home screen for easier access.</p>');
+        $status.html(`<p>${t('Add this app to your home screen for easier access.')}</p>`);
         $button.prop('disabled', false);
         $button.html($button.data('default-text'));
     }
@@ -346,7 +422,6 @@ export function initializePWAInstaller() {
 }
 
 export function initializePushNotifications() {
-    // Initialize push notification state for all push notification elements
     $('.push-notification-wrapper').each(async function() {
         var $wrapper = $(this);
         var $status = $wrapper.find('.status-message');
@@ -354,37 +429,31 @@ export function initializePushNotifications() {
         var $button = $wrapper.find('.push-notification-permission');
         var isRequired = $wrapper.closest('.form-group').hasClass('required');
 
-        // Check if the browser supports notifications and service workers
         if (!PushNotificationManager.isSupported()) {
             $hiddenInput.val('not_supported');
-            $status.html('Sorry, your browser does not support push notifications.');
+            $status.html(t('Sorry, your browser does not support push notifications.'));
             $button.prop('disabled', true);
             $button.removeClass('btn-primary').addClass('btn-default');
             return;
         }
 
-        // Check iOS compatibility
         if (!PushNotificationManager.isIOSCompatible()) {
             $hiddenInput.val('ios_version_not_supported');
-            $status.html('Sorry, push notifications require iOS 16.4 or later.');
+            $status.html(t('Sorry, push notifications require iOS 16.4 or later.'));
             $button.prop('disabled', true);
             $button.removeClass('btn-primary').addClass('btn-default');
             return;
         }
 
-        // Get existing service worker registration
         const registration = await PushNotificationManager.getRegistration();
         if (!registration) {
             $hiddenInput.val('no_service_worker');
-            $status.html('Service worker not registered. Please reload the page and try again.');
+            $status.html(t('Service worker not registered. Please reload the page and try again.'));
             $button.prop('disabled', true);
             $button.removeClass('btn-primary').addClass('btn-default');
             return;
-        } else {
-            console.log('Service worker registered');
         }
 
-        // Check localStorage first for subscription status
         if (localStorage.getItem('push-notification-subscribed') === 'true') {
             const subResult = await PushNotificationManager.checkSubscription(registration);
             
@@ -392,9 +461,9 @@ export function initializePushNotifications() {
                 $hiddenInput.val(JSON.stringify(subResult.subscription));
                 $status.html(`
                     <div>
-                        <p>Push notifications are enabled.</p>
-                        <button type="button" class="btn btn-sm btn-default test-notification-button"><i class="fa fa-bell"></i> Test notification</button>
-                        <button type="button" class="btn btn-link show-notification-help">Show troubleshooting tips</button>
+                        <p>${t('Push notifications are enabled.')}</p>
+                        <button type="button" class="btn btn-sm btn-default test-notification-button"><i class="fa fa-bell"></i> ${t('Test notification')}</button>
+                        <button type="button" class="btn btn-link show-notification-help">${t('Show troubleshooting tips')}</button>
                     </div>
                 `);
                 
@@ -409,15 +478,12 @@ export function initializePushNotifications() {
                 
                 $button.removeClass('btn-primary').addClass('btn-success');
                 $button.prop('disabled', true);
-                $button.html('<i class="fa fa-check"></i> Notifications Enabled');
+                $button.html(`<i class="fa fa-check"></i> ${t('Notifications Enabled')}`);
                 $wrapper.closest('.form-group').addClass('formr_answered');
                 return;
-            } else {
-                localStorage.removeItem('push-notification-subscribed');
             }
         }
 
-        // Check current permission state
         const existingPermission = Notification.permission;
         
         if (existingPermission === 'granted') {
@@ -428,13 +494,12 @@ export function initializePushNotifications() {
                 $hiddenInput.val(subscriptionJson);
                 $status.html(`
                     <div>
-                        <p>Push notifications are enabled.</p>
-                        <button type="button" class="btn btn-sm btn-default test-notification-button"><i class="fa fa-bell"></i> Test notification</button>
-                        <button type="button" class="btn btn-link show-notification-help">Show troubleshooting tips</button>
+                        <p>${t('Push notifications are enabled.')}</p>
+                        <button type="button" class="btn btn-sm btn-default test-notification-button"><i class="fa fa-bell"></i> ${t('Test notification')}</button>
+                        <button type="button" class="btn btn-link show-notification-help">${t('Show troubleshooting tips')}</button>
                     </div>
                 `);
                 
-                // Add click handlers for buttons
                 $wrapper.find('.test-notification-button').on('click', async function() {
                     await sendTestNotification(registration);
                 });
@@ -445,25 +510,24 @@ export function initializePushNotifications() {
                 
                 $button.removeClass('btn-primary').addClass('btn-success');
                 $button.prop('disabled', true);
-                $button.html('<i class="fa fa-check"></i> Notifications Enabled');
+                $button.html(`<i class="fa fa-check"></i> ${t('Notifications Enabled')}`);
                 $wrapper.closest('.form-group').addClass('formr_answered');
                 
                 localStorage.setItem('push-notification-subscribed', 'true');
             } else {
                 $hiddenInput.val('no_subscription');
-                $status.html('Click the button to enable push notifications.');
-                $button.html('<i class="fa fa-bell"></i> Enable Notifications');
+                $status.html(t('Click the button to enable push notifications.'));
+                $button.html(`<i class="fa fa-bell"></i> ${t('Enable Notifications')}`);
             }
         } else if (existingPermission === 'denied') {
             $hiddenInput.val('permission_denied');
-            $status.html('You have declined push notifications. You can enable them in your browser settings.');
+            $status.html(t('You have declined push notifications. You can enable them in your browser settings.'));
             $button.prop('disabled', true);
             $button.removeClass('btn-primary').addClass('btn-default');
-            $button.html('<i class="fa fa-times"></i> Notifications Blocked');
+            $button.html(`<i class="fa fa-times"></i> ${t('Notifications Blocked')}`);
         }
     });
 
-    // Push Notification Permission functionality
     $('.push-notification-permission').click(async function(e) {
         e.preventDefault();
         const $btn = $(this);
@@ -476,30 +540,14 @@ export function initializePushNotifications() {
         const $status = $wrapper.find('.status-message');
         const $hiddenInput = $wrapper.find('input');
 
-        if (!PushNotificationManager.isSupported()) {
-            $hiddenInput.val('not_supported');
-            $status.html('Sorry, your browser does not support push notifications.');
-            $btn.prop('disabled', true);
-            $btn.removeClass('btn-primary').addClass('btn-default');
-            return false;
-        }
-
-        if (!PushNotificationManager.isIOSCompatible()) {
-            $hiddenInput.val('ios_version_not_supported');
-            $status.html('Sorry, push notifications require iOS 16.4 or later.');
-            $btn.prop('disabled', true);
-            $btn.removeClass('btn-primary').addClass('btn-default');
-            return false;
-        }
-
         try {
-            $btn.html('<i class="fa fa-spinner fa-spin"></i> Processing...');
+            $btn.html(`<i class="fa fa-spinner fa-spin"></i> ${t('Processing...')}`);
             
             const registration = await PushNotificationManager.getRegistration();
             if (!registration) {
                 $hiddenInput.val('no_service_worker');
-                $status.html('Service worker not registered. Please reload the page and try again.');
-                $btn.html('<i class="fa fa-exclamation-triangle"></i> Error');
+                $status.html(t('Service worker not registered. Please reload the page and try again.'));
+                $btn.html(`<i class="fa fa-exclamation-triangle"></i> ${t('Error')}`);
                 return false;
             }
             
@@ -509,13 +557,12 @@ export function initializePushNotifications() {
                 $hiddenInput.val(subscriptionJson);
                 $status.html(`
                     <div>
-                        <p>Push notifications are already enabled.</p>
-                        <button type="button" class="btn btn-sm btn-default test-notification-button"><i class="fa fa-bell"></i> Test notification</button>
-                        <button type="button" class="btn btn-link show-notification-help">Show troubleshooting tips</button>
+                        <p>${t('Push notifications are already enabled.')}</p>
+                        <button type="button" class="btn btn-sm btn-default test-notification-button"><i class="fa fa-bell"></i> ${t('Test notification')}</button>
+                        <button type="button" class="btn btn-link show-notification-help">${t('Show troubleshooting tips')}</button>
                     </div>
                 `);
                 
-                // Add click handlers for buttons
                 $wrapper.find('.test-notification-button').on('click', async function() {
                     await sendTestNotification(registration);
                 });
@@ -526,7 +573,7 @@ export function initializePushNotifications() {
                 
                 $btn.removeClass('btn-primary').addClass('btn-success');
                 $btn.prop('disabled', true);
-                $btn.html('<i class="fa fa-check"></i> Notifications Enabled');
+                $btn.html(`<i class="fa fa-check"></i> ${t('Notifications Enabled')}`);
                 $wrapper.closest('.form-group').addClass('formr_answered');
                 localStorage.setItem('push-notification-subscribed', 'true');
                 return false;
@@ -538,28 +585,24 @@ export function initializePushNotifications() {
                 const subscriptionJson = JSON.stringify(result.subscription);
                 $hiddenInput.val(subscriptionJson);
                 
-                // Success message with additional guidance and platform-specific notes
                 let platformSpecificNote = '';
                 
-                // Add Android-specific guidance
                 if (/android/i.test(navigator.userAgent)) {
                     platformSpecificNote = `
-                        <p><strong>Note for Android users:</strong> On some Android devices, you may need to restart your browser 
-                        or add this app to your home screen for notifications to work properly.</p>
+                        <p><strong>${t('Note for Android users:')}</strong> ${t('On some Android devices, you may need to restart your browser or add this app to your home screen for notifications to work properly.')}</p>
                     `;
                 }
                 
                 $status.html(`
                     <div>
-                        <p><strong>Push notifications enabled successfully!</strong></p>
-                        <p>A test notification was sent. If you didn't see it, your system settings might be blocking notifications.</p>
+                        <p><strong>${t('Push notifications enabled successfully!')}</strong></p>
+                        <p>${t("A test notification was sent. If you didn't see it, your system settings might be blocking notifications.")}</p>
                         ${platformSpecificNote}
-                        <button type="button" class="btn btn-sm btn-default test-notification-button"><i class="fa fa-bell"></i> Test notification</button>
-                        <button type="button" class="btn btn-link show-notification-help">Show troubleshooting tips</button>
+                        <button type="button" class="btn btn-sm btn-default test-notification-button"><i class="fa fa-bell"></i> ${t('Test notification')}</button>
+                        <button type="button" class="btn btn-link show-notification-help">${t('Show troubleshooting tips')}</button>
                     </div>
                 `);
                 
-                // Add click handlers for buttons
                 $wrapper.find('.test-notification-button').on('click', async function() {
                     await sendTestNotification(registration);
                 });
@@ -568,34 +611,33 @@ export function initializePushNotifications() {
                     showNotificationHelp($wrapper);
                 });
                 
-                // Send a test notification immediately
                 await sendTestNotification(registration);
                 
                 $btn.removeClass('btn-primary').addClass('btn-success');
                 $btn.prop('disabled', true);
-                $btn.html('<i class="fa fa-check"></i> Notifications Enabled');
+                $btn.html(`<i class="fa fa-check"></i> ${t('Notifications Enabled')}`);
                 $wrapper.closest('.form-group').addClass('formr_answered');
             } else if (result.reason === 'permission_denied') {
                 $hiddenInput.val('permission_denied');
-                $status.html('You have declined push notifications. You can enable them later in your browser settings.');
+                $status.html(t('You have declined push notifications. You can enable them later in your browser settings.'));
                 $btn.prop('disabled', true);
                 $btn.removeClass('btn-primary').addClass('btn-default');
-                $btn.html('<i class="fa fa-times"></i> Notifications Blocked');
+                $btn.html(`<i class="fa fa-times"></i> ${t('Notifications Blocked')}`);
             } else if (result.reason === 'invalid_config') {
                 $hiddenInput.val('invalid_config');
-                $status.html('Server configuration error. Please contact support.');
-                $btn.html('<i class="fa fa-exclamation-triangle"></i> Configuration Error');
+                $status.html(t('Server configuration error. Please contact support.'));
+                $btn.html(`<i class="fa fa-exclamation-triangle"></i> ${t('Configuration Error')}`);
             } else {
                 $hiddenInput.val('error');
-                $status.html('There was an error setting up push notifications. Please try again later.');
-                $btn.html('<i class="fa fa-exclamation-triangle"></i> Error');
+                $status.html(t('There was an error setting up push notifications. Please try again later.'));
+                $btn.html(`<i class="fa fa-exclamation-triangle"></i> ${t('Error')}`);
             }
             
         } catch (error) {
             console.error('Error during push notification setup:', error);
             $hiddenInput.val('error');
-            $status.html('There was an error setting up push notifications. Please try again later.');
-            $btn.html('<i class="fa fa-exclamation-triangle"></i> Error');
+            $status.html(t('There was an error setting up push notifications. Please try again later.'));
+            $btn.html(`<i class="fa fa-exclamation-triangle"></i> ${t('Error')}`);
         }
         
         return false;
@@ -604,71 +646,70 @@ export function initializePushNotifications() {
 
 // Add this as a global function in the file
 function showNotificationHelp($wrapper) {
-    // Create help content based on OS
     const userAgent = navigator.userAgent.toLowerCase();
     let helpContent = '';
     
     if (/windows/.test(userAgent)) {
         helpContent = `
             <div class="notification-help">
-                <p>On Windows, notifications might be blocked by:</p>
+                <p>${t('On Windows, notifications might be blocked by:')}</p>
                 <ol>
-                    <li>Open <strong>Settings</strong> &gt; <strong>System</strong> &gt; <strong>Notifications &amp; actions</strong></li>
-                    <li>Make sure <strong>Get notifications from apps and other senders</strong> is ON</li>
-                    <li>Scroll down and ensure your browser is enabled</li>
-                    <li>Check if <strong>Focus assist</strong> is turned off or configured to allow notifications</li>
-                    <li>After changing settings, please reload this page and try again</li>
+                    <li>${t('Open')} <strong>${t('Settings')}</strong> &gt; <strong>${t('System')}</strong> &gt; <strong>${t('Notifications & actions')}</strong></li>
+                    <li>${t('Make sure')} <strong>${t('Get notifications from apps and other senders')}</strong> ${t('is ON')}</li>
+                    <li>${t('Scroll down and ensure your browser is enabled')}</li>
+                    <li>${t('Check if')} <strong>${t('Focus assist')}</strong> ${t('is turned off or configured to allow notifications')}</li>
+                    <li>${t('After changing settings, please reload this page and try again')}</li>
                 </ol>
             </div>`;
     } else if (/macintosh/.test(userAgent)) {
         helpContent = `
             <div class="notification-help">
-                <p>On macOS, notifications might be blocked by:</p>
+                <p>${t('On macOS, notifications might be blocked by:')}</p>
                 <ol>
-                    <li>Open <strong>System Preferences</strong> &gt; <strong>Notifications</strong></li>
-                    <li>Find and select your browser (Safari, Chrome, etc.)</li>
-                    <li>Ensure <strong>Allow Notifications</strong> is checked</li>
-                    <li>Check that <strong>Do Not Disturb</strong> is turned off</li>
-                    <li>After changing settings, please reload this page and try again</li>
+                    <li>${t('Open')} <strong>${t('System Preferences')}</strong> &gt; <strong>${t('Notifications')}</strong></li>
+                    <li>${t('Find and select your browser (Safari, Chrome, etc.)')}</li>
+                    <li>${t('Ensure')} <strong>${t('Allow Notifications')}</strong> ${t('is checked')}</li>
+                    <li>${t('Check that')} <strong>${t('Do Not Disturb')}</strong> ${t('is turned off')}</li>
+                    <li>${t('After changing settings, please reload this page and try again')}</li>
                 </ol>
             </div>`;
     } else if (/android/.test(userAgent)) {
         helpContent = `
             <div class="notification-help">
-                <p>On Android, notifications might be blocked by:</p>
+                <p>${t('On Android, notifications might be blocked by:')}</p>
                 <ol>
-                    <li>Open <strong>Settings</strong> &gt; <strong>Apps</strong> or <strong>Applications</strong></li>
-                    <li>Find and tap your browser app (Chrome, Firefox, etc.)</li>
-                    <li>Tap <strong>Notifications</strong> and ensure they are <strong>Allowed</strong></li>
-                    <li>Check if <strong>Do Not Disturb</strong> mode is enabled (under Sound settings)</li>
-                    <li>Some manufacturers have additional battery optimization settings that can block notifications</li>
-                    <li>Try adding this app to your home screen for better notification support</li>
-                    <li>On some devices, you may need to restart Chrome after enabling notifications</li>
-                    <li>After changing settings, please reload this page and try again</li>
+                    <li>${t('Open')} <strong>${t('Settings')}</strong> &gt; <strong>${t('Apps')}</strong> ${t('or')} <strong>${t('Applications')}</strong></li>
+                    <li>${t('Find and tap your browser app (Chrome, Firefox, etc.)')}</li>
+                    <li>${t('Tap')} <strong>${t('Notifications')}</strong> ${t('and ensure they are')} <strong>${t('Allowed')}</strong></li>
+                    <li>${t('Check if')} <strong>${t('Do Not Disturb')}</strong> ${t('mode is enabled (under Sound settings)')}</li>
+                    <li>${t('Some manufacturers have additional battery optimization settings that can block notifications')}</li>
+                    <li>${t('Try adding this app to your home screen for better notification support')}</li>
+                    <li>${t('On some devices, you may need to restart Chrome after enabling notifications')}</li>
+                    <li>${t('After changing settings, please reload this page and try again')}</li>
                 </ol>
             </div>`;
     } else if (/iphone|ipad|ipod/.test(userAgent)) {
         helpContent = `
             <div class="notification-help">
-                <p>On iOS, notifications might be blocked by:</p>
+                <p>${t('On iOS, notifications might be blocked by:')}</p>
                 <ol>
-                    <li>Open <strong>Settings</strong> &gt; <strong>Notifications</strong></li>
-                    <li>Find and tap on Safari (or your browser app)</li>
-                    <li>Enable <strong>Allow Notifications</strong></li>
-                    <li>Ensure <strong>Focus</strong> mode is not blocking notifications</li>
-                    <li>For home screen apps, check <strong>Settings</strong> &gt; <strong>Screen Time</strong> &gt; <strong>Content &amp; Privacy Restrictions</strong></li>
-                    <li>After changing settings, please reload this page and try again</li>
+                    <li>${t('Open')} <strong>${t('Settings')}</strong> &gt; <strong>${t('Notifications')}</strong></li>
+                    <li>${t('Find and tap on Safari (or your browser app)')}</li>
+                    <li>${t('Enable')} <strong>${t('Allow Notifications')}</strong></li>
+                    <li>${t('Ensure')} <strong>${t('Focus')}</strong> ${t('mode is not blocking notifications')}</li>
+                    <li>${t('For home screen apps, check')} <strong>${t('Settings')}</strong> &gt; <strong>${t('Screen Time')}</strong> &gt; <strong>${t('Content & Privacy Restrictions')}</strong></li>
+                    <li>${t('After changing settings, please reload this page and try again')}</li>
                 </ol>
             </div>`;
     } else {
         helpContent = `
             <div class="notification-help">
-                <p>To enable notifications:</p>
+                <p>${t('To enable notifications:')}</p>
                 <ol>
-                    <li>Check your system notification settings</li>
-                    <li>Ensure notifications are allowed for this browser</li>
-                    <li>Disable Do Not Disturb or similar modes</li>
-                    <li>After changing settings, please reload this page and try again</li>
+                    <li>${t('Check your system notification settings')}</li>
+                    <li>${t('Ensure notifications are allowed for this browser')}</li>
+                    <li>${t('Disable Do Not Disturb or similar modes')}</li>
+                    <li>${t('After changing settings, please reload this page and try again')}</li>
                 </ol>
             </div>`;
     }
@@ -710,12 +751,18 @@ function showNotificationHelp($wrapper) {
     $helpContainer.html(helpContent);
     
     // Replace show button with hide button
-    $wrapper.find('.show-notification-help').text('Hide troubleshooting tips').removeClass('show-notification-help').addClass('hide-notification-help');
+    $wrapper.find('.show-notification-help')
+        .text(t('Hide troubleshooting tips'))
+        .removeClass('show-notification-help')
+        .addClass('hide-notification-help');
     
     // Add click handler for the hide button
     $wrapper.find('.hide-notification-help').off('click').on('click', function() {
         $helpContainer.empty();
-        $(this).text('Show troubleshooting tips').removeClass('hide-notification-help').addClass('show-notification-help');
+        $(this)
+            .text(t('Show troubleshooting tips'))
+            .removeClass('hide-notification-help')
+            .addClass('show-notification-help');
         
         // Re-attach show handler
         $(this).off('click').on('click', function() {
@@ -732,10 +779,9 @@ async function sendTestNotification(registration) {
     }
     
     try {
-        // Try to use the service worker showNotification method (works better on Android)
         if (registration.showNotification) {
-            await registration.showNotification('Test notification', {
-                body: 'This is a test notification. If you can see this, notifications are working!',
+            await registration.showNotification(t('Test notification'), {
+                body: t('This is a test notification. If you can see this, notifications are working!'),
                 icon: '/favicon.ico',
                 tag: 'test-notification'
             });
@@ -753,8 +799,8 @@ async function sendTestNotification(registration) {
             return true;
         } else {
             // Fallback to using the Notification constructor directly
-            const testNotification = new Notification('Test notification', {
-                body: 'This is a test notification. If you can see this, notifications are working!',
+            const testNotification = new Notification(t('Test notification'), {
+                body: t('This is a test notification. If you can see this, notifications are working!'),
                 icon: '/favicon.ico',
                 tag: 'test-notification'
             });
@@ -883,44 +929,37 @@ export function initializeRequestPhone() {
         const isOnMobile = isMobileDevice();
         
         if (isOnMobile) {
-            // User is on a mobile device
             $hiddenInput.val('is_phone');
-            $instructions.html('<p>You are using a mobile device. You can proceed with the survey.</p>');
+            $instructions.html(`<p>${t('You are using a mobile device. You can proceed with the survey.')}</p>`);
             $wrapper.closest('.form-group').addClass('formr_answered');
         } else {
-            // User is on desktop, show QR code
             $hiddenInput.val('is_desktop');
-            $instructions.html('<p>Please scan this QR code with your mobile device to continue the survey on your phone:</p>');
+            $instructions.html(`<p>${t('Please scan this QR code with your mobile device to continue the survey on your phone:')}</p>`);
             
-            // Show QR code container
             $($qrContainer).show();
             
-            // Get logo from manifest
             const logoUrl = await getLogoUrlFromManifest();
-            
-            // Generate QR code and get URL
             const qrUrl = generateQRCode($qrContainer, logoUrl);
             
-            // Create a clickable link element
             const linkHtml = `
                 <div class="qr-code-link" style="margin: 10px auto; text-align: center; word-break: break-all;">
-                    <p>Or open this link on your phone:</p>
+                    <p>${t('Or open this link on your phone:')}</p>
                     <a href="${qrUrl}" target="_blank">${qrUrl}</a>
                 </div>
             `;
             
             $status.html(
-                '<p>Once you scan the QR code, you can continue the survey on your phone.</p>' +
+                `<p>${t('Once you scan the QR code, you can continue the survey on your phone.')}</p>` +
                 linkHtml
             );
         }
     });
 
-    // Add form validation for required request-phone items
+    // Form validation for required request-phone items
     $('form.main_formr_survey').on('submit', function(e) {
         var $form = $(this);
         var $requiredPhone = $form.find('.form-group.required.item-request_phone');
-        debugger;
+        
         if ($requiredPhone.length) {
             var isValid = true;
             $requiredPhone.each(function() {
@@ -930,7 +969,35 @@ export function initializeRequestPhone() {
                 if (!value || value === 'not_checked' || value === 'is_desktop') {
                     isValid = false;
                     $(this).closest('.form-group').find('.status-message')
-                        .html('<strong style="color: red;">This step requires you to continue on a mobile device before proceeding.</strong>');
+                        .html(`<strong style="color: red;">${t('This step requires you to continue on a mobile device before proceeding.')}</strong>`);
+                }
+            });
+            
+            if (!isValid) {
+                e.preventDefault();
+                return false;
+            }
+        }
+
+        var $requiredHomescreen = $form.find('.form-group.required .add-to-homescreen');
+        
+        if ($requiredHomescreen.length) {
+            var isValid = true;
+            $requiredHomescreen.each(function() {
+                var $input = $(this).closest('.add-to-homescreen-wrapper').find('input');
+                var value = $input.val();
+                
+                var isIOSInstructed = (installer && 
+                    (installer.isAppleMobilePlatform || installer.isAppleDesktopPlatform) && 
+                    value === 'instructed');
+                    
+                if (!value || 
+                    (['not_started', 'declined', 'failed', 'prompted'].indexOf(value) !== -1) || 
+                    (value === 'no_support' && !(installer && installer.isUnderStandaloneMode)) && 
+                    !isIOSInstructed) {
+                    isValid = false;
+                    $(this).closest('.form-group').find('.status-message')
+                        .html(`<strong style="color: red;">${t('Please complete this required step before continuing.')}</strong>`);
                 }
             });
             
