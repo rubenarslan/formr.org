@@ -789,11 +789,12 @@ function run_url($name = '', $action = '', $params = array()) {
         $action = trim($action, "\/\\");
         $url .= '/' . $action . '/';
     }
+    $url = rtrim($url, "/") . "/";
+
     if ($params) {
         $url .= '?' . http_build_query($params);
     }
 
-    $url = rtrim($url, "/") . "/";
     return $url;
 }
 

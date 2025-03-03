@@ -16,9 +16,20 @@ class RunController extends Controller {
         $this->site->request->run_name = $runName;
         $pageNo = null;
         
-        // If the request does not have a trailing slash, redirect to the same URL with a trailing slash
-        if (substr($_SERVER['REQUEST_URI'], -1) !== '/') {
-            $this->request->redirect($_SERVER['REQUEST_URI'] . '/');
+        // Handle trailing slashes in URLs, considering query strings
+        $requestUri = $_SERVER['REQUEST_URI'];
+        
+        // Split URI into path and query parts
+        $path = parse_url($requestUri, PHP_URL_PATH);
+        $query = parse_url($requestUri, PHP_URL_QUERY);
+        
+        // Only redirect if path doesn't end with a slash
+        if (substr($path, -1) !== '/') {
+            $newUri = $path . '/';
+            if ($query !== null) {
+                $newUri .= '?' . $query;
+            }
+            $this->request->redirect($newUri);
         }
 
         if ($method = $this->getPrivateActionMethod($privateAction)) {
@@ -305,24 +316,50 @@ class RunController extends Controller {
         return $cookie;
     }
 
+    /**
+     * 
+     * @return \User
+     */
     protected function loginUser() {
         $id = null;
+        $user = Site::getInstance()->getSessionUser();
 
         // came here with a login link
         $code_rule = Config::get("user_code_regular_expression");
-        if (isset($_GET['run_name']) && isset($_GET['code']) && preg_match($code_rule, $_GET['code'])) {
-            // user came in with login code
-            $loginCode = $_GET['code'];
-        } elseif ($user = Site::getInstance()->getSessionUser()) {
+        if (isset($_GET['run_name']) && isset($_GET['code'])) {
+            $login_code = $_GET['code'];
+            if (!preg_match($code_rule, $login_code)) {
+                alert("Invalid user code. Please contact the study administrator.", "alert-danger");
+            } elseif (isset($_POST['_formr_code'])) {
+                $posted_login_code = $_POST['_formr_code'];
+                if($posted_login_code != null AND $posted_login_code !== $login_code) {
+                    alert("Mismatched user codes. Please contact the study administrator.", "alert-danger");
+                    if(preg_match($code_rule, $posted_login_code)) {
+                        $login_code = $posted_login_code;
+                    }
+                }
+            } elseif ($user->user_code !== $login_code) {
+                 // this user came here with a session code that he wasn't using before. 
+                // this will always be true if the user is 
+                // (a) new (auto-assigned code by site) 
+                // (b) already logged in with a different account
+                if ($user->loggedIn()) {
+                    // if the user is new and has an auto-assigned code, there's no need to talk about the behind-the-scenes change
+                    // but if he's logged in we should alert them
+                    alert("You switched sessions, because you came here with a login link and were already logged in as someone else.", 'alert-info');
+                }
+                // a special case are admins. if they are not already logged in, verified through password, they should not be able to obtain access so easily. but because we only create a mock user account, this is no problem. the admin flags are only set/privileges are only given if they legitimately log in
+                }
+        } elseif ($user) {
             // try to get user from cookie
-            $loginCode = $user->user_code;
+            $login_code = $user->user_code;
             $id = $user->id;
         } else {
             // new user just entering the run;
-            $loginCode = null;
+            $login_code = null;
         }
         
-        return new User($id, $loginCode);
+        return new User($id, $login_code);
     }
 
     /**
