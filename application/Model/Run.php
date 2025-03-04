@@ -1313,7 +1313,7 @@ class Run extends Model {
 
         // Update the path in the database
         $this->manifest_json_path = $written_path;
-        $this->save();
+        $this->db->update('survey_runs', ['manifest_json_path' => $this->manifest_json_path], ['id' => $this->id]);
 
         return $manifest;
     }

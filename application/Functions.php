@@ -849,7 +849,7 @@ function determine_session_context() {
         // Check if we're on study subdomain
 		if(Config::get('use_study_subdomains') and strpos($current_domain, ".") !== false) {
 			// Extract study name from subdomain (first part)
-			$study_tld = explode('*.', Config::get('use_study_subdomains'))[1];
+			$study_tld = explode('*.', Config::get('study_domain'))[1];
 			$study_parts = explode('.', $current_domain, 2);
 			$study_name = !empty($study_parts[0]) ? $study_parts[0] : '';
 			
