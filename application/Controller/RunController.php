@@ -269,8 +269,9 @@ class RunController extends Controller {
         if ($this->run->use_material_design || $this->request->str('tmd') === 'true') {
             $this->registerAssets('material');
         }
-        //$this->registerCSS($assets['css'], $this->run->name);
-        //$this->registerJS($assets['js'], $this->run->name);
+
+        $this->registerCSS($assets['css'], $this->run->name);
+        $this->registerJS($assets['js'], $this->run->name);
         return $vars;
     }
 
@@ -349,7 +350,7 @@ class RunController extends Controller {
                     alert("You switched sessions, because you came here with a login link and were already logged in as someone else.", 'alert-info');
                 }
                 // a special case are admins. if they are not already logged in, verified through password, they should not be able to obtain access so easily. but because we only create a mock user account, this is no problem. the admin flags are only set/privileges are only given if they legitimately log in
-                }
+            }
         } elseif ($user) {
             // try to get user from cookie
             $login_code = $user->user_code;
