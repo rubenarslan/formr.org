@@ -8,12 +8,12 @@ class PushMessage extends RunUnit {
 
 	public $icon = "fa-bell";
     public $topic;
-    public $priority = 'normal';  // normal, high, urgent
+    public $priority = 'high';  // normal, high, urgent
     public $time_to_live = 86400; // 24 hours in seconds
-    public $badge_count;          // Custom property - used in notification data
+    public $badge_count = 1;          // Custom property - used in notification data
     public $vibrate = true;
-    public $require_interaction = false;
-    public $renotify = false;
+    public $require_interaction = true;
+    public $renotify = true;
     public $silent = false;
 
     protected $defaults = array(
@@ -21,10 +21,10 @@ class PushMessage extends RunUnit {
         'topic' => '',
         'priority' => 'normal',
         'time_to_live' => 86400,
-        'badge_count' => null,
+        'badge_count' => 1,
         'vibrate' => true,
-        'require_interaction' => false,
-        'renotify' => false,
+        'require_interaction' => true,
+        'renotify' => true,
         'silent' => false
     );
 
@@ -44,11 +44,26 @@ class PushMessage extends RunUnit {
         $this->assignProperties($this->defaults);
         if (isset($options['message'])) {
             array_walk($options, "emptyNull");
+            // Handle notification mode
+            if (isset($options['notification_mode'])) {
+                switch ($options['notification_mode']) {
+                    case 'sound_vibration':
+                        $options['vibrate'] = true;
+                        $options['silent'] = false;
+                        break;
+                    case 'sound_only':
+                        $options['vibrate'] = false;
+                        $options['silent'] = false;
+                        break;
+                    case 'silent':
+                        $options['vibrate'] = false;
+                        $options['silent'] = true;
+                        break;
+                }
+            }
             // Convert checkbox values to booleans
-            $options['vibrate'] = isset($options['vibrate']) && $options['vibrate'];
             $options['require_interaction'] = isset($options['require_interaction']) && $options['require_interaction'];
             $options['renotify'] = isset($options['renotify']) && $options['renotify'];
-            $options['silent'] = isset($options['silent']) && $options['silent'];
             $this->assignProperties($options);
         }
         
@@ -225,10 +240,25 @@ class PushMessage extends RunUnit {
         // Add property assignment from options
         if ($options) {
             array_walk($options, "emptyNull");
-            $options['vibrate'] = isset($options['vibrate']) && $options['vibrate'];
+            // Handle notification mode
+            if (isset($options['notification_mode'])) {
+                switch ($options['notification_mode']) {
+                    case 'sound_vibration':
+                        $options['vibrate'] = true;
+                        $options['silent'] = false;
+                        break;
+                    case 'sound_only':
+                        $options['vibrate'] = false;
+                        $options['silent'] = false;
+                        break;
+                    case 'silent':
+                        $options['vibrate'] = false;
+                        $options['silent'] = true;
+                        break;
+                }
+            }
             $options['require_interaction'] = isset($options['require_interaction']) && $options['require_interaction'];
             $options['renotify'] = isset($options['renotify']) && $options['renotify'];
-            $options['silent'] = isset($options['silent']) && $options['silent'];
             $this->assignProperties($options);
         }
         $this->saveSettings();

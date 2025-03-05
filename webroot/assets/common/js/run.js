@@ -680,8 +680,7 @@ import {
         var $timeToLive = $block.find('input[name="time_to_live"]');
         var $badgeCount = $block.find('input[name="badge_count"]');
         var $saveButton = $block.find('a.unit_save');
-        var $silent = $block.find('input[name="silent"]');
-        var $vibrate = $block.find('input[name="vibrate"]');
+        var $notificationMode = $block.find('select[name="notification_mode"]');
         var isValid = true;
         var errors = [];
 
@@ -702,12 +701,6 @@ import {
         var badge = parseInt($badgeCount.val());
         if (!isNaN(badge) && badge < 0) {
             errors.push("Badge count must be a positive number");
-            isValid = false;
-        }
-
-        // Silent notifications can't vibrate
-        if ($silent.prop('checked') && $vibrate.prop('checked')) {
-            errors.push("Silent notifications cannot vibrate");
             isValid = false;
         }
 
