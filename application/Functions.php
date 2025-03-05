@@ -1143,7 +1143,12 @@ opts_knit$set(base.url="' . OpenCPU::TEMP_BASE_URL . '")
 ' .
             $source;
 
-    return opencpu_knit($source, 'json', 0, $return_session);
+    $result = opencpu_knit($source, 'json', 0, $return_session);
+
+    // remove leading first new line
+    $result = preg_replace('/^\n/', '', $result);
+
+    return $result;
 }
 
 /**

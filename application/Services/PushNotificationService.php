@@ -99,12 +99,12 @@ class PushNotificationService
 
         $sub = Subscription::create($subscription);
         $payload = json_encode([
-            'title' => $this->run->title ?? $this->run->name,
+            'title' => $options['title'] ?? null,
             'body'  => $message,
             'clickTarget' => run_url($this->run->name),
             'icon'  => asset_url('pwa/maskable_icon_x192.png'),
             // Include additional notification options
-            'topic' => $options['topic'] ?? null,
+            'tag' => $options['title'] ?? null,
             'priority' => $options['priority'] ?? 'normal',
             // Use explicit isset checks for numeric values that could be 0
             'timeToLive' => isset($options['timeToLive']) ? (int)$options['timeToLive'] : null,

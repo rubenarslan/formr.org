@@ -126,6 +126,13 @@ class PushMessage extends RunUnit {
                 return $output;
             }
 
+            $title = $this->getTitle($unitSession);
+            if (!$title) {
+                $output['log']['result'] = 'title_parse_failed';
+                $output['move_on'] = true;
+                return $output;
+            }
+
             // Send push notification
             $pushService = new PushNotificationService(
                 $unitSession->runSession->getRun(),
@@ -135,7 +142,7 @@ class PushMessage extends RunUnit {
             // Create configuration array with all notification options
             $options = [
                 'message' => $message,
-                'topic' => $this->topic,
+                'title' => $title,
                 'priority' => $this->priority,
                 // Use explicit casting for numeric values
                 'timeToLive' => (int)$this->time_to_live,
@@ -166,9 +173,24 @@ class PushMessage extends RunUnit {
         return $output;
     }
 
-    protected function getMessage(UnitSession $unitSession) {
-        $opencpu_vars = $unitSession->getRunData($this->message);
-        return opencpu_evaluate($this->message, $opencpu_vars, 'text');
+    protected function getMessage(UnitSession $unitsession) {
+        if (knitting_needed($this->message)) {
+                if ($unitsession !== null) {
+                    return $this->getParsedText($this->message, $unitsession);
+                } else {
+                    return false;
+                }
+        } else {
+            return $this->message;
+        }
+    }
+
+    protected function getTitle(UnitSession $unitSession) {
+        if (knitting_needed($this->topic)) {
+            return $this->getParsedText($this->topic, $unitSession);
+        } else {
+            return $this->topic;
+        }
     }
 
     protected function getSubscription(UnitSession $unitSession) {
