@@ -52,5 +52,22 @@
       "src": "/assets/pwa/maskable_icon_x48.png",
       "type": "image/png"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Settings",
+      "url": "{START_URL}settings/",
+      "description": "Change notification settings"
+    },
+    {
+      "name": "Privacy Policy",
+      "url": "{START_URL}privacy/",
+      "description": "Read our privacy policy"
+    },
+    {
+      "name": "Terms of Service",
+      "url": "{START_URL}terms_of_service/",
+      "description": "Read our terms of service"
+    }
   ]
 } 

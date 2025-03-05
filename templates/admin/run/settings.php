@@ -26,7 +26,7 @@
                                 <li><a href="#privacy" data-toggle="tab" aria-expanded="false">Privacy</a></li>
                                 <li><a href="#css" data-toggle="tab" aria-expanded="false">CSS</a></li>
                                 <li><a href="#js" data-toggle="tab" aria-expanded="false">JS</a></li>
-                                <li><a href="#manifest" data-toggle="tab" aria-expanded="false">Manifest</a></li>
+                                <li><a href="#manifest" data-toggle="tab" aria-expanded="false">App</a></li>
                                 <li><a href="#service_message" data-toggle="tab" aria-expanded="false">Service message</a></li>
                                 <li><a href="#reminder" data-toggle="tab" aria-expanded="false">Reminder</a></li>
                                 <li><a href="#overview_script" data-toggle="tab" aria-expanded="false">Overview</a></li>
@@ -197,9 +197,9 @@
                                             <button data-href="<?php echo admin_run_url($run->name, 'ajax_generate_manifest'); ?>" class="btn btn-default generate-manifest"><i class="fa fa-magic"></i> Generate Manifest</button>
                                             <input type="submit" name="submit_settings" value="Save" class="btn btn-primary save_settings">
                                         </p>
-                                        <h4><i class="fa fa-file-alt"></i> Manifest JSON</h4>
+                                        <h4><i class="fa fa-bell"></i> App</h4>
                                         <p>
-                                            Define the manifest.json for your run. This JSON file serves as a metadata file for your study.
+                                            Formr studies can be installed as a PWA (Progressive Web App) on the home screen. This allows you to send push notifications to users to invite them to return to the study, e.g. for experience sampling studies. To make this work, you need to generate a manifest.json file in the study/run settings. Just click the button with the magic wand to generate a manifest.json file based on your run settings. You can then customize it further. A manifest.json file is required for the PWA (adding to home screen, push notifications) to work.
                                         </p>
                                         <div class="form-group col-md-12">
                                             <textarea data-editor="json" placeholder="Enter your manifest JSON here" name="manifest_json"  id="manifest_json" rows="40" cols="80" class="big_ace_editor form-control"><?= h($run->getManifestJSON()); ?></textarea>

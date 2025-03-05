@@ -32,13 +32,13 @@
 Probably need to log when users no longer receive push notifications. What to do in that case? Notify admins?
 
 ## Problems:
-- [ ] When people click the push message and trigger the app, it doesn't automatically reload, but it probably should.
-- [ ] Badge counts aren't shown
-- [ ] Haven't yet tested whether all push message settings are respected
-- [ ] Some browser (e.g., iOS Brave don't allow for adding to home screen)
+- [x] App reloads when people open the app after having received a push message. Push messages are then cleared.
+- [x] Badge counts
+- [ ] Vibrate/Silent properties are respected, unclear about time-to-live. Do we need tags?
+- [ ] Some browsers (e.g., iOS Brave don't allow for adding to home screen)
 - [ ] Submit button is deactivated upon trying to submit a required home screen/phone item, better integrate with existing form validation API?
 - [ ] Should hide the inputs again
 - [ ] Switch to https://github.com/philfung/add-to-homescreen ?
 
 ## Add documentation
-- [ ] Add documentation to @templates/public/documentation/
+- [x] Add documentation to @templates/public/documentation/
