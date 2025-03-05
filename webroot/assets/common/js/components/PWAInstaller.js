@@ -1029,15 +1029,19 @@ async function handlePendingNotifications() {
     const registration = await navigator.serviceWorker.ready;
     const notifications = await registration.getNotifications();
     
-    // Close notifications and reload if any are found
+    // Close notifications but don't reload immediately
     if (notifications.length > 0) {
       console.log('Found pending notifications:', notifications.length);
       notifications.forEach(notification => notification.close());
-      window.location.reload();
-      return;
+      
+      // Set a flag in localStorage to indicate notifications were closed
+      localStorage.setItem('notifications-closed', 'true');
+      return true;
     }
+    return false;
   } catch (error) {
     console.error('Error checking notifications:', error);
+    return false;
   }
 }
 
@@ -1046,12 +1050,23 @@ if ('serviceWorker' in navigator) {
   // Clear badge when page loads
   clearAppBadge();
   
-  // Check for pending notifications
-  handlePendingNotifications();
+  // Check for pending notifications and handle page initialization
+  handlePendingNotifications().then(hadNotifications => {
+    // Only reload if we had notifications AND we're not already handling a post-notification reload
+    if (hadNotifications && !localStorage.getItem('handling-notification-reload')) {
+      localStorage.setItem('handling-notification-reload', 'true');
+      window.location.reload();
+    } else {
+      // Clear the handling flag if we're done with the reload
+      localStorage.removeItem('handling-notification-reload');
+      localStorage.removeItem('notifications-closed');
+    }
+  });
   
   navigator.serviceWorker.addEventListener('message', (event) => {
     if (event.data.type === 'NOTIFICATION_CLICK' && event.data.action === 'reload') {
       console.log('Received reload message from service worker');
+      localStorage.setItem('handling-notification-reload', 'true');
       window.location.reload();
     } else if (event.data.type === 'NEW_NOTIFICATION') {
       console.log('New notification received');
@@ -1061,7 +1076,13 @@ if ('serviceWorker' in navigator) {
   // Handle page visibility changes
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      handlePendingNotifications();
+      handlePendingNotifications().then(hadNotifications => {
+        // Only reload if we had notifications AND we're not already handling a reload
+        if (hadNotifications && !localStorage.getItem('handling-notification-reload')) {
+          localStorage.setItem('handling-notification-reload', 'true');
+          window.location.reload();
+        }
+      });
     }
   });
 } 
