@@ -71,7 +71,7 @@ class PushNotificationService
      *
      * @param int   $sessionId      Session ID for logging and rate limiting.
      * @param array $subscription   Subscription data.
-     * @param string $message       Message to send.
+     * @param array $options        Notification options including message.
      * @param int   $attempt        Current attempt count.
      *
      * @throws Exception on final failure.
@@ -79,7 +79,7 @@ class PushNotificationService
     public function sendPushMessage(
         int $sessionId,
         array $subscription,
-        string $message,
+        array $options,
         int $attempt = 1
     ) {
         // Check rate limits before sending
@@ -94,13 +94,34 @@ class PushNotificationService
             error_log("Push notification warning: " . $result['message']);
         }
 
+        // Extract message from options
+        $message = $options['message'];
+
         $sub = Subscription::create($subscription);
         $payload = json_encode([
             'title' => $this->run->title ?? $this->run->name,
             'body'  => $message,
             'clickTarget' => run_url($this->run->name),
-            'icon'  => asset_url('pwa/maskable_icon_x192.png')
+            'icon'  => asset_url('pwa/maskable_icon_x192.png'),
+            // Include additional notification options
+            'topic' => $options['topic'] ?? null,
+            'priority' => $options['priority'] ?? 'normal',
+            // Use explicit isset checks for numeric values that could be 0
+            'timeToLive' => isset($options['timeToLive']) ? (int)$options['timeToLive'] : null,
+            // badgeCount is a custom property, not part of the standard Web Notifications API
+            // It will be stored in the notification's data object
+            'badgeCount' => isset($options['badgeCount']) ? (int)$options['badgeCount'] : null,
+            // Ensure vibrate is explicitly set to true or false, never null or undefined
+            'vibrate' => isset($options['vibrate']) ? (bool)$options['vibrate'] : true,
+            // Ensure other boolean options are explicitly true or false
+            'requireInteraction' => isset($options['requireInteraction']) ? (bool)$options['requireInteraction'] : false,
+            'renotify' => isset($options['renotify']) ? (bool)$options['renotify'] : false,
+            'silent' => isset($options['silent']) ? (bool)$options['silent'] : false
         ]);
+        
+        // Debug log the payload
+        error_log("Push notification payload: " . $payload);
+        
         $this->webPush->queueNotification($sub, $payload);
 
         foreach ($this->webPush->flush() as $report) {
@@ -108,7 +129,7 @@ class PushNotificationService
                 $this->logPushFailure($sessionId, $message, $report->getReason(), $attempt);
                 if ($attempt < $this->maxRetries) {
                     sleep(pow(2, $attempt)); // exponential backoff
-                    $this->sendPushMessage($sessionId, $subscription, $message, $attempt + 1);
+                    $this->sendPushMessage($sessionId, $subscription, $options, $attempt + 1);
                 } else {
                     throw new Exception("Push notification permanently failed: " . $report->getReason());
                 }
@@ -124,7 +145,7 @@ class PushNotificationService
      * Each notification should be an array with:
      *  - session_id: int
      *  - subscription: array (subscription data for WebPush\Subscription::create)
-     *  - message: string
+     *  - options: array of notification options including message
      *
      * @param array $notifications
      * @return int Number of notifications sent successfully.
@@ -135,12 +156,12 @@ class PushNotificationService
         $batches = array_chunk($notifications, $this->batchSize);
         foreach ($batches as $batch) {
             foreach ($batch as $notification) {
-                $sessionId      = $notification['session_id'];
-                $subscription   = $notification['subscription'];
-                $message        = $notification['message'];
+                $sessionId = $notification['session_id'];
+                $subscription = $notification['subscription'];
+                $options = $notification['options'];
 
                 try {
-                    $this->sendPushMessage($sessionId, $subscription, $message);
+                    $this->sendPushMessage($sessionId, $subscription, $options);
                     $sentCount++;
                 } catch (Exception $e) {
                     error_log("Push notification failed for session {$sessionId}: " . $e->getMessage());

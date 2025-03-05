@@ -121,6 +121,48 @@ function getBestIcon(purpose = 'any') {
   return sortedIcons[0].src;
 }
 
+// Add a helper function for badge management at the top of the file
+/**
+ * Manages the app badge using the Badging API if available
+ * @param {number|null} count - The badge count to set, or null to clear
+ * @param {string} action - 'set', 'clear', or 'decrement'
+ * @returns {Promise<void>}
+ */
+async function manageBadge(count, action = 'set') {
+  // Check if Badging API is supported
+  if (!('setAppBadge' in navigator)) {
+    console.log('Badging API not supported in this browser');
+    return;
+  }
+
+  try {
+    if (action === 'clear') {
+      await navigator.clearAppBadge();
+      console.log('App badge cleared');
+    } else if (action === 'set' && count !== null && count !== undefined) {
+      const numCount = parseInt(count, 10);
+      if (numCount > 0) {
+        await navigator.setAppBadge(numCount);
+        console.log(`App badge set to ${numCount}`);
+      } else if (numCount === 0) {
+        await navigator.clearAppBadge();
+        console.log('App badge cleared (count was 0)');
+      }
+    } else if (action === 'decrement' && count !== null && count !== undefined) {
+      const numCount = parseInt(count, 10);
+      if (numCount > 1) {
+        await navigator.setAppBadge(numCount - 1);
+        console.log(`App badge decremented to ${numCount - 1}`);
+      } else {
+        await navigator.clearAppBadge();
+        console.log('App badge cleared (count was ≤ 1)');
+      }
+    }
+  } catch (error) {
+    console.error('Error managing app badge:', error);
+  }
+}
+
 // Handle incoming push events
 self.addEventListener('push', (event) => {
   if (!event.data) {
@@ -130,63 +172,123 @@ self.addEventListener('push', (event) => {
 
   try {
     const data = event.data.json();
+    console.log('Push notification data received:', JSON.stringify(data));
+    
+    // Generate unique tag if not provided
+    const tag = data.tag || `notification-${Date.now()}`;
+    const timestamp = Date.now();
+    
+    // Log the vibrate value specifically for debugging
+    console.log('Vibrate value:', {
+      raw: data.vibrate,
+      type: typeof data.vibrate,
+      willVibrate: !(data.vibrate === false || data.vibrate === 0)
+    });
+    
+    // Log all notification options for debugging
+    console.log('All notification options:', {
+      requireInteraction: data.requireInteraction,
+      renotify: data.renotify,
+      silent: data.silent,
+      timeToLive: data.timeToLive,
+      badgeCount: data.badgeCount,
+      topic: data.topic
+    });
+    
+    // Update app badge if badgeCount is provided and Badging API is supported
+    if (data.badgeCount !== undefined && data.badgeCount !== null) {
+      manageBadge(data.badgeCount, 'set');
+    }
+
     const options = {
       body: data.body || '',
       icon: data.icon || getBestIcon('any'),
       badge: getBestIcon('badge') || getBestIcon('maskable') || getBestIcon('any'),
+      tag: tag,
       // Map priority to urgency
       urgency: data.priority || 'normal',
-      // Use configured vibration pattern or disable if vibrate is false
-      vibrate: data.vibrate ? [100, 50, 100] : undefined,
-      // Add additional configurable options
-      requireInteraction: data.requireInteraction || false,
-      renotify: data.renotify || false,
-      silent: data.silent || false,
-      // If badge count is set, include it
-      badge: data.badgeCount ? String(data.badgeCount) : undefined,
+      // Check vibrate explicitly - handle both boolean false and falsy values like 0
+      vibrate: data.vibrate === false || data.vibrate === 0 ? undefined : [100, 50, 100],
+      // Add additional configurable options - use explicit checking for boolean values
+      requireInteraction: data.requireInteraction === false ? false : (data.requireInteraction === true ? true : false),
+      renotify: data.renotify === false ? false : (data.renotify === true ? true : false),
+      silent: data.silent === false ? false : (data.silent === true ? true : false),
       data: {
-        dateOfArrival: Date.now(),
+        dateOfArrival: timestamp,
         primaryKey: 1,
         clickTarget: data.clickTarget || (manifestData?.start_url || '/'),
-        topic: data.topic || undefined
+        topic: data.topic || undefined,
+        tag: tag,
+        // Move badgeCount here as custom data
+        badgeCount: data.badgeCount !== undefined && data.badgeCount !== null ? parseInt(data.badgeCount, 10) : undefined
       },
       actions: data.actions || []
     };
 
-    // Set time to live if provided
-    if (data.timeToLive) {
+    // Set time to live if provided (handle 0 as valid value)
+    if (data.timeToLive !== undefined && data.timeToLive !== null) {
       options.timestamp = Date.now() + (data.timeToLive * 1000);
     }
 
+    // Show notification and notify clients
     event.waitUntil(
-      self.registration.showNotification(data.title || 'Notification', options)
+      Promise.all([
+        self.registration.showNotification(data.title || 'Notification', options),
+        // Notify all clients about the new notification
+        clients.matchAll({ type: 'window' }).then(windowClients => {
+          windowClients.forEach(client => {
+            client.postMessage({
+              type: 'NEW_NOTIFICATION',
+              tag: tag
+            });
+          });
+        })
+      ])
     );
   } catch (error) {
     console.error('Error showing notification:', error);
   }
 });
 
-// Handle notification clicks
+// Handle notification click
 self.addEventListener('notificationclick', (event) => {
+  console.log('Notification clicked:', event.notification);
+  
+  // Get the custom data from the notification
+  const data = event.notification.data || {};
+  
+  // Handle badge count with Badging API if available
+  manageBadge(null, 'clear');
+
+  // Close the notification
   event.notification.close();
-
-  // Get the click target URL from the notification data, fallback to manifest start_url
-  const clickTarget = event.notification.data.clickTarget || (manifestData?.start_url || '/');
-
-  // This ensures the browser doesn't kill the service worker before the page is opened
+  
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true })
-      .then((clientList) => {
-        // If we have a matching window, focus it
-        for (const client of clientList) {
-          if (client.url === clickTarget && 'focus' in client) {
-            return client.focus();
-          }
-        }
-        // If no matching window, open new one
-        if (clients.openWindow) {
-          return clients.openWindow(clickTarget);
-        }
-      })
+    // Send reload message to all clients
+    clients.matchAll({ type: 'window' }).then(windowClients => {
+      windowClients.forEach(client => {
+        client.postMessage({
+          type: 'NOTIFICATION_CLICK',
+          action: 'reload'
+        });
+      });
+
+      // Focus or open window after sending reload message
+      const targetUrl = data.clickTarget || self.registration.scope;
+      
+      // Try to find and focus existing window
+      const matchingClient = windowClients.find(client => 
+        client.url === targetUrl && 'focus' in client
+      );
+      
+      if (matchingClient) {
+        return matchingClient.focus();
+      }
+      
+      // If no existing window, open new one
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
   );
 }); 

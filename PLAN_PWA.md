@@ -12,7 +12,7 @@
 ## Add item to request adding to home screen
 - [x] Item inheriting from @application/Model/Item/Item.php
    - [x] A button to request adding to home screen, 
-   - [ ] guide/QR code to switch to a browser that supports PWA-homescreen (e.g., Safari on iOS)
+   - [x] guide/QR code to switch to a browser that supports PWA-homescreen (e.g., Safari on iOS)
    - [x] Store whether it has been added to home screen
 - [x] Item to request permission to send push notifications, inheriting from @application/Model/Item/Item.php
    - [x] A button to request push permission
@@ -30,6 +30,15 @@
 - [x] Add logging of push notifications to @application/Controller/AdminRunController.php
 
 Probably need to log when users no longer receive push notifications. What to do in that case? Notify admins?
+
+## Problems:
+- [ ] When people click the push message and trigger the app, it doesn't automatically reload, but it probably should.
+- [ ] Badge counts aren't shown
+- [ ] Haven't yet tested whether all push message settings are respected
+- [ ] Some browser (e.g., iOS Brave don't allow for adding to home screen)
+- [ ] Submit button is deactivated upon trying to submit a required home screen/phone item, better integrate with existing form validation API?
+- [ ] Should hide the inputs again
+- [ ] Switch to https://github.com/philfung/add-to-homescreen ?
 
 ## Add documentation
 - [ ] Add documentation to @templates/public/documentation/

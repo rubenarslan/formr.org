@@ -10,7 +10,7 @@ class PushMessage extends RunUnit {
     public $topic;
     public $priority = 'normal';  // normal, high, urgent
     public $time_to_live = 86400; // 24 hours in seconds
-    public $badge_count;
+    public $badge_count;          // Custom property - used in notification data
     public $vibrate = true;
     public $require_interaction = false;
     public $renotify = false;
@@ -117,10 +117,26 @@ class PushMessage extends RunUnit {
                 $this->db
             );
 
+            // Create configuration array with all notification options
+            $options = [
+                'message' => $message,
+                'topic' => $this->topic,
+                'priority' => $this->priority,
+                // Use explicit casting for numeric values
+                'timeToLive' => (int)$this->time_to_live,
+                // Handle badge_count specifically - could be null, 0, or a positive number
+                'badgeCount' => $this->badge_count !== null && $this->badge_count !== '' ? (int)$this->badge_count : null,
+                // Convert to proper boolean, ensuring values like "0" become false
+                'vibrate' => $this->vibrate && $this->vibrate !== "0" ? true : false,
+                'requireInteraction' => $this->require_interaction && $this->require_interaction !== "0" ? true : false,
+                'renotify' => $this->renotify && $this->renotify !== "0" ? true : false,
+                'silent' => $this->silent && $this->silent !== "0" ? true : false
+            ];
+
             $pushService->sendPushMessage(
                 $unitSession->id,
                 $subscription,
-                $message
+                $options
             );
 
             $output['log']['result'] = 'sent';

@@ -1007,4 +1007,61 @@ export function initializeRequestPhone() {
             }
         }
     });
+}
+
+// Add badge clearing function
+async function clearAppBadge() {
+  if ('setAppBadge' in navigator) {
+    try {
+      await navigator.clearAppBadge();
+      console.log('App badge cleared on page load');
+    } catch (error) {
+      console.error('Error clearing app badge:', error);
+    }
+  }
+}
+
+// Function to check and handle pending notifications
+async function handlePendingNotifications() {
+  if (!('serviceWorker' in navigator)) return;
+  
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const notifications = await registration.getNotifications();
+    
+    // Close notifications and reload if any are found
+    if (notifications.length > 0) {
+      console.log('Found pending notifications:', notifications.length);
+      notifications.forEach(notification => notification.close());
+      window.location.reload();
+      return;
+    }
+  } catch (error) {
+    console.error('Error checking notifications:', error);
+  }
+}
+
+// Add service worker message handler at the top level
+if ('serviceWorker' in navigator) {
+  // Clear badge when page loads
+  clearAppBadge();
+  
+  // Check for pending notifications
+  handlePendingNotifications();
+  
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data.type === 'NOTIFICATION_CLICK' && event.data.action === 'reload') {
+      console.log('Received reload message from service worker');
+      window.location.reload();
+    } else if (event.data.type === 'NEW_NOTIFICATION') {
+      console.log('New notification received');
+    }
+  });
+  
+  // Handle page visibility changes
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      handlePendingNotifications();
+    }
+  });
 } 
