@@ -1,5 +1,7 @@
 import $ from 'jquery';
 import QRCodeStyling from "qr-code-styling";
+import 'add-to-homescreen/dist/add-to-homescreen.min.css';
+import AddToHomeScreen from 'add-to-homescreen/dist/add-to-homescreen.min.js';
 
 // Add German translations to window.formrLanguage
 window.formrTranslations.de = {
@@ -214,7 +216,6 @@ async function updateInstallButtonState() {
     const $button = $wrapper.find('.add-to-homescreen');
     const $status = $wrapper.find('.status-message');
     const $hiddenInput = $wrapper.find('input');
-    const installer = document.querySelector('pwa-install');
 
     // When first called, store the default text on the button in a data attribute.
     if (!$button.data('default-text')) {
@@ -234,7 +235,7 @@ async function updateInstallButtonState() {
         return;
     }
 
-    if (!installer) {
+    if (!window.AddToHomeScreenInstance && !window.AddToHomeScreen) {
         $hiddenInput.val('no_support');
         $status.html(t('Installation component not available. Please try again later.'));
         $button.prop('disabled', true);
@@ -255,24 +256,12 @@ async function updateInstallButtonState() {
         $button.html(`<i class="fa fa-check"></i> ${t('Installed')}`);
         localStorage.setItem('pwa-app-installed', 'true');
         return;
-    } else if (installer.isRelatedAppsInstalled) {
-        $hiddenInput.val('already_added');
-        $status.html(t("You've already installed this app. Try opening this page in the installed app."));
-        $wrapper.closest('.form-group').addClass('formr_answered');
-        $button.removeClass('btn-primary').addClass('btn-success');
-        $button.html(`<i class="fa fa-check"></i> ${t('Installed')}`);
-        $button.attr('disabled', true);
     } else if (localStorage.getItem('pwa-app-installed') === 'true') { // App is installed according to localStorage
         $hiddenInput.val('already_added');
         $status.html(t("You've already installed this app. Try opening this page in the installed app. If you have uninstalled the app, please just click this button again."));
         $wrapper.closest('.form-group').addClass('formr_answered');
         $button.removeClass('btn-primary').addClass('btn-success');
         $button.html(`<i class="fa fa-check"></i> ${t('Installed')}`);
-    } else if (!installer.isInstallAvailable) { // App is not available for installation
-        $hiddenInput.val('cannot_install');
-        $status.html(t("This app is not available for installation. Maybe you already installed the app or you need to switch to a different browser."));
-        $button.prop('disabled', true);
-        $button.html(t("Cannot install app"));
     } else { // App is not installed
         $hiddenInput.val('not_started');
         // If not already installed, set platform-specific text.
@@ -283,26 +272,30 @@ async function updateInstallButtonState() {
 }
 
 export function initializePWAInstaller() {
-    // Initialize pwa-install element
-    var installer = document.createElement('pwa-install');
+    console.log('Initializing PWA Installer');
     
-    // Get manifest URL from link tag
-    var manifestLink = document.querySelector('link[rel="manifest"]');
-    if (manifestLink) {
-        installer.setAttribute('manifest-url', manifestLink.href);
-    }
+    // Initialize add-to-homescreen library
+    // Load the CSS and JS files dynamically
+    loadAddToHomeScreenResources();
     
-    installer.setAttribute('use-local-storage', 'true');
-    installer.hideDialog();
-    document.body.appendChild(installer);
+    // Initialize the library once resources are loaded - with timeout
+    let attempts = 0;
+    const maxAttempts = 20; // 2 seconds max wait time
     
-    // Handle beforeinstallprompt event
-    window.addEventListener('beforeinstallprompt', function(e) {
-        e.preventDefault();
-        if (installer) {
-            installer.externalPromptEvent = e;
+    const checkResourcesInterval = setInterval(() => {
+        attempts++;
+        
+        if (window.AddToHomeScreen) {
+            console.log('AddToHomeScreen found in window object');
+            clearInterval(checkResourcesInterval);
+            initializeAddToHomeScreen();
+        } else if (attempts >= maxAttempts) {
+            console.error('Timed out waiting for AddToHomeScreen to load');
+            clearInterval(checkResourcesInterval);
+            // Try loading again
+            loadAddToHomeScreenResources();
         }
-    });
+    }, 100);
     
     // Check for display mode changes
     window.addEventListener('DOMContentLoaded', updateInstallButtonState);
@@ -314,7 +307,8 @@ export function initializePWAInstaller() {
         updateInstallButtonState();
     });
     
-    updateInstallButtonState();
+    // Initial update with a slight delay to ensure DOM is ready
+    setTimeout(updateInstallButtonState, 500);
 
     // Button click handler
     $('.add-to-homescreen').on('click', function(e) {
@@ -329,149 +323,261 @@ export function initializePWAInstaller() {
         const $status = $wrapper.find('.status-message');
         const $hiddenInput = $wrapper.find('input');
         
-        if (!installer) {
-            $hiddenInput.val('no_support');
-            $status.html(t('Installation is not supported in your browser.'));
-            return false;
+        if (!window.AddToHomeScreenInstance) {
+            console.error('AddToHomeScreenInstance not available');
+            
+            // Try to initialize again
+            if (window.AddToHomeScreen) {
+                console.log('AddToHomeScreen found, initializing again');
+                initializeAddToHomeScreen();
+                
+                // If initialization succeeded, continue
+                if (window.AddToHomeScreenInstance) {
+                    console.log('Successfully initialized AddToHomeScreenInstance');
+                } else {
+                    $hiddenInput.val('no_support');
+                    $status.html(t('Installation is not supported in your browser.'));
+                    return false;
+                }
+            } else {
+                // Try loading the script again
+                console.log('Attempting to reload add-to-homescreen library');
+                loadAddToHomeScreenResources();
+                
+                $hiddenInput.val('no_support');
+                $status.html(t('Installation is not supported in your browser.'));
+                return false;
+            }
         }
         
         // Start installation timeout handler
         const timeoutHandler = handleInstallTimeout($wrapper);
         timeoutHandler.start();
+        
+        // Store the active timeout handler globally so it can be cleared by event handlers
+        window.activeTimeoutHandler = timeoutHandler;
 
-        installer.showDialog();
+        // Show the add-to-homescreen dialog
+        console.log('Showing add-to-homescreen dialog');
+        window.AddToHomeScreenInstance.show();
+        
         $hiddenInput.val('prompted');
         $status.html(t('Preparing installation...'));
         $btn.html('<i class="fa fa-spinner fa-spin"></i> ' + t('Processing...'));
-
-        // Clear timeout on successful installation
-        installer.addEventListener('pwa-install-success-event', function() {
-            timeoutHandler.clear();
-        }, { once: true });
-
-        // Clear timeout on failed installation
-        installer.addEventListener('pwa-install-fail-event', function() {
-            timeoutHandler.clear();
-        }, { once: true });
         
         return false;
     });
+}
 
-    if (installer) {
-        // Installation successful
-        installer.addEventListener('pwa-install-success-event', function(e) {
-			console.log('Installation successful:', e.detail);
-			localStorage.setItem('pwa-app-installed', 'true');
-
-            updateInstallButtonState();
-			
-			installer.hideDialog();
-		});
-        
-        // Installation failed
-        installer.addEventListener('pwa-install-fail-event', function(e) {
-            console.log('Installation failed:', e.detail);
-            
-            $('.add-to-homescreen-wrapper').each(function() {
-                var $wrapper = $(this);
-                var $status = $wrapper.find('.status-message');
-                var $hiddenInput = $wrapper.find('input');
-                var $button = $wrapper.find('.add-to-homescreen');
-                
-                $hiddenInput.val('failed');
-                $status.html(t('Installation failed. You can try again or add to home screen manually from your browser menu.'));
-                $button.html('<i class="fa fa-plus-square"></i> ' + t('Add to Home Screen'));
-                addBrowserSwitchUI($wrapper);
-            });
-            
-            installer.hideDialog();
-        });
-        
-        // User choice result
-		installer.addEventListener('pwa-user-choice-result-event', function(e) {
-			console.log('User choice:', e.detail);
-			var accepted = (e.detail.userChoiceResult === 'accepted');
-			
-			$('.add-to-homescreen-wrapper').each(function() {
-				var $wrapper = $(this);
-				var $status = $wrapper.find('.status-message');
-				var $hiddenInput = $wrapper.find('input');
-				var $button = $wrapper.find('.add-to-homescreen');
-				var isRequired = $wrapper.closest('.form-group').hasClass('required');
-				
-				if (accepted) {
-					updateInstallButtonState();
-				} else {
-					$hiddenInput.val('declined');
-					if (isRequired) {
-						$status.html(t('This step is required. Please add the app to your home screen to continue.'));
-						$wrapper.closest('.form-group').removeClass('formr_answered');
-					} else {
-						$status.html(t('You can add the app to your home screen at any time.'));
-						$wrapper.closest('.form-group').addClass('formr_answered');
-					}
-					$button.html('<i class="fa fa-plus-square"></i> ' + t('Add to Home Screen'));
-                    addBrowserSwitchUI($wrapper);
-
-				}
-			});
-			
-			installer.hideDialog();
-		});
-        
-        // How to install shown
-        installer.addEventListener('pwa-install-how-to-event', function(e) {
-            console.log('How to install shown:', e.detail);
-            
-            $('.add-to-homescreen-wrapper').each(function() {
-                var $wrapper = $(this);
-                var $status = $wrapper.find('.status-message');
-                var $hiddenInput = $wrapper.find('input');
-                
-                $hiddenInput.val('instructed');
-                $status.html(t('Follow the instructions to add this app to your home screen.'));
-            });
-        });
-        
-        // Installation availability detected
-        installer.addEventListener('pwa-install-available-event', function(e) {
-            console.log('Installation available:', e.detail);
-            
-            updateInstallButtonState();
-        });
+// Function to load the add-to-homescreen resources
+function loadAddToHomeScreenResources() {
+    // Check if already loaded
+    if (document.querySelector('script[src*="add-to-homescreen.min.js"]')) {
+        console.log('Add-to-homescreen script already loaded');
+        return;
     }
+    
+    console.log('Loading add-to-homescreen resources');
+    
+    // Load CSS
+    const cssLink = document.createElement('link');
+    cssLink.rel = 'stylesheet';
+    cssLink.href = 'https://cdn.jsdelivr.net/gh/philfung/add-to-homescreen@3.0/dist/add-to-homescreen.min.css';
+    document.head.appendChild(cssLink);
+    
+    // Load JS
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/gh/philfung/add-to-homescreen@3.0/dist/add-to-homescreen.min.js';
+    
+    // Add event listeners to track loading status
+    script.onload = function() {
+        console.log('Add-to-homescreen script loaded successfully');
+        if (window.AddToHomeScreen) {
+            initializeAddToHomeScreen();
+        } else {
+            console.error('AddToHomeScreen not found in window object after script load');
+        }
+    };
+    
+    script.onerror = function() {
+        console.error('Failed to load add-to-homescreen script');
+    };
+    
+    document.head.appendChild(script);
+}
 
-    // Add form validation for required add-to-homescreen items
-    $('form.main_formr_survey').on('submit', function(e) {
-        var $form = $(this);
-        var $requiredHomescreen = $form.find('.form-group.required .add-to-homescreen');
-        
-        if ($requiredHomescreen.length) {
-            var isValid = true;
-            $requiredHomescreen.each(function() {
-                var $input = $(this).closest('.add-to-homescreen-wrapper').find('input');
-                var value = $input.val();
-                
-                var isIOSInstructed = (installer && 
-                    (installer.isAppleMobilePlatform || installer.isAppleDesktopPlatform) && 
-                    value === 'instructed');
-                    
-                if (!value || 
-                    (['not_started', 'declined', 'failed', 'prompted'].indexOf(value) !== -1) || 
-                    (value === 'no_support' && !(installer && installer.isUnderStandaloneMode)) && 
-                    !isIOSInstructed) {
-                    isValid = false;
-                    $(this).closest('.form-group').find('.status-message')
-                        .html('<strong style="color: red;">' + t('Please complete this required step before continuing.') + '</strong>');
+// Function to initialize the add-to-homescreen library
+function initializeAddToHomeScreen() {
+    console.log('Initializing add-to-homescreen library');
+    
+    // Check if AddToHomeScreen is available
+    if (!window.AddToHomeScreen) {
+        console.error('AddToHomeScreen not available in window object');
+        return;
+    }
+    
+    // Get app name from manifest
+    let appName = document.title;
+    
+    // Get app icon from manifest or use apple-touch-icon
+    let appIconUrl = '/apple-touch-icon.png';
+    
+    // Try to get the app name and icon from the manifest
+    const manifestLink = document.querySelector('link[rel="manifest"]');
+    if (manifestLink) {
+        fetch(manifestLink.href)
+            .then(response => response.json())
+            .then(data => {
+                if (data.name) {
+                    appName = data.name;
+                } else if (data.short_name) {
+                    appName = data.short_name;
                 }
+                
+                if (data.icons && data.icons.length > 0) {
+                    // Find a suitable icon (prefer 192x192 or larger)
+                    const suitableIcon = data.icons.find(icon => 
+                        icon.sizes && (icon.sizes.includes('192x192') || icon.sizes.includes('512x512'))
+                    );
+                    
+                    if (suitableIcon) {
+                        appIconUrl = suitableIcon.src;
+                    }
+                }
+                
+                initializeWithAppInfo(appName, appIconUrl);
+            })
+            .catch(error => {
+                console.error('Error fetching manifest:', error);
+                initializeWithAppInfo(appName, appIconUrl);
             });
-            
-            if (!isValid) {
-                e.preventDefault();
-                return false;
+    } else {
+        console.log('No manifest link found, using default values');
+        initializeWithAppInfo(appName, appIconUrl);
+    }
+}
+
+// Initialize with app info
+function initializeWithAppInfo(appName, appIconUrl) {
+    console.log('Initializing with app info:', { appName, appIconUrl });
+    
+    try {
+        window.AddToHomeScreenInstance = window.AddToHomeScreen({
+            appName: appName,
+            appIconUrl: appIconUrl,
+            assetUrl: 'https://cdn.jsdelivr.net/gh/philfung/add-to-homescreen@3.0/dist/assets/img/',
+            maxModalDisplayCount: -1,
+            displayOptions: { showMobile: true, showDesktop: true },
+            allowClose: true,
+            onShow: function() {
+                console.log('Add to homescreen dialog shown');
+            },
+            onClose: function() {
+                console.log('Add to homescreen dialog closed');
+                // Clear any active timeout handlers
+                if (window.activeTimeoutHandler) {
+                    window.activeTimeoutHandler.clear();
+                    window.activeTimeoutHandler = null;
+                }
+                handleAddToHomeScreenClosed(false);
+            },
+            onInstall: function() {
+                console.log('App installed to homescreen');
+                localStorage.setItem('pwa-app-installed', 'true');
+                // Clear any active timeout handlers
+                if (window.activeTimeoutHandler) {
+                    window.activeTimeoutHandler.clear();
+                    window.activeTimeoutHandler = null;
+                }
+                handleAddToHomeScreenClosed(true);
+            },
+            onCancel: function() {
+                console.log('Installation canceled');
+                // Clear any active timeout handlers
+                if (window.activeTimeoutHandler) {
+                    window.activeTimeoutHandler.clear();
+                    window.activeTimeoutHandler = null;
+                }
+                handleAddToHomeScreenClosed(false);
             }
+        });
+        
+        console.log('AddToHomeScreenInstance initialized successfully');
+        
+        // Handle beforeinstallprompt event for PWA installation
+        window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            window.deferredPrompt = e;
+            updateInstallButtonState();
+        });
+        
+        // Update the install button state now that we have initialized
+        updateInstallButtonState();
+    } catch (error) {
+        console.error('Error initializing AddToHomeScreen:', error);
+    }
+}
+
+// Handle when the add-to-homescreen dialog is closed
+function handleAddToHomeScreenClosed(installed) {
+    $('.add-to-homescreen-wrapper').each(function() {
+        var $wrapper = $(this);
+        var $status = $wrapper.find('.status-message');
+        var $hiddenInput = $wrapper.find('input');
+        var $button = $wrapper.find('.add-to-homescreen');
+        var isRequired = $wrapper.closest('.form-group').hasClass('required');
+        
+        if (installed) {
+            updateInstallButtonState();
+        } else {
+            $hiddenInput.val('declined');
+            if (isRequired) {
+                $status.html(t('This step is required. Please add the app to your home screen to continue.'));
+                $wrapper.closest('.form-group').removeClass('formr_answered');
+            } else {
+                $status.html(t('You can add the app to your home screen at any time.'));
+                $wrapper.closest('.form-group').addClass('formr_answered');
+            }
+            $button.html('<i class="fa fa-plus-square"></i> ' + t('Add to Home Screen'));
+            addBrowserSwitchUI($wrapper);
         }
     });
+}
+
+// Add form validation for required add-to-homescreen items
+$('form.main_formr_survey').on('submit', function(e) {
+    var $form = $(this);
+    var $requiredHomescreen = $form.find('.form-group.required .add-to-homescreen');
+    
+    if ($requiredHomescreen.length) {
+        var isValid = true;
+        $requiredHomescreen.each(function() {
+            var $input = $(this).closest('.add-to-homescreen-wrapper').find('input');
+            var value = $input.val();
+            
+            var isIOS = isIOSDevice();
+                
+            if (!value || 
+                (['not_started', 'declined', 'failed', 'prompted'].indexOf(value) !== -1) && 
+                !isStandalone()) {
+                isValid = false;
+                $(this).closest('.form-group').find('.status-message')
+                    .html('<strong style="color: red;">' + t('Please complete this required step before continuing.') + '</strong>');
+            }
+        });
+        
+        if (!isValid) {
+            e.preventDefault();
+            return false;
+        }
+    }
+});
+
+// Helper function to check if we're in standalone mode
+function isStandalone() {
+    return window.matchMedia('(display-mode: standalone)').matches || 
+        window.matchMedia('(display-mode: fullscreen)').matches || 
+        window.navigator.standalone;
 }
 
 export function initializePushNotifications() {

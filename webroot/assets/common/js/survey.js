@@ -1,7 +1,6 @@
 import $ from 'jquery';
 import webshim from 'webshim';
 import { mysql_datetime, flatStringifyGeo  } from './main.js';
-import '@khmyznikov/pwa-install';
 import { ButtonGroup, initializeButtonGroups } from './components/ButtonGroup';
 import { initializeAudioRecorders } from './components/AudioRecorder';
 import { initializePWAInstaller, initializePushNotifications, initializeRequestPhone } from './components/PWAInstaller';

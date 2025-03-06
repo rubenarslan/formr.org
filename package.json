@@ -44,8 +44,8 @@
         "webpack-dev-server": "^5.2.0"
     },
     "dependencies": {
-        "@khmyznikov/pwa-install": "^0.5.3",
         "ace-builds": "^1.4.12",
+        "add-to-homescreen": "github:philfung/add-to-homescreen",
         "bootstrap": "^3.4.1",
         "bootstrap-material-design": "0.5.10",
         "cookieconsent": "^3.1.1",
