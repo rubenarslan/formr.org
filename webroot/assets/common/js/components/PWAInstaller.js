@@ -190,9 +190,7 @@ const PushNotificationManager = {
             
             // Store subscription status in localStorage
             localStorage.setItem('push-notification-subscribed', 'true');
-            
-            // Note: Test notification is now handled in the click handler and after subscription
-            
+                        
             return { success: true, subscription };
         } catch (error) {
             console.error('Error subscribing to push:', error);
@@ -961,8 +959,15 @@ async function sendTestNotification(registration) {
             const testNotification = new Notification(t('Test notification'), {
                 body: t('This is a test notification. If you can see this, notifications are working!'),
                 icon: '/favicon.ico',
-                tag: 'test-notification'
+                tag: 'test-notification',
+                requireInteraction: false
             });
+            
+            // Add click event handler that does nothing
+            testNotification.onclick = (e) => {
+                e.preventDefault();
+                return false;
+            };
             
             // Close the test notification after 5 seconds
             setTimeout(() => {
