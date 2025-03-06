@@ -125,22 +125,19 @@ function getBestIcon(purpose = 'any') {
 /**
  * Manages the app badge using the Badging API if available
  * @param {number|null} count - The badge count to set, or null to clear
- * @param {string} action - 'set', 'clear'
  * @returns {Promise<void>}
  */
-async function manageBadge(count, action = 'set') {
-  if (!('setAppBadge' in self.registration)) {
-    console.log('Badging API not supported in service worker');
+async function manageBadge(count) {
+  if (!('setAppBadge' in navigator)) {
+    console.log('Badging API not supported in this environment');
     return;
   }
 
   try {
-    if (action === 'clear') {
-      await self.registration.clearAppBadge();
-    } else if (action === 'set' && count > 0) {
-      await self.registration.setAppBadge(count);
+    if (count && count > 0) {
+      await navigator.setAppBadge(count);
     } else {
-      await self.registration.clearAppBadge();
+      await navigator.clearAppBadge();
     }
   } catch (error) {
     console.error('Error managing badge:', error);
@@ -170,11 +167,7 @@ async function checkAndCloseExpiredNotifications() {
             }, 0);
             
             // Update the badge count
-            if (totalBadgeCount > 0) {
-              await manageBadge(totalBadgeCount, 'set');
-            } else {
-              await manageBadge(null, 'clear');
-            }
+            await manageBadge(totalBadgeCount);
           }
         }
       }
@@ -258,10 +251,9 @@ self.addEventListener('push', (event) => {
       // Check for expired notifications
       await checkAndCloseExpiredNotifications();
 
-      // Update app badge if badgeCount is provided and Badging API is supported
-      if (data.badgeCount !== undefined && data.badgeCount !== null) {
-        await manageBadge(data.badgeCount, 'set');
-      }
+      // Update app badge if badgeCount is provided and Badging API is supported      
+      await manageBadge(data.badgeCount);
+
     } catch (error) {
       console.error('Error processing push notification:', error);
       // Ensure we show at least a basic notification even if processing fails
