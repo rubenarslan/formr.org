@@ -101,8 +101,7 @@ class PushNotificationService
         $payload = json_encode([
             'title' => $options['title'] ?? null,
             'body'  => $message,
-            'clickTarget' => run_url($this->run->name),
-            'icon'  => asset_url('pwa/maskable_icon_x192.png'),
+            'clickTarget' => $options['clickTarget'] ?? run_url($this->run->name),
             // Include additional notification options
             'tag' => $options['title'] ?? null,
             'priority' => $options['priority'] ?? 'normal',

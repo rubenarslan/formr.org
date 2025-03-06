@@ -143,6 +143,7 @@ class PushMessage extends RunUnit {
             $options = [
                 'message' => $message,
                 'title' => $title,
+                'clickTarget' => run_url($this->run->name, '', ['code' => $unitSession->runSession->session]),
                 'priority' => $this->priority,
                 // Use explicit casting for numeric values
                 'timeToLive' => (int)$this->time_to_live,

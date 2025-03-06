@@ -13,7 +13,7 @@ class Session {
     protected static $domain = ''; // strictest domain matching is leaving domain empty
     protected static $secure = true;
     protected static $httponly = true;
-    protected static $samesite = 'Strict';
+    protected static $samesite = 'Lax';
     
     const REQUEST_TOKENS_COOKIE = 'formr_token';
     const REQUEST_TOKENS = '_formr_request_tokens';
@@ -21,6 +21,11 @@ class Session {
     const REQUEST_NAME = '_formr_cookie';
     const ADMIN_COOKIE = 'formr_user';
 
+    /**
+     * Configures the session with the given configuration.
+     * 
+     * @param array $config The configuration array
+     */
     public static function configure($config = array()) {
         self::$lifetime = Config::get('session_cookie_lifetime');
         self::$secure = SSL;
@@ -54,6 +59,11 @@ class Session {
         session_start();
     }
 
+    /**
+     * Destroys the session and deletes the admin cookie if specified.
+     * 
+     * @param bool $with_admin Whether to delete the admin cookie
+     */
     public static function destroy($with_admin = true) {
         if ($with_admin === true) {
             self::deleteAdminCookie();
@@ -64,6 +74,11 @@ class Session {
         session_write_close();
     }
 
+    /**
+     * Checks if the session is closed.
+     * 
+     * @return bool True if the session is closed, false otherwise
+     */
     public static function over() {
         static $closed;
         if ($closed) {
@@ -74,24 +89,51 @@ class Session {
         return true;
     }
 
+    /**
+     * Checks if the session is expired.
+     * 
+     * @param int $expiry The expiration time of the session
+     * @return bool True if the session is expired, false otherwise
+     */
     public static function isExpired($expiry) {
         return isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $expiry);
     }
 
+    /**
+     * Sets a session variable.
+     * 
+     * @param string $key The key of the session variable
+     * @param mixed $value The value of the session variable
+     */
     public static function set($key, $value) {
         $_SESSION[$key] = $value;
     }
 
+    /**
+     * Gets a session variable.
+     * 
+     * @param string $key The key of the session variable
+     * @param mixed $default The default value to return if the key is not set
+     * @return mixed The value of the session variable or the default value
+     */
     public static function get($key, $default = null) {
         return isset($_SESSION[$key]) ? $_SESSION[$key] : $default;
     }
 
+    /**
+     * Deletes a session variable.
+     * 
+     * @param string $key The key of the session variable to delete
+     */
     public static function delete($key) {
         if (isset($_SESSION[$key])) {
             unset($_SESSION[$key]);
         }
     }
 
+    /**
+     * Refreshes the session with global variables.
+     */
     public static function globalRefresh() {
         global $user, $site;
         self::set('user', serialize($user));
@@ -205,16 +247,33 @@ class Session {
         return false;
     }
     
-    public static function setCookie($name, $value, $expires = 0, $path = "/", $domain = '') {
+    /**
+     * Sets a cookie with the given name, value, and parameters.
+     * 
+     * @param string $name The name of the cookie
+     * @param string $value The value of the cookie
+     * @param int $expires The expiration time of the cookie
+     * @param string $path The path on the server in which the cookie will be available on
+     * @param string $domain The domain that the cookie is available to
+     * @param string $samesite The same site attribute of the cookie
+     * @return bool True if the cookie was set successfully, false otherwise
+     */
+    public static function setCookie($name, $value, $expires = 0,  $path = "/", $domain = '', $samesite = 'Lax') {
         return setcookie($name, $value, 
                 ['expires' => time() + $expires, 
                 'path' => $path, 
                 'domain' => $domain, 
                 'secure' => self::$secure,
                 'httponly' => self::$httponly,
-                'samesite' => self::$samesite]);
+                'samesite' => $samesite]);
     }
     
+    /**
+     * Deletes a cookie with the given name.
+     * 
+     * @param string $name The name of the cookie to delete
+     * @return bool True if the cookie was deleted successfully, false otherwise
+     */
     public static function deleteCookie($name) {
         return setcookie($name, '',
             ['expires' => time() - 3600, 
@@ -225,6 +284,11 @@ class Session {
             'samesite' => self::$samesite]);
     }
   
+    /**
+     * Sets an admin cookie with the given user object.
+     * 
+     * @param User $admin The user object to set in the cookie
+     */
     public static function setAdminCookie(User $admin) {
         $data = [$admin->id, $admin->user_code, time()];
         
@@ -234,7 +298,7 @@ class Session {
         $cookie = self::setCookie(self::ADMIN_COOKIE, 
             Crypto::encrypt($data, '-'), 
             self::$lifetime,
-            $admin_path, self::$domain);
+            $admin_path, self::$domain, 'Strict');
         if (!$cookie) {
             formr_error(505, 'Invalid Token', 'Unable to set admin token');
         }
