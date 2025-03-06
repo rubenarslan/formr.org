@@ -1267,16 +1267,28 @@ if ('serviceWorker' in navigator) {
   });
   
   // Handle page visibility changes
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
+  ['visibilitychange', 'focus', 'pageshow'].forEach(eventType => {
+    window.addEventListener(eventType, () => {
       handlePendingNotifications().then(hadNotifications => {
-        // Only reload if we had notifications AND we're not already handling a reload
         if (hadNotifications && !localStorage.getItem('handling-notification-reload')) {
-          localStorage.setItem('handling-notification-reload', 'true');
+          localStorage.setItem('handling-notification-reload', Date.now());
           window.location.reload();
+        } else {
+          // Cleanup stale flag after 30s
+          const timestamp = parseInt(localStorage.getItem('handling-notification-reload'), 10);
+          if (timestamp && (Date.now() - timestamp > 30000)) {
+            localStorage.removeItem('handling-notification-reload');
+          }
         }
       });
-    }
+    });
+    document.addEventListener('DOMContentLoaded', () => {
+        handlePendingNotifications().then(hadNotifications => {
+          if (hadNotifications) {
+            window.location.reload();
+          }
+        });
+      });
   });
 }
 

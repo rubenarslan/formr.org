@@ -125,41 +125,25 @@ function getBestIcon(purpose = 'any') {
 /**
  * Manages the app badge using the Badging API if available
  * @param {number|null} count - The badge count to set, or null to clear
- * @param {string} action - 'set', 'clear', or 'decrement'
+ * @param {string} action - 'set', 'clear'
  * @returns {Promise<void>}
  */
 async function manageBadge(count, action = 'set') {
-  // Check if Badging API is supported
-  if (!('setAppBadge' in navigator)) {
-    console.log('Badging API not supported in this browser');
+  if (!('setAppBadge' in self.registration)) {
+    console.log('Badging API not supported in service worker');
     return;
   }
 
   try {
     if (action === 'clear') {
-      await navigator.clearAppBadge();
-      console.log('App badge cleared');
-    } else if (action === 'set' && count !== null && count !== undefined) {
-      const numCount = parseInt(count, 10);
-      if (numCount > 0) {
-        await navigator.setAppBadge(numCount);
-        console.log(`App badge set to ${numCount}`);
-      } else if (numCount === 0) {
-        await navigator.clearAppBadge();
-        console.log('App badge cleared (count was 0)');
-      }
-    } else if (action === 'decrement' && count !== null && count !== undefined) {
-      const numCount = parseInt(count, 10);
-      if (numCount > 1) {
-        await navigator.setAppBadge(numCount - 1);
-        console.log(`App badge decremented to ${numCount - 1}`);
-      } else {
-        await navigator.clearAppBadge();
-        console.log('App badge cleared (count was ≤ 1)');
-      }
+      await self.registration.clearAppBadge();
+    } else if (action === 'set' && count > 0) {
+      await self.registration.setAppBadge(count);
+    } else {
+      await self.registration.clearAppBadge();
     }
   } catch (error) {
-    console.error('Error managing app badge:', error);
+    console.error('Error managing badge:', error);
   }
 }
 
@@ -293,43 +277,20 @@ self.addEventListener('push', (event) => {
 
 // Handle notification click
 self.addEventListener('notificationclick', (event) => {
-  console.log('Notification clicked:', event.notification);
-  
-  // Get the custom data from the notification
-  const data = event.notification.data || {};
-  
-  // Handle badge count with Badging API if available
-  manageBadge(null, 'clear');
+  const targetUrl = event.notification.data?.clickTarget || self.registration.scope;
 
-  // Close the notification
-  event.notification.close();
-  
   event.waitUntil(
-    // Send reload message to all clients
-    clients.matchAll({ type: 'window' }).then(windowClients => {
-      windowClients.forEach(client => {
-        client.postMessage({
-          type: 'NOTIFICATION_CLICK',
-          action: 'reload'
-        });
-      });
-
-      // Focus or open window after sending reload message
-      const targetUrl = data.clickTarget || self.registration.scope;
-      
-      // Try to find and focus existing window
-      const matchingClient = windowClients.find(client => 
-        client.url === targetUrl && 'focus' in client
-      );
-      
-      if (matchingClient) {
-        return matchingClient.focus();
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Focus existing client matching targetUrl
+      for (const client of windowClients) {
+        if (client.url.includes(targetUrl) && 'navigate' in client) {
+          return client.navigate(targetUrl).then((client) => client.focus());
+        }
       }
-      
-      // If no existing window, open new one
+      // No matching client; open new window
       if (clients.openWindow) {
         return clients.openWindow(targetUrl);
       }
     })
   );
-}); 
+});
