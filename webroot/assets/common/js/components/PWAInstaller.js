@@ -1085,4 +1085,4 @@ if ('serviceWorker' in navigator) {
       });
     }
   });
-} 
+}

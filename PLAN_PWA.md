@@ -34,7 +34,7 @@ Probably need to log when users no longer receive push notifications. What to do
 ## Problems:
 - [x] App reloads when people open the app after having received a push message. Push messages are then cleared.
 - [x] Badge counts
-- [ ] Vibrate/Silent properties are respected, unclear about time-to-live. Do we need tags?
+- [x] Vibrate/Silent properties are respected, time-to-live is enforced as expiring old notifications. All notifications with the same title have the same tag.
 - [ ] Some browsers (e.g., iOS Brave don't allow for adding to home screen)
 - [ ] Submit button is deactivated upon trying to submit a required home screen/phone item, better integrate with existing form validation API?
 - [ ] Should hide the inputs again

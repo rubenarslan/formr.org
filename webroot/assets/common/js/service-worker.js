@@ -216,91 +216,79 @@ self.addEventListener('push', (event) => {
     return;
   }
 
-  try {
-    // Check for expired notifications first
-    event.waitUntil(
-      checkAndCloseExpiredNotifications().then(async () => {
-        const data = event.data.json();
-        console.log('Push notification data received:', JSON.stringify(data));
-        
-        // Generate unique tag if not provided
-        const tag = data.tag || `notification-${Date.now()}`;
-        const timestamp = Date.now();
-        
-        // Log the vibrate value specifically for debugging
-        console.log('Vibrate value:', {
-          raw: data.vibrate,
-          type: typeof data.vibrate,
-          willVibrate: !(data.vibrate === false || data.vibrate === 0)
-        });
-        
-        // Log all notification options for debugging
-        console.log('All notification options:', {
-          requireInteraction: data.requireInteraction,
-          renotify: data.renotify,
-          silent: data.silent,
-          timeToLive: data.timeToLive,
-          badgeCount: data.badgeCount,
-          topic: data.topic
-        });
-        
-        // Update app badge if badgeCount is provided and Badging API is supported
-        if (data.badgeCount !== undefined && data.badgeCount !== null) {
-          manageBadge(data.badgeCount, 'set');
-        }
+  const pushEventHandler = async () => {
+    try {
+      const data = event.data.json();
+      console.log('Push notification data received:', JSON.stringify(data));
+      
+      // Generate unique tag if not provided
+      const tag = data.tag || `notification-${Date.now()}`;
+      const timestamp = Date.now();
 
-        const options = {
-          body: data.body || '',
-          icon: data.icon || getBestIcon('any'),
-          badge: getBestIcon('badge') || getBestIcon('maskable') || getBestIcon('any'),
+      const options = {
+        body: data.body || '',
+        icon: data.icon || getBestIcon('any'),
+        badge: getBestIcon('badge') || getBestIcon('maskable') || getBestIcon('any'),
+        tag: tag,
+        // Map priority to urgency
+        urgency: data.priority || 'normal',
+        // Check vibrate explicitly - handle both boolean false and falsy values like 0
+        vibrate: data.vibrate === false || data.vibrate === 0 ? undefined : [100, 50, 100],
+        // Add additional configurable options - use explicit checking for boolean values
+        requireInteraction: data.requireInteraction === false ? false : (data.requireInteraction === true ? true : false),
+        renotify: data.renotify === false ? false : (data.renotify === true ? true : false),
+        silent: data.silent === false ? false : (data.silent === true ? true : false),
+        data: {
+          dateOfArrival: timestamp,
+          primaryKey: 1,
+          clickTarget: data.clickTarget || (manifestData?.start_url || '/'),
+          topic: data.topic || undefined,
           tag: tag,
-          // Map priority to urgency
-          urgency: data.priority || 'normal',
-          // Check vibrate explicitly - handle both boolean false and falsy values like 0
-          vibrate: data.vibrate === false || data.vibrate === 0 ? undefined : [100, 50, 100],
-          // Add additional configurable options - use explicit checking for boolean values
-          requireInteraction: data.requireInteraction === false ? false : (data.requireInteraction === true ? true : false),
-          renotify: data.renotify === false ? false : (data.renotify === true ? true : false),
-          silent: data.silent === false ? false : (data.silent === true ? true : false),
-          data: {
-            dateOfArrival: timestamp,
-            primaryKey: 1,
-            clickTarget: data.clickTarget || (manifestData?.start_url || '/'),
-            topic: data.topic || undefined,
-            tag: tag,
-            // Move badgeCount here as custom data
-            badgeCount: data.badgeCount !== undefined && data.badgeCount !== null ? parseInt(data.badgeCount, 10) : undefined,
-            // Store expiry timestamp if timeToLive is provided
-            timestamp: data.timeToLive !== undefined && data.timeToLive !== null ? Date.now() + (data.timeToLive * 1000) : undefined
-          },
-          actions: data.actions || []
-        };
+          // Move badgeCount here as custom data
+          badgeCount: data.badgeCount !== undefined && data.badgeCount !== null ? parseInt(data.badgeCount, 10) : undefined,
+          // Store expiry timestamp if timeToLive is provided
+          timestamp: data.timeToLive !== undefined && data.timeToLive !== null ? Date.now() + (data.timeToLive * 1000) : undefined
+        },
+        actions: data.actions || []
+      };
 
-        // Set time to live if provided (handle 0 as valid value)
-        if (data.timeToLive !== undefined && data.timeToLive !== null) {
-          options.timestamp = Date.now() + (data.timeToLive * 1000);
-        }
+      // Set time to live if provided (handle 0 as valid value)
+      if (data.timeToLive !== undefined && data.timeToLive !== null) {
+        options.timestamp = Date.now() + (data.timeToLive * 1000);
+      }
 
-        // Show notification and notify clients
-        event.waitUntil(
-          Promise.all([
-            self.registration.showNotification(data.title || 'Notification', options),
-            // Notify all clients about the new notification
-            clients.matchAll({ type: 'window' }).then(windowClients => {
-              windowClients.forEach(client => {
-                client.postMessage({
-                  type: 'NEW_NOTIFICATION',
-                  tag: tag
-                });
-              });
-            })
-          ])
-        );
-      })
-    );
-  } catch (error) {
-    console.error('Error showing notification:', error);
-  }
+      // Show notification and notify clients
+      await Promise.all([
+        self.registration.showNotification(data.title || 'Notification', options),
+        // Notify all clients about the new notification
+        clients.matchAll({ type: 'window' }).then(windowClients => {
+          windowClients.forEach(client => {
+            client.postMessage({
+              type: 'NEW_NOTIFICATION',
+              tag: tag
+            });
+          });
+        })
+      ]);
+
+      // Check for expired notifications
+      await checkAndCloseExpiredNotifications();
+
+      // Update app badge if badgeCount is provided and Badging API is supported
+      if (data.badgeCount !== undefined && data.badgeCount !== null) {
+        await manageBadge(data.badgeCount, 'set');
+      }
+    } catch (error) {
+      console.error('Error processing push notification:', error);
+      // Ensure we show at least a basic notification even if processing fails
+      await self.registration.showNotification('New Message', {
+        body: 'A new message has arrived.',
+        icon: getBestIcon('any')
+      });
+    }
+  };
+
+  event.waitUntil(pushEventHandler());
 });
 
 // Handle notification click
