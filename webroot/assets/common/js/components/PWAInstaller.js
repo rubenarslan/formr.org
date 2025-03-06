@@ -70,7 +70,24 @@ window.formrTranslations.de = {
     'Or open this link on your phone:': 'Oder öffnen Sie diesen Link auf Ihrem Telefon:',
     'Once you scan the QR code, you can continue the survey on your phone.': 'Sobald Sie den QR-Code gescannt haben, können Sie die Umfrage auf Ihrem Telefon fortsetzen.',
     'This step requires you to continue on a mobile device before proceeding.': 'Dieser Schritt erfordert, dass Sie auf einem mobilen Gerät fortfahren, bevor Sie fortfahren können.',
-    'Please complete this required step before continuing.': 'Bitte führen Sie diesen erforderlichen Schritt aus, bevor Sie fortfahren.'
+    'Please complete this required step before continuing.': 'Bitte führen Sie diesen erforderlichen Schritt aus, bevor Sie fortfahren.',
+
+    // New translations
+    'Installation not working? Try switching to a supported browser like Chrome or Safari.': 'Installation funktioniert nicht? Versuchen Sie es mit einem unterstützten Browser wie Chrome oder Safari.',
+    'Switch Browser': 'Browser wechseln',
+    'If you are having trouble installing the app, this browser may not be fully supported. Please use Chrome, Safari or Firefox for the best experience.': 'Wenn Sie Probleme beim Installieren der App haben, kann dieser Browser möglicherweise nicht vollständig unterstützt werden. Bitte verwenden Sie Chrome, Safari oder Firefox für die beste Erfahrung.',
+    'You need to install this study\'s app on your phone to receive notifications on the go': 'Sie müssen die App dieser Studie auf Ihrem Telefon installieren, um unterwegs Benachrichtigungen zu erhalten',
+    'Installation is not supported in your browser.': 'Installation wird in Ihrem Browser nicht unterstützt.',
+    'Installation failed. You can try again or add to home screen manually from your browser menu.': 'Installation fehlgeschlagen. Sie können es erneut versuchen oder manuell über Ihr Browser-Menü zum Startbildschirm hinzufügen.',
+    'This step is required. Please add the app to your home screen to continue.': 'Dieser Schritt ist erforderlich. Bitte fügen Sie die App zu Ihrem Startbildschirm hinzu, um fortzufahren.',
+    'You can add the app to your home screen at any time.': 'Sie können die App jederzeit zu Ihrem Startbildschirm hinzufügen.',
+    'Follow the instructions to add this app to your home screen.': 'Folgen Sie den Anweisungen, um diese App zu Ihrem Startbildschirm hinzuzufügen.',
+    'Please complete this required step before continuing.': 'Bitte führen Sie diesen erforderlichen Schritt aus, bevor Sie fortfahren.',
+    'Scan this QR code with your phone to continue on your mobile device.': 'Scannen Sie diesen QR-Code mit Ihrem Telefon, um auf Ihrem mobilen Gerät fortzufahren.',
+    'Link': 'Link',
+    'Preparing installation...': 'Installation wird vorbereitet...',
+    'Configuration Error': 'Konfigurationsfehler',
+    'Copied!': 'Kopiert!',
 };
 
 // Use the centralized translation helper
@@ -182,8 +199,17 @@ const PushNotificationManager = {
     }
 };
 
+// Add browser detection helper functions
+async function isBraveBrowser() {
+    return (navigator.brave && await navigator.brave.isBrave()) || false;
+}
+
+function isIOSDevice() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
 // Update the state of installation button and related UI elements
-function updateInstallButtonState() {
+async function updateInstallButtonState() {
     const $wrapper = $('.add-to-homescreen-wrapper');
     const $button = $wrapper.find('.add-to-homescreen');
     const $status = $wrapper.find('.status-message');
@@ -193,6 +219,19 @@ function updateInstallButtonState() {
     // When first called, store the default text on the button in a data attribute.
     if (!$button.data('default-text')) {
         $button.data('default-text', $button.html());
+    }
+
+    // Check for Brave on iOS
+    const isBrave = await isBraveBrowser();
+    const isIOS = isIOSDevice();
+    
+    if (isBrave && isIOS) {
+        $hiddenInput.val('unsupported_browser');
+        $status.html(t('Brave browser on iOS does not support adding to home screen. Please use Safari, Chrome or Firefox for the best experience.'));
+        addBrowserSwitchUI($wrapper);
+        $button.prop('disabled', true);
+        $button.hide();
+        return;
     }
 
     if (!installer) {
@@ -292,17 +331,28 @@ export function initializePWAInstaller() {
         
         if (!installer) {
             $hiddenInput.val('no_support');
-            $status.html('Installation is not supported in your browser.');
+            $status.html(t('Installation is not supported in your browser.'));
             return false;
         }
         
-        installer.showDialog();
-        const res = installer.showDialog(true);
-        $hiddenInput.val('prompted');
-        $status.html('Preparing installation...');
-        $btn.html('<i class="fa fa-spinner fa-spin"></i> Processing...');
-        
+        // Start installation timeout handler
+        const timeoutHandler = handleInstallTimeout($wrapper);
+        timeoutHandler.start();
 
+        installer.showDialog();
+        $hiddenInput.val('prompted');
+        $status.html(t('Preparing installation...'));
+        $btn.html('<i class="fa fa-spinner fa-spin"></i> ' + t('Processing...'));
+
+        // Clear timeout on successful installation
+        installer.addEventListener('pwa-install-success-event', function() {
+            timeoutHandler.clear();
+        }, { once: true });
+
+        // Clear timeout on failed installation
+        installer.addEventListener('pwa-install-fail-event', function() {
+            timeoutHandler.clear();
+        }, { once: true });
         
         return false;
     });
@@ -315,7 +365,7 @@ export function initializePWAInstaller() {
 
             updateInstallButtonState();
 			
-			installer.hideDial
+			installer.hideDialog();
 		});
         
         // Installation failed
@@ -329,8 +379,9 @@ export function initializePWAInstaller() {
                 var $button = $wrapper.find('.add-to-homescreen');
                 
                 $hiddenInput.val('failed');
-                $status.html('Installation failed. You can try again or add to home screen manually from your browser menu.');
-                $button.html('<i class="fa fa-plus-square"></i> Add to Home Screen');
+                $status.html(t('Installation failed. You can try again or add to home screen manually from your browser menu.'));
+                $button.html('<i class="fa fa-plus-square"></i> ' + t('Add to Home Screen'));
+                addBrowserSwitchUI($wrapper);
             });
             
             installer.hideDialog();
@@ -353,13 +404,15 @@ export function initializePWAInstaller() {
 				} else {
 					$hiddenInput.val('declined');
 					if (isRequired) {
-						$status.html('This step is required. Please add the app to your home screen to continue.');
+						$status.html(t('This step is required. Please add the app to your home screen to continue.'));
 						$wrapper.closest('.form-group').removeClass('formr_answered');
 					} else {
-						$status.html('You can add the app to your home screen at any time.');
+						$status.html(t('You can add the app to your home screen at any time.'));
 						$wrapper.closest('.form-group').addClass('formr_answered');
 					}
-					$button.html('<i class="fa fa-plus-square"></i> Add to Home Screen');
+					$button.html('<i class="fa fa-plus-square"></i> ' + t('Add to Home Screen'));
+                    addBrowserSwitchUI($wrapper);
+
 				}
 			});
 			
@@ -376,7 +429,7 @@ export function initializePWAInstaller() {
                 var $hiddenInput = $wrapper.find('input');
                 
                 $hiddenInput.val('instructed');
-                $status.html('Follow the instructions to add this app to your home screen.');
+                $status.html(t('Follow the instructions to add this app to your home screen.'));
             });
         });
         
@@ -409,7 +462,7 @@ export function initializePWAInstaller() {
                     !isIOSInstructed) {
                     isValid = false;
                     $(this).closest('.form-group').find('.status-message')
-                        .html('<strong style="color: red;">Please complete this required step before continuing.</strong>');
+                        .html('<strong style="color: red;">' + t('Please complete this required step before continuing.') + '</strong>');
                 }
             });
             
@@ -824,8 +877,8 @@ function isMobileDevice() {
     return mobileRegex.test(navigator.userAgent);
 }
 
-// Function to generate a QR code with the current page URL
-function generateQRCode(container, logoUrl) {
+// Function to generate the redirect link with code parameter if needed
+function generateRedirectLink() {
     // Get the current URL
     let currentUrl = window.location.href;
     
@@ -843,6 +896,14 @@ function generateQRCode(container, logoUrl) {
             currentUrl += `?code=${encodeURIComponent(code)}`;
         }
     }
+    
+    return currentUrl;
+}
+
+// Function to generate a QR code with the current page URL
+function generateQRCode(container, logoUrl) {
+    // Get the redirect link
+    const currentUrl = generateRedirectLink();
     
     // Create a new QR Code instance
     const qrCode = new QRCodeStyling({
@@ -917,93 +978,119 @@ async function getLogoUrlFromManifest() {
 }
 
 // Function to initialize the RequestPhone item
-export function initializeRequestPhone() {
-    $('.item-request_phone').each(async function() {
-        const $item = $(this);
-        const $wrapper = $item.find('.request-phone-wrapper');
-        const $status = $wrapper.find('.status-message');
-        const $qrContainer = $wrapper.find('.qr-code-container')[0];
-        const $hiddenInput = $wrapper.find('input');
-        const $instructions = $wrapper.find('.instructions');
+export function initializeRequestPhone(force_show_guide = false) {
+    $('.request-phone-wrapper').each(function() {
+        const $wrapper = $(this);
+        const $qrContainer = $wrapper.find('.qr-code-container');
+        const $statusMessage = $wrapper.find('.status-message');
+        const $hiddenInput = $wrapper.find('input[name="request_phone"]');
+        const force_show = force_show_guide || $wrapper.data('force-show') === true;
         
-        const isOnMobile = isMobileDevice();
-        
-        if (isOnMobile) {
-            $hiddenInput.val('is_phone');
-            $instructions.html(`<p>${t('You are using a mobile device. You can proceed with the survey.')}</p>`);
-            $wrapper.closest('.form-group').addClass('formr_answered');
-        } else {
-            $hiddenInput.val('is_desktop');
-            $instructions.html(`<p>${t('Please scan this QR code with your mobile device to continue the survey on your phone:')}</p>`);
-            
-            $($qrContainer).show();
-            
-            const logoUrl = await getLogoUrlFromManifest();
-            const qrUrl = generateQRCode($qrContainer, logoUrl);
-            
-            const linkHtml = `
-                <div class="qr-code-link" style="margin: 10px auto; text-align: center; word-break: break-all;">
-                    <p>${t('Or open this link on your phone:')}</p>
-                    <a href="${qrUrl}" target="_blank">${qrUrl}</a>
-                </div>
-            `;
-            
-            $status.html(
-                `<p>${t('Once you scan the QR code, you can continue the survey on your phone.')}</p>` +
-                linkHtml
-            );
+        // Add CSS class for styling if it's an unsupported browser case
+        if (force_show) {
+            $wrapper.addClass('unsupported-browser');
         }
-    });
 
-    // Form validation for required request-phone items
-    $('form.main_formr_survey').on('submit', function(e) {
-        var $form = $(this);
-        var $requiredPhone = $form.find('.form-group.required.item-request_phone');
+        // Check if we're on a mobile device
+        const isMobile = isMobileDevice();
         
-        if ($requiredPhone.length) {
-            var isValid = true;
-            $requiredPhone.each(function() {
-                var $input = $(this).find('input');
-                var value = $input.val();
-                
-                if (!value || value === 'not_checked' || value === 'is_desktop') {
-                    isValid = false;
-                    $(this).closest('.form-group').find('.status-message')
-                        .html(`<strong style="color: red;">${t('This step requires you to continue on a mobile device before proceeding.')}</strong>`);
-                }
-            });
+        // Three conditions to handle:
+        // 1. Unsupported mobile browser (force_show is true AND mobile)
+        // 2. Desktop browser (not mobile OR forced show)
+        // 3. Supported mobile browser (mobile and not forced)
+        
+        if (force_show && isMobile) {
+            // Case 1: Unsupported mobile browser - show guidance to switch browsers
+            $statusMessage.html(t('If you are having trouble installing the app, this browser may not be fully supported. Please use Chrome, Safari or Firefox for the best experience.'));
             
-            if (!isValid) {
-                e.preventDefault();
-                return false;
+            // Create link for browser switch
+            const redirectLink = generateRedirectLink();
+            let link = `<a href="${redirectLink}" class="btn">
+                        <i class="fa fa-link"></i> ${t('Open in different browser')}
+                    </a>`;
+            if(isIOSDevice()) {
+                link = `<a href="x-safari-${redirectLink}" class="btn">
+                        <i class="fa fa-safari"></i> ${t('Open in Safari')}
+                    </a>` + link;
             }
-        }
-
-        var $requiredHomescreen = $form.find('.form-group.required .add-to-homescreen');
-        
-        if ($requiredHomescreen.length) {
-            var isValid = true;
-            $requiredHomescreen.each(function() {
-                var $input = $(this).closest('.add-to-homescreen-wrapper').find('input');
-                var value = $input.val();
-                
-                var isIOSInstructed = (installer && 
-                    (installer.isAppleMobilePlatform || installer.isAppleDesktopPlatform) && 
-                    value === 'instructed');
-                    
-                if (!value || 
-                    (['not_started', 'declined', 'failed', 'prompted'].indexOf(value) !== -1) || 
-                    (value === 'no_support' && !(installer && installer.isUnderStandaloneMode)) && 
-                    !isIOSInstructed) {
-                    isValid = false;
-                    $(this).closest('.form-group').find('.status-message')
-                        .html(`<strong style="color: red;">${t('Please complete this required step before continuing.')}</strong>`);
-                }
+            const $browserSwitchLink = $(
+                `<div class="browser-switch-links btn-group">
+                    ${link}
+                    <button class="btn copy-on-click" data-copy-link="${redirectLink}">
+                        <i class="fa fa-copy"></i> ${t('Copy link')}
+                    </button>
+                </div>`
+            );
+            $statusMessage.after($browserSwitchLink);
+            
+            // Attach click handler to the button
+            $browserSwitchLink.find('button.copy-on-click').on('click', function(e) {
+                copyToClipboard($(this).data('copy-link'), this);
             });
             
-            if (!isValid) {
-                e.preventDefault();
-                return false;
+            // Hide and disable QR code container
+            $qrContainer.hide().empty();
+            
+        } else if (!isMobile || force_show) {
+            // Case 2: Desktop browser or forced display - show QR code
+            if (!$qrContainer.data('initialized')) {
+                $statusMessage.html(t('Scan this QR code with your phone to continue on your mobile device.'));
+                $hiddenInput.val('desktop');
+                
+                // Show QR container
+                $qrContainer.show();
+                
+                // Generate QR code
+                getLogoUrlFromManifest().then(logoUrl => {
+                    generateQRCode($qrContainer[0], logoUrl);
+                    $qrContainer.data('initialized', true);
+                });
+                
+                // Add text instruction about manual copy
+                const redirectLink = generateRedirectLink();
+                const $manualCopy = $(
+                    `<div class="manual-copy-link">
+                        <p>${t('Or copy this link to your phone:')}</p>
+                        <div class="btn-group">
+                            <a href="${redirectLink}" class="btn">
+                                <i class="fa fa-link"></i> ${t('Link')}
+                            </a>
+                            <button class="btn btn-default copy-link-btn" type="button" data-copy-link="${redirectLink}">
+                                <i class="fa fa-copy"></i> ${t('Copy')}
+                            </button>
+                        </div>
+                    </div>`
+                );
+                $statusMessage.after($manualCopy);
+                
+                // Attach click handler to the manual copy button
+                $manualCopy.find('button.copy-link-btn').on('click', function(e) {
+                    copyToClipboard($(this).data('copy-link'), this);
+                });
+            }
+        } else {
+            // Case 3: Supported mobile browser
+            $statusMessage.html(t('You are already on a mobile device. You can continue.'));
+            $hiddenInput.val('mobile');
+            
+            // Hide QR code container in this case
+            $qrContainer.hide();
+            
+            // Add a continue button
+            if (!$wrapper.find('.continue-btn').length) {
+                const $continueBtn = $(`
+                    <button class="btn btn-success continue-btn">
+                        <i class="fa fa-check"></i> ${t('Continue')}
+                    </button>`
+                );
+                $statusMessage.after($continueBtn);
+                
+                // Mark as completed when continue is clicked
+                $continueBtn.on('click', function() {
+                    $hiddenInput.val('completed');
+                    $wrapper.addClass('completed');
+                    $(this).prop('disabled', true).html(`<i class="fa fa-check"></i> ${t('Completed')}`);
+                });
             }
         }
     });
@@ -1085,4 +1172,82 @@ if ('serviceWorker' in navigator) {
       });
     }
   });
+}
+
+// Add new function to handle installation timeout
+function handleInstallTimeout($wrapper) {
+    const timeoutDuration = 20000; // 20 seconds
+    let installTimeoutId = null;
+
+    return {
+        start: () => {
+            installTimeoutId = setTimeout(() => {
+                const $status = $wrapper.find('.status-message');
+                const $button = $wrapper.find('.add-to-homescreen');
+                
+                // Clear any existing content and add the browser switch UI
+                $status.html(t('Installation not working? Try switching to a supported browser like Chrome or Safari.'));
+                addBrowserSwitchUI($wrapper);
+                
+                // Reset button state
+                $button.prop('disabled', false);
+                $button.html($button.data('default-text'));
+            }, timeoutDuration);
+        },
+        clear: () => {
+            if (installTimeoutId) {
+                clearTimeout(installTimeoutId);
+                installTimeoutId = null;
+            }
+        }
+    };
+}
+
+// Add new function to create browser switch UI
+function addBrowserSwitchUI($wrapper) {
+    // Remove any existing browser switch UI
+    if($(".browser-switch-ui").length > 0) {
+        return;
+    }
+
+    // Create new browser switch UI
+    const $browserSwitchUI = $(`
+        <div class="browser-switch-ui form-group form-row required item-request_phone">
+            <label class="control-label" for="item532"> ${t('You need to install this study\'s app on your phone to receive notifications on the go')} </label>
+            <div class="controls">
+				<div class="controls-inner">
+					<div class="request-phone-wrapper">
+                        <p class="instructions"></p>
+                        <div class="qr-code-container"></div>
+                        <div class="status-message">${t('Scan this QR code with your phone to continue on your mobile device.')}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `);
+
+    // Add it after the status message
+//    $wrapper.closest('.form-group').hide();
+    $wrapper.closest('.form-group').after($browserSwitchUI);
+
+    // Initialize only the new request-phone-wrapper
+    initializeRequestPhone(true);
+}
+
+// Define copyToClipboard function for copying text to clipboard with UI feedback
+function copyToClipboard(text, btn) {
+    var originalText = btn ? btn.innerHTML : '';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text)
+            .then(function() {
+                console.log('Text copied to clipboard');
+                if (btn) {
+                    btn.innerHTML = '<i class="fa fa-check"></i> ' + t('Copied!');
+                    setTimeout(function() { btn.innerHTML = originalText; }, 2000);
+                }
+            })
+            .catch(function(err) {
+                console.error('Failed to copy text: ', err);
+            });
+    }
 }
