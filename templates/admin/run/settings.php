@@ -201,6 +201,9 @@
                                         <p>
                                             Formr studies can be installed as a PWA (Progressive Web App) on the home screen. This allows you to send push notifications to users to invite them to return to the study, e.g. for experience sampling studies. To make this work, you need to generate a manifest.json file in the study/run settings. Just click the button with the magic wand to generate a manifest.json file based on your run settings. You can then customize it further. A manifest.json file is required for the PWA (adding to home screen, push notifications) to work.
                                         </p>
+                                        <p>
+                                            If you don't eschew the effort, you can package your PWA and distribute via one of the app stores. For a report on your PWA, customize your manifest, make your study public and see <a href="https://www.pwabuilder.com/reportcard?site=<?php echo run_url($run->name); ?>" target="_blank">PWA report on PWA Builder</a>.
+                                        </p>
                                         <div class="form-group col-md-12">
                                             <textarea data-editor="json" placeholder="Enter your manifest JSON here" name="manifest_json"  id="manifest_json" rows="40" cols="80" class="big_ace_editor form-control"><?= h($run->getManifestJSON()); ?></textarea>
                                         </div>

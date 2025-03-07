@@ -11,63 +11,168 @@
   "orientation": "any",
   "icons": [
     {
-      "purpose": "any maskable",
+      "purpose": "any",
       "sizes": "512x512",
       "src": "/assets/pwa/maskable_icon_x512.png",
       "type": "image/png"
     },
     {
-      "purpose": "any maskable",
+      "purpose": "any",
       "sizes": "384x384",
       "src": "/assets/pwa/maskable_icon_x384.png",
       "type": "image/png"
     },
     {
-      "purpose": "any maskable",
+      "purpose": "any",
       "sizes": "192x192",
       "src": "/assets/pwa/maskable_icon_x192.png",
       "type": "image/png"
     },
     {
-      "purpose": "any maskable",
+      "purpose": "any",
       "sizes": "128x128",
       "src": "/assets/pwa/maskable_icon_x128.png",
       "type": "image/png"
     },
     {
-      "purpose": "any maskable",
+      "purpose": "any",
       "sizes": "96x96",
       "src": "/assets/pwa/maskable_icon_x96.png",
       "type": "image/png"
     },
     {
-      "purpose": "any maskable",
+      "purpose": "any",
       "sizes": "72x72",
       "src": "/assets/pwa/maskable_icon_x72.png",
       "type": "image/png"
     },
     {
-      "purpose": "any maskable",
+      "purpose": "any",
+      "sizes": "48x48",
+      "src": "/assets/pwa/maskable_icon_x48.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "maskable",
+      "sizes": "512x512",
+      "src": "/assets/pwa/maskable_icon_x512.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "maskable",
+      "sizes": "384x384",
+      "src": "/assets/pwa/maskable_icon_x384.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "maskable",
+      "sizes": "192x192",
+      "src": "/assets/pwa/maskable_icon_x192.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "maskable",
+      "sizes": "128x128",
+      "src": "/assets/pwa/maskable_icon_x128.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "maskable",
+      "sizes": "96x96",
+      "src": "/assets/pwa/maskable_icon_x96.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "maskable",
+      "sizes": "72x72",
+      "src": "/assets/pwa/maskable_icon_x72.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "maskable",
       "sizes": "48x48",
       "src": "/assets/pwa/maskable_icon_x48.png",
       "type": "image/png"
     }
   ],
+  "screenshots": [
+    {
+      "src": "/assets/pwa/screenshot_landscape.png",
+      "type": "image/png",
+      "sizes": "2622x1206",
+      "form_factor": "wide",
+      "label": "Application"
+    },
+    {
+      "src": "/assets/pwa/screenshot_portrait.png",
+      "type": "image/png",
+      "sizes": "1206x2622",
+      "form_factor": "narrow",
+      "label": "Application"
+    }
+  ],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone"
+  ],
+  "handle_links": "preferred",
+  "launch_handler": {
+    "client_mode": ["navigate-existing", "auto"]
+  },
   "shortcuts": [
+    {
+      "name": "Study",
+      "url": "{START_URL}",
+      "description": "Enter the study",
+      "icons": [
+        {
+          "src": "/assets/pwa/maskable_icon_x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
     {
       "name": "Settings",
       "url": "{START_URL}settings/",
-      "description": "Change notification settings"
+      "description": "Change notification settings",
+      "icons": [
+        {
+          "src": "/assets/pwa/security.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     },
     {
       "name": "Privacy Policy",
       "url": "{START_URL}privacy/",
-      "description": "Read our privacy policy"
+      "description": "Read our privacy policy",
+      "icons": [
+        {
+          "src": "/assets/pwa/message.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     },
     {
       "name": "Terms of Service",
       "url": "{START_URL}terms_of_service/",
-      "description": "Read our terms of service"
+      "description": "Read our terms of service",
+      "icons": [
+        {
+          "src": "/assets/pwa/magnifier.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "protocol_handlers": [
+    {
+      "protocol": "web+formr{APP_NAME}",
+      "url": "?pwa=true&query=%s"
     }
   ]
 } 
