@@ -234,19 +234,9 @@ self.addEventListener('push', (event) => {
         options.timestamp = Date.now() + (data.timeToLive * 1000);
       }
 
+      console.log(options);
       // Show notification and notify clients
-      await Promise.all([
-        self.registration.showNotification(data.title || 'Notification', options),
-        // Notify all clients about the new notification
-        clients.matchAll({ type: 'window' }).then(windowClients => {
-          windowClients.forEach(client => {
-            client.postMessage({
-              type: 'NEW_NOTIFICATION',
-              tag: tag
-            });
-          });
-        })
-      ]);
+      await self.registration.showNotification(data.title || 'Notification', options);
 
       // Check for expired notifications
       await checkAndCloseExpiredNotifications();
