@@ -182,6 +182,7 @@ async function manageBadge(count) {
 
 // Add a function to check and close expired notifications
 async function checkAndCloseExpiredNotifications() {
+  return;
   try {
     const notifications = await self.registration.getNotifications();
     const now = Date.now();
@@ -223,71 +224,57 @@ self.addEventListener('activate', (event) => {
 });
 
 // Handle incoming push events
-self.addEventListener('push', (event) => {
-  if (!event.data) {
-    console.log('Push event received but no data');
-    return;
-  }
+self.addEventListener('push', event => {
+  event.waitUntil((async () => {
+    if (!event.data) {
+      console.warn('Push event received without data');
+      return;
+    }
 
-  const pushEventHandler = async () => {
     try {
       const data = event.data.json();
-      console.log('Push notification data received:', JSON.stringify(data));
-      
-      // Generate unique tag if not provided
-      const tag = data.tag || `notification-${Date.now()}`;
+      console.log('Push notification data:', data);
+
       const timestamp = Date.now();
+      const tag = data.tag || `notification-${timestamp}`;
 
       const options = {
         body: data.body || '',
-        icon: data.icon || getBestIcon('any'),
-        badge: getBestIcon('badge') || getBestIcon('maskable') || getBestIcon('any'),
-        tag: tag,
-        // Map priority to urgency
+        icon: data.icon ? new URL(data.icon, self.location.origin).href : getBestIcon('any'),
+        badge: data.badge ? new URL(data.badge, self.location.origin).href : getBestIcon('badge'),
+        tag,
         urgency: data.priority || 'normal',
-        // Check vibrate explicitly - handle both boolean false and falsy values like 0
-        vibrate: data.vibrate === false || data.vibrate === 0 ? undefined : [100, 50, 100],
-        // Add additional configurable options - use explicit checking for boolean values
-        requireInteraction: data.requireInteraction === false ? false : (data.requireInteraction === true ? true : false),
-        renotify: data.renotify === false ? false : (data.renotify === true ? true : false),
-        silent: data.silent === false ? false : (data.silent === true ? true : false),
+        vibrate: data.vibrate === false ? undefined : [100, 50, 100],
+        requireInteraction: !!data.requireInteraction,
+        renotify: !!data.renotify,
+        silent: !!data.silent,
         data: {
           dateOfArrival: timestamp,
-          clickTarget: data.clickTarget || (manifestData?.start_url),
-          tag: tag,
-          // Move badgeCount here as custom data
-          badgeCount: data.badgeCount !== undefined && data.badgeCount !== null ? parseInt(data.badgeCount, 10) : undefined,
-          // Store expiry timestamp if timeToLive is provided
-          timestamp: data.timeToLive !== undefined && data.timeToLive !== null ? timestamp + (data.timeToLive * 1000) : undefined
+          clickTarget: data.clickTarget || manifestData?.start_url,
+          badgeCount: Number.isInteger(data.badgeCount) ? data.badgeCount : undefined,
+          timestamp: Number.isInteger(data.timeToLive) ? timestamp + data.timeToLive * 1000 : undefined
         }
       };
-      console.log("SW: Push notification options:", options);
 
-      // Set time to live if provided (handle 0 as valid value)
-      if (data.timeToLive !== undefined && data.timeToLive !== null) {
-        options.timestamp = timestamp + (data.timeToLive * 1000);
-      }
+      console.log('Notification options:', options);
 
-      // Show notification and notify clients
       await self.registration.showNotification(data.title || 'Notification', options);
+      console.log('Notification displayed');
 
-      // Check for expired notifications
-      await checkAndCloseExpiredNotifications();
-
-      // Update app badge if badgeCount is provided and Badging API is supported      
-      await manageBadge(data.badgeCount);
-
+      await manageBadge(options.data.badgeCount);
+      console.log('Badge updated');
+      
     } catch (error) {
-      console.error('Error processing push notification:', error);
-      // Ensure we show at least a basic notification even if processing fails
+      console.error('Push notification error:', error);
+
+      // Safe fallback notification
       await self.registration.showNotification('New Message', {
-        body: 'A new message has arrived.',
-        icon: getBestIcon('any')
+        body: 'You have a new notification.',
+        icon: getBestIcon('any'),
+        tag: 'fallback-notification'
       });
     }
-  };
-
-  event.waitUntil(pushEventHandler());
+  })());
 });
 
 self.addEventListener('notificationclick', (event) => {
@@ -311,7 +298,7 @@ self.addEventListener('notificationclick', (event) => {
     return;
   }
   console.log('Notification clicked with target:', targetUrl);
-
+  
   event.waitUntil((async () => {
     try {
       const allClients = await clients.matchAll({ 
@@ -320,9 +307,11 @@ self.addEventListener('notificationclick', (event) => {
       });
       
       console.log('Found window clients:', allClients.length);
-      
+    
+
       const normalizedTargetUrl = new URL(targetUrl, self.location.origin).href;
       console.log('Normalized URL:', normalizedTargetUrl);
+
 
       console.log("SW: All clients:", allClients);
       // First, try finding an exact match and focus it.
@@ -330,6 +319,11 @@ self.addEventListener('notificationclick', (event) => {
         console.log('Checking client URL:', client.url);
         if (client.url === normalizedTargetUrl && 'focus' in client) {
           console.log('Exact match found, focusing');
+           // Send a message to the client to reload the page
+          client.postMessage({
+            type: 'NOTIFICATION_CLICK',
+            action: 'reload'
+          });
           return client.focus();
         }
       }
@@ -338,8 +332,13 @@ self.addEventListener('notificationclick', (event) => {
       if (allClients.length > 0) {
         const client = allClients[0];
         console.log('No exact match, trying to navigate first client');
+        // Send a message to the client to reload the page
+        client.postMessage({
+          type: 'NOTIFICATION_CLICK',
+          action: 'reload'
+        });
         if ('navigate' in client) {
-          await client.navigate(normalizedTargetUrl);
+//          await client.navigate(normalizedTargetUrl);
           return client.focus();
         }
       }

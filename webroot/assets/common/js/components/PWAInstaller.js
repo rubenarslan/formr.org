@@ -1091,6 +1091,8 @@ async function handlePendingNotifications() {
     const notifications = await registration.getNotifications();
     
     // Close notifications but don't reload immediately
+    clearAppBadge();
+
     if (notifications.length > 0) {
       console.log('Found pending notifications:', notifications.length);
       notifications.forEach(notification => notification.close());
@@ -1099,6 +1101,7 @@ async function handlePendingNotifications() {
       localStorage.setItem('notifications-closed', 'true');
       return true;
     }
+
     return false;
   } catch (error) {
     console.error('Error checking notifications:', error);
@@ -1108,9 +1111,6 @@ async function handlePendingNotifications() {
 
 // Add service worker message handler at the top level
 if ('serviceWorker' in navigator) {
-  // Clear badge when page loads
-  clearAppBadge();
-  
   // Check for pending notifications and handle page initialization
   handlePendingNotifications().then(hadNotifications => {
     // Only reload if we had notifications AND we're not already handling a post-notification reload
@@ -1128,7 +1128,9 @@ if ('serviceWorker' in navigator) {
     if (event.data.type === 'NOTIFICATION_CLICK' && event.data.action === 'reload') {
       console.log('Received reload message from service worker');
       localStorage.setItem('handling-notification-reload', 'true');
-      window.location.reload();
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
     }
   });
   
