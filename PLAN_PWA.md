@@ -5,7 +5,7 @@
   - [ ] Workbox?
 - [x] Add a manifest.json
 - [x] Add icon 
-- [ ] Add a splash screen
+- [x] Add a splash screen
 - [ ] Autogenerate relevant images?
 - [x] Add relevant settings to @application/Controller/AdminSurveyController.php and @templates/admin/survey/index.php
 
@@ -35,10 +35,10 @@ Probably need to log when users no longer receive push notifications. What to do
 - [x] App reloads when people open the app after having received a push message. Push messages are then cleared.
 - [x] Badge counts
 - [x] Vibrate/Silent properties are respected, time-to-live is enforced as expiring old notifications. All notifications with the same title have the same tag.
-- [ ] Some browsers (e.g., iOS Brave don't allow for adding to home screen)
-- [ ] Submit button is deactivated upon trying to submit a required home screen/phone item, better integrate with existing form validation API?
+- [x] Some browsers (e.g., iOS Brave don't allow for adding to home screen)
+- [x] Submit button is deactivated upon trying to submit a required home screen/phone item, better integrate with existing form validation API?
 - [ ] Should hide the inputs again
-- [ ] Switch to https://github.com/philfung/add-to-homescreen ?
+- [x] Switch to https://github.com/philfung/add-to-homescreen ?
 
 ## Add documentation
 - [x] Add documentation to @templates/public/documentation/

@@ -27,7 +27,7 @@ if ('serviceWorker' in navigator) {
         const filesToCache = [...new Set([...stylesheets, ...scripts])];
 
         // Parse the run_url to determine the service worker path and scope
-        let serviceWorkerPath = '/service-worker/';
+        let serviceWorkerPath = '/service-worker';
         let scope = '/';
         let runUrl = new URL(window.formr.run_url);
         let siteUrl = new URL(window.formr.site_url);
@@ -37,7 +37,7 @@ if ('serviceWorker' in navigator) {
         if (runUrl.hostname === siteUrl.hostname) {
             // Remove trailing slash if present
             const pathWithoutTrailingSlash = runUrl.pathname.replace(/\/$/, '');
-            serviceWorkerPath = `${pathWithoutTrailingSlash}/service-worker/`;
+            serviceWorkerPath = `${pathWithoutTrailingSlash}/service-worker`;
             scope = runUrl.pathname;
             console.log('Using path-based service worker:', serviceWorkerPath, 'with scope:', scope);
         } else {
@@ -56,40 +56,56 @@ if ('serviceWorker' in navigator) {
             absoluteManifestPath = new URL(manifestPath, baseUrl).href;
             console.log('Converted manifest path to absolute URL:', absoluteManifestPath);
         }
-        
-        // Register service worker with the correct path and scope
-        navigator.serviceWorker.register(serviceWorkerPath, {
-            scope: scope
-        }).then(
-            (registration) => {
-            console.log('ServiceWorker registration successful with scope:', registration.scope);
-            navigator.serviceWorker.ready.then(registration => {
-                console.log('ServiceWorker ready with scope:', registration.scope);
-            });
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+        window.matchMedia('(display-mode: fullscreen)').matches || 
+        window.navigator.standalone;
 
-            // Function to send message to active service worker
-            const sendMessage = () => {
-                registration.active.postMessage({
-                    type: 'CACHE_ASSETS',
-                    assets: filesToCache,
-                    manifestPath: absoluteManifestPath
+        if(isStandalone) {
+            // Register service worker with the correct path and scope
+            navigator.serviceWorker.register(serviceWorkerPath, {
+                scope: scope
+            }).then(
+                (registration) => {
+                console.log('ServiceWorker registration successful with scope:', registration.scope);
+                navigator.serviceWorker.ready.then(registration => {
+                    console.log('ServiceWorker ready with scope:', registration.scope);
                 });
-            };
 
-            // If the service worker is already active, send message immediately
-            if (registration.active) {
-                sendMessage();
-            }
+                // Function to send manifest path to service worker
+                const sendManifestPath = () => {
+                    console.log('Sending manifest path to service worker:', absoluteManifestPath);
+                    registration.active.postMessage({
+                        type: 'SET_MANIFEST_PATH',
+                        manifestPath: absoluteManifestPath
+                    });
+                };
 
-            // Listen for state changes to catch when a new service worker becomes active
-            registration.addEventListener('statechange', () => {
+                // Function to send assets to cache to service worker
+                const sendAssetsToCache = () => {
+                    console.log('Sending assets to cache to service worker');
+                    registration.active.postMessage({
+                        type: 'CACHE_ASSETS',
+                        assets: filesToCache
+                    });
+                };
+
+                // If the service worker is already active, send messages immediately
                 if (registration.active) {
-                    sendMessage();
+                    sendManifestPath();
+                    sendAssetsToCache();
                 }
+
+                // Listen for state changes to catch when a new service worker becomes active
+                registration.addEventListener('statechange', () => {
+                    if (registration.active) {
+                        sendManifestPath();
+                        sendAssetsToCache();
+                    }
+                });
+            },
+            (error) => {
+                console.log('ServiceWorker registration failed: ', error);
             });
-        },
-        (error) => {
-            console.log('ServiceWorker registration failed: ', error);
-        });
+        }
     });
 } 

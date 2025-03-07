@@ -5,12 +5,20 @@ const ASSETS_TO_CACHE = [
 ];
 
 let manifestData = null;
+console.log("SW ACTIVATED");
 
 // Helper function to validate URLs
 function isValidUrl(url) {
   try {
     const urlObj = new URL(url);
-    // Only allow URLs from our origin or HTTPS URLs, and only paths containing /assets/
+    
+    // Check if this is a manifest URL
+    if (url.includes('manifest') && url.endsWith('.json')) {
+      // Allow manifest URLs from our origin or HTTPS
+      return (urlObj.protocol === 'https:' || urlObj.origin === self.location.origin);
+    }
+    
+    // For other assets, only allow URLs from our origin or HTTPS URLs, and only paths containing /assets/
     return (urlObj.protocol === 'https:' || urlObj.origin === self.location.origin) 
            && urlObj.pathname.includes('/assets/');
   } catch {
@@ -18,31 +26,63 @@ function isValidUrl(url) {
   }
 }
 
+async function fetchManifest(url) {
+  const response = await fetch(url);
+  const manifest = await response.json();
+  const icons = manifest.icons;
+
+  console.log('Start URL:', manifest.start_url);
+  console.log('Icons:', icons);
+
+  // Example: caching assets from manifest
+  const cache = await caches.open(CACHE_NAME);
+  const assets = [...new Set(
+    url,
+    ...icons.map(icon => icon.src)
+  )
+  ];
+
+  await cache.addAll(assets);
+
+  return manifest;
+}
+
 // Add message event listener to handle asset caching and manifest path
 self.addEventListener('message', (event) => {
+  // Handle SET_MANIFEST_PATH message
+  if (event.data.type === 'SET_MANIFEST_PATH') {
+    console.log('Service worker received manifest path:', event.data.manifestPath);
+    
+    // Use a Promise chain to properly handle the async fetchManifest
+    fetchManifest(event.data.manifestPath)
+    .then(manifest => {
+      manifestData = manifest;
+      console.log('Manifest data loaded successfully:', manifestData);
+    })
+    .catch(error => {
+        console.error('Error loading manifest:', error);
+      });
+  }
+  
+  // Handle CACHE_ASSETS message
   if (event.data.type === 'CACHE_ASSETS') {
     // Filter and deduplicate assets
-    const validAssets = [...new Set([
-      ...ASSETS_TO_CACHE,
-      ...event.data.assets.filter(isValidUrl),
-      event.data.manifestPath
-    ])].filter(isValidUrl);
+    const validAssets = [...new Set(
+      [
+        ...ASSETS_TO_CACHE,
+        ...event.data.assets.filter(isValidUrl)
+      ]
+    )].filter(isValidUrl);
+    
+    console.log('Service worker received assets to cache:', validAssets);
     
     // Return the Promise chain directly instead of using event.waitUntil
     event.ports[0]?.postMessage(
-      Promise.all([
-        // Cache assets
-        caches.open(CACHE_NAME).then((cache) => {
-          return cache.addAll(validAssets);
-        }),
-        // Fetch and store manifest data
-        fetch(event.data.manifestPath)
-          .then(response => response.json())
-          .then(manifest => {
-            manifestData = manifest;
-          })
-      ]).catch(error => {
-        console.error('Error during initialization:', error);
+      caches.open(CACHE_NAME).then((cache) => {
+        console.log("SW: Caching assets:", validAssets);
+        return cache.addAll(validAssets);
+      }).catch(error => {
+        console.error('Error caching assets:', error);
       })
     );
   }
@@ -217,24 +257,21 @@ self.addEventListener('push', (event) => {
         silent: data.silent === false ? false : (data.silent === true ? true : false),
         data: {
           dateOfArrival: timestamp,
-          primaryKey: 1,
-          clickTarget: data.clickTarget || (manifestData?.start_url || '/'),
-          topic: data.topic || undefined,
+          clickTarget: data.clickTarget || (manifestData?.start_url),
           tag: tag,
           // Move badgeCount here as custom data
           badgeCount: data.badgeCount !== undefined && data.badgeCount !== null ? parseInt(data.badgeCount, 10) : undefined,
           // Store expiry timestamp if timeToLive is provided
-          timestamp: data.timeToLive !== undefined && data.timeToLive !== null ? Date.now() + (data.timeToLive * 1000) : undefined
-        },
-        actions: data.actions || []
+          timestamp: data.timeToLive !== undefined && data.timeToLive !== null ? timestamp + (data.timeToLive * 1000) : undefined
+        }
       };
+      console.log("SW: Push notification options:", options);
 
       // Set time to live if provided (handle 0 as valid value)
       if (data.timeToLive !== undefined && data.timeToLive !== null) {
-        options.timestamp = Date.now() + (data.timeToLive * 1000);
+        options.timestamp = timestamp + (data.timeToLive * 1000);
       }
 
-      console.log(options);
       // Show notification and notify clients
       await self.registration.showNotification(data.title || 'Notification', options);
 
@@ -257,22 +294,65 @@ self.addEventListener('push', (event) => {
   event.waitUntil(pushEventHandler());
 });
 
-// Handle notification click
 self.addEventListener('notificationclick', (event) => {
-  const targetUrl = event.notification.data?.clickTarget || self.registration.scope;
+  console.log("SW: Notification clicked:", event);
 
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Focus existing client matching targetUrl
-      for (const client of windowClients) {
-        if (client.url.includes(targetUrl) && 'navigate' in client) {
-          return client.navigate(targetUrl).then((client) => client.focus());
+  /*
+  if(event.notification.tag == "test-notification") {
+    console.log("SW: Test notification clicked");
+    event.notification.close();
+    return;
+  }
+  */
+  
+  console.log("SW: Manifest data:", manifestData);
+  console.log("SW: Self location:", self.location);
+  
+  // Get the target URL, with multiple fallbacks
+  const targetUrl = event.notification.data?.clickTarget || manifestData?.start_url || self.location.href.replace('service-worker', '');
+  if(targetUrl === undefined) {
+    console.error("SW: No target URL found");
+    return;
+  }
+  console.log('Notification clicked with target:', targetUrl);
+
+  event.waitUntil((async () => {
+    try {
+      const allClients = await clients.matchAll({ 
+        type: 'window', 
+        includeUncontrolled: true 
+      });
+      
+      console.log('Found window clients:', allClients.length);
+      
+      const normalizedTargetUrl = new URL(targetUrl, self.location.origin).href;
+      console.log('Normalized URL:', normalizedTargetUrl);
+
+      console.log("SW: All clients:", allClients);
+      // First, try finding an exact match and focus it.
+      for (const client of allClients) {
+        console.log('Checking client URL:', client.url);
+        if (client.url === normalizedTargetUrl && 'focus' in client) {
+          console.log('Exact match found, focusing');
+          return client.focus();
         }
       }
-      // No matching client; open new window
-      if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
+
+      // If no exact match, navigate the first client within scope.
+      if (allClients.length > 0) {
+        const client = allClients[0];
+        console.log('No exact match, trying to navigate first client');
+        if ('navigate' in client) {
+          await client.navigate(normalizedTargetUrl);
+          return client.focus();
+        }
       }
-    })
-  );
+
+      // If no clients at all, open a new window.
+      console.log('No clients found, opening new window');
+      return clients.openWindow(normalizedTargetUrl);
+    } catch (error) {
+      console.error('Error handling notification click:', error);
+    }
+  })());
 });

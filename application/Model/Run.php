@@ -61,8 +61,8 @@ class Run extends Model {
         'months' => 'Months',
         'years' => 'Years',
     );
-    protected $description_parsed = null;
-    protected $footer_text_parsed = null;
+    public $description_parsed = null;
+    public $footer_text_parsed = null;
     protected $public_blurb_parsed = null;
     public $privacy = null;
     public $tos = null;
@@ -984,20 +984,6 @@ class Run extends Model {
         }
         if (!$this->renderedDescAndFooterAlready && !empty($this->footer_text_parsed)) {
             $run_content .= $this->footer_text_parsed;
-            $privacy_pages = [];
-            $run_url = run_url($this->name) . '?show-privacy-page=';
-            if ($this->hasPrivacy()) {
-                $privacy_pages[] = '<a href="' . $run_url . 'privacy-policy" target="_blank">Privacy Policy</a>';
-            }
-            if ($this->hasToS()) {
-                $privacy_pages[] = '<a href="' . $run_url . 'terms-of-service" target="_blank">Terms of Service</a>';
-            }
-
-            if (!empty($privacy_pages)) {
-                $run_content .= '<br><div class="privacy-footer">';
-                $run_content .= implode(' | ', $privacy_pages);
-                $run_content .= '</div>';
-            }
         }
 
         if ($runSession->isTesting()) {

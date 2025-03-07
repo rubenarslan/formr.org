@@ -80,8 +80,14 @@ class RunController extends Controller {
             $this->request->redirect(run_url($run_name, ''));
         }
 
+        $run_content = $this->run->getParsedPrivacyField('privacy-policy');
+
+        if (!empty($this->run->footer_text_parsed)) {
+            $run_content .= $this->run->footer_text_parsed . ' <a href ="'.run_url($run_name, '').'">Back to Study</a>';
+        }
+
         $run_vars = array(
-            'run_content' => $this->run->getParsedPrivacyField('privacy-policy'),
+            'run_content' => $run_content,
             'bodyClass' => 'fmr-run',
         );
 
@@ -102,8 +108,13 @@ class RunController extends Controller {
             $this->request->redirect(run_url($run_name, ''));
         }
 
+        $run_content = $this->run->getParsedPrivacyField('terms-of-service');
+        if (!empty($this->run->footer_text_parsed)) {
+            $run_content .= $this->run->footer_text_parsed . ' <a href ="'.run_url($run_name, '').'">Back to Study</a>';
+        }
+
         $run_vars = array(
-            'run_content' => $this->run->getParsedPrivacyField('terms-of-service'),
+            'run_content' => $run_content,
             'bodyClass' => 'fmr-run',
         );
 

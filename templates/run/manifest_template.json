@@ -172,7 +172,7 @@
   "protocol_handlers": [
     {
       "protocol": "web+formr{APP_NAME}",
-      "url": "?pwa=true&query=%s"
+      "url": "{START_URL}?pwa=true&query=%s"
     }
   ]
 } 

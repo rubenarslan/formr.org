@@ -805,7 +805,6 @@ async function sendTestNotification(registration) {
         if (registration.showNotification) {
             await registration.showNotification(t('Test notification'), {
                 body: t('This is a test notification. If you can see this, notifications are working!'),
-                icon: '/favicon.ico',
                 tag: 'test-notification'
             });
             
@@ -824,16 +823,10 @@ async function sendTestNotification(registration) {
             // Fallback to using the Notification constructor directly
             const testNotification = new Notification(t('Test notification'), {
                 body: t('This is a test notification. If you can see this, notifications are working!'),
-                icon: '/favicon.ico',
                 tag: 'test-notification',
                 requireInteraction: false
             });
             
-            // Add click event handler that does nothing
-            testNotification.onclick = (e) => {
-                e.preventDefault();
-                return false;
-            };
             
             // Close the test notification after 5 seconds
             setTimeout(() => {
