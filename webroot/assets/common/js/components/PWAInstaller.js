@@ -254,11 +254,16 @@ async function updateInstallButtonState() {
         $button.prop('disabled', true);
         $button.html(`<i class="fa fa-check"></i> ${t('Installed')}`);
         localStorage.setItem('pwa-app-installed', 'true');
-        $hiddenInput[0].setCustomValidity('');
+        if($hiddenInput.length > 0) {
+            $hiddenInput[0].setCustomValidity('');
+        }
         return;
     } else if (localStorage.getItem('pwa-app-installed') === 'true') { // App is installed according to localStorage
         $hiddenInput.val('already_added');
-        $status.html(t("You've already installed this app. Try opening this page in the installed app. If you have uninstalled the app, please just click this button again."));
+        const redirect_link = generateRedirectLink();
+        $status.html(t("You've already installed this app. Try closing your browser and opening the app from your home screen. If you have uninstalled the app, please just click this button again.") + 
+            `<a href="web-formrpwa://test" class="btn btn-primary" target="_blank">${t('Open app')}</a>`
+        );
         $wrapper.closest('.form-group').addClass('formr_answered');
         $button.removeClass('btn-primary').addClass('btn-success');
         $button.html(`<i class="fa fa-check"></i> ${t('Installed')}`);
@@ -637,15 +642,15 @@ function addNotificationControls($wrapper, registration, options = {}) {
     
     let buttonsHtml = '';
     if (showTestButton) {
-        buttonsHtml += `<button type="button" class="btn btn-sm btn-default test-notification-button"><i class="fa fa-bell"></i> ${t('Test notification')}</button>`;
+        buttonsHtml += `<button type="button" class="btn btn-default test-notification-button"><i class="fa fa-bell"></i> ${t('Test notification')}</button>`;
     }
-    buttonsHtml += `<button type="button" class="btn btn-link show-notification-help">${t('Show troubleshooting tips')}</button>`;
+    buttonsHtml += `<button type="button" class="btn btn-link show-notification-help"><i class="fa fa-exclamation-triangle"></i> ${t('Show troubleshooting tips')}</button>`;
 
     $status.html(`
         <div>
             ${customMessage ? `<p>${customMessage}</p>` : ''}
             ${additionalContent}
-            <div class="notification-controls">
+            <div class="notification-controls btn-group">
                 ${buttonsHtml}
             </div>
         </div>
@@ -1131,8 +1136,6 @@ if ('serviceWorker' in navigator) {
       console.log('Received reload message from service worker');
       localStorage.setItem('handling-notification-reload', 'true');
       window.location.reload();
-    } else if (event.data.type === 'NEW_NOTIFICATION') {
-      console.log('New notification received');
     }
   });
   
