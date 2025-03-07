@@ -51,7 +51,7 @@ class RequestPhone_Item extends Item {
         // If already on mobile, show confirmation message instead of button
         if (isset($this->input_attributes['value']) && $this->input_attributes['value'] === 'is_phone') {
             $template = '
-                <div class="requires-phone-wrapper">
+                <div class="request-phone-wrapper">
                     <p class="instructions">You are already using a mobile device.</p>
                     %s
                     <div class="status-message">You may proceed with the survey.</div>

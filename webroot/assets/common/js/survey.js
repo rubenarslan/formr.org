@@ -196,7 +196,7 @@ var is = {
 
     Survey.prototype.initializeFormSubmission = function() {
         var survey = this;
-        $('form.main_formr_survey').bind('submit', function(e) {
+        $('form.main_formr_survey').on('submit', function(e) {
             var $form = $(this);
             var $button = $form.find('.form-group.item-submit button');
             if ($button.find('.fa-spinner').length) {
