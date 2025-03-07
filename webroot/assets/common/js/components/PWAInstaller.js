@@ -483,21 +483,8 @@ export function initializePushNotifications() {
             if (subResult.subscribed) {
                 $hiddenInput.val(JSON.stringify(subResult.subscription));
                 $hiddenInput[0].setCustomValidity('');
-                $status.html(`
-                    <div>
-                        <p>${t('Push notifications are enabled.')}</p>
-                        <button type="button" class="btn btn-sm btn-default test-notification-button"><i class="fa fa-bell"></i> ${t('Test notification')}</button>
-                        <button type="button" class="btn btn-link show-notification-help">${t('Show troubleshooting tips')}</button>
-                    </div>
-                `);
-                
-                // Add click handlers for buttons
-                $wrapper.find('.test-notification-button').on('click', async function() {
-                    await sendTestNotification(registration);
-                });
-                
-                $wrapper.find('.show-notification-help').on('click', function() {
-                    showNotificationHelp($wrapper);
+                addNotificationControls($wrapper, registration, {
+                    customMessage: t('Push notifications are enabled.')
                 });
                 
                 $button.removeClass('btn-primary').addClass('btn-success');
@@ -517,20 +504,8 @@ export function initializePushNotifications() {
                 const subscriptionJson = JSON.stringify(subResult.subscription);
                 $hiddenInput.val(subscriptionJson);
                 $hiddenInput[0].setCustomValidity('');
-                $status.html(`
-                    <div>
-                        <p>${t('Push notifications are enabled.')}</p>
-                        <button type="button" class="btn btn-sm btn-default test-notification-button"><i class="fa fa-bell"></i> ${t('Test notification')}</button>
-                        <button type="button" class="btn btn-link show-notification-help">${t('Show troubleshooting tips')}</button>
-                    </div>
-                `);
-                
-                $wrapper.find('.test-notification-button').on('click', async function() {
-                    await sendTestNotification(registration);
-                });
-                
-                $wrapper.find('.show-notification-help').on('click', function() {
-                    showNotificationHelp($wrapper);
+                addNotificationControls($wrapper, registration, {
+                    customMessage: t('Push notifications are enabled.')
                 });
                 
                 $button.removeClass('btn-primary').addClass('btn-success');
@@ -546,10 +521,12 @@ export function initializePushNotifications() {
             }
         } else if (existingPermission === 'denied') {
             $hiddenInput.val('permission_denied');
-            $status.html(t('You have declined push notifications. You can enable them in your browser settings.'));
-            $button.prop('disabled', true);
+            addNotificationControls($wrapper, registration, {
+                showTestButton: false,
+                customMessage: t('You have declined push notifications. You can enable them in your browser settings.')
+            });
             $button.removeClass('btn-primary').addClass('btn-default');
-            $button.html(`<i class="fa fa-times"></i> ${t('Notifications Blocked')}`);
+            $button.html(`<i class="fa fa-times"></i> ${t('Notifications Blocked. Click again after enabling in browser settings.')}`);
         }
     });
 
@@ -581,20 +558,8 @@ export function initializePushNotifications() {
                 const subscriptionJson = JSON.stringify(subResult.subscription);
                 $hiddenInput.val(subscriptionJson);
                 $hiddenInput[0].setCustomValidity('');
-                $status.html(`
-                    <div>
-                        <p>${t('Push notifications are already enabled.')}</p>
-                        <button type="button" class="btn btn-sm btn-default test-notification-button"><i class="fa fa-bell"></i> ${t('Test notification')}</button>
-                        <button type="button" class="btn btn-link show-notification-help">${t('Show troubleshooting tips')}</button>
-                    </div>
-                `);
-                
-                $wrapper.find('.test-notification-button').on('click', async function() {
-                    await sendTestNotification(registration);
-                });
-                
-                $wrapper.find('.show-notification-help').on('click', function() {
-                    showNotificationHelp($wrapper);
+                addNotificationControls($wrapper, registration, {
+                    customMessage: t('Push notifications are already enabled.')
                 });
                 
                 $btn.removeClass('btn-primary').addClass('btn-success');
@@ -613,29 +578,18 @@ export function initializePushNotifications() {
                 $hiddenInput[0].setCustomValidity('');
 
                 let platformSpecificNote = '';
-                
                 if (/android/i.test(navigator.userAgent)) {
                     platformSpecificNote = `
                         <p><strong>${t('Note for Android users:')}</strong> ${t('On some Android devices, you may need to restart your browser or add this app to your home screen for notifications to work properly.')}</p>
                     `;
                 }
                 
-                $status.html(`
-                    <div>
-                        <p><strong>${t('Push notifications enabled successfully!')}</strong></p>
+                addNotificationControls($wrapper, registration, {
+                    customMessage: t('Push notifications enabled successfully!'),
+                    additionalContent: `
                         <p>${t("A test notification was sent. If you didn't see it, your system settings might be blocking notifications.")}</p>
                         ${platformSpecificNote}
-                        <button type="button" class="btn btn-sm btn-default test-notification-button"><i class="fa fa-bell"></i> ${t('Test notification')}</button>
-                        <button type="button" class="btn btn-link show-notification-help">${t('Show troubleshooting tips')}</button>
-                    </div>
-                `);
-                
-                $wrapper.find('.test-notification-button').on('click', async function() {
-                    await sendTestNotification(registration);
-                });
-                
-                $wrapper.find('.show-notification-help').on('click', function() {
-                    showNotificationHelp($wrapper);
+                    `
                 });
                 
                 await sendTestNotification(registration);
@@ -668,6 +622,43 @@ export function initializePushNotifications() {
         }
         
         return false;
+    });
+}
+
+// Helper function to add notification controls (test button and troubleshooting)
+function addNotificationControls($wrapper, registration, options = {}) {
+    const {
+        showTestButton = true,
+        customMessage = '',
+        additionalContent = ''
+    } = options;
+
+    const $status = $wrapper.find('.status-message');
+    
+    let buttonsHtml = '';
+    if (showTestButton) {
+        buttonsHtml += `<button type="button" class="btn btn-sm btn-default test-notification-button"><i class="fa fa-bell"></i> ${t('Test notification')}</button>`;
+    }
+    buttonsHtml += `<button type="button" class="btn btn-link show-notification-help">${t('Show troubleshooting tips')}</button>`;
+
+    $status.html(`
+        <div>
+            ${customMessage ? `<p>${customMessage}</p>` : ''}
+            ${additionalContent}
+            <div class="notification-controls">
+                ${buttonsHtml}
+            </div>
+        </div>
+    `);
+
+    if (showTestButton) {
+        $wrapper.find('.test-notification-button').on('click', async function() {
+            await sendTestNotification(registration);
+        });
+    }
+
+    $wrapper.find('.show-notification-help').on('click', function() {
+        showNotificationHelp($wrapper);
     });
 }
 
