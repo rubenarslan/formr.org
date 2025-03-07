@@ -36,11 +36,7 @@ async function fetchManifest(url) {
 
   // Example: caching assets from manifest
   const cache = await caches.open(CACHE_NAME);
-  const assets = [...new Set(
-    url,
-    ...icons.map(icon => icon.src)
-  )
-  ];
+  const assets = [...new Set([url, ...icons.map(icon => icon.src)])];
 
   await cache.addAll(assets);
 
