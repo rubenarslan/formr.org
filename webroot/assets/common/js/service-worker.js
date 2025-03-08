@@ -59,6 +59,13 @@ self.addEventListener('message', (event) => {
         console.error('Error caching assets:', error);
       })
     );
+  } else if (event.data.type === 'CLEAR_NOTIFICATIONS') {
+    event.waitUntil(self.registration.getNotifications().then(notifications => {
+      if(notifications.length > 0) {
+        console.log("SW: Clearing notifications ", notifications.length);
+      }
+      notifications.forEach(notification => notification.close());
+    }));
   }
 });
 
@@ -207,7 +214,9 @@ async function checkAndCloseExpiredNotifications() {
 // Add activation event listener to check for expired notifications
 self.addEventListener('activate', (event) => {
   console.log("SW: Activating");
+  logActiveClients();
   clients.claim();
+  logActiveClients();
   console.log("SW: Claimed clients", clients);
   event.waitUntil(checkAndCloseExpiredNotifications());
 });
@@ -269,7 +278,6 @@ self.addEventListener('push', event => {
 
       console.log('Finished sending STATE_INVALIDATED messages to all clients');
 
-
       await manageBadge(options.data.badgeCount);
       console.log('Badge updated');
       
@@ -307,14 +315,7 @@ async function findAndSortClients() {
 
 self.addEventListener('notificationclick', (event) => {
   console.log("SW: Notification clicked:", event);
-
-  /*
-  if(event.notification.tag == "test-notification") {
-    console.log("SW: Test notification clicked");
-    event.notification.close();
-    return;
-  }
-  */
+  event.notification.close();
   
   console.log("SW: Self location:", self.location);
   

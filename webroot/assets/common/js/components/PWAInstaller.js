@@ -1096,37 +1096,24 @@ function reload_invalidated(timestamp) {
   
 // Function to check and handle pending notifications
 async function handlePendingNotifications() {
-  console.log('handlePendingNotifications');
-  try {
-    // Wait for service worker to be ready
-    const registration = await navigator.serviceWorker.ready;
-    // Get all notifications
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (!registration) return false;
+
     const notifications = await registration.getNotifications();
-    console.log('Found notifications:', notifications.length);
-    
-    // If we have notifications, close them one by one
+    notifications.forEach(notification => notification.close());
+
     if (notifications.length > 0) {
-      // Close each notification with await to ensure they're closed
-      for (const notification of notifications) {
-        await new Promise(resolve => {
-          notification.close();
-          // Give a small delay to ensure close operation completes
-          setTimeout(resolve, 100);
-        });
-      }
-      
-      // Set a flag in localStorage to indicate notifications were closed
       localStorage.setItem('notifications-closed', Date.now());
-      await clearAppBadge();
-      return true;
+    }
+    // Post message to service worker to clear notifications
+    if (registration.active) {
+        registration.active.postMessage({
+            type: 'CLEAR_NOTIFICATIONS'
+        });
     }
 
     await clearAppBadge();
-    return false;
-  } catch (error) {
-    console.error('Error in handlePendingNotifications:', error);
-    return false;
-  }
+    return notifications.length > 0;
 }
 
 // Add service worker message handler at the top level
