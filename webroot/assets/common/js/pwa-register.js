@@ -15,6 +15,7 @@ if ('serviceWorker' in navigator) {
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
             window.navigator.standalone;
 
+        // If the page is standalone and the _pwa parameter is not present, add it
         if (isStandalone && !window.location.search.includes('_pwa=true')) {
             const newUrl = new URL(window.location.href);
             newUrl.searchParams.set('_pwa', 'true');
@@ -22,7 +23,7 @@ if ('serviceWorker' in navigator) {
         }
 
         navigator.serviceWorker.getRegistration(scope).then(existingRegistration => {
-            if (!existingRegistration && isStandalone) {
+            if (!existingRegistration) {
                 navigator.serviceWorker.register(serviceWorkerPath, { scope }).then(registration => {
                     console.log('Service Worker registered:', registration.scope);
                     // Collect all CSS and JS files from the DOM that match the current domain

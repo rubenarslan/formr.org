@@ -175,7 +175,6 @@ async function manageBadge(count) {
 
 // Add a function to check and close expired notifications
 async function checkAndCloseExpiredNotifications() {
-  return;
   try {
     const notifications = await self.registration.getNotifications();
     const now = Date.now();
@@ -250,7 +249,7 @@ self.addEventListener('push', event => {
         silent: !!data.silent,
         data: {
           dateOfArrival: timestamp,
-          clickTarget: data.clickTarget || manifestData?.start_url,
+          clickTarget: data.clickTarget || self.location.href.replace(/\/service-worker$/, '/'),
           badgeCount: Number.isInteger(data.badgeCount) ? data.badgeCount : undefined,
           timestamp: Number.isInteger(data.timeToLive) ? timestamp + data.timeToLive * 1000 : undefined
         }
@@ -258,28 +257,30 @@ self.addEventListener('push', event => {
 
       console.log('Notification options:', options);
 
-      await self.registration.showNotification(data.title || 'Notification', options);
-      console.log('Notification displayed');
-
-      // Notify all clients about state invalidation
-      const allClients = await findAndSortClients();
-      for (const client of allClients) {
-        try {
-          await client.postMessage({
-            type: 'STATE_INVALIDATED',
-            tag,
-            timestamp
-          });
-          console.log(`Successfully sent STATE_INVALIDATED message to client ${client.id} ${client.url}`);
-        } catch (error) {
-          console.error(`Failed to send STATE_INVALIDATED message to client ${client.id} ${client.url}:`, error);
+      self.registration.showNotification(data.title || 'Notification', options).then(async () => {
+        console.log('Notification displayed');
+        
+        // Notify all clients about state invalidation
+        const allClients = await findAndSortClients();
+        for (const client of allClients) {
+          try {
+            await client.postMessage({
+              type: 'STATE_INVALIDATED',
+              tag,
+              timestamp
+            });
+            console.log(`Successfully sent STATE_INVALIDATED message to client ${client.id} ${client.url}`);
+          } catch (error) {
+            console.error(`Failed to send STATE_INVALIDATED message to client ${client.id} ${client.url}:`, error);
+          }
         }
-      }
 
-      console.log('Finished sending STATE_INVALIDATED messages to all clients');
+        console.log('Finished sending STATE_INVALIDATED messages to all clients');
 
-      await manageBadge(options.data.badgeCount);
-      console.log('Badge updated');
+        await manageBadge(options.data.badgeCount);
+        console.log('Badge updated');
+        
+      });
       
     } catch (error) {
       console.error('Push notification error:', error);
@@ -301,10 +302,10 @@ async function findAndSortClients() {
     includeUncontrolled: true 
   });
   
-  // Order clients so that the first one is the one with ?_pwa=true
+  // Order clients so that the first one is the one with _pwa=true
   allClients.sort((a, b) => {
-    const a_pwa = a.url.includes('?_pwa=true');
-    const b_pwa = b.url.includes('?_pwa=true');
+    const a_pwa = a.url.includes('_pwa=true');
+    const b_pwa = b.url.includes('_pwa=true');
     if(a_pwa && !b_pwa) return -1;
     if(!a_pwa && b_pwa) return 1;
     return 0;
@@ -332,7 +333,7 @@ self.addEventListener('notificationclick', (event) => {
       const allClients = await findAndSortClients();
 
       console.log('Found window clients:', allClients.length);
-      console.log('Is there a PWA client?', allClients[0]?.url.includes('?_pwa=true'));
+      console.log('Is there a PWA client?', allClients[0]?.url.includes('_pwa=true'));
 
       const normalizedTargetUrl = new URL(targetUrl, self.location.origin).href;
       console.log('Normalized URL:', normalizedTargetUrl);
