@@ -213,9 +213,7 @@ async function checkAndCloseExpiredNotifications() {
 // Add activation event listener to check for expired notifications
 self.addEventListener('activate', (event) => {
   console.log("SW: Activating");
-  logActiveClients();
   clients.claim();
-  logActiveClients();
   console.log("SW: Claimed clients", clients);
   event.waitUntil(checkAndCloseExpiredNotifications());
 });
