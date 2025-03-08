@@ -90,9 +90,9 @@ var is = {
         // Initialize all components
         initializeButtonGroups();
         initializeAudioRecorders();
+        initializeRequestPhone();
         initializePWAInstaller();
         initializePushNotifications();
-        initializeRequestPhone();
         initializeSelect2Components();
         this.initializeCounters();
         this.initializeFormValidation();
