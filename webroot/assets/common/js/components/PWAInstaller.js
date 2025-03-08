@@ -277,10 +277,10 @@ async function updateInstallButtonState() {
 }
 
 export function initializePWAInstaller() {
-    console.log('Initializing PWA Installer');
     if($('.add-to-homescreen').length == 0) {
         return;
     }
+    console.log('Initializing PWA Installer');
     initializeAddToHomeScreen();
 
     // Check for display mode changes
