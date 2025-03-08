@@ -1076,36 +1076,55 @@ async function clearAppBadge() {
   if ('setAppBadge' in navigator) {
     try {
       await navigator.clearAppBadge();
-      console.log('App badge cleared on page load');
+      console.log('App badge cleared');
     } catch (error) {
       console.error('Error clearing app badge:', error);
     }
   }
 }
 
+function reload_invalidated(timestamp) {
+    localStorage.setItem('handling-notification-reload', 'true');
+    if(!localStorage.getItem('last-reload-timestamp') || timestamp > parseInt(localStorage.getItem('last-reload-timestamp'), 10)) {
+      localStorage.setItem('last-reload-timestamp', Date.now() + 200);
+      setTimeout(() => {
+        console.log('Reloading page');
+        window.location.reload();
+      }, 100);
+    }
+  }
+  
 // Function to check and handle pending notifications
 async function handlePendingNotifications() {
-  if (!('serviceWorker' in navigator)) return;
-  
+  console.log('handlePendingNotifications');
   try {
+    // Wait for service worker to be ready
     const registration = await navigator.serviceWorker.ready;
+    // Get all notifications
     const notifications = await registration.getNotifications();
+    console.log('Found notifications:', notifications.length);
     
-    // Close notifications but don't reload immediately
-    clearAppBadge();
-
+    // If we have notifications, close them one by one
     if (notifications.length > 0) {
-      console.log('Found pending notifications:', notifications.length);
-      notifications.forEach(notification => notification.close());
+      // Close each notification with await to ensure they're closed
+      for (const notification of notifications) {
+        await new Promise(resolve => {
+          notification.close();
+          // Give a small delay to ensure close operation completes
+          setTimeout(resolve, 100);
+        });
+      }
       
       // Set a flag in localStorage to indicate notifications were closed
-      localStorage.setItem('notifications-closed', 'true');
+      localStorage.setItem('notifications-closed', Date.now());
+      await clearAppBadge();
       return true;
     }
 
+    await clearAppBadge();
     return false;
   } catch (error) {
-    console.error('Error checking notifications:', error);
+    console.error('Error in handlePendingNotifications:', error);
     return false;
   }
 }
@@ -1113,65 +1132,31 @@ async function handlePendingNotifications() {
 // Add service worker message handler at the top level
 if ('serviceWorker' in navigator) {
   // Check for pending notifications and handle page initialization
-  handlePendingNotifications().then(hadNotifications => {
-    // Only reload if we had notifications AND we're not already handling a post-notification reload
-    if (hadNotifications && !localStorage.getItem('handling-notification-reload')) {
-      localStorage.setItem('handling-notification-reload', 'true');
-      window.location.reload();
-    } else {
-      // Clear the handling flag if we're done with the reload
-      localStorage.removeItem('handling-notification-reload');
-      localStorage.removeItem('notifications-closed');
-    }
-  });
-  
-  navigator.serviceWorker.addEventListener('message', (event) => {
-    console.log('Received message from service worker', event.data);
-    if(event.data.type === 'STATE_INVALIDATED') {
-      console.log('Received STATE_INVALIDATED message from service worker');
-      if(event.data.timestamp > parseInt(localStorage.getItem('last-reload-timestamp'), 10)) {
-        localStorage.setItem('handling-notification-reload', 'true');
-        localStorage.setItem('last-reload-timestamp', Date.now());
-        setTimeout(() => {
-          window.location.reload();
-        }, 100);
-      }
-    } else if (event.data.type === 'NOTIFICATION_CLICK' && event.data.action === 'reload') {
-      console.log('Received reload message from service worker');
-      if(event.data.timestamp > parseInt(localStorage.getItem('last-reload-timestamp'), 10)) {
-        localStorage.setItem('handling-notification-reload', 'true');
-        localStorage.setItem('last-reload-timestamp', Date.now());
-        setTimeout(() => {
-          window.location.reload();
-        }, 100);
-      }
-    }
-  });
+  handlePendingNotifications();
   
   // Handle page visibility changes
   ['visibilitychange', 'focus', 'pageshow'].forEach(eventType => {
     window.addEventListener(eventType, () => {
-      handlePendingNotifications().then(hadNotifications => {
-        if (hadNotifications && !localStorage.getItem('handling-notification-reload')) {
-          localStorage.setItem('handling-notification-reload', Date.now());
-          window.location.reload();
-        } else {
-          // Cleanup stale flag after 30s
-          const timestamp = parseInt(localStorage.getItem('handling-notification-reload'), 10);
-          if (timestamp && (Date.now() - timestamp > 30000)) {
-            localStorage.removeItem('handling-notification-reload');
-          }
-        }
-      });
+      handlePendingNotifications();
     });
     document.addEventListener('DOMContentLoaded', () => {
-        handlePendingNotifications().then(hadNotifications => {
-          if (hadNotifications) {
-            window.location.reload();
-          }
-        });
+        localStorage.removeItem('handling-notification-reload');
+        localStorage.setItem('last-reload-timestamp', Date.now());
+        handlePendingNotifications();
       });
   });
+
+ // Listen for messages from the service worker
+ navigator.serviceWorker.addEventListener('message', (event) => {
+     console.log('Received message from service worker', event.data);
+     if(event.data.type === 'STATE_INVALIDATED') {
+     console.log('Received STATE_INVALIDATED message from service worker');
+     reload_invalidated(event.data.timestamp);
+     } else if (event.data.type === 'NOTIFICATION_CLICK' && event.data.action === 'reload') {
+     console.log('Received reload message from service worker');
+     reload_invalidated(event.data.timestamp);
+     }
+ });
 }
 
 // Add new function to handle installation timeout
