@@ -406,4 +406,25 @@ class RunController extends Controller {
         exit;
     }
 
+    /**
+     * Serve the manifest file with appropriate headers for the run
+     */
+    public function manifestAction() {
+        $run = $this->getRun();
+
+        // Set appropriate headers
+        header('Content-Type: application/json');
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+
+        // Serve the manifest file
+        $manifestPath = $run->getManifestJSONPath();
+        if(file_exists($manifestPath)) {
+            readfile($manifestPath);
+            exit;
+        }
+
+        // If file doesn't exist, return 404
+        header('HTTP/1.0 404 Not Found');
+        echo "Manifest not found";
+    }
 }

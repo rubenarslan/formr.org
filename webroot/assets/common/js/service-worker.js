@@ -1,71 +1,49 @@
 const CACHE_NAME = 'formr-' + self.location.hostname + self.location.pathname.split('/').slice(0, -1).join('-');
-const ASSETS_TO_CACHE = [
-  '/assets/build/css/formr.min.css',
-  '/assets/build/js/formr.min.js'
-];
 
-let manifestData = null;
-console.log("SW ACTIVATED");
+console.log("SW loaded", self.location.href);
 
 // Helper function to validate URLs
 function isValidUrl(url) {
   try {
     const urlObj = new URL(url);
     
-    // Check if this is a manifest URL
-    if (url.includes('manifest') && url.endsWith('.json')) {
-      // Allow manifest URLs from our origin or HTTPS
-      return (urlObj.protocol === 'https:' || urlObj.origin === self.location.origin);
-    }
-    
     // For other assets, only allow URLs from our origin or HTTPS URLs, and only paths containing /assets/
     return (urlObj.protocol === 'https:' || urlObj.origin === self.location.origin) 
-           && urlObj.pathname.includes('/assets/');
+           && (urlObj.pathname.includes('/assets/') || urlObj.pathname.includes('/manifest'));
   } catch {
     return false;
   }
 }
 
-async function fetchManifest(url) {
-  const response = await fetch(url);
-  const manifest = await response.json();
-  const icons = manifest.icons;
-
-  console.log('Start URL:', manifest.start_url);
-  console.log('Icons:', icons);
-
-  // Example: caching assets from manifest
-  const cache = await caches.open(CACHE_NAME);
-  const assets = [...new Set([url, ...icons.map(icon => icon.src)])];
-
-  await cache.addAll(assets);
-
-  return manifest;
+/* 
+ * Fetch the manifest file and cache the assets
+ */
+let manifestData = null;
+async function fetchManifest() {
+  if(!manifestData) {
+    const url = self.location.href.replace(/\/service-worker$/, '/manifest');
+    console.log("SW: Fetching manifest from", url);
+    manifestData = fetch(url)
+    .then(response => {
+      if (!response.ok) throw new Error('Failed to fetch manifest.');
+      return response.json();
+    })
+    .catch(err => {
+      cachedManifestPromise = null; // reset on failure for retry
+      console.error('Error fetching manifest:', err);
+      throw err;
+    });
+  }
+  return manifestData;
 }
 
-// Add message event listener to handle asset caching and manifest path
+// Add message event listener to handle asset caching
 self.addEventListener('message', (event) => {
-  // Handle SET_MANIFEST_PATH message
-  if (event.data.type === 'SET_MANIFEST_PATH') {
-    console.log('Service worker received manifest path:', event.data.manifestPath);
-    
-    // Use a Promise chain to properly handle the async fetchManifest
-    fetchManifest(event.data.manifestPath)
-    .then(manifest => {
-      manifestData = manifest;
-      console.log('Manifest data loaded successfully:', manifestData);
-    })
-    .catch(error => {
-        console.error('Error loading manifest:', error);
-      });
-  }
-  
   // Handle CACHE_ASSETS message
   if (event.data.type === 'CACHE_ASSETS') {
     // Filter and deduplicate assets
     const validAssets = [...new Set(
       [
-        ...ASSETS_TO_CACHE,
         ...event.data.assets.filter(isValidUrl)
       ]
     )].filter(isValidUrl);
@@ -86,12 +64,10 @@ self.addEventListener('message', (event) => {
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        // Filter ASSETS_TO_CACHE through isValidUrl as well
-        const validAssets = ASSETS_TO_CACHE.filter(isValidUrl);
-        return cache.addAll(validAssets);
-      })
+    fetchManifest().then(manifest => {
+      const assetsToCache = [...new Set([manifest.start_url, ...manifest.icons.map(icon => icon.src)])];
+      return caches.open(CACHE_NAME).then(cache => cache.addAll(assetsToCache));
+    })
   );
 });
 
@@ -132,29 +108,39 @@ self.addEventListener('fetch', (event) => {
 });
 
 // Helper function to get the best icon from manifest
-function getBestIcon(purpose = 'any') {
-  if (!manifestData || !manifestData.icons) {
-    return '/assets/pwa/maskable_icon_x192.png'; // fallback
+
+// Async helper function to get best icon from manifest
+async function getBestIcon(purpose = 'any') {
+  try {
+    const manifestData = await fetchManifest();
+
+    if (!manifestData.icons) {
+      return '/assets/pwa/maskable_icon_x192.png'; // fallback
+    }
+
+    // Filter icons by purpose
+    const icons = manifestData.icons.filter(icon => {
+      if (!icon.purpose) return purpose === 'any';
+      return icon.purpose.split(' ').includes(purpose);
+    });
+
+    if (icons.length === 0) {
+      return '/assets/pwa/maskable_icon_x192.png'; // fallback
+    }
+
+    // Sort by size (descending) to get the largest icon
+    icons.sort((a, b) => {
+      const sizeA = parseInt(a.sizes.split('x')[0], 10);
+      const sizeB = parseInt(b.sizes.split('x')[0], 10);
+      return sizeB - sizeA;
+    });
+
+    return icons[0].src;
+
+  } catch (error) {
+    // Fallback on fetch failure
+    return '/assets/pwa/maskable_icon_x192.png';
   }
-
-  // Filter icons by purpose
-  const icons = manifestData.icons.filter(icon => {
-    if (!icon.purpose) return purpose === 'any';
-    return icon.purpose.split(' ').includes(purpose);
-  });
-
-  if (icons.length === 0) {
-    return '/assets/pwa/maskable_icon_x192.png'; // fallback
-  }
-
-  // Sort by size (descending) and get the largest
-  const sortedIcons = icons.sort((a, b) => {
-    const sizeA = parseInt(a.sizes.split('x')[0]);
-    const sizeB = parseInt(b.sizes.split('x')[0]);
-    return sizeB - sizeA;
-  });
-
-  return sortedIcons[0].src;
 }
 
 // Add a helper function for badge management at the top of the file
@@ -220,6 +206,9 @@ async function checkAndCloseExpiredNotifications() {
 
 // Add activation event listener to check for expired notifications
 self.addEventListener('activate', (event) => {
+  console.log("SW: Activating");
+  clients.claim();
+  console.log("SW: Claimed clients", clients);
   event.waitUntil(checkAndCloseExpiredNotifications());
 });
 
@@ -230,6 +219,8 @@ self.addEventListener('push', event => {
       console.warn('Push event received without data');
       return;
     }
+    const best_icon_any = await getBestIcon('any');
+    const best_icon_badge = await getBestIcon('badge');
 
     try {
       const data = event.data.json();
@@ -240,8 +231,8 @@ self.addEventListener('push', event => {
 
       const options = {
         body: data.body || '',
-        icon: data.icon ? new URL(data.icon, self.location.origin).href : getBestIcon('any'),
-        badge: data.badge ? new URL(data.badge, self.location.origin).href : getBestIcon('badge'),
+        icon: data.icon ? new URL(data.icon, self.location.origin).href : best_icon_any,
+        badge: data.badge ? new URL(data.badge, self.location.origin).href : best_icon_badge,
         tag,
         urgency: data.priority || 'normal',
         vibrate: data.vibrate === false ? undefined : [100, 50, 100],
@@ -261,6 +252,24 @@ self.addEventListener('push', event => {
       await self.registration.showNotification(data.title || 'Notification', options);
       console.log('Notification displayed');
 
+      // Notify all clients about state invalidation
+      const allClients = await findAndSortClients();
+      for (const client of allClients) {
+        try {
+          await client.postMessage({
+            type: 'STATE_INVALIDATED',
+            tag,
+            timestamp
+          });
+          console.log(`Successfully sent STATE_INVALIDATED message to client ${client.id} ${client.url}`);
+        } catch (error) {
+          console.error(`Failed to send STATE_INVALIDATED message to client ${client.id} ${client.url}:`, error);
+        }
+      }
+
+      console.log('Finished sending STATE_INVALIDATED messages to all clients');
+
+
       await manageBadge(options.data.badgeCount);
       console.log('Badge updated');
       
@@ -270,12 +279,31 @@ self.addEventListener('push', event => {
       // Safe fallback notification
       await self.registration.showNotification('New Message', {
         body: 'You have a new notification.',
-        icon: getBestIcon('any'),
+        icon: best_icon_any,
         tag: 'fallback-notification'
       });
     }
   })());
 });
+
+// Helper function to find and sort clients, prioritizing PWA clients
+async function findAndSortClients() {
+  const allClients = await clients.matchAll({ 
+    type: 'window', 
+    includeUncontrolled: true 
+  });
+  
+  // Order clients so that the first one is the one with ?_pwa=true
+  allClients.sort((a, b) => {
+    const a_pwa = a.url.includes('?_pwa=true');
+    const b_pwa = b.url.includes('?_pwa=true');
+    if(a_pwa && !b_pwa) return -1;
+    if(!a_pwa && b_pwa) return 1;
+    return 0;
+  });
+
+  return allClients;
+}
 
 self.addEventListener('notificationclick', (event) => {
   console.log("SW: Notification clicked:", event);
@@ -288,11 +316,10 @@ self.addEventListener('notificationclick', (event) => {
   }
   */
   
-  console.log("SW: Manifest data:", manifestData);
   console.log("SW: Self location:", self.location);
   
   // Get the target URL, with multiple fallbacks
-  const targetUrl = event.notification.data?.clickTarget || manifestData?.start_url || self.location.href.replace('service-worker', '');
+  const targetUrl = event.notification.data?.clickTarget || self.location.href.replace(/\/service-worker$/, '/');
   if(targetUrl === undefined) {
     console.error("SW: No target URL found");
     return;
@@ -301,13 +328,10 @@ self.addEventListener('notificationclick', (event) => {
   
   event.waitUntil((async () => {
     try {
-      const allClients = await clients.matchAll({ 
-        type: 'window', 
-        includeUncontrolled: true 
-      });
-      
+      const allClients = await findAndSortClients();
+
       console.log('Found window clients:', allClients.length);
-    
+      console.log('Is there a PWA client?', allClients[0]?.url.includes('?_pwa=true'));
 
       const normalizedTargetUrl = new URL(targetUrl, self.location.origin).href;
       console.log('Normalized URL:', normalizedTargetUrl);
@@ -322,7 +346,8 @@ self.addEventListener('notificationclick', (event) => {
            // Send a message to the client to reload the page
           client.postMessage({
             type: 'NOTIFICATION_CLICK',
-            action: 'reload'
+            action: 'reload',
+            timestamp: Date.now()
           });
           return client.focus();
         }
@@ -335,7 +360,8 @@ self.addEventListener('notificationclick', (event) => {
         // Send a message to the client to reload the page
         client.postMessage({
           type: 'NOTIFICATION_CLICK',
-          action: 'reload'
+          action: 'reload',
+          timestamp: Date.now()
         });
         if ('navigate' in client) {
 //          await client.navigate(normalizedTargetUrl);

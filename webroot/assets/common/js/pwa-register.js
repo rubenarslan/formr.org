@@ -6,14 +6,6 @@ if ('serviceWorker' in navigator) {
             console.warn('formr configuration not found or missing run_url');
             return;
         }
-        
-        // Get manifest path from the link element
-        const manifestLink = document.querySelector('link[rel="manifest"]');
-        if (!manifestLink) {
-            console.warn('No manifest link found');
-            return;
-        }
-        const manifestPath = manifestLink.href;
 
         // Collect all CSS and JS files from the DOM that match the current domain
         const currentOrigin = window.location.origin;
@@ -44,23 +36,17 @@ if ('serviceWorker' in navigator) {
             console.log('Using subdomain-based service worker:', serviceWorkerPath, 'with scope:', scope);
         }
 
-        // Log manifest information for debugging
-        console.log('Manifest link element found:', manifestLink);
-        console.log('Manifest path:', manifestPath);
-
-        // Ensure the manifest path is absolute
-        let absoluteManifestPath = manifestPath;
-        if (!manifestPath.startsWith('http')) {
-            // Convert relative URL to absolute
-            const baseUrl = window.location.origin;
-            absoluteManifestPath = new URL(manifestPath, baseUrl).href;
-            console.log('Converted manifest path to absolute URL:', absoluteManifestPath);
-        }
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
         window.matchMedia('(display-mode: fullscreen)').matches || 
         window.navigator.standalone;
 
         if(isStandalone) {
+            if (!window.location.search.includes('_pwa=true')) {
+                const newUrl = new URL(window.location.href);
+                newUrl.searchParams.set('_pwa', 'true');
+                window.history.replaceState({}, '', newUrl);
+            }
+        
             // Register service worker with the correct path and scope
             navigator.serviceWorker.register(serviceWorkerPath, {
                 scope: scope
@@ -70,16 +56,6 @@ if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(registration => {
                     console.log('ServiceWorker ready with scope:', registration.scope);
                 });
-
-                // Function to send manifest path to service worker
-                const sendManifestPath = () => {
-                    console.log('Sending manifest path to service worker:', absoluteManifestPath);
-                    registration.active.postMessage({
-                        type: 'SET_MANIFEST_PATH',
-                        manifestPath: absoluteManifestPath
-                    });
-                };
-
                 // Function to send assets to cache to service worker
                 const sendAssetsToCache = () => {
                     console.log('Sending assets to cache to service worker');
@@ -91,14 +67,12 @@ if ('serviceWorker' in navigator) {
 
                 // If the service worker is already active, send messages immediately
                 if (registration.active) {
-                    sendManifestPath();
                     sendAssetsToCache();
                 }
 
                 // Listen for state changes to catch when a new service worker becomes active
                 registration.addEventListener('statechange', () => {
                     if (registration.active) {
-                        sendManifestPath();
                         sendAssetsToCache();
                     }
                 });

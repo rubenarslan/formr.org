@@ -290,12 +290,13 @@ export function initializePWAInstaller() {
         updateInstallButtonState();
     });
     
-    updateInstallButtonState();
-
     const isRequired = $('.add-to-homescreen-wrapper').closest('.form-group').hasClass('required');
     if(isRequired) {
         $('.add-to-homescreen-wrapper input')[0].setCustomValidity(t('Please complete this required step before continuing.'));
     }
+
+    updateInstallButtonState();
+    
     // Button click handler
     $('.add-to-homescreen').on('click', function(e) {
         e.preventDefault();
@@ -1125,12 +1126,25 @@ if ('serviceWorker' in navigator) {
   });
   
   navigator.serviceWorker.addEventListener('message', (event) => {
-    if (event.data.type === 'NOTIFICATION_CLICK' && event.data.action === 'reload') {
+    console.log('Received message from service worker', event.data);
+    if(event.data.type === 'STATE_INVALIDATED') {
+      console.log('Received STATE_INVALIDATED message from service worker');
+      if(event.data.timestamp > parseInt(localStorage.getItem('last-reload-timestamp'), 10)) {
+        localStorage.setItem('handling-notification-reload', 'true');
+        localStorage.setItem('last-reload-timestamp', Date.now());
+        setTimeout(() => {
+          window.location.reload();
+        }, 100);
+      }
+    } else if (event.data.type === 'NOTIFICATION_CLICK' && event.data.action === 'reload') {
       console.log('Received reload message from service worker');
-      localStorage.setItem('handling-notification-reload', 'true');
-      setTimeout(() => {
-        window.location.reload();
-      }, 100);
+      if(event.data.timestamp > parseInt(localStorage.getItem('last-reload-timestamp'), 10)) {
+        localStorage.setItem('handling-notification-reload', 'true');
+        localStorage.setItem('last-reload-timestamp', Date.now());
+        setTimeout(() => {
+          window.location.reload();
+        }, 100);
+      }
     }
   });
   
