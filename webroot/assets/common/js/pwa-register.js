@@ -1,85 +1,68 @@
-// Register Service Worker
 if ('serviceWorker' in navigator) {
     window.addEventListener('DOMContentLoaded', () => {
-        // Make sure formr configuration is available
-        if (!window.formr || !window.formr.run_url) {
-            console.warn('formr configuration not found or missing run_url');
+        if (!window.formr?.run_url) {
+            console.warn('formr configuration missing run_url');
             return;
         }
 
-        // Collect all CSS and JS files from the DOM that match the current domain
-        const currentOrigin = window.location.origin;
-        const stylesheets = Array.from(document.styleSheets)
-            .map(stylesheet => stylesheet.href)
-            .filter(href => href && href.startsWith(currentOrigin));
-        const scripts = Array.from(document.scripts)
-            .map(script => script.src)
-            .filter(src => src && src.startsWith(currentOrigin));
+        const runUrl = new URL(window.formr.run_url);
+        const siteUrl = new URL(window.formr.site_url);
 
-        const filesToCache = [...new Set([...stylesheets, ...scripts])];
+        const isPathBased = runUrl.hostname === siteUrl.hostname;
+        const serviceWorkerPath = isPathBased ? `${runUrl.pathname.replace(/\/$/, '')}/service-worker` : '/service-worker';
+        const scope = isPathBased ? runUrl.pathname : '/';
 
-        // Parse the run_url to determine the service worker path and scope
-        let serviceWorkerPath = '/service-worker';
-        let scope = '/';
-        let runUrl = new URL(window.formr.run_url);
-        let siteUrl = new URL(window.formr.site_url);
-        
-        console.log('run_url:', window.formr.run_url);
-        // If run_url is same as site_url, we're using paths, not study specific subdomains
-        if (runUrl.hostname === siteUrl.hostname) {
-            // Remove trailing slash if present
-            const pathWithoutTrailingSlash = runUrl.pathname.replace(/\/$/, '');
-            serviceWorkerPath = `${pathWithoutTrailingSlash}/service-worker`;
-            scope = runUrl.pathname;
-            console.log('Using path-based service worker:', serviceWorkerPath, 'with scope:', scope);
-        } else {
-            console.log('Using subdomain-based service worker:', serviceWorkerPath, 'with scope:', scope);
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+            window.navigator.standalone;
+
+        if (isStandalone && !window.location.search.includes('_pwa=true')) {
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set('_pwa', 'true');
+            window.history.replaceState({}, '', newUrl);
         }
 
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-        window.matchMedia('(display-mode: fullscreen)').matches || 
-        window.navigator.standalone;
+        navigator.serviceWorker.getRegistration(scope).then(existingRegistration => {
+            if (!existingRegistration && isStandalone) {
+                navigator.serviceWorker.register(serviceWorkerPath, { scope }).then(registration => {
+                    console.log('Service Worker registered:', registration.scope);
+                    // Collect all CSS and JS files from the DOM that match the current domain
+                            // Collect all CSS and JS files from the DOM that match the current domain
+                            const currentOrigin = window.location.origin;
+                            const stylesheets = Array.from(document.styleSheets)
+                                .map(stylesheet => stylesheet.href)
+                                .filter(href => href && href.startsWith(currentOrigin));
+                            const scripts = Array.from(document.scripts)
+                                .map(script => script.src)
+                                .filter(src => src && src.startsWith(currentOrigin));
 
-        if(isStandalone) {
-            if (!window.location.search.includes('_pwa=true')) {
-                const newUrl = new URL(window.location.href);
-                newUrl.searchParams.set('_pwa', 'true');
-                window.history.replaceState({}, '', newUrl);
+                            const filesToCache = [...new Set([...stylesheets, ...scripts])];
+
+                            // Function to send assets to cache to service worker
+                            const sendAssetsToCache = () => {
+                                console.log('Sending assets to cache to service worker');
+                                registration.active.postMessage({
+                                    type: 'CACHE_ASSETS',
+                                    assets: filesToCache
+                                });
+                            };
+
+                                            // If the service worker is already active, send messages immediately
+                            if (registration.active) {
+                                sendAssetsToCache();
+                            }
+
+                            // Listen for state changes to catch when a new service worker becomes active
+                            const sw = registration.waiting || registration.installing;
+                            sw.addEventListener('statechange', (e) => {
+                                if (e.target.state === 'activated') {
+                                    sendAssetsToCache();
+                                }
+                            });
+
+                });
+            } else {
+                console.log('Service Worker already registered:', existingRegistration?.scope);
             }
-        
-            // Register service worker with the correct path and scope
-            navigator.serviceWorker.register(serviceWorkerPath, {
-                scope: scope
-            }).then(
-                (registration) => {
-                console.log('ServiceWorker registration successful with scope:', registration.scope);
-                navigator.serviceWorker.ready.then(registration => {
-                    console.log('ServiceWorker ready with scope:', registration.scope);
-                });
-                // Function to send assets to cache to service worker
-                const sendAssetsToCache = () => {
-                    console.log('Sending assets to cache to service worker');
-                    registration.active.postMessage({
-                        type: 'CACHE_ASSETS',
-                        assets: filesToCache
-                    });
-                };
-
-                // If the service worker is already active, send messages immediately
-                if (registration.active) {
-                    sendAssetsToCache();
-                }
-
-                // Listen for state changes to catch when a new service worker becomes active
-                registration.addEventListener('statechange', () => {
-                    if (registration.active) {
-                        sendAssetsToCache();
-                    }
-                });
-            },
-            (error) => {
-                console.log('ServiceWorker registration failed: ', error);
-            });
-        }
+        });
     });
-} 
+}
