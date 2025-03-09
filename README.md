@@ -1,6 +1,6 @@
 # formr survey framework
 ## Contributing
-See [Contributing](https://github.com/rubenarslan/formr.org/blob/master/CONTRIBUTING.md) if you want to help improve formr?
+See [Contributing](https://github.com/rubenarslan/formr.org/blob/master/CONTRIBUTING.md) if you want to help improve formr.
 
 ## Citation
 See [formr.org/public/about](https://formr.org/public/about) if you are publishing research conducted using formr.
@@ -79,4 +79,6 @@ The setup instructions are not suitable for production, i.e. running a secure fo
 See [formr.org/about](https://formr.org/about) for funding and contact info.
 
 See [composer.json](https://github.com/rubenarslan/formr.org/blob/master/composer.json) for the PHP components we use and
-[bower.json](https://github.com/rubenarslan/formr.org/blob/master/webroot/assets/bower.json) for the Javascript and CSS components we use.
+[package.json](https://github.com/rubenarslan/formr.org/blob/master/package.json) for the Javascript and CSS components we use.
+
+This project is tested with BrowserStack.
