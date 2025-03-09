@@ -1,4 +1,1 @@
-ace.define("ace/snippets/html_ruby", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "html_ruby"
-})
+ace.require(["ace/snippets/html_ruby"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

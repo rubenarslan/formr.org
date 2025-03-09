@@ -1,4 +1,1 @@
-ace.define("ace/snippets/eiffel", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "eiffel"
-})
+ace.require(["ace/snippets/eiffel"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

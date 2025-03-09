@@ -1,3 +1,11 @@
+import {
+    bootstrap_modal, 
+    ajaxErrorHandling, 
+    download_next_textarea, 
+    getHTMLTemplate, 
+    bootstrap_spinner  
+} from './main.js';
+
 (function ($) {
     "use strict";
     function ajaxifyLink(i, elm) {

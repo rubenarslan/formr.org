@@ -1,4 +1,1 @@
-ace.define("ace/snippets/soy_template", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "soy_template"
-})
+ace.require(["ace/snippets/soy_template"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

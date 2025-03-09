@@ -1619,18 +1619,6 @@ function deletefiles($files) {
     }
 }
 
-function get_default_assets($config = 'site') {
-    if (DEBUG) {
-        return Config::get("default_assets.dev.{$config}");
-    } else {
-        return Config::get("default_assets.prod.{$config}");
-    }
-}
-
-function get_assets() {
-    return get_default_assets('assets');
-}
-
 function print_stylesheets($files, $id = null) {
     foreach ($files as $i => $file) {
         $id = 'css-' . $i . $id;

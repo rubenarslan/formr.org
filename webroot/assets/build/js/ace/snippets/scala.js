@@ -1,4 +1,1 @@
-ace.define("ace/snippets/scala", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "scala"
-})
+ace.require(["ace/snippets/scala"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

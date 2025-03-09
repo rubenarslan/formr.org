@@ -6,8 +6,7 @@ class AdminAccountController extends Controller {
     public function __construct(Site &$site) {
         parent::__construct($site);
         if (!Request::isAjaxRequest()) {
-            $default_assets = get_default_assets('admin');
-            $this->registerAssets($default_assets);
+            $this->registerAssets('admin');
         }
     }
 
@@ -120,7 +119,6 @@ class AdminAccountController extends Controller {
         $vars['run_count'] = $this->fdb->count('survey_runs', ['user_id' => $this->user->id]);
         $vars['mail_count'] = $this->fdb->count('survey_email_accounts', ['user_id' => $this->user->id, 'deleted' => 0]);
 
-        //$this->registerAssets('bootstrap-material-design');
         $this->setView('admin/account/index', $vars);
         return $this->sendResponse();
     }
@@ -183,7 +181,7 @@ class AdminAccountController extends Controller {
             }
         }
 
-        $this->registerAssets('bootstrap-material-design');
+        $this->registerAssets('material');
         $this->setView('admin/account/login', array('alerts' => $this->site->renderAlerts()));
         return $this->sendResponse();
     }
@@ -194,7 +192,7 @@ class AdminAccountController extends Controller {
             alert('You have been logged out!', 'alert-info');
             $alerts = $this->site->renderAlerts();
             $user->logout();
-            $this->registerAssets('bootstrap-material-design');
+            $this->registerAssets('material');
             $this->setView('admin/account/login', array('alerts' => $alerts));
             return $this->sendResponse();
         } else {
@@ -245,7 +243,7 @@ class AdminAccountController extends Controller {
             }
         }
 
-        $this->registerAssets('bootstrap-material-design');
+        $this->registerAssets('material');
         $this->setView('admin/account/register');
         return $this->sendResponse();
     }
@@ -290,7 +288,7 @@ class AdminAccountController extends Controller {
             $this->minimumWait($start, 1.0);
         }
 
-        $this->registerAssets('bootstrap-material-design');
+        $this->registerAssets('material');
         $this->setView('admin/account/forgot_password');
         return $this->sendResponse();
     }
@@ -323,7 +321,7 @@ class AdminAccountController extends Controller {
             }
         }
 
-        $this->registerAssets('bootstrap-material-design');
+        $this->registerAssets('material');
         $this->setView('admin/account/reset_password', array(
             'reset_data_email' => $this->request->str('email'),
             'reset_data_token' => $this->request->str('reset_token'),
@@ -339,7 +337,7 @@ class AdminAccountController extends Controller {
             alert('2FA session expired. Please login again.', 'alert-danger');
             $this->request->redirect('admin/account/login');
         }
-        $this->registerAssets('bootstrap-material-design');
+        $this->registerAssets('material');
 
         // First check if we have a temporary user session
         $temp_user_data = Session::get('user_temp');
@@ -451,7 +449,7 @@ class AdminAccountController extends Controller {
             }
         }
 
-        $this->registerAssets('bootstrap-material-design');
+        $this->registerAssets('material');
         $this->setView('admin/account/manage_two_factor', array(
             'alerts' => $this->site->renderAlerts()
         ));
@@ -515,7 +513,7 @@ class AdminAccountController extends Controller {
             }
         }
 
-        $this->registerAssets('bootstrap-material-design');
+        $this->registerAssets('material');
         $setup = Session::get('2fa_setup');
         $this->setView('admin/account/setup_two_factor', array(
             'alerts' => $this->site->renderAlerts(),

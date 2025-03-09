@@ -1,4 +1,1 @@
-ace.define("ace/snippets/pascal", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "pascal"
-})
+ace.require(["ace/snippets/pascal"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

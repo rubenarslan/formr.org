@@ -1,4 +1,1 @@
-ace.define("ace/snippets/julia", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "julia"
-})
+ace.require(["ace/snippets/julia"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));
