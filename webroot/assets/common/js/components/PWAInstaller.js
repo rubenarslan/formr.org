@@ -2,7 +2,8 @@ import $ from 'jquery';
 import QRCodeStyling from "qr-code-styling";
 import 'add-to-homescreen/dist/add-to-homescreen.min.css';
 import AddToHomeScreen from 'add-to-homescreen/dist/add-to-homescreen.min.js';
-
+import '@khmyznikov/pwa-install';
+    
 // Add German translations to window.formrLanguage
 window.formrTranslations.de = {
     // Installation related
@@ -77,7 +78,7 @@ window.formrTranslations.de = {
     // New translations
     'Installation not working? Try switching to a supported browser like Chrome or Safari.': 'Installation funktioniert nicht? Versuchen Sie es mit einem unterstützten Browser wie Chrome oder Safari.',
     'Switch Browser': 'Browser wechseln',
-    'If you are having trouble installing the app, this browser may not be fully supported. Please use Chrome, Safari or Firefox for the best experience.': 'Wenn Sie Probleme beim Installieren der App haben, kann dieser Browser möglicherweise nicht vollständig unterstützt werden. Bitte verwenden Sie Chrome, Safari oder Firefox für die beste Erfahrung.',
+    'If you are having trouble installing the app, this browser may not be fully supported. Chrome on Android and Safari on iOS are best supported.': 'Wenn Sie Probleme beim Installieren der App haben, kann dieser Browser möglicherweise nicht vollständig unterstützt werden. Chrome auf Android und Safari auf iOS sind am besten unterstützt.',
     'You need to install this study\'s app on your phone to receive notifications on the go': 'Sie müssen die App dieser Studie auf Ihrem Telefon installieren, um unterwegs Benachrichtigungen zu erhalten',
     'Installation is not supported in your browser.': 'Installation wird in Ihrem Browser nicht unterstützt.',
     'Installation failed. You can try again or add to home screen manually from your browser menu.': 'Installation fehlgeschlagen. Sie können es erneut versuchen oder manuell über Ihr Browser-Menü zum Startbildschirm hinzufügen.',
@@ -261,9 +262,11 @@ async function updateInstallButtonState() {
     } else if (localStorage.getItem('pwa-app-installed') === 'true') { // App is installed according to localStorage
         $hiddenInput.val('already_added');
         const redirect_link = generateRedirectLink();
-        $status.html(t("You've already installed this app. Try closing your browser and opening the app from your home screen. If you have uninstalled the app, please just click this button again.") + 
-            `<a href="web-formrpwa://test" class="btn btn-primary" target="_blank">${t('Open app')}</a>`
+        let appName = appName || document.title;
+        $status.html(t("You've already installed this app. Try closing your browser and opening the app named " + appName + " from your home screen. If you have uninstalled the app, please just click this button again.")
         );
+        //  + 
+        //    `<a href="web-formrpwaa://test" class="btn btn-primary" target="_blank">${t('Open app')}</a>`
         $wrapper.closest('.form-group').addClass('formr_answered');
         $button.removeClass('btn-primary').addClass('btn-success');
         $button.html(`<i class="fa fa-check"></i> ${t('Installed')}`);
@@ -275,6 +278,95 @@ async function updateInstallButtonState() {
         $button.html($button.data('default-text'));
     }
 }
+function initialize_pwa_install_element() {
+    // Initialize pwa-install element
+    var installer = document.createElement('pwa-install');
+
+    // Get manifest URL from link tag
+    var manifestLink = document.querySelector('link[rel="manifest"]');
+    if (manifestLink) {
+        installer.setAttribute('manifest-url', manifestLink.href);
+    }
+    
+    installer.setAttribute('use-local-storage', 'true');
+    installer.hideDialog();
+    document.body.appendChild(installer);
+
+    // Handle beforeinstallprompt event for PWA installation
+    window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        window.deferredPrompt = e;
+        if (installer) {
+            installer.externalPromptEvent = e;
+        }
+        updateInstallButtonState();
+    });
+
+    if (installer) {
+        // Installation successful
+        installer.addEventListener('pwa-install-success-event', function(e) {
+			console.log('Installation successful:', e.detail);
+			localStorage.setItem('pwa-app-installed', 'true');
+
+            updateInstallButtonState();
+			
+			installer.hideDialog();
+		});
+        
+        // Installation failed
+        installer.addEventListener('pwa-install-fail-event', function(e) {
+            console.log('Installation failed:', e.detail);
+            
+            $('.add-to-homescreen-wrapper').each(function() {
+                var $wrapper = $(this);
+                var $status = $wrapper.find('.status-message');
+                var $hiddenInput = $wrapper.find('input');
+                var $button = $wrapper.find('.add-to-homescreen');
+                
+                $hiddenInput.val('failed');
+                $status.html(t('Installation failed. You can try again or add to home screen manually from your browser menu.'));
+                $button.html('<i class="fa fa-plus-square"></i> ' + t('Add to Home Screen'));
+                addBrowserSwitchUI($wrapper);
+            });
+            
+            installer.hideDialog();
+        });
+        
+        // User choice result
+		installer.addEventListener('pwa-user-choice-result-event', function(e) {
+			console.log('User choice:', e.detail);
+			var accepted = (e.detail.userChoiceResult === 'accepted');
+			
+			$('.add-to-homescreen-wrapper').each(function() {
+				var $wrapper = $(this);
+				var $status = $wrapper.find('.status-message');
+				var $hiddenInput = $wrapper.find('input');
+				var $button = $wrapper.find('.add-to-homescreen');
+				var isRequired = $wrapper.closest('.form-group').hasClass('required');
+				
+				if (accepted) {
+					updateInstallButtonState();
+				} else {
+					$hiddenInput.val('declined');
+					if (isRequired) {
+						$status.html(t('This step is required. Please add the app to your home screen to continue.'));
+						$wrapper.closest('.form-group').removeClass('formr_answered');
+					} else {
+						$status.html(t('You can add the app to your home screen at any time.'));
+						$wrapper.closest('.form-group').addClass('formr_answered');
+					}
+					$button.html('<i class="fa fa-plus-square"></i> ' + t('Add to Home Screen'));
+                    addBrowserSwitchUI($wrapper);
+
+				}
+			});
+			
+			installer.hideDialog();
+		});
+    }
+
+    return installer;
+}
 
 export function initializePWAInstaller() {
     if($('.add-to-homescreen').length == 0) {
@@ -282,6 +374,7 @@ export function initializePWAInstaller() {
     }
     console.log('Initializing PWA Installer');
     initializeAddToHomeScreen();
+    const installer = initialize_pwa_install_element();
 
     // Check for display mode changes
     window.addEventListener('DOMContentLoaded', updateInstallButtonState);
@@ -322,15 +415,27 @@ export function initializePWAInstaller() {
 
         // Show the add-to-homescreen dialog
         console.log('Showing add-to-homescreen dialog');
-        if(window.deferredPrompt) {
-            window.deferredPrompt.prompt();
+        let prompted = false;
+        if(window.deferredPrompt && installer) {
+            prompted = true;
+            installer.showDialog();
         } else {
-            window.AddToHomeScreenInstance.show();
+            const add_instance = window.AddToHomeScreenInstance.show();
+            if(!add_instance.canBeStandAlone && !installer) {
+                tryDifferentBrowser($wrapper, t('Your browser may not support adding to the home screen. Check the menu to be sure or try a different browser.'));
+                timeoutHandler.clear();
+            } else if(!add_instance.canBeStandAlone) {
+                installer.showDialog();
+            } else {
+                prompted = true;
+            }
         }
-        
-        $hiddenInput.val('prompted');
-        $status.html(t('Preparing installation...'));
-        $btn.html('<i class="fa fa-spinner fa-spin"></i> ' + t('Processing...'));
+
+        if(prompted) {
+            $hiddenInput.val('prompted');
+            $status.html(t('Preparing installation...'));
+            $btn.html('<i class="fa fa-spinner fa-spin"></i> ' + t('Processing...'));
+        }
         
         return false;
     });
@@ -401,13 +506,6 @@ function initializeWithAppInfo(appName, appIconUrl) {
     });
     
     console.log('AddToHomeScreenInstance initialized successfully');
-    
-    // Handle beforeinstallprompt event for PWA installation
-    window.addEventListener('beforeinstallprompt', function(e) {
-        e.preventDefault();
-        window.deferredPrompt = e;
-        updateInstallButtonState();
-    });
     
     // Update the install button state now that we have initialized
     updateInstallButtonState();
@@ -979,7 +1077,7 @@ export function initializeRequestPhone(force_show_guide = false) {
         
         if (force_show && isMobile) {
             // Case 1: Unsupported mobile browser - show guidance to switch browsers
-            $statusMessage.html(t('If you are having trouble installing the app, this browser may not be fully supported. Please use Chrome, Safari or Firefox for the best experience.'));
+            $statusMessage.html(t('If you are having trouble installing the app, this browser may not be fully supported. Chrome on Android and Safari on iOS are best supported.'));
             
             // Create link for browser switch
             const redirectLink = generateRedirectLink();
