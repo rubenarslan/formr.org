@@ -1,3 +1,4 @@
+import './pwa-register.js';
 import $ from 'jquery';
 import webshim from 'webshim';
 import { mysql_datetime, flatStringifyGeo  } from './main.js';

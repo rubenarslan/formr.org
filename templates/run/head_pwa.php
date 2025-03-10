@@ -28,7 +28,6 @@ if ($run->getManifestJSONPath()): ?>
         window.vapidPublicKey = <?php echo json_encode($vapidPublicKey); ?>;
     </script>
     <?php endif; ?>
-
-    <script src="<?php echo asset_url('common/js/pwa-register.js'); ?>"></script>
+    
 <?php endif; ?>
 

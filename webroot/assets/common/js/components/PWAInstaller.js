@@ -1058,6 +1058,7 @@ export function initializeRequestPhone(force_show_guide = false) {
         const $hiddenInput = $wrapper.find('input');
         const force_show = force_show_guide || $wrapper.data('force-show') === true;
         const isRequired = $wrapper.closest('.form-group').hasClass('required');
+        debugger;
         if(isRequired) {
             $hiddenInput[0].setCustomValidity(t('Please complete this required step before continuing.'));
         }
@@ -1183,17 +1184,6 @@ async function clearAppBadge() {
     }
   }
 }
-
-function reload_invalidated(timestamp) {
-    localStorage.setItem('handling-notification-reload', 'true');
-    if(!localStorage.getItem('last-reload-timestamp') || timestamp > parseInt(localStorage.getItem('last-reload-timestamp'), 10)) {
-      localStorage.setItem('last-reload-timestamp', Date.now() + 200);
-      setTimeout(() => {
-        console.log('Reloading page');
-        window.location.reload();
-      }, 100);
-    }
-  }
   
 // Function to check and handle pending notifications
 async function handlePendingNotifications() {
@@ -1201,50 +1191,91 @@ async function handlePendingNotifications() {
     if (!registration) return false;
 
     const notifications = await registration.getNotifications();
-    notifications.forEach(notification => notification.close());
+    notifications.forEach(notification => {
+        reload_invalidated(notification.data.timestamp);
+        setTimeout(() => {
+            notification.close();
+        }, 10000);
+    });
 
     if (notifications.length > 0) {
-      localStorage.setItem('notifications-closed', Date.now());
+        localStorage.setItem('notifications-closed', Date.now());
     }
     // Post message to service worker to clear notifications
-    if (registration.active) {
-        registration.active.postMessage({
-            type: 'CLEAR_NOTIFICATIONS'
-        });
-    }
+    // if (registration.active) {
+    //     registration.active.postMessage({
+    //         type: 'CLEAR_NOTIFICATIONS'
+    //     });
+    // }
 
     await clearAppBadge();
     return notifications.length > 0;
 }
 
+
+
+function reload_invalidated(timestamp) {
+    localStorage.setItem('state-invalidated', timestamp);
+    if(!localStorage.getItem('handling-reload') &&
+        (!localStorage.getItem('last-reload-timestamp') || timestamp > parseInt(localStorage.getItem('last-reload-timestamp'), 10))) {
+      localStorage.setItem('last-reload-timestamp', Date.now() + 200);
+      localStorage.setItem('handling-reload', 'true');
+      setTimeout(() => {
+        console.log('Reloading page at', timestamp);
+        if (isIOSDevice()) {
+            window.focus();
+            window.location.href = window.location.href;
+        } else {
+            window.location.reload();
+        }
+      }, 100);
+    } else if(timestamp < parseInt(localStorage.getItem('last-reload-timestamp'), 10)) {
+        localStorage.removeItem('state-invalidated');
+    }
+  }
+
+// remember when we last reloaded the page
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOMContentLoaded');
+    localStorage.setItem('last-reload-timestamp', Date.now());
+    localStorage.removeItem('handling-reload');
+});
+
 // Add service worker message handler at the top level
 if ('serviceWorker' in navigator) {
-  // Check for pending notifications and handle page initialization
-  handlePendingNotifications();
-  
-  // Handle page visibility changes
-  ['visibilitychange', 'focus', 'pageshow'].forEach(eventType => {
-    window.addEventListener(eventType, () => {
-      handlePendingNotifications();
+    console.log('serviceWorker in navigator, try to attach message handler');
+    // Listen for messages from the service worker
+    navigator.serviceWorker.addEventListener('message', (event) => {
+        console.log('Received message from service worker', event.data);
+        if(event.data.type === 'STATE_INVALIDATED') {
+            console.log('Received STATE_INVALIDATED message from service worker');
+            reload_invalidated(event.data.timestamp);
+        } else if (event.data.type === 'NOTIFICATION_CLICK' && event.data.action === 'reload') {
+            console.log('Received reload message from service worker');
+            reload_invalidated(event.data.timestamp);
+        }
     });
-    document.addEventListener('DOMContentLoaded', () => {
-        localStorage.removeItem('handling-notification-reload');
-        localStorage.setItem('last-reload-timestamp', Date.now());
-        handlePendingNotifications();
-      });
-  });
 
- // Listen for messages from the service worker
- navigator.serviceWorker.addEventListener('message', (event) => {
-     console.log('Received message from service worker', event.data);
-     if(event.data.type === 'STATE_INVALIDATED') {
-     console.log('Received STATE_INVALIDATED message from service worker');
-     reload_invalidated(event.data.timestamp);
-     } else if (event.data.type === 'NOTIFICATION_CLICK' && event.data.action === 'reload') {
-     console.log('Received reload message from service worker');
-     reload_invalidated(event.data.timestamp);
-     }
- });
+    // Check for pending notifications and handle page initialization
+    // Handle page visibility changes    
+    ['visibilitychange', 'focus', 'pageshow'].forEach(eventType => {
+        window.addEventListener(eventType, () => {
+            console.log('Event type', eventType, 'document.hidden', document.hidden);
+            if(!document.hidden && localStorage.getItem('state-invalidated')) {
+                console.log('Reloading page because of state-invalidated');
+                // reload the page if we still think the state might be invalid
+                reload_invalidated(localStorage.getItem('state-invalidated'));
+                // handlePendingNotifications();
+            }
+        });
+    });
+    
+    document.addEventListener('click', () => {
+        handlePendingNotifications();
+    });
+
+
+
 }
 
 // Add new function to handle installation timeout
@@ -1255,16 +1286,7 @@ function handleInstallTimeout($wrapper) {
     return {
         start: () => {
             installTimeoutId = setTimeout(() => {
-                const $status = $wrapper.find('.status-message');
-                const $button = $wrapper.find('.add-to-homescreen');
-                
-                // Clear any existing content and add the browser switch UI
-                $status.html(t('Installation not working? Try switching to a supported browser like Chrome or Safari.'));
-                addBrowserSwitchUI($wrapper);
-                
-                // Reset button state
-                $button.prop('disabled', false);
-                $button.html($button.data('default-text'));
+                tryDifferentBrowser($wrapper);
             }, timeoutDuration);
         },
         clear: () => {
@@ -1274,6 +1296,27 @@ function handleInstallTimeout($wrapper) {
             }
         }
     };
+}
+/**
+ * Try different browser
+ * @param {*} $wrapper 
+ * @param {*} message 
+ */
+function tryDifferentBrowser($wrapper, message) {
+    debugger;
+    const $status = $wrapper.find('.status-message');
+    const $button = $wrapper.find('.add-to-homescreen');
+    
+    // Clear any existing content and add the browser switch UI
+    if(!message) {
+        message = t('Installation not working? Try switching to a supported browser like Chrome or Safari.');
+    }
+    $status.html(message);
+    addBrowserSwitchUI($wrapper);
+    
+    // Reset button state
+    $button.prop('disabled', false);
+    $button.html($button.data('default-text'));
 }
 
 // Add new function to create browser switch UI

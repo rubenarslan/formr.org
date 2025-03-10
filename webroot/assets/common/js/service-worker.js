@@ -1,4 +1,5 @@
-const CACHE_NAME = 'formr-' + self.location.hostname + self.location.pathname.split('/').slice(0, -1).join('-');
+const sw_version = 'v3';
+const CACHE_NAME = 'formr-' + sw_version + '-' + self.location.hostname + self.location.pathname.split('/').slice(0, -1).join('-');
 
 console.log("SW loaded", self.location.href);
 
@@ -181,9 +182,9 @@ async function checkAndCloseExpiredNotifications() {
     let expiredCount = 0;
     
     for (const notification of notifications) {
-      // Check if notification has timestamp (TTL) data
-      if (notification.data && notification.data.timestamp) {
-        if (now >= notification.data.timestamp) {
+      // Check if notification has expires (TTL) data
+      if (notification.data && notification.data.expires) {
+        if (now >= notification.data.expires) {
           notification.close();
           expiredCount++;
           
@@ -246,10 +247,10 @@ self.addEventListener('push', event => {
         renotify: !!data.renotify,
         silent: !!data.silent,
         data: {
-          dateOfArrival: timestamp,
           clickTarget: data.clickTarget || self.location.href.replace(/\/service-worker$/, '/'),
           badgeCount: Number.isInteger(data.badgeCount) ? data.badgeCount : undefined,
-          timestamp: Number.isInteger(data.timeToLive) ? timestamp + data.timeToLive * 1000 : undefined
+          timestamp: timestamp,
+          expires: Number.isInteger(data.timeToLive) ? timestamp + data.timeToLive * 1000 : undefined
         }
       };
 

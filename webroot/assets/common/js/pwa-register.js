@@ -1,10 +1,7 @@
 if ('serviceWorker' in navigator) {
-    window.addEventListener('DOMContentLoaded', () => {
-        if (!window.formr?.run_url) {
-            console.warn('formr configuration missing run_url');
-            return;
-        }
-
+    if (!window.formr?.run_url) {
+        console.warn('formr configuration missing run_url');
+    } else {
         const runUrl = new URL(window.formr.run_url);
         const siteUrl = new URL(window.formr.site_url);
 
@@ -28,13 +25,14 @@ if ('serviceWorker' in navigator) {
                     console.log('Service Worker registered:', registration.scope);
                     // Collect all CSS and JS files from the DOM that match the current domain
                             // Collect all CSS and JS files from the DOM that match the current domain
-                            const currentOrigin = window.location.origin;
+                            const runOrigin = runUrl.origin;
+                            const siteOrigin = siteUrl.origin;
                             const stylesheets = Array.from(document.styleSheets)
                                 .map(stylesheet => stylesheet.href)
-                                .filter(href => href && href.startsWith(currentOrigin));
+                                .filter(href => href && (href.startsWith(runOrigin) || href.startsWith(siteOrigin)));
                             const scripts = Array.from(document.scripts)
                                 .map(script => script.src)
-                                .filter(src => src && src.startsWith(currentOrigin));
+                                .filter(src => src && (src.startsWith(runOrigin) || src.startsWith(siteOrigin)));
 
                             const filesToCache = [...new Set([...stylesheets, ...scripts])];
 
@@ -54,16 +52,18 @@ if ('serviceWorker' in navigator) {
 
                             // Listen for state changes to catch when a new service worker becomes active
                             const sw = registration.waiting || registration.installing;
-                            sw.addEventListener('statechange', (e) => {
-                                if (e.target.state === 'activated') {
-                                    sendAssetsToCache();
-                                }
-                            });
+                            if(sw) {
+                                sw.addEventListener('statechange', (e) => {
+                                    if (e.target.state === 'activated') {
+                                        sendAssetsToCache();
+                                    }
+                                });
+                            }
 
                 });
             } else {
                 console.log('Service Worker already registered:', existingRegistration?.scope);
             }
         });
-    });
+    }
 }
