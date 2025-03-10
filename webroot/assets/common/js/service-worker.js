@@ -1,7 +1,7 @@
-const sw_version = 'v3';
+const sw_version = 'v6';
 const CACHE_NAME = 'formr-' + sw_version + '-' + self.location.hostname + self.location.pathname.split('/').slice(0, -1).join('-');
 
-console.log("SW loaded", self.location.href);
+console.log("SW loaded", CACHE_NAME);
 
 // Helper function to validate URLs
 function isValidUrl(url) {
@@ -21,101 +21,23 @@ function isValidUrl(url) {
  */
 let manifestData = null;
 async function fetchManifest() {
-  if(!manifestData) {
-    const url = self.location.href.replace(/\/service-worker$/, '/manifest');
-    console.log("SW: Fetching manifest from", url);
-    manifestData = fetch(url)
-    .then(response => {
+  if (!manifestData) {
+    try {
+      const url = self.location.href.replace(/\/service-worker$/, '/manifest');
+      console.log("SW: Fetching manifest from", url);
+      
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch manifest.');
-      return response.json();
-    })
-    .catch(err => {
-      cachedManifestPromise = null; // reset on failure for retry
+      
+      manifestData = await response.json();
+    } catch (err) {
+      manifestData = null;
       console.error('Error fetching manifest:', err);
       throw err;
-    });
+    }
   }
   return manifestData;
 }
-
-// Add message event listener to handle asset caching
-self.addEventListener('message', (event) => {
-  // Handle CACHE_ASSETS message
-  if (event.data.type === 'CACHE_ASSETS') {
-    // Filter and deduplicate assets
-    const validAssets = [...new Set(
-      [
-        ...event.data.assets.filter(isValidUrl)
-      ]
-    )].filter(isValidUrl);
-    
-    console.log('Service worker received assets to cache:', validAssets);
-    
-    // Return the Promise chain directly instead of using event.waitUntil
-    event.ports[0]?.postMessage(
-      caches.open(CACHE_NAME).then((cache) => {
-        console.log("SW: Caching assets:", validAssets);
-        return cache.addAll(validAssets);
-      }).catch(error => {
-        console.error('Error caching assets:', error);
-      })
-    );
-  } else if (event.data.type === 'CLEAR_NOTIFICATIONS') {
-    event.waitUntil(self.registration.getNotifications().then(notifications => {
-      if(notifications.length > 0) {
-        console.log("SW: Clearing notifications ", notifications.length);
-      }
-      notifications.forEach(notification => notification.close());
-    }));
-  }
-});
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    fetchManifest().then(manifest => {
-      const assetsToCache = [...new Set([manifest.start_url, ...manifest.icons.map(icon => icon.src)])];
-      return caches.open(CACHE_NAME).then(cache => cache.addAll(assetsToCache));
-    })
-  );
-});
-
-self.addEventListener('fetch', (event) => {
-  // Only handle GET requests
-  if (event.request.method !== 'GET') {
-    return;
-  }
-
-  // Only handle valid URLs (which now must include /assets/)
-  if (!isValidUrl(event.request.url)) {
-    return fetch(event.request);  // Don't cache, just fetch normally
-  }
-
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        if (response) {
-          return response;
-        }
-        return fetch(event.request)
-          .then((response) => {
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-            
-            // URL is already validated by isValidUrl above
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-            
-            return response;
-          });
-      })
-  );
-});
-
-// Helper function to get the best icon from manifest
 
 // Async helper function to get best icon from manifest
 async function getBestIcon(purpose = 'any') {
@@ -174,68 +96,172 @@ async function manageBadge(count) {
   }
 }
 
+// Helper function to find and sort clients, prioritizing PWA clients
+async function findAndSortClients() {
+  const clientsArr = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+  return clientsArr.sort((a, b) => b.url.includes('_pwa=true') - a.url.includes('_pwa=true'));
+}
+
 // Add a function to check and close expired notifications
 async function checkAndCloseExpiredNotifications() {
   try {
     const notifications = await self.registration.getNotifications();
     const now = Date.now();
-    let expiredCount = 0;
-    
-    for (const notification of notifications) {
-      // Check if notification has expires (TTL) data
-      if (notification.data && notification.data.expires) {
-        if (now >= notification.data.expires) {
-          notification.close();
-          expiredCount++;
-          
-          // If the expired notification had a badge count, we need to update the badge
-          if (notification.data.badgeCount !== undefined) {
-            // Get all remaining notifications to recalculate badge count
-            const remainingNotifications = await self.registration.getNotifications();
-            const totalBadgeCount = remainingNotifications.reduce((count, n) => {
-              return count + (n.data?.badgeCount || 0);
-            }, 0);
-            
-            // Update the badge count
-            await manageBadge(totalBadgeCount);
-          }
-        }
-      }
-    }
-    
-    if (expiredCount > 0) {
-      console.log(`Closed ${expiredCount} expired notification(s)`);
+
+    const expired = notifications.filter(n => n.data?.expires && now >= n.data.expires);
+    expired.forEach(n => n.close());
+
+    // If all notifications are expired, clear the badge
+    if (expired.length == notifications.length) {
+      await manageBadge(null);
+      console.log(`SW: All ${expired.length} notifications expired, badge cleared`);
     }
   } catch (error) {
     console.error('Error checking expired notifications:', error);
   }
 }
 
+/* 
+ * Service worker event listeners
+ */
+
+/* 
+ * Install event listener to cache the manifest and assets
+ */
+self.addEventListener('install', (event) => {
+  console.log('SW: Starting install');
+  const pre_cache = async () => {
+    try {
+      const manifest = await fetchManifest();
+      const assetsToCache = [...new Set([manifest.start_url, ...manifest.icons.map(icon => icon.src)])];
+      const cache = await caches.open(CACHE_NAME);
+      console.log('SW: Caching assets:', assetsToCache);
+      return await cache.addAll(assetsToCache);
+    } catch (error) {
+      console.error('Install failed:', error);
+      throw error;
+    }
+  };
+  event.waitUntil(pre_cache());
+  console.log('SW: Install complete');
+});
+
+
 // Add activation event listener to check for expired notifications
-self.addEventListener('activate', (event) => {
-  console.log("SW: Activating");
-  clients.claim();
-  console.log("SW: Claimed clients", clients);
-  event.waitUntil(checkAndCloseExpiredNotifications());
+self.addEventListener('activate', event => {
+  console.log('SW: Starting activation');
+  const activate = async () => {
+    try {
+      await clients.claim();
+      await checkAndCloseExpiredNotifications();
+      console.log("SW: Activation complete, clients claimed");
+    } catch (error) {
+      console.error("Error during activation:", error);
+      throw error;
+    }
+  };
+  event.waitUntil(activate());
+  console.log('SW: Activation complete');
+});
+
+/* 
+ * Fetch event listener to cache assets
+ */
+self.addEventListener('fetch', (event) => {
+  // Only handle GET requests
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  // Only handle valid URLs (which now must include /assets/)
+  if (!isValidUrl(event.request.url)) {
+    return fetch(event.request);  // Don't cache, just fetch normally
+  }
+
+  event.respondWith((async () => {
+    try {
+      // Check cache first
+      const cachedResponse = await caches.match(event.request);
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+
+      // Fetch from network
+      const networkResponse = await fetch(event.request);
+      
+      // Validate response before caching
+      if (!networkResponse || 
+          networkResponse.status !== 200 || 
+          networkResponse.type !== 'basic') {
+        return networkResponse;
+      }
+
+      // Clone response for caching
+      const responseToCache = networkResponse.clone();
+      
+      // Update cache in background
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(event.request, responseToCache);
+
+      return networkResponse;
+
+    } catch (error) {
+      console.error('Fetch handler error:', error);
+      throw error; // Let event.respondWith handle the rejection
+    }
+  })());
+});
+
+
+// Add message event listener to handle asset caching
+self.addEventListener('message', (event) => {
+  // Handle CACHE_ASSETS message
+  if (event.data.type === 'CACHE_ASSETS') {
+    // Filter and deduplicate assets
+    const validAssets = [...new Set(
+      [
+        ...event.data.assets.filter(isValidUrl)
+      ]
+    )].filter(isValidUrl);
+    
+    console.log('Service worker received assets to cache:', validAssets);
+    
+    // Return the Promise chain directly instead of using event.waitUntil
+    event.ports[0]?.postMessage(
+      (async () => {
+        try {
+          const cache = await caches.open(CACHE_NAME);
+          console.log("SW: Caching assets:", validAssets);
+          return await cache.addAll(validAssets);
+        } catch (error) {
+          console.error('Error caching assets:', error);
+          throw error; // Propagate to caller
+        }
+      })()
+    );
+  }
 });
 
 // Handle incoming push events
 self.addEventListener('push', event => {
-  event.waitUntil((async () => {
     if (!event.data) {
       console.warn('Push event received without data');
       return;
     }
-    const best_icon_any = await getBestIcon('any');
-    const best_icon_badge = await getBestIcon('badge');
-
+    
+    event.waitUntil((async () => {
     try {
+      const [best_icon_any, best_icon_badge] = await Promise.all([
+        getBestIcon('any').catch(() => '/assets/pwa/maskable_icon_x192.png'),
+        getBestIcon('badge').catch(() => '/assets/pwa/maskable_icon_x192.png')
+      ]);
+
       const data = event.data.json();
       console.log('Push notification data:', data);
 
       const timestamp = Date.now();
       const tag = data.tag || `notification-${timestamp}`;
-
+      
       const options = {
         body: data.body || '',
         icon: data.icon ? new URL(data.icon, self.location.origin).href : best_icon_any,
@@ -254,8 +280,8 @@ self.addEventListener('push', event => {
         }
       };
 
-      console.log('Notification options:', options);
-
+      // First show the notification and wait for it to complete
+      console.log('SW: Start notification display');
       self.registration.showNotification(data.title || 'Notification', options).then(async () => {
         console.log('Notification displayed');
         
@@ -280,39 +306,21 @@ self.addEventListener('push', event => {
         console.log('Badge updated');
         
       });
-      
     } catch (error) {
       console.error('Push notification error:', error);
-
-      // Safe fallback notification
-      await self.registration.showNotification('New Message', {
+      // Ensure we at least show a basic notification
+      self.registration.showNotification('New Message', {
         body: 'You have a new notification.',
-        icon: best_icon_any,
+        icon: '/assets/pwa/maskable_icon_x192.png',
         tag: 'fallback-notification'
       });
     }
   })());
 });
 
-// Helper function to find and sort clients, prioritizing PWA clients
-async function findAndSortClients() {
-  const allClients = await clients.matchAll({ 
-    type: 'window', 
-    includeUncontrolled: true 
-  });
-  
-  // Order clients so that the first one is the one with _pwa=true
-  allClients.sort((a, b) => {
-    const a_pwa = a.url.includes('_pwa=true');
-    const b_pwa = b.url.includes('_pwa=true');
-    if(a_pwa && !b_pwa) return -1;
-    if(!a_pwa && b_pwa) return 1;
-    return 0;
-  });
-
-  return allClients;
-}
-
+/* 
+ * Notification click event listener
+ */
 self.addEventListener('notificationclick', (event) => {
   console.log("SW: Notification clicked:", event);
   event.notification.close();
@@ -339,42 +347,34 @@ self.addEventListener('notificationclick', (event) => {
 
 
       console.log("SW: All clients:", allClients);
-      // First, try finding an exact match and focus it.
-      for (const client of allClients) {
-        console.log('Checking client URL:', client.url);
-        if (client.url === normalizedTargetUrl && 'focus' in client) {
-          console.log('Exact match found, focusing');
-           // Send a message to the client to reload the page
+      // Navigate/Focus the first client within scope.
+      if (allClients.length > 0) {
+        const client = allClients[0];
+        console.log('Trying to navigate first client');
+        // Send a message to the client to reload the page
+        try {
           client.postMessage({
             type: 'NOTIFICATION_CLICK',
             action: 'reload',
             timestamp: Date.now()
           });
-          return client.focus();
+        } catch (error) {
+          console.error('Failed to send message to client:', error);
         }
-      }
-
-      // If no exact match, navigate the first client within scope.
-      if (allClients.length > 0) {
-        const client = allClients[0];
-        console.log('No exact match, trying to navigate first client');
-        // Send a message to the client to reload the page
-        client.postMessage({
-          type: 'NOTIFICATION_CLICK',
-          action: 'reload',
-          timestamp: Date.now()
-        });
+        /*
         if ('navigate' in client) {
-//          await client.navigate(normalizedTargetUrl);
-          return client.focus();
+          await client.navigate(normalizedTargetUrl);
         }
+        */
+        return await client.focus();
       }
 
       // If no clients at all, open a new window.
       console.log('No clients found, opening new window');
       return clients.openWindow(normalizedTargetUrl);
     } catch (error) {
-      console.error('Error handling notification click:', error);
+      console.error('Notification click failed:', error);
+      throw error;
     }
   })());
 });

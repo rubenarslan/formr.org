@@ -221,8 +221,15 @@ async function updateInstallButtonState() {
         $button.data('default-text', $button.html());
     }
 
-    // Check for Brave on iOS
-    const isBrave = await isBraveBrowser();
+    let isBrave = false;
+    try {
+        isBrave = await isBraveBrowser();
+    } catch (error) {
+        console.error('Brave browser check failed:', error);
+        // Fallback: Assume not Brave and use default behavior
+        isBrave = false;
+    }
+
     const isIOS = isIOSDevice();
     
     if (isBrave && isIOS) {
@@ -278,6 +285,7 @@ async function updateInstallButtonState() {
         $button.html($button.data('default-text'));
     }
 }
+
 function initialize_pwa_install_element() {
     // Initialize pwa-install element
     var installer = document.createElement('pwa-install');
@@ -368,12 +376,12 @@ function initialize_pwa_install_element() {
     return installer;
 }
 
-export function initializePWAInstaller() {
+export async function initializePWAInstaller() {
     if($('.add-to-homescreen').length == 0) {
         return;
     }
     console.log('Initializing PWA Installer');
-    initializeAddToHomeScreen();
+    await initializeAddToHomeScreen();
     const installer = initialize_pwa_install_element();
 
     // Check for display mode changes
@@ -442,7 +450,7 @@ export function initializePWAInstaller() {
 }
 
 // Function to initialize the add-to-homescreen library
-function initializeAddToHomeScreen() {
+async function initializeAddToHomeScreen() {
     console.log('Initializing add-to-homescreen library');
     
     // Check if AddToHomeScreen is available
@@ -459,35 +467,32 @@ function initializeAddToHomeScreen() {
     
     // Try to get the app name and icon from the manifest
     const manifestLink = document.querySelector('link[rel="manifest"]');
-    if (manifestLink) {
-        fetch(manifestLink.href)
-            .then(response => response.json())
-            .then(data => {
-                if (data.name) {
-                    appName = data.name;
-                } else if (data.short_name) {
-                    appName = data.short_name;
-                }
-                
-                if (data.icons && data.icons.length > 0) {
-                    // Find a suitable icon (prefer 192x192 or larger)
-                    const suitableIcon = data.icons.find(icon => 
-                        icon.sizes && (icon.sizes.includes('192x192') || icon.sizes.includes('512x512'))
-                    );
-                    
-                    if (suitableIcon) {
-                        appIconUrl = suitableIcon.src;
-                    }
-                }
-                
-                initializeWithAppInfo(appName, appIconUrl);
-            })
-            .catch(error => {
-                console.error('Error fetching manifest:', error);
-                initializeWithAppInfo(appName, appIconUrl);
-            });
-    } else {
+    if (!manifestLink) {
         console.log('No manifest link found, using default values');
+        initializeWithAppInfo(appName, appIconUrl);
+        return;
+    }
+
+    try {
+        const response = await fetch(manifestLink.href);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
+        const data = await response.json();
+        
+        // Process manifest data
+        appName = data.name || data.short_name || appName;
+        
+        if (data.icons?.length) {
+            const suitableIcon = data.icons.find(icon => 
+                icon.sizes?.includes('192x192') || icon.sizes?.includes('512x512')
+            );
+            appIconUrl = suitableIcon?.src || appIconUrl;
+        }
+        
+        initializeWithAppInfo(appName, appIconUrl);
+        
+    } catch (error) {
+        console.error('Error processing manifest:', error);
         initializeWithAppInfo(appName, appIconUrl);
     }
 }
@@ -933,7 +938,7 @@ async function sendTestNotification(registration) {
             // Close the test notification after 5 seconds
             setTimeout(() => {
                 testNotification.close();
-            }, 5000);
+            }, 10000);
             
             return true;
         }
@@ -1058,7 +1063,7 @@ export function initializeRequestPhone(force_show_guide = false) {
         const $hiddenInput = $wrapper.find('input');
         const force_show = force_show_guide || $wrapper.data('force-show') === true;
         const isRequired = $wrapper.closest('.form-group').hasClass('required');
-        debugger;
+        
         if(isRequired) {
             $hiddenInput[0].setCustomValidity(t('Please complete this required step before continuing.'));
         }
@@ -1187,32 +1192,40 @@ async function clearAppBadge() {
   
 // Function to check and handle pending notifications
 async function handlePendingNotifications() {
-    const registration = await navigator.serviceWorker.getRegistration();
-    if (!registration) return false;
+    try {
+        await clearAppBadge();
 
-    const notifications = await registration.getNotifications();
-    notifications.forEach(notification => {
-        reload_invalidated(notification.data.timestamp);
-        setTimeout(() => {
-            notification.close();
-        }, 10000);
-    });
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (!registration) return false;
 
-    if (notifications.length > 0) {
-        localStorage.setItem('notifications-closed', Date.now());
+        const notifications = await registration.getNotifications();
+        console.log('Found', notifications.length, 'pending notifications');
+        
+        // Handle timestamps immediately
+        for (const notification of notifications) {
+            if (notification.data?.timestamp) {
+                reload_invalidated(notification.data.timestamp);
+            }
+        }
+
+        if (notifications.length > 0) {
+            // Close all notifications after 5 seconds
+            setTimeout(() => {
+                for (const notification of notifications) {
+                    notification.close();
+                }
+            }, 5000);
+            
+            console.log(`Closed ${notifications.length} notifications`);
+            localStorage.setItem('notifications-closed', Date.now());
+        }
+
+        return notifications.length > 0;
+    } catch (error) {
+        console.error('Error handling pending notifications:', error);
+        return false;
     }
-    // Post message to service worker to clear notifications
-    // if (registration.active) {
-    //     registration.active.postMessage({
-    //         type: 'CLEAR_NOTIFICATIONS'
-    //     });
-    // }
-
-    await clearAppBadge();
-    return notifications.length > 0;
 }
-
-
 
 function reload_invalidated(timestamp) {
     localStorage.setItem('state-invalidated', timestamp);
@@ -1262,20 +1275,27 @@ if ('serviceWorker' in navigator) {
         window.addEventListener(eventType, () => {
             console.log('Event type', eventType, 'document.hidden', document.hidden);
             if(!document.hidden && localStorage.getItem('state-invalidated')) {
-                console.log('Reloading page because of state-invalidated');
-                // reload the page if we still think the state might be invalid
-                reload_invalidated(localStorage.getItem('state-invalidated'));
+               reload_invalidated(localStorage.getItem('state-invalidated'));
                 // handlePendingNotifications();
             }
         });
     });
     
-    document.addEventListener('click', () => {
-        handlePendingNotifications();
-    });
+    document.addEventListener('click', async () => {
+        try {
+            await handlePendingNotifications();
+        } catch (error) {
+            console.error('Failed to handle pending notifications:', error);
+        }
+    }, { capture: true });
 
-
-
+    document.addEventListener('keydown', async (event) => {
+        try {
+            await handlePendingNotifications();
+        } catch (error) {
+            console.error('Failed to handle pending notifications:', error);
+        }
+    }, { capture: true });
 }
 
 // Add new function to handle installation timeout
@@ -1303,7 +1323,6 @@ function handleInstallTimeout($wrapper) {
  * @param {*} message 
  */
 function tryDifferentBrowser($wrapper, message) {
-    debugger;
     const $status = $wrapper.find('.status-message');
     const $button = $wrapper.find('.add-to-homescreen');
     
@@ -1368,3 +1387,10 @@ function copyToClipboard(text, btn) {
             });
     }
 }
+
+// on domready, add a last updated time to the page
+document.addEventListener('DOMContentLoaded', () => {
+    const current_time = "2025-03-10 17:14:00";
+    const $lastUpdated = $('<div class="last-updated">Last updated: ' + current_time + '</div>');
+    $('.monkey_bar a.label').before($lastUpdated);
+});
