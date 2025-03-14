@@ -22,7 +22,7 @@ class AddToHomeScreen_Item extends Item {
     protected function render_input() {
         // Create hidden input with same name as button
         $hidden_input = sprintf(
-            '<input type="text" name="%s" value="not_requested" id="%s" />',
+            '<input type="text" name="%s" value="not_requested" id="%s" style="display: none;" />',
             $this->name,
             $this->name
         );

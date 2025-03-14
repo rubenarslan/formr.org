@@ -37,7 +37,7 @@ Probably need to log when users no longer receive push notifications. What to do
 - [x] Vibrate/Silent properties are respected, time-to-live is enforced as expiring old notifications. All notifications with the same title have the same tag.
 - [x] Some browsers (e.g., iOS Brave don't allow for adding to home screen)
 - [x] Submit button is deactivated upon trying to submit a required home screen/phone item, better integrate with existing form validation API?
-- [ ] Should hide the inputs again
+- [x] Should hide the inputs again
 - [x] Switch to https://github.com/philfung/add-to-homescreen ?
 
 ## Add documentation

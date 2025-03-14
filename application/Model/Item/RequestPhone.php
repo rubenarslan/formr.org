@@ -42,7 +42,7 @@ class RequestPhone_Item extends Item {
     protected function render_input() {
         // Create hidden input with same name as button
         $hidden_input = sprintf(
-            '<input type="text" name="%s" value="%s" id="%s" />',
+            '<input type="text" name="%s" value="%s" id="%s" style="display: none;" />',
             $this->name,
             isset($this->input_attributes['value']) ? $this->input_attributes['value'] : 'not_checked',
             $this->name
