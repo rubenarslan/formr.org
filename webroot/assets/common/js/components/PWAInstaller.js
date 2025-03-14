@@ -10,9 +10,7 @@ window.formrTranslations.de = {
     'Installation component not available. Please try again later.': 'Installationskomponente nicht verfügbar. Bitte versuchen Sie es später erneut.',
     'You are currently using the installed app.': 'Sie verwenden derzeit die installierte App.',
     'Installed': 'Installiert',
-    "You've already installed this app. Try opening this page in the installed app.": 'Sie haben diese App bereits installiert. Öffnen Sie diese Seite in der installierten App.',
     "You've already installed this app. Try opening this page in the installed app. If you have uninstalled the app, please just click this button again.": 'Sie haben diese App bereits installiert. Öffnen Sie diese Seite in der installierten App. Wenn Sie die App deinstalliert haben, klicken Sie einfach erneut auf diese Schaltfläche.',
-    "This app is not available for installation. Maybe you already installed the app or you need to switch to a different browser.": 'Diese App kann nicht installiert werden. Möglicherweise haben Sie die App bereits installiert oder müssen zu einem anderen Browser wechseln.',
     "Cannot install app": 'App kann nicht installiert werden',
     'Add this app to your home screen for easier access.': 'Fügen Sie diese App zu Ihrem Startbildschirm hinzu für einfacheren Zugriff.',
     'Follow the instructions to add this app to your home screen.': 'Folgen Sie den Anweisungen, um diese App zu Ihrem Startbildschirm hinzuzufügen.',
@@ -77,8 +75,6 @@ window.formrTranslations.de = {
 
     // New translations
     'Installation not working? Try switching to a supported browser like Chrome or Safari.': 'Installation funktioniert nicht? Versuchen Sie es mit einem unterstützten Browser wie Chrome oder Safari.',
-    'Switch Browser': 'Browser wechseln',
-    'If you are having trouble installing the app, this browser may not be fully supported. Chrome on Android and Safari on iOS are best supported.': 'Wenn Sie Probleme beim Installieren der App haben, kann dieser Browser möglicherweise nicht vollständig unterstützt werden. Chrome auf Android und Safari auf iOS sind am besten unterstützt.',
     'You need to install this study\'s app on your phone to receive notifications on the go': 'Sie müssen die App dieser Studie auf Ihrem Telefon installieren, um unterwegs Benachrichtigungen zu erhalten',
     'Installation is not supported in your browser.': 'Installation wird in Ihrem Browser nicht unterstützt.',
     'Installation failed. You can try again or add to home screen manually from your browser menu.': 'Installation fehlgeschlagen. Sie können es erneut versuchen oder manuell über Ihr Browser-Menü zum Startbildschirm hinzufügen.',
@@ -91,6 +87,23 @@ window.formrTranslations.de = {
     'Preparing installation...': 'Installation wird vorbereitet...',
     'Configuration Error': 'Konfigurationsfehler',
     'Copied!': 'Kopiert!',
+    'Open in different browser': 'In anderem Browser öffnen',
+    'Open in Safari': 'In Safari öffnen',
+    'Copy link': 'Link kopieren',
+    'Continue': 'Fortfahren',
+    'Completed': 'Abgeschlossen',
+    'On Android, notifications might be blocked by:': 'Unter Android können Benachrichtigungen blockiert sein durch:',
+    'Apps': 'Apps',
+    'Applications': 'Anwendungen',
+    'or': 'oder',
+    'Find and tap your browser app (Chrome, Firefox, etc.)': 'Suchen und tippen Sie auf Ihre Browser-App (Chrome, Firefox, usw.)',
+    'Tap': 'Tippen Sie auf',
+    'and ensure they are': 'und stellen Sie sicher, dass sie',
+    'Allowed': 'Erlaubt sind',
+    'Some manufacturers have additional battery optimization settings that can block notifications': 'Einige Hersteller haben zusätzliche Batterieoptimierungseinstellungen, die Benachrichtigungen blockieren können',
+    'Try adding this app to your home screen for better notification support': 'Versuchen Sie, diese App zu Ihrem Startbildschirm hinzuzufügen, um eine bessere Benachrichtigungsunterstützung zu erhalten',
+    'On some devices, you may need to restart Chrome after enabling notifications': 'Auf einigen Geräten müssen Sie möglicherweise Chrome neu starten, nachdem Sie Benachrichtigungen aktiviert haben',
+    'Brave browser on iOS does not support adding to home screen. Please use Safari, Chrome or Firefox for the best experience.': 'Der Brave-Browser unter iOS unterstützt das Hinzufügen zum Startbildschirm nicht. Bitte verwenden Sie Safari, Chrome oder Firefox für die beste Erfahrung.',
 };
 
 // Use the centralized translation helper
