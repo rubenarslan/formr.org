@@ -35,7 +35,8 @@ import { ajaxErrorHandling } from './main.js';
         editor.on('change', function () {
             form.trigger("change");
         });
-        form.on('ajax_submission', function () {
+        // Ensure textarea is updated before ANY form submission (AJAX or otherwise)
+        form.on('submit ajax_submission', function () {
             textarea.val(session.getValue());
         });
     }
@@ -45,10 +46,12 @@ import { ajaxErrorHandling } from './main.js';
         form.change(function () {
             $(elm).prop("disabled", false);
         }).submit(function () {
-            return false;
+            // Prevent default submit for forms containing .save_settings buttons ONLY if triggered by non-button submit
+            // The button click handler below will handle submission via AJAX
+            return false; 
         });
         $(elm).click(function (e) {
-            form.trigger("ajax_submission");
+            form.trigger("ajax_submission"); // Sync ACE editor
             e.preventDefault();
             $.ajax({
                 url: form.attr('action'),
@@ -57,15 +60,78 @@ import { ajaxErrorHandling } from './main.js';
                 method: 'POST'
             }).done(function (data) {
                 if (data !== '')
-                    $(data).insertBefore(form);
+                    $(data).insertAfter($("#app_heading"));
                 $(elm).prop("disabled", true);
             }).fail(function (e, x, settings, exception) {
                 ajaxErrorHandling(e, x, settings, exception);
+                $(elm).prop("disabled", false); // Re-enable button on failure
             });
 
             return false;
         });
     }
+
+    // PWA Icon Upload and Clear Logic (Async/Await)
+    async function handlePwaIconUpload(event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const progressBar = Admin.progressBar('Uploading PWA icons...'); // Assuming Admin object is available
+
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            
+            progressBar.finished();
+            Admin.growl(data.messages.join('<br>'), data.success ? 'success' : 'danger');
+            if (data.success) {
+                // Reload to see changes (updated path, potentially clear button visibility)
+                setTimeout(() => location.reload(), 1000);
+            }
+        } catch (error) {
+            progressBar.finished();
+            console.error('PWA Icon Upload Error:', error);
+            Admin.growl('An error occurred during upload: ' + error, 'danger');
+        }
+    }
+
+    async function handleClearPwaIcons() {
+        if (!confirm('Are you sure you want to clear all PWA icons? This will delete the files and remove the path setting.')) {
+            return;
+        }
+        const progressBar = Admin.progressBar('Clearing PWA icons...');
+        const clearButton = document.getElementById('clear_pwa_icons_button'); // Need URL from somewhere
+        // We need the clear URL. Let's assume it's stored in a data attribute on the button.
+        const clearUrl = clearButton?.dataset.actionUrl; 
+        if(!clearUrl) {
+             progressBar.finished();
+             Admin.growl('Could not find clear URL.', 'danger');
+             console.error('Clear PWA Icons button missing data-action-url attribute');
+             return;
+        }
+
+        try {
+            const response = await fetch(clearUrl, {
+                method: 'POST' // Assuming POST is appropriate
+            });
+            const data = await response.json();
+
+            progressBar.finished();
+            Admin.growl(data.messages.join('<br>'), data.success ? 'success' : 'danger');
+            if (data.success) {
+                setTimeout(() => location.reload(), 1000);
+            }
+        } catch (error) {
+            progressBar.finished();
+            console.error('Clear PWA Icons Error:', error);
+            Admin.growl('An error occurred while clearing icons: ' + error, 'danger');
+        }
+    }
+
+    // Attach listeners after DOM is ready
     $(function () {
         $('textarea.big_ace_editor').each(make_editor);
         $(".save_settings").each(save_settings);
@@ -108,5 +174,18 @@ import { ajaxErrorHandling } from './main.js';
                 }
             });
         });
+
+        // Initialize PWA Icon Upload Form Handler
+        const pwaIconsForm = document.getElementById('pwa_icons_form');
+        if (pwaIconsForm) {
+            pwaIconsForm.addEventListener('submit', handlePwaIconUpload);
+        }
+
+        // Initialize PWA Icon Clear Button Handler
+        const clearPwaIconsButton = document.getElementById('clear_pwa_icons_button');
+        if (clearPwaIconsButton) {
+            clearPwaIconsButton.addEventListener('click', handleClearPwaIcons);
+        }
     });
+
 })();

@@ -82,6 +82,7 @@ class Run extends Model {
     );
     public $renderedDescAndFooterAlready = false;
     public $expiresOn = null;
+    public $pwa_icon_path = null;
 
     /**
      *
@@ -118,7 +119,7 @@ class Run extends Model {
             return;
         }
 
-        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, manifest_json_path, osf_project_id, use_material_design, expire_cookie, expiresOn, vapid_public_key";
+        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, manifest_json_path, osf_project_id, use_material_design, expire_cookie, expiresOn, vapid_public_key, vapid_private_key, pwa_icon_path";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
         
@@ -130,6 +131,9 @@ class Run extends Model {
             $this->assignProperties($vars);
             $this->setExpireCookieUnits();
             $this->valid = true;
+            if ($this->pwa_icon_path && !empty(trim($this->pwa_icon_path)) && !str_ends_with($this->pwa_icon_path, '/')) {
+                $this->pwa_icon_path .= '/';
+            }
         }
     }
 
@@ -281,7 +285,7 @@ class Run extends Model {
             $local_path = APPLICATION_ROOT . 'webroot/';
             $destination_dir = $local_path . $this->batch_directory;
             if (!is_dir($destination_dir)) {
-                mkdir($destination_dir, 0777, true);
+                mkdir($destination_dir, 0755, true);
             }
         }
     
@@ -405,9 +409,15 @@ class Run extends Model {
             }
         }
     
-        return empty($this->errors);
+        // MODIFIED: Return the batch directory path on success (assuming no errors occurred *within* the loop that stopped processing)
+        // If _saveUploadedFile encounters errors, it adds to $this->errors. We return false if errors exist.
+        if (empty($this->errors)) {
+            // Ensure batch_directory was actually set (it should be by makeBatchDirectory)
+            return isset($this->batch_directory) ? $this->batch_directory : false; 
+        } else {
+            return false;
+        }
     }
-    
 
     public function deleteFile($id, $filename) {
         $where = array('id' => (int) $id, 'original_file_name' => $filename);
@@ -422,12 +432,17 @@ class Run extends Model {
 
     public function deleteFiles() {
         $where = array('run_id' => (int) $this->id);
-        $files = $this->db->find('survey_uploaded_files', $where, ['cols' => ['id', 'new_file_path']]);
-        foreach ($files as $file) {
-            $physicalfile = APPLICATION_ROOT . "webroot/" . $file['new_file_path'];
-            @unlink($physicalfile);
+        $files_to_delete = $this->db->find('survey_uploaded_files', $where, ['cols' => ['id', 'new_file_path']]);
+        $local_path_prefix = APPLICATION_ROOT . "webroot/";
+
+        foreach ($files_to_delete as $file) {
+            $physicalfile = $local_path_prefix . $file['new_file_path'];
+            if(file_exists($physicalfile)) {
+                @unlink($physicalfile);
+            }
             $this->db->delete('survey_uploaded_files', ['id' => $file['id']]);
         }
+
     }
 
     public static function nameExists($name) {
@@ -669,6 +684,10 @@ class Run extends Model {
      */
     public function getVapidPublicKey() {
         return $this->vapid_public_key;
+    }
+
+    public function getPwaIconPath() {
+        return $this->pwa_icon_path;
     }
 
     private function getFileContent($path) {
@@ -1267,19 +1286,27 @@ class Run extends Model {
             return false;
         }
 
-        $template = file_get_contents($template_path);
+        $template_content = file_get_contents($template_path);
         
+        $pwa_icon_base_path_for_manifest = '/assets/pwa/'; // Default path
+        $run_pwa_icon_path_val = $this->getPwaIconPath(); 
+        if ($run_pwa_icon_path_val && is_dir(APPLICATION_ROOT . 'webroot/' . $run_pwa_icon_path_val)) {
+            // Ensure leading slash, remove potential double slashes, ensure trailing slash for placeholder replacement
+            $pwa_icon_base_path_for_manifest = '/' . trim($run_pwa_icon_path_val, '/') . '/'; 
+        }
+
         // Replace placeholders
-        $manifest = str_replace(
-            array('{APP_NAME}', '{DESCRIPTION}', '{SCOPE}', '{ID}', '{START_URL}'),
+        $manifest_string = str_replace(
+            array('{APP_NAME}', '{DESCRIPTION}', '{SCOPE}', '{ID}', '{START_URL}', '{PWA_ICON_BASE_PATH}'),
             array(
                 $this->name,
                 $this->description ?: '',
                 run_url($this->name),
                 run_url($this->name),
-                run_url($this->name)
+                run_url($this->name),
+                $pwa_icon_base_path_for_manifest 
             ),
-            $template
+            $template_content
         );
 
         // Generate new asset path if none exists or use existing one
@@ -1292,7 +1319,7 @@ class Run extends Model {
         }
 
         // Write the file using writeAssetFile
-        $written_path = $this->writeAssetFile($manifest, $path, '.json');
+        $written_path = $this->writeAssetFile($manifest_string, $path, '.json');
         if ($written_path === false) {
             return false;
         }
@@ -1301,6 +1328,166 @@ class Run extends Model {
         $this->manifest_json_path = $written_path;
         $this->db->update('survey_runs', ['manifest_json_path' => $this->manifest_json_path], ['id' => $this->id]);
 
-        return $manifest;
+        return $manifest_string;
+    }
+
+    /**
+     * Sets the provided batch directory path as the official PWA icon path for this run.
+     * Cleans up any previously set PWA icon path and its files.
+     *
+     * @param string $new_pwa_icon_batch_path The webroot-relative path to a directory (typically a batch upload dir from uploadFiles).
+     * @return bool True on success, false on failure.
+     */
+    public function setUploadedPwaIconsPath(string $new_pwa_icon_batch_path) {
+        if (!$this->id) {
+            $this->errors[] = "Run ID is not set. Cannot set PWA icon path.";
+            return false;
+        }
+
+        $local_path_prefix = APPLICATION_ROOT . 'webroot/';
+
+        // Ensure the new path ends with a slash
+        if (!empty(trim($new_pwa_icon_batch_path)) && !str_ends_with($new_pwa_icon_batch_path, '/')) {
+            $new_pwa_icon_batch_path .= '/';
+        }
+
+        // 1. Clean up old PWA path and files, if one was set
+        if ($this->pwa_icon_path && $this->pwa_icon_path !== $new_pwa_icon_batch_path) {
+            $old_path_full_local = $local_path_prefix . $this->pwa_icon_path;
+            $old_pwa_files_in_db = $this->db->select('id, new_file_path')
+                                        ->from('survey_uploaded_files')
+                                        ->where(array(
+                                            'run_id' => $this->id,
+                                            'new_file_path LIKE' => $this->pwa_icon_path . '%'
+                                        ))
+                                        ->fetchAll();
+            $deleted_db_count = 0;
+            foreach ($old_pwa_files_in_db as $old_file_db_entry) {
+                // Physical file deletion for these is tricky if old_path_full_local directory itself is deleted.
+                // survey_uploaded_files entries will be deleted.
+                $this->db->delete('survey_uploaded_files', array('id' => $old_file_db_entry['id']));
+                $deleted_db_count++;
+            }
+            if ($deleted_db_count > 0) {
+                 $this->messages[] = "Removed {$deleted_db_count} DB records for old PWA icons.";
+            }
+
+            if (is_dir($old_path_full_local)) {
+                $iterator = new RecursiveIteratorIterator(
+                    new RecursiveDirectoryIterator($old_path_full_local, RecursiveDirectoryIterator::SKIP_DOTS),
+                    RecursiveIteratorIterator::CHILD_FIRST
+                );
+                foreach ($iterator as $file) {
+                    if ($file->isDir()) {
+                        @rmdir($file->getRealPath());
+                    } else {
+                        @unlink($file->getRealPath());
+                    }
+                }
+                if (@rmdir($old_path_full_local)) {
+                    $this->messages[] = "Old PWA icon directory {$this->pwa_icon_path} removed.";
+                } else {
+                    $this->warnings[] = "Could not remove old PWA icon directory {$this->pwa_icon_path}.";
+                }
+            }
+        }
+
+        // 2. Update to the new path
+        // The files themselves are assumed to be already uploaded by uploadFiles() into $new_pwa_icon_batch_path
+        // and registered in survey_uploaded_files by uploadFiles().
+        if (!is_dir($local_path_prefix . $new_pwa_icon_batch_path)) {
+            $this->errors[] = "The new PWA icon path directory does not exist: " . htmlspecialchars($new_pwa_icon_batch_path);
+            return false;
+        }
+
+        $updated = $this->db->update('survey_runs', array('pwa_icon_path' => $new_pwa_icon_batch_path), array('id' => $this->id));
+        if ($updated !== false) {
+            $this->pwa_icon_path = $new_pwa_icon_batch_path;
+            $this->messages[] = "PWA icon path updated to: " . htmlspecialchars($new_pwa_icon_batch_path);
+            return true;
+        } else {
+            $this->errors[] = "Failed to update PWA icon path in database.";
+            return false;
+        }
+    }
+
+    public function clearPwaIcons() {
+        if (!$this->id) {
+            $this->errors[] = "Run ID not set.";
+            return false;
+        }
+        if (!$this->pwa_icon_path) {
+            $this->messages[] = "No PWA icon path set, nothing to clear.";
+            return true; // Not an error, just nothing to do.
+        }
+
+        $local_path_prefix = APPLICATION_ROOT . 'webroot/';
+        $current_pwa_icon_path = $this->pwa_icon_path; // Use a local var before it's nulled
+        $full_local_pwa_dir = $local_path_prefix . $current_pwa_icon_path;
+
+        $existing_pwa_files_in_db = $this->db->select('id, new_file_path')
+                                    ->from('survey_uploaded_files')
+                                    ->where(array(
+                                        'run_id' => $this->id,
+                                        'new_file_path LIKE' => $current_pwa_icon_path . '%'
+                                    ))
+                                    ->fetchAll();
+        $deleted_files_count = 0;
+        $deleted_db_records_count = 0;
+
+        foreach ($existing_pwa_files_in_db as $pwa_file_db_entry) {
+            $physical_file = $local_path_prefix . $pwa_file_db_entry['new_file_path'];
+            if (file_exists($physical_file)) {
+                if (@unlink($physical_file)) {
+                    $deleted_files_count++;
+                }
+            }
+            $this->db->delete('survey_uploaded_files', array('id' => $pwa_file_db_entry['id']));
+            $deleted_db_records_count++;
+        }
+
+        if (is_dir($full_local_pwa_dir)) {
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($full_local_pwa_dir, RecursiveDirectoryIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::CHILD_FIRST
+            );
+            $removed_dir = false;
+            try {
+                 foreach ($iterator as $fileNode) {
+                    if ($fileNode->isDir()) {
+                        @rmdir($fileNode->getRealPath());
+                    } else {
+                        @unlink($fileNode->getRealPath());
+                    }
+                }
+                if (@rmdir($full_local_pwa_dir)) {
+                    $removed_dir = true;
+                }
+            } catch (UnexpectedValueException $e) {
+                // This can happen if directory becomes inaccessible during iteration (e.g. due to permissions or external deletion)
+                $this->warnings[] = "Could not fully iterate PWA icon directory for deletion: " . $full_local_pwa_dir . " Error: " . $e->getMessage();
+            }
+
+            if ($removed_dir) {
+                $this->messages[] = "PWA icon directory removed: " . htmlspecialchars($current_pwa_icon_path);
+            } else {
+                // If rmdir failed but files might have been deleted, it's a partial success / warning state
+                if ($deleted_files_count > 0 || $deleted_db_records_count > 0) {
+                    $this->warnings[] = "Could not completely remove PWA icon directory: " . htmlspecialchars($current_pwa_icon_path) . ". Some files/records may still have been cleared.";
+                } else {
+                    $this->errors[] = "Failed to remove PWA icon directory: " . htmlspecialchars($current_pwa_icon_path);
+                }
+            }
+        }
+
+        $updated = $this->db->update('survey_runs', array('pwa_icon_path' => null), array('id' => $this->id));
+        if ($updated !== false) {
+            $this->pwa_icon_path = null;
+            $this->messages[] = "PWA icon path cleared from settings. {$deleted_db_records_count} DB records removed, {$deleted_files_count} physical files unlinked.";
+            return true;
+        } else {
+            $this->errors[] = "Failed to clear PWA icon path in database.";
+            return false;
+        }
     }
 }

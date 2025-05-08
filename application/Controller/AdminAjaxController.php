@@ -531,6 +531,54 @@ class AdminAjaxController {
         return $this->response->setJsonContent($content);
     }
 
+    // +++++ PWA ICON ACTIONS +++++
+
+    private function ajaxUploadPwaIconFolder() {
+        $run = $this->controller->run;
+
+        $success = false;
+        $batch_directory_path = null;
+    
+        if (!empty($_FILES['pwa_icon_files'])) {
+            $batch_directory_path = $run->uploadFiles($_FILES['pwa_icon_files']);
+            
+            if ($batch_directory_path !== false) { 
+                if ($run->setUploadedPwaIconsPath($batch_directory_path)) {
+                    if ($run->generateManifest()) {
+                        $run->messages[] = "PWA icon manifest regenerated.";
+                    } else {
+                         $run->errors[] = "Could not regenerate PWA manifest with new icon path.";
+                    }
+                    $success = true;
+                }
+            } 
+        } else {
+            $run->errors[] = 'No PWA icon files were uploaded.';
+        }
+    
+        $final_messages = array_merge($run->messages, $run->errors);
+        $this->response->setJsonContent(array('success' => $success && empty($run->errors), 'messages' => $final_messages));
+    }
+    
+    private function ajaxClearPwaIcons() {
+        $run = $this->controller->run;
+
+        $success = false;
+        if ($run->clearPwaIcons()) {
+            if ($run->generateManifest()) {
+                 $run->messages[] = "PWA icon manifest reverted to defaults.";
+            } else {
+                $run->errors[] = "Could not regenerate PWA manifest after clearing icon path.";
+            }
+            $success = true;
+        }
+        
+        $final_messages = array_merge($run->messages, $run->errors);
+        $this->response->setJsonContent(array('success' => $success && empty($run->errors), 'messages' => $final_messages));
+    }
+
+    // --- End PWA Icon Actions ---
+
     protected function getPrivateAction($name) {
         $parts = array_filter(explode('_', $name));
         $action = array_shift($parts);
