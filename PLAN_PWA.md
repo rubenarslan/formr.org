@@ -42,3 +42,6 @@ Probably need to log when users no longer receive push notifications. What to do
 
 ## Add documentation
 - [x] Add documentation to @templates/public/documentation/
+
+## Improvements
+- [ ] Make badge depend on whether a survey is active, clear if not.

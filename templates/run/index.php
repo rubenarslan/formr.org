@@ -2,7 +2,6 @@
 <html class="no_js">
     <head>
         <?php Template::loadChild('public/head') ?>
-        <?php Template::loadChild('run/head_pwa') ?>
     </head>
 
     <body class="<?php echo isset($bodyClass) ? $bodyClass : ''; ?>" data-url="<?php echo run_url($run->name); ?>">

@@ -282,7 +282,7 @@ async function updateInstallButtonState() {
     } else if (localStorage.getItem('pwa-app-installed') === 'true') { // App is installed according to localStorage
         $hiddenInput.val('already_added');
         const redirect_link = generateRedirectLink();
-        let appName = appName || document.title;
+        let appName = document.title;
         $status.html(t("You've already installed this app. Try closing your browser and opening the app named " + appName + " from your home screen. If you have uninstalled the app, please just click this button again.")
         );
         //  + 
@@ -1313,7 +1313,7 @@ if ('serviceWorker' in navigator) {
 
 // Add new function to handle installation timeout
 function handleInstallTimeout($wrapper) {
-    const timeoutDuration = 15000; // 20 seconds
+    const timeoutDuration = 15000; // 15 seconds
     let installTimeoutId = null;
 
     return {
