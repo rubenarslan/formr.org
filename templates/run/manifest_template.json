@@ -12,24 +12,6 @@
   "icons": [
     {
       "src": "{PWA_ICON_BASE_PATH}icon.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "{PWA_ICON_BASE_PATH}icon.png", 
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "{PWA_ICON_BASE_PATH}maskable_icon.png", 
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "{PWA_ICON_BASE_PATH}maskable_icon.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -69,12 +51,28 @@
       "sizes": "1668x2388", "type": "image/png", "form_factor": "narrow", "label": "iPad Pro 11\" Portrait"
     },
     {
+      "src": "{PWA_ICON_BASE_PATH}11__iPad_Pro_M4_landscape.png",
+      "sizes": "2388x1668", "type": "image/png", "form_factor": "wide", "label": "iPad Pro M4 11\" Landscape"
+    },
+    {
+      "src": "{PWA_ICON_BASE_PATH}11__iPad_Pro_M4_portrait.png",
+      "sizes": "1668x2388", "type": "image/png", "form_factor": "narrow", "label": "iPad Pro M4 11\" Portrait"
+    },
+    {
       "src": "{PWA_ICON_BASE_PATH}12.9__iPad_Pro_landscape.png",
       "sizes": "2732x2048", "type": "image/png", "form_factor": "wide", "label": "iPad Pro 12.9\" Landscape"
     },
     {
       "src": "{PWA_ICON_BASE_PATH}12.9__iPad_Pro_portrait.png",
       "sizes": "2048x2732", "type": "image/png", "form_factor": "narrow", "label": "iPad Pro 12.9\" Portrait"
+    },
+    {
+      "src": "{PWA_ICON_BASE_PATH}13__iPad_Pro_M4_landscape.png",
+      "sizes": "2732x2048", "type": "image/png", "form_factor": "wide", "label": "iPad Pro M4 13\" Landscape"
+    },
+    {
+      "src": "{PWA_ICON_BASE_PATH}13__iPad_Pro_M4_portrait.png",
+      "sizes": "2048x2732", "type": "image/png", "form_factor": "narrow", "label": "iPad Pro M4 13\" Portrait"
     },
     {
       "src": "{PWA_ICON_BASE_PATH}4__iPhone_SE__iPod_touch_5th_generation_and_later_landscape.png",
@@ -147,6 +145,22 @@
     {
       "src": "{PWA_ICON_BASE_PATH}iPhone_16_Plus__iPhone_15_Pro_Max__iPhone_15_Plus__iPhone_14_Pro_Max_portrait.png",
       "sizes": "1290x2796", "type": "image/png", "form_factor": "narrow", "label": "iPhone 14/15 Pro Max/Plus/16 Plus Portrait"
+    },
+    {
+      "src": "{PWA_ICON_BASE_PATH}iPhone_16_Pro_landscape.png",
+      "sizes": "2556x1179", "type": "image/png", "form_factor": "wide", "label": "iPhone 16 Pro Landscape"
+    },
+    {
+      "src": "{PWA_ICON_BASE_PATH}iPhone_16_Pro_Max_landscape.png",
+      "sizes": "2796x1290", "type": "image/png", "form_factor": "wide", "label": "iPhone 16 Pro Max Landscape"
+    },
+    {
+      "src": "{PWA_ICON_BASE_PATH}iPhone_16_Pro_Max_portrait.png",
+      "sizes": "1290x2796", "type": "image/png", "form_factor": "narrow", "label": "iPhone 16 Pro Max Portrait"
+    },
+    {
+      "src": "{PWA_ICON_BASE_PATH}iPhone_16_Pro_portrait.png",
+      "sizes": "1179x2556", "type": "image/png", "form_factor": "narrow", "label": "iPhone 16 Pro Portrait"
     },
     {
       "src": "{PWA_ICON_BASE_PATH}iPhone_16e__iPhone_14__iPhone_13_Pro__iPhone_13__iPhone_12_Pro__iPhone_12_landscape.png",

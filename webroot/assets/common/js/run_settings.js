@@ -1,5 +1,5 @@
 import $ from 'jquery';
-import { ajaxErrorHandling } from './main.js';
+import { ajaxErrorHandling, bootstrap_alert } from './main.js';
 
 (function () {
     "use strict";
@@ -76,7 +76,11 @@ import { ajaxErrorHandling } from './main.js';
         event.preventDefault();
         const form = event.target;
         const formData = new FormData(form);
-        const progressBar = Admin.progressBar('Uploading PWA icons...'); // Assuming Admin object is available
+        const submitButton = form.querySelector('button[type="submit"]');
+
+        if (submitButton) {
+            submitButton.disabled = true;
+        }
 
         try {
             const response = await fetch(form.action, {
@@ -85,16 +89,22 @@ import { ajaxErrorHandling } from './main.js';
             });
             const data = await response.json();
             
-            progressBar.finished();
-            Admin.growl(data.messages.join('<br>'), data.success ? 'success' : 'danger');
             if (data.success) {
+                bootstrap_alert(data.messages.join('<br>'), 'Success', '.alerts-container', 'alert-success');
                 // Reload to see changes (updated path, potentially clear button visibility)
                 setTimeout(() => location.reload(), 1000);
+            } else {
+                bootstrap_alert(data.messages.join('<br>'), 'Error', '.alerts-container', 'alert-danger');
+                if (submitButton) {
+                    submitButton.disabled = false;
+                }
             }
         } catch (error) {
-            progressBar.finished();
             console.error('PWA Icon Upload Error:', error);
-            Admin.growl('An error occurred during upload: ' + error, 'danger');
+            bootstrap_alert('An error occurred during upload: ' + error.message, 'Error', '.alerts-container', 'alert-danger');
+            if (submitButton) {
+                submitButton.disabled = false;
+            }
         }
     }
 
@@ -102,14 +112,20 @@ import { ajaxErrorHandling } from './main.js';
         if (!confirm('Are you sure you want to clear all PWA icons? This will delete the files and remove the path setting.')) {
             return;
         }
-        const progressBar = Admin.progressBar('Clearing PWA icons...');
-        const clearButton = document.getElementById('clear_pwa_icons_button'); // Need URL from somewhere
+        
+        const clearButton = document.getElementById('clear_pwa_icons_button');
+        if (clearButton) {
+            clearButton.disabled = true;
+        }
+
         // We need the clear URL. Let's assume it's stored in a data attribute on the button.
         const clearUrl = clearButton?.dataset.actionUrl; 
         if(!clearUrl) {
-             progressBar.finished();
-             Admin.growl('Could not find clear URL.', 'danger');
+             bootstrap_alert('Could not find clear URL. The data-action-url attribute might be missing on the clear button.', 'Error', '.alerts-container', 'alert-danger');
              console.error('Clear PWA Icons button missing data-action-url attribute');
+             if (clearButton) {
+                clearButton.disabled = false;
+            }
              return;
         }
 
@@ -119,15 +135,21 @@ import { ajaxErrorHandling } from './main.js';
             });
             const data = await response.json();
 
-            progressBar.finished();
-            Admin.growl(data.messages.join('<br>'), data.success ? 'success' : 'danger');
             if (data.success) {
+                bootstrap_alert(data.messages.join('<br>'), 'Success', '.alerts-container', 'alert-success');
                 setTimeout(() => location.reload(), 1000);
+            } else {
+                bootstrap_alert(data.messages.join('<br>'), 'Error', '.alerts-container', 'alert-danger');
+                 if (clearButton) {
+                    clearButton.disabled = false;
+                }
             }
         } catch (error) {
-            progressBar.finished();
             console.error('Clear PWA Icons Error:', error);
-            Admin.growl('An error occurred while clearing icons: ' + error, 'danger');
+            bootstrap_alert('An error occurred while clearing icons: ' + error.message, 'Error', '.alerts-container', 'alert-danger');
+            if (clearButton) {
+                clearButton.disabled = false;
+            }
         }
     }
 
