@@ -1868,3 +1868,11 @@ function convertToBytes($value) {
     
     return $value;
 }
+
+// check whether we're allowed to set anything but session cookies
+function gave_functional_cookie_consent() {
+    if(isset($_COOKIE['formrcookieconsent']) && strstr($_COOKIE['formrcookieconsent'], '"necessary","functionality"')) {
+        return true;
+    }
+    return false;
+}

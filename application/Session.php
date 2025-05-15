@@ -51,7 +51,7 @@ class Session {
 
         $lifetime = self::$lifetime;
         // until the cookie modal is accepted, don't allow lifetime to go beyond session
-        if (!isset($_COOKIE['formrcookieconsent']) || $_COOKIE['formrcookieconsent'] !== 'accept') {
+        if (!gave_functional_cookie_consent()) {
             $lifetime = 0;
         }
         
@@ -66,11 +66,14 @@ class Session {
     }
 
     public static function setSessionLifetime($lifetime) {
+        if($lifetime === null) {
+            $lifetime = self::$lifetime;
+        }
         // To immediately affect the cookie sent with the current response,
         // we explicitly call setcookie().
 
         // until the cookie modal is accepted, don't allow lifetime to go beyond session
-        if (!isset($_COOKIE['formrcookieconsent']) || $_COOKIE['formrcookieconsent'] !== 'accept') {
+        if (!gave_functional_cookie_consent()) {
             $lifetime = 0;
         }
 
@@ -289,15 +292,15 @@ class Session {
      * 
      * @param string $name The name of the cookie
      * @param string $value The value of the cookie
-     * @param int $expires The expiration time of the cookie
+     * @param int $lifetime The life time of the cookie
      * @param string $path The path on the server in which the cookie will be available on
      * @param string $domain The domain that the cookie is available to
      * @param string $samesite The same site attribute of the cookie
      * @return bool True if the cookie was set successfully, false otherwise
      */
-    public static function setCookie($name, $value, $expires = 0,  $path = "/", $domain = '', $samesite = 'Lax') {
+    public static function setCookie($name, $value, $lifetime = 0,  $path = "/", $domain = '', $samesite = 'Lax') {
         return setcookie($name, $value, 
-                ['expires' => time() + $expires, 
+                ['expires' => $lifetime === 0 ? 0 : time() + $lifetime, 
                 'path' => $path, 
                 'domain' => $domain, 
                 'secure' => self::$secure,
@@ -334,7 +337,7 @@ class Session {
 
         $lifetime = Config::get('expire_admin_session');
         // until the cookie modal is accepted, don't allow lifetime to go beyond session
-        if (!isset($_COOKIE['formrcookieconsent']) || $_COOKIE['formrcookieconsent'] !== 'accept') {
+        if (!gave_functional_cookie_consent()) {
             $lifetime = 0;
         }
         
