@@ -253,7 +253,7 @@ class Run extends Model {
         $this->load();
 
         $owner = $this->getOwner();
-        $privacy_url = run_url($name, "privacy");
+        $privacy_url = run_url($name, "privacy_policy");
         $tos_url = run_url($name, "terms_of_service");
         $settings_url = run_url($name, "settings");
         $footer = "Contact the [study administration](mailto:{$owner->email}) in case of questions. [Privacy Policy]($privacy_url). [Terms of Service]($tos_url). [Settings]($settings_url).";

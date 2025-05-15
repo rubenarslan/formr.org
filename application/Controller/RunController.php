@@ -64,7 +64,7 @@ class RunController extends Controller {
         return $this->sendResponse();
     }
 
-    private function privacyAction() {
+    private function privacy_policyAction() {
         $this->run = $this->getRun();
         $run_name = $this->site->request->run_name;
 
