@@ -48,15 +48,52 @@ class Session {
         if (DEBUG) {
             error_log("Session starting with path: " . self::$path . ", domain: " . self::$domain);
         }
+
+        $lifetime = self::$lifetime;
+        // until the cookie modal is accepted, don't allow lifetime to go beyond session
+        if (!isset($_COOKIE['formrcookieconsent']) || $_COOKIE['formrcookieconsent'] !== 'accept') {
+            $lifetime = 0;
+        }
         
         session_set_cookie_params([
-            "lifetime" => self::$lifetime, 
+            "lifetime" => $lifetime, 
             "path" => self::$path, 
             "domain" => self::$domain, 
             "secure" => self::$secure, 
             "httponly" => self::$httponly,
             "samesite" => self::$samesite]);
         session_start();
+    }
+
+    public static function setSessionLifetime($lifetime) {
+        // To immediately affect the cookie sent with the current response,
+        // we explicitly call setcookie().
+
+        // until the cookie modal is accepted, don't allow lifetime to go beyond session
+        if (!isset($_COOKIE['formrcookieconsent']) || $_COOKIE['formrcookieconsent'] !== 'accept') {
+            $lifetime = 0;
+        }
+
+        if (session_status() == PHP_SESSION_ACTIVE) {
+            $session_id = session_id();
+            if ($session_id) { // Ensure there's a session ID to send
+                $expires_timestamp = ($lifetime > 0) ? time() + $lifetime : 0;
+
+                return setcookie(
+                    session_name(),       // Use the current session name
+                    $session_id,          // The current session ID is the value
+                    [
+                        'expires' => $expires_timestamp, // Absolute timestamp or 0
+                        "path" => self::$path,
+                        "domain" => self::$domain,
+                        "secure" => self::$secure,
+                        "httponly" => self::$httponly,
+                        "samesite" => self::$samesite
+                    ]
+                );
+            }
+        }
+        return false; // Indicate failure if session not active or no ID
     }
 
     /**
@@ -294,10 +331,16 @@ class Session {
         
         // Admin cookies should always be set with admin path
         $admin_path = '/admin/';
+
+        $lifetime = Config::get('expire_admin_session');
+        // until the cookie modal is accepted, don't allow lifetime to go beyond session
+        if (!isset($_COOKIE['formrcookieconsent']) || $_COOKIE['formrcookieconsent'] !== 'accept') {
+            $lifetime = 0;
+        }
         
         $cookie = self::setCookie(self::ADMIN_COOKIE, 
             Crypto::encrypt($data, '-'), 
-            self::$lifetime,
+            $lifetime,
             $admin_path, self::$domain, 'Strict');
         if (!$cookie) {
             formr_error(505, 'Invalid Token', 'Unable to set admin token');

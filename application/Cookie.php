@@ -87,6 +87,7 @@ class Cookie {
     }
 
     public function set($expire = 0, $path = '/', $domain = null, $secure = false, $httponly = false) {
+        $domain = ($domain === null) ? '' : $domain;
         return setcookie($this->name, $this->file, $expire, $path, $domain, $secure, $httponly);
     }
 

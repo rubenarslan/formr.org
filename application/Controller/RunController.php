@@ -43,7 +43,7 @@ class RunController extends Controller {
         // OR if cookie is expired then logout
         $this->user = $this->loginUser();
 
-        //Request::setGlobals('COOKIE', $this->setRunCookie());
+        Session::setSessionLifetime($this->run->expire_cookie);
 
         $run_vars = $this->run->exec($this->user);
 		if (!$run_vars) {
@@ -131,7 +131,7 @@ class RunController extends Controller {
         if (Request::isHTTPGetRequest() && ($code = $this->request->getParam('code'))) {
             $_GET['run_name'] = $run_name;
             $this->user = $this->loginUser();
-            //Request::setGlobals('COOKIE', $this->setRunCookie());
+            Session::setSessionLifetime($this->run->expire_cookie);
 
             if ($this->user->user_code != $code) {
                 alert('Unable to login with the provided code', 'alert-warning');
@@ -183,8 +183,6 @@ class RunController extends Controller {
     protected function logoutAction() {
         $this->run = $this->getRun();
         $this->user = $this->loginUser();
-        $cookie = $this->getRunCookie();
-        $cookie->destroy();
         Session::destroy(false);
         $hint = 'Session Ended';
         $text = 'Your session was successfully closed! You can restart a new session by clicking the link below.';
@@ -294,34 +292,6 @@ class RunController extends Controller {
         }
 
         return $meta;
-    }
-
-    protected function setRunCookie($refresh = false) {
-        $cookie = $this->getRunCookie();
-        $expires = $this->run->expire_cookie ? time() + $this->run->expire_cookie : 0;
-
-        if (!$cookie->exists() || $refresh === true) {
-            $data = array(
-                'code' => $this->user->user_code,
-                'created' => time(),
-                'modified' => time(),
-                'expires' => $expires,
-            );
-            $cookie->create($data, $expires, '/', null, SSL, true);
-        } elseif ($cookie->exists()) {
-            $cookie->setExpiration($expires);
-        }
-
-        return $cookie;
-    }
-
-    /**
-     * 
-     * @return \Cookie
-     */
-    protected function getRunCookie() {
-        $cookie = new \Cookie($this->run->getCookieName());
-        return $cookie;
     }
 
     /**

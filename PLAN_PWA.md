@@ -6,7 +6,7 @@
 - [x] Add a manifest.json
 - [x] Add icon 
 - [x] Add a splash screen
-- [ ] Autogenerate relevant images?
+- [x] Point to app for autogenerating relevant images, simplify uploading folder.
 - [x] Add relevant settings to @application/Controller/AdminSurveyController.php and @templates/admin/survey/index.php
 
 ## Add item to request adding to home screen
@@ -44,4 +44,4 @@ Probably need to log when users no longer receive push notifications. What to do
 - [x] Add documentation to @templates/public/documentation/
 
 ## Improvements
-- [ ] Make badge depend on whether a survey is active, clear if not.
+- [x] Make badge depend on whether a survey is active, clear if not.

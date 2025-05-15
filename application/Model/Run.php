@@ -758,9 +758,13 @@ class Run extends Model {
         }
 
         $cookie_units = array_keys($this->expire_cookie_units);
-        if (isset($posted['expire_cookie_value']) && is_numeric($posted['expire_cookie_value']) &&
+        if (isset($posted['expire_cookie_value']) && 
                 isset($posted['expire_cookie_unit']) && in_array($posted['expire_cookie_unit'], $cookie_units)) {
-            $posted['expire_cookie'] = factortosecs($posted['expire_cookie_value'], $posted['expire_cookie_unit']);
+            if (is_numeric($posted['expire_cookie_value'])) {
+                $posted['expire_cookie'] = factortosecs($posted['expire_cookie_value'], $posted['expire_cookie_unit']); 
+            } else {
+                $posted['expire_cookie'] = 0;
+            }
         } elseif (!isset($posted['expire_cookie'])) {
             $posted['expire_cookie'] = $this->expire_cookie;
         }
@@ -1178,10 +1182,6 @@ class Run extends Model {
             $this->expire_cookie_unit = $unit[1];
             $this->expire_cookie_value = $unit[0];
         }
-    }
-
-    public function getCookieName() {
-        return sprintf('FRS_%s', $this->id);
     }
 
     public function isEmpty(): bool {
