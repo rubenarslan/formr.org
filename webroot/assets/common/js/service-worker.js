@@ -73,7 +73,7 @@ async function getBestIcon(purpose = 'any') {
   }
 }
 
-// Add a helper function for badge management at the top of the file
+// Helper function for badge management 
 /**
  * Manages the app badge using the Badging API if available
  * @param {number|null} count - The badge count to set, or null to clear

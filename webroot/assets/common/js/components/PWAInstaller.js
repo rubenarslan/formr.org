@@ -1191,22 +1191,35 @@ export function initializeRequestPhone(force_show_guide = false) {
     });
 }
 
-// Add badge clearing function
-async function clearAppBadge() {
-  if ('setAppBadge' in navigator) {
+// Helper function for badge management 
+/**
+ * Manages the app badge using the Badging API if available
+ * @param {number|null} count - The badge count to set, or null to clear
+ * @returns {Promise<void>}
+ */
+async function manageBadge(count) {
+    if (!('setAppBadge' in navigator)) {
+      console.log('Badging API not supported in this environment');
+      return;
+    }
+  
     try {
-      await navigator.clearAppBadge();
-      console.log('App badge cleared');
+      if (count && count > 0) {
+        await navigator.setAppBadge(count);
+      } else {
+        await navigator.clearAppBadge();
+      }
     } catch (error) {
-      console.error('Error clearing app badge:', error);
+      console.error('Error managing badge:', error);
     }
   }
-}
+  
   
 // Function to check and handle pending notifications
 async function handlePendingNotifications() {
     try {
-        await clearAppBadge();
+        const survey_open = $('.run_unit_type_Survey').length > 0;
+        await manageBadge(survey_open ? 1 : 0);
 
         const registration = await navigator.serviceWorker.getRegistration();
         if (!registration) return false;
@@ -1289,26 +1302,11 @@ if ('serviceWorker' in navigator) {
             console.log('Event type', eventType, 'document.hidden', document.hidden);
             if(!document.hidden && localStorage.getItem('state-invalidated')) {
                reload_invalidated(localStorage.getItem('state-invalidated'));
-                // handlePendingNotifications();
             }
-        });
+            handlePendingNotifications();
+    });
     });
     
-    document.addEventListener('click', async () => {
-        try {
-            await handlePendingNotifications();
-        } catch (error) {
-            console.error('Failed to handle pending notifications:', error);
-        }
-    }, { capture: true });
-
-    document.addEventListener('keydown', async (event) => {
-        try {
-            await handlePendingNotifications();
-        } catch (error) {
-            console.error('Failed to handle pending notifications:', error);
-        }
-    }, { capture: true });
 }
 
 // Add new function to handle installation timeout
