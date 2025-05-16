@@ -331,6 +331,7 @@ class AdminSurveyController extends AdminController {
         $this->setView('survey/show_results', array(
             'resultCount' => $this->study->getResultCount(),
             'results' => array(),
+            'session' => '',
             'pagination' => new Pagination(1),
             'study_name' => $this->study->name,
         ));
