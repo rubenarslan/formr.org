@@ -734,7 +734,9 @@ class SurveyStudy extends Model {
                 if ($this->unlinked) {
                     $order_by = "RAND()";
                 }
-                $select->order($order_by);
+                if(isset($order_by)) {
+                    $select->order($order_by);
+                }
             }
             
             
