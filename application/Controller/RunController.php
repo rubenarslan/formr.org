@@ -388,7 +388,7 @@ class RunController extends Controller {
 
         // Serve the manifest file
         $manifestPath = $run->getManifestJSONPath();
-        if(file_exists($manifestPath)) {
+        if(!empty($manifestPath) && file_exists($manifestPath)) {
             readfile($manifestPath);
             exit;
         }

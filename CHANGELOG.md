@@ -2,6 +2,33 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.24.0] - 24.05.2025
+### Added
+- Progressive Web App (PWA) support. 
+  - Formr studies can now be turned into apps that are installable to devices running Android, iOS, MacOS, Windows, etc.
+  - Each study is its own app
+      - Service worker and configurable manifest endpoints for each run/study.
+      - Logos, names, settings are configurable
+  - Push message support in the run
+  - Surveys get three new items: request_phone, add_to_home_screen, and push_notification which help configure the app
+- Switch from grunt/bower to npm/webpack for clientside dependencies
+
+### Fixes
+- Cookies are now set to SameSite: Lax, so that cookies are always set upon first visit to the page
+- New cookie management improves compliance with GDPR. By default, only session cookies are set, if user consents, these cookies are kept for longer (a configurable duration). formr continues not to set any third-party cookies by default.
+- Unlinking surveys and hiding results works again
+- Fixed a bug where expired CSRF tokens caused confusing errors
+
+
+## [v0.23.2] - 07.02.2025
+### Fixed
+- It wasn't possible to specify a maximal file size for audio/video uploads
+
+## [v0.23.1] - 04.02.2025
+### Changes
+- change paths for user uploaded files
+  - make it easier to group user uploaded files in tmp. also, store full paths.
+
 ## [v0.23.0] - 23.01.2025
 ### Added
 * Added two-factor authentication (2FA) thanks to groundwork by @EliasAhlers and @Epd02
