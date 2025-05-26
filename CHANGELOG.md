@@ -5,8 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [v0.24.0] - 24.05.2025
 ### Added
 - Progressive Web App (PWA) support. 
-  - Formr studies can now be turned into apps that are installable to devices running Android, iOS, MacOS, Windows, etc.
+  - Formr studies can now be turned into web apps that are installable to devices running Android, iOS, MacOS, Windows, etc.
   - Each study is its own app
+      - Can be added to phone home screen
       - Service worker and configurable manifest endpoints for each run/study.
       - Logos, names, settings are configurable
   - Push message support in the run
@@ -15,9 +16,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixes
 - Cookies are now set to SameSite: Lax, so that cookies are always set upon first visit to the page
+  - Fixed a bug where expired CSRF tokens caused confusing errors, will also give more informative error messages now
 - New cookie management improves compliance with GDPR. By default, only session cookies are set, if user consents, these cookies are kept for longer (a configurable duration). formr continues not to set any third-party cookies by default.
 - Unlinking surveys and hiding results works again
-- Fixed a bug where expired CSRF tokens caused confusing errors
 
 
 ## [v0.23.2] - 07.02.2025
