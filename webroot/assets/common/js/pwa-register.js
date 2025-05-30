@@ -1,4 +1,4 @@
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && window.vapidPublicKey) {
     if (!window.formr?.run_url) {
         console.warn('formr configuration missing run_url');
     } else {

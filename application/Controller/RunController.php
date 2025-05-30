@@ -78,10 +78,6 @@ class RunController extends Controller {
 
         $run_content = $this->run->getParsedPrivacyField('privacy-policy');
 
-        if (!empty($this->run->footer_text_parsed)) {
-            $run_content .= $this->run->footer_text_parsed . ' <a href ="'.run_url($run_name, '').'">Back to Study</a>';
-        }
-
         $run_vars = array(
             'run_content' => $run_content,
             'bodyClass' => 'fmr-run',
@@ -105,9 +101,6 @@ class RunController extends Controller {
         }
 
         $run_content = $this->run->getParsedPrivacyField('terms-of-service');
-        if (!empty($this->run->footer_text_parsed)) {
-            $run_content .= $this->run->footer_text_parsed . ' <a href ="'.run_url($run_name, '').'">Back to Study</a>';
-        }
 
         $run_vars = array(
             'run_content' => $run_content,
@@ -127,18 +120,6 @@ class RunController extends Controller {
             formr_error(404, 'Not Found', 'Requested Run does not exist or has been moved');
         }
 
-        // Login if user entered with code and redirect without login code
-        if (Request::isHTTPGetRequest() && ($code = $this->request->getParam('code'))) {
-            $_GET['run_name'] = $run_name;
-            $this->user = $this->loginUser();
-            Session::setSessionLifetime($this->run->expire_cookie);
-
-            if ($this->user->user_code != $code) {
-                alert('Unable to login with the provided code', 'alert-warning');
-            }
-            $this->request->redirect(run_url($run_name, 'settings'));
-        }
-
         // People who have no session in the run need not set anything
         $session = new RunSession($this->user->user_code, $run);
         if (!$session->id) {
@@ -146,11 +127,10 @@ class RunController extends Controller {
         }
 
         $settings = array('no_email' => 1);
-        if (Request::isHTTPPostRequest() && $this->user->user_code == $this->request->getParam('_sess')) {
+        if (Request::isHTTPPostRequest()) {
             $update = array();
             $settings = array(
-                'no_email' => $this->request->getParam('no_email'),
-                'delete_cookie' => (int) $this->request->getParam('delete_cookie'),
+                'no_email' => $this->request->getParam('no_email')
             );
 
             if ($settings['no_email'] === '1') {
@@ -164,10 +144,6 @@ class RunController extends Controller {
             $session->saveSettings($settings, $update);
 
             alert('Settings saved successfully for survey "' . $run->name . '"', 'alert-success');
-            if ($settings['delete_cookie']) {
-                Session::destroy();
-                $this->request->redirect('index');
-            }
             $this->request->redirect(run_url($run_name, 'settings'));
         }
 
@@ -175,6 +151,10 @@ class RunController extends Controller {
         $this->setView('run/settings', array(
             'settings' => $session->getSettings(),
             'email_subscriptions' => Config::get('email_subscriptions'),
+            'bodyClass' => 'fmr-run fmr-settings',
+            'user_email' => $session->getRecipientEmail(),
+            'vapid_key_exists' => !empty($this->run->getVapidPublicKey()),
+            'current_push_subscription' => $session->getSubscription()
         ));
         
         return $this->sendResponse();
@@ -234,7 +214,7 @@ class RunController extends Controller {
             $content = $this->site->renderAlerts();
             $this->sendResponse($content);
         } else {
-            $this->request->redirect('');
+            $this->request->redirect(run_url($run->name, ''));
         }
     }
 
@@ -396,5 +376,82 @@ class RunController extends Controller {
         // If file doesn't exist, return 404
         header('HTTP/1.0 404 Not Found');
         echo "Manifest not found";
+    }
+
+    private function sendJsonResponse($data, $statusCode = 200) {
+        // Bypass the Response object to guarantee a raw JSON payload with no layout or extra HTML.
+        http_response_code($statusCode);
+        header('Content-Type: application/json');
+        echo json_encode($data);
+        exit; // Stop further script execution
+    }
+
+    public function ajax_get_push_subscription_statusAction() {
+        $this->run = $this->getRun();
+        $this->user = $this->loginUser(); // Ensure user and session are loaded
+        $session = new RunSession($this->user->user_code, $this->run);
+        if (!$session->id) {
+            $this->sendJsonResponse(array('error' => 'User session not found.'), 401);
+            return;
+        }
+
+        $subscription = array_val($session->getSettings(), 'push_subscription');
+        $this->sendJsonResponse(array('subscription' => $subscription));
+    }
+
+    public function ajax_save_push_subscriptionAction() {
+        if (!Request::isHTTPPostRequest()) {
+            $this->sendJsonResponse(array('error' => 'Invalid request method.'), 405);
+            return;
+        }
+
+        $this->run = $this->getRun();
+        $this->user = $this->loginUser();
+        $session = new RunSession($this->user->user_code, $this->run);
+
+        if (!$session->id) {
+            $this->sendJsonResponse(array('error' => 'User session not found.'), 401);
+            return;
+        }
+
+        $subscriptionJson = $this->request->getParam('subscription');
+        if (empty($subscriptionJson)) {
+            $this->sendJsonResponse(array('error' => 'Subscription data not provided.'), 400);
+            return;
+        }
+
+        $subscriptionData = json_decode($subscriptionJson, true);
+        if (json_last_error() !== JSON_ERROR_NONE || empty($subscriptionData['endpoint'])) {
+            $this->sendJsonResponse(array('error' => 'Invalid subscription JSON.'), 400);
+            return;
+        }
+
+        if ($session->updateSubscription($subscriptionJson)) {
+            $this->sendJsonResponse(array('success' => true, 'message' => 'Subscription saved.'));
+        } else {
+            $this->sendJsonResponse(array('error' => 'Failed to save subscription.'), 500);
+        }
+    }
+
+    public function ajax_delete_push_subscriptionAction() {
+        if (!Request::isHTTPPostRequest()) {
+            $this->sendJsonResponse(array('error' => 'Invalid request method.'), 405);
+            return;
+        }
+
+        $this->run = $this->getRun();
+        $this->user = $this->loginUser();
+        $session = new RunSession($this->user->user_code, $this->run);
+
+        if (!$session->id) {
+            $this->sendJsonResponse(array('error' => 'User session not found.'), 401);
+            return;
+        }
+
+        if ($session->updateSubscription(null)) {
+            $this->sendJsonResponse(array('success' => true, 'message' => 'Subscription deleted.'));
+        } else {
+            $this->sendJsonResponse(array('error' => 'Failed to delete subscription.'), 500);
+        }
     }
 }

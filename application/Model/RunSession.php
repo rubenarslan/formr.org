@@ -528,6 +528,173 @@ class RunSession extends Model {
         return $settings;
     }
 
+    /**
+     * Get push notification subscription for this run session
+     * 
+     * @return array|null The subscription data or null if no subscription found
+     */
+    public function getSubscription() {
+        // Query the subscription from survey_items_display for this user's session
+        $query = "SELECT sid.answer 
+                 FROM survey_items_display sid
+                 JOIN survey_items si ON si.id = sid.item_id
+                 JOIN survey_unit_sessions sus ON sus.id = sid.session_id
+                 WHERE sus.run_session_id = :run_session_id 
+                 AND si.type = 'push_notification'
+                 AND sid.answer != 'not_requested'
+                 AND sid.answer != 'not_supported'
+                 ORDER BY sid.created DESC
+                 LIMIT 1";
+
+        $result = $this->db->execute($query, [
+            ':run_session_id' => $this->id
+        ], false, true);
+
+        if (!$result || empty($result['answer'])) {
+            return null;
+        }
+
+        return json_decode($result['answer'], true);
+    }
+
+    /**
+     * Update the most recent push notification subscription for this run session
+     * 
+     * @param array|string|null $subscriptionData The subscription data (array or JSON string) or null to remove subscription
+     * @return bool True if update was successful, false otherwise
+     */
+    public function updateSubscription($subscriptionData) {
+        // Convert array to JSON string if needed
+        if (is_array($subscriptionData)) {
+            $subscriptionJson = json_encode($subscriptionData);
+        } elseif (is_string($subscriptionData)) {
+            $subscriptionJson = $subscriptionData;
+        } elseif ($subscriptionData === null) {
+            $subscriptionJson = 'not_requested';
+        } else {
+            return false;
+        }
+
+        // Find the most recent push notification item for this session
+        $query = "SELECT sid.id, sid.item_id
+                 FROM survey_items_display sid
+                 JOIN survey_items si ON si.id = sid.item_id
+                 JOIN survey_unit_sessions sus ON sus.id = sid.session_id
+                 WHERE sus.run_session_id = :run_session_id 
+                 AND si.type = 'push_notification'
+                 ORDER BY sid.created DESC
+                 LIMIT 1";
+
+        $result = $this->db->execute($query, [
+            ':run_session_id' => $this->id
+        ], false, true);
+
+        if (!$result || empty($result['id'])) {
+            return false;
+        }
+
+        // Update the subscription data
+        $updateQuery = "UPDATE survey_items_display 
+                       SET answer = :answer, saved = NOW()
+                       WHERE id = :id";
+
+        $updateResult = $this->db->execute($updateQuery, [
+            ':answer' => $subscriptionJson,
+            ':id' => $result['id']
+        ]);
+
+        return $updateResult !== false;
+    }
+
+    /**
+     * Get email recipient field for this run session
+     * 
+     * @param string|null $recipient_field The recipient field to evaluate, or null to get most recent email
+     * @param bool $return_session Whether to return OpenCPU session for debugging
+     * @param UnitSession|null $unitSession Optional unit session for dynamic field evaluation
+     * @return string|OpenCPU_Session|null The recipient email address or OpenCPU session
+     */
+    public function getRecipientEmail($recipient_field = null, $return_session = false, $unitSession = null) {
+        $mostrecent = "most recent reported address";
+        
+        if (!$recipient_field || $recipient_field === $mostrecent) {
+            $recent_email_query = "
+                SELECT survey_items_display.answer AS email FROM survey_unit_sessions
+                LEFT JOIN survey_units ON survey_units.id = survey_unit_sessions.unit_id AND survey_units.type = 'Survey'
+                LEFT JOIN survey_run_units ON survey_run_units.unit_id = survey_units.id
+                LEFT JOIN survey_items_display ON survey_items_display.session_id = survey_unit_sessions.id
+                LEFT JOIN survey_items ON survey_items.id = survey_items_display.item_id
+                WHERE
+                survey_unit_sessions.run_session_id = :run_session_id AND 
+                survey_run_units.run_id = :run_id AND 
+                survey_items.type = 'email'
+                ORDER BY survey_items_display.answered DESC
+                LIMIT 1
+            ";
+
+            $result = $this->db->execute($recent_email_query, [
+                ':run_id' => $this->run->id,
+                ':run_session_id' => $this->id
+            ], false, true);
+
+            $recipient = array_val($result, 'email', null);
+        } else {
+            // For dynamic recipient fields, we need a UnitSession to get run data
+            $unitSessionToUse = $unitSession ?: $this->currentUnitSession;
+            if ($unitSessionToUse) {
+                $opencpu_vars = $unitSessionToUse->getRunData($recipient_field);
+                $recipient = opencpu_evaluate($recipient_field, $opencpu_vars, 'json', null, $return_session);
+            } else {
+                // Fallback: try to get the most recent email
+                return $this->getRecipientEmail(null, $return_session);
+            }
+        }
+
+        return $recipient;
+    }
+
+    /**
+     * Update the most recent email address for this run session
+     * 
+     * @param string $email The email address to update
+     * @return bool True if update was successful, false otherwise
+     */
+    public function updateRecipientField($email) {
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+
+        // Find the most recent email item for this session
+        $query = "SELECT sid.id, sid.item_id
+                 FROM survey_items_display sid
+                 JOIN survey_items si ON si.id = sid.item_id
+                 JOIN survey_unit_sessions sus ON sus.id = sid.session_id
+                 WHERE sus.run_session_id = :run_session_id 
+                 AND si.type = 'email'
+                 ORDER BY sid.created DESC
+                 LIMIT 1";
+
+        $result = $this->db->execute($query, [
+            ':run_session_id' => $this->id
+        ], false, true);
+
+        if (!$result || empty($result['id'])) {
+            return false;
+        }
+
+        // Update the email address
+        $updateQuery = "UPDATE survey_items_display 
+                       SET answer = :answer, saved = NOW()
+                       WHERE id = :id";
+
+        $updateResult = $this->db->execute($updateQuery, [
+            ':answer' => $email,
+            ':id' => $result['id']
+        ]);
+
+        return $updateResult !== false;
+    }
+
     public static function toggleTestingStatus($sessions) {
         $dbh = DB::getInstance();
         if (is_string($sessions)) {

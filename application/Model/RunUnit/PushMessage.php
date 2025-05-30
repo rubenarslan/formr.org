@@ -111,7 +111,7 @@ class PushMessage extends RunUnit {
 
         try {
             // Get subscription from the user's session
-            $subscription = $this->getSubscription($unitSession);
+            $subscription = $unitSession->runSession->getSubscription();
             if (!$subscription) {
                 $output['log']['result'] = 'no_subscription';
                 $output['move_on'] = true;
@@ -192,30 +192,6 @@ class PushMessage extends RunUnit {
         } else {
             return $this->topic;
         }
-    }
-
-    protected function getSubscription(UnitSession $unitSession) {
-        // Query the subscription from survey_items_display for this user's session
-        $query = "SELECT sid.answer 
-                 FROM survey_items_display sid
-                 JOIN survey_items si ON si.id = sid.item_id
-                 JOIN survey_unit_sessions sus ON sus.id = sid.session_id
-                 WHERE sus.run_session_id = :run_session_id 
-                 AND si.type = 'push_notification'
-                 AND sid.answer != 'not_requested'
-                 AND sid.answer != 'not_supported'
-                 ORDER BY sid.created DESC
-                 LIMIT 1";
-
-        $result = $this->db->execute($query, [
-            ':run_session_id' => $unitSession->runSession->id
-        ], false, true);
-
-        if (!$result || empty($result['answer'])) {
-            return null;
-        }
-
-        return json_decode($result['answer'], true);
     }
 
 	public function displayForRun($prepend = '') {

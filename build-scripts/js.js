@@ -33,6 +33,7 @@ async function processJS() {
         'common/js/run_settings.js',
         'common/js/run_users.js',
         'common/js/cookieconsent.js',
+        'common/js/public_settings.js',
         'site/js/main.js',
         'admin/js/main.js',
         'admin/js/admin.js'

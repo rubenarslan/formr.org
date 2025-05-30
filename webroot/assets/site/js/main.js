@@ -22,9 +22,9 @@ import '../../common/js/highlight/styles/vs.css';
 // Common JS
 import '../../common/js/cookieconsent.js';
 import '../../common/js/main.js';
-import '../../common/js/run_users.js';
-import '../../common/js/run.js';
 import '../../common/js/survey.js';
+import '../../common/js/public_settings.js';
+
 // Frontend JS
 import './frontend.js';
 // Frontend CSS

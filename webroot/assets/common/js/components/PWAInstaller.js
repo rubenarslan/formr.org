@@ -210,6 +210,30 @@ const PushNotificationManager = {
             console.error('Error subscribing to push:', error);
             return { success: false, reason: 'subscription_error', error };
         }
+    },
+
+    // Unsubscribe from push notifications
+    unsubscribe: async function(registration) {
+        if (!registration) return { success: false, reason: 'no_registration' };
+        
+        try {
+            const subscription = await registration.pushManager.getSubscription();
+            if (!subscription) {
+                return { success: true, reason: 'already_unsubscribed' };
+            }
+            
+            const unsubscribed = await subscription.unsubscribe();
+            if (unsubscribed) {
+                // Remove subscription status from localStorage
+                localStorage.removeItem('push-notification-subscribed');
+                return { success: true };
+            } else {
+                return { success: false, reason: 'unsubscribe_failed' };
+            }
+        } catch (error) {
+            console.error('Error unsubscribing from push:', error);
+            return { success: false, reason: 'unsubscribe_error', error };
+        }
     }
 };
 
@@ -609,7 +633,8 @@ export function initializePushNotifications() {
                 $hiddenInput.val(JSON.stringify(subResult.subscription));
                 $hiddenInput[0].setCustomValidity('');
                 addNotificationControls($wrapper, registration, {
-                    customMessage: t('Push notifications are enabled.')
+                    customMessage: t('Push notifications are enabled.'),
+                    showUnsubscribeButton: true
                 });
                 
                 $button.removeClass('btn-primary').addClass('btn-success');
@@ -630,7 +655,8 @@ export function initializePushNotifications() {
                 $hiddenInput.val(subscriptionJson);
                 $hiddenInput[0].setCustomValidity('');
                 addNotificationControls($wrapper, registration, {
-                    customMessage: t('Push notifications are enabled.')
+                    customMessage: t('Push notifications are enabled.'),
+                    showUnsubscribeButton: true
                 });
                 
                 $button.removeClass('btn-primary').addClass('btn-success');
@@ -655,7 +681,9 @@ export function initializePushNotifications() {
         }
     });
 
-    $('.push-notification-permission').click(async function(e) {
+    $('.push-notification-permission')
+        .off('click.formrPushNotification')
+        .on('click.formrPushNotification', async function(e) {
         e.preventDefault();
         const $btn = $(this);
         
@@ -684,7 +712,8 @@ export function initializePushNotifications() {
                 $hiddenInput.val(subscriptionJson);
                 $hiddenInput[0].setCustomValidity('');
                 addNotificationControls($wrapper, registration, {
-                    customMessage: t('Push notifications are already enabled.')
+                    customMessage: t('Push notifications are already enabled.'),
+                    showUnsubscribeButton: true
                 });
                 
                 $btn.removeClass('btn-primary').addClass('btn-success');
@@ -701,6 +730,15 @@ export function initializePushNotifications() {
                 const subscriptionJson = JSON.stringify(result.subscription);
                 $hiddenInput.val(subscriptionJson);
                 $hiddenInput[0].setCustomValidity('');
+                // Fire custom event for subscription success
+                const subscriptionEvent = new CustomEvent('pushSubscriptionChanged', {
+                    detail: {
+                        action: 'subscribed',
+                        subscription: result.subscription,
+                        subscriptionJson: subscriptionJson
+                    }
+                });
+                document.dispatchEvent(subscriptionEvent);
 
                 let platformSpecificNote = '';
                 if (/android/i.test(navigator.userAgent)) {
@@ -754,6 +792,7 @@ export function initializePushNotifications() {
 function addNotificationControls($wrapper, registration, options = {}) {
     const {
         showTestButton = true,
+        showUnsubscribeButton = false,
         customMessage = '',
         additionalContent = ''
     } = options;
@@ -763,6 +802,9 @@ function addNotificationControls($wrapper, registration, options = {}) {
     let buttonsHtml = '';
     if (showTestButton) {
         buttonsHtml += `<button type="button" class="btn btn-default test-notification-button"><i class="fa fa-bell"></i> ${t('Test notification')}</button>`;
+    }
+    if (showUnsubscribeButton) {
+        buttonsHtml += `<button type="button" class="btn btn-warning unsubscribe-notification-button"><i class="fa fa-bell-slash"></i> ${t('Disable Notifications')}</button>`;
     }
     buttonsHtml += `<button type="button" class="btn btn-link show-notification-help"><i class="fa fa-exclamation-triangle"></i> ${t('Show troubleshooting tips')}</button>`;
 
@@ -779,6 +821,12 @@ function addNotificationControls($wrapper, registration, options = {}) {
     if (showTestButton) {
         $wrapper.find('.test-notification-button').on('click', async function() {
             await sendTestNotification(registration);
+        });
+    }
+
+    if (showUnsubscribeButton) {
+        $wrapper.find('.unsubscribe-notification-button').on('click', async function() {
+            await handleUnsubscribe($wrapper, registration);
         });
     }
 
@@ -958,6 +1006,81 @@ async function sendTestNotification(registration) {
     } catch (error) {
         console.error('Error creating test notification:', error);
         return false;
+    }
+}
+
+// Handle unsubscribe from push notifications
+async function handleUnsubscribe($wrapper, registration) {
+    const $status = $wrapper.find('.status-message');
+    const $hiddenInput = $wrapper.find('input');
+    const $button = $wrapper.find('.push-notification-permission');
+    
+    try {
+        // Show processing state
+        $wrapper.find('.unsubscribe-notification-button').html(`<i class="fa fa-spinner fa-spin"></i> ${t('Processing...')}`);
+        
+        const result = await PushNotificationManager.unsubscribe(registration);
+        
+        if (result.success) {
+            // Make AJAX call to delete push subscription from database
+            try {
+
+                const basePath = (() => {
+                    const parts = window.location.pathname.split('/').filter(Boolean);
+                    // Remove 'settings' if it's the last part to get run root
+                    if (parts.length > 1 && parts[parts.length - 1] === 'settings') {
+                        parts.pop();
+                    }
+                    return parts.length > 0 ? '/' + parts.join('/') + '/' : '/';
+                })();
+
+                const response = await fetch(basePath + 'ajax_delete_push_subscription', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (!data.success) {
+                    console.warn('Failed to delete subscription from database:', data.message);
+                    // Continue with UI update even if database deletion failed
+                }
+            } catch (ajaxError) {
+                console.error('Error deleting subscription from database:', ajaxError);
+                // Continue with UI update even if database deletion failed
+            }
+            
+            // Clear the hidden input
+            $hiddenInput.val('');
+            
+            // Fire custom event for unsubscription success
+            const unsubscriptionEvent = new CustomEvent('pushSubscriptionChanged', {
+                detail: {
+                    action: 'unsubscribed'
+                }
+            });
+            document.dispatchEvent(unsubscriptionEvent);
+            
+            // Reset the UI to initial state
+            $status.html(t('Click the button to enable push notifications.'));
+            $button.removeClass('btn-success').addClass('btn-primary');
+            $button.prop('disabled', false);
+            $button.html(`<i class="fa fa-bell"></i> ${t('Enable Notifications')}`);
+            $wrapper.closest('.form-group').removeClass('formr_answered');
+            
+            console.log('Push notifications unsubscribed successfully');
+        } else {
+            console.error('Failed to unsubscribe from push notifications:', result.reason);
+            $status.html(t('There was an error disabling push notifications. Please try again later.'));
+            $wrapper.find('.unsubscribe-notification-button').html(`<i class="fa fa-bell-slash"></i> ${t('Disable Notifications')}`);
+        }
+        
+    } catch (error) {
+        console.error('Error during push notification unsubscribe:', error);
+        $status.html(t('There was an error disabling push notifications. Please try again later.'));
+        $wrapper.find('.unsubscribe-notification-button').html(`<i class="fa fa-bell-slash"></i> ${t('Disable Notifications')}`);
     }
 }
 

@@ -160,40 +160,11 @@ class Email extends RunUnit {
         return $this->body_parsed;
     }
 
-    public function getRecipientField(UnitSession $unitSession, $return_session = false) {
-        if (!$this->recipient_field || $this->recipient_field === $this->mostrecent) {
-            $recent_email_query = "
-				SELECT survey_items_display.answer AS email FROM survey_unit_sessions
-				LEFT JOIN survey_units ON survey_units.id = survey_unit_sessions.unit_id AND survey_units.type = 'Survey'
-				LEFT JOIN survey_run_units ON survey_run_units.unit_id = survey_units.id
-				LEFT JOIN survey_items_display ON survey_items_display.session_id = survey_unit_sessions.id
-				LEFT JOIN survey_items ON survey_items.id = survey_items_display.item_id
-				WHERE
-				survey_unit_sessions.run_session_id = :run_session_id AND 
-				survey_run_units.run_id = :run_id AND 
-				survey_items.type = 'email'
-				ORDER BY survey_items_display.answered DESC
-				LIMIT 1
-			";
 
-            $get_recip = $this->db->prepare($recent_email_query);
-            $get_recip->bindValue(':run_id', $this->run->id);
-            $get_recip->bindValue(':run_session_id', $unitSession->runSession->id);
-            $get_recip->execute();
-
-            $res = $get_recip->fetch(PDO::FETCH_ASSOC);
-            $recipient = array_val($res, 'email', null);
-        } else {
-            $opencpu_vars = $unitSession->getRunData($this->recipient_field);
-            $recipient = opencpu_evaluate($this->recipient_field, $opencpu_vars, 'json', null, $return_session);
-        }
-
-        return $recipient;
-    }
 
     public function sendMail(UnitSession $unitSession, $who = null) {
         $this->mail_queued = $this->mail_sent = false;
-        $this->recipient = $who !== null ? $who : $this->getRecipientField($unitSession);
+        $this->recipient = $who !== null ? $who : $unitSession->runSession->getRecipientEmail($this->recipient_field, false, $unitSession);
 
         if ($this->recipient == null) {
             //formr_log("Email recipient could not be determined from this field definition " . $this->recipient_field);
@@ -338,7 +309,7 @@ class Email extends RunUnit {
         $receiver = $user->getEmail();
 
         $output = "<h4>Recipient</h4>";
-        $recipient_field = $this->getRecipientField($unitSession, true);
+        $recipient_field = $unitSession->runSession->getRecipientEmail($this->recipient_field, true, $unitSession);
         if ($recipient_field instanceof OpenCPU_Session) {
             $output .= opencpu_debug($recipient_field, null, 'text');
         } else {
@@ -389,7 +360,7 @@ class Email extends RunUnit {
 
             $rows = '';
             foreach ($results as $unitSession) {
-                $email = stringBool($this->getRecipientField($unitSession));
+                $email = stringBool($unitSession->runSession->getRecipientEmail($this->recipient_field, false, $unitSession));
                 $class = filter_var($email, FILTER_VALIDATE_EMAIL) ? '' : 'text-warning';
                 $rows .= Template::replace($row_tpl, array(
                             'session' => $unitSession->runSession->session,
