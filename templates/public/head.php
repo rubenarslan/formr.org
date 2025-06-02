@@ -62,20 +62,20 @@ if (isset($run) && $run instanceof Run) {
 <meta name="twitter:url" content="<?php echo $meta['url']; ?>" />
 <meta name="twitter:description" content="<?php echo $meta['description']; ?>" />
 
-<?php
-foreach ($css as $id => $files) {
-    print_stylesheets($files, $id);
-}
-?>
+
 <script>
     window.formr = <?php echo !empty($jsConfig) ? json_encode($jsConfig) : '{}' ?>;
+    <?php
+    // Get VAPID public key from the run
+    $vapidPublicKey = $run->getVapidPublicKey();
+    if ($vapidPublicKey):
+    ?>
+    // Make VAPID public key available globally
+    window.vapidPublicKey = <?php echo json_encode($vapidPublicKey); ?>;
+<?php endif; ?>
 </script>
 
-<?php
-foreach ($js as $id => $files) {
-    print_scripts($files, $id);
-}
-?>
+
 <link rel="icon" href="<?php echo $favicon_url; ?>">
 
 <?php 
@@ -109,16 +109,16 @@ if (isset($run) && $run instanceof Run && $run->getManifestJSONPath()):
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="msapplication-starturl" content="<?php echo run_url($run->name); ?>">
 
-    <?php
-    // Get VAPID public key from the run
-    $vapidPublicKey = $run->getVapidPublicKey();
-    if ($vapidPublicKey):
-    ?>
-    <script>
-        // Make VAPID public key available globally
-        window.vapidPublicKey = <?php echo json_encode($vapidPublicKey); ?>;
-    </script>
-    <?php endif; ?>
+
     
 <?php endif; ?>
 
+
+<?php
+foreach ($css as $id => $files) {
+    print_stylesheets($files, $id);
+}
+foreach ($js as $id => $files) {
+    print_scripts($files, $id);
+}
+?>
