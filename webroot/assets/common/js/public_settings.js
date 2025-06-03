@@ -82,6 +82,7 @@ $(document).ready(() => {
                 } catch (error) {
                     console.error('Failed to save push subscription to server:', error);
                 } finally {
+                    subscriptionBeingProcessed = null;
                 }
             } else {
                 console.warn('Could not find subscription input for saving push subscription');
