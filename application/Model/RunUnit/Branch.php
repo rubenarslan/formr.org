@@ -122,7 +122,8 @@ class Branch extends RunUnit {
         $eval = opencpu_evaluate($this->condition, $opencpu_vars);
         
         if ($eval === null) {
-            $data['log'] = $this->getLogMessage('error_opencpu_r', 'OpenCPU error. Fix R code');
+            $error = opencpu_last_error();
+            $data['log'] = $this->getLogMessage('error_opencpu_r', "OpenCPU error. Fix R code \n\n" . $error);
             $data['wait_opencpu'] = true;
             return $data;
         }

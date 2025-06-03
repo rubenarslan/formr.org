@@ -113,7 +113,8 @@ class UnitSessionQueue extends Queue {
             if (!$run->valid || !$run->cron_active) {
                 continue;
             }
-            $runSession = new RunSession($session['session'], $run);
+
+            $runSession = run_session(new RunSession($session['session'], $run));
             if (!$runSession->id) {
                 $this->dbg('A run session could not be found for item in queue: ' . print_r($session, 1));
                 self::removeItem($session['id']);
@@ -161,7 +162,7 @@ class UnitSessionQueue extends Queue {
      * Remove item from session queue
      *
      * @param int $unitSessionId ID of the unit session
-     * @return booelan
+     * @return bool
      */
     public static function removeItem($unitSessionId) {
         $db = DB::getInstance();

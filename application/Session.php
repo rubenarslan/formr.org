@@ -89,6 +89,10 @@ class Session {
     }
 
     public static function getRequestToken() {
+        if (formr_in_console()) {
+            return null;
+        }
+
         $token = sha1(mt_rand());
         if (!$tokens = self::get(self::REQUEST_TOKENS)) {
             $tokens = array($token => 1);

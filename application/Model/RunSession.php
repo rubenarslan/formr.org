@@ -233,7 +233,7 @@ class RunSession extends Model {
             return $this->moveOn();
         }
 
-        $this->debug('Current Unit Is ' . ($currentUnitSession ? $currentUnitSession->runUnit->type : ''), true);
+        $this->debug('Current Unit Is ' . ($currentUnitSession ? $currentUnitSession->runUnit->type : '[none]'), true);
         if (!$currentUnitSession && $this->position === $this->run->getFirstPosition()) {
             // We are in the first unit of the run
             return $this->moveOn(true);
@@ -253,14 +253,14 @@ class RunSession extends Model {
      * 
      * @param boolean $starting TRUE if we are in the first run unit. FALSE otherwise.
      * @param boolean $execute TRUE means we continue executing the next unit
-     * @return type
+     * @return array|null
      */
     public function moveOn($starting = false, $execute = true) {
         if ($this->run->isStudyTest()) {
             // nothing to move on to
             return null;
         }
-        
+
         if (!$starting) {
             $this->currentUnitSession = null;
             $this->position = $this->run->getNextPosition($this->position);
@@ -332,8 +332,8 @@ class RunSession extends Model {
 
         return $this->moveOn();
 
-        alert('Error: Premature study end.', "alert-danger");
-        return ['body' => 'FORMR_END'];
+        //alert('Error: Premature study end.', "alert-danger");
+        //return ['body' => 'FORMR_END'];
     }
 
     public function getUnitIdAtPosition($position) {
