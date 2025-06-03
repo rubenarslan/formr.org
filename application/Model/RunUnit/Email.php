@@ -196,15 +196,20 @@ class Email extends RunUnit {
         $this->recipient = $who !== null ? $who : $this->getRecipientField($unitSession);
 
         if ($this->recipient == null) {
-            //formr_log("Email recipient could not be determined from this field definition " . $this->recipient_field);
-            alert("We could not find an email recipient. Session: {$unitSession->runSession->session}", 'alert-danger');
-            $this->errors['log'] = $this->getLogMessage('no_recipient', 'We could not find an email recipient');
+            $error = opencpu_last_error();
+            alert("We could not find an email recipient. Session: {$unitSession->runSession->session}.", 'alert-danger');
+            $this->errors['log'] = $this->getLogMessage(
+                'no_recipient', 
+                "We could not find an email recipient. Session: {$unitSession->runSession->session}." . ($error ? " Error: {$error}" : "")
+            );
+            // @TODO: notify study admin
             return false;
         }
 
         if ($this->account_id === null) {
             alert("The study administrator (you?) did not set up an email account. <a href='" . admin_url('mail') . "'>Do it now</a> and then select the account in the email dropdown.", 'alert-danger');
-            $this->errors['log'] = $this->getLogMessage('no_recipient', "The study administrator (you?) did not set up an email account.");
+            $this->errors['log'] = $this->getLogMessage('no_sender', "The study administrator (you?) did not set up an email account.");
+            // @TODO: notify study admin
             return false;
         }
 
@@ -258,6 +263,7 @@ class Email extends RunUnit {
             $this->errors['log'] = $this->getLogMessage('error_send_eligible', $error);
             $error = "Session: {$unitSession->runSession->session}:\n {$error}";
             alert(nl2br($error), 'alert-danger');
+            // @TODO: notify study admin
             return false;
         }
 
@@ -269,44 +275,56 @@ class Email extends RunUnit {
 
         $subject = $this->getSubject($unitSession);
         if($subject === null || $subject === false || $subject === '') {
-            $this->errors['log'] = $this->getLogMessage('no_email_subject', 'No email subject set');
+            $error = opencpu_last_error();
+            $this->errors['log'] = $this->getLogMessage('no_email_subject', 'No email subject set. ' . $error);
             alert('Email subject empty or could not be dynamically generated.', 'alert-danger');
             return false;
         }
         
         $body = $this->getBody($unitSession);
         if($body === null || $body === false || $body === '') {
-            $this->errors['log'] = $this->getLogMessage('no_email_body', 'No email body set');
+            $error = opencpu_last_error();
+            $this->errors['log'] = $this->getLogMessage('no_email_body', 'No email body set. ' . $error);
             alert('Email body empty or could not be dynamically generated.', 'alert-danger');
             return false;
         }
 
         if (!filter_var($this->recipient, FILTER_VALIDATE_EMAIL)) {
-            $this->errors['log'] = $this->getLogMessage('invalid_email', 'No valid email recipient set');
+            $this->errors['log'] = $this->getLogMessage('invalid_email', 'Recipient email address is not valid: ' . $this->recipient);
             alert('Intended recipient was not a valid email address: ' . $this->recipient, 'alert-danger');
             return false;
         }
 
         // if formr is configured to use the email queue then add mail to queue and return
         if (Config::get('email.use_queue', false) === true) {
-            $this->mail_queued = $this->db->insert('survey_email_log', array(
-                'subject' => $subject,
-                'status' => 0,
-                'session_id' => $unitSession->id,
-                'email_id' => $this->id,
-                'message' => $body,
-                'recipient' => $this->recipient,
-                'created' => mysql_datetime(),
-                'account_id' => (int) $this->account_id,
-                'meta' => json_encode(array(
-                    'embedded_images' => $this->images,
-                    'attachments' => ''
-                )),
-            ));
-            
-            return $this->mail_queued;
+            return $this->queueNow($acc, $subject, $body, $unitSession);
+        } else {
+            return $this->sendNow($acc, $subject, $body, $unitSession);
         }
 
+        
+    }
+
+    protected function queueNow(EmailAccount $acc, string $subject, string $body, UnitSession $unitSession) {
+        $this->mail_queued = $this->db->insert('survey_email_log', array(
+            'subject' => $subject,
+            'status' => 0,
+            'session_id' => $unitSession->id,
+            'email_id' => $this->id,
+            'message' => $body,
+            'recipient' => $this->recipient,
+            'created' => mysql_datetime(),
+            'account_id' => (int) $this->account_id,
+            'meta' => json_encode(array(
+                'embedded_images' => $this->images,
+                'attachments' => ''
+            )),
+        ));
+        
+        return $this->mail_queued;
+    }
+
+    protected function sendNow(EmailAccount $acc, string $subject, string $body, UnitSession $unitSession) {
         $mail = $acc->makeMailer();
 
 //		if($this->html)
@@ -319,7 +337,7 @@ class Email extends RunUnit {
         foreach ($this->images as $image_id => $image) {
             $local_image = APPLICATION_ROOT . 'tmp/' . uniqid() . $image_id;
             copy($image, $local_image);
-            register_shutdown_function(create_function('', "unlink('{$local_image}');"));
+            register_shutdown_function(function() use ($local_image) { unlink($local_image); });
 
             if (!$mail->AddEmbeddedImage($local_image, $image_id, $image_id, 'base64', 'image/png')) {
                 alert("Could not embed image with id '{$image_id}'", 'alert-danger');
@@ -328,7 +346,7 @@ class Email extends RunUnit {
         
         if ($mail->Send()) {
             $this->mail_sent = true;
-            $this->logMail($$unitSession); 
+            $this->logMail($unitSession); 
         } else {
             alert('Email with the subject "' . h($mail->Subject) . '" was not sent to ' . h($this->recipient) . ':<br>' . $mail->ErrorInfo, 'alert-danger');
         }
@@ -448,7 +466,7 @@ class Email extends RunUnit {
 
         // Check if user is enabled to receive emails
         if (!$unitSession->runSession->canReceiveMails()) {
-            $data['log'] = $this->getLogMessage('email_skipped_user_disabled');
+            $data['log'] = $this->getLogMessage('email_skipped_user_disabled', "User {$unitSession->runSession->session} disabled receiving emails at this time");
             $data['content'] = "<p>User <code>{$unitSession->runSession->session}</code> disabled receiving emails at this time </p>";
             return $data;
         }

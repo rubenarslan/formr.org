@@ -502,6 +502,7 @@ plot(cars)
         // If there no session or old session (from aquired url) has an error for some reason, then get a new one for current request
         if (empty($ocpu) || $ocpu->hasError()) {
             $ocpu_vars = $unitSession->getRunData($source);
+            /* @var $ocpu OpenCPU_Session */
             if ($email_embed) {
                 $ocpu = opencpu_knit_email($source, $ocpu_vars, '', true);
             } else {
@@ -519,9 +520,10 @@ plot(cars)
             alert('OpenCPU is probably down or inaccessible. Please retry in a few minutes.', 'alert-danger');
             return false;
         } elseif ($ocpu->hasError()) {
-            $this->errors['log'] = $this->getLogMessage('error_opencpu_r', 'OpenCPU R error. Fix code.');
-            
+            $this->errors['log'] = $this->getLogMessage('error_opencpu_r', 'OpenCPU R error. Fix code.' . $ocpu->getError());
             notify_user_error(opencpu_debug($ocpu), 'There was a computational error.');
+
+            // @TODO: notify study admin
             return false;
         } elseif ($admin) {
             return opencpu_debug($ocpu);

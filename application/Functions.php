@@ -1012,7 +1012,7 @@ function shortcut_without_opencpu($code, $data) {
  * @param string $code
  * @param string $return_format
  * @param bool $return_session Should OpenCPU_Session object be returned
- * @return string|null
+ * @return OpenCPU_Session|string|null
  */
 function opencpu_knit($code, $return_format = 'json', $self_contained = 1, $return_session = false) {
     $params = array('text' => "'" . addslashes($code) . "'");
