@@ -86,6 +86,8 @@ class Page extends RunUnit {
         if ($this->body_parsed === false) {
             $output['wait_opencpu'] = true; // wait for openCPU to be fixed!
             $output['log'] = array_val($this->errors, 'log', []);
+
+            // @TODO: notify study admin
             return $output;
         }
         
