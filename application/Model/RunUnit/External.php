@@ -144,8 +144,11 @@ class External extends RunUnit {
             $result = opencpu_evaluate($this->address, $opencpu_vars);
 
             if ($result === null) {
-                $data['log'] = $this->getLogMessage('error_opencpu');
+                $error = (string) opencpu_last_error(); 
+                $data['log'] = $this->getLogMessage('error_opencpu', "OpenCPU error. Fix R code. \n\n" . $error);
                 $data['wait_opencpu'] = true; // don't go anywhere, wait for the error to be fixed!
+
+                // @TODO: notify study admin
                 return $data;
             } elseif ($result === false) {
                 $data['log'] = $this->getLogMessage('external_r_call_no_redirect');
