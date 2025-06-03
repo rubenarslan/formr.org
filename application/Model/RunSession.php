@@ -175,77 +175,98 @@ class RunSession extends Model {
 
     /**
      * Loop over units in Run for a session until you get a unit with output
-     *
-     * @param UnitSession $referenceUnitSession
-     * @param boolean $executeReferenceUnit If TRUE, the first unit with session matching the $referenceUnitSession will be executed
-     * @return mixed
      */
     public function execute(UnitSession $referenceUnitSession = null, $executeReferenceUnit = false) {
-        
-		if ($this->ended) {
-			// User tried to access an already ended run session, logout
-			if (formr_in_console()) {
-				$referenceUnitSession->end('ended_by_queue_rse');
-				UnitSessionQueue::removeItem($referenceUnitSession->id);
-			} elseif ($this->current_unit_session_id) {
-				$this->currentUnitSession = new UnitSession($this, null, [
-					'id' => $this->current_unit_session_id, 
-					'load' => true
-				]);
-				if (!$this->currentUnitSession->runUnit) {
-					formr_error(404, 'Run Unit Not Found', 'The Run Unit you are trying to access may have been deleted');
-				}
-				return $this->executeUnitSession();
-			}
-			
-            // logout if we are unable to get a current unit session
-            return redirect_to(run_url($this->run->name, 'logout', ['prev' => $this->session]));
-        }
-        
-        if ($this->executionCount > self::MAX_EXECUTION_COUNT) {
-            return $this->spam();
+        /* ────────────────  RUN-SESSION LEVEL LOCK  ────────────────
+         * Prevent concurrent access (user ↔ queue) to the same run
+         * session.  We try to obtain a named lock that is unique for
+         * this session.  If the lock cannot be obtained quickly we
+         * bail out – the queue will retry later and interactive
+         * requests will simply send an empty body so the browser can
+         * refresh.
+         */
+        $lock_name   = 'run_session_' . ($this->id !== null ? $this->id
+                                                            : substr(sha1($this->session), 0, 40));
+        // Use different timeouts for queue vs user requests
+        $lock_timeout = formr_in_console() 
+            ? Config::get('run_session.lock_timeout.queue', 0.1)  // Queue requests
+            : Config::get('run_session.lock_timeout.user', 10.0); // User requests
+
+        if (!$this->acquireLock($lock_name, $lock_timeout)) {
+            // Could not grab the lock – somebody else is working on it.
+            return formr_in_console() ? false : ['body' => 'Timeout. A large computation is running. Will automatically reload in 5 seconds. <script>window.setTimeout(function() { window.location.reload(); }, 5000);</script>'];
         }
 
-        if ($this->run->isStudyTest()) {
-            return $this->executeTest();
-        }
-        // Get the initial position if this run session hasn't executed before
-        if ($this->position === null && !($position = $this->run->getFirstPosition())) {
-            alert('This study has not been defined.', 'alert-danger');
-            return false;
-        }
+        try {
+            if ($this->ended) {
+                // User tried to access an already ended run session, logout
+                if (formr_in_console()) {
+                    $referenceUnitSession->end('ended_by_queue_rse');
+                    UnitSessionQueue::removeItem($referenceUnitSession->id);
+                } elseif ($this->current_unit_session_id) {
+                    $this->currentUnitSession = new UnitSession($this, null, [
+                        'id' => $this->current_unit_session_id, 
+                        'load' => true
+                    ]);
+                    if (!$this->currentUnitSession->runUnit) {
+                        formr_error(404, 'Run Unit Not Found', 'The Run Unit you are trying to access may have been deleted');
+                    }
+                    return $this->executeUnitSession();
+                }
+                
+                // logout if we are unable to get a current unit session
+                return redirect_to(run_url($this->run->name, 'logout', ['prev' => $this->session]));
+            }
+            
+            if ($this->executionCount > self::MAX_EXECUTION_COUNT) {
+                return $this->spam();
+            }
 
-        if ($this->position === null) {
-            $this->position = $position;
-            $this->save();
-        }
+            if ($this->run->isStudyTest()) {
+                return $this->executeTest();
+            }
+            // Get the initial position if this run session hasn't executed before
+            if ($this->position === null && !($position = $this->run->getFirstPosition())) {
+                alert('This study has not been defined.', 'alert-danger');
+                return false;
+            }
 
-        $currentUnitSession = $this->getCurrentUnitSession();
-		
-        // If there is a referenceUnitSession then it is sent by the queue
-        if ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id == $currentUnitSession->id && !$executeReferenceUnit) {
-            $this->debug("END-q");
-            $this->endCurrentUnitSession();
-            return $this->moveOn();
-        } elseif ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id != $currentUnitSession->id) {
-            // if $currenUnitSession is not identical to the $referenceUnitSession sent by queue then something went terribly bad
-            UnitSessionQueue::removeItem($referenceUnitSession->id);
-            return $this->moveOn();
-        }
+            if ($this->position === null) {
+                $this->position = $position;
+                $this->save();
+            }
 
-        $this->debug('Current Unit Is ' . ($currentUnitSession ? $currentUnitSession->runUnit->type : ''), true);
-        if (!$currentUnitSession && $this->position === $this->run->getFirstPosition()) {
-            // We are in the first unit of the run
-            return $this->moveOn(true);
-        } elseif (!$currentUnitSession) {
-            // We maybe all previous unit sessions have ended so move on
-            return $this->moveOn();
-        } else {
-            // Currently active unit session. Should most likely be a survey or pause
-            $this->currentUnitSession = $currentUnitSession;
-        }
+            $currentUnitSession = $this->getCurrentUnitSession();
+            
+            // If there is a referenceUnitSession then it is sent by the queue
+            if ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id == $currentUnitSession->id && !$executeReferenceUnit) {
+                $this->debug("END-q");
+                if($this->endCurrentUnitSession()) {
+                    return $this->moveOn();
+                }
+            } elseif ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id != $currentUnitSession->id) {
+                // if $currenUnitSession is not identical to the $referenceUnitSession sent by queue then something went terribly bad
+                UnitSessionQueue::removeItem($referenceUnitSession->id);
+                return $this->moveOn();
+            }
 
-        return $this->executeUnitSession();
+            $this->debug('Current Unit Is ' . ($currentUnitSession ? $currentUnitSession->runUnit->type : ''), true);
+            if (!$currentUnitSession && $this->position === $this->run->getFirstPosition()) {
+                // We are in the first unit of the run
+                return $this->moveOn(true);
+            } elseif (!$currentUnitSession) {
+                // We maybe all previous unit sessions have ended so move on
+                return $this->moveOn();
+            } else {
+                // Currently active unit session. Should most likely be a survey or pause
+                $this->currentUnitSession = $currentUnitSession;
+            }
+
+            return $this->executeUnitSession();
+        } finally {
+            // Always release the named lock so that other processes can continue.
+            $this->releaseLock($lock_name);
+        }
     }
 
     /**
@@ -841,6 +862,32 @@ class RunSession extends Model {
         } else {
             formr_log($message, $this->id);
         }
+    }
+
+    /**
+     * Obtain a MariaDB named lock for the current connection.
+     *
+     * @param string $name    Lock identifier (≤ 64 chars)
+     * @param int    $timeout Seconds to wait
+     * @return bool           TRUE = lock acquired
+     */
+    protected function acquireLock($name, $timeout = 1) {
+        $stmt = $this->db->prepare('SELECT GET_LOCK(:name, :timeout) AS l');
+        $stmt->bindValue('name',    $name);
+        $stmt->bindValue('timeout', $timeout, PDO::PARAM_INT);
+        $stmt->execute();
+        return (int)$stmt->fetchColumn() === 1;
+    }
+
+    /**
+     * Release a previously acquired named lock.
+     *
+     * @param string $name
+     */
+    protected function releaseLock($name) {
+        $stmt = $this->db->prepare('SELECT RELEASE_LOCK(:name)');
+        $stmt->bindValue('name', $name);
+        $stmt->execute();
     }
 
 }
