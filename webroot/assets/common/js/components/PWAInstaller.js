@@ -302,6 +302,11 @@ async function updateInstallButtonState() {
         if($hiddenInput.length > 0) {
             $hiddenInput[0].setCustomValidity('');
         }
+        if (window.activeTimeoutHandler) {
+            window.activeTimeoutHandler.clear();
+            window.activeTimeoutHandler = null;
+        }
+    
         return;
     } else if (localStorage.getItem('pwa-app-installed') === 'true') { // App is installed according to localStorage
         $hiddenInput.val('already_added');
@@ -382,6 +387,7 @@ function initialize_pwa_install_element() {
 			console.log('User choice:', e.detail);
 			var accepted = (e.detail.userChoiceResult === 'accepted');
 			
+
 			$('.add-to-homescreen-wrapper').each(function() {
 				var $wrapper = $(this);
 				var $status = $wrapper.find('.status-message');
@@ -450,6 +456,11 @@ export async function initializePWAInstaller() {
         const $wrapper = $btn.closest('.add-to-homescreen-wrapper');
         const $status = $wrapper.find('.status-message');
         const $hiddenInput = $wrapper.find('input');
+        
+        // Clear any existing timeout handler before starting a new one
+        if (window.activeTimeoutHandler) {
+            window.activeTimeoutHandler.clear();
+        }
         
         // Start installation timeout handler
         const timeoutHandler = handleInstallTimeout($wrapper);
@@ -555,6 +566,8 @@ function initializeWithAppInfo(appName, appIconUrl) {
 
 // Handle when the add-to-homescreen dialog is closed
 function handleAddToHomeScreenClosed(installed) {
+    // Clear the timeout handler when dialog is closed
+    
     $('.add-to-homescreen-wrapper').each(function() {
         var $wrapper = $(this);
         var $status = $wrapper.find('.status-message');
@@ -595,8 +608,9 @@ export function initializePushNotifications() {
         const $wrapper = $(this);
         const $status = $wrapper.find('.status-message');
         const $hiddenInput = $wrapper.find('input');
-        const $button = $wrapper.find('.push-notification-permission');
+        const $button = $wrapper.find('button.push-notification-permission');
         const isRequired = $wrapper.closest('.form-group').hasClass('required');
+        
         if(isRequired) {
             $hiddenInput[0].setCustomValidity(t('Please complete this required step before continuing.'));
         }
@@ -696,7 +710,7 @@ export function initializePushNotifications() {
         const $hiddenInput = $wrapper.find('input');
 
         try {
-            $btn.html(`<i class="fa fa-spinner fa-spin"></i> ${t('Processing...')}`);
+            $btn.html('<i class="fa fa-spinner fa-spin"></i> ' + t('Processing...'));
             
             const registration = await PushNotificationManager.getRegistration();
             if (!registration) {
@@ -1013,12 +1027,12 @@ async function sendTestNotification(registration) {
 async function handleUnsubscribe($wrapper, registration) {
     const $status = $wrapper.find('.status-message');
     const $hiddenInput = $wrapper.find('input');
-    const $button = $wrapper.find('.push-notification-permission');
+    const $button = $wrapper.find('button.push-notification-permission');
     
     try {
         // Show processing state
-        $wrapper.find('.unsubscribe-notification-button').html(`<i class="fa fa-spinner fa-spin"></i> ${t('Processing...')}`);
-        
+        $wrapper.find('.unsubscribe-notification-button').html('<i class="fa fa-spinner fa-spin"></i> ' + t('Processing...'));
+
         const result = await PushNotificationManager.unsubscribe(registration);
         
         if (result.success) {

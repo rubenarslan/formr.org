@@ -4,7 +4,7 @@ if ('serviceWorker' in navigator && window.vapidPublicKey) {
     } else {
         const runUrl = new URL(window.formr.run_url);
         const siteUrl = new URL(window.formr.site_url);
-
+        
         const isPathBased = runUrl.hostname === siteUrl.hostname;
         const serviceWorkerPath = isPathBased ? `${runUrl.pathname.replace(/\/$/, '')}/service-worker` : '/service-worker';
         const scope = isPathBased ? runUrl.pathname : '/';
@@ -64,4 +64,6 @@ if ('serviceWorker' in navigator && window.vapidPublicKey) {
             }
         });
     }
+} else {
+    console.warn('Service Worker not initialized because of missing serviceWorker or vapidPublicKey');
 }
