@@ -112,7 +112,7 @@ class File_Item extends Item {
                 } else {
                     // Create /tmp/user_uploaded_files/ if it doesn't exist
                     if (!is_dir(APPLICATION_ROOT . 'webroot/assets/tmp/user_uploaded_files/')) {
-                        mkdir(APPLICATION_ROOT . 'webroot/assets/tmp/user_uploaded_files/', 0777, true);
+                        mkdir(APPLICATION_ROOT . 'webroot/assets/tmp/user_uploaded_files/', 0755, true);
                     }
                     $new_file_name = crypto_token(66) . $this->file_endings[$mime];
                     if (move_uploaded_file($reply['tmp_name'], APPLICATION_ROOT . 'webroot/assets/tmp/user_uploaded_files/' . $new_file_name)) {
