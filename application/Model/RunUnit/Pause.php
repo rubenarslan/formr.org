@@ -130,9 +130,12 @@ class Pause extends RunUnit {
                 $opencpu_vars = $unitSession->getRunData($this->relative_to);
 				$result = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json');
                 if ($result === null) {
+                    $error = (string) opencpu_last_error();
                     $data['check_failed'] = true;
-                    $data['log'] = $this->getLogMessage('error_pause_relative_to', 'OpenCPU R error. Fix code.');
+                    $data['log'] = $this->getLogMessage('error_pause_relative_to', "OpenCPU R error. Fix code. \n\n" . $error);
                     $this->errors[] = 'Could not evaluate relative_to value on opencpu';
+
+                    // @TODO: notify study admin
                     return $data;
                 }
             }
@@ -161,9 +164,12 @@ class Pause extends RunUnit {
                     $relative_to = date('Y-m-d H:i:s', $data['expires']);
                 }
             } else {
-                $this->errors[] = "Pause {$this->position}: Relative to yields neither true nor false, nor a date, nor a time. " . print_r($relative_to, true);
+                $error = "Pause {$this->position}: Relative-To yields neither true nor false, nor a date, nor a time. " . print_r($relative_to, true);
+                $this->errors[] = $error;
                 $data['check_failed'] = true;
-                $data['log'] = $this->getLogMessage('error_pause_relative_to', 'OpenCPU R error. Fix code.');
+                $data['log'] = $this->getLogMessage('error_pause_relative_to', "OpenCPU R error. Fix code. \n\n" . $error);
+
+                // @TODO: notify study admin
                 return $data;
             }
         } elseif ($this->has_wait_minutes) {
