@@ -1160,8 +1160,8 @@ class Run extends Model {
                 }
 
                 $unit = (array) $unit;
-                $unitObj = RunUnitFactory::make($this, (array) $unit);
-                $unitObj->create($options);
+                $unitObj = RunUnitFactory::make($this, $unit);
+                $unitObj->create($unit);
                 
                 if ($unitObj->valid) {
                     $createdUnits[$unitObj->position] = $unitObj->displayForRun(Site::getInstance()->renderAlerts());

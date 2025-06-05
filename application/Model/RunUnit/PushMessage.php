@@ -16,6 +16,12 @@ class PushMessage extends RunUnit {
     public $renotify = true;
     public $silent = false;
 
+    public $export_attribs = array(
+        'type', 'description', 'position', 'special',
+        'message', 'topic', 'priority', 'time_to_live', 'badge_count',
+        'vibrate', 'require_interaction', 'renotify', 'silent'
+    );
+
     protected $defaults = array(
         'message' => '',
         'topic' => '',
@@ -216,22 +222,6 @@ class PushMessage extends RunUnit {
         ));
 
         return parent::runDialog($dialog);
-    }
-
-    public function getExportUnit() {
-        $unit = parent::getExportUnit();
-        $unit = array_merge($unit, array(
-            'message' => $this->message,
-            'topic' => $this->topic,
-            'priority' => $this->priority,
-            'time_to_live' => $this->time_to_live,
-            'badge_count' => $this->badge_count,
-            'vibrate' => $this->vibrate,
-            'require_interaction' => $this->require_interaction,
-            'renotify' => $this->renotify,
-            'silent' => $this->silent
-        ));
-        return $unit;
     }
 
     public function modify($options = []) {

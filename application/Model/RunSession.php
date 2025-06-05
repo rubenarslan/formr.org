@@ -552,9 +552,10 @@ class RunSession extends Model {
     /**
      * Get push notification subscription for this run session
      * 
+     * @param boolean $json Whether to return the subscription as a JSON string or an array
      * @return array|null The subscription data or null if no subscription found
      */
-    public function getSubscription() {
+    public function getSubscription($json = false) {
         // Query the subscription from survey_items_display for this user's session
         $query = "SELECT sid.answer 
                  FROM survey_items_display sid
@@ -575,7 +576,11 @@ class RunSession extends Model {
             return null;
         }
 
-        return json_decode($result['answer'], true);
+        if (!$json) {
+            return $result['answer'];
+        } else {
+            return json_decode($result['answer'], true);
+        }
     }
 
     /**
