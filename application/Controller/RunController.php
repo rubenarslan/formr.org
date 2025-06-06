@@ -154,7 +154,7 @@ class RunController extends Controller {
             'bodyClass' => 'fmr-run fmr-settings',
             'user_email' => $session->getRecipientEmail(),
             'vapid_key_exists' => !empty($this->run->getVapidPublicKey()),
-            'current_push_subscription' => $session->getSubscription()
+            'current_push_subscription' => $session->getSubscription(false)
         ));
         
         return $this->sendResponse();

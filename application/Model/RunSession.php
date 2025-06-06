@@ -555,7 +555,7 @@ class RunSession extends Model {
      * @param boolean $json Whether to return the subscription as a JSON string or an array
      * @return array|null The subscription data or null if no subscription found
      */
-    public function getSubscription($json = false) {
+    public function getSubscription($json = true) {
         // Query the subscription from survey_items_display for this user's session
         $query = "SELECT sid.answer 
                  FROM survey_items_display sid
