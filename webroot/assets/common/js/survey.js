@@ -1,10 +1,10 @@
 import './pwa-register.js';
 import $ from 'jquery';
 import webshim from 'webshim';
-import { mysql_datetime, flatStringifyGeo  } from './main.js';
+import { mysql_datetime, flatStringifyGeo, bootstrap_modal, ajaxErrorHandling } from './main.js';
 import { ButtonGroup, initializeButtonGroups } from './components/ButtonGroup';
 import { initializeAudioRecorders } from './components/AudioRecorder';
-import { initializePWAInstaller, initializePushNotifications, initializeRequestPhone } from './components/PWAInstaller';
+import { initializePWAInstaller, initializePushNotifications, initializeRequestPhone, initializeRequestCookie } from './components/PWAInstaller';
 import { initializeSelect2Components } from './components/Select2Initializer';
 import { FormMonkey } from './components/FormMonkey';
 
@@ -13,6 +13,85 @@ var is = {
         return typeof x === "undefined";
     }
 };
+
+function ajaxifyLink(i, elm) {
+    $(elm).click(function (e) {
+        e.preventDefault();
+        var $this = $(this);
+        var old_href = $this.attr('href');
+        console.log('ajaxifyLink clicked:', $this, 'href:', old_href);
+        
+        if (old_href === '' || old_href === 'javascript:void(0);') {
+            console.log('Skipping invalid href:', old_href);
+            return false;
+        }
+        
+        $this.attr('href', '');
+        console.log('Making AJAX request to:', old_href);
+
+        $.ajax({
+            type: "GET",
+            url: old_href,
+            dataType: 'html'
+        }).done($.proxy(function (data) {
+            console.log('AJAX request successful:', data);
+            var $this = $(this);
+            $this.attr('href', old_href);
+            if (!$this.hasClass("danger")) {
+                $this.css('color', 'green');
+            }
+
+            var $logo = $this.find('i.fa');
+            if ($logo.hasClass("fa-stethoscope")) {
+                $logo.addClass('fa-heartbeat');
+                $logo.removeClass('fa-stethoscope');
+            } else if ($logo.hasClass("fa-heartbeat")) {
+                $logo.removeClass('fa-heartbeat');
+                $logo.addClass('fa-stethoscope');
+            } else {
+                bootstrap_modal('Alert', data, 'tpl-feedback-modal');
+            }
+
+            if ($this.hasClass('refresh_on_success')) {
+                console.log('Refreshing page due to refresh_on_success class');
+                document.location.reload(true);
+            }
+        }, this)).fail($.proxy(function (e, x, settings, exception) {
+            console.log('AJAX request failed:', e, x, settings, exception);
+            $(this).attr('href', old_href);
+            ajaxErrorHandling(e, x, settings, exception);
+        }, this));
+        return false;
+    });
+}
+
+function ajaxifyForm(i, elm) {
+    $(elm).submit(function (e) {
+        e.preventDefault();
+        var $this = $(this);
+        var $submit = $this.find('button[type=submit].btn');
+        $submit.attr('disabled', true);
+
+        $.ajax({
+            type: $this.attr('method'),
+            url: $this.attr('action'),
+            data: $this.serialize(),
+            dataType: 'html',
+        }).done($.proxy(function (data) {
+            $submit.attr('disabled', false);
+            $submit.css('color', 'green');
+            $('.alerts-container').prepend(data);
+
+            if ($submit.hasClass('refresh_on_success')) {
+                document.location.reload(true);
+            }
+        }, this)).fail($.proxy(function (e, x, settings, exception) {
+            $submit.attr('disabled', false);
+            ajaxErrorHandling(e, x, settings, exception);
+        }, this));
+        return false;
+    });
+}
 
 (function () {
 
@@ -43,6 +122,7 @@ var is = {
         initializeButtonGroups();
         initializeAudioRecorders();
         initializeRequestPhone();
+        initializeRequestCookie();
         initializePWAInstaller();
         initializePushNotifications();
         initializeSelect2Components();
@@ -456,233 +536,6 @@ var is = {
         return false;
     };
 
-    Survey.prototype.doMonkey = function (monkey_iteration) {
-        var survey = this;
-        if (monkey_iteration > 2) {
-            window.setTimeout(function () {
-                $("form.main_formr_survey button[type=submit]").click();
-            }, 700);
-            return false;
-        }
-        else if (monkey_iteration === undefined)
-            monkey_iteration = 0;
-        else
-            monkey_iteration++;
-
-        survey.dont_update = true;
-
-        var items_left = $("form.main_formr_survey .form-row:not(.hidden):not(.formr_answered):not(.item-submit)");
-        var date = new Date();
-        var dateString = date.toISOString().split('T')[0];
-        var defaultByType = {
-            text: "thank the formr monkey",
-            textarea: "thank the formr monkey\nmany times",
-            year: date.getFullYear(),
-            email: "formr_monkey@example.org",
-            url: "http://formrmonkey.example.org/",
-            date: "07-08-2015",
-            month: "07-08-2015",
-            yearmonth: "07-08-2015",
-            week: "07-08-2015",
-            datetime: dateString,
-            'datetime-local': date.toISOString(),
-            day: date.getDay(),
-            time: "11:22",
-            color: "#ff0000",
-            number: 20,
-            tel: "1234567890",
-            cc: "4999-2939-2939-3",
-            range: 1
-        };
-
-        items_left.each(function (i, formRow) {
-            // adapted from https://github.com/chrispederick/web-developer/
-            formRow = $(formRow);
-            var inputElement = null;
-            var inputElementMaxlength = null;
-            var inputElementName = null;
-            var inputElements = null;
-            var inputElementType = "text";
-            var option = null;
-            var options = null;
-            var selectElement = null;
-            var selectElements = null;
-            var textAreaElement = null;
-            var textAreaElements = null;
-            var textAreaElementMaxlength = null;
-            var maximumValue = 0;
-            var minimumValue = 0;
-
-            var select2Elements = formRow.find(".select2-container:visible");
-            // Loop through the select2 tags
-            for (j = 0, m = select2Elements.length; j < m; j++) {
-                var select2Element = $(select2Elements[j]);
-
-                // If the button element is not disabled and the value is not set
-                if (select2Element.data('select2').opts.data) {
-                    select2Element.select2('data', select2Element.data('select2').opts.data[0]);
-                } else if (select2Element.data('select2').select) {
-                    select2Element.select2('val', select2Element.data('select2').select[0].options[1].value);
-                }
-                return;
-            }
-
-            var buttonElements = formRow.find("button.btn:visible");
-            // Loop through the button tags
-            for (j = 0, m = buttonElements.length; j < m; j++) {
-                var buttonElement = buttonElements[j];
-
-                // If the button element is not disabled and the value is not set
-                if (!buttonElement.disabled) {
-                    buttonElement.click();
-                }
-                return;
-            }
-
-            selectElements = formRow.find("select:visible");
-            // Loop through the select tags
-            for (j = 0, m = selectElements.length; j < m; j++) {
-                selectElement = selectElements[j];
-
-                // If the select element is not disabled and the value is not set
-                if (!selectElement.disabled && !selectElement.value.trim()) {
-                    options = selectElement.options;
-
-                    // Loop through the options
-                    for (var k = 0, n = options.length; k < n; k++) {
-                        option = options.item(k);
-
-                        // If the option is set and the option text and option value are not empty
-                        if (option && option.text.trim() && option.value.trim()) {
-                            selectElement.selectedIndex = k;
-                            break;
-                        }
-                    }
-                }
-                return;
-            }
-
-            inputElements = formRow.find("input:not(.ws-inputreplace):not(input[type=hidden])");
-            // Loop through the input tags
-            for (var j = 0, m = inputElements.length; j < m; j++) {
-                inputElement = inputElements[j];
-                inputElementName = inputElement.getAttribute("name");
-
-                // If the input element is not disabled
-                if (!inputElement.disabled) {
-                    inputElementType = inputElement.getAttribute("type").toLowerCase();
-                    // If the input element value is not set and the type is not set or is one of the supported types
-                    if (defaultByType[inputElementType]) {
-                        inputElementMaxlength = inputElement.getAttribute("maxlength");
-
-                        if (defaultByType[inputElementType]) {
-                            $(inputElement).val(defaultByType[inputElementType]);
-                        }
-
-                        if (inputElement.max) {
-                            $(inputElement).val(inputElement.max + "");
-                        }
-                        if (inputElement.min) {
-                            $(inputElement).val(inputElement.min + "");
-                        }
-                        // If the input element has a maxlength attribute
-                        if (inputElementMaxlength && inputElement.value > inputElementMaxlength)
-                        {
-                            $(inputElement).val(inputElement.value.substr(0, inputElementMaxlength));
-                        }
-                    } else if ((inputElementType == "checkbox" || inputElementType == "radio")) {
-                        $(inputElement).prop('checked', true);
-                    }
-                }
-            }
-
-            textAreaElements = formRow.find("textarea:visible");
-            // Loop through the text area tags
-            for (j = 0, m = textAreaElements.length; j < m; j++) {
-                textAreaElement = textAreaElements[j];
-
-                // If the text area element is not disabled and the value is not set
-                if (!textAreaElement.disabled && !textAreaElement.value.trim()) {
-                    textAreaElementMaxlength = textAreaElement.getAttribute("maxlength");
-                    $(textAreaElement).val(defaultByType.textarea);
-
-                    // If the text area element has a maxlength attribute
-                    if (textAreaElementMaxlength && textAreaElement.value > textAreaElementMaxlength) {
-                        textAreaElement.value = textAreaElement.value.substr(0, textAreaElementMaxlength);
-                    }
-                }
-            }
-
-        });
-        // get progress
-        items_left.each(function (i, elm) {
-            $(elm).trigger('change');
-        });
-        survey.dont_update = false;
-        survey.update();
-        survey.doMonkey(monkey_iteration);
-    };
-
-    Survey.prototype.setUpCounters = function() {
-        var survey = this;
-        webshim.ready('DOM forms forms-ext dom-extend', function () {
-            $('.form-group.item-number.is-counter .controls input').each(function () {
-                var $input = $(this);
-                var $parent = $input.parents('span');
-                var $btns = survey.counterBtns;
-
-                $parent.hide();
-                $btns.insertAfter($parent);
-                toggleCounterElements($input.val());
-
-                // bind-clicks
-                $btns.find('.btn').click(function (e) {
-                    e.preventDefault();
-                    var $btn = $(this);
-                    var val = 1;
-                    if ($input.val()) {
-                        val = +$input.val();
-                    }
- 
-                    if ($btn.is('.btn-down') && $input.attr('min') < val) {
-                        val -= 1;
-                    } else if ($btn.is('.btn-up') && $input.attr('max') > val) {
-                        val += 1;
-                    }
-
-                    toggleCounterElements(val);
-                    return false;
-                });
-
-                function toggleCounterElements(val) {
-                    // get the counter name and show/hide corresponding elements
-                    var classList = $input.parents('.is-counter').attr('class').replace(/\s+/g, ' ').split(' ');
-                    var counterName = null;
-                    for (var i in classList) {
-                        if (classList[i].indexOf('-counter') !== -1 && classList[i] !== "is-counter") {
-                            counterName = classList[i];
-                            break;
-                        }
-                    }
-                    // If there is no DOM element having the counter name value then return;
-                    if (!$('.' + counterName + '-' + val).length) {
-                        return false;
-                    }
-                    // Set value
-                    $input.attr('value', val);
-                    if (counterName) {
-                        $('div[class*='+counterName+'-]').each(function() {
-                            survey.setItemVisibility($(this), true);
-                        });
-                        for (var s = 1; s <= val; s++) {
-                            survey.setItemVisibility($('.' + counterName + '-' + s), false);
-                        }
-                    }
-                }
-            });
-        });
-    };
-
     $(function () { // on domready
         var survey = new Survey();
         survey.update();
@@ -691,15 +544,82 @@ var is = {
         });
 
         if ($(".form-row.hidden").length > 0) {
-            $(".show_hidden_items").click(function () {
+            $(".show_hidden_items").on('click', function () {
                 $('.form-row.hidden').removeClass("hidden");
                 return false;
             });
             $(".show_hidden_items").attr('disabled', false);
         }
+
+        if ($(".hidden_debug_message").length > 0) {
+            $(".show_hidden_debugging_messages").on('click', function () {
+                $('.hidden_debug_message').toggleClass("hidden");
+                return false;
+            });
+            $(".show_hidden_debugging_messages").attr('disabled', false);
+        }
+
+        // Initialize AJAX functionality for monkey bar
+        console.log('Initializing AJAX functionality...');
+        var $formAjax = $('.form-ajax');
+        var $linkAjax = $('.link-ajax');
+        var $removalModal = $('.removal_modal');
+        
+        console.log('Found form-ajax elements:', $formAjax.length, $formAjax);
+        console.log('Found link-ajax elements:', $linkAjax.length, $linkAjax);
+        console.log('Found removal_modal elements:', $removalModal.length, $removalModal);
+        
+        $('.form-ajax').each(ajaxifyForm);
+        $('.link-ajax').each(ajaxifyLink);
+
+        $('.link-ajax .fa-pause').parent(".btn").on('mouseenter', function () {
+            $(this).find('.fa').removeClass('fa-pause').addClass('fa-play');
+        }).on('mouseleave', function () {
+            $(this).find('.fa').addClass('fa-pause').removeClass('fa-play');
+        });
+        $('.link-ajax .fa-stop').parent(".btn").on('mouseenter', function () {
+            $(this).find('.fa').removeClass('fa-stop').addClass('fa-play');
+        }).on('mouseleave', function () {
+            $(this).find('.fa').addClass('fa-stop').removeClass('fa-play');
+        });
+
+        // Handle monkey bar modals with data-href attributes
+        $('.removal_modal').on('show.bs.modal', function (e) {
+            console.log('Modal showing:', e);
+            var $current_target = $(e.relatedTarget);
+            var $modal = $(this);
+            console.log('Modal trigger:', $current_target, 'data-href:', $current_target.data('href'));
+            
+            // Only apply table row styling if we're actually in a table context
+            var $parent_row = $current_target.parents("tr");
+            if ($parent_row.length) {
+                $parent_row.css("background-color", "#ee5f5b");
+            }
+            
+            $(this).find('.danger').attr('href', $current_target.data('href'));
+            console.log('Setting danger button href to:', $current_target.data('href'));
+            ajaxifyLink(1, $(this).find('.danger'));
+            $(this).find('.danger').click(function (e) {
+                console.log('Danger button clicked');
+                $current_target.css("color", "#ee5f5b");
+                if ($modal.hasClass('refresh_on_success')) {
+                    window.setTimeout(function () {
+                        document.location.reload(true);
+                    }, 200);
+                }
+                $modal.modal("hide");
+            });
+        }).on("hide.bs.modal", function (e) {
+            var $current_target = $(e.relatedTarget);
+            var $parent_row = $current_target.parents("tr");
+            if ($parent_row.length) {
+                $parent_row.css("background-color", "transparent");
+            }
+        });
+
         if ($("button.monkey").length > 0) {
             var formMonkey = new FormMonkey(survey);
-            $("button.monkey").click(function () {
+            $("button.monkey").on('click', function () {
                 formMonkey.doMonkey(0);
                 return false;
             });

@@ -45,3 +45,12 @@ Probably need to log when users no longer receive push notifications. What to do
 
 ## Improvements
 - [x] Make badge depend on whether a survey is active, clear if not.
+
+- [ ] Update texts re uploads
+- [ ] Update texts re users can be deleted if they don't comply
+- [ ] Test user account deletion
+- [x] Fix push message settings bug
+- [x] Correct privacy policy link in settings
+- [x] RequestCookie item
+- [ ] Datenschutzmuster anpassen
+

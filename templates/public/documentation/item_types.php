@@ -301,4 +301,10 @@ Formr studies can be installed as a PWA (Progressive Web App). This allows you t
     <dd>
         Adds a button to request permission for sending push notifications. The button text can be customized using the choice field. When enabled, stores the push notification subscription data needed to send notifications to the user. For optional items, accepts 'not_requested', 'not_supported', or 'permission_denied' as valid states.
     </dd>
+    <dt>
+        request_cookie
+    </dt>
+    <dd>
+        Prompts participants to enable functional cookies so their device can be recognised in later visits. Displays nothing on devices where this permission has already been granted. Returns 'functional_cookie' for users who had already consented, 'consent_given' after the button is used, and remains 'not_checked' until consent is provided. If the item is marked as required, the survey page cannot be submitted until functional cookie consent is recorded. In apps, we usually need functional cookies to be enabled to track users across sessions, so it makes sense to include this item after an app has been added to the home screen.
+    </dd>
 </dl>

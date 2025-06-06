@@ -1,4 +1,5 @@
 import $ from 'jquery';
+import { showPreferences } from 'vanilla-cookieconsent';
 import QRCodeStyling from "qr-code-styling";
 import 'add-to-homescreen/dist/add-to-homescreen.min.css';
 import AddToHomeScreen from 'add-to-homescreen/dist/add-to-homescreen.min.js';
@@ -1542,3 +1543,71 @@ document.addEventListener('DOMContentLoaded', () => {
     const $lastUpdated = $('<div class="last-updated">Last updated: ' + current_time + '</div>');
     $('.monkey_bar a.label').before($lastUpdated);
 });
+
+// =========================
+// RequestCookie item logic
+// =========================
+
+export function initializeRequestCookie() {
+    $('.request-cookie-wrapper').each(function() {
+        const $wrapper = $(this);
+        const $hidden = $wrapper.find('input');
+        const $status = $wrapper.find('.status-message');
+        const $button = $wrapper.find('button.request-cookie');
+        const isRequired = $wrapper.closest('.form-group').hasClass('required');
+
+        if (isRequired && $hidden.length) {
+            $hidden[0].setCustomValidity(t('Please enable functional cookies to continue.'));
+        }
+
+        function hasFunctionalConsent() {
+            const cookie = document.cookie.split('; ').find(row => row.startsWith('formrcookieconsent='));
+            if (!cookie) return false;
+            try {
+                const val = decodeURIComponent(cookie.split('=')[1]);
+                return val.indexOf('"necessary","functionality"') !== -1;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function markAnswered() {
+            if ($hidden.length) {
+                $hidden.val('consent_given');
+                $hidden[0].setCustomValidity('');
+            }
+            if ($status.length) {
+                $status.html(t('Functional cookies enabled. You can continue.'));
+            }
+            if ($button.length) {
+                $button.prop('disabled', true)
+                       .removeClass('btn-primary')
+                       .addClass('btn-success')
+                       .html('<i class="fa fa-check"></i> ' + t('Enabled'));
+            }
+            $wrapper.closest('.form-group').addClass('formr_answered');
+        }
+
+        // If consent already exists, mark answered immediately
+        if (hasFunctionalConsent()) {
+            markAnswered();
+            return;
+        }
+
+        // Click handler to open preferences dialog
+        $button.off('click.requestCookie').on('click.requestCookie', function(e) {
+            e.preventDefault();
+            if (typeof showPreferences === 'function') {
+                showPreferences();
+            }
+        });
+
+        // Poll for consent changes (e.g., after dialog interaction)
+        const intervalId = setInterval(() => {
+            if (hasFunctionalConsent()) {
+                markAnswered();
+                clearInterval(intervalId);
+            }
+        }, 1000);
+    });
+}
