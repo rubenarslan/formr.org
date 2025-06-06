@@ -76,12 +76,17 @@ class RunHelper {
     }
 
     public function nextInRun() {
-        if ($this->runSession->currentUnitSession && !$this->runSession->currentUnitSession->end('moved')) {
+        $us = $this->runSession->getCurrentUnitSession();
+        if ($us === null) {
+            $this->message = 'No unit session found';
+            return false;
+        } else if($us->end('moved') && $this->runSession->moveOn()) {
+            $this->message = 'Move done';
+            return true;
+        } else {
             $this->errors[] = 'Unable to move to next unit in run ' . $this->run->name;
             return false;
         }
-        $this->message = 'Move done';
-        return true;
     }
 
     public function deleteUser() {

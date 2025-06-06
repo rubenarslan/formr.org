@@ -187,7 +187,7 @@ class AdminAjaxController {
         $run = $this->controller->run;
         $dbh = $this->dbh;
 
-        $run_session = new RunSession($_GET['session'], $run);
+        $run_session = new RunSession($this->request->getParam('session'), $run);
 
         if (!$run_session->endCurrentUnitSession()) {
             alert('<strong>Something went wrong with the unpause.</strong> in run ' . $run->name, 'alert-danger');
@@ -232,9 +232,9 @@ class AdminAjaxController {
         $run = $this->controller->run;
         $deleted = $this->dbh->delete('survey_run_sessions', array('id' => $this->request->getParam('run_session_id'), 'run_id' => $run->id));
         if ($deleted) {
-            alert('User with session ' . h($_GET['session']) . ' was deleted.', 'alert-info');
+            alert('User with session ' . h($this->request->getParam('session')) . ' was deleted.', 'alert-info');
         } else {
-            alert('User with session ' . h($_GET['session']) . ' could not be deleted.', 'alert-warning');
+            alert('User with session ' . h($this->request->getParam('session')) . ' could not be deleted.', 'alert-warning');
             $this->response->setStatusCode(500, 'Bad Request');
         }
 
