@@ -67,8 +67,12 @@ if (isset($run) && $run instanceof Run) {
     window.formr = <?php echo !empty($jsConfig) ? json_encode($jsConfig) : '{}' ?>;
     <?php
     // Get VAPID public key from the run
-    $vapidPublicKey = $run->getVapidPublicKey();
-    if ($vapidPublicKey):
+    if (isset($run) && $run instanceof Run) {
+        $vapidPublicKey = $run->getVapidPublicKey();
+    } else {
+        $vapidPublicKey = null;
+    }
+        if ($vapidPublicKey):
     ?>
     // Make VAPID public key available globally
     window.vapidPublicKey = <?php echo json_encode($vapidPublicKey); ?>;
