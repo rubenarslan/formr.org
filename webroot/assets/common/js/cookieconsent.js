@@ -3,6 +3,11 @@ import { run } from 'vanilla-cookieconsent';
 
 document.addEventListener('DOMContentLoaded', () => {
 
+	let base_url = window.formr?.site_url || '';
+	if(window.formr?.run_url && window.location.href.includes(window.formr.run_url)) {
+		base_url = window.formr?.run_url;
+	}
+
 run({
 	cookie: {
 		name: 'formrcookieconsent',
@@ -44,7 +49,7 @@ run({
 					acceptAllBtn: "Funktionale Cookies akzeptieren",
 					acceptNecessaryBtn: "Nicht erlauben",
 					showPreferencesBtn: "Einstellungen verwalten",
-					footer: "<a href=\"privacy_policy\">Datenschutz</a>\n<a href=\"terms_of_service\">Bedingungen und Konditionen</a>"
+					footer: "<a href=\"" + base_url + "privacy_policy\">Datenschutz</a>\n<a href=\"" + base_url + "terms_of_service\">Bedingungen und Konditionen</a>"
 				},
 				preferencesModal: {
 					title: "Präferenzen für die Zustimmung",
@@ -78,7 +83,7 @@ run({
 					acceptAllBtn: "Accept functional cookies",
 					acceptNecessaryBtn: "Do not allow",
 					showPreferencesBtn: "Manage settings",
-					footer: "<a href=\"privacy_policy\">Privacy Policy</a>\n<a href=\"terms_of_service\">Terms and Conditions</a>"
+					footer: "<a href=\"" + base_url + "privacy_policy\">Privacy Policy</a>\n<a href=\"" + base_url + "terms_of_service\">Terms and Conditions</a>"
 				},
 				preferencesModal: {
 					title: "Consent Preferences",
@@ -112,7 +117,7 @@ run({
 					acceptAllBtn: "Accepter les cookies fonctionnels",
 					acceptNecessaryBtn: "Ne pas autoriser",
 					showPreferencesBtn: "Gérer les paramètres",
-					footer: "<a href=\"privacy_policy\">Politique de confidentialité</a>\n<a href=\"terms_of_service\">Termes et conditions</a>"
+					footer: "<a href=\"" + base_url + "privacy_policy\">Politique de confidentialité</a>\n<a href=\"" + base_url + "terms_of_service\">Termes et conditions</a>"
 				},
 				preferencesModal: {
 					title: "Préférences de consentement",
