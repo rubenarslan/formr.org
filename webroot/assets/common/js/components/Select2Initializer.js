@@ -62,7 +62,7 @@ export function initializeSelect2Components() {
                     if ($(data).filter(function () {
                         return this.text.localeCompare(term) === 0;
                     }).length === 0) {
-                        term = term.replace("\n", '; ');
+                        term = term.replace(/\n/g, '; ');
                         return {id: term, text: term};
                     }
                 },

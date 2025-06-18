@@ -45,7 +45,7 @@ async function getBestIcon(purpose = 'any') {
     const manifestData = await fetchManifest();
 
     if (!manifestData.icons) {
-      return '/assets/pwa/maskable_icon_x192.png'; // fallback
+      return '/assets/pwa/icon.png'; // fallback
     }
 
     // Filter icons by purpose
@@ -55,7 +55,7 @@ async function getBestIcon(purpose = 'any') {
     });
 
     if (icons.length === 0) {
-      return '/assets/pwa/maskable_icon_x192.png'; // fallback
+      return '/assets/pwa/icon.png'; // fallback
     }
 
     // Sort by size (descending) to get the largest icon
@@ -69,7 +69,7 @@ async function getBestIcon(purpose = 'any') {
 
   } catch (error) {
     // Fallback on fetch failure
-    return '/assets/pwa/maskable_icon_x192.png';
+    return '/assets/pwa/icon.png';
   }
 }
 
@@ -251,10 +251,7 @@ self.addEventListener('push', event => {
     
     event.waitUntil((async () => {
     try {
-      const [best_icon_any, best_icon_badge] = await Promise.all([
-        getBestIcon('any').catch(() => '/assets/pwa/maskable_icon_x192.png'),
-        getBestIcon('badge').catch(() => '/assets/pwa/maskable_icon_x192.png')
-      ]);
+      const best_icon_any = await getBestIcon('any').catch(() => '/assets/pwa/icon.png');
 
       const data = event.data.json();
       console.log('Push notification data:', data);
@@ -265,7 +262,7 @@ self.addEventListener('push', event => {
       const options = {
         body: data.body || '',
         icon: data.icon ? new URL(data.icon, self.location.origin).href : best_icon_any,
-        badge: data.badge ? new URL(data.badge, self.location.origin).href : best_icon_badge,
+        badge: data.badge || 1,
         tag,
         urgency: data.priority || 'normal',
         vibrate: data.vibrate === false ? undefined : [100, 50, 100],
@@ -311,7 +308,7 @@ self.addEventListener('push', event => {
       // Ensure we at least show a basic notification
       self.registration.showNotification('New Message', {
         body: 'You have a new notification.',
-        icon: '/assets/pwa/maskable_icon_x192.png',
+        icon: '/assets/pwa/icon.png',
         tag: 'fallback-notification'
       });
     }
