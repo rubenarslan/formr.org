@@ -65,17 +65,26 @@ if (isset($run) && $run instanceof Run) {
 
 <script>
     window.formr = <?php echo !empty($jsConfig) ? json_encode($jsConfig) : '{}' ?>;
-    <?php
+<?php
     // Get VAPID public key from the run
     if (isset($run) && $run instanceof Run) {
         $vapidPublicKey = $run->getVapidPublicKey();
     } else {
         $vapidPublicKey = null;
     }
-        if ($vapidPublicKey):
+    if ($vapidPublicKey):
     ?>
     // Make VAPID public key available globally
     window.vapidPublicKey = <?php echo json_encode($vapidPublicKey); ?>;
+<?php endif;
+    if (isset($run_session) && $run_session instanceof RunSession) {
+        $expires = $run_session->getCurrentUnitSession()->expires;
+    } else {
+        $expires = null;
+    }
+    if ($expires):
+    ?>
+    window.unit_session_expires = <?php echo json_encode($expires); ?>;
 <?php endif; ?>
 </script>
 

@@ -42,5 +42,22 @@
             </div>
             </div>
         </script>
+
+        <!-- Expiry notification modal template -->
+        <script id="tpl-expired-modal" type="text/formr">
+            <div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="expiredModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3 id="expiredModalLabel">%{header}</h3>
+                        </div>
+                        <div class="modal-body">%{body}</div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary reload-btn">Reload</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </script>
     </body>
 </html>
