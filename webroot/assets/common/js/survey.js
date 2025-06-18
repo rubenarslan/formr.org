@@ -5,6 +5,7 @@ import { mysql_datetime, flatStringifyGeo, bootstrap_modal, ajaxErrorHandling } 
 import { ButtonGroup, initializeButtonGroups } from './components/ButtonGroup';
 import { initializeAudioRecorders } from './components/AudioRecorder';
 import { initializePWAInstaller, initializePushNotifications, initializeRequestPhone, initializeRequestCookie } from './components/PWAInstaller';
+import { initializeExpiryNotifier } from './components/ExpiryNotifier';
 import { initializeSelect2Components } from './components/Select2Initializer';
 import { FormMonkey } from './components/FormMonkey';
 
@@ -125,6 +126,7 @@ function ajaxifyForm(i, elm) {
         initializeRequestCookie();
         initializePWAInstaller();
         initializePushNotifications();
+        initializeExpiryNotifier();
         initializeSelect2Components();
         this.initializeCounters();
         this.initializeFormValidation();
