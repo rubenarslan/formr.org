@@ -72,8 +72,10 @@ class AdminController extends Controller {
         return $this->sendResponse();
     }
 
-    protected function setView($template, $vars = array()) {
-        $template = 'admin/' . $template;
+    protected function setView($template, $vars = array(), $prepend_admin = true) {
+        if ($prepend_admin) {
+            $template = 'admin/' . $template;
+        }
         parent::setView($template, $vars);
     }
 

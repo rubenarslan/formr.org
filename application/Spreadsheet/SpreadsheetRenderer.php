@@ -175,7 +175,7 @@ class SpreadsheetRenderer {
             'name_request_tokens' => Session::REQUEST_TOKENS,
             'name_user_code' => Session::REQUEST_USER_CODE,
             'name_cookie' => Session::REQUEST_NAME,
-            'request_tokens' => Session::getRequestToken(), //$cookie->getRequestToken(),
+            'request_tokens' => Session::getRequestToken(),
             'user_code' => $user ? h($user->user_code) : '', //h($cookie->getData('code')),
             'cookie' => '', //$cookie->getFile(),
             'progress' => $prog,

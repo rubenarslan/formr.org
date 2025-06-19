@@ -15,6 +15,18 @@ class RunController extends Controller {
         $_GET['run_name'] = $runName;
         $this->site->request->run_name = $runName;
         $pageNo = null;
+        
+        // Handle trailing slashes in URLs, considering query strings
+        $requestUri = $_SERVER['REQUEST_URI'];
+        
+        // Split URI into path and query parts
+        $path = parse_url($requestUri, PHP_URL_PATH);
+        $query = parse_url($requestUri, PHP_URL_QUERY);
+        
+        // If the path ends with $runName and no slash, redirect to the path with a slash
+        if($path === '/'.$runName) {
+            $this->request->redirect($path . '/');
+        }
 
         if ($method = $this->getPrivateActionMethod($privateAction)) {
             $args = array_slice(func_get_args(), 2);
@@ -31,7 +43,7 @@ class RunController extends Controller {
         // OR if cookie is expired then logout
         $this->user = $this->loginUser();
 
-        //Request::setGlobals('COOKIE', $this->setRunCookie());
+        Session::setSessionLifetime($this->run->expire_cookie);
 
         $run_vars = $this->run->exec($this->user);
 		if (!$run_vars) {
@@ -52,7 +64,7 @@ class RunController extends Controller {
         return $this->sendResponse();
     }
 
-    private function privacyAction() {
+    private function privacy_policyAction() {
         $this->run = $this->getRun();
         $run_name = $this->site->request->run_name;
 
@@ -64,8 +76,10 @@ class RunController extends Controller {
             $this->request->redirect(run_url($run_name, ''));
         }
 
+        $run_content = $this->run->getParsedPrivacyField('privacy-policy');
+
         $run_vars = array(
-            'run_content' => $this->run->getParsedPrivacyField('privacy-policy'),
+            'run_content' => $run_content,
             'bodyClass' => 'fmr-run',
         );
 
@@ -86,8 +100,10 @@ class RunController extends Controller {
             $this->request->redirect(run_url($run_name, ''));
         }
 
+        $run_content = $this->run->getParsedPrivacyField('terms-of-service');
+
         $run_vars = array(
-            'run_content' => $this->run->getParsedPrivacyField('terms-of-service'),
+            'run_content' => $run_content,
             'bodyClass' => 'fmr-run',
         );
 
@@ -104,18 +120,6 @@ class RunController extends Controller {
             formr_error(404, 'Not Found', 'Requested Run does not exist or has been moved');
         }
 
-        // Login if user entered with code and redirect without login code
-        if (Request::isHTTPGetRequest() && ($code = $this->request->getParam('code'))) {
-            $_GET['run_name'] = $run_name;
-            $this->user = $this->loginUser();
-            //Request::setGlobals('COOKIE', $this->setRunCookie());
-
-            if ($this->user->user_code != $code) {
-                alert('Unable to login with the provided code', 'alert-warning');
-            }
-            $this->request->redirect(run_url($run_name, 'settings'));
-        }
-
         // People who have no session in the run need not set anything
         $session = new RunSession($this->user->user_code, $run);
         if (!$session->id) {
@@ -123,11 +127,10 @@ class RunController extends Controller {
         }
 
         $settings = array('no_email' => 1);
-        if (Request::isHTTPPostRequest() && $this->user->user_code == $this->request->getParam('_sess')) {
+        if (Request::isHTTPPostRequest()) {
             $update = array();
             $settings = array(
-                'no_email' => $this->request->getParam('no_email'),
-                'delete_cookie' => (int) $this->request->getParam('delete_cookie'),
+                'no_email' => $this->request->getParam('no_email')
             );
 
             if ($settings['no_email'] === '1') {
@@ -141,10 +144,6 @@ class RunController extends Controller {
             $session->saveSettings($settings, $update);
 
             alert('Settings saved successfully for survey "' . $run->name . '"', 'alert-success');
-            if ($settings['delete_cookie']) {
-                Session::destroy();
-                $this->request->redirect('index');
-            }
             $this->request->redirect(run_url($run_name, 'settings'));
         }
 
@@ -152,6 +151,10 @@ class RunController extends Controller {
         $this->setView('run/settings', array(
             'settings' => $session->getSettings(),
             'email_subscriptions' => Config::get('email_subscriptions'),
+            'bodyClass' => 'fmr-run fmr-settings',
+            'user_email' => $session->getRecipientEmail(),
+            'vapid_key_exists' => !empty($this->run->getVapidPublicKey()),
+            'current_push_subscription' => $session->getSubscription(false)
         ));
         
         return $this->sendResponse();
@@ -160,8 +163,6 @@ class RunController extends Controller {
     protected function logoutAction() {
         $this->run = $this->getRun();
         $this->user = $this->loginUser();
-        $cookie = $this->getRunCookie();
-        $cookie->destroy();
         Session::destroy(false);
         $hint = 'Session Ended';
         $text = 'Your session was successfully closed! You can restart a new session by clicking the link below.';
@@ -213,7 +214,7 @@ class RunController extends Controller {
             $content = $this->site->renderAlerts();
             $this->sendResponse($content);
         } else {
-            $this->request->redirect('');
+            $this->request->redirect(run_url($run->name, ''));
         }
     }
 
@@ -253,8 +254,9 @@ class RunController extends Controller {
         if ($this->run->use_material_design || $this->request->str('tmd') === 'true') {
             $this->registerAssets('material');
         }
-        //$this->registerCSS($assets['css'], $this->run->name);
-        //$this->registerJS($assets['js'], $this->run->name);
+
+        $this->registerCSS($assets['css'], $this->run->name);
+        $this->registerJS($assets['js'], $this->run->name);
         return $vars;
     }
 
@@ -272,52 +274,184 @@ class RunController extends Controller {
         return $meta;
     }
 
-    protected function setRunCookie($refresh = false) {
-        $cookie = $this->getRunCookie();
-        $expires = $this->run->expire_cookie ? time() + $this->run->expire_cookie : 0;
-
-        if (!$cookie->exists() || $refresh === true) {
-            $data = array(
-                'code' => $this->user->user_code,
-                'created' => time(),
-                'modified' => time(),
-                'expires' => $expires,
-            );
-            $cookie->create($data, $expires, '/', null, SSL, true);
-        } elseif ($cookie->exists()) {
-            $cookie->setExpiration($expires);
-        }
-
-        return $cookie;
-    }
-
     /**
      * 
-     * @return \Cookie
+     * @return \User
      */
-    protected function getRunCookie() {
-        $cookie = new \Cookie($this->run->getCookieName());
-        return $cookie;
-    }
-
     protected function loginUser() {
         $id = null;
+        $user = Site::getInstance()->getSessionUser();
 
         // came here with a login link
         $code_rule = Config::get("user_code_regular_expression");
-        if (isset($_GET['run_name']) && isset($_GET['code']) && preg_match($code_rule, $_GET['code'])) {
-            // user came in with login code
-            $loginCode = $_GET['code'];
-        } elseif ($user = Site::getInstance()->getSessionUser()) {
+        if (isset($_GET['run_name']) && isset($_GET['code'])) {
+            $login_code = $_GET['code'];
+            if (!preg_match($code_rule, $login_code)) {
+                alert("Invalid user code. Please contact the study administrator.", "alert-danger");
+            } elseif (isset($_POST['_formr_code'])) {
+                $posted_login_code = $_POST['_formr_code'];
+                if($posted_login_code != null AND $posted_login_code !== $login_code) {
+                    alert("Mismatched user codes. Please contact the study administrator.", "alert-danger");
+                    if(preg_match($code_rule, $posted_login_code)) {
+                        $login_code = $posted_login_code;
+                    }
+                }
+            } elseif ($user->user_code !== $login_code) {
+                 // this user came here with a session code that he wasn't using before. 
+                // this will always be true if the user is 
+                // (a) new (auto-assigned code by site) 
+                // (b) already logged in with a different account
+                if ($user->loggedIn()) {
+                    // if the user is new and has an auto-assigned code, there's no need to talk about the behind-the-scenes change
+                    // but if he's logged in we should alert them
+                    alert("You switched sessions, because you came here with a login link and were already logged in as someone else.", 'alert-info');
+                }
+                // a special case are admins. if they are not already logged in, verified through password, they should not be able to obtain access so easily. but because we only create a mock user account, this is no problem. the admin flags are only set/privileges are only given if they legitimately log in
+            }
+        } elseif ($user) {
             // try to get user from cookie
-            $loginCode = $user->user_code;
+            $login_code = $user->user_code;
             $id = $user->id;
         } else {
             // new user just entering the run;
-            $loginCode = null;
+            $login_code = null;
         }
         
-        return new User($id, $loginCode);
+        return new User($id, $login_code);
     }
 
+    /**
+     * Serve the service worker file with appropriate headers for the run
+     */
+    public function serviceWorkerAction() {
+        $run = $this->getRun();
+        
+        // Set appropriate headers
+        header('Content-Type: application/javascript');
+        
+        // Set Service-Worker-Allowed header based on the deployment type (subdomain vs folder)
+        if (Config::get('use_study_subdomains') && FMRSD_CONTEXT) {
+            // For subdomain deployments
+            header('Service-Worker-Allowed: /');
+        } else {
+            // For folder deployments, scope to the run path
+            $runPath = run_url($run->name, '');
+            $parsedUrl = parse_url($runPath);
+            header('Service-Worker-Allowed: ' . $parsedUrl['path']);
+        }
+        
+        // No caching for development, adjust for production if needed
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        
+        // Serve the service worker file
+        $serviceWorkerPath = APPLICATION_ROOT . 'webroot/assets/common/js/service-worker.js';
+        if (file_exists($serviceWorkerPath)) {
+            readfile($serviceWorkerPath);
+            exit;
+        } 
+        
+        // If file doesn't exist, return 404
+        header('HTTP/1.0 404 Not Found');
+        echo "Service worker not found";
+        exit;
+    }
+
+    /**
+     * Serve the manifest file with appropriate headers for the run
+     */
+    public function manifestAction() {
+        $run = $this->getRun();
+
+        // Set appropriate headers
+        header('Content-Type: application/json');
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+
+        // Serve the manifest file
+        $manifestPath = $run->getManifestJSONPath();
+        if(!empty($manifestPath) && file_exists($manifestPath)) {
+            readfile($manifestPath);
+            exit;
+        }
+
+        // If file doesn't exist, return 404
+        header('HTTP/1.0 404 Not Found');
+        echo "Manifest not found";
+    }
+
+    private function sendJsonResponse($data, $statusCode = 200) {
+        // Bypass the Response object to guarantee a raw JSON payload with no layout or extra HTML.
+        http_response_code($statusCode);
+        header('Content-Type: application/json');
+        echo json_encode($data);
+        exit; // Stop further script execution
+    }
+
+    public function ajax_get_push_subscription_statusAction() {
+        $this->run = $this->getRun();
+        $this->user = $this->loginUser(); // Ensure user and session are loaded
+        $session = new RunSession($this->user->user_code, $this->run);
+        if (!$session->id) {
+            $this->sendJsonResponse(array('error' => 'User session not found.'), 401);
+            return;
+        }
+
+        $subscription = array_val($session->getSettings(), 'push_subscription');
+        $this->sendJsonResponse(array('subscription' => $subscription));
+    }
+
+    public function ajax_save_push_subscriptionAction() {
+        if (!Request::isHTTPPostRequest()) {
+            $this->sendJsonResponse(array('error' => 'Invalid request method.'), 405);
+            return;
+        }
+
+        $this->run = $this->getRun();
+        $this->user = $this->loginUser();
+        $session = new RunSession($this->user->user_code, $this->run);
+
+        if (!$session->id) {
+            $this->sendJsonResponse(array('error' => 'User session not found.'), 401);
+            return;
+        }
+
+        $subscriptionJson = $this->request->getParam('subscription');
+        if (empty($subscriptionJson)) {
+            $this->sendJsonResponse(array('error' => 'Subscription data not provided.'), 400);
+            return;
+        }
+
+        $subscriptionData = json_decode($subscriptionJson, true);
+        if (json_last_error() !== JSON_ERROR_NONE || empty($subscriptionData['endpoint'])) {
+            $this->sendJsonResponse(array('error' => 'Invalid subscription JSON.'), 400);
+            return;
+        }
+
+        if ($session->updateSubscription($subscriptionJson)) {
+            $this->sendJsonResponse(array('success' => true, 'message' => 'Subscription saved.'));
+        } else {
+            $this->sendJsonResponse(array('error' => 'Failed to save subscription.'), 500);
+        }
+    }
+
+    public function ajax_delete_push_subscriptionAction() {
+        if (!Request::isHTTPPostRequest()) {
+            $this->sendJsonResponse(array('error' => 'Invalid request method.'), 405);
+            return;
+        }
+
+        $this->run = $this->getRun();
+        $this->user = $this->loginUser();
+        $session = new RunSession($this->user->user_code, $this->run);
+
+        if (!$session->id) {
+            $this->sendJsonResponse(array('error' => 'User session not found.'), 401);
+            return;
+        }
+
+        if ($session->updateSubscription(null)) {
+            $this->sendJsonResponse(array('success' => true, 'message' => 'Subscription deleted.'));
+        } else {
+            $this->sendJsonResponse(array('error' => 'Failed to delete subscription.'), 500);
+        }
+    }
 }

@@ -22,10 +22,10 @@
         generates very pretty feedback live, including <a href="http://ggplot2.org/">ggplot2</a>, and interactive <a href="http://ggvis.rstudio.com">ggvis</a> plots and <a href="http://www.htmlwidgets.org">htmlwidgets</a>. We find that this greatly increases interest and retention in our studies. 
     </li>
     <li>
-        automates complex experience sampling, diary and training studies, including automated reminders via email or text message
+        automates complex experience sampling, diary and training studies, including automated reminders via email, push notifications, or text message
     </li>
     <li>
-        looks nice on a phone (about 30-40% of participants fill out our surveys on a mobile device)
+        looks nice on a phone (about 30-40% of participants fill out our surveys on a mobile device), can be installed as a PWA (Progressive Web App) on the home screen
     </li>
     <li>
         easily share, swap and combine surveys (they're simply spreadsheets) and runs (you can share complete designs, e.g. "daily diary study")
@@ -48,7 +48,7 @@
         longitudinal studies
     </li>
     <li>
-        send text messages (see the <a href="https://github.com/rubenarslan/formr.org/wiki/How-to-send-text-messages-(SMS)">HowTo</a>)
+        send text messages (see the <a href="https://github.com/rubenarslan/formr.org/wiki/How-to-send-text-messages-(SMS)">HowTo</a>) and push notifications
     </li>
     <li>
         works on all somewhat modern devices and degrades gracefully where it doesn't

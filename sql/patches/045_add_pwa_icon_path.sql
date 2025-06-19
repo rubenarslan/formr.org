@@ -1,0 +1,1 @@
+ALTER TABLE `survey_runs` ADD COLUMN `pwa_icon_path` VARCHAR(255) NULL DEFAULT NULL AFTER `vapid_private_key`; 

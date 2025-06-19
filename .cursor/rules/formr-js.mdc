@@ -1,0 +1,7 @@
+---
+description: async functions in JS
+globs: *.js
+alwaysApply: false
+---
+[PWAInstaller.js](mdc:webroot/assets/common/js/components/PWAInstaller.js) [service-worker.js](mdc:webroot/assets/common/js/service-worker.js) [pwa-register.js](mdc:webroot/assets/common/js/pwa-register.js)
+Prefer the async/await pattern to then() chains.

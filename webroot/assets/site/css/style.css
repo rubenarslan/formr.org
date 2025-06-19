@@ -1576,8 +1576,8 @@ input:-webkit-autofill:focus {
 	display: inline-block;
 	position: fixed;
 	z-index: 99;
-	bottom: 0;
-	height: 60px;
+	bottom: 20px;
+	height: 100px;
 	margin-left: -303px;
 }
 .monkey_bar form {
@@ -2187,4 +2187,22 @@ button.ws-popover-opener {
 }
 .bs-material .monkey_bar .input-group {
 	border: 1px solid #f5f5f5;
+}
+
+
+.notification-help {
+	margin-top: 10px;
+	padding: 10px;
+	border-left: 3px solid #f0ad4e;
+	background-color: #fcf8e3;
+}
+.notification-help p {
+	font-weight: bold;
+	margin-bottom: 10px;
+}
+.notification-help ol {
+	padding-left: 20px;
+}
+.notification-help li {
+	margin-bottom: 5px;
 }

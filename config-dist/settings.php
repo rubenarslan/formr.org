@@ -311,6 +311,15 @@ $settings['2fa'] = array(
     'required' => false, // whether 2FA is required for all users
     'allow_during_signup' => false
 );
+
+// Run session lock timeout settings (in seconds)
+$settings['run_session'] = array(
+    'lock_timeout' => array(
+        'queue' => 0.1,  // Queue should fail fast (0.1 seconds)
+        'user' => 10.0   // Users can wait longer (10 seconds)
+    )
+);
+
 // How long to keep study data, i.e. what is the maxmimum expiry that can be set in a run
 // To allow users to keep study data indefinitely, set this to INF
 $settings['keep_study_data_for_months_maximum'] = 84;
