@@ -182,8 +182,10 @@ class UnitSessionQueue extends Queue {
     public static function addItem(UnitSession $unitSession, RunUnit $runUnit, $data, $execResults = null) {
         if (!empty($data['expires'])) {
             $db = DB::getInstance();
+            $expires = mysql_datetime($data['expires']);
+            $unitSession->expires = $expires;
             $db->update('survey_unit_sessions', array(
-                'expires' => mysql_datetime($data['expires']),
+                'expires' => $expires,
                 'queued' => $data['queued'],
             ), array('id' => $unitSession->id));
         } else {

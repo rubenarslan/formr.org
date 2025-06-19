@@ -103,6 +103,12 @@ module.exports = (env, argv) => {
                         to: path.resolve(__dirname, outputDir + '/img/'),
                         info: { minimized: false },
                     },
+                    // Add-to-homescreen assets
+                    {
+                        from: path.resolve(__dirname, 'node_modules/add-to-homescreen/dist/assets/img/'),
+                        to: path.resolve(__dirname, outputDir + '/assets/img/'),
+                        info: { minimized: false },
+                    },
                 ],
             }),
         ],

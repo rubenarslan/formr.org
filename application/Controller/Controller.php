@@ -210,6 +210,9 @@ abstract class Controller {
         // URLs
         $config['site_url'] = site_url();
         $config['admin_url'] = admin_url();
+        if($this->run) {
+            $config['run_url'] = run_url($this->run->name);
+        }
         // Cookie consent
         $cookieconsent = Site::getSettings('js:cookieconsent', '{}');
         if ($cookieconsent && ($decoded = json_decode($cookieconsent, true))) {

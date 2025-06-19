@@ -7,7 +7,7 @@
 <p>Some helpful tips:</p>
 <ul>
     <li>
-        You may want to make linebreaks in Excel to format your text. In Microsoft Excel on Macs, you need to press <kbd>Command ⌘</kbd>+<kbd>Option ⌥</kbd>+<kbd>Enter ↩</kbd>, on Windows it is <kbd>ctrl</kbd>+<kbd>Enter ↩</kbd>. We suggest you start working from the provided sample sheet, because it already has the proper formatting and settings. In Google Spreadsheets, the combination is <kbd>Option ⌥</kbd>+<kbd>Enter ↩</kbd>.
+        You may want to make linebreaks in Excel to format your text. In Microsoft Excel on Macs, you need to press <kbd>Command ⌘</kbd>+<kbd>Option ⌥</kbd>+<kbd>Enter ↩</kbd>, on Windows it is <kbd>Alt</kbd>+<kbd>Enter ↩</kbd>. We suggest you start working from the provided sample sheet, because it already has the proper formatting and settings. In Google Spreadsheets, the combination is <kbd>Option ⌥</kbd>+<kbd>Enter ↩</kbd>.
     </li>
     <li>
         Make text <strong>bold</strong> using  <code>__bold__</code>, make it <em>italic</em> using <code>*italic*</code>.

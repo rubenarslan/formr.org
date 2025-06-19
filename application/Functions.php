@@ -737,12 +737,20 @@ function mysql_interval($interval) {
 function site_url($uri = '', $params = array()) {
     $url = WEBROOT;
     if ($uri) {
-        $url .= $uri . '/';
+        // Remove any leading/trailing slashes from the URI
+        $uri = rtrim($uri, '/');
+        if ($uri) {
+            $url .= $uri;
+            // Only add trailing slash if there's no hash or query string or extension
+            if (strpos($uri, '#') === false && strpos($uri, '?') === false && strpos($uri, '.') === false) {
+                $url .= '/';
+            }
+        }
     }
     if ($params) {
         $url .= '?' . http_build_query($params);
     }
-    return trim($url, '\/\\');
+    return $url;
 }
 
 function admin_url($uri = '', $params = array()) {
@@ -752,6 +760,14 @@ function admin_url($uri = '', $params = array()) {
     return site_url('admin' . $uri, $params);
 }
 
+/**
+ * Generate a URL for a run
+ * 
+ * @param string $name The name of the run
+ * @param string $action The action to perform on the run
+ * @param array $params Additional parameters to include in the URL
+ * @return string The generated URL, always ends with a slash
+ */
 function run_url($name = '', $action = '', $params = array()) {
     if ($name === Run::TEST_RUN) {
         return site_url('run/' . $name . '/' . $action);
@@ -773,9 +789,12 @@ function run_url($name = '', $action = '', $params = array()) {
         $action = trim($action, "\/\\");
         $url .= '/' . $action . '/';
     }
+    $url = rtrim($url, "/") . "/";
+
     if ($params) {
         $url .= '?' . http_build_query($params);
     }
+
     return $url;
 }
 
@@ -791,6 +810,72 @@ function admin_run_url($name = '', $action = '', $params = array()) {
         $name = $name . '/' . $action;
     }
     return admin_url('run/' . $name, $params);
+}
+
+/**
+ * Determine session context and paths
+ * 
+ * @return array [
+ *     'path' => string,
+ *     'context' => string,
+ *     'study_name' => string|null
+ * ]
+ */
+function determine_session_context() {
+    $current_domain = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '';
+    $request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+    $path_segments = explode('/', trim($request_uri, '/'));
+    $first_segment = !empty($path_segments[0]) ? $path_segments[0] : '';
+	$admin_domain = Config::get('admin_domain');
+	$study_domain = Config::get('study_domain');
+    
+    // Variables to return
+    $session_path = "/";
+    $session_context = "main";
+    $study_name = null;
+    $is_admin = false;
+
+    // Determine if we're on admin path
+	if($first_segment === 'admin') {
+		if(strpos($current_domain, $admin_domain) !== false) {
+			$session_path = '/admin/';
+			$session_context = 'admin';
+			$is_admin = true;
+		} else {
+			redirect_to($admin_domain . $request_uri);
+			exit;
+		}
+	} else {
+        // Check if we're on study subdomain
+		if(Config::get('use_study_subdomains') and strpos($current_domain, ".") !== false) {
+			// Extract study name from subdomain (first part)
+			$study_tld = explode('*.', Config::get('study_domain'))[1];
+			$study_parts = explode('.', $current_domain, 2);
+			$study_name = !empty($study_parts[0]) ? $study_parts[0] : '';
+			
+			if (strpos($current_domain, $study_tld) !== false && !empty($study_name)) {
+				$session_path = '/';
+				$session_context = 'study';
+			}
+		} else if (!empty($study_domain) && strpos($current_domain, $study_domain) !== false && 
+            (empty($admin_domain) || strpos($current_domain, $admin_domain) === false) &&
+			count($path_segments) > 0) {
+            // Extract study name from subdomain (first part)
+            $study_name = $first_segment;
+            
+            if (!empty($study_name)) {
+				$session_path = '/' . $first_segment . '/';
+                $session_context = 'study';
+				$study_name = $first_segment;
+            }
+        }
+    }
+    
+    return [
+        'path' => $session_path,
+        'context' => $session_context,
+        'study_name' => $study_name
+    ];
 }
 
 /**
@@ -1058,7 +1143,12 @@ opts_knit$set(base.url="' . OpenCPU::TEMP_BASE_URL . '")
 ' .
             $source;
 
-    return opencpu_knit($source, 'json', 0, $return_session);
+    $result = opencpu_knit($source, 'json', 0, $return_session);
+
+    // remove leading first new line
+    $result = preg_replace('/^\n/', '', $result);
+
+    return $result;
 }
 
 /**
@@ -1813,4 +1903,12 @@ function convertToBytes($value) {
     }
     
     return $value;
+}
+
+// check whether we're allowed to set anything but session cookies
+function gave_functional_cookie_consent() {
+    if(isset($_COOKIE['formrcookieconsent']) && strstr($_COOKIE['formrcookieconsent'], '"necessary","functionality"')) {
+        return true;
+    }
+    return false;
 }

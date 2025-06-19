@@ -18,6 +18,7 @@ Template::loadChild('public/header', array(
                     echo Site::getSettings('content:privacy_policy'); 
                 ?>
             </div>
+
         </div>
     </div>
 </section>

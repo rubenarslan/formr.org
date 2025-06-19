@@ -31,12 +31,49 @@ webshim.setOptions({
         types: 'range date time number month color',
         customDatalist: true,
         replaceUI: {range: true, color: true, date: true, month: true, number: true},
-		widgets: {
-			'startView': 1,
-			'openOnFocus': true,
-			'calculateWidth': false
-		}
+        widgets: {
+            'startView': 1,
+            'openOnFocus': true,
+            'calculateWidth': false
+        }
     }
 });
-webshim.activeLang('en');
+
+// Add language detection and management
+window.formrLanguage = {
+    getPreferredLanguage: function() {
+        // Get from localStorage if previously set
+        const storedLang = localStorage.getItem('formr-language');
+        if (storedLang) {
+            return storedLang;
+        }
+
+        // Otherwise detect from browser
+        const browserLang = navigator.language.split('-')[0].toLowerCase();
+        
+        // Store for future use
+        localStorage.setItem('formr-language', browserLang);
+        return browserLang;
+    },
+
+    setLanguage: function(lang) {
+        const normalizedLang = lang.toLowerCase();
+        localStorage.setItem('formr-language', normalizedLang);
+        webshim.activeLang(normalizedLang);
+        // Trigger a custom event that other components can listen to
+        $(document).trigger('formr-language-changed', [normalizedLang]);
+    },
+
+    // Translation helper that uses webshim's language system
+    translate: function(text) {
+        const currentLang = webshim.activeLang();
+        return window.formrTranslations?.[currentLang]?.[text] || text;
+    }
+};
+window.formrTranslations = {};
+
+// Initialize language
+const detectedLang = window.formrLanguage.getPreferredLanguage();
+webshim.activeLang(detectedLang);
+
 webshim.polyfill('es5 es6 forms forms-ext geolocation');
