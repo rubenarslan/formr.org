@@ -129,7 +129,7 @@ class OpenCPU {
      * @uses CURL
      * @param string $uri
      * @param array $params
-     * @param tystringpe $method
+     * @param string $method
      * @return \OpenCPU_Session
      * @throws OpenCPU_Exception
      */
@@ -263,6 +263,9 @@ class OpenCPU_Session {
         $this->key = $key;
         $this->location = $location;
         $this->ocpu = $ocpu;
+
+        // Track this session globally
+        opencpu_session($this);
     }
 
     /**

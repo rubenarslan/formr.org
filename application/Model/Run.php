@@ -954,12 +954,13 @@ class Run extends Model {
             extract($test);
         } else {
 
-            $runSession = new RunSession($user->user_code, $this, ['user' => $user]);
+            $runSession = run_session(new RunSession($user->user_code, $this, ['user' => $user]));
 
             if (($this->getOwner()->user_code == $user->user_code || // owner always has access
                     $runSession->isTesting()) || // testers always have access
                     ($this->public >= 1 && $runSession->id) || // already enrolled
                     ($this->public >= 2)) { // anyone with link can access
+
                 if ($runSession->id === null) {
                     $runSession->create($user->user_code, (int) $user->created($this));
                 }
@@ -967,7 +968,7 @@ class Run extends Model {
                 Session::globalRefresh();
                 $output = $runSession->execute();
             } else {
-                $runSession->createUnitSession($this->getServiceMessage(), null, false);
+                $runSession->createUnitSession($this->getServiceMessage(), false, false);
                 $output = $runSession->executeTest();
                 alert("<strong>Sorry:</strong> You cannot currently access this run.", 'alert-warning');
             }

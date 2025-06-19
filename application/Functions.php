@@ -1097,7 +1097,7 @@ function shortcut_without_opencpu($code, $data) {
  * @param string $code
  * @param string $return_format
  * @param bool $return_session Should OpenCPU_Session object be returned
- * @return string|null
+ * @return OpenCPU_Session|string|null
  */
 function opencpu_knit($code, $return_format = 'json', $self_contained = 1, $return_session = false) {
     $params = array('text' => "'" . addslashes($code) . "'");
@@ -1507,6 +1507,42 @@ function opencpu_formr_variables($q) {
     }
 
     return $variables;
+}
+
+/**
+ * This function manages the OpenCPU session.
+ * 
+ * @param mixed $session Optional. If provided, sets the global $opencpu_session variable to this value.
+ * @return mixed Returns the current value of the global $opencpu_session variable.
+ */
+function opencpu_session(OpenCPU_Session $session = null) {
+    global $opencpu_session;
+    if ($session !== null) {
+        $opencpu_session = $session;
+    }
+    return $opencpu_session;
+}
+
+function opencpu_last_error() {
+    global $opencpu_session;
+    if ($opencpu_session !== null) {
+        return $opencpu_session->getError();
+    }
+    return null;
+}
+
+/**
+ * This function gets or sets the current RunSession.
+ * 
+ * @param RunSession $runSession Optional. If provided, sets the global $run_session variable to this value.
+ * @return RunSession Returns the current value of the global $run_session variable.
+ */
+function run_session(RunSession $runSession = null) {
+    global $run_session;
+    if ($runSession !== null) {
+        $run_session = $runSession;
+    }
+    return $run_session;
 }
 
 function pre_htmlescape($str) {

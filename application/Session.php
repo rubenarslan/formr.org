@@ -187,10 +187,13 @@ class Session {
      * @return string The generated token
      */
     public static function getRequestToken() {
+        if (formr_in_console()) {
+            return null;
+        }
+
         // Generate a random token
         $token = sha1(mt_rand() . uniqid('', true) . time());
         
-        // Get existing tokens or initialize empty array
         if (!$tokens = self::get(self::REQUEST_TOKENS)) {
             $tokens = array($token => 1);
         } else {
