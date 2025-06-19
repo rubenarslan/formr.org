@@ -288,59 +288,36 @@ function ajaxifyForm(i, elm) {
     Survey.prototype.initializeCounters = function() {
         var survey = this;
         webshim.ready('DOM forms forms-ext dom-extend', function () {
-            $('.form-group.item-number.is-counter .controls input').each(function () {
+            $('.item-number.counter input[type=number]').each(function () {
                 var $input = $(this);
-                var $parent = $input.parents('span');
-                var $btns = survey.counterBtns;
-
-                $parent.hide();
-                $btns.insertAfter($parent);
-                toggleCounterElements($input.val());
-
-                // bind-clicks
-                $btns.find('.btn').click(function (e) {
-                    e.preventDefault();
-                    var $btn = $(this);
+                $input.parents("span").hide();
+                var btns = survey.counterBtns;
+                btns.insertAfter($input.parents("span"));
+                btns.find(".btn-down").click(function ()
+                {
                     var val = 1;
-                    if ($input.val()) {
-                        val = +$input.val();
+                    if ($input.attr('value'))
+                        val = +$input.attr('value');
+                    if ($input.attr('min') < val)
+                    {
+                        $input.attr('value', val - 1);
+                        $input.change();
                     }
- 
-                    if ($btn.is('.btn-down') && $input.attr('min') < val) {
-                        val -= 1;
-                    } else if ($btn.is('.btn-up') && $input.attr('max') > val) {
-                        val += 1;
-                    }
-
-                    toggleCounterElements(val);
                     return false;
                 });
-
-                function toggleCounterElements(val) {
-                    // get the counter name and show/hide corresponding elements
-                    var classList = $input.parents('.is-counter').attr('class').replace(/\s+/g, ' ').split(' ');
-                    var counterName = null;
-                    for (var i in classList) {
-                        if (classList[i].indexOf('-counter') !== -1 && classList[i] !== "is-counter") {
-                            counterName = classList[i];
-                            break;
-                        }
+                btns.find(".btn-up").click(function ()
+                {
+                    var val = 1;
+                    if ($input.attr('value'))
+                        val = +$input.attr('value');
+                    if ($input.attr('max') > val)
+                    {
+                        $input.attr('value', val + 1);
+                        $input.change();
                     }
-                    // If there is no DOM element having the counter name value then return;
-                    if (!$('.' + counterName + '-' + val).length) {
-                        return false;
-                    }
-                    // Set value
-                    $input.attr('value', val);
-                    if (counterName) {
-                        $('div[class*='+counterName+'-]').each(function() {
-                            survey.setItemVisibility($(this), true);
-                        });
-                        for (var s = 1; s <= val; s++) {
-                            survey.setItemVisibility($('.' + counterName + '-' + s), false);
-                        }
-                    }
-                }
+                    return false;
+                });
+                webshim.addShadowDom($input, btns);
             });
         });
     }
