@@ -27,7 +27,7 @@ export class FormMonkey {
             textarea: "thank the formr monkey\nmany times",
             year: date.getFullYear(),
             email: "formr_monkey@example.org",
-            url: "http://formrmonkey.example.org/",
+            url: "https://formrmonkey.example.org/",
             date: "07-08-2015",
             month: "07-08-2015",
             yearmonth: "07-08-2015",

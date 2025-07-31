@@ -120,10 +120,16 @@ export function download(filename, text) {
 }
 
 export function download_next_textarea(link) {
-	var $link = $(link);
-	download($link.data("filename"), $link.parent().find("textarea").val());
-	return false;
+    var $link = $(link);
+    download($link.data("filename"), $link.parent().find("textarea").val());
+    return false;
 }
+
+// Global delegated binding for dynamically inserted download links
+$(document).on('click', '.download_r_code', function (e) {
+    e.preventDefault();
+    return download_next_textarea(this);
+});
 
 export function cookies_enabled() {
 	try {

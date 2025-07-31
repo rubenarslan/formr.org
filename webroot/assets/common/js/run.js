@@ -159,11 +159,7 @@ import {
             //	  $modal.find('#opencpu_accordion').on('hidden', function (event) {
             //		  event.stopPropagation()
             //	  });
-            if ($modal.find(".download_r_code").length > 0) {
-                $modal.find(".download_r_code").click(function () {
-                    return download_next_textarea(this);
-                });
-            }
+
 
         }, this)).fail($.proxy(function (e, x, settings, exception) {
             this.test_button.attr('disabled', false).html(old_text);

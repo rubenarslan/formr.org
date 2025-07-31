@@ -19,7 +19,7 @@
 </h2>
 <ul class="fa-ul-more-padding">
     <li>
-        generates very pretty feedback live, including <a href="http://ggplot2.org/">ggplot2</a>, and interactive <a href="http://ggvis.rstudio.com">ggvis</a> plots and <a href="http://www.htmlwidgets.org">htmlwidgets</a>. We find that this greatly increases interest and retention in our studies. 
+        generates very pretty feedback live, including <a href="https://ggplot2.org/">ggplot2</a>, and interactive <a href="https://ggvis.rstudio.com">ggvis</a> plots and <a href="https://www.htmlwidgets.org">htmlwidgets</a>. We find that this greatly increases interest and retention in our studies. 
     </li>
     <li>
         automates complex experience sampling, diary and training studies, including automated reminders via email, push notifications, or text message

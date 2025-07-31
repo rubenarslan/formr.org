@@ -19,6 +19,8 @@ module.exports = (env, argv) => {
             path: path.resolve(__dirname, outputDir),
             clean: true,
         },
+        // Limit parallel processing to prevent memory exhaustion
+        parallelism: 1,
         resolve: {
             extensions: ['.js'],
         },

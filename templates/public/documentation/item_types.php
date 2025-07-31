@@ -14,7 +14,7 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         note_iframe
     </dt>
     <dd>
-        If you want to render complex rmarkdown <a href="http://www.htmlwidgets.org/">htmlwidgets</a>, use this.
+        If you want to render complex rmarkdown <a href="https://www.htmlwidgets.org/">htmlwidgets</a>, use this.
     </dd>
     <dt>
         submit <i>timeout</i>
@@ -172,7 +172,7 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         select_or_add_one <br><i>choice_list, maxType</i>
     </dt>
     <dd>
-        like select_one, but it allows users to choose an option not given. Uses <a href="http://ivaynberg.github.io/select2/">Select2</a>. <i>maxType</i> can be used to set an upper limit on the length of the user-added option. Defaults to 255.
+        like select_one, but it allows users to choose an option not given. Uses <a href="https://ivaynberg.github.io/select2/">Select2</a>. <i>maxType</i> can be used to set an upper limit on the length of the user-added option. Defaults to 255.
     </dd>
     <dt>
         select_or_add_multiple <br><i>choice_list, maxType, <br>maxChoose</i>
@@ -217,7 +217,7 @@ These items don't require the user to do anything, so including them simply mean
         server var
     </dt>
     <dd>
-        saves the <a href="http://us1.php.net/manual/en/reserved.variables.server.php">$_SERVER</a> value with the index given by var. Can be used to store one of 'HTTP_USER_AGENT', 'HTTP_ACCEPT', 'HTTP_ACCEPT_CHARSET', 'HTTP_ACCEPT_ENCODING', 'HTTP_ACCEPT_LANGUAGE', 'HTTP_CONNECTION', 'HTTP_HOST', 'QUERY_STRING', 'REQUEST_TIME', 'REQUEST_TIME_FLOAT'. In English: the browser, some stuff about browser language information, some server stuff, and access time.
+        saves the <a href="https://us1.php.net/manual/en/reserved.variables.server.php">$_SERVER</a> value with the index given by var. Can be used to store one of 'HTTP_USER_AGENT', 'HTTP_ACCEPT', 'HTTP_ACCEPT_CHARSET', 'HTTP_ACCEPT_ENCODING', 'HTTP_ACCEPT_LANGUAGE', 'HTTP_CONNECTION', 'HTTP_HOST', 'QUERY_STRING', 'REQUEST_TIME', 'REQUEST_TIME_FLOAT'. In English: the browser, some stuff about browser language information, some server stuff, and access time.
     </dd>
     <dt>
         get var
@@ -229,7 +229,7 @@ These items don't require the user to do anything, so including them simply mean
         random min,max
     </dt>
     <dd>
-        generates <a href="http://php.net/mt_rand">a random number</a> for later use (e.g. randomisation in experiments). Minimum and maximum default to 0 and 1 respectively. If you specify them, you have to specify both.
+        generates <a href="https://php.net/mt_rand">a random number</a> for later use (e.g. randomisation in experiments). Minimum and maximum default to 0 and 1 respectively. If you specify them, you have to specify both.
     </dd>
     <dt>
         hidden

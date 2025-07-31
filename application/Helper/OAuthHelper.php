@@ -27,7 +27,7 @@ class OAuthHelper {
      */
     public static $instance;
 
-    const DEFAULT_REDIRECT_URL = 'http://formr.org';
+    const DEFAULT_REDIRECT_URL = 'https://formr.org';
 
     public function __construct($config = array()) {
         $this->server = Site::getOauthServer();

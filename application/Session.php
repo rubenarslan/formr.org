@@ -63,6 +63,29 @@ class Session {
             "httponly" => self::$httponly,
             "samesite" => self::$samesite]);
         session_start();
+        self::ensureLongConsentCookie();
+    }
+
+    /**
+     * Ensures the consent cookie is resent with a long expiration through HTTP,
+     * extending its lifetime in browsers that cap JS-set cookies (e.g., Safari, Brave).
+     */
+    private static function ensureLongConsentCookie() {
+        if (gave_functional_cookie_consent() && isset($_COOKIE['formrcookieconsent'])) {
+            $expirySeconds = 730 * 24 * 60 * 60; // 2 years
+            setcookie(
+                'formrcookieconsent',
+                $_COOKIE['formrcookieconsent'],
+                [
+                    'expires'  => time() + $expirySeconds,
+                    'path'     => '/',
+                    'domain'   => '',
+                    'secure'   => self::$secure,
+                    'httponly' => false,
+                    'samesite' => self::$samesite
+                ]
+            );
+        }
     }
 
     public static function setSessionLifetime($lifetime) {

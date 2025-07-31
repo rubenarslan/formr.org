@@ -2,6 +2,26 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.24.4] - 31.07.2025
+### Fixes
+- Fixes survey import via run (broken in v0.24.0)
+- Fixes code/Rmarkdown download when testing
+- Fixes redirect when run is accessed without trailing slash so query string is preserved
+- Fixes expiry date for formrcookieconsent by redelivering the long expiry duration via HTTP (Brave/iOS limit to 7 days when set using JS)
+- Fixes a problem with Google Spreadsheet on some servers
+
+## [v0.24.3] - 19.06.2025
+### Fixes
+- Run omitted build step for material design.
+
+## [v0.24.2] - 20.06.2025
+### Fixes
+- Fix material design
+
+## [v0.24.1] - 19.06.2025
+### Fixes
+- Fixes the special item type defined by the class counter.
+
 ## [v0.24.0] - 24.05.2025
 ### Added
 - Progressive Web App (PWA) support. 

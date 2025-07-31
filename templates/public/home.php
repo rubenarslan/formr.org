@@ -40,7 +40,7 @@
                         <i class="fa fa-line-chart"></i>
                     </div>
                     <h3>Live Feedback</h3>
-                    <p>generates live and interactive feedback, including <a href="http://ggplot2.org/">ggplot2</a>, interactive <a href="http://ggvis.rstudio.com">ggvis</a> and <a href="http://www.htmlwidgets.org">htmlwidgets</a>. In our studies, this increases interest and retention. <a href="<?php echo site_url('interactive_charts'); ?>">See examples.</a></p>
+                    <p>generates live and interactive feedback, including <a href="https://ggplot2.org/">ggplot2</a>, interactive <a href="https://ggvis.rstudio.com">ggvis</a> and <a href="https://www.htmlwidgets.org">htmlwidgets</a>. In our studies, this increases interest and retention. <a href="<?php echo site_url('interactive_charts'); ?>">See examples.</a></p>
                 </div>
             </div>
             <div class="col-md-4 col-sm-6 col-xs-12 animate-box">

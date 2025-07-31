@@ -482,11 +482,6 @@ import {
                 $(this).text($(this).data("full-session").substr(0, 10) + "…");
             }
         });
-        if ($(".download_r_code").length > 0) {
-            $(".download_r_code").click(function () {
-                return download_next_textarea(this);
-            });
-        }
 
         $('.removal_modal').on('show.bs.modal', function (e) {
             $current_target = $(e.relatedTarget);

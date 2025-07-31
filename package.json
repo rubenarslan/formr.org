@@ -12,7 +12,7 @@
         "build:css": "node build-scripts/css.js",
         "build:js": "node build-scripts/js.js",
         "build": "npm run build:copy && npm run build:css && npm run build:js",
-        "webpack:build": "webpack --mode production",
+        "webpack:build": "node --max-old-space-size=1024 node_modules/.bin/webpack --mode production --parallelism=1",
         "webpack:watch": "webpack --watch --env WEBPACK_WATCH=true",
         "webpack:start": "webpack serve"
     },
@@ -60,6 +60,6 @@
     },
     "repository": {
         "type": "git",
-        "url": "http://github.com/rubenarslan/formr.org.git"
+        "url": "https://github.com/rubenarslan/formr.org.git"
     }
 }

@@ -32,13 +32,13 @@ $settings['database'] = array(
 
 // OpenCPU instance settings
 $settings['opencpu_instance'] = array(
-	'local_url' => 'http://opencpu:8004',
+	'local_url' => 'https://opencpu:8004',
 	'public_url' => 'https://public.opencpu.org',
 	'r_lib_path' => '/usr/local/lib/R/site-library'
 );
 // (used in admin/test_opencpu)
 $settings['alternative_opencpu_instance'] = array(
-	'local_url' => 'http://opencpu:8004',
+	'local_url' => 'https://opencpu:8004',
 	'public_url' => 'https://public.opencpu.org',
 	'r_lib_path' => '/usr/local/lib/R/site-library'
 );
@@ -205,7 +205,7 @@ $settings['social_share'] = array(
 		'height' => 400,
 	),
 	'twitter' => array(
-		'url' => 'http://twitter.com/share?url=%{url}&text=%{title}',
+		'url' => 'https://twitter.com/share?url=%{url}&text=%{title}',
 		'target' => '_blank',
 		'width' => 300,
 		'height' => 400,
@@ -239,7 +239,7 @@ $settings['allowed_empty_pages'] = 100;
 // Run unit session settings for the sessions queue
 $settings['unit_session'] = array(
 	// String representing howmany minutes to set as default expiration for unit sessions
-	// @see http://php.net/manual/en/function.strtotime.php
+	// @see https://php.net/manual/en/function.strtotime.php
 	'queue_expiration_extension' => '+10 minutes',
 	// use db queue for processing unit sessions
 	'use_queue' => true,
@@ -281,7 +281,7 @@ $settings['in_maintenance'] = false;
 $settings['maintenance_ips'] = [];
 
 // curl settings that override the default settings in the CURL class
-// Use exact PHP constants as defined in http://php.net/manual/en/function.curl-setopt.php
+// Use exact PHP constants as defined in https://php.net/manual/en/function.curl-setopt.php
 $settings['curl'] = array(
 	CURLOPT_SSL_VERIFYPEER => true,
 	CURLOPT_SSL_VERIFYHOST => 2,
