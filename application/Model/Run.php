@@ -1142,27 +1142,31 @@ class Run extends Model {
                     $unit->type = 'Page';
                 }
 
-                if (strpos($unit->type, 'Survey') !== false) {
+                if ($unit->type === 'Survey') {
                     $options = (array) $unit;
                     $options['importing'] = true;
                     $options['run'] = $this;
                 }
 
-                if (strpos($unit->type, 'Skip') !== false) {
+                if ($unit->type === 'PushMessage') {
+                    $options = (array) $unit;
+                }
+
+                if ($unit->type === 'SkipBackward' || $unit->type === 'SkipForward') {
                     $unit->if_true = $unit->if_true + $start_position;
                 }
 
-                if (strpos($unit->type, 'Email') !== false) {
+                if ($unit->type === 'Email') {
                     $unit->account_id = null;
                 }
                 
-                if (strpos($unit->type, 'Wait') !== false) {
+                if ($unit->type === 'Wait') {
                     $unit->body = $unit->body + $start_position;
                 }
 
                 $unit = (array) $unit;
                 $unitObj = RunUnitFactory::make($this, $unit);
-                $unitObj->create($unit);
+                $unitObj->create($options);
                 
                 if ($unitObj->valid) {
                     $createdUnits[$unitObj->position] = $unitObj->displayForRun(Site::getInstance()->renderAlerts());
