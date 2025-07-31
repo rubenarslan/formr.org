@@ -88,7 +88,7 @@
                                                 <div class="checkbox col-md-6">
                                                     <strong>Look &amp; Feel</strong>
                                                     <p>
-                                                        We previously offered an alternative style for surveys, <a target="_blank" href="http://fezvrasta.github.io/bootstrap-material-design/">Material Design</a>. To reduce maintenance burden, we have deprecated this option. If you previously enabled this option, you can still use it, but once you turn it off, you will not be able to turn it back on.
+                                                        We previously offered an alternative style for surveys, <a target="_blank" href="https://fezvrasta.github.io/bootstrap-material-design/">Material Design</a>. To reduce maintenance burden, we have deprecated this option. If you previously enabled this option, you can still use it, but once you turn it off, you will not be able to turn it back on.
                                                     </p>
                                                     <label title="Material Design style is deprecated as of v0.22.0.">
                                                         <input type="hidden" name="use_material_design" value="0" />
@@ -181,7 +181,7 @@
                                         </p>
                                         <h4><i class="fa fa-javascript"></i> JavaScript</h4>
                                         <p>
-                                            Javascript allows you to apply custom scripts to every page of your study. This is a fully-fledged programming language. You can use it to make things move, give dynamic hints to the user and so on. Learn about <a href="http://www.codecademy.com/tracks/javascript">JS at Codecademy.com</a>.
+                                            Javascript allows you to apply custom scripts to every page of your study. This is a fully-fledged programming language. You can use it to make things move, give dynamic hints to the user and so on. Learn about <a href="https://www.codecademy.com/tracks/javascript">JS at Codecademy.com</a>.
                                         </p>
                                         <div class="form-group col-md-12">
                                             <textarea data-editor="javascript" placeholder="Enter your custom JS here" name="custom_js" rows="40" cols="80" class="big_ace_editor form-control"><?= h($run->getCustomJS()); ?></textarea>

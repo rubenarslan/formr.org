@@ -399,7 +399,7 @@ function ajaxifyForm(i, elm) {
             }
         });
 
-        var badArray = this.$form.serializeArray(); // items that are valid for submission http://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
+        var badArray = this.$form.serializeArray(); // items that are valid for submission https://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
         var survey = this;
         var old_data = survey.data;
         survey.data = {};

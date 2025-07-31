@@ -1610,7 +1610,7 @@ function google_download_survey_sheet($google_link) {
     }
 
     $destination_file = Config::get('survey_upload_dir') . '/googledownload-' . $google_id . '.xlsx';
-    $google_download_link = "http://docs.google.com/spreadsheets/d/{$google_id}/export?format=xlsx";
+    $google_download_link = "https://docs.google.com/spreadsheets/d/{$google_id}/export?format=xlsx";
     $info = array();
 
     try {
