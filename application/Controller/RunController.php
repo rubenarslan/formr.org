@@ -23,9 +23,13 @@ class RunController extends Controller {
         $path = parse_url($requestUri, PHP_URL_PATH);
         $query = parse_url($requestUri, PHP_URL_QUERY);
         
-        // If the path ends with $runName and no slash, redirect to the path with a slash
-        if($path === '/'.$runName) {
-            $this->request->redirect($path . '/');
+        // If the path ends with $runName and no slash, redirect to the path with a slash, preserving query strings
+        if ($path === '/' . $runName) {
+            $redirectUrl = $path . '/';
+            if ($query !== null && $query !== '') {
+                $redirectUrl .= '?' . $query;
+            }
+            $this->request->redirect($redirectUrl);
         }
 
         if ($method = $this->getPrivateActionMethod($privateAction)) {
