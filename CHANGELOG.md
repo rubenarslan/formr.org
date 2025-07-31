@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes code/Rmarkdown download when testing
 - Fixes redirect when run is accessed without trailing slash so query string is preserved
 - Fixes expiry date for formrcookieconsent by redelivering the long expiry duration via HTTP (Brave/iOS limit to 7 days when set using JS)
+- Fixes a problem with Google Spreadsheet on some servers
 
 ## [v0.24.3] - 19.06.2025
 ### Fixes
