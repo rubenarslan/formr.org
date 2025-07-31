@@ -292,7 +292,7 @@ function endsWith($haystack, $needle) {
  *
  * @param  string $key Environment variable name.
  * @return string Environment variable setting.
- * @link http://book.cakephp.org/2.0/en/core-libraries/global-constants-and-functions.html#env
+ * @link https://book.cakephp.org/2.0/en/core-libraries/global-constants-and-functions.html#env
  */
 function env($key) {
     if ($key === 'HTTPS') {
@@ -507,7 +507,7 @@ function timetostr($timestamp) {
     }
 }
 
-// from http://de1.php.net/manual/en/function.filesize.php
+// from https://de1.php.net/manual/en/function.filesize.php
 function human_filesize($bytes, $decimals = 2) {
     $sz = 'BKMGTP';
     $factor = floor((strlen($bytes) - 1) / 3);
@@ -639,7 +639,7 @@ function get_run_dir_contents($dir) {
 
 /**
  * Get the mime type of a file given filename using FileInfo
- * @see http://php.net/manual/en/book.fileinfo.php
+ * @see https://php.net/manual/en/book.fileinfo.php
  *
  * @param string $filename
  * @return mixed Returns the mime type as a string or FALSE otherwise
