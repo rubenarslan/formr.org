@@ -72,7 +72,7 @@ Template::loadChild('public/header');
                     </div>
 
                     <h3><i class="fa fa-fw fa-money"></i> Funding</h3>
-                    <p>Friedrich-Schiller-University Jena – <a href="http://dfg.de/">DFG</a> <a href="http://www.kompass.uni-jena.de">project "Kompass"</a>, PIs: <a href="https://fernuni-hagen.de/bildungspsychologie/team/julia.zimmermann.shtml">Julia Zimmermann</a>, <a href="https://www.psychologie.uni-jena.de/en/Departments/Personality+Psychology+_+Psychological+Diagnostics/staff/Franz+Neyer.html">Franz J. Neyer</a>
+                    <p>Friedrich-Schiller-University Jena – <a href="https://dfg.de/">DFG</a> <a href="https://www.kompass.uni-jena.de">project "Kompass"</a>, PIs: <a href="https://fernuni-hagen.de/bildungspsychologie/team/julia.zimmermann.shtml">Julia Zimmermann</a>, <a href="https://www.psychologie.uni-jena.de/en/Departments/Personality+Psychology+_+Psychological+Diagnostics/staff/Franz+Neyer.html">Franz J. Neyer</a>
                     </p>
                     <p>Georg August University Göttingen – <a href="https://psych.uni-goettingen.de/en/biopers/team/penke">Lars Penke</a>, current hosting</p>
                     <p><a href="https://cos.io">Center for Open Science</a> – <a href="https://cos.io/pr/2015-09-24/">Open Contributor Grant</a> to Ruben Arslan and Cyril Tata. 
@@ -109,7 +109,7 @@ Template::loadChild('public/header');
 
                     </p><h3><i class="fa fa-fw fa-github"></i> Other credit</h3>
                     <p>
-                        formr is open source software and uses a lot of other free software, see the <a href="https://github.com/rubenarslan/formr.org">Github repository</a> for some due credit. Most importantly, formr uses <a href="http://opencpu.org">OpenCPU</a> as its R backend.
+                        formr is open source software and uses a lot of other free software, see the <a href="https://github.com/rubenarslan/formr.org">Github repository</a> for some due credit. Most importantly, formr uses <a href="https://opencpu.org">OpenCPU</a> as its R backend.
                     </p>
                 </div>
             </div>

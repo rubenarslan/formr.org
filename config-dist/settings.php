@@ -32,13 +32,13 @@ $settings['database'] = array(
 
 // OpenCPU instance settings
 $settings['opencpu_instance'] = array(
-	'local_url' => 'https://opencpu:8004',
+	'local_url' => 'http://opencpu:8004',
 	'public_url' => 'https://public.opencpu.org',
 	'r_lib_path' => '/usr/local/lib/R/site-library'
 );
 // (used in admin/test_opencpu)
 $settings['alternative_opencpu_instance'] = array(
-	'local_url' => 'https://opencpu:8004',
+	'local_url' => 'http://opencpu:8004',
 	'public_url' => 'https://public.opencpu.org',
 	'r_lib_path' => '/usr/local/lib/R/site-library'
 );
