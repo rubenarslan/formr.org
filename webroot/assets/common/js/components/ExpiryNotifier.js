@@ -58,7 +58,9 @@ export function initializeExpiryNotifier() {
         const delay = Math.max(expiryDate.getTime() - Date.now(), 0);
 
         // Schedule check
-        setTimeout(handleExpiry, delay);
+        if(delay < 2147483647) { // 2147483647 is the max value for setTimeout
+            setTimeout(handleExpiry, delay);
+        }
 
         function handleExpiry() {
             const now = Date.now();
