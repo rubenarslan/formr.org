@@ -21,6 +21,7 @@ $resultCount = $study->getResultCount();
                         <h3 class="box-title">Import Survey Items</h3>
                     </div>
                     <form role="form" class="" enctype="multipart/form-data"  id="upload_items" name="upload_items" method="post" action="">
+                        <?= formr_csrf_token() ?>
                         <input type="hidden" name="study_id" value="<?= $study->id ?>">
                         <div class="box-body">
                             <?php Template::loadChild('public/alerts'); ?>

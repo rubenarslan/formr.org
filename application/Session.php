@@ -16,7 +16,7 @@ class Session {
     protected static $samesite = 'Strict';
     
     const REQUEST_TOKENS_COOKIE = 'formr_token';
-    const REQUEST_TOKENS = '_formr_request_tokens';
+    const REQUEST_TOKEN = '_formr_request_token';
     const REQUEST_USER_CODE = '_formr_code';
     const REQUEST_NAME = '_formr_cookie';
     const ADMIN_COOKIE = 'formr_user';
@@ -88,48 +88,6 @@ class Session {
         self::set('site', $site);
     }
 
-    public static function getRequestToken() {
-        if (formr_in_console()) {
-            return null;
-        }
-
-        $token = sha1(mt_rand());
-        if (!$tokens = self::get(self::REQUEST_TOKENS)) {
-            $tokens = array($token => 1);
-        } else {
-            $tokens[$token] = 1;
-        }
-
-        setcookie(self::REQUEST_TOKENS_COOKIE, $token, 
-            ['expires' => 0, 
-            'path' => self::$path, 
-            'domain' => self::$domain, 
-            'secure' => self::$secure,
-            'httponly' => self::$httponly,
-            'samesite' => self::$samesite]);
-        self::set(self::REQUEST_TOKENS, $tokens);
-        return $token;
-    }
-
-    public static function canValidateRequestToken(Request $request) {
-        $token = $request->getParam(self::REQUEST_TOKENS);
-        $tokens = self::get(self::REQUEST_TOKENS, array());
-        if (!empty($tokens[$token]) && array_val($_COOKIE, self::REQUEST_TOKENS_COOKIE) == $token) {
-            // a valid request token dies after it's validity is retrieved :P
-            unset($tokens[$token]);
-            setcookie(self::REQUEST_TOKENS_COOKIE, '', 
-                ['expires' => -3600, 
-                'path' => self::$path, 
-                'domain' => self::$domain, 
-                'secure' => self::$secure,
-                'httponly' => self::$httponly,
-                'samesite' => self::$samesite]);
-            self::set(self::REQUEST_TOKENS, $tokens);
-            return true;
-        }
-        return false;
-    }
-    
     public static function setCookie($name, $value, $expires = 0, $path = "/", $domain = '') {
         return setcookie($name, $value, 
                 ['expires' => time() + $expires, 
@@ -177,7 +135,9 @@ class Session {
     public static function deleteAdminCookie() {
         self::deleteCookie(self::ADMIN_COOKIE);
     }
-    
-    
+
+    public static function getRequestToken() {
+        return self::get(self::REQUEST_TOKEN);
+    }
 
 }

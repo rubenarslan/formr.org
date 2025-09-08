@@ -74,6 +74,7 @@ if (trim((string)$study->google_file_id) && (int) $resultCount['real_users'] ===
     $google_link = google_get_sheet_link($study->google_file_id);
     ?>
     <form class="" action="<?= admin_study_url($study->name, 'upload_items') ?>" enctype="multipart/form-data"  id="upload_items" name="upload_items" method="post" action="#">
+        <?= formr_csrf_token() ?>
         <input type="hidden" name="study_id" value="<?= $study->id ?>">
         <input type="hidden" name="google_sheet" value="<?php echo h($google_link); ?>">
 

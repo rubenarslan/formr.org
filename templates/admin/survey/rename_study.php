@@ -18,6 +18,7 @@
                         <h3 class="box-title">Rename Survey </h3>
                     </div>
                     <form role="form" method="post" action="<?php echo admin_study_url($study->name, 'rename_study'); ?>">
+                        <?= formr_csrf_token() ?>
                         <div class="box-body">
                             <?php Template::loadChild('public/alerts'); ?>
                             <?php

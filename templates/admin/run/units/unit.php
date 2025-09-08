@@ -11,7 +11,7 @@
         <input type="hidden" value="<?= $unit->run_unit_id ?>" name="run_unit_id" />
         <input type="hidden" value="<?= $unit->id ?>" name="unit_id" />
         <input type="hidden" value="<?= $unit->special ?>" name="special" />
-
+        <?= formr_csrf_token() ?>
         <?php echo $dialog ?>
     </div>
 </div>

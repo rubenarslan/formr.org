@@ -31,6 +31,7 @@
         </p>
 
         <form id="2faSetup" name="2faSetup" method="post" action="<?= admin_url('account/setup-two-factor') ?>">
+            <?= formr_csrf_token() ?>
             <div class="form-group label-floating">
                 <label class="control-label text-center" for="code"><i class="fa fa-code"></i> Enter Confirmation Code</label>
                 <input class="form-control" type="text" id="code" name="code">

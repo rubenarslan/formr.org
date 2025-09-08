@@ -10,6 +10,7 @@
     </div>
     
     <form class="" id="loginf2a" name="login2fa" method="post" action="<?= admin_url('account/twoFactor') ?>">
+        <?= formr_csrf_token() ?>
         <div class="form-group label-floating">
             <label class="control-label" for="email">Enter Code</label>
             <input class="form-control" type="text" id="2facode" name="2facode" autocomplete="one-time-code">

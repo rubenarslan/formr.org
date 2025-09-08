@@ -6,6 +6,7 @@
 
 <div style="margin-top: 55px;">
     <form class="" id="login" name="login" method="post" action="">
+        <?= formr_csrf_token() ?>
         <input required type="hidden" name="email" id="email" value="<?= htmlspecialchars($reset_data_email); ?>">
         <input required type="hidden" name="reset_token" id="reset_token" value="<?= htmlspecialchars($reset_data_token); ?>">
 

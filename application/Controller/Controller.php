@@ -66,8 +66,9 @@ abstract class Controller {
             $this->js = $js;
         }
 
-        $this->fdb = DB::getInstance();
         $this->request = $site->request;
+        $this->middleware($this->request);
+        $this->fdb = DB::getInstance();
         $this->response = new Response();
     }
 
@@ -179,17 +180,6 @@ abstract class Controller {
         }
     }
 
-    protected function replaceAssets($old, $new, $module = 'site') {
-        $assets = get_default_assets($module);
-        foreach ($assets as $i => $asset) {
-            if ($asset === $old) {
-                $assets[$i] = $new;
-            }
-        }
-        $this->css = $this->js = array();
-        $this->registerAssets($assets);
-    }
-
     protected function generateMetaInfo() {
         $meta = array(
             'head_title' => $this->site->makeTitle(),
@@ -203,13 +193,14 @@ abstract class Controller {
 
         return $meta;
     }
-    
     protected function getJsConfig() {
         // Initialize JS config
         $config = array();
         // URLs
         $config['site_url'] = site_url();
         $config['admin_url'] = admin_url();
+        $config['csrf_token'] = Session::getRequestToken();
+        $config['csrf_token_object'] = [Session::REQUEST_TOKEN => Session::getRequestToken()];
         // Cookie consent
         $cookieconsent = Site::getSettings('js:cookieconsent', '{}');
         if ($cookieconsent && ($decoded = json_decode($cookieconsent, true))) {
@@ -217,6 +208,17 @@ abstract class Controller {
         }
         
         return $config;
+    }
+
+    protected function middleware($request) {
+        $middlewares = [
+            CsrfMiddleware::class,
+        ];
+
+        foreach ($middlewares as $middleware) {
+            $middleware = new $middleware();
+            $middleware->handle($request);
+        }
     }
 
     public function errorAction($code = null, $text = null) {

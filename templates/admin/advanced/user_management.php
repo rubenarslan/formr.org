@@ -17,6 +17,7 @@ $has_default_email= $default_email !== null && $default_email['host'] !== null;
                     <div class="box-header with-border">
                         <h3 class="box-title">Formr Users </h3>
                         <form action="" method="post" class="form-inline pull-right">
+                            <?= formr_csrf_token() ?>
                             <label class="sr-only">Name</label>
                             <div id="search-session" style="display: inline-block; position: relative;">
                                 <div class="input-group single ">
@@ -51,6 +52,7 @@ $has_default_email= $default_email !== null && $default_email['host'] !== null;
                                         <td><small class="hastooltip" title="<?= $userx['modified'] ?>"><?= timetostr(strtotime((string)$userx['modified'])) ?></small></td>
                                         <td>
                                             <form class="form-inline form-ajax" action="<?= site_url('admin/advanced/ajax_admin') ?>" method="post">
+                                                <?= formr_csrf_token() ?>
                                                 <span class="input-group" style="width:160px">
                                                     <span class="input-group-btn">
                                                         <button type="submit" class="btn hastooltip" title="Give this level to this user"><i class="fa fa-hand-o-right"></i></button>

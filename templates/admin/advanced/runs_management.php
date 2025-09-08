@@ -19,6 +19,7 @@
                         <?php if ($pdoStatement->rowCount()): ?>
 
                             <form method="post" action="" >
+                                <?= formr_csrf_token() ?>
                                 <table class='table table-striped'>
                                     <thead>
                                         <tr>

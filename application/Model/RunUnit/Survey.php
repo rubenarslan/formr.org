@@ -183,11 +183,6 @@ class Survey extends RunUnit {
              return ['redirect' => run_url($run->name)];
             }
 
-            if (Request::isHTTPPostRequest() && !Session::canValidateRequestToken($request)) {
-                alert("Invalid request token.", "alert-danger");
-                return ['redirect' => run_url($run->name)];
-            }
-
             $unitSession->createSurveyStudyRecord();
 
             if ($study->use_paging) {

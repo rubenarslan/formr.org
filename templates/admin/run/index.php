@@ -24,6 +24,7 @@
                         <?php Template::loadChild('public/alerts'); ?>
                         <form class="form-horizontal edit_run form-inline" enctype="multipart/form-data" name="edit_run" method="post" action="<?= admin_run_url($run->name) ?>" data-units='<?php echo json_encode($run->getAllUnitIds()); ?>'>
                             <input type="hidden" value="<?php echo h($run->name); ?>" name="old_run_name" class="run_name" />
+                            <?= formr_csrf_token() ?>
                             <div class="edit-run-header pull-right">
 
                                 <h5>Publicness: &nbsp; </h5>

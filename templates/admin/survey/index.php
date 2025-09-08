@@ -41,6 +41,7 @@
                         </div>
                     </div>
                     <form role="form" method="post" action="<?php echo admin_study_url($study->name); ?>">
+                        <?= formr_csrf_token() ?>
                         <div class="box-header with-border">
                             <h3 class="box-title">Survey Settings</h3>
                         </div>

@@ -1,4 +1,5 @@
 <form class="form-horizontal" enctype="multipart/form-data" method="post" action="<?php echo admin_url('advanced/content_settings'); ?>">
+    <?= formr_csrf_token() ?>
     <p class="pull-right">
         <input type="submit" name="content_settings" value="Save" class="btn btn-primary save_settings">
     </p>
