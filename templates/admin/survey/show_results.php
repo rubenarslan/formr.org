@@ -36,6 +36,7 @@
                         <?php Template::loadChild('public/alerts'); ?>
                         <div class="col-md-12" style="margin: 10px;">
                             <form action="<?= admin_study_url($study_name, 'show_results') ?>" accept-charset="utf-8" method="get" class="col-md-6">
+                                <?= formr_csrf_token() ?>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-addon">Search by session <i class="fa fa-user"></i></span>
                                     <input type="text" name="session" class="form-control" value="<?= h($session) ?>">

@@ -18,6 +18,7 @@
                         <h3 class="box-title">Delete Results <small> <?= (int) $resultCount['finished'] ?> complete, <?= (int) $resultCount['begun'] ?> begun </small></h3>
                     </div>
                     <form role="form" method="post" action="<?php echo admin_study_url($study->name, 'delete_results'); ?>">
+                        <?= formr_csrf_token() ?>
                         <div class="box-body">
                             <?php Template::loadChild('public/alerts'); ?>
                             <?php

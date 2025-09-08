@@ -11,6 +11,7 @@
                 </div>
 
                 <form action="<?php echo admin_url('run/add_run'); ?>" role="form" enctype="multipart/form-data"  id="add_study" name="add_study" method="post">
+                    <?= formr_csrf_token() ?>
                     <div class="box-body">
                         <?php Template::loadChild('public/alerts'); ?>
 

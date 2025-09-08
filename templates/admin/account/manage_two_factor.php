@@ -6,6 +6,7 @@
 <div style="margin-top: 10px;">
     <div class="row">
         <form id="2faSetup" name="2faSetup" method="post" action="<?= admin_url('account/manage-two-factor') ?>">
+            <?= formr_csrf_token() ?>
             <div class="col-md-12 text-left twofa-setup">
                 <ul class="list-group list-group-light">
                     <li class="list-group-item">

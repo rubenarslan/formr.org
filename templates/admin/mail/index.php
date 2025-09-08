@@ -59,6 +59,7 @@ Template::loadChild('admin/header');
                         <h3 class="box-title"><?= $form_title ?></h3>
                     </div>
                     <form class="form-horizontal" action="" method="post" autocomplete="off">
+                        <?= formr_csrf_token() ?>
                         <div class="box-body">
                             <?php Template::loadChild('public/alerts'); ?>
                             <div class="form-group">

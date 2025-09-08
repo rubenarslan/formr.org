@@ -19,6 +19,7 @@
 
                         <div class="col-md-12" style="margin: 10px;">
                             <form action="<?=site_url('admin/advanced/user_details')?>" method="get" class="form-inline">
+                                <?= formr_csrf_token() ?>
                                 <label class="sr-only">Name</label>
                                 <div class="input-group" style="width: 350px;">
                                     <div class="input-group-addon"><i class="fa fa-rocket"></i></div>

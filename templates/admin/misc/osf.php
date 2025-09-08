@@ -19,6 +19,7 @@
             <div id="collapseOne" class="panel-collapse collapse in">
                 <div class="panel-body">
                     <form method="post" class="form-inline" action="<?php echo admin_url('osf'); ?>">
+                        <?= formr_csrf_token() ?>
                         <table class="table table-responsive">
                             <thead>
                                 <tr>

@@ -7,6 +7,7 @@
 <div style="margin-top: 55px;">
 
     <form class="" id="login" name="login" method="post" action="">
+        <?= formr_csrf_token() ?>
         <div class="form-group label-floating">
             <label class="control-label" for="email"><i class="fa fa-envelope" required></i> Email</label>
             <input class="form-control" type="email" id="email" name="email">

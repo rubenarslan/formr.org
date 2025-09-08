@@ -520,7 +520,8 @@ class UnitSession extends Model {
             $this->db->rollBack();
             notify_user_error($e, 'An error occurred while trying to save your survey data. Please notify the author of this survey with this date and time');
             formr_log_exception($e, __CLASS__);
-            //$redirect = false;
+
+            // @TODO notify study admin
             return false;
         }
         

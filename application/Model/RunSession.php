@@ -792,7 +792,6 @@ class RunSession extends Model {
             'deactivated' => $this->deactivated,
             'no_email' => $this->no_email,
             'testing' => $this->testing,
-            'created' => $this->created,
         ];
     }
 
