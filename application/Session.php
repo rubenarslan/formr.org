@@ -220,10 +220,10 @@ class Session {
         if (!$tokens = self::get(self::REQUEST_TOKENS)) {
             $tokens = array($token => 1);
         } else {
-            // Limit number of tokens to prevent session bloat (keep max 5 tokens)
-            if (count($tokens) > 5) {
-                // Keep only the 4 most recent tokens
-                $tokens = array_slice($tokens, -4, 4, true);
+            // Limit number of tokens to prevent session bloat (keep max 10 tokens)
+            if (count($tokens) > 10) {
+                // Keep only the 9 most recent tokens
+                $tokens = array_slice($tokens, -9, 9, true);
             }
             $tokens[$token] = 1;
         }
