@@ -59,7 +59,7 @@
                                     <td>
                                         <label>Items Per Page</label>
                                         <span class="help-block">
-                                            <i class="fa fa-info-circle"></i> Do you want a certain number of items on each page? We prefer speciyfing pages manually (by adding submit buttons items when we want a pagebreaks) because this gives us greater manual control
+                                            <i class="fa fa-info-circle"></i> Do you want a certain number of items on each page? We prefer specifying pages manually (by adding submit buttons items when we want a pagebreaks) because this gives us greater manual control
                                         </span>
                                         <span class="col-md-6 nlp" style="padding-left: 0px;">
                                             <input type="number" class="form-control" name="maximum_number_displayed" value="<?= h($study->maximum_number_displayed) ?>" min="0" />

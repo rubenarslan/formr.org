@@ -523,6 +523,20 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
+    private function pushMessageLogAction() {
+        $queryparams = array('run_id' => $this->run->id);
+        $helper = new RunHelper($this->run, $this->fdb, $this->request);
+        $table = $helper->getPushMessageLogTable($queryparams);
+
+        $this->setView('run/push_message_log', array(
+            'messages' => $table['data'],
+            'currentUser' => $this->user,
+            'pagination' => $table['pagination'],
+        ));
+        
+        return $this->sendResponse();
+    }
+
     private function deleteRunAction() {
         $run = $this->run;
         if (Request::isHTTPPostRequest() && $this->request->getParam('delete') && $this->request->getParam('delete_confirm') === $run->name) {
@@ -699,6 +713,10 @@ class AdminRunController extends AdminController {
             'Email' => array(
                 'title' => 'Add Email',
                 'icon' => 'fa-envelope',
+            ),
+            'PushMessage' => array(
+                'title' => 'Add Push Notification',
+                'icon' => 'fa-bell',
             ),
             'SkipBackward' => array(
                 'title' => 'Add a loop (Skip Backwards)',

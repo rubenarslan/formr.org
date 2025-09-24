@@ -1,4 +1,4 @@
-<h3>formr <i>Runs</i></h3><hr />
+<h3>formr <i>Runs/Studies</i></h3><hr />
 <p>
     A formr "run" contains your study's complete design. All the things that a single participant is going to do in your study should take place in one run. Designs can range from the simple (a single survey or a randomised experiment) to the complex (like a diary study with daily reminders by email and text message or a longitudinal study tracking social network changes).
 </p>
@@ -89,6 +89,30 @@
     </div>
     <div class="panel panel-default">
         <div class="panel-heading">
+            <a class="accordion-toggle" data-toggle="collapse" href="#push_notification">
+                <i class="fa-fw fa fa-bell pull-left fa-3x"></i>
+                Push notification<br>
+                <small>send notifications to participants</small></a>
+        </div>
+        <div id="push_notification" class="panel-collapse collapse push_notification">
+            <div class="panel-body">
+                <p>
+                    Push notifications are a way to send notifications to participants. To be able to use them, you need to generate an application manifest in the run settings.
+                </p>
+                <p>
+                    The manifest is a JSON file that describes your app. It is used to generate a PWA and a shortcut icon on the participant's device.
+                </p>
+                <p>
+                    Once your study has a manifest, you can add special items (see App section of <a href="<?= site_url('documentation#available_items') ?>">available items</a>) like <code>add_to_homescreen</code> to your surveys. This will add a button to the participant's device that allows them to add your study to their homescreen. <code>request_phone</code> will guide the user to switch to a mobile device. And <code>push_notification</code> will ask the user to allow push notifications for your study. You can also insert the <code>request_cookie</code> item to explicitly ask participants to allow functional cookies which won't expire when the app is closed.
+                </p>
+                <p>
+                    Sending push notifications to the user can be configured in the run. You can define when a notification should expire, what message should be shown, whether the user needs to interact with the notification, whether it is silent or whether it should vibrate. Push notifications are automatically dismissed once the user opens the app. As long as push notifications exist, a badge counter (1) will be shown on the app on the operating systems that support it.
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="panel panel-default">
+        <div class="panel-heading">
             <a class="accordion-toggle" data-toggle="collapse" href="#email">
                 <i class="fa-fw fa fa-envelope pull-left fa-3x"></i>
                 Email<br>
@@ -97,7 +121,7 @@
         <div id="email" class="panel-collapse collapse email">
             <div class="panel-body">
                 <p>
-                    Using an SMTP account (most email addresses come with one) that you can <a href="<?= site_url("admin/mail") ?>">set up in the mail section</a>, you can send emails to your participants, their friends or yourself. Using the tag <code>{{login_link}}</code>, you can send participants a personalised link to the run. You can also use <code>{{login_code}}</code> to use the session code to create custom links, e.g. for inviting peers to rate this person (informants). Many ISPs limit using their SMTP server to send automated email. Gmail users cannot send more than 500 emails a day and have to disable some advanced security features. Vendors like <a href="http://sendgrid.com">Sendgrid</a> offer free student accounts as part of the <a href="https://education.github.com/">Github education pack</a> and are more amenable to automated emails via SMTP.
+                    Using an SMTP account (most email addresses come with one) that you can <a href="<?= site_url("admin/mail") ?>">set up in the mail section</a>, you can send emails to your participants, their friends or yourself. Using the tag <code>{{login_link}}</code>, you can send participants a personalised link to the run. You can also use <code>{{login_code}}</code> to use the session code to create custom links, e.g. for inviting peers to rate this person (informants). Many ISPs limit using their SMTP server to send automated email. Gmail users cannot send more than 500 emails a day and have to disable some advanced security features. Vendors like <a href="https://sendgrid.com">Sendgrid</a> offer free student accounts as part of the <a href="https://education.github.com/">Github education pack</a> and are more amenable to automated emails via SMTP.
                 </p>
                 <h5>
                     Example 1: <small>email to participants or their friend</small>

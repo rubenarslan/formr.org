@@ -160,40 +160,11 @@ class Email extends RunUnit {
         return $this->body_parsed;
     }
 
-    public function getRecipientField(UnitSession $unitSession, $return_session = false) {
-        if (!$this->recipient_field || $this->recipient_field === $this->mostrecent) {
-            $recent_email_query = "
-				SELECT survey_items_display.answer AS email FROM survey_unit_sessions
-				LEFT JOIN survey_units ON survey_units.id = survey_unit_sessions.unit_id AND survey_units.type = 'Survey'
-				LEFT JOIN survey_run_units ON survey_run_units.unit_id = survey_units.id
-				LEFT JOIN survey_items_display ON survey_items_display.session_id = survey_unit_sessions.id
-				LEFT JOIN survey_items ON survey_items.id = survey_items_display.item_id
-				WHERE
-				survey_unit_sessions.run_session_id = :run_session_id AND 
-				survey_run_units.run_id = :run_id AND 
-				survey_items.type = 'email'
-				ORDER BY survey_items_display.answered DESC
-				LIMIT 1
-			";
 
-            $get_recip = $this->db->prepare($recent_email_query);
-            $get_recip->bindValue(':run_id', $this->run->id);
-            $get_recip->bindValue(':run_session_id', $unitSession->runSession->id);
-            $get_recip->execute();
-
-            $res = $get_recip->fetch(PDO::FETCH_ASSOC);
-            $recipient = array_val($res, 'email', null);
-        } else {
-            $opencpu_vars = $unitSession->getRunData($this->recipient_field);
-            $recipient = opencpu_evaluate($this->recipient_field, $opencpu_vars, 'json', null, $return_session);
-        }
-
-        return $recipient;
-    }
 
     public function sendMail(UnitSession $unitSession, $who = null) {
         $this->mail_queued = $this->mail_sent = false;
-        $this->recipient = $who !== null ? $who : $this->getRecipientField($unitSession);
+        $this->recipient = $who !== null ? $who : $unitSession->runSession->getRecipientEmail($this->recipient_field, false, $unitSession);
 
         if ($this->recipient == null) {
             $error = opencpu_last_error();
@@ -214,7 +185,6 @@ class Email extends RunUnit {
         }
 
         $run_session = $unitSession->runSession;
-
         $testing = !$run_session || $run_session->isTesting();
 
         $acc = new EmailAccount($this->account_id, null);
@@ -222,54 +192,21 @@ class Email extends RunUnit {
                 (($user = Site::getCurrentUser()) && $user->email === $this->recipient) ||
                 ($this->run && $this->run->getOwner()->email === $this->recipient);
 
-        $error = null;
-        $warning = null;
-        $mails_sent = $this->numberOfEmailsSent();
-        
-        $thresholds = Config::get("email_thresholds");
+        // Use the new RateLimitService for rate limiting
+        $rateLimit = new RateLimitService($this->db, $testing, $mailing_themselves);
+        $result = $rateLimit->isAllowedToSend($this->recipient, 'survey_email_log');
 
-        if (!$mailing_themselves):
-
-            if ($mails_sent['in_last_1m'] >= $thresholds['in_last_1m']):
-                if ($mails_sent['in_last_1m'] <= $thresholds['in_last_1m'] && $testing):
-                    $warning = sprintf("We already sent %d mail to this recipient in the last minute. An email was sent, because you're currently testing, but it would have been delayed for a real user, to avoid allegations of spamming.", $mails_sent['in_last_1m']);
-                else:
-                    $error = sprintf("We already sent %d mail to this recipient in the last minute. No email was sent.", $mails_sent['in_last_1m']);
-                endif;
-            elseif ($mails_sent['in_last_10m'] >= $thresholds['in_last_10m']):
-                if ($mails_sent['in_last_10m'] <= $thresholds['in_last_10m_testing'] && $testing):
-                    $warning = sprintf("We already sent %d mail to this recipient in the last 10 minutes. An email was sent, because you're currently testing, but it would have been delayed for a real user, to avoid allegations of spamming.", $mails_sent['in_last_10m']);
-                else:
-                    $error = sprintf("We already sent %d mail to this recipient in the last 10 minutes. No email was sent.", $mails_sent['in_last_10m']);
-                endif;
-            elseif ($mails_sent['in_last_1h'] >= $thresholds['in_last_1h']):
-                if ($mails_sent['in_last_1h'] <= $thresholds['in_last_1h_testing'] && $testing):
-                    $warning = sprintf("We already sent %d mails to this recipient in the last hour. An email was sent, because you're currently testing, but it would have been delayed for a real user, to avoid allegations of spamming.", $mails_sent['in_last_1h']);
-                else:
-                    $error = sprintf("We already sent %d mails to this recipient in the last hour. No email was sent.", $mails_sent['in_last_1h']);
-                endif;
-            elseif ($mails_sent['in_last_1d'] >= $thresholds['in_last_1d'] && !$testing):
-                $error = sprintf("We already sent %d mails to this recipient in the last day. No email was sent.", $mails_sent['in_last_1d']);
-            elseif ($mails_sent['in_last_1w'] >= $thresholds['in_last_1w'] && !$testing):
-                $error = sprintf("We already sent %d mails to this recipient in the last week. No email was sent.", $mails_sent['in_last_1w']);
-            endif;
-        else:
-            if ($mails_sent['in_last_1m'] >= $thresholds['in_last_1m_testing'] || $mails_sent['in_last_1d'] >= $thresholds['in_last_1d_testing']):
-                $error = sprintf("Too many emails are being sent to the study administrator, %d mails today. Please wait a little.", $mails_sent['in_last_1d']);
-            endif;
-        endif;
-
-        if ($error !== null) {
-            $this->errors['log'] = $this->getLogMessage('error_send_eligible', $error);
-            $error = "Session: {$unitSession->runSession->session}:\n {$error}";
+        if (!$result['allowed']) {
+            $this->errors['log'] = $this->getLogMessage('error_send_eligible', $result['message']);
+            $error = "Session: {$unitSession->runSession->session}:\n {$result['message']}";
             alert(nl2br($error), 'alert-danger');
             // @TODO: notify study admin
             return false;
         }
 
-        if ($warning !== null) {
-            $this->messages['log'] = $this->getLogMessage(null, $warning);
-            $warning = "Session: {$unitSession->runSession->session}:\n {$warning}";
+        if ($result['message'] !== null) {
+            $this->messages['log'] = $this->getLogMessage(null, $result['message']);
+            $warning = "Session: {$unitSession->runSession->session}:\n {$result['message']}";
             alert(nl2br($warning), 'alert-info');
         }
 
@@ -337,7 +274,9 @@ class Email extends RunUnit {
         foreach ($this->images as $image_id => $image) {
             $local_image = APPLICATION_ROOT . 'tmp/' . uniqid() . $image_id;
             copy($image, $local_image);
-            register_shutdown_function(function() use ($local_image) { unlink($local_image); });
+            register_shutdown_function(function() use ($local_image) {
+                unlink($local_image);
+            });
 
             if (!$mail->AddEmbeddedImage($local_image, $image_id, $image_id, 'base64', 'image/png')) {
                 alert("Could not embed image with id '{$image_id}'", 'alert-danger');
@@ -388,7 +327,7 @@ class Email extends RunUnit {
         $receiver = $user->getEmail();
 
         $output = "<h4>Recipient</h4>";
-        $recipient_field = $this->getRecipientField($unitSession, true);
+        $recipient_field = $unitSession->runSession->getRecipientEmail($this->recipient_field, true, $unitSession);
         if ($recipient_field instanceof OpenCPU_Session) {
             $output .= opencpu_debug($recipient_field, null, 'text');
         } else {
@@ -439,7 +378,7 @@ class Email extends RunUnit {
 
             $rows = '';
             foreach ($results as $unitSession) {
-                $email = stringBool($this->getRecipientField($unitSession));
+                $email = stringBool($unitSession->runSession->getRecipientEmail($this->recipient_field, false, $unitSession));
                 $class = filter_var($email, FILTER_VALIDATE_EMAIL) ? '' : 'text-warning';
                 $rows .= Template::replace($row_tpl, array(
                             'session' => $unitSession->runSession->session,

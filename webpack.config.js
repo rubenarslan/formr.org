@@ -19,6 +19,8 @@ module.exports = (env, argv) => {
             path: path.resolve(__dirname, outputDir),
             clean: true,
         },
+        // Limit parallel processing to prevent memory exhaustion
+        parallelism: 1,
         resolve: {
             extensions: ['.js'],
         },
@@ -101,6 +103,12 @@ module.exports = (env, argv) => {
                     {
                         from: path.resolve(__dirname, 'webroot/assets/admin/img/'),
                         to: path.resolve(__dirname, outputDir + '/img/'),
+                        info: { minimized: false },
+                    },
+                    // Add-to-homescreen assets
+                    {
+                        from: path.resolve(__dirname, 'node_modules/add-to-homescreen/dist/assets/img/'),
+                        to: path.resolve(__dirname, outputDir + '/assets/img/'),
                         info: { minimized: false },
                     },
                 ],

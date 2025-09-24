@@ -140,7 +140,7 @@ class AdminAccountController extends Controller {
                 alert('Two-factor authentication is required. Please set it up now.', 'alert-warning');
                 $this->request->redirect('admin/account/setup-two-factor');
             }
-            $this->request->redirect('admin/account');
+            $this->request->redirect('admin/account/');
         }
 
         if ($this->request->str('email') && $this->request->str('password') && filter_var($this->request->str('email'), FILTER_VALIDATE_EMAIL)) {
@@ -171,7 +171,7 @@ class AdminAccountController extends Controller {
                     Session::setAdminCookie($this->user);
 
                     $this->minimumWait($start, 0.3);
-                    $redirect = $this->user->isAdmin() ? 'admin' : 'admin/account';
+                    $redirect = $this->user->isAdmin() ? 'admin/' : 'admin/account/';
                     $this->request->redirect($redirect);
                 }
             } else {
@@ -383,7 +383,7 @@ class AdminAccountController extends Controller {
                 Session::delete('2fa_login_started');
 
                 $this->minimumWait($start, 0.3);
-                $this->request->redirect('admin');
+                $this->request->redirect('admin/');
             } else {
                 $this->response->setStatusCode(Response::STATUS_UNAUTHORIZED);
                 alert('Please enter a correct 2FA code!', 'alert-danger');
@@ -404,7 +404,7 @@ class AdminAccountController extends Controller {
 
         if (!Config::get('2fa.enabled', true)) {
             alert('Two-factor authentication is not enabled on this instance.', 'alert-info');
-            $this->request->redirect('admin/account');
+            $this->request->redirect('admin/account/');
         }
 
         if (!$this->user->is2FAenabled()) {
@@ -415,7 +415,7 @@ class AdminAccountController extends Controller {
         // Prevent superadmins from disabling their 2FA via web interface
         if ($this->user->isSuperAdmin()) {
             alert('Superadmins cannot disable 2FA through the web interface for security reasons.', 'alert-error');
-            $this->request->redirect('admin/account');
+            $this->request->redirect('admin/account/');
         }
 
         // Handle POST actions
@@ -461,7 +461,7 @@ class AdminAccountController extends Controller {
 
         if (!Config::get('2fa.enabled', true)) {
             alert('Two-factor authentication is not enabled on this instance.', 'alert-info');
-            $this->request->redirect('admin/account');
+            $this->request->redirect('admin/account/');
         }
 
         if ($this->user->is2FAenabled()) {
@@ -479,7 +479,7 @@ class AdminAccountController extends Controller {
                     $this->response->setStatusCode(Response::STATUS_BAD_REQUEST);
                     alert('Setup session expired. Please try again.', 'alert-danger');
                     $this->minimumWait($start, 0.3);
-                    $this->request->redirect('admin/account');
+                    $this->request->redirect('admin/account/');
                 }
 
                 $tfa = new TwoFactorAuth();

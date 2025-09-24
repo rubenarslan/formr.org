@@ -9,6 +9,43 @@
 <meta name="keywords" content="<?php echo $meta['keywords']; ?>" />
 <meta name="author" content="<?php echo $meta['author']; ?>" />
 
+<?php
+// --- Determine Favicon and OG/Twitter Image URLs ---
+$favicon_url = site_url('favicon.ico'); // Default favicon
+$og_image_url = asset_url('build/img/formr-og.png'); // Default OG/Twitter image
+
+// Check if run context exists and has PWA path set
+if (isset($run) && $run instanceof Run) { 
+    $run_pwa_icon_path_val = $run->getPwaIconPath();
+    if ($run_pwa_icon_path_val) { // Check if path is set and not empty/null
+        $webroot_pwa_path = APPLICATION_ROOT . 'webroot/' . $run_pwa_icon_path_val;
+        if (is_dir($webroot_pwa_path)) {
+            $pwa_icon_base_url_for_head = asset_url(trim($run_pwa_icon_path_val, '/') . '/', false);
+
+            // Check for OG/Twitter Image (prioritize larger, then generic)
+            if (file_exists($webroot_pwa_path . 'icon-512x512.png')) {
+                $og_image_url = $pwa_icon_base_url_for_head . 'icon-512x512.png';
+            } elseif (file_exists($webroot_pwa_path . 'icon.png')) {
+                $og_image_url = $pwa_icon_base_url_for_head . 'icon.png';
+            }
+
+            // Check for Favicon (prioritize specific, then generic)
+            if (file_exists($webroot_pwa_path . 'favicon.png')) {
+                $favicon_url = $pwa_icon_base_url_for_head . 'favicon.png';
+            } elseif (file_exists($webroot_pwa_path . 'icon.png')) {
+                $favicon_url = $pwa_icon_base_url_for_head . 'icon.png';
+            }
+        }
+    }
+    // Update the $meta array for OG/Twitter tags if a custom image was found
+    if ($og_image_url !== asset_url('build/img/formr-og.png')) {
+        $meta['image'] = $og_image_url;
+    }
+}
+// --- End URL Determination ---
+
+// OG and Twitter tags will now use the potentially updated $meta['image']
+?>
 <meta property="og:title" content="<?php echo $meta['title']; ?>"/>
 <meta property="og:image" content="<?php echo $meta['image']; ?>"/>
 <meta property="og:image:url" content="<?php echo $meta['image']; ?>"/>
@@ -25,18 +62,76 @@
 <meta name="twitter:url" content="<?php echo $meta['url']; ?>" />
 <meta name="twitter:description" content="<?php echo $meta['description']; ?>" />
 
+
+<script>
+    window.formr = <?php echo !empty($jsConfig) ? json_encode($jsConfig) : '{}' ?>;
+<?php
+    // Get VAPID public key from the run
+    if (isset($run) && $run instanceof Run) {
+        $vapidPublicKey = $run->getVapidPublicKey();
+    } else {
+        $vapidPublicKey = null;
+    }
+    if ($vapidPublicKey):
+    ?>
+    // Make VAPID public key available globally
+    window.vapidPublicKey = <?php echo json_encode($vapidPublicKey); ?>;
+<?php endif;
+    if (isset($run_session) && $run_session instanceof RunSession) {
+        $expires = $run_session->getCurrentUnitSession()->expires;
+    } else {
+        $expires = null;
+    }
+    if ($expires):
+    ?>
+    window.unit_session_expires = <?php echo json_encode($expires); ?>;
+<?php endif; ?>
+</script>
+
+
+<link rel="icon" href="<?php echo $favicon_url; ?>">
+
+<?php 
+if (isset($run) && $run instanceof Run && $run->getManifestJSONPath()): 
+    // Determine base path for PWA icons if not already done (or re-verify)
+    $pwa_icon_base_url_for_head = asset_url('pwa/', false); // Default path
+    $run_pwa_icon_path_val = $run->getPwaIconPath(); 
+    if ($run_pwa_icon_path_val) { 
+        $webroot_pwa_path = APPLICATION_ROOT . 'webroot/' . $run_pwa_icon_path_val;
+        if (is_dir($webroot_pwa_path)) {
+            $pwa_icon_base_url_for_head = asset_url(trim($run_pwa_icon_path_val, '/') . '/');
+        }
+    } // Note: $pwa_icon_base_url_for_head might be re-calculated here if the first check didn't run or needs update
+?>
+    <link rel="manifest" href="<?php echo run_url($run->name).'manifest'; ?>">
+    
+    <!-- Safari specific icons -->
+    <link rel="apple-touch-icon" href="<?php echo $pwa_icon_base_url_for_head . 'apple-touch-icon.png'; ?>"> <!-- General, e.g. 180x180 -->
+    <link rel="apple-touch-icon" sizes="152x152" href="<?php echo $pwa_icon_base_url_for_head . 'apple-touch-icon-152x152.png'; ?>">
+    <link rel="apple-touch-icon" sizes="167x167" href="<?php echo $pwa_icon_base_url_for_head . 'apple-touch-icon-167x167.png'; ?>">
+    <link rel="apple-touch-icon" sizes="192x192" href="<?php echo $pwa_icon_base_url_for_head . 'apple-touch-icon-192x192.png'; ?>">
+    <!-- Add more apple-touch-icon sizes if provided by user, e.g., apple-touch-icon-76x76.png -->
+    
+    <!-- Safari specific meta tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="<?php echo h($run->name); ?>">
+    <meta name="apple-mobile-web-app-title" content="<?php echo h($run->title ?: $run->name); ?>">
+    <meta name="theme-color" content="#2196F3">
+    <meta name="msapplication-navbutton-color" content="#2196F3">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="msapplication-starturl" content="<?php echo run_url($run->name); ?>">
+
+
+    
+<?php endif; ?>
+
+
 <?php
 foreach ($css as $id => $files) {
     print_stylesheets($files, $id);
 }
-?>
-<script>
-    window.formr = <?php echo !empty($jsConfig) ? json_encode($jsConfig) : '{}' ?>;
-</script>
-
-<?php
 foreach ($js as $id => $files) {
     print_scripts($files, $id);
 }
 ?>
-<link rel="icon" href="<?php echo site_url('favicon.ico'); ?>">

@@ -472,13 +472,8 @@ import {
         $('.add-email-btn').click(addDefaultEmailAccess);
         $('.del-btn').click(userDelete);
         $('.sessions-search-switch').click(toggleSessionSearch);
-        if ($(".hidden_debug_message").length > 0) {
-            $(".show_hidden_debugging_messages").click(function () {
-                $('.hidden_debug_message').toggleClass("hidden");
-                return false;
-            });
-            $(".show_hidden_debugging_messages").attr('disabled', false);
-        }
+
+
         $('abbr.abbreviated_session').click(function ()
         {
             if ($(this).text() !== $(this).data("full-session")) {
@@ -487,11 +482,6 @@ import {
                 $(this).text($(this).data("full-session").substr(0, 10) + "…");
             }
         });
-        if ($(".download_r_code").length > 0) {
-            $(".download_r_code").click(function () {
-                return download_next_textarea(this);
-            });
-        }
 
         $('.removal_modal').on('show.bs.modal', function (e) {
             $current_target = $(e.relatedTarget);

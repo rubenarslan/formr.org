@@ -69,11 +69,12 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($files as $row) { ?>
+                                    <?php foreach ($files as $row) { 
+                                        ?>
                                         <tr>
                                             <td><?php echo $row['original_file_name']; ?></td>
                                             <td><abbr title="<?php echo $row['created']; ?>"><?php echo timetostr(strtotime($row['created'])); ?></abbr></td>
-                                            <td><abbr title="<?php echo $row['modified']; ?>"><?php echo timetostr(strtotime($row['modified'])); ?></abbr></td>
+                                            <td><abbr title="<?php echo $row['modified']; ?>"><?php echo timetostr(strtotime($row['modified'] ?? $row['created'])); ?></abbr></td>
                                             <td>
                                                 <a href="<?php echo asset_url($row['new_file_path']); ?>" class="btn btn-sm btn-default"><i class="fa fa-eye"></i> View File</a>
                                                 <a href="javascript:void(0);" data-url="<?php echo asset_url($row['new_file_path']); ?>" class="btn btn-sm btn-primary copy-url"><i class="fa fa-copy"></i> Copy URL</a>

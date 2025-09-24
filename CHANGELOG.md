@@ -2,6 +2,54 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.24.4] - 31.07.2025
+### Fixes
+- Fixes survey import via run (broken in v0.24.0)
+- Fixes code/Rmarkdown download when testing
+- Fixes redirect when run is accessed without trailing slash so query string is preserved
+- Fixes expiry date for formrcookieconsent by redelivering the long expiry duration via HTTP (Brave/iOS limit to 7 days when set using JS)
+- Fixes a problem with Google Spreadsheet on some servers
+
+## [v0.24.3] - 19.06.2025
+### Fixes
+- Run omitted build step for material design.
+
+## [v0.24.2] - 20.06.2025
+### Fixes
+- Fix material design
+
+## [v0.24.1] - 19.06.2025
+### Fixes
+- Fixes the special item type defined by the class counter.
+
+## [v0.24.0] - 24.05.2025
+### Added
+- Progressive Web App (PWA) support. 
+  - Formr studies can now be turned into web apps that are installable to devices running Android, iOS, MacOS, Windows, etc.
+  - Each study is its own app
+      - Can be added to phone home screen
+      - Service worker and configurable manifest endpoints for each run/study.
+      - Logos, names, settings are configurable
+  - Push message support in the run
+  - Surveys get three new items: request_phone, add_to_home_screen, and push_notification which help configure the app
+- Switch from grunt/bower to npm/webpack for clientside dependencies
+
+### Fixes
+- Cookies are now set to SameSite: Lax, so that cookies are always set upon first visit to the page
+  - Fixed a bug where expired CSRF tokens caused confusing errors, will also give more informative error messages now
+- New cookie management improves compliance with GDPR. By default, only session cookies are set, if user consents, these cookies are kept for longer (a configurable duration). formr continues not to set any third-party cookies by default.
+- Unlinking surveys and hiding results works again
+
+
+## [v0.23.2] - 07.02.2025
+### Fixed
+- It wasn't possible to specify a maximal file size for audio/video uploads
+
+## [v0.23.1] - 04.02.2025
+### Changes
+- change paths for user uploaded files
+  - make it easier to group user uploaded files in tmp. also, store full paths.
+
 ## [v0.23.0] - 23.01.2025
 ### Added
 * Added two-factor authentication (2FA) thanks to groundwork by @EliasAhlers and @Epd02

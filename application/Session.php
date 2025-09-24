@@ -13,7 +13,7 @@ class Session {
     protected static $domain = ''; // strictest domain matching is leaving domain empty
     protected static $secure = true;
     protected static $httponly = true;
-    protected static $samesite = 'Strict';
+    protected static $samesite = 'Lax';
     
     const REQUEST_TOKENS_COOKIE = 'formr_token';
     const REQUEST_TOKEN = '_formr_request_token';
@@ -21,29 +21,112 @@ class Session {
     const REQUEST_NAME = '_formr_cookie';
     const ADMIN_COOKIE = 'formr_user';
 
+    /**
+     * Configures the session with the given configuration.
+     * 
+     * @param array $config The configuration array
+     */
     public static function configure($config = array()) {
         self::$lifetime = Config::get('session_cookie_lifetime');
         self::$secure = SSL;
 
-        self::$path = '/';
+        // Set path based on the detected context
+        self::$path = defined('SESSION_PATH') ? SESSION_PATH : '/';
+        
+        // empty domain for strictest domain matching
         self::$domain = '';
     }
+
 
     /**
      * Start a PHP session
      */
     public static function start() {
         session_name(self::$name);
+        
+        // Log session parameters for debugging if needed
+        if (DEBUG) {
+            error_log("Session starting with path: " . self::$path . ", domain: " . self::$domain);
+        }
+
+        $lifetime = self::$lifetime;
+        // until the cookie modal is accepted, don't allow lifetime to go beyond session
+        if (!gave_functional_cookie_consent()) {
+            $lifetime = 0;
+        }
+        
         session_set_cookie_params([
-            "lifetime" => self::$lifetime, 
+            "lifetime" => $lifetime, 
             "path" => self::$path, 
             "domain" => self::$domain, 
             "secure" => self::$secure, 
             "httponly" => self::$httponly,
             "samesite" => self::$samesite]);
         session_start();
+        self::ensureLongConsentCookie();
     }
 
+    /**
+     * Ensures the consent cookie is resent with a long expiration through HTTP,
+     * extending its lifetime in browsers that cap JS-set cookies (e.g., Safari, Brave).
+     */
+    private static function ensureLongConsentCookie() {
+        if (gave_functional_cookie_consent() && isset($_COOKIE['formrcookieconsent'])) {
+            $expirySeconds = 730 * 24 * 60 * 60; // 2 years
+            setcookie(
+                'formrcookieconsent',
+                $_COOKIE['formrcookieconsent'],
+                [
+                    'expires'  => time() + $expirySeconds,
+                    'path'     => '/',
+                    'domain'   => '',
+                    'secure'   => self::$secure,
+                    'httponly' => false,
+                    'samesite' => self::$samesite
+                ]
+            );
+        }
+    }
+
+    public static function setSessionLifetime($lifetime) {
+        if($lifetime === null) {
+            $lifetime = self::$lifetime;
+        }
+        // To immediately affect the cookie sent with the current response,
+        // we explicitly call setcookie().
+
+        // until the cookie modal is accepted, don't allow lifetime to go beyond session
+        if (!gave_functional_cookie_consent()) {
+            $lifetime = 0;
+        }
+
+        if (session_status() == PHP_SESSION_ACTIVE) {
+            $session_id = session_id();
+            if ($session_id) { // Ensure there's a session ID to send
+                $expires_timestamp = ($lifetime > 0) ? time() + $lifetime : 0;
+
+                return setcookie(
+                    session_name(),       // Use the current session name
+                    $session_id,          // The current session ID is the value
+                    [
+                        'expires' => $expires_timestamp, // Absolute timestamp or 0
+                        "path" => self::$path,
+                        "domain" => self::$domain,
+                        "secure" => self::$secure,
+                        "httponly" => self::$httponly,
+                        "samesite" => self::$samesite
+                    ]
+                );
+            }
+        }
+        return false; // Indicate failure if session not active or no ID
+    }
+
+    /**
+     * Destroys the session and deletes the admin cookie if specified.
+     * 
+     * @param bool $with_admin Whether to delete the admin cookie
+     */
     public static function destroy($with_admin = true) {
         if ($with_admin === true) {
             self::deleteAdminCookie();
@@ -54,6 +137,11 @@ class Session {
         session_write_close();
     }
 
+    /**
+     * Checks if the session is closed.
+     * 
+     * @return bool True if the session is closed, false otherwise
+     */
     public static function over() {
         static $closed;
         if ($closed) {
@@ -64,40 +152,73 @@ class Session {
         return true;
     }
 
+    /**
+     * Checks if the session is expired.
+     * 
+     * @param int $expiry The expiration time of the session
+     * @return bool True if the session is expired, false otherwise
+     */
     public static function isExpired($expiry) {
         return isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $expiry);
     }
 
+    /**
+     * Sets a session variable.
+     * 
+     * @param string $key The key of the session variable
+     * @param mixed $value The value of the session variable
+     */
     public static function set($key, $value) {
         $_SESSION[$key] = $value;
     }
 
+    /**
+     * Gets a session variable.
+     * 
+     * @param string $key The key of the session variable
+     * @param mixed $default The default value to return if the key is not set
+     * @return mixed The value of the session variable or the default value
+     */
     public static function get($key, $default = null) {
         return isset($_SESSION[$key]) ? $_SESSION[$key] : $default;
     }
 
+    /**
+     * Deletes a session variable.
+     * 
+     * @param string $key The key of the session variable to delete
+     */
     public static function delete($key) {
         if (isset($_SESSION[$key])) {
             unset($_SESSION[$key]);
         }
     }
 
+    /**
+     * Refreshes the session with global variables.
+     */
     public static function globalRefresh() {
         global $user, $site;
         self::set('user', serialize($user));
         self::set('site', $site);
     }
 
-    public static function setCookie($name, $value, $expires = 0, $path = "/", $domain = '') {
+    public static function setCookie($name, $value, $lifetime = 0, $path = "/", $domain = '', $samesite = 'Lax') {
         return setcookie($name, $value, 
-                ['expires' => time() + $expires, 
+                ['expires' => $lifetime === 0 ? 0 : time() + $lifetime, 
                 'path' => $path, 
                 'domain' => $domain, 
                 'secure' => self::$secure,
                 'httponly' => self::$httponly,
-                'samesite' => self::$samesite]);
+                'samesite' => $samesite]);
     }
     
+    /**
+     * Deletes a cookie with the given name.
+     * 
+     * @param string $name The name of the cookie to delete
+     * @return bool True if the cookie was deleted successfully, false otherwise
+     */
     public static function deleteCookie($name) {
         return setcookie($name, '',
             ['expires' => time() - 3600, 
@@ -108,12 +229,27 @@ class Session {
             'samesite' => self::$samesite]);
     }
   
+    /**
+     * Sets an admin cookie with the given user object.
+     * 
+     * @param User $admin The user object to set in the cookie
+     */
     public static function setAdminCookie(User $admin) {
         $data = [$admin->id, $admin->user_code, time()];
+        
+        // Admin cookies should always be set with admin path
+        $admin_path = '/admin/';
+
+        $lifetime = Config::get('expire_admin_session');
+        // until the cookie modal is accepted, don't allow lifetime to go beyond session
+        if (!gave_functional_cookie_consent()) {
+            $lifetime = 0;
+        }
+        
         $cookie = self::setCookie(self::ADMIN_COOKIE, 
             Crypto::encrypt($data, '-'), 
-            self::$lifetime,
-            "/", '');
+            $lifetime,
+            $admin_path, self::$domain, 'Strict');
         if (!$cookie) {
             formr_error(505, 'Invalid Token', 'Unable to set admin token');
         }

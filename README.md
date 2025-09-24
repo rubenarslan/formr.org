@@ -1,6 +1,6 @@
 # formr survey framework
 ## Contributing
-See [Contributing](https://github.com/rubenarslan/formr.org/blob/master/CONTRIBUTING.md) if you want to help improve formr?
+See [Contributing](https://github.com/rubenarslan/formr.org/blob/master/CONTRIBUTING.md) if you want to help improve formr.
 
 ## Citation
 See [formr.org/public/about](https://formr.org/public/about) if you are publishing research conducted using formr.
@@ -61,12 +61,12 @@ The package currently has the following feature sets
 	
 
 ## OpenCPU + R + Knitr + Markdown
-[OpenCPU](https://public.opencpu.org/pages/) is a way to safely use complex [R](http://www.r-project.org/) expressions on the web. We use it for all kinds of stuff.
+[OpenCPU](https://public.opencpu.org/pages/) is a way to safely use complex [R](https://www.r-project.org/) expressions on the web. We use it for all kinds of stuff.
 
-In surveys, pauses, emails and pages you can display text to the user. This text is easily formatted using [Markdown](http://daringfireball.net/projects/markdown/) a simple syntax that formats text nicely if you simply write like you would write a plain text email. Markdown can be freely mixed with HTML, so you can e.g. insert icons from the [Font Awesome](http://fontawesome.io/icons/) library using `<i class="fa fa-smile-o"></i>`.
+In surveys, pauses, emails and pages you can display text to the user. This text is easily formatted using [Markdown](https://daringfireball.net/projects/markdown/) a simple syntax that formats text nicely if you simply write like you would write a plain text email. Markdown can be freely mixed with HTML, so you can e.g. insert icons from the [Font Awesome](https://fontawesome.io/icons/) library using `<i class="fa fa-smile-o"></i>`.
 
-If you use knitr syntax, where Markdown can be used, the text will not just be parsed as Markdown (which is mostly static), but also be parsed (anew each time) by [knitr](http://yihui.name/knitr/). Knitr allows for mixing R syntax chunks and Markdown.  
-[R](http://www.r-project.org/) is a popular open-source statistical programming language, that you can use via [OpenCPU](https://www.opencpu.org/), a RESTful interface to the language that deals with the problem that R was not meant to be used as part of web apps and is insecure. R data frames with the same names as the surveys they derive from will be available in this knitr call, they contain all data that the current user has filled out so far.  
+If you use knitr syntax, where Markdown can be used, the text will not just be parsed as Markdown (which is mostly static), but also be parsed (anew each time) by [knitr](https://yihui.name/knitr/). Knitr allows for mixing R syntax chunks and Markdown.  
+[R](https://www.r-project.org/) is a popular open-source statistical programming language, that you can use via [OpenCPU](https://www.opencpu.org/), a RESTful interface to the language that deals with the problem that R was not meant to be used as part of web apps and is insecure. R data frames with the same names as the surveys they derive from will be available in this knitr call, they contain all data that the current user has filled out so far.  
 Combined with norm data etc. you can tailor feedback to the user's input, e.g. show where the user lies on the bell curve etc.
 
 ## Installation
@@ -79,4 +79,6 @@ The setup instructions are not suitable for production, i.e. running a secure fo
 See [formr.org/about](https://formr.org/about) for funding and contact info.
 
 See [composer.json](https://github.com/rubenarslan/formr.org/blob/master/composer.json) for the PHP components we use and
-[bower.json](https://github.com/rubenarslan/formr.org/blob/master/webroot/assets/bower.json) for the Javascript and CSS components we use.
+[package.json](https://github.com/rubenarslan/formr.org/blob/master/package.json) for the Javascript and CSS components we use.
+
+This project is tested with BrowserStack.

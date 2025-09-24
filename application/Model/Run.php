@@ -41,6 +41,7 @@ class Run extends Model {
     public $messages = array();
     public $custom_css_path = null;
     public $custom_js_path = null;
+    public $manifest_json_path = null;
     public $header_image_path = null;
     public $title = null;
     public $description = null;
@@ -51,6 +52,7 @@ class Run extends Model {
     public $expire_cookie = 0;
     public $expire_cookie_value = 0;
     public $expire_cookie_unit;
+    public $vapid_public_key = null;
     public $expire_cookie_units = array(
         'seconds' => 'Seconds',
         'minutes' => 'Minutes',
@@ -59,8 +61,8 @@ class Run extends Model {
         'months' => 'Months',
         'years' => 'Years',
     );
-    protected $description_parsed = null;
-    protected $footer_text_parsed = null;
+    public $description_parsed = null;
+    public $footer_text_parsed = null;
     protected $public_blurb_parsed = null;
     public $privacy = null;
     public $tos = null;
@@ -72,13 +74,15 @@ class Run extends Model {
         "header_image_path", "title", "description",
         "footer_text", "public_blurb", "privacy",
         "tos", "custom_css",
-        "custom_js", "cron_active", "osf_project_id",
+        "custom_js", "manifest_json", "cron_active", "osf_project_id",
         "use_material_design", "expire_cookie",
         "expire_cookie_value", "expire_cookie_unit",
         "expiresOn",
+        "vapid_public_key", "vapid_private_key"
     );
     public $renderedDescAndFooterAlready = false;
     public $expiresOn = null;
+    public $pwa_icon_path = null;
 
     /**
      *
@@ -115,11 +119,11 @@ class Run extends Model {
             return;
         }
 
-        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie, expiresOn";
+        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, manifest_json_path, osf_project_id, use_material_design, expire_cookie, expiresOn, vapid_public_key, vapid_private_key, pwa_icon_path";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
         
-        if($vars['expiresOn'] !== null) {
+        if($vars && isset($vars['expiresOn']) && $vars['expiresOn'] !== null) {
             $vars['expiresOn'] = date('Y-m-d', strtotime($vars['expiresOn']));
         }
 
@@ -127,6 +131,9 @@ class Run extends Model {
             $this->assignProperties($vars);
             $this->setExpireCookieUnits();
             $this->valid = true;
+            if ($this->pwa_icon_path && !empty(trim($this->pwa_icon_path)) && !str_ends_with($this->pwa_icon_path, '/')) {
+                $this->pwa_icon_path .= '/';
+            }
         }
     }
 
@@ -246,7 +253,7 @@ class Run extends Model {
         $this->load();
 
         $owner = $this->getOwner();
-        $privacy_url = run_url($name, "privacy");
+        $privacy_url = run_url($name, "privacy_policy");
         $tos_url = run_url($name, "terms_of_service");
         $settings_url = run_url($name, "settings");
         $footer = "Contact the [study administration](mailto:{$owner->email}) in case of questions. [Privacy Policy]($privacy_url). [Terms of Service]($tos_url). [Settings]($settings_url).";
@@ -278,7 +285,7 @@ class Run extends Model {
             $local_path = APPLICATION_ROOT . 'webroot/';
             $destination_dir = $local_path . $this->batch_directory;
             if (!is_dir($destination_dir)) {
-                mkdir($destination_dir, 0777, true);
+                mkdir($destination_dir, 0755, true);
             }
         }
     
@@ -402,9 +409,15 @@ class Run extends Model {
             }
         }
     
-        return empty($this->errors);
+        // MODIFIED: Return the batch directory path on success (assuming no errors occurred *within* the loop that stopped processing)
+        // If _saveUploadedFile encounters errors, it adds to $this->errors. We return false if errors exist.
+        if (empty($this->errors)) {
+            // Ensure batch_directory was actually set (it should be by makeBatchDirectory)
+            return isset($this->batch_directory) ? $this->batch_directory : false; 
+        } else {
+            return false;
+        }
     }
-    
 
     public function deleteFile($id, $filename) {
         $where = array('id' => (int) $id, 'original_file_name' => $filename);
@@ -419,12 +432,17 @@ class Run extends Model {
 
     public function deleteFiles() {
         $where = array('run_id' => (int) $this->id);
-        $files = $this->db->find('survey_uploaded_files', $where, ['cols' => ['id', 'new_file_path']]);
-        foreach ($files as $file) {
-            $physicalfile = APPLICATION_ROOT . "webroot/" . $file['new_file_path'];
-            @unlink($physicalfile);
+        $files_to_delete = $this->db->find('survey_uploaded_files', $where, ['cols' => ['id', 'new_file_path']]);
+        $local_path_prefix = APPLICATION_ROOT . "webroot/";
+
+        foreach ($files_to_delete as $file) {
+            $physicalfile = $local_path_prefix . $file['new_file_path'];
+            if(file_exists($physicalfile)) {
+                @unlink($physicalfile);
+            }
             $this->db->delete('survey_uploaded_files', ['id' => $file['id']]);
         }
+
     }
 
     public static function nameExists($name) {
@@ -647,20 +665,39 @@ class Run extends Model {
         return "";
     }
 
-    private function getFileContent($path) {
-        $path = new SplFileInfo(APPLICATION_ROOT . "webroot/" . $path);
-        $exists = file_exists($path->getPathname());
-        if ($exists) {
-            $file = $path->openFile('c+');
-            $data = '';
-            $file->next();
-            while ($file->valid()) {
-                $data .= $file->current();
-                $file->next();
-            }
-            return $data;
+    public function getManifestJSON() {
+        if ($this->manifest_json_path != null) {
+            return $this->getFileContent($this->manifest_json_path);
         }
 
+        return "";
+    }
+
+    public function getManifestJSONPath() {
+        return $this->manifest_json_path;
+    }
+
+    /**
+     * Get the VAPID public key for this run
+     * 
+     * @return string|null The VAPID public key or null if not set
+     */
+    public function getVapidPublicKey() {
+        return $this->vapid_public_key;
+    }
+
+    public function getPwaIconPath() {
+        return $this->pwa_icon_path;
+    }
+
+    private function getFileContent($path) {
+        $filePath = APPLICATION_ROOT . "webroot/" . $path;
+        // Check if path is a readable file before attempting to read
+        if (is_file($filePath) && is_readable($filePath)) {
+            // Use file_get_contents for simpler error handling
+            $content = file_get_contents($filePath);
+            return $content !== false ? $content : '';
+        }
         return '';
     }
 
@@ -721,9 +758,13 @@ class Run extends Model {
         }
 
         $cookie_units = array_keys($this->expire_cookie_units);
-        if (isset($posted['expire_cookie_value']) && is_numeric($posted['expire_cookie_value']) &&
+        if (isset($posted['expire_cookie_value']) && 
                 isset($posted['expire_cookie_unit']) && in_array($posted['expire_cookie_unit'], $cookie_units)) {
-            $posted['expire_cookie'] = factortosecs($posted['expire_cookie_value'], $posted['expire_cookie_unit']);
+            if (is_numeric($posted['expire_cookie_value'])) {
+                $posted['expire_cookie'] = factortosecs($posted['expire_cookie_value'], $posted['expire_cookie_unit']); 
+            } else {
+                $posted['expire_cookie'] = 0;
+            }
         } elseif (!isset($posted['expire_cookie'])) {
             $posted['expire_cookie'] = $this->expire_cookie;
         }
@@ -740,47 +781,29 @@ class Run extends Model {
                 continue;
             }
 
-            if ($name == "custom_js" || $name == "custom_css") {
+            if ($name == "custom_js" || $name == "custom_css" || $name == "manifest_json") {
                 if ($name == "custom_js") {
                     $asset_path = $this->custom_js_path;
                     $file_ending = '.js';
-                } else {
+                } elseif ($name == "custom_css") {
                     $asset_path = $this->custom_css_path;
                     $file_ending = '.css';
+                } elseif ($name == "manifest_json") {
+                    $asset_path = $this->manifest_json_path;
+                    $file_ending = '.json';
                 }
 
                 $name = $name . "_path";
-                $asset_file = APPLICATION_ROOT . "webroot/" . $asset_path;
-                // Delete old file if css/js was emptied
-                if (!$value && $asset_path) {
-                    if (file_exists($asset_file) && !unlink($asset_file)) {
-                        alert("Could not delete old file ({$asset_path}).", 'alert-warning');
-                    }
-                    $value = null;
-                } elseif ($value) {
-                    // if $asset_path has not been set it means neither JS or CSS has been entered so create a new path
-                    if (!$asset_path) {
-                        $asset_path = 'assets/tmp/admin/' . crypto_token(33, true) . $file_ending;
-                        $asset_file = APPLICATION_ROOT . 'webroot/' . $asset_path;
-                    }
-
-                    $path = new SplFileInfo($asset_file);
-                    if (file_exists($path->getPathname())):
-                        $file = $path->openFile('c+');
-                        $file->rewind();
-                        $file->ftruncate(0); // truncate any existing file
-                    else:
-                        $file = $path->openFile('c+');
-                    endif;
-                    $file->fwrite($value);
-                    $file->fflush();
-                    $value = $asset_path;
+                $written_path = $this->writeAssetFile($value, $asset_path, $file_ending);
+                if ($written_path === false) {
+                    // Skip updating this field if writing failed
+                    alert("Failed to save {$name}. Skipping this update.", 'alert-danger');
+                    continue;
                 }
+                $value = $written_path;
             }
             $updates[$name] = $value;
         }
-
-
 
         if ($updates) {
             $updates['modified'] = mysql_now();
@@ -985,20 +1008,6 @@ class Run extends Model {
         }
         if (!$this->renderedDescAndFooterAlready && !empty($this->footer_text_parsed)) {
             $run_content .= $this->footer_text_parsed;
-            $privacy_pages = [];
-            $run_url = run_url($this->name) . '?show-privacy-page=';
-            if ($this->hasPrivacy()) {
-                $privacy_pages[] = '<a href="' . $run_url . 'privacy-policy" target="_blank">Privacy Policy</a>';
-            }
-            if ($this->hasToS()) {
-                $privacy_pages[] = '<a href="' . $run_url . 'terms-of-service" target="_blank">Terms of Service</a>';
-            }
-
-            if (!empty($privacy_pages)) {
-                $run_content .= '<br><div class="privacy-footer">';
-                $run_content .= implode(' | ', $privacy_pages);
-                $run_content .= '</div>';
-            }
         }
 
         if ($runSession->isTesting()) {
@@ -1133,26 +1142,30 @@ class Run extends Model {
                     $unit->type = 'Page';
                 }
 
-                if (strpos($unit->type, 'Survey') !== false) {
+                if ($unit->type === 'Survey') {
                     $options = (array) $unit;
                     $options['importing'] = true;
                     $options['run'] = $this;
                 }
 
-                if (strpos($unit->type, 'Skip') !== false) {
+                if ($unit->type === 'PushMessage') {
+                    $options = (array) $unit;
+                }
+
+                if ($unit->type === 'SkipBackward' || $unit->type === 'SkipForward') {
                     $unit->if_true = $unit->if_true + $start_position;
                 }
 
-                if (strpos($unit->type, 'Email') !== false) {
+                if ($unit->type === 'Email') {
                     $unit->account_id = null;
                 }
                 
-                if (strpos($unit->type, 'Wait') !== false) {
+                if ($unit->type === 'Wait') {
                     $unit->body = $unit->body + $start_position;
                 }
 
                 $unit = (array) $unit;
-                $unitObj = RunUnitFactory::make($this, (array) $unit);
+                $unitObj = RunUnitFactory::make($this, $unit);
                 $unitObj->create($options);
                 
                 if ($unitObj->valid) {
@@ -1176,10 +1189,6 @@ class Run extends Model {
         }
     }
 
-    public function getCookieName() {
-        return sprintf('FRS_%s', $this->id);
-    }
-
     public function isEmpty(): bool {
         $count = $this->db->select('COUNT(*) as count')
             ->from('survey_run_sessions')
@@ -1189,4 +1198,301 @@ class Run extends Model {
         return $count == 0;
     }
 
+    private function writeAssetFile($value, $asset_path, $file_ending) {
+        // Delete old file if value is empty but asset_path exists
+        if (empty($value) && !empty($asset_path)) {
+            $old_file = APPLICATION_ROOT . 'webroot/' . $asset_path;
+            if (file_exists($old_file) && !unlink($old_file)) {
+                alert("Could not delete old file ({$asset_path}).", 'alert-warning');
+            }
+            return null;
+        }
+
+        if ($value) {
+            // if $asset_path has not been set or is null, create a new path
+            if (empty($asset_path)) {
+                $asset_path = 'assets/tmp/admin/' . crypto_token(33, true) . $file_ending;
+            }
+
+            // Ensure the directory exists with proper permissions
+            $dir = dirname(APPLICATION_ROOT . 'webroot/' . $asset_path);
+            if (!is_dir($dir)) {
+                // Use 0755 for more restrictive permissions
+                // Owner can read/write/execute, others can read/execute
+                if (!mkdir($dir, 0755, true)) {
+                    alert("Could not create directory for asset file.", 'alert-warning');
+                    return false;
+                }
+            }
+
+            $asset_file = APPLICATION_ROOT . 'webroot/' . $asset_path;
+            $path = new SplFileInfo($asset_file);
+            
+            try {
+                if (file_exists($path->getPathname())):
+                    $file = $path->openFile('c+');
+                    $file->rewind();
+                    $file->ftruncate(0); // truncate any existing file
+                else:
+                    $file = $path->openFile('c+');
+                endif;
+                
+                $file->fwrite($value);
+                $file->fflush();
+                $value = $asset_path;
+            } catch (Exception $e) {
+                alert("Could not write to asset file ({$asset_path}).", 'alert-warning');
+                return false;
+            }
+        }
+        return $value;
+    }
+
+    /**
+     * Generate VAPID keys for the run
+     * 
+     * @return void
+     */
+    public function generateVapidKeys() {
+        // Check if keys already exist
+        $existingPublicKey = $this->getVapidPublicKey();
+        if ($existingPublicKey) {
+            return; // Keys already exist
+        }
+    
+        // Generate new VAPID keys using web-push library
+        $vapidKeys = \Minishlink\WebPush\VAPID::createVapidKeys();
+    
+        // Encrypt the private key before storage
+        $encryptedPrivate = \Crypto::encrypt($vapidKeys['privateKey']);
+    
+        // Store both keys in the database
+        $this->db->update('survey_runs', [
+            'vapid_public_key' => $vapidKeys['publicKey'],
+            'vapid_private_key' => $encryptedPrivate,
+            'modified' => mysql_now()
+        ], ['id' => $this->id]);
+    
+        // Refresh model properties
+        $this->vapid_public_key = $vapidKeys['publicKey'];
+    }
+
+    /**
+     * Generate the manifest file for the run
+     * 
+     * @return bool Returns true if the manifest was generated successfully, false otherwise
+     */
+    public function generateManifest() {
+
+        $this->generateVapidKeys();
+        // Read the template
+        $template_path = APPLICATION_ROOT . 'templates/run/manifest_template.json';
+        if (!file_exists($template_path)) {
+            return false;
+        }
+
+        $template_content = file_get_contents($template_path);
+        
+        $pwa_icon_base_path_for_manifest = '/assets/pwa/'; // Default path
+        $run_pwa_icon_path_val = $this->getPwaIconPath(); 
+        if ($run_pwa_icon_path_val && is_dir(APPLICATION_ROOT . 'webroot/' . $run_pwa_icon_path_val)) {
+            // Ensure leading slash, remove potential double slashes, ensure trailing slash for placeholder replacement
+            $pwa_icon_base_path_for_manifest = '/' . trim($run_pwa_icon_path_val, '/') . '/'; 
+        }
+
+        // Replace placeholders
+        $manifest_string = str_replace(
+            array('{APP_NAME}', '{DESCRIPTION}', '{SCOPE}', '{ID}', '{START_URL}', '{PWA_ICON_BASE_PATH}'),
+            array(
+                $this->name,
+                $this->description ?: '',
+                run_url($this->name),
+                run_url($this->name),
+                run_url($this->name),
+                $pwa_icon_base_path_for_manifest 
+            ),
+            $template_content
+        );
+
+        // Generate new asset path if none exists or use existing one
+        if ($this->manifest_json_path) {
+            // Remove .json extension if it exists, then ensure it's added correctly
+            $path = preg_replace('/\.json$/', '', $this->manifest_json_path);
+        } else {
+            // Generate a new path in the assets directory
+            $path = NULL;
+        }
+
+        // Write the file using writeAssetFile
+        $written_path = $this->writeAssetFile($manifest_string, $path, '.json');
+        if ($written_path === false) {
+            return false;
+        }
+
+        // Update the path in the database
+        $this->manifest_json_path = $written_path;
+        $this->db->update('survey_runs', ['manifest_json_path' => $this->manifest_json_path], ['id' => $this->id]);
+
+        return $manifest_string;
+    }
+
+    /**
+     * Sets the provided batch directory path as the official PWA icon path for this run.
+     * Cleans up any previously set PWA icon path and its files.
+     *
+     * @param string $new_pwa_icon_batch_path The webroot-relative path to a directory (typically a batch upload dir from uploadFiles).
+     * @return bool True on success, false on failure.
+     */
+    public function setUploadedPwaIconsPath(string $new_pwa_icon_batch_path) {
+        if (!$this->id) {
+            $this->errors[] = "Run ID is not set. Cannot set PWA icon path.";
+            return false;
+        }
+
+        $local_path_prefix = APPLICATION_ROOT . 'webroot/';
+
+        // Ensure the new path ends with a slash
+        if (!empty(trim($new_pwa_icon_batch_path)) && !str_ends_with($new_pwa_icon_batch_path, '/')) {
+            $new_pwa_icon_batch_path .= '/';
+        }
+
+        // 1. Clean up old PWA path and files, if one was set
+        if ($this->pwa_icon_path && $this->pwa_icon_path !== $new_pwa_icon_batch_path) {
+            $old_path_full_local = $local_path_prefix . $this->pwa_icon_path;
+            $old_pwa_files_in_db = $this->db->select('id, new_file_path')
+                                        ->from('survey_uploaded_files')
+                                        ->where(array(
+                                            'run_id' => $this->id,
+                                            'new_file_path LIKE' => $this->pwa_icon_path . '%'
+                                        ))
+                                        ->fetchAll();
+            $deleted_db_count = 0;
+            foreach ($old_pwa_files_in_db as $old_file_db_entry) {
+                // Physical file deletion for these is tricky if old_path_full_local directory itself is deleted.
+                // survey_uploaded_files entries will be deleted.
+                $this->db->delete('survey_uploaded_files', array('id' => $old_file_db_entry['id']));
+                $deleted_db_count++;
+            }
+            if ($deleted_db_count > 0) {
+                 $this->messages[] = "Removed {$deleted_db_count} DB records for old PWA icons.";
+            }
+
+            if (is_dir($old_path_full_local)) {
+                $iterator = new RecursiveIteratorIterator(
+                    new RecursiveDirectoryIterator($old_path_full_local, RecursiveDirectoryIterator::SKIP_DOTS),
+                    RecursiveIteratorIterator::CHILD_FIRST
+                );
+                foreach ($iterator as $file) {
+                    if ($file->isDir()) {
+                        @rmdir($file->getRealPath());
+                    } else {
+                        @unlink($file->getRealPath());
+                    }
+                }
+                if (@rmdir($old_path_full_local)) {
+                    $this->messages[] = "Old PWA icon directory {$this->pwa_icon_path} removed.";
+                } else {
+                    $this->warnings[] = "Could not remove old PWA icon directory {$this->pwa_icon_path}.";
+                }
+            }
+        }
+
+        // 2. Update to the new path
+        // The files themselves are assumed to be already uploaded by uploadFiles() into $new_pwa_icon_batch_path
+        // and registered in survey_uploaded_files by uploadFiles().
+        if (!is_dir($local_path_prefix . $new_pwa_icon_batch_path)) {
+            $this->errors[] = "The new PWA icon path directory does not exist: " . htmlspecialchars($new_pwa_icon_batch_path);
+            return false;
+        }
+
+        $updated = $this->db->update('survey_runs', array('pwa_icon_path' => $new_pwa_icon_batch_path), array('id' => $this->id));
+        if ($updated !== false) {
+            $this->pwa_icon_path = $new_pwa_icon_batch_path;
+            $this->messages[] = "PWA icon path updated to: " . htmlspecialchars($new_pwa_icon_batch_path);
+            return true;
+        } else {
+            $this->errors[] = "Failed to update PWA icon path in database.";
+            return false;
+        }
+    }
+
+    public function clearPwaIcons() {
+        if (!$this->id) {
+            $this->errors[] = "Run ID not set.";
+            return false;
+        }
+        if (!$this->pwa_icon_path) {
+            $this->messages[] = "No PWA icon path set, nothing to clear.";
+            return true; // Not an error, just nothing to do.
+        }
+
+        $local_path_prefix = APPLICATION_ROOT . 'webroot/';
+        $current_pwa_icon_path = $this->pwa_icon_path; // Use a local var before it's nulled
+        $full_local_pwa_dir = $local_path_prefix . $current_pwa_icon_path;
+
+        $existing_pwa_files_in_db = $this->db->select('id, new_file_path')
+                                    ->from('survey_uploaded_files')
+                                    ->where(array(
+                                        'run_id' => $this->id,
+                                        'new_file_path LIKE' => $current_pwa_icon_path . '%'
+                                    ))
+                                    ->fetchAll();
+        $deleted_files_count = 0;
+        $deleted_db_records_count = 0;
+
+        foreach ($existing_pwa_files_in_db as $pwa_file_db_entry) {
+            $physical_file = $local_path_prefix . $pwa_file_db_entry['new_file_path'];
+            if (file_exists($physical_file)) {
+                if (@unlink($physical_file)) {
+                    $deleted_files_count++;
+                }
+            }
+            $this->db->delete('survey_uploaded_files', array('id' => $pwa_file_db_entry['id']));
+            $deleted_db_records_count++;
+        }
+
+        if (is_dir($full_local_pwa_dir)) {
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($full_local_pwa_dir, RecursiveDirectoryIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::CHILD_FIRST
+            );
+            $removed_dir = false;
+            try {
+                 foreach ($iterator as $fileNode) {
+                    if ($fileNode->isDir()) {
+                        @rmdir($fileNode->getRealPath());
+                    } else {
+                        @unlink($fileNode->getRealPath());
+                    }
+                }
+                if (@rmdir($full_local_pwa_dir)) {
+                    $removed_dir = true;
+                }
+            } catch (UnexpectedValueException $e) {
+                // This can happen if directory becomes inaccessible during iteration (e.g. due to permissions or external deletion)
+                $this->warnings[] = "Could not fully iterate PWA icon directory for deletion: " . $full_local_pwa_dir . " Error: " . $e->getMessage();
+            }
+
+            if ($removed_dir) {
+                $this->messages[] = "PWA icon directory removed: " . htmlspecialchars($current_pwa_icon_path);
+            } else {
+                // If rmdir failed but files might have been deleted, it's a partial success / warning state
+                if ($deleted_files_count > 0 || $deleted_db_records_count > 0) {
+                    $this->warnings[] = "Could not completely remove PWA icon directory: " . htmlspecialchars($current_pwa_icon_path) . ". Some files/records may still have been cleared.";
+                } else {
+                    $this->errors[] = "Failed to remove PWA icon directory: " . htmlspecialchars($current_pwa_icon_path);
+                }
+            }
+        }
+
+        $updated = $this->db->update('survey_runs', array('pwa_icon_path' => null), array('id' => $this->id));
+        if ($updated !== false) {
+            $this->pwa_icon_path = null;
+            $this->messages[] = "PWA icon path cleared from settings. {$deleted_db_records_count} DB records removed, {$deleted_files_count} physical files unlinked.";
+            return true;
+        } else {
+            $this->errors[] = "Failed to clear PWA icon path in database.";
+            return false;
+        }
+    }
 }

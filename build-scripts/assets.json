@@ -97,20 +97,6 @@
         "js": "common/js/main.js"
     },
     
-    "cookieconsent": {
-		"css": [
-            "node_modules/cookieconsent/src/styles/animation.css",
-            "node_modules/cookieconsent/src/styles/base.css",
-            "node_modules/cookieconsent/src/styles/layout.css",
-            "node_modules/cookieconsent/src/styles/media.css",
-            "node_modules/cookieconsent/src/styles/themes/classic.css"
-        ],
-		"js" : [
-            "node_modules/cookieconsent/src/cookieconsent.js",
-            "common/js/cookieconsent.js"
-        ]
-	},
-    
     "config": {
         "common": ["jquery", "roboto-font", "bootstrap", "font-awesome", "webshim", "select2", "hammer", "highlight", "cookieconsent"],
         "site": ["main:js", "run_users", "run", "survey", "site", "site:custom"],

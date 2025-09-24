@@ -695,7 +695,9 @@ class SurveyStudy extends Model {
                 $get_all = false;
             }
             if ($this->unlinked) {
-                $columns = array();
+                $columns = array_map(function($item) use ($results_table) {
+                    return "`{$results_table}`.`" . $item . "`";
+                }, $items);
                 // considered showing data for test sessions, but then researchers could set real users to "test" to identify them
                 /* 				$columns = array(
                   "IF(survey_run_sessions.testing, survey_run_sessions.session, '') AS session",
@@ -728,8 +730,16 @@ class SurveyStudy extends Model {
                 }
                 $select->order($order_by, $order);
                 $select->limit($paginate['limit'], $paginate['offset']);
+            } else {
+                if ($this->unlinked) {
+                    $order_by = "RAND()";
+                }
+                if(isset($order_by)) {
+                    $select->order($order_by);
+                }
             }
-
+            
+            
             if (!empty($filter['session'])) {
                 $session = $filter['session'];
                 strlen($session) == 64 ? $select->where("survey_run_sessions.session = '$session'") : $select->like('survey_run_sessions.session', $session, 'right');
@@ -830,6 +840,7 @@ class SurveyStudy extends Model {
 
     public function getResultsByItemsPerSession($items = array(), $filter = null, array $paginate = null, $rstmt = false) {
         if ($this->unlinked) {
+            alert("You cannot view detailed results once you've unlinked a survey", 'alert-warning');
             return array();
         }
         ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));

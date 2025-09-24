@@ -1,6 +1,6 @@
 {
     "name": "formr.org",
-    "version": "v0.23.2",
+    "version": "v0.24.0",
     "description": "formr survey framework",
     "readme": "../../README.md",
     "authors": [
@@ -12,7 +12,7 @@
         "build:css": "node build-scripts/css.js",
         "build:js": "node build-scripts/js.js",
         "build": "npm run build:copy && npm run build:css && npm run build:js",
-        "webpack:build": "webpack --mode production",
+        "webpack:build": "node --max-old-space-size=1024 node_modules/.bin/webpack --mode production --parallelism=1",
         "webpack:watch": "webpack --watch --env WEBPACK_WATCH=true",
         "webpack:start": "webpack serve"
     },
@@ -44,19 +44,22 @@
         "webpack-dev-server": "^5.2.0"
     },
     "dependencies": {
+        "@khmyznikov/pwa-install": "^0.5.3",
         "ace-builds": "^1.4.12",
+        "add-to-homescreen": "github:philfung/add-to-homescreen",
         "bootstrap": "^3.4.1",
         "bootstrap-material-design": "0.5.10",
-        "cookieconsent": "^3.1.1",
         "font-awesome": "^4.7.0",
         "hammerjs": "^2.0.8",
         "highlight.js": "^9.2.0",
         "jquery": "^2.2.4",
+        "qr-code-styling": "^1.9.1",
         "select2": "3.5.1",
+        "vanilla-cookieconsent": "^3.1.0",
         "webshim": "^1.16.0"
     },
     "repository": {
         "type": "git",
-        "url": "http://github.com/rubenarslan/formr.org.git"
+        "url": "https://github.com/rubenarslan/formr.org.git"
     }
 }

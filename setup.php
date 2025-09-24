@@ -105,3 +105,14 @@ __formr_setup($settings);
 // Check if maintenance is ongoing
 formr_check_maintenance();
 
+
+// Get session context information
+$session_info = determine_session_context();
+
+// Define constants based on the returned values
+define('SESSION_PATH', $session_info['path']);
+define('SESSION_CONTEXT', $session_info['context']);
+if (!empty($session_info['study_name'])) {
+    define('STUDY_NAME', $session_info['study_name']);
+}
+

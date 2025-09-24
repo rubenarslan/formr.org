@@ -19,15 +19,9 @@ import 'hammerjs/hammer.js';
 import hljs from 'highlight.js';
 //import '../../common/js/highlight/highlight.pack.js';
 import '../../common/js/highlight/styles/vs.css';
-// Cookie Consent
-import 'cookieconsent';
-import '../../common/js/cookieconsent.js';
-import 'cookieconsent/src/styles/animation.css';
-import 'cookieconsent/src/styles/base.css';
-import 'cookieconsent/src/styles/layout.css';
-import 'cookieconsent/src/styles/media.css';
-import 'cookieconsent/src/styles/themes/classic.css';
+
 // Common JS
+import '../../common/js/cookieconsent.js';
 import '../../common/js/main.js';
 import '../../common/js/run_users.js';
 import '../../common/js/run.js';

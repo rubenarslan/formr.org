@@ -175,63 +175,80 @@ class RunSession extends Model {
 
     /**
      * Loop over units in Run for a session until you get a unit with output
-     *
-     * @param UnitSession $referenceUnitSession
-     * @param boolean $executeReferenceUnit If TRUE, the first unit with session matching the $referenceUnitSession will be executed
-     * @return mixed
      */
     public function execute(UnitSession $referenceUnitSession = null, $executeReferenceUnit = false) {
-        
-		if ($this->ended) {
-			// User tried to access an already ended run session, logout
-			if (formr_in_console()) {
-				$referenceUnitSession->end('ended_by_queue_rse');
-				UnitSessionQueue::removeItem($referenceUnitSession->id);
-			} elseif ($this->current_unit_session_id) {
-				$this->currentUnitSession = new UnitSession($this, null, [
-					'id' => $this->current_unit_session_id, 
-					'load' => true
-				]);
-				if (!$this->currentUnitSession->runUnit) {
-					formr_error(404, 'Run Unit Not Found', 'The Run Unit you are trying to access may have been deleted');
-				}
-				return $this->executeUnitSession();
-			}
-			
-            // logout if we are unable to get a current unit session
-            return redirect_to(run_url($this->run->name, 'logout', ['prev' => $this->session]));
-        }
-        
-        if ($this->executionCount > self::MAX_EXECUTION_COUNT) {
-            return $this->spam();
+        /* ────────────────  RUN-SESSION LEVEL LOCK  ────────────────
+         * Prevent concurrent access (user ↔ queue) to the same run
+         * session.  We try to obtain a named lock that is unique for
+         * this session.  If the lock cannot be obtained quickly we
+         * bail out – the queue will retry later and interactive
+         * requests will simply send an empty body so the browser can
+         * refresh.
+         */
+        $lock_name   = 'run_session_' . ($this->id !== null ? $this->id
+                                                            : substr(sha1($this->session), 0, 40));
+        // Use different timeouts for queue vs user requests
+        $lock_timeout = formr_in_console() 
+            ? Config::get('run_session.lock_timeout.queue', 0.1)  // Queue requests
+            : Config::get('run_session.lock_timeout.user', 10.0); // User requests
+
+        if (!$this->acquireLock($lock_name, $lock_timeout)) {
+            // Could not grab the lock – somebody else is working on it.
+            return formr_in_console() ? false : ['body' => 'Timeout. A large computation is running. Will automatically reload in 5 seconds. <script>window.setTimeout(function() { window.location.reload(); }, 5000);</script>'];
         }
 
-        if ($this->run->isStudyTest()) {
-            return $this->executeTest();
-        }
-        // Get the initial position if this run session hasn't executed before
-        if ($this->position === null && !($position = $this->run->getFirstPosition())) {
-            alert('This study has not been defined.', 'alert-danger');
-            return false;
-        }
+        try {
+            if ($this->ended) {
+                // User tried to access an already ended run session, logout
+                if (formr_in_console()) {
+                    $referenceUnitSession->end('ended_by_queue_rse');
+                    UnitSessionQueue::removeItem($referenceUnitSession->id);
+                } elseif ($this->current_unit_session_id) {
+                    $this->currentUnitSession = new UnitSession($this, null, [
+                        'id' => $this->current_unit_session_id, 
+                        'load' => true
+                    ]);
+                    if (!$this->currentUnitSession->runUnit) {
+                        formr_error(404, 'Run Unit Not Found', 'The Run Unit you are trying to access may have been deleted');
+                    }
+                    return $this->executeUnitSession();
+                }
+                
+                // logout if we are unable to get a current unit session
+                return redirect_to(run_url($this->run->name, 'logout', ['prev' => $this->session]));
+            }
+            
+            if ($this->executionCount > self::MAX_EXECUTION_COUNT) {
+                return $this->spam();
+            }
 
-        if ($this->position === null) {
-            $this->position = $position;
-            $this->save();
-        }
+            if ($this->run->isStudyTest()) {
+                return $this->executeTest();
+            }
+            // Get the initial position if this run session hasn't executed before
+            if ($this->position === null && !($position = $this->run->getFirstPosition())) {
+                alert('This study has not been defined.', 'alert-danger');
+                return false;
+            }
 
-        $currentUnitSession = $this->getCurrentUnitSession();
-		
-        // If there is a referenceUnitSession then it is sent by the queue
-        if ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id == $currentUnitSession->id && !$executeReferenceUnit) {
-            $this->debug("END-q");
-            $this->endCurrentUnitSession();
-            return $this->moveOn();
-        } elseif ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id != $currentUnitSession->id) {
-            // if $currenUnitSession is not identical to the $referenceUnitSession sent by queue then something went terribly bad
-            UnitSessionQueue::removeItem($referenceUnitSession->id);
-            return $this->moveOn();
-        }
+            if ($this->position === null) {
+                $this->position = $position;
+                $this->save();
+            }
+
+            $currentUnitSession = $this->getCurrentUnitSession();
+            
+            // If there is a referenceUnitSession then it is sent by the queue
+            if ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id == $currentUnitSession->id && !$executeReferenceUnit) {
+                $this->debug("END-q");
+                if($this->endCurrentUnitSession()) {
+                    return $this->moveOn();
+                }
+            } elseif ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id != $currentUnitSession->id) {
+                // if $currenUnitSession is not identical to the $referenceUnitSession sent by queue then something went terribly bad
+                UnitSessionQueue::removeItem($referenceUnitSession->id);
+                return $this->moveOn();
+            }
 
         $this->debug('Current Unit Is ' . ($currentUnitSession ? $currentUnitSession->runUnit->type : '[none]'), true);
         if (!$currentUnitSession && $this->position === $this->run->getFirstPosition()) {
@@ -245,7 +262,12 @@ class RunSession extends Model {
             $this->currentUnitSession = $currentUnitSession;
         }
 
-        return $this->executeUnitSession();
+
+            return $this->executeUnitSession();
+        } finally {
+            // Always release the named lock so that other processes can continue.
+            $this->releaseLock($lock_name);
+        }
     }
 
     /**
@@ -528,6 +550,178 @@ class RunSession extends Model {
         return $settings;
     }
 
+    /**
+     * Get push notification subscription for this run session
+     * 
+     * @param boolean $json Whether to return the subscription as a JSON string or an array
+     * @return array|null The subscription data or null if no subscription found
+     */
+    public function getSubscription($json = true) {
+        // Query the subscription from survey_items_display for this user's session
+        $query = "SELECT sid.answer 
+                 FROM survey_items_display sid
+                 JOIN survey_items si ON si.id = sid.item_id
+                 JOIN survey_unit_sessions sus ON sus.id = sid.session_id
+                 WHERE sus.run_session_id = :run_session_id 
+                 AND si.type = 'push_notification'
+                 AND sid.answer != 'not_requested'
+                 AND sid.answer != 'not_supported'
+                 ORDER BY sid.created DESC
+                 LIMIT 1";
+
+        $result = $this->db->execute($query, [
+            ':run_session_id' => $this->id
+        ], false, true);
+
+        if (!$result || empty($result['answer'])) {
+            return null;
+        }
+
+        if (!$json) {
+            return $result['answer'];
+        } else {
+            return json_decode($result['answer'], true);
+        }
+    }
+
+    /**
+     * Update the most recent push notification subscription for this run session
+     * 
+     * @param array|string|null $subscriptionData The subscription data (array or JSON string) or null to remove subscription
+     * @return bool True if update was successful, false otherwise
+     */
+    public function updateSubscription($subscriptionData) {
+        // Convert array to JSON string if needed
+        if (is_array($subscriptionData)) {
+            $subscriptionJson = json_encode($subscriptionData);
+        } elseif (is_string($subscriptionData)) {
+            $subscriptionJson = $subscriptionData;
+        } elseif ($subscriptionData === null) {
+            $subscriptionJson = 'not_requested';
+        } else {
+            return false;
+        }
+
+        // Find the most recent push notification item for this session
+        $query = "SELECT sid.id, sid.item_id
+                 FROM survey_items_display sid
+                 JOIN survey_items si ON si.id = sid.item_id
+                 JOIN survey_unit_sessions sus ON sus.id = sid.session_id
+                 WHERE sus.run_session_id = :run_session_id 
+                 AND si.type = 'push_notification'
+                 ORDER BY sid.created DESC
+                 LIMIT 1";
+
+        $result = $this->db->execute($query, [
+            ':run_session_id' => $this->id
+        ], false, true);
+
+        if (!$result || empty($result['id'])) {
+            return false;
+        }
+
+        // Update the subscription data
+        $updateQuery = "UPDATE survey_items_display 
+                       SET answer = :answer, saved = NOW()
+                       WHERE id = :id";
+
+        $updateResult = $this->db->execute($updateQuery, [
+            ':answer' => $subscriptionJson,
+            ':id' => $result['id']
+        ]);
+
+        return $updateResult !== false;
+    }
+
+    /**
+     * Get email recipient field for this run session
+     * 
+     * @param string|null $recipient_field The recipient field to evaluate, or null to get most recent email
+     * @param bool $return_session Whether to return OpenCPU session for debugging
+     * @param UnitSession|null $unitSession Optional unit session for dynamic field evaluation
+     * @return string|OpenCPU_Session|null The recipient email address or OpenCPU session
+     */
+    public function getRecipientEmail($recipient_field = null, $return_session = false, $unitSession = null) {
+        $mostrecent = "most recent reported address";
+        
+        if (!$recipient_field || $recipient_field === $mostrecent) {
+            $recent_email_query = "
+                SELECT survey_items_display.answer AS email FROM survey_unit_sessions
+                LEFT JOIN survey_units ON survey_units.id = survey_unit_sessions.unit_id AND survey_units.type = 'Survey'
+                LEFT JOIN survey_run_units ON survey_run_units.unit_id = survey_units.id
+                LEFT JOIN survey_items_display ON survey_items_display.session_id = survey_unit_sessions.id
+                LEFT JOIN survey_items ON survey_items.id = survey_items_display.item_id
+                WHERE
+                survey_unit_sessions.run_session_id = :run_session_id AND 
+                survey_run_units.run_id = :run_id AND 
+                survey_items.type = 'email'
+                ORDER BY survey_items_display.answered DESC
+                LIMIT 1
+            ";
+
+            $result = $this->db->execute($recent_email_query, [
+                ':run_id' => $this->run->id,
+                ':run_session_id' => $this->id
+            ], false, true);
+
+            $recipient = array_val($result, 'email', null);
+        } else {
+            // For dynamic recipient fields, we need a UnitSession to get run data
+            $unitSessionToUse = $unitSession ?: $this->currentUnitSession;
+            if ($unitSessionToUse) {
+                $opencpu_vars = $unitSessionToUse->getRunData($recipient_field);
+                $recipient = opencpu_evaluate($recipient_field, $opencpu_vars, 'json', null, $return_session);
+            } else {
+                // Fallback: try to get the most recent email
+                return $this->getRecipientEmail(null, $return_session);
+            }
+        }
+
+        return $recipient;
+    }
+
+    /**
+     * Update the most recent email address for this run session
+     * 
+     * @param string $email The email address to update
+     * @return bool True if update was successful, false otherwise
+     */
+    public function updateRecipientField($email) {
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+
+        // Find the most recent email item for this session
+        $query = "SELECT sid.id, sid.item_id
+                 FROM survey_items_display sid
+                 JOIN survey_items si ON si.id = sid.item_id
+                 JOIN survey_unit_sessions sus ON sus.id = sid.session_id
+                 WHERE sus.run_session_id = :run_session_id 
+                 AND si.type = 'email'
+                 ORDER BY sid.created DESC
+                 LIMIT 1";
+
+        $result = $this->db->execute($query, [
+            ':run_session_id' => $this->id
+        ], false, true);
+
+        if (!$result || empty($result['id'])) {
+            return false;
+        }
+
+        // Update the email address
+        $updateQuery = "UPDATE survey_items_display 
+                       SET answer = :answer, saved = NOW()
+                       WHERE id = :id";
+
+        $updateResult = $this->db->execute($updateQuery, [
+            ':answer' => $email,
+            ':id' => $result['id']
+        ]);
+
+        return $updateResult !== false;
+    }
+
     public static function toggleTestingStatus($sessions) {
         $dbh = DB::getInstance();
         if (is_string($sessions)) {
@@ -673,6 +867,32 @@ class RunSession extends Model {
         } else {
             formr_log($message, $this->id);
         }
+    }
+
+    /**
+     * Obtain a MariaDB named lock for the current connection.
+     *
+     * @param string $name    Lock identifier (≤ 64 chars)
+     * @param int    $timeout Seconds to wait
+     * @return bool           TRUE = lock acquired
+     */
+    protected function acquireLock($name, $timeout = 1) {
+        $stmt = $this->db->prepare('SELECT GET_LOCK(:name, :timeout) AS l');
+        $stmt->bindValue('name',    $name);
+        $stmt->bindValue('timeout', $timeout, PDO::PARAM_INT);
+        $stmt->execute();
+        return (int)$stmt->fetchColumn() === 1;
+    }
+
+    /**
+     * Release a previously acquired named lock.
+     *
+     * @param string $name
+     */
+    protected function releaseLock($name) {
+        $stmt = $this->db->prepare('SELECT RELEASE_LOCK(:name)');
+        $stmt->bindValue('name', $name);
+        $stmt->execute();
     }
 
 }

@@ -14,7 +14,7 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         note_iframe
     </dt>
     <dd>
-        If you want to render complex rmarkdown <a href="http://www.htmlwidgets.org/">htmlwidgets</a>, use this.
+        If you want to render complex rmarkdown <a href="https://www.htmlwidgets.org/">htmlwidgets</a>, use this.
     </dd>
     <dt>
         submit <i>timeout</i>
@@ -172,7 +172,7 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         select_or_add_one <br><i>choice_list, maxType</i>
     </dt>
     <dd>
-        like select_one, but it allows users to choose an option not given. Uses <a href="http://ivaynberg.github.io/select2/">Select2</a>. <i>maxType</i> can be used to set an upper limit on the length of the user-added option. Defaults to 255.
+        like select_one, but it allows users to choose an option not given. Uses <a href="https://ivaynberg.github.io/select2/">Select2</a>. <i>maxType</i> can be used to set an upper limit on the length of the user-added option. Defaults to 255.
     </dd>
     <dt>
         select_or_add_multiple <br><i>choice_list, maxType, <br>maxChoose</i>
@@ -217,7 +217,7 @@ These items don't require the user to do anything, so including them simply mean
         server var
     </dt>
     <dd>
-        saves the <a href="http://us1.php.net/manual/en/reserved.variables.server.php">$_SERVER</a> value with the index given by var. Can be used to store one of 'HTTP_USER_AGENT', 'HTTP_ACCEPT', 'HTTP_ACCEPT_CHARSET', 'HTTP_ACCEPT_ENCODING', 'HTTP_ACCEPT_LANGUAGE', 'HTTP_CONNECTION', 'HTTP_HOST', 'QUERY_STRING', 'REQUEST_TIME', 'REQUEST_TIME_FLOAT'. In English: the browser, some stuff about browser language information, some server stuff, and access time.
+        saves the <a href="https://us1.php.net/manual/en/reserved.variables.server.php">$_SERVER</a> value with the index given by var. Can be used to store one of 'HTTP_USER_AGENT', 'HTTP_ACCEPT', 'HTTP_ACCEPT_CHARSET', 'HTTP_ACCEPT_ENCODING', 'HTTP_ACCEPT_LANGUAGE', 'HTTP_CONNECTION', 'HTTP_HOST', 'QUERY_STRING', 'REQUEST_TIME', 'REQUEST_TIME_FLOAT'. In English: the browser, some stuff about browser language information, some server stuff, and access time.
     </dd>
     <dt>
         get var
@@ -229,7 +229,7 @@ These items don't require the user to do anything, so including them simply mean
         random min,max
     </dt>
     <dd>
-        generates <a href="http://php.net/mt_rand">a random number</a> for later use (e.g. randomisation in experiments). Minimum and maximum default to 0 and 1 respectively. If you specify them, you have to specify both.
+        generates <a href="https://php.net/mt_rand">a random number</a> for later use (e.g. randomisation in experiments). Minimum and maximum default to 0 and 1 respectively. If you specify them, you have to specify both.
     </dd>
     <dt>
         hidden
@@ -276,4 +276,35 @@ You can ask study participants to upload image, audio, video, text, and PDF file
         Upload image files. On smartphones, this can trigger the camera app.
     </dd>
 
+</dl>
+
+<h4><i class="fa fa-fw fa-bell"></i> Progressive web app items</h4>
+
+Formr studies can be installed as a PWA (Progressive Web App). This allows you to send push notifications to users to invite them to return to the study, e.g. for experience sampling studies. To make this work, you need to generate a manifest.json file in the study/run settings.
+
+<dl class="dl-horizontal dl-wider">
+    <dt>
+        request_phone
+    </dt>
+    <dd>
+        Helps transition desktop users to continue the study on their mobile device. On mobile devices, it automatically confirms mobile usage. On desktop, it displays a QR code for users to scan with their phone. Returns 'is_phone' for mobile users, 'is_desktop' for desktop users, 'qr_scanned' when successfully scanned, or 'not_checked' before verification.
+    </dd>
+    <dt>
+        add_to_home_screen
+    </dt>
+    <dd>
+        Displays a button that prompts users to add the study to their home screen as a PWA. The button's text can be customized using the choice field. Returns one of these statuses: 'added', 'ios_not_prompted', 'not_requested', 'not_prompted', 'already_added', 'no_support', or 'not_added'.
+    </dd>
+    <dt>
+        push_notification
+    </dt>
+    <dd>
+        Adds a button to request permission for sending push notifications. The button text can be customized using the choice field. When enabled, stores the push notification subscription data needed to send notifications to the user. For optional items, accepts 'not_requested', 'not_supported', or 'permission_denied' as valid states.
+    </dd>
+    <dt>
+        request_cookie
+    </dt>
+    <dd>
+        Prompts participants to enable functional cookies so their device can be recognised in later visits. Displays nothing on devices where this permission has already been granted. Returns 'functional_cookie' for users who had already consented, 'consent_given' after the button is used, and remains 'not_checked' until consent is provided. If the item is marked as required, the survey page cannot be submitted until functional cookie consent is recorded. In apps, we usually need functional cookies to be enabled to track users across sessions, so it makes sense to include this item after an app has been added to the home screen.
+    </dd>
 </dl>

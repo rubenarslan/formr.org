@@ -169,6 +169,7 @@ class Survey extends RunUnit {
             $request = new Request(array_merge($_POST, $_FILES));
             $run = $unitSession->runSession->getRun();
             $study = $this->surveyStudy;
+            $ignore_post = false;
 
             // Check for exceeded limits
             $postMaxSize = convertToBytes(ini_get('post_max_size'));
@@ -179,17 +180,24 @@ class Survey extends RunUnit {
             }
 
             if (Request::isHTTPPostRequest() && $contentLength > $postMaxSize) {
-              alert("The uploaded file exceeds the server's maximum file size limit.", "alert-danger");
-             return ['redirect' => run_url($run->name)];
+                alert("The uploaded file exceeds the server's maximum file size limit.", "alert-danger");
+                return ['redirect' => run_url($run->name)];
             }
 
+            // @TODO: remove $ignore_post flag since logic has been moved to middleware
             $unitSession->createSurveyStudyRecord();
 
             if ($study->use_paging) {
-                return $this->processPagedStudy($request, $study, $unitSession);
+                $result = $this->processPagedStudy($request, $study, $unitSession, $ignore_post);
             } else {
-                return $this->processStudy($request, $study, $unitSession);
+                $result = $this->processStudy($request, $study, $unitSession, $ignore_post);
             }
+
+            if($ignore_post) {
+                $result['log'] = $this->getLogMessage('security_token_error');
+            }
+
+            return $result;
         } catch (Exception $e) {
 			if ($this->db->retryTransaction($e) && $this->retryOutput) {
 				$this->retryOutput = false;
@@ -209,8 +217,8 @@ class Survey extends RunUnit {
         }
     }
 
-    protected function processStudy($request, $study, $unitSession) {
-        if (Request::isHTTPPostRequest()) {
+    protected function processStudy($request, $study, $unitSession, $ignore_post = false) {
+        if (Request::isHTTPPostRequest() && !$ignore_post) {
             if ($unitSession->updateSurveyStudyRecord(array_merge($request->getParams(), $_FILES))) {
                 return ['redirect' => run_url($unitSession->runSession->getRun()->name), 'log' => $this->getLogMessage('survey_filling_out')];
             }
@@ -225,11 +233,11 @@ class Survey extends RunUnit {
         }
     }
 
-    protected function processPagedStudy($request, $study, $unitSession) {
+    protected function processPagedStudy($request, $study, $unitSession, $ignore_post = false) {
         $renderer = new PagedSpreadsheetRenderer($study, $unitSession);
         $renderer->setRequest($request);
         
-        if (Request::isHTTPPostRequest()) {
+        if (Request::isHTTPPostRequest() && !$ignore_post) {
             $options = $renderer->getPostedItems();
             if ($unitSession->updateSurveyStudyRecord($options['posted'])) {
                 Session::set('is-survey-post', true); // FIX ME
