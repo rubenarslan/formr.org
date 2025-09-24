@@ -36,7 +36,9 @@ class CsrfMiddleware
         $tokenFromSession = Session::get(Session::REQUEST_TOKEN, '');
 
         if (!$tokenFromCookie || !$tokenFromForm || !$tokenFromSession || !hash_equals($tokenFromCookie, $tokenFromForm) || !hash_equals($tokenFromCookie, $tokenFromSession)) {
-            throw new \CsrfMiddlewareException('Your Request could not be validated. CSRF token validation failed', 403);
+            $message = "Your form could not be submitted due to a security verification issue. 
+            This can happen if the page has been open for a long time or was refreshed in another tab.";
+            throw new \CsrfMiddlewareException($message, 403);
         }
     }
 }
