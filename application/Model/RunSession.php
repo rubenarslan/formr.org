@@ -250,18 +250,17 @@ class RunSession extends Model {
                 return $this->moveOn();
             }
 
-        $this->debug('Current Unit Is ' . ($currentUnitSession ? $currentUnitSession->runUnit->type : '[none]'), true);
-        if (!$currentUnitSession && $this->position === $this->run->getFirstPosition()) {
-            // We are in the first unit of the run
-            return $this->moveOn(true);
-        } elseif (!$currentUnitSession) {
-            // We maybe all previous unit sessions have ended so move on
-            return $this->moveOn();
-        } else {
-            // Currently active unit session. Should most likely be a survey or pause
-            $this->currentUnitSession = $currentUnitSession;
-        }
-
+            $this->debug('Current Unit Is ' . ($currentUnitSession ? $currentUnitSession->runUnit->type : '[none]'), true);
+            if (!$currentUnitSession && $this->position === $this->run->getFirstPosition()) {
+                // We are in the first unit of the run
+                return $this->moveOn(true);
+            } elseif (!$currentUnitSession) {
+                // We maybe all previous unit sessions have ended so move on
+                return $this->moveOn();
+            } else {
+                // Currently active unit session. Should most likely be a survey or pause
+                $this->currentUnitSession = $currentUnitSession;
+            }
 
             return $this->executeUnitSession();
         } finally {

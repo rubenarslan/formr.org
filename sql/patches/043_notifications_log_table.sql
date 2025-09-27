@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS `survey_notifications` (
-    `id` int(11) NOT NULL AUTO_INCREMENT,
+    `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
     `run_id` int(11) UNSIGNED NOT NULL,
     `session_id` int(11) UNSIGNED NOT NULL,
     `message` text NOT NULL,
