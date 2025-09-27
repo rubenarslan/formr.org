@@ -1894,6 +1894,10 @@ function formr_search_highlight($search, $subject) {
     return str_replace($search, '<span class="search-highlight">'.$search.'</span>', $subject);
 }
 
+function notify_study_admin(UnitSession $unitSession, string $message, string $type = 'error') {
+    Notification::getInstance()->notifyStudyAdmin($unitSession, $message, $type);
+}
+
 // Convert php.ini values to bytes
 function convertToBytes($value) {
     $value = trim($value);
