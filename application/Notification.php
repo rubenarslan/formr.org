@@ -127,10 +127,10 @@ class Notification {
      */
     protected function getThrottleMinutes(string $errorCode): int
     {
-        if (isset($this->config['notification']['throttle_map'][$errorCode])) {
-            return $this->config['notification']['throttle_map'][$errorCode];
+        if (isset($this->config['throttle_map'][$errorCode])) {
+            return $this->config['throttle_map'][$errorCode];
         }
-        return $this->config['notification']['default_throttle_minutes'] ?? 0;
+        return $this->config['default_throttle_minutes'] ?? 0;
     }
 
     protected function canBeSent(UnitSession $unitSession, string $errorCode): bool
@@ -142,7 +142,7 @@ class Notification {
             SELECT created 
             FROM survey_notifications 
             WHERE run_id = ? AND session_id = ? AND recipient_id = ?
-            ORDER BY created DESC
+            ORDER BY id DESC
         ");
         $stmt->execute([$unitSession->runSession->getRun()->id, $unitSession->id, $unitSession->runSession->getRun()->getOwner()->id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
