@@ -135,7 +135,7 @@ class Pause extends RunUnit {
                     $data['log'] = $this->getLogMessage('error_pause_relative_to', "OpenCPU R error. Fix code. \n\n" . $error);
                     $this->errors[] = 'Could not evaluate relative_to value on opencpu';
 
-                    // @TODO: notify study admin
+                    notify_study_admin($unitSession, 'Pause unit: OpenCPU error evaluating relative_to. ' . $error, 'error');
                     return $data;
                 }
             }
@@ -169,7 +169,9 @@ class Pause extends RunUnit {
                 $data['check_failed'] = true;
                 $data['log'] = $this->getLogMessage('error_pause_relative_to', "OpenCPU R error. Fix code. \n\n" . $error);
 
-                // @TODO: notify study admin
+                try {
+                    notify_study_admin($unitSession, 'Pause unit: relative_to produced invalid result', 'warning');
+                } catch (Exception $e) {}
                 return $data;
             }
         } elseif ($this->has_wait_minutes) {
