@@ -1895,6 +1895,12 @@ function formr_search_highlight($search, $subject) {
 }
 
 function notify_study_admin(UnitSession $unitSession, string $message, string $type = 'error') {
+    try {
+        Notification::getInstance()->notifyStudyAdmin($unitSession, $message, $type);
+    } catch (Exception $e) {
+        // Handle the exception as needed
+        // formr_log("Error notifying study admin: " . $e->getMessage(), 'ERROR');
+    }
     Notification::getInstance()->notifyStudyAdmin($unitSession, $message, $type);
 }
 
