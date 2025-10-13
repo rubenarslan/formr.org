@@ -46,7 +46,7 @@ class Notification {
             return false;
         }
 
-        if (!$unitSession || !$unitSession->runSession->getRun()) {
+        if (!$unitSession || !$unitSession->runSession || !$unitSession->runSession->getRun()) {
             return false;
         }
         
