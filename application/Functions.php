@@ -1362,7 +1362,10 @@ function opencpu_multistring_parse(UnitSession $unitSession, array $string_templ
         $strings = array_map("remove_tag_wrapper", $strings);
         return opencpu_string_key_parsing($strings);
     } else {
-        // @TODO notify study admin
+        // notify study admin
+        $err = (string) opencpu_last_error();
+        $message = 'OpenCPU knitting HTML failed in opencpu_multistring_parse: ' . $err;
+        notify_study_admin($unitSession, $message, 'error');
         notify_user_error(opencpu_debug($session), "There was a problem dynamically knitting something to HTML using openCPU.");
         return fill_array(opencpu_string_key_parsing($string_templates));
     }
@@ -1901,7 +1904,6 @@ function notify_study_admin(UnitSession $unitSession, string $message, string $t
         // Handle the exception as needed
         // formr_log("Error notifying study admin: " . $e->getMessage(), 'ERROR');
     }
-    Notification::getInstance()->notifyStudyAdmin($unitSession, $message, $type);
 }
 
 // Convert php.ini values to bytes

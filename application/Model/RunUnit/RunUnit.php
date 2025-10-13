@@ -523,7 +523,9 @@ plot(cars)
             $this->errors['log'] = $this->getLogMessage('error_opencpu_r', 'OpenCPU R error. Fix code.' . $ocpu->getError());
             notify_user_error(opencpu_debug($ocpu), 'There was a computational error.');
 
-            // @TODO: notify study admin
+            // notify study admin about OpenCPU R error in rendering
+            $message = 'OpenCPU R error during rendering in ' . $this->type . ' at position ' . $this->position . ': ' . $ocpu->getError();
+            notify_study_admin($unitSession, $message, 'error');
             return false;
         } elseif ($admin) {
             return opencpu_debug($ocpu);

@@ -148,7 +148,7 @@ class External extends RunUnit {
                 $data['log'] = $this->getLogMessage('error_opencpu', "OpenCPU error. Fix R code. \n\n" . $error);
                 $data['wait_opencpu'] = true; // don't go anywhere, wait for the error to be fixed!
 
-                // @TODO: notify study admin
+                notify_study_admin($unitSession, 'External unit: OpenCPU error in R address evaluation. ' . $error, 'error');
                 return $data;
             } elseif ($result === false) {
                 $data['log'] = $this->getLogMessage('external_r_call_no_redirect');
