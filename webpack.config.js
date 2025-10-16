@@ -1,6 +1,7 @@
 const path = require('path');
 const webpack = require('webpack');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = (env, argv) => {
     const isWatchMode = argv.watch || false;
@@ -8,6 +9,7 @@ module.exports = (env, argv) => {
     console.log('Webpack watch mode:', isWatchMode, ' | Output dir:', outputDir);
 
     return {
+        target: ['web', 'es5'],
         mode: isWatchMode ? 'development' : 'production',
         entry: {
             material: './webroot/assets/site/js/material.js',
@@ -49,7 +51,7 @@ module.exports = (env, argv) => {
                 },
                 {
                     test: /\.css$/,
-                    use: ['style-loader', 'css-loader'],
+                    use: [MiniCssExtractPlugin.loader, 'css-loader'],
                 },
                 // Fonts
                 {
@@ -78,6 +80,10 @@ module.exports = (env, argv) => {
                 hljs: 'highlight.js',
                 'window.hljs': 'highlight.js',
             }),
+
+            new MiniCssExtractPlugin({
+                filename: 'css/[name].bundle.css',
+            }),            
 
             new CopyWebpackPlugin({
                 patterns: [
