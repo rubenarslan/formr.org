@@ -45,9 +45,22 @@ module.exports = (env, argv) => {
                 },
                 {
                     test: /\.js$/,
-                    exclude: /node_modules/,
-                    use: 'babel-loader'
-                },
+                    // Transpile all JS, including most node_modules, but skip core-js and regenerator-runtime
+                    exclude: /node_modules\/(core-js|regenerator-runtime)\//,
+                    use: {
+                      loader: 'babel-loader',
+                      options: {
+                        presets: [
+                            ['@babel/preset-env', {
+                                useBuiltIns: 'usage',
+                                corejs: { version: 3, proposals: false },
+                                targets: '> 0.2%, not dead, Chrome >= 60'
+                              }]
+                        ],
+                        sourceType: 'unambiguous'
+                      }
+                    }
+                  },
                 {
                     test: /\.css$/,
                     use: ['style-loader', 'css-loader'],
