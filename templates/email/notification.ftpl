@@ -3,7 +3,8 @@
         <p style='margin: 0;'>%{message}</p>
     </div>
     <div style='margin-top: 20px; font-size: 12px; color: #666;'>
-        <p>Study: %{run_name} </p>
+        <p>Run: %{run_name} </p>
+        <p>RunUnit: %{run_unit} </p>
         <p>Session: %{session} </p>
         <p>Time: %{date}</p>
     </div>

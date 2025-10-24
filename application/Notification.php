@@ -85,6 +85,7 @@ class Notification {
             'typeClass' => $typeClass,
             'message' => $message,
             'run_name' => $unitSession->runSession->getRun()->name,
+            'run_unit' => $unitSession->runUnit->position . '. ' . $unitSession->runUnit->type,
             'session' => $unitSession->runSession->session,
             'date' => date('Y-m-d H:i:s')
         ]);
@@ -141,10 +142,10 @@ class Notification {
         $stmt = $this->pdo->prepare("
             SELECT created 
             FROM survey_notifications 
-            WHERE run_id = ? AND session_id = ? AND recipient_id = ?
+            WHERE run_id = ? AND recipient_id = ?
             ORDER BY id DESC
         ");
-        $stmt->execute([$unitSession->runSession->getRun()->id, $unitSession->id, $unitSession->runSession->getRun()->getOwner()->id]);
+        $stmt->execute([$unitSession->runSession->getRun()->id, $unitSession->runSession->getRun()->getOwner()->id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         $now = new DateTime();
