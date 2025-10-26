@@ -134,6 +134,7 @@ function ajaxifyForm(i, elm) {
         this.initializeItemTracking();
         this.initializeClickableMap();
         this.initializeAutoSubmit();
+        this.initializeAutoSubmitOnCompletion();
         this.initializeGeolocation();
     }
 
@@ -159,6 +160,30 @@ function ajaxifyForm(i, elm) {
                 $(".white_cover").remove();
             });
         });
+    }
+
+    Survey.prototype.initializeAutoSubmitOnCompletion = function() {
+        var survey = this;
+        var $button = $("button.submit_on_all_answered");
+        if (!$button.length) {
+            return;
+        }
+
+        // This function will be called by survey.update() if the button exists
+        this.checkCompletionAndSubmit = function() {
+            // Find all form groups that are visible and are not notes or the submit button itself
+            var $visibleItems = $(".form-group:not(.hidden):not(.item-note):not(.item-submit)");
+            // From those, find the ones that have been answered
+            // The .formr_answered class is added in initializeItemTracking
+            var $answeredItems = $visibleItems.filter('.formr_answered');
+
+            // If the counts match and there are items to check, submit the form
+            if ($visibleItems.length > 0 && $visibleItems.length === $answeredItems.length) {
+                if (!$button.find('.fa-spinner').length) { // Prevent re-submission
+                    $button.click();
+                }
+            }
+        };
     }
 
     Survey.prototype.initializeGeolocation = function() {
@@ -324,6 +349,11 @@ function ajaxifyForm(i, elm) {
 
     Survey.prototype.update = function () {
         var survey = this;
+        // If we don't have an auto-submit-on-completion button, no need to define the check function
+        if (survey.checkCompletionAndSubmit === undefined) {
+            survey.checkCompletionAndSubmit = false;
+        }
+
         if (survey.dont_update) {
             return;
         }
@@ -351,6 +381,11 @@ function ajaxifyForm(i, elm) {
                     iterations++;
                 }
             }
+
+            if (survey.checkCompletionAndSubmit) {
+                survey.checkCompletionAndSubmit();
+            }
+
             survey.getProgress();
 
             survey.last_update = now;

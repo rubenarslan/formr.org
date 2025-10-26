@@ -2,7 +2,7 @@
 
 There are a lot of item types, in the beginning you will probably only need a few though. To see them in action,
 try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw/" title="Select File->Make a copy if you have a Google account, or download it as an Excel file, if you don't">Google spreadsheet</a> or <a href="<?= site_url('widgets') ?>">fill it out yourself</a>. It contains example uses of nearly every item there is.
-<h4><i class="fa fa-fw fa-info"></i> Plain display types</h4>
+<h4><br><i class="fa fa-fw fa-info"></i> Plain display types</h4>
 <dl class="dl-horizontal dl-wider">
     <dt>
         note
@@ -17,10 +17,12 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         If you want to render complex rmarkdown <a href="https://www.htmlwidgets.org/">htmlwidgets</a>, use this.
     </dd>
     <dt>
-        submit <i>timeout</i>
+        submit <i>timeout | auto</i>
     </dt>
     <dd>
-        display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for <code>showif</code> or for dynamically generating item text have been given. <br>You can specify an optional timeout/delay (in milliseconds). <br>Negative values mean that the user has to wait that long until they can click submit. <br>Positive values mean the submit button will automatically submit after that time has passed. However, if not all items are answered or optional, the user will end up on the same page and the timer will restart. To avoid that, you have to use it together with optional items. Then, it's a way to use timed submissions. The data in the item display table can be used to check how long an item was displayed and whether this matches with the server's time for when it sent the item and received the response.
+        display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for <code>showif</code> or for dynamically generating item text have been given. 
+        <br><br>You can specify an optional timeout/delay (in milliseconds). <br>Negative values mean that the user has to wait that long until they can click submit. <br>Positive values mean the submit button will automatically submit after that time has passed. However, if not all items are answered or optional, the user will end up on the same page and the timer will restart. To avoid that, you have to use it together with optional items. Then, it's a way to use timed submissions. The data in the item display table can be used to check how long an item was displayed and whether this matches with the server's time for when it sent the item and received the response.
+        <br><br>You can also set the option to <code>auto</code>, which will cause the page to be submitted automatically as soon as all visible items on the page have been answered. This can be used for e.g. creating menu-like pages.
     </dd>
 </dl>
 <h4><i class="fa fa-fw fa-keyboard-o"></i> Simple input family</h4>
