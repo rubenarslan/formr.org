@@ -22,7 +22,7 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
     <dd>
         display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for <code>showif</code> or for dynamically generating item text have been given. 
         <br><br>You can specify an optional timeout/delay (in milliseconds). <br>Negative values mean that the user has to wait that long until they can click submit. <br>Positive values mean the submit button will automatically submit after that time has passed. However, if not all items are answered or optional, the user will end up on the same page and the timer will restart. To avoid that, you have to use it together with optional items. Then, it's a way to use timed submissions. The data in the item display table can be used to check how long an item was displayed and whether this matches with the server's time for when it sent the item and received the response.
-        <br><br>You can also set the option to <code>auto</code>, which will cause the page to be submitted automatically as soon as all visible items on the page have been answered. This can be used for e.g. creating menu-like pages.
+        <br><br>You can also set the option to <code>auto</code>, which will cause the page to be submitted automatically as soon as all visible items on the page have been answered. Please note that optional items also count as visible items. This can be used for e.g. creating menu-like pages.
     </dd>
 </dl>
 <h4><i class="fa fa-fw fa-keyboard-o"></i> Simple input family</h4>

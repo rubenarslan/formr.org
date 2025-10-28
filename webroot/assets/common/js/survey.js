@@ -171,8 +171,8 @@ function ajaxifyForm(i, elm) {
 
         // This function will be called by survey.update() if the button exists
         this.checkCompletionAndSubmit = function() {
-            // Find all form groups that are visible and are not notes or the submit button itself
-            var $visibleItems = $(".form-group:not(.hidden):not(.item-note):not(.item-submit)");
+            // Find all form groups that are visible and are not notes, the submit button or iframes.
+            var $visibleItems = $(".form-group:not(.hidden):not(.item-note):not(.item-note_iframe):not(.item-block):not(.item-submit)");
             // From those, find the ones that have been answered
             // The .formr_answered class is added in initializeItemTracking
             var $answeredItems = $visibleItems.filter('.formr_answered');
