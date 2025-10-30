@@ -1,8 +1,9 @@
 <h3>Survey Item Types</h3><hr />
 
-There are a lot of item types, in the beginning you will probably only need a few though. To see them in action,
-try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw/" title="Select File->Make a copy if you have a Google account, or download it as an Excel file, if you don't">Google spreadsheet</a> or <a href="<?= site_url('widgets') ?>">fill it out yourself</a>. It contains example uses of nearly every item there is.
-<h4><br><i class="fa fa-fw fa-info"></i> Plain display types</h4>
+<p>There are a lot of item types, in the beginning you will probably only need a few though. To see them in action,
+try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw/" title="Select File->Make a copy if you have a Google account, or download it as an Excel file, if you don't">Google spreadsheet</a> or <a href="<?= site_url('widgets') ?>">fill it out yourself</a>. It contains example uses of nearly every item there is.</p>
+
+<h4><i class="fa fa-fw fa-info"></i> Plain display types</h4>
 <dl class="dl-horizontal dl-wider">
     <dt>
         note
