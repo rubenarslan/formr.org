@@ -85,7 +85,9 @@ if (isset($run) && $run instanceof Run) {
     if ($expires):
         try {
             $expires = (new DateTime($expires))->format(DateTime::ATOM);
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+            $expires = null;
+        }
     ?>
     window.unit_session_expires = <?php echo json_encode($expires); ?>;
 <?php endif; ?>
