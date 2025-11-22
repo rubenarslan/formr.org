@@ -37,10 +37,10 @@ export function initializeExpiryNotifier() {
             return;
         }
 
-        // Parse expiry date (expects "YYYY-MM-DD HH:MM:SS")
+        // Parse expiry date (expects ISO 8601)
         let expiryDate;
         try {
-            // Convert space to T for Date ISO compatibility (treated as local time)
+            // Handle both ISO 8601 (with timezone) and legacy MySQL format (space instead of T)
             expiryDate = new Date(String(window.unit_session_expires).replace(' ', 'T'));
         } catch (e) {
             console.error('ExpiryNotifier: could not parse expiry date', window.unit_session_expires, e);
