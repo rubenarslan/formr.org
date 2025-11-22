@@ -52,7 +52,7 @@
         "font-awesome": "^4.7.0",
         "hammerjs": "^2.0.8",
         "highlight.js": "^9.2.0",
-        "jquery": "^2.2.4",
+        "jquery": "^3.7.1",
         "qr-code-styling": "^1.9.1",
         "regenerator-runtime": "^0.14.1",
         "select2": "3.5.1",
