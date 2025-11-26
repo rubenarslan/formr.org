@@ -11,9 +11,13 @@ class Submit_Item extends Item {
         $this->classes_input[] = 'btn';
         $this->classes_input[] = 'btn-lg';
         $this->classes_input[] = 'btn-info';
-        if ($this->type_options !== NULL && is_numeric($this->type_options)) {
-            $this->input_attributes["data-timeout"] = $this->type_options;
-            $this->classes_input[] = "submit_automatically_after_timeout";
+        if ($this->type_options !== NULL) {
+            if (is_numeric($this->type_options)) {
+                $this->input_attributes["data-timeout"] = $this->type_options;
+                $this->classes_input[] = "submit_automatically_after_timeout";
+            } elseif (trim(strtolower($this->type_options)) === 'auto') {
+                $this->classes_input[] = "submit_on_all_answered";
+            }
         }
         $this->input_attributes['value'] = $this->label_parsed;
     }
