@@ -1,4 +1,1 @@
-ace.define("ace/snippets/verilog", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "verilog"
-})
+ace.require(["ace/snippets/verilog"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

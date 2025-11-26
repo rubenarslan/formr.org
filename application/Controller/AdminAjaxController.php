@@ -187,7 +187,7 @@ class AdminAjaxController {
         $run = $this->controller->run;
         $dbh = $this->dbh;
 
-        $run_session = new RunSession($_GET['session'], $run);
+        $run_session = new RunSession($this->request->getParam('session'), $run);
 
         if (!$run_session->endCurrentUnitSession()) {
             alert('<strong>Something went wrong with the unpause.</strong> in run ' . $run->name, 'alert-danger');
@@ -232,9 +232,9 @@ class AdminAjaxController {
         $run = $this->controller->run;
         $deleted = $this->dbh->delete('survey_run_sessions', array('id' => $this->request->getParam('run_session_id'), 'run_id' => $run->id));
         if ($deleted) {
-            alert('User with session ' . h($_GET['session']) . ' was deleted.', 'alert-info');
+            alert('User with session ' . h($this->request->getParam('session')) . ' was deleted.', 'alert-info');
         } else {
-            alert('User with session ' . h($_GET['session']) . ' could not be deleted.', 'alert-warning');
+            alert('User with session ' . h($this->request->getParam('session')) . ' could not be deleted.', 'alert-warning');
             $this->response->setStatusCode(500, 'Bad Request');
         }
 
@@ -506,6 +506,78 @@ class AdminAjaxController {
         $this->response->setContentType('application/json');
         return $this->response->setJsonContent($res);
     }
+
+    private function ajaxGenerateManifest() {
+        if (!Request::isAjaxRequest()) {
+            formr_error(406, 'Not Acceptable');
+        }
+
+        $run = $this->controller->run;
+        $result = $run->generateManifest();
+        
+        if ($result === false) {
+            $this->response->setStatusCode(500, 'Bad Request');
+            $content = array('error' => 'Failed to generate manifest');
+        } else {
+            // Decode JSON string if result is a JSON string, otherwise use as-is
+            $content = is_string($result) ? json_decode($result, true) : $result;
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                // If JSON decoding fails, return the raw result
+                $content = array('data' => $result);
+            }
+        }
+
+        $this->response->setContentType('application/json');
+        return $this->response->setJsonContent($content);
+    }
+
+    // +++++ PWA ICON ACTIONS +++++
+
+    private function ajaxUploadPwaIconFolder() {
+        $run = $this->controller->run;
+
+        $success = false;
+        $batch_directory_path = null;
+    
+        if (!empty($_FILES['pwa_icon_files'])) {
+            $batch_directory_path = $run->uploadFiles($_FILES['pwa_icon_files']);
+            
+            if ($batch_directory_path !== false) { 
+                if ($run->setUploadedPwaIconsPath($batch_directory_path)) {
+                    if ($run->generateManifest()) {
+                        $run->messages[] = "PWA icon manifest regenerated.";
+                    } else {
+                         $run->errors[] = "Could not regenerate PWA manifest with new icon path.";
+                    }
+                    $success = true;
+                }
+            } 
+        } else {
+            $run->errors[] = 'No PWA icon files were uploaded.';
+        }
+    
+        $final_messages = array_merge($run->messages, $run->errors);
+        $this->response->setJsonContent(array('success' => $success && empty($run->errors), 'messages' => $final_messages));
+    }
+    
+    private function ajaxClearPwaIcons() {
+        $run = $this->controller->run;
+
+        $success = false;
+        if ($run->clearPwaIcons()) {
+            if ($run->generateManifest()) {
+                 $run->messages[] = "PWA icon manifest reverted to defaults.";
+            } else {
+                $run->errors[] = "Could not regenerate PWA manifest after clearing icon path.";
+            }
+            $success = true;
+        }
+        
+        $final_messages = array_merge($run->messages, $run->errors);
+        $this->response->setJsonContent(array('success' => $success && empty($run->errors), 'messages' => $final_messages));
+    }
+
+    // --- End PWA Icon Actions ---
 
     protected function getPrivateAction($name) {
         $parts = array_filter(explode('_', $name));

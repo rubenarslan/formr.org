@@ -231,28 +231,6 @@ a.btn.btn-checked {
     text-decoration: none;
 }
 
-.login-form {
-    position: absolute;
-    left: 0px;
-    right: 0px;
-    top: 0px;
-    bottom: 0px;
-    background-color: rgb(255, 255, 255);
-    text-align: center;
-    box-shadow: rgba(0, 0, 0, 0.05) 0px 2px 6px 0px;
-    width: 660px;
-    height: 660px;
-    margin: auto;
-    padding: 48px 150px;
-    border-radius: 8px;
-}
-.login-form .close {
-    font-size: 6rem;
-    font-weight: 300;
-    position: absolute;
-    right: 25px;
-    top: 22px;
-}
 
 @media screen and (max-width: 480px) {
 	.login-form {
@@ -293,4 +271,54 @@ a.btn.btn-checked {
 .top-alerts {
     z-index: 1000;
     position: absolute;
+}
+.skin-black .wrapper {
+    min-height: 100vh;
+    height: auto;
+    position: relative;
+    background-color: transparent;
+
+}
+
+body.skin-black {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 0;
+}
+
+body.skin-black .content-wrapper {
+    flex: 1 1 auto;
+    min-height: 100vh;
+    height: auto;
+    box-sizing: content-box;
+    margin-bottom: 100px;
+}
+
+.main-footer {
+    flex-shrink: 0;
+    width: 100vw;
+    min-height: 40px;
+    margin-top: 100px;
+    box-sizing: border-box;
+    border-top: 1px solid #efefef;
+    padding: 15px;
+}
+
+.login-form {
+    background: white padding-box padding-box;
+    text-align: center;
+    box-shadow: rgba(0, 0, 0, 0.05) 0px 2px 6px 0px;
+    width: 660px;
+    height: auto;
+    margin: 15px auto;
+    padding: 48px 150px;
+    border-radius: 8px;
+}
+.login-form .close {
+    font-size: 6rem;
+    font-weight: 300;
+    position: relative;
+    right: -100px;
+    top: -40px;
 }

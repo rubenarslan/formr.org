@@ -331,6 +331,7 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
+
     private function exportDataAction() {
         $run = $this->run;
         $format = $this->request->str('format');
@@ -522,6 +523,20 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
+    private function pushMessageLogAction() {
+        $queryparams = array('run_id' => $this->run->id);
+        $helper = new RunHelper($this->run, $this->fdb, $this->request);
+        $table = $helper->getPushMessageLogTable($queryparams);
+
+        $this->setView('run/push_message_log', array(
+            'messages' => $table['data'],
+            'currentUser' => $this->user,
+            'pagination' => $table['pagination'],
+        ));
+        
+        return $this->sendResponse();
+    }
+
     private function deleteRunAction() {
         $run = $this->run;
         if (Request::isHTTPPostRequest() && $this->request->getParam('delete') && $this->request->getParam('delete_confirm') === $run->name) {
@@ -538,15 +553,6 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
-    private function cronLogAction() {
-        $parser = new LogParser();
-        $parse = $this->run->name . '.log';
-        $vars = get_defined_vars();
-
-        $this->setView('run/cron_log_parsed', $vars);
-        return $this->sendResponse();
-    }
-    
     private function sessionsQueueAction() {
         $this->setView('run/sessions_queue', array(
             'stmt' => UnitSessionQueue::getRunItems($this->run),
@@ -590,8 +596,23 @@ class AdminRunController extends AdminController {
                 $SPR->exportJSON($export, $name);
             }
         } else {
-            alert('Run Export: Missing run units or invalid run name enterd.', 'alert-danger');
+            alert('Run Export: Missing run units or invalid run name entered.', 'alert-danger');
             $this->request->redirect(admin_run_url($run->name));
+        }
+    }
+
+
+    private function exportRunStructureAction() {
+        $run = $this->run;
+        $name = $run->name;
+        $site = $this->site;
+
+        if (!($export = $run->exportStructure())) {
+            $this->response->setStatusCode(500, 'Bad Request');
+            return $this->sendResponse($site->renderAlerts());
+        } else {
+            $SPR = new SpreadsheetReader();
+            $SPR->exportJSON($export, $name);
         }
     }
 
@@ -692,6 +713,10 @@ class AdminRunController extends AdminController {
             'Email' => array(
                 'title' => 'Add Email',
                 'icon' => 'fa-envelope',
+            ),
+            'PushMessage' => array(
+                'title' => 'Add Push Notification',
+                'icon' => 'fa-bell',
             ),
             'SkipBackward' => array(
                 'title' => 'Add a loop (Skip Backwards)',

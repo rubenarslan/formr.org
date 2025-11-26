@@ -147,6 +147,7 @@ abstract class Controller {
         if (!$files || !in_array($type, array('js', 'css'))) {
             return;
         }
+
         if (!is_array($files)) {
             $files = array($files);
         }
@@ -159,14 +160,9 @@ abstract class Controller {
     }
 
     protected function registerAssets($which) {
-        $assets = get_assets();
-        if (!is_array($which)) {
-            $which = array($which);
-        }
-        foreach ($which as $asset) {
-            $this->registerCSS(array_val($assets[$asset], 'css'), $asset);
-            $this->registerJS(array_val($assets[$asset], 'js'), $asset);
-        }
+        $assets = Config::get('assets.' . $which);
+        $this->registerCSS(array_val($assets, 'css', []), $which);
+        $this->registerJS (array_val($assets, 'js', []), $which);
     }
 
     protected function unregisterAssets($which) {
@@ -214,6 +210,9 @@ abstract class Controller {
         // URLs
         $config['site_url'] = site_url();
         $config['admin_url'] = admin_url();
+        if($this->run) {
+            $config['run_url'] = run_url($this->run->name);
+        }
         // Cookie consent
         $cookieconsent = Site::getSettings('js:cookieconsent', '{}');
         if ($cookieconsent && ($decoded = json_decode($cookieconsent, true))) {

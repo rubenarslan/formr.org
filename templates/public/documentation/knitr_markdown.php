@@ -7,7 +7,7 @@
     Markdown
 </h5>
 <p>
-    You can format text/feedback everywhere (i.e. item labels, choice labels, the feedback shown in pauses, stops, in emails) in a natural fashion using <a href="http://daringfireball.net/projects/markdown/syntax" title="Go to this link for a more exhaustive guide">Github-flavoured Markdown</a>.<br>
+    You can format text/feedback everywhere (i.e. item labels, choice labels, the feedback shown in pauses, stops, in emails) in a natural fashion using <a href="https://daringfireball.net/projects/markdown/syntax" title="Go to this link for a more exhaustive guide">Github-flavoured Markdown</a>.<br>
     The philosophy is that you write like you would in a plain-text email and Markdown turns it nice.<br>
     In most cases, characters with special meaning won't entail unintended side effects if you use them normally, but if you ever need to specify that they shouldn't have side effects, escape it with a backslash: <code>\*10\*</code> doesn't turn italic. 
 </p>
@@ -30,20 +30,20 @@
 <p>
     <code>*<em>italics</em>* and __<strong>bold</strong>__</code> are also easy to do.
 </p>
-<p><code>[<a href="http://yihui.name/knitr/">Named links</a>](http://yihui.name/knitr/)</code> and embedded images <code>![image description](http://imgur.com/imagelink)</code> are easy. If you simply paste a link, it will be clickable automatically too, even easier. Email addresses are a bit special, you need the "mailto:" prefix: [<a href="mailto:contact_email@example.com">Contact us</a>](mailto:contact_email@example.com).
+<p><code>[<a href="https://yihui.name/knitr/">Named links</a>](https://yihui.name/knitr/)</code> and embedded images <code>![image description](https://imgur.com/imagelink)</code> are easy. If you simply paste a link, it will be clickable automatically too, even easier. Email addresses are a bit special, you need the "mailto:" prefix: [<a href="mailto:contact_email@example.com">Contact us</a>](mailto:contact_email@example.com).
 </p>
 
 <p>
     You can quote something by placing a &gt; at the beginning of the line.
 </p>
 <p>
-    If you're already familiar with <a href="https://en.wikipedia.org/wiki/HTML"><abbr title="Hypertext Markup Language">HTML</abbr></a> you can also use that instead, though it is a little less readable for humans. Or mix it with Markdown! You may for example use it to go beyond Markdown's features and e.g. add icons to your text using <code>&lt;i class="fa fa-smile-o"&gt;&lt;/i&gt;</code> to get <i class="fa fa-smile-o"></i> for instance. Check the full set of available icons at <a href="http://fontawesome.io/icons/">Font Awesome</a>.
+    If you're already familiar with <a href="https://en.wikipedia.org/wiki/HTML"><abbr title="Hypertext Markup Language">HTML</abbr></a> you can also use that instead, though it is a little less readable for humans. Or mix it with Markdown! You may for example use it to go beyond Markdown's features and e.g. add icons to your text using <code>&lt;i class="fa fa-smile-o"&gt;&lt;/i&gt;</code> to get <i class="fa fa-smile-o"></i> for instance. Check the full set of available icons at <a href="https://fontawesome.io/icons/">Font Awesome</a>.
 </p>
 <h5>
     Knitr
 </h5>
 <p>
-    If you want to customise the text or generate custom feedback, including plots, you can use <a href="http://yihui.name/knitr/">Knitr</a>. Thanks to Knitr you can freely mix Markdown and chunks of R. You can load data using R commands, but the data you just collected for this participant will automatically be made available as R data frames. See <a href="<?=site_url("documentation/#r_helpers")?>">R helpers</a> for more information.
+    If you want to customise the text or generate custom feedback, including plots, you can use <a href="https://yihui.name/knitr/">Knitr</a>. Thanks to Knitr you can freely mix Markdown and chunks of R. You can load data using R commands, but the data you just collected for this participant will automatically be made available as R data frames. See <a href="<?=site_url("documentation/#r_helpers")?>">R helpers</a> for more information.
      Some examples:
 </p>
 <ul class="fa-ul">

@@ -14,7 +14,7 @@
 						<?php if (array_val($settings, 'content:studies:show', 'true') === 'true'): ?>
                             <li><a href="<?php echo site_url('studies'); ?>">Studies</a></li>
                         <?php endif; ?>
-						<li><a href="<?= array_val($settings, 'footer:link:policyurl') ?>" target="_blank">Privacy Policy</a></li>
+						<li><a href="<?= site_url("privacy_policy") ?>">Privacy Policy</a></li>
 					</ul>
 				</div>
 			</div>
@@ -26,7 +26,7 @@
                         <?php if (array_val($settings, 'content:docu:show', 'true') === 'true'): ?>
                             <li><a href="<?= site_url('documentation#help')?>">How to get help</a></li>
                         <?php endif; ?>
-						<li><a href="https://groups.google.com/d/forum/formr">formr google group</a></li>
+						<li><a href="https://github.com/rubenarslan/formr.org/discussions">formr Github discussions</a></li>
 						<li><a href="https://github.com/rubenarslan/formr.org">formr github</a></li>
 					</ul>
 				</div>

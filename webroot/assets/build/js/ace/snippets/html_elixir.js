@@ -1,4 +1,1 @@
-ace.define("ace/snippets/html_elixir", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "html_elixir"
-})
+ace.require(["ace/snippets/html_elixir"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

@@ -1,6 +1,6 @@
 <?php
 
-define('FORMR_VERSION', 'v0.22.0');
+define('FORMR_VERSION', file_get_contents(__DIR__ . '/VERSION'));
 
 define('APPLICATION_ROOT', __DIR__ . '/');
 define('INCLUDE_ROOT', APPLICATION_ROOT);
@@ -104,4 +104,15 @@ __formr_setup($settings);
 
 // Check if maintenance is ongoing
 formr_check_maintenance();
+
+
+// Get session context information
+$session_info = determine_session_context();
+
+// Define constants based on the returned values
+define('SESSION_PATH', $session_info['path']);
+define('SESSION_CONTEXT', $session_info['context']);
+if (!empty($session_info['study_name'])) {
+    define('STUDY_NAME', $session_info['study_name']);
+}
 

@@ -695,7 +695,9 @@ class SurveyStudy extends Model {
                 $get_all = false;
             }
             if ($this->unlinked) {
-                $columns = array();
+                $columns = array_map(function($item) use ($results_table) {
+                    return "`{$results_table}`.`" . $item . "`";
+                }, $items);
                 // considered showing data for test sessions, but then researchers could set real users to "test" to identify them
                 /* 				$columns = array(
                   "IF(survey_run_sessions.testing, survey_run_sessions.session, '') AS session",
@@ -728,8 +730,16 @@ class SurveyStudy extends Model {
                 }
                 $select->order($order_by, $order);
                 $select->limit($paginate['limit'], $paginate['offset']);
+            } else {
+                if ($this->unlinked) {
+                    $order_by = "RAND()";
+                }
+                if(isset($order_by)) {
+                    $select->order($order_by);
+                }
             }
-
+            
+            
             if (!empty($filter['session'])) {
                 $session = $filter['session'];
                 strlen($session) == 64 ? $select->where("survey_run_sessions.session = '$session'") : $select->like('survey_run_sessions.session', $session, 'right');
@@ -830,6 +840,7 @@ class SurveyStudy extends Model {
 
     public function getResultsByItemsPerSession($items = array(), $filter = null, array $paginate = null, $rstmt = false) {
         if ($this->unlinked) {
+            alert("You cannot view detailed results once you've unlinked a survey", 'alert-warning');
             return array();
         }
         ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
@@ -958,7 +969,11 @@ class SurveyStudy extends Model {
             $this->errors[] = 'Deleting run specific results for a survey is not yet implemented';
             return false;
         } elseif ($this->backupResults()) {
+
+            // Delete results table
             $delete = $this->db->query("TRUNCATE TABLE `{$this->results_table}`");
+
+            // Delete unit sessions/long format results
             $delete_item_disp = $this->db->delete('survey_unit_sessions', array('unit_id' => $this->id));
             return $delete && $delete_item_disp;
         } else {
@@ -1057,12 +1072,35 @@ class SurveyStudy extends Model {
             if (($filename = $this->getOriginalFileName())) {
                 @unlink(Config::get('survey_upload_dir') . '/' . $filename);
             }
-            
+                        
             $this->db->query('DELETE FROM survey_items WHERE study_id = ' . $this->id);
             return $this->db->query('DELETE FROM survey_units WHERE id = ' . $this->id);
         }
         
         return false;
+    }
+
+    /**
+     * Fetch all uploaded files associated with this study
+     */
+    public function getUploadedFiles() {
+        return $this->db->select(['id', 'study_id', 'unit_session_id', 'original_filename', 'created', 'stored_path'])
+            ->from('user_uploaded_files')
+            ->where(['study_id' => $this->id]);
+    }
+
+    /**
+     * Delete all uploaded files associated with this study
+     */
+    protected function deleteUploadedFiles() {
+        $files = $this->getUploadedFiles()->fetchAll();
+
+        foreach ($files as $file) {
+            $filepath = APPLICATION_ROOT . $file['stored_path'];
+            if (file_exists($filepath)) {
+                @unlink($filepath);
+            }
+        }
     }
 
     /**

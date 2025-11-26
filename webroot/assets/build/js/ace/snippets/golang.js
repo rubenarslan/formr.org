@@ -1,4 +1,1 @@
-ace.define("ace/snippets/golang", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "golang"
-})
+ace.require(["ace/snippets/golang"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

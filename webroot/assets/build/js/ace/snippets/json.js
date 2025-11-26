@@ -1,4 +1,1 @@
-ace.define("ace/snippets/json", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "json"
-})
+ace.require(["ace/snippets/json"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

@@ -26,6 +26,7 @@
                                 <li><a href="#privacy" data-toggle="tab" aria-expanded="false">Privacy</a></li>
                                 <li><a href="#css" data-toggle="tab" aria-expanded="false">CSS</a></li>
                                 <li><a href="#js" data-toggle="tab" aria-expanded="false">JS</a></li>
+                                <li><a href="#manifest" data-toggle="tab" aria-expanded="false">App</a></li>
                                 <li><a href="#service_message" data-toggle="tab" aria-expanded="false">Service message</a></li>
                                 <li><a href="#reminder" data-toggle="tab" aria-expanded="false">Reminder</a></li>
                                 <li><a href="#overview_script" data-toggle="tab" aria-expanded="false">Overview</a></li>
@@ -47,35 +48,17 @@
                                                 <input type="text" maxlength="255" placeholder="URL" name="header_image_path" class="form-control" value="<?= h($run->header_image_path); ?>" />
                                             </div>
 
-                                            <div class="checkbox form-group"  style="margin-bottom: 15px;">
-                                                <div class="col-md-6">
-                                                    <strong>Cron</strong>
-                                                    <p>Enable pause expiration, automatic email sending and other automated operations.</p>
-                                                    <label>
-                                                        <input type="hidden" name="cron_active" value="0" />
-                                                        <input type="checkbox" name="cron_active" <?= ($run->cron_active) ? 'checked' : '' ?> value="1"> Enable cron.
-                                                    </label>
-                                                </div>
-                                                <div class="checkbox col-md-6">
-                                                    <strong>Look &amp; Feel</strong>
-                                                    <p>
-                                                        You can enable <a target="_blank" href="http://fezvrasta.github.io/bootstrap-material-design/">Material Design</a> to have a nicer
-                                                        look and feel for your study. Some input items from third party packages
-                                                        may not change though.
-                                                    </p>
-                                                    <label title="Material Design style is deprecated as of v0.22.0.">
-                                                        <input type="hidden" name="use_material_design" value="0" />
-                                                        <input type="checkbox" name="use_material_design" <?= ($run->use_material_design) ? 'checked' : 'disabled' ?> value="1"> Enable Material Design.
-                                                    </label>
-
-                                                </div>
-
-                                            </div>
                                             <div class="form-group" style="margin-bottom: 15px;">
                                                 <div class="col-md-6">
-                                                    <strong>Session Lifetime</strong>
+                                                    <label for="expiresOn">Expires On</label>
+                                                    <p>If set, the data in this run will be deleted after the specified date. You will receive email reminders before this happens. Under <abbr title="General Data Protection Regulation">GDPR</abbr>, you are required to delete personal data once it is no longer necessary for the purpose for which it was collected. It is up to you to know what period of data retention is reasonable. <br>If you did not collect personal data, you do not need to delete data. However, do consider that even seemingly anonymous data can sometimes be combined with other data to identify individuals, so deletion may still be prudent.</p>
+                                                    <p>The maximum expiry date is in <?php echo Config::get('keep_study_data_for_months_maximum'); ?> months.</p>
+                                                    <input class="form-control" type="date" name="expiresOn" id="expiresOn" placeholder="<?php echo date('Y-m-d', strtotime('+' . Config::get('keep_study_data_for_months_maximum') . ' months')); ?>" value="<?php echo $run->expiresOn; ?>">
+                                               </div>
+                                                <div class="col-md-6">
+                                                    <strong>Cookie/Session Lifetime</strong>
                                                     <p>
-                                                        Configure how long a study session is allowed to expire. This is the amount of time a participant is given to complete a study from the time he/she last accessed the study.
+                                                        Configure how long a user session cookie will last. Once the cookie expires, the user will be logged out.
                                                     </p>
                                                     <div class="input-group">
                                                         <div class="input-group-addon"> Expire After </div>
@@ -91,18 +74,44 @@
                                                     </div>
                                                 </div>
                                             </div>
+
+
+                                            <div class="checkbox form-group"  style="margin-bottom: 15px;">
+                                                <div class="col-md-6">
+                                                    <strong>Automated actions</strong>
+                                                    <p>Enable pause expiration, automatic email sending and other automated operations. Disable if automated actions are not desired, necessary or something seems to be going wrong.</p>
+                                                    <label>
+                                                        <input type="hidden" name="cron_active" value="0" />
+                                                        <input type="checkbox" name="cron_active" <?= ($run->cron_active) ? 'checked' : '' ?> value="1"> Enable automated actions.
+                                                    </label>
+                                                </div>
+                                                <div class="checkbox col-md-6">
+                                                    <strong>Look &amp; Feel</strong>
+                                                    <p>
+                                                        We previously offered an alternative style for surveys, <a target="_blank" href="https://fezvrasta.github.io/bootstrap-material-design/">Material Design</a>. To reduce maintenance burden, we have deprecated this option. If you previously enabled this option, you can still use it, but once you turn it off, you will not be able to turn it back on.
+                                                    </p>
+                                                    <label title="Material Design style is deprecated as of v0.22.0.">
+                                                        <input type="hidden" name="use_material_design" value="0" />
+                                                        <input type="checkbox" name="use_material_design" <?= ($run->use_material_design) ? 'checked' : 'disabled' ?> value="1"> Enable Material Design.
+                                                    </label>
+
+                                                </div>
+                                            </div>
+                                            
                                             <div class="form-group">
-                                                <label title="Will be shown on every page of the run">Description</label>
-                                                <textarea data-editor="markdown" placeholder="Description" name="description" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->description); ?></textarea>
+                                                <label for="description">Description</label>
+                                                <p>Will be shown at the top of every page of the study. Optional.</p>
+                                                <textarea data-editor="markdown" placeholder="Description" name="description" id="description" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->description); ?></textarea>
                                             </div>
                                             <div class="form-group">
                                                 <p>Your Imprint should contain information about who is responsible for the study, and how they can be contacted. It should also link to your privacy policy and in some cases to the settings page, where users can unsubscribe from emails and log out.</p>
-                                                <label title="Will be shown on every page of the run, good for contact info">Imprint/Footer text</label>
-                                                <textarea data-editor="markdown" placeholder="Footer text" name="footer_text" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->footer_text); ?></textarea>
+                                                <label title="Will be shown on every page of the run, good for contact info" for="footer_text">Imprint/Footer text</label>
+                                                <textarea data-editor="markdown" placeholder="Footer text" name="footer_text" id="footer_text" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->footer_text); ?></textarea>
                                             </div>
                                             <div class="form-group">
-                                                <label title="This will be the description of your study shown on the public page">Public blurb</label>
-                                                <textarea data-editor="markdown" placeholder="Blurb" name="public_blurb" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->public_blurb); ?></textarea>
+                                                <label title="This will be the description of your study shown on the public page" for="public_blurb">Public blurb</label>
+                                                <p>This will be the description of your study shown on the <a href="<?php echo site_url("/public/studies"); ?>" target="_blank">public page</a>. Optional.</p>
+                                                <textarea data-editor="markdown" placeholder="Blurb" name="public_blurb" id="public_blurb" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->public_blurb); ?></textarea>
                                             </div>
 
 
@@ -172,7 +181,7 @@
                                         </p>
                                         <h4><i class="fa fa-javascript"></i> JavaScript</h4>
                                         <p>
-                                            Javascript allows you to apply custom scripts to every page of your study. This is a fully-fledged programming language. You can use it to make things move, give dynamic hints to the user and so on. Learn about <a href="http://www.codecademy.com/tracks/javascript">JS at Codecademy.com</a>.
+                                            Javascript allows you to apply custom scripts to every page of your study. This is a fully-fledged programming language. You can use it to make things move, give dynamic hints to the user and so on. Learn about <a href="https://www.codecademy.com/tracks/javascript">JS at Codecademy.com</a>.
                                         </p>
                                         <div class="form-group col-md-12">
                                             <textarea data-editor="javascript" placeholder="Enter your custom JS here" name="custom_js" rows="40" cols="80" class="big_ace_editor form-control"><?= h($run->getCustomJS()); ?></textarea>
@@ -182,6 +191,54 @@
                                     <div class="clear clearfix"></div>
                                 </div>
                                 <!-- /.tab-pane -->
+                                <div class="tab-pane" id="manifest">
+                                <h3 id="app_heading">App</h3>
+                                <p>Formr studies can be installed as a PWA (Progressive Web App) on the home screen. This allows you to send push notifications to users to invite them to return to the study, e.g. for experience sampling studies. </p>
+                                <h4><i class="fa fa-folder-open"></i> PWA Icons & Splash Screens</h4>
+                                    <form class="form-horizontal" enctype="multipart/form-data" id="pwa_icons_form" method="post" action="<?php echo admin_run_url($run->name, 'ajax_upload_pwa_icon_folder'); ?>">
+                                        <div class="form-group col-md-12">
+                                            <label for="pwa_icon_folder_input">Upload PWA Icon/Splash Screen Folder</label>
+                                            <p>
+                                                Upload a folder containing your PWA icons and splash screens (e.g., <code>icon.png</code>, <code>maskable_icon.png</code>, <code>apple-touch-icon.png</code>, <code>iPhone_XR_portrait.png</code>, etc.).
+                                                This will replace any previously uploaded PWA icon set. The specific filenames needed are referenced in the manifest (see above) and by the system for apple touch icons. 
+                                                The uploaded folder's path will be stored. Ensure the filenames within your folder match those expected. You can use <a href="https://progressier.com/pwa-icons-and-ios-splash-screen-generator">this tool</a> to generate these images from one image with the right file names.
+                                            </p>
+                                            <input type="file" name="pwa_icon_files[]" id="pwa_icon_folder_input" webkitdirectory directory multiple class="form-control">
+                                            <?php if ($run->getPwaIconPath()): ?>
+                                                <p class="help-block">Currently set PWA icon path: <code><?php echo h($run->getPwaIconPath()); ?></code></p>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="form-group col-md-12">
+                                            <button type="submit" class="btn btn-primary"><i class="fa fa-upload"></i> Upload PWA Icon Folder</button>
+                                            <?php if ($run->getPwaIconPath()): ?>
+                                                <button type="button" id="clear_pwa_icons_button" data-action-url="<?php echo admin_run_url($run->name, 'ajax_clear_pwa_icons'); ?>" class="btn btn-danger pull-right"><i class="fa fa-trash"></i> Clear PWA Icons</button>
+                                            <?php endif; ?>
+                                        </div>
+                                    </form>
+                                    <hr />
+
+                                
+                                    <form class="form-horizontal" enctype="multipart/form-data" id="run_settings" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
+                                        <p class="pull-right">
+                                            <button data-href="<?php echo admin_run_url($run->name, 'ajax_generate_manifest'); ?>" class="btn btn-default generate-manifest"><i class="fa fa-magic"></i> Generate Manifest</button>
+                                            <input type="submit" name="submit_settings" value="Save Manifest Text" class="btn btn-primary save_settings">
+                                        </p>
+                                        <h4><i class="fa fa-cogs"></i> App Manifest</h4>
+                                        <p>
+                                            To make PWAs work, you need to generate a manifest.json file in the study/run settings. Just click the button with the magic wand to generate a manifest.json file based on your run settings. You can then customize it further. A manifest.json file is required for the PWA (adding to home screen, push notifications) to work.
+                                        </p>
+                                        <p>
+                                            If you don't eschew the effort, you can package your PWA and distribute via one of the app stores. For a report on your PWA, customize your manifest, make your study public and see <a href="https://www.pwabuilder.com/reportcard?site=<?php echo run_url($run->name); ?>" target="_blank">PWA report on PWA Builder</a>.
+                                        </p>
+
+                                    
+                                        <div class="form-group col-md-12">
+                                            <textarea data-editor="json" placeholder="Enter your manifest JSON here" name="manifest_json"  id="manifest_json" rows="25" cols="80" class="big_ace_editor form-control"><?= h($run->getManifestJSON()); ?></textarea>
+                                        </div>
+                                    </form>
+
+                                    <div class="clear clearfix"></div>
+                                </div>
                                 <div class="tab-pane" id="service_message">
                                     <div class="col-md-12">
                                         <div class="add">
@@ -238,10 +295,10 @@
                                             <ul class="fa-ul fa-ul-more-padding">
                                                 <li><i class="fa-li fa fa-code"></i> In here, you can use Markdown and R interspersed to make a custom overview for your study.</li>
                                                 <li><i class="fa-li fa fa-lg fa-thumb-tack"></i> Useful commands to start might be <pre><code class="r">nrow(survey_name) # get the number of entries
-        table(is.na(survey_name$ended)) # get finished/unfinished entries
-        table(is.na(survey_name$modified)) # get entries where any data was entered vs not
-        library(ggplot2)
-        qplot(survey_name$created) # plot entries by startdate</code></pre></li>
+table(is.na(survey_name$ended)) # get finished/unfinished entries
+table(is.na(survey_name$modified)) # get entries where any data was entered vs not
+library(ggplot2)
+qplot(survey_name$created) # plot entries by startdate</code></pre></li>
                                             </ul>
                                             <?php if (empty($overview_scripts)): ?>
                                                 <a href="<?= admin_run_url($run->name, 'create_run_unit?type=Page&special=OverviewScriptPage&redirect=settings:::overview_script') ?>" class="btn btn-default pull-right add_run_unit"><i class="fa fa-plus"></i> Add Overview Script</a>

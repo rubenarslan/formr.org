@@ -11,24 +11,21 @@ suspend the account.
 If you signed up with a valid referral token, you will 
 automatically be able to create new studies (rather 
 than just take part).
-If you have no such token, please reply to this email 
-and tell us why you should get access (we're happy 
-about new users, but want to know a little about what 
-you plan to do).
+You will also have the option to register a second factor
+for two-factor authentication.
+If you have no such token, this instance's administrator might
+be able to help you.
 
 To get help with conducting studies, refer to the help 
 section here.
 We have provided copious documentation and some detailed 
-HowTos, but there also is a mailing list to which you 
+HowTos, but there also is a discussion group to which you 
 can write if you need more help. 
 %{documentation_url}
 
-While you have a live study on formr, you should be 
-signed up to the mailing list, so that you hear 
-quickly if there will be a big update or if there
-might be trouble with formr. 
-There are fewer than two messages per month on the list.
-https://groups.google.com/forum/#!forum/formr
+We recommend subscribing to the discussion group, so you will
+receive notifications about new features and important updates.
+https://github.com/rubenarslan/formr.org/discussions
 
 Best regards,
 

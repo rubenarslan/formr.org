@@ -1,4 +1,1 @@
-ace.define("ace/snippets/twig", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "twig"
-})
+ace.require(["ace/snippets/twig"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

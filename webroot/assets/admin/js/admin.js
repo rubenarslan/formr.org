@@ -1,9 +1,6 @@
-/*
- * Admin > Run
- * -----------------------
- *
- */
-jQuery(document).ready(function() {
+//import $ from 'jquery';
+
+$(document).ready(function() {
 	// Select all checkbox in 'Users overview'
 	$('#user-overview-select-all').click(function() {
 		var $select = $(this);
@@ -23,4 +20,5 @@ jQuery(document).ready(function() {
 			$(l).trigger('click');
 		}
 	});
+
 });

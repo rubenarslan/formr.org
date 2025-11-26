@@ -1,4 +1,1 @@
-ace.define("ace/snippets/matlab", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "matlab"
-})
+ace.require(["ace/snippets/matlab"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

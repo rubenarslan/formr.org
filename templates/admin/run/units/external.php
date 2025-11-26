@@ -15,7 +15,7 @@
     <label>Expire after <input type="number" style="width:80px" name="expire_after" class="form-control" value="<?= $expire_after ?>"> minutes</label>
 </p>
 <p>
-    Enter a URL like <code>http://example.org?code={{login_code}}</code> and the user will be sent to that URL, 
+    Enter a URL like <code>https://example.org?code={{login_code}}</code> and the user will be sent to that URL, 
     replacing <code>{{login_code}}</code> with that user's code. <br />
     Enter R-code to e.g. send more data along:<br/> <code>paste0('http:example.org?code={{login_link}}&age=', demographics$age)</code>.
 </p>

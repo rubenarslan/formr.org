@@ -131,10 +131,10 @@ $settings['content_settings']['content:studies:show'] = true;
 $settings['content_settings']['content:publications:show'] = true;
 $settings['content_settings']['content:publications'] = '';
 $settings['content_settings']['content:terms_of_service'] = '';
+$settings['content_settings']['content:privacy_policy'] = '';
 $settings['content_settings']['content:file_upload_terms'] = '';
 $settings['content_settings']['content:file_upload_require_active_consent'] = false;
 
-$settings['content_settings']['footer:link:policyurl'] = '/info';
 $settings['content_settings']['footer:link:logourl'] = '';
 $settings['content_settings']['footer:link:logolink'] = '';
 $settings['content_settings']['footer:imprint'] = '';
@@ -205,7 +205,7 @@ $settings['social_share'] = array(
 		'height' => 400,
 	),
 	'twitter' => array(
-		'url' => 'http://twitter.com/share?url=%{url}&text=%{title}',
+		'url' => 'https://twitter.com/share?url=%{url}&text=%{title}',
 		'target' => '_blank',
 		'width' => 300,
 		'height' => 400,
@@ -239,7 +239,7 @@ $settings['allowed_empty_pages'] = 100;
 // Run unit session settings for the sessions queue
 $settings['unit_session'] = array(
 	// String representing howmany minutes to set as default expiration for unit sessions
-	// @see http://php.net/manual/en/function.strtotime.php
+	// @see https://php.net/manual/en/function.strtotime.php
 	'queue_expiration_extension' => '+10 minutes',
 	// use db queue for processing unit sessions
 	'use_queue' => true,
@@ -281,7 +281,7 @@ $settings['in_maintenance'] = false;
 $settings['maintenance_ips'] = [];
 
 // curl settings that override the default settings in the CURL class
-// Use exact PHP constants as defined in http://php.net/manual/en/function.curl-setopt.php
+// Use exact PHP constants as defined in https://php.net/manual/en/function.curl-setopt.php
 $settings['curl'] = array(
 	CURLOPT_SSL_VERIFYPEER => true,
 	CURLOPT_SSL_VERIFYHOST => 2,
@@ -304,3 +304,23 @@ $settings['copy_context'] = array(
 		"verify_peer_name" => false,
 	)
 );
+
+// Settings for 2FA
+$settings['2fa'] = array(
+    'enabled' => true, // whether 2FA is enabled for the instance
+    'required' => false, // whether 2FA is required for all users
+    'allow_during_signup' => false
+);
+
+// Run session lock timeout settings (in seconds)
+$settings['run_session'] = array(
+    'lock_timeout' => array(
+        'queue' => 0.1,  // Queue should fail fast (0.1 seconds)
+        'user' => 10.0   // Users can wait longer (10 seconds)
+    )
+);
+
+// How long to keep study data, i.e. what is the maxmimum expiry that can be set in a run
+// To allow users to keep study data indefinitely, set this to INF
+$settings['keep_study_data_for_months_maximum'] = 84;
+

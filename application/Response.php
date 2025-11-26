@@ -247,7 +247,7 @@ class Response {
     /**
      * Send caching header
      *
-     * @param string $duration Any string supported my PHP's strtotime() function (http://php.net/manual/en/function.strtotime.php)
+     * @param string $duration Any string supported my PHP's strtotime() function (https://php.net/manual/en/function.strtotime.php)
      * @param bool $public
      * @return Response
      */

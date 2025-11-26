@@ -1,4 +1,1 @@
-ace.define("ace/snippets/mysql", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "mysql"
-})
+ace.require(["ace/snippets/mysql"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

@@ -52,7 +52,7 @@ class Pause extends RunUnit {
         $parsedown = new ParsedownExtra();
         $parsedown->setBreaksEnabled(true);
 
-        if (!knitting_needed($this->body)) {
+        if (!knitting_needed($this->body) && !empty($this->body)) {
             $this->body_parsed = $parsedown->text($this->body); // transform upon insertion into db instead of at runtime
         }
 

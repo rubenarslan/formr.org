@@ -721,7 +721,8 @@ class SpreadsheetReader {
                         $type = $typeOptions[0];
                         unset($typeOptions[0]);
                         if (!empty($typeOptions[1]) &&
-                                !in_array($type, array('server', 'get', 'text', 'textarea', 'letters', 'file', 'image', 'rating_button', 'submit')) &&
+                                !in_array($type, array('server', 'get', 'text', 'textarea', 'letters', 'file', 'image',
+                                'audio', 'video', 'rating_button', 'submit')) &&
                                 preg_match('/^[A-Za-z0-9_]{1,20}$/', trim($typeOptions[1]))) {
                             $data[$rowNumber]['choice_list'] = trim($typeOptions[1]);
                             unset($typeOptions[1]);

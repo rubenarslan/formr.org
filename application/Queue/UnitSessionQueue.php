@@ -113,7 +113,8 @@ class UnitSessionQueue extends Queue {
             if (!$run->valid || !$run->cron_active) {
                 continue;
             }
-            $runSession = new RunSession($session['session'], $run);
+
+            $runSession = run_session(new RunSession($session['session'], $run));
             if (!$runSession->id) {
                 $this->dbg('A run session could not be found for item in queue: ' . print_r($session, 1));
                 self::removeItem($session['id']);
@@ -161,7 +162,7 @@ class UnitSessionQueue extends Queue {
      * Remove item from session queue
      *
      * @param int $unitSessionId ID of the unit session
-     * @return booelan
+     * @return bool
      */
     public static function removeItem($unitSessionId) {
         $db = DB::getInstance();
@@ -181,8 +182,10 @@ class UnitSessionQueue extends Queue {
     public static function addItem(UnitSession $unitSession, RunUnit $runUnit, $data, $execResults = null) {
         if (!empty($data['expires'])) {
             $db = DB::getInstance();
+            $expires = mysql_datetime($data['expires']);
+            $unitSession->expires = $expires;
             $db->update('survey_unit_sessions', array(
-                'expires' => mysql_datetime($data['expires']),
+                'expires' => $expires,
                 'queued' => $data['queued'],
             ), array('id' => $unitSession->id));
         } else {

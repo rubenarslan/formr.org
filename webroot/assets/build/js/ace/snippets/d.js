@@ -1,4 +1,1 @@
-ace.define("ace/snippets/d", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "d"
-})
+ace.require(["ace/snippets/d"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

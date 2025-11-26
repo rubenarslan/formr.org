@@ -130,17 +130,23 @@
                                         </td>
                                         <td>
                                                 <?php
-                                                $label_class = "label-default";
-                                                if (strpos((string)$user['result'], "error")!==false) $label_class = "label-danger";
-                                                else if (!empty($user['result_log'])) $label_class = "label-warning";
+                                                    if (strpos((string)$user['result'], "error") !== false) {
+                                                        $label_class = "label-danger";
+                                                    } elseif (!empty($user['result_log'])) {
+                                                        $label_class = "label-warning";
+                                                    } else {
+                                                        $label_class = "label-default";
+                                                    }
                                                 ?>
 
-                                                <small class="label <?=$label_class?> hastooltip" title="<?php echo h($user['result_log']); ?>"><?php echo $user['result'];?></small>
+                                                <small class="label <?=$label_class?> hastooltip" title="<?php echo h($user['result_log']); ?>">
+                                                    <?php echo $user['result']; ?>
+                                                </small>
                                                 <?php if(!empty( $user['expires'])) { ?>
-                                                <small class="label label-info hastooltip" title="<?php echo $user['expires']; ?>">expires in <?php echo timetostr(strtotime((string)$user['expires'])); ?></small>
-                                                <?php 
-                                                }
-                                                ?>
+                                                    <small class="label label-info hastooltip" title="<?php echo $user['expires']; ?>">
+                                                        expires in <?php echo timetostr(strtotime((string) $user['expires'])); ?>
+                                                    </small>
+                                                <?php  } ?>
                                         </td>
                                         <td>
                                             <form class='form-inline form-ajax' action="<?php echo admin_run_url($user['run_name'], 'ajax_send_to_position'); ?>" method='post'>

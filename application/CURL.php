@@ -77,7 +77,7 @@ class CURL {
      *
      * While PHP can parse both modes just fine, certain servers accept only one. One such example is Twitter API.
      * To enforce encoding with 'application/x-www-form-urlencoded', pass parameters as string, like 'para1=val1&para2=val2&...'
-     * See {@link http://php.net/manual/en/function.curl-setopt.php curl_setopt} for CURLOPT_POSTFIELDS.
+     * See {@link https://php.net/manual/en/function.curl-setopt.php curl_setopt} for CURLOPT_POSTFIELDS.
      *
      * @static
      * @throws Exception
@@ -283,7 +283,7 @@ class CURL {
                     throw new Exception("Didn't get Content-Length from HEAD request");
                 }
                 // TODO: handle -1
-                // http://stackoverflow.com/questions/5518323/curl-getinfo-returning-1-as-content-length
+                // https://stackoverflow.com/questions/5518323/curl-getinfo-returning-1-as-content-length
                 if ($info['download_content_length'] > $filters[self::DOWNLOAD_FILTER_MAXSIZE]) {
                     throw new Exception("File too large: {$info['download_content_length']} bytes");
                 }
@@ -338,7 +338,7 @@ class CURL {
      * Parse HTTP Headers out of cURL $response, it modifies $response while doing so
      *
      * Uses header splitter from
-     * {@link http://www.sitepoint.com/forums/showthread.php?590248-Getting-response-header-in-PHP-cURL-request here}
+     * {@link https://www.sitepoint.com/forums/showthread.php?590248-Getting-response-header-in-PHP-cURL-request here}
      *
      * @param string $response
      * @param array $info
@@ -357,7 +357,7 @@ class CURL {
         $headersets = explode("\r\n\r\n", $headerstext);
 
         // http_parse_headers() php implementation from here:
-        // http://php.net/manual/en/function.http-parse-headers.php
+        // https://php.net/manual/en/function.http-parse-headers.php
         $res = null;
         foreach ($headersets as $i => $headerset) {
             if (empty($headerset)) {

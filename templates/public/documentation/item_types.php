@@ -1,7 +1,8 @@
 <h3>Survey Item Types</h3><hr />
 
-There are a lot of item types, in the beginning you will probably only need a few though. To see them in action,
-try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw/" title="Select File->Make a copy if you have a Google account, or download it as an Excel file, if you don't">Google spreadsheet</a> or <a href="<?= site_url('widgets') ?>">fill it out yourself</a>. It contains example uses of nearly every item there is.
+<p>There are a lot of item types, in the beginning you will probably only need a few though. To see them in action,
+try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw/" title="Select File->Make a copy if you have a Google account, or download it as an Excel file, if you don't">Google spreadsheet</a> or <a href="<?= site_url('widgets') ?>">fill it out yourself</a>. It contains example uses of nearly every item there is.</p>
+
 <h4><i class="fa fa-fw fa-info"></i> Plain display types</h4>
 <dl class="dl-horizontal dl-wider">
     <dt>
@@ -14,13 +15,15 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         note_iframe
     </dt>
     <dd>
-        If you want to render complex rmarkdown <a href="http://www.htmlwidgets.org/">htmlwidgets</a>, use this.
+        If you want to render complex rmarkdown <a href="https://www.htmlwidgets.org/">htmlwidgets</a>, use this.
     </dd>
     <dt>
-        submit <i>timeout</i>
+        submit <i>timeout | auto</i>
     </dt>
     <dd>
-        display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for <code>showif</code> or for dynamically generating item text have been given. <br>You can specify an optional timeout/delay (in milliseconds). <br>Negative values mean that the user has to wait that long until they can click submit. <br>Positive values mean the submit button will automatically submit after that time has passed. However, if not all items are answered or optional, the user will end up on the same page and the timer will restart. To avoid that, you have to use it together with optional items. Then, it's a way to use timed submissions. The data in the item display table can be used to check how long an item was displayed and whether this matches with the server's time for when it sent the item and received the response.
+        display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for <code>showif</code> or for dynamically generating item text have been given. 
+        <br><br>You can specify an optional timeout/delay (in milliseconds). <br>Negative values mean that the user has to wait that long until they can click submit. <br>Positive values mean the submit button will automatically submit after that time has passed. However, if not all items are answered or optional, the user will end up on the same page and the timer will restart. To avoid that, you have to use it together with optional items. Then, it's a way to use timed submissions. The data in the item display table can be used to check how long an item was displayed and whether this matches with the server's time for when it sent the item and received the response.
+        <br><br>You can also set the option to <code>auto</code>, which will cause the page to be submitted automatically as soon as all visible items on the page have been answered. Please note that optional items also count as visible items. This can be used for e.g. creating menu-like pages.
     </dd>
 </dl>
 <h4><i class="fa fa-fw fa-keyboard-o"></i> Simple input family</h4>
@@ -109,7 +112,7 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         mc <i>choice_list</i>
     </dt>
     <dd>
-        multipe choice (radio buttons), you can choose only one.
+        multiple choice (radio buttons), you can choose only one.
     </dd>
     <dt>
         mc_button <i>choice_list</i>
@@ -172,7 +175,7 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         select_or_add_one <br><i>choice_list, maxType</i>
     </dt>
     <dd>
-        like select_one, but it allows users to choose an option not given. Uses <a href="http://ivaynberg.github.io/select2/">Select2</a>. <i>maxType</i> can be used to set an upper limit on the length of the user-added option. Defaults to 255.
+        like select_one, but it allows users to choose an option not given. Uses <a href="https://ivaynberg.github.io/select2/">Select2</a>. <i>maxType</i> can be used to set an upper limit on the length of the user-added option. Defaults to 255.
     </dd>
     <dt>
         select_or_add_multiple <br><i>choice_list, maxType, <br>maxChoose</i>
@@ -217,7 +220,7 @@ These items don't require the user to do anything, so including them simply mean
         server var
     </dt>
     <dd>
-        saves the <a href="http://us1.php.net/manual/en/reserved.variables.server.php">$_SERVER</a> value with the index given by var. Can be used to store one of 'HTTP_USER_AGENT', 'HTTP_ACCEPT', 'HTTP_ACCEPT_CHARSET', 'HTTP_ACCEPT_ENCODING', 'HTTP_ACCEPT_LANGUAGE', 'HTTP_CONNECTION', 'HTTP_HOST', 'QUERY_STRING', 'REQUEST_TIME', 'REQUEST_TIME_FLOAT'. In English: the browser, some stuff about browser language information, some server stuff, and access time.
+        saves the <a href="https://us1.php.net/manual/en/reserved.variables.server.php">$_SERVER</a> value with the index given by var. Can be used to store one of 'HTTP_USER_AGENT', 'HTTP_ACCEPT', 'HTTP_ACCEPT_CHARSET', 'HTTP_ACCEPT_ENCODING', 'HTTP_ACCEPT_LANGUAGE', 'HTTP_CONNECTION', 'HTTP_HOST', 'QUERY_STRING', 'REQUEST_TIME', 'REQUEST_TIME_FLOAT'. In English: the browser, some stuff about browser language information, some server stuff, and access time.
     </dd>
     <dt>
         get var
@@ -229,7 +232,7 @@ These items don't require the user to do anything, so including them simply mean
         random min,max
     </dt>
     <dd>
-        generates <a href="http://php.net/mt_rand">a random number</a> for later use (e.g. randomisation in experiments). Minimum and maximum default to 0 and 1 respectively. If you specify them, you have to specify both.
+        generates <a href="https://php.net/mt_rand">a random number</a> for later use (e.g. randomisation in experiments). Minimum and maximum default to 0 and 1 respectively. If you specify them, you have to specify both.
     </dd>
     <dt>
         hidden
@@ -276,4 +279,35 @@ You can ask study participants to upload image, audio, video, text, and PDF file
         Upload image files. On smartphones, this can trigger the camera app.
     </dd>
 
+</dl>
+
+<h4><i class="fa fa-fw fa-bell"></i> Progressive web app items</h4>
+
+Formr studies can be installed as a PWA (Progressive Web App). This allows you to send push notifications to users to invite them to return to the study, e.g. for experience sampling studies. To make this work, you need to generate a manifest.json file in the study/run settings.
+
+<dl class="dl-horizontal dl-wider">
+    <dt>
+        request_phone
+    </dt>
+    <dd>
+        Helps transition desktop users to continue the study on their mobile device. On mobile devices, it automatically confirms mobile usage. On desktop, it displays a QR code for users to scan with their phone. Returns 'is_phone' for mobile users, 'is_desktop' for desktop users, 'qr_scanned' when successfully scanned, or 'not_checked' before verification.
+    </dd>
+    <dt>
+        add_to_home_screen
+    </dt>
+    <dd>
+        Displays a button that prompts users to add the study to their home screen as a PWA. The button's text can be customized using the choice field. Returns one of these statuses: 'added', 'ios_not_prompted', 'not_requested', 'not_prompted', 'already_added', 'no_support', or 'not_added'.
+    </dd>
+    <dt>
+        push_notification
+    </dt>
+    <dd>
+        Adds a button to request permission for sending push notifications. The button text can be customized using the choice field. When enabled, stores the push notification subscription data needed to send notifications to the user. For optional items, accepts 'not_requested', 'not_supported', or 'permission_denied' as valid states.
+    </dd>
+    <dt>
+        request_cookie
+    </dt>
+    <dd>
+        Prompts participants to enable functional cookies so their device can be recognised in later visits. Displays nothing on devices where this permission has already been granted. Returns 'functional_cookie' for users who had already consented, 'consent_given' after the button is used, and remains 'not_checked' until consent is provided. If the item is marked as required, the survey page cannot be submitted until functional cookie consent is recorded. In apps, we usually need functional cookies to be enabled to track users across sessions, so it makes sense to include this item after an app has been added to the home screen.
+    </dd>
 </dl>

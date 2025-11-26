@@ -168,59 +168,6 @@ class Site {
         return false;
     }
 
-    public function loginUser($user) {
-        // came here with a login link
-        $code_rule = Config::get("user_code_regular_expression");
-
-        if (isset($_GET['run_name']) && isset($_GET['code']) && preg_match($code_rule, $_GET['code'])) {
-            $login_code = $_GET['code'];
-            $posted_login_code = $_POST['_formr_code'];
-            if($posted_login_code != null AND $posted_login_code !== $login_code) {
-                alert("Mismatched user codes. Please contact the study administrator.", "alert-danger");
-            }
-
-            // this user came here with a session code that he wasn't using before. 
-            // this will always be true if the user is 
-            // (a) new (auto-assigned code by site) 
-            // (b) already logged in with a different account
-            if ($user->user_code !== $login_code):
-                if ($user->loggedIn()) {
-                    // if the user is new and has an auto-assigned code, there's no need to talk about the behind-the-scenes change
-                    // but if he's logged in we should alert them
-                    alert("You switched sessions, because you came here with a login link and were already logged in as someone else.", 'alert-info');
-                }
-                $user = new User(null, $login_code);
-            // a special case are admins. if they are not already logged in, verified through password, they should not be able to obtain access so easily. but because we only create a mock user account, this is no problem. the admin flags are only set/privileges are only given if they legitimately log in
-            endif;
-        } elseif (isset($_GET['run_name']) && isset($user->user_code)) {
-            $posted_login_code = $_POST['_formr_code'];
-            if($posted_login_code != null AND $posted_login_code !== $user->user_code) {
-                alert("Mismatched user codes. Please contact the study administrator.", "alert-danger");
-            }
-
-            return $user;
-            // the below will never occur because such POST requests will lack the request token. but maybe we can double check _GET and _SESSION code against _POST code?
-        } elseif (Request::isHTTPPostRequest() && isset($_POST['_formr_code'])) {
-            // TODO fallback to Request::isHTTPPostRequest() and $_POST['_formr_code']
-            $login_code = $_POST['_formr_code'];
-            if ($user->user_code !== $login_code):
-                if ($user->loggedIn()) {
-                    // if the user is new and has an auto-assigned code, there's no need to talk about the behind-the-scenes change
-                    // but if he's logged in we should alert them
-                    alert("You switched sessions, because you came here with a login link and were already logged in as someone else.", 'alert-info');
-                } else {
-                    alert("You disabled cookies and the website may not work as expected.", 'alert-info');
-                }
-                $user = new User(null, $login_code);
-            endif;
-        } else { 
-            alert("<strong>Sorry.</strong> Something went wrong when you tried to access.", 'alert-danger');
-            redirect_to("index");
-        }
-
-        return $user;
-    }
-
     public function makeTitle() {
         global $title;
         if ($title && trim($title)) {

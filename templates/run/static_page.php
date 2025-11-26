@@ -21,7 +21,17 @@
                         </div>
 
                         <?php echo $run_content; ?>
+
+                    <?php if ($run->footer_text_parsed): ?>
+                        <hr>
+                        <footer>
+                        <?php echo $run->footer_text_parsed; ?>
+
+                        <p><a href ="<?php echo run_url($run->name, ''); ?>">Back to Study</a></p>
+                        </footer>
+                    <?php endif; ?>
                     </div>
+
                 </div>
             </div>
         </div>

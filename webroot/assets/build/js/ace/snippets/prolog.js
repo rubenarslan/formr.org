@@ -1,4 +1,1 @@
-ace.define("ace/snippets/prolog", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "prolog"
-})
+ace.require(["ace/snippets/prolog"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

@@ -1,4 +1,1 @@
-ace.define("ace/snippets/swift", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "swift"
-})
+ace.require(["ace/snippets/swift"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

@@ -5,8 +5,7 @@ class PublicController extends Controller {
     public function __construct(Site &$site) {
         parent::__construct($site);
         if (!Request::isAjaxRequest()) {
-            $default_assets = get_default_assets('site');
-            $this->registerAssets($default_assets);
+            $this->registerAssets('frontend');
         }
     }
 
@@ -38,6 +37,15 @@ class PublicController extends Controller {
         }
         
         $this->setView('public/terms_of_service', array('runs' => RunHelper::getPublicRuns()));
+        return $this->sendResponse();
+    }
+
+    public function privacyPolicyAction() {
+        if (Site::getSettings('content:privacy_policy') == '') {
+            formr_error(403, 'Not Public', 'Page cannot be displayed');
+        }
+        
+        $this->setView('public/privacy_policy', array('runs' => RunHelper::getPublicRuns()));
         return $this->sendResponse();
     }
 

@@ -1,4 +1,1 @@
-ace.define("ace/snippets/groovy", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "groovy"
-})
+ace.require(["ace/snippets/groovy"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

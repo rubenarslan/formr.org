@@ -183,7 +183,7 @@ class ApiController extends Controller {
     }
 
     protected function access_token() {
-        // Ex: curl -u testclient:testpass http://formr.org/api/oauth/token -d 'grant_type=client_credentials'
+        // Ex: curl -u testclient:testpass https://formr.org/api/oauth/token -d 'grant_type=client_credentials'
         $this->oauthServer->handleTokenRequest(OAuth2\Request::createFromGlobals())->send();
     }
 
@@ -191,7 +191,7 @@ class ApiController extends Controller {
         if (!in_array($action, $this->unrestrictedActions)) {
             $this->oauthServer = Site::getOauthServer();
             // Handle a request to a resource and authenticate the access token
-            // Ex: curl http://formr.org/api/post/action-name -d 'access_token=YOUR_TOKEN'
+            // Ex: curl https://formr.org/api/post/action-name -d 'access_token=YOUR_TOKEN'
             if (!$this->oauthServer->verifyResourceRequest(OAuth2\Request::createFromGlobals())) {
                 $this->respond(Response::STATUS_UNAUTHORIZED, 'Unauthorized Access', array(
                     'error' => 'Invalid/Unauthorized access token',

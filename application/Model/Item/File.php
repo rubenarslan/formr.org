@@ -5,6 +5,7 @@ class File_Item extends Item {
     public $type = 'file';
     public $input_attributes = array('type' => 'file', 'accept' => "image/*,video/*,audio/*,text/*");
     public $mysql_field = 'VARCHAR(1000) DEFAULT NULL';
+    public $hasChoices = false;
     protected $file_endings = array(
                 // JPEG image files
         'image/jpeg' => '.jpg', // JPEG (Joint Photographic Experts Group), widely used for photos and web images
@@ -69,6 +70,7 @@ class File_Item extends Item {
     );
     protected $embed_html = '%s';
     protected $max_size = NULL;
+    protected $uploaded_file_info = null;
 
     protected function setMoreOptions() {
         if (is_array($this->type_options_array) && count($this->type_options_array) == 1) {
@@ -108,9 +110,20 @@ class File_Item extends Item {
                 if (!in_array($mime, array_keys($this->file_endings))) {
                     $this->error = 'Files of type ' . $mime . ' are not allowed to be uploaded.';
                 } else {
+                    // Create /tmp/user_uploaded_files/ if it doesn't exist
+                    if (!is_dir(APPLICATION_ROOT . 'webroot/assets/tmp/user_uploaded_files/')) {
+                        mkdir(APPLICATION_ROOT . 'webroot/assets/tmp/user_uploaded_files/', 0755, true);
+                    }
                     $new_file_name = crypto_token(66) . $this->file_endings[$mime];
-                    if (move_uploaded_file($reply['tmp_name'], APPLICATION_ROOT . 'webroot/assets/tmp/' . $new_file_name)) {
-                        $public_path = WEBROOT . 'assets/tmp/' . $new_file_name;
+                    if (move_uploaded_file($reply['tmp_name'], APPLICATION_ROOT . 'webroot/assets/tmp/user_uploaded_files/' . $new_file_name)) {
+                        $public_path = asset_url('tmp/user_uploaded_files/' . $new_file_name, false);
+                        
+                        // Store file info during validation
+                        $this->uploaded_file_info = [
+                            'original_filename' => $reply['name'],
+                            'stored_path' => $public_path
+                        ];
+                        
                         $reply = __($this->embed_html, $public_path);
                     } else {
                         $this->error = __("Unable to save uploaded file");
@@ -132,6 +145,14 @@ class File_Item extends Item {
 
     public function getReply($reply) {
         return $this->reply;
+    }
+
+    /**
+     * Get information about the uploaded file from a validated reply
+     * @return array|null Array containing file info or null if no file was uploaded
+     */
+    public function getFileInfo() {
+        return $this->uploaded_file_info;
     }
 
 }

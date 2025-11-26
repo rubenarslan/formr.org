@@ -1,4 +1,1 @@
-ace.define("ace/snippets/toml", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "toml"
-})
+ace.require(["ace/snippets/toml"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

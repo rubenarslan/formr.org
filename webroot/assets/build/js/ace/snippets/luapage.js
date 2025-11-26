@@ -1,4 +1,1 @@
-ace.define("ace/snippets/luapage", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "luapage"
-})
+ace.require(["ace/snippets/luapage"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

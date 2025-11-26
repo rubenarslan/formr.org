@@ -1,4 +1,1 @@
-ace.define("ace/snippets/svg", ["require", "exports", "module"], function (e, t, n) {
-	"use strict";
-	t.snippetText = undefined, t.scope = "svg"
-})
+ace.require(["ace/snippets/svg"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));
