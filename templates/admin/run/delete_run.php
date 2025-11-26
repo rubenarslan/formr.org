@@ -18,6 +18,7 @@
                         <h3 class="box-title">Delete Run </h3>
                     </div>
                     <form role="form" action="<?php echo admin_run_url($run->name, 'delete_run'); ?>" method="post">
+                        <?= formr_csrf_token() ?>
                         <div class="box-body">
                             <?php Template::loadChild('public/alerts'); ?>
 
