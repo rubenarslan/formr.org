@@ -1,0 +1,16 @@
+Dear %{user},
+
+We hope this email finds you well.
+This is an automated message to inform you that the data in the run/study titled "%{title}" has been automatically deleted.
+
+Study Details:
+
+Run Title: %{title}
+Expiry Date: %{expiryDate}
+
+The expiry date for this study has been reached, and in accordance with our privacy policies, the study data has been automatically removed from our system.
+
+Thank you for your understanding.
+
+Best in Binary,
+formr robots

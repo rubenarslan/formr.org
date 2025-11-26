@@ -1,0 +1,5 @@
+/*!	SWFMini - a SWFObject 2.2 cut down version for webshims
+ * 
+ * based on SWFObject v2.2 <http://code.google.com/p/swfobject/> 
+	is released under the MIT License <http://www.opensource.org/licenses/mit-license.php> 
+*/

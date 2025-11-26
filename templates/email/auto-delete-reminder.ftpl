@@ -1,0 +1,23 @@
+Dear %{user},
+
+We hope this email finds you well. This is an automated message to inform you that the data in your run/study titled "%{title}" is set to expire %{timeUntilExpiry}.
+
+Study Details:
+Run Title: %{title}
+Expiry Date: %{expiryDate}
+
+Until the study's data is deleted, you might receive further reminders. If you delete the data yourself, you will not receive further reminders.
+
+You have the option to extend the expiry date of your study. Otherwise the data in your study will be automatically deleted on %{expiryDate} to comply with the General Data Protection Regulation (GDPR). You may want to create a full, local backup of your data before this date, using for example formr::formr_backup_study. Unless you have a reason to need personal data, we recommend anonymizing the data to keep copies indefinitely.
+The automatic deletion only applies to the data in your study. The study itself (items, settings, etc.) will remain in the system.
+
+Here are your options:
+1. Log in to your user account at %{site_url}
+2. Navigate to the dashboard of your run/study.
+3a. Go to Settings and adjust the expiry date according to your requirements.
+3b. Alternatively, you can go to "Empty Run" in the "Danger Zone" section and delete the data.
+
+Thank you for your understanding.
+
+Best in Binary,
+formr robots
