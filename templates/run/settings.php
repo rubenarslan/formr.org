@@ -30,6 +30,7 @@
                             <h4>Email subscription</h4>
                             <p><i>Control whether you will receive emails through this study</i></p>
                             <form action="" method="post">
+                                <?= formr_csrf_token() ?>
                                 <select name="no_email" class="form-control" style="margin-bottom: 10px;">
                                     <?php
                                     foreach ($email_subscriptions as $key => $value):
