@@ -153,10 +153,10 @@ class OAuthHelper
      * @param User $formrUser The user for whom to create the token.
      * @param string|null $scope The scope for the token.
      * @param bool $includeRefreshToken Whether to include a refresh token. Defaults to false.
-     * @param int $tokenLifetime Token lifetime in seconds. Defaults to 60.
+     * @param int $tokenLifetime Token lifetime in seconds. Defaults to 120.
      * @return array|false The access token data or false on failure.
      */
-    public function createAccessTokenForUser(User $formrUser, $scope = null, $includeRefreshToken = false, $tokenLifetime = 60)
+    public function createAccessTokenForUser(User $formrUser, $scope = null, $includeRefreshToken = false, $tokenLifetime = 120)
     {
         $client = $this->getClient($formrUser);
         if (!$client) {
