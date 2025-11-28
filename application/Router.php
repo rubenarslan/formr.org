@@ -31,7 +31,12 @@ class Router {
     }
 
     /**
-     * @return Router
+     * Resolves the current HTTP Request to a Controller and Action.
+     * * Parses the URL route, handles API version prefixes (e.g., 'v1'), 
+     * detects study sub-domains, and sets up parameters for execution.
+     *
+     * @return Router Returns the router instance for chaining.
+     * @throws Exception If the controller class does not exist.
      */
     public function route() {
         $route = $this->site->request->str('route');
@@ -56,6 +61,24 @@ class Router {
         }
 
         $action = array_shift($params);
+
+        // This Handles API Versioning (e.g., v1/...)
+        // If the action looks like "v1", "v2", etc., treat it as a version parameter,
+        // not the action name.
+        if ($action && preg_match('/^v[0-9]+$/', $action)) {
+            $version = $action;
+            $realAction = array_shift($params);
+
+            if ($realAction) {
+                // Prepend the version back to params so it gets passed to the controller
+                // Params become: ['v1', 'action']
+                array_unshift($params, $version);
+                $action = $realAction;
+            } else {
+                array_unshift($params, $version);
+            }
+        }
+
         if (!$action) {
             $action = 'index';
         }
