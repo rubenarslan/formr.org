@@ -37,6 +37,8 @@ class Run extends Model {
     public $user_id = null;
     public $being_serviced = false;
     public $locked = false;
+    public $created = null;
+    public $modified = null;
     public $errors = array();
     public $messages = array();
     public $custom_css_path = null;
@@ -172,13 +174,15 @@ class Run extends Model {
     public function delete() {
         try {
             $this->deleteFiles();
+            // Need to discuss: Should this cascade the run-unit deletions?
+            $this->deleteUnits();
 
             $this->db->delete('survey_runs', array('id' => $this->id));
             alert("<strong>Success.</strong> Successfully deleted run '{$this->name}'.", 'alert-success');
             return true;
         } catch (Exception $e) {
             formr_log_exception($e, __METHOD__);
-            alert(__('Could not delete run %s. This is probably because there are still run units present. For safety\'s sake you\'ll first need to delete each unit individually.', $this->name), 'alert-danger');
+            alert(__('Could not delete run:', $this->name), 'alert-danger');
             return false;
         }
     }
@@ -1146,6 +1150,7 @@ class Run extends Model {
                     $options = (array) $unit;
                     $options['importing'] = true;
                     $options['run'] = $this;
+                    $options['user_id'] = $this->user_id;
                 }
 
                 if ($unit->type === 'PushMessage') {

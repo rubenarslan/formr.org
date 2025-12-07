@@ -130,7 +130,13 @@ class SurveyStudy extends Model {
         $this->results_table = substr("s" . $this->id . '_' . $this->name, 0, 64);
         $this->created = mysql_now();
         $this->modified = mysql_now();
-        $this->user_id = Site::getCurrentUser()->id;
+
+        // Use passed user_id if available, otherwise default to current user
+        if (isset($options['user_id'])) {
+            $this->user_id = $options['user_id'];
+        } else {
+            $this->user_id = Site::getCurrentUser()->id;
+        }
 
         $results_table = substr("s" . $this->id . '_' . $this->name, 0, 64);
 
@@ -149,8 +155,15 @@ class SurveyStudy extends Model {
         if (empty($data->name) || empty($data->items)) {
             return false;
         }
+
+        // Resolve user correctly from options or global context
+        if (isset($options['user_id'])) {
+            $user = new User($options['user_id']);
+        } else {
+            $user = Site::getCurrentUser();
+        }
         
-        $study = self::loadByUserAndName(Site::getCurrentUser(), $data->name);
+        $study = self::loadByUserAndName($user, $data->name);
 
         if ($study->valid) {
             // Survey exists so use existing data

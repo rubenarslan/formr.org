@@ -1,6 +1,7 @@
 <?php
 
-class UnitSession extends Model {
+class UnitSession extends Model
+{
 
     public $id;
     public $unit_id; // survey_units.id
@@ -22,22 +23,23 @@ class UnitSession extends Model {
      * @var RunUnit
      */
     public $runUnit;
-    
+
     public $validatedStudyItems = [];
-    
+
     protected $execResults = [];
-	
-	protected $table = 'survey_unit_sessions';
+
+    protected $table = 'survey_unit_sessions';
 
 
-	/**
+    /**
      * A UnitSession needs a RunUnit to operate and belongs to a RunSession
      *
      * @param RunSession $runSession
      * @param RunUnit $runUnit
      * @param array $options An array of other options used to fetch a unit ID
      */
-    public function __construct(RunSession $runSession, RunUnit $runUnit = null, $options = []) {
+    public function __construct(RunSession $runSession, RunUnit $runUnit = null, $options = [])
+    {
         parent::__construct();
 
         $this->runSession = $runSession;
@@ -48,7 +50,8 @@ class UnitSession extends Model {
         }
     }
 
-    public function create($new_current_unit = true) {
+    public function create($new_current_unit = true)
+    {
         // only one can be current unit session at all times
         try {
             $this->db->beginTransaction();
@@ -57,7 +60,7 @@ class UnitSession extends Model {
                 'run_session_id' => $this->runSession->id > 0 ? $this->runSession->id : null,
                 'created' => mysql_now(),
             ]);
-            
+
             $this->id = $this->db->insert('survey_unit_sessions', $session);
             if ($this->runSession->id !== null && $new_current_unit) {
                 $this->runSession->currentUnitSession = $this;
@@ -78,7 +81,8 @@ class UnitSession extends Model {
         return $this->load();
     }
 
-    public function load() {
+    public function load()
+    {
         $columns = 'id, unit_id, run_session_id, created, expires, queued, result, result_log, ended, expired';
         if ($this->id !== null) {
             $vars = $this->db->findRow('survey_unit_sessions', ['id' => (int)$this->id], $columns);
@@ -87,24 +91,26 @@ class UnitSession extends Model {
             $unit_id = $this->runUnit ? $this->runUnit->id : $this->unit_id;
             $vars = $this->db->findRow('survey_unit_sessions', ['run_session_id' => $run_session_id, 'unit_id' => $unit_id], $columns);
         }
-        
+
         if (!empty($vars['unit_id']) && !$this->runUnit) {
-			$this->runUnit = RunUnitFactory::make($this->runSession->getRun(), ['id' => $vars['unit_id']]);
+            $this->runUnit = RunUnitFactory::make($this->runSession->getRun(), ['id' => $vars['unit_id']]);
         }
 
-		if ($vars) {
-			$this->assignProperties($vars);
-			$this->valid = true;
-		}
-        
+        if ($vars) {
+            $this->assignProperties($vars);
+            $this->valid = true;
+        }
+
         return $this;
     }
 
-    public function __sleep() {
+    public function __sleep()
+    {
         return array('id', 'session', 'unit_id', 'created');
     }
 
-    public function execute() {
+    public function execute()
+    {
         $this->execResults = [];
         // Check if session has expired by getting relevant unit data
         if ($this->isExpired()) {
@@ -112,16 +118,16 @@ class UnitSession extends Model {
             $this->execResults['move_on'] = true;
             return $this->execResults;
         }
-		
-		if (!empty($this->execResults['end_session'])) {
-			$this->execResults['move_on'] = true;
-			return $this->execResults;
-		}
+
+        if (!empty($this->execResults['end_session'])) {
+            $this->execResults['move_on'] = true;
+            return $this->execResults;
+        }
 
         if (($output = $this->runUnit->getUnitSessionOutput($this))) {
             $this->logOutput($output);
             unset($output['log']);
-            
+
             foreach ($output as $key => $value) {
                 $this->execResults[$key] = $value;
             }
@@ -130,13 +136,14 @@ class UnitSession extends Model {
         return $this->execResults;
     }
 
-    protected function isExpired() {
+    protected function isExpired()
+    {
         $expirationData = $this->runUnit->getUnitSessionExpirationData($this);
         $this->logOutput($expirationData);
         unset($expirationData['log']);
-        
+
         $this->execResults = array_merge($this->execResults, $expirationData);
-            
+
         if ($this->runUnit instanceof Pause || $this->runUnit instanceof Branch) {
             $expiration_extension = Config::get('unit_session.queue_expiration_extension', '+10 minutes');
             if ($expirationData['check_failed'] === true || $expirationData['expire_relatively'] === false) {
@@ -148,7 +155,7 @@ class UnitSession extends Model {
 
         if (empty($expirationData['expires'])) {
             return false;
-        } elseif(!empty($expirationData['end_session'])) {
+        } elseif (!empty($expirationData['end_session'])) {
             $this->execResults['end_session'] = true;
             return false; // ended NOT expired
         } elseif ($expirationData['expires'] < time()) {
@@ -160,8 +167,9 @@ class UnitSession extends Model {
             ];
         }
     }
-    
-    protected function logOutput ($output) {
+
+    protected function logOutput($output)
+    {
         if (!empty($output['log'])) {
             $this->assignProperties($output['log']);
             $this->logResult();
@@ -174,44 +182,50 @@ class UnitSession extends Model {
      *
      * @return boolean
      */
-    protected function isQueuable() {
+    protected function isQueuable()
+    {
         return !empty($this->execResults['queue']) && $this->runSession->getRun()->cron_active;
     }
 
-    public function expire() {
+    public function expire()
+    {
         $unit = $this->runUnit;
 
         if ($unit->type === 'Survey') {
             $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `expired` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
-			$params = ['session_id' => $this->id, 'study_id' => $unit->surveyStudy->id];
-			try {
-				$this->db->exec($query, $params);
-			} catch (Exception $e) {
-				//formr_log_exception($e, 'RESULTS_TABLE: ' . $unit->surveyStudy->results_table);
-			}
+            $params = ['session_id' => $this->id, 'study_id' => $unit->surveyStudy->id];
+            try {
+                $this->db->exec($query, $params);
+            } catch (Exception $e) {
+                //formr_log_exception($e, 'RESULTS_TABLE: ' . $unit->surveyStudy->results_table);
+            }
         }
-                
+
         $expired = $this->db->exec(
             "UPDATE `survey_unit_sessions` SET 
                 `expired` = NOW(), 
                 `result` = 'expired',
                 `queued` = 0 
              WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
-             ['id' => $this->id, 'unit_id' => $unit->id]
+            ['id' => $this->id, 'unit_id' => $unit->id]
         );
 
         return $expired === 1;
     }
 
-    public function end($reason = null) {
+    public function end($reason = null)
+    {
         $unit = $this->runUnit;
-		
+
         if ($unit->type == "Survey" || $unit->type == "External") {
             if ($unit->type == "Survey") {
-                $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
-                $params = array('session_id' => $this->id, 'study_id' => $unit->surveyStudy->id);
-                $this->db->exec($query, $params);
-                
+                // Check if results_table exists before querying
+                if (!empty($unit->surveyStudy->results_table)) {
+                    $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
+                    $params = array('session_id' => $this->id, 'study_id' => $unit->surveyStudy->id);
+                    $this->db->exec($query, $params);
+                }
+
                 $this->result = "survey_ended";
             } else if ($unit->type == "External") {
                 $this->result = "external_ended";
@@ -232,46 +246,49 @@ class UnitSession extends Model {
 
         // @TODO import end from run unit
         $ended = $this->db->exec(
-                "UPDATE `survey_unit_sessions` SET 
+            "UPDATE `survey_unit_sessions` SET 
                 `ended` = NOW(), 
                 `result` = :result, 
                 `result_log` = :result_log 
                 WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
-                [
-                    'id' => $this->id,
-                    'unit_id' => $this->runUnit->id,
-                    'result' => $this->result,
-                    'result_log' => $this->result_log
-                ]
+            [
+                'id' => $this->id,
+                'unit_id' => $this->runUnit->id,
+                'result' => $this->result,
+                'result_log' => $this->result_log
+            ]
         );
 
         return $ended === 1;
     }
 
-    public function queue($output = null) {
+    public function queue($output = null)
+    {
         if ($this->isQueuable()) {
             UnitSessionQueue::addItem($this, $this->runUnit, $this->execResults['queue']);
         }
     }
 
-    public function logResult() {
+    public function logResult()
+    {
         $log = $this->db->exec(
-                "UPDATE `survey_unit_sessions` SET 
+            "UPDATE `survey_unit_sessions` SET 
                 `result` = :result, 
                 `result_log` = :result_log 
                 WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
-                [
-                    'id' => $this->id,
-                    'unit_id' => $this->runUnit->id,
-                    'result' => $this->result,
-                    'result_log' => $this->result_log
-                ]
+            [
+                'id' => $this->id,
+                'unit_id' => $this->runUnit->id,
+                'result' => $this->result,
+                'result_log' => $this->result_log
+            ]
         );
 
         return $log;
     }
 
-    protected function hasOrderedStudyItems() {
+    protected function hasOrderedStudyItems()
+    {
         /** @var SurveyStudy $study */
         $study = $this->runUnit->surveyStudy;
 
@@ -288,13 +305,14 @@ class UnitSession extends Model {
      * @return boolean
      * @throws Exception
      */
-    public function createSurveyStudyRecord() {
+    public function createSurveyStudyRecord()
+    {
         /** @var SurveyStudy $study */
         $study = $this->runUnit->surveyStudy;
-		
-		if (!$this->db->entry_exists($this->table, ['id' => $this->id])) {
-			formr_error(404, 'Unit Session Not Found. Please contact study author');
-		}
+
+        if (!$this->db->entry_exists($this->table, ['id' => $this->id])) {
+            formr_error(404, 'Unit Session Not Found. Please contact study author');
+        }
 
         if (!$study->results_table || !$this->db->table_exists($study->results_table)) {
             alert('A results table for this survey could not be found', 'alert-danger');
@@ -359,7 +377,8 @@ class UnitSession extends Model {
      * @return boolean Returns TRUE if all data was successfully validated and saved or FALSE otherwise
      * @throws Exception
      */
-    public function updateSurveyStudyRecord($posted, $validate = true) {
+    public function updateSurveyStudyRecord($posted, $validate = true)
+    {
         /** @var SurveyStudy $study */
         $study = $this->runUnit->surveyStudy;
 
@@ -409,12 +428,12 @@ class UnitSession extends Model {
                 if ($item->error) {
                     $this->errors[$item_name] = $item->error;
                 } else {
-					$answer = $item->getReply($validInput);
-					if (is_array($answer)) {
-						$answer = json_encode($answer);
-					}
+                    $answer = $item->getReply($validInput);
+                    if (is_array($answer)) {
+                        $answer = json_encode($answer);
+                    }
                     $update_data[$item_name] = $answer;
-                    
+
                     // Track uploaded files
                     if ($item instanceof File_Item) {
                         $fileInfo = $item->getFileInfo();
@@ -438,7 +457,7 @@ class UnitSession extends Model {
         }
 
         $survey_items_display = $this->db->prepare(
-                "UPDATE `survey_items_display` SET 
+            "UPDATE `survey_items_display` SET 
 				created = COALESCE(created,NOW()),
 				answer = :answer, 
 				saved = :saved,
@@ -448,7 +467,8 @@ class UnitSession extends Model {
 				answered_relative = :answered_relative,
 				displaycount = COALESCE(displaycount,1),
 				hidden = :hidden
-			WHERE item_id = :item_id AND session_id = :session_id"); # fixme: displaycount starts at 2
+			WHERE item_id = :item_id AND session_id = :session_id"
+        ); # fixme: displaycount starts at 2
         $survey_items_display->bindParam(":session_id", $this->id);
 
         try {
@@ -476,8 +496,10 @@ class UnitSession extends Model {
                     $shown_relative = null; // and where this is null, performance.now wasn't available
                 }
 
-                if (isset($posted["_item_views"]["answered"][$item->id], // separately to "shown" because of items like "note"
-                                $posted["_item_views"]["answered_relative"][$item->id])) {
+                if (isset(
+                    $posted["_item_views"]["answered"][$item->id], // separately to "shown" because of items like "note"
+                    $posted["_item_views"]["answered_relative"][$item->id]
+                )) {
                     $answered = $posted["_item_views"]["answered"][$item->id];
                     $answered_relative = $posted["_item_views"]["answered_relative"][$item->id];
                 } else {
@@ -485,10 +507,10 @@ class UnitSession extends Model {
                     $answered_relative = null;
                 }
 
-				$answer = $item->getReply($value);
-				if (is_array($answer)) {
-					$answer = json_encode($answer);
-				}
+                $answer = $item->getReply($value);
+                if (is_array($answer)) {
+                    $answer = json_encode($answer);
+                }
 
                 $survey_items_display->bindValue(":item_id", $item->id);
                 $survey_items_display->bindValue(":answer", $answer);
@@ -503,7 +525,6 @@ class UnitSession extends Model {
                 if (!$item_answered) {
                     throw new Exception("Survey item '$name' could not be saved with value '$value' in table '{$study->results_table}'");
                 }
-
             } //endforeach
             // Update results table in one query
             if ($update_data) {
@@ -513,7 +534,7 @@ class UnitSession extends Model {
                 );
                 $this->db->update($study->results_table, $update_data, $update_where);
             }
-            
+
             $this->db->commit();
             return true;
         } catch (Exception $e) {
@@ -523,10 +544,10 @@ class UnitSession extends Model {
             //$redirect = false;
             return false;
         }
-        
     }
 
-    public function isExecutedByCron() {
+    public function isExecutedByCron()
+    {
         return $this->runSession->isCron();
     }
 
@@ -537,7 +558,8 @@ class UnitSession extends Model {
      * @param string $required
      * @return array
      */
-    public function getRunData($q, $required = null) {
+    public function getRunData($q, $required = null)
+    {
         $runSession = $this->runSession;
         $cache_key = Cache::makeKey(__METHOD__, $q, $required, $this->id, $runSession->id);
         if (($data = Cache::get($cache_key))) {
@@ -625,7 +647,7 @@ class UnitSession extends Model {
 
             $datasets['datasets'][$survey_name] = array();
             while ($res = $get_results->fetch(PDO::FETCH_ASSOC)) {
-                foreach ($res AS $var => $val) {
+                foreach ($res as $var => $val) {
                     if (!isset($datasets['datasets'][$survey_name][$var])) {
                         $datasets['datasets'][$survey_name][$var] = array();
                     }
@@ -639,9 +661,11 @@ class UnitSession extends Model {
                 $datasets['.formr$last_action_date'] = "NA";
                 $datasets['.formr$last_action_time'] = "NA";
                 $last_action = $this->db->execute(
-                        "SELECT `survey_unit_sessions`.`created` FROM `survey_unit_sessions` 
+                    "SELECT `survey_unit_sessions`.`created` FROM `survey_unit_sessions` 
 					LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-					WHERE `survey_run_sessions`.id  = :run_session_id AND `unit_id` = :unit_id AND `survey_unit_sessions`.`ended` IS NULL LIMIT 1", array('run_session_id' => $runSession->id, 'unit_id' => $this->runUnit->id), true
+					WHERE `survey_run_sessions`.id  = :run_session_id AND `unit_id` = :unit_id AND `survey_unit_sessions`.`ended` IS NULL LIMIT 1",
+                    array('run_session_id' => $runSession->id, 'unit_id' => $this->runUnit->id),
+                    true
                 );
                 if ($last_action !== false) {
                     $last_action_time = strtotime($last_action);
@@ -683,10 +707,11 @@ class UnitSession extends Model {
         return $datasets;
     }
 
-    protected function getRunDataNeeded($q, $token_add = null) {
+    protected function getRunDataNeeded($q, $token_add = null)
+    {
         $matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();
 
-//		$results = $this->run->getAllLinkedSurveys(); // fixme -> if the last reported email thing is known to work, we can turn this on
+        //		$results = $this->run->getAllLinkedSurveys(); // fixme -> if the last reported email thing is known to work, we can turn this on
         $surveys = $this->runSession->getRun()->getAllSurveys();
 
         // also add some "global" formr tables
@@ -733,19 +758,19 @@ class UnitSession extends Model {
                 $variable_names_in_table[$table_name] = $nu_tables[$table_name];
             } else {
                 $items = $this->db->select('name')->from('survey_items')
-                        ->where(['study_id' => $study_id])
-                        ->where("type NOT IN ('mc_heading', 'note', 'submit', 'block', 'note_iframe')")
-                        ->where("name != 'iteration'")
-                        ->fetchAll();
+                    ->where(['study_id' => $study_id])
+                    ->where("type NOT IN ('mc_heading', 'note', 'submit', 'block', 'note_iframe')")
+                    ->where("name != 'iteration'")
+                    ->fetchAll();
 
                 $variable_names_in_table[$table_name] = array("created", "modified", "ended"); // should avoid modified, sucks for caching
                 $res_table = $results_tables[$table_name];
                 $has_iter = $this->db->prepare("DESCRIBE `$res_table` `iteration`");
                 $has_iter->execute();
-                if($has_iter->fetch(PDO::FETCH_ASSOC) !== false) {
+                if ($has_iter->fetch(PDO::FETCH_ASSOC) !== false) {
                     $variable_names_in_table[$table_name][] = "iteration";
                 }
-        
+
                 foreach ($items as $res) {
                     $variable_names_in_table[$table_name][] = $res['name']; // search set for user defined tables
                 }
@@ -771,5 +796,4 @@ class UnitSession extends Model {
 
         return compact("matches", "matches_results_tables", "matches_variable_names", "token_add", "variables");
     }
-
 }

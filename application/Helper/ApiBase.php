@@ -40,6 +40,9 @@ abstract class ApiBase
         $this->request = $request;
         // Assuming OAuthHelper exists globally or statically
         $this->user = OAuthHelper::getInstance()->getUserByEmail($token_data['user_id']);
+
+        global $user;
+        $user = $this->user;
     }
 
     public function getData()
