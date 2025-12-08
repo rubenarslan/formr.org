@@ -40,6 +40,7 @@
                     <h3 class="box-title">Select a file</h3>
                 </div>
                 <form role="form" class="" enctype="multipart/form-data"  id="add_study" name="add_study" method="post" action="<?php echo admin_url('survey/add_survey'); ?>">
+                    <?= formr_csrf_token() ?>
                     <div class="box-body">
 
                         <div class="form-group">

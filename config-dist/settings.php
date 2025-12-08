@@ -324,3 +324,12 @@ $settings['run_session'] = array(
 // To allow users to keep study data indefinitely, set this to INF
 $settings['keep_study_data_for_months_maximum'] = 84;
 
+// Notification settings for sending notifications to study administrators about issues with their study in minutes
+$settings['notification'] = array(
+    'default_throttle_minutes' => 10,
+    'throttle_map' => [
+        'error' => 10,
+        'warning' => 10,
+        'info' => 10,
+    ],
+);

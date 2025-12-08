@@ -173,6 +173,7 @@ import { ajaxErrorHandling, bootstrap_alert } from './main.js';
             $.ajax({
                 url: $btn.data('href'),
                 type: 'POST',
+                data: formr.csrf_token_object,
                 dataType: 'json',
                 success: function(response) {
                     if (response.error) {

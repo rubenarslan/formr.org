@@ -5,6 +5,7 @@ Template::loadChild('acp_nav');
 <div class="col-md-6 col-lg-5 col-sm-7 col-md-offset-1 well">
     <h2>edit email account</h2>
     <form class="form-horizontal form-horizontal-small-left"  id="edit_email_account" name="edit_email_account" method="post" action="<?php echo admin_url('mail/edit', array('account_id' => h($_GET['account_id']))); ?>">
+        <?= formr_csrf_token() ?>
         <div class="form-group">
             <label class="control-label" for="from">
                 <?php echo _("From:"); ?>

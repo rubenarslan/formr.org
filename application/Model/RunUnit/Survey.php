@@ -184,46 +184,7 @@ class Survey extends RunUnit {
                 return ['redirect' => run_url($run->name)];
             }
 
-            // Validate request token for POST requests only
-            if (Request::isHTTPPostRequest() AND !Request::isAjaxRequest()) {
-                // Check if it's actually a form submission or possibly an asset request
-                $isFormSubmission = false;
-                
-                // Determine if this is likely a form submission by checking for common form fields
-                // This helps distinguish between actual form submissions and asset requests
-                if (!empty($_POST)) {
-                    // If POST has data, it's likely a form submission
-                    $isFormSubmission = true;
-                }
-                
-                if ($isFormSubmission) {
-                    // Log details about the form submission before validation
-                    if (DEBUG) {
-                        error_log("Processing form submission in survey: " . $run->name);
-                        error_log("Form fields: " . implode(", ", array_keys($_POST)));
-                    }
-                    
-                    // Attempt token validation
-                    $isValid = Session::canValidateRequestToken($request);
-                    
-                    if (!$isValid) {
-                        // Log detailed information about the failed validation
-                        if (DEBUG) {
-                            error_log("Form submission failed token validation in survey: " . $run->name);
-                            error_log("POST data keys: " . implode(", ", array_keys($_POST)));
-                            error_log("Referrer: " . (isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : 'not set'));
-                            error_log("User Agent: " . (isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : 'not set'));
-                        }
-                        
-                        // Add a more descriptive error message with recovery suggestion
-                        alert("Your form could not be submitted due to a security verification issue. This can happen if the page has been open for a long time or was refreshed in another tab. Please try again from this page.", "alert-warning");
-
-                        // Re-render current page without processing POSTed data by passing a flag downstream
-                        $ignore_post = true;
-                    }
-                }
-            }
-
+            // @TODO: remove $ignore_post flag since logic has been moved to middleware
             $unitSession->createSurveyStudyRecord();
 
             if ($study->use_paging) {
@@ -231,6 +192,7 @@ class Survey extends RunUnit {
             } else {
                 $result = $this->processStudy($request, $study, $unitSession, $ignore_post);
             }
+
             if($ignore_post) {
                 $result['log'] = $this->getLogMessage('security_token_error');
             }

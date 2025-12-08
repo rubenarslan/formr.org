@@ -35,6 +35,7 @@
                             <div class="tab-content">
                                 <div class="tab-pane active" id="settings">
                                     <form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
+                                        <?= formr_csrf_token() ?>
                                         <p class="pull-right">
                                             <input type="submit" name="submit_settings" value="Save" class="btn btn-primary save_settings">
                                         </p>
@@ -122,6 +123,7 @@
                                 </div>
                                 <div class="tab-pane" id="privacy">
                                     <form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
+                                        <?= formr_csrf_token() ?>
                                         <p class="pull-right">
                                             <input type="submit" name="submit_settings" value="Save" class="btn btn-primary save_settings">
                                         </p>
@@ -158,6 +160,7 @@
                                 <!-- /.tab-pane -->
                                 <div class="tab-pane" id="css">
                                     <form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
+                                        <?= formr_csrf_token() ?>
                                         <p class="pull-right">
                                             <input type="submit" name="submit_settings" value="Save" class="btn btn-primary save_settings">
                                         </p>
@@ -176,6 +179,7 @@
                                 <!-- /.tab-pane -->
                                 <div class="tab-pane" id="js">
                                     <form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
+                                        <?= formr_csrf_token() ?>
                                         <p class="pull-right">
                                             <input type="submit" name="submit_settings" value="Save" class="btn btn-primary save_settings">
                                         </p>
@@ -196,6 +200,7 @@
                                 <p>Formr studies can be installed as a PWA (Progressive Web App) on the home screen. This allows you to send push notifications to users to invite them to return to the study, e.g. for experience sampling studies. </p>
                                 <h4><i class="fa fa-folder-open"></i> PWA Icons & Splash Screens</h4>
                                     <form class="form-horizontal" enctype="multipart/form-data" id="pwa_icons_form" method="post" action="<?php echo admin_run_url($run->name, 'ajax_upload_pwa_icon_folder'); ?>">
+                                        <?= formr_csrf_token() ?>
                                         <div class="form-group col-md-12">
                                             <label for="pwa_icon_folder_input">Upload PWA Icon/Splash Screen Folder</label>
                                             <p>
@@ -219,6 +224,7 @@
 
                                 
                                     <form class="form-horizontal" enctype="multipart/form-data" id="run_settings" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
+                                        <?= formr_csrf_token() ?>
                                         <p class="pull-right">
                                             <button data-href="<?php echo admin_run_url($run->name, 'ajax_generate_manifest'); ?>" class="btn btn-default generate-manifest"><i class="fa fa-magic"></i> Generate Manifest</button>
                                             <input type="submit" name="submit_settings" value="Save Manifest Text" class="btn btn-primary save_settings">
@@ -256,6 +262,7 @@
                                             <?php foreach ($service_messages as $message): ?>
                                                 <div class="col-md-11 single_unit_display">
                                                     <form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php echo json_encode($message['html_units']); ?>'>
+                                                        <?= formr_csrf_token() ?>
                                                         <div class="run_units"></div>
                                                     </form>
                                                 </div>
@@ -278,7 +285,7 @@
                                             <?php foreach ($reminders as $reminder): ?>
                                                 <div class="col-md-6 single_unit_display">
                                                     <form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php echo json_encode($reminder['html_units']); ?>'>
-
+                                                        <?= formr_csrf_token() ?>
                                                         <a href="<?= admin_run_url($run->name, 'delete_run_unit?type=Email&special=ReminderEmail&redirect=settings:::reminder&unit_id=' . $reminder['id']) ?>" class="reminder-delete remove_unit_from_run" data-action="<?php echo admin_run_url($run->name); ?>" data-id="<?php echo $reminder['id']; ?>"><i class="fa fa-2x fa-trash"></i></a>
                                                         <div class="run_units"></div>
                                                     </form>
@@ -309,6 +316,7 @@ qplot(survey_name$created) # plot entries by startdate</code></pre></li>
                                             <?php foreach ($overview_scripts as $script): ?>
                                                 <div class="col-md-11 single_unit_display">
                                                     <form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php echo json_encode($script['html_units']); ?>'>
+                                                        <?= formr_csrf_token() ?>
                                                         <div class="run_units"></div>
                                                     </form>
                                                 </div>
@@ -336,7 +344,7 @@ qplot(survey_name$created) # plot entries by startdate</code></pre></li>
                                                     <div id="collapseOne" class="panel-collapse collapse in">
                                                         <div class="panel-body">
                                                             <form action="<?php echo admin_url('osf'); ?>" method="post" >
-
+                                                                <?= formr_csrf_token() ?>
                                                                 <div class="alert alert-info alert-dismissible">
                                                                     <a href="#" class="close" data-dismiss="alert" aria-label="close" title="close">&times;</a>
                                                                     <i class="fa fa-exclamation-circle"></i> In order to be able to export your <i>run</i> structure to the Open Science Framework,

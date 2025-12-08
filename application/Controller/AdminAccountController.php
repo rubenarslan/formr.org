@@ -215,10 +215,6 @@ class AdminAccountController extends Controller {
         if ($this->request->isHTTPPostRequest() && 
         $site->request->str('email') && 
         filter_var($this->request->str('email'), FILTER_VALIDATE_EMAIL)) {
-            if (!Session::canValidateRequestToken($site->request)) {
-                alert('Could not process your request please try again later', 'alert-danger');
-                return $this->request->redirect('admin/account/register');
-            }
             if(Site::getSettings('signup:allow', 'true') !== 'true') {
                 alert('Signing up has been disabled for the moment.', 'alert-info');
                 return $this->request->redirect('admin/account/register');

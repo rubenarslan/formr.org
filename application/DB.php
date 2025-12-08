@@ -182,7 +182,7 @@ class DB {
      * Find a set of records from db
      *
      * @param string $table_name
-     * @param string|aray $where
+     * @param string|array $where
      * @param array $params
      * @return array
      */
