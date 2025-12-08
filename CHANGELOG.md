@@ -2,6 +2,14 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.25.0] - 08.12.2025
+### Added
+- Add notifications for study admins
+- SQL Patch 46
+### Fixes
+- Fix csrf token for Ajax calls
+
+
 ## [v0.24.4] - 31.07.2025
 ### Fixes
 - Fixes survey import via run (broken in v0.24.0)
