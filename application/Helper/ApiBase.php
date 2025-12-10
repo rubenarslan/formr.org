@@ -142,7 +142,7 @@ abstract class ApiBase
 
     /**
      * Survey Data Retriever.
-     * * Constructs and executes a complex SQL query to fetch survey results 
+     * Constructs and executes a complex SQL query to fetch survey results 
      * based on filters (Session ID, Survey Items, Run Name).
      *
      * @param Run $run The Run context.

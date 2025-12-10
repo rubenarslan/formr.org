@@ -394,6 +394,7 @@ class ApiHelperV1 extends ApiBase
 
         switch ($method) {
             case 'GET':
+                $this->checkScope('run:read');
                 $responseData = [
                     'id' => (int) $run->id,
                     'name' => $run->name,
@@ -402,8 +403,8 @@ class ApiHelperV1 extends ApiBase
                     'public' => (int) $run->public,
                     'cron_active' => (bool) $run->cron_active,
                     'locked' => (bool) $run->locked,
-                    'created' => $run->created ?? null,
-                    'modified' => $run->modified ?? null,
+                    'created' => $run->created,
+                    'modified' => $run->modified,
                     'link' => run_url($run->name),
                 ];
                 return $this->response(200, 'Run details', $responseData);
@@ -524,7 +525,7 @@ class ApiHelperV1 extends ApiBase
 
     private function createSession(Run $run)
     {
-        $this->checkScope('session:write');
+        $this->checkScope('session:write'); //ToDo: should this be an open Endpoint?
         $body = $this->getJsonBody();
 
         $codes = $body['code'] ?? null;
@@ -547,7 +548,7 @@ class ApiHelperV1 extends ApiBase
                 // Check regex validation from settings
                 $code_rule = Config::get("user_code_regular_expression");
                 if ($code && !preg_match($code_rule, $code)) {
-                    // Skip invalid codes or return error? For batch, maybe skip and report.
+                    // ToDo: Skip invalid codes or return error? For batch, maybe skip and report?
                     continue;
                 }
 
@@ -603,7 +604,7 @@ class ApiHelperV1 extends ApiBase
                 }
                 return $this->error(400, 'Could not end external unit (maybe none active?)');
 
-            case 'toggle_testing':
+            case 'toggle_testing': // ToDo Test if this is the right way to highlight a session for testing?
                 $status = !empty($body['testing']) ? 1 : 0;
                 $runSession->setTestingStatus($status);
                 return $this->response(200, 'Testing status updated');
@@ -633,14 +634,13 @@ class ApiHelperV1 extends ApiBase
      * @return ApiHelperV1
      */
     private function handleResults($runName)
-    // DEV deactivated: checkScope('run:read');
-    {
+    {        
         if ($this->getRequestMethod() !== 'GET') {
             return $this->error(405, 'Method not allowed. Use GET.');
         }
 
         // 1. Security & Config
-        // DEBUG: $this->checkScope('data:read');
+        $this->checkScope('data:read');
         ini_set('memory_limit', Config::get('memory_limit.run_get_data'));
 
         // 2. Validate Run
@@ -725,16 +725,16 @@ class ApiHelperV1 extends ApiBase
         $run = $this->getRunFromRequest($mockRequest);
 
         if (!$run) {
-            return $this; 
+            return $this;
         }
 
         $method = $this->getRequestMethod();
-        $fileName = $this->getUriSegment(3); 
+        $fileName = $this->getUriSegment(3);
 
         // --- LIST FILES (GET) ---
         if (empty($fileName) && $method === 'GET') {
             $this->checkScope('file:read');
-            
+
             $files = $run->getUploadedFiles();
             $fileList = [];
 
@@ -904,10 +904,10 @@ class ApiHelperV1 extends ApiBase
         return $this->error(405, 'Method not allowed. Use GET to export or PUT to import.');
     }
 
-    // --- Helpers (Simulated for now) ---
+    // --- Helpers ---
 
     /**
-     * Standardizes responses
+     * Standardizes responses - ToDo check against ApiBase implementation
      */
     private function response($code, $msg, $data = [])
     {
@@ -915,6 +915,7 @@ class ApiHelperV1 extends ApiBase
         return $this;
     }
 
+    // ToDo check against ApiBase implementation
     private function error($code, $msg)
     {
         $this->setData($code, 'Error', ['error' => $msg]);
@@ -963,7 +964,7 @@ class ApiHelperV1 extends ApiBase
             $segments = explode('/', $path);
 
             // 3. Find where 'v1' is and slice array from there
-            // This makes it safe regardless of /api/v1 or /formr/api/v1
+            // This makes it safe regardless of /api/v1 or /v1 or whatever is configured.
             $v1Index = array_search('v1', $segments);
 
             if ($v1Index !== false) {

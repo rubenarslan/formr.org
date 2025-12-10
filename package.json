@@ -36,13 +36,13 @@
         "fs-extra": "^11.3.0",
         "mini-css-extract-plugin": "^2.9.4",
         "postcss-cli": "^11.0.0",
+        "repomix": "^1.9.2",
         "style-loader": "^4.0.0",
         "terser": "^5.38.1",
         "uglify-js": "^3.19.3",
         "webpack": "^5.97.1",
         "webpack-cli": "^6.0.1",
-        "webpack-dev-server": "^5.2.0",
-        "repomix": "^1.9.2"
+        "webpack-dev-server": "^5.2.0"
     },
     "dependencies": {
         "@khmyznikov/pwa-install": "^0.5.3",
