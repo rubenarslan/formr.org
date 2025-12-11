@@ -342,9 +342,9 @@ class ApiHelperV1 extends ApiBase
 
         // 3. Specific Run endpoints (/runs/{run_name})
 
-        // HANDLE CREATION (PUT)
-        // We intercept PUT here because getRunFromRequest() returns 404 if the run doesn't exist yet.
-        if ($method === 'PUT') {
+        // HANDLE CREATION (POST)
+        // We intercept POST here because getRunFromRequest() returns 404 if the run doesn't exist yet.
+        if ($method === 'POST') {
             $this->checkScope('run:write');
 
             // 1. Check if name already exists
