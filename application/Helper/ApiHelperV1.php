@@ -395,23 +395,58 @@ class ApiHelperV1 extends ApiBase
         switch ($method) {
             case 'GET':
                 $this->checkScope('run:read');
+
+                // Base run data
                 $responseData = [
                     'id' => (int) $run->id,
                     'name' => $run->name,
-                    'title' => $run->title,
-                    'description' => $run->description,
+                    'link' => run_url($run->name),
                     'public' => (int) $run->public,
-                    'cron_active' => (bool) $run->cron_active,
                     'locked' => (bool) $run->locked,
+                    'cron_active' => (bool) $run->cron_active,
                     'created' => $run->created,
                     'modified' => $run->modified,
-                    'link' => run_url($run->name),
                 ];
+
+                // Add patchable settings
+                // These match the fields handled in Run::saveSettings()
+                // We exclude osf_project_id and vapid keys as they are system-managed
+                $settings = [
+                    'title' => $run->title,
+                    'description' => $run->description,
+                    'header_image_path' => $run->header_image_path,
+                    'footer_text' => $run->footer_text,
+                    'public_blurb' => $run->public_blurb,
+                    'privacy' => $run->privacy,
+                    'tos' => $run->tos,
+                    'use_material_design' => (bool) $run->use_material_design,
+                    'expiresOn' => $run->expiresOn,
+
+                    // Cookie expiration settings
+                    'expire_cookie_value' => (int) $run->expire_cookie_value,
+                    'expire_cookie_unit' => $run->expire_cookie_unit,
+
+                    // Content fields (fetching content, not paths)
+                    'custom_css' => $run->getCustomCSS(),
+                    'custom_js' => $run->getCustomJS(),
+                    'manifest_json' => $run->getManifestJSON(),
+                ];
+
+                $responseData = array_merge($responseData, $settings);
+
                 return $this->response(200, 'Run details', $responseData);
 
             case 'PATCH':
                 $this->checkScope('run:write');
                 $input = $this->getJsonBody();
+
+                // Prevent updating sensitive or system-managed fields via API
+                $restrictedFields = ['vapid_public_key', 'vapid_private_key', 'osf_project_id'];
+                foreach ($restrictedFields as $field) {
+                    if (isset($input[$field])) {
+                        unset($input[$field]);
+                    }
+                }
 
                 if (isset($input['public'])) $run->togglePublic((int)$input['public']);
                 if (isset($input['locked'])) $run->toggleLocked((int)$input['locked']);
@@ -525,51 +560,105 @@ class ApiHelperV1 extends ApiBase
 
     private function createSession(Run $run)
     {
-        $this->checkScope('session:write'); //ToDo: should this be an open Endpoint?
+        $this->checkScope('session:write');
         $body = $this->getJsonBody();
 
         $codes = $body['code'] ?? null;
         $testing = !empty($body['testing']) ? 1 : 0;
-        $createdSessions = [];
 
-        // Support creating a single random session if no code provided
+        $createdSessions = [];
+        $failedSessions = [];
+
+        // Case A: Create a single random session (no code provided)
         if ($codes === null) {
             $runSession = new RunSession(null, $run);
             if ($runSession->create(null, $testing)) {
                 $createdSessions[] = $runSession->session;
+            } else {
+                return $this->error(500, 'Failed to create random session.');
             }
-        } else {
-            // Support single code string or array of strings
+        }
+        // Case B: Create specific named sessions (codes provided)
+        else {
             if (!is_array($codes)) {
                 $codes = [$codes];
             }
 
+            $code_rule = Config::get("user_code_regular_expression");
+
             foreach ($codes as $code) {
-                // Check regex validation from settings
-                $code_rule = Config::get("user_code_regular_expression");
-                if ($code && !preg_match($code_rule, $code)) {
-                    // ToDo: Skip invalid codes or return error? For batch, maybe skip and report?
+                // 1. Enforce URL-safe characters (Global Safety)
+                if ($code && !preg_match('/^[a-zA-Z0-9_\-~]+$/', $code)) {
+                    $failedSessions[] = [
+                        'code' => $code,
+                        'reason' => 'Invalid characters. Only alphanumeric and - _ ~ are allowed.'
+                    ];
                     continue;
                 }
 
+                // 2. Check instance-wide regex (Instance Config)
+                if ($code && !preg_match($code_rule, $code)) {
+                    $failedSessions[] = [
+                        'code' => $code,
+                        'reason' => "Does not match required format: $code_rule"
+                    ];
+                    continue;
+                }
+
+                // Initialize session object
                 $runSession = new RunSession($code, $run);
-                // create() checks if exists or creates new. 
-                // Note: RunSession->create returns data on success, false on fail
+
+                // 3. Check for Duplicate
+                // The constructor automatically loads existing data if found.
+                // If ID is set, the session already exists.
+                if ($runSession->id) {
+                    $failedSessions[] = [
+                        'code' => $code,
+                        'reason' => 'Session already exists.'
+                    ];
+                    continue;
+                }
+
+                // 4. Attempt creation (Database)
                 if ($runSession->create($code, $testing)) {
                     $createdSessions[] = $runSession->session;
+                } else {
+                    $failedSessions[] = [
+                        'code' => $code,
+                        'reason' => 'Creation failed (database error).'
+                    ];
                 }
             }
-        }
 
-        if (empty($createdSessions)) {
-            return $this->error(400, 'No sessions created. Check code validity or database constraints.');
-        }
+            // Construct the response payload
+            $payload = [
+                'count_created' => count($createdSessions),
+                'sessions' => $createdSessions,
+            ];
 
-        return $this->response(201, 'Sessions created', [
-            'count' => count($createdSessions),
-            'sessions' => $createdSessions
-        ]);
+            // If we had failures, include them in the response
+            if (!empty($failedSessions)) {
+                $payload['count_failed'] = count($failedSessions);
+                $payload['errors'] = $failedSessions;
+            }
+
+            // --- Determine Status Code ---
+
+            // 1. Complete Failure: 400 Bad Request
+            if (empty($createdSessions) && !empty($failedSessions)) {
+                return $this->response(400, 'No sessions were created. See errors.', $payload);
+            }
+
+            // 2. Partial Success: 207 Multi-Status
+            if (!empty($createdSessions) && !empty($failedSessions)) {
+                return $this->response(207, 'Some sessions were created, but others failed.', $payload);
+            }
+
+            // 3. Complete Success: 201 Created
+            return $this->response(201, 'Sessions created successfully.', $payload);
+        }
     }
+
 
     private function getSessionDetails(RunSession $runSession)
     {
@@ -634,7 +723,7 @@ class ApiHelperV1 extends ApiBase
      * @return ApiHelperV1
      */
     private function handleResults($runName)
-    {        
+    {
         if ($this->getRequestMethod() !== 'GET') {
             return $this->error(405, 'Method not allowed. Use GET.');
         }
