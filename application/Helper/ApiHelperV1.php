@@ -2,16 +2,16 @@
 
 class ApiHelperV1 extends ApiBase
 {
-
-    protected $path_segments;
-
-
     // --- Entry Points (Public Methods mapping to top-level URL segments) ---
 
     /**
-     * User Resource Endpoint (/user).
-     * Handles operations for the authenticated user.
-     * * @return ApiHelperV1
+     * User Resource Handler (/user)
+     * * Routes requests targeting the authenticated user's account.
+     * * Supported Endpoints:
+     * - GET /user/me: Retrieve user profile
+     * - PATCH /user/me: Update allowed profile fields
+     *
+     * @return ApiHelperV1 Returns self for method chaining or sets error state.
      */
     public function user()
     {
@@ -33,7 +33,11 @@ class ApiHelperV1 extends ApiBase
     }
 
     /**
-     * Retrieve the authenticated user's profile.
+     * Get User Profile
+     * * Retrieves the authenticated user's data.
+     * * Scope required: `user:read`
+     * * Filters sensitive data (password hashes) before returning.
+     * * @return ApiHelperV1
      */
     private function getUserProfile()
     {
@@ -56,7 +60,11 @@ class ApiHelperV1 extends ApiBase
     }
 
     /**
-     * Update allowed fields for the authenticated user.
+     * Update User Profile
+     * * Updates whitelist fields (first_name, last_name, affiliation).
+     * * Scope required: `user:write`
+     * * Ignores sensitive or system-managed fields (email, admin level).
+     * * @return ApiHelperV1
      */
     private function updateUserProfile()
     {
@@ -93,11 +101,16 @@ class ApiHelperV1 extends ApiBase
     }
 
     /**
-     * Surveys Resource Hub (/surveys)
-     * * Handles operations for Survey objects (item tables, settings).
-     * Distinguishes between Surveys (the forms) and Runs (the flow logic).
+     * Survey Resource Handler (/surveys)
+     * * Manages CRUD operations for Survey studies (the forms/questionnaires).
+     * * Supported Endpoints:
+     * - GET /surveys: List all surveys belonging to user.
+     * - POST /surveys/{name}: Create or Update a survey via file upload or Google Sheet URL.
+     * - GET /surveys/{name}: Retrieve survey settings and item structure.
+     * - PATCH /surveys/{name}: Update survey metadata/settings.
+     * - DELETE /surveys/{name}: Delete a survey.
      *
-     * @param string|null $surveyName
+     * @param string|null $surveyName The name of the survey (from URL segment 2).
      * @return ApiHelperV1
      */
     public function surveys($surveyName = null)
@@ -283,13 +296,23 @@ class ApiHelperV1 extends ApiBase
     }
 
     /**
-     * Runs Resource Hub (/runs).
-     * * Acts as a sub-router for Run-related logic. Dispatches specific run operations
-     * or delegates to sub-resources (Sessions, Results, Files, Surveys).
+     * Run Resource Handler (/runs)
+     * * Manages Run entities (study flows) and routes to sub-resources.
+     * * Supported Endpoints:
+     * - GET /runs: List all runs.
+     * - POST /runs/{name}: Create a new Run.
+     * - GET /runs/{name}: Retrieve Run details/settings.
+     * - PATCH /runs/{name}: Update Run settings (lock, public status, etc.).
+     * - DELETE /runs/{name}: Delete a Run.
+     * * Sub-resources dispatched:
+     * - /sessions: `handleSessions`
+     * - /results: `handleResults`
+     * - /files: `handleFiles`
+     * - /structure: `handleStructure`
      *
-     * @param string|null $runName The name of the specific run.
-     * @param string|null $subResource The sub-resource (e.g., 'results').
-     * @param mixed|null $extra Additional URL segments.
+     * @param string|null $runName The name of the run.
+     * @param string|null $subResource The sub-resource (e.g., 'sessions').
+     * @param mixed $extra Additional segments.
      * @return ApiHelperV1
      */
     public function runs($runName = null, $subResource = null, $extra = null)
@@ -474,7 +497,16 @@ class ApiHelperV1 extends ApiBase
     // --- Private Sub-Resource Handlers ---
 
     /**
-     * Handles /runs/{name}/sessions
+     * Session Sub-Resource Router
+     * * Routes /runs/{name}/sessions requests.
+     * * Endpoints:
+     * - GET /.../sessions: List sessions (supports pagination/filtering).
+     * - POST /.../sessions: Create new session(s) (random or specific codes).
+     * - GET /.../sessions/{code}: Get details for a specific session.
+     * - POST /.../sessions/{code}/actions: Perform logical actions (e.g., 'toggle_testing').
+     *
+     * @param string $runName
+     * @return ApiHelperV1
      */
     private function handleSessions($runName)
     {
@@ -526,6 +558,14 @@ class ApiHelperV1 extends ApiBase
         return $this->error(404, 'Endpoint not found or method not allowed');
     }
 
+    /**
+     * List Sessions
+     * * Returns a paginated list of sessions for the run.
+     * * Supports filtering by `active` (ongoing) or `testing` status.
+     *
+     * @param Run $run
+     * @return ApiHelperV1
+     */
     private function listSessions(Run $run)
     {
         $this->checkScope('session:read');
@@ -558,6 +598,15 @@ class ApiHelperV1 extends ApiBase
         return $this->response(200, 'Sessions list', $sessions);
     }
 
+    /**
+     * Create Sessions
+     * * Creates one or more sessions for a run.
+     * * Two modes:
+     * 1. Random Code: If no body provided, creates 1 session with a crypto-token.
+     * 2. Named Codes: Accepts a list of codes. Validates format and checks for duplicates.
+     * * @param Run $run
+     * @return ApiHelperV1 201 Created (success), 207 Multi-Status (partial), or 400 (fail).
+     */
     private function createSession(Run $run)
     {
         $this->checkScope('session:write');
@@ -680,6 +729,17 @@ class ApiHelperV1 extends ApiBase
         return $this->response(200, 'Session details', $data);
     }
 
+    /**
+     * Execute Session Action
+     * * Performs state-changing actions on a specific session.
+     * * Actions:
+     * - `end_external`: Forces an external unit (like a redirect) to complete.
+     * - `toggle_testing`: Switches the session's testing flag.
+     * - `move_to_position`: Jumps the user to a specific position index.
+     *
+     * @param RunSession $runSession
+     * @return ApiHelperV1
+     */
     private function performSessionAction(RunSession $runSession)
     {
         $this->checkScope('session:write');
@@ -714,12 +774,12 @@ class ApiHelperV1 extends ApiBase
     }
 
     /**
-     * Results Sub-Resource Handler.
-     * * GET /v1/runs/{name}/results
-     * Retrieves survey results for a specific run. Supports filtering via 
-     * query parameters (sessions, surveys, items).
+     * Results Retrieval Handler
+     * * Fetches flattened survey results for a run.
+     * * Scope required: `data:read`
+     * * Supports filtering by specific surveys, items, or sessions via query params.
      *
-     * @param string $runName The name of the run.
+     * @param string $runName
      * @return ApiHelperV1
      */
     private function handleResults($runName)
@@ -800,12 +860,14 @@ class ApiHelperV1 extends ApiBase
     }
 
     /**
-     * Handles /runs/{name}/files
-     * * Supported actions:
-     * - GET /runs/{name}/files : List all files uploaded to this run
-     * - POST /runs/{name}/files : Upload a new file (Multipart form-data, key="file")
-     * - DELETE /runs/{name}/files/{filename} : Delete a specific file
-     *   ToDo: if file-names containe a "space", they cant be deleted via API
+     * File Management Handler
+     * * Manages media/documents attached to a run.
+     * * Endpoints:
+     * - GET: List files with their public URLs.
+     * - POST: Upload a file (multipart/form-data).
+     * - DELETE: Remove a file.
+     * * @param string $runName
+     * @return ApiHelperV1
      */
     private function handleFiles($runName)
     {
@@ -919,11 +981,12 @@ class ApiHelperV1 extends ApiBase
     }
 
     /**
-     * Structure Sub-Resource Handler.
-     * * GET /v1/runs/{name}/structure : Export Run JSON
-     * * PUT /v1/runs/{name}/structure : Import Run JSON
-     *
-     * @param string $runName
+     * Structure Import/Export Handler
+     * * Manages the JSON representation of the Run's flow logic (RunUnits).
+     * * Endpoints:
+     * - GET: Export full run structure as JSON.
+     * - PUT: Import structure from JSON (replaces existing units).
+     * * @param string $runName
      * @return ApiHelperV1
      */
     private function handleStructure($runName)
@@ -1022,83 +1085,5 @@ class ApiHelperV1 extends ApiBase
         }
 
         return $this->error(405, 'Method not allowed. Use GET to export or PUT to import.');
-    }
-
-    // --- Helpers ---
-
-    /**
-     * Standardizes responses - ToDo check against ApiBase implementation
-     */
-    private function response($code, $msg, $data = [])
-    {
-        $this->setData($code, $msg, $data);
-        return $this;
-    }
-
-    // ToDo check against ApiBase implementation
-    private function error($code, $msg)
-    {
-        $this->setData($code, 'Error', ['error' => $msg]);
-        return $this;
-    }
-
-    /**
-     * Validates if the current token has the required scope
-     * Throws exception or terminates if failed
-     */
-    private function checkScope($requiredScope) {
-        // The bshaffer library returns scope as a space-delimited string
-        $grantedScopes = explode(' ', isset($this->tokenData['scope']) ? $this->tokenData['scope'] : '');
-
-        // Check if the required scope exists in the granted scopes
-        if (!in_array($requiredScope, $grantedScopes)) {
-            // Throwing exception gets caught by the dispatcher and returns 500/400
-            throw new Exception("Insufficient permissions: '$requiredScope' scope required.");
-        }
-    }
-
-    private function getRequestMethod()
-    {
-        return $_SERVER['REQUEST_METHOD'] ?? 'GET';
-    }
-
-    private function getJsonBody()
-    {
-        return json_decode(file_get_contents('php://input'), true) ?? [];
-    }
-
-    /**
-     * URI Segment Parser.
-     * * Analyzes `REQUEST_URI` to determine path segments relative to the API version.
-     * Ensures correct segment retrieval regardless of base path (e.g. /api/v1 vs /v1).
-     *
-     * @param int $index The segment offset index.
-     * @return string|null The segment value or null if not found.
-     */
-    protected function getUriSegment($index)
-    {
-        if (!isset($this->path_segments)) {
-            $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-
-            // 1. Trim slashes
-            $path = trim($path, '/');
-
-            // 2. Explode first
-            $segments = explode('/', $path);
-
-            // 3. Find where 'v1' is and slice array from there
-            // This makes it safe regardless of /api/v1 or /v1 or whatever is configured.
-            $v1Index = array_search('v1', $segments);
-
-            if ($v1Index !== false) {
-                // Keep everything AFTER 'v1'
-                $this->path_segments = array_slice($segments, $v1Index + 1);
-            } else {
-                // Fallback or legacy handling
-                $this->path_segments = $segments;
-            }
-        }
-
-        return $this->path_segments[$index] ?? null;
     }
 }

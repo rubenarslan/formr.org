@@ -28,6 +28,12 @@ abstract class ApiBase
         'response' => array(),
     );
 
+    /** 
+     * Stores the parsed URI segments 
+     * @var array 
+     */
+    protected $path_segments;
+
     /**
      * Error information
      * @var array
@@ -36,21 +42,70 @@ abstract class ApiBase
 
     protected $tokenData = array();
 
+    /**
+     * Constructor.
+     * * Initializes the API handler with the Request object, Database connection, and Token data.
+     * It also hydrates the authenticated User based on the token's user_id.
+     * * @param Request $request The HTTP request object wrapping $_GET/$_POST/$_SERVER.
+     * @param DB $db The Database instance.
+     * @param array $token_data Associative array containing OAuth2 token details (e.g., 'user_id', 'scope').
+     */
     public function __construct(Request $request, DB $db, $token_data)
     {
         $this->db = $db;
         $this->request = $request;
         $this->tokenData = $token_data;
-        // Assuming OAuthHelper exists globally or statically
+        // Retrieves the user associated with the access token
         $this->user = OAuthHelper::getInstance()->getUserByEmail($token_data['user_id']);
 
+        // Legacy support: Sets the global user object for older components that rely on it
         global $user;
         $user = $this->user;
     }
 
+    /**
+     * Retrieve the processed response data.
+     * @return array The associative array containing 'statusCode', 'statusText', and 'response' body.
+     */
     public function getData()
     {
         return $this->data;
+    }
+
+    /**
+     * URI Segment Parser.
+     * * Analyzes `REQUEST_URI` to extract specific path segments relative to the API version.
+     * It normalizes the path by stripping the base prefix (up to 'v1') to ensure consistent 
+     * segment retrieval regardless of the server's sub-directory configuration.
+     *
+     * @param int $index The offset index of the segment to retrieve (0-based relative to version).
+     * @return string|null The segment value, or null if the index does not exist.
+     */
+    protected function getUriSegment($index)
+    {
+        if (!isset($this->path_segments)) {
+            $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+            // 1. Trim slashes
+            $path = trim($path, '/');
+
+            // 2. Explode first
+            $segments = explode('/', $path);
+
+            // 3. Find where 'v1' is and slice array from there
+            // This makes it safe regardless of /api/v1 or /v1 or whatever is configured.
+            $v1Index = array_search('v1', $segments);
+
+            if ($v1Index !== false) {
+                // Keep everything AFTER 'v1'
+                $this->path_segments = array_slice($segments, $v1Index + 1);
+            } else {
+                // Fallback or legacy handling
+                $this->path_segments = $segments;
+            }
+        }
+
+        return $this->path_segments[$index] ?? null;
     }
 
     /**
@@ -71,12 +126,69 @@ abstract class ApiBase
     // --- SHARED HELPER METHODS ---
 
     /**
-     * Run Validator and Retriever.
-     * * extraction of the Run object based on the request. 
-     * Validates that the run exists and the authenticated user has permission to access it.
+     * Response Builder
+     * * Helper wrapper around `ApiBase::setData` to chain the return.
      *
-     * @param object $request The JSON request object.
-     * @return Run|false Returns Run object on success, false on failure (sets error data).
+     * @param int $code HTTP Status Code
+     * @param string $msg Status Message
+     * @param array $data Response body
+     * @return ApiHelperV1
+     */
+    protected function response($code, $msg, $data = [])
+    {
+        $this->setData($code, $msg, $data);
+        return $this;
+    }
+
+    protected function error($code, $msg)
+    {
+        $this->setData($code, 'Error', ['error' => $msg]);
+        return $this;
+    }
+
+    /**
+     * OAuth2 Scope Validator.
+     * * Verifies if the access token used for the request includes the specific scope required 
+     * to perform the action.
+     *
+     * @param string $requiredScope The scope string required (e.g., 'user:read').
+     * @throws Exception If the token does not grant the required scope.
+     * @return void
+     */
+    protected function checkScope($requiredScope)
+    {
+        $grantedScopes = explode(' ', isset($this->tokenData['scope']) ? $this->tokenData['scope'] : '');
+        if (!in_array($requiredScope, $grantedScopes)) {
+            throw new Exception("Insufficient permissions: '$requiredScope' scope required.");
+        }
+    }
+
+    protected function getRequestMethod()
+    {
+        return $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    }
+
+    /**
+     * JSON Body Parser.
+     * * Reads the raw input stream ('php://input') and decodes it as a JSON associative array.
+     * Useful for handling RESTful payloads.
+     * * @return array The decoded JSON body or an empty array if decoding fails.
+     */
+    protected function getJsonBody()
+    {
+        return json_decode(file_get_contents('php://input'), true) ?? [];
+    }
+
+    /**
+     * Run Validator and Retriever.
+     * * Extracts the Run object based on the request parameters.
+     * It enforces security policies:
+     * 1. Checks if the Run exists.
+     * 2. Checks if the authenticated user is the owner.
+     * 3. Alternatively, checks if an API secret is provided and valid (machine-to-machine access).
+     *
+     * @param object $request The JSON request object containing the run name.
+     * @return Run|false Returns the Run model on success, or false on failure (sets error data internally).
      */
     protected function getRunFromRequest($request)
     {
@@ -144,14 +256,14 @@ abstract class ApiBase
     }
 
     /**
-     * Survey Data Retriever.
-     * Constructs and executes a complex SQL query to fetch survey results 
-     * based on filters (Session ID, Survey Items, Run Name).
+     * Survey Results Retriever.
+     * * Fetches survey submission data for a specific run and survey.
+     * Supports filtering by specific item names and session IDs.
      *
-     * @param Run $run The Run context.
-     * @param string $survey_name Name of the survey.
-     * @param string|null $survey_items Comma-separated list of items to filter.
-     * @param array|null $sessions List of session IDs to filter.
+     * @param Run $run The Run model instance.
+     * @param string $survey_name The name of the specific survey within the run.
+     * @param string|null $survey_items Comma-separated list of item names to include (columns).
+     * @param array|null $sessions List of session IDs to filter by (rows).
      * @return array Associative array of results grouped by session.
      */
     protected function getSurveyResults(Run $run, $survey_name, $survey_items = null, $sessions = null)
@@ -178,6 +290,20 @@ abstract class ApiBase
         return array_values($results);
     }
 
+    /**
+     * Query Builder for Survey Results.
+     * * Dynamically constructs a SQL query string to fetch flattened survey results.
+     * It handles:
+     * - Parameter escaping (using DB::quote).
+     * - dynamic filtering for items (WHERE IN).
+     * - dynamic filtering for sessions (LIKE/OR matches).
+     *
+     * @param Run $run The Run model.
+     * @param string $survey_name Name of the survey.
+     * @param string|null $survey_items Comma-separated items.
+     * @param array|null $sessions Array of session strings.
+     * @return string The raw SQL query with placeholders replaced.
+     */
     protected function buildSurveyResultsQuery(Run $run, $survey_name, $survey_items = null, $sessions = null)
     {
         $params = array(
