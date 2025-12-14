@@ -45,3 +45,4 @@ webroot/assets/dev-build
 feature_diff.patch
 package-lock.json
 repomix-output.xml
+.repomixignore

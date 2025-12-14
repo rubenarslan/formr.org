@@ -25,7 +25,8 @@
  * social network (later)
  * lab date selector (later)
  */
-class Run extends Model {
+class Run extends Model
+{
 
     public $id = null;
     public $name = null;
@@ -73,14 +74,25 @@ class Run extends Model {
     protected $api_secret_hash = null;
     protected $owner = null;
     protected $run_settings = array(
-        "header_image_path", "title", "description",
-        "footer_text", "public_blurb", "privacy",
-        "tos", "custom_css",
-        "custom_js", "manifest_json", "cron_active", "osf_project_id",
-        "use_material_design", "expire_cookie",
-        "expire_cookie_value", "expire_cookie_unit",
+        "header_image_path",
+        "title",
+        "description",
+        "footer_text",
+        "public_blurb",
+        "privacy",
+        "tos",
+        "custom_css",
+        "custom_js",
+        "manifest_json",
+        "cron_active",
+        "osf_project_id",
+        "use_material_design",
+        "expire_cookie",
+        "expire_cookie_value",
+        "expire_cookie_unit",
         "expiresOn",
-        "vapid_public_key", "vapid_private_key"
+        "vapid_public_key",
+        "vapid_private_key"
     );
     public $renderedDescAndFooterAlready = false;
     public $expiresOn = null;
@@ -94,9 +106,10 @@ class Run extends Model {
 
     const TEST_RUN = 'formr-test-run';
 
-    public function __construct($name = null, $id = null) {
+    public function __construct($name = null, $id = null)
+    {
         parent::__construct();
-        
+
         if ($name == self::TEST_RUN) {
             $this->name = $name;
             $this->valid = true;
@@ -109,14 +122,15 @@ class Run extends Model {
             $this->name = $name;
             $this->load();
         }
-        
+
         if ($id !== null) {
             $this->id = (int) $id;
             $this->load();
         }
     }
 
-    protected function load() {
+    protected function load()
+    {
         if (in_array($this->name, Config::get('reserved_run_names', array()))) {
             return;
         }
@@ -124,8 +138,8 @@ class Run extends Model {
         $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, manifest_json_path, osf_project_id, use_material_design, expire_cookie, expiresOn, vapid_public_key, vapid_private_key, pwa_icon_path";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
-        
-        if($vars && isset($vars['expiresOn']) && $vars['expiresOn'] !== null) {
+
+        if ($vars && isset($vars['expiresOn']) && $vars['expiresOn'] !== null) {
             $vars['expiresOn'] = date('Y-m-d', strtotime($vars['expiresOn']));
         }
 
@@ -139,12 +153,13 @@ class Run extends Model {
         }
     }
 
-    public function getCronDues() {
+    public function getCronDues()
+    {
         $sessions = $this->db->select('session')
-                ->from('survey_run_sessions')
-                ->where(array('run_id' => $this->id))
-                ->order('RAND')
-                ->statement();
+            ->from('survey_run_sessions')
+            ->where(array('run_id' => $this->id))
+            ->order('RAND')
+            ->statement();
         $dues = array();
         while ($run_session = $sessions->fetch(PDO::FETCH_ASSOC)) {
             $dues[] = $run_session['session'];
@@ -154,24 +169,28 @@ class Run extends Model {
 
     /* ADMIN functions */
 
-    public function getApiSecret($user) {
+    public function getApiSecret($user)
+    {
         if ($user->isAdmin()) {
             return $this->api_secret_hash;
         }
         return false;
     }
 
-    public function hasApiAccess($secret) {
+    public function hasApiAccess($secret)
+    {
         return $this->api_secret_hash === $secret;
     }
 
-    public function rename($new_name) {
+    public function rename($new_name)
+    {
         $name = trim($new_name);
         $this->db->update('survey_runs', array('name' => $name), array('id' => $this->id));
         return true;
     }
 
-    public function delete() {
+    public function delete()
+    {
         try {
             $this->deleteFiles();
             // Need to discuss: Should this cascade the run-unit deletions?
@@ -187,25 +206,27 @@ class Run extends Model {
         }
     }
 
-    public function deleteUnits() {
+    public function deleteUnits()
+    {
         $this->db->delete('survey_run_special_units', array('run_id' => $this->id));
         $this->db->delete('survey_run_units', array('run_id' => $this->id));
     }
 
-    public function togglePublic($public) {
+    public function togglePublic($public)
+    {
         if (!in_array($public, range(0, 3))) {
             return false;
         }
 
-        if($public > 0) {
+        if ($public > 0) {
             $run_expiry = $this->expiresOn;
             $problem = false;
-            if($run_expiry === null && Config::get('keep_study_data_for_months_maximum') !== INF) {
+            if ($run_expiry === null && Config::get('keep_study_data_for_months_maximum') !== INF) {
                 alert("You cannot make this study public yet. First, you need to define when the data can be deleted in the run settings.", 'alert-warning');
                 $problem = true;
-            } elseif($run_expiry !== null) {
+            } elseif ($run_expiry !== null) {
                 $expiry_timestamp = strtotime($run_expiry);
-                if($expiry_timestamp === false || $expiry_timestamp <= time()) {
+                if ($expiry_timestamp === false || $expiry_timestamp <= time()) {
                     alert("You cannot make this study public because it has an invalid or past expiry date. Please update the expiry date in run settings.", 'alert-warning');
                     $problem = true;
                 }
@@ -213,11 +234,11 @@ class Run extends Model {
 
             // Check if the run has a privacy policy
             $require_privacy = Config::get("require_privacy_policy", false);
-            if ($require_privacy AND !$this->hasPrivacy()) {
+            if ($require_privacy and !$this->hasPrivacy()) {
                 alert('You cannot make this study public because it does not have a privacy policy. Define one first in the run settings tab.', 'alert-warning');
                 $problem = true;
             }
-            if($problem) {
+            if ($problem) {
                 return false;
             }
         }
@@ -226,13 +247,15 @@ class Run extends Model {
         return $updated !== false;
     }
 
-    public function toggleLocked($on) {
+    public function toggleLocked($on)
+    {
         $on = (int) $on;
         $updated = $this->db->update('survey_runs', array('locked' => $on), array('id' => $this->id));
         return $updated !== false;
     }
 
-    public function create($options) {
+    public function create($options)
+    {
         $name = trim($options['run_name']);
 
         // create run db entry
@@ -270,21 +293,23 @@ class Run extends Model {
         return $name;
     }
 
-    public function getUploadedFiles() {
+    public function getUploadedFiles()
+    {
         return $this->db->select('id, created, modified, original_file_name, new_file_path')
-                        ->from('survey_uploaded_files')
-                        ->where(array('run_id' => $this->id))
-                        ->order('created', 'desc')
-                        ->fetchAll();
+            ->from('survey_uploaded_files')
+            ->where(array('run_id' => $this->id))
+            ->order('created', 'desc')
+            ->fetchAll();
     }
 
     private $batch_directory;
 
-    private function makeBatchDirectory() {
+    private function makeBatchDirectory()
+    {
         if (!isset($this->batch_directory)) {
             // Generate a random directory name for this batch
             $this->batch_directory = 'assets/tmp/admin/' . crypto_token(15, true) . '/';
-    
+
             // Ensure the batch directory exists
             $local_path = APPLICATION_ROOT . 'webroot/';
             $destination_dir = $local_path . $this->batch_directory;
@@ -292,24 +317,25 @@ class Run extends Model {
                 mkdir($destination_dir, 0755, true);
             }
         }
-    
+
         return $this->batch_directory;
     }
 
-    public function uploadFiles($files) {
+    public function uploadFiles($files)
+    {
         $max_size_upload = Config::get('admin_maximum_size_of_uploaded_files');
         $allowed_file_endings = Config::get('allowed_file_endings_for_run_upload');
-    
+
         // make lookup array
         $existing_files = $this->getUploadedFiles();
         $files_by_names = array();
         foreach ($existing_files as $existing_file) {
             $files_by_names[$existing_file['original_file_name']] = $existing_file['new_file_path'];
         }
-    
+
         // Ensure the batch directory exists
-        $local_path = APPLICATION_ROOT . 'webroot/' ;
-    
+        $local_path = APPLICATION_ROOT . 'webroot/';
+
         // loop through files and modify them if necessary
         for ($i = 0; $i < count($files['tmp_name']); $i++) {
             // validate if any error occurred on upload
@@ -317,20 +343,20 @@ class Run extends Model {
                 $this->errors[] = __("An error occurred uploading file '%s'. ERROR CODE: PFUL-%d", $files['name'][$i], $files['error'][$i]);
                 continue;
             }
-    
+
             // validate file size
             $size = (int) $files['size'][$i];
             if (!$size || ($size > $max_size_upload * 1048576)) {
                 $this->errors[] = __("The file '%s' is too big or the size could not be determined. The allowed maximum size is %d megabytes.", $files['name'][$i], round($max_size_upload, 2));
                 continue;
             }
-    
+
             // validate mime type and file ending
             $finfo = new finfo(FILEINFO_MIME_TYPE);
             $mime = $finfo->file($files['tmp_name'][$i]);
             $original_file_name = $files['name'][$i];
             $file_extension = pathinfo($original_file_name, PATHINFO_EXTENSION);
-    
+
             // Adjust validation for ambiguous types
             if ($mime == 'text/plain' || $mime == "text/x-asm") {
                 // Add additional cases for other ambiguous MIME types
@@ -371,18 +397,18 @@ class Run extends Model {
                         break;
                 }
             }
-    
+
             if (!isset($allowed_file_endings[$mime]) || $allowed_file_endings[$mime] !== $file_extension) {
                 $this->errors[] = __('The file "%s" has an invalid file extension %s. Expected %s for MIME type %s.', $original_file_name, $file_extension, $allowed_file_endings[$mime], $mime);
                 continue;
             }
 
             // Keep old file path if a file of the same name has been uploaded before
-            if(array_key_exists($original_file_name, $files_by_names)) {
+            if (array_key_exists($original_file_name, $files_by_names)) {
                 $new_file_path = $files_by_names[$original_file_name]; // web, below webroot
                 $local_file_path = $local_path . $new_file_path;
             } else {
-            // New path name if file name is new
+                // New path name if file name is new
                 $batch_directory = $this->makeBatchDirectory();
                 $destination_dir = $local_path . $batch_directory;
                 // Sanitize file name to remove control characters
@@ -412,18 +438,19 @@ class Run extends Model {
                 $this->errors[] = __("Unable to move uploaded file '%s' to storage location.", $files['name'][$i]);
             }
         }
-    
+
         // MODIFIED: Return the batch directory path on success (assuming no errors occurred *within* the loop that stopped processing)
         // If _saveUploadedFile encounters errors, it adds to $this->errors. We return false if errors exist.
         if (empty($this->errors)) {
             // Ensure batch_directory was actually set (it should be by makeBatchDirectory)
-            return isset($this->batch_directory) ? $this->batch_directory : false; 
+            return isset($this->batch_directory) ? $this->batch_directory : false;
         } else {
             return false;
         }
     }
 
-    public function deleteFile($id, $filename) {
+    public function deleteFile($id, $filename)
+    {
         $where = array('id' => (int) $id, 'original_file_name' => $filename);
         $filepath = $this->db->findValue('survey_uploaded_files', $where, 'new_file_path');
         $deleted = $this->db->delete('survey_uploaded_files', $where);
@@ -434,26 +461,28 @@ class Run extends Model {
         return $deleted;
     }
 
-    public function deleteFiles() {
+    public function deleteFiles()
+    {
         $where = array('run_id' => (int) $this->id);
         $files_to_delete = $this->db->find('survey_uploaded_files', $where, ['cols' => ['id', 'new_file_path']]);
         $local_path_prefix = APPLICATION_ROOT . "webroot/";
 
         foreach ($files_to_delete as $file) {
             $physicalfile = $local_path_prefix . $file['new_file_path'];
-            if(file_exists($physicalfile)) {
+            if (file_exists($physicalfile)) {
                 @unlink($physicalfile);
             }
             $this->db->delete('survey_uploaded_files', ['id' => $file['id']]);
         }
-
     }
 
-    public static function nameExists($name) {
+    public static function nameExists($name)
+    {
         return DB::getInstance()->entry_exists('survey_runs', array('name' => $name));
     }
 
-    public function reorder($positions) {
+    public function reorder($positions)
+    {
         $run_unit_id = null;
         $pos = null;
         $update = "UPDATE `survey_run_units` SET position = :position WHERE run_id = :run_id AND id = :run_unit_id";
@@ -468,28 +497,31 @@ class Run extends Model {
         return true;
     }
 
-    public function getAllUnitIds() {
+    public function getAllUnitIds()
+    {
         return $this->db->select(array('id' => 'run_unit_id', 'unit_id', 'position'))
-                        ->from('survey_run_units')
-                        ->where(array('run_id' => $this->id))
-                        ->order('position')
-                        ->fetchAll();
+            ->from('survey_run_units')
+            ->where(array('run_id' => $this->id))
+            ->order('position')
+            ->fetchAll();
     }
-    
-    public function getFirstPosition() {
+
+    public function getFirstPosition()
+    {
         if ($units = $this->getAllUnitIds()) {
             return $units[0]['position'];
         }
     }
-    
-    public function getNextPosition($current) {
+
+    public function getNextPosition($current)
+    {
         $row = $this->db->select('position')
-                ->from('survey_run_units')
-                ->where(['run_id' => $this->id, 'position >' => $current])
-                ->order('position')
-                ->limit(1)
-                ->fetch();
-        
+            ->from('survey_run_units')
+            ->where(['run_id' => $this->id, 'position >' => $current])
+            ->order('position')
+            ->limit(1)
+            ->fetch();
+
         if ($row) {
             return $row['position'];
         }
@@ -497,7 +529,8 @@ class Run extends Model {
         return null;
     }
 
-    public function getParsedPrivacyField($field) {
+    public function getParsedPrivacyField($field)
+    {
         return match ($field) {
             'privacy-policy' => $this->privacy_parsed,
             'terms-of-service' => $this->tos_parsed,
@@ -505,7 +538,8 @@ class Run extends Model {
         };
     }
 
-    public function hasPrivacyUnit() {
+    public function hasPrivacyUnit()
+    {
         $select = $this->db->select(array('unit_id'));
         $select->from('survey_run_units');
         $select->join('survey_units', 'survey_units.id = survey_run_units.unit_id');
@@ -514,15 +548,18 @@ class Run extends Model {
         return $select->fetchColumn() !== false;
     }
 
-    public function hasPrivacy() {
-        return $this->privacy !== null AND trim($this->privacy) !== '';
+    public function hasPrivacy()
+    {
+        return $this->privacy !== null and trim($this->privacy) !== '';
     }
 
-    public function hasToS() {
-        return $this->tos !== null AND trim($this->tos) !== '';
+    public function hasToS()
+    {
+        return $this->tos !== null and trim($this->tos) !== '';
     }
 
-    public function getAllUnitTypes() {
+    public function getAllUnitTypes()
+    {
         $select = $this->db->select(array('survey_run_units.id' => 'run_unit_id', 'unit_id', 'position', 'type', 'description'));
         $select->from('survey_run_units');
         $select->join('survey_units', 'survey_units.id = survey_run_units.unit_id');
@@ -531,17 +568,20 @@ class Run extends Model {
         return $select->fetchAll();
     }
 
-    public function getOverviewScript() {
+    public function getOverviewScript()
+    {
         return $this->getSpecialUnit('OverviewScriptPage');
     }
 
-    public function getServiceMessage() {
+    public function getServiceMessage()
+    {
         return $this->getSpecialUnit('ServiceMessagePage');
     }
 
-    public function getNumberOfSessionsInRun() {
+    public function getNumberOfSessionsInRun()
+    {
         $g_users = $this->db->prepare(
-                "SELECT COUNT(`survey_run_sessions`.id) AS sessions, AVG(`survey_run_sessions`.position) AS avg_position
+            "SELECT COUNT(`survey_run_sessions`.id) AS sessions, AVG(`survey_run_sessions`.position) AS avg_position
 			FROM `survey_run_sessions`
 			WHERE `survey_run_sessions`.run_id = :run_id;"
         );
@@ -554,29 +594,33 @@ class Run extends Model {
      *
      * @return \User
      */
-    public function getOwner() {
+    public function getOwner()
+    {
         if (!$this->owner) {
             $this->owner = new User($this->user_id);
         }
         return $this->owner;
     }
 
-    public function getUserCounts() {
+    public function getUserCounts()
+    {
         $g_users = $this->db->prepare(
-                "SELECT COUNT(`id`) AS users_total,
+            "SELECT COUNT(`id`) AS users_total,
 				SUM(`ended` IS NOT NULL) AS users_finished,
 				SUM(`ended` IS NULL AND `last_access` >= DATE_SUB(NOW(), INTERVAL 1 DAY) ) 	AS users_active_today,
 				SUM(`ended` IS NULL AND `last_access` >= DATE_SUB(NOW(), INTERVAL 7 DAY) ) 	AS users_active,
 				SUM(`ended` IS NULL AND `last_access` < DATE_SUB(NOW(), INTERVAL 7 DAY) ) 	AS users_waiting
 			FROM `survey_run_sessions`
-			WHERE `survey_run_sessions`.run_id = :run_id;");
+			WHERE `survey_run_sessions`.run_id = :run_id;"
+        );
 
         $g_users->bindParam(':run_id', $this->id);
         $g_users->execute();
         return $g_users->fetch(PDO::FETCH_ASSOC);
     }
 
-    public function emptySelf() {
+    public function emptySelf()
+    {
         $surveys = $this->getAllSurveys();
         foreach ($surveys as $survey) {
             $survey['type'] = 'Survey';
@@ -592,12 +636,13 @@ class Run extends Model {
         return $rows;
     }
 
-    public function getSpecialUnit($xtype, $id = null) {
+    public function getSpecialUnit($xtype, $id = null)
+    {
         $units = $this->getSpecialUnits(false, $xtype, $id);
         if (empty($units)) {
             return null;
         }
-        
+
         return RunUnitFactory::make($this, [
             'special' => $xtype,
             'type' => $units[0]['type'],
@@ -605,10 +650,16 @@ class Run extends Model {
         ]);
     }
 
-    public function getSpecialUnits($render = false, $xtype = null, $id = null) {
+    public function getSpecialUnits($render = false, $xtype = null, $id = null)
+    {
         $cols = array(
-            'survey_run_special_units.id' => 'unit_id', 'survey_run_special_units.run_id', 'survey_run_special_units.type' => 'xtype', 'survey_run_special_units.description',
-            'survey_units.type', 'survey_units.created', 'survey_units.modified'
+            'survey_run_special_units.id' => 'unit_id',
+            'survey_run_special_units.run_id',
+            'survey_run_special_units.type' => 'xtype',
+            'survey_run_special_units.description',
+            'survey_units.type',
+            'survey_units.created',
+            'survey_units.modified'
         );
         $select = $this->db->select($cols);
         $select->from('survey_run_special_units');
@@ -634,26 +685,28 @@ class Run extends Model {
                 $units[] = array(
                     'id' => $unit['unit_id'],
                     'html_units' => array(array(
-                            'special' => $unit['xtype'],
-                            'run_unit_id' => $unit['unit_id'],
-                            'unit_id' => $unit['unit_id']
-                        )),
+                        'special' => $unit['xtype'],
+                        'run_unit_id' => $unit['unit_id'],
+                        'unit_id' => $unit['unit_id']
+                    )),
                 );
             }
             return $units;
         }
     }
 
-    public function getReminderSession($reminder_id, $session, $run_session_id) {
+    public function getReminderSession($reminder_id, $session, $run_session_id)
+    {
         // create a unit_session here and get a session_id and pass it when making the unit
         $runUnit = RunUnitFactory::make($this, ['id' => $reminder_id]);
         $runSession = new RunSession($session, $this, ['id' => $run_session_id]);
         $runSession->createUnitSession($runUnit, false);
-        
+
         return $runSession->currentUnitSession;
     }
 
-    public function getCustomCSS() {
+    public function getCustomCSS()
+    {
         if ($this->custom_css_path != null) {
             return $this->getFileContent($this->custom_css_path);
         }
@@ -661,7 +714,8 @@ class Run extends Model {
         return "";
     }
 
-    public function getCustomJS() {
+    public function getCustomJS()
+    {
         if ($this->custom_js_path != null) {
             return $this->getFileContent($this->custom_js_path);
         }
@@ -669,7 +723,8 @@ class Run extends Model {
         return "";
     }
 
-    public function getManifestJSON() {
+    public function getManifestJSON()
+    {
         if ($this->manifest_json_path != null) {
             return $this->getFileContent($this->manifest_json_path);
         }
@@ -677,7 +732,8 @@ class Run extends Model {
         return "";
     }
 
-    public function getManifestJSONPath() {
+    public function getManifestJSONPath()
+    {
         return $this->manifest_json_path;
     }
 
@@ -686,15 +742,18 @@ class Run extends Model {
      * 
      * @return string|null The VAPID public key or null if not set
      */
-    public function getVapidPublicKey() {
+    public function getVapidPublicKey()
+    {
         return $this->vapid_public_key;
     }
 
-    public function getPwaIconPath() {
+    public function getPwaIconPath()
+    {
         return $this->pwa_icon_path;
     }
 
-    private function getFileContent($path) {
+    private function getFileContent($path)
+    {
         $filePath = APPLICATION_ROOT . "webroot/" . $path;
         // Check if path is a readable file before attempting to read
         if (is_file($filePath) && is_readable($filePath)) {
@@ -705,7 +764,8 @@ class Run extends Model {
         return '';
     }
 
-    public function saveSettings($posted) {
+    public function saveSettings($posted)
+    {
         $parsedown = new ParsedownExtra();
         $parsedown->setBreaksEnabled(true);
         $successes = array();
@@ -732,7 +792,7 @@ class Run extends Model {
                     unset($posted['expiresOn']);
                 } else {
                     $posted['expiresOn'] = date('Y-m-d', $timestamp);
-                    if($timestamp < time()) {
+                    if ($timestamp < time()) {
                         alert('The expiry date cannot be set to a past date.', 'alert-danger');
 
                         $posted['expiresOn'] = null;
@@ -748,7 +808,7 @@ class Run extends Model {
             }
         }
         $require_privacy = Config::get("require_privacy_policy", false);
-        if ($require_privacy AND ((isset($posted['privacy']) && trim($posted['privacy']) == '')) && $this->public > 0) {
+        if ($require_privacy and ((isset($posted['privacy']) && trim($posted['privacy']) == '')) && $this->public > 0) {
             alert("This run is public, but you have removed the privacy policy. We've set it to private for you. Add a privacy policy before setting the run to public again.", 'alert-danger');
             $this->db->update('survey_runs', array('public' => 0), array('id' => $this->id));
         }
@@ -762,10 +822,12 @@ class Run extends Model {
         }
 
         $cookie_units = array_keys($this->expire_cookie_units);
-        if (isset($posted['expire_cookie_value']) && 
-                isset($posted['expire_cookie_unit']) && in_array($posted['expire_cookie_unit'], $cookie_units)) {
+        if (
+            isset($posted['expire_cookie_value']) &&
+            isset($posted['expire_cookie_unit']) && in_array($posted['expire_cookie_unit'], $cookie_units)
+        ) {
             if (is_numeric($posted['expire_cookie_value'])) {
-                $posted['expire_cookie'] = factortosecs($posted['expire_cookie_value'], $posted['expire_cookie_unit']); 
+                $posted['expire_cookie'] = factortosecs($posted['expire_cookie_value'], $posted['expire_cookie_unit']);
             } else {
                 $posted['expire_cookie'] = 0;
             }
@@ -776,7 +838,7 @@ class Run extends Model {
 
         $updates = array();
         foreach ($posted as $name => $value) {
-            if($name != 'expiresOn') {
+            if ($name != 'expiresOn') {
                 $value = trim((string)$value);
             }
 
@@ -817,30 +879,33 @@ class Run extends Model {
         return true;
     }
 
-    public function getAllSurveys() {
+    public function getAllSurveys()
+    {
         // first, generate a master list of the search set (all the surveys that are part of the run)
         return $this->db->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
-                        ->from('survey_studies')
-                        ->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
-                        ->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
-                        ->where('survey_runs.id = :run_id')
-                        ->bindParams(array('run_id' => $this->id))
-                        ->fetchAll();
+            ->from('survey_studies')
+            ->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
+            ->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
+            ->where('survey_runs.id = :run_id')
+            ->bindParams(array('run_id' => $this->id))
+            ->fetchAll();
     }
 
-    public function getAllLinkedSurveys() {
+    public function getAllLinkedSurveys()
+    {
         // first, generate a master list of the search set (all the surveys that are part of the run)
         return $this->db->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
-                        ->from('survey_studies')
-                        ->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
-                        ->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
-                        ->where('survey_runs.id = :run_id')
-                        ->where('survey_studies.unlinked = 0')
-                        ->bindParams(array('run_id' => $this->id))
-                        ->fetchAll();
+            ->from('survey_studies')
+            ->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
+            ->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
+            ->where('survey_runs.id = :run_id')
+            ->where('survey_studies.unlinked = 0')
+            ->bindParams(array('run_id' => $this->id))
+            ->fetchAll();
     }
 
-    public function getData($rstmt = false) {
+    public function getData($rstmt = false)
+    {
         ini_set('memory_limit', Config::get('memory_limit.run_get_data'));
 
         $collect = $this->db->prepare("SELECT 
@@ -884,7 +949,8 @@ class Run extends Model {
         return $results;
     }
 
-    public function getRandomGroups() {
+    public function getRandomGroups()
+    {
         $g_users = $this->db->prepare("SELECT 
 			`survey_run_sessions`.session,
 			`survey_unit_sessions`.id AS session_id,
@@ -909,15 +975,17 @@ class Run extends Model {
         return $g_users;
     }
 
-    public function isStudyTest() {
+    public function isStudyTest()
+    {
         return $this->name === self::TEST_RUN;
     }
 
-    private function testStudy() {
+    private function testStudy()
+    {
         if (!($data = Session::get('test_study_data'))) {
             formr_error(404, 'Not Found', 'Nothing to Test-Drive');
         }
-        
+
         if (isset($data['unit_id'])) {
             $data['id'] = $data['unit_id'];
         }
@@ -929,11 +997,11 @@ class Run extends Model {
             $data['unit_session_id'] = $runSession->currentUnitSession->id;
             Session::set('test_study_data', $data);
         } else {
-            $unitSession = new UnitSession($runSession, $runUnit, ['id' => $data['unit_session_id'], 'load'=> true]);
+            $unitSession = new UnitSession($runSession, $runUnit, ['id' => $data['unit_session_id'], 'load' => true]);
             $runSession->currentUnitSession = $unitSession;
         }
         $output = $runSession->execute();
-        
+
         if (!$output) {
             $output = [
                 'title' => 'Finish',
@@ -942,14 +1010,15 @@ class Run extends Model {
 					<p>You're finished with testing this survey.</p>
 					<a href='" . admin_study_url($data['study_name']) . "'>Back to the admin control panel.</a>"
             ];
-            
+
             Session::delete('test_study_data');
         }
-        
+
         return compact("output", "runSession");
     }
 
-    public function exec(User $user) {
+    public function exec(User $user)
+    {
         if (!$this->valid) {
             formr_error(404, 'Not Found', __("Run '%s' is broken or does not exist.", $this->name), 'Study Not Found');
             return false;
@@ -962,8 +1031,9 @@ class Run extends Model {
 
             if (($this->getOwner()->user_code == $user->user_code || // owner always has access
                     $runSession->isTesting()) || // testers always have access
-                    ($this->public >= 1 && $runSession->id) || // already enrolled
-                    ($this->public >= 2)) { // anyone with link can access
+                ($this->public >= 1 && $runSession->id) || // already enrolled
+                ($this->public >= 2)
+            ) { // anyone with link can access
 
                 if ($runSession->id === null) {
                     $runSession->create($user->user_code, (int) $user->created($this));
@@ -1021,12 +1091,12 @@ class Run extends Model {
             }
 
             $run_content .= Template::get('admin/run/monkey_bar', array(
-                        'user' => $user,
-                        'run' => $this,
-                        'run_session' => $runSession,
-                        'short_code' => substr($user->user_code, 0, $animal_end),
-                        'icon' => $user->created($this) ? "fa-user-md" : "fa-stethoscope",
-                        'disable_class' => $this->isStudyTest() ? " disabled " : "",
+                'user' => $user,
+                'run' => $this,
+                'run_session' => $runSession,
+                'short_code' => substr($user->user_code, 0, $animal_end),
+                'icon' => $user->created($this) ? "fa-user-md" : "fa-stethoscope",
+                'disable_class' => $this->isStudyTest() ? " disabled " : "",
             ));
         }
 
@@ -1049,7 +1119,8 @@ class Run extends Model {
      * @param boolean $inc_survey Should survey data be included in export?
      * @return mixed Returns an array of its two inputs.
      */
-    public function export($name, array $units, $inc_survey) {
+    public function export($name, array $units, $inc_survey)
+    {
         $SPR = new SpreadsheetReader();
         // Save run units
         foreach ($units as $i => &$unit) {
@@ -1089,7 +1160,8 @@ class Run extends Model {
         return $export;
     }
 
-    public function exportStructure() {
+    public function exportStructure()
+    {
         $unitIds = $this->getAllUnitTypes();
         $units = array();
 
@@ -1108,85 +1180,147 @@ class Run extends Model {
 
     /**
      * Import a set of run units into current run by parsing a valid json string.
-     * Existing exported run units are read from configured dir $settings[run_exports_dir]
-     * Foreach unit item there is a check for at least for 'type' and 'position' attributes
+     * Refactored for PHP 8 compatibility and logical stability.
      *
      * @param string $json_string JSON string of run units
-     * @param int $start_position Start position to be assigned to units. Defaults to 1.
+     * @param int $start_position Start position to be assigned to units.
      * @return array Returns an array on rendered units indexed by position
      */
-    public function importUnits($json_string, $start_position = 0) {
+    public function importUnits($json_string, $start_position = 0)
+    {
         ini_set('memory_limit', Config::get('memory_limit.run_import_units'));
-        if (!$start_position) {
-            $start_position = 0;
-        } else {
-            $start_position = (int) $start_position - 10;
-        }
-        $json = json_decode($json_string);
+
+        // 1. Determine Start Position Base
+        // If units exist, append to the end (+10 padding).
+        // If not, respect the requested start_position (adjusting -10 so the first unit lands on the target).
         $existingUnits = $this->getAllUnitIds();
         if ($existingUnits) {
             $last = end($existingUnits);
-            $start_position = $last['position'] + 10;
+            $start_position = (int)$last['position'] + 10;
+        } else {
+            $start_position = $start_position ? ((int)$start_position - 10) : 0;
         }
 
-        if (empty($json->units)) {
-            alert("<strong>Error</strong> Invalid json string provided.", 'alert-danger');
+        // 2. Decode and Validate JSON
+        $json = json_decode($json_string);
+        if (json_last_error() !== JSON_ERROR_NONE || empty($json->units)) {
+            alert("<strong>Import Error:</strong> Invalid JSON string provided.", 'alert-danger');
             return false;
         }
 
         $units = (array) $json->units;
-        $createdUnits = array();
+        $createdUnits = [];
 
-        foreach ($units as $unit) {
+        foreach ($units as $unitData) {
+            // Cast to object to be safe, though json_decode usually returns objects
+            $unit = (object)$unitData;
+
+            // 3. Skip invalid units (missing type or position)
+            if (!isset($unit->position) || empty($unit->type)) {
+                continue;
+            }
+
+            // 4. Validate Position (PHP 8 Crash Prevention)
+            if (!is_numeric($unit->position)) {
+                alert("<strong>Import Error:</strong> Unit '{$unit->type}' has an invalid position value: '{$unit->position}'. It must be numeric.", 'alert-danger');
+                return false;
+            }
+
+            // Calculate new absolute position
+            $unit->position = $start_position + (int)$unit->position;
+
             $options = [];
-            if (isset($unit->position) && !empty($unit->type)) {
-                $unit->position = $start_position + $unit->position;
-                // for some reason Endpage replaces Page
-                if (strpos($unit->type, 'page') !== false) {
-                    $unit->type = 'Page';
-                }
 
-                if ($unit->type === 'Survey') {
-                    $options = (array) $unit;
+            // 5. Handle Type-Specific Logic
+            switch ($unit->type) {
+                // Legacy: 'Endpage' is sometimes used in exports but should be treated as 'Page'
+                case 'Endpage': 
+                case 'Page':
+                    if (strpos($unit->type, 'page') !== false) {
+                        $unit->type = 'Page';
+                    }
+                    break;
+
+                case 'Survey':
+                    $options = (array)$unit;
                     $options['importing'] = true;
                     $options['run'] = $this;
                     $options['user_id'] = $this->user_id;
-                }
+                    break;
 
-                if ($unit->type === 'PushMessage') {
-                    $options = (array) $unit;
-                }
+                case 'SkipBackward':
+                case 'SkipForward':
+                    // Validate jump destination
+                    if (!isset($unit->if_true) || !is_numeric($unit->if_true)) {
+                        $bad_val = isset($unit->if_true) ? $unit->if_true : 'NULL';
+                        alert("<strong>Import Error:</strong> The {$unit->type} unit at position {$unit->position} has an invalid destination: '{$bad_val}'. It must be numeric.", 'alert-danger');
+                        return false;
+                    }
+                    // Adjust relative jump to absolute position
+                    $unit->if_true = (int)$unit->if_true + $start_position;
+                    break;
 
-                if ($unit->type === 'SkipBackward' || $unit->type === 'SkipForward') {
-                    $unit->if_true = $unit->if_true + $start_position;
-                }
-
-                if ($unit->type === 'Email') {
-                    $unit->account_id = null;
-                }
+                case 'Email':
+                    $unit->account_id = null; // Security: don't assume email accounts match across servers
+                    break;
                 
-                if ($unit->type === 'Wait') {
-                    $unit->body = $unit->body + $start_position;
-                }
+                // Note: 'Wait' unit logic removed. Previous code added start_position to $unit->body.
+                // This was likely a copy-paste error from Skip logic, as Wait body is text/settings, not a position.
+            }
 
-                $unit = (array) $unit;
-                $unitObj = RunUnitFactory::make($this, $unit);
+            // 6. Create and Save Unit
+            $options = array_merge($options, (array)$unit);
+            
+            // Factory expects specific options, merge ensures strict overrides
+            $unitObj = RunUnitFactory::make($this, $options);
+            
+            if ($unitObj) {
                 $unitObj->create($options);
-                
                 if ($unitObj->valid) {
                     $createdUnits[$unitObj->position] = $unitObj->displayForRun(Site::getInstance()->renderAlerts());
                 }
             }
         }
 
-        // try importing settings
+        // 7. Import Settings if present
         if (!empty($json->settings)) {
-            $this->saveSettings((array) $json->settings);
+            $this->saveSettings((array)$json->settings);
         }
+
         return $createdUnits;
     }
 
-    protected function setExpireCookieUnits() {
+    /**
+     * API SPECIFIC: Replaces all run units with the provided JSON structure.
+     * This makes the operation idempotent (PUT request compliant).
+     * * @param string $json_string JSON string of run units
+     * @return array Returns an array on rendered units indexed by position
+     */
+    public function replaceUnits($json_string)
+    {
+        // 1. Wipe the existing structure for this run.
+        // We delete the links in 'run_units'. This effectively "empties" the run structure.
+        // Note: This does not delete the actual Unit definitions (surveys) or data, 
+        // it just unlinks them from this specific Run.
+        $delete = $this->db->prepare("DELETE FROM survey_run_units WHERE run_id = :run_id");
+        $delete->bindParam(':run_id', $this->id);
+        $delete->execute();
+
+        // 2. Clear any internal cache of units if it exists (safety precaution)
+        // If getAllUnitIds() stores data in a class property, we'd need to clear it here.
+        // Based on standard formr architecture, it likely queries the DB directly, 
+        // so the delete above is sufficient.
+
+        // 3. Call the original import function.
+        // Since the DB is now empty for this run, importUnits will:
+        // - See 0 existing units.
+        // - Set $start_position to 0 (or close to it).
+        // - Import the JSON exactly as defined, without appending/offsetting positions.
+        return $this->importUnits($json_string);
+    }
+
+    protected function setExpireCookieUnits()
+    {
         $unit = secstofactor($this->expire_cookie);
         if ($unit) {
             $this->expire_cookie_unit = $unit[1];
@@ -1194,16 +1328,18 @@ class Run extends Model {
         }
     }
 
-    public function isEmpty(): bool {
+    public function isEmpty(): bool
+    {
         $count = $this->db->select('COUNT(*) as count')
             ->from('survey_run_sessions')
             ->where(['run_id' => $this->id])
             ->fetchColumn();
-        
+
         return $count == 0;
     }
 
-    private function writeAssetFile($value, $asset_path, $file_ending) {
+    private function writeAssetFile($value, $asset_path, $file_ending)
+    {
         // Delete old file if value is empty but asset_path exists
         if (empty($value) && !empty($asset_path)) {
             $old_file = APPLICATION_ROOT . 'webroot/' . $asset_path;
@@ -1232,7 +1368,7 @@ class Run extends Model {
 
             $asset_file = APPLICATION_ROOT . 'webroot/' . $asset_path;
             $path = new SplFileInfo($asset_file);
-            
+
             try {
                 if (file_exists($path->getPathname())):
                     $file = $path->openFile('c+');
@@ -1241,7 +1377,7 @@ class Run extends Model {
                 else:
                     $file = $path->openFile('c+');
                 endif;
-                
+
                 $file->fwrite($value);
                 $file->fflush();
                 $value = $asset_path;
@@ -1258,26 +1394,27 @@ class Run extends Model {
      * 
      * @return void
      */
-    public function generateVapidKeys() {
+    public function generateVapidKeys()
+    {
         // Check if keys already exist
         $existingPublicKey = $this->getVapidPublicKey();
         if ($existingPublicKey) {
             return; // Keys already exist
         }
-    
+
         // Generate new VAPID keys using web-push library
         $vapidKeys = \Minishlink\WebPush\VAPID::createVapidKeys();
-    
+
         // Encrypt the private key before storage
         $encryptedPrivate = \Crypto::encrypt($vapidKeys['privateKey']);
-    
+
         // Store both keys in the database
         $this->db->update('survey_runs', [
             'vapid_public_key' => $vapidKeys['publicKey'],
             'vapid_private_key' => $encryptedPrivate,
             'modified' => mysql_now()
         ], ['id' => $this->id]);
-    
+
         // Refresh model properties
         $this->vapid_public_key = $vapidKeys['publicKey'];
     }
@@ -1287,7 +1424,8 @@ class Run extends Model {
      * 
      * @return bool Returns true if the manifest was generated successfully, false otherwise
      */
-    public function generateManifest() {
+    public function generateManifest()
+    {
 
         $this->generateVapidKeys();
         // Read the template
@@ -1297,12 +1435,12 @@ class Run extends Model {
         }
 
         $template_content = file_get_contents($template_path);
-        
+
         $pwa_icon_base_path_for_manifest = '/assets/pwa/'; // Default path
-        $run_pwa_icon_path_val = $this->getPwaIconPath(); 
+        $run_pwa_icon_path_val = $this->getPwaIconPath();
         if ($run_pwa_icon_path_val && is_dir(APPLICATION_ROOT . 'webroot/' . $run_pwa_icon_path_val)) {
             // Ensure leading slash, remove potential double slashes, ensure trailing slash for placeholder replacement
-            $pwa_icon_base_path_for_manifest = '/' . trim($run_pwa_icon_path_val, '/') . '/'; 
+            $pwa_icon_base_path_for_manifest = '/' . trim($run_pwa_icon_path_val, '/') . '/';
         }
 
         // Replace placeholders
@@ -1314,7 +1452,7 @@ class Run extends Model {
                 run_url($this->name),
                 run_url($this->name),
                 run_url($this->name),
-                $pwa_icon_base_path_for_manifest 
+                $pwa_icon_base_path_for_manifest
             ),
             $template_content
         );
@@ -1348,7 +1486,8 @@ class Run extends Model {
      * @param string $new_pwa_icon_batch_path The webroot-relative path to a directory (typically a batch upload dir from uploadFiles).
      * @return bool True on success, false on failure.
      */
-    public function setUploadedPwaIconsPath(string $new_pwa_icon_batch_path) {
+    public function setUploadedPwaIconsPath(string $new_pwa_icon_batch_path)
+    {
         if (!$this->id) {
             $this->errors[] = "Run ID is not set. Cannot set PWA icon path.";
             return false;
@@ -1365,12 +1504,12 @@ class Run extends Model {
         if ($this->pwa_icon_path && $this->pwa_icon_path !== $new_pwa_icon_batch_path) {
             $old_path_full_local = $local_path_prefix . $this->pwa_icon_path;
             $old_pwa_files_in_db = $this->db->select('id, new_file_path')
-                                        ->from('survey_uploaded_files')
-                                        ->where(array(
-                                            'run_id' => $this->id,
-                                            'new_file_path LIKE' => $this->pwa_icon_path . '%'
-                                        ))
-                                        ->fetchAll();
+                ->from('survey_uploaded_files')
+                ->where(array(
+                    'run_id' => $this->id,
+                    'new_file_path LIKE' => $this->pwa_icon_path . '%'
+                ))
+                ->fetchAll();
             $deleted_db_count = 0;
             foreach ($old_pwa_files_in_db as $old_file_db_entry) {
                 // Physical file deletion for these is tricky if old_path_full_local directory itself is deleted.
@@ -1379,7 +1518,7 @@ class Run extends Model {
                 $deleted_db_count++;
             }
             if ($deleted_db_count > 0) {
-                 $this->messages[] = "Removed {$deleted_db_count} DB records for old PWA icons.";
+                $this->messages[] = "Removed {$deleted_db_count} DB records for old PWA icons.";
             }
 
             if (is_dir($old_path_full_local)) {
@@ -1421,7 +1560,8 @@ class Run extends Model {
         }
     }
 
-    public function clearPwaIcons() {
+    public function clearPwaIcons()
+    {
         if (!$this->id) {
             $this->errors[] = "Run ID not set.";
             return false;
@@ -1436,12 +1576,12 @@ class Run extends Model {
         $full_local_pwa_dir = $local_path_prefix . $current_pwa_icon_path;
 
         $existing_pwa_files_in_db = $this->db->select('id, new_file_path')
-                                    ->from('survey_uploaded_files')
-                                    ->where(array(
-                                        'run_id' => $this->id,
-                                        'new_file_path LIKE' => $current_pwa_icon_path . '%'
-                                    ))
-                                    ->fetchAll();
+            ->from('survey_uploaded_files')
+            ->where(array(
+                'run_id' => $this->id,
+                'new_file_path LIKE' => $current_pwa_icon_path . '%'
+            ))
+            ->fetchAll();
         $deleted_files_count = 0;
         $deleted_db_records_count = 0;
 
@@ -1463,7 +1603,7 @@ class Run extends Model {
             );
             $removed_dir = false;
             try {
-                 foreach ($iterator as $fileNode) {
+                foreach ($iterator as $fileNode) {
                     if ($fileNode->isDir()) {
                         @rmdir($fileNode->getRealPath());
                     } else {

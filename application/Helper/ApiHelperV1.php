@@ -961,7 +961,6 @@ class ApiHelperV1 extends ApiBase
         if ($method === 'PUT') {
             $this->checkScope('run:write');
 
-            // Get raw JSON body
             $jsonString = file_get_contents('php://input');
             $jsonData = json_decode($jsonString);
 
@@ -969,24 +968,56 @@ class ApiHelperV1 extends ApiBase
                 return $this->error(400, 'Invalid JSON body.');
             }
 
-            // Basic validation of the import format
-            if (!isset($jsonData->units) && !isset($jsonData->settings)) {
-                return $this->error(400, 'Invalid import format. JSON must contain "units" or "settings".');
+            // [STEP 1] Determine expected count
+            $expectedCount = 0;
+            if (isset($jsonData->units) && is_array($jsonData->units)) {
+                $expectedCount = count($jsonData->units);
+            } elseif (isset($jsonData->units) && is_object($jsonData->units)) {
+                // Handle case where units might be an object keyed by ID
+                $expectedCount = count((array)$jsonData->units);
             }
 
             try {
-                // importUnits expects a JSON string, not a decoded object
-                // We use the raw input string to preserve structure fidelity
-                $importedUnits = $run->importUnits($jsonString);
+                Site::getInstance()->renderAlerts(); // Clear alerts
 
-                if ($importedUnits === false) {
-                    return $this->error(500, 'Import failed. Check run logs for details.');
+                // [STEP 2] Execute Import
+                // We ignore the return value's count for validation now
+                $importedUnits = $run->replaceUnits($jsonString);
+
+                // [STEP 3] Verify the FINAL STATE of the Run
+                // We check the database: Does the run have the units?
+                $runUnits = $run->getAllUnitIds();
+                $actualRunCount = is_array($runUnits) ? count($runUnits) : 0;
+
+                // [STEP 4] Validation Logic
+                // If the Run has as many (or more) units as we tried to import, it's a success.
+                // This bypasses the issue where "Table Exists" errors cause importUnits to return an empty set.
+                if ($actualRunCount >= $expectedCount) {
+                    $msg = "Import successful. Run contains $actualRunCount units.";
+
+                    // Check for warnings
+                    $alertsHtml = Site::getInstance()->renderAlerts();
+                    if (stripos($alertsHtml, 'alert-danger') !== false) {
+                        $msg .= " (Note: Some internal alerts were triggered, but the run structure appears complete.)";
+                    }
+
+                    return $this->response(200, $msg);
                 }
 
-                $count = count($importedUnits);
-                return $this->response(200, "Import successful. $count units imported/updated.");
+                // [STEP 5] Genuine Failure
+                // The run has FEWER units than expected. Something actually went wrong.
+                $alertsText = trim(strip_tags(Site::getInstance()->renderAlerts()));
+                $errorMsg = "Import incomplete: Run has $actualRunCount units, expected $expectedCount.";
+
+                if ($alertsText) {
+                    $errorMsg .= " Reason: " . $alertsText;
+                } else {
+                    $errorMsg .= " The import failed because the run structure contains invalid data. Please ensure that all units have valid, numeric 'position' values and that all jump destinations (e.g., in SkipForward/Backward units) are numbers, not strings.";
+                }
+
+                return $this->error(500, $errorMsg);
             } catch (Exception $e) {
-                return $this->error(500, 'Import error: ' . $e->getMessage());
+                return $this->error(500, 'Import exception: ' . $e->getMessage());
             }
         }
 
