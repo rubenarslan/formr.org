@@ -933,9 +933,13 @@ class ApiHelperV1 extends ApiBase
                 return $this->error(400, 'No valid file uploaded. Send file as multipart/form-data with key "file".');
             }
 
-            // Wrap single file into array format expected by Run::uploadFiles
+            // 1. Sanitize the filename (Replace spaces with underscores)
+            $originalName = $_FILES['file']['name'];
+            $sanitizedName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalName);
+
+            // 2. Wrap single file into array format expected by Run::uploadFiles
             $filesPayload = [
-                'name'     => [$_FILES['file']['name']],
+                'name'     => [$sanitizedName],
                 'type'     => [$_FILES['file']['type']],
                 'tmp_name' => [$_FILES['file']['tmp_name']],
                 'error'    => [$_FILES['file']['error']],
@@ -950,7 +954,7 @@ class ApiHelperV1 extends ApiBase
 
             return $this->response(201, 'File uploaded successfully', [
                 'messages' => $run->messages,
-                'file' => $_FILES['file']['name']
+                'file' => $sanitizedName
             ]);
         }
 
