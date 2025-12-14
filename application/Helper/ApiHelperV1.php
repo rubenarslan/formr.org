@@ -1046,12 +1046,15 @@ class ApiHelperV1 extends ApiBase
      * Validates if the current token has the required scope
      * Throws exception or terminates if failed
      */
-    private function checkScope($requiredScope)
-    {
-        // TODO: Implement actual scope check logic against $this->user or $this->token
-        // if (!in_array($requiredScope, $this->tokenScopes)) {
-        //    throw new Exception("Insufficient permissions: $requiredScope required.");
-        // }
+    private function checkScope($requiredScope) {
+        // The bshaffer library returns scope as a space-delimited string
+        $grantedScopes = explode(' ', isset($this->tokenData['scope']) ? $this->tokenData['scope'] : '');
+
+        // Check if the required scope exists in the granted scopes
+        if (!in_array($requiredScope, $grantedScopes)) {
+            // Throwing exception gets caught by the dispatcher and returns 500/400
+            throw new Exception("Insufficient permissions: '$requiredScope' scope required.");
+        }
     }
 
     private function getRequestMethod()

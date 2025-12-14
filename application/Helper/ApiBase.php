@@ -34,10 +34,13 @@ abstract class ApiBase
      */
     protected $error = array();
 
+    protected $tokenData = array();
+
     public function __construct(Request $request, DB $db, $token_data)
     {
         $this->db = $db;
         $this->request = $request;
+        $this->tokenData = $token_data;
         // Assuming OAuthHelper exists globally or statically
         $this->user = OAuthHelper::getInstance()->getUserByEmail($token_data['user_id']);
 

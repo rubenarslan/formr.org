@@ -1102,7 +1102,7 @@ function opencpu_prepare_api_access($code, &$variables)
     }
 
     $oauth = OAuthHelper::getInstance();
-    $token_data = $oauth->createAccessTokenForUser($owner);
+    $token_data = $oauth->createAccessTokenForUser($owner, 'data:read session:read session:write');
 
     if (!$token_data || empty($token_data['access_token'])) {
         return null;
