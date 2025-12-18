@@ -603,16 +603,17 @@ class ApiHelperV1 extends ApiBase
         // Raw SQL bc formrs own SQL-wrapper does not allow for standard aliases (us, u, ru) without errors
         $sql = "SELECT 
                 survey_run_sessions.*, 
-                us.id as unit_session_id,
-                u.id as unit_id,
-                u.type as unit_type,
-                COALESCE(ru.description, rsu.description) as unit_description
+                MAX(us.id) as unit_session_id,
+                MAX(u.id) as unit_id,
+                MAX(u.type) as unit_type,
+                COALESCE(MAX(ru.description), MAX(rsu.description)) as unit_description
             FROM survey_run_sessions
             LEFT JOIN survey_unit_sessions us ON us.id = survey_run_sessions.current_unit_session_id
             LEFT JOIN survey_units u ON u.id = us.unit_id
-            LEFT JOIN survey_run_units ru ON ru.unit_id = u.id AND ru.run_id = survey_run_sessions.run_id
+            LEFT JOIN survey_run_units ru ON ru.unit_id = u.id AND ru.run_id = survey_run_sessions.run_id AND ru.position = survey_run_sessions.position
             LEFT JOIN survey_run_special_units rsu ON rsu.id = u.id AND rsu.run_id = survey_run_sessions.run_id
             WHERE $whereSql
+            GROUP BY survey_run_sessions.id
             ORDER BY survey_run_sessions.created DESC
             LIMIT :limit OFFSET :offset";
 
@@ -624,12 +625,12 @@ class ApiHelperV1 extends ApiBase
         // Bind limit/offset as integers (PDO defaults to string which breaks LIMIT in some MySQL versions)
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-        
+
         $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $sessions = [];
-        foreach($rows as $row) {
+        foreach ($rows as $row) {
             $sessions[] = $this->formatSessionRow($row);
         }
 
@@ -798,7 +799,8 @@ class ApiHelperV1 extends ApiBase
      * * @param array $row The raw associative array from the database fetch.
      * @return array The formatted session data array.
      */
-    private function formatSessionRow($row) {
+    private function formatSessionRow($row)
+    {
         $data = [
             'id' => (int)$row['id'],
             'session' => $row['session'],
@@ -822,7 +824,7 @@ class ApiHelperV1 extends ApiBase
                 'session_id' => (int)$row['unit_session_id']
             ];
         }
-        
+
         return $data;
     }
 
