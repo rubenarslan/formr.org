@@ -259,17 +259,23 @@ class ApiHelperV1 extends ApiBase
             case 'GET':
                 $this->checkScope('survey:read');
 
-                $data = $study->getSettings(); // Returns array of settings
-                $data['id'] = $study->id;
-                $data['name'] = $study->name;
-                $data['results_table'] = $study->results_table;
-                $data['created'] = $study->created;
-                $data['modified'] = $study->modified;
+                $reader = new \SpreadsheetReader();
+                $format = $this->request->getParam('format');
 
-                // Include items in detail view
-                $data['items'] = $study->getItemsWithChoices();
-
-                return $this->response(200, 'Survey details', $data);
+                switch ($format) {
+                    case 'xlsx':
+                        $reader->exportItemTableXLSX($study);
+                        return;
+                    case 'xls':
+                        $reader->exportItemTableXLS($study);
+                        return;
+                    case 'json':
+                    default:
+                        // This function sets headers, outputs the JSON, and exits the script.
+                        // It serves as the fallback for standard GET requests.
+                        $reader->exportItemTableJSON($study);
+                        return;
+                }
 
             case 'PATCH':
                 $this->checkScope('survey:write');
@@ -575,26 +581,58 @@ class ApiHelperV1 extends ApiBase
         $active = $this->request->getParam('active'); // true/false
         $testing = $this->request->getParam('testing'); // true/false
 
-        $select = $this->db->select('session, position, last_access, created, ended, testing')
-            ->from('survey_run_sessions')
-            ->where(['run_id' => $run->id]);
+        // Build the WHERE clause
+        $params = [':run_id' => $run->id];
+        $where = ["survey_run_sessions.run_id = :run_id"];
 
         if ($active !== null) {
             if ($active === 'true' || $active === '1') {
-                $select->where('ended IS NULL');
+                $where[] = 'survey_run_sessions.ended IS NULL';
             } elseif ($active === 'false' || $active === '0') {
-                $select->where('ended IS NOT NULL');
+                $where[] = 'survey_run_sessions.ended IS NOT NULL';
             }
         }
 
         if ($testing !== null) {
-            $select->where(['testing' => ($testing === 'true' || $testing === '1' ? 1 : 0)]);
+            $where[] = 'survey_run_sessions.testing = :testing';
+            $params[':testing'] = ($testing === 'true' || $testing === '1' ? 1 : 0);
         }
 
-        $select->limit($limit, $offset);
-        $select->order('created', 'DESC');
+        $whereSql = implode(' AND ', $where);
 
-        $sessions = $select->fetchAll();
+        // Raw SQL bc formrs own SQL-wrapper does not allow for standard aliases (us, u, ru) without errors
+        $sql = "SELECT 
+                survey_run_sessions.*, 
+                us.id as unit_session_id,
+                u.id as unit_id,
+                u.type as unit_type,
+                COALESCE(ru.description, rsu.description) as unit_description
+            FROM survey_run_sessions
+            LEFT JOIN survey_unit_sessions us ON us.id = survey_run_sessions.current_unit_session_id
+            LEFT JOIN survey_units u ON u.id = us.unit_id
+            LEFT JOIN survey_run_units ru ON ru.unit_id = u.id AND ru.run_id = survey_run_sessions.run_id
+            LEFT JOIN survey_run_special_units rsu ON rsu.id = u.id AND rsu.run_id = survey_run_sessions.run_id
+            WHERE $whereSql
+            ORDER BY survey_run_sessions.created DESC
+            LIMIT :limit OFFSET :offset";
+
+        // Execute the query
+        $stmt = $this->db->prepare($sql);
+        foreach ($params as $key => $val) {
+            $stmt->bindValue($key, $val);
+        }
+        // Bind limit/offset as integers (PDO defaults to string which breaks LIMIT in some MySQL versions)
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $sessions = [];
+        foreach($rows as $row) {
+            $sessions[] = $this->formatSessionRow($row);
+        }
+
         return $this->response(200, 'Sessions list', $sessions);
     }
 
@@ -622,7 +660,10 @@ class ApiHelperV1 extends ApiBase
         if ($codes === null) {
             $runSession = new RunSession(null, $run);
             if ($runSession->create(null, $testing)) {
-                $createdSessions[] = $runSession->session;
+                return $this->response(201, 'Session created successfully.', [
+                    'count_created' => 1,
+                    'sessions' => [$runSession->session]
+                ]);
             } else {
                 return $this->error(500, 'Failed to create random session.');
             }
@@ -708,25 +749,81 @@ class ApiHelperV1 extends ApiBase
         }
     }
 
-
+    /**
+     * Get Session Details
+     * * Retrieves and formats detailed information for a specific RunSession.
+     * This method constructs a standardized response payload including the session's 
+     * metadata and, if applicable, the currently active unit details.
+     * * @param RunSession $runSession The loaded run session object.
+     * @return ApiHelperV1 Standardized API response with session data.
+     */
     private function getSessionDetails(RunSession $runSession)
     {
         $this->checkScope('session:read');
 
-        $data = $runSession->toArray();
+        $data = [
+            'id' => (int)$runSession->id,
+            'session' => $runSession->session,
+            'run_id' => (int)$runSession->run_id,
+            'user_id' => (int)$runSession->user_id,
+            'position' => (int)$runSession->position,
+            'current_unit_session_id' => $runSession->current_unit_session_id ? (int)$runSession->current_unit_session_id : null,
+            'created' => $runSession->created,
+            'last_access' => $runSession->last_access,
+            'ended' => $runSession->ended,
+            'deactivated' => (bool)$runSession->deactivated,
+            'no_email' => (bool)$runSession->no_email,
+            'testing' => (bool)$runSession->testing,
+        ];
 
         // Add current unit info if available
         $currentUnitSession = $runSession->getCurrentUnitSession();
         if ($currentUnitSession) {
             $data['current_unit'] = [
-                'id' => $currentUnitSession->runUnit->id,
+                'id' => (int)$currentUnitSession->runUnit->id,
                 'type' => $currentUnitSession->runUnit->type,
                 'description' => $currentUnitSession->runUnit->description,
-                'session_id' => $currentUnitSession->id
+                'session_id' => (int)$currentUnitSession->id
             ];
         }
 
         return $this->response(200, 'Session details', $data);
+    }
+
+    /**
+     * Format Session Row
+     * * Transforms a raw database result row into a standardized session array.
+     * This helper ensures consistent data types (ints, bools) and structures the 
+     * 'current_unit' nested object if joined unit data is present in the row.
+     * * @param array $row The raw associative array from the database fetch.
+     * @return array The formatted session data array.
+     */
+    private function formatSessionRow($row) {
+        $data = [
+            'id' => (int)$row['id'],
+            'session' => $row['session'],
+            'run_id' => (int)$row['run_id'],
+            'user_id' => (int)$row['user_id'],
+            'position' => (int)$row['position'],
+            'current_unit_session_id' => $row['current_unit_session_id'] ? (int)$row['current_unit_session_id'] : null,
+            'created' => $row['created'],
+            'last_access' => $row['last_access'],
+            'ended' => $row['ended'],
+            'deactivated' => (bool)$row['deactivated'],
+            'no_email' => (bool)$row['no_email'],
+            'testing' => (bool)$row['testing'],
+        ];
+
+        if (!empty($row['unit_id'])) {
+            $data['current_unit'] = [
+                'id' => (int)$row['unit_id'],
+                'type' => $row['unit_type'],
+                'description' => $row['unit_description'],
+                'session_id' => (int)$row['unit_session_id']
+            ];
+        }
+        
+        return $data;
     }
 
     /**
