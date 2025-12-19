@@ -112,6 +112,8 @@ class ApiController extends Controller
             $this->authorize();
         } elseif ($action === 'access_token') {
             $this->access_token();
+        } elseif ($action === 'delete_token') {
+            $this->delete_token();
         }
     }
 
@@ -246,7 +248,7 @@ class ApiController extends Controller
     protected function isValidAction($type, $action)
     {
         $actions = array(
-            'oauth' => array('authorize', 'access_token'),
+            'oauth' => array('authorize', 'access_token', 'delete_token'),
             'post' => array('create-session', 'end-last-external'),
             'get' => array('results'),
         );
@@ -267,6 +269,12 @@ class ApiController extends Controller
     {
         // Ex: curl -u testclient:testpass https://formr.org/api/oauth/token -d 'grant_type=client_credentials'
         $this->oauthServer->handleTokenRequest(OAuth2\Request::createFromGlobals())->send();
+    }
+
+    protected function delete_token()
+    {
+        OAuthHelper::getInstance()->deleteAccessToken($this->post->access_token);
+        $this->respond(Response::STATUS_OK, 'Token deleted');
     }
 
     protected function authenticate($action)

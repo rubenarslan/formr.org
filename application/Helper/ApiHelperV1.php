@@ -622,7 +622,7 @@ class ApiHelperV1 extends ApiBase
         foreach ($params as $key => $val) {
             $stmt->bindValue($key, $val);
         }
-        // Bind limit/offset as integers (PDO defaults to string which breaks LIMIT in some MySQL versions)
+        // Bind limit/offset as integers
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 
@@ -954,6 +954,8 @@ class ApiHelperV1 extends ApiBase
 
             $results[$s->name] = $surveyData;
         }
+
+        $results['shuffles'] = $this->getShuffleResults($run, $filterSessions);
 
         return $this->response(200, 'OK', $results);
     }

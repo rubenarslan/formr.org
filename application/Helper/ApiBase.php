@@ -347,4 +347,50 @@ abstract class ApiBase
 
         return Template::replace($q, $params);
     }
+
+    /**
+     * Shuffle Results Retriever.
+     * * Fetches shuffle (random group) assignments for a specific run.
+     *
+     * @param Run $run The Run model instance.
+     * @param array|null $sessions List of session IDs to filter by.
+     * @return array Associative array of shuffle results.
+     */
+    protected function getShuffleResults(Run $run, $sessions = null)
+    {
+        $params = array(
+            'run_id' => $run->id,
+            'WHERE_run_sessions' => null,
+        );
+
+        $q = '
+            SELECT 
+                sus.id AS session_id,
+                srs.session AS run_session,
+                sru.description AS unit_name,
+                sus.result AS `group`,
+                sus.created
+            FROM survey_unit_sessions AS sus
+            LEFT JOIN survey_run_sessions AS srs ON srs.id = sus.run_session_id
+            LEFT JOIN survey_units AS u ON u.id = sus.unit_id
+            LEFT JOIN survey_run_units AS sru ON sru.unit_id = u.id AND sru.run_id = srs.run_id
+            WHERE srs.run_id = %{run_id}
+            AND u.type = \'Shuffle\'
+            %{WHERE_run_sessions}
+            ORDER BY sus.created ASC
+        ';
+
+        if ($sessions && is_array($sessions)) {
+            $or_like = array();
+            foreach ($sessions as $session) {
+                $or_like[] = " srs.session LIKE '{$session}%' ";
+            }
+            $params['WHERE_run_sessions'] = ' AND (' . implode('OR', $or_like) . ') ';
+        }
+
+        $query = Template::replace($q, $params);
+        $stmt = $this->db->query($query, true);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }
