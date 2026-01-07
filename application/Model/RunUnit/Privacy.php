@@ -163,6 +163,7 @@ class Privacy extends RunUnit {
 
         if ($this->run->hasPrivacy() || $this->run->hasToS()) {
             $output['content'] = '<form action="" method="post">';
+            $output['content'] .= formr_csrf_token();
             $output['content'] .= $content;
             $output['content'] .= '<input type="submit" value="Continue">
             </form>

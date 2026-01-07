@@ -200,6 +200,7 @@
                                 <p>Formr studies can be installed as a PWA (Progressive Web App) on the home screen. This allows you to send push notifications to users to invite them to return to the study, e.g. for experience sampling studies. </p>
                                 <h4><i class="fa fa-folder-open"></i> PWA Icons & Splash Screens</h4>
                                     <form class="form-horizontal" enctype="multipart/form-data" id="pwa_icons_form" method="post" action="<?php echo admin_run_url($run->name, 'ajax_upload_pwa_icon_folder'); ?>">
+                                        <?= formr_csrf_token() ?>
                                         <div class="form-group col-md-12">
                                             <label for="pwa_icon_folder_input">Upload PWA Icon/Splash Screen Folder</label>
                                             <p>
@@ -223,6 +224,7 @@
 
                                 
                                     <form class="form-horizontal" enctype="multipart/form-data" id="run_settings" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
+                                        <?= formr_csrf_token() ?>
                                         <p class="pull-right">
                                             <button data-href="<?php echo admin_run_url($run->name, 'ajax_generate_manifest'); ?>" class="btn btn-default generate-manifest"><i class="fa fa-magic"></i> Generate Manifest</button>
                                             <input type="submit" name="submit_settings" value="Save Manifest Text" class="btn btn-primary save_settings">
