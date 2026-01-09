@@ -256,32 +256,78 @@ abstract class ApiBase
     }
 
     /**
-     * Survey Results Retriever.
-     * * Fetches survey submission data for a specific run and survey.
-     * Supports filtering by specific item names and session IDs.
-     *
-     * @param Run $run The Run model instance.
-     * @param string $survey_name The name of the specific survey within the run.
-     * @param string|null $survey_items Comma-separated list of item names to include (columns).
-     * @param array|null $sessions List of session IDs to filter by (rows).
-     * @return array Associative array of results grouped by session.
+     * Secure Survey Results Retriever using PDO Prepared Statements
      */
     protected function getSurveyResults(Run $run, $survey_name, $survey_items = null, $sessions = null)
     {
         $results = array();
-        $query = $this->buildSurveyResultsQuery($run, $survey_name, $survey_items, $sessions);
-        $stmt = $this->db->query($query, true);
 
+        // 1. Base Query with Placeholders
+        $sql = "
+            SELECT itms_display.item_id, itms_display.session_id, itms_display.answer, itms_display.created,
+                   survey_items.name AS item_name, survey_run_sessions.session AS run_session, survey_run_sessions.position AS current_position
+            FROM survey_items_display AS itms_display
+            LEFT JOIN survey_unit_sessions ON survey_unit_sessions.id = itms_display.session_id
+            LEFT JOIN survey_run_sessions ON survey_run_sessions.id = survey_unit_sessions.run_session_id
+            LEFT JOIN survey_items ON survey_items.id = itms_display.item_id
+            LEFT JOIN survey_studies ON survey_studies.id = survey_items.study_id
+            WHERE survey_studies.name = :survey_name
+            AND survey_studies.user_id = :user_id
+            AND survey_run_sessions.run_id = :run_id
+        ";
+
+        // 2. Initial Bind Parameters
+        $params = [
+            ':survey_name' => $survey_name,
+            ':user_id'     => $this->user->id,
+            ':run_id'      => $run->id,
+        ];
+
+        // 3. Dynamic 'WHERE IN' clause for survey items
+        if ($survey_items && is_string($survey_items)) {
+            $item_names = explode(',', $survey_items);
+            $in_placeholders = [];
+
+            foreach ($item_names as $i => $name) {
+                $ph = ":item_name_$i";
+                $in_placeholders[] = $ph;
+                $params[$ph] = trim($name);
+            }
+            if (!empty($in_placeholders)) {
+                $sql .= ' AND survey_items.name IN (' . implode(',', $in_placeholders) . ') ';
+            }
+        }
+
+        // 4. Dynamic 'LIKE' clauses for sessions (Preventing Wildcard DoS)
+        if ($sessions && is_array($sessions)) {
+            $like_clauses = [];
+            foreach ($sessions as $i => $session) {
+                // Escape existing wildcards to treat them as literals
+                $clean_session = addcslashes($session, '%_');
+                $ph = ":sess_$i";
+                $like_clauses[] = "survey_run_sessions.session LIKE $ph";
+                $params[$ph] = $clean_session . '%'; // Append intended wildcard
+            }
+            if (!empty($like_clauses)) {
+                $sql .= ' AND (' . implode(' OR ', $like_clauses) . ') ';
+            }
+        }
+
+        // 5. Execute Prepared Statement
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+
+        // 6. Fetch Results
         while (($row = $stmt->fetch(PDO::FETCH_ASSOC))) {
             $session_id = $row['session_id'];
             if (!isset($results[$session_id])) {
                 $results[$session_id] = array(
                     'session' => $row['run_session'],
                     'created' => $row['created'],
-                    'current_position' => $row['current_position'] // Fixed missing bracket from original code
+                    'current_position' => $row['current_position']
                 );
             }
-            if ($row['created'] && !$results[$session_id]['created']) {
+            if ($row['created'] && empty($results[$session_id]['created'])) {
                 $results[$session_id]['created'] = $row['created'];
             }
             $results[$session_id][$row['item_name']] = $row['answer'];
@@ -291,79 +337,11 @@ abstract class ApiBase
     }
 
     /**
-     * Query Builder for Survey Results.
-     * * Dynamically constructs a SQL query string to fetch flattened survey results.
-     * It handles:
-     * - Parameter escaping (using DB::quote).
-     * - dynamic filtering for items (WHERE IN).
-     * - dynamic filtering for sessions (LIKE/OR matches).
-     *
-     * @param Run $run The Run model.
-     * @param string $survey_name Name of the survey.
-     * @param string|null $survey_items Comma-separated items.
-     * @param array|null $sessions Array of session strings.
-     * @return string The raw SQL query with placeholders replaced.
+     * Secure Shuffle Results Retriever (Fixed Typo + Prepared Statements)
      */
-    protected function buildSurveyResultsQuery(Run $run, $survey_name, $survey_items = null, $sessions = null)
+    protected function getShuffleResults(Run $run, $sessions = null)
     {
-        $params = array(
-            'run_id' => $run->id,
-            'user_id' => $this->user->id,
-            'survey_name' => $this->db->quote($survey_name),
-            'WHERE_survey_items' => null,
-            'WHERE_run_sessions' => null,
-        );
-
-        $q = '
-            SELECT itms_display.item_id, itms_display.session_id, itms_display.answer, itms_display.created,
-                   survey_items.name AS item_name, survey_run_sessions.session AS run_session, survey_run_sessions.position AS current_position
-            FROM survey_items_display AS itms_display
-            LEFT JOIN survey_unit_sessions ON survey_unit_sessions.id = itms_display.session_id
-            LEFT JOIN survey_run_sessions ON survey_run_sessions.id = survey_unit_sessions.run_session_id
-            LEFT JOIN survey_items ON survey_items.id = itms_display.item_id
-            LEFT JOIN survey_studies ON survey_studies.id = survey_items.study_id
-            WHERE survey_studies.name = %{survey_name}
-            AND survey_studies.user_id = %{user_id}
-            AND survey_run_sessions.run_id = %{run_id}
-            %{WHERE_survey_items}
-            %{WHERE_run_sessions}
-        ';
-
-        if ($survey_items && is_string($survey_items)) {
-            $itms = array();
-            foreach (explode(',', $survey_items) as $itm) {
-                $itms[] = $this->db->quote(trim($itm));
-            }
-            $params['WHERE_survey_items'] = ' AND survey_items.name IN (' . implode(',', $itms) . ') ';
-        }
-
-        if ($sessions && is_array($sessions)) {
-            $or_like = array();
-            foreach ($sessions as $session) {
-                $or_like[] = " survey_run_sessions.session LIKE " . $this->db->quote($session . '%');
-            }
-            $params['WHERE_run_sessions'] = ' AND (' . implode(' OR ', $or_like) . ') ';
-        }
-
-        return Template::replace($q, $params);
-    }
-
-/**
-     * Shuffle Results Retriever.
-     * * Fetches shuffle (random group) assignments for a specific run.
-     *
-     * @param Run $run The Run model instance.
-     * @param array|null $sessions List of session IDs to filter by.
-     * @return array Associative array of shuffle results.
-     */
-protected function getShuffleResults(Run $run, $sessions = null)
-    {
-        $params = array(
-            'run_id' => $run->id,
-            'WHERE_run_sessions' => null,
-        );
-
-        $q = '
+        $sql = "
             SELECT 
                 sus.id AS session_id,
                 srs.session AS run_session,
@@ -375,22 +353,29 @@ protected function getShuffleResults(Run $run, $sessions = null)
             LEFT JOIN survey_run_sessions AS srs ON srs.id = sus.run_session_id
             LEFT JOIN survey_units AS u ON u.id = sus.unit_id
             LEFT JOIN survey_run_units AS sru ON sru.unit_id = u.id AND sru.run_id = srs.run_id
-            WHERE srs.run_id = %{run_id}
-            AND u.type = \'Shuffle\'
-            %{WHERE_run_sessions}
-            ORDER BY sus.created ASC
-        ';
+            WHERE srs.run_id = :run_id
+            AND u.type = 'Shuffle'
+        ";
+
+        $params = [':run_id' => $run->id];
 
         if ($sessions && is_array($sessions)) {
-            $or_like = array();
-            foreach ($sessions as $session) {
-                $or_like[] = " srs.session LIKE " . $this->db->quote($session . '%');
+            $like_clauses = [];
+            foreach ($sessions as $i => $session) {
+                $clean_session = addcslashes($session, '%_');
+                $ph = ":sess_$i";
+                $like_clauses[] = "srs.session LIKE $ph";
+                $params[$ph] = $clean_session . '%';
             }
-            $params['WHERE_run_sessions'] = ' AND (' . implode(' OR ', $or_like) . ') ';
+            if (!empty($like_clauses)) {
+                $sql .= ' AND (' . implode(' OR ', $like_clauses) . ') ';
+            }
         }
 
-        $query = Template::replace($q, $params);
-        $stmt = $this->db->query($query, true);
+        $sql .= ' ORDER BY sus.created ASC';
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
