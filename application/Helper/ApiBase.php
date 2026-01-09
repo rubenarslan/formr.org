@@ -340,15 +340,15 @@ abstract class ApiBase
         if ($sessions && is_array($sessions)) {
             $or_like = array();
             foreach ($sessions as $session) {
-                $or_like[] = " survey_run_sessions.session LIKE '{$session}%' ";
+                $or_like[] = " survey_run_sessions.session LIKE " . $this->db->quote($session . '%');
             }
-            $params['WHERE_run_sessions'] = ' AND (' . implode('OR', $or_like) . ') ';
+            $params['WHERE_run_sessions'] = ' AND (' . implode(' OR ', $or_like) . ') ';
         }
 
         return Template::replace($q, $params);
     }
 
-    /**
+/**
      * Shuffle Results Retriever.
      * * Fetches shuffle (random group) assignments for a specific run.
      *
@@ -356,7 +356,7 @@ abstract class ApiBase
      * @param array|null $sessions List of session IDs to filter by.
      * @return array Associative array of shuffle results.
      */
-    protected function getShuffleResults(Run $run, $sessions = null)
+protected function getShuffleResults(Run $run, $sessions = null)
     {
         $params = array(
             'run_id' => $run->id,
@@ -367,7 +367,8 @@ abstract class ApiBase
             SELECT 
                 sus.id AS session_id,
                 srs.session AS run_session,
-                sru.description AS unit_name,
+                sru.position,
+                sus.unit_id,
                 sus.result AS `group`,
                 sus.created
             FROM survey_unit_sessions AS sus
@@ -383,9 +384,9 @@ abstract class ApiBase
         if ($sessions && is_array($sessions)) {
             $or_like = array();
             foreach ($sessions as $session) {
-                $or_like[] = " srs.session LIKE '{$session}%' ";
+                $or_like[] = " srs.session LIKE " . $this->db->quote($session . '%');
             }
-            $params['WHERE_run_sessions'] = ' AND (' . implode('OR', $or_like) . ') ';
+            $params['WHERE_run_sessions'] = ' AND (' . implode(' OR ', $or_like) . ') ';
         }
 
         $query = Template::replace($q, $params);
