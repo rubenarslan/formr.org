@@ -477,15 +477,27 @@ class ApiHelperV1 extends ApiBase
                     }
                 }
 
+                // 1. Update settings FIRST
+                // This saves 'expiresOn' to the database, but does NOT update the $run object in memory.
+                $settingsSaved = $run->saveSettings($input);
+
+                if (!$settingsSaved) {
+                    $errors = !empty($run->errors) ? implode('; ', $run->errors) : 'Unknown error saving settings';
+                    return $this->error(400, 'Failed to update run: ' . $errors);
+                }
+
+                // 2. Workaround: Manually refresh the in-memory object
+                // We must update the local object so togglePublic() sees the new expiration date.
+                if (isset($input['expiresOn'])) {
+                    $run->expiresOn = $input['expiresOn'];
+                }
+
+                // 3. Now perform status toggles
+                // These checks will now see the correct 'expiresOn' date.
                 if (isset($input['public'])) $run->togglePublic((int)$input['public']);
                 if (isset($input['locked'])) $run->toggleLocked((int)$input['locked']);
 
-                if ($run->saveSettings($input)) {
-                    return $this->response(200, 'Run updated successfully');
-                } else {
-                    $errors = !empty($run->errors) ? implode('; ', $run->errors) : 'Unknown error';
-                    return $this->error(400, 'Failed to update run: ' . $errors);
-                }
+                return $this->response(200, 'Run updated successfully');
 
             case 'DELETE':
                 $this->checkScope('run:write');
