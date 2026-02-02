@@ -749,7 +749,7 @@ class ApiHelperV1 extends ApiBase
 
             // 1. Complete Failure: 400 Bad Request
             if (empty($createdSessions) && !empty($failedSessions)) {
-                return $this->response(400, 'No sessions were created. See errors.', $payload);
+                return $this->error(400, 'No sessions were created.');
             }
 
             // 2. Partial Success: 207 Multi-Status
@@ -758,7 +758,7 @@ class ApiHelperV1 extends ApiBase
             }
 
             // 3. Complete Success: 201 Created
-            return $this->response(201, 'Sessions created successfully.', $payload);
+            return $this->response(201, 'Sessions created successfully', $payload);
         }
     }
 

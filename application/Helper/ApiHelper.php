@@ -30,7 +30,7 @@ class ApiHelper extends ApiBase {
 
         // If sessions are still not available then run is empty
         if (!$this->db->count('survey_run_sessions', array('run_id' => $run->id), 'id')) {
-            $this->setData(Response::STATUS_NOT_FOUND, 'Empty Run', null, 'No sessions were found in this run.');
+            $this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'No sessions were found in this run.');
             return $this;
         }
 
@@ -93,7 +93,7 @@ class ApiHelper extends ApiBase {
         if ($i) {
             $this->setData(Response::STATUS_OK, 'OK', array('created_sessions' => $i, 'sessions' => $sessions));
         } else {
-            $this->setData(Response::STATUS_INTERNAL_SERVER_ERROR, 'Error Request', null, 'Error occured when creating session');
+            $this->setData(Response::STATUS_INTERNAL_SERVER_ERROR, 'Internal Server Error', null, 'Error occurred when creating session');
         }
 
         return $this;
@@ -106,7 +106,7 @@ class ApiHelper extends ApiBase {
 
         $run = new Run($request->run->name);
         if (!$run->valid) {
-            $this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid Run');
+            $this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid run');
             return $this;
         }
 
@@ -118,10 +118,10 @@ class ApiHelper extends ApiBase {
                 $run_session->endLastExternal();
                 $this->setData(Response::STATUS_OK, 'OK', array('success' => 'external unit ended'));
             } else {
-                $this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid user session');
+                $this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid session');
             }
         } else {
-            $this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Session code not found');
+            $this->setData(Response::STATUS_BAD_REQUEST, 'Bad Request', null, 'Session code not found');
         }
 
         return $this;

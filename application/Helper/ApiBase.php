@@ -119,7 +119,10 @@ abstract class ApiBase
      */
     public function __call($name, $arguments)
     {
-        $this->setData(Response::STATUS_METHOD_NOT_ALLOWED, 'Method Not Allowed', ['error' => "Action '$name' is not available in this API version."]);
+        $this->setData(Response::STATUS_METHOD_NOT_ALLOWED, 'Method Not Allowed', [
+            'code' => Response::STATUS_METHOD_NOT_ALLOWED,
+            'message' => "Action '$name' is not available in this API version."
+        ]);
         return $this;
     }
 
@@ -142,8 +145,26 @@ abstract class ApiBase
 
     protected function error($code, $msg)
     {
-        $this->setData($code, 'Error', ['error' => $msg]);
+        $this->setData($code, $this->getStatusText($code), [
+            'code' => $code,
+            'message' => $msg
+        ]);
         return $this;
+    }
+
+    private function getStatusText($code)
+    {
+        $statusTexts = [
+            400 => 'Bad Request',
+            401 => 'Unauthorized',
+            403 => 'Forbidden',
+            404 => 'Not Found',
+            405 => 'Method Not Allowed',
+            409 => 'Conflict',
+            415 => 'Unsupported Media Type',
+            500 => 'Internal Server Error',
+        ];
+        return $statusTexts[$code] ?? 'Error';
     }
 
     /**
@@ -193,7 +214,7 @@ abstract class ApiBase
     protected function getRunFromRequest($request)
     {
         if (empty($request->run->name)) {
-            $this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Required "run : { name: }" parameter not found.');
+            $this->setData(Response::STATUS_BAD_REQUEST, 'Bad Request', null, 'Required "run : { name: }" parameter not found');
             return false;
         }
 
@@ -202,7 +223,7 @@ abstract class ApiBase
             $this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid Run or run/user not found');
             return false;
         } elseif (!$this->user->created($run)) {
-            $this->setData(Response::STATUS_UNAUTHORIZED, 'Unauthorized Access', null, 'Unauthorized access to run');
+            $this->setData(Response::STATUS_UNAUTHORIZED, 'Unauthorized', null, 'Unauthorized access to run');
             return false;
         }
 
@@ -227,16 +248,16 @@ abstract class ApiBase
         }
     }
 
-    protected function setError($code = null, $error = null, $desc = null)
+    protected function setError($code = null, $message = null, $desc = null)
     {
         if ($code !== null) {
-            $this->error['error_code'] = $code;
+            $this->error['code'] = $code;
         }
-        if ($error !== null) {
-            $this->error['error'] = $error;
+        if ($message !== null) {
+            $this->error['message'] = $message;
         }
         if ($desc !== null) {
-            $this->error['error_description'] = $desc;
+            $this->error['description'] = $desc;
         }
     }
 

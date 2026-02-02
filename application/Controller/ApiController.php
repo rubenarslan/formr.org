@@ -56,7 +56,10 @@ class ApiController extends Controller
         }
 
         // Default behavior (Legacy 403)
-        $this->respond(Response::STATUS_FORBIDDEN, 'Invalid', array('error' => 'No Entry Point'));
+        $this->respond(Response::STATUS_FORBIDDEN, 'Forbidden', array(
+            'code' => Response::STATUS_FORBIDDEN,
+            'message' => 'No valid API entry point found'
+        ));
     }
 
     /**
@@ -94,7 +97,10 @@ class ApiController extends Controller
             $data = [
                 'statusCode' => 500,
                 'statusText' => 'Internal Server Error',
-                'response' => ['error' => $e->getMessage()]
+                'response' => [
+                    'code' => 500,
+                    'message' => $e->getMessage()
+                ]
             ];
         }
 
@@ -238,7 +244,7 @@ class ApiController extends Controller
             $data = array(
                 'statusCode' => Response::STATUS_INTERNAL_SERVER_ERROR,
                 'statusText' => 'Internal Server Error',
-                'response' => array('error' => 'An unexpected error occured', 'error_code' => Response::STATUS_INTERNAL_SERVER_ERROR),
+                'response' => array('code' => Response::STATUS_INTERNAL_SERVER_ERROR, 'message' => 'An unexpected error occurred'),
             );
         }
 
@@ -284,10 +290,9 @@ class ApiController extends Controller
             // Handle a request to a resource and authenticate the access token
             // Ex: curl -H "Authorization: Bearer YOUR_TOKEN" https://formr.org/api/get/results
             if (!$this->oauthServer->verifyResourceRequest(OAuth2\Request::createFromGlobals())) {
-                $this->respond(Response::STATUS_UNAUTHORIZED, 'Unauthorized Access', array(
-                    'error' => 'Invalid/Unauthorized access token',
-                    'error_code' => Response::STATUS_UNAUTHORIZED,
-                    'error_description' => 'Access token for this resouce request is invalid or unauthorized',
+                $this->respond(Response::STATUS_UNAUTHORIZED, 'Unauthorized', array(
+                    'code' => Response::STATUS_UNAUTHORIZED,
+                    'message' => 'Access token for this resource request is invalid or unauthorized',
                 ));
             }
         }
