@@ -1,0 +1,25 @@
+meta {
+  name: Get Survey Details
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{host}}/v1/surveys/api_test_survey_google
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.name: eq api_test_survey_google
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}

@@ -1,0 +1,30 @@
+meta {
+  name: SQL Injection Attempt
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{host}}/v1/runs/api-test/results?sessions=' OR '1'='1
+  body: none
+  auth: bearer
+}
+
+params:query {
+  sessions: ' OR '1'='1
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.friend_list.length: eq 0
+  res.body.shuffles.length: eq 0
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

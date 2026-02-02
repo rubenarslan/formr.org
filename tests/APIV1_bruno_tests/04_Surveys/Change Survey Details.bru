@@ -1,0 +1,40 @@
+meta {
+  name: Change Survey Details
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{host}}/v1/surveys/api_test_survey_google
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "maximum_number_displayed": 10,
+    "displayed_percentage_maximum": 100,
+    "add_percentage_points": 0,
+    "enable_instant_validation": 1,
+    "expire_after": 43200,
+    "expire_invitation_after": 10080,
+    "expire_invitation_grace": 2880,
+    "google_file_id": "",
+    "unlinked": 0,
+    "hide_results": 0,
+    "use_paging": 1
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}

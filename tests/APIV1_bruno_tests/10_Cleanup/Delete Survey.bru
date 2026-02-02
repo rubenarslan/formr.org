@@ -1,0 +1,19 @@
+meta {
+  name: Delete Survey
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{host}}/v1/surveys/api_test_survey
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+}

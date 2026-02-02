@@ -1,0 +1,33 @@
+meta {
+  name: Update Survey from Google Sheets
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{host}}/v1/surveys/api_test_survey_google
+  body: multipartForm
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:multipart-form {
+  google_sheet: https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw/edit
+}
+
+body:file {
+  file: @file(/Users/admin/Downloads/platzhalter.xlsx) @contentType(application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)
+}
+
+assert {
+  res.status: eq 200
+  res.body.name: eq api_test_survey_google
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}

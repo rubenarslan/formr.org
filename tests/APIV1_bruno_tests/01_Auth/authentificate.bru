@@ -1,0 +1,31 @@
+meta {
+  name: authentificate
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{host}}/oauth/access_token
+  body: formUrlEncoded
+  auth: none
+}
+
+body:form-urlencoded {
+  grant_type: client_credentials
+  client_id: {{client_id}}
+  client_secret: {{client_secret}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.access_token: isNotEmpty
+  res.body.token_type: eq Bearer
+  res.body.expires_in: isNumber
+  res.body.scope: eq user:read user:write survey:read survey:write run:read run:write session:read session:write data:read file:read file:write
+}
+
+script:post-response {
+  if (res.body.access_token) {
+    bru.setVar("access_token", res.body.access_token);
+  }
+}

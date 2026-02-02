@@ -1,0 +1,23 @@
+meta {
+  name: Toggle Testing
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{host}}/v1/runs/api-test/sessions/TestUser_Alpha_0000000000000000000000000000000000000000000000001/actions
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  { "action": "toggle_testing", "testing": 1 }
+}
+
+assert {
+  res.status: eq 200
+}

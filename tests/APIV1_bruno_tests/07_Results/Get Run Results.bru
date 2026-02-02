@@ -1,0 +1,20 @@
+meta {
+  name: Get Run Results
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{host}}/v1/runs/api-test/results
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body: isNotEmpty
+}

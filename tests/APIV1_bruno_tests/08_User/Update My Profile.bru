@@ -1,0 +1,35 @@
+meta {
+  name: Update My Profile
+  type: http
+  seq: 2
+}
+
+patch {
+  url: http://api.localhost/v1/user/me
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+      "first_name": "API",
+      "last_name": "Tester",
+      "affiliation": "Formr API-Team"
+    }
+}
+
+assert {
+  res.status: eq 200
+  res.body.first_name: eq API
+  res.body.last_name: eq Tester
+  res.body.affiliation: eq Formr API-Team
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

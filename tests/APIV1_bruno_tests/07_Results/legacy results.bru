@@ -1,0 +1,28 @@
+meta {
+  name: legacy results
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{host}}/get/results/?run[name]=api-test
+  body: json
+  auth: bearer
+}
+
+params:query {
+  run[name]: api-test
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {"run": {"name": "api-test"}}
+}
+
+assert {
+  res.status: eq 200
+  res.body: isNotEmpty
+}

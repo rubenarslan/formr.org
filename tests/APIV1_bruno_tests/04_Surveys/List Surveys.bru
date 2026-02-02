@@ -1,0 +1,20 @@
+meta {
+  name: List Surveys
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{host}}/v1/surveys/
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body[0].name: isNotEmpty
+}

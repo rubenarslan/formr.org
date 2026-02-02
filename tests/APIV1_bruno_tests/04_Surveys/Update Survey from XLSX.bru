@@ -1,0 +1,24 @@
+meta {
+  name: Update Survey from XLSX
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{host}}/v1/surveys/api_test_survey
+  body: multipartForm
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:multipart-form {
+  file: @file(assets/survey.xlsx)
+}
+
+assert {
+  res.status: eq 200
+  res.body.name: eq api_test_survey
+}

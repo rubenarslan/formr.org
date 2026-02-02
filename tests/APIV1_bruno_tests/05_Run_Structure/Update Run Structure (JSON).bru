@@ -1,0 +1,717 @@
+meta {
+  name: Update Run Structure
+  type: http
+  seq: 1
+}
+
+put {
+  url: {{host}}/v1/runs/api-test/structure
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+      "name": "test-all-units",
+      "units": [
+          {
+              "type": "Survey",
+              "description": "platzhalter",
+              "position": 10,
+              "special": "",
+              "study_id": 11,
+              "survey_data": {
+                  "name": "friend_list",
+                  "items": [
+                      {
+                          "type": "note",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "intro",
+                          "label": "Hi there, Pokémaster!",
+                          "label_parsed": "Hi there, Pokémaster!",
+                          "optional": 1,
+                          "class": null,
+                          "showif": "",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 1
+                      },
+                      {
+                          "type": "number",
+                          "choice_list": null,
+                          "type_options": "0,any,1",
+                          "name": "nr_friends",
+                          "label": "How many Pokémon are you currently training?",
+                          "label_parsed": "How many Pokémon are you currently training?",
+                          "optional": 0,
+                          "class": null,
+                          "showif": "",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 2
+                      },
+                      {
+                          "type": "note",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "fav_poke",
+                          "label": "Start with your most favourite Pokémon!",
+                          "label_parsed": "Start with your most favourite Pokémon!",
+                          "optional": 1,
+                          "class": null,
+                          "showif": "\/\/js_only\nnr_friends >= 1",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 3
+                      },
+                      {
+                          "type": "text",
+                          "choice_list": null,
+                          "type_options": 50,
+                          "name": "name_friend1",
+                          "label": "Name",
+                          "label_parsed": "Name",
+                          "optional": 0,
+                          "class": "clear right150 align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 1",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 5
+                      },
+                      {
+                          "type": "sex",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "sex_friend1",
+                          "label": "Sex",
+                          "label_parsed": "Sex",
+                          "optional": 0,
+                          "class": "right150 align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 1",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 6
+                      },
+                      {
+                          "type": "select_or_add_one",
+                          "choice_list": "type_friend1",
+                          "type_options": "",
+                          "name": "type_friend1",
+                          "label": "Type",
+                          "label_parsed": "Type",
+                          "optional": 0,
+                          "class": "align_horizontally",
+                          "showif": "\/\/js_only\nnr_friends >= 1",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 7,
+                          "choices": {
+                              "Pikachu": "Pikachu",
+                              "Squirtle": "Squirtle",
+                              "Metapod": "Metapod",
+                              "Rattata": "Rattata"
+                          }
+                      },
+                      {
+                          "type": "number",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "size_friend1",
+                          "label": "Größe (cm)",
+                          "label_parsed": "Größe (cm)",
+                          "optional": 0,
+                          "class": "align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 1",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 8
+                      },
+                      {
+                          "type": "text",
+                          "choice_list": null,
+                          "type_options": 50,
+                          "name": "name_friend2",
+                          "label": "Name",
+                          "label_parsed": "Name",
+                          "optional": 0,
+                          "class": "clear right150 align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 2",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 10
+                      },
+                      {
+                          "type": "sex",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "sex_friend2",
+                          "label": "Sex",
+                          "label_parsed": "Sex",
+                          "optional": 0,
+                          "class": "right150 align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 2",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 11
+                      },
+                      {
+                          "type": "select_or_add_one",
+                          "choice_list": "type_friend2",
+                          "type_options": "",
+                          "name": "type_friend2",
+                          "label": "Type",
+                          "label_parsed": "Type",
+                          "optional": 0,
+                          "class": "align_horizontally",
+                          "showif": "\/\/js_only\nnr_friends >= 2",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 12,
+                          "choices": {
+                              "Pikachu": "Pikachu",
+                              "Squirtle": "Squirtle",
+                              "Metapod": "Metapod",
+                              "Rattata": "Rattata"
+                          }
+                      },
+                      {
+                          "type": "number",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "size_friend2",
+                          "label": "Größe (cm)",
+                          "label_parsed": "Größe (cm)",
+                          "optional": 0,
+                          "class": "align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 2",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 13
+                      },
+                      {
+                          "type": "text",
+                          "choice_list": null,
+                          "type_options": 50,
+                          "name": "name_friend3",
+                          "label": "Name",
+                          "label_parsed": "Name",
+                          "optional": 0,
+                          "class": "clear right150 align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 3",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 15
+                      },
+                      {
+                          "type": "sex",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "sex_friend3",
+                          "label": "Sex",
+                          "label_parsed": "Sex",
+                          "optional": 0,
+                          "class": "right150 align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 3",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 16
+                      },
+                      {
+                          "type": "select_or_add_one",
+                          "choice_list": "type_friend3",
+                          "type_options": "",
+                          "name": "type_friend3",
+                          "label": "Type",
+                          "label_parsed": "Type",
+                          "optional": 0,
+                          "class": "align_horizontally",
+                          "showif": "\/\/js_only\nnr_friends >= 3",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 17,
+                          "choices": {
+                              "Pikachu": "Pikachu",
+                              "Squirtle": "Squirtle",
+                              "Metapod": "Metapod",
+                              "Rattata": "Rattata"
+                          }
+                      },
+                      {
+                          "type": "number",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "size_friend3",
+                          "label": "Größe (cm)",
+                          "label_parsed": "Größe (cm)",
+                          "optional": 0,
+                          "class": "align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 3",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 18
+                      },
+                      {
+                          "type": "text",
+                          "choice_list": null,
+                          "type_options": 50,
+                          "name": "name_friend4",
+                          "label": "Name",
+                          "label_parsed": "Name",
+                          "optional": 0,
+                          "class": "clear right150 align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 4",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 20
+                      },
+                      {
+                          "type": "sex",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "sex_friend4",
+                          "label": "Sex",
+                          "label_parsed": "Sex",
+                          "optional": 0,
+                          "class": "right150 align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 4",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 21
+                      },
+                      {
+                          "type": "select_or_add_one",
+                          "choice_list": "type_friend4",
+                          "type_options": "",
+                          "name": "type_friend4",
+                          "label": "Type",
+                          "label_parsed": "Type",
+                          "optional": 0,
+                          "class": "align_horizontally",
+                          "showif": "\/\/js_only\nnr_friends >= 4",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 22,
+                          "choices": {
+                              "Pikachu": "Pikachu",
+                              "Squirtle": "Squirtle",
+                              "Metapod": "Metapod",
+                              "Rattata": "Rattata"
+                          }
+                      },
+                      {
+                          "type": "number",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "size_friend4",
+                          "label": "Größe (cm)",
+                          "label_parsed": "Größe (cm)",
+                          "optional": 0,
+                          "class": "align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 4",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 23
+                      },
+                      {
+                          "type": "text",
+                          "choice_list": null,
+                          "type_options": 50,
+                          "name": "name_friend5",
+                          "label": "Name",
+                          "label_parsed": "Name",
+                          "optional": 0,
+                          "class": "clear right150 align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 5",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 25
+                      },
+                      {
+                          "type": "sex",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "sex_friend5",
+                          "label": "Sex",
+                          "label_parsed": "Sex",
+                          "optional": 0,
+                          "class": "right150 align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 5",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 26
+                      },
+                      {
+                          "type": "select_or_add_one",
+                          "choice_list": "type_friend5",
+                          "type_options": "",
+                          "name": "type_friend5",
+                          "label": "Type",
+                          "label_parsed": "Type",
+                          "optional": 0,
+                          "class": "align_horizontally",
+                          "showif": "\/\/js_only\nnr_friends >= 5",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 27,
+                          "choices": {
+                              "Pikachu": "Pikachu",
+                              "Squirtle": "Squirtle",
+                              "Metapod": "Metapod",
+                              "Rattata": "Rattata"
+                          }
+                      },
+                      {
+                          "type": "number",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "size_friend5",
+                          "label": "Größe (cm)",
+                          "label_parsed": "Größe (cm)",
+                          "optional": 0,
+                          "class": "align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 5",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 28
+                      },
+                      {
+                          "type": "text",
+                          "choice_list": null,
+                          "type_options": 50,
+                          "name": "name_friend6",
+                          "label": "Name",
+                          "label_parsed": "Name",
+                          "optional": 0,
+                          "class": "clear right150 align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 6",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 30
+                      },
+                      {
+                          "type": "sex",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "sex_friend6",
+                          "label": "Sex",
+                          "label_parsed": "Sex",
+                          "optional": 0,
+                          "class": "right150 align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 6",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 31
+                      },
+                      {
+                          "type": "select_or_add_one",
+                          "choice_list": "type_friend6",
+                          "type_options": "",
+                          "name": "type_friend6",
+                          "label": "Type",
+                          "label_parsed": "Type",
+                          "optional": 0,
+                          "class": "align_horizontally",
+                          "showif": "\/\/js_only\nnr_friends >= 6",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 32,
+                          "choices": {
+                              "Pikachu": "Pikachu",
+                              "Squirtle": "Squirtle",
+                              "Metapod": "Metapod",
+                              "Rattata": "Rattata"
+                          }
+                      },
+                      {
+                          "type": "number",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "size_friend6",
+                          "label": "Größe (cm)",
+                          "label_parsed": "Größe (cm)",
+                          "optional": 0,
+                          "class": "align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 6",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 33
+                      },
+                      {
+                          "type": "text",
+                          "choice_list": null,
+                          "type_options": 50,
+                          "name": "name_friend7",
+                          "label": "Name",
+                          "label_parsed": "Name",
+                          "optional": 0,
+                          "class": "clear right150 align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 7",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 35
+                      },
+                      {
+                          "type": "sex",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "sex_friend7",
+                          "label": "Sex",
+                          "label_parsed": "Sex",
+                          "optional": 0,
+                          "class": "right150 align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 7",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 36
+                      },
+                      {
+                          "type": "select_or_add_one",
+                          "choice_list": "type_friend7",
+                          "type_options": "",
+                          "name": "type_friend7",
+                          "label": "Type",
+                          "label_parsed": "Type",
+                          "optional": 0,
+                          "class": "align_horizontally",
+                          "showif": "\/\/js_only\nnr_friends >= 7",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 37,
+                          "choices": {
+                              "Pikachu": "Pikachu",
+                              "Squirtle": "Squirtle",
+                              "Metapod": "Metapod",
+                              "Rattata": "Rattata"
+                          }
+                      },
+                      {
+                          "type": "number",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "size_friend7",
+                          "label": "Größe (cm)",
+                          "label_parsed": "Größe (cm)",
+                          "optional": 0,
+                          "class": "align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 7",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 38
+                      },
+                      {
+                          "type": "text",
+                          "choice_list": null,
+                          "type_options": 50,
+                          "name": "name_friend8",
+                          "label": "Name",
+                          "label_parsed": "Name",
+                          "optional": 0,
+                          "class": "clear right150 align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 8",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 40
+                      },
+                      {
+                          "type": "sex",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "sex_friend8",
+                          "label": "Sex",
+                          "label_parsed": "Sex",
+                          "optional": 0,
+                          "class": "right150 align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 8",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 41
+                      },
+                      {
+                          "type": "select_or_add_one",
+                          "choice_list": "type_friend8",
+                          "type_options": "",
+                          "name": "type_friend8",
+                          "label": "Type",
+                          "label_parsed": "Type",
+                          "optional": 0,
+                          "class": "align_horizontally",
+                          "showif": "\/\/js_only\nnr_friends >= 8",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 42,
+                          "choices": {
+                              "Pikachu": "Pikachu",
+                              "Squirtle": "Squirtle",
+                              "Metapod": "Metapod",
+                              "Rattata": "Rattata"
+                          }
+                      },
+                      {
+                          "type": "number",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "size_friend8",
+                          "label": "Größe (cm)",
+                          "label_parsed": "Größe (cm)",
+                          "optional": 0,
+                          "class": "align_horizontally label_as_placeholder",
+                          "showif": "\/\/js_only\nnr_friends >= 8",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 43
+                      },
+                      {
+                          "type": "note",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "no_more",
+                          "label": "You can only enter up to Pokémon because of Dunbar's number (Pokémon version).",
+                          "label_parsed": "You can only enter up to Pokémon because of Dunbar's number (Pokémon version).",
+                          "optional": 1,
+                          "class": null,
+                          "showif": "\/\/js_only\nnr_friends >= 8",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 45
+                      },
+                      {
+                          "type": "submit",
+                          "choice_list": null,
+                          "type_options": null,
+                          "name": "send_off",
+                          "label": "Gotta rate them all",
+                          "label_parsed": "Gotta rate them all",
+                          "optional": 0,
+                          "class": null,
+                          "showif": "",
+                          "value": "",
+                          "block_order": null,
+                          "item_order": 46
+                      }
+                  ],
+                  "settings": {
+                      "maximum_number_displayed": 0,
+                      "displayed_percentage_maximum": 100,
+                      "add_percentage_points": 0,
+                      "enable_instant_validation": 1,
+                      "expire_after": 0,
+                      "google_file_id": "1B3boUGSAMpnRamHLq66PQppvopWUkNVTUoCXYUqUisQ",
+                      "unlinked": 1,
+                      "expire_invitation_after": 0,
+                      "expire_invitation_grace": 0,
+                      "hide_results": 0,
+                      "use_paging": 0
+                  },
+                  "google_sheet": "https:\/\/docs.google.com\/spreadsheets\/d\/1B3boUGSAMpnRamHLq66PQppvopWUkNVTUoCXYUqUisQ\/edit"
+              }
+          },
+          {
+              "type": "External",
+              "description": "",
+              "position": 20,
+              "special": "",
+              "external_link": "",
+              "api_end": 0,
+              "expire_after": 0
+          },
+          {
+              "type": "Email",
+              "description": "",
+              "position": 30,
+              "special": "",
+              "account_id": 1,
+              "subject": "",
+              "recipient_field": "",
+              "body": ""
+          },
+          {
+              "type": "PushMessage",
+              "description": "",
+              "position": 40,
+              "special": "",
+              "topic": "",
+              "message": "",
+              "priority": "normal",
+              "time_to_live": 86400,
+              "badge_count": 1,
+              "notification_mode": "sound_vibration",
+              "require_interaction": 1,
+              "renotify": 1
+          },
+          {
+              "type": "SkipBackward",
+              "description": "",
+              "position": 50,
+              "special": "",
+              "condition": "",
+              "if_true": 40
+          },
+          {
+              "type": "Pause",
+              "description": "",
+              "position": 60,
+              "special": "",
+              "wait_until_time": "",
+              "wait_until_date": "",
+              "wait_minutes": "",
+              "relative_to": "",
+              "body": ""
+          },
+          {
+              "type": "SkipForward",
+              "description": "",
+              "position": 70,
+              "special": "",
+              "condition": "",
+              "if_true": 60
+          },
+          {
+              "type": "Wait",
+              "description": "",
+              "position": 80,
+              "special": "",
+              "wait_until_time": "",
+              "wait_until_date": "",
+              "wait_minutes": "",
+              "relative_to": "",
+              "body": ""
+          },
+          {
+              "type": "Shuffle",
+              "description": "",
+              "position": 90,
+              "special": "",
+              "groups": 2
+          },
+          {
+              "type": "Endpage",
+              "description": "",
+              "position": 100,
+              "special": "",
+              "body": ""
+          }
+      ],
+      "settings": {
+          "header_image_path": null,
+          "description": null,
+          "footer_text": "Contact the [study administration](mailto:rform@researchmixtapes.com) in case of questions. [Privacy Policy](http:\/\/localhost\/test-all-units\/privacy_policy\/). [Terms of Service](http:\/\/localhost\/test-all-units\/terms_of_service\/). [Settings](http:\/\/localhost\/test-all-units\/settings\/).",
+          "public_blurb": null,
+          "privacy": null,
+          "tos": null,
+          "cron_active": 1,
+          "custom_js": "",
+          "custom_css": "",
+          "expiresOn": null
+      },
+      "files": []
+  }
+}
+
+assert {
+  res.status: eq 200
+}

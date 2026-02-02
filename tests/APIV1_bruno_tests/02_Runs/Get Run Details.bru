@@ -1,0 +1,24 @@
+meta {
+  name: Get Run Details
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{host}}/v1/runs/api-test
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}

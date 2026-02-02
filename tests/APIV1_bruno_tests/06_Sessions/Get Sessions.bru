@@ -1,0 +1,21 @@
+meta {
+  name: Get Sessions
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{host}}/v1/runs/api-test/sessions/
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body[0].session: isString
+  res.body[0].id: isNumber
+}

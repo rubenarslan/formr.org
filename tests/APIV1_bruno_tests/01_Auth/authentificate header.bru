@@ -1,0 +1,37 @@
+meta {
+  name: authentificate header
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://api.localhost/oauth/access_token
+  body: formUrlEncoded
+  auth: basic
+}
+
+headers {
+  content-type: application/x-www-form-urlencoded
+}
+
+auth:basic {
+  username: {{client_id}}
+  password: {{client_secret}}
+}
+
+body:form-urlencoded {
+  grant_type: client_credentials
+}
+
+assert {
+  res.status: eq 200
+  res.body.access_token: isNotEmpty
+  res.body.token_type: eq Bearer
+  res.body.expires_in: isNumber
+  res.body.scope: eq user:read user:write survey:read survey:write run:read run:write session:read session:write data:read file:read file:write
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}

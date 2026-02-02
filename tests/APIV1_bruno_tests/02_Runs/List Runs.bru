@@ -1,0 +1,20 @@
+meta {
+  name: List Runs
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{host}}/v1/runs/
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body: isNotEmpty
+}
