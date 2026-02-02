@@ -67,10 +67,42 @@ class SurveyResource extends BaseResource
     {
         $this->checkScope('run:write');
 
+        $surveyName = basename($surveyName);
+        if (!preg_match('/^[a-zA-Z0-9_-]+$/', $surveyName)) {
+            return $this->error(400, "Invalid survey name. Must contain only alphanumeric characters, hyphens, and underscores.");
+        }
+
         $file = null;
         $googleSheetUrl = $this->request->str('google_sheet');
 
         if (!empty($googleSheetUrl)) {
+            $parsedUrl = parse_url($googleSheetUrl);
+            
+            // 1. Enforce HTTPS
+            $scheme = isset($parsedUrl['scheme']) ? strtolower($parsedUrl['scheme']) : '';
+            if ($scheme !== 'https') {
+                return $this->error(400, "Invalid URL. Only secure (HTTPS) Google Sheet URLs are allowed.");
+            }
+
+            // 2. Strict Host Whitelist
+            $host = strtolower($parsedUrl['host'] ?? '');
+            $allowedHosts = [
+                'docs.google.com'
+            ];
+            
+            // Check for exact match OR subdomain (e.g., www.docs.google.com)
+            $validHost = false;
+            foreach ($allowedHosts as $allowed) {
+                if ($host === $allowed || substr($host, -strlen('.' . $allowed)) === '.' . $allowed) {
+                    $validHost = true;
+                    break;
+                }
+            }
+
+            if (!$validHost) {
+                return $this->error(400, "Invalid Google Sheet URL. Domain not allowed.");
+            }
+
             $file = google_download_survey_sheet($googleSheetUrl);
 
             if (!$file) {

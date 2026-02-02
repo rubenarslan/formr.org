@@ -110,7 +110,8 @@ class RunResource extends BaseResource
             return $this->error(400, "Invalid run name. Must start with a letter, contain only a-z, 0-9, hyphens, and be 3-255 chars long.");
         }
 
-        if (in_array($runName, Config::get('reserved_run_names', []))) {
+        $reservedNames = Config::get('reserved_run_names', []);
+        if (is_array($reservedNames) && in_array($runName, $reservedNames)) {
             return $this->error(400, "Run name '$runName' is reserved.");
         }
 
@@ -180,6 +181,13 @@ class RunResource extends BaseResource
         foreach ($restrictedFields as $field) {
             if (isset($input[$field])) {
                 unset($input[$field]);
+            }
+        }
+
+        $textFields = ['title', 'description', 'footer_text', 'public_blurb', 'privacy', 'tos'];
+        foreach ($textFields as $field) {
+            if (isset($input[$field]) && is_string($input[$field])) {
+                $input[$field] = htmlspecialchars(trim($input[$field]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
             }
         }
 

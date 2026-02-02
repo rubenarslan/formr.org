@@ -59,6 +59,7 @@ class SessionResource extends BaseResource
         $this->checkScope('session:read');
 
         $limit = (int)$this->request->getParam('limit', 100);
+        $limit = min(max($limit, 1), 10000);
         $offset = (int)$this->request->getParam('offset', 0);
         $active = $this->request->getParam('active');
         $testing = $this->request->getParam('testing');

@@ -49,7 +49,7 @@ class UserResource extends BaseResource
 
         foreach ($allowedFields as $field) {
             if (isset($body[$field])) {
-                $updates[$field] = trim(strip_tags($body[$field]));
+                $updates[$field] = trim($body[$field]);
             }
         }
 
