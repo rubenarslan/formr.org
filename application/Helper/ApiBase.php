@@ -75,7 +75,7 @@ abstract class ApiBase
     /**
      * URI Segment Parser.
      * * Analyzes `REQUEST_URI` to extract specific path segments relative to the API version.
-     * It normalizes the path by stripping the base prefix (up to 'v1') to ensure consistent 
+     * It normalizes the path by stripping the base prefix (up to 'v1') to ensure consistent
      * segment retrieval regardless of the server's sub-directory configuration.
      *
      * @param int $index The offset index of the segment to retrieve (0-based relative to version).
@@ -86,26 +86,30 @@ abstract class ApiBase
         if (!isset($this->path_segments)) {
             $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
-            // 1. Trim slashes
             $path = trim($path, '/');
 
-            // 2. Explode first
             $segments = explode('/', $path);
 
-            // 3. Find where 'v1' is and slice array from there
-            // This makes it safe regardless of /api/v1 or /v1 or whatever is configured.
             $v1Index = array_search('v1', $segments);
 
             if ($v1Index !== false) {
-                // Keep everything AFTER 'v1'
                 $this->path_segments = array_slice($segments, $v1Index + 1);
             } else {
-                // Fallback or legacy handling
                 $this->path_segments = $segments;
             }
         }
 
         return $this->path_segments[$index] ?? null;
+    }
+
+    public function setPathSegments($segments)
+    {
+        $this->path_segments = $segments;
+    }
+
+    public function getPathSegments()
+    {
+        return $this->path_segments;
     }
 
     /**
