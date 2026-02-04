@@ -77,12 +77,17 @@ if (isset($run) && $run instanceof Run) {
     // Make VAPID public key available globally
     window.vapidPublicKey = <?php echo json_encode($vapidPublicKey); ?>;
 <?php endif;
-    if (isset($run_session) && $run_session instanceof RunSession) {
-        $expires = $run_session->getCurrentUnitSession()->expires;
+    if (isset($run_session) && $run_session instanceof RunSession && ($us = $run_session->getCurrentUnitSession())) {
+        $expires = $us->expires;
     } else {
         $expires = null;
     }
     if ($expires):
+        try {
+            $expires = (new DateTime($expires))->format(DateTime::ATOM);
+        } catch (Exception $e) {
+            $expires = null;
+        }
     ?>
     window.unit_session_expires = <?php echo json_encode($expires); ?>;
 <?php endif; ?>
