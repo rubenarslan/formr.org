@@ -292,6 +292,18 @@ class SessionResource extends BaseResource
                 }
                 return $this->error(500, 'Failed to move session');
 
+            case 'execute':
+                $runSession->execute();
+                return $this->response(200, 'Session executed successfully.');
+
+            case 'advance':
+                if ($runSession->endCurrentUnitSession()) {
+                    $runSession->moveOn(); 
+                    
+                    return $this->response(200, 'Session advanced successfully.');
+                }
+                return $this->error(400, 'Could not advance session. The current unit might not support manual ending.');
+            
             default:
                 return $this->error(400, "Invalid action: '$action'. Supported: end_external, toggle_testing, move_to_position");
         }
