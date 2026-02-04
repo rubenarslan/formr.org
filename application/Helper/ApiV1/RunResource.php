@@ -177,7 +177,7 @@ class RunResource extends BaseResource
         $this->checkScope('run:write');
         $input = $this->getJsonBody();
 
-        $restrictedFields = ['vapid_public_key', 'vapid_private_key', 'osf_project_id'];
+        $restrictedFields = ['vapid_public_key', 'vapid_private_key', 'osf_project_id', 'name'];
         foreach ($restrictedFields as $field) {
             if (isset($input[$field])) {
                 unset($input[$field]);

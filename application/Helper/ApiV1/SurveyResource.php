@@ -73,40 +73,14 @@ class SurveyResource extends BaseResource
         }
 
         $file = null;
+        // Check for Google Sheet URL in POST request
         $googleSheetUrl = $this->request->str('google_sheet');
 
         if (!empty($googleSheetUrl)) {
-            $parsedUrl = parse_url($googleSheetUrl);
-            
-            // 1. Enforce HTTPS
-            $scheme = isset($parsedUrl['scheme']) ? strtolower($parsedUrl['scheme']) : '';
-            if ($scheme !== 'https') {
-                return $this->error(400, "Invalid URL. Only secure (HTTPS) Google Sheet URLs are allowed.");
-            }
-
-            // 2. Strict Host Whitelist
-            $host = strtolower($parsedUrl['host'] ?? '');
-            $allowedHosts = [
-                'docs.google.com'
-            ];
-            
-            // Check for exact match OR subdomain (e.g., www.docs.google.com)
-            $validHost = false;
-            foreach ($allowedHosts as $allowed) {
-                if ($host === $allowed || substr($host, -strlen('.' . $allowed)) === '.' . $allowed) {
-                    $validHost = true;
-                    break;
-                }
-            }
-
-            if (!$validHost) {
-                return $this->error(400, "Invalid Google Sheet URL. Domain not allowed.");
-            }
-
-            $file = google_download_survey_sheet($googleSheetUrl);
-
-            if (!$file) {
-                return $this->error(400, "Unable to download the Google Sheet. Please check the link and permissions.");
+            try {
+                $file = $this->fetchAndValidateGoogleSheet($googleSheetUrl);
+            } catch (Exception $e) {
+                return $this->error(400, $e->getMessage());
             }
         } elseif (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
             $file = $_FILES['file'];
@@ -114,6 +88,7 @@ class SurveyResource extends BaseResource
             return $this->error(400, 'A valid file upload (key: "file") OR Google Sheet URL (key: "google_sheet") is required.');
         }
 
+        // Validate extension
         $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
         $allowed = ['xls', 'xlsx', 'ods', 'csv', 'txt', 'xml'];
         if (!in_array(strtolower($ext), $allowed)) {
@@ -204,6 +179,15 @@ class SurveyResource extends BaseResource
         }
     }
 
+    private function deleteSurvey($study)
+    {
+        $this->checkScope('survey:write');
+        if ($study->delete()) {
+            return $this->response(200, 'Survey deleted');
+        }
+        return $this->error(500, 'Failed to delete survey');
+    }
+
     private function updateSurvey($study)
     {
         $this->checkScope('survey:write');
@@ -213,16 +197,83 @@ class SurveyResource extends BaseResource
             return $this->error(400, 'No updates provided');
         }
 
-        $study->update($updates);
-        return $this->response(200, 'Survey settings updated');
+        try {
+            // 1. Handle Google Sheet Sync (Side Effect of updating the sheet URL)
+            if (isset($updates['google_sheet'])) {
+                $googleSheetUrl = $updates['google_sheet'];
+
+                // Use shared helper to validate and download
+                $file = $this->fetchAndValidateGoogleSheet($googleSheetUrl);
+
+                // Update the file ID linkage
+                if (isset($file['google_file_id'])) {
+                    $study->google_file_id = $file['google_file_id'];
+                    // We assign this to the object, but save() is called inside uploadItems or update
+                }
+
+                // IMPORTANT: Trigger the sync logic
+                // This ensures the questions in the DB match the new sheet
+                $success = $study->uploadItems($file, true);
+
+                // Cleanup temp file
+                delete_tmp_file($file);
+
+                if (!$success) {
+                    throw new Exception("Failed to sync items from Google Sheet: " . implode("; ", $study->errors));
+                }
+
+                // Remove from updates array so we don't try to save it as a raw property again 
+                // (assuming 'google_sheet' isn't a direct DB column)
+                unset($updates['google_sheet']);
+            }
+
+            // 2. Apply Standard Metadata Updates (e.g. name, settings)
+            if (!empty($updates)) {
+                $study->update($updates);
+            }
+
+            return $this->response(200, 'Survey updated successfully.');
+        } catch (Exception $e) {
+            return $this->error(400, $e->getMessage()); // 400 Bad Request for validation/logic errors
+        }
     }
 
-    private function deleteSurvey($study)
+    /**
+     * Helper to validate and download Google Sheets.
+     * Extracts logic previously buried in createOrUpdateSurvey.
+     */
+    private function fetchAndValidateGoogleSheet($url)
     {
-        $this->checkScope('survey:write');
-        if ($study->delete()) {
-            return $this->response(200, 'Survey deleted');
+        $parsedUrl = parse_url($url);
+
+        // 1. Enforce HTTPS
+        $scheme = isset($parsedUrl['scheme']) ? strtolower($parsedUrl['scheme']) : '';
+        if ($scheme !== 'https') {
+            throw new Exception("Invalid URL. Only secure (HTTPS) Google Sheet URLs are allowed.");
         }
-        return $this->error(500, 'Failed to delete survey');
+
+        // 2. Strict Host Whitelist
+        $host = strtolower($parsedUrl['host'] ?? '');
+        $allowedHosts = ['docs.google.com'];
+
+        $validHost = false;
+        foreach ($allowedHosts as $allowed) {
+            if ($host === $allowed || substr($host, -strlen('.' . $allowed)) === '.' . $allowed) {
+                $validHost = true;
+                break;
+            }
+        }
+
+        if (!$validHost) {
+            throw new Exception("Invalid Google Sheet URL. Domain not allowed.");
+        }
+
+        $file = google_download_survey_sheet($url);
+
+        if (!$file) {
+            throw new Exception("Unable to download the Google Sheet. Please check the link and permissions.");
+        }
+
+        return $file;
     }
 }
