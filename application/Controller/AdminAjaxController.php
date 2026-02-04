@@ -473,7 +473,7 @@ class AdminAjaxController {
         }
 
         if ($action === 'toggleTest') {
-            $count = RunSession::toggleTestingStatus($sessions);
+            $count = RunSession::toggleTestingStatus($sessions, $this->controller->run->id);
             alert("{$count} selected session(s) were successfully modified", 'alert-success');
             $res['success'] = true;
         } elseif ($action === 'sendReminder') {
@@ -494,7 +494,7 @@ class AdminAjaxController {
                 $res['error'] = $this->site->renderAlerts();
             }
         } elseif ($action === 'deleteSessions') {
-            $count = RunSession::deleteSessions($sessions);
+            $count = RunSession::deleteSessions($sessions, $this->controller->run->id);
             alert("{$count} selected session(s) were successfully deleted", 'alert-success');
             $res['success'] = true;
         } elseif ($action === 'positionSessions') {
