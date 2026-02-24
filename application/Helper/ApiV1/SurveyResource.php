@@ -12,16 +12,16 @@ class SurveyResource extends BaseResource
             if ($method === 'GET') {
                 return $this->listSurveys();
             }
+            if ($method === 'POST') {
+                return $this->createOrUpdateSurvey();
+            }
             if ($method === 'PUT') {
-                return $this->error(405, 'Method not allowed. Use POST /surveys/{survey_name} to create a survey.');
+                return $this->error(405, 'Method not allowed. Use POST /surveys to create a survey.');
             }
             return $this->error(405, 'Method not allowed');
         }
 
         switch ($method) {
-            case 'POST':
-                return $this->createOrUpdateSurvey($surveyName);
-
             case 'GET':
                 $study = SurveyStudy::loadByUserAndName($this->user, $surveyName);
                 if (!$study->valid) {
@@ -63,14 +63,9 @@ class SurveyResource extends BaseResource
         return $this->response(200, 'Surveys listed', $surveys);
     }
 
-    private function createOrUpdateSurvey($surveyName)
+    private function createOrUpdateSurvey()
     {
         $this->checkScope('run:write');
-
-        $surveyName = basename($surveyName);
-        if (!preg_match('/^[a-zA-Z0-9_-]+$/', $surveyName)) {
-            return $this->error(400, "Invalid survey name. Must contain only alphanumeric characters, hyphens, and underscores.");
-        }
 
         $file = null;
         // Check for Google Sheet URL in POST request
@@ -96,12 +91,20 @@ class SurveyResource extends BaseResource
             return $this->error(400, 'Invalid file type. Allowed: ' . implode(', ', $allowed));
         }
 
+        $fileName = basename($file['name']);
+        $derivedName = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", $fileName);
+
+        if (!$derivedName) {
+            if ($googleSheetUrl) delete_tmp_file($file);
+            return $this->error(400, "Invalid file name. It must match the pattern for survey names (alphanumeric, 3-64 chars).");
+        }
+
+        $surveyName = $derivedName;
+
         try {
             $this->db->beginTransaction();
 
             $study = SurveyStudy::loadByUserAndName($this->user, $surveyName);
-
-            $file['name'] = $surveyName . '.' . $ext;
 
             $options = [
                 'user_id' => $this->user->id,
