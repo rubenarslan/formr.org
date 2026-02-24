@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: {{host}}/v1/surveys/api_test_survey
+  url: {{host}}/v1/surveys/
   body: multipartForm
   auth: bearer
 }
@@ -19,6 +19,6 @@ body:multipart-form {
 }
 
 assert {
-  res.status: eq 201
-  res.body.name: eq api_test_survey
+  res.status: eq 200
+  res.body.name: eq survey
 }

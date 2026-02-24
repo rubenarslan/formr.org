@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{host}}/v1/surveys/api_test_survey_google
+  url: {{host}}/v1/surveys/all_widgets
   body: none
   auth: bearer
 }
@@ -16,7 +16,7 @@ auth:bearer {
 
 assert {
   res.status: eq 200
-  res.body.name: eq api_test_survey_google
+  res.body.name: eq all_widgets
 }
 
 settings {
