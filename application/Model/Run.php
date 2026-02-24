@@ -1298,25 +1298,30 @@ class Run extends Model
      */
     public function replaceUnits($json_string)
     {
-        // 1. Wipe the existing structure for this run.
-        // We delete the links in 'run_units'. This effectively "empties" the run structure.
-        // Note: This does not delete the actual Unit definitions (surveys) or data, 
-        // it just unlinks them from this specific Run.
-        $delete = $this->db->prepare("DELETE FROM survey_run_units WHERE run_id = :run_id");
-        $delete->bindParam(':run_id', $this->id);
-        $delete->execute();
+        $this->db->beginTransaction();
 
-        // 2. Clear any internal cache of units if it exists (safety precaution)
-        // If getAllUnitIds() stores data in a class property, we'd need to clear it here.
-        // Based on standard formr architecture, it likely queries the DB directly, 
-        // so the delete above is sufficient.
+        try {
+            // 1. Wipe the existing structure for this run.
+            // We delete the links in 'run_units'. This effectively "empties" the run structure.
+            // Note: This does not delete the actual Unit definitions (surveys) or data, 
+            // it just unlinks them from this specific Run.
+            $delete = $this->db->prepare("DELETE FROM survey_run_units WHERE run_id = :run_id");
+            $delete->bindParam(':run_id', $this->id);
+            $delete->execute();
 
-        // 3. Call the original import function.
-        // Since the DB is now empty for this run, importUnits will:
-        // - See 0 existing units.
-        // - Set $start_position to 0 (or close to it).
-        // - Import the JSON exactly as defined, without appending/offsetting positions.
-        return $this->importUnits($json_string);
+            // 2. Call the original import function.
+            $imported = $this->importUnits($json_string);
+
+            if ($imported === false) {
+                throw new Exception("Import failed");
+            }
+
+            $this->db->commit();
+            return $imported;
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            return false;
+        }
     }
 
     protected function setExpireCookieUnits()
