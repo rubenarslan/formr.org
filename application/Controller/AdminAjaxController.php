@@ -248,13 +248,27 @@ class AdminAjaxController {
 
     private function ajaxDeleteUnitSession() {
         $run = $this->controller->run;
-        $deleted = $this->dbh->delete('survey_unit_sessions', array('id' => $this->request->int('session_id')));
-
-        if ($deleted) {
-            alert('<strong>Success.</strong> You deleted this unit session.', 'alert-success');
+        $session_id = $this->request->int('session_id');
+        
+        // Verify unit session belongs to this run before deleting
+        $belongs_to_run = $this->dbh->prepare('
+            SELECT us.id FROM survey_unit_sessions us
+            JOIN survey_run_sessions rs ON us.run_session_id = rs.id
+            WHERE us.id = :session_id AND rs.run_id = :run_id
+        ');
+        $belongs_to_run->execute(['session_id' => $session_id, 'run_id' => $run->id]);
+        
+        if (!$belongs_to_run->fetch()) {
+            alert('<strong>Error:</strong> Unit session not found in this run.', 'alert-danger');
+            $this->response->setStatusCode(404, 'Not Found');
         } else {
-            alert('<strong>Couldn\'t delete.</strong> ', 'alert-danger');
-            $this->response->setStatusCode(500, 'Bad Request');
+            $deleted = $this->dbh->delete('survey_unit_sessions', array('id' => $session_id));
+            if ($deleted) {
+                alert('<strong>Success.</strong> You deleted this unit session.', 'alert-success');
+            } else {
+                alert('<strong>Couldn\'t delete.</strong> ', 'alert-danger');
+                $this->response->setStatusCode(500, 'Bad Request');
+            }
         }
 
         if (Request::isAjaxRequest()) {
