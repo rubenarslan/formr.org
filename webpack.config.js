@@ -65,6 +65,16 @@ module.exports = (env, argv) => {
                     test: /\.css$/,
                     use: ['style-loader', 'css-loader'],
                 },
+                {
+                    test: /add-to-homescreen.*\.css$/,
+                    enforce: 'pre',
+                    loader: 'string-replace-loader',
+                    options: {
+                        search: '@import url\\([^)]*fonts\\.googleapis\\.com[^)]*\\);?',
+                        replace: '',
+                        flags: 'g',
+                    },
+                },
                 // Fonts
                 {
                     test: /\.(woff(2)?|eot|ttf|otf|svg)$/,
