@@ -1,13 +1,10 @@
-ALTER TABLE `survey_email_log` ADD COLUMN `account_id` INT(10) unsigned;
-ALTER TABLE `survey_email_log` ADD COLUMN `subject` VARCHAR(355);
-ALTER TABLE `survey_email_log` ADD COLUMN `message` TEXT;
-ALTER TABLE `survey_email_log` ADD COLUMN `meta` TEXT;
-ALTER TABLE `survey_email_log` ADD COLUMN `status` TINYINT(1);
-ALTER TABLE `survey_email_log` DROP COLUMN `sent`;
-ALTER TABLE `survey_email_log` ADD COLUMN `sent` DATETIME;
-CREATE INDEX `account_status` ON survey_email_log (`account_id`, `status`);
-
-ALTER TABLE `survey_email_accounts` 
-	ADD `status` TINYINT(1) DEFAULT 1;
-
+ALTER TABLE `survey_email_log` ADD COLUMN IF NOT EXISTS `account_id` INT(10) UNSIGNED NULL;
+ALTER TABLE `survey_email_log` ADD COLUMN IF NOT EXISTS `subject` VARCHAR(355) NULL;
+ALTER TABLE `survey_email_log` ADD COLUMN IF NOT EXISTS `message` TEXT NULL;
+ALTER TABLE `survey_email_log` ADD COLUMN IF NOT EXISTS `meta` TEXT NULL;
+ALTER TABLE `survey_email_log` ADD COLUMN IF NOT EXISTS `status` TINYINT(1) NULL;
+CALL formr_drop_column_if_exists('survey_email_log', 'sent');
+ALTER TABLE `survey_email_log` ADD COLUMN IF NOT EXISTS `sent` DATETIME NULL;
+CREATE INDEX IF NOT EXISTS `account_status` ON `survey_email_log` (`account_id`, `status`);
+ALTER TABLE `survey_email_accounts` ADD COLUMN IF NOT EXISTS `status` TINYINT(1) DEFAULT 1;
 DROP TABLE IF EXISTS `survey_email_queue`;

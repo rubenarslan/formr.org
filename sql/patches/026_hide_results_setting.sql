@@ -1,1 +1,1 @@
-ALTER TABLE `survey_studies` ADD `hide_results` TINYINT NOT NULL DEFAULT '0' ;
+ALTER TABLE `survey_studies` ADD COLUMN IF NOT EXISTS `hide_results` TINYINT NOT NULL DEFAULT '0';

@@ -1,2 +1,3 @@
-ALTER TABLE `survey_reports` DROP COLUMN `body_knit`;
-ALTER TABLE `survey_reports` ADD COLUMN `opencpu_url` VARCHAR(400) NULL DEFAULT NULL;
+-- Drop body_knit and add opencpu_url (idempotent)
+CALL formr_drop_column_if_exists('survey_reports', 'body_knit');
+ALTER TABLE `survey_reports` ADD COLUMN IF NOT EXISTS `opencpu_url` VARCHAR(400) NULL DEFAULT NULL;

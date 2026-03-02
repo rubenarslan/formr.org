@@ -1,1 +1,1 @@
-ALTER TABLE `survey_runs` ADD `expire_cookie` INT UNSIGNED NOT NULL DEFAULT '0' ;
+ALTER TABLE `survey_runs` ADD COLUMN IF NOT EXISTS `expire_cookie` INT UNSIGNED NOT NULL DEFAULT '0';

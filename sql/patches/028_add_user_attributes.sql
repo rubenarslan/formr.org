@@ -1,1 +1,3 @@
-ALTER TABLE `survey_users` ADD `first_name` VARCHAR(50) NULL AFTER `user_code`, ADD `last_name` VARCHAR(50) NULL AFTER `first_name`, ADD `affiliation` VARCHAR(350) NULL AFTER `last_name`;
+ALTER TABLE `survey_users` ADD COLUMN IF NOT EXISTS `first_name` VARCHAR(50) NULL;
+ALTER TABLE `survey_users` ADD COLUMN IF NOT EXISTS `last_name` VARCHAR(50) NULL;
+ALTER TABLE `survey_users` ADD COLUMN IF NOT EXISTS `affiliation` VARCHAR(350) NULL;

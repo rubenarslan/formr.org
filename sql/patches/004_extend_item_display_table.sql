@@ -1,29 +1,29 @@
-SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0;
-SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0;
-SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='TRADITIONAL';
+-- Extend survey_items_display (idempotent)
+SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS;
+SET FOREIGN_KEY_CHECKS=0;
 
-ALTER TABLE `survey_items_display` ADD COLUMN `saved` DATETIME NULL;
-UPDATE `survey_items_display` SET `saved` = `answered_time`;
-UPDATE `survey_items_display` SET `answered` = NULL;
-ALTER TABLE `survey_items_display` 
-DROP COLUMN `answered_time`,
-DROP COLUMN `modified`,
-CHANGE COLUMN `answered` `answered` DATETIME NULL DEFAULT NULL ,
-ADD COLUMN `answer` TEXT NULL DEFAULT NULL AFTER `session_id`,
-ADD COLUMN `shown` DATETIME NULL DEFAULT NULL AFTER `saved`,
-ADD COLUMN `shown_relative` DOUBLE NULL DEFAULT NULL AFTER `shown`,
-ADD COLUMN `answered_relative` DOUBLE NULL DEFAULT NULL AFTER `answered`,
-DROP INDEX `answered` ,
-ADD INDEX `answered` (`session_id` ASC, `saved` ASC);
+ALTER TABLE `survey_items_display` ADD COLUMN IF NOT EXISTS `saved` DATETIME NULL;
+-- Migrate answered_time to saved only when answered_time exists (first run)
+DELIMITER //
+DROP PROCEDURE IF EXISTS _patch004_migrate//
+CREATE PROCEDURE _patch004_migrate()
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='survey_items_display' AND COLUMN_NAME='answered_time') THEN
+    UPDATE survey_items_display SET saved = answered_time WHERE answered_time IS NOT NULL;
+  END IF;
+END//
+DELIMITER ;
+CALL _patch004_migrate();
+DROP PROCEDURE IF EXISTS _patch004_migrate;
+CALL formr_drop_column_if_exists('survey_items_display', 'answered_time');
+CALL formr_drop_column_if_exists('survey_items_display', 'modified');
+UPDATE `survey_items_display` SET `answered` = NULL WHERE 1=1;
+ALTER TABLE `survey_items_display` ADD COLUMN IF NOT EXISTS `answer` TEXT NULL DEFAULT NULL;
+ALTER TABLE `survey_items_display` ADD COLUMN IF NOT EXISTS `shown` DATETIME NULL DEFAULT NULL;
+ALTER TABLE `survey_items_display` ADD COLUMN IF NOT EXISTS `shown_relative` DOUBLE NULL DEFAULT NULL;
+ALTER TABLE `survey_items_display` ADD COLUMN IF NOT EXISTS `answered_relative` DOUBLE NULL DEFAULT NULL;
+CALL formr_drop_index_if_exists('survey_items_display', 'answered');
+CREATE INDEX IF NOT EXISTS `answered` ON `survey_items_display` (`session_id`, `saved`);
+CALL formr_add_foreign_key_if_not_exists('survey_items_display', 'sessionidx', 'session_id', 'survey_unit_sessions', 'id', 'CASCADE', 'NO ACTION');
 
-ALTER TABLE `survey_items_display` 
-ADD CONSTRAINT `sessionidx`
-FOREIGN KEY (`session_id`)
-REFERENCES `survey_unit_sessions` (`id`)
-ON DELETE CASCADE
-ON UPDATE NO ACTION;
-
-
-SET SQL_MODE=@OLD_SQL_MODE;
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
-SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
