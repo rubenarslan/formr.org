@@ -67,6 +67,8 @@ class Autoload {
         $class = $this->classNameToPath($class);
         $paths = array(
             APPLICATION_PATH . "{$class}.php",
+            APPLICATION_PATH . "Monitoring/{$class}.php",
+            APPLICATION_PATH . "Cron/{$class}.php",
             APPLICATION_PATH . "Controller/{$class}.php",
             APPLICATION_PATH . "Model/RunUnit/{$class}.php", 
             APPLICATION_PATH . "Model/Item/{$class}.php",

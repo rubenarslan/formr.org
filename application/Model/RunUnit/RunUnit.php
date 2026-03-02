@@ -462,7 +462,7 @@ plot(cars)
     }
     
     public function getUnitSessionOutput(UnitSession $unitSession) {
-        return null;
+        return [];
     }
     
     public function getParsedBody($source = null, UnitSession $unitSession = null, $options = []) {
