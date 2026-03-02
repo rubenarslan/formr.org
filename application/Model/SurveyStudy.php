@@ -971,7 +971,11 @@ class SurveyStudy extends Model {
         } elseif ($this->backupResults()) {
 
             // Delete results table
-            $delete = $this->db->query("TRUNCATE TABLE `{$this->results_table}`");
+            if ($this->resultsTableExists()) {
+                $delete = $this->db->query("DROP TABLE IF EXISTS `{$this->results_table}`");
+            } else {
+                $delete = true;
+            }
 
             // Delete unit sessions/long format results
             $delete_item_disp = $this->db->delete('survey_unit_sessions', array('unit_id' => $this->id));
