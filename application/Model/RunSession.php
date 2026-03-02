@@ -721,7 +721,7 @@ class RunSession extends Model {
         return $updateResult !== false;
     }
 
-    public static function toggleTestingStatus($sessions) {
+    public static function toggleTestingStatus($sessions, $run_id) {
         $dbh = DB::getInstance();
         if (is_string($sessions)) {
             $sessions = array($sessions);
@@ -731,11 +731,11 @@ class RunSession extends Model {
             $qs[] = $dbh->quote($session);
         }
 
-        $query = 'UPDATE survey_run_sessions SET testing = 1 - testing WHERE session IN (' . implode(',', $qs) . ')';
+        $query = 'UPDATE survey_run_sessions SET testing = 1 - testing WHERE session IN (' . implode(',', $qs) . ') AND run_id = ' . (int)$run_id;
         return $dbh->query($query)->rowCount();
     }
 
-    public static function deleteSessions($sessions) {
+    public static function deleteSessions($sessions, $run_id) {
         $dbh = DB::getInstance();
         if (is_string($sessions)) {
             $sessions = array($sessions);
@@ -745,7 +745,7 @@ class RunSession extends Model {
             $qs[] = $dbh->quote($session);
         }
 
-        $query = 'DELETE FROM survey_run_sessions WHERE session IN (' . implode(',', $qs) . ')';
+        $query = 'DELETE FROM survey_run_sessions WHERE session IN (' . implode(',', $qs) . ') AND run_id = ' . (int)$run_id;
         return $dbh->query($query)->rowCount();
     }
 
