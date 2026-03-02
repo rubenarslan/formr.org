@@ -3,7 +3,7 @@
 Template::loadChild('admin/header');
 
 $metrics = $metrics ?? null;
-$user = $user ?? null;
+$current_user = $current_user ?? null;
 $surveySizes = $surveySizes ?? [];
 ?>
 
@@ -12,7 +12,7 @@ $surveySizes = $surveySizes ?? [];
         <h1>User Resource Details <small>Superadmin</small></h1>
         <ol class="breadcrumb">
             <li><a href="<?= site_url('admin/monitoring/survey-resource-monitoring') ?>"><i class="fa fa-bar-chart"></i> Survey Resource Monitoring</a></li>
-            <li class="active">User <?= h(isset($user['email']) ? $user['email'] : (isset($user['id']) ? $user['id'] : ($metrics['user_id'] ?? 'Unknown'))) ?></li>
+            <li class="active">User <?= h(isset($current_user['email']) ? $current_user['email'] : (isset($current_user['id']) ? $current_user['id'] : ($metrics['user_id'] ?? 'Unknown'))) ?></li>
         </ol>
     </section>
 
@@ -25,7 +25,7 @@ $surveySizes = $surveySizes ?? [];
                     <div class="box-header with-border">
                         <h3 class="box-title">Resource Metrics</h3>
                         <div class="box-tools pull-right">
-                            <span class="text-muted">User: <?= h(isset($user['email']) ? $user['email'] : 'ID ' . $metrics['user_id']) ?></span>
+                            <span class="text-muted">User: <?= h(isset($current_user['email']) ? $current_user['email'] : 'ID ' . $metrics['user_id']) ?></span>
                         </div>
                     </div>
                     <div class="box-body">

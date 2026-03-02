@@ -46,9 +46,9 @@ class AdminMonitoringController extends AdminAdvancedController {
             ORDER BY srs.items_size_kb DESC
         ", ['user_id' => $userId]);
 
-        $this->setView('admin/monitoring/user_resource_details', [
+        $this->setView('monitoring/user_resource_details', [
             'metrics' => $metrics,
-            'user' => $user,
+            'current_user' => $user,
             'surveySizes' => $surveySizes,
         ]);
         return $this->sendResponse();

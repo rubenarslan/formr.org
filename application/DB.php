@@ -128,11 +128,11 @@ class DB {
      *
      * @param string $query SQL query to execute
      * @param bool $return_statemnt [optional] If set to true, PDOStatement is always returned
-     * @return mixed Returns a PDOStatement if not selecting else returns selected results in an associative array
+     * @return PDOStatement|array Returns a PDOStatement if not selecting else returns selected results in an associative array
      */
     public function query($query, $return_statemnt = false) {
         $stmt = $this->PDO->query($query);
-        if (preg_match('/^select/', strtolower($query)) && $return_statemnt === false) {
+        if (preg_match('/^select/', trim(strtolower($query))) && $return_statemnt === false) {
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
         return $stmt;
