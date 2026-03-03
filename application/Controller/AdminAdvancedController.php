@@ -233,6 +233,7 @@ class AdminAdvancedController extends AdminController {
                 'footer:link:logolink' => false, 
                 'footer:imprint' => false,
                 'signup:enable_referral_token' => true,
+                'signup:referral_token_help' => false,
                 'signup:allow' => true,
                 'signup:message' => false,
                 'js:cookieconsent' => false

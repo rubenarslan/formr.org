@@ -53,6 +53,11 @@
             <textarea data-editor="html" placeholder="Message (HTML Content)" name="signup:message" rows="10" cols="80" class="big_ace_editor form-control"><?= h(array_val($settings, 'signup:message')); ?></textarea>
             <p>Message to display to users in case sign-ups are disabled.</p>
         </div>
+        <div class="form-group">
+            <label>Referral Token Help Text (HTML Content)</label>
+            <textarea data-editor="html" placeholder="Message (HTML Content)" name="signup:referral_token_help" rows="10" cols="80" class="big_ace_editor form-control"><?= h(array_val($settings, 'signup:referral_token_help')); ?></textarea>
+            <p>Help text shown on the sign-up page when referral tokens are enabled. Use %support_email% to insert the support email link.</p>
+        </div>
     </div>
     <div class="clear clearfix"></div>
 </form>
