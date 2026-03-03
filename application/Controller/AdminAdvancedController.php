@@ -235,8 +235,7 @@ class AdminAdvancedController extends AdminController {
                 'signup:enable_referral_token' => true,
                 'signup:referral_token_help' => false,
                 'signup:allow' => true,
-                'signup:message' => false,
-                'js:cookieconsent' => false
+                'signup:message' => false
             );
 
             foreach ($allowedSettings as $setting => $is_checkbox) {
