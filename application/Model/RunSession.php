@@ -311,9 +311,9 @@ class RunSession extends Model {
 
         if ($executionTimeMs > 0 && $this->currentUnitSession->id && $this->run->id) {
             UnitExecutionMonitor::logExecution(
+                (int) $this->run->id,
                 (int) ($this->currentUnitSession->runUnit->run_unit_id ?? 0),
-                $this->run->id,
-                (int)$this->currentUnitSession->id ?? 0,
+                (int) $this->currentUnitSession->id,
                 $this->currentUnitSession->runUnit->type ?? null,
                 $executionTimeMs
             );
