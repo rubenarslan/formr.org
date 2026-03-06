@@ -79,6 +79,7 @@ import {
 
         this.unsavedChanges = false;
         this.save_button = this.block.find('a.unit_save');
+        this.update_survey_button = this.block.find('a.unit_update_survey_from_google');
 
         this.block.find('button.from_days')
                 .click(function (e)
@@ -91,6 +92,7 @@ import {
 
         this.test_button = this.block.find('a.unit_test');
         this.test_button.click($.proxy(this.test, this));
+        this.update_survey_button.click($.proxy(this.updateSurveyFromGoogle, this));
 
         this.remove_button = this.block.find('button.remove_unit_from_run');
         this.remove_button
@@ -206,6 +208,94 @@ import {
                     this.save_button.removeAttr('disabled').html(old_text);
                     ajaxErrorHandling(e, x, settings, exception);
                 }, this));
+
+        return false;
+    };
+
+    RunUnit.prototype.parseSurveyUpdateResponse = function (responseText) {
+        if (!responseText) {
+            return null;
+        }
+        if (typeof responseText === 'object') {
+            return responseText;
+        }
+
+        try {
+            return JSON.parse(responseText);
+        } catch (err) {
+            // In dev mode PHP notices may precede JSON output.
+            var first = responseText.indexOf('{');
+            var last = responseText.lastIndexOf('}');
+            if (first !== -1 && last !== -1 && last > first) {
+                var maybeJson = responseText.substring(first, last + 1);
+                try {
+                    return JSON.parse(maybeJson);
+                } catch (err2) {
+                    return null;
+                }
+            }
+            return null;
+        }
+    };
+
+    RunUnit.prototype.escapeHtml = function (unsafeText) {
+        return $('<div>').text(unsafeText || '').html();
+    };
+
+    RunUnit.prototype.toPlainText = function (message) {
+        if (!message) {
+            return '';
+        }
+        var text = String(message).replace(/<br\s*\/?>/gi, '\n');
+        // Decode HTML entities first (e.g. &lt;b&gt;)
+        text = $('<textarea/>').html(text).text();
+        // Strip any real HTML tags from decoded content
+        text = text.replace(/<br\s*\/?>/gi, '\n');
+        text = $('<div>').html(text).text();
+        return text.replace(/\n{3,}/g, '\n\n').trim();
+    };
+
+    RunUnit.prototype.showSurveyUpdateAlert = function (message, cls, title) {
+        var where = this.block.find('.survey-update-alerts');
+        var plainMessage = this.toPlainText(message);
+        var safeMessage = this.escapeHtml(plainMessage).replace(/\n/g, '<br>');
+        bootstrap_alert(safeMessage || 'No response message was returned.', title || 'Survey update', where, cls);
+    };
+
+    RunUnit.prototype.updateSurveyFromGoogle = function (e) {
+        e.preventDefault();
+        var oldText = this.update_survey_button.text();
+        this.update_survey_button.attr('disabled', true).html(oldText + bootstrap_spinner());
+        this.block.find('.survey-update-alerts .all-alerts').parent().remove();
+
+        $.ajax({
+            url: this.run.url + "/" + this.update_survey_button.attr('href'),
+            dataType: 'text',
+            data: {"run_unit_id": this.run_unit_id},
+            method: 'POST'
+        }).done($.proxy(function (responseText) {
+            var data = this.parseSurveyUpdateResponse(responseText);
+            this.update_survey_button.removeAttr('disabled').text(oldText);
+            if (data && data.success === true) {
+                this.update_survey_button.removeClass('btn-default btn-danger').addClass('btn-success');
+                this.showSurveyUpdateAlert(data.message, 'alert-success', 'Survey updated');
+            } else {
+                this.update_survey_button.removeClass('btn-default btn-success').addClass('btn-danger');
+                this.showSurveyUpdateAlert(
+                    data && data.message ? data.message : 'Could not parse server response while updating from Google Sheet.',
+                    'alert-danger',
+                    'Survey update failed'
+                );
+            }
+        }, this)).fail($.proxy(function (xhr, x, settings, exception) {
+            this.update_survey_button.removeAttr('disabled').text(oldText).removeClass('btn-default btn-success').addClass('btn-danger');
+            var parsed = xhr ? this.parseSurveyUpdateResponse(xhr.responseText) : null;
+            var message = parsed && parsed.message ? parsed.message : this.toPlainText(xhr && xhr.responseText);
+            if (!message) {
+                message = 'Could not update survey from Google Sheet.';
+            }
+            this.showSurveyUpdateAlert(message, 'alert-danger', 'Survey update failed');
+        }, this));
 
         return false;
     };
