@@ -736,6 +736,8 @@ class SpreadsheetReader {
                     }
 
                     $cellValue = $cellValue;
+                } elseif ($colName == 'class') {
+                    $cellValue = trim(preg_replace('/\s+/', ' ', str_replace(',', ' ', $cellValue)));
                 } elseif ($colName == 'optional') {
                     if ($cellValue === '*' || $cellValue === '1' || mb_strtolower($cellValue) === 'true' || mb_strtolower($cellValue) === 'yes') {
                         $cellValue = 1;
