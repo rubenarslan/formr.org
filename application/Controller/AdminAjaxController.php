@@ -497,13 +497,22 @@ class AdminAjaxController {
             ]);
         }
 
-        $survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", basename($file['name']));
+        $base_name = basename($file['name']);
+        $survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", $base_name);
+        if ($survey_name === null) {
+            delete_tmp_file($file);
+            $this->response->setStatusCode(400, 'Bad Request');
+            return $this->response->setJsonContent([
+                'success' => false,
+                'message' => "Could not extract a valid survey name from the Google Sheet filename '{$base_name}'. Expected the name '{$study->name}.",
+            ]);
+        }
         if ($study->name !== $survey_name) {
             delete_tmp_file($file);
             $this->response->setStatusCode(400, 'Bad Request');
             return $this->response->setJsonContent([
                 'success' => false,
-                'message' => 'The linked Google Sheet name does not match this survey name.',
+                'message' => "The Google Sheet name '{$survey_name}' does not match the survey name '{$study->name}'.",
             ]);
         }
 
