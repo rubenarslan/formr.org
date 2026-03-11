@@ -6,6 +6,7 @@
 				}
 					?></div>
                 <ul class="nav navbar-nav">
+                    <li><a href="<?= site_url('imprint') ?>" rel="imprint" target="_blank"><i class="fa fa-file-text-o fa-fw"></i> Imprint </a></li>
                     <li><a href="https://github.com/rubenarslan/formr.org" target="_blank"><i class="fa fa-github-alt fa-fw"></i> Github repository </a></li>
                     <li><a href="https://github.com/rubenarslan/formr" target="_blank"><i class="fa fa-github-alt fa-fw"></i> R package on Github </a></li>
                 </ul>

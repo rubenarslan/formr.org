@@ -61,6 +61,13 @@
         </div>
         <div class="col-md-1"><h3 style="line-height: 100px;">OR</h3></div>
         <div class="col-md-6">
+            <p>
+                Start a new Google sheet from our survey template.
+                <a class="btn btn-info btn-sm"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   href="https://docs.google.com/spreadsheets/d/1Gn0vv7C24l8ie0WTejkdwInWNMiStpaboc05B85NgKo/copy">Create new sheet</a>
+            </p>
             <h3><i class="fa fa-download"></i> Import a Googlesheet</h3>
             <div class="box box-primary">
                 <form role="form" id="add_study_google" name="add_study" method="post" action="<?php echo admin_url('survey/add_survey'); ?>">

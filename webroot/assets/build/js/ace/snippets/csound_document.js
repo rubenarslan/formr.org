@@ -1,1 +1,8 @@
-ace.define("ace/snippets/csound_document.snippets",["require","exports","module"],(function(e,n,t){t.exports="# <CsoundSynthesizer>\nsnippet synth\n\t<CsoundSynthesizer>\n\t<CsInstruments>\n\t${1}\n\t</CsInstruments>\n\t<CsScore>\n\te\n\t</CsScore>\n\t</CsoundSynthesizer>\n"})),ace.define("ace/snippets/csound_document",["require","exports","module","ace/snippets/csound_document.snippets"],(function(e,n,t){"use strict";n.snippetText=e("./csound_document.snippets"),n.scope="csound_document"})),ace.require(["ace/snippets/csound_document"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));
+ace.define("ace/snippets/csound_document.snippets",["require","exports","module"],function(e,t,n){n.exports="# <CsoundSynthesizer>\nsnippet synth\n	<CsoundSynthesizer>\n	<CsInstruments>\n	${1}\n	</CsInstruments>\n	<CsScore>\n	e\n	</CsScore>\n	</CsoundSynthesizer>\n"}),ace.define("ace/snippets/csound_document",["require","exports","module","ace/snippets/csound_document.snippets"],function(e,t,n){"use strict";t.snippetText=e("./csound_document.snippets"),t.scope="csound_document"});                (function() {
+                    ace.require(["ace/snippets/csound_document"], function(m) {
+                        if (typeof module == "object" && typeof exports == "object" && module) {
+                            module.exports = m;
+                        }
+                    });
+                })();
+            

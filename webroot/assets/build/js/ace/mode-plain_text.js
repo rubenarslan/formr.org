@@ -1,1 +1,8 @@
-ace.define("ace/mode/plain_text",["require","exports","module","ace/lib/oop","ace/mode/text","ace/mode/text_highlight_rules","ace/mode/behaviour"],(function(e,t,i){"use strict";var o=e("../lib/oop"),u=e("./text").Mode,h=e("./text_highlight_rules").TextHighlightRules,n=e("./behaviour").Behaviour,l=function(){this.HighlightRules=h,this.$behaviour=new n};o.inherits(l,u),function(){this.type="text",this.getNextLineIndent=function(e,t,i){return""},this.$id="ace/mode/plain_text"}.call(l.prototype),t.Mode=l})),ace.require(["ace/mode/plain_text"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));
+ace.define("ace/mode/plain_text",["require","exports","module","ace/lib/oop","ace/mode/text","ace/mode/text_highlight_rules","ace/mode/behaviour"],function(e,t,n){"use strict";var r=e("../lib/oop"),i=e("./text").Mode,s=e("./text_highlight_rules").TextHighlightRules,o=e("./behaviour").Behaviour,u=function(){this.HighlightRules=s,this.$behaviour=new o};r.inherits(u,i),function(){this.type="text",this.getNextLineIndent=function(e,t,n){return""},this.$id="ace/mode/plain_text"}.call(u.prototype),t.Mode=u});                (function() {
+                    ace.require(["ace/mode/plain_text"], function(m) {
+                        if (typeof module == "object" && typeof exports == "object" && module) {
+                            module.exports = m;
+                        }
+                    });
+                })();
+            

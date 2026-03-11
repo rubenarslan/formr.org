@@ -251,6 +251,7 @@ a.btn.btn-checked {
 .login-form form .form-group.label-floating label {
     font-size: 14px !important;
     text-align: left !important;
+    left: 0 !important;
     margin-bottom: 8px;
 }
 

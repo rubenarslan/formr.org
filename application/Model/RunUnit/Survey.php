@@ -58,12 +58,31 @@ class Survey extends RunUnit {
     }
 
     public function displayForRun($prepend = '') {
+        $expiration_settings = [];
+        if ($this->surveyStudy) {
+            $expire_invitation_after = (int) $this->surveyStudy->expire_invitation_after;
+            $expire_invitation_grace = (int) $this->surveyStudy->expire_invitation_grace;
+            $expire_after = (int) $this->surveyStudy->expire_after;
+
+            if ($expire_invitation_after > 0) {
+                $expiration_settings[] = "Start editing within {$expire_invitation_after} minute(s)";
+            }
+            if ($expire_invitation_grace > 0) {
+                $expiration_settings[] = "Finish editing within {$expire_invitation_grace} minute(s) after the access window closed";
+            }
+            if ($expire_after > 0) {
+                $expiration_settings[] = "Inactivity expiration after {$expire_after} minute(s)";
+            }
+        }
+
         $dialog = Template::get($this->getTemplatePath(), array(
                     'survey' => $this->surveyStudy,
                     'studies' => Site::getCurrentUser()->getStudies('id DESC', null, 'id, name'),
                     'prepend' => $prepend,
                     'resultCount' => $this->id ? $this->getUnitSessionsCount() : null,
                     'time' => $this->surveyStudy ? $this->surveyStudy->getAverageTimeItTakes() : null,
+                    'surveyResultCount' => $this->surveyStudy ? $this->surveyStudy->getResultCount() : null,
+                    'expirationSettings' => $expiration_settings,
         ));
 
         return parent::runDialog($dialog);
