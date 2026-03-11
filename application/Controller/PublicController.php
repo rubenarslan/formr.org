@@ -49,6 +49,15 @@ class PublicController extends Controller {
         return $this->sendResponse();
     }
 
+    public function imprintAction() {
+        if (Site::getSettings('footer:imprint') == '') {
+            formr_error(403, 'Not Public', 'Page cannot be displayed');
+        }
+
+        $this->setView('public/imprint', array('runs' => RunHelper::getPublicRuns()));
+        return $this->sendResponse();
+    }
+
     public function aboutAction() {
         if (Site::getSettings('content:about:show', 'true') !== 'true') {
             formr_error(403, 'Not Public', 'Page cannot be displayed');

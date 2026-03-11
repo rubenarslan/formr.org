@@ -91,7 +91,7 @@ class RunHelper {
 
     public function deleteUser() {
         $session = $this->request->session;
-        if (($deleted = $this->db->delete('survey_run_sessions', array('id' => $this->request->run_session_id)))) {
+        if (($deleted = $this->db->delete('survey_run_sessions', array('id' => $this->request->run_session_id, 'run_id' => $this->run->id)))) {
             $this->message = "User with session '{$session}' was deleted";
         } else {
             $this->errors[] = "User with session '{$session}' could not be deleted";

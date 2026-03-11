@@ -1,1 +1,8 @@
-ace.require(["ace/snippets/sparql"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));
+;                (function() {
+                    ace.require(["ace/snippets/sparql"], function(m) {
+                        if (typeof module == "object" && typeof exports == "object" && module) {
+                            module.exports = m;
+                        }
+                    });
+                })();
+            

@@ -23,7 +23,6 @@
                                 <li><a href="#footer-page" data-toggle="tab" aria-expanded="true">Footer</a></li>
                                 <li><a href="#signup-page" data-toggle="tab" aria-expanded="true">Sign-Ups</a></li>
                                 <li><a href="#privacy-policy" data-toggle="tab" aria-expanded="true">Privacy Policy</a></li>
-                                <li><a href="#js-page" data-toggle="tab" aria-expanded="false">JavaScript Configuration</a></li>
                             </ul>
                             <div class="tab-content">
                                 <div class="tab-pane active" id="about-page">
@@ -43,9 +42,6 @@
                                 </div>
                                 <div class="tab-pane" id="signup-page">
                                     <?php Template::loadChild('admin/advanced/settings/signup'); ?>
-                                </div>
-                                <div class="tab-pane" id="js-page">
-                                    <?php Template::loadChild('admin/advanced/settings/js'); ?>
                                 </div>
                                 <div class="tab-pane" id="privacy-policy">
                                     <?php Template::loadChild('admin/advanced/settings/privacy-policy'); ?>

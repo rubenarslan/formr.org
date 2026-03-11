@@ -27,7 +27,13 @@
                 </div>
 
                 <div>
-                    <p>If you have a valid token, you'll be able to create studies once you confirm your email address. If you don't have a valid token, sign up first and then write an email to this instance's administrator at <?php $support_email = Site::getSettings('content:docu:support_email', 'no@email.provided'); ?><a href="mailto:<?= $support_email ?>"><?= $support_email ?></a>.</p>
+                    <?php
+                    $support_email = Site::getSettings('content:docu:support_email', 'no@email.provided');
+                    $default_referral_help_text = "If you have a valid token, you'll be able to create studies once you confirm your email address. If you don't have a valid token, sign up first and then write an email to this instance's administrator at %support_email%.";
+                    $referral_help_text = Site::getSettings('signup:referral_token_help', $default_referral_help_text);
+                    $support_email_link = '<a href="mailto:' . h($support_email) . '">' . h($support_email) . '</a>';
+                    ?>
+                    <p><?= str_replace('%support_email%', $support_email_link, $referral_help_text); ?></p>
                 </div>
             <?php endif; ?>
 

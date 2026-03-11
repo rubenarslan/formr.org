@@ -179,10 +179,27 @@ import { ajaxErrorHandling, bootstrap_alert } from './main.js';
                     if (response.error) {
                         alert(response.error);
                     } else {
+                        if (response.cookie_expiry_adjusted) {
+                            bootstrap_alert(
+                                'PWA manifest generated.<br><br>Cookie expiry was automatically increased to 1 year so the study can resume after closing the browser/app. You might want to include a request_cookie item in your PWA onboarding survey, to ensure that participants have given permissions to track them across sessions. Otherwise, the PWA will break after a few days.',
+                                'Notice',
+                                '.alerts-container',
+                                'alert-warning'
+                            );
+                        } else {    
+                            bootstrap_alert(
+                                'PWA manifest generated.<br><br>Cookie expiry was already >= 1 year, so the study can resume after closing the browser/app. You might want to include a request_cookie item in your PWA onboarding survey, to ensure that participants have given permissions to track them across sessions. Otherwise, the PWA will break after a few days.',
+                                'Notice',
+                                '.alerts-container',
+                                'alert-warning'
+                            );
+                        }
+
+                        const manifest = response.manifest || response;
                         // Update the manifest textarea if it exists
                         var $manifestArea = $('#manifest_json');
                         if ($manifestArea.length) {
-                            const manifest_json = JSON.stringify(response, null, 2);
+                            const manifest_json = JSON.stringify(manifest, null, 2);
                             $manifestArea.val(manifest_json);
                             $manifestArea.trigger('change');
                         }
