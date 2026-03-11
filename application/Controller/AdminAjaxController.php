@@ -534,11 +534,35 @@ class AdminAjaxController {
             $content = array('error' => 'Failed to generate manifest');
         } else {
             // Decode JSON string if result is a JSON string, otherwise use as-is
-            $content = is_string($result) ? json_decode($result, true) : $result;
+            $manifest = is_string($result) ? json_decode($result, true) : $result;
             if (json_last_error() !== JSON_ERROR_NONE) {
                 // If JSON decoding fails, return the raw result
-                $content = array('data' => $result);
+                $manifest = array('data' => $result);
             }
+
+            // If an admin generates a manifest (enabling PWA usage), ensure run session cookies
+            // are not limited to browser session by default: bump to at least one year.
+            $one_year_seconds = 365 * 24 * 60 * 60;
+            $cookie_expiry_adjusted = false;
+            $cookie_expiry_new = (int) $run->expire_cookie;
+            if ((int) $run->expire_cookie < $one_year_seconds) {
+                $cookie_expiry_new = $one_year_seconds;
+                $updated = DB::getInstance()->update(
+                    'survey_runs',
+                    ['expire_cookie' => $cookie_expiry_new],
+                    ['id' => $run->id]
+                );
+                if ($updated !== false) {
+                    $run->expire_cookie = $cookie_expiry_new;
+                    $cookie_expiry_adjusted = true;
+                }
+            }
+
+            $content = array(
+                'manifest' => $manifest,
+                'cookie_expiry_adjusted' => $cookie_expiry_adjusted,
+                'cookie_expiry_new' => $cookie_expiry_new
+            );
         }
 
         $this->response->setContentType('application/json');
