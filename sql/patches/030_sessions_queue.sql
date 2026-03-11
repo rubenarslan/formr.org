@@ -1,4 +1,4 @@
-CREATE TABLE `survey_sessions_queue` (
+CREATE TABLE IF NOT EXISTS `survey_sessions_queue` (
   `unit_session_id` bigint(20) unsigned NOT NULL,
   `run_session_id` int(10) unsigned NOT NULL,
   `unit_id` int(10) unsigned NOT NULL,
@@ -6,8 +6,9 @@ CREATE TABLE `survey_sessions_queue` (
   `expires` int(10) unsigned NOT NULL,
   `run` varchar(45) COLLATE utf8_unicode_ci NOT NULL,
   `counter` int(10) unsigned NOT NULL DEFAULT '0',
-  `execute` tinyint(1) unsigned NOT NULL DEFAULT '1' 
+  `execute` tinyint(1) unsigned NOT NULL DEFAULT '1'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
-ALTER TABLE `survey_sessions_queue`
- ADD PRIMARY KEY (`unit_session_id`), ADD KEY `run_session_id` (`run_session_id`,`unit_id`), ADD KEY `expires` (`expires`);
+CALL formr_add_primary_key_if_not_exists('survey_sessions_queue', '`unit_session_id`');
+CREATE INDEX IF NOT EXISTS `run_session_id` ON `survey_sessions_queue` (`run_session_id`, `unit_id`);
+CREATE INDEX IF NOT EXISTS `expires` ON `survey_sessions_queue` (`expires`);

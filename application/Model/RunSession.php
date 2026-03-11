@@ -304,8 +304,21 @@ class RunSession extends Model {
     protected function executeUnitSession() {
         $this->executionCount++;
         $this->debug("Execute");
-        
+
+        $startTime = microtime(true);
         $result = $this->currentUnitSession->execute();
+        $executionTimeMs = (int) round((microtime(true) - $startTime) * 1000);
+
+        if ($executionTimeMs > 0 && $this->currentUnitSession->id && $this->run->id) {
+            UnitExecutionMonitor::logExecution(
+                (int) $this->run->id,
+                (int) ($this->currentUnitSession->runUnit->run_unit_id ?? 0),
+                (int) $this->currentUnitSession->id,
+                $this->currentUnitSession->runUnit->type ?? null,
+                $executionTimeMs
+            );
+        }
+
         $this->debug($result, true);
 
         if (!empty($result['expired'])) {

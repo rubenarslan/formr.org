@@ -10,10 +10,6 @@ CREATE TABLE IF NOT EXISTS `survey_email_queue` (
   KEY `account_id` (`account_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-
-ALTER TABLE `survey_email_queue`
-  ADD CONSTRAINT `survey_email_queue_ibfk_1` FOREIGN KEY (`account_id`) REFERENCES `survey_email_accounts` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION;
-
-ALTER TABLE  `survey_email_log` ADD  `sent` TINYINT( 1 ) NOT NULL DEFAULT  '1';
-
-ALTER TABLE `survey_runs` ADD `cron_fork` TINYINT UNSIGNED NOT NULL DEFAULT '1' ;
+CALL formr_add_foreign_key_if_not_exists('survey_email_queue', 'survey_email_queue_ibfk_1', 'account_id', 'survey_email_accounts', 'id', 'CASCADE', 'NO ACTION');
+ALTER TABLE `survey_email_log` ADD COLUMN IF NOT EXISTS `sent` TINYINT(1) NOT NULL DEFAULT 1;
+ALTER TABLE `survey_runs` ADD COLUMN IF NOT EXISTS `cron_fork` TINYINT UNSIGNED NOT NULL DEFAULT 1;

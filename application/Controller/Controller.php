@@ -201,6 +201,9 @@ abstract class Controller {
         $config['admin_url'] = admin_url();
         $config['csrf_token'] = Session::getRequestToken();
         $config['csrf_token_object'] = [Session::REQUEST_TOKEN => Session::getRequestToken()];
+        if($this->run) {
+            $config['run_url'] = run_url($this->run->name);
+        }
         // Cookie consent
         $cookieconsent = Site::getSettings('js:cookieconsent', '{}');
         if ($cookieconsent && ($decoded = json_decode($cookieconsent, true))) {

@@ -7,5 +7,5 @@ CREATE TABLE IF NOT EXISTS `survey_newsletter` (
   `date` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`)
-) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-ALTER TABLE  `survey_runs` ADD  `use_material_design` TINYINT( 1 ) NOT NULL DEFAULT  '0';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+ALTER TABLE `survey_runs` ADD COLUMN IF NOT EXISTS `use_material_design` TINYINT(1) NOT NULL DEFAULT '0';

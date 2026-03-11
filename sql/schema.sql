@@ -1,6 +1,6 @@
 --
 -- Database: `formr`
--- Schema Updated: 01.10.2024
+-- Schema Updated: 02.03.2025
 --
 SET NAMES utf8mb4;
 CREATE DATABASE IF NOT EXISTS formr CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -111,7 +111,7 @@ CREATE TABLE `osf` (
 
 CREATE TABLE `survey_users` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `user_code` varchar(64) CHARACTER SET latin1 COLLATE latin1_bin NOT NULL,
+  `user_code` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
   `first_name` VARCHAR(50) NULL,
   `last_name` VARCHAR(50) NULL,
   `affiliation` VARCHAR(350) NULL,
@@ -180,6 +180,10 @@ CREATE TABLE `survey_runs` (
   `tos_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
   `custom_css_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `custom_js_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `manifest_json_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `vapid_public_key` text COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `vapid_private_key` text COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `pwa_icon_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `osf_project_id` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `last_deamon_access` int(10) unsigned DEFAULT '0',
   `cron_fork` tinyint(3) unsigned NOT NULL DEFAULT '1',
@@ -205,7 +209,7 @@ CREATE TABLE `survey_runs` (
 --
 
 CREATE TABLE `survey_run_sessions` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `run_id` int(10) unsigned NOT NULL,
   `user_id` int(10) unsigned DEFAULT NULL,
   `session` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -234,7 +238,7 @@ CREATE TABLE `survey_run_sessions` (
 CREATE TABLE `survey_unit_sessions` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `unit_id` int(10) unsigned NOT NULL,
-  `run_session_id` int(11) DEFAULT NULL,
+  `run_session_id` int(10) unsigned DEFAULT NULL,
   `created` datetime NOT NULL,
   `expires` datetime DEFAULT NULL,
   `queued` tinyint(3) NOT NULL DEFAULT 0,
@@ -700,3 +704,128 @@ CREATE TABLE `survey_run_expiry_reminders` (
   CONSTRAINT `fk_survey_run_expiry_reminders_survey_runs1` FOREIGN KEY (`run_id`) REFERENCES `survey_runs` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
+--
+-- Table structure for table `push_logs`
+--
+
+CREATE TABLE `push_logs` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `unit_session_id` int(10) unsigned NOT NULL,
+  `run_id` int(10) unsigned NOT NULL,
+  `message` text COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `error_message` text COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `attempt` int(11) NOT NULL DEFAULT 1,
+  `created` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_created` (`created`),
+  KEY `fk_push_logs_unit_sessions_idx` (`unit_session_id`),
+  KEY `fk_push_logs_runs_idx` (`run_id`),
+  CONSTRAINT `fk_push_logs_unit_sessions` FOREIGN KEY (`unit_session_id`) REFERENCES `survey_unit_sessions` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION,
+  CONSTRAINT `fk_push_logs_runs` FOREIGN KEY (`run_id`) REFERENCES `survey_runs` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Table structure for table `push_messages`
+--
+
+CREATE TABLE `push_messages` (
+  `id` int(10) unsigned NOT NULL,
+  `message` text COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `topic` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `priority` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'normal',
+  `time_to_live` int(11) NOT NULL DEFAULT 86400,
+  `badge_count` int(11) DEFAULT NULL,
+  `vibrate` tinyint(1) NOT NULL DEFAULT 1,
+  `require_interaction` tinyint(1) NOT NULL DEFAULT 0,
+  `renotify` tinyint(1) NOT NULL DEFAULT 0,
+  `silent` tinyint(1) NOT NULL DEFAULT 0,
+  `created` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modified` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `fk_push_messages_units_idx` (`id`),
+  CONSTRAINT `fk_push_messages_units` FOREIGN KEY (`id`) REFERENCES `survey_units` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Table structure for table `survey_notifications`
+--
+
+CREATE TABLE `survey_notifications` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `run_id` int(10) unsigned NOT NULL,
+  `session_id` int(10) unsigned NOT NULL,
+  `message` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type` enum('error','warning','info') NOT NULL DEFAULT 'error',
+  `created` datetime NOT NULL,
+  `recipient_id` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `run_id` (`run_id`),
+  KEY `session_id` (`session_id`),
+  KEY `recipient_id` (`recipient_id`),
+  KEY `created` (`created`),
+  CONSTRAINT `survey_notifications_ibfk_1` FOREIGN KEY (`run_id`) REFERENCES `survey_runs` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `survey_notifications_ibfk_2` FOREIGN KEY (`session_id`) REFERENCES `survey_unit_sessions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `survey_notifications_ibfk_3` FOREIGN KEY (`recipient_id`) REFERENCES `survey_users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Table structure for table `survey_resource_metrics`
+--
+
+CREATE TABLE `survey_resource_metrics` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int(10) unsigned NOT NULL,
+  `survey_count` int(10) unsigned NOT NULL DEFAULT 0,
+  `survey_items_size_kb` decimal(12,2) NOT NULL DEFAULT 0,
+  `run_count` int(10) unsigned NOT NULL DEFAULT 0,
+  `uploaded_files_size_kb` decimal(12,2) NOT NULL DEFAULT 0,
+  `unit_sessions_count` int(10) unsigned NOT NULL DEFAULT 0,
+  `last_computed_at` datetime NOT NULL,
+  `last_run_activity_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_id` (`user_id`),
+  KEY `last_computed_at` (`last_computed_at`),
+  CONSTRAINT `fk_resource_metrics_user` FOREIGN KEY (`user_id`) REFERENCES `survey_users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Table structure for table `survey_resource_survey_sizes`
+--
+
+CREATE TABLE `survey_resource_survey_sizes` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int(10) unsigned NOT NULL,
+  `study_id` int(10) unsigned NOT NULL,
+  `items_size_kb` decimal(12,2) NOT NULL DEFAULT 0,
+  `computed_at` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_study` (`user_id`,`study_id`),
+  KEY `user_id` (`user_id`),
+  KEY `study_id` (`study_id`),
+  CONSTRAINT `fk_resource_survey_sizes_user` FOREIGN KEY (`user_id`) REFERENCES `survey_users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION,
+  CONSTRAINT `fk_resource_survey_sizes_study` FOREIGN KEY (`study_id`) REFERENCES `survey_studies` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Table structure for table `survey_unit_execution_log`
+--
+
+CREATE TABLE `survey_unit_execution_log` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `run_unit_id` int(10) unsigned NOT NULL DEFAULT 0,
+  `run_id` int(10) unsigned NOT NULL,
+  `unit_session_id` int(10) unsigned NOT NULL,
+  `unit_type` varchar(25) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `execution_time_ms` int(10) unsigned NOT NULL,
+  `created_at` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `run_unit_id` (`run_unit_id`),
+  KEY `run_id` (`run_id`),
+  KEY `created_at` (`created_at`),
+  KEY `unit_type` (`unit_type`),
+  CONSTRAINT `fk_unit_exec_run` FOREIGN KEY (`run_id`) REFERENCES `survey_runs` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION,
+  CONSTRAINT `fk_unit_exec_session` FOREIGN KEY (`unit_session_id`) REFERENCES `survey_unit_sessions` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

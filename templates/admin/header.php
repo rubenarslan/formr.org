@@ -84,13 +84,16 @@
                                     <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-cogs"></i> Advanced <span class="caret"></span></a>
                                     <ul class="dropdown-menu" role="menu">
                                        <li><a href="<?php echo site_url('admin/advanced/content_settings'); ?>"><i class="fa fa-cog fa-fw"></i> Content Settings</a></li>
+                                       <li class="divider"></li>
                                        <li><a href="<?php echo site_url('admin/advanced/user_management'); ?>"><i class="fa fa-users fa-fw"></i> Manage Admins</a></li>
                                        <li><a href="<?php echo site_url('admin/advanced/user_details'); ?>"><i class="fa fa-users fa-fw"></i> Manage User Details</a></li>
                                        <li><a href="<?php echo site_url('admin/advanced/active_users'); ?>"><i class="fa fa-users fa-fw"></i> Active Admins</a></li>
+                                       <li class="divider"></li>
                                        <li><a href="<?php echo site_url('admin/advanced/info'); ?>"><i class="fa fa-list fa-fw"></i> PHP Info</a></li>
                                        <li><a href="<?php echo site_url('admin/advanced/runs_management'); ?>"><i class="fa fa-list fa-fw"></i> Manage Runs</a></li>
-                                       <li><a href="<?php echo site_url('admin/advanced/cron_log'); ?>"><i class="fa fa-list fa-fw"></i> Cron Log</a></li>
-                                        
+                                       <li class="divider"></li>
+                                       <li><a href="<?php echo site_url('admin/monitoring/survey-resource-monitoring'); ?>"><i class="fa fa-bar-chart fa-fw"></i> Survey Resource Monitoring</a></li>
+                                       <li><a href="<?php echo site_url('admin/monitoring/unit-sessions-monitoring'); ?>"><i class="fa fa-clock-o fa-fw"></i> Unit Sessions Monitoring</a></li>
                                     </ul>
                                 </li>
                                 <?php endif; ?>

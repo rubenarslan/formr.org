@@ -203,6 +203,7 @@ class Survey extends RunUnit {
                 return ['redirect' => run_url($run->name)];
             }
 
+            // @TODO: remove $ignore_post flag since logic has been moved to middleware
             $unitSession->createSurveyStudyRecord();
 
             if ($study->use_paging) {
@@ -210,6 +211,7 @@ class Survey extends RunUnit {
             } else {
                 $result = $this->processStudy($request, $study, $unitSession, $ignore_post);
             }
+
             if($ignore_post) {
                 $result['log'] = $this->getLogMessage('security_token_error');
             }

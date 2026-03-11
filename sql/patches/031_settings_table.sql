@@ -1,4 +1,4 @@
-CREATE TABLE `survey_settings` (
+CREATE TABLE IF NOT EXISTS `survey_settings` (
   `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
   `setting` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
   `value` text COLLATE utf8_unicode_ci NOT NULL,

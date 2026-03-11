@@ -115,7 +115,7 @@ class Router {
      * Some hack method to shift blame when we can't find action in controller
      *
      * @param string $controller
-     * @return string
+     * @return string|array
      */
     private function shiftAction($controller) {
         if ($controller === 'PublicController') {

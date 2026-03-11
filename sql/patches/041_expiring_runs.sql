@@ -1,7 +1,6 @@
-ALTER TABLE `survey_runs`
-    ADD `expiresOn` datetime DEFAULT NULL;
+ALTER TABLE `survey_runs` ADD COLUMN IF NOT EXISTS `expiresOn` datetime DEFAULT NULL;
 
-CREATE TABLE `user_uploaded_files` (
+CREATE TABLE IF NOT EXISTS `user_uploaded_files` (
     `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
     `study_id` INT UNSIGNED NULL,
     `unit_session_id` INT UNSIGNED NULL,
@@ -21,4 +20,4 @@ CREATE TABLE `user_uploaded_files` (
         REFERENCES `survey_unit_sessions` (`id`)
         ON DELETE SET NULL
         ON UPDATE NO ACTION
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

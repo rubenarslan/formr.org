@@ -2,6 +2,15 @@
 
 class AdminAdvancedController extends AdminController {
 
+    public function __construct(Site &$site) {
+        parent::__construct($site);
+        $user = $this->user;
+        if (!$user || !$user->isSuperAdmin()) {
+            formr_error(403, 'You do not have permission to access this page.');
+            exit;
+        }
+    }
+
     public function indexAction() {
         $this->request->redirect('/');
     }
