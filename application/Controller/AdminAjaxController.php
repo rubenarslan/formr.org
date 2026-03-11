@@ -434,6 +434,121 @@ class AdminAjaxController {
         return $this->response->setContent($content);
     }
 
+    private function ajaxUpdateSurveyFromGoogle() {
+        if (!Request::isAjaxRequest()) {
+            formr_error(406, 'Not Acceptable');
+        }
+
+        $this->response->setContentType('application/json');
+        $run_unit_id = $this->request->int('run_unit_id');
+        if (!$run_unit_id) {
+            $this->response->setStatusCode(400, 'Bad Request');
+            return $this->response->setJsonContent([
+                'success' => false,
+                'message' => 'Missing run unit id.',
+            ]);
+        }
+
+        $unit = RunUnit::findByRunUnitId($run_unit_id, ['ignore_missing' => true]);
+        if (!$unit || $unit->type !== 'Survey' || (int) $unit->run->id !== (int) $this->controller->run->id) {
+            $this->response->setStatusCode(400, 'Bad Request');
+            return $this->response->setJsonContent([
+                'success' => false,
+                'message' => 'This action is only available for survey run units.',
+            ]);
+        }
+
+        /** @var Survey $unit */
+        $study = $unit->getStudy();
+        if (!$study || !$study->valid || empty($study->google_file_id)) {
+            $this->response->setStatusCode(400, 'Bad Request');
+            return $this->response->setJsonContent([
+                'success' => false,
+                'message' => 'No linked Google Sheet found for this survey.',
+            ]);
+        }
+
+        $result_count = $study->getResultCount();
+        if ((int) array_val($result_count, 'real_users', 0) > 0) {
+            $this->response->setStatusCode(400, 'Bad Request');
+            return $this->response->setJsonContent([
+                'success' => false,
+                'message' => 'Quick updates from Google Sheets are only available before this survey has real user data.',
+            ]);
+        }
+
+        $file = google_download_survey_sheet(google_get_sheet_link($study->google_file_id));
+        if (!$file) {
+            $this->response->setStatusCode(400, 'Bad Request');
+            return $this->response->setJsonContent([
+                'success' => false,
+                'message' => 'Unable to download the linked Google Sheet.',
+            ]);
+        }
+
+        $allowedExtensions = ['xls', 'xlsx', 'ods', 'xml', 'txt', 'csv'];
+        $fileExtension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($fileExtension, $allowedExtensions)) {
+            delete_tmp_file($file);
+            $this->response->setStatusCode(400, 'Bad Request');
+            return $this->response->setJsonContent([
+                'success' => false,
+                'message' => 'Downloaded file format is not supported.',
+            ]);
+        }
+
+        $base_name = basename($file['name']);
+        $survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", $base_name);
+        if ($survey_name === null) {
+            delete_tmp_file($file);
+            $this->response->setStatusCode(400, 'Bad Request');
+            return $this->response->setJsonContent([
+                'success' => false,
+                'message' => "Could not extract a valid survey name from the Google Sheet filename '{$base_name}'. Expected the name '{$study->name}.",
+            ]);
+        }
+        if ($study->name !== $survey_name) {
+            delete_tmp_file($file);
+            $this->response->setStatusCode(400, 'Bad Request');
+            return $this->response->setJsonContent([
+                'success' => false,
+                'message' => "The Google Sheet name '{$survey_name}' does not match the survey name '{$study->name}'.",
+            ]);
+        }
+
+        if (($filename = $study->getOriginalFileName()) && files_are_equal($file['tmp_name'], Config::get('survey_upload_dir') . '/' . $filename)) {
+            delete_tmp_file($file);
+            return $this->response->setJsonContent([
+                'success' => true,
+                'message' => 'No changes found. The linked Google Sheet is identical to the currently uploaded survey.',
+            ]);
+        }
+
+        if ($study->uploadItems($file, false, false)) {
+            $message = '<strong>Success!</strong> Survey updated from Google Sheet.';
+            $extra = array_merge($study->messages, $study->warnings);
+            if ($extra) {
+                $message .= '<br>' . implode('<br>', array_map('h', $extra));
+            }
+            delete_tmp_file($file);
+            return $this->response->setJsonContent([
+                'success' => true,
+                'message' => $message,
+            ]);
+        }
+
+        $error_message = implode('<br>', array_map('h', array_merge($study->errors, $study->warnings)));
+        if (!$error_message) {
+            $error_message = 'Survey update failed.';
+        }
+        delete_tmp_file($file);
+        $this->response->setStatusCode(400, 'Bad Request');
+        return $this->response->setJsonContent([
+            'success' => false,
+            'message' => $error_message,
+        ]);
+    }
+
     private function ajaxSaveSettings() {
         if (!Request::isAjaxRequest()) {
             formr_error(406, 'Not Acceptable');
