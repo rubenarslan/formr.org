@@ -83,20 +83,28 @@ class SessionResource extends BaseResource
         $whereSql = implode(' AND ', $where);
 
         $sql = "SELECT 
-                survey_run_sessions.*, 
+                srs.*, 
                 MAX(us.id) as unit_session_id,
                 MAX(u.id) as unit_id,
                 MAX(u.type) as unit_type,
                 COALESCE(MAX(ru.description), MAX(rsu.description)) as unit_description
-            FROM survey_run_sessions
-            LEFT JOIN survey_unit_sessions us ON us.id = survey_run_sessions.current_unit_session_id
+            FROM (
+                -- 1. Grab ONLY the paginated IDs first
+                SELECT id 
+                FROM survey_run_sessions 
+                WHERE $whereSql 
+                ORDER BY created DESC 
+                LIMIT :limit OFFSET :offset
+            ) AS paginated_sessions
+            -- 2. Join back to get the main table columns
+            JOIN survey_run_sessions srs ON srs.id = paginated_sessions.id
+            -- 3. Perform the heavy left joins only on the paginated rows
+            LEFT JOIN survey_unit_sessions us ON us.id = srs.current_unit_session_id
             LEFT JOIN survey_units u ON u.id = us.unit_id
-            LEFT JOIN survey_run_units ru ON ru.unit_id = u.id AND ru.run_id = survey_run_sessions.run_id AND ru.position = survey_run_sessions.position
-            LEFT JOIN survey_run_special_units rsu ON rsu.id = u.id AND rsu.run_id = survey_run_sessions.run_id
-            WHERE $whereSql
-            GROUP BY survey_run_sessions.id
-            ORDER BY survey_run_sessions.created DESC
-            LIMIT :limit OFFSET :offset";
+            LEFT JOIN survey_run_units ru ON ru.unit_id = u.id AND ru.run_id = srs.run_id AND ru.position = srs.position
+            LEFT JOIN survey_run_special_units rsu ON rsu.id = u.id AND rsu.run_id = srs.run_id
+            GROUP BY srs.id
+            ORDER BY srs.created DESC";
 
         $stmt = $this->db->prepare($sql);
         foreach ($params as $key => $val) {

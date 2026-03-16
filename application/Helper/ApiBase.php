@@ -292,10 +292,10 @@ abstract class ApiBase
             SELECT itms_display.item_id, itms_display.session_id, itms_display.answer, itms_display.created,
                    survey_items.name AS item_name, survey_run_sessions.session AS run_session, survey_run_sessions.position AS current_position
             FROM survey_items_display AS itms_display
-            LEFT JOIN survey_unit_sessions ON survey_unit_sessions.id = itms_display.session_id
-            LEFT JOIN survey_run_sessions ON survey_run_sessions.id = survey_unit_sessions.run_session_id
-            LEFT JOIN survey_items ON survey_items.id = itms_display.item_id
-            LEFT JOIN survey_studies ON survey_studies.id = survey_items.study_id
+            INNER JOIN survey_unit_sessions ON survey_unit_sessions.id = itms_display.session_id
+            INNER JOIN survey_run_sessions ON survey_run_sessions.id = survey_unit_sessions.run_session_id
+            INNER JOIN survey_items ON survey_items.id = itms_display.item_id
+            INNER JOIN survey_studies ON survey_studies.id = survey_items.study_id
             WHERE survey_studies.name = :survey_name
             AND survey_studies.user_id = :user_id
             AND survey_run_sessions.run_id = :run_id
