@@ -174,7 +174,7 @@ class SpreadsheetRenderer {
             'session_id' => $this->unitSession->id,
             'name_user_code' => Session::REQUEST_USER_CODE,
             'name_cookie' => Session::REQUEST_NAME,
-            'csrf_token' => formr_csrf_token(), //$cookie->getRequestToken(),
+            'csrf_token' => '',
             'user_code' => $user ? h($user->user_code) : '', //h($cookie->getData('code')),
             'cookie' => '', //$cookie->getFile(),
             'progress' => $prog,

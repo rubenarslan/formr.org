@@ -63,7 +63,6 @@
                     <div class="tab-content">
                         <div class="tab-pane active" id="settings">
                             <form method="post" action="">
-                                <?= formr_csrf_token() ?>
                                 <h4 class="lead"> <i class="fa fa-user"></i> Basic Information</h4>
 
                                 <div class="form-group  col-md-6">
@@ -136,7 +135,6 @@
                         <!-- /.tab-pane -->
                         <div class="tab-pane" id="data">
                             <form method="post" action="">
-                                <?= formr_csrf_token() ?>
                                 <h4 class="lead"> <i class="fa fa-trash"></i> Account Deletion</h4>
                                 <div class="alert alert-danger">
                                     <strong>Warning!</strong> This action cannot be undone. All your data, including surveys, runs, and email accounts will be permanently deleted.

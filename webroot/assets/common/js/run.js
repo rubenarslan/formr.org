@@ -162,7 +162,6 @@ import {
       data: {
         run_unit_id: this.run_unit_id,
         special: this.special,
-        _formr_request_token: window.formr.csrf_token,
       },
       method: "GET",
     })
@@ -288,7 +287,6 @@ import {
     var action = this.run.url + "/" + this.remove_button.attr("href");
     var data = {
       run_unit_id: this.run_unit_id,
-      _formr_request_token: window.formr.csrf_token,
     };
     if (confirm === "yes") {
       data.confirm = "yes";
@@ -424,7 +422,7 @@ import {
         url: $this.attr("href"),
         dataType: "html",
         method: "POST",
-        data: { on: on, _formr_request_token: window.formr.csrf_token },
+        data: { on: on },
       }).fail(ajaxErrorHandling);
       return false;
     });
@@ -480,7 +478,6 @@ import {
       method: "POST",
       data: {
         position: max + 10,
-        _formr_request_token: window.formr.csrf_token,
       },
     })
       .done(
@@ -683,7 +680,6 @@ import {
           method: "POST",
           data: {
             position: positions,
-            _formr_request_token: window.formr.csrf_token,
           },
         })
           .done(

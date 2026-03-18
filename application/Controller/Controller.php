@@ -199,8 +199,6 @@ abstract class Controller {
         // URLs
         $config['site_url'] = site_url();
         $config['admin_url'] = admin_url();
-        $config['csrf_token'] = Session::getRequestToken();
-        $config['csrf_token_object'] = [Session::REQUEST_TOKEN => Session::getRequestToken()];
         // Cookie consent
         $cookieconsent = Site::getSettings('js:cookieconsent', '{}');
         if ($cookieconsent && ($decoded = json_decode($cookieconsent, true))) {
@@ -211,9 +209,7 @@ abstract class Controller {
     }
 
     protected function middleware($request) {
-        $middlewares = [
-            CsrfMiddleware::class,
-        ];
+        $middlewares = [];
 
         foreach ($middlewares as $middleware) {
             $middleware = new $middleware();
