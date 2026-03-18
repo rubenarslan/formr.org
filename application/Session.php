@@ -201,15 +201,15 @@ class Session {
         self::set('site', $site);
     }
 
-    public static function setCookie($name, $value, $lifetime = 0, $path = "/", $domain = '') {
-        return setcookie($name, $value, 
+    public static function setCookie($name, $value, $lifetime = 0, $path = "/", $domain = '', $samesite = null) {
+        return setcookie($name, $value,
                 [
-                    'expires' => $lifetime === 0 ? 0 : time() + $lifetime, 
-                    'path' => $path, 
-                    'domain' => $domain, 
+                    'expires' => $lifetime === 0 ? 0 : time() + $lifetime,
+                    'path' => $path,
+                    'domain' => $domain,
                     'secure' => self::$secure,
                     'httponly' => self::$httponly,
-                    'samesite' => self::$samesite
+                    'samesite' => $samesite ?: self::$samesite
                 ]);
     }
     

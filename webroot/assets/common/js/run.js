@@ -87,7 +87,7 @@ import {
     this.unsavedChanges = false;
     this.save_button = this.block.find("a.unit_save");
 
-    this.block.find("button.from_days").click(function (e) {
+    this.block.find("button.from_days").on("click", function (e) {
       e.preventDefault();
       var numberinput = $(this)
         .closest(".input-group")
@@ -96,8 +96,20 @@ import {
       numberinput.val(days * 60 * 24).change();
     });
 
+    this.block.find("button.from_hours").on("click", function (e) {
+      e.preventDefault();
+      var numberinput = $(this)
+        .closest(".input-group")
+        .find("input[type=number]");
+      var hours = numberinput.val();
+      numberinput.val(hours * 3600).change();
+    });
+
     this.test_button = this.block.find("a.unit_test");
-    this.test_button.click($.proxy(this.test, this));
+    this.test_button.on("click", $.proxy(this.test, this));
+
+    this.update_survey_button = this.block.find("a.unit_update_survey_from_google");
+    this.update_survey_button.on("click", $.proxy(this.updateSurveyFromGoogle, this));
 
     this.remove_button = this.block.find("button.remove_unit_from_run");
     this.remove_button
@@ -120,7 +132,7 @@ import {
     }
 
     this.run.lock(this.run.lock_toggle.hasClass("btn-checked"), this.block);
-    this.save_button.unbind("click");
+    this.save_button.off("click");
     this.save_button
       .attr("disabled", true)
       .removeClass("btn-info")
@@ -193,6 +205,127 @@ import {
     return false;
   };
 
+  RunUnit.prototype.parseSurveyUpdateResponse = function (responseText) {
+    if (!responseText) {
+      return null;
+    }
+    if (typeof responseText === "object") {
+      return responseText;
+    }
+    try {
+      return JSON.parse(responseText);
+    } catch (err) {
+      // In dev mode PHP notices may precede JSON output.
+      var first = responseText.indexOf("{");
+      var last = responseText.lastIndexOf("}");
+      if (first !== -1 && last !== -1 && last > first) {
+        var maybeJson = responseText.substring(first, last + 1);
+        try {
+          return JSON.parse(maybeJson);
+        } catch (err2) {
+          return null;
+        }
+      }
+      return null;
+    }
+  };
+
+  RunUnit.prototype.escapeHtml = function (unsafeText) {
+    return $("<div>").text(unsafeText || "").html();
+  };
+
+  RunUnit.prototype.toPlainText = function (message) {
+    if (!message) {
+      return "";
+    }
+    var text = String(message).replace(/<br\s*\/?>/gi, "\n");
+    text = $("<textarea/>").html(text).text();
+    text = text.replace(/<br\s*\/?>/gi, "\n");
+    text = $("<div>").html(text).text();
+    return text.replace(/\n{3,}/g, "\n\n").trim();
+  };
+
+  RunUnit.prototype.showSurveyUpdateAlert = function (message, cls, title) {
+    var where = this.block.find(".survey-update-alerts");
+    var plainMessage = this.toPlainText(message);
+    var safeMessage = this.escapeHtml(plainMessage).replace(/\n/g, "<br>");
+    bootstrap_alert(
+      safeMessage || "No response message was returned.",
+      title || "Survey update",
+      where,
+      cls
+    );
+  };
+
+  RunUnit.prototype.updateSurveyFromGoogle = function (e) {
+    e.preventDefault();
+    var oldText = this.update_survey_button.text();
+    this.update_survey_button
+      .attr("disabled", true)
+      .html(oldText + bootstrap_spinner());
+    this.block.find(".survey-update-alerts .all-alerts").parent().remove();
+
+    $.ajax({
+      url: this.run.url + "/" + this.update_survey_button.attr("href"),
+      dataType: "text",
+      data: { run_unit_id: this.run_unit_id },
+      method: "POST",
+    })
+      .done(
+        $.proxy(function (responseText) {
+          var data = this.parseSurveyUpdateResponse(responseText);
+          this.update_survey_button.removeAttr("disabled").text(oldText);
+          if (data && data.success === true) {
+            this.update_survey_button
+              .removeClass("btn-default btn-danger")
+              .addClass("btn-success");
+            this.showSurveyUpdateAlert(
+              data.message,
+              "alert-success",
+              "Survey updated"
+            );
+          } else {
+            this.update_survey_button
+              .removeClass("btn-default btn-success")
+              .addClass("btn-danger");
+            this.showSurveyUpdateAlert(
+              data && data.message
+                ? data.message
+                : "Could not parse server response while updating from Google Sheet.",
+              "alert-danger",
+              "Survey update failed"
+            );
+          }
+        }, this)
+      )
+      .fail(
+        $.proxy(function (xhr, x, settings, exception) {
+          this.update_survey_button
+            .removeAttr("disabled")
+            .text(oldText)
+            .removeClass("btn-default btn-success")
+            .addClass("btn-danger");
+          var parsed = xhr
+            ? this.parseSurveyUpdateResponse(xhr.responseText)
+            : null;
+          var message =
+            parsed && parsed.message
+              ? parsed.message
+              : this.toPlainText(xhr && xhr.responseText);
+          if (!message) {
+            message = "Could not update survey from Google Sheet.";
+          }
+          this.showSurveyUpdateAlert(
+            message,
+            "alert-danger",
+            "Survey update failed"
+          );
+        }, this)
+      );
+
+    return false;
+  };
+
   function validatePushMessage($block) {
     var $message = $block.find('textarea[name="message"]');
     var $timeToLive = $block.find('input[name="time_to_live"]');
@@ -205,10 +338,12 @@ import {
       isValid = false;
     }
 
-    var ttl = parseInt($timeToLive.val());
-    if (isNaN(ttl) || ttl < 0 || ttl > 2419200) {
-      errors.push("Time to live must be between 0 and 2419200 seconds (28 days)");
-      isValid = false;
+    if ($timeToLive.val() !== "") {
+      var ttl = parseInt($timeToLive.val());
+      if (isNaN(ttl) || ttl < 0 || ttl > 2419200) {
+        errors.push("Time to live must be between 0 and 2419200 seconds (28 days)");
+        isValid = false;
+      }
     }
 
     var badge = parseInt($badgeCount.val());
@@ -256,7 +391,7 @@ import {
             $.proxy(this.init(data), this);
           } else {
             // quicker, less wasteful
-            this.save_button.unbind("click");
+            this.save_button.off("click");
             this.save_button
               .attr("disabled", true)
               .removeClass("btn-info")
@@ -581,9 +716,7 @@ import {
     $modal
       .on("shown.bs.modal", function () {
         $modal.find(".confirm-export").click(function (e) {
-          var export_name = $.trim(
-            $modal.find("input[name=export_name]").val()
-          );
+          var export_name = $modal.find("input[name=export_name]").val().trim();
           // If the export name is not valid, no need
           var pattern = /^[a-z0-9-\s]+$/i;
           if (!export_name || !pattern.test(export_name)) {
@@ -657,7 +790,7 @@ import {
       $modal = $(
         $.parseHTML(getHTMLTemplate("tpl-import-units", { content: data }))
       ).attr("id", "run-import-modal-dialog");
-      $modal.find("select").bind("change", function () {
+      $modal.find("select").on("change", function () {
         var val = parseInt($(this).val(), 10);
         if (isNaN(val)) {
           return;
@@ -775,7 +908,7 @@ import {
             return false;
           };
         }
-        $(elm).attr("data-old_disabled", $(elm).attr("disabled"));
+        $(elm).attr("data-old-disabled", $(elm).attr("disabled"));
         $(elm).attr("disabled", "disabled");
       } else {
         $("#run-unit-choices").show();
