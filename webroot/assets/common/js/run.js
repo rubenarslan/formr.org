@@ -54,7 +54,7 @@ import {
         var slctdata0 = slct.attr("data-select2init"),
           slctdata;
         if (typeof slctdata0 != "object") {
-          slctdata = $.parseJSON(slctdata0);
+          slctdata = JSON.parse(slctdata0);
         } else {
           slctdata = slctdata0;
         }
@@ -193,8 +193,46 @@ import {
     return false;
   };
 
+  function validatePushMessage($block) {
+    var $message = $block.find('textarea[name="message"]');
+    var $timeToLive = $block.find('input[name="time_to_live"]');
+    var $badgeCount = $block.find('input[name="badge_count"]');
+    var isValid = true;
+    var errors = [];
+
+    if (!$message.val().trim()) {
+      errors.push("Message is required");
+      isValid = false;
+    }
+
+    var ttl = parseInt($timeToLive.val());
+    if (isNaN(ttl) || ttl < 0 || ttl > 2419200) {
+      errors.push("Time to live must be between 0 and 2419200 seconds (28 days)");
+      isValid = false;
+    }
+
+    var badge = parseInt($badgeCount.val());
+    if (!isNaN(badge) && badge < 0) {
+      errors.push("Badge count must be a positive number");
+      isValid = false;
+    }
+
+    if (!isValid) {
+      bootstrap_alert(errors.join("<br>"), "Validation Error.", ".run_units");
+    }
+
+    return isValid;
+  }
+
   RunUnit.prototype.save = function (e) {
     e.preventDefault();
+
+    // Validate PushMessage units before saving
+    if (this.save_button.attr("href") && this.save_button.attr("href").indexOf("type=PushMessage") !== -1) {
+      if (!validatePushMessage(this.block)) {
+        return false;
+      }
+    }
 
     var old_text = this.save_button.text();
     this.save_button
@@ -378,7 +416,7 @@ import {
     this.url = this.form.prop("action");
 
     this.units = [];
-    var json_units = $.parseJSON(this.form.attr("data-units"));
+    var json_units = JSON.parse(this.form.attr("data-units"));
 
     for (var i = 0; i < json_units.length; i++) {
       this.units[i] = new RunUnit(this);
@@ -628,7 +666,7 @@ import {
         var json_string = getHTMLTemplate(eid);
         $modal
           .find("textarea")
-          .val(JSON.stringify($.parseJSON(json_string), null, "\t"));
+          .val(JSON.stringify(JSON.parse(json_string), null, "\t"));
       });
 
       $modal

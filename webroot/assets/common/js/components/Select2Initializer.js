@@ -99,7 +99,7 @@ export function initializeSelect2Components() {
                 return;
             var slctdata0 = slct.attr('data-select2add');
             if (typeof slctdata0 != 'object') {
-                slctdata0 = $.parseJSON(slctdata0);
+                slctdata0 = JSON.parse(slctdata0);
             }
             var slctdata_arr;
             var slctdata = [];
