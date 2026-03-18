@@ -244,13 +244,20 @@ self.addEventListener('message', (event) => {
 
 // Handle incoming push events
 self.addEventListener('push', event => {
-    if (!event.data) {
-      console.warn('Push event received without data');
-      return;
-    }
-    
     event.waitUntil((async () => {
     try {
+      if (!event.data) {
+        console.warn('Push event received without data');
+        // iOS requires every push event to show a notification, otherwise
+        // the subscription gets terminated after ~3 "silent" pushes.
+        await self.registration.showNotification('New Message', {
+          body: 'You have a new notification.',
+          icon: '/assets/pwa/icon.png',
+          tag: 'fallback-no-data'
+        });
+        return;
+      }
+
       const best_icon_any = await getBestIcon('any').catch(() => '/assets/pwa/icon.png');
 
       const data = event.data.json();
@@ -258,7 +265,7 @@ self.addEventListener('push', event => {
 
       const timestamp = Date.now();
       const tag = data.tag || `notification-${timestamp}`;
-      
+
       const options = {
         body: data.body || '',
         icon: data.icon ? new URL(data.icon, self.location.origin).href : best_icon_any,
@@ -277,12 +284,14 @@ self.addEventListener('push', event => {
         }
       };
 
-      // First show the notification and wait for it to complete
+      // Show the notification and AWAIT it — iOS Safari terminates push
+      // subscriptions if showNotification() doesn't complete inside waitUntil().
       console.log('SW: Start notification display');
-      self.registration.showNotification(data.title || 'Notification', options).then(async () => {
-        console.log('Notification displayed');
-        
-        // Notify all clients about state invalidation
+      await self.registration.showNotification(data.title || 'Notification', options);
+      console.log('Notification displayed');
+
+      // Post-notification work (non-critical, best-effort)
+      try {
         const allClients = await findAndSortClients();
         for (const client of allClients) {
           try {
@@ -296,17 +305,17 @@ self.addEventListener('push', event => {
             console.error(`Failed to send STATE_INVALIDATED message to client ${client.id} ${client.url}:`, error);
           }
         }
-
         console.log('Finished sending STATE_INVALIDATED messages to all clients');
 
         await manageBadge(options.data.badgeCount);
         console.log('Badge updated');
-        
-      });
+      } catch (postError) {
+        console.error('Post-notification work failed (non-critical):', postError);
+      }
     } catch (error) {
       console.error('Push notification error:', error);
-      // Ensure we at least show a basic notification
-      self.registration.showNotification('New Message', {
+      // Ensure we ALWAYS show a notification — await the fallback too
+      await self.registration.showNotification('New Message', {
         body: 'You have a new notification.',
         icon: '/assets/pwa/icon.png',
         tag: 'fallback-notification'

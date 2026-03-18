@@ -130,9 +130,11 @@ function urlBase64ToUint8Array(base64String) {
 
 // Unified Push Notification Manager using jQuery
 const PushNotificationManager = {
-    // Check if browser supports push notifications
+    // Check if browser supports basic notification + service worker capabilities.
+    // We deliberately DO NOT require 'PushManager' on window because this is
+    // not consistently exposed on all platforms that support Web Push (notably iOS).
     isSupported: function() {
-        return ('Notification' in window) && ('serviceWorker' in navigator) && ('PushManager' in window);
+        return ('Notification' in window) && ('serviceWorker' in navigator);
     },
 
     // Check iOS version compatibility
@@ -616,6 +618,16 @@ export function initializePushNotifications() {
             $hiddenInput[0].setCustomValidity(t('Please complete this required step before continuing.'));
         }
 
+        // On iOS, Web Push is only available for installed home screen apps.
+        // If we're in the browser (not standalone), guide the user instead of trying to subscribe.
+        if (isIOSDevice() && !isStandalone()) {
+            $hiddenInput.val('ios_install_required');
+            $status.html(t('To receive push notifications on iOS, please add this app to your home screen and open it from there.'));
+            $button.prop('disabled', true);
+            $button.removeClass('btn-primary').addClass('btn-default');
+            return;
+        }
+
         if (!PushNotificationManager.isSupported()) {
             $hiddenInput.val('not_supported');
             $status.html(t('Sorry, your browser does not support push notifications.'));
@@ -633,7 +645,7 @@ export function initializePushNotifications() {
         }
 
         const registration = await PushNotificationManager.getRegistration();
-        if (!registration) {
+        if (!registration || !registration.pushManager) {
             $hiddenInput.val('no_service_worker');
             $status.html(t('Service worker not registered. Please reload the page and try again.'));
             $button.prop('disabled', true);
@@ -643,7 +655,7 @@ export function initializePushNotifications() {
 
         if (localStorage.getItem('push-notification-subscribed') === 'true') {
             const subResult = await PushNotificationManager.checkSubscription(registration);
-            
+
             if (subResult.subscribed) {
                 $hiddenInput.val(JSON.stringify(subResult.subscription));
                 $hiddenInput[0].setCustomValidity('');
@@ -651,12 +663,35 @@ export function initializePushNotifications() {
                     customMessage: t('Push notifications are enabled.'),
                     showUnsubscribeButton: true
                 });
-                
+
                 $button.removeClass('btn-primary').addClass('btn-success');
                 $button.prop('disabled', true);
                 $button.html(`<i class="fa fa-check"></i> ${t('Notifications Enabled')}`);
                 $wrapper.closest('.form-group').addClass('formr_answered');
                 return;
+            }
+
+            // iOS can spontaneously lose push subscriptions (e.g. after app
+            // restart). If permission is still granted, silently re-subscribe
+            // so the user doesn't have to tap "Enable" again.
+            if (Notification.permission === 'granted') {
+                console.log('Push subscription lost, attempting automatic re-subscribe');
+                const resubResult = await PushNotificationManager.subscribe(registration);
+                if (resubResult.success) {
+                    $hiddenInput.val(JSON.stringify(resubResult.subscription));
+                    $hiddenInput[0].setCustomValidity('');
+                    addNotificationControls($wrapper, registration, {
+                        customMessage: t('Push notifications are enabled.'),
+                        showUnsubscribeButton: true
+                    });
+                    $button.removeClass('btn-primary').addClass('btn-success');
+                    $button.prop('disabled', true);
+                    $button.html(`<i class="fa fa-check"></i> ${t('Notifications Enabled')}`);
+                    $wrapper.closest('.form-group').addClass('formr_answered');
+                    return;
+                }
+                // If re-subscribe failed, fall through to show enable button
+                console.warn('Automatic re-subscribe failed:', resubResult.reason);
             }
         }
 
