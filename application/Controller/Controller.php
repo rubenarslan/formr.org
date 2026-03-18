@@ -67,7 +67,6 @@ abstract class Controller {
         }
 
         $this->request = $site->request;
-        $this->middleware($this->request);
         $this->fdb = DB::getInstance();
         $this->response = new Response();
     }
@@ -209,15 +208,6 @@ abstract class Controller {
         }
         
         return $config;
-    }
-
-    protected function middleware($request) {
-        $middlewares = [];
-
-        foreach ($middlewares as $middleware) {
-            $middleware = new $middleware();
-            $middleware->handle($request);
-        }
     }
 
     public function errorAction($code = null, $text = null) {
