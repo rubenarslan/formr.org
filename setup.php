@@ -75,7 +75,7 @@ function __formr_setup($settings = array()) {
 	// General PHP-side configuration
 	error_reporting(-1);
 	if (DEBUG > 0) {
-		ini_set('display_errors', 0);
+		ini_set('display_errors', 1);
 	} else {
 		ini_set('display_errors',  0);
  	}
