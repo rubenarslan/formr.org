@@ -34,17 +34,3 @@ class ApiHelperV1 extends ApiBase
     {
         return $this->resources['runs']->handle();
     }
-
-    public function __call($name, $arguments)
-    {
-        if (method_exists($this, $name)) {
-            return call_user_func_array([$this, $name], $arguments);
-        }
-
-        $this->setData(Response::STATUS_METHOD_NOT_ALLOWED, 'Method Not Allowed', [
-            'code' => Response::STATUS_METHOD_NOT_ALLOWED,
-            'message' => "Action '$name' is not available in this API version."
-        ]);
-        return $this;
-    }
-}
