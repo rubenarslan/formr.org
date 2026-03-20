@@ -22,52 +22,17 @@ class ApiHelperV1 extends ApiBase
 
     public function user()
     {
-        return $this->getResource('user')->handle();
+        return $this->resources['user']->handle();
     }
 
-    public function surveys($surveyName = null)
+    public function surveys()
     {
-        $resource = $this->getResource('surveys');
-        return $resource->handle();
+        return $this->resources['surveys']->handle();
     }
 
-    public function runs($runName = null, $subResource = null, $extra = null)
+    public function runs()
     {
-        $resource = $this->getResource('runs');
-        return $resource->handle();
-    }
-
-    private function handleSessions($runName)
-    {
-        $resource = $this->getResource('sessions');
-        return $resource->handle($runName);
-    }
-
-    private function handleResults($runName)
-    {
-        $resource = $this->getResource('results');
-        return $resource->handle($runName);
-    }
-
-    private function handleFiles($runName)
-    {
-        $resource = $this->getResource('files');
-        return $resource->handle($runName);
-    }
-
-    private function handleStructure($runName)
-    {
-        $resource = $this->getResource('structure');
-        return $resource->handle($runName);
-    }
-
-    private function getResource($name)
-    {
-        if (!isset($this->resources[$name])) {
-            $this->setData(Response::STATUS_NOT_FOUND, 'Not Found', ['error' => "Resource '$name' not found in V1 API."]);
-            return $this;
-        }
-        return $this->resources[$name];
+        return $this->resources['runs']->handle();
     }
 
     public function __call($name, $arguments)
