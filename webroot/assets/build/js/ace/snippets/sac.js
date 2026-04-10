@@ -1,8 +1,1 @@
-;                (function() {
-                    ace.require(["ace/snippets/sac"], function(m) {
-                        if (typeof module == "object" && typeof exports == "object" && module) {
-                            module.exports = m;
-                        }
-                    });
-                })();
-            
+ace.require(["ace/snippets/sac"],(function(e){"object"==typeof module&&"object"==typeof exports&&module&&(module.exports=e)}));

@@ -99,7 +99,7 @@ export function getHTMLTemplate(id, params) {
 	var $tpl = jQuery('#' + id);
 	if (!$tpl.length)
 		return;
-	return stringTemplate($.trim($tpl.html()), params);
+	return stringTemplate($tpl.html().trim(), params);
 }
 
 export function toggleElement(id) {
@@ -223,7 +223,7 @@ export function cookies_enabled() {
 		});
 
 		// Social share button click
-		$('.social-share-icon').unbind('click').bind('click', function () {
+		$('.social-share-icon').off('click').on('click', function () {
 			var $social = $(this), href = $social.attr('data-href');
 			if (href) {
 				if ($social.attr('data-target')) {

@@ -4,7 +4,6 @@
         <div class="modal-dialog">
             <div class="modal-content">
 				<form id="export_run_units" method="post">
-                <?= formr_csrf_token() ?>
                 <div class="modal-header" style="padding: 0px 15px;">
                     <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
                     <h3>Run Export</h3>
@@ -78,7 +77,6 @@
         <div class="modal-dialog">
             <div class="modal-content">
 				<form action="<?php echo !empty($run->name) ? admin_run_url($run->name, 'import') : ''; ?>" enctype="multipart/form-data" method="post">
-                <?= formr_csrf_token() ?>
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
                     <h3>JSON import of modules</h3>
@@ -121,7 +119,6 @@
         <div class="modal-dialog">
             <div class="modal-content">
 				<form action="%{action}" enctype="multipart/form-data" method="post">
-                <?= formr_csrf_token() ?>
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
                     <h3>Delete Run Session</h3>

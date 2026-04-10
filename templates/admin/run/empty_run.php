@@ -18,7 +18,6 @@
                         <h3 class="box-title">Empty Run </h3>
                     </div>
                     <form role="form" action="<?php echo admin_run_url($run->name, 'empty_run'); ?>" method="post">
-                        <?= formr_csrf_token() ?>
                         <div class="box-body">
                             <?php Template::loadChild('public/alerts'); ?>
 

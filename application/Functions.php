@@ -144,12 +144,6 @@ function formr_error_feature_unavailable() {
     formr_error('503', 'Feature Unavailable', 'Sorry this feature is temporarily unavailable. Please try again later', '', 'javascript:history.back();', 'Go Back');
 }
 
-function formr_csrf_token() {
-    $csrf = new CsrfMiddleware();
-    $csrf->handle(new Request());
-    return '<input type="hidden" name="' . Session::REQUEST_TOKEN . '" value="' . htmlspecialchars(Session::get(Session::REQUEST_TOKEN)) . '" />';
-}
-
 function h($text) {
     if ($text === null) {
         return null;

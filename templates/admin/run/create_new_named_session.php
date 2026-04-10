@@ -18,7 +18,6 @@
                         <h3 class="box-title">Create Named Session </h3>
                     </div>
                     <form role="form" method="post" action="<?= admin_run_url($run->name, 'create_new_named_session') ?>">
-                        <?= formr_csrf_token() ?>
                         <div class="box-body">
                             <?php Template::loadChild('public/alerts'); ?>
 

@@ -502,9 +502,9 @@ import {
         }).on("hide.bs.modal", function (e) {
             $current_target.parents("tr").css("background-color", "transparent");
         });
-        $('a.delete-run-session').bind('click', deleteUserSession);
-		$('a.delete-user-unit-session').bind('click', deleteUserUnitSession);
-        $('a.remind-run-session').bind('click', remindUserSession);
-        $('div.bulk-actions-ba').find('.ba').bind('click', doBulkAction);
+        $('a.delete-run-session').on('click', deleteUserSession);
+		$('a.delete-user-unit-session').on('click', deleteUserUnitSession);
+        $('a.remind-run-session').on('click', remindUserSession);
+        $('div.bulk-actions-ba').find('.ba').on('click', doBulkAction);
     });
 }(jQuery));

@@ -65,6 +65,31 @@ class Page extends RunUnit {
 
         return $this->getParsedBody($this->body, $testSession, ['admin' => true]);
     }
+
+    public function render() {
+        if (!knitting_needed($this->body)) {
+            return $this->body_parsed;
+        }
+
+        $ocpu = opencpu_knit_iframe($this->body, array(), true, null, $this->run->description, $this->run->footer_text);
+
+        if (empty($ocpu)) {
+            alert('OpenCPU is probably down or inaccessible. Please retry in a few minutes.', 'alert-danger');
+            return false;
+        } elseif ($ocpu->hasError()) {
+            notify_user_error(opencpu_debug($ocpu), 'There was a computational error.');
+            return false;
+        }
+
+        print_hidden_opencpu_debug_message($ocpu, "OpenCPU debugger for overview script at position {$this->position}.");
+        $files = $ocpu->getFiles('knit.html');
+
+        return '<div class="rmarkdown_iframe">
+            <iframe src="' . $files['knit.html'] . '">
+              <p>Your browser does not support iframes.</p>
+            </iframe>
+        </div>';
+    }
     
     public function find($id, $special = false, $props = []) {
         parent::find($id, $special, $props);

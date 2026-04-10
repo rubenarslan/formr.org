@@ -15,8 +15,6 @@ class Session {
     protected static $httponly = true;
     protected static $samesite = 'Lax';
     
-    const REQUEST_TOKENS_COOKIE = 'formr_token';
-    const REQUEST_TOKEN = '_formr_request_token';
     const REQUEST_USER_CODE = '_formr_code';
     const REQUEST_NAME = '_formr_cookie';
     const ADMIN_COOKIE = 'formr_user';
@@ -203,14 +201,16 @@ class Session {
         self::set('site', $site);
     }
 
-    public static function setCookie($name, $value, $lifetime = 0, $path = "/", $domain = '', $samesite = 'Lax') {
-        return setcookie($name, $value, 
-                ['expires' => $lifetime === 0 ? 0 : time() + $lifetime, 
-                'path' => $path, 
-                'domain' => $domain, 
-                'secure' => self::$secure,
-                'httponly' => self::$httponly,
-                'samesite' => $samesite]);
+    public static function setCookie($name, $value, $lifetime = 0, $path = "/", $domain = '', $samesite = null) {
+        return setcookie($name, $value,
+                [
+                    'expires' => $lifetime === 0 ? 0 : time() + $lifetime,
+                    'path' => $path,
+                    'domain' => $domain,
+                    'secure' => self::$secure,
+                    'httponly' => self::$httponly,
+                    'samesite' => $samesite ?: self::$samesite
+                ]);
     }
     
     /**
@@ -270,10 +270,6 @@ class Session {
 
     public static function deleteAdminCookie() {
         self::deleteCookie(self::ADMIN_COOKIE);
-    }
-
-    public static function getRequestToken() {
-        return self::get(self::REQUEST_TOKEN);
     }
 
 }

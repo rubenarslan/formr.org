@@ -127,8 +127,6 @@ class SpreadsheetRenderer {
 				<input type="hidden" name="session_id" value="%{session_id}" />
 				<input type="hidden" name="%{name_user_code}" value="%{user_code}" />
 				<input type="hidden" name="%{name_cookie}" value="%{cookie}" />
-				%{csrf_token}
-				
 				<div class="row progress-container">
 					<div class="progress">
 						<div class="progress-bar" style="width: %{progress}%;" data-percentage-minimum="%{add_percentage_points}" data-percentage-maximum="%{displayed_percentage_maximum}" data-already-answered="%{already_answered}" data-items-left="%{not_answered_on_current_page}" data-items-on-page="%{items_on_page}" data-hidden-but-rendered="%{hidden_but_rendered}">
@@ -174,7 +172,6 @@ class SpreadsheetRenderer {
             'session_id' => $this->unitSession->id,
             'name_user_code' => Session::REQUEST_USER_CODE,
             'name_cookie' => Session::REQUEST_NAME,
-            'csrf_token' => formr_csrf_token(), //$cookie->getRequestToken(),
             'user_code' => $user ? h($user->user_code) : '', //h($cookie->getData('code')),
             'cookie' => '', //$cookie->getFile(),
             'progress' => $prog,

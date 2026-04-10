@@ -67,7 +67,6 @@ abstract class Controller {
         }
 
         $this->request = $site->request;
-        $this->middleware($this->request);
         $this->fdb = DB::getInstance();
         $this->response = new Response();
     }
@@ -199,9 +198,7 @@ abstract class Controller {
         // URLs
         $config['site_url'] = site_url();
         $config['admin_url'] = admin_url();
-        $config['csrf_token'] = Session::getRequestToken();
-        $config['csrf_token_object'] = [Session::REQUEST_TOKEN => Session::getRequestToken()];
-        if($this->run) {
+        if ($this->run) {
             $config['run_url'] = run_url($this->run->name);
         }
         // Cookie consent
@@ -211,17 +208,6 @@ abstract class Controller {
         }
         
         return $config;
-    }
-
-    protected function middleware($request) {
-        $middlewares = [
-            CsrfMiddleware::class,
-        ];
-
-        foreach ($middlewares as $middleware) {
-            $middleware = new $middleware();
-            $middleware->handle($request);
-        }
     }
 
     public function errorAction($code = null, $text = null) {

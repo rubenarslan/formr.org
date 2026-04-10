@@ -38,7 +38,6 @@
 
                         <h4>Files to upload: </h4>
                         <form action="<?= admin_run_url($run->name, 'upload_files') ?>" class="dropzone form-inline" enctype="multipart/form-data"  id="upload_files" name="upload_files" method="post">
-                            <?= formr_csrf_token() ?>
                             <p>
                                 <?php
                                 $val = Site::getSettings('content:file_upload_require_active_consent', 'false') === "true";

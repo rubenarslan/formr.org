@@ -1,10 +1,24 @@
 /*!
- * jQuery JavaScript Library v3.7.1
- * https://jquery.com/
+   * Sizzle CSS Selector Engine v2.2.1
+   * http://sizzlejs.com/
+   *
+   * Copyright jQuery Foundation and other contributors
+   * Released under the MIT license
+   * http://jquery.org/license
+   *
+   * Date: 2015-10-17
+   */
+
+/*!
+ * jQuery JavaScript Library v2.2.4
+ * http://jquery.com/
  *
- * Copyright OpenJS Foundation and other contributors
+ * Includes Sizzle.js
+ * http://sizzlejs.com/
+ *
+ * Copyright jQuery Foundation and other contributors
  * Released under the MIT license
- * https://jquery.org/license
+ * http://jquery.org/license
  *
- * Date: 2023-08-28T13:37Z
+ * Date: 2016-05-20T17:23Z
  */

@@ -76,7 +76,6 @@ class Autoload {
             APPLICATION_PATH . "Queue/{$class}.php",
             APPLICATION_PATH . "Services/{$class}.php",
             APPLICATION_PATH . "Spreadsheet/{$class}.php",
-            APPLICATION_PATH . "Middleware/{$class}.php",
         );
 
         foreach ($paths as $path) {
