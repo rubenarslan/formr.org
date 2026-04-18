@@ -99,19 +99,23 @@ $has_default_email= $default_email !== null && $default_email['host'] !== null;
             <h3>API Access %{user}</h3>
          </div>
          <div class="modal-body">
+            <div class="api-secret-once alert alert-warning hidden">
+               <strong>One-time display.</strong> Copy the client secret now — we only store a hash.
+            </div>
             <table class="table table-striped table-bordered">
                <tr>
                   <td><b>Client ID</b></td>
-                  <td>%{client_id}</td>
+                  <td><code class="copy-on-click">%{client_id}</code></td>
                </tr>
-               <tr>
+               <tr class="api-secret-row">
                   <td><b>Client Secret</b></td>
-                  <td>%{client_secret}</td>
+                  <td><code class="copy-on-click">%{client_secret}</code></td>
                </tr>
-               <tr>
+               <tr class="api-secret-cmd">
                   <td><b>R command</b></td>
                   <td>
-                     <pre><code class="r">formr_api_access_token("%{client_id}", "%{client_secret}")</code></pre>
+                     <pre><code class="r copy-on-click">formr_store_keys(host = "<?= rtrim(site_url('api'), '/') ?>", client_id = "%{client_id}", client_secret = "%{client_secret}")
+formr_api_authenticate(host = "<?= rtrim(site_url('api'), '/') ?>")</code></pre>
                   </td>
                </tr>
             </table>

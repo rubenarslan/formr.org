@@ -23,6 +23,64 @@ class HashedTokenPdoStorage extends \OAuth2\Storage\Pdo
         return hash('sha256', $token);
     }
 
+    /* ClientCredentialsInterface / ClientInterface — hash client_secret at rest */
+
+    public function checkClientCredentials($client_id, $client_secret = null)
+    {
+        $stmt = $this->db->prepare(sprintf(
+            'SELECT client_secret FROM %s WHERE client_id = :client_id',
+            $this->config['client_table']
+        ));
+        $stmt->execute(compact('client_id'));
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+        if (!$row) {
+            return false;
+        }
+        $stored = (string) $row['client_secret'];
+        if ($stored === '') {
+            return false;
+        }
+        return hash_equals($stored, (string) $this->hashToken($client_secret));
+    }
+
+    public function isPublicClient($client_id)
+    {
+        $stmt = $this->db->prepare(sprintf(
+            'SELECT client_secret FROM %s WHERE client_id = :client_id',
+            $this->config['client_table']
+        ));
+        $stmt->execute(compact('client_id'));
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+        if (!$row) {
+            return false;
+        }
+        return empty($row['client_secret']);
+    }
+
+    public function getClientDetails($client_id)
+    {
+        $details = parent::getClientDetails($client_id);
+        if ($details && array_key_exists('client_secret', $details)) {
+            // Never hand the hash (or anything mistakable for a secret) back to
+            // callers. The bshaffer grant flow only needs client_secret via
+            // checkClientCredentials, which we handle above.
+            unset($details['client_secret']);
+        }
+        return $details;
+    }
+
+    public function setClientDetails($client_id, $client_secret = null, $redirect_uri = null, $grant_types = null, $scope = null, $user_id = null)
+    {
+        return parent::setClientDetails(
+            $client_id,
+            $this->hashToken($client_secret),
+            $redirect_uri,
+            $grant_types,
+            $scope,
+            $user_id
+        );
+    }
+
     /* AccessTokenInterface */
 
     public function getAccessToken($access_token)

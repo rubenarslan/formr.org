@@ -116,22 +116,99 @@
                         </div>
 
                         <div class="tab-pane" id="api">
-                            <?php if ($api_credentials): ?>
-                                <h4 class="lead"> <i class="fa fa-lock"></i> API Credentials</h4>
-                                <table class="table table-bordered">
-                                    <tr>
-                                        <td>Client ID</td>
-                                        <td><code><?= $api_credentials['client_id'] ?></code></td>
-                                    </tr>
-
-                                    <tr>
-                                        <td>Client Secret</td>
-                                        <td><code><?= $api_credentials['client_secret'] ?></code></td>
-                                    </tr>
-                                </table>
-                                <p> &nbsp; </p>
-                            <?php endif; ?>
+                            <h4 class="lead"> <i class="fa fa-lock"></i> API Credentials</h4>
+                            <div id="api-credentials-panel"
+                                 data-endpoint="<?= admin_url('account/api-credentials') ?>"
+                                 data-has-client="<?= $api_credentials ? '1' : '0' ?>">
+                                <?php if ($api_credentials): ?>
+                                    <table class="table table-bordered">
+                                        <tr>
+                                            <td>Client ID</td>
+                                            <td><code><?= h($api_credentials['client_id']) ?></code></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Client Secret</td>
+                                            <td><em class="text-muted">Stored as a hash — rotate to see a new one.</em></td>
+                                        </tr>
+                                    </table>
+                                    <button type="button" class="btn btn-warning btn-raised" id="api-rotate-btn">
+                                        <i class="fa fa-refresh"></i> Rotate Client Secret
+                                    </button>
+                                <?php else: ?>
+                                    <p class="text-muted">You do not have API credentials yet.</p>
+                                    <button type="button" class="btn btn-primary btn-raised" id="api-create-btn">
+                                        <i class="fa fa-key"></i> Generate API Credentials
+                                    </button>
+                                <?php endif; ?>
+                                <div id="api-secret-once" class="hidden" style="margin-top: 20px;">
+                                    <div class="alert alert-warning">
+                                        <strong>One-time display.</strong> Copy the client secret now — we only store a hash, so it cannot be recovered later.
+                                    </div>
+                                    <table class="table table-bordered">
+                                        <tr>
+                                            <td>Client ID</td>
+                                            <td><code class="copy-on-click api-out-client-id"></code></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Client Secret</td>
+                                            <td><code class="copy-on-click api-out-client-secret"></code></td>
+                                        </tr>
+                                        <tr>
+                                            <td>R command</td>
+                                            <td><pre><code class="r copy-on-click api-out-r-cmd"></code></pre></td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <noscript>
+                                    <div class="alert alert-info" style="margin-top: 15px;">
+                                        JavaScript is required to generate or rotate API credentials.
+                                    </div>
+                                </noscript>
+                            </div>
+                            <p> &nbsp; </p>
                         </div>
+                        <script>
+                        (function () {
+                            var $panel = jQuery('#api-credentials-panel');
+                            if (!$panel.length) { return; }
+                            var endpoint = $panel.data('endpoint');
+                            var apiHost = <?= json_encode(rtrim(site_url('api'), '/')) ?>;
+
+                            function rCommand(clientId, clientSecret) {
+                                return 'formr_store_keys(host = "' + apiHost +
+                                    '", client_id = "' + clientId +
+                                    '", client_secret = "' + clientSecret + '")\n' +
+                                    'formr_api_authenticate(host = "' + apiHost + '")';
+                            }
+
+                            function issue(apiAction, confirmMsg) {
+                                if (confirmMsg && !confirm(confirmMsg)) { return; }
+                                jQuery.ajax({
+                                    type: 'POST',
+                                    url: endpoint,
+                                    data: { api_action: apiAction },
+                                    dataType: 'json'
+                                }).done(function (response) {
+                                    if (!response || !response.success) {
+                                        alert((response && response.message) || 'Could not issue API credentials.');
+                                        return;
+                                    }
+                                    $panel.find('#api-create-btn, #api-rotate-btn').prop('disabled', true);
+                                    $panel.find('.api-out-client-id').text(response.data.client_id);
+                                    $panel.find('.api-out-client-secret').text(response.data.client_secret);
+                                    $panel.find('.api-out-r-cmd').text(rCommand(response.data.client_id, response.data.client_secret));
+                                    $panel.find('#api-secret-once').removeClass('hidden');
+                                }).fail(function () {
+                                    alert('Request failed.');
+                                });
+                            }
+
+                            $panel.on('click', '#api-create-btn', function () { issue('create', null); });
+                            $panel.on('click', '#api-rotate-btn', function () {
+                                issue('rotate', 'Rotating will invalidate the current secret. Continue?');
+                            });
+                        })();
+                        </script>
                         <!-- /.tab-pane -->
                         <div class="tab-pane" id="data">
                             <form method="post" action="">

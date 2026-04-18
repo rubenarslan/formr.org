@@ -98,7 +98,32 @@ import {
     }
 
     function userAPIModal(data, meta) {
-        var $modal = $($.parseHTML(getHTMLTemplate('tpl-user-api', {user: ' (' + data.user + ')', client_id: data.client_id, client_secret: data.client_secret})));
+        var secretForDisplay = data.secret_issued ? data.client_secret : '';
+        var $modal = $($.parseHTML(getHTMLTemplate('tpl-user-api', {
+            user: ' (' + data.user + ')',
+            client_id: data.client_id,
+            client_secret: secretForDisplay
+        })));
+
+        if (data.secret_issued) {
+            $modal.find('.api-secret-once').removeClass('hidden');
+        } else {
+            $modal.find('.api-secret-row, .api-secret-cmd, .api-secret-once').remove();
+        }
+
+        // Parent's .copy-on-click handler binds on page-ready; modal nodes are
+        // parsed fresh each time so they need their own click handler.
+        $modal.find('.copy-on-click').click(function () {
+            try {
+                var range = document.createRange();
+                range.selectNodeContents(this);
+                var selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+                navigator.clipboard.writeText($(this).text());
+                $(this).tooltip({title: "Copied to clipboard.", position: 'top'}).tooltip('show');
+            } catch (err) {}
+        });
 
         if (data.client_id) {
             $modal.find('.api-create').remove();
@@ -138,7 +163,7 @@ import {
                 postdata(saAjaxUrl, request, function (response) {
                     if (response && response.success) {
                         $modal.modal('hide');
-                        userAPIModal({user: data.user, 'client_id': '', 'client_secret': ''}, meta);
+                        userAPIModal({user: data.user, client_id: '', secret_issued: false}, meta);
                     }
 
                 });

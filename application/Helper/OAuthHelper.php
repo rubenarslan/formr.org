@@ -1,5 +1,7 @@
 <?php
 
+use ParagonIE\HiddenString\HiddenString;
+
 /**
  * This class acts as a Data Access Object for the OAuth2 Library
  * imported from https://github.com/bshaffer/oauth2-server-php
@@ -55,18 +57,41 @@ class OAuthHelper
         return self::$instance;
     }
 
+    /**
+     * Create a new client for the user if one does not already exist.
+     * Returns plaintext client_secret wrapped in a HiddenString — this is
+     * the one and only moment a caller can read it; storage holds a hash.
+     *
+     * @return array{client_id: string, client_secret: HiddenString}|false
+     */
     public function createClient(User $formrUser)
     {
-        /* @var $storage \OAuth2\Storage\Pdo  */
-        if (($client = $this->getClient($formrUser))) {
-            return $client;
+        if ($this->getClient($formrUser)) {
+            return false;
         }
 
         $details = $this->generateClientDetails($formrUser);
-        $this->storage->setClientDetails($details['client_id'], $details['client_secret'], self::DEFAULT_REDIRECT_URL, null, null, $formrUser->email);
-        return $this->getClient($formrUser);
+        $ok = $this->storage->setClientDetails(
+            $details['client_id'],
+            $details['client_secret']->getString(),
+            self::DEFAULT_REDIRECT_URL,
+            null,
+            null,
+            $formrUser->email
+        );
+        if (!$ok) {
+            return false;
+        }
+        return $details;
     }
 
+    /**
+     * Look up the user's client record. The returned array never contains
+     * the client secret — that is only knowable to the owner at issuance
+     * time (createClient / refreshToken).
+     *
+     * @return array|false
+     */
     public function getClient(User $formrUser)
     {
         $db = Site::getDb();
@@ -97,6 +122,12 @@ class OAuthHelper
         return true;
     }
 
+    /**
+     * Rotate the client secret. Returns plaintext client_secret wrapped in
+     * a HiddenString — only moment it's knowable after this call completes.
+     *
+     * @return array{client_id: string, client_secret: HiddenString}|false
+     */
     public function refreshToken(User $formrUser)
     {
         $client = $this->getClient($formrUser);
@@ -106,7 +137,10 @@ class OAuthHelper
         $details = $this->generateClientDetails($formrUser, true);
         $client_id = $client['client_id'];
         $client_secret = $details['client_secret'];
-        $this->storage->setClientDetails($client_id, $client_secret, self::DEFAULT_REDIRECT_URL, null, null, $formrUser->email);
+        $ok = $this->storage->setClientDetails($client_id, $client_secret->getString(), self::DEFAULT_REDIRECT_URL, null, null, $formrUser->email);
+        if (!$ok) {
+            return false;
+        }
         return compact('client_id', 'client_secret');
     }
 
@@ -126,12 +160,14 @@ class OAuthHelper
     }
 
     /**
-     * Generate client ID and client Secret from User object
+     * Generate client ID and client Secret from User object.
+     * The client_secret is returned as a HiddenString so it cannot leak
+     * through var_dump / __toString / error logs. Callers that need the
+     * raw value (to store a hash or show it once) must call ->getString().
      *
-     * @todo Re-do the algorithm to create credentials
      * @param User $formrUser
      * @param bool $refresh
-     * @return array
+     * @return array{client_id: string, client_secret: HiddenString}
      */
     protected function generateClientDetails(User $formrUser, $refresh = false)
     {
@@ -141,7 +177,8 @@ class OAuthHelper
         if ($refresh) {
             $client_id = $append . $formrUser->email . $formrUser->id;
         }
-        $client_secret = substr(str_replace('.', '', $jwt->encode($client_id, $client_id)), 0, 60);
+        $raw_secret = substr(str_replace('.', '', $jwt->encode($client_id, $client_id)), 0, 60);
+        $client_secret = new HiddenString($raw_secret);
         return compact('client_id', 'client_secret');
     }
 
