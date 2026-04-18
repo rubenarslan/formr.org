@@ -149,7 +149,11 @@ class HashedTokenPdoStorage extends \OAuth2\Storage\Pdo
         return false;
     }
 
-    public function setAuthorizationCode($code, $client_id, $user_id, $redirect_uri, $expires, $scope = null, $id_token = null)
+    // Signature mirrors bshaffer's PKCE-capable parent (9 params). The PKCE
+    // arguments are accepted for signature compatibility but not persisted —
+    // formr does not currently enable the PKCE flow and the local schema has
+    // no code_challenge columns.
+    public function setAuthorizationCode($code, $client_id, $user_id, $redirect_uri, $expires, $scope = null, $id_token = null, $code_challenge = null, $code_challenge_method = null)
     {
         $hashed = $this->hashToken($code);
         $expires = date('Y-m-d H:i:s', $expires);
@@ -161,7 +165,7 @@ class HashedTokenPdoStorage extends \OAuth2\Storage\Pdo
         $check->execute(['code' => $hashed]);
         $exists = (bool) $check->fetchColumn();
 
-        $hasIdToken = func_num_args() > 6;
+        $hasIdToken = $id_token !== null;
 
         if ($hasIdToken) {
             $sql = $exists
