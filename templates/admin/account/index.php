@@ -117,6 +117,14 @@
 
                         <div class="tab-pane" id="api">
                             <h4 class="lead"> <i class="fa fa-lock"></i> API Credentials</h4>
+                            <p>
+                                The <code>formr</code> R package is the easiest way to use these credentials. Install it from GitHub with the <code>remotes</code> package:
+                            </p>
+                            <pre><code class="r copy-on-click">install.packages("remotes")
+remotes::install_github("rubenarslan/formr")</code></pre>
+                            <p>
+                                See the <a href="https://rubenarslan.github.io/formr/" target="_blank" rel="noopener">package documentation</a> for full usage.
+                            </p>
                             <div id="api-credentials-panel"
                                  data-endpoint="<?= admin_url('account/api-credentials') ?>"
                                  data-has-client="<?= $api_credentials ? '1' : '0' ?>">
@@ -175,7 +183,8 @@
                             var apiHost = <?= json_encode(rtrim(site_url('api'), '/')) ?>;
 
                             function rCommand(clientId, clientSecret) {
-                                return 'formr_store_keys(host = "' + apiHost +
+                                return 'library(formr)\n' +
+                                    'formr_store_keys(host = "' + apiHost +
                                     '", client_id = "' + clientId +
                                     '", client_secret = "' + clientSecret + '")\n' +
                                     'formr_api_authenticate(host = "' + apiHost + '")';

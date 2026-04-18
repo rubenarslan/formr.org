@@ -114,7 +114,8 @@ $has_default_email= $default_email !== null && $default_email['host'] !== null;
                <tr class="api-secret-cmd">
                   <td><b>R command</b></td>
                   <td>
-                     <pre><code class="r copy-on-click">formr_store_keys(host = "<?= rtrim(site_url('api'), '/') ?>", client_id = "%{client_id}", client_secret = "%{client_secret}")
+                     <pre><code class="r copy-on-click">library(formr)
+formr_store_keys(host = "<?= rtrim(site_url('api'), '/') ?>", client_id = "%{client_id}", client_secret = "%{client_secret}")
 formr_api_authenticate(host = "<?= rtrim(site_url('api'), '/') ?>")</code></pre>
                   </td>
                </tr>
