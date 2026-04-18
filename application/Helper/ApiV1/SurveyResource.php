@@ -65,7 +65,7 @@ class SurveyResource extends BaseResource
 
     private function createOrUpdateSurvey()
     {
-        $this->checkScope('run:write');
+        $this->checkScope('survey:write');
 
         $file = null;
         // Check for Google Sheet URL in POST request

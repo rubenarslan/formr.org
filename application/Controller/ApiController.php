@@ -97,10 +97,7 @@ class ApiController extends Controller
             $data = [
                 'statusCode' => 500,
                 'statusText' => 'Internal Server Error',
-                'response' => [
-                    'code' => 500,
-                    'message' => $e->getMessage()
-                ]
+                'response' => ['message' => $e->getMessage()],
             ];
         }
 
@@ -138,7 +135,6 @@ class ApiController extends Controller
 
     public function getAction($action = null)
     {
-        formr_log("GET");
         if (!Request::isHTTPGetRequest()) {
             $this->response->badMethod('Invalid Request Method');
         }

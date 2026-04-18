@@ -122,7 +122,6 @@ class OAuthHelper
         }
         $db = Site::getDb();
         $user_id = $db->findValue('survey_users', array('email' => $user_email), 'id');
-        formr_log($user_id);
         return $user_id ? new User($user_id, null) : false;
     }
 
@@ -198,13 +197,16 @@ class OAuthHelper
      */
     public function deleteAccessToken($access_token)
     {
-        formr_log('Request Token Delete. Token:' . $access_token, 'oauth_debug');
         if (!$access_token) {
             return true;
         }
 
+        // Tokens are stored as SHA-256 hashes (see HashedTokenPdoStorage),
+        // so we must hash the incoming raw token before issuing the delete.
         $db = Site::getDb();
-        $db->delete($this->config['access_token_table'], array('access_token' => $access_token));
+        $db->delete($this->config['access_token_table'], array(
+            'access_token' => hash('sha256', $access_token),
+        ));
 
         return true;
     }

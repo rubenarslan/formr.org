@@ -1,37 +1,29 @@
 <?php
 
+/**
+ * V1 dispatcher. Only top-level resources (user, surveys, runs) are directly
+ * addressable at /v1/<resource>/... — everything else (sessions, results,
+ * files, structure) requires a run and is routed through RunResource as
+ * /v1/runs/{name}/<sub>.
+ *
+ * Resources are instantiated lazily to avoid running the ApiBase constructor
+ * (which hydrates the authenticated user) seven times per request.
+ */
 class ApiHelperV1 extends ApiBase
 {
 
-    private $resources = [];
-
-    public function __construct(Request $request, DB $db, $token_data)
-    {
-        parent::__construct($request, $db, $token_data);
-
-        $this->resources = [
-            'user' => new UserResource($request, $db, $token_data),
-            'surveys' => new SurveyResource($request, $db, $token_data),
-            'runs' => new RunResource($request, $db, $token_data),
-            'sessions' => new SessionResource($request, $db, $token_data),
-            'results' => new ResultsResource($request, $db, $token_data),
-            'files' => new FileResource($request, $db, $token_data),
-            'structure' => new StructureResource($request, $db, $token_data),
-        ];
-    }
-
     public function user()
     {
-        return $this->resources['user']->handle();
+        return (new UserResource($this->request, $this->db, $this->tokenData))->handle();
     }
 
     public function surveys()
     {
-        return $this->resources['surveys']->handle();
+        return (new SurveyResource($this->request, $this->db, $this->tokenData))->handle();
     }
 
     public function runs()
     {
-        return $this->resources['runs']->handle();
+        return (new RunResource($this->request, $this->db, $this->tokenData))->handle();
     }
 }

@@ -7,7 +7,7 @@ class StructureResource extends BaseResource
 
     public function handle($runName = null)
     {
-        $this->validateRun($runName);
+        $this->run = $this->getRunByName($runName);
         if (!$this->run) {
             return $this;
         }
@@ -23,12 +23,6 @@ class StructureResource extends BaseResource
         }
 
         return $this->error(405, 'Method not allowed. Use GET to export or PUT to import.');
-    }
-
-    private function validateRun($runName)
-    {
-        $mockRequest = (object) ['run' => (object) ['name' => $runName]];
-        $this->run = $this->getRunFromRequest($mockRequest);
     }
 
     private function exportStructure()
@@ -59,44 +53,36 @@ class StructureResource extends BaseResource
             return $this->error(400, 'Invalid JSON body.');
         }
 
-        $expectedCount = 0;
-        if (isset($jsonData->units) && is_array($jsonData->units)) {
-            $expectedCount = count($jsonData->units);
-        } elseif (isset($jsonData->units) && is_object($jsonData->units)) {
-            $expectedCount = count((array)$jsonData->units);
-        }
+        $expectedCount = isset($jsonData->units) ? count((array) $jsonData->units) : 0;
+
+        // Run::importUnits signals errors via global alert() calls instead of
+        // structured returns. Flush any pre-existing alerts so anything left
+        // after the import can be attributed to this request.
+        $site = Site::getInstance();
+        $site->renderAlerts();
 
         try {
-            Site::getInstance()->renderAlerts();
-
-            $importedUnits = $this->run->replaceUnits($jsonString);
-
-            $runUnits = $this->run->getAllUnitIds();
-            $actualRunCount = is_array($runUnits) ? count($runUnits) : 0;
-
-            if ($actualRunCount >= $expectedCount) {
-                $msg = "Import successful. Run contains $actualRunCount units.";
-
-                $alertsHtml = Site::getInstance()->renderAlerts();
-                if (stripos($alertsHtml, 'alert-danger') !== false) {
-                    $msg .= " (Note: Some internal alerts were triggered, but the run structure appears complete.)";
-                }
-
-                return $this->response(200, $msg);
-            }
-
-            $alertsText = trim(strip_tags(Site::getInstance()->renderAlerts()));
-            $errorMsg = "Import incomplete: Run has $actualRunCount units, expected $expectedCount.";
-
-            if ($alertsText) {
-                $errorMsg .= " Reason: " . $alertsText;
-            } else {
-                $errorMsg .= " The import failed because the run structure contains invalid data. Please ensure that all units have valid, numeric 'position' values and that all jump destinations (e.g., in SkipForward/Backward units) are numbers, not strings.";
-            }
-
-            return $this->error(500, $errorMsg);
+            $this->run->replaceUnits($jsonString);
         } catch (Exception $e) {
             return $this->error(500, 'Import exception: ' . $e->getMessage());
         }
+
+        $runUnits = $this->run->getAllUnitIds();
+        $actualRunCount = is_array($runUnits) ? count($runUnits) : 0;
+        $alertsText = trim(strip_tags($site->renderAlerts()));
+
+        if ($actualRunCount < $expectedCount) {
+            $errorMsg = "Import incomplete: run has $actualRunCount units, expected $expectedCount.";
+            if ($alertsText) {
+                $errorMsg .= ' ' . $alertsText;
+            }
+            return $this->error(500, $errorMsg);
+        }
+
+        $payload = ['units_imported' => $actualRunCount];
+        if ($alertsText) {
+            $payload['warnings'] = $alertsText;
+        }
+        return $this->response(200, 'Run structure imported', $payload);
     }
 }
