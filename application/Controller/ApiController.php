@@ -78,26 +78,30 @@ class ApiController extends Controller
         try {
             $token_data = $this->oauthServer->getAccessTokenData(OAuth2\Request::createFromGlobals());
 
-            if (!class_exists('ApiHelperV1')) {
-                throw new Exception("V1 API Helper not installed.");
+            if (!class_exists('ApiV1')) {
+                throw new Exception("V1 API not installed.");
             }
 
-            $helper = new ApiHelperV1($this->site->request, $this->fdb, $token_data);
+            $api = new ApiV1($this->site->request, $this->fdb, $token_data);
 
-            if (!method_exists($helper, $resource)) {
+            if (!method_exists($api, $resource)) {
                 $this->respond(404, 'Not Found', ['error' => "Resource '$resource' not found in V1 API."]);
                 return;
             }
 
             // Execute the helper method
-            $helperResult = $helper->$resource(...$arguments);
-            $data = $helperResult->getData();
+            $apiResult = $api->$resource(...$arguments);
+            $data = $apiResult->getData();
         } catch (Exception $e) {
             formr_log_exception($e, 'API-V1-Dispatcher');
+            $code = $e->getCode() ?? Response::STATUS_INTERNAL_SERVER_ERROR;
             $data = [
-                'statusCode' => 500,
+                'statusCode' => $code,
                 'statusText' => 'Internal Server Error',
-                'response' => ['message' => $e->getMessage()],
+                'response' => [
+                    'code' => $code,
+                    'message' => $e->getMessage()
+                ]
             ];
         }
 
@@ -232,9 +236,8 @@ class ApiController extends Controller
             $token_data = $this->oauthServer->getAccessTokenData(OAuth2\Request::createFromGlobals());
             $method = $this->getPrivateAction($action, '-', true);
 
-            $helperClass = 'ApiHelper';
-            $helper = new $helperClass($request, $this->fdb, $token_data);
-            $data = $helper->{$method}()->getData();
+            $api = new ApiV0($request, $this->fdb, $token_data);
+            $data = $api->{$method}()->getData();
         } catch (Exception $e) {
             formr_log_exception($e, 'API');
             $data = array(

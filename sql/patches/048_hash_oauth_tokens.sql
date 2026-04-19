@@ -1,6 +1,6 @@
 -- Store SHA-256 hashes of OAuth bearer credentials at rest. Existing
 -- plaintext tokens cannot match the hashed lookups performed by the new
--- HashedTokenPdoStorage, so they would only sit in the table as readable
+-- HashedTokenOAuth2StoragePdo, so they would only sit in the table as readable
 -- secrets — purge them. Clients re-auth as needed.
 TRUNCATE TABLE `oauth_access_tokens`;
 TRUNCATE TABLE `oauth_refresh_tokens`;

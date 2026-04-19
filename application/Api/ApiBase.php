@@ -139,7 +139,7 @@ abstract class ApiBase
      * @param int $code HTTP Status Code
      * @param string $msg Status Message
      * @param array $data Response body
-     * @return ApiHelperV1
+     * @return ApiBase
      */
     protected function response($code, $msg, $data = [])
     {

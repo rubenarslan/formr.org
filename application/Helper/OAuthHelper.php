@@ -238,7 +238,7 @@ class OAuthHelper
             return true;
         }
 
-        // Tokens are stored as SHA-256 hashes (see HashedTokenPdoStorage),
+        // Tokens are stored as SHA-256 hashes (see HashedTokenOAuth2StoragePdo),
         // so we must hash the incoming raw token before issuing the delete.
         $db = Site::getDb();
         $db->delete($this->config['access_token_table'], array(

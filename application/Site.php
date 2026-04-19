@@ -308,9 +308,9 @@ class Site {
         OAuth2\Autoloader::register();
 
         // $dsn is the Data Source Name for your database, for exmaple "mysql:dbname=my_oauth2_db;host=localhost"
-        // HashedTokenPdoStorage stores SHA-256 hashes of access/refresh tokens
+        // HashedTokenOAuth2StoragePdo stores SHA-256 hashes of access/refresh tokens
         // and authorization codes so a DB read does not yield replayable bearer credentials.
-        $storage = new HashedTokenPdoStorage(array('dsn' => $dsn, 'username' => $username, 'password' => $password));
+        $storage = new HashedTokenOAuth2StoragePdo(array('dsn' => $dsn, 'username' => $username, 'password' => $password));
 
         // Pass a storage object or array of storage objects to the OAuth2 server class
         $server = new OAuth2\Server($storage);

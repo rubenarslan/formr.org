@@ -12,7 +12,7 @@
  * see no behavioral change. A DB compromise alone no longer hands an
  * attacker a wallet of replayable bearer tokens.
  */
-class HashedTokenPdoStorage extends \OAuth2\Storage\Pdo
+class HashedTokenOAuth2StoragePdo extends \OAuth2\Storage\Pdo
 {
 
     private function hashToken($token)

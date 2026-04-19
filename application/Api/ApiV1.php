@@ -9,7 +9,7 @@
  * Resources are instantiated lazily to avoid running the ApiBase constructor
  * (which hydrates the authenticated user) seven times per request.
  */
-class ApiHelperV1 extends ApiBase
+class ApiV1 extends ApiBase
 {
 
     public function user()
