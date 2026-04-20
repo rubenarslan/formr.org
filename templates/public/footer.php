@@ -16,6 +16,7 @@
                         <?php endif; ?>
 						<li><a href="<?= site_url("imprint") ?>" rel="imprint">Imprint</a></li>
 						<li><a href="<?= site_url("privacy_policy") ?>">Privacy Policy</a></li>
+						<li><a href="#" id="manage_cookies_button" role="button">Cookie settings</a></li>
 					</ul>
 				</div>
 			</div>

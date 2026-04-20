@@ -56,7 +56,7 @@ Template::loadChild('public/header');
 						</blockquote>
 
                         <blockquote>
-                        Arslan, R.C., &amp; Tata, C.S. (<?php echo date("Y"); ?>). formr: A study framework allowing for automated feedback generation and complex longitudinal experience sampling studies using R. (version <?php echo Config::get('version'); ?>). <a href="https://zenodo.org/badge/latestdoi/11849439"><img src="https://zenodo.org/badge/11849439.svg" alt="DOI"></a>
+                        Arslan, R.C., &amp; Tata, C.S. (<?php echo date("Y"); ?>). formr: A study framework allowing for automated feedback generation and complex longitudinal experience sampling studies using R. (version <?php echo Config::get('version'); ?>). DOI: <a href="https://zenodo.org/badge/latestdoi/11849439" title="Look up the current release's DOI on Zenodo">See Zenodo</a>
                         </blockquote>
                     </div>
                     <p>
@@ -67,7 +67,7 @@ Template::loadChild('public/header');
                             If you used the accompanying R package, you should cite it too, because it is independent of the rest of the software and independently versioned.
                         </p>
                         <blockquote>
-                            Arslan, R.C. (<?php echo date("Y"); ?>). formr R package (Version 0.10.0). <a href="https://zenodo.org/badge/latestdoi/19236374"><img src="https://zenodo.org/badge/19236374.svg" alt="DOI"></a>
+                            Arslan, R.C. (<?php echo date("Y"); ?>). formr R package (Version 0.10.0). DOI: <a href="https://zenodo.org/badge/latestdoi/19236374" title="Look up the current release's DOI on Zenodo">See Zenodo</a>
                         </blockquote>
                     </div>
 
