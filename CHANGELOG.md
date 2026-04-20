@@ -2,11 +2,11 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [v0.25.0] - 08.12.2025
+## [v0.25.0] - 20.04.2026
 ### Added
 - Study-admin notifications: email the run owner when units fail
   - New `Notification` class with per-type throttling configurable via `$settings['notification']` (`default_throttle_minutes`, `throttle_map` for `error`/`warning`/`info`)
-  - Notifications are logged to the new `survey_notifications` table (SQL Patch 46) and throttled per run + recipient + type
+  - Notifications are logged to the new `survey_notifications` table and throttled per run + recipient + type
   - `notify_study_admin()` helper wired into OpenCPU rendering errors (`RunUnit`), Pause unit `relative_to` failures (both OpenCPU and invalid-result paths), External unit, Page unit, and survey-data save failures in `UnitSession`
   - New `templates/email/notification.ftpl` with colored severity border
 - Google Sheets survey update workflow
@@ -16,8 +16,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Declarative Web Push support (RFC 8030, Safari 18.4+): payloads now include a `web_push`/`notification` object so iOS falls back to a native notification if the service worker fails, preventing Apple from terminating the subscription after ~3 "silent" pushes
 - `SpreadsheetReader` now recognises `type_options` and `choice_list` as first-class columns and preserves author-supplied values instead of overwriting them from parsed `type`
 - `optional` column accepts `1`/`0`/`true`/`false`/`yes`/`no` in addition to `*`/`!`
+- Makes it easier to use a template for Google Sheets
 - `class` column values are normalised (commas and runs of whitespace collapsed to single spaces)
-- Registration terms updated; cookie settings link added to footer
+- Compliance: Registration terms updated; cookie settings link added to footer
 
 ### Fixes
 - Replaced the old request-token CSRF mechanism with a cleaner implementation; fixes spurious "security verification" errors on POST forms and Ajax calls that hit a race condition with concurrent requests
