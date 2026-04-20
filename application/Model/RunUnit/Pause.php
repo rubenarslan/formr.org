@@ -169,9 +169,7 @@ class Pause extends RunUnit {
                 $data['check_failed'] = true;
                 $data['log'] = $this->getLogMessage('error_pause_relative_to', "OpenCPU R error. Fix code. \n\n" . $error);
 
-                try {
-                    notify_study_admin($unitSession, 'Pause unit: relative_to produced invalid result', 'warning');
-                } catch (Exception $e) {}
+                notify_study_admin($unitSession, 'Pause unit: relative_to produced invalid result', 'warning');
                 return $data;
             }
         } elseif ($this->has_wait_minutes) {

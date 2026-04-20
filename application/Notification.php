@@ -41,33 +41,31 @@ class Notification {
      * @return bool Whether the notification was sent successfully
      */
     public function notifyStudyAdmin(UnitSession $unitSession, string $message, string $type = 'error'): bool {
-        // Check if the run session and run are valid
-        if (!$this->canBeSent($unitSession, $type)) {
-            return false;
-        }
-
         if (!$unitSession || !$unitSession->runSession || !$unitSession->runSession->getRun()) {
             return false;
         }
-        
-        // Get the study owner
+
         $studyOwner = $unitSession->runSession->getRun()->getOwner();
         if (!$studyOwner) {
             return false;
         }
-    
+
+        if (!$this->canBeSent($unitSession, $type)) {
+            return false;
+        }
+
         // Get the owner's email account
         $emailAccounts = $studyOwner->getEmailAccounts();
         if (empty($emailAccounts)) {
             return false;
         }
-        
+
         // Use the first available email account
         $account = new EmailAccount($emailAccounts[0]['id'], $studyOwner->id);
         if (!$account || !$account->account) {
             return false;
         }
-        
+
         // Create mailer instance
         $mailer = $account->makeMailer();
         if (!$mailer) {
@@ -78,11 +76,11 @@ class Notification {
         $mailer->IsHTML(true);
         $mailer->AddAddress($studyOwner->email);
         $mailer->Subject = "[formr] Run Notification";
-        
-        // Format message based on type
-        $typeClass = $type === 'error' ? 'danger' : ($type === 'warning' ? 'warning' : 'info');
+
+        // Map type to a CSS hex color for the email border
+        $typeColor = $type === 'error' ? '#dc3545' : ($type === 'warning' ? '#ffc107' : '#17a2b8');
         $formattedMessage = Template::get_replace('email/notification.ftpl', [
-            'typeClass' => $typeClass,
+            'typeColor' => $typeColor,
             'message' => $message,
             'run_name' => $unitSession->runSession->getRun()->name,
             'run_unit' => $unitSession->runUnit->position . '. ' . $unitSession->runUnit->type,
@@ -136,16 +134,25 @@ class Notification {
 
     protected function canBeSent(UnitSession $unitSession, string $errorCode): bool
     {
+        if (!$unitSession || !$unitSession->runSession || !$unitSession->runSession->getRun()) {
+            return false;
+        }
+        $owner = $unitSession->runSession->getRun()->getOwner();
+        if (!$owner) {
+            return false;
+        }
+
         $throttleMinutes = $this->getThrottleMinutes($errorCode) ?? 0;
 
-        // Check last notification
+        // Check last notification of this type for this run+recipient
         $stmt = $this->pdo->prepare("
-            SELECT created 
-            FROM survey_notifications 
-            WHERE run_id = ? AND recipient_id = ?
+            SELECT created
+            FROM survey_notifications
+            WHERE run_id = ? AND recipient_id = ? AND type = ?
             ORDER BY id DESC
+            LIMIT 1
         ");
-        $stmt->execute([$unitSession->runSession->getRun()->id, $unitSession->runSession->getRun()->getOwner()->id]);
+        $stmt->execute([$unitSession->runSession->getRun()->id, $owner->id, $errorCode]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         $now = new DateTime();
