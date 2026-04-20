@@ -36,7 +36,8 @@ async function ajaxRequest(url, method = 'POST', body = null) {
 function initializeCookieConsentButton() {
     const manageCookiesButton = document.getElementById('manage_cookies_button');
     if (manageCookiesButton) {
-        manageCookiesButton.addEventListener('click', () => {
+        manageCookiesButton.addEventListener('click', (e) => {
+            e.preventDefault();
             showPreferences();
         });
     }

@@ -37,7 +37,8 @@
             <?php endif; ?>
 
             <div>
-                <label><input type="checkbox" name="agree_tos" value="1" required> I agree to the <a href="<?=site_url("terms_of_service") ?>" target="_blank">terms and conditions</a> and the <a href="<?=site_url("privacy_policy") ?>" target="_blank">privacy policy</a>.</label>
+                <label><input type="checkbox" name="agree_tos" value="1" required> I agree to the <a href="<?=site_url("terms_of_service") ?>" target="_blank">terms and conditions</a>.</label>
+                <p class="help-block">You can find further information about data processing in our <a href="<?=site_url("privacy_policy") ?>" target="_blank">privacy policy</a>.</p>
             </div>
 
             <?php if (Config::get('2fa.enabled', true) && Config::get('2fa.allow_during_signup', false)): ?>
