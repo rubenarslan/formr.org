@@ -2,13 +2,8 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [v0.25.0] - 20.04.2026
+## [v0.25.1] - 21.04.2026
 ### Added
-- Study-admin notifications: email the run owner when units fail
-  - New `Notification` class with per-type throttling configurable via `$settings['notification']` (`default_throttle_minutes`, `throttle_map` for `error`/`warning`/`info`)
-  - Notifications are logged to the new `survey_notifications` table and throttled per run + recipient + type
-  - `notify_study_admin()` helper wired into OpenCPU rendering errors (`RunUnit`), Pause unit `relative_to` failures (both OpenCPU and invalid-result paths), External unit, Page unit, and survey-data save failures in `UnitSession`
-  - New `templates/email/notification.ftpl` with colored severity border
 - Google Sheets survey update workflow
   - New "Update survey" button on the run unit view that re-imports items directly from the source Google Sheet (only shown when the study has no real users yet)
   - "Create new sheet" button on the add-survey page that opens a copy of the formr survey template
@@ -21,7 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Compliance: Registration terms updated; cookie settings link added to footer
 
 ### Fixes
-- Replaced the old request-token CSRF mechanism with a cleaner implementation; fixes spurious "security verification" errors on POST forms and Ajax calls that hit a race condition with concurrent requests
+- Removed the old request-token CSRF mechanism
   - Removed `Session::REQUEST_TOKENS`, `getRequestToken()`, `canValidateRequestToken()` and per-form hidden token inputs
   - Fixes a bug where the CSRF cookie could end up in the URL
 - PWA / push notifications on iOS
@@ -32,14 +27,22 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - `isSupported()` no longer requires `window.PushManager` (not reliably exposed on iOS)
   - PWA manifest generation now explicitly tells the admin whether cookie expiry was auto-extended to 1 year, and returns the manifest under a `manifest` key
   - Fixes session timeout handling and user-ID loss when the service worker is terminated (#654, #628)
-- jQuery 3 migration across admin JS (`run.js`, `main.js`, `run_users.js`, `Select2Initializer.js`, `survey.js`)
-  - Replaced `.bind()`/`.unbind()` with `.on()`/`.off()`, `$.parseJSON` with `JSON.parse`, `$.isNumeric` with an explicit `isNaN`/`isFinite` check, `$.trim` with `String.prototype.trim`
 - Pagination links in `PagedSpreadsheetRenderer` now build from `$_GET` instead of `array_diff_key($_REQUEST, $_POST)`, avoiding leaking cookie-derived params into page URLs
-- OpenCPU error messages for Pause, Page and External units now include the actual R error text in the log, and are forwarded to the study admin notification
 - Cookie consent: "manage cookies" button now calls `preventDefault()` so it no longer appends `#` to the URL
-- Removed broken Zenodo DOI badge images on the About/Publications page; replaced with plain DOI links
+- Removed GDPR-problematic Zenodo DOI badge images on the About/Publications page; replaced with plain DOI links
 - Improved Google Sheets integration: better error handling for invalid survey names extracted from Sheet filenames (#608); spreadsheet reader trims and normalises whitespace in the `class` column (#661)
 - Misc dependency bumps: jquery 2.2.4 → 3.7.1, phpoffice/phpspreadsheet 1.29.9 → 1.30.0, webpack-dev-server, http-proxy-middleware, on-headers, compression, js-yaml
+
+## [v0.25.0] - 20.04.2026
+### Added
+- Study-admin notifications: email the run owner when units fail
+  - New `Notification` class with per-type throttling configurable via `$settings['notification']` (`default_throttle_minutes`, `throttle_map` for `error`/`warning`/`info`)
+  - Notifications are logged to the new `survey_notifications` table and throttled per run + recipient + type
+  - `notify_study_admin()` helper wired into OpenCPU rendering errors (`RunUnit`), Pause unit `relative_to` failures (both OpenCPU and invalid-result paths), External unit, Page unit, and survey-data save failures in `UnitSession`
+  - New `templates/email/notification.ftpl` with colored severity border
+
+### Fixes
+- OpenCPU error messages for Pause, Page and External units now include the actual R error text in the log, and are forwarded to the study admin notification
 
 ### Schema
 - SQL Patch 46: adds `survey_notifications` table
