@@ -1091,12 +1091,19 @@ function opencpu_prepare_api_access($code, &$variables)
 
     $run_session = run_session(); // Get the current run session
     if (!$run_session) {
+        // Try to get the run session from the Site instance for test runs where run_session() does not work.
+        $run_session = Site::getInstance()->getRunSession();
+    }
+    if (!$run_session) {
         return null;
     }
 
     $run = $run_session->getRun();
-    $owner = $run->getOwner(); // Get the user object of the run owner
+    if (!$run) {
+        return null;
+    }
 
+    $owner = $run->getOwner(); // Get the user object of the run owner
     if (!$owner || !$owner->id) {
         return null;
     }
