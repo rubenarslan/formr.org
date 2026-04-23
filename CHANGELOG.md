@@ -4,10 +4,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 ### Added
-- form_v2 Phase 0 (plumbing): new `Form` RunUnit type that delegates to the legacy Survey renderer. Gated behind `$settings['form_v2_enabled']` (default `false`); when enabled, an "Add Form" button appears in the admin run editor alongside the existing unit types. Creating a Form unit stamps `rendering_mode='v2'` on the linked `survey_studies` row so later phases can branch their renderer. See `plan_form_v2.md`.
+- form_v2 Phase 0 (plumbing): new `Form` RunUnit type gated behind `$settings['form_v2_enabled']` (default `false`); when enabled, an "Add Form" button appears in the admin run editor alongside the existing unit types. Form keeps its own `survey_units` row (unlike Survey, which shares one with its study) and references its `SurveyStudy` via `survey_units.form_study_id`. Creating a Form stamps `rendering_mode='v2'` on the linked study. See `plan_form_v2.md`.
+- form_v2 Phase 1 (single-page AJAX form):
+  - New `FormRenderer` (`application/Spreadsheet/FormRenderer.php`) extends `SpreadsheetRenderer`, emitting all items inside `<section data-fmr-page>` wrappers with a BS5-flavoured form header and page-nav buttons.
+  - New client bundle `webroot/assets/form/` (Webpack entry `form`) built from Alpine.js 3 + Bootstrap 5 (scoped via `bootstrap5` npm alias so admin BS3 is untouched) + Font Awesome 6 + Tom-select. Handles page navigation, item-view timing, and per-page AJAX submission; no jQuery, no webshim.
+  - New view `templates/run/form_index.php` loads only the form bundle (distinct from the v1 `run/index.php` asset set).
+  - New endpoint `POST /{runName}/form-page-submit` (`RunController::formPageSubmitAction`) accepts JSON `{page, data, item_views}`, saves via the same `UnitSession::updateSurveyStudyRecord` path v1 uses, returns JSON for the client to act on.
+  - `Run::exec` and `RunSession::executeUnitSession` pass a `use_form_v2` flag through so the controller can pick the right view.
+- Playwright MCP operational notes added to `CLAUDE.md` along with a fixture inventory of `documentation/example_surveys/*.xlsx` and `documentation/run_components/*.json`.
 
 ### Schema
 - SQL Patch 47: adds `rendering_mode` ENUM('v1','v2') NOT NULL DEFAULT 'v1' column to `survey_studies`.
+- SQL Patch 48: adds `form_study_id` INT UNSIGNED NULL column to `survey_units` so Form units can reference a SurveyStudy without sharing its id.
 
 ## [v0.25.1] - 21.04.2026
 ### Added

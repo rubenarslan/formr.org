@@ -348,7 +348,11 @@ class RunSession extends Model {
         }
         
         if (isset($result['content'])) {
-            return ['body' => $result['content']];
+            $out = ['body' => $result['content']];
+            if (!empty($result['use_form_v2'])) {
+                $out['use_form_v2'] = true;
+            }
+            return $out;
         }
 
         return $this->moveOn();

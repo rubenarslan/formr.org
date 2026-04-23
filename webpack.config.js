@@ -14,6 +14,7 @@ module.exports = (env, argv) => {
             material: './webroot/assets/site/js/material.js',
             frontend: './webroot/assets/site/js/main.js',
             admin: './webroot/assets/admin/js/main.js',
+            form: './webroot/assets/form/js/main.js',
         },
         output: {
             filename: 'js/[name].bundle.js',
@@ -64,6 +65,10 @@ module.exports = (env, argv) => {
                 {
                     test: /\.css$/,
                     use: ['style-loader', 'css-loader'],
+                },
+                {
+                    test: /\.s[ac]ss$/,
+                    use: ['style-loader', 'css-loader', 'sass-loader'],
                 },
                 {
                     test: /add-to-homescreen.*\.css$/,

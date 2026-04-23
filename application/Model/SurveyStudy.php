@@ -27,6 +27,7 @@ class SurveyStudy extends Model {
     public $unlinked = 0;
     public $hide_results = 0;
     public $use_paging = 0;
+    public $rendering_mode = 'v1';
 
     public $created = null;
     public $modified = null;

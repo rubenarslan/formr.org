@@ -143,3 +143,29 @@ The Playwright MCP server is registered (`claude mcp list` shows it as ✓ Conne
 - **DB cleanup has FK order.** `survey_runs` has no cascade to `survey_run_units`; deleting a run requires deleting `survey_run_units`, `survey_run_special_units`, and `survey_run_sessions` first. Easier to use the admin "Danger Zone → Delete run" UI than to script the cascade.
 - **Dev DB client is `mariadb`, not `mysql`.** Inside `formr_db`: `docker exec -i formr_db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' < patch.sql`. Credentials are already env vars inside the container — pass them via `$MARIADB_*` rather than hardcoding on the CLI.
 - **Schema patches vs. `sql/schema.sql`.** In this repo `schema.sql` is not kept in sync with recent patches (e.g. 043, 045, 046 are missing columns in schema.sql). Ship just the patch file — don't try to edit schema.sql "for consistency" unless you're separately reconciling it.
+
+### Example surveys and run bundles (for testing)
+
+The `documentation/` directory ships fixtures you can feed straight into the admin UI — prefer these over synthesising fake data or inserting rows by hand, since they exercise the real spreadsheet/import pipeline.
+
+- **`documentation/example_surveys/*.xlsx`** — uploadable XLSform-style spreadsheets. Upload via `/admin/survey/` → "Add a new survey". Notable ones for form_v2 work:
+  - `all_widgets_with_values.xlsx` — nearly every item type (text, mc, mc_button, rating_button, check, number, select_one, select_multiple, etc.). Comprehensive smoke test for a renderer; also available as a Google Sheet at `https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw`.
+  - `just_submit.xlsx`, `just_notes.xlsx`, `just_hidden.xlsx` — minimal fixtures for targeted tests of a single behaviour.
+  - `test_skipifs.xlsx` — skipif/showif edge cases; useful when working on R-transpile or client-side showif.
+  - `random_order.xlsx`, `random_order_with_blocks.xlsx`, `fixed_order.xlsx` — item-ordering behaviour.
+  - `progress10.xlsx` — progress-bar / percentage accounting.
+  - `page1.xlsx` / `page2.xlsx` — paging.
+  - `break_opencpu.xlsx` — deliberately breaks OpenCPU calls; good for error-path work.
+- **`documentation/run_components/*.json`** — exportable run bundles. Import via the admin run editor's "Import" button. Notable:
+  - `Appstinence.json` — full PWA study (fleshed-out manifest, push, multi-unit flow). Heavyweight; use when testing PWA/push/offline end-to-end.
+  - `Basic_Diary.json`, `Experience_sampling.json`, `Longitudinal_study.json` — diary/ESM patterns (Pause + Survey loops).
+  - `filter.json` — Skip unit flow.
+  - `Reminder.json`, `Text_message.json` — email/push reminder flows.
+  - `Simple_Social_Network.json` — social network study pattern.
+- **Google Sheets you can import via "Add a new survey" → "From Google Sheet":**
+  - All widgets: `https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw`
+  - Just an email field: `https://docs.google.com/spreadsheets/d/1zVKJ8IdSsTknA8OiAstlf7DrfFfctqvnIyjte5Mk-L0`
+
+**Rule of thumb for UI tests:** start from the smallest fixture that exercises the code path you changed (e.g. `just_notes.xlsx` if you touched label rendering; `all_widgets_with_values.xlsx` only when you need a broad surface). Running the whole `Appstinence.json` every time is wasteful and makes failures hard to isolate.
+
+Don't prefer direct DB inserts for test setup over uploading a fixture — DB shortcuts can produce states that no UI flow can actually create, and those states won't catch real-world bugs.

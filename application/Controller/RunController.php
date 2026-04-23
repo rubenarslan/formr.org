@@ -63,7 +63,12 @@ class RunController extends Controller {
         $asset_vars = $this->filterAssets($run_vars);
         unset($run_vars['css'], $run_vars['js']);
 
-        $this->setView('run/index', array_merge($run_vars, $asset_vars));
+        // form_v2 units render through a minimal standalone view that loads only
+        // the form bundle. Falls through to run/index.php for Survey units and all
+        // other unit types.
+        $view = !empty($run_vars['use_form_v2']) ? 'run/form_index' : 'run/index';
+
+        $this->setView($view, array_merge($run_vars, $asset_vars));
 
         return $this->sendResponse();
     }
@@ -457,5 +462,80 @@ class RunController extends Controller {
         } else {
             $this->sendJsonResponse(array('error' => 'Failed to delete subscription.'), 500);
         }
+    }
+
+    /**
+     * form_v2 page-submit endpoint (Phase 1).
+     *
+     * URL: POST /{runName}/form-page-submit
+     * Body: JSON `{"page": int, "data": {name: value, ...}, "item_views": {shown|shown_relative|answered|answered_relative: {itemId: value}}}`
+     *
+     * Validates and persists a page's answers via UnitSession::updateSurveyStudyRecord
+     * (the same path v1 uses for form submits). On success, instructs the client to
+     * redirect back to the run URL so Run::exec can advance to the next unit.
+     * Validation errors are returned as `{status: "errors", errors: {name: msg}}`
+     * for inline display.
+     */
+    public function formPageSubmitAction() {
+        if (!Request::isHTTPPostRequest()) {
+            $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
+            return;
+        }
+
+        $raw = file_get_contents('php://input');
+        $payload = json_decode($raw, true);
+        if (!is_array($payload)) {
+            $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
+            return;
+        }
+
+        $data = (isset($payload['data']) && is_array($payload['data'])) ? $payload['data'] : array();
+        $itemViews = (isset($payload['item_views']) && is_array($payload['item_views'])) ? $payload['item_views'] : array();
+
+        $this->run = $this->getRun();
+        $this->user = $this->loginUser();
+
+        $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
+        if (!$runSession->id) {
+            $this->sendJsonResponse(array('error' => 'No active run session'), 403);
+            return;
+        }
+
+        $unitSession = $runSession->getCurrentUnitSession();
+        if (!$unitSession || !$unitSession->runUnit) {
+            $this->sendJsonResponse(array('error' => 'No current unit session'), 409);
+            return;
+        }
+
+        $runUnit = $unitSession->runUnit;
+        // Form extends Survey — accept both, but only v2-rendered studies should reach this endpoint.
+        if (!($runUnit instanceof Survey)) {
+            $this->sendJsonResponse(array('error' => 'Current unit is not a survey/form'), 409);
+            return;
+        }
+
+        $unitSession->createSurveyStudyRecord();
+
+        // Reassemble the v1-style $posted shape: flat answers + nested _item_views.
+        $posted = $data;
+        $posted['_item_views'] = $itemViews;
+
+        $saved = $unitSession->updateSurveyStudyRecord($posted, true);
+        if (!$saved) {
+            $errors = isset($unitSession->errors) && is_array($unitSession->errors) ? $unitSession->errors : array();
+            $this->sendJsonResponse(array(
+                'status' => 'errors',
+                'errors' => $errors,
+            ));
+            return;
+        }
+
+        // Phase 1 MVP: after a successful save, bounce back to the run URL and let
+        // Run::exec decide whether to advance to the next unit. Multi-page `next_page`
+        // responses land in a follow-up iteration.
+        $this->sendJsonResponse(array(
+            'status' => 'ok',
+            'redirect' => run_url($this->run->name),
+        ));
     }
 }

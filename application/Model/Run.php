@@ -1033,6 +1033,7 @@ class Run extends Model {
             'run_session' => $runSession,
             'run_content' => $run_content,
             'redirect' => array_val($output, 'redirect'),
+            'use_form_v2' => !empty($output['use_form_v2']),
             'run' => $this,
         );
     }
