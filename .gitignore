@@ -42,3 +42,4 @@ node_modules
 webroot/assets/dev-build
 *aardvark*
 feature_diff.patch
+.playwright-mcp/
