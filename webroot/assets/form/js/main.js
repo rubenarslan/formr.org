@@ -6,9 +6,11 @@
 
 import 'bootstrap5/dist/css/bootstrap.min.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
+import 'tom-select/dist/css/tom-select.bootstrap5.min.css';
 import '../css/form.scss';
 
 import Alpine from 'alpinejs';
+import TomSelect from 'tom-select';
 
 function initForm() {
     const root = document.querySelector('.fmr-form-v2');
@@ -25,14 +27,42 @@ function initForm() {
     // MySQL datetime column format (matches the v1 helper in common/js/main.js).
     const mysqlDatetime = () => new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-    const stampShown = (pageEl) => {
+    // IntersectionObserver-based `shown` timing: only stamp an item once it
+    // actually enters the viewport. Server-side SpreadsheetRenderer sets these
+    // fields to mysql_now() only if the client never populated them, so we can
+    // keep filling them lazily.
+    const stampItemShown = (itemEl) => {
+        if (itemEl.dataset.fmrShown === '1') return;
+        itemEl.dataset.fmrShown = '1';
         const nowSql = mysqlDatetime();
         const relMs = Math.round(performance.now());
-        pageEl.querySelectorAll('.item_shown').forEach((inp) => {
-            if (!inp.value) inp.value = nowSql;
-        });
-        pageEl.querySelectorAll('.item_shown_relative').forEach((inp) => {
-            if (!inp.value) inp.value = String(relMs);
+        const shown = itemEl.querySelector('.item_shown');
+        const shownRel = itemEl.querySelector('.item_shown_relative');
+        if (shown && !shown.value) shown.value = nowSql;
+        if (shownRel && !shownRel.value) shownRel.value = String(relMs);
+    };
+
+    const itemIntersectionObserver = ('IntersectionObserver' in window)
+        ? new IntersectionObserver((entries) => {
+              entries.forEach((entry) => {
+                  if (entry.isIntersecting) {
+                      stampItemShown(entry.target);
+                      itemIntersectionObserver.unobserve(entry.target);
+                  }
+              });
+          }, { threshold: 0.25 })
+        : null;
+
+    const observeItems = (pageEl) => {
+        if (!itemIntersectionObserver) {
+            // Fallback: stamp everything immediately when the page becomes visible.
+            pageEl.querySelectorAll('.form-group, .item').forEach((el) => stampItemShown(el));
+            return;
+        }
+        pageEl.querySelectorAll('.form-group, .item').forEach((el) => {
+            if (el.dataset.fmrShown !== '1') {
+                itemIntersectionObserver.observe(el);
+            }
         });
     };
 
@@ -50,7 +80,7 @@ function initForm() {
         const p = pages[i];
         if (p) {
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            stampShown(p);
+            observeItems(p);
         }
     };
 
@@ -295,6 +325,27 @@ function initForm() {
     root.addEventListener('submit', (e) => { e.preventDefault(); submitPage(); });
 
     initGeopoint();
+
+    // Tom-select on <select> elements. v1 auto-wired select2; v2 mirrors that
+    // using tom-select so the participant bundle stays jQuery-free. Large
+    // dropdowns (timezone list, big choice lists) get the search input; small
+    // ones render as a styled click-to-open menu.
+    root.querySelectorAll('select').forEach((sel) => {
+        if (!sel.name || sel.name === '') return; // skip the progress <select> chrome, if any
+        if (sel.dataset.tomSelectInit === '1') return;
+        sel.dataset.tomSelectInit = '1';
+        const needsSearch = sel.options.length > 20 || sel.classList.contains('select2zone');
+        try {
+            new TomSelect(sel, {
+                create: false,
+                controlInput: needsSearch ? '<input>' : null,
+                plugins: sel.multiple ? ['remove_button'] : [],
+                maxOptions: 1000,
+            });
+        } catch (e) {
+            console.warn('tom-select init failed for', sel.name, e);
+        }
+    });
 
     // Initial page from ?page=N
     const paramPage = Number(new URLSearchParams(window.location.search).get('page'));

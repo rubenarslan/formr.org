@@ -58,39 +58,165 @@
     }
 
     // --- BS3 -> BS5 compat for markup produced by Item::render() ---
-    // Items emit BS3 classes (form-group, help-block, has-error). Keep
-    // them rendering reasonably in BS5 without forking Item classes.
+    // Items emit BS3 classes (form-group, help-block, has-error, control-label,
+    // label-danger, input-group-btn, controls/controls-inner). Rather than
+    // fork Item rendering, we map those to BS5-ish visuals here.
+
     .form-group {
-        margin-bottom: 1.25rem;
+        margin-bottom: 1.5rem;
+        padding: 0.5rem 0;
+
+        & + .form-group {
+            border-top: 1px solid var(--bs-border-color-translucent, rgba(0, 0, 0, 0.08));
+        }
     }
+
+    .form-row {
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .control-label {
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        display: block;
+
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 0;
+            margin-bottom: 0.25rem;
+        }
+
+        p {
+            margin-bottom: 0.5rem;
+            color: var(--bs-secondary-color, #6c757d);
+            font-weight: 400;
+        }
+    }
+
     .help-block {
         color: var(--bs-secondary-color, #6c757d);
         font-size: 0.875em;
         margin-top: 0.25rem;
     }
+
     .has-error {
-        label { color: var(--bs-danger, #dc3545); }
-        input, textarea, select {
+        label, .control-label { color: var(--bs-danger, #dc3545); }
+        input:not([type=radio]):not([type=checkbox]), textarea, select {
             border-color: var(--bs-danger, #dc3545);
         }
     }
-    .control-label {
-        font-weight: 500;
-        margin-bottom: 0.375rem;
+
+    // BS3 label-{context} -> BS5 text-bg-{context}
+    .label {
         display: inline-block;
+        padding: 0.15em 0.5em;
+        font-size: 0.75em;
+        font-weight: 500;
+        border-radius: 0.25rem;
+        color: #fff;
+    }
+    .label-danger  { background: var(--bs-danger, #dc3545); }
+    .label-info    { background: var(--bs-info, #0dcaf0); }
+    .label-success { background: var(--bs-success, #198754); }
+    .label-warning { background: var(--bs-warning, #ffc107); color: #000; }
+    .label-default { background: var(--bs-secondary, #6c757d); }
+
+    .controls {
+        max-width: 100%;
+    }
+    .controls-inner {
+        position: relative;
     }
 
-    // Item wrappers rendered by v1 Item::render()
+    // Input groups: BS3 used input-group-btn; BS5 expects direct children.
+    .input-group-btn {
+        display: flex;
+        align-items: stretch;
+
+        .btn {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+
+        &.hidden { display: none; }
+    }
+
+    // Radio/checkbox groups — v1 renders them as <label><input>text</label>
+    // under .controls; give them decent spacing.
+    .controls > label,
+    .controls-inner > label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-right: 1rem;
+        margin-bottom: 0.25rem;
+        font-weight: normal;
+
+        input[type=radio], input[type=checkbox] {
+            margin-right: 0.25rem;
+        }
+    }
+
+    // Vertical layout for mc lists that want it.
+    .mc_vertical .controls > label {
+        display: flex;
+        margin-right: 0;
+    }
+
+    // Square button-style mc_button / rating_button items.
+    .square, .square80, .blank_button {
+        .controls > label, .controls-inner > label {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-width: 4.5rem;
+            min-height: 4.5rem;
+            padding: 0.5rem;
+            margin-right: 0.5rem;
+            border: 1px solid var(--bs-border-color, #dee2e6);
+            border-radius: 0.375rem;
+            background: var(--bs-body-bg, #fff);
+            cursor: pointer;
+            text-align: center;
+
+            input[type=radio], input[type=checkbox] {
+                position: absolute;
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            &:hover {
+                background: var(--bs-tertiary-bg, #f8f9fa);
+            }
+
+            &.selected,
+            &:has(input:checked) {
+                background: var(--bs-primary-bg-subtle, #cfe2ff);
+                border-color: var(--bs-primary, #0d6efd);
+                color: var(--bs-primary-text-emphasis, #0a58ca);
+            }
+        }
+    }
+
+    // Range sliders
+    input[type=range] {
+        width: 100%;
+    }
+
+    // Item wrappers
     .item {
         padding: 1rem 0;
 
         & + .item {
-            border-top: 1px solid rgba(0, 0, 0, 0.04);
+            border-top: 1px solid var(--bs-border-color-translucent, rgba(0, 0, 0, 0.04));
         }
+    }
 
-        .control-label, label {
-            display: block;
-            margin-bottom: 0.5rem;
+    // Notes / heading-style blocks.
+    .item-note {
+        .control-label {
+            color: var(--bs-body-color);
         }
     }
 
@@ -102,8 +228,27 @@
         box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.15);
     }
 
-    // Hide v1 submit button if the v1 renderer emitted one; we provide our own.
-    button[name="submit"]:not([data-fmr-next]):not([data-fmr-prev]) {
+    // Explicit server-returned error (added by applyErrors in main.js)
+    .is-invalid {
+        border-color: var(--bs-danger, #dc3545) !important;
+    }
+    .invalid-feedback.fmr-invalid-feedback {
+        color: var(--bs-danger, #dc3545);
+        font-size: 0.875em;
+        display: block;
+    }
+    .fmr-error-banner {
+        margin-bottom: 1rem;
+    }
+
+    // Hide v1 submit buttons emitted by Item::render; v2 supplies its own nav.
+    button[name="submit"]:not([data-fmr-next]):not([data-fmr-prev]),
+    input[type=submit]:not([data-fmr-next]) {
+        display: none;
+    }
+
+    // Opencpu debug block — v1 admins can see it when testing; tuck it away.
+    .hidden_debug_message {
         display: none;
     }
 }
