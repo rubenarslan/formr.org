@@ -14,6 +14,109 @@ Phased rollout; sunset of `Survey` unit deferred by at least 18 months after for
 
 ---
 
+## 0.5 Progress (as of 2026-04-23)
+
+Branch `feature/form_v2`, not yet merged. Status reflects what's landed in code (not what's been verified by full test suites). See §9 for the phase definitions; the breakdown below mirrors them.
+
+### Phase 0 — Plumbing
+- [x] `Form` RunUnit class (`application/Model/RunUnit/Form.php`)
+- [x] `rendering_mode` ENUM column on `survey_studies` (sql/patches/047)
+- [x] `form_v2_enabled` feature flag in config
+- [x] Admin "Add Form" button gated by the flag (fa-wpforms icon)
+- [x] Admin editor template `templates/admin/run/units/form.php`
+- [x] Form has its own `survey_units` row (type='Form'), references its study via `survey_units.form_study_id` (sql/patches/048) — not the v1 Survey quirk of sharing an id
+
+### Phase 1 — Full-page rendering + AJAX page-submit, no R changes
+Core (done):
+- [x] New Webpack entry `form` + bundle `form.bundle.js`
+- [x] Alpine.js 3 imported and registered (not yet used for reactive `showif`)
+- [x] Bootstrap 5 scoped to participant pages via npm alias `bootstrap5`
+- [x] Font Awesome 6
+- [x] Tom-select installed and imported
+- [x] jQuery dropped from the form bundle
+- [x] `FormRenderer` single-document renderer (`application/Spreadsheet/FormRenderer.php`)
+- [x] `Form::getUnitSessionOutput` branches on `rendering_mode='v2'`
+- [x] New participant view `templates/run/form_index.php`
+- [x] `Run::exec` + `RunSession::executeUnitSession` pass `use_form_v2` through
+- [x] AJAX endpoint `POST /{runName}/form-page-submit` (`RunController::formPageSubmitAction`)
+- [x] Client-side page show/hide via `<section data-fmr-page>` + vanilla JS nav
+- [x] Per-page AJAX submit + native Constraint Validation
+- [x] Multi-page grouping via `survey_items_display.page` (server) + `next_page` responses (client)
+- [x] MySQL-format timestamps for item-view tracking (matches v1 contract)
+- [x] Verified end-to-end with `enter_email` fixture
+
+Gaps (Phase 1.5 before moving to Phase 2):
+- [ ] Tom-select auto-wired to appropriate `<select>` elements
+- [ ] IntersectionObserver for `shown`/`shown_relative` (currently using change events)
+- [ ] "Previous" button opt-in per form
+- [ ] `history.pushState(?page=N)` verified across back-button + deep-link landings
+- [ ] Item-type parity audit for the 20 most-used types (only text/email exercised)
+- [ ] "Not supported in v2" warning for gated item types
+- [ ] Inline `.is-invalid` BS5 error UI (currently relies on native `reportValidity` only)
+- [ ] Broader BS3→BS5 compat in `form.scss` (item wrappers still look rough)
+
+### Phase 2 — Item-type coverage
+- [ ] Audio, video, ratingbutton variants
+- [ ] Geolocation (native navigator.geolocation wrapper — see §4.2)
+- [ ] File uploads (needs `FormData` instead of JSON on the AJAX path)
+- [ ] Date/time/datetime-local/month/week across browsers
+- [ ] Button groups (without `webshim`'s addShadowDom)
+- [ ] Scale, slider, ratingbutton, mc_button
+- [ ] Submit item handling (v2 provides its own nav, skip v1's emitted submit)
+
+### Phase 3 — Client-side `showif` + transpiler hardening
+- [ ] `showif_js` column on `survey_items`
+- [ ] Default interpretation of `showif` as JS over an `answers` reactive object
+- [ ] Standard library helpers (`contains`, `last`, `isNA`, …)
+- [ ] `r(...)` wrapper detection at import (explicit opt-in to server-side R)
+- [ ] `survey_r_calls` allowlist table (patch TBD)
+- [ ] Hardened JS transpiler (proper parser, not regex)
+- [ ] Upgrade-time compatibility scan (auto-wrap un-translatable R in `r()`)
+- [ ] Alpine `x-show` bindings for JS `showif` expressions
+
+### Phase 4 — Deferred fill for `value` and embedded Rmd
+- [ ] `/form/r-call` proxy endpoint
+- [ ] `/form/fill` deferred-fill endpoint
+- [ ] `survey_r_call_results` cache table with TTL
+- [ ] Placeholder/skeleton UI + client-side fill resolution
+- [ ] Rate limiting via `Services/RateLimitService`
+- [ ] Bail-out UI when OpenCPU errors (admin notification already wired)
+
+### Phase 5 — Offline queue
+- [ ] IndexedDB store `formrQueue`
+- [ ] Service-worker page-submit interception
+- [ ] Background Sync + `/form/sync` endpoint
+- [ ] Queued-submission UI banner
+- [ ] Dedupe by client-generated submission UUID
+- [ ] `offline_mode` flag on `survey_studies` (opt-out)
+- [ ] Unconditional SW registration on form_v2 runs
+- [ ] iOS Safari compatibility pass
+- [ ] File-size cap for queued uploads (default 10 MB)
+
+### Phase 6 — Docs + migration tooling
+- [ ] Admin UI for the compatibility scanner
+- [ ] Documentation updates
+- [ ] Example surveys ported to v2
+- [ ] Automated v1↔v2 parity test suite (the "feature-parity gate")
+
+### Cross-cutting (from §4.1 / §4.2)
+- [x] Bootstrap 5 in form_v2 only (admin Bootstrap 3 untouched)
+- [x] Font Awesome 6 in form_v2 only (admin FA 4.7 untouched)
+- [x] `bootstrap-material-design` absent from form_v2 bundle
+- [x] No jQuery in form_v2 bundle
+- [ ] Webshim removal: native `setCustomValidity`/`reportValidity` helper module
+- [ ] Webshim removal: `linkValidity` replacement for `addShadowDom` wrapper syncing
+- [ ] Webshim removal: native geolocation wrapper for the `geolocation` item
+- [ ] select2 replaced by tom-select in form_v2 templates (admin keeps select2 indefinitely — §10.6)
+
+### Rollout gates (not yet reached)
+- [ ] Feature-parity gate: automated v1↔v2 test suite green
+- [ ] Default flip: new studies default to v2
+- [ ] Sunset: deprecation warning on `Survey` units (v2 GA + 6 months)
+- [ ] Sunset: hard removal target (v2 GA + 12 months per §10.1 — user shortened from 24)
+
+---
+
 ## 1. Should `form_v2` exist in parallel? — **Yes, for now.**
 
 ### Arguments weighed
