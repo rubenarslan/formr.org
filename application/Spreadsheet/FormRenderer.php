@@ -14,6 +14,84 @@
  */
 class FormRenderer extends SpreadsheetRenderer {
 
+    /**
+     * v1 `SpreadsheetRenderer::processItems` chunks items at each submit and only
+     * renders the first chunk, because v1 renders one page at a time. The v2
+     * client renders all pages up-front, so we process every unanswered item in
+     * one batch (one OpenCPU call for showifs/values, one for labels/choices)
+     * and let `render()` group by `survey_items_display.page` afterwards.
+     */
+    public function processItems() {
+        $items = $this->getAllUnansweredItems();
+        if ($items) {
+            $items = $this->processAutomaticItems($items);
+            $items = $this->processDynamicValuesAndShowIfs($items);
+            if ($items) {
+                // Hide any submit items — v2 provides its own nav.
+                foreach ($items as $name => $item) {
+                    if ($item->type === 'submit') {
+                        $this->db->update('survey_items_display', ['hidden' => 1], [
+                            'session_id' => $this->unitSession->id,
+                            'item_id' => $item->id,
+                        ]);
+                        unset($items[$name]);
+                    }
+                }
+                $items = $this->processDynamicLabelsAndChoices($items);
+            }
+        }
+        $this->toRender = $items ?: [];
+        $this->renderedItems = $this->getRenderedStudyItems();
+    }
+
+    /**
+     * All unanswered items across all pages, no submit-chunking. Mirrors the
+     * query in SpreadsheetRenderer::getNextStudyItems but without the
+     * `$inPage` short-circuit.
+     */
+    protected function getAllUnansweredItems() {
+        $this->unanswered = [];
+        $stmt = $this->db->select('
+            `survey_items`.id,
+            `survey_items`.study_id,
+            `survey_items`.type,
+            `survey_items`.choice_list,
+            `survey_items`.type_options,
+            `survey_items`.name,
+            `survey_items`.label,
+            `survey_items`.label_parsed,
+            `survey_items`.optional,
+            `survey_items`.class,
+            `survey_items`.showif,
+            `survey_items`.value,
+            `survey_items_display`.displaycount,
+            `survey_items_display`.session_id,
+            `survey_items_display`.display_order,
+            `survey_items_display`.hidden,
+            `survey_items_display`.answered')
+            ->from('survey_items')
+            ->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
+            ->where('(survey_items.study_id = :study_id) AND (survey_items_display.saved IS null) AND (survey_items_display.hidden IS NULL OR survey_items_display.hidden = 0)')
+            ->order('`survey_items_display`.`display_order`', 'asc')
+            ->order('survey_items.`order`', 'asc')
+            ->order('survey_items.id', 'asc')
+            ->bindParams([
+                'session_id' => $this->unitSession->id,
+                'study_id' => $this->study->id,
+            ])
+            ->statement();
+
+        $itemFactory = new ItemFactory([]);
+        $out = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $item = $itemFactory->make($row);
+            if (!$item) continue;
+            $this->unanswered[$item->name] = $item;
+            $out[$item->name] = $item;
+        }
+        return $out;
+    }
+
     public function render($form_action = null, $form_append = null) {
         $itemsByPage = $this->groupByPage($this->renderedItems);
         $pageCount = count($itemsByPage);

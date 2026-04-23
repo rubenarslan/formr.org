@@ -107,12 +107,117 @@ function initForm() {
         });
     };
 
+    const findErrorTarget = (pageEl, name) => {
+        // First try the exact input name.
+        let el = pageEl.querySelector(`[name="${CSS.escape(name)}"]`);
+        // Geopoint / multi-field items submit via `name` but the visible input
+        // is `name[]`. Fall back to the array-suffixed version.
+        if (!el) el = pageEl.querySelector(`[name="${CSS.escape(name + '[]')}"]`);
+        // Some items may only expose a wrapper via `.item-<name>` — not common
+        // enough to chase here; fall back to null and we'll render a top-banner.
+        return el;
+    };
+
     const applyErrors = (pageEl, errors) => {
+        // Clear previous BS5-style error state.
+        pageEl.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
+        pageEl.querySelectorAll('.fmr-invalid-feedback').forEach((el) => el.remove());
+
+        let unplaced = [];
         Object.entries(errors).forEach(([name, msg]) => {
-            const el = pageEl.querySelector(`[name="${CSS.escape(name)}"]`);
-            if (el) el.setCustomValidity(String(msg));
+            const el = findErrorTarget(pageEl, name);
+            if (!el) {
+                unplaced.push({ name, msg: String(msg) });
+                return;
+            }
+            el.setCustomValidity(String(msg));
+            el.classList.add('is-invalid');
+            const feedback = document.createElement('div');
+            feedback.className = 'invalid-feedback fmr-invalid-feedback d-block';
+            feedback.textContent = String(msg);
+            // Insert after the input's immediate parent (so it lines up with BS5 form-control siblings).
+            const anchor = el.closest('.controls, .form-group') || el.parentElement;
+            if (anchor && anchor.parentElement) {
+                anchor.parentElement.insertBefore(feedback, anchor.nextSibling);
+            } else {
+                el.insertAdjacentElement('afterend', feedback);
+            }
+            // Scroll the first offender into view.
+            if (!pageEl.dataset.fmrScrolledToError) {
+                pageEl.dataset.fmrScrolledToError = '1';
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         });
+        delete pageEl.dataset.fmrScrolledToError;
+
+        if (unplaced.length) {
+            let banner = pageEl.querySelector('.fmr-error-banner');
+            if (!banner) {
+                banner = document.createElement('div');
+                banner.className = 'alert alert-danger fmr-error-banner';
+                banner.setAttribute('role', 'alert');
+                pageEl.insertBefore(banner, pageEl.firstChild);
+            }
+            banner.innerHTML = unplaced.map((e) => `<div><strong>${e.name}:</strong> ${e.msg}</div>`).join('');
+        }
+
         pageEl.reportValidity();
+    };
+
+    // Geopoint item: wire navigator.geolocation to the .geolocator button. v1
+    // did this via webshim + jQuery; the v2 bundle has neither dep.
+    const flatStringifyGeo = (pos) => JSON.stringify({
+        timestamp: pos.timestamp,
+        coords: {
+            accuracy: pos.coords.accuracy,
+            altitude: pos.coords.altitude,
+            altitudeAccuracy: pos.coords.altitudeAccuracy,
+            heading: pos.coords.heading,
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            speed: pos.coords.speed,
+        },
+    });
+
+    const initGeopoint = () => {
+        if (!('geolocation' in navigator)) return;
+        root.querySelectorAll('.geolocator').forEach((btn) => {
+            // v1 wraps the button in <span class="input-group-btn hidden">;
+            // show it now that JS is up.
+            const wrapper = btn.closest('.input-group-btn');
+            if (wrapper && wrapper.classList.contains('hidden')) {
+                wrapper.classList.remove('hidden');
+            }
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const controls = btn.closest('.controls');
+                if (!controls) return;
+                const hidden = controls.querySelector('input[type=hidden]');
+                const visible = controls.querySelector('input[type=text]');
+                if (visible) {
+                    visible.placeholder = 'You can also enter your location manually';
+                    visible.removeAttribute('readonly');
+                }
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        if (hidden) hidden.value = flatStringifyGeo(pos);
+                        if (visible) {
+                            visible.value = `lat:${pos.coords.latitude}/long:${pos.coords.longitude}`;
+                            visible.setAttribute('readonly', 'readonly');
+                        }
+                        // Clear any prior error state for this item.
+                        controls.querySelectorAll('.is-invalid').forEach((el) => {
+                            el.classList.remove('is-invalid');
+                            el.setCustomValidity('');
+                        });
+                        controls.parentElement && controls.parentElement.querySelectorAll('.fmr-invalid-feedback').forEach((el) => el.remove());
+                    },
+                    () => {
+                        // Permission denied or unavailable — the visible field is now editable for manual entry.
+                    },
+                );
+            });
+        });
     };
 
     const submitUrl = root.dataset.submitUrl;
@@ -188,6 +293,8 @@ function initForm() {
 
     // Block implicit form submit (Enter key) from doing a real POST — funnel through submitPage.
     root.addEventListener('submit', (e) => { e.preventDefault(); submitPage(); });
+
+    initGeopoint();
 
     // Initial page from ?page=N
     const paramPage = Number(new URLSearchParams(window.location.search).get('page'));
