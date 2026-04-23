@@ -102,30 +102,51 @@ function initForm() {
         const itemViews = { shown: {}, shown_relative: {}, answered: {}, answered_relative: {} };
         const fields = pageEl.querySelectorAll('input[name], select[name], textarea[name]');
         fields.forEach((inp) => {
-            const name = inp.name || '';
-            const m = name.match(/^_item_views\[(\w+)\]\[(\d+)\]$/);
-            if (m) {
-                itemViews[m[1]] = itemViews[m[1]] || {};
-                itemViews[m[1]][m[2]] = inp.value;
+            const rawName = inp.name || '';
+            const viewMatch = rawName.match(/^_item_views\[(\w+)\]\[(\d+)\]$/);
+            if (viewMatch) {
+                itemViews[viewMatch[1]] = itemViews[viewMatch[1]] || {};
+                itemViews[viewMatch[1]][viewMatch[2]] = inp.value;
                 return;
             }
+
+            // Name with `[]` suffix is an array field (mc_multiple, select_multiple,
+            // geopoint display, etc.). Strip the suffix for the key. Everything
+            // else is scalar, last-value-wins — same as PHP's $_POST parsing.
+            let name = rawName;
+            let isArray = false;
+            if (rawName.endsWith('[]')) {
+                name = rawName.slice(0, -2);
+                isArray = true;
+            }
+
+            let value;
             if (inp.type === 'checkbox') {
-                if (inp.checked) {
-                    if (data[name] !== undefined) {
-                        if (!Array.isArray(data[name])) data[name] = [data[name]];
-                        data[name].push(inp.value);
-                    } else {
-                        data[name] = inp.value;
-                    }
-                }
+                if (!inp.checked) return;
+                value = inp.value;
             } else if (inp.type === 'radio') {
-                if (inp.checked) data[name] = inp.value;
+                if (!inp.checked) return;
+                value = inp.value;
             } else if (inp.type === 'file') {
-                // Phase 1: file uploads fall through to server error; offline queue lands in Phase 5.
+                // Phase 2 territory — needs multipart/FormData. Skipped on the JSON path.
+                return;
             } else if (inp.disabled) {
-                // skip disabled
+                return;
+            } else if (inp.tagName === 'SELECT' && inp.multiple) {
+                value = Array.from(inp.selectedOptions).map((o) => o.value);
+                isArray = true; // multi-select always emits an array
             } else {
-                data[name] = inp.value;
+                value = inp.value;
+            }
+
+            if (isArray) {
+                if (Array.isArray(value)) {
+                    data[name] = (data[name] || []).concat(value);
+                } else {
+                    data[name] = (data[name] || []).concat([value]);
+                }
+            } else {
+                data[name] = value; // last-wins
             }
         });
         return { data, item_views: itemViews };
