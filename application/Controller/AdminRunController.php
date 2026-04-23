@@ -701,11 +701,21 @@ class AdminRunController extends AdminController {
     }
 
     private function getUnitAddButtons() {
-        return array(
+        $buttons = array(
             'Survey' => array(
                 'title' => 'Add Survey',
                 'icon' => 'fa-pencil-square',
             ),
+        );
+
+        if (Config::get('form_v2_enabled', false)) {
+            $buttons['Form'] = array(
+                'title' => 'Add Form (form_v2, beta)',
+                'icon' => 'fa-wpforms',
+            );
+        }
+
+        $buttons += array(
             'External' => array(
                 'title' => 'Add External Link',
                 'icon' => 'fa-external-link-square',
@@ -743,6 +753,8 @@ class AdminRunController extends AdminController {
                 'icon' => 'fa-stop',
             ),
         );
+
+        return $buttons;
     }
 
 }

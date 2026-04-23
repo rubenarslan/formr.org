@@ -2,6 +2,13 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Added
+- form_v2 Phase 0 (plumbing): new `Form` RunUnit type that delegates to the legacy Survey renderer. Gated behind `$settings['form_v2_enabled']` (default `false`); when enabled, an "Add Form" button appears in the admin run editor alongside the existing unit types. Creating a Form unit stamps `rendering_mode='v2'` on the linked `survey_studies` row so later phases can branch their renderer. See `plan_form_v2.md`.
+
+### Schema
+- SQL Patch 47: adds `rendering_mode` ENUM('v1','v2') NOT NULL DEFAULT 'v1' column to `survey_studies`.
+
 ## [v0.25.1] - 21.04.2026
 ### Added
 - Google Sheets survey update workflow

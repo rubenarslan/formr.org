@@ -270,6 +270,12 @@ $settings['disabled_features'] = array(
     // SURVEY.controller_method_name
 );
 
+// Enable the form_v2 rendering engine (Phase 0+).
+// When true, admins can add the "Form" RunUnit type to a run. Existing Form
+// units continue to load and run regardless of this flag; only the "add Form"
+// affordance in the admin run editor is gated by it.
+$settings['form_v2_enabled'] = false;
+
 // Brand
 $settings['brand'] = '<span>f</span>orm<span>{`r}</span>';
 $settings['brand_long'] = '<b>formr</b> survey framework';
