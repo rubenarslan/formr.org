@@ -1,0 +1,515 @@
+# plan_form_v2: deep refactor of formr's survey engine
+
+Status: **Draft for review** — this is a design spec, not a work plan yet. Nothing here is committed until we agree on the top-level decisions.
+
+Branch: `feature/form_v2` (off `master` at v0.25.1).
+
+---
+
+## 0. TL;DR
+
+We replace server-rendered, per-page POST-redirect surveys with **a single-page AJAX form** backed by **one new run-unit class (`Form`)** and a **deferred R-evaluation model** (client-side `showif` by default, explicit `r()` calls for server-side R through an allowlisted proxy, deferred AJAX fill for `value`/embedded Rmarkdown). We ship it **side-by-side with the current `Survey` unit** under a new `rendering_mode` flag on the existing `survey_studies` table — no forked item model, no separate DB tables, no fork of the admin UI for survey authoring. The participant-facing frontend gets a **fresh Webpack entry, a modern reactivity layer (Alpine.js 3), Bootstrap 5 scoped to participant pages, Font Awesome 6, and zero webshim**; the admin UI stays on Bootstrap 3/jQuery untouched for now. Offline is a service-worker-managed IndexedDB queue with Background Sync replay.
+
+Phased rollout; sunset of `Survey` unit deferred by at least 18 months after form_v2 reaches feature parity.
+
+---
+
+## 1. Should `form_v2` exist in parallel? — **Yes, for now.**
+
+### Arguments weighed
+
+**For parallel (keep `Survey`, add `Form`):**
+- Longitudinal studies in production can run for years. Breaking them is unacceptable; in-flight participants cannot be re-consented into a new rendering engine mid-study.
+- The R-semantics change is *behavioral*, not just visual: current arbitrary-R `showif`/`value` surveys may not be mechanically translatable. We need an opt-in per-survey.
+- The item type surface is ~60 subclasses with custom server-side render paths. Reaching parity in JS takes months. Incremental, item-by-item migration is safer than big-bang.
+- Bootstrap 3 → 5 and webshim removal touch the entire admin UI if forced atomic. Isolating the change to participant forms limits blast radius.
+- The underlying data model (`survey_studies`, `survey_items`, `survey_items_display`, per-survey results tables) is sound and **shared between both modes**. We don't fork data, only the rendering/execution path.
+
+**Against parallel:**
+- Forever maintenance burden if we don't commit to sunsetting `Survey`.
+- Confusing matrix of features: admins ask "can I use this feature in form_v2?" for each one.
+- Drift: bugs fixed in one path get missed in the other.
+
+**Decision:** Parallel, but with a committed sunset. New studies default to `Form` once it passes a feature-parity gate (see §9). Existing `Survey` units remain functional. Hard deprecation warning surfaces for `Survey` 12 months after form_v2 GA; removal targeted for ~24 months. This is a long horizon for a hobby-ish research app — sped up if adoption is fast, slowed if we find load-bearing features that don't port.
+
+### Scope of "parallel"
+
+What's **shared** between `Survey` and `Form`:
+- `survey_studies`, `survey_items`, `survey_item_choices`, `survey_items_display`, per-survey results tables.
+- The admin UI for uploading items from spreadsheets, editing items, viewing results, deleting/expiring surveys.
+- The spreadsheet format (XLSform-style) and `SpreadsheetReader`.
+- The R package contract (data frame names, OpenCPU endpoints).
+- The run-session / unit-session queue & state machine.
+
+What's **new / forked**:
+- `application/Model/RunUnit/Form.php` (new class, registered in `RunUnitFactory::SupportedUnits`).
+- `application/Controller/FormController.php` or extension of `RunController` with AJAX endpoints for page-submit, r-call, deferred-fill, offline-sync.
+- `application/Spreadsheet/FormRenderer.php` (single-page renderer, replaces `SpreadsheetRenderer` + `PagedSpreadsheetRenderer` for `Form` units only).
+- `webroot/assets/form/` — new Webpack entry, new Bootstrap 5 + Alpine.js + modern deps. Clean split from `site/` / `admin/`.
+- `templates/run/form/` — new participant templates.
+- A new `rendering_mode` column on `survey_studies` (`'v1'` or `'v2'`, default `'v1'`, sets which renderer runs when this survey is used inside a `Form` or `Survey` unit).
+
+What's **not changed now** (explicit non-goals):
+- **All admin-facing changes are out of scope.** Admin UI stays Bootstrap 3 / jQuery / select2 / webshim. No modernization, no component swaps, no reworked workflows. The only admin-UI work this project does is the *minimum* affordances to create, edit, and upgrade form_v2 units — built on top of the existing admin stack, not a rebuild.
+- Item type classes themselves (`Model/Item/*.php`). Each item still knows how to produce an HTML input; `FormRenderer` just consumes that differently. (§4.4 discusses future simplification.)
+- The run-level engine (`Run`, `RunSession`, `UnitSession`). Form is just a new unit.
+- OpenCPU server-side. Same endpoints, same R packages. We add a proxy layer on the formr side; OpenCPU doesn't know about it.
+
+---
+
+## 2. Unified `Form` RunUnit
+
+### 2.1 Current split
+
+- `Model/SurveyStudy.php` (~1270 lines) owns item metadata, spreadsheet import, schema migration of the per-survey results table, results querying.
+- `Model/RunUnit/Survey.php` (~280 lines) is a thin wrapper: `create()` links a `SurveyStudy` to a run; `exec()`/`getUnitSessionOutput()` decides paged vs non-paged and hands off to a renderer.
+
+The conceptual split is "reusable survey template vs. per-run usage". In practice, users confuse the two (you add a `Survey` unit, then you also manage the `SurveyStudy` under `/admin/survey`, and it's not clear which is which).
+
+### 2.2 Proposed shape
+
+Introduce `Model/RunUnit/Form.php` as a RunUnit that **exposes the form directly** — the unit *is* the form from the admin's point of view.
+
+Internally, it still composes a `SurveyStudy` record (we keep the row for now — it's the natural home for results-table metadata and re-use across runs). But the admin UI and the UnitSession flow treat the `Form` as the unit of work:
+- Adding a `Form` to a run creates or reuses a `SurveyStudy` row and wires it to the `survey_run_units` row in one step.
+- Editing a `Form`'s items is a tab within the run-unit editor, not a separate destination.
+- If a study re-uses a form across runs (valid today), that stays possible — the `Form` unit can point at an existing `SurveyStudy` (the "attach existing form" action) — but the UI deprioritizes this path; most admins don't need it.
+
+In code:
+```php
+// application/Model/RunUnit/Form.php
+class Form extends RunUnit {
+    public $type = "Form";
+    public $icon = "fa-wpforms";            // FA6; legacy surveys keep fa-pencil-square-o
+    public $surveyStudy;                     // same field name as Survey for minimal churn
+    public $rendering_mode = 'v2';
+
+    public function exec($user, $run_vars = []) {
+        $unitSession = $this->getUnitSessionFromContext(...);
+        return (new FormSessionExecutor($this, $unitSession))->run();
+    }
+    // ...
+}
+```
+
+### 2.3 What we DON'T do
+
+- **No rename of `SurveyStudy`** in this project. It stays as the backing row/class. The admin-facing label becomes "Form" everywhere in v2 templates, but the DB column / class name churn is out of scope. When v1 is removed, we revisit.
+- **No fork of item tables.** `survey_items` stays the source of truth. The new renderer just reads differently.
+- **No new results-table layout.** The wide-format per-survey results table continues; v2 writes to it via the same code path (`UnitSession::updateSurveyStudyRecord()` or a modest variant).
+
+### 2.4 Migration path for existing surveys
+
+Admins can:
+1. Leave existing surveys alone — they keep running as `Survey` units in `rendering_mode='v1'`.
+2. For a study not yet live, click "Upgrade to form_v2" — flips `rendering_mode` to `v2`, runs the compatibility scan (§5.4), reports blockers.
+3. For a live study, upgrade is disabled. A new clone at `v2` is offered instead.
+
+---
+
+## 3. Single-page rendering + AJAX submission
+
+### 3.1 What changes
+
+Today:
+- **Non-paged**: whole form in one HTML document, POST submits everything, 302 redirect back to run URL.
+- **Paged**: server renders one page at a time, POST submits current page, 302 redirect to next page URL. Page boundaries live in `survey_items_display.page`.
+
+V2:
+- The server renders **all items of the form, in all pages, in a single HTML response**, with `<section data-fmr-page="N">` wrappers. CSS hides all pages except page 1 on initial load.
+- "Next" button: client validates the currently visible page, POSTs only that page's data to `/run/{name}/form/page-submit` (AJAX, `application/json`), on success hides current page, shows next, updates progress bar. No navigation, no 302.
+- "Previous" button (new affordance, opt-in per form): goes back within the already-submitted pages. Server state is authoritative; if user edits a previous page, that page's data is re-POSTed on next forward.
+- Submit on final page: same endpoint, server detects "last page", returns `{ next: 'run_advance' }`, client redirects to run URL, Run engine advances to the next unit.
+
+### 3.2 Server-side changes
+
+- `application/Spreadsheet/FormRenderer.php`: new class. Walks all items once, does an initial batch of OpenCPU calls for **only things that absolutely must be server-rendered at load time** (§5), emits the full-form HTML with pagination sections + deferred-fill placeholders.
+- Controller endpoints (under `/run/{name}/form/…`):
+  - `GET /` — renders the full form (if this is a `Form` unit).
+  - `POST /page-submit` — body `{ page: N, data: {...}, item_views: {...} }`; validates & saves just that page's items via `UnitSession::updateSurveyStudyRecord($posted, $validate=true)` scoped to that page. Returns `{ status: 'ok', progress: 0.4, next_page: 3 }` or `{ status: 'errors', errors: {item: msg} }`.
+  - `POST /r-call` — executes an allowlisted R expression (§5.3). Returns result or `{error}`.
+  - `POST /sync` — drains the offline queue; body is an array of page-submits with client-side timestamps. Idempotent.
+- `UnitSession::updateSurveyStudyRecord()` today also decides redirects and flushes the whole session. We factor that: the save-logic stays; redirect semantics move to the controller and become AJAX responses.
+
+### 3.3 Client-side changes
+
+- New entry: `webroot/assets/form/js/main.js`, bundled by Webpack as `form.bundle.js`. Loaded only on v2 participant pages.
+- Alpine.js 3 for reactivity. Each `<section data-fmr-page>` is an `x-data` scope. `showif` expressions become `x-show` bindings. Inputs use `x-model` sparingly — we want native form semantics, so mostly `@input` handlers updating a reactive `answers` object.
+- Page navigation is vanilla JS: validate visible page via Constraint Validation API, if OK then `fetch()` `page-submit`, on success hide `data-fmr-page="N"`, show `data-fmr-page="N+1"`, scroll to top, update `.fmr-progress`.
+- Item display tracking (`_item_views[shown][id]`, `[answered]`) now fires from JS events (`IntersectionObserver` when a page becomes visible for `shown`; `input`/`change` for `answered`) and rides along with the page-submit payload.
+
+### 3.4 Preserving timing data
+
+The current `survey_items_display` table captures `shown`, `shown_relative`, `answered`, `answered_relative` via hidden inputs the JS updates on the fly. We keep exactly the same table schema and semantics — just populate the fields from an IntersectionObserver + input listener combo. This matters for researchers who use RT as data.
+
+### 3.5 Browser back button & direct-URL paging
+
+- V1 paging surfaces `?pageNo=3` in the URL; v2 doesn't, by default. That's a regression for some users (bookmarkable progress).
+- Mitigation: push `?page=N` to history via `history.pushState` on page transitions. `popstate` handler shows the corresponding section without re-fetching.
+- Users who land directly at `?page=5` — server-render with that section visible (still all pages in the DOM; just different initial `.visible` class).
+
+---
+
+## 4. Frontend stack: thin it, modernize it
+
+### 4.1 What dies
+
+| Dependency | Why | Replacement |
+|---|---|---|
+| `webshim` (1.16) | Unmaintained since 2018; only load-bearing for form validation polyfills and a ShadowDOM shim (§4.2). Our `browserslist` is Chrome ≥60 — everything it polyfills is native. | Native HTML5 Constraint Validation API + `setCustomValidity()`. ShadowDOM shim dropped (§4.2). |
+| `select2` (3.5.1) | Abandoned. Bundle bloat (+jQuery coupling). | `tom-select` 2.x (vanilla, ~40kb min+gz, good a11y, same search/tag UX) in form_v2. Admin UI keeps select2 for now. |
+| `bootstrap-material-design` (0.5.10) | Unmaintained, Bootstrap-3-era. | Remove from form_v2. Admin keeps it until the admin modernization project. |
+| `bootstrap` 3.4.1 (in form_v2 only) | Form UX deserves modern components. | `bootstrap` 5.3.x, scoped to participant forms via a separate bundle. Admin keeps Bootstrap 3. |
+| `font-awesome` 4.7.0 (in form_v2 only) | Old icon set, old class names. | `@fortawesome/fontawesome-free` 6.x. Class names largely compatible; migration is class renames in v2 templates only. |
+
+### 4.2 Webshim removal: per-shim breakdown
+
+Webshim is currently invoked for three things. Each has a concrete replacement:
+
+1. **`forms` / `forms-ext` / `form-validators`** — constraint validation + custom validity rules.
+   - Used in `survey.js` (custom rule `always_invalid` for OpenCPU-errored items, file-size validity).
+   - Used in `PWAInstaller.js` to refresh after DOM mutations.
+   - **Replacement:** native `setCustomValidity()` + `reportValidity()` + a tiny helper to set/clear custom validity on a list of elements after DOM changes. No polyfill needed on any browser in our target matrix.
+2. **`dom-extend` / `addShadowDom`** — webshim's ShadowDOM-ish shim that keeps a wrapper element (e.g. `.button-group`, `.select2-container`) in sync with the real `<input>` for focus/validation/change events.
+   - Used in `ButtonGroup.js`, `Select2Initializer.js`.
+   - **Replacement:** a ~30-line shim (`linkValidity(realInput, wrapperEl)`) that forwards focus/blur/invalid events, delegates `validity`, and calls `setCustomValidity('')`/`reportValidity()` on the real input. Not ShadowDOM at all — just event plumbing, which is all webshim was doing in practice.
+3. **`geolocation`** — wraps `navigator.geolocation` with error normalization.
+   - Used in `survey.js` for the `geolocation` item type.
+   - **Replacement:** native `navigator.geolocation.getCurrentPosition()` with a small promise wrapper and the same error-message mapping. One file change.
+
+The `es5 es6` polyfills in `webshim.js` are already redundant with `core-js` in our Webpack config.
+
+**Admin UI:** webshim stays in the admin bundle. Not touched in this project.
+
+### 4.3 Reactivity / form library question
+
+The user asked: "is there a dependency which would help us supply better forms?"
+
+I evaluated:
+- **React / Vue / Svelte + a form lib (react-hook-form / Felte / Conform)** — heavyweight for a hybrid PHP-rendered app; requires a full client-side model of the item types; SSR would have to translate PHP-rendered HTML into component state. High cost, diminishing returns: formr's item diversity is more varied than any form lib expects.
+- **htmx** — natural fit for "server renders partial, swap into DOM." But: our core requirements are (a) reactive `showif` across an already-rendered page, (b) deferred AJAX fills, (c) offline queue. htmx is great at (b), fine at (a), awkward at (c). Would end up writing parallel JS anyway.
+- **Alpine.js 3** (~15kb min+gz) — declarative (`x-show`, `x-init`, `x-effect`), no build step required, plays nicely with server-rendered HTML, lifecycle hooks suit deferred-fill. Easy mental model for admins editing templates. **Recommended default.**
+- **Preact signals (`@preact/signals-core`)** (~2kb) — powerful reactive primitive; works without a framework. Good if we want fine-grained client reactivity without Alpine's conventions. Can be combined with Alpine (using signals as Alpine stores), or used standalone.
+- **Lit + web components** — clean component model per item type. But: doubles the item-type surface (PHP class + Lit element), and admin UI doesn't use it. Over-architected for now.
+
+**Recommendation:** Alpine.js 3 as the primary reactivity layer, optionally with `@preact/signals-core` for cross-page state (answers object shared between Alpine scopes and the offline-queue module). Do **not** pick a monolithic form library — the item-type surface doesn't fit the shape any library expects.
+
+### 4.4 Item rendering — stay server-side
+
+One temptation is to move item rendering to the client too (JSON-over-the-wire, JS components per item type). We don't, because:
+- The 60-odd item types are PHP classes today. Porting each to JS is months of work for questionable benefit (HTML is the same either way).
+- Search engines / accessibility tools / screen readers prefer server-rendered content.
+- The PHP renderer is stable; the JS would re-derive the same HTML.
+
+So: server renders all items. Client is responsible for **reactivity, transitions, validation UX, deferred fills, and submission**. HTML from the server is the source of truth; client progressively enhances.
+
+### 4.5 Bootstrap 5 scoped to form_v2
+
+New stylesheet entry `webroot/assets/form/css/form.scss` imports Bootstrap 5 with `@use 'bootstrap'` customizations. Scoped under a root `.fmr-form-v2` class to avoid conflicting with Bootstrap 3 on mixed pages (unlikely in practice since admin and participant are different routes, but belt-and-suspenders).
+
+Templates in `templates/run/form/` are freshly authored against Bootstrap 5 markup — no mechanical port from v1 templates.
+
+---
+
+## 5. R evaluation transition
+
+This is the biggest behavioral change and needs the most care.
+
+### 5.1 Current behavior
+
+- `showif` column on `survey_items`: arbitrary R string. Evaluated server-side via a batched OpenCPU call (`processDynamicValuesAndShowIfs` in `SpreadsheetRenderer.php`) at page render. Also pre-transpiled to rough JS in `Item.php` for client-side re-evaluation on input change (about 15 regexes; correct for simple expressions, wrong for anything complex — covered by a `//js_only` comment escape hatch that actually means *js-only, skip the R transpile*).
+- `value` column: either literal, `sticky` (→ `tail(na.omit(survey_name$item_name), 1)`), or arbitrary R. Evaluated server-side at render time via the same batch.
+- Embedded Rmarkdown in labels/pages: pre-parsed at import if static (stored in `label_parsed`), else OpenCPU-knit at render.
+
+Problems:
+- Every page render does an OpenCPU roundtrip. Slow.
+- Arbitrary R from the admin flows untouched to OpenCPU. OpenCPU's sandbox is the only barrier.
+- `js_showif` transpile is fragile; bugs manifest as client-side reactivity that disagrees with server.
+
+### 5.2 Proposed model
+
+- **Default: `showif` is client-side JS.** The column value is interpreted as a JS expression over the `answers` reactive object, e.g. `answers.q1 == 1 && answers.q2 !== "no"`. We provide a small standard library of helpers — `contains(str, substr)`, `last(arr)`, `isNA(v)` — that shim the ergonomic R-isms admins are used to.
+- **Opt-in: server-side R via `r(...)`.** The admin wraps any R expression in `r(...)`, e.g. `r(complex_score(current(q1), current(q2)) > 0.5)`. The formr server detects `r(...)` wrappers during item import, records them in a new table, and emits a reference from the client instead of inlining.
+- **Deferred fill for `value` and embedded Rmd:** Any dynamic value / Rmd section renders with a placeholder (`<span class="fmr-async" data-fmr-fill-id="…">…</span>` or a `<div>` skeleton). The client fetches via `/run/{name}/form/fill` and replaces.
+
+Everything goes through an **allowlist** (§5.3) so admins can't just wrap `system("…")` in `r(...)` — though as today, an admin owning a study already has effective R capability; the allowlist is about (a) performance (pre-declared queries can be batched, memoized, cached) and (b) making the server/client split principled.
+
+### 5.3 Allowlist mechanics
+
+New table `survey_r_calls`:
+```
+id           BIGINT PK
+study_id     references survey_studies.id
+slot         'showif' | 'value' | 'label' | 'page_body' | 'choice_label'
+item_id      nullable (for label / choice_label)
+expr         text, the raw R string the admin wrote (inside r(...))
+expr_hash    sha256 of expr for dedup/caching
+created, modified
+```
+
+- Populated at item import (`SpreadsheetReader` changes): every `r(…)` occurrence in `showif`, `value`, `label`, `page_body`, `choice` gets a row.
+- The renderer emits references, not the expression. HTML contains `data-fmr-r="{id}"` (or `data-fmr-fill-id="{id}"` for deferred).
+- Server endpoint `/run/{name}/form/r-call` accepts `{id, args}` where `args` is a JSON object of current `answers` the expression needs. Server looks up `id`, forges the actual R call (injecting the session's data frame name like today), sends to OpenCPU, returns result.
+- Idempotent + memoizable: if `expr_hash` + a fingerprint of `args` has been computed this session, we can return cached result. A separate `survey_r_call_results` cache with TTL is worthwhile for heavy Rmd blocks.
+- Rate-limited (§5.5).
+
+Result: admin-authored R still runs, but (a) the client never sees the R source, (b) formr controls when/how often it's called, (c) arbitrary improvised R from the client is rejected because there's no endpoint that accepts raw R.
+
+### 5.4 Migration of existing `showif` / `value`
+
+At form upgrade time (admin clicks "Upgrade to form_v2"), the spreadsheet is re-scanned:
+
+- `showif` expressions: pass through a JS-transpiler (reuse & harden current `Item.php` regex-transpile; add a proper parser — probably [Esprima](https://esprima.org/) or a small custom one — and support more R built-ins). Result is one of:
+  1. **Translatable:** JS expression written to new `showif_js` column. Original R stays in `showif` for audit.
+  2. **Not translatable:** admin is shown a warning, told to wrap in `r(...)` to opt in to server-side R, or rewrite in JS.
+- `value` expressions:
+  1. **Literal numeric:** no change.
+  2. **`'sticky'`:** becomes a client-side lookup (`lastAnsweredValue('item_name')`) — no R needed.
+  3. **R code:** automatically wrapped in `r(...)` and recorded in `survey_r_calls`; the item gets a deferred-fill placeholder.
+- Embedded Rmd in labels: same as today's `opencpu_knit_plaintext` path, but deferred (placeholder + fill). Static Rmd (no reactive deps) stays pre-parsed at import into `label_parsed`.
+
+The migration pass is **non-destructive**: the original columns stay; we add `showif_js`, `showif_r_call_id`, `value_r_call_id` side-by-side.
+
+### 5.5 Rate-limiting & safety
+
+- `Services/RateLimitService.php` already exists. Add buckets: per-session r-calls per minute, per-session fills per page load.
+- Bail-out UI: if OpenCPU errors for a deferred fill, placeholder shows a localized "failed to load" message; admin gets a `notify_study_admin()` error (existing machinery, wired in v0.25.0).
+- No new OpenCPU security surface: we're adding a proxy, not exposing a new endpoint to participants.
+
+### 5.6 What about showif expressions that *must* be server-evaluated for privacy reasons?
+
+Some admins might use showif to hide an item based on a stored R-computed result that participants should not see the formula for. The `r(...)` wrapping preserves this: the R source is never shipped to the client, the client just gets `{shown: true/false}` back. Good.
+
+---
+
+## 6. Offline capability
+
+### 6.1 Requirements
+
+- If the page-submit `fetch()` fails because of network, queue the submission locally.
+- Show the user a clear "offline, will submit later" banner.
+- When connectivity returns, replay the queue in order.
+- Idempotency: re-submitting the same page must not double-count. Server-side needs a client-generated submission UUID to dedupe.
+
+### 6.2 Design
+
+**IndexedDB store** `formrQueue`:
+```
+{
+  id: uuid,                 // client-generated, unique
+  unit_session_id: string,
+  form_id: int,
+  page: int,
+  payload: { answers, item_views, client_ts },
+  created_at: ISO string,
+  attempts: int,
+  last_error: string | null
+}
+```
+
+**Service worker** intercepts `POST /run/{name}/form/page-submit`:
+1. If online: pass through, return server response.
+2. If offline OR server returns 5xx: stash in IndexedDB, register a `sync` event tag, return a synthetic `{ status: 'queued', id: … }` response.
+3. Page JS shows "queued" badge; user can proceed to next page locally (we already have all items in the DOM; transitions are client-side).
+
+**`sync` handler** drains the queue via `POST /run/{name}/form/sync` with an array of records. Server:
+- Accepts batch, validates each with `client_ts` for ordering.
+- Dedupe by `id`: if `id` was already stored, return 200 (idempotent).
+- Persists each page's data via the same `UnitSession::updateSurveyStudyRecord` path.
+- Returns per-record result.
+
+**Fallback for browsers without Background Sync** (iOS Safari has been flaky): `online` event handler on the page fires a manual drain, plus a drain-on-load check.
+
+### 6.3 Limits
+
+- Offline mode is **page-level**, not item-level. The unit of replay is a page submission. If the participant closes the tab before connectivity returns, the queue persists in IndexedDB and drains next time they open the PWA.
+- R calls (`/r-call`, `/fill`) are **not** queued — they fail gracefully with a placeholder indicating the admin content couldn't load. The `showif`/`value` is only "critical path" if the admin made it so; we surface this as a compatibility warning at form-design time.
+- Files — `<input type=file>` — go through the queue as `FormData` serialized into IndexedDB as a `Blob`. Big uploads may fill quota; we reject files > 10MB for queued-offline mode (configurable).
+
+### 6.4 Security
+
+- Data in IndexedDB is **not encrypted** in this design. Queue entries persist plaintext answers on the participant's device. Offline mode is **default-on** for form_v2 runs; admins of studies collecting sensitive data can explicitly disable it per-form via a `survey_studies.offline_mode` flag (default `on`; set `off` to suppress queueing, in which case submissions fail hard when offline rather than being persisted locally).
+- When the PWA is uninstalled or the participant logs out, the service worker wipes the queue.
+
+### 6.5 Relationship to installable PWA
+
+Service-worker registration and installable-PWA UX are two separate things today but bundled under one admin flag. For form_v2 we split them:
+
+- **Service worker registration is unconditional for form_v2 runs.** The existing `webroot/assets/common/js/service-worker.js` is *extended* (not replaced) with page-submit interception + IndexedDB queue + Background Sync. Same file, additional responsibilities. SW scope is already the run's subdomain, so each run's queue is naturally isolated.
+- **The run's "installable PWA" admin flag stays opt-in** and continues to control: PWA manifest generation, install prompts, the `AddToHomeScreen` item, iOS push usability (iOS requires install for push), and auto-extension of `expire_cookie` to 1 year.
+
+Reasons to keep install opt-in rather than forcing full PWA on every form_v2 run:
+- The 1-year cookie extension is a GDPR-relevant choice that should stay explicit.
+- Install prompts are participant-visible friction; one-shot studies shouldn't fire them.
+- A study that hasn't configured icons / app-name produces an ugly install prompt (default favicon, "formr" as the app name). Making admins opt in forces them to think about those fields.
+- `PushNotification` and `AddToHomeScreen` items continue to require the installable flag — if added to a non-installable run, they surface a clear "enable installable PWA for this run" error at render time.
+
+Net effect: offline queue works on every form_v2 run out of the box; the installable-app experience remains deliberate.
+
+---
+
+## 7. Validation
+
+Native HTML5 Constraint Validation API is the single model:
+
+- Required / pattern / min / max / step / type come from the `<input>` attributes the PHP renderer already emits.
+- Custom server-known errors (e.g. OpenCPU `value` error, file too big) set via `elem.setCustomValidity('message')` on page load, cleared on input.
+- "Invalid" items block page advance: `page.reportValidity()` before submit.
+- Error display: Bootstrap 5 `.invalid-feedback` sibling, wired via a tiny helper that listens for `invalid`/`input` events.
+
+Server re-validates on page-submit as today (via `Item::validateInput()` and `UnitSession::updateSurveyStudyRecord($posted, $validate=true)`). The server is still source of truth; client-side validation is a UX smoothing, not a trust boundary.
+
+No webshim, no form lib, no React Hook Form — just the native API plus a ~100-line helper module.
+
+---
+
+## 8. File and code layout
+
+```
+application/
+  Controller/
+    FormController.php                 # new — or actions added to RunController
+  Model/
+    RunUnit/
+      Form.php                         # new
+  Spreadsheet/
+    FormRenderer.php                   # new
+    RAllowlistExtractor.php            # new — parses r(...) wrappers at import
+
+webroot/assets/form/                   # new bundle root
+  js/
+    main.js                            # entry for form.bundle.js
+    alpine-init.js
+    reactivity/
+      answers-store.js                 # @preact/signals-core wrapper
+      showif-runtime.js
+    submission/
+      page-submit.js
+      offline-queue.js
+      sync-manager.js
+    r/
+      r-call.js                        # POSTs to /form/r-call, handles cache
+      deferred-fill.js                 # resolves .fmr-async placeholders
+    validation/
+      constraint-api.js                # native-validation helper, replaces webshim code
+      validity-link.js                 # replaces addShadowDom plumbing
+    items/                             # JS-side item enhancements
+      button-group.js                  # no-webshim version of ButtonGroup.js
+      select.js                        # tom-select wrapper
+      date.js                          # native <input type=date>, flatpickr fallback
+      geolocation.js                   # native API
+  css/
+    form.scss                          # Bootstrap 5 + form-v2 styles
+  img/
+
+templates/run/form/                    # new participant templates
+  index.php
+  page_wrapper.php
+  footer.php
+
+webroot/assets/common/js/service-worker.js  # extended — page-submit interception, sync; unconditional on form_v2 runs
+sql/patches/
+  047_add_rendering_mode_to_survey_studies.sql
+  048_create_survey_r_calls.sql
+  049_add_offline_mode_to_survey_studies.sql
+```
+
+Webpack adds entries (`webpack.config.js`):
+```js
+entry: {
+    material: '...',
+    frontend: '...',
+    admin: '...',
+    form: './webroot/assets/form/js/main.js',   // NEW
+},
+```
+Output bundle `form.bundle.js` loaded only when `Form` unit renders (controller decides, templates branch).
+
+---
+
+## 9. Phased rollout
+
+Each phase is a mergeable milestone; a broken half-phase doesn't ship.
+
+**Phase 0 — Plumbing (1-2 weeks).** Add `Form` RunUnit class (minimal: just "is a survey, renders via existing v1 pipeline under a feature flag"), `rendering_mode` column, phase-gated admin UI to create v2 forms. Feature flag `form_v2_enabled` in settings. No behavior change yet.
+
+**Phase 1 — Full-page rendering + AJAX page-submit, no R changes (3-4 weeks).** New Webpack entry, Alpine.js, Bootstrap 5 templates. Server still evaluates `showif`/`value`/Rmd exactly as today (pretending the page is "non-paged" from the server's perspective). Client-side pagination hides/reveals sections. AJAX page-submit. No offline. No allowlist R yet. Item-type parity: support the 20 most-used types first, gate others behind "not supported in v2" warning.
+
+**Phase 2 — Item-type coverage (2-3 weeks).** Fill out the remaining item types (audio, video, ratingbutton variants, geolocation, file, etc.).
+
+**Phase 3 — Client-side `showif` + transpiler hardening (2-3 weeks).** Ship the JS-by-default model. Keep `r()` as fallback (server-side R). Migration tool for existing surveys. All showifs that can't be transpiled get `r()`-wrapped automatically, unless admin rewrites in JS.
+
+**Phase 4 — Deferred fill for `value` and Rmd (2 weeks).** Placeholder/skeleton UI, `/form/r-call` + `/form/fill` endpoints, allowlist table, rate limits. Rollout behind a per-form flag first; on by default once stable.
+
+**Phase 5 — Offline queue (3-4 weeks).** IndexedDB store, service-worker extension, Background Sync, `sync` endpoint, UI banners, dedupe. Default-on for form_v2 runs (opt-out per form for sensitive studies). SW registration promoted to unconditional at this phase. iOS Safari tested heavily — we already know from v0.25.x that it's finicky.
+
+**Phase 6 — Docs + migration tooling (1-2 weeks).** Admin UI for the compatibility scanner, documentation updates, example surveys ported.
+
+**Feature-parity gate (end of Phase 5):** a v1 survey upgraded to v2 produces the same results for a test participant traversing the same path. Enforced by an automated test suite (Phase 6 also adds this).
+
+**Default flip:** new studies default to v2 after the parity gate. Admins can still opt for v1 for a couple of releases.
+
+**Sunset:** deprecation warning banner on `Survey` units starts at v2 GA + 6 months. Hard removal targeted at v2 GA + 24 months. Revisit at each checkpoint; don't pull a version at cost of in-progress longitudinal studies.
+
+Cumulative estimate: ~4-5 months of focused engineering by a single developer with design review help. Could be faster with parallel work on phases 2/3/4.
+
+---
+
+## 10. Risks and open questions
+
+### 10.1 Risks
+
+- **R-semantics drift.** JS-transpiled `showif` might behave subtly differently from R for edge cases (NA handling, coercion, vectorized ops). Mitigation: automatic parity test at migration — server evaluates R, client evaluates JS, compare; fail the upgrade if they disagree on recorded participant answers.
+- **OpenCPU endpoint surface change.** The `/r-call` proxy is new. Any change in OpenCPU's R-package-freezing policy at upstream versions could land silently. Mitigation: add OpenCPU version asserts at form-run startup; fail visibly.
+- **Browser back button + offline queue.** If a participant goes back to a queued but not-yet-replayed page and edits, do we rewrite the queued entry or enqueue a new one? Decision: rewrite (most-recent-wins; `id` keyed on `(unit_session_id, page)`).
+- **Tom-select and select2 parity.** Tom-select covers most select2 use cases but admins may have CSS tweaks keyed to `.select2-*` selectors. Participant-facing v2 is new template — no tweaks inherited — so this is fine for form_v2. Admin UI keeps select2.
+- **Alpine.js "magic."** Admins who embed raw HTML in labels may collide with Alpine directives (`x-data`, `@click`). Mitigation: strip/escape `x-*` and `@*` attrs in parsed Rmd output, document that admins shouldn't write them.
+- **Bootstrap 3 / 5 style leakage on mixed pages.** If a v2 form ever ends up inside an admin page (preview mode), styles collide. Scope v2 CSS under `.fmr-form-v2` root class and check isolation in the admin preview path.
+
+### 10.2 Open questions for the user
+
+1. **Sunset aggressiveness.** Am I right that we should keep `Survey` alive for 24 months post-v2-GA, or is that too long given maintenance burden? Shorter (12 months) is doable if we're willing to tell longitudinal-study owners to clone into v2.
+- 12 months is ok. At some point, I'd turn on the new engine by default for new surveys.
+2. **Allowlist granularity.** Should the allowlist be at the *expression* level (every unique `r(...)` is a record, as proposed) or at the *function* level (list of allowed R function names, expressions can call any combination)? Expression-level gives stronger guarantees (no improvisation), function-level is more flexible for admins. I've proposed expression-level; worth your view.
+  - expression level.
+3. **Offline default.** Opt-in per form, or default on for non-sensitive studies? I've proposed opt-in; inverse is reasonable if most studies are low-sensitivity and want resilience by default.
+  - opt-out is preferable.
+4. **Admin UI modernization.** Explicitly out of scope here. Do you want it sequenced right after form_v2 (maybe months 5-8), or much later?
+  - out of scope now.
+5. **Drop jQuery in participant bundle?** Form_v2 can be jQuery-free (Alpine is the whole reactivity story; remaining code is vanilla JS). This would save ~30kb on participant pages. Admin keeps jQuery indefinitely. Worth it?
+  - drop.
+6. **Select2 → tom-select in admin.** Kept in scope for later, but worth deciding roughly when. Two follow-up months after form_v2 ships?
+  - defer indefinitely — all admin-facing changes out of scope for this project.
+7. **Accessibility targets.** Current formr has no declared a11y commitment. form_v2 is a good moment to adopt a baseline (WCAG 2.1 AA). Want to commit?
+  - yes
+8. **R package contract.** Some admins rely on the `formr` R package (`current()`, `last()`, `%contains%`). With client-side JS showif, we're shimming these in JS. Do we mirror exactly, or evolve? E.g. is `current(x)` still a nice spelling when there is no "previous wave" concept on the client?
+  - mirror except stuff that doesn't make sense.
+
+---
+
+## 11. Appendix: what stays the same
+
+To keep the reviewer's mental load low, a short list of things **not** changed:
+
+- Run engine (`Run`, `RunUnit` base, `RunSession`, `UnitSession`) — new Form just plugs in.
+- Other RunUnit types (Pause, Email, PushMessage, External, Page, SkipBackward/Forward, Shuffle, Wait, Branch, Privacy).
+- Spreadsheet import format (XLSform-style columns). Admins author the same spreadsheet.
+- `Item` subclasses and their PHP rendering.
+- DB schema for `survey_studies`, `survey_items`, `survey_item_choices`, `survey_items_display`, per-survey results tables — we only add columns.
+- OpenCPU server and the formr R package.
+- PWA manifest generation, push-notification delivery, cookie consent — unchanged. Related change: the service worker is now registered unconditionally on form_v2 runs (§6.5), but the installable-PWA flag that gates manifest/install-prompt/cookie-extension stays opt-in.
+- Admin UI (Bootstrap 3, jQuery, select2) — untouched in this project.
+- CSRF model (already cookie-based after v0.25.1; don't reintroduce tokens).
+
+---
+
+## 12. References (files to read when implementing)
+
+- `application/Model/SurveyStudy.php` — item CRUD, results-table schema migrations, spreadsheet import.
+- `application/Model/RunUnit/Survey.php` — the v1 unit; v2's `Form` will look structurally similar.
+- `application/Model/Item/Item.php` — 716-line base class; understand lifecycle before changing rendering.
+- `application/Spreadsheet/SpreadsheetRenderer.php`, `PagedSpreadsheetRenderer.php` — current rendering; `FormRenderer` replaces both for v2.
+- `application/Services/OpenCPU.php` — existing R client; `/r-call` proxy wraps this.
+- `webroot/assets/common/js/survey.js` — v1 client; much of its logic is salvageable for v2 (geolocation, custom validity) after the webshim strip.
+- `webroot/assets/common/js/service-worker.js`, `pwa-register.js` — where offline interception lands.
+- `CHANGELOG.md` — v0.25.1 context for recent iOS push / CSRF removal / cookie-consent decisions that v2 inherits.
