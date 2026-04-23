@@ -56,18 +56,49 @@ class FormRenderer extends SpreadsheetRenderer {
     }
 
     /**
-     * Group rendered items by page. Phase 1 puts everything on page 1 — multi-page
-     * support needs a join against survey_items_display.page, deferred.
+     * Group rendered items by page number. Pages are delimited at spreadsheet-
+     * import time by submit-type items (see UnitSession::createSurveyStudyRecord
+     * where the `page` counter bumps whenever a submit item is encountered).
+     * We read that map back from survey_items_display and bucket items
+     * accordingly, so multi-page forms render all pages in one document with
+     * client-side navigation between them.
      *
      * @param Item[] $items
      * @return array<int, Item[]>
      */
     protected function groupByPage(array $items) {
-        $out = [1 => []];
+        $pageMap = $this->fetchPageMap();
+        $out = [];
         foreach ($items as $item) {
-            $out[1][] = $item;
+            $p = isset($pageMap[(int) $item->id]) ? (int) $pageMap[(int) $item->id] : 1;
+            if (!isset($out[$p])) {
+                $out[$p] = [];
+            }
+            $out[$p][] = $item;
         }
+        if (empty($out)) {
+            $out[1] = [];
+        }
+        ksort($out);
         return $out;
+    }
+
+    /**
+     * @return array<int, int> item_id => page
+     */
+    protected function fetchPageMap() {
+        $rows = $this->db->select('item_id, page')
+            ->from('survey_items_display')
+            ->where('session_id = :session_id')
+            ->bindParams(['session_id' => $this->unitSession->id])
+            ->fetchAll();
+        $map = [];
+        foreach ((array) $rows as $row) {
+            if (isset($row['item_id'], $row['page'])) {
+                $map[(int) $row['item_id']] = (int) $row['page'];
+            }
+        }
+        return $map;
     }
 
     protected function renderV2Header() {

@@ -530,9 +530,25 @@ class RunController extends Controller {
             return;
         }
 
-        // Phase 1 MVP: after a successful save, bounce back to the run URL and let
-        // Run::exec decide whether to advance to the next unit. Multi-page `next_page`
-        // responses land in a follow-up iteration.
+        // For a multi-page form, if more pages remain, tell the client to show the
+        // next one locally (no reload). If this was the last page, redirect back
+        // to the run URL so Run::exec can advance to the next unit.
+        $submittedPage = isset($payload['page']) ? (int) $payload['page'] : 1;
+        $maxPage = (int) DB::getInstance()
+            ->select('MAX(page)')
+            ->from('survey_items_display')
+            ->where('session_id = :sid')
+            ->bindParams(['sid' => $unitSession->id])
+            ->fetchColumn();
+
+        if ($maxPage > 0 && $submittedPage < $maxPage) {
+            $this->sendJsonResponse(array(
+                'status' => 'ok',
+                'next_page' => $submittedPage + 1,
+            ));
+            return;
+        }
+
         $this->sendJsonResponse(array(
             'status' => 'ok',
             'redirect' => run_url($this->run->name),
