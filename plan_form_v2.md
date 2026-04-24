@@ -71,7 +71,7 @@ Gaps (Phase 1.5 — most closed during all_widgets smoke):
 - [x] JS evaluator wired to `data-showif` attribute on item wrappers; re-runs on every input/change against a live `answers` object; toggles `.hidden` + `display` + `input.disabled`
 - [x] FormRenderer forces `data_showif=true` on every item with a non-empty `showif` (v1 only emitted `data-showif` when `setVisibility` hid the item server-side; v2 needs it always for reactivity)
 - [x] Reuses v1's existing R→JS regex transpile in `Item.php` (covers `==`, `>`, `&&`, `||`, `%contains%`, `%begins_with%`, `is.na`, `tail(, 1)`, `current()`)
-- [ ] Standard library helpers in JS (`contains`, `last`, `isNA`, …) as a named runtime (currently leans on transpile output using regex rewrites)
+- [x] Standard library helpers in JS (`isNA`, `answered`, `contains`, `containsWord`, `startsWith`, `endsWith`, `last`) injected into every showif eval context via `Object.assign({}, helpers, ctx)` — answer keys shadow helpers. v1's `is.na(X)` regex transpile (`(typeof(X) === 'undefined')`) is re-rewritten client-side to `isNA(X)` since `collectAnswers` normalizes empty to `null`, not `undefined`
 - [ ] Dedicated `showif_js` column on `survey_items` (presently re-transpiled at runtime from `showif`)
 - [x] `r(...)` wrapper detection + auto-record in `survey_r_calls` at render time (`RAllowlistExtractor`, wired from `FormRenderer::processItems`)
 - [x] `survey_r_calls` allowlist table (sql/patches/049)
@@ -728,3 +728,7 @@ v2's default page-submit is JSON; files can't ride in JSON, so the client switch
 ### 13.24 Study subdomain DNS + session reset gotcha
 
 Per-study URLs under `study.researchmixtape.com/<runName>/` work because the dev instance is *not* using wildcard subdomains for studies (the `FMRSD_CONTEXT` path from the subdomain-based model isn't wired). `https://<runName>.researchmixtape.com/` fails with a cert error. Always use `https://study.researchmixtape.com/<runName>/`. Separately: if a test run doesn't have a Stop unit, the session "dangles" after the Form completes and subsequent Test-run visits show "Oops, creator forgot a Stop". To re-test, either add a Stop unit or `DELETE FROM survey_unit_sessions WHERE run_session_id=?` + `DELETE FROM survey_run_sessions WHERE id=?` to reset the session for that user code.
+
+### 13.25 v1's `is.na(X)` regex transpile silently never fires on the v2 client
+
+`Item.php` rewrites R `is.na(X)` → `(typeof(X) === 'undefined')`. Seemed fine — until you notice `collectAnswers()` normalizes every unanswered/empty/unchecked input to `null`, not `undefined`, which means the check evaluates to `false` for a participant who hasn't touched the field yet. Net effect: any v1 showif of the form `is.na(X)` always returns false client-side, so the item never appears even though the server would have hidden it. v2 fix is two-part: (a) provide an `isNA(v)` helper that matches R's NA semantics (null/undefined/""/empty-array/NaN), (b) rewrite `(typeof(X) === 'undefined')` → `isNA(X)` in `compileShowif` before `new Function`. Same applies to any future transpile emission that claims NA-ness — route it through `isNA`, don't open-code a `typeof` check.

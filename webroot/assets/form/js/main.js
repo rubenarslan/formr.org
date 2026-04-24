@@ -419,15 +419,56 @@ function initForm() {
         return a;
     };
 
+    // Standard-library helpers made available inside every showif expression.
+    // Mirrors the ergonomic R-isms admins are used to so JS-authored showifs
+    // (`//js_only` or future native-JS column) can lean on them, and so the
+    // R-transpile output can call them instead of emitting fragile inline
+    // coercions. `isNA` is the canonical "not answered" check — covers the
+    // `null` values `collectAnswers` normalizes empty/unchecked to, plus `""`,
+    // `undefined`, empty arrays.
+    const showifHelpers = {
+        isNA: (v) => v === null || v === undefined || v === ''
+            || (Array.isArray(v) && v.length === 0) || (typeof v === 'number' && isNaN(v)),
+        answered: (v) => !showifHelpers.isNA(v),
+        contains: (haystack, needle) => {
+            if (showifHelpers.isNA(haystack)) return false;
+            if (Array.isArray(haystack)) return haystack.includes(needle);
+            return String(haystack).indexOf(String(needle)) > -1;
+        },
+        containsWord: (haystack, word) => {
+            if (showifHelpers.isNA(haystack)) return false;
+            const re = new RegExp('\\b' + String(word).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
+            return re.test(String(haystack));
+        },
+        startsWith: (haystack, prefix) => {
+            if (showifHelpers.isNA(haystack)) return false;
+            return String(haystack).startsWith(String(prefix));
+        },
+        endsWith: (haystack, suffix) => {
+            if (showifHelpers.isNA(haystack)) return false;
+            return String(haystack).endsWith(String(suffix));
+        },
+        last: (arr) => Array.isArray(arr) && arr.length > 0 ? arr[arr.length - 1] : arr,
+    };
+
     // Compile each data-showif once. On failure, the item is treated as visible.
     const compileShowif = (expr) => {
-        const cleaned = (expr || '').replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '').trim();
+        let cleaned = (expr || '').replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '').trim();
         if (!cleaned) return () => true;
+        // v1's Item.php regex-transpile emits `(typeof(X) === 'undefined')` for
+        // R `is.na(X)`, but `collectAnswers` normalizes empty/unchecked inputs
+        // to `null`, not `undefined` — so that check silently never fires.
+        // Route it through `isNA(X)` (same identifier set v1 emits: letters,
+        // digits, underscore, quotes) so R-authored `is.na` actually evaluates.
+        cleaned = cleaned.replace(
+            /\(\s*typeof\(\s*([A-Za-z0-9_'"]+)\s*\)\s*===\s*['"]undefined['"]\s*\)/g,
+            'isNA($1)'
+        );
         try {
             // eslint-disable-next-line no-new-func
             const fn = new Function('context', 'with (context) { return (' + cleaned + '); }');
             return (ctx) => {
-                try { return !!fn(ctx); } catch (e) { return true; /* on failure show */ }
+                try { return !!fn(Object.assign({}, showifHelpers, ctx)); } catch (e) { return true; /* on failure show */ }
             };
         } catch (e) {
             return () => true;
