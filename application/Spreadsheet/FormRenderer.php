@@ -45,6 +45,27 @@ class FormRenderer extends SpreadsheetRenderer {
                 $item->js_showif = null;
                 $item->parent_attributes['data-fmr-r-call'] = (string) $callId;
             }
+            // Phase 4: same treatment for r(...)-wrapped value columns. Unwrap,
+            // record in survey_r_calls with slot='value', then blank the value
+            // so needsDynamicValue() returns false (Item::needsDynamicValue
+            // trims empty to falsy) and the OpenCPU batch skips it entirely.
+            // The client POSTs to /form-fill with the recorded call_id and
+            // sets the input's value from the response.
+            foreach ($items as $item) {
+                if (!$item) continue;
+                $raw = isset($item->value) ? trim((string) $item->value) : '';
+                if ($raw === '') continue;
+                $inner = RAllowlistExtractor::unwrap($raw);
+                if ($inner === null) continue;
+                $callId = RAllowlistExtractor::record(
+                    $this->db, $this->study->id, 'value', $inner, $item->id
+                );
+                $item->value = '';
+                $item->parent_attributes['data-fmr-fill-id'] = (string) $callId;
+                // classes_wrapper is protected; rather than reach into it,
+                // the client tags wrappers with .fmr-fill-pending on init
+                // before the fetch fires.
+            }
             $items = $this->processDynamicValuesAndShowIfs($items);
             if ($items) {
                 // Hide any submit items — v2 provides its own nav.
@@ -216,14 +237,16 @@ class FormRenderer extends SpreadsheetRenderer {
     protected function renderV2Header() {
         $submitUrl = run_url($this->run->name, 'form-page-submit');
         $rcallUrl = run_url($this->run->name, 'form-r-call');
+        $fillUrl = run_url($this->run->name, 'form-fill');
         $runUrl = run_url($this->run->name);
         $currentUser = Site::getCurrentUser();
         $userCode = $currentUser ? $currentUser->user_code : '';
 
         $html = sprintf(
-            '<form class="fmr-form-v2" method="post" data-submit-url="%s" data-rcall-url="%s" data-run-url="%s" novalidate>',
+            '<form class="fmr-form-v2" method="post" data-submit-url="%s" data-rcall-url="%s" data-fill-url="%s" data-run-url="%s" novalidate>',
             htmlspecialchars($submitUrl, ENT_QUOTES),
             htmlspecialchars($rcallUrl, ENT_QUOTES),
+            htmlspecialchars($fillUrl, ENT_QUOTES),
             htmlspecialchars($runUrl, ENT_QUOTES)
         );
         $html .= sprintf(

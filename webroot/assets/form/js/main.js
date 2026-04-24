@@ -563,6 +563,62 @@ function initForm() {
         triggerRCalls();
     }
 
+    // --- Deferred fill for r(...)-wrapped `value` columns (Phase 4) ---
+    // Items whose `value` column was r(...)-wrapped carry `data-fmr-fill-id`.
+    // FormRenderer cleared the inline value and routes evaluation through
+    // /form-fill; we POST {call_id, answers} once on load, set the input's
+    // value from the response, fire a `change` so showifs re-evaluate, and
+    // strip the pending-state class. Not re-fetched on subsequent input
+    // changes: a deferred fill is the admin's pre-computed default, not a
+    // reactive formula. Admins who need reactivity should wire showif/r-call.
+    const fillItems = Array.from(root.querySelectorAll('[data-fmr-fill-id]'));
+    if (fillItems.length > 0) {
+        const fillUrl = root.getAttribute('data-fill-url');
+        fillItems.forEach((wrapper) => wrapper.classList.add('fmr-fill-pending'));
+        const applyFill = (wrapper, value) => {
+            const input = wrapper.querySelector('input[name], textarea[name], select[name]');
+            if (input && (input.value === '' || input.value == null)) {
+                input.value = value == null ? '' : String(value);
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            wrapper.classList.remove('fmr-fill-pending');
+        };
+        const markFillError = (wrapper, msg) => {
+            wrapper.classList.remove('fmr-fill-pending');
+            wrapper.classList.add('fmr-fill-error');
+            const feedback = document.createElement('div');
+            feedback.className = 'invalid-feedback fmr-fill-feedback d-block';
+            feedback.textContent = String(msg || 'Failed to load computed value.');
+            const anchor = wrapper.querySelector('.controls, .form-group') || wrapper;
+            anchor.appendChild(feedback);
+        };
+        if (fillUrl) {
+            const answers = collectAnswers();
+            fillItems.forEach((wrapper) => {
+                const callId = Number(wrapper.getAttribute('data-fmr-fill-id'));
+                if (!callId) return;
+                fetch(fillUrl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ call_id: callId, answers }),
+                }).then(async (r) => ({ ok: r.ok, body: await r.json().catch(() => null) }))
+                  .then(({ ok, body }) => {
+                      if (!ok || !body) {
+                          markFillError(wrapper, body && body.error);
+                          return;
+                      }
+                      if (typeof body.error === 'string') {
+                          markFillError(wrapper, body.error);
+                          return;
+                      }
+                      applyFill(wrapper, body.value);
+                  }).catch(() => markFillError(wrapper, 'Network error.'));
+            });
+        }
+    }
+
     // Tom-select on <select> elements. v1 auto-wired select2; v2 mirrors that
     // using tom-select so the participant bundle stays jQuery-free. Large
     // dropdowns (timezone list, big choice lists) get the search input; small

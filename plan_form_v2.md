@@ -83,12 +83,15 @@ Gaps (Phase 1.5 — most closed during all_widgets smoke):
 - [ ] Per-session rate-limit on r-call (deferred: `RateLimitService` is email-only today; needs a generic bucket API — Phase 4)
 
 ### Phase 4 — Deferred fill for `value` and embedded Rmd
-- [ ] `/form/r-call` proxy endpoint
-- [ ] `/form/fill` deferred-fill endpoint
-- [ ] `survey_r_call_results` cache table with TTL
-- [ ] Placeholder/skeleton UI + client-side fill resolution
-- [ ] Rate limiting via `Services/RateLimitService`
-- [ ] Bail-out UI when OpenCPU errors (admin notification already wired)
+- [x] `/form/r-call` proxy endpoint (Phase 3; slot='showif', reactive)
+- [x] `/form/fill` deferred-fill endpoint (`RunController::formFillAction`, slot='value', one-shot on load). Shares `evaluateAllowlistedRCall` helper with form-r-call; enforces slot match so a showif call_id can't be used as a fill and vice versa
+- [x] `r(...)` opt-in on `value` column: `FormRenderer::processItems` unwraps wrapped value, records in `survey_r_calls` with slot='value', clears `$item->value` so `needsDynamicValue()` returns false and OpenCPU batch skips it; emits `data-fmr-fill-id` on item wrapper
+- [x] Client-side fill resolver: on load, POST `{call_id, answers}`; set the first `input/textarea/select[name]` inside the wrapper (only if empty — don't clobber user input on back-nav), fire input+change (so showifs re-evaluate), remove `.fmr-fill-pending`. On error, add `.fmr-fill-error` + inline feedback
+- [x] Placeholder state: client adds `.fmr-fill-pending` on init before the fetch fires (classes_wrapper is protected on Item subclasses, so the server can't add it — the client does)
+- [ ] `survey_r_call_results` cache table with TTL (deferred; no admin has complained about latency yet, and the cadence is one-per-participant-load)
+- [ ] Rate limiting via `Services/RateLimitService` (blocked on generic bucket API; today it's email-only)
+- [x] Bail-out UI when OpenCPU errors: client marks wrapper `.fmr-fill-error` and appends a `.fmr-fill-feedback` div with the server's error string (admin notification already wired via `notify_study_admin()`)
+- [ ] Embedded Rmd in labels / page_body: not yet routed through r(...)+fill; continues to OpenCPU-knit at render time
 
 ### Phase 5 — Offline queue
 - [ ] IndexedDB store `formrQueue`
@@ -732,3 +735,15 @@ Per-study URLs under `study.researchmixtape.com/<runName>/` work because the dev
 ### 13.25 v1's `is.na(X)` regex transpile silently never fires on the v2 client
 
 `Item.php` rewrites R `is.na(X)` → `(typeof(X) === 'undefined')`. Seemed fine — until you notice `collectAnswers()` normalizes every unanswered/empty/unchecked input to `null`, not `undefined`, which means the check evaluates to `false` for a participant who hasn't touched the field yet. Net effect: any v1 showif of the form `is.na(X)` always returns false client-side, so the item never appears even though the server would have hidden it. v2 fix is two-part: (a) provide an `isNA(v)` helper that matches R's NA semantics (null/undefined/""/empty-array/NaN), (b) rewrite `(typeof(X) === 'undefined')` → `isNA(X)` in `compileShowif` before `new Function`. Same applies to any future transpile emission that claims NA-ness — route it through `isNA`, don't open-code a `typeof` check.
+
+### 13.26 Deferred-fill: clear `$item->value`, not `$input_attributes['value']`
+
+For r(...)-wrapped `value`, FormRenderer unwraps and records in `survey_r_calls`, then has to prevent v1's OpenCPU batch (`processDynamicValuesAndShowIfs`) from trying to evaluate the wrapped string — `r()` isn't a function in OpenCPU's R environment and one bad entry torches the whole batch for the page. The right lever is `$item->value = ''`: `needsDynamicValue()` trims to falsy, returns false, the item is skipped in the batch, `input_attributes['value']` is left untouched (it's only written from `setDynamicValue($value)`, which is called based on the batch results dict and keyed by item name). Setting `$input_attributes['value']` directly would also silence the batch for this item but then the server-rendered HTML would emit `value="r(...)"` — a literal attribute the client'd clobber anyway, but ugly. One-line clear of `$item->value`, let the rest of the pipeline be.
+
+### 13.27 `classes_wrapper` is `protected` on every Item subclass
+
+`public $parent_attributes = []` — anyone can poke a `data-*` onto it. `protected $classes_wrapper = ['form-group', 'form-row']` — FormRenderer can't push a new class from outside. Tried `$item->classes_wrapper[] = 'fmr-fill-pending'` and got a fatal `Cannot access protected property Text_Item::$classes_wrapper`. Two options: (a) add a public `addWrapperClass($c)` method on Item, (b) let the client tag the class on init. Went with (b) for MVP since the class is a loading indicator that only matters during the fetch window the client controls anyway — `fillItems.forEach(w => w.classList.add('fmr-fill-pending'))` before the fetch, `.classList.remove('fmr-fill-pending')` on resolve/error. If other server-side code needs to decorate wrappers, add the method then; don't special-case every caller.
+
+### 13.28 Dangling run sessions break form-fill auth differently from form-r-call
+
+The r-call smoke worked because rcallsmoke was a fresh run for my user. filesmoke had a prior session 75889 with `ended=<stamp>` + `user_id=NULL` + `current_unit_session_id` pointing at an ended unit session. When I reopened the run, the server rendered the Form preview (admin view reuses the ended session as a preview container) but `getCurrentUnitSession()` returned null for POST endpoints — the ended unit session is filtered out. So the GET works, the POST 409s. `DELETE survey_items_display WHERE session_id IN (…)` then the same for `survey_unit_sessions` / `survey_run_sessions` — that reset makes the next visit create a fresh active session tied to the user_code. Expect the same gotcha when iterating on any new endpoint that goes through `RunSession::getCurrentUnitSession()`; check session state before debugging the endpoint code.

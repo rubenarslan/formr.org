@@ -1,0 +1,5 @@
+type,name,label,optional,value,showif,class
+text,trigger,Type any word to re-check,1,,,
+text,prefill_literal,"This is prefilled from r(""hello"")",1,"r(""hello"")",,
+text,prefill_echo,This echoes what you typed in trigger,1,r(trigger),,
+submit,stop,Submit,1,,,

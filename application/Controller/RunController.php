@@ -605,19 +605,67 @@ class RunController extends Controller {
             $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
             return;
         }
-
-        $raw = file_get_contents('php://input');
-        $payload = json_decode($raw, true);
+        $payload = json_decode(file_get_contents('php://input'), true);
         if (!is_array($payload)) {
             $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
             return;
         }
-
         $callId = isset($payload['call_id']) ? (int) $payload['call_id'] : 0;
         $answers = (isset($payload['answers']) && is_array($payload['answers'])) ? $payload['answers'] : array();
-        if ($callId <= 0) {
-            $this->sendJsonResponse(array('error' => 'Missing call_id'), 400);
+
+        $out = $this->evaluateAllowlistedRCall($callId, 'showif', $answers);
+        if (!$out['ok']) {
+            $this->sendJsonResponse(array('error' => $out['error']), $out['status']);
             return;
+        }
+        $this->sendJsonResponse(array('result' => self::rResultToBool($out['result'])));
+    }
+
+    /**
+     * form_v2 Phase 4: deferred fill for r(...)-wrapped `value` expressions.
+     *
+     * URL: POST /{runName}/form-fill
+     * Body: JSON `{"call_id": int, "answers": {name: value, ...}}`
+     *
+     * Same shape as form-r-call but enforces slot='value' and returns the R
+     * result stringified for the input. Client sets `input.value` and fires a
+     * change event so dependent showifs re-evaluate.
+     */
+    public function formFillAction() {
+        if (!Request::isHTTPPostRequest()) {
+            $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
+            return;
+        }
+        $payload = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($payload)) {
+            $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
+            return;
+        }
+        $callId = isset($payload['call_id']) ? (int) $payload['call_id'] : 0;
+        $answers = (isset($payload['answers']) && is_array($payload['answers'])) ? $payload['answers'] : array();
+
+        $out = $this->evaluateAllowlistedRCall($callId, 'value', $answers);
+        if (!$out['ok']) {
+            $this->sendJsonResponse(array('error' => $out['error']), $out['status']);
+            return;
+        }
+        $this->sendJsonResponse(array('value' => self::rResultToScalarString($out['result'])));
+    }
+
+    /**
+     * Shared body for form-r-call + form-fill: validate session/study ownership
+     * of the call_id, enforce expected slot, overlay client answers on the last
+     * persisted row, evaluate the R expression via OpenCPU. Never ships R
+     * source to the client.
+     *
+     * @param int $callId survey_r_calls.id
+     * @param string $expectedSlot one of the survey_r_calls.slot enum values
+     * @param array $answers client-sent reactive answers, overlaid on tail(survey, 1)
+     * @return array{ok:bool, status?:int, error?:string, result?:mixed}
+     */
+    protected function evaluateAllowlistedRCall($callId, $expectedSlot, array $answers) {
+        if ($callId <= 0) {
+            return array('ok' => false, 'status' => 400, 'error' => 'Missing call_id');
         }
 
         $this->run = $this->getRun();
@@ -625,24 +673,20 @@ class RunController extends Controller {
 
         $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
         if (!$runSession->id) {
-            $this->sendJsonResponse(array('error' => 'No active run session'), 403);
-            return;
+            return array('ok' => false, 'status' => 403, 'error' => 'No active run session');
         }
 
         $unitSession = $runSession->getCurrentUnitSession();
         if (!$unitSession || !$unitSession->runUnit) {
-            $this->sendJsonResponse(array('error' => 'No current unit session'), 409);
-            return;
+            return array('ok' => false, 'status' => 409, 'error' => 'No current unit session');
         }
         $runUnit = $unitSession->runUnit;
         if (!($runUnit instanceof Survey)) {
-            $this->sendJsonResponse(array('error' => 'Current unit is not a survey/form'), 409);
-            return;
+            return array('ok' => false, 'status' => 409, 'error' => 'Current unit is not a survey/form');
         }
         $study = method_exists($runUnit, 'getStudy') ? $runUnit->getStudy(true) : $runUnit->surveyStudy;
         if (!$study || empty($study->id)) {
-            $this->sendJsonResponse(array('error' => 'No study on current unit'), 409);
-            return;
+            return array('ok' => false, 'status' => 409, 'error' => 'No study on current unit');
         }
 
         $row = DB::getInstance()
@@ -652,21 +696,21 @@ class RunController extends Controller {
             ->bindParams(array('id' => $callId))
             ->fetch();
         if (!$row || (int) $row['study_id'] !== (int) $study->id) {
-            $this->sendJsonResponse(array('error' => 'Unknown call_id for this study'), 404);
-            return;
+            return array('ok' => false, 'status' => 404, 'error' => 'Unknown call_id for this study');
+        }
+        if ((string) $row['slot'] !== (string) $expectedSlot) {
+            return array('ok' => false, 'status' => 400, 'error' => 'call_id slot mismatch');
         }
 
         $expr = (string) $row['expr'];
-        // TODO(phase 4): per-session bucket rate-limit (RateLimitService needs a
-        // generic check() method — today it's email-specific). For Phase 3 the
-        // endpoint is implicitly limited by the reactive-input cadence of one
-        // participant typing.
+        // TODO(phase 4+): per-session bucket rate-limit once RateLimitService
+        // grows a generic check() API (today it's email-specific). Reactive
+        // cadence is already implicitly one-per-participant-keystroke.
 
         $overlayR = self::formatROverlay($answers);
         $survey_name = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $study->name);
         if ($survey_name === '') {
-            $this->sendJsonResponse(array('error' => 'Bad study name'), 500);
-            return;
+            return array('ok' => false, 'status' => 500, 'error' => 'Bad study name');
         }
 
         $code = "(function() {\n"
@@ -681,18 +725,35 @@ class RunController extends Controller {
         $variables = $unitSession->getRunData($code, $survey_name);
         $session = opencpu_evaluate($code, $variables, 'json', null, true);
         if (!$session || $session->hasError()) {
-            $this->sendJsonResponse(array('error' => 'Evaluation failed'), 502);
-            return;
+            return array('ok' => false, 'status' => 502, 'error' => 'Evaluation failed');
         }
 
         $result = $session->getJSONObject();
-        // R returns length-1 vectors; unwrap.
+        // R returns length-1 vectors as single-element arrays; unwrap.
         if (is_array($result) && count($result) === 1 && array_keys($result) === array(0)) {
             $result = $result[0];
         }
+        return array('ok' => true, 'result' => $result);
+    }
 
-        $shown = self::rResultToBool($result);
-        $this->sendJsonResponse(array('result' => $shown));
+    /**
+     * Stringify an R scalar for the client. Empty string for NA / null / empty
+     * arrays (deferred fill should leave the field blank if the expression
+     * couldn't produce a value, rather than emitting "NA" or "null" literally).
+     */
+    protected static function rResultToScalarString($result) {
+        if ($result === null) return '';
+        if (is_bool($result)) return $result ? 'TRUE' : 'FALSE';
+        if (is_int($result) || is_float($result)) {
+            if (is_float($result) && is_nan($result)) return '';
+            return (string) $result;
+        }
+        if (is_array($result)) {
+            if (empty($result)) return '';
+            // Flatten to first scalar; Phase 4 fills target a single input.
+            return self::rResultToScalarString(reset($result));
+        }
+        return (string) $result;
     }
 
     /**
