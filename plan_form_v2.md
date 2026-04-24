@@ -29,7 +29,7 @@ Branch `feature/form_v2`, not yet merged. Status reflects what's landed in code 
 ### Phase 1 — Full-page rendering + AJAX page-submit, no R changes
 Core (done):
 - [x] New Webpack entry `form` + bundle `form.bundle.js`
-- [x] Alpine.js 3 imported and registered (not yet used for reactive `showif`)
+- [x] Alpine.js 3 imported and registered; drives reactive `showif` via the `fmrForm` component + custom `x-showif` directive
 - [x] Bootstrap 5 scoped to participant pages via npm alias `bootstrap5`
 - [x] Font Awesome 6
 - [x] Tom-select installed and imported
@@ -78,7 +78,7 @@ Gaps (Phase 1.5 — most closed during all_widgets smoke):
 - [x] Client r-call resolver: items with `data-fmr-r-call` POST debounced `{call_id, answers}`; apply `{result: bool}` with seq-guarded stale-response protection
 - [ ] Hardened JS transpiler (proper parser, not regex)
 - [ ] Upgrade-time compatibility scan (auto-wrap un-translatable R in `r()`)
-- [ ] Alpine `x-show` bindings for JS `showif` expressions (current implementation is vanilla; Alpine is only imported, not yet used)
+- [x] Alpine `x-showif` directive + `fmrForm` component for reactive showif. Server emits `data-showif="<js-expr>"`; the bundle promotes it to `x-showif` on init and adds `x-data="fmrForm"` on the `<form>`. The component exposes one top-level reactive field per input name (Vue 3 Proxy tracks new keys via `this[key]=…`) plus helper methods (`isNA`, `answered`, `contains`, `containsWord`, `startsWith`, `endsWith`, `last`). Evaluation dependency tracking + re-run comes free from Alpine's `effect()`. Expression robustness: strip `//` and `/* */` comments (v1's `//js_only` marker otherwise swallows our wrapping closing paren → SyntaxError), and wrap runtime eval in `(()=>{try{...}catch(e){return undefined}})()` so references to run-level or future-page variables don't log ReferenceError every keystroke. `undefined` → visible, matching the previous vanilla evaluator's fallback.
 - [ ] Per-session rate-limit on r-call (deferred: `RateLimitService` is email-only today; needs a generic bucket API — Phase 4)
 
 ### Phase 4 — Deferred fill for `value` and embedded Rmd
@@ -765,3 +765,21 @@ v1 emits `.mc-table.js_hidden` (the real radios/checkboxes) alongside `.btn-grou
 ### 13.32 Fixture upload via curl cookie jar instead of inline base64
 
 Uploading a test xlsx through the admin UI via Playwright MCP hits a wall: `browser_file_upload` requires a native file chooser modal, triggered by user activation on a real `<input type=file>` click. The file input's wrapper click didn't open the chooser, and inlining the file as a base64 Blob + `fetch(FormData)` from the page context worked but was ugly (>25KB of b64 string in an evaluate argument for even a small xlsx). Simpler path: **curl with a cookie jar from the host**. `curl -c cookies.txt -X POST .../admin/account/login/ -F email=... -F password=...` stores session cookies (including HttpOnly); `curl -b cookies.txt -X POST .../admin/survey/add_survey/ -F new_study=1 -F uploaded=@fixture.xlsx` uploads. Use this any time you need to set up test fixtures — it's faster, survives retries, and plays nicely with `docker exec` round-trips.
+
+Playwright MCP's `browser_file_upload` **does** work from the Playwright side if you trigger the chooser via a real `<button>` click rather than the hidden `<input type=file>` wrapper. On the `/admin/survey/add_survey/` page the "Choose File" button (above the hidden input) opens the chooser correctly — Playwright's `browser_click` on it surfaces a `[File chooser]` modal that `browser_file_upload` can fulfill. Stage the fixture under `.playwright-mcp/` (already gitignored) since paths outside the repo or that directory are rejected as "outside allowed roots". Prefer this when you're already in Playwright — avoids the shell round-trip.
+
+### 13.33 Alpine-driven showif replaces the hand-rolled evaluator
+
+Phase 3's `applyShowifs` + `compileShowif` + manual `input`/`change` listeners was ~80 lines of custom reactivity — the exact kind of thing Alpine already ships. The refactor:
+
+- **`Alpine.data('fmrForm', …)`** registered at module load. Component exposes helper methods (`isNA`, `answered`, `contains`, `containsWord`, `startsWith`, `endsWith`, `last`) as `$data` methods and one top-level reactive key per form input name. `init()` walks `input[name], select[name], textarea[name]` under `$root`, seeds each key to `null`, reads initial values, then listens for `input`/`change` at the root and calls `_syncInput(e.target)` on each. Vue 3 Proxy tracks new keys assigned via `this[key] = …`, so showif expressions reference bare identifiers (`trigger == 'yes'`) that resolve against `$data` naturally.
+
+- **`Alpine.directive('showif', …)`** registered at module load. Reads the expression, strips `/* */` and `//` comments (critical — v1 emits `//js_only` markers that otherwise swallow the wrapping closing paren → SyntaxError at `new AsyncFunction()` time), rewrites v1's `(typeof(X) === 'undefined')` transpile to `isNA(X)`, wraps runtime eval in `(function(){try{return (expr)}catch(e){return undefined}})()` so ReferenceError on run-level/future-page variables silently falls back to undefined (→ visible) rather than spamming console every keystroke. `effect()` handles dep-tracking; dependency invalidation re-runs the getter.
+
+- **Client-side attribute promotion**: the server still emits `data-showif="<js-expr>"` (via `Item::render`'s existing `$data_showif` flag). On init, the bundle walks `[data-showif]`, copies to `x-showif`, removes `data-showif`, and sets `x-data="fmrForm"` on the root form. Alpine's scan picks up the promoted attributes. No server changes needed — lets v1 keep shipping `data-showif` unchanged.
+
+- **`_syncInput` normalizes types**: empty/unchecked → `null`, numeric-shaped strings → `Number(v)`, multi-checkbox/multi-select → arrays. Skips `disabled` inputs so a hidden-by-showif region doesn't overwrite its prior value. The type-coercion matters for expressions like `mc_polytheism == 2` (radio value `"2"` → `2`) and for R-style numeric comparison semantics.
+
+- **Naming collisions**: input named `isNA` or `answered` would shadow the helper method. Unlikely in practice but a real foot-gun. If it becomes a problem, move helpers off the component to an Alpine magic (`$helpers.isNA(…)`).
+
+- **`collectAnswers` stays** as a separate DOM-reading helper for r-call/fill POST payloads. Alpine's reactive state and `collectAnswers` agree at event-dispatch time (both read from the same DOM), so the modest duplication is contained. Reusing Alpine state cross-scope would require grabbing `$data` out of band (`root._x_dataStack[0]`), which is fragile.

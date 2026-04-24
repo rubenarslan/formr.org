@@ -1,8 +1,9 @@
-// form_v2 participant bundle (Phase 1).
+// form_v2 participant bundle.
 // Single-page AJAX form: all pages rendered server-side in one document,
-// client-side navigation between `<section data-fmr-page>` wrappers,
-// page-at-a-time AJAX submission. Alpine is registered for later phases
-// but Phase 1 only uses vanilla event handlers.
+// client-side navigation between `<section data-fmr-page>` wrappers, page-at-
+// a-time AJAX submission. Alpine drives reactive `showif` (`x-showif`
+// directive + `fmrForm` component); everything else (r-call debounce, offline
+// queue, button-group wiring, file uploads, geopoint) is plain DOM/fetch.
 
 import 'bootstrap5/dist/css/bootstrap.min.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
@@ -542,12 +543,26 @@ function initForm() {
 
     initGeopoint();
 
-    // --- Client-side showif (Phase 3) ---
-    // Each item wrapper with a `data-showif` carries a JS expression (transpiled
-    // from the admin's R `showif` at import). Evaluate it against the live
-    // answers object on every input/change and toggle the wrapper's hidden state.
-    const showifItems = Array.from(root.querySelectorAll('.form-group[data-showif], .item[data-showif]'));
+    // --- Reactive showif via Alpine (Phase 3) ---
+    // Item.php emits `data-showif="<transpiled-js>"` on items whose admin-authored
+    // `showif` column resolved server-side as visible. We promote that attribute
+    // to Alpine's `x-showif` directive (registered at module level) and add
+    // `x-data="fmrForm"` on the form so Alpine has a reactive scope. The
+    // component exposes one top-level reactive field per input name plus the
+    // is.na/answered/contains/… helper set; Alpine handles dep-tracking + re-
+    // evaluation, so we don't maintain a bespoke evaluator or input listeners.
+    root.querySelectorAll('[data-showif]').forEach((el) => {
+        const expr = el.getAttribute('data-showif');
+        if (expr) el.setAttribute('x-showif', expr);
+        el.removeAttribute('data-showif');
+    });
+    if (!root.hasAttribute('x-data')) {
+        root.setAttribute('x-data', 'fmrForm');
+    }
 
+    // collectAnswers remains as a helper for r-call/fill POST payloads. It
+    // reads the DOM fresh each call (same contract as before) rather than
+    // snapshotting Alpine state — Alpine and the DOM agree at event time.
     const collectAnswers = () => {
         const a = {};
         root.querySelectorAll('input[name], select[name], textarea[name]').forEach((inp) => {
@@ -576,89 +591,6 @@ function initForm() {
         });
         return a;
     };
-
-    // Standard-library helpers made available inside every showif expression.
-    // Mirrors the ergonomic R-isms admins are used to so JS-authored showifs
-    // (`//js_only` or future native-JS column) can lean on them, and so the
-    // R-transpile output can call them instead of emitting fragile inline
-    // coercions. `isNA` is the canonical "not answered" check — covers the
-    // `null` values `collectAnswers` normalizes empty/unchecked to, plus `""`,
-    // `undefined`, empty arrays.
-    const showifHelpers = {
-        isNA: (v) => v === null || v === undefined || v === ''
-            || (Array.isArray(v) && v.length === 0) || (typeof v === 'number' && isNaN(v)),
-        answered: (v) => !showifHelpers.isNA(v),
-        contains: (haystack, needle) => {
-            if (showifHelpers.isNA(haystack)) return false;
-            if (Array.isArray(haystack)) return haystack.includes(needle);
-            return String(haystack).indexOf(String(needle)) > -1;
-        },
-        containsWord: (haystack, word) => {
-            if (showifHelpers.isNA(haystack)) return false;
-            const re = new RegExp('\\b' + String(word).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
-            return re.test(String(haystack));
-        },
-        startsWith: (haystack, prefix) => {
-            if (showifHelpers.isNA(haystack)) return false;
-            return String(haystack).startsWith(String(prefix));
-        },
-        endsWith: (haystack, suffix) => {
-            if (showifHelpers.isNA(haystack)) return false;
-            return String(haystack).endsWith(String(suffix));
-        },
-        last: (arr) => Array.isArray(arr) && arr.length > 0 ? arr[arr.length - 1] : arr,
-    };
-
-    // Compile each data-showif once. On failure, the item is treated as visible.
-    const compileShowif = (expr) => {
-        let cleaned = (expr || '').replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '').trim();
-        if (!cleaned) return () => true;
-        // v1's Item.php regex-transpile emits `(typeof(X) === 'undefined')` for
-        // R `is.na(X)`, but `collectAnswers` normalizes empty/unchecked inputs
-        // to `null`, not `undefined` — so that check silently never fires.
-        // Route it through `isNA(X)` (same identifier set v1 emits: letters,
-        // digits, underscore, quotes) so R-authored `is.na` actually evaluates.
-        cleaned = cleaned.replace(
-            /\(\s*typeof\(\s*([A-Za-z0-9_'"]+)\s*\)\s*===\s*['"]undefined['"]\s*\)/g,
-            'isNA($1)'
-        );
-        try {
-            // eslint-disable-next-line no-new-func
-            const fn = new Function('context', 'with (context) { return (' + cleaned + '); }');
-            return (ctx) => {
-                try { return !!fn(Object.assign({}, showifHelpers, ctx)); } catch (e) { return true; /* on failure show */ }
-            };
-        } catch (e) {
-            return () => true;
-        }
-    };
-    const compiled = showifItems.map((el) => ({ el, fn: compileShowif(el.getAttribute('data-showif')) }));
-
-    const applyShowifs = () => {
-        if (!compiled.length) return;
-        const answers = collectAnswers();
-        compiled.forEach(({ el, fn }) => {
-            const visible = fn(answers);
-            // v1's hide() tacks on .hidden which ships display:none !important in
-            // Bootstrap, so toggling class is load-bearing; style.display alone
-            // can't override it.
-            el.classList.toggle('hidden', !visible);
-            el.toggleAttribute('data-fmr-hidden', !visible);
-            el.style.display = visible ? '' : 'none';
-            // Disable inputs of hidden items so native `required` doesn't block
-            // form submission, and so their values don't get sent.
-            el.querySelectorAll('input, select, textarea').forEach((inp) => {
-                if (inp.name && !inp.name.startsWith('_item_views')) {
-                    inp.disabled = !visible;
-                }
-            });
-        });
-    };
-
-    // Re-evaluate on any user input.
-    root.addEventListener('input', applyShowifs);
-    root.addEventListener('change', applyShowifs);
-    applyShowifs(); // initial pass
 
     // --- r-call showif (Phase 3) ---
     // Items the admin opted into server-side R via `r(...)` carry
@@ -892,6 +824,155 @@ function initForm() {
         showPage(idx);
     });
 }
+
+// Alpine component + directive registrations. Done at module load so they are
+// in place before Alpine.start() scans the DOM. The form bundle intentionally
+// has a single Alpine scope — `fmrForm` on the outer `<form>` — and a single
+// custom directive (`x-showif`). Everything else rides Alpine's built-ins.
+Alpine.data('fmrForm', () => ({
+    // Helpers — accessible inside any `x-showif` expression as `isNA(X)`,
+    // `answered(X)`, etc. Alpine binds `this` to $data when evaluating, so
+    // method delegates (`answered` → `this.isNA`) resolve correctly.
+    isNA(v) {
+        return v === null || v === undefined || v === ''
+            || (Array.isArray(v) && v.length === 0)
+            || (typeof v === 'number' && isNaN(v));
+    },
+    answered(v) { return !this.isNA(v); },
+    contains(haystack, needle) {
+        if (this.isNA(haystack)) return false;
+        if (Array.isArray(haystack)) return haystack.includes(needle);
+        return String(haystack).indexOf(String(needle)) > -1;
+    },
+    containsWord(haystack, word) {
+        if (this.isNA(haystack)) return false;
+        const re = new RegExp('\\b' + String(word).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
+        return re.test(String(haystack));
+    },
+    startsWith(haystack, prefix) {
+        if (this.isNA(haystack)) return false;
+        return String(haystack).startsWith(String(prefix));
+    },
+    endsWith(haystack, suffix) {
+        if (this.isNA(haystack)) return false;
+        return String(haystack).endsWith(String(suffix));
+    },
+    last(arr) {
+        return Array.isArray(arr) && arr.length > 0 ? arr[arr.length - 1] : arr;
+    },
+
+    init() {
+        // Register one reactive top-level key per named input. Alpine's `reactive`
+        // (Vue 3 Proxy) tracks new keys assigned to `this`, so showif expressions
+        // like `trigger == 'yes'` resolve against `$data.trigger` after the first
+        // assignment. Empty/unchecked normalizes to `null` so helpers see a
+        // single "not answered" shape.
+        const inputs = this.$root.querySelectorAll('input[name], select[name], textarea[name]');
+        inputs.forEach((inp) => {
+            const raw = inp.name || '';
+            if (raw.startsWith('_item_views')) return;
+            const key = raw.endsWith('[]') ? raw.slice(0, -2) : raw;
+            if (!(key in this)) this[key] = null;
+        });
+        // Populate initial values (checked radios, text, selects, etc.).
+        inputs.forEach((inp) => this._syncInput(inp));
+        this.$root.addEventListener('input', (e) => this._syncInput(e.target));
+        this.$root.addEventListener('change', (e) => this._syncInput(e.target));
+    },
+
+    _syncInput(inp) {
+        const raw = inp.name || '';
+        if (!raw || raw.startsWith('_item_views')) return;
+        if (inp.disabled) return; // showif-hidden inputs keep their prior value
+        const isArr = raw.endsWith('[]');
+        const key = isArr ? raw.slice(0, -2) : raw;
+        const coerce = (s) => {
+            if (s === '' || s === null || s === undefined) return null;
+            const n = Number(s);
+            return isNaN(n) ? s : n;
+        };
+        let v;
+        if (inp.type === 'checkbox') {
+            if (isArr) {
+                const boxes = this.$root.querySelectorAll(
+                    `input[type=checkbox][name="${CSS.escape(raw)}"]:checked`
+                );
+                v = Array.from(boxes).map((b) => coerce(b.value));
+            } else {
+                v = inp.checked ? coerce(inp.value) : null;
+            }
+        } else if (inp.type === 'radio') {
+            const checked = this.$root.querySelector(
+                `input[type=radio][name="${CSS.escape(raw)}"]:checked`
+            );
+            v = checked ? coerce(checked.value) : null;
+        } else if (inp.tagName === 'SELECT' && inp.multiple) {
+            v = Array.from(inp.selectedOptions).map((o) => coerce(o.value));
+        } else {
+            v = coerce(inp.value);
+        }
+        this[key] = v;
+    },
+}));
+
+// Custom `x-showif` directive. Same contract as `x-show` but also
+// (a) toggles the Bootstrap `.hidden` class (ships display:none !important,
+// otherwise a parent/ancestor's `.hidden` wins), (b) disables inputs in the
+// hidden region so native `required` doesn't block submit and their values
+// don't get sent, and (c) rewrites v1's `is.na(X)` transpile output from
+// `(typeof(X) === 'undefined')` to `isNA(X)` since our reactive state
+// normalizes empty/unchecked to `null`, not `undefined`.
+//
+// Expression robustness: the transpiled R often carries `//js_only` or `//`
+// line comments, which otherwise swallow our wrapping closing paren and
+// produce a SyntaxError at `new AsyncFunction()` time. Strip comments first.
+// Expressions can also reference names not in `$data` (run-level variables
+// like `ran_group`, or items from other pages not present on this form);
+// wrap the evaluation in a runtime try/catch so ReferenceError defaults to
+// undefined (i.e. "show") instead of noisily blowing up every keystroke.
+Alpine.directive('showif', (el, { expression }, { evaluateLater, effect, cleanup }) => {
+    const cleaned = (expression || '')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\/\/.*$/gm, '')
+        .trim();
+    if (!cleaned) return; // no showif → leave the server-side state as-is
+    const rewritten = cleaned.replace(
+        /\(\s*typeof\(\s*([A-Za-z0-9_'"]+)\s*\)\s*===\s*['"]undefined['"]\s*\)/g,
+        'isNA($1)'
+    );
+    const safe = `(function(){try{return (${rewritten})}catch(e){return undefined}})()`;
+
+    const applyVisibility = (visible) => {
+        el.classList.toggle('hidden', !visible);
+        el.toggleAttribute('data-fmr-hidden', !visible);
+        el.style.display = visible ? '' : 'none';
+        el.querySelectorAll('input, select, textarea').forEach((inp) => {
+            if (inp.name && !inp.name.startsWith('_item_views')) {
+                inp.disabled = !visible;
+            }
+        });
+    };
+
+    let getValue;
+    try {
+        getValue = evaluateLater(safe);
+    } catch (e) {
+        // Expression couldn't compile at all (unmatched parens, stray tokens
+        // post-comment-strip, etc.). Fall back to visible so the participant
+        // can still see the item — better than a silently-hidden field that
+        // never reveals.
+        applyVisibility(true);
+        return;
+    }
+    effect(() => {
+        getValue((result) => {
+            // Runtime failure (our inner try/catch returns undefined, or Alpine
+            // itself swallowed something): treat as "show".
+            const visible = (result === undefined) ? true : !!result;
+            applyVisibility(visible);
+        });
+    });
+});
 
 window.Alpine = Alpine;
 
