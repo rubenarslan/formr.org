@@ -482,15 +482,49 @@ class RunController extends Controller {
             return;
         }
 
-        $raw = file_get_contents('php://input');
-        $payload = json_decode($raw, true);
-        if (!is_array($payload)) {
-            $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
-            return;
-        }
+        // Accept two payload shapes:
+        //   - application/json with {page, data, item_views} (file-less fast path)
+        //   - multipart/form-data with flat fields `data[name]=...`,
+        //     `item_views[shown][itemId]=...`, plus $_FILES entries for File_Item.
+        // v2 switches to multipart when the current page has a file field with
+        // a selected file; FormData is the only way to ship binary through
+        // $_FILES, which File_Item::validateInput requires.
+        $contentType = isset($_SERVER['CONTENT_TYPE']) ? (string) $_SERVER['CONTENT_TYPE'] : '';
+        $isMultipart = stripos($contentType, 'multipart/form-data') === 0;
 
-        $data = (isset($payload['data']) && is_array($payload['data'])) ? $payload['data'] : array();
-        $itemViews = (isset($payload['item_views']) && is_array($payload['item_views'])) ? $payload['item_views'] : array();
+        $submittedPage = 1;
+        if ($isMultipart) {
+            $submittedPage = isset($_POST['page']) ? (int) $_POST['page'] : 1;
+            $data = (isset($_POST['data']) && is_array($_POST['data'])) ? $_POST['data'] : array();
+            $itemViews = (isset($_POST['item_views']) && is_array($_POST['item_views'])) ? $_POST['item_views'] : array();
+            // Merge $_FILES[*] entries into $data so File_Item::validateInput
+            // receives the canonical {error, tmp_name, name, size, type} dict
+            // under the item's name. Nested form field `files[name]` is what
+            // the client sends.
+            if (isset($_FILES['files']) && is_array($_FILES['files']['name'])) {
+                $fileNames = $_FILES['files']['name'];
+                foreach ($fileNames as $itemName => $_) {
+                    if (!is_string($itemName) || $itemName === '') continue;
+                    $data[$itemName] = array(
+                        'name' => $_FILES['files']['name'][$itemName] ?? '',
+                        'type' => $_FILES['files']['type'][$itemName] ?? '',
+                        'tmp_name' => $_FILES['files']['tmp_name'][$itemName] ?? '',
+                        'error' => $_FILES['files']['error'][$itemName] ?? UPLOAD_ERR_NO_FILE,
+                        'size' => $_FILES['files']['size'][$itemName] ?? 0,
+                    );
+                }
+            }
+        } else {
+            $raw = file_get_contents('php://input');
+            $payload = json_decode($raw, true);
+            if (!is_array($payload)) {
+                $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
+                return;
+            }
+            $submittedPage = isset($payload['page']) ? (int) $payload['page'] : 1;
+            $data = (isset($payload['data']) && is_array($payload['data'])) ? $payload['data'] : array();
+            $itemViews = (isset($payload['item_views']) && is_array($payload['item_views'])) ? $payload['item_views'] : array();
+        }
 
         $this->run = $this->getRun();
         $this->user = $this->loginUser();
@@ -533,7 +567,6 @@ class RunController extends Controller {
         // For a multi-page form, if more pages remain, tell the client to show the
         // next one locally (no reload). If this was the last page, redirect back
         // to the run URL so Run::exec can advance to the next unit.
-        $submittedPage = isset($payload['page']) ? (int) $payload['page'] : 1;
         $maxPage = (int) DB::getInstance()
             ->select('MAX(page)')
             ->from('survey_items_display')

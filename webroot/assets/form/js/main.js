@@ -283,22 +283,59 @@ function initForm() {
             invalid.reportValidity();
             return;
         }
-        const payload = Object.assign(
-            { page: Number(page.dataset.fmrPage) || (currentIndex + 1) },
-            collectPayload(page),
-        );
+        const pageNum = Number(page.dataset.fmrPage) || (currentIndex + 1);
+        const payload = Object.assign({ page: pageNum }, collectPayload(page));
+
+        // If this page has a file input with a selected file, switch to
+        // FormData/multipart. File bytes can't ride in JSON, and the server
+        // branches on Content-Type to read $_FILES for File_Item items.
+        const fileInputs = Array.from(
+            page.querySelectorAll('input[type="file"]:not([disabled])')
+        ).filter((inp) => inp.name && inp.files && inp.files.length > 0);
+        const useMultipart = fileInputs.length > 0;
+
         let res;
         try {
-            res = await fetch(submitUrl, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify(payload),
-            });
+            if (useMultipart) {
+                const fd = new FormData();
+                fd.append('page', String(pageNum));
+                const appendVal = (prefix, key, val) => {
+                    if (Array.isArray(val)) {
+                        val.forEach((v) => fd.append(`${prefix}[${key}][]`, v == null ? '' : String(v)));
+                    } else if (val != null) {
+                        fd.append(`${prefix}[${key}]`, String(val));
+                    }
+                };
+                const data = payload.data || {};
+                Object.keys(data).forEach((k) => appendVal('data', k, data[k]));
+                const views = payload.item_views || {};
+                Object.keys(views).forEach((bucket) => {
+                    const m = views[bucket] || {};
+                    Object.keys(m).forEach((id) => fd.append(`item_views[${bucket}][${id}]`, String(m[id])));
+                });
+                fileInputs.forEach((inp) => {
+                    // Drop this item from `data` — File_Item reads from $_FILES['files'][itemName].
+                    fd.delete(`data[${inp.name}]`);
+                    fd.append(`files[${inp.name}]`, inp.files[0], inp.files[0].name);
+                });
+                res = await fetch(submitUrl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                    body: fd,
+                });
+            } else {
+                res = await fetch(submitUrl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                });
+            }
         } catch (e) {
             console.error('page-submit network error', e);
             window.alert('Network error. Please try again.');

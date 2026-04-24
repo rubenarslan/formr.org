@@ -60,12 +60,12 @@ Gaps (Phase 1.5 — most closed during all_widgets smoke):
 
 ### Phase 2 — Item-type coverage
 - [ ] Audio, video, ratingbutton variants
-- [ ] Geolocation (native navigator.geolocation wrapper — see §4.2)
-- [ ] File uploads (needs `FormData` instead of JSON on the AJAX path)
+- [x] Geolocation (native navigator.geolocation in `main.js::initGeopoint`)
+- [x] File uploads — client auto-switches to multipart when any `input[type=file]` on the page has a selected file; server `formPageSubmitAction` branches on Content-Type and reads `$_POST` + `$_FILES['files'][name]`
 - [ ] Date/time/datetime-local/month/week across browsers
 - [ ] Button groups (without `webshim`'s addShadowDom)
 - [ ] Scale, slider, ratingbutton, mc_button
-- [ ] Submit item handling (v2 provides its own nav, skip v1's emitted submit)
+- [x] Submit item handling (v2 provides its own nav, skip v1's emitted submit — `FormRenderer::processItems` hides type='submit' items)
 
 ### Phase 3 — Client-side `showif` + transpiler hardening
 - [x] JS evaluator wired to `data-showif` attribute on item wrappers; re-runs on every input/change against a live `answers` object; toggles `.hidden` + `display` + `input.disabled`
@@ -716,3 +716,15 @@ OpenCPU only has the base + formr R packages loaded; `r()` is not a defined func
 ### 13.21 DB_Select uses `fetch()`, not `fetchRow()`
 
 Confused with `DB::findRow()`. `DB::select()->from()->where()->fetch()` is the one-row fetch on DB_Select; `DB::findRow($table, $where)` is the higher-level table lookup. They return the same shape but live on different classes — and the linter won't catch this because `fetchRow` isn't a typo on any PDO-ish class either. Lint is not a substitute for one end-to-end smoke.
+
+### 13.22 File upload: multipart on demand, `$_FILES['files'][name]` namespace
+
+v2's default page-submit is JSON; files can't ride in JSON, so the client switches to `FormData` only when the current page has a non-empty `<input type=file>`. The FormData is keyed `data[<scalar_name>]`, `data[<array_name>][]`, `item_views[<bucket>][<item_id>]`, **and** `files[<item_name>]` — keeping file bytes outside `data` so `$_POST['data']` stays parallel to the JSON path. Server reads `$_FILES['files']['name']` etc. and re-projects into the flat `{name,type,tmp_name,error,size}` shape File_Item::validateInput expects. Verified end-to-end with a minimal `file_smoke.xlsx` fixture: row appears in the per-study table and in `user_uploaded_files`.
+
+### 13.23 Playwright MCP file uploads are path-restricted
+
+`browser_file_upload` only accepts paths under the repo root or `.playwright-mcp/`. Handing it `/tmp/whatever.txt` errors with "outside allowed roots". For test fixtures you need to upload from, stage them under `.playwright-mcp/` (already gitignored) or another repo path.
+
+### 13.24 Study subdomain DNS + session reset gotcha
+
+Per-study URLs under `study.researchmixtape.com/<runName>/` work because the dev instance is *not* using wildcard subdomains for studies (the `FMRSD_CONTEXT` path from the subdomain-based model isn't wired). `https://<runName>.researchmixtape.com/` fails with a cert error. Always use `https://study.researchmixtape.com/<runName>/`. Separately: if a test run doesn't have a Stop unit, the session "dangles" after the Form completes and subsequent Test-run visits show "Oops, creator forgot a Stop". To re-test, either add a Stop unit or `DELETE FROM survey_unit_sessions WHERE run_session_id=?` + `DELETE FROM survey_run_sessions WHERE id=?` to reset the session for that user code.
