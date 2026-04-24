@@ -94,15 +94,18 @@ Gaps (Phase 1.5 — most closed during all_widgets smoke):
 - [ ] Embedded Rmd in labels / page_body: not yet routed through r(...)+fill; continues to OpenCPU-knit at render time
 
 ### Phase 5 — Offline queue
-- [ ] IndexedDB store `formrQueue`
-- [ ] Service-worker page-submit interception
-- [ ] Background Sync + `/form/sync` endpoint
-- [ ] Queued-submission UI banner
-- [ ] Dedupe by client-generated submission UUID
-- [ ] `offline_mode` flag on `survey_studies` (opt-out)
+- [x] IndexedDB store `formrQueue` — one object store `queue`, keyPath `uuid`, `client_ts` index for ordered drain
+- [ ] Service-worker page-submit interception (MVP uses page-JS intercept only; SW comes later)
+- [x] `/{run}/form-sync` endpoint (`RunController::formSyncAction`) — accepts one entry, dedups via `survey_form_submissions.uuid` pre-check + UNIQUE constraint backstop, applies via `UnitSession::updateSurveyStudyRecord` (same path as form-page-submit)
+- [ ] Background Sync API (tab-lifetime only today via `online` event + initial-load drain; real SW + BS in a later slice)
+- [x] Queued-submission UI banner — single `.fmr-queue-banner` node, variants: warning (offline/draining), success (done), danger (rejected validation)
+- [x] Dedupe by client-generated submission UUID — `crypto.randomUUID()` fallback to v4-shape RNG; server regex-validates 8-4-4-4-12 hex shape so malformed inputs can't pollute the ledger
+- [ ] `offline_mode` flag on `survey_studies` (opt-out) — not wired; MVP is unconditionally on for v2 Forms
 - [ ] Unconditional SW registration on form_v2 runs
 - [ ] iOS Safari compatibility pass
-- [ ] File-size cap for queued uploads (default 10 MB)
+- [ ] File-size cap for queued uploads (default 10 MB) — file submissions skip the queue entirely today (multipart path, alerts on offline); Blob-in-IDB queueing is Phase 5 v2
+- [x] Drain semantics: on success delete entry, if queue empty AND server returned `redirect` follow it so the run advances; on `drop_entry` (ended session) drop entry without retry; on transient failure stop and leave in place; on validation error surface `.alert-danger` banner
+- [x] Patch 050 `survey_form_submissions` ledger (uuid PK, unit_session_id FK CASCADE, page, client_ts, applied_at)
 
 ### Phase 6 — Docs + migration tooling
 - [ ] Admin UI for the compatibility scanner
@@ -747,3 +750,11 @@ For r(...)-wrapped `value`, FormRenderer unwraps and records in `survey_r_calls`
 ### 13.28 Dangling run sessions break form-fill auth differently from form-r-call
 
 The r-call smoke worked because rcallsmoke was a fresh run for my user. filesmoke had a prior session 75889 with `ended=<stamp>` + `user_id=NULL` + `current_unit_session_id` pointing at an ended unit session. When I reopened the run, the server rendered the Form preview (admin view reuses the ended session as a preview container) but `getCurrentUnitSession()` returned null for POST endpoints — the ended unit session is filtered out. So the GET works, the POST 409s. `DELETE survey_items_display WHERE session_id IN (…)` then the same for `survey_unit_sessions` / `survey_run_sessions` — that reset makes the next visit create a fresh active session tied to the user_code. Expect the same gotcha when iterating on any new endpoint that goes through `RunSession::getCurrentUnitSession()`; check session state before debugging the endpoint code.
+
+### 13.29 Offline queue client_ts must be MySQL DATETIME format, not ISO-8601
+
+Stored `client_ts: new Date().toISOString()` in the IDB entry, shipped it to `/form-sync`, and the endpoint 500'd with `Invalid datetime value: '2026-04-24T11:25:54.799Z' for column survey_form_submissions.client_ts`. Same gotcha as the item_shown timestamps — MariaDB's DATETIME wants `YYYY-MM-DD HH:MM:SS`, no `T`, no `Z`, no `.sss`. Use the existing `mysqlDatetime()` helper (`new Date().toISOString().slice(0, 19).replace('T', ' ')`) everywhere a PHP-side column is DATETIME. If you ever add a new server-bound timestamp, do this conversion at the emission site, not at the receiver — centralizing in one helper keeps semantics consistent.
+
+### 13.30 `window.fetch` restore after monkey-patch survives an iframe ONLY if you keep the iframe
+
+To simulate offline in a Playwright-driven smoke, I patched `window.fetch` to reject for a specific URL, ran the submit flow, then tried to restore by grabbing `iframe.contentWindow.fetch` from a freshly-created iframe and calling `iframe.remove()`. The next fetch via the restored reference failed silently (drain left the entry in place, no network error surfaced) — turns out detaching the iframe invalidates its globals. Keep the iframe attached (`style.display='none'`) while the restored fetch is in use; remove it after the test is fully done. Alternative: reload the whole page to reset the monkey-patch cleanly. Don't trust "I restored fetch" without a probe request to verify it actually works.

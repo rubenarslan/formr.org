@@ -238,15 +238,17 @@ class FormRenderer extends SpreadsheetRenderer {
         $submitUrl = run_url($this->run->name, 'form-page-submit');
         $rcallUrl = run_url($this->run->name, 'form-r-call');
         $fillUrl = run_url($this->run->name, 'form-fill');
+        $syncUrl = run_url($this->run->name, 'form-sync');
         $runUrl = run_url($this->run->name);
         $currentUser = Site::getCurrentUser();
         $userCode = $currentUser ? $currentUser->user_code : '';
 
         $html = sprintf(
-            '<form class="fmr-form-v2" method="post" data-submit-url="%s" data-rcall-url="%s" data-fill-url="%s" data-run-url="%s" novalidate>',
+            '<form class="fmr-form-v2" method="post" data-submit-url="%s" data-rcall-url="%s" data-fill-url="%s" data-sync-url="%s" data-run-url="%s" novalidate>',
             htmlspecialchars($submitUrl, ENT_QUOTES),
             htmlspecialchars($rcallUrl, ENT_QUOTES),
             htmlspecialchars($fillUrl, ENT_QUOTES),
+            htmlspecialchars($syncUrl, ENT_QUOTES),
             htmlspecialchars($runUrl, ENT_QUOTES)
         );
         $html .= sprintf(

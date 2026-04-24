@@ -273,6 +273,130 @@ function initForm() {
 
     const submitUrl = root.dataset.submitUrl;
     const runUrl = root.dataset.runUrl;
+    const syncUrl = root.dataset.syncUrl;
+
+    // --- Offline queue (Phase 5) ---
+    // When a JSON page-submit fails with a network error, persist the payload
+    // to IndexedDB keyed by a client-generated UUID and let the participant
+    // continue locally. On `online` or at next page load, drain the queue by
+    // POSTing each entry to /form-sync (server dedups via
+    // survey_form_submissions.uuid so retries are safe). File uploads still
+    // take the online-only multipart path — we don't serialize Blobs yet.
+    const IDB_NAME = 'formrQueue';
+    const IDB_STORE = 'queue';
+    const openQueueDB = () => new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) { reject(new Error('no indexeddb')); return; }
+        const req = indexedDB.open(IDB_NAME, 1);
+        req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(IDB_STORE)) {
+                const store = db.createObjectStore(IDB_STORE, { keyPath: 'uuid' });
+                store.createIndex('client_ts', 'client_ts');
+            }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+    const idbTx = async (mode, fn) => {
+        const db = await openQueueDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(IDB_STORE, mode);
+            const store = tx.objectStore(IDB_STORE);
+            const result = fn(store);
+            tx.oncomplete = () => resolve(result);
+            tx.onerror = () => reject(tx.error);
+            tx.onabort = () => reject(tx.error);
+        });
+    };
+    const queueAdd = (entry) => idbTx('readwrite', (s) => { s.put(entry); return entry; });
+    const queueGetAll = () => idbTx('readonly', (s) => new Promise((res) => {
+        const req = s.getAll();
+        req.onsuccess = () => res(req.result || []);
+        req.onerror = () => res([]);
+    })).then((p) => p);
+    const queueDelete = (uuid) => idbTx('readwrite', (s) => s.delete(uuid));
+
+    const genUuid = () => (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+              const r = (Math.random() * 16) | 0;
+              const v = c === 'x' ? r : ((r & 0x3) | 0x8);
+              return v.toString(16);
+          });
+
+    // Queued-submission banner. Single DOM node reused across enqueue/drain.
+    let queueBanner = null;
+    const showQueueBanner = (msg, variant) => {
+        if (!queueBanner) {
+            queueBanner = document.createElement('div');
+            queueBanner.className = 'alert fmr-queue-banner';
+            queueBanner.setAttribute('role', 'status');
+            root.insertBefore(queueBanner, root.firstChild);
+        }
+        queueBanner.classList.remove('alert-warning', 'alert-success', 'alert-danger');
+        queueBanner.classList.add(variant === 'success' ? 'alert-success'
+            : variant === 'danger' ? 'alert-danger' : 'alert-warning');
+        queueBanner.textContent = msg;
+        queueBanner.hidden = false;
+    };
+    const hideQueueBanner = () => { if (queueBanner) queueBanner.hidden = true; };
+
+    // Network-ish failure: fetch() rejected (no response) OR a 5xx server error.
+    // 4xx is a real "server said no" — don't queue, bubble up as before.
+    const isTransientFailure = (err, res) =>
+        (err != null) || (res && res.status >= 500 && res.status < 600);
+
+    const drainQueue = async () => {
+        if (!syncUrl) return;
+        let entries;
+        try { entries = await queueGetAll(); } catch (e) { return; }
+        if (!entries || !entries.length) { hideQueueBanner(); return; }
+        entries.sort((a, b) => (a.client_ts || '').localeCompare(b.client_ts || ''));
+        showQueueBanner(`Syncing ${entries.length} queued submission${entries.length === 1 ? '' : 's'}…`, 'warning');
+        for (const entry of entries) {
+            let res;
+            try {
+                res = await fetch(syncUrl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify(entry),
+                });
+            } catch (e) {
+                // Still offline / transient. Leave entries in place; next `online` retries.
+                showQueueBanner('Offline — submissions will sync automatically when you reconnect.', 'warning');
+                return;
+            }
+            const body = await res.json().catch(() => null);
+            if (res.ok || (body && body.already_applied)) {
+                await queueDelete(entry.uuid);
+                // If the drain applied the final page of the form, the server
+                // returns a redirect so Run::exec can advance. Take it once
+                // the queue is empty so the participant lands on the next unit.
+                if (body && body.redirect) {
+                    const remaining = await queueGetAll();
+                    if (!remaining.length) {
+                        window.location.href = body.redirect;
+                        return;
+                    }
+                }
+                continue;
+            }
+            if (body && body.drop_entry) {
+                // Session ended / not applicable — stop retrying this entry.
+                await queueDelete(entry.uuid);
+                continue;
+            }
+            // 4xx / validation failure. Stop draining; the user needs to see the error.
+            showQueueBanner('A queued submission was rejected. Please review the page.', 'danger');
+            return;
+        }
+        const remaining = await queueGetAll();
+        if (!remaining.length) {
+            showQueueBanner('All queued submissions have been sent.', 'success');
+            setTimeout(hideQueueBanner, 3000);
+        }
+    };
 
     const submitPage = async () => {
         const page = pages[currentIndex];
@@ -294,7 +418,7 @@ function initForm() {
         ).filter((inp) => inp.name && inp.files && inp.files.length > 0);
         const useMultipart = fileInputs.length > 0;
 
-        let res;
+        let res, netErr;
         try {
             if (useMultipart) {
                 const fd = new FormData();
@@ -337,8 +461,37 @@ function initForm() {
                 });
             }
         } catch (e) {
-            console.error('page-submit network error', e);
-            window.alert('Network error. Please try again.');
+            netErr = e;
+        }
+        // Offline / server-5xx → queue the JSON-path submission and keep
+        // the participant moving. File submissions can't be queued yet;
+        // surface the error so they can retry manually.
+        if (isTransientFailure(netErr, res)) {
+            if (useMultipart || !syncUrl) {
+                console.error('page-submit offline (multipart or no sync url)', netErr || res.status);
+                window.alert('You seem to be offline. File uploads can\'t be queued — please try again.');
+                return;
+            }
+            const entry = {
+                uuid: genUuid(),
+                page: pageNum,
+                data: payload.data,
+                item_views: payload.item_views,
+                // MySQL DATETIME rejects ISO-8601 with ".sssZ" — same gotcha as
+                // item_shown timestamps. Use the space-separated format.
+                client_ts: mysqlDatetime(),
+            };
+            try { await queueAdd(entry); } catch (e) { console.error('enqueue failed', e); }
+            showQueueBanner('You\'re offline. This submission is queued and will be sent when you reconnect.', 'warning');
+            // Advance locally so the participant can continue — next drain
+            // applies in order server-side. If this was the last page, leave
+            // them on it; we don't know the run's next unit until a successful
+            // sync drains and the redirect fires.
+            const nextIdx = currentIndex + 1;
+            if (nextIdx < pages.length) {
+                showPage(nextIdx);
+                try { history.pushState(null, '', `?page=${nextIdx + 1}`); } catch (e) { /* noop */ }
+            }
             return;
         }
         if (!res.ok) {
@@ -368,6 +521,11 @@ function initForm() {
             window.location.href = runUrl || window.location.pathname;
         }
     };
+
+    // Drain triggers: browser-reported connectivity change + initial load (in
+    // case the tab was reloaded with entries still pending).
+    window.addEventListener('online', () => { drainQueue(); });
+    drainQueue();
 
     root.querySelectorAll('[data-fmr-next]').forEach((btn) => {
         btn.addEventListener('click', (e) => { e.preventDefault(); submitPage(); });

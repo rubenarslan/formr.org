@@ -589,6 +589,122 @@ class RunController extends Controller {
     }
 
     /**
+     * form_v2 Phase 5: offline-queue sync endpoint.
+     *
+     * URL: POST /{runName}/form-sync
+     * Body: JSON `{"uuid": str, "page": int, "data": {...}, "item_views": {...}, "client_ts": str}`
+     *
+     * Accepts a single queued submission. Idempotent via `survey_form_submissions.uuid`:
+     * a retry with the same uuid returns `{status: 'ok', already_applied: true}` without
+     * re-applying. Otherwise the endpoint follows the same auth + apply path as
+     * `formPageSubmitAction` and records the uuid on success. No file-blob queueing
+     * in this slice (file submissions still take the online-only multipart path).
+     */
+    public function formSyncAction() {
+        if (!Request::isHTTPPostRequest()) {
+            $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
+            return;
+        }
+        $payload = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($payload)) {
+            $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
+            return;
+        }
+        $uuid = isset($payload['uuid']) ? (string) $payload['uuid'] : '';
+        // RFC 4122-ish: 8-4-4-4-12 hex chars. Tight so a malformed client can't
+        // pollute the ledger with arbitrary strings.
+        if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $uuid)) {
+            $this->sendJsonResponse(array('error' => 'Malformed uuid'), 400);
+            return;
+        }
+        $submittedPage = isset($payload['page']) ? (int) $payload['page'] : 1;
+        $data = (isset($payload['data']) && is_array($payload['data'])) ? $payload['data'] : array();
+        $itemViews = (isset($payload['item_views']) && is_array($payload['item_views'])) ? $payload['item_views'] : array();
+        $clientTs = isset($payload['client_ts']) ? (string) $payload['client_ts'] : null;
+
+        // Dedup pre-check: if we've already persisted this uuid, short-circuit
+        // so retries are safe and cheap. The uuid is unique-indexed so a true
+        // race ends in a constraint error on INSERT below rather than a
+        // double-apply — the apply is still best-effort idempotent per item.
+        $existing = DB::getInstance()
+            ->select('id')
+            ->from('survey_form_submissions')
+            ->where('uuid = :uuid')
+            ->bindParams(array('uuid' => $uuid))
+            ->fetch();
+        if ($existing) {
+            $this->sendJsonResponse(array('status' => 'ok', 'already_applied' => true));
+            return;
+        }
+
+        $this->run = $this->getRun();
+        $this->user = $this->loginUser();
+
+        $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
+        if (!$runSession->id) {
+            $this->sendJsonResponse(array('error' => 'No active run session'), 403);
+            return;
+        }
+        $unitSession = $runSession->getCurrentUnitSession();
+        if (!$unitSession || !$unitSession->runUnit) {
+            // Most common cause: the participant has since advanced past the form,
+            // so the unit session ended. Surface a distinct status so the client
+            // can drop the entry instead of retrying forever.
+            $this->sendJsonResponse(array('error' => 'No current unit session', 'drop_entry' => true), 409);
+            return;
+        }
+        if (!($unitSession->runUnit instanceof Survey)) {
+            $this->sendJsonResponse(array('error' => 'Current unit is not a survey/form', 'drop_entry' => true), 409);
+            return;
+        }
+
+        $unitSession->createSurveyStudyRecord();
+        $posted = $data;
+        $posted['_item_views'] = $itemViews;
+
+        $saved = $unitSession->updateSurveyStudyRecord($posted, true);
+        if (!$saved) {
+            $errors = isset($unitSession->errors) && is_array($unitSession->errors) ? $unitSession->errors : array();
+            // Validation errors are not a transient offline failure — surface
+            // them so the client can show them to the user instead of looping.
+            $this->sendJsonResponse(array('status' => 'errors', 'errors' => $errors));
+            return;
+        }
+
+        // Record uuid only on successful apply. Use a stmt so a concurrent
+        // retry caught between pre-check and insert fails fast via the UNIQUE
+        // constraint (caught above by the fetch on next tick).
+        $stmt = DB::getInstance()->prepare(
+            'INSERT INTO `survey_form_submissions` (uuid, unit_session_id, page, client_ts) '
+            . 'VALUES (:uuid, :usid, :page, :cts)'
+        );
+        $stmt->bindValue(':uuid', $uuid);
+        $stmt->bindValue(':usid', (int) $unitSession->id);
+        $stmt->bindValue(':page', $submittedPage);
+        $stmt->bindValue(':cts', $clientTs);
+        try {
+            $stmt->execute();
+        } catch (PDOException $e) {
+            // Concurrent retry raced us to INSERT. Treat as already-applied.
+            if ((int) $e->errorInfo[1] !== 1062) {
+                throw $e;
+            }
+        }
+
+        $maxPage = (int) DB::getInstance()
+            ->select('MAX(page)')
+            ->from('survey_items_display')
+            ->where('session_id = :sid')
+            ->bindParams(array('sid' => $unitSession->id))
+            ->fetchColumn();
+        if ($maxPage > 0 && $submittedPage < $maxPage) {
+            $this->sendJsonResponse(array('status' => 'ok', 'next_page' => $submittedPage + 1));
+            return;
+        }
+        $this->sendJsonResponse(array('status' => 'ok', 'redirect' => run_url($this->run->name)));
+    }
+
+    /**
      * form_v2 Phase 3: evaluate an allowlisted r(...) expression with live answers.
      *
      * URL: POST /{runName}/form-r-call
