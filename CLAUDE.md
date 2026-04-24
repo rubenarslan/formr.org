@@ -172,6 +172,23 @@ Don't prefer direct DB inserts for test setup over uploading a fixture — DB sh
 
 **`all_widgets_with_values.xlsx` vs `all_widgets` Google sheet:** the xlsx in `documentation/example_surveys/` surfaced ~40 "OpenCPU showif error" badges in this dev env — the Google-sheet version loads clean. When debugging v2 rendering against a broad surface, prefer the live sheet (`https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw`) imported via "Add a new survey → Import a Googlesheet". The same URL also works as a project-level smoke fixture.
 
+### Project-scoped subagent: `ui-playwright-tester`
+
+Defined at `.claude/agents/ui-playwright-tester.md` and auto-registered for any Claude Code session started in this repo. Use it via the Agent tool with `subagent_type: "ui-playwright-tester"` when:
+
+- You just modified `templates/`, `webroot/assets/`, a view-rendering controller, or RunUnit rendering logic, AND
+- You want a real-browser E2E smoke test rather than only type-checks / unit tests / curl.
+
+Typical invocations (the agent handles login, test-run setup, screenshot capture, and cleanup on its own):
+
+- "Smoke-test the participant flow for a multi-page Form RunUnit."
+- "Verify the PWA install prompt fires on iOS-style user agents and the offline queue drains when connectivity returns."
+- "Walk the admin run editor: add each unit type in turn and confirm the unit editor loads without console errors."
+
+The agent has the full Playwright MCP tool surface, project memory, and knowledge of the dev credentials layout. It knows the operational gotchas above (stale snapshot refs, cookie-consent dialog, xdebug leakage into AJAX responses, `.hidden` specificity, etc.) — you don't need to brief it on those. Do give it a specific scenario to test; a bare "please test everything" will have it run the golden-path smoke and stop.
+
+**When NOT to delegate:** iterating on a specific selector or a specific bug you can reproduce in one click/snapshot cycle. Direct Playwright MCP calls from the main agent are faster. Delegate when the test involves multiple navigations, multi-page interactions, screenshot comparison, or cleanup of created state.
+
 ### form_v2 development notes
 
 Specific gotchas worth knowing when touching `feature/form_v2` code. Deep-dive rationale is in `plan_form_v2.md` §13.

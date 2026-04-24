@@ -43,3 +43,12 @@ webroot/assets/dev-build
 *aardvark*
 feature_diff.patch
 .playwright-mcp/
+
+# Claude Code: share agents + team settings, keep local overrides and cache
+# out of git. Our convention:
+#   .claude/agents/*.md        — team-shared (committed)
+#   .claude/settings.json      — team-shared, if present (committed)
+#   .claude/settings.local.json — per-developer overrides (ignored)
+#   .claude/agent-memory/      — local cache (ignored)
+.claude/settings.local.json
+.claude/agent-memory/
