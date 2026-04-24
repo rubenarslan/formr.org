@@ -59,12 +59,11 @@ Gaps (Phase 1.5 — most closed during all_widgets smoke):
 - [x] PHP $_POST-semantics fix in client collectPayload (Check_Item crash on hidden+checkbox pair)
 
 ### Phase 2 — Item-type coverage
-- [ ] Audio, video, ratingbutton variants
+- [ ] Audio, video — inherit from File_Item so the multipart path works in principle; needs an actual in-browser smoke (getUserMedia + multipart round-trip) before calling done
 - [x] Geolocation (native navigator.geolocation in `main.js::initGeopoint`)
 - [x] File uploads — client auto-switches to multipart when any `input[type=file]` on the page has a selected file; server `formPageSubmitAction` branches on Content-Type and reads `$_POST` + `$_FILES['files'][name]`
 - [ ] Date/time/datetime-local/month/week across browsers
-- [ ] Button groups (without `webshim`'s addShadowDom)
-- [ ] Scale, slider, ratingbutton, mc_button
+- [x] Button groups (without `webshim`'s addShadowDom) — `.js_hidden` rule re-asserted in form.scss; `initButtonGroups()` wires click→toggle paired input + btn-checked class for radio/checkbox/check variants; `invalid` event on hidden inputs surfaces an inline `.fmr-btn-feedback` at the visible `.btn-group` with the browser's native localized message; cleared on next change. Covers mc_button / mc_multiple_button / check_button and their rating/scale variants (same DOM, same wiring)
 - [x] Submit item handling (v2 provides its own nav, skip v1's emitted submit — `FormRenderer::processItems` hides type='submit' items)
 
 ### Phase 3 — Client-side `showif` + transpiler hardening
@@ -758,3 +757,11 @@ Stored `client_ts: new Date().toISOString()` in the IDB entry, shipped it to `/f
 ### 13.30 `window.fetch` restore after monkey-patch survives an iframe ONLY if you keep the iframe
 
 To simulate offline in a Playwright-driven smoke, I patched `window.fetch` to reject for a specific URL, ran the submit flow, then tried to restore by grabbing `iframe.contentWindow.fetch` from a freshly-created iframe and calling `iframe.remove()`. The next fetch via the restored reference failed silently (drain left the entry in place, no network error surfaced) — turns out detaching the iframe invalidates its globals. Keep the iframe attached (`style.display='none'`) while the restored fetch is in use; remove it after the test is fully done. Alternative: reload the whole page to reset the monkey-patch cleanly. Don't trust "I restored fetch" without a probe request to verify it actually works.
+
+### 13.31 Button-group rendering: `.js_hidden` + vanilla click wiring replaces webshim
+
+v1 emits `.mc-table.js_hidden` (the real radios/checkboxes) alongside `.btn-group.js_shown` (the visible buttons), and v1's frontend CSS (`.js_hidden { display:none !important }`) hides the former. v2's `form.scss` doesn't inherit the frontend bundle, so without a local re-assertion the real inputs leak visibly alongside the button UI — every mc_button item would show its labels twice. Two-part fix: (a) re-assert `.js_hidden { display:none !important }` and `.no_js .js_shown { display:none !important }` in form.scss; (b) vanilla `initButtonGroups()` wires `.btn[data-for]` clicks, sets `btn-checked`, toggles the paired `input#<data-for>`, and for `.btn-radio` clears siblings before fire. Validation UX: listen for `invalid` on hidden required inputs and surface the browser's localized `validationMessage` as an inline `.fmr-btn-feedback` div next to the visible button group (native tooltips have nowhere to anchor when the input is display:none). Clears on next `change`. No jQuery, no webshim, no `addShadowDom`. Covers mc_button / mc_multiple_button / check_button / rating_button variants — same DOM.
+
+### 13.32 Fixture upload via curl cookie jar instead of inline base64
+
+Uploading a test xlsx through the admin UI via Playwright MCP hits a wall: `browser_file_upload` requires a native file chooser modal, triggered by user activation on a real `<input type=file>` click. The file input's wrapper click didn't open the chooser, and inlining the file as a base64 Blob + `fetch(FormData)` from the page context worked but was ugly (>25KB of b64 string in an evaluate argument for even a small xlsx). Simpler path: **curl with a cookie jar from the host**. `curl -c cookies.txt -X POST .../admin/account/login/ -F email=... -F password=...` stores session cookies (including HttpOnly); `curl -b cookies.txt -X POST .../admin/survey/add_survey/ -F new_study=1 -F uploaded=@fixture.xlsx` uploads. Use this any time you need to set up test fixtures — it's faster, survives retries, and plays nicely with `docker exec` round-trips.

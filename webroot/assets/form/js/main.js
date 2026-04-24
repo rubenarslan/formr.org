@@ -777,6 +777,89 @@ function initForm() {
         }
     }
 
+    // --- Button groups (Phase 2) ---
+    // v1's ButtonGroup.js leans on jQuery + webshim.addShadowDom to keep a
+    // visible .btn-group in sync with hidden radios/checkboxes inside
+    // .mc-table.js_hidden. In v2 we do this vanilla:
+    //   1. Click on <button data-for="inputId"> → toggle the paired input.
+    //   2. For radio groups (.btn-radio), clicking an already-checked button
+    //      is a no-op (native radios don't untoggle); clicking a new one
+    //      clears siblings and fires change.
+    //   3. For checkbox/check groups, each click toggles independently.
+    //   4. On the hidden input's `invalid` event (native constraint validation
+    //      fires even for display:none inputs), flag the wrapper .form-group
+    //      .is-invalid so the visible button group picks up the CSS outline,
+    //      and append a BS5-style .invalid-feedback message. Clears on any
+    //      subsequent input change.
+    const initButtonGroups = () => {
+        const wrappers = root.querySelectorAll('.form-group.btn-radio, .form-group.btn-checkbox, .form-group.btn-check');
+        wrappers.forEach((wrapper) => {
+            const kind = wrapper.classList.contains('btn-checkbox') ? 'multi'
+                : wrapper.classList.contains('btn-check') ? 'check' : 'radio';
+            const btnGroup = wrapper.querySelector('.btn-group');
+            if (!btnGroup) return;
+            const buttons = Array.from(btnGroup.querySelectorAll('.btn[data-for]'));
+            if (!buttons.length) return;
+
+            // Initial state: mirror existing checked state onto the buttons.
+            const resolveInput = (btn) => wrapper.querySelector('#' + CSS.escape(btn.getAttribute('data-for')));
+            buttons.forEach((btn) => {
+                const input = resolveInput(btn);
+                if (input && input.checked) btn.classList.add('btn-checked');
+            });
+
+            buttons.forEach((btn) => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const input = resolveInput(btn);
+                    if (!input) return;
+                    if (kind === 'radio') {
+                        if (input.checked) return; // native radios don't untoggle
+                        buttons.forEach((b) => b.classList.remove('btn-checked'));
+                        // Uncheck siblings manually — the hidden radios share a
+                        // `name` so browsers sync them, but fire change on the
+                        // newly-selected one to wake up showif listeners.
+                        input.checked = true;
+                        btn.classList.add('btn-checked');
+                    } else {
+                        const nowChecked = !input.checked;
+                        input.checked = nowChecked;
+                        btn.classList.toggle('btn-checked', nowChecked);
+                    }
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+            });
+
+            // Native constraint-validation feedback. The hidden inputs live
+            // under .js_hidden (display:none) which kills the default tooltip
+            // position, so we surface the error inline at the button group.
+            const feedbackId = 'fmr-btn-feedback-' + (btnGroup.id || Math.random().toString(36).slice(2, 8));
+            wrapper.querySelectorAll('input[required]').forEach((inp) => {
+                inp.addEventListener('invalid', (e) => {
+                    // Don't preventDefault — let the browser's "first invalid"
+                    // navigation still pick this wrapper; it scrolls the item
+                    // into view even when the input itself is hidden.
+                    wrapper.classList.add('is-invalid');
+                    if (!wrapper.querySelector('.fmr-btn-feedback')) {
+                        const fb = document.createElement('div');
+                        fb.className = 'invalid-feedback fmr-btn-feedback d-block';
+                        fb.id = feedbackId;
+                        fb.textContent = inp.validationMessage || 'Please choose an option.';
+                        btnGroup.insertAdjacentElement('afterend', fb);
+                    }
+                }, true);
+            });
+
+            // Clear invalid state on any change (user-driven or programmatic).
+            wrapper.addEventListener('change', () => {
+                wrapper.classList.remove('is-invalid');
+                const fb = wrapper.querySelector('.fmr-btn-feedback');
+                if (fb) fb.remove();
+            });
+        });
+    };
+    initButtonGroups();
+
     // Tom-select on <select> elements. v1 auto-wired select2; v2 mirrors that
     // using tom-select so the participant bundle stays jQuery-free. Large
     // dropdowns (timezone list, big choice lists) get the search input; small

@@ -163,6 +163,49 @@
         margin-right: 0;
     }
 
+    // Button-group items (mc_button, mc_multiple_button, check_button).
+    // v1 emits the real radios/checkboxes inside .mc-table.js_hidden and the
+    // visible buttons under .btn-group.js_shown. v1's CSS hides .js_hidden
+    // globally; v2's bundle doesn't import that stylesheet so we re-assert
+    // the rule here. js_shown stays naturally visible.
+    .js_hidden { display: none !important; }
+    .no_js .js_shown { display: none !important; }
+
+    .btn-group {
+        display: inline-flex;
+        gap: 0.25rem;
+        flex-wrap: wrap;
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--bs-border-color, #dee2e6);
+            background: var(--bs-body-bg, #fff);
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1.4;
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+            &:hover {
+                background: var(--bs-tertiary-bg, #f8f9fa);
+            }
+            &.btn-checked {
+                background: var(--bs-primary-bg-subtle, #cfe2ff);
+                border-color: var(--bs-primary, #0d6efd);
+                color: var(--bs-primary-text-emphasis, #0a58ca);
+            }
+            .btn_value { display: none; }
+        }
+    }
+
+    // Button-group validation: when the parent .form-group is is-invalid
+    // (set by the `invalid` handler in main.js), outline the whole group.
+    .form-group.is-invalid .btn-group {
+        outline: 2px solid var(--bs-danger, #dc3545);
+        outline-offset: 2px;
+        border-radius: 0.375rem;
+    }
+
     // Square button-style mc_button / rating_button items.
     .square, .square80, .blank_button {
         .controls > label, .controls-inner > label {
