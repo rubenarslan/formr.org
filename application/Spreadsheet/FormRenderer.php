@@ -25,6 +25,26 @@ class FormRenderer extends SpreadsheetRenderer {
         $items = $this->getAllUnansweredItems();
         if ($items) {
             $items = $this->processAutomaticItems($items);
+            // Phase 3: detect r(...) wrapped showifs. We populate survey_r_calls
+            // here rather than at import so the allowlist auto-updates when an
+            // admin edits the spreadsheet. We mutate $item->showif to the
+            // unwrapped R so OpenCPU doesn't try to call a non-existent r()
+            // function, and stash the call id on parent_attributes so render()
+            // emits data-fmr-r-call without touching Item.php.
+            foreach ($items as $item) {
+                if (!$item || empty($item->showif)) continue;
+                $inner = RAllowlistExtractor::unwrap($item->showif);
+                if ($inner === null) continue;
+                $callId = RAllowlistExtractor::record(
+                    $this->db, $this->study->id, 'showif', $inner, $item->id
+                );
+                $item->showif = $inner;
+                // Item::__construct transpiled the *wrapped* showif into js_showif.
+                // That garbage would crash the client if emitted, so clear it —
+                // r()-wrapped showifs have no client-side evaluation path.
+                $item->js_showif = null;
+                $item->parent_attributes['data-fmr-r-call'] = (string) $callId;
+            }
             $items = $this->processDynamicValuesAndShowIfs($items);
             if ($items) {
                 // Hide any submit items — v2 provides its own nav.
@@ -96,8 +116,12 @@ class FormRenderer extends SpreadsheetRenderer {
         // Emit data-showif on every item with a showif expression, so the client
         // runtime can re-evaluate on each input change. v1 only set data_showif
         // when the server hid the item; v2 wants reactive visibility without a
-        // round-trip.
+        // round-trip. Skip items whose showif was an r() wrap — those go via
+        // /form/r-call and have no local JS expression to evaluate.
         foreach ($this->renderedItems as $item) {
+            if (!empty($item->parent_attributes['data-fmr-r-call'])) {
+                continue;
+            }
             if (!empty($item->showif) && !empty($item->js_showif)) {
                 $item->data_showif = true;
             }
@@ -191,13 +215,15 @@ class FormRenderer extends SpreadsheetRenderer {
 
     protected function renderV2Header() {
         $submitUrl = run_url($this->run->name, 'form-page-submit');
+        $rcallUrl = run_url($this->run->name, 'form-r-call');
         $runUrl = run_url($this->run->name);
         $currentUser = Site::getCurrentUser();
         $userCode = $currentUser ? $currentUser->user_code : '';
 
         $html = sprintf(
-            '<form class="fmr-form-v2" method="post" data-submit-url="%s" data-run-url="%s" novalidate>',
+            '<form class="fmr-form-v2" method="post" data-submit-url="%s" data-rcall-url="%s" data-run-url="%s" novalidate>',
             htmlspecialchars($submitUrl, ENT_QUOTES),
+            htmlspecialchars($rcallUrl, ENT_QUOTES),
             htmlspecialchars($runUrl, ENT_QUOTES)
         );
         $html .= sprintf(

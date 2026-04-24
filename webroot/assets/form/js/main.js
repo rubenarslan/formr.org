@@ -424,6 +424,67 @@ function initForm() {
     root.addEventListener('change', applyShowifs);
     applyShowifs(); // initial pass
 
+    // --- r-call showif (Phase 3) ---
+    // Items the admin opted into server-side R via `r(...)` carry
+    // `data-fmr-r-call="{id}"`. When any input changes, POST the current
+    // answers + call_id to /form-r-call and let the server evaluate; apply
+    // visibility from the response. Debounced + seq-guarded so rapid typing
+    // doesn't stack requests or let stale responses override fresh ones.
+    const rcallItems = Array.from(root.querySelectorAll('[data-fmr-r-call]'));
+    if (rcallItems.length > 0) {
+        const rcallUrl = root.getAttribute('data-rcall-url');
+        const rcallSeqs = new Map();       // el -> latest seq #
+        const rcallLastArgs = new Map();   // el -> last JSON string sent, for dedup
+        let rcallPendingTimer = null;
+
+        const applyRCallResult = (el, visible) => {
+            el.classList.toggle('hidden', !visible);
+            el.toggleAttribute('data-fmr-hidden', !visible);
+            el.style.display = visible ? '' : 'none';
+            el.querySelectorAll('input, select, textarea').forEach((inp) => {
+                if (inp.name && !inp.name.startsWith('_item_views')) {
+                    inp.disabled = !visible;
+                }
+            });
+        };
+
+        const triggerRCalls = () => {
+            if (!rcallUrl) return;
+            const answers = collectAnswers();
+            const answersKey = JSON.stringify(answers);
+            rcallItems.forEach((el) => {
+                const callId = Number(el.getAttribute('data-fmr-r-call'));
+                if (!callId) return;
+                // Skip duplicate: same answers → same visibility, no need to re-POST.
+                if (rcallLastArgs.get(el) === answersKey) return;
+                rcallLastArgs.set(el, answersKey);
+                const seq = (rcallSeqs.get(el) || 0) + 1;
+                rcallSeqs.set(el, seq);
+                fetch(rcallUrl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ call_id: callId, answers }),
+                }).then((r) => (r.ok ? r.json() : null))
+                  .then((data) => {
+                      if (!data || rcallSeqs.get(el) !== seq) return; // stale
+                      if (typeof data.result === 'boolean') applyRCallResult(el, data.result);
+                  }).catch(() => { /* leave visibility as-is on failure */ });
+            });
+        };
+
+        const scheduleRCalls = () => {
+            if (rcallPendingTimer !== null) clearTimeout(rcallPendingTimer);
+            rcallPendingTimer = setTimeout(() => { rcallPendingTimer = null; triggerRCalls(); }, 300);
+        };
+
+        root.addEventListener('input', scheduleRCalls);
+        root.addEventListener('change', scheduleRCalls);
+        // Fire once at load so any items hidden server-side by initial-empty-answers
+        // can re-evaluate against whatever answers actually exist in the DOM.
+        triggerRCalls();
+    }
+
     // Tom-select on <select> elements. v1 auto-wired select2; v2 mirrors that
     // using tom-select so the participant bundle stays jQuery-free. Large
     // dropdowns (timezone list, big choice lists) get the search input; small

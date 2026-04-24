@@ -554,4 +554,153 @@ class RunController extends Controller {
             'redirect' => run_url($this->run->name),
         ));
     }
+
+    /**
+     * form_v2 Phase 3: evaluate an allowlisted r(...) expression with live answers.
+     *
+     * URL: POST /{runName}/form-r-call
+     * Body: JSON `{"call_id": int, "answers": {name: value, ...}}`
+     *
+     * The client sends its current reactive answers; the server overlays them on
+     * the persisted survey row and evaluates the stored R expression. This exists
+     * so admin-authored showifs that contain R-only constructs the regex
+     * transpiler can't handle still react within the same page, without ever
+     * shipping R source to the client.
+     */
+    public function formRCallAction() {
+        if (!Request::isHTTPPostRequest()) {
+            $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
+            return;
+        }
+
+        $raw = file_get_contents('php://input');
+        $payload = json_decode($raw, true);
+        if (!is_array($payload)) {
+            $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
+            return;
+        }
+
+        $callId = isset($payload['call_id']) ? (int) $payload['call_id'] : 0;
+        $answers = (isset($payload['answers']) && is_array($payload['answers'])) ? $payload['answers'] : array();
+        if ($callId <= 0) {
+            $this->sendJsonResponse(array('error' => 'Missing call_id'), 400);
+            return;
+        }
+
+        $this->run = $this->getRun();
+        $this->user = $this->loginUser();
+
+        $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
+        if (!$runSession->id) {
+            $this->sendJsonResponse(array('error' => 'No active run session'), 403);
+            return;
+        }
+
+        $unitSession = $runSession->getCurrentUnitSession();
+        if (!$unitSession || !$unitSession->runUnit) {
+            $this->sendJsonResponse(array('error' => 'No current unit session'), 409);
+            return;
+        }
+        $runUnit = $unitSession->runUnit;
+        if (!($runUnit instanceof Survey)) {
+            $this->sendJsonResponse(array('error' => 'Current unit is not a survey/form'), 409);
+            return;
+        }
+        $study = method_exists($runUnit, 'getStudy') ? $runUnit->getStudy(true) : $runUnit->surveyStudy;
+        if (!$study || empty($study->id)) {
+            $this->sendJsonResponse(array('error' => 'No study on current unit'), 409);
+            return;
+        }
+
+        $row = DB::getInstance()
+            ->select('id, study_id, slot, expr')
+            ->from('survey_r_calls')
+            ->where('id = :id')
+            ->bindParams(array('id' => $callId))
+            ->fetch();
+        if (!$row || (int) $row['study_id'] !== (int) $study->id) {
+            $this->sendJsonResponse(array('error' => 'Unknown call_id for this study'), 404);
+            return;
+        }
+
+        $expr = (string) $row['expr'];
+        // TODO(phase 4): per-session bucket rate-limit (RateLimitService needs a
+        // generic check() method — today it's email-specific). For Phase 3 the
+        // endpoint is implicitly limited by the reactive-input cadence of one
+        // participant typing.
+
+        $overlayR = self::formatROverlay($answers);
+        $survey_name = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $study->name);
+        if ($survey_name === '') {
+            $this->sendJsonResponse(array('error' => 'Bad study name'), 500);
+            return;
+        }
+
+        $code = "(function() {\n"
+              . "  .fmr.overlay <- {$overlayR}\n"
+              . "  .fmr.row <- tail({$survey_name}, 1)\n"
+              . "  for (.n in names(.fmr.overlay)) .fmr.row[[.n]] <- .fmr.overlay[[.n]]\n"
+              . "  with(.fmr.row, {\n"
+              . "    tryCatch({ {$expr} }, error = function(e) NA)\n"
+              . "  })\n"
+              . "})()\n";
+
+        $variables = $unitSession->getRunData($code, $survey_name);
+        $session = opencpu_evaluate($code, $variables, 'json', null, true);
+        if (!$session || $session->hasError()) {
+            $this->sendJsonResponse(array('error' => 'Evaluation failed'), 502);
+            return;
+        }
+
+        $result = $session->getJSONObject();
+        // R returns length-1 vectors; unwrap.
+        if (is_array($result) && count($result) === 1 && array_keys($result) === array(0)) {
+            $result = $result[0];
+        }
+
+        $shown = self::rResultToBool($result);
+        $this->sendJsonResponse(array('result' => $shown));
+    }
+
+    /**
+     * Build an R `list(name = value, ...)` literal from a PHP associative array,
+     * with keys restricted to valid R/formr item names (letters, digits,
+     * underscore, leading letter) and values coerced to R scalars / vectors.
+     */
+    protected static function formatROverlay(array $answers) {
+        $parts = array();
+        foreach ($answers as $key => $val) {
+            if (!is_string($key) || !preg_match('/^[A-Za-z][A-Za-z0-9_]*$/', $key)) {
+                continue;
+            }
+            $parts[] = $key . ' = ' . self::formatRValue($val);
+        }
+        return 'list(' . implode(', ', $parts) . ')';
+    }
+
+    protected static function formatRValue($v) {
+        if ($v === null || $v === '') return 'NA';
+        if (is_bool($v)) return $v ? 'TRUE' : 'FALSE';
+        if (is_int($v) || is_float($v)) return (string) $v;
+        if (is_array($v)) {
+            if (empty($v)) return 'c()';
+            $parts = array_map(array(__CLASS__, 'formatRValue'), array_values($v));
+            return 'c(' . implode(', ', $parts) . ')';
+        }
+        if (is_numeric($v)) return (string) $v;
+        // String: R double-quoted, escape backslash and double-quote.
+        $s = str_replace(array('\\', '"'), array('\\\\', '\"'), (string) $v);
+        return '"' . $s . '"';
+    }
+
+    protected static function rResultToBool($result) {
+        if (is_bool($result)) return $result;
+        if (is_int($result) || is_float($result)) return ((float) $result) != 0.0;
+        if (is_string($result)) {
+            $l = strtolower(trim($result));
+            if ($l === 'true' || $l === 't' || $l === '1') return true;
+            return false;
+        }
+        return (bool) $result;
+    }
 }

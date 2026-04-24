@@ -73,11 +73,14 @@ Gaps (Phase 1.5 — most closed during all_widgets smoke):
 - [x] Reuses v1's existing R→JS regex transpile in `Item.php` (covers `==`, `>`, `&&`, `||`, `%contains%`, `%begins_with%`, `is.na`, `tail(, 1)`, `current()`)
 - [ ] Standard library helpers in JS (`contains`, `last`, `isNA`, …) as a named runtime (currently leans on transpile output using regex rewrites)
 - [ ] Dedicated `showif_js` column on `survey_items` (presently re-transpiled at runtime from `showif`)
-- [ ] `r(...)` wrapper detection at import (explicit opt-in to server-side R)
-- [ ] `survey_r_calls` allowlist table (patch TBD)
+- [x] `r(...)` wrapper detection + auto-record in `survey_r_calls` at render time (`RAllowlistExtractor`, wired from `FormRenderer::processItems`)
+- [x] `survey_r_calls` allowlist table (sql/patches/049)
+- [x] `POST /{run}/form-r-call` endpoint for live r-call evaluation with answer overlay (`RunController::formRCallAction`)
+- [x] Client r-call resolver: items with `data-fmr-r-call` POST debounced `{call_id, answers}`; apply `{result: bool}` with seq-guarded stale-response protection
 - [ ] Hardened JS transpiler (proper parser, not regex)
 - [ ] Upgrade-time compatibility scan (auto-wrap un-translatable R in `r()`)
 - [ ] Alpine `x-show` bindings for JS `showif` expressions (current implementation is vanilla; Alpine is only imported, not yet used)
+- [ ] Per-session rate-limit on r-call (deferred: `RateLimitService` is email-only today; needs a generic bucket API — Phase 4)
 
 ### Phase 4 — Deferred fill for `value` and embedded Rmd
 - [ ] `/form/r-call` proxy endpoint
@@ -701,3 +704,15 @@ The xlsx fixture in `documentation/example_surveys/` hit ~40 "OpenCPU showif err
 ### 13.18 Reactive test harness — TomSelect and showif break naïve "fill every input" scripts
 
 Setting `select.selectedIndex = 1` doesn't notify TomSelect. Use `select.tomselect?.setValue(...)` or `dispatchEvent(new Event('change', {bubbles:true}))` to trigger the v2 client's reactive handlers. Similarly, showif dependents won't reveal unless the dependency's change event actually fires. Any "fill-the-form" test utility needs to be explicit about firing change events in the right order.
+
+### 13.19 Allowlist is populated at render time, not at import
+
+The spec's original Phase 3 shape (§5.3) populated `survey_r_calls` in the spreadsheet reader. That's workable but forces every admin save to rescan the full sheet for `r()` wraps and produces stale rows when admins edit. The current implementation does it in `FormRenderer::processItems`: per render, each item's `showif` is passed through `RAllowlistExtractor::unwrap`, and wrapped expressions are UPSERTed into `survey_r_calls` (dedup by `study_id + expr_hash + slot`, id recovered via `LAST_INSERT_ID(id)`). Security invariant is identical — at r-call time the server only evaluates what's already in the table keyed by id — and there's no schema drift between import and render. The `expr_hash` unique key also means an expression used in ten items shares one row, so downstream caching/rate-limiting can key off call id.
+
+### 13.20 `r()` unwrap must strip the wrapper before OpenCPU sees the expression
+
+OpenCPU only has the base + formr R packages loaded; `r()` is not a defined function. If `Item::getShowIf()` returns `r(nchar(trigger) > 2)` verbatim, OpenCPU errors with "could not find function 'r'" and initial server-side visibility is lost for *every* r()-wrapped item. Fix: `FormRenderer::processItems` mutates `$item->showif` to the unwrapped inner R before calling `parent::processDynamicValuesAndShowIfs`, and clears the mangled-by-transpile `$item->js_showif` so no stale JS ever reaches `data-showif`.
+
+### 13.21 DB_Select uses `fetch()`, not `fetchRow()`
+
+Confused with `DB::findRow()`. `DB::select()->from()->where()->fetch()` is the one-row fetch on DB_Select; `DB::findRow($table, $where)` is the higher-level table lookup. They return the same shape but live on different classes — and the linter won't catch this because `fetchRow` isn't a typo on any PDO-ish class either. Lint is not a substitute for one end-to-end smoke.
