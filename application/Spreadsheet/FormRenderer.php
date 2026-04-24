@@ -93,6 +93,16 @@ class FormRenderer extends SpreadsheetRenderer {
     }
 
     public function render($form_action = null, $form_append = null) {
+        // Emit data-showif on every item with a showif expression, so the client
+        // runtime can re-evaluate on each input change. v1 only set data_showif
+        // when the server hid the item; v2 wants reactive visibility without a
+        // round-trip.
+        foreach ($this->renderedItems as $item) {
+            if (!empty($item->showif) && !empty($item->js_showif)) {
+                $item->data_showif = true;
+            }
+        }
+
         $itemsByPage = $this->groupByPage($this->renderedItems);
         $pageCount = count($itemsByPage);
 

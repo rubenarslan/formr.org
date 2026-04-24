@@ -347,6 +347,83 @@ function initForm() {
 
     initGeopoint();
 
+    // --- Client-side showif (Phase 3) ---
+    // Each item wrapper with a `data-showif` carries a JS expression (transpiled
+    // from the admin's R `showif` at import). Evaluate it against the live
+    // answers object on every input/change and toggle the wrapper's hidden state.
+    const showifItems = Array.from(root.querySelectorAll('.form-group[data-showif], .item[data-showif]'));
+
+    const collectAnswers = () => {
+        const a = {};
+        root.querySelectorAll('input[name], select[name], textarea[name]').forEach((inp) => {
+            const raw = inp.name || '';
+            if (raw.startsWith('_item_views')) return;
+            const isArr = raw.endsWith('[]');
+            const key = isArr ? raw.slice(0, -2) : raw;
+            let v;
+            if (inp.type === 'checkbox') {
+                if (!inp.checked) return;
+                v = inp.value;
+            } else if (inp.type === 'radio') {
+                if (!inp.checked) return;
+                v = inp.value;
+            } else if (inp.disabled) {
+                return;
+            } else {
+                v = inp.value;
+            }
+            const n = v === '' || v === null || v === undefined ? null : (isNaN(Number(v)) ? v : Number(v));
+            if (isArr) {
+                a[key] = (a[key] || []).concat([n]);
+            } else {
+                a[key] = n;
+            }
+        });
+        return a;
+    };
+
+    // Compile each data-showif once. On failure, the item is treated as visible.
+    const compileShowif = (expr) => {
+        const cleaned = (expr || '').replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '').trim();
+        if (!cleaned) return () => true;
+        try {
+            // eslint-disable-next-line no-new-func
+            const fn = new Function('context', 'with (context) { return (' + cleaned + '); }');
+            return (ctx) => {
+                try { return !!fn(ctx); } catch (e) { return true; /* on failure show */ }
+            };
+        } catch (e) {
+            return () => true;
+        }
+    };
+    const compiled = showifItems.map((el) => ({ el, fn: compileShowif(el.getAttribute('data-showif')) }));
+
+    const applyShowifs = () => {
+        if (!compiled.length) return;
+        const answers = collectAnswers();
+        compiled.forEach(({ el, fn }) => {
+            const visible = fn(answers);
+            // v1's hide() tacks on .hidden which ships display:none !important in
+            // Bootstrap, so toggling class is load-bearing; style.display alone
+            // can't override it.
+            el.classList.toggle('hidden', !visible);
+            el.toggleAttribute('data-fmr-hidden', !visible);
+            el.style.display = visible ? '' : 'none';
+            // Disable inputs of hidden items so native `required` doesn't block
+            // form submission, and so their values don't get sent.
+            el.querySelectorAll('input, select, textarea').forEach((inp) => {
+                if (inp.name && !inp.name.startsWith('_item_views')) {
+                    inp.disabled = !visible;
+                }
+            });
+        });
+    };
+
+    // Re-evaluate on any user input.
+    root.addEventListener('input', applyShowifs);
+    root.addEventListener('change', applyShowifs);
+    applyShowifs(); // initial pass
+
     // Tom-select on <select> elements. v1 auto-wired select2; v2 mirrors that
     // using tom-select so the participant bundle stays jQuery-free. Large
     // dropdowns (timezone list, big choice lists) get the search input; small
