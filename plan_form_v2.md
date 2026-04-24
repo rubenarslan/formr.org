@@ -621,3 +621,83 @@ To keep the reviewer's mental load low, a short list of things **not** changed:
 - `webroot/assets/common/js/survey.js` — v1 client; much of its logic is salvageable for v2 (geolocation, custom validity) after the webshim strip.
 - `webroot/assets/common/js/service-worker.js`, `pwa-register.js` — where offline interception lands.
 - `CHANGELOG.md` — v0.25.1 context for recent iOS push / CSRF removal / cookie-consent decisions that v2 inherits.
+
+---
+
+## 13. Implementation learnings (Phase 0 → 1 → 1.5 → 3)
+
+Gathered as this branch was written. Some were footguns; some invalidate the design spec's earlier assumptions. Preserved so later phases don't re-learn them.
+
+### 13.1 Form cannot share `survey_units.id` with its `SurveyStudy`
+
+The original Phase 0 sketch inherited the v1 Survey pattern — v1's `Survey::create` re-points `survey_run_units.unit_id` at the attached study's id (Survey and SurveyStudy share a primary key via FK). For a Form wrapping a study, that re-point orphans the Form's own `survey_units` row, and on the next page load `RunUnitFactory` sees `type='Survey'` instead of `type='Form'` and instantiates the wrong class. Symptom: admin UI looked right but v2 rendering never fired.
+
+Fix (patch 048): dedicated `survey_units.form_study_id` column. `Form::create` strips `study_id` from options before calling `Survey::create` (to skip the re-point), then writes `form_study_id` separately. `Form::getStudy` loads via `form_study_id`, not `$this->unit_id`. This means Form keeps its own survey_units row (type='Form') *and* references a SurveyStudy.
+
+### 13.2 `Model::assignProperties` drops undeclared DB columns
+
+`Model::assignProperties` checks `property_exists($this, $prop)` before copying — a column in the DB row that isn't declared as a public property on the model is silently discarded. First bug I hit: `rendering_mode` was in the DB row but `SurveyStudy` didn't declare it, so `$study->rendering_mode` came back as the class default ('v1'), and the v2 branch in `Form::getUnitSessionOutput` never fired. **When you add a column, always declare the property on the Model subclass.**
+
+### 13.3 `SpreadsheetRenderer::processItems` only emits the first submit-delimited chunk
+
+That's intentional for v1, which renders one paged chunk at a time. For v2's single-document all-pages render it's wrong. `FormRenderer::processItems` overrides with a new `getAllUnansweredItems()` query (same WHERE as `getNextStudyItems` but without the `$inPage` short-circuit) and runs one OpenCPU batch across every item. Submit items are hidden on the way through — v2's client provides its own nav, so the v1-emitted Submit button is noise.
+
+### 13.4 Page numbers already live on `survey_items_display.page`
+
+`UnitSession::createSurveyStudyRecord` inserts one row per item at initial render, with `page` incremented at each submit-type item. No new schema needed for multi-page: `FormRenderer::fetchPageMap()` reads that column back and `groupByPage()` buckets rendered items accordingly.
+
+### 13.5 `use_form_v2` must passthrough three layers
+
+`Form::getUnitSessionOutput` returns `['content' => ..., 'use_form_v2' => true]`. But `RunSession::executeUnitSession` rewrites the result into `['body' => $content]` (drops other keys), and `Run::exec` returns a fixed-shape dict (drops further keys). Each layer needed an explicit passthrough for the view-picker in `RunController::indexAction` to see the flag. Similar traps probably await any other v2 state we try to propagate up.
+
+### 13.6 `SurveyStudy.rendering_mode` alone drives branching; feature flag gates *creation*, not execution
+
+Initially I checked both `Config::get('form_v2_enabled')` and the study's `rendering_mode` in `Form::getUnitSessionOutput`. That would silently regress live v2 forms if the admin ever flips the flag off. Decision: the flag only gates the "Add Form" admin button; once a SurveyStudy has `rendering_mode='v2'`, the v2 pipeline fires regardless of the flag. If you need a circuit breaker, flip `rendering_mode` back to 'v1' instead.
+
+### 13.7 MySQL `DATETIME` rejects ISO-8601 with milliseconds
+
+`new Date().toISOString()` produces `2026-04-23T17:39:48.814Z` → MariaDB errors with "Incorrect datetime value" on `survey_items_display.shown`. Use the same `mysql_datetime()` helper v1 has: `toISOString().slice(0, 19).replace('T', ' ')`. Applies to any field typed `DATETIME` — item views, saved timestamps, etc.
+
+### 13.8 Required + readonly inputs are *not* `:invalid`
+
+Geopoint's visible field is `readonly` + `required`. Per HTML5, `:invalid` never matches it — the browser bypasses the required constraint on readonly inputs. So the client's `:invalid` pre-check passes while the server's validation still fails. Don't rely on `:invalid` alone to pre-flight a submission when an item's display is readonly. Two options: JS fills the field (geopoint does this via `navigator.geolocation`), or validation runs through `setCustomValidity` keyed off the hidden JSON companion.
+
+### 13.9 Bootstrap 3's `.hidden` is `display:none !important`
+
+V1 marks a hidden item by adding the `.hidden` class (via `hide()`). The v2 client tried to re-show an item by setting `style.display = ''` — no effect, because the class ships `!important`. Always toggle the class *as well*.
+
+### 13.10 Client payload must match PHP `$_POST` semantics
+
+PHP parses form bodies with these rules: names ending in `[]` are arrays; everything else is scalar, last-wins. The first pass of `collectPayload` naively promoted any same-named input to an array, which turned Check_Item's hidden+checkbox pair (both named `confirm1`) into `["0", "1"]` → `h()` crashed on array input. Always split on `[]` suffix as the array signal; otherwise last-wins scalar.
+
+### 13.11 Bootstrap 3 + 5 coexistence via npm alias
+
+`npm install bootstrap@5` clobbered the existing `bootstrap@3.4.1` dependency the admin bundle still depends on. Fix: install BS5 under an npm alias (`"bootstrap5": "npm:bootstrap@^5.3.8"`). Imports in the form bundle use `from 'bootstrap5/dist/css/bootstrap.min.css'`. Same trick works for tom-select, FA6, etc. if they ever clash with admin deps.
+
+### 13.12 v1 already has an R→JS `showif` regex transpile
+
+`Item::__construct` at ~line 221 runs `$this->showif` through a series of regex rewrites to produce `$this->js_showif`. Covers `==`/`>`/`<=`/..., `&` vs `&&`, `|` vs `||`, `FALSE`/`TRUE` → `false`/`true`, `%contains%`/`%begins_with%`/`%ends_with%`/`%starts_with%`/`%contains_word%`, `is.na()`, `stringr::str_length()`, `tail(x, 1)`, `current(x)`. Fails silently on anything more complex; the client's `new Function()` then throws and falls through to "show" as a conservative default. **Phase 3 rides on this transpile — a dedicated `showif_js` column and proper parser are deferred.**
+
+### 13.13 v1 only emits `data-showif` when it server-side hides the item
+
+`$item->data_showif` is set true inside `Item::hide()`, i.e., only for items the server-side `setVisibility` marked hidden at render. For v2 reactivity we need `data-showif` on *every* item with a non-empty `showif`, so `FormRenderer::render` forces `$item->data_showif = true` for all showif-bearing items before handing off to `$item->render()`.
+
+### 13.14 Server-side showif evaluation at initial render can't know user answers
+
+In v2's single-document layout, all items render at once — OpenCPU evaluates every showif with *empty* answers. Items whose showif depends on a yet-to-be-answered item either end up visible (NA → conservative show) or hidden (NA → conservative hide) *at load time*, and neither matches what the participant actually sees after they fill in the dependency. Phase 3's client-side JS evaluator fixes this for *transpilable* showifs. Items whose showif contains R-only constructs the regex transpiler can't handle need Phase 3's `r()` opt-in + a server proxy to re-evaluate after each answer — not yet implemented.
+
+### 13.15 TomSelect `controlInput: null` vs. search input
+
+Default TomSelect mounts a search input for every select. On small MC-style selects that's noise. Gate the search UI on `options.length > 20 || classList.contains('select2zone')` to match v1's "large list needs search" heuristic.
+
+### 13.16 The `hidden` HTML attribute vs the `.hidden` CSS class
+
+DOM `el.hidden = true` sets the HTML `hidden` attribute, which most browsers paint as `display:none` (low specificity, overridable). Bootstrap's `.hidden` class ships `display:none !important`. v2 uses both for different things: page-section visibility via the `hidden` attribute (`<section hidden>`), item-level visibility via the `.hidden` class + `display:none` inline. Mixing the two without realising the specificity difference caused several "why isn't this showing" debugging detours.
+
+### 13.17 `all_widgets_with_values.xlsx` is not a substitute for the live `all_widgets` Google sheet
+
+The xlsx fixture in `documentation/example_surveys/` hit ~40 "OpenCPU showif error" badges in this dev env — the Google-sheet version the user pointed at loaded cleanly. Before debugging an issue against the xlsx, import from the live sheet: `https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw`.
+
+### 13.18 Reactive test harness — TomSelect and showif break naïve "fill every input" scripts
+
+Setting `select.selectedIndex = 1` doesn't notify TomSelect. Use `select.tomselect?.setValue(...)` or `dispatchEvent(new Event('change', {bubbles:true}))` to trigger the v2 client's reactive handlers. Similarly, showif dependents won't reveal unless the dependency's change event actually fires. Any "fill-the-form" test utility needs to be explicit about firing change events in the right order.
