@@ -13,6 +13,11 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 // font is loaded.
 import '@fortawesome/fontawesome-free/css/v4-shims.min.css';
 import 'tom-select/dist/css/tom-select.bootstrap5.min.css';
+// custom_item_classes.css carries admin-choosable layout modifiers (mc_width50
+// … mc_width200, rotate_label45/30/90, mc_vertical, mc_block, mc_equal_widths,
+// rating_button_label_width*, hide_label, …). These are `form.form-horizontal`
+// -scoped, which is why FormRenderer adds `form-horizontal` to the v2 form.
+import '../../common/css/custom_item_classes.css';
 import '../css/form.scss';
 
 import Alpine from 'alpinejs';
@@ -358,6 +363,39 @@ function initForm() {
     const isTransientFailure = (err, res) =>
         (err != null) || (res && res.status >= 500 && res.status < 600);
 
+    // Build a FormData representation of a queued entry that has `files`.
+    // Keys mirror form-page-submit's multipart branch (see formSyncAction).
+    const buildSyncFormData = (entry) => {
+        const fd = new FormData();
+        fd.append('uuid', entry.uuid);
+        fd.append('page', String(entry.page));
+        if (entry.client_ts) fd.append('client_ts', entry.client_ts);
+        const data = entry.data || {};
+        Object.keys(data).forEach((k) => {
+            const v = data[k];
+            if (Array.isArray(v)) {
+                v.forEach((vv) => fd.append(`data[${k}][]`, vv == null ? '' : String(vv)));
+            } else if (v != null) {
+                fd.append(`data[${k}]`, String(v));
+            }
+        });
+        const views = entry.item_views || {};
+        Object.keys(views).forEach((bucket) => {
+            const m = views[bucket] || {};
+            Object.keys(m).forEach((id) => fd.append(`item_views[${bucket}][${id}]`, String(m[id])));
+        });
+        const files = entry.files || {};
+        Object.keys(files).forEach((itemName) => {
+            const f = files[itemName];
+            if (!f) return;
+            // IDB returns Blobs (File is a subclass of Blob). Preserve the
+            // original filename via the `name` property if present.
+            const fname = (f.name || itemName);
+            fd.append(`files[${itemName}]`, f, fname);
+        });
+        return fd;
+    };
+
     const drainQueue = async () => {
         if (!syncUrl) return;
         let entries;
@@ -366,14 +404,25 @@ function initForm() {
         entries.sort((a, b) => (a.client_ts || '').localeCompare(b.client_ts || ''));
         showQueueBanner(`Syncing ${entries.length} queued submission${entries.length === 1 ? '' : 's'}…`, 'warning');
         for (const entry of entries) {
+            const hasFiles = entry.files && Object.keys(entry.files).length > 0;
             let res;
             try {
-                res = await fetch(syncUrl, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify(entry),
-                });
+                if (hasFiles) {
+                    // Multipart drain — mirrors the submitPage multipart path.
+                    res = await fetch(syncUrl, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                        body: buildSyncFormData(entry),
+                    });
+                } else {
+                    res = await fetch(syncUrl, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify(entry),
+                    });
+                }
             } catch (e) {
                 // Still offline / transient. Leave entries in place; next `online` retries.
                 showQueueBanner('Offline — submissions will sync automatically when you reconnect.', 'warning');
@@ -475,16 +524,22 @@ function initForm() {
         } catch (e) {
             netErr = e;
         }
-        // Offline / server-5xx → queue the JSON-path submission and keep
-        // the participant moving. File submissions can't be queued yet;
-        // surface the error so they can retry manually. When the study has
-        // opted out of offline mode, syncUrl is empty and we bubble the
-        // transient failure as a hard error rather than persisting to IDB.
+        // Offline / server-5xx → persist the submission to IDB and keep the
+        // participant moving. When offline_mode is off (admin opt-out),
+        // syncUrl is empty and we bubble the transient failure as a hard
+        // error instead. File-bearing submissions also skip queueing when any
+        // single file exceeds QUEUE_FILE_SIZE_CAP (default 10 MB) — storing
+        // large Blobs in IDB can blow out the browser's per-origin quota and
+        // leave the queue in an undrainable state.
+        const QUEUE_FILE_SIZE_CAP = 10 * 1024 * 1024;
         if (isTransientFailure(netErr, res)) {
-            if (useMultipart || !syncUrl) {
-                console.error('page-submit offline (multipart or offline queue disabled)', netErr || res.status);
-                const msg = useMultipart
-                    ? 'You seem to be offline. File uploads can\'t be queued — please try again.'
+            const oversizedFile = useMultipart
+                ? fileInputs.find((inp) => inp.files[0] && inp.files[0].size > QUEUE_FILE_SIZE_CAP)
+                : null;
+            if (!syncUrl || oversizedFile) {
+                console.error('page-submit offline (offline queue disabled or file too large)', netErr || (res && res.status));
+                const msg = oversizedFile
+                    ? `Submission too large to queue offline (${(oversizedFile.files[0].size / 1024 / 1024).toFixed(1)} MB, limit 10 MB). Please retry when you're back online.`
                     : 'Your submission could not be sent. Please check your connection and try again.';
                 window.alert(msg);
                 return;
@@ -492,13 +547,34 @@ function initForm() {
             const entry = {
                 uuid: genUuid(),
                 page: pageNum,
-                data: payload.data,
+                data: Object.assign({}, payload.data),
                 item_views: payload.item_views,
                 // MySQL DATETIME rejects ISO-8601 with ".sssZ" — same gotcha as
                 // item_shown timestamps. Use the space-separated format.
                 client_ts: mysqlDatetime(),
             };
-            try { await queueAdd(entry); } catch (e) { console.error('enqueue failed', e); }
+            // Stash the File objects separately and strip their placeholders
+            // out of `data` so the server's $_POST['data'] doesn't end up
+            // with a stringified File next to the $_FILES entry.
+            if (useMultipart) {
+                entry.files = {};
+                fileInputs.forEach((inp) => {
+                    const f = inp.files[0];
+                    if (f) {
+                        entry.files[inp.name] = f;
+                        delete entry.data[inp.name];
+                    }
+                });
+            }
+            try { await queueAdd(entry); } catch (e) {
+                console.error('enqueue failed', e);
+                window.alert('Your submission could not be queued locally. Please check your connection and try again.');
+                return;
+            }
+            // Ask the SW to wake us up on next connectivity change. No-op on
+            // browsers without Background Sync — page-JS online event still
+            // catches it there.
+            registerBackgroundSync();
             showQueueBanner('You\'re offline. This submission is queued and will be sent when you reconnect.', 'warning');
             // Advance locally so the participant can continue — next drain
             // applies in order server-side. If this was the last page, leave
@@ -543,6 +619,42 @@ function initForm() {
     // case the tab was reloaded with entries still pending).
     window.addEventListener('online', () => { drainQueue(); });
     drainQueue();
+
+    // Register the service worker unconditionally on v2 runs and hand it the
+    // sync URL so Background Sync wake-ups can drain the queue when the tab
+    // is closed. iOS Safari doesn't implement sync — the page `online` path
+    // already handles that case; this is pure upside on Chromium/Firefox/
+    // Android Chrome. Silent on failure (e.g. insecure context).
+    //
+    // SW is served by RunController::serviceWorkerAction at /{runName}/service-worker
+    // (path-based deploy) or /service-worker (subdomain deploy). The controller
+    // sets `Service-Worker-Allowed: /{runName}/` so the scope can cover the
+    // whole run path; registering at /assets/common/js/service-worker.js
+    // directly would scope to that dir and miss the form POSTs.
+    const registerFormSW = async () => {
+        if (!('serviceWorker' in navigator) || !syncUrl) return;
+        try {
+            const runUrlObj = new URL(runUrl || window.location.href);
+            const siteOrigin = window.location.origin;
+            const isPathBased = runUrlObj.origin === siteOrigin && runUrlObj.pathname !== '/';
+            const swPath = isPathBased ? runUrlObj.pathname.replace(/\/$/, '') + '/service-worker' : '/service-worker';
+            const scope = isPathBased ? runUrlObj.pathname : '/';
+            const existing = await navigator.serviceWorker.getRegistration(scope);
+            const reg = existing || await navigator.serviceWorker.register(swPath, { scope });
+            const sw = reg.active || reg.waiting || reg.installing || navigator.serviceWorker.controller;
+            if (sw) sw.postMessage({ type: 'FMR_REGISTER_SYNC_URL', url: syncUrl });
+        } catch (e) {
+            console.warn('form-v2 SW registration failed', e);
+        }
+    };
+    registerFormSW();
+    const registerBackgroundSync = async () => {
+        if (!('serviceWorker' in navigator)) return;
+        try {
+            const reg = await navigator.serviceWorker.ready;
+            if (reg.sync) await reg.sync.register('form-v2-drain');
+        } catch (e) { /* Background Sync not supported; page-side drain is the fallback. */ }
+    };
 
     root.querySelectorAll('[data-fmr-next]').forEach((btn) => {
         btn.addEventListener('click', (e) => { e.preventDefault(); submitPage(); });
@@ -900,15 +1012,105 @@ function initForm() {
         }
     });
 
-    // Initial page from ?page=N
+    // Initial page from ?page=N. The query-string `page` refers to the
+    // server-side `survey_items_display.page` number (which is what shows up
+    // in data-fmr-page and what the submit response returns via next_page).
+    // When a participant reloads mid-form the server only includes the pages
+    // they haven't answered yet, so the page-number ≠ array index. Look up
+    // by dataset match; fall back to first page if the requested page isn't
+    // in the DOM.
+    const indexForPageParam = (p) => {
+        if (!p) return 0;
+        const idx = pages.findIndex((el) => Number(el.dataset.fmrPage) === p);
+        return idx === -1 ? 0 : idx;
+    };
     const paramPage = Number(new URLSearchParams(window.location.search).get('page'));
-    const startIdx = Math.max(0, Math.min(pages.length - 1, (paramPage || 1) - 1));
-    showPage(startIdx);
+    showPage(indexForPageParam(paramPage));
 
     window.addEventListener('popstate', () => {
         const p = Number(new URLSearchParams(window.location.search).get('page'));
-        const idx = Math.max(0, Math.min(pages.length - 1, (p || 1) - 1));
-        showPage(idx);
+        showPage(indexForPageParam(p));
+    });
+
+    // --- RequestCookie item (functional cookie consent) ---
+    // Minimal vanilla port of PWAInstaller.js::initializeRequestCookie.
+    // Server (RequestCookie_Item) renders a .request-cookie-wrapper with a
+    // hidden <input>, a <button.request-cookie>, and a .status-message.
+    // When the participant has already granted functional consent, the
+    // wrapper needs to mark itself answered; otherwise click opens the
+    // consent dialog via the global showPreferences() if exposed.
+    const hasFunctionalConsent = () => {
+        const row = document.cookie.split('; ').find((r) => r.startsWith('formrcookieconsent='));
+        if (!row) return false;
+        try {
+            const val = decodeURIComponent(row.split('=')[1] || '');
+            return val.indexOf('"necessary","functionality"') !== -1;
+        } catch (e) { return false; }
+    };
+    const markRequestCookieAnswered = (wrapper) => {
+        const hidden = wrapper.querySelector('input');
+        const status = wrapper.querySelector('.status-message');
+        const btn = wrapper.querySelector('button.request-cookie');
+        if (hidden) { hidden.value = 'consent_given'; hidden.setCustomValidity(''); }
+        if (status) status.textContent = 'Functional cookies enabled. You can continue.';
+        if (btn) {
+            btn.disabled = true;
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-success');
+            btn.innerHTML = '<i class="fa fa-check"></i> Enabled';
+        }
+        const formGroup = wrapper.closest('.form-group');
+        if (formGroup) formGroup.classList.add('formr_answered');
+    };
+    root.querySelectorAll('.request-cookie-wrapper').forEach((wrapper) => {
+        const hidden = wrapper.querySelector('input');
+        const btn = wrapper.querySelector('button.request-cookie');
+        const required = wrapper.closest('.form-group')?.classList.contains('required');
+        if (required && hidden) {
+            hidden.setCustomValidity('Please enable functional cookies to continue.');
+        }
+        if (hasFunctionalConsent()) {
+            markRequestCookieAnswered(wrapper);
+            return;
+        }
+        if (btn) {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (typeof window.showPreferences === 'function') window.showPreferences();
+            });
+        }
+        // Poll for consent granted in another tab / via the footer dialog.
+        const poll = setInterval(() => {
+            if (hasFunctionalConsent()) {
+                markRequestCookieAnswered(wrapper);
+                clearInterval(poll);
+            }
+        }, 1000);
+    });
+
+    // --- RequestPhone item (mobile-device affirmation) ---
+    // Pared-down port of initializeRequestPhone: the server already marks the
+    // item answered on mobile UAs (RequestPhone_Item::setMoreOptions sets
+    // no_user_input_required=true). On desktop we surface a short status
+    // message; full QR-code generation is deferred (part of the PWA wiring
+    // that still lives in PWAInstaller.js).
+    const isMobileUA = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|webOS|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    root.querySelectorAll('.request-phone-wrapper').forEach((wrapper) => {
+        const hidden = wrapper.querySelector('input');
+        const status = wrapper.querySelector('.status-message');
+        const required = wrapper.closest('.form-group')?.classList.contains('required');
+        if (required && hidden && !hidden.value) {
+            hidden.setCustomValidity('Please complete this required step before continuing.');
+        }
+        if (isMobileUA) {
+            if (hidden && !hidden.value) hidden.value = 'is_phone';
+            if (hidden) hidden.setCustomValidity('');
+            if (status) status.textContent = 'You are already on a mobile device. You can continue.';
+            const formGroup = wrapper.closest('.form-group');
+            if (formGroup) formGroup.classList.add('formr_answered');
+        } else if (status) {
+            status.textContent = 'Open this form on your phone to continue. (QR-code / install assistant lives in the v1 participant bundle; v2 port is pending — see plan_form_v2.md §8 P1.)';
+        }
     });
 
     // --- Monkey bar buttons (admin preview mode) ---

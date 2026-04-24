@@ -403,21 +403,31 @@
     }
 
     // Radio/checkbox groups — v1 renders them as <label><input>text</label>
-    // under .controls; give them decent spacing.
+    // under .controls; give them decent spacing. Keep the gap small so an
+    // item's `mc_width*` class (from custom_item_classes.css) actually fits
+    // as many options per row as the admin requested.
     .controls > label,
     .controls-inner > label,
     .mc-table > label {
         display: inline-flex;
         align-items: center;
-        gap: 0.4rem;
-        margin-right: 1rem;
+        gap: 0.25rem;
+        margin-right: 0.5rem;
         margin-bottom: 0.25rem;
         font-weight: normal;
         cursor: pointer;
 
         input[type=radio], input[type=checkbox] {
-            margin: 0 0.25rem 0 0;
+            margin: 0 0.2rem 0 0;
         }
+    }
+
+    // When mc_heading's rotate_label45 fires, the first row of options needs
+    // headroom so the -25px margin-top from custom_item_classes doesn't push
+    // the labels above their container and out of the form. Match v1's
+    // visual spacing.
+    .form-group.form-row.item-mc_heading {
+        padding-top: 3rem;
     }
 
     // Stack radio/check lists vertically when the item opts in.

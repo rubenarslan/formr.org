@@ -17,8 +17,8 @@ Phases 0–5 are code-complete on-branch (with gaps noted below). Phases 6 (docs
 | 2 — Item-type coverage | ✅ mostly | audio/video render + warn; still need in-browser capture smoke |
 | 3 — Client-side showif + r(...) opt-in | ✅ done | Alpine-driven; compat scanner; dedicated `showif_js` column and hardened parser deferred |
 | 4 — Deferred fill for `value` | ✅ done for `value` | embedded Rmd still OpenCPU-knit at render |
-| 5 — Offline queue | ✅ MVP + opt-out | page-JS intercept; `offline_mode` flag wired; no SW, no Background Sync, no file-blob queue, no iOS pass |
-| 6 — Docs + migration tooling + parity gate | ⬜ open | |
+| 5 — Offline queue | ✅ done bar iOS | page-JS intercept + SW interception + Background Sync + `offline_mode` flag + file-blob queue (10 MB cap). iOS Safari pass still open |
+| 6 — Docs + migration tooling + parity gate | ✅ mostly | admin compat-scanner UI shipped; v1↔v2 automated parity test still open |
 | Rollout gates | ⬜ open | parity gate, default flip, sunset |
 
 What's live vs. gated:
@@ -278,8 +278,8 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] Geopoint via `navigator.geolocation` (no webshim, no jQuery)
 - [x] Client payload matches PHP `$_POST` semantics
 - [x] "Previous" button opt-in per form (`survey_studies.allow_previous`, patch 051; admin toggle in survey settings)
-- [ ] `history.pushState(?page=N)` verified across back-button + deep-link landings
-- [x] "Not supported in v2" warning for `audio`/`video` items (soft banner in `FormRenderer::renderUnverifiedTypesNotice`)
+- [x] `history.pushState(?page=N)` verified across back-button + deep-link landings (lookup by `data-fmr-page` match instead of array index)
+- [x] "Not supported in v2" warning for `audio`/`video`/PWA items (soft banner in `FormRenderer::renderUnverifiedTypesNotice`)
 - [x] Inline `.is-invalid` + `.invalid-feedback` driven from server error response
 
 ### Phase 2 — Item-type coverage
@@ -300,8 +300,8 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] `survey_r_calls` table (`sql/patches/049_survey_r_calls.sql`)
 - [x] `POST /{run}/form-r-call` (`RunController::formRCallAction`, slot='showif')
 - [x] Debounced (300ms) seq-guarded client r-call resolver
-- [x] Compat scanner (`bin/form_v2_compat_scan.php`)
-- [ ] Per-session rate-limit on r-call (blocked on generic bucket API)
+- [x] Compat scanner (`bin/form_v2_compat_scan.php`) + admin UI (`/admin/survey/<name>/form_v2_compat_scan`)
+- [x] Per-session rate-limit on r-call (30/min token bucket in `$_SESSION`; returns 429)
 - [ ] Hardened JS transpiler (proper parser)
 - [ ] Dedicated `showif_js` column
 
@@ -324,20 +324,19 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] `.fmr-queue-banner` UI (warning/success/danger variants)
 - [x] Drain on `online` event + initial page load
 - [x] Drain semantics (success/drop_entry/transient/validation)
-- [ ] Service-worker interception
-- [ ] Background Sync API
+- [x] Service-worker interception + Background Sync (SW `sync` handler drains `formrQueue` on wake; page registers `form-v2-drain` tag on enqueue)
 - [x] `offline_mode` opt-out flag on `survey_studies` (patch 051; admin toggle in survey settings; client respects it via the form root's `data-offline-mode`)
-- [ ] Unconditional SW registration on v2 runs
-- [ ] iOS Safari compatibility pass
-- [ ] File-blob queueing + size cap
+- [x] Unconditional SW registration on v2 runs (via `/{runName}/service-worker`, scope `/{runName}/`; `Service-Worker-Allowed` header set by `RunController::serviceWorkerAction`)
+- [ ] iOS Safari compatibility pass (Background Sync unavailable; page-JS `online` drain is the fallback)
+- [x] File-blob queueing + size cap (10 MB default, over-cap submissions surface a hard error; submissions below the cap persist Blob-in-IDB and drain via multipart `/form-sync`)
 
 ### Phase 6 — Docs + migration tooling + parity gate
-- [ ] Admin UI for compat scanner
+- [x] Admin UI for compat scanner (`AdminSurveyController::formV2CompatScanAction`; `templates/admin/survey/form_v2_compat_scan.php`; scanner extracted to `application/Spreadsheet/FormV2CompatScanner.php` so CLI and UI share it)
 - [ ] Documentation updates
 - [ ] Example surveys ported to v2
 - [ ] Automated v1↔v2 parity test suite (the "feature-parity gate")
 - [x] CHANGELOG entries for Phases 2–5
-- [ ] Bundle module split (flat 982-line `main.js` → logical modules)
+- [ ] Bundle module split (flat ~1400-line `main.js` → logical modules)
 
 ### Rollout gates
 - [ ] Feature-parity gate green
@@ -373,10 +372,8 @@ Nothing here is still open; these are the frozen decisions.
 2. In-browser smoke for audio/video capture via `getUserMedia` + multipart round-trip (file uploads in general are already verified).
 
 **P1 — before calling form_v2 GA:**
-1. `history.pushState(?page=N)` + deep-link landing verified.
-2. Service-worker interception of `/form-page-submit` + Background Sync + unconditional SW registration on v2 runs.
-3. iOS Safari compatibility pass for offline queue.
-4. Per-session rate-limit on r-call (blocked on generic bucket API in `RateLimitService`).
+1. iOS Safari compatibility pass for offline queue (Background Sync is unavailable there, but the page-side `online` path still drains — needs a real-device pass).
+2. Full PWA item wiring for v2: AddToHomeScreen + PushNotification still rely on `PWAInstaller.js` (jQuery-based); RequestCookie + RequestPhone have a minimal vanilla port in the form bundle. Until the full port lands, the four items still render but fall into the unverified-types notice.
 
 **P2 — cleanup and future hardening:**
 1. Bundle module split: `webroot/assets/form/js/main.js` is 982 lines. Split into `alpine-init`, `showif-runtime`, `page-submit`, `offline-queue`, `r-call`, `deferred-fill`, `validation/*`, `items/*`.

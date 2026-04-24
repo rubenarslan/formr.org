@@ -592,35 +592,64 @@ class RunController extends Controller {
      * form_v2 Phase 5: offline-queue sync endpoint.
      *
      * URL: POST /{runName}/form-sync
-     * Body: JSON `{"uuid": str, "page": int, "data": {...}, "item_views": {...}, "client_ts": str}`
+     * Body:
+     *   - application/json: `{"uuid": str, "page": int, "data": {...}, "item_views": {...}, "client_ts": str}`
+     *   - multipart/form-data (queued file upload): flat fields `uuid`, `page`,
+     *     `client_ts`, `data[name]`, `data[name][]`, `item_views[bucket][id]`,
+     *     plus `files[name]` carrying the Blob; same shape as form-page-submit's
+     *     multipart branch.
      *
      * Accepts a single queued submission. Idempotent via `survey_form_submissions.uuid`:
      * a retry with the same uuid returns `{status: 'ok', already_applied: true}` without
      * re-applying. Otherwise the endpoint follows the same auth + apply path as
-     * `formPageSubmitAction` and records the uuid on success. No file-blob queueing
-     * in this slice (file submissions still take the online-only multipart path).
+     * `formPageSubmitAction` and records the uuid on success.
      */
     public function formSyncAction() {
         if (!Request::isHTTPPostRequest()) {
             $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
             return;
         }
-        $payload = json_decode(file_get_contents('php://input'), true);
-        if (!is_array($payload)) {
-            $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
-            return;
+        $contentType = isset($_SERVER['CONTENT_TYPE']) ? (string) $_SERVER['CONTENT_TYPE'] : '';
+        $isMultipart = stripos($contentType, 'multipart/form-data') === 0;
+        if ($isMultipart) {
+            $uuid = isset($_POST['uuid']) ? (string) $_POST['uuid'] : '';
+            $submittedPage = isset($_POST['page']) ? (int) $_POST['page'] : 1;
+            $data = (isset($_POST['data']) && is_array($_POST['data'])) ? $_POST['data'] : array();
+            $itemViews = (isset($_POST['item_views']) && is_array($_POST['item_views'])) ? $_POST['item_views'] : array();
+            $clientTs = isset($_POST['client_ts']) ? (string) $_POST['client_ts'] : null;
+            // Re-project $_FILES['files'][...][itemName] into the flat
+            // {name,type,tmp_name,error,size} dict File_Item::validateInput
+            // expects — same logic as formPageSubmitAction.
+            if (isset($_FILES['files']) && is_array($_FILES['files']['name'])) {
+                foreach ($_FILES['files']['name'] as $itemName => $_) {
+                    if (!is_string($itemName) || $itemName === '') continue;
+                    $data[$itemName] = array(
+                        'name' => $_FILES['files']['name'][$itemName] ?? '',
+                        'type' => $_FILES['files']['type'][$itemName] ?? '',
+                        'tmp_name' => $_FILES['files']['tmp_name'][$itemName] ?? '',
+                        'error' => $_FILES['files']['error'][$itemName] ?? UPLOAD_ERR_NO_FILE,
+                        'size' => $_FILES['files']['size'][$itemName] ?? 0,
+                    );
+                }
+            }
+        } else {
+            $payload = json_decode(file_get_contents('php://input'), true);
+            if (!is_array($payload)) {
+                $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
+                return;
+            }
+            $uuid = isset($payload['uuid']) ? (string) $payload['uuid'] : '';
+            $submittedPage = isset($payload['page']) ? (int) $payload['page'] : 1;
+            $data = (isset($payload['data']) && is_array($payload['data'])) ? $payload['data'] : array();
+            $itemViews = (isset($payload['item_views']) && is_array($payload['item_views'])) ? $payload['item_views'] : array();
+            $clientTs = isset($payload['client_ts']) ? (string) $payload['client_ts'] : null;
         }
-        $uuid = isset($payload['uuid']) ? (string) $payload['uuid'] : '';
         // RFC 4122-ish: 8-4-4-4-12 hex chars. Tight so a malformed client can't
         // pollute the ledger with arbitrary strings.
         if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $uuid)) {
             $this->sendJsonResponse(array('error' => 'Malformed uuid'), 400);
             return;
         }
-        $submittedPage = isset($payload['page']) ? (int) $payload['page'] : 1;
-        $data = (isset($payload['data']) && is_array($payload['data'])) ? $payload['data'] : array();
-        $itemViews = (isset($payload['item_views']) && is_array($payload['item_views'])) ? $payload['item_views'] : array();
-        $clientTs = isset($payload['client_ts']) ? (string) $payload['client_ts'] : null;
 
         // Dedup pre-check: if we've already persisted this uuid, short-circuit
         // so retries are safe and cheap. The uuid is unique-indexed so a true
@@ -819,9 +848,28 @@ class RunController extends Controller {
         }
 
         $expr = (string) $row['expr'];
-        // TODO(phase 4+): per-session bucket rate-limit once RateLimitService
-        // grows a generic check() API (today it's email-specific). Reactive
-        // cadence is already implicitly one-per-participant-keystroke.
+
+        // Per-session token-bucket rate limit. Reactive showif r-calls are
+        // already debounced (300ms) and seq-guarded client-side, but a
+        // malicious or buggy client could loop. 30 calls / 60s is enough
+        // headroom for a participant typing naturally into a long form and
+        // triggering every debounce window without being punitive. Bucket
+        // state lives in the participant's PHP session so it survives
+        // across requests but not across logouts/device changes — fine
+        // because the limit is cheap to recover from.
+        $rateKey = 'form_v2_rcall_rate_' . (int) $runSession->id;
+        $now = time();
+        $window = 60;
+        $maxCalls = 30;
+        $bucket = Session::get($rateKey, null);
+        if (!is_array($bucket) || !isset($bucket['window_start']) || ($now - (int) $bucket['window_start']) >= $window) {
+            $bucket = array('window_start' => $now, 'count' => 0);
+        }
+        $bucket['count'] = (int) $bucket['count'] + 1;
+        Session::set($rateKey, $bucket);
+        if ($bucket['count'] > $maxCalls) {
+            return array('ok' => false, 'status' => 429, 'error' => 'Rate limit exceeded');
+        }
 
         $overlayR = self::formatROverlay($answers);
         $survey_name = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $study->name);

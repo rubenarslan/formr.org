@@ -145,7 +145,10 @@ class FormRenderer extends SpreadsheetRenderer {
     protected static $unverifiedTypes = [
         'audio', 'video',
         'add_to_home_screen', 'push_notification',
-        'request_cookie', 'request_phone',
+        // request_cookie and request_phone have a minimal vanilla port in
+        // webroot/assets/form/js/main.js; enough for the happy path on both
+        // mobile and desktop. Full QR-code / browser-switch UX still lives
+        // in PWAInstaller.js and is not yet routed through the v2 bundle.
     ];
 
     public function render($form_action = null, $form_append = null) {
@@ -261,8 +264,13 @@ class FormRenderer extends SpreadsheetRenderer {
 
         $offlineMode = !empty($this->study->offline_mode) ? 'on' : 'off';
         $allowPrevious = !empty($this->study->allow_previous) ? 'on' : 'off';
+        // `form-horizontal` is v1's class for the selectors in
+        // webroot/assets/common/css/custom_item_classes.css (mc_width*,
+        // rotate_label*, mc_vertical, mc_block, rating_button_label_width*,
+        // …) — the admin-choosable layout modifiers. Keep it on the v2 form
+        // so those classes keep working without a parallel scss port.
         $html = sprintf(
-            '<form class="fmr-form-v2" method="post" data-submit-url="%s" data-rcall-url="%s" data-fill-url="%s" data-sync-url="%s" data-run-url="%s" data-offline-mode="%s" data-allow-previous="%s" novalidate>',
+            '<form class="fmr-form-v2 form-horizontal" method="post" data-submit-url="%s" data-rcall-url="%s" data-fill-url="%s" data-sync-url="%s" data-run-url="%s" data-offline-mode="%s" data-allow-previous="%s" novalidate>',
             htmlspecialchars($submitUrl, ENT_QUOTES),
             htmlspecialchars($rcallUrl, ENT_QUOTES),
             htmlspecialchars($fillUrl, ENT_QUOTES),

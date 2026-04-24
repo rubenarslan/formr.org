@@ -595,6 +595,25 @@ class AdminSurveyController extends AdminController {
         alert('Survey settings updated', 'alert-success', true);
     }
 
+    /**
+     * form_v2 compatibility scan: classify each showif/value expression on the
+     * current study as empty / r-wrapped / JS-OK / needs-r()-wrap. Rendered on
+     * the survey settings page (survey/index) via the "Run v2 compatibility
+     * scan" button — surfaced only for v2 studies. Reuses FormV2CompatScanner
+     * so the admin view and the CLI (bin/form_v2_compat_scan.php) agree.
+     */
+    private function formV2CompatScanAction() {
+        if (!$this->study || !$this->study->valid) {
+            formr_error(404, 'Not Found', 'Study not found');
+        }
+        $report = FormV2CompatScanner::scan($this->study->id);
+        $this->setView('survey/form_v2_compat_scan', [
+            'study' => $this->study,
+            'report' => $report,
+        ]);
+        return $this->sendResponse();
+    }
+
     private function setStudy($name) {
         if (!$name) {
             return;

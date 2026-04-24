@@ -194,6 +194,16 @@
                                         </div>
                                     </td>
                                 </tr>
+                                <tr>
+                                    <td colspan="2">
+                                        <label>Compatibility scan</label>
+                                        <span class="help-block">
+                                            <i class="fa fa-info-circle"></i>
+                                            Classifies every <code>showif</code> and <code>value</code> expression in this survey as empty / <code>r(...)</code>-wrapped / JS-OK / needs-<code>r()</code>-wrap. Run this before rolling out to participants to see which expressions the client-side evaluator can't handle.
+                                        </span>
+                                        <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>" class="btn btn-default"><i class="fa fa-search"></i> Run v2 compatibility scan</a>
+                                    </td>
+                                </tr>
                                 <?php endif; ?>
 
                             </table>

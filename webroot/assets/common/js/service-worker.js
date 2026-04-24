@@ -138,8 +138,11 @@ self.addEventListener('install', (event) => {
       console.log('SW: Caching assets:', assetsToCache);
       return await cache.addAll(assetsToCache);
     } catch (error) {
-      console.error('Install failed:', error);
-      throw error;
+      // Pre-caching is best-effort: a missing PWA manifest (studies not
+      // configured for install) or an offline install shouldn't discard
+      // the SW. v2 forms need the SW registered for Background Sync even
+      // when the study is NOT installable. Swallow and continue.
+      console.warn('SW: pre-cache skipped', error);
     }
   };
   event.waitUntil(pre_cache());
@@ -164,7 +167,135 @@ self.addEventListener('activate', event => {
   console.log('SW: Activation complete');
 });
 
-/* 
+/* -------------------------------------------------------------------------
+ * form_v2: Background Sync drain hook
+ *
+ * The SW used to be GET-caching + push only; v2 extends it with a drain
+ * handler for the IndexedDB queue the page-JS populates when a POST to
+ * /form-page-submit fails (see webroot/assets/form/js/main.js). When the
+ * participant closes the tab offline, the page-level `online`-event drain
+ * can't run — so the page asks the SW to register a `form-v2-drain` sync
+ * tag, and here we respond to the sync event by walking the same IDB store
+ * (`formrQueue`, object store `queue`) and POSTing each entry to the
+ * captured sync URL.
+ *
+ * iOS Safari doesn't implement Background Sync; that path falls back to
+ * the page's own `online` listener + initial-load drain. Everything here
+ * is best-effort.
+ * ---------------------------------------------------------------------- */
+
+const FMR_QUEUE_DB = 'formrQueue';
+const FMR_QUEUE_STORE = 'queue';
+const FMR_SYNC_TAG = 'form-v2-drain';
+// The page stashes its sync URL here so the SW knows where to POST entries
+// on a background wake-up. See the SyncController message handler below.
+let fmrSyncUrl = null;
+
+function fmrOpenIDB() {
+  return new Promise((resolve, reject) => {
+    const req = self.indexedDB.open(FMR_QUEUE_DB, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(FMR_QUEUE_STORE)) {
+        const store = db.createObjectStore(FMR_QUEUE_STORE, { keyPath: 'uuid' });
+        store.createIndex('client_ts', 'client_ts');
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function fmrQueueGetAll(db) {
+  return new Promise((resolve) => {
+    const tx = db.transaction(FMR_QUEUE_STORE, 'readonly');
+    const store = tx.objectStore(FMR_QUEUE_STORE);
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => resolve([]);
+  });
+}
+
+function fmrQueueDelete(db, uuid) {
+  return new Promise((resolve) => {
+    const tx = db.transaction(FMR_QUEUE_STORE, 'readwrite');
+    tx.objectStore(FMR_QUEUE_STORE).delete(uuid);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => resolve();
+    tx.onabort = () => resolve();
+  });
+}
+
+function fmrBuildSyncFormData(entry) {
+  const fd = new FormData();
+  fd.append('uuid', entry.uuid);
+  fd.append('page', String(entry.page));
+  if (entry.client_ts) fd.append('client_ts', entry.client_ts);
+  const data = entry.data || {};
+  Object.keys(data).forEach((k) => {
+    const v = data[k];
+    if (Array.isArray(v)) {
+      v.forEach((vv) => fd.append(`data[${k}][]`, vv == null ? '' : String(vv)));
+    } else if (v != null) {
+      fd.append(`data[${k}]`, String(v));
+    }
+  });
+  const views = entry.item_views || {};
+  Object.keys(views).forEach((bucket) => {
+    const m = views[bucket] || {};
+    Object.keys(m).forEach((id) => fd.append(`item_views[${bucket}][${id}]`, String(m[id])));
+  });
+  const files = entry.files || {};
+  Object.keys(files).forEach((name) => {
+    const f = files[name];
+    if (f) fd.append(`files[${name}]`, f, f.name || name);
+  });
+  return fd;
+}
+
+async function fmrDrainBackground() {
+  if (!fmrSyncUrl) return;
+  let db;
+  try { db = await fmrOpenIDB(); } catch (e) { return; }
+  const entries = await fmrQueueGetAll(db);
+  entries.sort((a, b) => (a.client_ts || '').localeCompare(b.client_ts || ''));
+  for (const entry of entries) {
+    const hasFiles = entry.files && Object.keys(entry.files).length > 0;
+    let res;
+    try {
+      res = await fetch(fmrSyncUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: hasFiles
+          ? { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+          : { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: hasFiles ? fmrBuildSyncFormData(entry) : JSON.stringify(entry),
+      });
+    } catch (e) {
+      // Still offline; fail the sync so the browser retries later.
+      throw e;
+    }
+    const body = await res.json().catch(() => null);
+    if (res.ok || (body && body.already_applied)) {
+      await fmrQueueDelete(db, entry.uuid);
+      continue;
+    }
+    if (body && body.drop_entry) {
+      await fmrQueueDelete(db, entry.uuid);
+      continue;
+    }
+    // 4xx rejection — don't keep retrying. Leave entry; page-JS will
+    // surface the error banner when the user reopens.
+    return;
+  }
+}
+
+self.addEventListener('sync', (event) => {
+  if (event.tag !== FMR_SYNC_TAG) return;
+  event.waitUntil(fmrDrainBackground());
+});
+
+/*
  * Fetch event listener to cache assets
  */
 self.addEventListener('fetch', (event) => {
@@ -215,6 +346,13 @@ self.addEventListener('fetch', (event) => {
 
 // Add message event listener to handle asset caching
 self.addEventListener('message', (event) => {
+  // form_v2: stash the sync URL so sync events know where to POST. The
+  // URL is origin-specific (participant subdomain), so we can't derive it
+  // server-side at SW install time.
+  if (event.data && event.data.type === 'FMR_REGISTER_SYNC_URL' && typeof event.data.url === 'string') {
+    fmrSyncUrl = event.data.url;
+    return;
+  }
   // Handle CACHE_ASSETS message
   if (event.data.type === 'CACHE_ASSETS') {
     // Filter and deduplicate assets
