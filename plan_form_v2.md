@@ -45,15 +45,18 @@ Core (done):
 - [x] MySQL-format timestamps for item-view tracking (matches v1 contract)
 - [x] Verified end-to-end with `enter_email` fixture
 
-Gaps (Phase 1.5 before moving to Phase 2):
-- [ ] Tom-select auto-wired to appropriate `<select>` elements
-- [ ] IntersectionObserver for `shown`/`shown_relative` (currently using change events)
-- [ ] "Previous" button opt-in per form
+Gaps (Phase 1.5 — most closed during all_widgets smoke):
+- [x] Tom-select auto-wired on every named `<select>` under `.fmr-form-v2`
+- [x] IntersectionObserver for `shown`/`shown_relative` (threshold 0.25, one-shot)
+- [ ] "Previous" button opt-in per form (button exists; per-form toggle not added)
 - [ ] `history.pushState(?page=N)` verified across back-button + deep-link landings
-- [ ] Item-type parity audit for the 20 most-used types (only text/email exercised)
-- [ ] "Not supported in v2" warning for gated item types
-- [ ] Inline `.is-invalid` BS5 error UI (currently relies on native `reportValidity` only)
-- [ ] Broader BS3→BS5 compat in `form.scss` (item wrappers still look rough)
+- [x] Item-type parity audit: all_widgets exercises text/textarea/email/tel/url/number/date/time/month/week/datetime-local/color/range/range_ticks/radio/checkbox/select_one/select_multiple/mc_button/mc_multiple_button/check/check_button/rating_button variants/geopoint — renders correctly under v2
+- [ ] "Not supported in v2" warning for gated item types (audio/video/file still deferred)
+- [x] Inline `.is-invalid` + `.invalid-feedback` UI driven from server error response
+- [x] BS3→BS5 compat pass in `form.scss` (form-group, labels, has-error, input-group-btn, square/button tiles, control-label with nested h/p, label-*, radio/check groups)
+- [x] Multi-chunk processItems (FormRenderer walks every submit-delimited chunk)
+- [x] Geopoint wiring (navigator.geolocation without webshim/jQuery)
+- [x] PHP $_POST-semantics fix in client collectPayload (Check_Item crash on hidden+checkbox pair)
 
 ### Phase 2 — Item-type coverage
 - [ ] Audio, video, ratingbutton variants
@@ -65,14 +68,16 @@ Gaps (Phase 1.5 before moving to Phase 2):
 - [ ] Submit item handling (v2 provides its own nav, skip v1's emitted submit)
 
 ### Phase 3 — Client-side `showif` + transpiler hardening
-- [ ] `showif_js` column on `survey_items`
-- [ ] Default interpretation of `showif` as JS over an `answers` reactive object
-- [ ] Standard library helpers (`contains`, `last`, `isNA`, …)
+- [x] JS evaluator wired to `data-showif` attribute on item wrappers; re-runs on every input/change against a live `answers` object; toggles `.hidden` + `display` + `input.disabled`
+- [x] FormRenderer forces `data_showif=true` on every item with a non-empty `showif` (v1 only emitted `data-showif` when `setVisibility` hid the item server-side; v2 needs it always for reactivity)
+- [x] Reuses v1's existing R→JS regex transpile in `Item.php` (covers `==`, `>`, `&&`, `||`, `%contains%`, `%begins_with%`, `is.na`, `tail(, 1)`, `current()`)
+- [ ] Standard library helpers in JS (`contains`, `last`, `isNA`, …) as a named runtime (currently leans on transpile output using regex rewrites)
+- [ ] Dedicated `showif_js` column on `survey_items` (presently re-transpiled at runtime from `showif`)
 - [ ] `r(...)` wrapper detection at import (explicit opt-in to server-side R)
 - [ ] `survey_r_calls` allowlist table (patch TBD)
 - [ ] Hardened JS transpiler (proper parser, not regex)
 - [ ] Upgrade-time compatibility scan (auto-wrap un-translatable R in `r()`)
-- [ ] Alpine `x-show` bindings for JS `showif` expressions
+- [ ] Alpine `x-show` bindings for JS `showif` expressions (current implementation is vanilla; Alpine is only imported, not yet used)
 
 ### Phase 4 — Deferred fill for `value` and embedded Rmd
 - [ ] `/form/r-call` proxy endpoint
