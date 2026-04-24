@@ -552,6 +552,16 @@ class AdminSurveyController extends AdminController {
         $settings['hide_results'] = (int) (isset($settings['hide_results']) && $settings['hide_results'] === 1);
         $settings['use_paging'] = (int) (isset($settings['use_paging']) && $settings['use_paging'] === 1);
         $settings['unlinked'] = (int) (isset($settings['unlinked']) && $settings['unlinked'] === 1);
+        // form_v2 per-study flags — accept only when the study is on the v2
+        // pipeline, so checkboxes on a v1 study can't silently mutate data the
+        // v1 renderer doesn't read. offline_mode defaults to 1 (opt-out),
+        // allow_previous defaults to 0 (opt-in).
+        if ($this->study->rendering_mode === 'v2') {
+            $settings['offline_mode'] = (int) (isset($settings['offline_mode']) && $settings['offline_mode'] === 1);
+            $settings['allow_previous'] = (int) (isset($settings['allow_previous']) && $settings['allow_previous'] === 1);
+        } else {
+            unset($settings['offline_mode'], $settings['allow_previous']);
+        }
 
         // user can't revert unlinking
         if ($settings['unlinked'] < $this->study->unlinked) {

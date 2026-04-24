@@ -133,6 +133,16 @@ class FormRenderer extends SpreadsheetRenderer {
         return $out;
     }
 
+    /**
+     * Item `type` values that have not yet been smoke-tested in form_v2.
+     * Their PHP render path is inherited from File_Item so they should work
+     * in principle, but the getUserMedia + multipart round-trip hasn't been
+     * verified end-to-end (see plan_form_v2.md §8 P0). Admins see a neutral
+     * notice at the top of the form so they know to manually verify the
+     * capture UX before relying on it in a live study.
+     */
+    protected static $unverifiedTypes = ['audio', 'video'];
+
     public function render($form_action = null, $form_append = null) {
         // Emit data-showif on every item with a showif expression, so the client
         // runtime can re-evaluate on each input change. v1 only set data_showif
@@ -152,6 +162,7 @@ class FormRenderer extends SpreadsheetRenderer {
         $pageCount = count($itemsByPage);
 
         $html = '<div class="fmr-form-v2-outer study-' . (int) $this->study->id . '">';
+        $html .= $this->renderUnverifiedTypesNotice();
         $html .= $this->renderV2Header();
 
         $i = 0;
@@ -243,13 +254,17 @@ class FormRenderer extends SpreadsheetRenderer {
         $currentUser = Site::getCurrentUser();
         $userCode = $currentUser ? $currentUser->user_code : '';
 
+        $offlineMode = !empty($this->study->offline_mode) ? 'on' : 'off';
+        $allowPrevious = !empty($this->study->allow_previous) ? 'on' : 'off';
         $html = sprintf(
-            '<form class="fmr-form-v2" method="post" data-submit-url="%s" data-rcall-url="%s" data-fill-url="%s" data-sync-url="%s" data-run-url="%s" novalidate>',
+            '<form class="fmr-form-v2" method="post" data-submit-url="%s" data-rcall-url="%s" data-fill-url="%s" data-sync-url="%s" data-run-url="%s" data-offline-mode="%s" data-allow-previous="%s" novalidate>',
             htmlspecialchars($submitUrl, ENT_QUOTES),
             htmlspecialchars($rcallUrl, ENT_QUOTES),
             htmlspecialchars($fillUrl, ENT_QUOTES),
             htmlspecialchars($syncUrl, ENT_QUOTES),
-            htmlspecialchars($runUrl, ENT_QUOTES)
+            htmlspecialchars($runUrl, ENT_QUOTES),
+            $offlineMode,
+            $allowPrevious
         );
         $html .= sprintf(
             '<input type="hidden" name="session_id" value="%s">',
@@ -281,10 +296,41 @@ class FormRenderer extends SpreadsheetRenderer {
         return '</form>';
     }
 
+    /**
+     * Notice listing item types that haven't been smoke-tested in v2 yet.
+     * Rendered above the form header when the survey contains any such type;
+     * omitted entirely otherwise. Intentionally not gated by admin role — the
+     * participant subdomain is a separate origin so the admin cookie isn't
+     * visible there, and a mild "we haven't verified this everywhere" hint is
+     * cheaper than missing real-world UX bugs because nobody saw the banner.
+     * Not a hard gate: the items still render and submit through the normal
+     * v1-inherited pipeline.
+     */
+    protected function renderUnverifiedTypesNotice() {
+        $present = [];
+        foreach ($this->renderedItems as $item) {
+            if (!isset($item->type)) continue;
+            if (in_array($item->type, self::$unverifiedTypes, true) && !in_array($item->type, $present, true)) {
+                $present[] = $item->type;
+            }
+        }
+        if (empty($present)) {
+            return '';
+        }
+        $list = htmlspecialchars(implode(', ', $present), ENT_QUOTES);
+        return '<div class="alert alert-warning fmr-unverified-types" role="status">'
+             . '<strong>Heads up:</strong> this form uses '
+             . '<code>' . $list . '</code> '
+             . '— these item types have not yet been end-to-end smoke-tested on form_v2. They render and submit through the same path as File_Item, but capture UX may vary by browser.'
+             . '</div>';
+    }
+
     protected function renderPageNav($showPrev, $isLast) {
         $nextLabel = $isLast ? 'Submit' : 'Next';
         $nextIcon = $isLast ? 'fa-check' : 'fa-arrow-right';
-        $left = $showPrev
+        // Previous button is opt-in per form (SurveyStudy.allow_previous).
+        $allowPrev = $showPrev && !empty($this->study->allow_previous);
+        $left = $allowPrev
             ? '<button type="button" class="btn btn-outline-secondary" data-fmr-prev><i class="fa fa-arrow-left"></i> Previous</button>'
             : '';
         return sprintf(

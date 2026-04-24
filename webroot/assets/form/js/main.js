@@ -274,7 +274,13 @@ function initForm() {
 
     const submitUrl = root.dataset.submitUrl;
     const runUrl = root.dataset.runUrl;
-    const syncUrl = root.dataset.syncUrl;
+    // Admin-controlled per-study flags (SurveyStudy.offline_mode /
+    // .allow_previous). Default to on/off respectively when the attribute is
+    // missing (safe for pre-patch-051 forms: unchanged v2 behaviour).
+    const offlineModeEnabled = (root.dataset.offlineMode || 'on') !== 'off';
+    // When offline mode is off, don't expose the sync URL to the queue path —
+    // submissions fail hard as if the endpoint didn't exist.
+    const syncUrl = offlineModeEnabled ? root.dataset.syncUrl : '';
 
     // --- Offline queue (Phase 5) ---
     // When a JSON page-submit fails with a network error, persist the payload
@@ -466,11 +472,16 @@ function initForm() {
         }
         // Offline / server-5xx → queue the JSON-path submission and keep
         // the participant moving. File submissions can't be queued yet;
-        // surface the error so they can retry manually.
+        // surface the error so they can retry manually. When the study has
+        // opted out of offline mode, syncUrl is empty and we bubble the
+        // transient failure as a hard error rather than persisting to IDB.
         if (isTransientFailure(netErr, res)) {
             if (useMultipart || !syncUrl) {
-                console.error('page-submit offline (multipart or no sync url)', netErr || res.status);
-                window.alert('You seem to be offline. File uploads can\'t be queued — please try again.');
+                console.error('page-submit offline (multipart or offline queue disabled)', netErr || res.status);
+                const msg = useMultipart
+                    ? 'You seem to be offline. File uploads can\'t be queued — please try again.'
+                    : 'Your submission could not be sent. Please check your connection and try again.';
+                window.alert(msg);
                 return;
             }
             const entry = {

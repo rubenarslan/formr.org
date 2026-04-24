@@ -28,6 +28,8 @@ class SurveyStudy extends Model {
     public $hide_results = 0;
     public $use_paging = 0;
     public $rendering_mode = 'v1';
+    public $offline_mode = 1;
+    public $allow_previous = 0;
 
     public $created = null;
     public $modified = null;
@@ -276,12 +278,12 @@ class SurveyStudy extends Model {
     
     protected function toArray() {
         return [
-           'id' => $this->id, 
+           'id' => $this->id,
            'user_id' => $this->user_id,
            'name' => $this->name,
            'results_table' => $this->results_table,
            'valid' => $this->valid,
-           'maximum_number_displayed' => $this->maximum_number_displayed, 
+           'maximum_number_displayed' => $this->maximum_number_displayed,
            'displayed_percentage_maximum' => $this->displayed_percentage_maximum,
            'add_percentage_points' => $this->add_percentage_points,
            'expire_after' => $this->expire_after,
@@ -289,10 +291,13 @@ class SurveyStudy extends Model {
            'expire_invitation_grace' => $this->expire_invitation_grace,
            'enable_instant_validation' => $this->enable_instant_validation,
            'original_file' => $this->original_file,
-           'google_file_id' => $this->google_file_id, 
+           'google_file_id' => $this->google_file_id,
            'unlinked' => $this->unlinked,
            'hide_results' => $this->hide_results,
            'use_paging' => $this->use_paging,
+           'rendering_mode' => $this->rendering_mode,
+           'offline_mode' => $this->offline_mode,
+           'allow_previous' => $this->allow_previous,
            'created' => $this->created,
            'modified' => $this->modified,
         ];
