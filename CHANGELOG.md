@@ -46,6 +46,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - form_v2 deep-link / pushState fix: initial `?page=N` landing now looks up the target section by `data-fmr-page` attribute (server page number) rather than array index, so back-navigation and link-sharing work when the server only renders the participant's remaining pages.
 - Dev-mode template convenience: `templates/run/form_index.php` prefers `webroot/assets/dev-build/js/form.bundle.js` when present so `npm run webpack:watch` iteration works without editing the template. Falls back to `build/` in prod.
 - Service-worker install hardening: pre-cache failures (missing PWA manifest, offline install) no longer discard the SW. Needed so v2 forms without a configured manifest can still register the SW for Background Sync.
+- form_v2 r-call result cache: `/form-r-call` and `/form-fill` now memoize OpenCPU evaluations in `survey_r_call_results` keyed on `(call_id, sha256(sorted answers))`. Observed ~18× faster cache hits in the dev smoke (512 ms cold → 29 ms warm). Hot-path eviction: reads older than TTL are re-evaluated; writes `REPLACE` so stale rows bump to current timestamp.
 - Playwright MCP operational notes added to `CLAUDE.md` along with a fixture inventory of `documentation/example_surveys/*.xlsx` and `documentation/run_components/*.json`.
 
 ### Schema
@@ -54,6 +55,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - SQL Patch 49: adds `survey_r_calls` table — per-study allowlist of `r(...)`-wrapped expressions keyed by `(study_id, expr_hash, slot)`, recovered via `LAST_INSERT_ID(id)` on duplicate. Slot is one of `'showif' | 'value'`.
 - SQL Patch 50: adds `survey_form_submissions` table — offline-queue dedupe ledger (`uuid` unique, FK CASCADE to `unit_session_id`, `client_ts`, `applied_at`).
 - SQL Patch 51: adds `offline_mode` TINYINT(1) (default 1) and `allow_previous` TINYINT(1) (default 0) columns to `survey_studies` — per-study opt-out/opt-in flags for v2 behaviours.
+- SQL Patch 52: adds `survey_r_call_results` table — per-(call_id, args_hash) cache with `created_at` index for TTL eviction. Rows expire at read time: 30s for showif, 5min for value.
 
 ## [v0.25.1] - 21.04.2026
 ### Added

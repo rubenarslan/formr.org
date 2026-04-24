@@ -312,9 +312,9 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] Client fill resolver: POST on load, set first `input/textarea/select[name]` inside wrapper (only if empty — don't clobber back-nav state), fire input+change
 - [x] `.fmr-fill-pending` added client-side (classes_wrapper is `protected` on Item — server can't push to it)
 - [x] Bail-out UI on OpenCPU error (`.fmr-fill-error` + inline feedback)
-- [ ] `survey_r_call_results` cache with TTL
-- [ ] Rate limiting
-- [ ] Embedded Rmd routed through r(...)+fill (still OpenCPU-knit at render)
+- [x] `survey_r_call_results` cache with TTL (patch 052; 30s for showif, 5min for value; REPLACE on write)
+- [x] Rate limiting (30 calls / 60 s per run-session; see Phase 3 block)
+- [ ] Embedded Rmd routed through r(...)+fill (still OpenCPU-knit at render; result cache from patch 052 covers most repeated-render cost)
 
 ### Phase 5 — Offline queue (page-JS MVP)
 - [x] IndexedDB `formrQueue` store
@@ -375,6 +375,12 @@ Nothing here is still open; these are the frozen decisions.
 1. iOS Safari compatibility pass for offline queue (Background Sync is unavailable there, but the page-side `online` path still drains — needs a real-device pass).
 2. Full PWA item wiring for v2: AddToHomeScreen + PushNotification still rely on `PWAInstaller.js` (jQuery-based); RequestCookie + RequestPhone have a minimal vanilla port in the form bundle. Until the full port lands, the four items still render but fall into the unverified-types notice.
 
+**P2 — post-GA polish:**
+1. Bundle module split: `webroot/assets/form/js/main.js` is ~1400 lines. Split into `alpine-init`, `showif-runtime`, `page-submit`, `offline-queue`, `r-call`, `deferred-fill`, `validation/*`, `items/*`.
+2. Dedicated `showif_js` column on `survey_items` + proper parser (Esprima or hand-rolled) to replace the regex transpile.
+3. Embedded Rmd in labels / page_body routed through `r(...) + /form-fill` (currently still OpenCPU-knit at render; cache softens the cost but the source still ships to the client).
+4. File-blob queueing: raise the 10 MB cap via admin config, OR add chunked uploads if researchers routinely collect larger audio/video blobs.
+
 **P2 — cleanup and future hardening:**
 1. Bundle module split: `webroot/assets/form/js/main.js` is 982 lines. Split into `alpine-init`, `showif-runtime`, `page-submit`, `offline-queue`, `r-call`, `deferred-fill`, `validation/*`, `items/*`.
 2. Dedicated `showif_js` column on `survey_items` + proper parser (Esprima or hand-rolled) to replace the regex transpile.
@@ -405,6 +411,7 @@ Nothing here is still open; these are the frozen decisions.
 - `sql/patches/049_survey_r_calls.sql` — allowlist table
 - `sql/patches/050_survey_form_submissions.sql` — offline-queue dedupe ledger
 - `sql/patches/051_form_v2_survey_study_flags.sql` — `offline_mode` + `allow_previous`
+- `sql/patches/052_survey_r_call_results.sql` — r-call result cache with TTL
 
 **Further reading:**
 - `CLAUDE.md` → "form_v2 development notes" — dev/test gotchas: PHP error log routing, Playwright MCP footguns, BS5 `.hidden` specificity, curl-with-cookie-jar fixture uploads, webpack-doesn't-write-identical-bundles, radio-group sibling-uncheck footgun, etc. Not repeated here.

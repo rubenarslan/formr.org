@@ -871,6 +871,28 @@ class RunController extends Controller {
             return array('ok' => false, 'status' => 429, 'error' => 'Rate limit exceeded');
         }
 
+        // Result cache lookup (patch 052). Keyed on (call_id, sha256 of a
+        // normalized JSON encoding of the answers). TTL differs by slot:
+        // showif is reactive and wants short-lived cache (30s) so an admin's
+        // quick edit flows through; value is one-shot on page load and
+        // benefits from a longer 5-minute TTL. Cache hits skip OpenCPU
+        // entirely — big win on identical reactive-showif hammering.
+        $ttl = ($expectedSlot === 'value') ? 300 : 30;
+        $normalized = self::normalizeAnswersForHash($answers);
+        $argsHash = hash('sha256', json_encode($normalized, JSON_UNESCAPED_UNICODE));
+        $cachedRow = DB::getInstance()
+            ->select('result_json, UNIX_TIMESTAMP(created_at) AS ts')
+            ->from('survey_r_call_results')
+            ->where('call_id = :cid AND args_hash = :hash')
+            ->bindParams(array('cid' => (int) $callId, 'hash' => $argsHash))
+            ->fetch();
+        if ($cachedRow && ($now - (int) $cachedRow['ts']) < $ttl) {
+            $decoded = json_decode((string) $cachedRow['result_json'], true);
+            if (is_array($decoded) && array_key_exists('result', $decoded)) {
+                return array('ok' => true, 'result' => $decoded['result']);
+            }
+        }
+
         $overlayR = self::formatROverlay($answers);
         $survey_name = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $study->name);
         if ($survey_name === '') {
@@ -897,7 +919,37 @@ class RunController extends Controller {
         if (is_array($result) && count($result) === 1 && array_keys($result) === array(0)) {
             $result = $result[0];
         }
+
+        // Populate cache on successful evaluation. REPLACE so a stale row for
+        // the same (call_id, args_hash) gets bumped to the current timestamp.
+        try {
+            $stmt = DB::getInstance()->prepare(
+                'REPLACE INTO `survey_r_call_results` (call_id, args_hash, result_json) '
+                . 'VALUES (:cid, :hash, :res)'
+            );
+            $stmt->bindValue(':cid', (int) $callId);
+            $stmt->bindValue(':hash', $argsHash);
+            $stmt->bindValue(':res', json_encode(array('result' => $result), JSON_UNESCAPED_UNICODE));
+            $stmt->execute();
+        } catch (PDOException $e) {
+            // Cache write is best-effort — log and move on.
+            formr_log('r-call cache write failed: ' . $e->getMessage());
+        }
+
         return array('ok' => true, 'result' => $result);
+    }
+
+    /**
+     * Normalize answers for cache-key hashing: sort keys, coerce to a stable
+     * JSON shape so e.g. {a:1,b:2} and {b:2,a:1} hash identically. Arrays are
+     * left as-is (order matters for list-typed answers).
+     *
+     * @param array<string, mixed> $answers
+     * @return array<string, mixed>
+     */
+    protected static function normalizeAnswersForHash(array $answers) {
+        ksort($answers);
+        return $answers;
     }
 
     /**
