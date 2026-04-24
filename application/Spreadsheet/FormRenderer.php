@@ -134,14 +134,19 @@ class FormRenderer extends SpreadsheetRenderer {
     }
 
     /**
-     * Item `type` values that have not yet been smoke-tested in form_v2.
-     * Their PHP render path is inherited from File_Item so they should work
-     * in principle, but the getUserMedia + multipart round-trip hasn't been
-     * verified end-to-end (see plan_form_v2.md §8 P0). Admins see a neutral
-     * notice at the top of the form so they know to manually verify the
-     * capture UX before relying on it in a live study.
+     * Item `type` values that have not yet been smoke-tested in form_v2 OR
+     * that rely on JS wiring the form bundle doesn't yet provide (the PWA /
+     * permission-gated button items below all need
+     * components/PWAInstaller.js and components/AudioRecorder.js, which are
+     * v1 site-bundle imports). They still render through the v1 Item
+     * pipeline, but participant interaction will be incomplete. See
+     * plan_form_v2.md §8 P0 / P1 for the remaining wiring work.
      */
-    protected static $unverifiedTypes = ['audio', 'video'];
+    protected static $unverifiedTypes = [
+        'audio', 'video',
+        'add_to_home_screen', 'push_notification',
+        'request_cookie', 'request_phone',
+    ];
 
     public function render($form_action = null, $form_append = null) {
         // Emit data-showif on every item with a showif expression, so the client

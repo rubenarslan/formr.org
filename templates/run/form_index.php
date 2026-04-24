@@ -30,6 +30,14 @@
             </div>
         </div>
 
-        <script src="<?php echo asset_url('build/js/form.bundle.js'); ?>"></script>
+        <?php
+        // Prefer the webpack:watch output (dev-build/) when present so
+        // developers iterating with `npm run webpack:watch` see their changes
+        // without a full production rebuild. Falls back to build/ in prod.
+        $formBundle = is_file(APPLICATION_ROOT . 'webroot/assets/dev-build/js/form.bundle.js')
+            ? 'dev-build/js/form.bundle.js'
+            : 'build/js/form.bundle.js';
+        ?>
+        <script src="<?php echo asset_url($formBundle); ?>"></script>
     </body>
 </html>
