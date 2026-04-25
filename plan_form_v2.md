@@ -335,7 +335,7 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 
 ### Phase 6 — Docs + migration tooling + parity gate
 - [x] Admin UI for compat scanner (`AdminSurveyController::formV2CompatScanAction`; `templates/admin/survey/form_v2_compat_scan.php`; scanner extracted to `application/Spreadsheet/FormV2CompatScanner.php` so CLI and UI share it)
-- [ ] Documentation updates
+- [x] Documentation updates (`documentation/form_v2.md` admin-facing guide; README points to it)
 - [ ] Example surveys ported to v2
 - [ ] Automated v1↔v2 parity test suite (the "feature-parity gate")
 - [x] CHANGELOG entries for Phases 2–5
