@@ -25,12 +25,19 @@
                                 This report classifies every <code>showif</code> and <code>value</code> expression in your survey under the form_v2 rules. It's the same heuristic used by <code>bin/form_v2_compat_scan.php</code> (CI-friendly; exits non-zero if anything is flagged).
                             </p>
                             <ul>
-                                <li><strong>empty</strong> — no expression.</li>
-                                <li><strong>r(...) wrapped (value only)</strong> — opted into the allowlisted server-evaluated path; resolves at page load (first-page items) or page transition (later pages) via <code>/form-render-page</code>. No admin action needed.</li>
-                                <li><strong>JS-OK (showif)</strong> — the v1 regex transpile produces something that looks like valid JS with no residual R-only tokens. Evaluated client-side.</li>
-                                <li><strong>Needs JS rewrite (showif)</strong> — residual R tokens the client evaluator can't handle. Rewrite in JS, or move the R into a hidden field's <code>value</code> column with <code>r(...)</code> and reference the field name from the showif.</li>
-                                <li><strong class="text-red">Invalid: r() in showif</strong> — no longer supported. Showif is JS-only. Add a hidden item with <code>value: r(...)</code> and reference its name from the showif.</li>
-                                <li><strong class="text-red">Invalid: bare R in value</strong> — wrap in <code>r(...)</code> so it goes through the allowlisted path.</li>
+                                <li><strong>showif is JS-only.</strong> Evaluated client-side, reactive on every input change.
+                                    <ul>
+                                        <li><strong>JS-OK</strong> — transpiles cleanly to JS the client evaluator understands.</li>
+                                        <li><strong>Needs JS rewrite</strong> — residual R tokens the client can't handle. Rewrite in JS, or move the R into a hidden item's <code>value</code> column and reference the field name from the showif.</li>
+                                        <li><strong class="text-red">Invalid: r() in showif</strong> — no longer supported. Migrate to the hidden-field bridge.</li>
+                                    </ul>
+                                </li>
+                                <li><strong>value is R-only.</strong> Any non-empty, non-numeric value is treated as R, allowlisted, and evaluated server-side (page-scoped: first visible page inline at render, later pages on the page transition via <code>/form-render-page</code>).
+                                    <ul>
+                                        <li><strong>literal</strong> — numeric default; not evaluated.</li>
+                                        <li><strong>R</strong> — admin-authored R; recorded in <code>survey_r_calls</code> and resolved server-side.</li>
+                                    </ul>
+                                </li>
                             </ul>
                         </div>
 
@@ -44,7 +51,7 @@
                                 <tr>
                                     <td><?= (int) $c['empty'] ?></td>
                                     <td><?= (int) $c['js_ok'] ?></td>
-                                    <td<?= ((int) $c['needs_wrap'] > 0) ? ' class="text-red"' : '' ?>><strong><?= (int) $c['needs_wrap'] ?></strong></td>
+                                    <td<?= ((int) $c['needs_js_rewrite'] > 0) ? ' class="text-red"' : '' ?>><strong><?= (int) $c['needs_js_rewrite'] ?></strong></td>
                                     <td<?= ((int) $c['invalid_r'] > 0) ? ' class="text-red"' : '' ?>><strong><?= (int) $c['invalid_r'] ?></strong></td>
                                 </tr>
                             </tbody>
@@ -53,15 +60,14 @@
                         <h4>value summary</h4>
                         <table class="table table-bordered table-condensed">
                             <thead>
-                                <tr><th>Empty</th><th>r(...) wrapped</th><th>Literal / sticky / identifier</th><th>Bare R (invalid)</th></tr>
+                                <tr><th>Empty</th><th>Literal (numeric)</th><th>R (allowlisted, evaluated)</th></tr>
                             </thead>
                             <tbody>
                                 <?php $c = $report['counts']['value']; ?>
                                 <tr>
                                     <td><?= (int) $c['empty'] ?></td>
-                                    <td><?= (int) $c['r_wrapped'] ?></td>
-                                    <td><?= (int) $c['js_ok'] ?></td>
-                                    <td<?= ((int) $c['bare_r'] > 0) ? ' class="text-red"' : '' ?>><strong><?= (int) $c['bare_r'] ?></strong></td>
+                                    <td><?= (int) $c['literal'] ?></td>
+                                    <td><?= (int) $c['r'] ?></td>
                                 </tr>
                             </tbody>
                         </table>

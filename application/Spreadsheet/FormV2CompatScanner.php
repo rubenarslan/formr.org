@@ -32,71 +32,70 @@ class FormV2CompatScanner {
         $itemFactory = new ItemFactory([]);
 
         $counts = [
-            // r_wrapped is a positive bucket only for `value`. For `showif`
-            // it's now `invalid_r` — r(...) in a showif is no longer
-            // supported (admin must move the R into a hidden field's value
-            // and reference it from a JS showif).
-            'showif' => ['empty' => 0, 'invalid_r' => 0, 'js_ok' => 0, 'needs_wrap' => 0],
-            'value'  => ['empty' => 0, 'r_wrapped' => 0, 'js_ok' => 0, 'needs_wrap' => 0, 'bare_r' => 0],
+            // showif is JS-only. r() in showif is invalid (`invalid_r`);
+            // bare R that doesn't transpile cleanly is `needs_js_rewrite`
+            // (admin should rewrite in JS or move R into a hidden value).
+            'showif' => ['empty' => 0, 'invalid_r' => 0, 'js_ok' => 0, 'needs_js_rewrite' => 0],
+            // value is R-only — every non-empty, non-numeric value is
+            // routed through the allowlist as R. Buckets describe how the
+            // entry will be handled, not whether it's valid.
+            'value'  => ['empty' => 0, 'literal' => 0, 'r' => 0],
         ];
         $flagged = [];
 
         foreach ((array) $items as $row) {
-            foreach (['showif', 'value'] as $col) {
-                $raw = trim((string) ($row[$col] ?? ''));
-                if ($raw === '') { $counts[$col]['empty']++; continue; }
-                $isWrapped = preg_match('/^r\s*\(.*\)\s*$/s', $raw);
-                if ($isWrapped) {
-                    if ($col === 'showif') {
-                        // r() in showif is invalid syntax under the new model.
-                        $counts[$col]['invalid_r']++;
-                        $flagged[] = [
-                            'id' => (int) $row['id'],
-                            'name' => (string) $row['name'],
-                            'type' => (string) $row['type'],
-                            'column' => $col,
-                            'source' => $raw,
-                            'transpiled' => $raw,
-                            'problems' => ['r() in showif is no longer supported — migrate to hidden field with r() value'],
-                            'suggested_fix' => 'create_hidden_field',
-                        ];
-                    } else {
-                        $counts[$col]['r_wrapped']++;
-                    }
-                    continue;
-                }
-                // Only `showif` goes through Item.php's regex transpile. `value`
-                // is either a literal or OpenCPU-evaluated; scan raw text.
-                $transpiled = $raw;
-                if ($col === 'showif') {
-                    try {
-                        $item = $itemFactory->make($row);
-                        $transpiled = $item && isset($item->js_showif) ? (string) $item->js_showif : $raw;
-                    } catch (Throwable $e) {
-                        $transpiled = $raw;
-                    }
-                }
+            $raw_showif = trim((string) ($row['showif'] ?? ''));
+            $raw_value = trim((string) ($row['value'] ?? ''));
+
+            // ---- showif ----
+            if ($raw_showif === '') {
+                $counts['showif']['empty']++;
+            } elseif (preg_match('/^r\s*\(.*\)\s*$/s', $raw_showif)) {
+                $counts['showif']['invalid_r']++;
+                $flagged[] = [
+                    'id' => (int) $row['id'],
+                    'name' => (string) $row['name'],
+                    'type' => (string) $row['type'],
+                    'column' => 'showif',
+                    'source' => $raw_showif,
+                    'transpiled' => $raw_showif,
+                    'problems' => ['r() in showif is no longer supported — migrate to a hidden field with R in its value'],
+                    'suggested_fix' => 'create_hidden_field',
+                ];
+            } else {
+                $transpiled = $raw_showif;
+                try {
+                    $item = $itemFactory->make($row);
+                    $transpiled = $item && isset($item->js_showif) ? (string) $item->js_showif : $raw_showif;
+                } catch (Throwable $e) { /* keep $raw_showif */ }
                 $problems = self::detectRTokens($transpiled);
                 if (empty($problems)) {
-                    $counts[$col]['js_ok']++;
+                    $counts['showif']['js_ok']++;
                 } else {
-                    if ($col === 'value') {
-                        // Bare R in value is now invalid — admin must wrap.
-                        $counts[$col]['bare_r']++;
-                    } else {
-                        $counts[$col]['needs_wrap']++;
-                    }
+                    $counts['showif']['needs_js_rewrite']++;
                     $flagged[] = [
                         'id' => (int) $row['id'],
                         'name' => (string) $row['name'],
                         'type' => (string) $row['type'],
-                        'column' => $col,
-                        'source' => $raw,
+                        'column' => 'showif',
+                        'source' => $raw_showif,
                         'transpiled' => $transpiled,
                         'problems' => $problems,
-                        'suggested_fix' => $col === 'value' ? 'wrap_in_r' : 'rewrite_in_js',
+                        'suggested_fix' => 'rewrite_in_js',
                     ];
                 }
+            }
+
+            // ---- value (R-only — every non-empty, non-numeric value is R) ----
+            if ($raw_value === '') {
+                $counts['value']['empty']++;
+            } elseif (is_numeric($raw_value)) {
+                $counts['value']['literal']++;
+            } else {
+                // Anything else (bare R, sticky keyword, identifiers,
+                // r-wrapped legacy entries) gets allowlisted + evaluated.
+                // Not flagged.
+                $counts['value']['r']++;
             }
         }
 

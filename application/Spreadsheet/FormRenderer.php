@@ -71,39 +71,39 @@ class FormRenderer extends SpreadsheetRenderer {
             }
         }
 
-        // Step 2: r(...) values. Allowlist + page-scope:
-        //   - First-page items get the inner R substituted into $item->value
-        //     so the parent's processDynamicValuesAndShowIfs evaluates them
-        //     server-side at this render. The participant sees a resolved
-        //     value as soon as the page lands.
-        //   - Later-page items get their value blanked + data-fmr-fill-id
-        //     emitted; client resolves them at page transition via
-        //     /form-render-page (with the participant's actual answers).
+        // Step 2: dynamic values. The `value` column is R-only — no
+        // wrapping required, no JS path. v1's Item::needsDynamicValue
+        // already returns false for empty / numeric values (those stay as
+        // literal defaults), so anything that "needs dynamic" is R that
+        // we route through the allowlist.
+        //   - Record the R text in survey_r_calls slot='value'. This is
+        //     what authorizes the client to invoke it via /form-render-page
+        //     — the client never gets the source, only the call_id.
+        //   - First-page items keep $item->value untouched so the parent's
+        //     processDynamicValuesAndShowIfs evaluates it inline at this
+        //     render; the participant sees the resolved value immediately.
+        //   - Later-page items get $item->value blanked + data-fmr-fill-id
+        //     emitted; the client resolves them at page transition.
+        // Backwards compat: a pre-existing `r(...)` wrap is silently
+        // unwrapped (so v2 fixtures authored under the old "wrap to opt
+        // in" rule keep working). r() in showif remains invalid above.
         foreach ($items as $item) {
             if (!$item) continue;
-            $raw = isset($item->value) ? trim((string) $item->value) : '';
+            if (!$item->needsDynamicValue()) continue;
+            $raw = trim((string) $item->value);
             if ($raw === '') continue;
             $inner = RAllowlistExtractor::unwrap($raw);
-            if ($inner !== null) {
-                $callId = RAllowlistExtractor::record(
-                    $this->db, $this->study->id, 'value', $inner, $item->id
-                );
-                $item->parent_attributes['data-fmr-fill-id'] = (string) $callId;
-                if ($itemPageOf($item) === $firstPage) {
-                    // Substitute the unwrapped R into $item->value so the
-                    // existing OpenCPU batch evaluates it at render time.
-                    $item->value = $inner;
-                } else {
-                    $item->value = '';
-                }
-                continue;
-            }
-            // Not r-wrapped. Literal numeric / `sticky` / identifier — let the
-            // existing pipeline handle. Otherwise: bare R is no longer valid.
-            if (self::looksLikeBareR($raw)) {
-                $this->validationErrors[$item->name] =
-                    'Bare R in `value` is no longer supported. Wrap the expression in r(...) '
-                    . '(e.g. `r(' . $raw . ')`) so it goes through the allowlisted server-side path.';
+            $rExpr = $inner !== null ? $inner : $raw;
+            $callId = RAllowlistExtractor::record(
+                $this->db, $this->study->id, 'value', $rExpr, $item->id
+            );
+            $item->parent_attributes['data-fmr-fill-id'] = (string) $callId;
+            if ($itemPageOf($item) === $firstPage) {
+                // Make sure the parent's batch sees raw R (not the wrapped
+                // form, which OpenCPU would error on — `r()` isn't a
+                // function in the formr R env).
+                $item->value = $rExpr;
+            } else {
                 $item->value = '';
             }
         }
@@ -170,23 +170,6 @@ class FormRenderer extends SpreadsheetRenderer {
 
         $this->toRender = $merged;
         $this->renderedItems = $this->getRenderedStudyItems();
-    }
-
-    /**
-     * Smell test for "value column contains R-shaped code that wasn't wrapped
-     * in r(...)". Looks for a function-call pattern (`name(`), an R operator
-     * pattern, or a `$`-member access. Tolerates plain identifiers (admins
-     * occasionally use a bare variable name as a default value via the v1
-     * "value column = identifier" sugar) and `sticky` (v1 keyword).
-     */
-    protected static function looksLikeBareR($raw) {
-        if ($raw === 'sticky') return false;
-        // Identifier-only (admin's v1 sugar — keep as-is, the existing
-        // dynamic-value path resolves these).
-        if (preg_match('/^[A-Za-z_][A-Za-z0-9_.]*$/', $raw)) return false;
-        if (preg_match('/[a-zA-Z_]\w*\s*\(/', $raw)) return true;          // function call
-        if (preg_match('/<-|->|%[a-zA-Z_]+%|\$[A-Za-z_]/', $raw)) return true; // R ops
-        return false;
     }
 
     /**

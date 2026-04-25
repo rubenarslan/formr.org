@@ -34,7 +34,7 @@ The visible benefits to participants:
 ### The two rules
 
 1. **`showif` is JavaScript-only.** Evaluated client-side, reactive on every input change. `r(...)` in `showif` is invalid — the compat scanner flags it and FormRenderer surfaces a validation error. To get server-side R into a showif, see "Bridging R into a showif" below.
-2. **`value` accepts literals + `r(...)`.** Bare R (un-wrapped) is invalid — wrap it in `r(...)` so it goes through the allowlisted server path.
+2. **`value` is R-only.** Any non-empty, non-numeric value is treated as R, allowlisted automatically, and evaluated server-side. No wrapping required.
 
 ### Default: client-side JS
 
@@ -63,17 +63,22 @@ showif: last(daily_mood) > 5
 
 If an expression references a variable that doesn't exist (a future-page item, a run-level variable like `ran_group`), the evaluator silently treats it as `undefined` and the item stays visible — no console errors, no flickering.
 
-### Server-side R: `r(...)` on the `value` column only
+### Server-side R on the `value` column
 
-Wrap any R expression in `r(...)` on the `value` column to send it to OpenCPU. The wrapped R can use anything in the formr R package. Examples:
+Just write the R. No wrapping required. Numeric values stay as literal defaults; everything else is evaluated as R server-side. Examples:
 
 ```
-value: r(paste(answered_items, collapse=", "))
-value: r(complex_score(current(q1), current(q2)))
-value: r(ifelse(is.na(other), "", nchar(other)))
+value: paste(answered_items, collapse=", ")
+value: complex_score(current(q1), current(q2))
+value: ifelse(is.na(other), "", nchar(other))
+value: sample(c(1,1,1,2,2,2,2), 7)
+value: sticky                              # v1 keyword: tail(na.omit(survey$item), 1)
+value: 5                                   # numeric literal — not evaluated
 ```
 
-The R source never reaches the browser — the client only ever sees the recorded call ID. The server overlays the participant's answers on `tail(survey_name, 1)` and evaluates inside an allowlist-only path. Results are cached for 5 minutes per `(call_id, sorted answers)` pair.
+The R source never reaches the browser — every non-empty, non-numeric value is recorded in `survey_r_calls` (slot=`value`) at render time, and the client only ever sees the recorded call ID. The server overlays the participant's answers on `tail(survey_name, 1)` and evaluates inside an allowlist-only path. Results are cached for 5 minutes per `(call_id, sorted answers)` pair.
+
+(Pre-existing `r(...)` wraps from earlier v2 fixtures still work — the wrapper is silently stripped at record time. New code shouldn't need it.)
 
 ### Bridging R into a `showif`
 
@@ -116,9 +121,8 @@ Before flipping a busy v1 study to v2, run the compatibility scanner. It classif
 
 **For `value`:**
 - **empty** — no expression
-- **r(...) wrapped** — opted into the server path
-- **literal / sticky / identifier** — handled by the existing pipeline
-- **invalid: bare R** — wrap in `r(...)`
+- **literal** — numeric default, kept as-is
+- **R** — admin-authored R, automatically allowlisted and evaluated server-side
 
 Two ways to run it:
 
