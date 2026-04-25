@@ -1044,76 +1044,343 @@ function initForm() {
     // a valid subscription JSON (endpoint + keys.p256dh + keys.auth) for
     // required items. We write the full subscription JSON on success so the
     // server-side store has it, mirroring v1 behaviour.
-    const markPushSubscribed = (wrapper, subscription) => {
-        const hidden = wrapper.querySelector('input');
+    //
+    // Mirrors PWAInstaller.js::initializePushNotifications. v1 has been
+    // tuned over many iOS / Chrome / Firefox / Edge edge cases (Apple
+    // dropping subscriptions silently, iOS 16.4 cutoff, in-browser-but-
+    // not-standalone, denied-at-init recovery, etc.) — keeping the same
+    // surface area means admins authoring with v1 fixtures get identical
+    // participant UX in v2.
+    const isIOSCompatibleVersion = () => {
+        if (!isIOSDevice()) return true;
+        const m = navigator.userAgent.match(/OS (\d+)_(\d+)/);
+        if (!m) return false;
+        const major = parseInt(m[1], 10), minor = parseInt(m[2], 10);
+        return major > 16 || (major === 16 && minor >= 4);
+    };
+
+    const sendTestNotification = async (registration) => {
+        if (!registration || !registration.showNotification) return false;
+        try {
+            await registration.showNotification('Test notification', {
+                body: 'This is a test notification. If you can see this, notifications are working!',
+                tag: 'fmr-test-notification',
+            });
+            setTimeout(async () => {
+                try {
+                    const list = await registration.getNotifications({ tag: 'fmr-test-notification' });
+                    list.forEach((n) => n.close());
+                } catch (e) {}
+            }, 5000);
+            return true;
+        } catch (e) {
+            console.error('test notification failed', e);
+            return false;
+        }
+    };
+
+    const renderNotificationHelp = (wrapper) => {
+        const ua = navigator.userAgent.toLowerCase();
+        let html = '';
+        if (/iphone|ipad|ipod/.test(ua)) {
+            html = '<ol><li>Open <strong>Settings</strong> → <strong>Notifications</strong>.</li>'
+                 + '<li>Find Safari (or your browser) and enable <strong>Allow Notifications</strong>.</li>'
+                 + '<li>Make sure <strong>Focus</strong> mode isn\'t blocking notifications.</li>'
+                 + '<li>For home-screen apps, check <strong>Settings → Screen Time → Content & Privacy Restrictions</strong>.</li>'
+                 + '<li>Reload this page after changing settings.</li></ol>';
+        } else if (/android/.test(ua)) {
+            html = '<ol><li>Open <strong>Settings → Apps</strong>, find your browser.</li>'
+                 + '<li>Tap <strong>Notifications</strong> and ensure they\'re <strong>Allowed</strong>.</li>'
+                 + '<li>Check that <strong>Do Not Disturb</strong> isn\'t blocking notifications.</li>'
+                 + '<li>Some manufacturers have battery-optimization settings that suppress notifications — disable them for your browser.</li>'
+                 + '<li>Try installing this study to your home screen for better notification support.</li>'
+                 + '<li>Reload this page after changing settings.</li></ol>';
+        } else if (/macintosh/.test(ua)) {
+            html = '<ol><li>Open <strong>System Settings → Notifications</strong>.</li>'
+                 + '<li>Find your browser and ensure <strong>Allow Notifications</strong> is on.</li>'
+                 + '<li>Check that <strong>Do Not Disturb</strong> / <strong>Focus</strong> is off.</li>'
+                 + '<li>Reload this page after changing settings.</li></ol>';
+        } else if (/windows/.test(ua)) {
+            html = '<ol><li>Open <strong>Settings → System → Notifications</strong>.</li>'
+                 + '<li>Ensure your browser has notifications turned on.</li>'
+                 + '<li>Check that <strong>Focus assist</strong> isn\'t blocking them.</li>'
+                 + '<li>Reload this page after changing settings.</li></ol>';
+        } else {
+            html = '<p>Check your operating system\'s notification settings to make sure your browser is allowed to send notifications.</p>';
+        }
+        let helpEl = wrapper.querySelector('.fmr-push-help');
+        if (!helpEl) {
+            helpEl = document.createElement('div');
+            helpEl.className = 'fmr-push-help';
+            wrapper.querySelector('.status-message')?.after(helpEl);
+        }
+        helpEl.innerHTML = html;
+        const toggleBtn = wrapper.querySelector('.fmr-push-help-toggle');
+        if (toggleBtn) {
+            toggleBtn.textContent = 'Hide troubleshooting tips';
+            toggleBtn.dataset.fmrShown = '1';
+        }
+    };
+
+    const renderNotificationControls = (wrapper, registration, opts) => {
         const status = wrapper.querySelector('.status-message');
-        const btn = wrapper.querySelector('button.push-notification-permission, .push-notification-permission:not(input)');
+        if (!status) return;
+        const showTest = opts.showTestButton !== false;
+        const showUnsub = !!opts.showUnsubscribeButton;
+        const msg = opts.customMessage || '';
+        const extra = opts.additionalContent || '';
+        const buttons = [];
+        if (showTest) buttons.push('<button type="button" class="btn btn-default fmr-push-test"><i class="fa fa-bell"></i> Test notification</button>');
+        if (showUnsub) buttons.push('<button type="button" class="btn btn-warning fmr-push-unsubscribe"><i class="fa fa-bell-slash"></i> Disable notifications</button>');
+        buttons.push('<button type="button" class="btn btn-link fmr-push-help-toggle">Show troubleshooting tips</button>');
+        status.innerHTML =
+            (msg ? `<p>${msg}</p>` : '') +
+            extra +
+            `<div class="notification-controls btn-group" role="group">${buttons.join('')}</div>`;
+        const testBtn = wrapper.querySelector('.fmr-push-test');
+        if (testBtn) testBtn.addEventListener('click', async () => { await sendTestNotification(registration); });
+        const unsubBtn = wrapper.querySelector('.fmr-push-unsubscribe');
+        if (unsubBtn) unsubBtn.addEventListener('click', async () => { await handlePushUnsubscribe(wrapper, registration); });
+        const toggleBtn = wrapper.querySelector('.fmr-push-help-toggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                if (toggleBtn.dataset.fmrShown === '1') {
+                    const helpEl = wrapper.querySelector('.fmr-push-help');
+                    if (helpEl) helpEl.remove();
+                    toggleBtn.textContent = 'Show troubleshooting tips';
+                    toggleBtn.dataset.fmrShown = '';
+                } else {
+                    renderNotificationHelp(wrapper);
+                }
+            });
+        }
+    };
+
+    const handlePushUnsubscribe = async (wrapper, registration) => {
+        const status = wrapper.querySelector('.status-message');
+        const hidden = wrapper.querySelector('input[type="text"]');
+        const btn = wrapper.querySelector('button.push-notification-permission');
+        const unsubBtn = wrapper.querySelector('.fmr-push-unsubscribe');
+        try {
+            if (unsubBtn) unsubBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing…';
+            const sub = await registration.pushManager.getSubscription();
+            if (sub) await sub.unsubscribe();
+            try {
+                await fetch((runUrl || '').replace(/\/?$/, '/') + 'ajax_delete_push_subscription', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+                });
+            } catch (e) { /* server delete is best-effort */ }
+            try { localStorage.removeItem('push-notification-subscribed'); } catch (e) {}
+            if (hidden) hidden.value = 'permission_denied';
+            if (status) status.innerHTML = '<p>You have unsubscribed from notifications. Click the button to enable them again.</p>';
+            if (btn) {
+                btn.disabled = false;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-primary');
+                btn.innerHTML = '<i class="fa fa-bell"></i> Enable Notifications';
+            }
+            wrapper.closest('.form-group')?.classList.remove('formr_answered');
+        } catch (e) {
+            console.error('unsubscribe failed', e);
+            if (unsubBtn) unsubBtn.innerHTML = '<i class="fa fa-bell-slash"></i> Disable notifications';
+        }
+    };
+
+    const markPushSubscribed = (wrapper, subscription, opts = {}) => {
+        const hidden = wrapper.querySelector('input[type="text"]');
+        const btn = wrapper.querySelector('button.push-notification-permission');
         if (hidden) {
             hidden.value = JSON.stringify(subscription);
             hidden.setCustomValidity('');
         }
-        if (status) status.textContent = 'Push notifications are enabled.';
         if (btn) {
             btn.disabled = true;
             btn.classList.remove('btn-primary');
             btn.classList.add('btn-success');
-            btn.innerHTML = '<i class="fa fa-check"></i> Enabled';
+            btn.innerHTML = '<i class="fa fa-check"></i> Notifications Enabled';
         }
         wrapper.closest('.form-group')?.classList.add('formr_answered');
+        try { localStorage.setItem('push-notification-subscribed', 'true'); } catch (e) {}
     };
 
-    root.querySelectorAll('.push-notification-wrapper, .form-group.item-push_notification').forEach((wrapper) => {
-        // The hidden input shares class `push-notification-permission` with
-        // the visible <button> (server quirk); pick the input by tag/type.
+    const subscribeToPush = async (registration) => {
+        if (!window.vapidPublicKey || typeof window.vapidPublicKey !== 'string' || window.vapidPublicKey.length < 10) {
+            return { success: false, reason: 'invalid_config' };
+        }
+        try {
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') return { success: false, reason: 'permission_denied' };
+            const sub = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(window.vapidPublicKey),
+            });
+            return { success: true, subscription: sub };
+        } catch (e) {
+            console.error('subscribe failed', e);
+            return { success: false, reason: 'subscription_error', error: e };
+        }
+    };
+
+    root.querySelectorAll('.push-notification-wrapper, .form-group.item-push_notification').forEach(async (wrapper) => {
         const hidden = wrapper.querySelector('input[type="text"]');
         const status = wrapper.querySelector('.status-message');
         const btn = wrapper.querySelector('button.push-notification-permission');
         const required = wrapper.closest('.form-group')?.classList.contains('required');
         if (required && hidden && hidden.value === 'not_requested') {
-            hidden.setCustomValidity('Please allow push notifications to continue.');
+            hidden.setCustomValidity('Please complete this required step before continuing.');
         }
-        if (!('Notification' in window) || !('serviceWorker' in navigator) || !window.vapidPublicKey) {
-            if (status) {
-                status.textContent = !window.vapidPublicKey
-                    ? 'Push notifications are not configured for this study.'
-                    : 'Your browser does not support push notifications. On iPhone/iPad, install this study to your home screen first (iOS 16.4+).';
-            }
+        if (!btn) return;
+
+        // Step 1: iOS-but-not-standalone — push only works inside the
+        // installed PWA. Tell the participant + disable the button.
+        if (isIOSDevice() && !isStandaloneDisplayMode()) {
             if (hidden) hidden.value = 'not_supported';
+            if (status) status.innerHTML = '<p>To receive push notifications on iOS, please add this study to your home screen first and open it from there.</p>';
+            btn.disabled = true;
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-default');
             return;
         }
-        // Already subscribed? short-circuit.
-        navigator.serviceWorker.ready.then((reg) => reg.pushManager.getSubscription()).then((sub) => {
-            if (sub) markPushSubscribed(wrapper, sub);
-        }).catch(() => {});
-        if (!btn) return;
+
+        // Step 2: capability checks.
+        if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+            if (hidden) hidden.value = 'not_supported';
+            if (status) status.innerHTML = '<p>Sorry, your browser does not support push notifications.</p>';
+            btn.disabled = true;
+            return;
+        }
+        if (!window.vapidPublicKey) {
+            if (hidden) hidden.value = 'not_supported';
+            if (status) status.innerHTML = '<p>Push notifications are not configured for this study.</p>';
+            btn.disabled = true;
+            return;
+        }
+        if (!isIOSCompatibleVersion()) {
+            if (hidden) hidden.value = 'not_supported';
+            if (status) status.innerHTML = '<p>Sorry, push notifications require iOS 16.4 or later.</p>';
+            btn.disabled = true;
+            return;
+        }
+
+        // Step 3: SW must be registered (the form bundle does this).
+        let registration;
+        try { registration = await navigator.serviceWorker.ready; } catch (e) {}
+        if (!registration || !registration.pushManager) {
+            if (hidden) hidden.value = 'not_supported';
+            if (status) status.innerHTML = '<p>Service worker not registered. Please reload the page and try again.</p>';
+            btn.disabled = true;
+            return;
+        }
+
+        // Step 4: rehydrate previous subscription state.
+        let alreadySubscribed = false;
+        try {
+            const existing = await registration.pushManager.getSubscription();
+            if (existing) {
+                markPushSubscribed(wrapper, existing);
+                renderNotificationControls(wrapper, registration, {
+                    customMessage: 'Push notifications are enabled.',
+                    showUnsubscribeButton: true,
+                });
+                alreadySubscribed = true;
+            } else if (localStorage.getItem('push-notification-subscribed') === 'true' && Notification.permission === 'granted') {
+                // iOS occasionally drops subscriptions silently. If permission
+                // is still granted and we previously had a subscription, try
+                // to re-subscribe transparently.
+                const r = await subscribeToPush(registration);
+                if (r.success) {
+                    markPushSubscribed(wrapper, r.subscription);
+                    await savePushSubscriptionToServer(r.subscription);
+                    renderNotificationControls(wrapper, registration, {
+                        customMessage: 'Push notifications are enabled.',
+                        showUnsubscribeButton: true,
+                    });
+                    alreadySubscribed = true;
+                }
+            }
+        } catch (e) {}
+        if (alreadySubscribed) return;
+
+        // Step 5: react to current permission state.
+        const perm = Notification.permission;
+        if (perm === 'denied') {
+            if (hidden) hidden.value = 'permission_denied';
+            renderNotificationControls(wrapper, registration, {
+                showTestButton: false,
+                customMessage: 'You have declined push notifications. You can enable them in your browser settings, then click the button below.',
+            });
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-default');
+            btn.innerHTML = '<i class="fa fa-times"></i> Notifications blocked — click after enabling in browser settings';
+        } else {
+            // Default permission state — clear instruction.
+            if (status) status.innerHTML = '<p>Click the button to enable push notifications.</p>';
+            btn.innerHTML = '<i class="fa fa-bell"></i> Enable Notifications';
+        }
+
+        // Step 6: click handler.
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
+            if (btn.disabled && !btn.classList.contains('btn-default')) return; // disabled-success state
+            const original = btn.innerHTML;
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing…';
             try {
-                const permission = await Notification.requestPermission();
-                if (permission !== 'granted') {
-                    if (hidden) hidden.value = 'permission_denied';
-                    if (status) status.textContent = 'Notification permission was denied. You can change this in your browser settings.';
+                // Re-check existing subscription (participant may have
+                // accepted via another tab).
+                const existing = await registration.pushManager.getSubscription();
+                if (existing) {
+                    markPushSubscribed(wrapper, existing);
+                    await savePushSubscriptionToServer(existing);
+                    renderNotificationControls(wrapper, registration, {
+                        customMessage: 'Push notifications are already enabled.',
+                        showUnsubscribeButton: true,
+                    });
                     return;
                 }
-                const reg = await navigator.serviceWorker.ready;
-                const existing = await reg.pushManager.getSubscription();
-                const sub = existing || await reg.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(window.vapidPublicKey),
-                });
-                const saved = await savePushSubscriptionToServer(sub);
-                if (saved) {
-                    markPushSubscribed(wrapper, sub);
-                } else if (status) {
-                    status.textContent = 'Subscription created locally but could not be saved on the server. Please retry.';
+                const result = await subscribeToPush(registration);
+                if (result.success) {
+                    markPushSubscribed(wrapper, result.subscription);
+                    const saved = await savePushSubscriptionToServer(result.subscription);
+                    document.dispatchEvent(new CustomEvent('pushSubscriptionChanged', {
+                        detail: { action: 'subscribed', subscription: result.subscription },
+                    }));
+                    const androidNote = /android/i.test(navigator.userAgent)
+                        ? '<p><strong>Note for Android users:</strong> on some devices, you may need to restart your browser or add this study to your home screen for notifications to work properly.</p>'
+                        : '';
+                    renderNotificationControls(wrapper, registration, {
+                        customMessage: saved
+                            ? 'Push notifications enabled successfully!'
+                            : 'Push notifications enabled locally — couldn\'t save the subscription on the server. Reload to retry.',
+                        additionalContent: '<p>A test notification was sent. If you didn\'t see it, your system settings might be blocking it.</p>' + androidNote,
+                        showUnsubscribeButton: true,
+                    });
+                    await sendTestNotification(registration);
+                } else if (result.reason === 'permission_denied') {
+                    if (hidden) hidden.value = 'permission_denied';
+                    btn.classList.remove('btn-primary');
+                    btn.classList.add('btn-default');
+                    btn.innerHTML = '<i class="fa fa-times"></i> Notifications blocked';
+                    btn.disabled = true;
+                    renderNotificationControls(wrapper, registration, {
+                        showTestButton: false,
+                        customMessage: 'You declined push notifications. You can enable them in your browser settings later.',
+                    });
+                } else if (result.reason === 'invalid_config') {
+                    if (hidden) hidden.value = 'not_supported';
+                    if (status) status.innerHTML = '<p>Server configuration error. Please contact the study administrator.</p>';
+                    btn.innerHTML = '<i class="fa fa-exclamation-triangle"></i> Configuration error';
+                    btn.disabled = true;
+                } else {
+                    if (hidden) hidden.value = 'not_supported';
+                    if (status) status.innerHTML = '<p>There was an error setting up push notifications. Please try again later.</p>';
+                    btn.innerHTML = '<i class="fa fa-exclamation-triangle"></i> Error — try again';
                 }
             } catch (err) {
-                console.error('push subscription failed', err);
-                if (status) {
-                    status.textContent = isIOSDevice() && !isStandaloneDisplayMode()
-                        ? 'On iPhone/iPad, push notifications only work after you install this study to your home screen and reopen it from there (iOS 16.4+).'
-                        : 'Could not subscribe to push notifications. Please try again or check your browser settings.';
-                }
+                console.error('push subscription click failed', err);
+                btn.innerHTML = original;
+                if (status) status.innerHTML = '<p>There was an error setting up push notifications. Please try again later.</p>';
             }
         });
     });
