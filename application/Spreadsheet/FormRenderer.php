@@ -15,74 +15,210 @@
 class FormRenderer extends SpreadsheetRenderer {
 
     /**
-     * v1 `SpreadsheetRenderer::processItems` chunks items at each submit and only
-     * renders the first chunk, because v1 renders one page at a time. The v2
-     * client renders all pages up-front, so we process every unanswered item in
-     * one batch (one OpenCPU call for showifs/values, one for labels/choices)
-     * and let `render()` group by `survey_items_display.page` afterwards.
+     * Page-scoped processing for form_v2 (post-PWA-port redesign).
+     *
+     * Architectural rules (see plan_form_v2.md §3 / §5):
+     *
+     *   1. `showif` is JS-only. `r(...)` in showif is invalid and surfaces a
+     *      validation error to the admin at render time. To run server-side R
+     *      and have the result feed a showif, the admin uses a hidden item
+     *      with `value: r(...)` and references that field name from the JS
+     *      showif.
+     *   2. `value` accepts literals + `r(...)` wraps. Bare R (not r-wrapped)
+     *      is invalid and surfaces a validation error. r()-wrapped values
+     *      record into `survey_r_calls` (slot='value') and resolve via
+     *      `/form-render-page` at page-transition time.
+     *   3. Dynamic labels (Item::needsDynamicLabel) record into
+     *      `survey_r_calls` (slot='label') with the FULL label as `expr` —
+     *      we don't extract partial Rmd chunks; the whole label is one
+     *      allowlisted call, item-keyed.
+     *   4. OpenCPU evaluation is page-scoped: at initial render only the
+     *      first VISIBLE page (lowest page number among unanswered items)
+     *      is resolved through OpenCPU. Items on later pages get their
+     *      `data-fmr-fill-id` / `data-fmr-label-id` placeholders but no
+     *      OpenCPU call yet — those resolve when the participant submits
+     *      the prior page and the client POSTs `/form-render-page`.
      */
     public function processItems() {
         $items = $this->getAllUnansweredItems();
-        if ($items) {
-            $items = $this->processAutomaticItems($items);
-            // Phase 3: detect r(...) wrapped showifs. We populate survey_r_calls
-            // here rather than at import so the allowlist auto-updates when an
-            // admin edits the spreadsheet. We mutate $item->showif to the
-            // unwrapped R so OpenCPU doesn't try to call a non-existent r()
-            // function, and stash the call id on parent_attributes so render()
-            // emits data-fmr-r-call without touching Item.php.
-            foreach ($items as $item) {
-                if (!$item || empty($item->showif)) continue;
-                $inner = RAllowlistExtractor::unwrap($item->showif);
-                if ($inner === null) continue;
-                $callId = RAllowlistExtractor::record(
-                    $this->db, $this->study->id, 'showif', $inner, $item->id
-                );
-                $item->showif = $inner;
-                // Item::__construct transpiled the *wrapped* showif into js_showif.
-                // That garbage would crash the client if emitted, so clear it —
-                // r()-wrapped showifs have no client-side evaluation path.
+        if (!$items) {
+            $this->toRender = [];
+            $this->renderedItems = $this->getRenderedStudyItems();
+            return;
+        }
+
+        $items = $this->processAutomaticItems($items);
+
+        // Compute the first visible page once. The page-scope decisions
+        // below (resolve inline vs. defer to /form-render-page) all key off
+        // this number.
+        $pageMap = $this->fetchPageMap();
+        $firstPage = $this->firstVisiblePageNumberFromMap($items, $pageMap);
+        $itemPageOf = function ($item) use ($pageMap) {
+            return isset($pageMap[(int) $item->id]) ? (int) $pageMap[(int) $item->id] : 1;
+        };
+
+        // Step 1: reject r(...) showifs as invalid. Showifs are JS-only.
+        foreach ($items as $item) {
+            if (!$item || empty($item->showif)) continue;
+            if (RAllowlistExtractor::unwrap($item->showif) !== null) {
+                $this->validationErrors[$item->name] =
+                    'r(...) is no longer supported in `showif`. '
+                    . 'Add a hidden item with `value: r(...)` and reference its '
+                    . 'name from the showif (which is now JS-only).';
+                $item->showif = '';
                 $item->js_showif = null;
-                $item->parent_attributes['data-fmr-r-call'] = (string) $callId;
             }
-            // Phase 4: same treatment for r(...)-wrapped value columns. Unwrap,
-            // record in survey_r_calls with slot='value', then blank the value
-            // so needsDynamicValue() returns false (Item::needsDynamicValue
-            // trims empty to falsy) and the OpenCPU batch skips it entirely.
-            // The client POSTs to /form-fill with the recorded call_id and
-            // sets the input's value from the response.
-            foreach ($items as $item) {
-                if (!$item) continue;
-                $raw = isset($item->value) ? trim((string) $item->value) : '';
-                if ($raw === '') continue;
-                $inner = RAllowlistExtractor::unwrap($raw);
-                if ($inner === null) continue;
+        }
+
+        // Step 2: r(...) values. Allowlist + page-scope:
+        //   - First-page items get the inner R substituted into $item->value
+        //     so the parent's processDynamicValuesAndShowIfs evaluates them
+        //     server-side at this render. The participant sees a resolved
+        //     value as soon as the page lands.
+        //   - Later-page items get their value blanked + data-fmr-fill-id
+        //     emitted; client resolves them at page transition via
+        //     /form-render-page (with the participant's actual answers).
+        foreach ($items as $item) {
+            if (!$item) continue;
+            $raw = isset($item->value) ? trim((string) $item->value) : '';
+            if ($raw === '') continue;
+            $inner = RAllowlistExtractor::unwrap($raw);
+            if ($inner !== null) {
                 $callId = RAllowlistExtractor::record(
                     $this->db, $this->study->id, 'value', $inner, $item->id
                 );
-                $item->value = '';
                 $item->parent_attributes['data-fmr-fill-id'] = (string) $callId;
-                // classes_wrapper is protected; rather than reach into it,
-                // the client tags wrappers with .fmr-fill-pending on init
-                // before the fetch fires.
-            }
-            $items = $this->processDynamicValuesAndShowIfs($items);
-            if ($items) {
-                // Hide any submit items — v2 provides its own nav.
-                foreach ($items as $name => $item) {
-                    if ($item->type === 'submit') {
-                        $this->db->update('survey_items_display', ['hidden' => 1], [
-                            'session_id' => $this->unitSession->id,
-                            'item_id' => $item->id,
-                        ]);
-                        unset($items[$name]);
-                    }
+                if ($itemPageOf($item) === $firstPage) {
+                    // Substitute the unwrapped R into $item->value so the
+                    // existing OpenCPU batch evaluates it at render time.
+                    $item->value = $inner;
+                } else {
+                    $item->value = '';
                 }
-                $items = $this->processDynamicLabelsAndChoices($items);
+                continue;
+            }
+            // Not r-wrapped. Literal numeric / `sticky` / identifier — let the
+            // existing pipeline handle. Otherwise: bare R is no longer valid.
+            if (self::looksLikeBareR($raw)) {
+                $this->validationErrors[$item->name] =
+                    'Bare R in `value` is no longer supported. Wrap the expression in r(...) '
+                    . '(e.g. `r(' . $raw . ')`) so it goes through the allowlisted server-side path.';
+                $item->value = '';
             }
         }
-        $this->toRender = $items ?: [];
+
+        // Step 3: dynamic labels. Same page-scoping. The full label text is
+        // the allowlisted expression — we don't extract partial Rmd chunks.
+        // First-page items keep label_parsed = null so the parent's
+        // processDynamicLabelsAndChoices resolves them. Later-page items get
+        // label_parsed = '' which short-circuits the parent's "needs parsing"
+        // detection; client resolves them at page transition.
+        foreach ($items as $item) {
+            if (!$item) continue;
+            if (!$item->needsDynamicLabel(
+                $this->unitSession->getRunData((string) $item->label, $this->study->name),
+                $this->study->name
+            )) {
+                continue;
+            }
+            $labelSrc = (string) $item->label;
+            if ($labelSrc === '') continue;
+            $callId = RAllowlistExtractor::record(
+                $this->db, $this->study->id, 'label', $labelSrc, $item->id
+            );
+            $item->parent_attributes['data-fmr-label-id'] = (string) $callId;
+            if ($itemPageOf($item) !== $firstPage) {
+                $item->label_parsed = '';
+            }
+        }
+
+        // Step 4: hide submit-type items (v2 supplies its own nav).
+        foreach ($items as $name => $item) {
+            if ($item && $item->type === 'submit') {
+                $this->db->update('survey_items_display', ['hidden' => 1], [
+                    'session_id' => $this->unitSession->id,
+                    'item_id' => $item->id,
+                ]);
+                unset($items[$name]);
+            }
+        }
+
+        // Step 5: page-scoped OpenCPU resolution. Run the parent's batches
+        // over first-page items only — later pages have placeholders + IDs
+        // and resolve at page transition via /form-render-page.
+        $byPage = $this->splitByPageFromMap($items, $firstPage, $pageMap);
+        $firstPageItems = $byPage['first'];
+
+        if ($firstPageItems) {
+            $firstPageItems = $this->processDynamicValuesAndShowIfs($firstPageItems);
+            if ($firstPageItems) {
+                $firstPageItems = $this->processDynamicLabelsAndChoices($firstPageItems);
+            }
+        }
+
+        // Step 6: merge first-page-resolved items back with the placeholder
+        // items from later pages, preserving original order.
+        $merged = [];
+        foreach ($items as $name => $item) {
+            if (isset($firstPageItems[$name])) {
+                $merged[$name] = $firstPageItems[$name];
+            } else {
+                $merged[$name] = $item;
+            }
+        }
+
+        $this->toRender = $merged;
         $this->renderedItems = $this->getRenderedStudyItems();
+    }
+
+    /**
+     * Smell test for "value column contains R-shaped code that wasn't wrapped
+     * in r(...)". Looks for a function-call pattern (`name(`), an R operator
+     * pattern, or a `$`-member access. Tolerates plain identifiers (admins
+     * occasionally use a bare variable name as a default value via the v1
+     * "value column = identifier" sugar) and `sticky` (v1 keyword).
+     */
+    protected static function looksLikeBareR($raw) {
+        if ($raw === 'sticky') return false;
+        // Identifier-only (admin's v1 sugar — keep as-is, the existing
+        // dynamic-value path resolves these).
+        if (preg_match('/^[A-Za-z_][A-Za-z0-9_.]*$/', $raw)) return false;
+        if (preg_match('/[a-zA-Z_]\w*\s*\(/', $raw)) return true;          // function call
+        if (preg_match('/<-|->|%[a-zA-Z_]+%|\$[A-Za-z_]/', $raw)) return true; // R ops
+        return false;
+    }
+
+    /**
+     * Lowest page number among `survey_items_display.page` for the given items.
+     * That's the page the participant lands on (the server only emits
+     * unanswered items, so this is whatever's currently active).
+     */
+    protected function firstVisiblePageNumberFromMap(array $items, array $pageMap) {
+        $min = null;
+        foreach ($items as $item) {
+            if (!$item) continue;
+            $p = isset($pageMap[(int) $item->id]) ? (int) $pageMap[(int) $item->id] : 1;
+            if ($min === null || $p < $min) $min = $p;
+        }
+        return $min === null ? 1 : $min;
+    }
+
+    /**
+     * Partition items into [first => first-visible-page, later => everything else].
+     */
+    protected function splitByPageFromMap(array $items, $firstPage, array $pageMap) {
+        $first = [];
+        $later = [];
+        foreach ($items as $name => $item) {
+            $p = isset($pageMap[(int) $item->id]) ? (int) $pageMap[(int) $item->id] : 1;
+            if ($p === (int) $firstPage) {
+                $first[$name] = $item;
+            } else {
+                $later[$name] = $item;
+            }
+        }
+        return ['first' => $first, 'later' => $later];
     }
 
     /**

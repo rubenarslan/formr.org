@@ -31,6 +31,11 @@ The visible benefits to participants:
 
 ## Authoring `showif` and `value`
 
+### The two rules
+
+1. **`showif` is JavaScript-only.** Evaluated client-side, reactive on every input change. `r(...)` in `showif` is invalid — the compat scanner flags it and FormRenderer surfaces a validation error. To get server-side R into a showif, see "Bridging R into a showif" below.
+2. **`value` accepts literals + `r(...)`.** Bare R (un-wrapped) is invalid — wrap it in `r(...)` so it goes through the allowlisted server path.
+
 ### Default: client-side JS
 
 `showif` is interpreted as a JavaScript expression evaluated in the participant's browser, with one reactive variable per item name and a small helper stdlib:
@@ -58,30 +63,62 @@ showif: last(daily_mood) > 5
 
 If an expression references a variable that doesn't exist (a future-page item, a run-level variable like `ran_group`), the evaluator silently treats it as `undefined` and the item stays visible — no console errors, no flickering.
 
-### Opt-in: server-side R via `r(...)`
+### Server-side R: `r(...)` on the `value` column only
 
-Wrap any expression in `r(...)` to send it to OpenCPU on the server. The wrapped R can use anything in the formr R package. Use this when the JS evaluator can't handle your expression — typically because you need vectorized R semantics, the formr-R package's `current()`/`last()` over the full data frame, or computed values from external sources.
+Wrap any R expression in `r(...)` on the `value` column to send it to OpenCPU. The wrapped R can use anything in the formr R package. Examples:
 
 ```
-showif: r(complex_score(current(q1), current(q2)) > 0.5)
-showif: r(ifelse(is.na(other), FALSE, nchar(other) > 0))
-value:  r(paste(answered_items, collapse=", "))
+value: r(paste(answered_items, collapse=", "))
+value: r(complex_score(current(q1), current(q2)))
+value: r(ifelse(is.na(other), "", nchar(other)))
 ```
 
-The R source never reaches the browser — the client posts the call ID and current answers; the server overlays the answers on `tail(survey_name, 1)` and evaluates. Reactive showifs are debounced (300 ms) and rate-limited (30 calls / 60 s per session). Results are cached for 30 seconds (showif) or 5 minutes (value).
+The R source never reaches the browser — the client only ever sees the recorded call ID. The server overlays the participant's answers on `tail(survey_name, 1)` and evaluates inside an allowlist-only path. Results are cached for 5 minutes per `(call_id, sorted answers)` pair.
+
+### Bridging R into a `showif`
+
+`r(...)` in `showif` is no longer supported. Showifs are JS-only. To gate visibility on a server-computed R result, **add a hidden item with `value: r(...)` and reference its field name from the showif**:
+
+```
+name           type     showif                    value
+my_score       hidden                             r(complex_score(current(q1)))
+followup       text     my_score > 0.5
+```
+
+The hidden field gets resolved server-side; the resolved scalar is written into the input and Alpine reactivity makes it available to any showif that references it. Cleaner separation, more inspectable (admins can debug by reading the hidden field's resolved value), and you can reuse `my_score` from multiple showifs without paying the OpenCPU cost more than once per page.
+
+### Page-scoped resolution
+
+Server-side R only fires for items on the page the participant is currently viewing:
+
+- **Initial page load**: only the first visible page's `r(...)` values + dynamic labels are resolved server-side. Items on later pages are placeholders.
+- **Page transition**: when the participant submits page N, the server persists answers; the client then POSTs `/form-render-page` for page N+1, which batch-resolves all of N+1's dynamic content in one OpenCPU call against the latest answer state. The participant sees page N+1 with everything resolved.
+- **Last page**: same model — resolved on the transition that brings the participant to it.
+
+Why: dynamic content on page N+1 often depends on answers given on page N, so we can't resolve it until N is submitted. And we don't pre-resolve future pages because that work would be discarded on every keystroke.
+
+Cost: one OpenCPU batch per page transition (cache-aware). Rate limit: 30 calls / 60 s per session.
 
 ### Embedded Rmd in labels
 
-Embedded R / Markdown in labels and page bodies still goes through OpenCPU at render time (same as v1). The result cache softens the cost when participants reload, but the source still ships pre-rendered. Routing label-Rmd through r(...)+fill is on the v2 roadmap.
+If a label contains R-Markdown syntax (inline R chunks like `` `r expr` ``), the **entire label** is treated as one allowlisted call. We don't extract partial Rmd chunks. The compat scanner's "label slot" entries are item-keyed; the server batches all of a page's dynamic labels into one knit call alongside the value evaluations.
+
 
 ## Compatibility scanner
 
-Before flipping a busy v1 study to v2, run the compatibility scanner. It classifies every `showif` / `value` expression as one of:
+Before flipping a busy v1 study to v2, run the compatibility scanner. It classifies expressions per the new rules:
 
+**For `showif`:**
 - **empty** — no expression
-- **r(...) wrapped** — already opted into the server path
-- **JS-OK** — the regex transpile produced something the client evaluator understands
-- **needs r(...) wrap** — residual R-only tokens (`ifelse`, `c(`, `%in%`, `<-`, …) the client evaluator can't run; wrap in `r(...)` or rewrite in JS
+- **JS-OK** — the regex transpile produced valid JS
+- **needs JS rewrite** — residual R-only tokens (`ifelse`, `c(`, `%in%`, `<-`, …); rewrite in JS or move the R into a hidden field's value
+- **invalid: r() in showif** — flagged for migration to a hidden-field bridge
+
+**For `value`:**
+- **empty** — no expression
+- **r(...) wrapped** — opted into the server path
+- **literal / sticky / identifier** — handled by the existing pipeline
+- **invalid: bare R** — wrap in `r(...)`
 
 Two ways to run it:
 

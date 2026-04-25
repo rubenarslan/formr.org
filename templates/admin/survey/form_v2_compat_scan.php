@@ -22,37 +22,47 @@
                         <?php Template::loadChild('public/alerts'); ?>
                         <div class="callout callout-info">
                             <p>
-                                This report classifies every <code>showif</code> and <code>value</code> expression in your survey into one of four buckets. It's the same heuristic used by <code>bin/form_v2_compat_scan.php</code> (CI-friendly; exits non-zero if anything is flagged).
+                                This report classifies every <code>showif</code> and <code>value</code> expression in your survey under the form_v2 rules. It's the same heuristic used by <code>bin/form_v2_compat_scan.php</code> (CI-friendly; exits non-zero if anything is flagged).
                             </p>
                             <ul>
                                 <li><strong>empty</strong> — no expression.</li>
-                                <li><strong>r(...) wrapped</strong> — already opted into the server-evaluated path; runs via <code>/form-r-call</code> (showif) or <code>/form-fill</code> (value). No admin action needed.</li>
-                                <li><strong>JS-transpile OK</strong> — the v1 regex transpile produces something that looks like valid JS with no residual R-only tokens. Evaluated client-side.</li>
-                                <li><strong>needs r(...) wrap</strong> — residual R tokens the client evaluator can't handle. Wrap the source in <code>r(...)</code> so it goes through the server path. The client has a runtime try/catch that falls back to "visible", so a flagged item isn't necessarily broken — but the behaviour is no longer guaranteed.</li>
+                                <li><strong>r(...) wrapped (value only)</strong> — opted into the allowlisted server-evaluated path; resolves at page load (first-page items) or page transition (later pages) via <code>/form-render-page</code>. No admin action needed.</li>
+                                <li><strong>JS-OK (showif)</strong> — the v1 regex transpile produces something that looks like valid JS with no residual R-only tokens. Evaluated client-side.</li>
+                                <li><strong>Needs JS rewrite (showif)</strong> — residual R tokens the client evaluator can't handle. Rewrite in JS, or move the R into a hidden field's <code>value</code> column with <code>r(...)</code> and reference the field name from the showif.</li>
+                                <li><strong class="text-red">Invalid: r() in showif</strong> — no longer supported. Showif is JS-only. Add a hidden item with <code>value: r(...)</code> and reference its name from the showif.</li>
+                                <li><strong class="text-red">Invalid: bare R in value</strong> — wrap in <code>r(...)</code> so it goes through the allowlisted path.</li>
                             </ul>
                         </div>
 
-                        <h4>Summary</h4>
+                        <h4>showif summary</h4>
                         <table class="table table-bordered table-condensed">
                             <thead>
-                                <tr>
-                                    <th>Column</th>
-                                    <th>Empty</th>
-                                    <th>r(...) wrapped</th>
-                                    <th>JS-transpile OK</th>
-                                    <th>Needs r() wrap</th>
-                                </tr>
+                                <tr><th>Empty</th><th>JS-OK</th><th>Needs JS rewrite</th><th>r() in showif (invalid)</th></tr>
                             </thead>
                             <tbody>
-                                <?php foreach (['showif', 'value'] as $col): $c = $report['counts'][$col]; ?>
-                                    <tr>
-                                        <td><code><?= htmlspecialchars($col) ?></code></td>
-                                        <td><?= (int) $c['empty'] ?></td>
-                                        <td><?= (int) $c['r_wrapped'] ?></td>
-                                        <td><?= (int) $c['js_ok'] ?></td>
-                                        <td<?= ((int) $c['needs_wrap'] > 0) ? ' class="text-red"' : '' ?>><strong><?= (int) $c['needs_wrap'] ?></strong></td>
-                                    </tr>
-                                <?php endforeach; ?>
+                                <?php $c = $report['counts']['showif']; ?>
+                                <tr>
+                                    <td><?= (int) $c['empty'] ?></td>
+                                    <td><?= (int) $c['js_ok'] ?></td>
+                                    <td<?= ((int) $c['needs_wrap'] > 0) ? ' class="text-red"' : '' ?>><strong><?= (int) $c['needs_wrap'] ?></strong></td>
+                                    <td<?= ((int) $c['invalid_r'] > 0) ? ' class="text-red"' : '' ?>><strong><?= (int) $c['invalid_r'] ?></strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4>value summary</h4>
+                        <table class="table table-bordered table-condensed">
+                            <thead>
+                                <tr><th>Empty</th><th>r(...) wrapped</th><th>Literal / sticky / identifier</th><th>Bare R (invalid)</th></tr>
+                            </thead>
+                            <tbody>
+                                <?php $c = $report['counts']['value']; ?>
+                                <tr>
+                                    <td><?= (int) $c['empty'] ?></td>
+                                    <td><?= (int) $c['r_wrapped'] ?></td>
+                                    <td><?= (int) $c['js_ok'] ?></td>
+                                    <td<?= ((int) $c['bare_r'] > 0) ? ' class="text-red"' : '' ?>><strong><?= (int) $c['bare_r'] ?></strong></td>
+                                </tr>
                             </tbody>
                         </table>
 
@@ -79,7 +89,22 @@
                                             <td><?= htmlspecialchars(implode(', ', $r['problems'])) ?></td>
                                             <td><code><?= htmlspecialchars($r['source']) ?></code></td>
                                             <td><?php if ($r['transpiled'] !== $r['source']): ?><code><?= htmlspecialchars($r['transpiled']) ?></code><?php else: ?><em class="text-muted">(same as source)</em><?php endif; ?></td>
-                                            <td><code>r(<?= htmlspecialchars($r['source']) ?>)</code></td>
+                                            <td>
+                                                <?php
+                                                $fix = $r['suggested_fix'] ?? null;
+                                                if ($fix === 'create_hidden_field'):
+                                                    $hiddenName = $r['name'] . '_r';
+                                                ?>
+                                                    Add a hidden item:<br>
+                                                    <small><code>name: <?= htmlspecialchars($hiddenName) ?>, type: hidden, value: r(<?= htmlspecialchars($r['source']) ?>)</code></small><br>
+                                                    Then change this item's showif to:<br>
+                                                    <small><code><?= htmlspecialchars($hiddenName) ?> == ...</code></small>
+                                                <?php elseif ($fix === 'wrap_in_r'): ?>
+                                                    <code>r(<?= htmlspecialchars($r['source']) ?>)</code>
+                                                <?php else: ?>
+                                                    Rewrite <code><?= htmlspecialchars($r['source']) ?></code> in JS, or move the R into a hidden field's <code>value</code> and reference its name from the showif.
+                                                <?php endif; ?>
+                                            </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 </tbody>

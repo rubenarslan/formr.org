@@ -15,8 +15,8 @@ Phases 0–5 are code-complete on-branch (with gaps noted below). Phases 6 (docs
 | 0 — Plumbing | ✅ done | `Form` RunUnit, `rendering_mode` column, `form_v2_enabled` flag |
 | 1 — Single-page AJAX form | ✅ done | FormRenderer, Alpine, BS5, form-page-submit |
 | 2 — Item-type coverage | ✅ done bar A/V smoke | PWA items wired vanilla; only audio/video need in-browser capture smoke |
-| 3 — Client-side showif + r(...) opt-in | ✅ done | Alpine-driven; compat scanner; dedicated `showif_js` column and hardened parser deferred |
-| 4 — Deferred fill for `value` | ✅ done for `value` | embedded Rmd still OpenCPU-knit at render |
+| 3 — Client-side showif (JS only) | ✅ done | Alpine-driven; r() in showif is invalid; bridge via hidden field with r() value |
+| 4 — Page-scoped value + label resolution | ✅ done | r(...) on value (only); label slot for embedded Rmd; first-page resolved server-side, later pages via /form-render-page on transition |
 | 5 — Offline queue | ✅ done bar iOS | page-JS intercept + SW interception + Background Sync + `offline_mode` flag + file-blob queue (10 MB cap). iOS Safari pass still open |
 | 6 — Docs + migration tooling + parity gate | ✅ mostly | admin compat-scanner UI shipped; v1↔v2 automated parity test still open |
 | Rollout gates | ⬜ open | parity gate, default flip, sunset |

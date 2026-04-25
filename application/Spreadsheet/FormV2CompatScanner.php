@@ -32,8 +32,12 @@ class FormV2CompatScanner {
         $itemFactory = new ItemFactory([]);
 
         $counts = [
-            'showif' => ['empty' => 0, 'r_wrapped' => 0, 'js_ok' => 0, 'needs_wrap' => 0],
-            'value'  => ['empty' => 0, 'r_wrapped' => 0, 'js_ok' => 0, 'needs_wrap' => 0],
+            // r_wrapped is a positive bucket only for `value`. For `showif`
+            // it's now `invalid_r` — r(...) in a showif is no longer
+            // supported (admin must move the R into a hidden field's value
+            // and reference it from a JS showif).
+            'showif' => ['empty' => 0, 'invalid_r' => 0, 'js_ok' => 0, 'needs_wrap' => 0],
+            'value'  => ['empty' => 0, 'r_wrapped' => 0, 'js_ok' => 0, 'needs_wrap' => 0, 'bare_r' => 0],
         ];
         $flagged = [];
 
@@ -41,8 +45,24 @@ class FormV2CompatScanner {
             foreach (['showif', 'value'] as $col) {
                 $raw = trim((string) ($row[$col] ?? ''));
                 if ($raw === '') { $counts[$col]['empty']++; continue; }
-                if (preg_match('/^r\s*\(.*\)\s*$/s', $raw)) {
-                    $counts[$col]['r_wrapped']++;
+                $isWrapped = preg_match('/^r\s*\(.*\)\s*$/s', $raw);
+                if ($isWrapped) {
+                    if ($col === 'showif') {
+                        // r() in showif is invalid syntax under the new model.
+                        $counts[$col]['invalid_r']++;
+                        $flagged[] = [
+                            'id' => (int) $row['id'],
+                            'name' => (string) $row['name'],
+                            'type' => (string) $row['type'],
+                            'column' => $col,
+                            'source' => $raw,
+                            'transpiled' => $raw,
+                            'problems' => ['r() in showif is no longer supported — migrate to hidden field with r() value'],
+                            'suggested_fix' => 'create_hidden_field',
+                        ];
+                    } else {
+                        $counts[$col]['r_wrapped']++;
+                    }
                     continue;
                 }
                 // Only `showif` goes through Item.php's regex transpile. `value`
@@ -60,7 +80,12 @@ class FormV2CompatScanner {
                 if (empty($problems)) {
                     $counts[$col]['js_ok']++;
                 } else {
-                    $counts[$col]['needs_wrap']++;
+                    if ($col === 'value') {
+                        // Bare R in value is now invalid — admin must wrap.
+                        $counts[$col]['bare_r']++;
+                    } else {
+                        $counts[$col]['needs_wrap']++;
+                    }
                     $flagged[] = [
                         'id' => (int) $row['id'],
                         'name' => (string) $row['name'],
@@ -69,6 +94,7 @@ class FormV2CompatScanner {
                         'source' => $raw,
                         'transpiled' => $transpiled,
                         'problems' => $problems,
+                        'suggested_fix' => $col === 'value' ? 'wrap_in_r' : 'rewrite_in_js',
                     ];
                 }
             }

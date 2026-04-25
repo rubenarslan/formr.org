@@ -22,6 +22,17 @@ import '../css/form.scss';
 
 import Alpine from 'alpinejs';
 import TomSelect from 'tom-select';
+// PWA install UX: same library pair v1 uses.
+//   - `add-to-homescreen` renders the polished cross-platform install modal
+//     with iOS / Safari / Chrome-specific guidance.
+//   - `@khmyznikov/pwa-install` is a web component that wraps the native
+//     `beforeinstallprompt` flow so we get a Chrome / Edge install dialog.
+// The two work together: the browser fires `beforeinstallprompt` which the
+// web component captures; on a participant click we either invoke the web
+// component (when a native prompt is queued) or fall back to the
+// AddToHomeScreen modal (when there's no programmatic install API).
+import AddToHomeScreen from 'add-to-homescreen/dist/add-to-homescreen.min.js';
+import '@khmyznikov/pwa-install';
 
 function initForm() {
     const root = document.querySelector('.fmr-form-v2');
@@ -284,6 +295,11 @@ function initForm() {
 
     const submitUrl = root.dataset.submitUrl;
     const runUrl = root.dataset.runUrl;
+    // /form-render-page resolves dynamic labels + values for the upcoming
+    // page in one OpenCPU batch. Derived from runUrl rather than threaded
+    // through a new data-* attribute so we don't churn the FormRenderer
+    // template just for this URL.
+    const renderPageUrl = (runUrl || '').replace(/\/?$/, '/') + 'form-render-page';
     // Admin-controlled per-study flags (SurveyStudy.offline_mode /
     // .allow_previous). Default to on/off respectively when the attribute is
     // missing (safe for pre-patch-051 forms: unchanged v2 behaviour).
@@ -459,6 +475,114 @@ function initForm() {
         }
     };
 
+    // --- Page-transition resolver (POST /form-render-page) ---
+    // Resolves the upcoming page's dynamic labels + values via the batched
+    // OpenCPU endpoint. Called between submit-success and showPage so the
+    // participant sees the resolved content as soon as the new page appears.
+    // No-op for pages without any dynamic items (no data-fmr-fill-id /
+    // -label-id placeholders) — short-circuits with no network.
+    const resolveAndSubstitutePage = async (pageNum) => {
+        const targetPage = pages.find((p) => Number(p.dataset.fmrPage) === Number(pageNum));
+        if (!targetPage) return;
+        const fillItems = targetPage.querySelectorAll('[data-fmr-fill-id]');
+        const labelItems = targetPage.querySelectorAll('[data-fmr-label-id]');
+        if (fillItems.length === 0 && labelItems.length === 0) return;
+        // Mark items pending while we wait — visual feedback.
+        fillItems.forEach((el) => el.classList.add('fmr-fill-pending'));
+        labelItems.forEach((el) => el.classList.add('fmr-fill-pending'));
+        let body;
+        try {
+            const res = await fetch(renderPageUrl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ page: Number(pageNum), answers: collectAllAnswers() }),
+            });
+            body = await res.json().catch(() => null);
+            if (!res.ok || !body) {
+                fillItems.forEach((el) => el.classList.remove('fmr-fill-pending'));
+                labelItems.forEach((el) => el.classList.remove('fmr-fill-pending'));
+                console.warn('form-render-page failed', res.status, body);
+                return;
+            }
+        } catch (e) {
+            // Network failure — leave placeholders in place and let the
+            // participant continue. They'll see whatever's in the static
+            // label / blank value field; not great but not fatal.
+            fillItems.forEach((el) => el.classList.remove('fmr-fill-pending'));
+            labelItems.forEach((el) => el.classList.remove('fmr-fill-pending'));
+            console.warn('form-render-page network error', e);
+            return;
+        }
+        const valuesMap = (body && body.values) || {};
+        const labelsMap = (body && body.labels) || {};
+        // Substitute values: write to the first named input under the
+        // wrapper. Don't clobber a value the participant already edited
+        // (back-nav case).
+        fillItems.forEach((wrapper) => {
+            wrapper.classList.remove('fmr-fill-pending');
+            const id = wrapper.dataset.fmrFillId;
+            if (!(id in valuesMap)) return;
+            const val = valuesMap[id];
+            const target = wrapper.querySelector('input[name], textarea[name], select[name]');
+            if (!target) return;
+            if (target.value && target.value !== '') return; // user already edited
+            target.value = val == null ? '' : String(val);
+            target.dispatchEvent(new Event('input', { bubbles: true }));
+            target.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        // Substitute labels: replace the .control-label inner content. v1
+        // emits HTML there (knit2html result), so innerHTML is correct.
+        // The R came from survey_r_calls (admin-trusted), evaluated server-
+        // side, returned as HTML. Same trust model as v1 inline knit.
+        labelItems.forEach((wrapper) => {
+            wrapper.classList.remove('fmr-fill-pending');
+            const id = wrapper.dataset.fmrLabelId;
+            if (!(id in labelsMap)) return;
+            const html = labelsMap[id];
+            const labelEl = wrapper.querySelector('.control-label, label.control-label');
+            if (labelEl) labelEl.innerHTML = html;
+        });
+    };
+
+    // Read the current state of every named form input as a flat map. Used
+    // for /form-render-page (and /form-r-call / /form-fill on the JS side).
+    // Same coercion as Alpine's _syncInput so the server sees identical
+    // shape regardless of which path it came from.
+    const collectAllAnswers = () => {
+        const out = {};
+        root.querySelectorAll('input[name], textarea[name], select[name]').forEach((inp) => {
+            if (!inp.name || inp.name.startsWith('_item_views')) return;
+            if (inp.disabled) return;
+            const isArr = inp.name.endsWith('[]');
+            const key = isArr ? inp.name.slice(0, -2) : inp.name;
+            const coerce = (s) => {
+                if (s === '' || s === null || s === undefined) return null;
+                const n = Number(s);
+                return isNaN(n) ? s : n;
+            };
+            if (inp.type === 'checkbox' || inp.type === 'radio') {
+                if (!inp.checked) return;
+                if (isArr) {
+                    if (!Array.isArray(out[key])) out[key] = [];
+                    out[key].push(coerce(inp.value));
+                } else {
+                    out[key] = coerce(inp.value);
+                }
+            } else if (inp.tagName === 'SELECT' && inp.multiple) {
+                out[key] = Array.from(inp.selectedOptions).map((o) => coerce(o.value));
+            } else {
+                if (isArr) {
+                    if (!Array.isArray(out[key])) out[key] = [];
+                    if (inp.value !== '') out[key].push(coerce(inp.value));
+                } else {
+                    out[key] = coerce(inp.value);
+                }
+            }
+        });
+        return out;
+    };
+
     const submitPage = async () => {
         const page = pages[currentIndex];
         clearCustomValidity(page);
@@ -605,6 +729,12 @@ function initForm() {
         if (typeof body.next_page === 'number') {
             const nextIdx = pages.findIndex((p) => Number(p.dataset.fmrPage) === body.next_page);
             if (nextIdx !== -1) {
+                // Resolve the next page's dynamic labels + values via the
+                // batched OpenCPU endpoint BEFORE showing it. This is the
+                // page-scoped model: page 1 was resolved server-side at
+                // initial render, but pages 2..N have placeholders that
+                // need filling against the just-persisted answer state.
+                await resolveAndSubstitutePage(body.next_page);
                 showPage(nextIdx);
                 try { history.pushState(null, '', `?page=${nextIdx + 1}`); } catch (e) { /* noop */ }
                 return;
@@ -657,20 +787,19 @@ function initForm() {
     };
 
     // --- PWA: AddToHomeScreen item ---
-    // Capture the browser's deferred install prompt as soon as it fires (even
-    // before the participant lands on the page that hosts the button) so we
-    // can re-fire it on the participant's user-gesture click. Standalone
-    // detection short-circuits — if the page is already running from the
-    // home screen, the install step is a no-op and we mark the input answered.
+    // Two-part install UX, mirroring v1's PWAInstaller.js:
+    //   1. `<pwa-install>` web component (from @khmyznikov/pwa-install) wraps
+    //      `beforeinstallprompt`. When Chrome/Edge offers a native install,
+    //      the component manages the dialog and fires success / fail events.
+    //   2. `AddToHomeScreen` instance shows a polished modal with platform-
+    //      specific guidance (Safari iOS instructions, Chrome Android prompt,
+    //      desktop QR fallback). Used when the browser doesn't expose a
+    //      programmatic install API.
+    // We capture beforeinstallprompt early — the participant may have left
+    // the install page already by the time it fires.
     let deferredInstallPrompt = null;
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredInstallPrompt = e;
-    });
-    window.addEventListener('appinstalled', () => {
-        deferredInstallPrompt = null;
-        root.querySelectorAll('.add-to-homescreen-wrapper').forEach(markInstalled);
-    });
+    let pwaInstallEl = null;
+    let addToHomeInstance = null;
 
     const isStandaloneDisplayMode = () =>
         window.matchMedia('(display-mode: standalone)').matches
@@ -678,9 +807,19 @@ function initForm() {
         || window.navigator.standalone === true;
     const isIOSDevice = () => /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        if (pwaInstallEl) pwaInstallEl.externalPromptEvent = e;
+    });
+    window.addEventListener('appinstalled', () => {
+        deferredInstallPrompt = null;
+        root.querySelectorAll('.add-to-homescreen-wrapper').forEach((w) => markAddedToHomeScreen(w, 'added'));
+    });
+
     // Hidden-input values must match AddToHomeScreen_Item::validateInput's
     // allowlist: 'added', 'ios_not_prompted', 'not_requested', 'not_prompted',
-    // 'already_added', 'no_support', 'not_added'.
+    // 'already_added', 'no_support', 'not_added', 'prompted'.
     const markAddedToHomeScreen = (wrapper, value) => {
         const hidden = wrapper.querySelector('input');
         const status = wrapper.querySelector('.status-message');
@@ -696,16 +835,94 @@ function initForm() {
         wrapper.closest('.form-group')?.classList.add('formr_answered');
     };
 
-    const showIosInstallHint = (wrapper) => {
-        const status = wrapper.querySelector('.status-message');
-        if (status) {
-            status.innerHTML = 'On iPhone/iPad: tap <i class="fa fa-share"></i> Share, then "Add to Home Screen". Once installed, reopen this study from your home screen.';
-        }
+    const setAtsStatus = (wrapper, value, text) => {
         const hidden = wrapper.querySelector('input');
-        if (hidden && !['added', 'already_added'].includes(hidden.value)) {
-            hidden.value = 'ios_not_prompted';
+        const status = wrapper.querySelector('.status-message');
+        if (hidden) hidden.value = value;
+        if (text && status) status.textContent = text;
+    };
+
+    // Lazy-init the pwa-install element + AddToHomeScreen instance once the
+    // page has any add-to-homescreen items. Reads name + icon from the
+    // manifest link in <head>; falls back to document.title + favicon.
+    const initInstallStack = async () => {
+        if (addToHomeInstance) return; // already initialized
+        if (root.querySelectorAll('.add-to-homescreen-wrapper').length === 0) return;
+
+        // 1. <pwa-install> component
+        if (!pwaInstallEl) {
+            pwaInstallEl = document.createElement('pwa-install');
+            const manifestLink = document.querySelector('link[rel="manifest"]');
+            if (manifestLink) pwaInstallEl.setAttribute('manifest-url', manifestLink.href);
+            pwaInstallEl.setAttribute('use-local-storage', 'true');
+            try { pwaInstallEl.hideDialog(); } catch (e) {}
+            document.body.appendChild(pwaInstallEl);
+            if (deferredInstallPrompt) pwaInstallEl.externalPromptEvent = deferredInstallPrompt;
+
+            pwaInstallEl.addEventListener('pwa-install-success-event', () => {
+                root.querySelectorAll('.add-to-homescreen-wrapper').forEach((w) => markAddedToHomeScreen(w, 'added'));
+                try { pwaInstallEl.hideDialog(); } catch (e) {}
+            });
+            pwaInstallEl.addEventListener('pwa-install-fail-event', () => {
+                root.querySelectorAll('.add-to-homescreen-wrapper').forEach((w) => {
+                    setAtsStatus(w, 'not_added', 'Installation didn\'t complete. You can try again or add to home screen manually from your browser menu.');
+                    const btn = w.querySelector('.add-to-homescreen');
+                    if (btn) btn.innerHTML = '<i class="fa fa-plus-square"></i> Add to Home Screen';
+                });
+                try { pwaInstallEl.hideDialog(); } catch (e) {}
+            });
+            pwaInstallEl.addEventListener('pwa-user-choice-result-event', (e) => {
+                const accepted = e?.detail?.userChoiceResult === 'accepted';
+                root.querySelectorAll('.add-to-homescreen-wrapper').forEach((w) => {
+                    if (accepted) {
+                        markAddedToHomeScreen(w, 'added');
+                    } else {
+                        setAtsStatus(w, 'not_added', 'Install dismissed. You can add the app to your home screen at any time.');
+                        const btn = w.querySelector('.add-to-homescreen');
+                        if (btn) btn.innerHTML = '<i class="fa fa-plus-square"></i> Add to Home Screen';
+                    }
+                });
+            });
+        }
+
+        // 2. AddToHomeScreen modal — read manifest for app name + icon
+        let appName = document.title;
+        let appIconUrl = '/apple-touch-icon.png';
+        const manifestLink = document.querySelector('link[rel="manifest"]');
+        if (manifestLink) {
+            try {
+                const res = await fetch(manifestLink.href);
+                if (res.ok) {
+                    const m = await res.json();
+                    appName = m.name || m.short_name || appName;
+                    if (Array.isArray(m.icons) && m.icons.length) {
+                        const big = m.icons.find((ic) => ic.sizes && (ic.sizes.includes('192x192') || ic.sizes.includes('512x512')));
+                        appIconUrl = (big && big.src) || appIconUrl;
+                    }
+                }
+            } catch (e) { /* fall back to defaults */ }
+        }
+        try {
+            // assetUrl points at the bundled add-to-homescreen image assets
+            // (the lib renders illustrations of "tap Share, then Add"); webpack
+            // copies them into build/assets/img/ from node_modules.
+            const inDevBuild = (window.formr?.bundle === 'dev-build')
+                || /assets\/dev-build\//.test(document.querySelector('script[src*="form.bundle.js"]')?.src || '');
+            const assetUrl = inDevBuild ? '/assets/dev-build/assets/img/' : '/assets/build/assets/img/';
+            addToHomeInstance = AddToHomeScreen({
+                appName,
+                appIconUrl,
+                maxModalDisplayCount: -1,
+                assetUrl,
+                displayOptions: { showMobile: true, showDesktop: true },
+                allowClose: true,
+            });
+        } catch (e) {
+            console.warn('AddToHomeScreen init failed', e);
         }
     };
+
+    initInstallStack();
 
     root.querySelectorAll('.add-to-homescreen-wrapper, .form-group.item-add_to_home_screen').forEach((wrapper) => {
         if (isStandaloneDisplayMode()) {
@@ -719,38 +936,45 @@ function initForm() {
         }
         const btn = wrapper.querySelector('button.add-to-homescreen, .add-to-homescreen');
         if (!btn) return;
-        if (isIOSDevice()) {
-            showIosInstallHint(wrapper);
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                showIosInstallHint(wrapper);
-            });
-            return;
-        }
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
-            if (!deferredInstallPrompt) {
-                const status = wrapper.querySelector('.status-message');
-                if (status) status.textContent = 'Your browser hasn\'t offered an install prompt. Try a supported browser (Chrome on Android, Edge on desktop, Safari on iOS).';
-                if (hidden) hidden.value = 'not_prompted';
+            if (btn.disabled) return;
+            await initInstallStack(); // ensure instances exist (idempotent)
+
+            // Native prompt path: if the browser queued a beforeinstallprompt,
+            // hand off to the pwa-install web component which fires the
+            // canonical install dialog and dispatches the success/fail events
+            // we listened for above.
+            if (deferredInstallPrompt && pwaInstallEl) {
+                setAtsStatus(wrapper, 'prompted', 'Preparing installation…');
+                btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing…';
+                try { pwaInstallEl.showDialog(); } catch (err) {
+                    console.warn('pwa-install showDialog failed', err);
+                }
                 return;
             }
-            try {
-                await deferredInstallPrompt.prompt();
-                const { outcome } = await deferredInstallPrompt.userChoice;
-                deferredInstallPrompt = null;
-                if (outcome === 'accepted') {
-                    markAddedToHomeScreen(wrapper, 'added');
-                } else {
-                    if (hidden) hidden.value = 'not_added';
-                    const status = wrapper.querySelector('.status-message');
-                    if (status) status.textContent = 'Install dismissed. You can add the app to your home screen at any time.';
-                    if (!required) wrapper.closest('.form-group')?.classList.add('formr_answered');
+
+            // No native prompt — fall back to AddToHomeScreen's platform-
+            // specific modal (iOS Safari guidance, Chrome Android prompt, etc).
+            if (addToHomeInstance) {
+                try {
+                    const result = addToHomeInstance.show();
+                    if (!result || !result.canBeStandAlone) {
+                        setAtsStatus(wrapper, 'no_support',
+                            'Your browser doesn\'t support adding this study to the home screen. Try Safari (iOS), Chrome on Android, or Edge on desktop.');
+                    } else {
+                        setAtsStatus(wrapper, 'prompted', 'Follow the on-screen instructions to add this study to your home screen.');
+                    }
+                } catch (err) {
+                    console.warn('AddToHomeScreen.show failed', err);
+                    setAtsStatus(wrapper, 'not_prompted', 'Could not start the install flow. Try a supported browser.');
                 }
-            } catch (err) {
-                console.error('install prompt failed', err);
-                if (hidden) hidden.value = 'not_prompted';
+                return;
             }
+
+            // Last resort: tell the participant to do it manually.
+            setAtsStatus(wrapper, 'not_prompted',
+                'Your browser hasn\'t offered an install prompt. Try a supported browser (Chrome on Android, Edge on desktop, Safari on iOS).');
         });
     });
 
@@ -992,61 +1216,19 @@ function initForm() {
         triggerRCalls();
     }
 
-    // --- Deferred fill for r(...)-wrapped `value` columns (Phase 4) ---
-    // Items whose `value` column was r(...)-wrapped carry `data-fmr-fill-id`.
-    // FormRenderer cleared the inline value and routes evaluation through
-    // /form-fill; we POST {call_id, answers} once on load, set the input's
-    // value from the response, fire a `change` so showifs re-evaluate, and
-    // strip the pending-state class. Not re-fetched on subsequent input
-    // changes: a deferred fill is the admin's pre-computed default, not a
-    // reactive formula. Admins who need reactivity should wire showif/r-call.
-    const fillItems = Array.from(root.querySelectorAll('[data-fmr-fill-id]'));
-    if (fillItems.length > 0) {
-        const fillUrl = root.getAttribute('data-fill-url');
-        fillItems.forEach((wrapper) => wrapper.classList.add('fmr-fill-pending'));
-        const applyFill = (wrapper, value) => {
-            const input = wrapper.querySelector('input[name], textarea[name], select[name]');
-            if (input && (input.value === '' || input.value == null)) {
-                input.value = value == null ? '' : String(value);
-                input.dispatchEvent(new Event('input', { bubbles: true }));
-                input.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-            wrapper.classList.remove('fmr-fill-pending');
-        };
-        const markFillError = (wrapper, msg) => {
-            wrapper.classList.remove('fmr-fill-pending');
-            wrapper.classList.add('fmr-fill-error');
-            const feedback = document.createElement('div');
-            feedback.className = 'invalid-feedback fmr-fill-feedback d-block';
-            feedback.textContent = String(msg || 'Failed to load computed value.');
-            const anchor = wrapper.querySelector('.controls, .form-group') || wrapper;
-            anchor.appendChild(feedback);
-        };
-        if (fillUrl) {
-            const answers = collectAnswers();
-            fillItems.forEach((wrapper) => {
-                const callId = Number(wrapper.getAttribute('data-fmr-fill-id'));
-                if (!callId) return;
-                fetch(fillUrl, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ call_id: callId, answers }),
-                }).then(async (r) => ({ ok: r.ok, body: await r.json().catch(() => null) }))
-                  .then(({ ok, body }) => {
-                      if (!ok || !body) {
-                          markFillError(wrapper, body && body.error);
-                          return;
-                      }
-                      if (typeof body.error === 'string') {
-                          markFillError(wrapper, body.error);
-                          return;
-                      }
-                      applyFill(wrapper, body.value);
-                  }).catch(() => markFillError(wrapper, 'Network error.'));
-            });
-        }
-    }
+    // Deferred-fill at initial load was the previous model's per-item
+    // /form-fill resolver. Under the page-scoped model:
+    //   - First-page items have their r(...) values resolved server-side at
+    //     FormRenderer time (the inner R is substituted into $item->value
+    //     and runs through processDynamicValuesAndShowIfs). The server
+    //     emits the resolved scalar in the input's value attribute, so the
+    //     client doesn't need to ask.
+    //   - Later-page items have data-fmr-fill-id but a blank value; they
+    //     resolve via /form-render-page when the participant transitions
+    //     to that page (resolveAndSubstitutePage above).
+    // The /form-fill endpoint itself is still live and useful for one-off
+    // live re-triggers (e.g. an admin-driven retrigger button) — we just
+    // don't fire it on every page-load anymore.
 
     // --- Button groups (Phase 2) ---
     // v1's ButtonGroup.js leans on jQuery + webshim.addShadowDom to keep a
