@@ -1,6 +1,7 @@
 const path = require('path');
 const webpack = require('webpack');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = (env, argv) => {
     const isWatchMode = argv.watch || false;
@@ -62,13 +63,37 @@ module.exports = (env, argv) => {
                       }
                     }
                   },
+                // CSS pipeline. Default is style-loader (CSS injected at
+                // runtime via <style> tags from the JS bundle). The form
+                // bundle gets MiniCssExtractPlugin instead so the CSS lands
+                // in a separate file and form_index.php can <link> it in
+                // <head>, killing the flash-of-unstyled-content on iOS
+                // Safari that style-loader caused. Other bundles keep
+                // style-loader so their currently-working flow doesn't
+                // change.
                 {
                     test: /\.css$/,
-                    use: ['style-loader', 'css-loader'],
+                    oneOf: [
+                        {
+                            issuer: /[\\/]webroot[\\/]assets[\\/]form[\\/]/,
+                            use: [MiniCssExtractPlugin.loader, 'css-loader'],
+                        },
+                        {
+                            use: ['style-loader', 'css-loader'],
+                        },
+                    ],
                 },
                 {
                     test: /\.s[ac]ss$/,
-                    use: ['style-loader', 'css-loader', 'sass-loader'],
+                    oneOf: [
+                        {
+                            issuer: /[\\/]webroot[\\/]assets[\\/]form[\\/]/,
+                            use: [MiniCssExtractPlugin.loader, 'css-loader', 'sass-loader'],
+                        },
+                        {
+                            use: ['style-loader', 'css-loader', 'sass-loader'],
+                        },
+                    ],
                 },
                 {
                     test: /add-to-homescreen.*\.css$/,
@@ -99,6 +124,13 @@ module.exports = (env, argv) => {
             ],
         },
         plugins: [
+            // CSS extraction for the form bundle (see CSS rule above).
+            // filename uses [name] which becomes 'form' from the entry key,
+            // landing the file at css/form.bundle.css next to the JS.
+            new MiniCssExtractPlugin({
+                filename: 'css/[name].bundle.css',
+            }),
+
             // Jquery and Bootstrap
             new webpack.ProvidePlugin({
                 $: 'jquery',

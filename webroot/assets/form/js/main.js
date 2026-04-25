@@ -583,13 +583,104 @@ function initForm() {
         return out;
     };
 
+    // Client-side native-validation feedback. v1 used webshim to render
+    // consistent inline messages; v2 used to call `reportValidity()` which
+    // shows native browser tooltips. Native tooltips don't render reliably
+    // on iOS Safari (they get clipped, hidden behind sticky headers, or
+    // skipped entirely). Render inline `.fmr-invalid-feedback` near each
+    // failing input instead — same shape as the server-error path.
+    //
+    // Returns true if the page is valid and submit may proceed; false if
+    // we surfaced any inline errors (caller should bail).
+    const validatePageAndShowFeedback = (pageEl) => {
+        // Clear prior inline feedback before re-running.
+        pageEl.querySelectorAll('.fmr-invalid-feedback').forEach((el) => el.remove());
+        pageEl.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
+
+        // Walk every named, non-disabled, non-ancillary input in the page
+        // and ask the browser whether it's valid. We rely on Constraint
+        // Validation API: required, type=email/url, min/max, pattern,
+        // setCustomValidity, etc. all live in `validity`.
+        const fields = Array.from(pageEl.querySelectorAll('input[name], select[name], textarea[name]'))
+            .filter((el) => !el.disabled && !el.name.startsWith('_item_views'));
+
+        const offenders = [];
+        fields.forEach((el) => {
+            if (!el.willValidate) return;
+            if (el.checkValidity()) return;
+            offenders.push(el);
+        });
+
+        if (offenders.length === 0) return true;
+
+        let firstFocusTarget = null;
+        offenders.forEach((el) => {
+            const wrapper = el.closest('.form-group') || el.parentElement;
+            // Skip duplicate messages from same item (e.g. radio groups
+            // where every radio is :invalid). Mark wrapper as invalid once.
+            if (wrapper && wrapper.classList.contains('fmr-has-client-error')) return;
+            if (wrapper) wrapper.classList.add('fmr-has-client-error');
+
+            // For radios/checkboxes hidden under a button group, place the
+            // feedback next to the visible `.btn-group` wrapper instead of
+            // the hidden input. Mirror the existing initButtonGroups path
+            // (.fmr-btn-feedback) — but only render if no btn-feedback is
+            // already present (the invalid-event handler may have rendered).
+            const btnGroup = wrapper && wrapper.querySelector('.btn-group');
+            const isHiddenInput = el.type === 'hidden'
+                || el.style.display === 'none'
+                || (el.offsetParent === null && el.type !== 'radio' && el.type !== 'checkbox');
+
+            if (btnGroup && (isHiddenInput || el.type === 'radio' || el.type === 'checkbox')) {
+                if (!wrapper.querySelector('.fmr-btn-feedback')) {
+                    const fb = document.createElement('div');
+                    fb.className = 'invalid-feedback fmr-btn-feedback d-block';
+                    fb.textContent = el.validationMessage || 'Please choose an option.';
+                    btnGroup.insertAdjacentElement('afterend', fb);
+                }
+                wrapper.classList.add('is-invalid');
+                if (!firstFocusTarget) firstFocusTarget = btnGroup.querySelector('.btn') || btnGroup;
+                return;
+            }
+
+            el.classList.add('is-invalid');
+            const fb = document.createElement('div');
+            fb.className = 'invalid-feedback fmr-invalid-feedback d-block';
+            fb.textContent = el.validationMessage || 'Please fill in this field.';
+            const anchor = el.closest('.controls, .form-group') || el.parentElement;
+            if (anchor && anchor.parentElement) {
+                anchor.parentElement.insertBefore(fb, anchor.nextSibling);
+            } else {
+                el.insertAdjacentElement('afterend', fb);
+            }
+            if (!firstFocusTarget) firstFocusTarget = el;
+        });
+
+        // Clear the marker so the next validation pass starts fresh.
+        pageEl.querySelectorAll('.fmr-has-client-error').forEach((el) => el.classList.remove('fmr-has-client-error'));
+
+        if (firstFocusTarget) {
+            try { firstFocusTarget.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+            try { firstFocusTarget.focus({ preventScroll: true }); } catch (e) {}
+        }
+        return false;
+    };
+
+    // Clear inline error feedback on any input change in the page so the
+    // participant doesn't see stale "Please fill in this field" after they
+    // type. Single delegated listener — cheaper than per-input.
+    root.addEventListener('input', (e) => {
+        const wrapper = e.target.closest('.form-group');
+        if (!wrapper) return;
+        wrapper.querySelectorAll('.fmr-invalid-feedback, .fmr-btn-feedback').forEach((el) => el.remove());
+        wrapper.classList.remove('is-invalid');
+        wrapper.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
+    });
+
     const submitPage = async () => {
         const page = pages[currentIndex];
         clearCustomValidity(page);
-        // native validation
-        const invalid = page.querySelector(':invalid');
-        if (invalid) {
-            invalid.reportValidity();
+        if (!validatePageAndShowFeedback(page)) {
             return;
         }
         const pageNum = Number(page.dataset.fmrPage) || (currentIndex + 1);

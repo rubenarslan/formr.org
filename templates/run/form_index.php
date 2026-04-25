@@ -27,6 +27,23 @@
         $vapidPublicKey = ($run instanceof Run) ? $run->getVapidPublicKey() : null;
         ?>
         <link rel="icon" href="<?php echo $faviconUrl; ?>">
+        <?php
+        // Form bundle paths. Prefer webroot/assets/dev-build/ when it has
+        // BOTH the JS and the extracted CSS — webpack's
+        // MiniCssExtractPlugin emits both. Falling back to build/ if the
+        // dev-build is partial (older watch from before the CSS-extract
+        // change, or watch hasn't run yet). Bundling the dev/prod choice
+        // here ensures the <link rel=stylesheet> always points at the
+        // same build as the <script>.
+        $formBundleDir = (
+            is_file(APPLICATION_ROOT . 'webroot/assets/dev-build/js/form.bundle.js') &&
+            is_file(APPLICATION_ROOT . 'webroot/assets/dev-build/css/form.bundle.css')
+        ) ? 'dev-build' : 'build';
+        $formBundleCss = $formBundleDir . '/css/form.bundle.css';
+        if (is_file(APPLICATION_ROOT . 'webroot/assets/' . $formBundleCss)):
+        ?>
+            <link rel="stylesheet" href="<?php echo asset_url($formBundleCss); ?>">
+        <?php endif; ?>
         <?php if ($hasManifest): ?>
             <link rel="manifest" href="<?php echo run_url($run->name) . 'manifest'; ?>">
             <?php if ($pwaIconBaseUrl): ?>
@@ -70,14 +87,6 @@
             </div>
         </div>
 
-        <?php
-        // Prefer the webpack:watch output (dev-build/) when present so
-        // developers iterating with `npm run webpack:watch` see their changes
-        // without a full production rebuild. Falls back to build/ in prod.
-        $formBundle = is_file(APPLICATION_ROOT . 'webroot/assets/dev-build/js/form.bundle.js')
-            ? 'dev-build/js/form.bundle.js'
-            : 'build/js/form.bundle.js';
-        ?>
-        <script src="<?php echo asset_url($formBundle); ?>"></script>
+        <script src="<?php echo asset_url($formBundleDir . '/js/form.bundle.js'); ?>"></script>
     </body>
 </html>

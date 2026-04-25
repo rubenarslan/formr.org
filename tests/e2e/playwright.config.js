@@ -58,20 +58,40 @@ const projects = [
     },
 ];
 
-// BrowserStack projects only when credentials are present. Lets `npm run
-// test:e2e` work locally without BrowserStack creds.
-if (BS_USERNAME && BS_ACCESS_KEY) {
+// BrowserStack projects: WIRED BUT NOT WORKING YET.
+//
+// 2026-04-25 attempt: REST creds verify (plan = Automate Mobile, 5
+// parallel slots). Connect call hits the right BS endpoint and creates
+// builds visible on the dashboard, but the Playwright handshake fails
+// with one of:
+//   - "browserName: expected one of (chromium|firefox|webkit)" (iOS,
+//     regardless of `browser` cap value)
+//   - "Malformed endpoint. Did you use BrowserType.launchServer
+//     method?" (Android Chrome with playwright-chromium)
+// Both errors look like a wire-protocol mismatch between
+// @playwright/test ^1.59.1 (current) and BS's CDP endpoint. Best
+// hypothesis: BS supports an older Playwright protocol; pin Playwright
+// to a version on their support matrix. Alt: switch to the
+// browserstack-node-sdk wrapper (already installed; lacks an explicit
+// 'playwright' subcommand on the version we have, so a different
+// integration approach may be needed).
+//
+// Disabling these projects so `npm run test:bs` doesn't fire half-
+// configured runs that burn parallel slots. Re-enable once the cap /
+// version mismatch is resolved.
+const ENABLE_BS = false;
+if (ENABLE_BS && BS_USERNAME && BS_ACCESS_KEY) {
     projects.push({
         name: 'bs-iphone-15',
         use: {
+            browserName: 'chromium',
             connectOptions: {
                 wsEndpoint: bsWsEndpoint(bsCaps({
+                    browser: 'playwright-webkit',
                     os: 'ios',
-                    osVersion: '17',
-                    browser: 'iphone',
-                    browserVersion: 'latest',
-                    deviceName: 'iPhone 15',
-                    realMobile: 'true',
+                    os_version: '17',
+                    device: 'iPhone 15',
+                    real_mobile: 'true',
                     name: 'iPhone 15 Safari',
                 })),
             },
@@ -80,14 +100,14 @@ if (BS_USERNAME && BS_ACCESS_KEY) {
     projects.push({
         name: 'bs-pixel-8',
         use: {
+            browserName: 'chromium',
             connectOptions: {
                 wsEndpoint: bsWsEndpoint(bsCaps({
+                    browser: 'playwright-chromium',
                     os: 'android',
-                    osVersion: '14.0',
-                    browser: 'chrome',
-                    browserVersion: 'latest',
-                    deviceName: 'Google Pixel 8',
-                    realMobile: 'true',
+                    os_version: '14.0',
+                    device: 'Google Pixel 8',
+                    real_mobile: 'true',
                     name: 'Pixel 8 Chrome',
                 })),
             },
