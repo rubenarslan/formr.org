@@ -1,6 +1,7 @@
 <?php
 
-class SpreadsheetReader {
+class SpreadsheetReader
+{
 
     private $choices_columns = array('list_name', 'name', 'label');
     private $survey_columns = array('name', 'type', 'label', 'optional', 'class', 'showif', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14', 'value', 'order', 'block_order', 'item_order');
@@ -12,21 +13,24 @@ class SpreadsheetReader {
     public $survey = array();
     public $choices = array();
     public static $exportFormats = array('csv', 'csv_german', 'tsv', 'xlsx', 'xls', 'json');
-    
+
     public $parsedown;
-    
-    public function __construct() {
+
+    public function __construct()
+    {
         $this->parsedown = new ParsedownExtra();
         $this->parsedown = $this->parsedown->setBreaksEnabled(true)->setUrlsLinked(true);
     }
 
-    public static function verifyExportFormat($formatstring) {
+    public static function verifyExportFormat($formatstring)
+    {
         if (!in_array($formatstring, static::$exportFormats)) {
             formr_error(400, 'Bad Request', 'Unsupported export format requested.');
         }
     }
 
-    public function backupTSV($array, $filename) {
+    public function backupTSV($array, $filename)
+    {
         $objPhpSpreadsheet = $this->objectFromArray($array);
 
         $objWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($objPhpSpreadsheet, 'Csv');
@@ -44,7 +48,8 @@ class SpreadsheetReader {
         }
     }
 
-    protected function objectFromArray($array) {
+    protected function objectFromArray($array)
+    {
         set_time_limit(300); # defaults to 30
         ini_set('memory_limit', Config::get('memory_limit.spr_object_array'));
 
@@ -64,11 +69,12 @@ class SpreadsheetReader {
      * @param PDOStatement $stmt
      * @return \PhpOffice\PhpSpreadsheet\Spreadsheet
      */
-    protected function objectFromPDOStatement(PDOStatement $stmt) {
+    protected function objectFromPDOStatement(PDOStatement $stmt)
+    {
         $PhpSpreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $PhpSpreadsheetSheet = $PhpSpreadsheet->getSheet(0);
 
-        list ($startColumn, $startRow) = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::coordinateFromString('A1');
+        list($startColumn, $startRow) = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::coordinateFromString('A1');
         $writeColumns = true;
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             if ($writeColumns) {
@@ -91,7 +97,8 @@ class SpreadsheetReader {
         return $PhpSpreadsheet;
     }
 
-    public function exportInRequestedFormat(PDOStatement $resultsStmt, $filename, $filetype) {
+    public function exportInRequestedFormat(PDOStatement $resultsStmt, $filename, $filetype)
+    {
         self::verifyExportFormat($filetype);
 
         switch ($filetype) {
@@ -119,7 +126,8 @@ class SpreadsheetReader {
         return $download_successfull;
     }
 
-    public function exportCSV(PDOStatement $stmt, $filename) {
+    public function exportCSV(PDOStatement $stmt, $filename)
+    {
         if (!$stmt->columnCount()) {
             formr_log('Debug: column count is not set');
             return false;
@@ -141,7 +149,8 @@ class SpreadsheetReader {
         }
     }
 
-    public function exportJSON($object, $filename) {
+    public function exportJSON($object, $filename)
+    {
         set_time_limit(300);
         if ($object instanceof PDOStatement) {
             $file = APPLICATION_ROOT . "tmp/downloads/{$filename}.json";
@@ -167,7 +176,8 @@ class SpreadsheetReader {
         }
     }
 
-    public function exportTSV(PDOStatement $stmt, $filename, $savefile = null) {
+    public function exportTSV(PDOStatement $stmt, $filename, $savefile = null)
+    {
         if (!$stmt->columnCount()) {
             return false;
         }
@@ -196,7 +206,8 @@ class SpreadsheetReader {
         }
     }
 
-    public function exportCSV_german(PDOStatement $stmt, $filename, $savefile = null) {
+    public function exportCSV_german(PDOStatement $stmt, $filename, $savefile = null)
+    {
         if (!$stmt->columnCount()) {
             return false;
         }
@@ -225,7 +236,8 @@ class SpreadsheetReader {
         }
     }
 
-    public function exportXLS(PDOStatement $stmt, $filename) {
+    public function exportXLS(PDOStatement $stmt, $filename)
+    {
         if (!$stmt->columnCount()) {
             return false;
         }
@@ -245,7 +257,8 @@ class SpreadsheetReader {
         }
     }
 
-    public function exportXLSX(PDOStatement $stmt, $filename) {
+    public function exportXLSX(PDOStatement $stmt, $filename)
+    {
         if (!$stmt->columnCount()) {
             return false;
         }
@@ -265,7 +278,8 @@ class SpreadsheetReader {
         }
     }
 
-    private function getSheetsFromArrays($items, $choices = array(), $settings = array()) {
+    private function getSheetsFromArrays($items, $choices = array(), $settings = array())
+    {
         set_time_limit(300); # defaults to 30
         ini_set('memory_limit', Config::get('memory_limit.spr_sheets_array'));
 
@@ -321,10 +335,21 @@ class SpreadsheetReader {
         return $objPhpSpreadsheet;
     }
 
-    public function exportItemTableXLSX(SurveyStudy $study) {
+    public function exportItemTableXLSX(SurveyStudy $study)
+    {
         $items = $study->getItemsForSheet();
         $choices = $study->getChoicesForSheet();
         $filename = $study->name;
+
+        if (empty($choices)) {
+            $choices = [
+                [
+                    'list_name' => '',
+                    'name'      => '',
+                    'label'     => ''
+                ]
+            ];
+        }
 
         try {
             $objPhpSpreadsheet = $this->getSheetsFromArrays($items, $choices, $study->getSettings());
@@ -343,10 +368,21 @@ class SpreadsheetReader {
         }
     }
 
-    public function exportItemTableXLS(SurveyStudy $study) {
+    public function exportItemTableXLS(SurveyStudy $study)
+    {
         $items = $study->getItemsForSheet();
         $choices = $study->getChoicesForSheet();
         $filename = $study->name;
+
+        if (empty($choices)) {
+            $choices = [
+                [
+                    'list_name' => '',
+                    'name'      => '',
+                    'label'     => ''
+                ]
+            ];
+        }
 
         try {
             $objPhpSpreadsheet = $this->getSheetsFromArrays($items, $choices, $study->getSettings());
@@ -365,7 +401,8 @@ class SpreadsheetReader {
         }
     }
 
-    public function exportItemTableJSON(SurveyStudy $study, $return_object = false) {
+    public function exportItemTableJSON(SurveyStudy $study, $return_object = false)
+    {
         $items = $study->getItems();
         $choices = $study->getChoices();
         $filename = $study->name;
@@ -406,7 +443,8 @@ class SpreadsheetReader {
         }
     }
 
-    public function addSurveyItem(array $row) {
+    public function addSurveyItem(array $row)
+    {
         // @todo validate items in $data
         if (empty($row['name'])) {
             $this->warnings[] = "Skipping row with no 'item name' specified";
@@ -422,7 +460,8 @@ class SpreadsheetReader {
         $this->survey[] = $row;
     }
 
-    public function readItemTableFile($filepath) {
+    public function readItemTableFile($filepath)
+    {
         ini_set('max_execution_time', 360);
 
         $this->errors = $this->messages = $this->warnings = array();
@@ -466,7 +505,8 @@ class SpreadsheetReader {
         }
     }
 
-    private function readChoicesSheet(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $worksheet) {
+    private function readChoicesSheet(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $worksheet)
+    {
         //  Get worksheet dimensions
         // non-allowed columns will be ignored, allows to specify auxiliary information if needed
         $skippedColumns = $columns = array();
@@ -619,7 +659,8 @@ class SpreadsheetReader {
         $this->choices = $data;
     }
 
-    private function readSurveySheet(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $worksheet) {
+    private function readSurveySheet(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $worksheet)
+    {
         $callStartTime = microtime(true);
         // non-allowed columns will be ignored, allows to specify auxiliary information if needed
 
@@ -720,10 +761,23 @@ class SpreadsheetReader {
                         $typeOptions = explode(' ', trim(preg_replace('/\s+/', ' ', $cellValue))); // get real type and options
                         $type = $typeOptions[0];
                         unset($typeOptions[0]);
-                        if (!empty($typeOptions[1]) &&
-                                !in_array($type, array('server', 'get', 'text', 'textarea', 'letters', 'file', 'image',
-                                'audio', 'video', 'rating_button', 'submit')) &&
-                                preg_match('/^[A-Za-z0-9_]{1,20}$/', trim($typeOptions[1]))) {
+                        if (
+                            !empty($typeOptions[1]) &&
+                            !in_array($type, array(
+                                'server',
+                                'get',
+                                'text',
+                                'textarea',
+                                'letters',
+                                'file',
+                                'image',
+                                'audio',
+                                'video',
+                                'rating_button',
+                                'submit'
+                            )) &&
+                            preg_match('/^[A-Za-z0-9_]{1,20}$/', trim($typeOptions[1]))
+                        ) {
                             $data[$rowNumber]['choice_list'] = trim($typeOptions[1]);
                             unset($typeOptions[1]);
                         }
@@ -786,5 +840,4 @@ class SpreadsheetReader {
 
         $this->survey = $data;
     }
-
 }

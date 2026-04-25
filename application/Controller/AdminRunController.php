@@ -1,12 +1,15 @@
 <?php
 
-class AdminRunController extends AdminController {
+class AdminRunController extends AdminController
+{
 
-    public function __construct(Site &$site) {
+    public function __construct(Site &$site)
+    {
         parent::__construct($site);
     }
 
-    public function indexAction($run_name = '', $private_action = '') {
+    public function indexAction($run_name = '', $private_action = '')
+    {
         $this->setRun($run_name);
         if ($private_action) {
             if (empty($this->run) || !$this->run->valid) {
@@ -35,7 +38,8 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
-    public function listAction() {
+    public function listAction()
+    {
         $vars = array(
             'runs' => $this->user->getRuns('id DESC', null),
         );
@@ -44,14 +48,17 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
-    public function addRunAction() {
+    public function addRunAction()
+    {
         if ($this->request->isHTTPPostRequest()) {
             $run_name = $this->request->str('run_name');
             if (!$run_name) {
                 $error = 'You have to specify a run name';
             } elseif (!preg_match("/^[a-zA-Z][a-zA-Z0-9-]{2,255}$/", $run_name)) {
                 $error = 'The run name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the hyphen(-) (at least 2 characters, at most 255). It needs to start with a letter.';
-            } elseif ($run_name == Run::TEST_RUN || Router::isWebRootDir($run_name) || in_array($run_name, Config::get('reserved_run_names', array())) || Run::nameExists($run_name)) {
+            } elseif (Run::isReservedName($run_name)) {
+                $error = __('The run name "%s" uses a reserved prefix. Please choose another name', $run_name);
+            } elseif ($run_name == Run::TEST_RUN || Router::isWebRootDir($run_name) || Run::nameExists($run_name)) {
                 $error = __('The run name "%s" is already taken. Please choose another name', $run_name);
             } else {
                 $run = new Run();
@@ -76,7 +83,8 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
-    private function userOverviewAction() {
+    private function userOverviewAction()
+    {
         $run = $this->run;
         $fdb = $this->fdb;
         $querystring = array();
@@ -123,11 +131,12 @@ class AdminRunController extends AdminController {
             'reminders' => $this->run->getSpecialUnits(false, 'ReminderEmail'),
             'querystring' => $querystring,
         ));
-        
+
         return $this->sendResponse();
     }
 
-    private function exportUserOverviewAction() {
+    private function exportUserOverviewAction()
+    {
         $helper = new RunHelper($this->run, $this->fdb, $this->request);
         $queryParams = array('run_id' => $this->run->id, 'admin_code' => $this->user->user_code);
         $exportStmt = $helper->getUserOverviewExportPdoStatement($queryParams);
@@ -139,7 +148,8 @@ class AdminRunController extends AdminController {
         }
     }
 
-    private function userDetailAction() {
+    private function userDetailAction()
+    {
         $run = $this->run;
         $fdb = $this->fdb;
         $querystring = array();
@@ -169,7 +179,7 @@ class AdminRunController extends AdminController {
             if ($userx['expired']) {
                 $stay_seconds = strtotime($userx['expired']) - strtotime($userx['created']);
             } else {
-                $stay_seconds = ($userx['ended'] ? strtotime($userx['ended']) : time() ) - strtotime($userx['created']);
+                $stay_seconds = ($userx['ended'] ? strtotime($userx['ended']) : time()) - strtotime($userx['created']);
             }
             $userx['stay_seconds'] = $stay_seconds;
             if ($userx['expired']) {
@@ -197,7 +207,8 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
-    private function exportUserDetailAction() {
+    private function exportUserDetailAction()
+    {
         $helper = new RunHelper($this->run, $this->fdb, $this->request);
         $queryParams = array(':run_id' => $this->run->id, ':run_id2' => $this->run->id);
         $exportStmt = $helper->getUserDetailExportPdoStatement($queryParams);
@@ -209,7 +220,8 @@ class AdminRunController extends AdminController {
         }
     }
 
-    private function createNewTestCodeAction() {
+    private function createNewTestCodeAction()
+    {
         $run_session = RunSession::getTestSession($this->run);
         $sess = $run_session->session;
         $sess_url = run_url($this->run->name, null, array('code' => $sess));
@@ -217,7 +229,8 @@ class AdminRunController extends AdminController {
         $this->request->redirect($sess_url);
     }
 
-    private function createNewNamedSessionAction() {
+    private function createNewNamedSessionAction()
+    {
         if (Request::isHTTPPostRequest()) {
             $code_name = $this->request->getParam('code_name');
             $run_session = RunSession::getNamedSession($this->run, $code_name);
@@ -235,11 +248,14 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
-    private function uploadFilesAction() {
+    private function uploadFilesAction()
+    {
         $run = $this->run;
 
-        if (!empty($_FILES['uploaded_files']) && 
-            $this->request->int("confirm_rights") === 1) {
+        if (
+            !empty($_FILES['uploaded_files']) &&
+            $this->request->int("confirm_rights") === 1
+        ) {
             if ($run->uploadFiles($_FILES['uploaded_files'])) {
                 alert('<strong>Success.</strong> The files were uploaded.', 'alert-success');
                 if (!empty($run->messages)) {
@@ -257,21 +273,23 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
-    private function deleteFileAction() {
+    private function deleteFileAction()
+    {
         $id = $this->request->int('id');
         $filename = $this->request->str('file');
         $deleted = $this->run->deleteFile($id, $filename);
-        
+
         if ($deleted) {
             alert('File Deleted', 'alert-success');
         } else {
             alert('Unable to delete selected file', 'alert-danger');
         }
-        
+
         $this->request->redirect(admin_run_url($this->run->name, 'upload_files'));
     }
 
-    private function settingsAction() {
+    private function settingsAction()
+    {
         $osf_projects = array();
 
         if (($token = OSF::getUserAccessToken($this->user))) {
@@ -299,11 +317,12 @@ class AdminRunController extends AdminController {
             'service_messages' => $this->run->getSpecialUnits(true, 'ServiceMessagePage'),
             'overview_scripts' => $this->run->getSpecialUnits(true, 'OverviewScriptPage'),
         ));
-        
+
         return $this->sendResponse();
     }
 
-    private function renameRunAction() {
+    private function renameRunAction()
+    {
         $run = $this->run;
         if ($this->request->isHTTPPostRequest()) {
             $run_name = $this->request->str('new_name');
@@ -332,7 +351,8 @@ class AdminRunController extends AdminController {
     }
 
 
-    private function exportDataAction() {
+    private function exportDataAction()
+    {
         $run = $this->run;
         $format = $this->request->str('format');
         $SPR = new SpreadsheetReader();
@@ -373,7 +393,8 @@ class AdminRunController extends AdminController {
         }
     }
 
-    private function exportSurveyResultsAction() {
+    private function exportSurveyResultsAction()
+    {
         $studies = $this->run->getAllSurveys();
         $dir = APPLICATION_ROOT . 'tmp/backups/results';
         if (!$dir) {
@@ -435,7 +456,8 @@ class AdminRunController extends AdminController {
         $this->request->redirect(admin_run_url($this->run->name));
     }
 
-    private function randomGroupsExportAction() {
+    private function randomGroupsExportAction()
+    {
         $run = $this->run;
         $format = $this->request->str('format');
         $SPR = new SpreadsheetReader();
@@ -476,7 +498,8 @@ class AdminRunController extends AdminController {
         }
     }
 
-    private function randomGroupsAction() {
+    private function randomGroupsAction()
+    {
         $run = $this->run;
         $pdoStatement = $run->getRandomGroups();
 
@@ -484,17 +507,19 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
-    private function overviewAction() {
+    private function overviewAction()
+    {
         $this->setView('run/overview', array(
             'users' => $this->run->getNumberOfSessionsInRun(),
             'overview_script' => $this->run->getOverviewScript(),
             'user_overview' => $this->run->getUserCounts(),
         ));
- 
+
         return $this->sendResponse();
     }
 
-    private function emptyRunAction() {
+    private function emptyRunAction()
+    {
         $run = $this->run;
         if ($this->request->isHTTPPostRequest()) {
             if ($this->request->getParam('empty_confirm') === $run->name) {
@@ -505,12 +530,12 @@ class AdminRunController extends AdminController {
             }
         }
 
-        $this->setView('run/empty_run', array( 'users' => $run->getNumberOfSessionsInRun()));
+        $this->setView('run/empty_run', array('users' => $run->getNumberOfSessionsInRun()));
         return $this->sendResponse();
-        
     }
 
-    private function emailLogAction() {
+    private function emailLogAction()
+    {
         $queryparams = array('run_id' => $this->run->id);
         $helper = new RunHelper($this->run, $this->fdb, $this->request);
         $table = $helper->getEmailLogTable($queryparams);
@@ -519,11 +544,12 @@ class AdminRunController extends AdminController {
             'emails' => $table['data'],
             'pagination' => $table['pagination'],
         ));
-        
+
         return $this->sendResponse();
     }
 
-    private function pushMessageLogAction() {
+    private function pushMessageLogAction()
+    {
         $queryparams = array('run_id' => $this->run->id);
         $helper = new RunHelper($this->run, $this->fdb, $this->request);
         $table = $helper->getPushMessageLogTable($queryparams);
@@ -533,14 +559,15 @@ class AdminRunController extends AdminController {
             'currentUser' => $this->user,
             'pagination' => $table['pagination'],
         ));
-        
+
         return $this->sendResponse();
     }
 
-    private function deleteRunAction() {
+    private function deleteRunAction()
+    {
         $run = $this->run;
         if (Request::isHTTPPostRequest() && $this->request->getParam('delete') && $this->request->getParam('delete_confirm') === $run->name) {
-            if($run->delete()) {
+            if ($run->delete()) {
                 $this->request->redirect(admin_url());
             }
         } elseif (Request::isHTTPPostRequest() && $this->request->getParam('delete')) {
@@ -553,7 +580,8 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
-    private function sessionsQueueAction() {
+    private function sessionsQueueAction()
+    {
         $this->setView('run/sessions_queue', array(
             'stmt' => UnitSessionQueue::getRunItems($this->run),
             'run_name' => $this->run->name
@@ -561,7 +589,8 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
-    private function setRun($name) {
+    private function setRun($name)
+    {
         if (!$name) {
             return;
         }
@@ -575,7 +604,8 @@ class AdminRunController extends AdminController {
         $this->run = $run;
     }
 
-    private function exportAction() {
+    private function exportAction()
+    {
         $formats = array('json');
         $run = $this->run;
         $site = $this->site;
@@ -602,7 +632,8 @@ class AdminRunController extends AdminController {
     }
 
 
-    private function exportRunStructureAction() {
+    private function exportRunStructureAction()
+    {
         $run = $this->run;
         $name = $run->name;
         $site = $this->site;
@@ -616,7 +647,8 @@ class AdminRunController extends AdminController {
         }
     }
 
-    private function importAction() {
+    private function importAction()
+    {
         if ($run_file = $this->request->getParam('run_file_name')) {
             $file = Config::get('run_exports_dir') . '/' . $run_file;
         } elseif (!empty($_FILES['run_file'])) {
@@ -647,7 +679,8 @@ class AdminRunController extends AdminController {
         $this->request->redirect(admin_run_url($this->run->name));
     }
 
-    private function createRunUnitAction() {
+    private function createRunUnitAction()
+    {
         $redirect = $this->request->redirect ? admin_run_url($this->run->name, $this->request->redirect) : admin_run_url($this->run->name);
         $unit = $this->createRunUnit();
         if ($unit->valid) {
@@ -658,7 +691,8 @@ class AdminRunController extends AdminController {
         $this->request->redirect(str_replace(':::', '#', $redirect));
     }
 
-    private function deleteRunUnitAction() {
+    private function deleteRunUnitAction()
+    {
         $id = (int) $this->request->unit_id;
         if (!$id) {
             throw new Exception('Missing Parameter');
@@ -675,7 +709,8 @@ class AdminRunController extends AdminController {
         $this->request->redirect(str_replace(':::', '#', $redirect));
     }
 
-    private function panicAction() {
+    private function panicAction()
+    {
         $settings = array(
             'locked' => 1,
             'cron_active' => 0,
@@ -693,14 +728,16 @@ class AdminRunController extends AdminController {
         $this->request->redirect("admin/run/{$this->run->name}");
     }
 
-    private function showPanicButton() {
+    private function showPanicButton()
+    {
         $on = $this->run->locked === 1 &&
-                $this->run->cron_active === 0 &&
-                $this->run->public === 0;
+            $this->run->cron_active === 0 &&
+            $this->run->public === 0;
         return !$on;
     }
 
-    private function getUnitAddButtons() {
+    private function getUnitAddButtons()
+    {
         return array(
             'Survey' => array(
                 'title' => 'Add Survey',
@@ -744,5 +781,4 @@ class AdminRunController extends AdminController {
             ),
         );
     }
-
 }
