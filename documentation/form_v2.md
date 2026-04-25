@@ -78,8 +78,6 @@ value: 5                                   # numeric literal — not evaluated
 
 The R source never reaches the browser — every non-empty, non-numeric value is recorded in `survey_r_calls` (slot=`value`) at render time, and the client only ever sees the recorded call ID. The server overlays the participant's answers on `tail(survey_name, 1)` and evaluates inside an allowlist-only path. Results are cached for 5 minutes per `(call_id, sorted answers)` pair.
 
-(Pre-existing `r(...)` wraps from earlier v2 fixtures still work — the wrapper is silently stripped at record time. New code shouldn't need it.)
-
 ### Bridging R into a `showif`
 
 `r(...)` in `showif` is no longer supported. Showifs are JS-only. To gate visibility on a server-computed R result, **add a hidden item with `value: r(...)` and reference its field name from the showif**:

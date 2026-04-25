@@ -72,10 +72,10 @@ class FormRenderer extends SpreadsheetRenderer {
         }
 
         // Step 2: dynamic values. The `value` column is R-only — no
-        // wrapping required, no JS path. v1's Item::needsDynamicValue
-        // already returns false for empty / numeric values (those stay as
-        // literal defaults), so anything that "needs dynamic" is R that
-        // we route through the allowlist.
+        // wrapping, no JS path. v1's Item::needsDynamicValue already
+        // returns false for empty / numeric values (those stay as literal
+        // defaults), so anything that "needs dynamic" is R that we route
+        // through the allowlist.
         //   - Record the R text in survey_r_calls slot='value'. This is
         //     what authorizes the client to invoke it via /form-render-page
         //     — the client never gets the source, only the call_id.
@@ -84,26 +84,16 @@ class FormRenderer extends SpreadsheetRenderer {
         //     render; the participant sees the resolved value immediately.
         //   - Later-page items get $item->value blanked + data-fmr-fill-id
         //     emitted; the client resolves them at page transition.
-        // Backwards compat: a pre-existing `r(...)` wrap is silently
-        // unwrapped (so v2 fixtures authored under the old "wrap to opt
-        // in" rule keep working). r() in showif remains invalid above.
         foreach ($items as $item) {
             if (!$item) continue;
             if (!$item->needsDynamicValue()) continue;
-            $raw = trim((string) $item->value);
-            if ($raw === '') continue;
-            $inner = RAllowlistExtractor::unwrap($raw);
-            $rExpr = $inner !== null ? $inner : $raw;
+            $rExpr = trim((string) $item->value);
+            if ($rExpr === '') continue;
             $callId = RAllowlistExtractor::record(
                 $this->db, $this->study->id, 'value', $rExpr, $item->id
             );
             $item->parent_attributes['data-fmr-fill-id'] = (string) $callId;
-            if ($itemPageOf($item) === $firstPage) {
-                // Make sure the parent's batch sees raw R (not the wrapped
-                // form, which OpenCPU would error on — `r()` isn't a
-                // function in the formr R env).
-                $item->value = $rExpr;
-            } else {
+            if ($itemPageOf($item) !== $firstPage) {
                 $item->value = '';
             }
         }
