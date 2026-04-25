@@ -174,9 +174,17 @@ function initForm() {
         return { data, item_views: itemViews };
     };
 
+    // Clear ONLY the customValidity values that `applyErrors` wrote (server-
+    // side validation responses). Init-armed customValidity from gating items
+    // (AddToHomeScreen, PushNotification, RequestCookie, …) must persist —
+    // otherwise the participant can advance past a required gate without
+    // completing it, which is what `applyErrors` plus `validatePageAndShowFeedback`
+    // were supposed to gate against. We tag server-set inputs with
+    // `data-fmr-server-validity` so this clear is targeted.
     const clearCustomValidity = (pageEl) => {
-        pageEl.querySelectorAll('input[name], select[name], textarea[name]').forEach((inp) => {
+        pageEl.querySelectorAll('input[data-fmr-server-validity], select[data-fmr-server-validity], textarea[data-fmr-server-validity]').forEach((inp) => {
             inp.setCustomValidity('');
+            delete inp.dataset.fmrServerValidity;
         });
     };
 
@@ -204,6 +212,7 @@ function initForm() {
                 return;
             }
             el.setCustomValidity(String(msg));
+            el.dataset.fmrServerValidity = '1';
             el.classList.add('is-invalid');
             const feedback = document.createElement('div');
             feedback.className = 'invalid-feedback fmr-invalid-feedback d-block';
@@ -675,6 +684,13 @@ function initForm() {
         wrapper.querySelectorAll('.fmr-invalid-feedback, .fmr-btn-feedback').forEach((el) => el.remove());
         wrapper.classList.remove('is-invalid');
         wrapper.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
+        // If the field carried a server-side validity message, clear it now —
+        // the participant is editing, give them immediate feedback rather than
+        // making them wait until the next submit attempt.
+        if (e.target.dataset?.fmrServerValidity) {
+            try { e.target.setCustomValidity(''); } catch (err) { /* ignore */ }
+            delete e.target.dataset.fmrServerValidity;
+        }
     });
 
     const submitPage = async () => {
@@ -1325,32 +1341,47 @@ function initForm() {
         if (!btn) return;
 
         // Step 1: iOS-but-not-standalone — push only works inside the
-        // installed PWA. Tell the participant + disable the button.
+        // installed PWA. Tell the participant + disable the button + reword
+        // the gating customValidity so the inline-error path explains the
+        // install requirement (vs. the generic "complete this step").
         if (isIOSDevice() && !isStandaloneDisplayMode()) {
-            if (hidden) hidden.value = 'not_supported';
-            if (status) status.innerHTML = '<p>To receive push notifications on iOS, please add this study to your home screen first and open it from there.</p>';
+            if (hidden) {
+                hidden.value = 'not_supported';
+                if (required) {
+                    hidden.setCustomValidity('Please add this study to your home screen first, then open it from the home screen icon to enable notifications.');
+                }
+            }
+            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert"><strong>Add to Home Screen first.</strong> On iOS, push notifications only work after you install this study to your home screen and open it from there.</div>';
             btn.disabled = true;
             btn.classList.remove('btn-primary');
             btn.classList.add('btn-default');
             return;
         }
 
-        // Step 2: capability checks.
+        // Step 2: capability checks. Each blocker also overrides the
+        // gating customValidity so the inline-feedback path on Next click
+        // names the actual blocker instead of the generic "complete this step".
+        const setBlockedValidity = (msg) => {
+            if (hidden && required) hidden.setCustomValidity(msg);
+        };
         if (!('Notification' in window) || !('serviceWorker' in navigator)) {
             if (hidden) hidden.value = 'not_supported';
-            if (status) status.innerHTML = '<p>Sorry, your browser does not support push notifications.</p>';
+            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">Sorry, your browser does not support push notifications.</div>';
+            setBlockedValidity('This browser does not support push notifications. Please use a supported browser to continue.');
             btn.disabled = true;
             return;
         }
         if (!window.vapidPublicKey) {
             if (hidden) hidden.value = 'not_supported';
-            if (status) status.innerHTML = '<p>Push notifications are not configured for this study.</p>';
+            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">Push notifications are not configured for this study.</div>';
+            setBlockedValidity('Push notifications are not configured for this study. Contact the study administrator.');
             btn.disabled = true;
             return;
         }
         if (!isIOSCompatibleVersion()) {
             if (hidden) hidden.value = 'not_supported';
-            if (status) status.innerHTML = '<p>Sorry, push notifications require iOS 16.4 or later.</p>';
+            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">Sorry, push notifications require iOS 16.4 or later.</div>';
+            setBlockedValidity('Push notifications require iOS 16.4 or later. Please update your device to continue.');
             btn.disabled = true;
             return;
         }
@@ -1360,7 +1391,8 @@ function initForm() {
         try { registration = await navigator.serviceWorker.ready; } catch (e) {}
         if (!registration || !registration.pushManager) {
             if (hidden) hidden.value = 'not_supported';
-            if (status) status.innerHTML = '<p>Service worker not registered. Please reload the page and try again.</p>';
+            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">Service worker not registered. Please reload the page and try again.</div>';
+            setBlockedValidity('Service worker is not registered. Reload the page and try again.');
             btn.disabled = true;
             return;
         }
@@ -1398,6 +1430,7 @@ function initForm() {
         const perm = Notification.permission;
         if (perm === 'denied') {
             if (hidden) hidden.value = 'permission_denied';
+            setBlockedValidity('Notifications are blocked. Enable them in your browser/system settings, then tap the button again.');
             renderNotificationControls(wrapper, registration, {
                 showTestButton: false,
                 customMessage: 'You have declined push notifications. You can enable them in your browser settings, then click the button below.',
@@ -1450,6 +1483,7 @@ function initForm() {
                     await sendTestNotification(registration);
                 } else if (result.reason === 'permission_denied') {
                     if (hidden) hidden.value = 'permission_denied';
+                    setBlockedValidity('You declined push notifications. Enable them in your browser/system settings, then reload to try again.');
                     btn.classList.remove('btn-primary');
                     btn.classList.add('btn-default');
                     btn.innerHTML = '<i class="fa fa-times"></i> Notifications blocked';
@@ -1460,18 +1494,28 @@ function initForm() {
                     });
                 } else if (result.reason === 'invalid_config') {
                     if (hidden) hidden.value = 'not_supported';
-                    if (status) status.innerHTML = '<p>Server configuration error. Please contact the study administrator.</p>';
+                    setBlockedValidity('Push notifications are not configured for this study. Contact the study administrator.');
+                    if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">Server configuration error. Please contact the study administrator.</div>';
                     btn.innerHTML = '<i class="fa fa-exclamation-triangle"></i> Configuration error';
                     btn.disabled = true;
                 } else {
                     if (hidden) hidden.value = 'not_supported';
-                    if (status) status.innerHTML = '<p>There was an error setting up push notifications. Please try again later.</p>';
+                    // Subscription failed — most often this is iOS Safari
+                    // refusing to subscribe outside a home-screen-installed
+                    // PWA. Surface the install hint either way; on Android /
+                    // desktop it's still applicable advice.
+                    setBlockedValidity('We couldn\'t enable push notifications. If you\'re on iOS, make sure you\'ve added this study to your home screen and opened it from there.');
+                    const iosHint = isIOSDevice()
+                        ? ' On iOS, push notifications only work after you\'ve added this study to your home screen and opened it from there.'
+                        : '';
+                    if (status) status.innerHTML = '<div class="alert alert-warning" role="alert"><strong>Couldn\'t enable push notifications.</strong>' + iosHint + ' Please try again later or contact the study administrator.</div>';
                     btn.innerHTML = '<i class="fa fa-exclamation-triangle"></i> Error — try again';
                 }
             } catch (err) {
                 console.error('push subscription click failed', err);
                 btn.innerHTML = original;
-                if (status) status.innerHTML = '<p>There was an error setting up push notifications. Please try again later.</p>';
+                setBlockedValidity('We hit an unexpected error enabling push notifications. Please reload and try again.');
+                if (status) status.innerHTML = '<div class="alert alert-warning" role="alert"><strong>Couldn\'t enable push notifications.</strong> Please reload and try again, or contact the study administrator if this keeps happening.</div>';
             }
         });
     });
