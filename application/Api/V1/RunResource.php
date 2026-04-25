@@ -110,8 +110,18 @@ class RunResource extends BaseResource
         }
 
         $reservedNames = Config::get('reserved_run_names', []);
-        if (is_array($reservedNames) && in_array($runName, $reservedNames)) {
-            return $this->error(400, "Run name '$runName' is reserved.");
+
+        if (is_array($reservedNames) && !empty($reservedNames)) {
+            // Escape reserved words in case they contain special regex characters
+            $escapedNames = array_map('preg_quote', $reservedNames);
+
+            // Builds a pattern like: /^(api|test|delegate)(?:-|$)/i
+            // (?:-|$) means it must be followed by a hyphen OR the end of the string
+            $pattern = '/^(' . implode('|', $escapedNames) . ')(?:-|$)/i';
+
+            if (preg_match($pattern, $runName)) {
+                return $this->error(400, "Run name '$runName' uses a reserved name or prefix.");
+            }
         }
 
         try {
