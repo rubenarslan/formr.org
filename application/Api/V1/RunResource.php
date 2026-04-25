@@ -109,19 +109,8 @@ class RunResource extends BaseResource
             return $this->error(400, "Invalid run name. Must start with a letter, contain only a-z, 0-9, hyphens, and be 3-255 chars long.");
         }
 
-        $reservedNames = Config::get('reserved_run_names', []);
-
-        if (is_array($reservedNames) && !empty($reservedNames)) {
-            // Escape reserved words in case they contain special regex characters
-            $escapedNames = array_map('preg_quote', $reservedNames);
-
-            // Builds a pattern like: /^(api|test|delegate)(?:-|$)/i
-            // (?:-|$) means it must be followed by a hyphen OR the end of the string
-            $pattern = '/^(' . implode('|', $escapedNames) . ')(?:-|$)/i';
-
-            if (preg_match($pattern, $runName)) {
-                return $this->error(400, "Run name '$runName' uses a reserved name or prefix.");
-            }
+        if (Run::isReservedName($runName)) {
+            return $this->error(400, "Run name '$runName' uses a reserved name or prefix.");
         }
 
         try {
