@@ -222,3 +222,162 @@ Specific gotchas worth knowing when touching `feature/form_v2` code. Deep-dive r
 - **Programmatic `radio.checked = true` does NOT auto-uncheck same-`name` siblings.** The browser's native radio-group sync only fires on user-initiated events (click, keyboard). In Playwright/`browser_evaluate` or any DOM-scripted test, assigning `.checked` on a radio leaves previously-checked siblings in `checked=true` state; `document.querySelector('input[name=X]:checked')` returns the first one (document order), and Alpine's `_syncInput` captures the wrong value. Fix: either click the visible `.btn[data-for]` button (initButtonGroups clears siblings imperatively) or explicitly `[...document.querySelectorAll('input[name=X][type=radio]')].forEach(r => r.checked = false)` before setting the target. Same gotcha applies to any framework that mirrors DOM state.
 - **Webpack production builds skip the file-write when output is byte-identical.** `npx webpack --mode production` compiles and reports "compiled with N warnings in Xs" but does NOT update `webroot/assets/build/js/form.bundle.js`'s mtime if the resulting bytes match the previous build's. `ls -la` thus misleads: "bundle is old, my edits must not have landed." They did — the build decided it didn't need to write. Confirm by grepping the bundle for a distinctive string from your source (`grep fmrForm webroot/assets/build/js/form.bundle.js`), not by mtime. `touch main.js` + rerun doesn't force a write either unless the emitted bundle changes. The admin layout's `?v=<timestamp>` query appends cache-bust, so browser-side reloads are fine once the bundle does change.
 - **`bin/form_v2_compat_scan.php <study_id|study_name>`** classifies every non-empty `showif` / `value` in a study as empty / r-wrapped / JS-OK / needs r(...) wrap. Heuristic scans the post-transpile expression for R-only tokens (ifelse/c/tail/paste/is.na/%in%/%%/NA/`<-`/`$`-access) with string literals stripped to avoid false positives inside labels. Exits 0 if clean, 2 if anything flagged — usable as a CI gate. Prints suggested `r(...)` wrappings for flagged rows. Informational only; doesn't mutate `survey_items.showif`. Use it before upgrading an existing v1 study to `rendering_mode='v2'` to preview which expressions the client evaluator won't handle.
+
+# Browser and PWA testing stack
+
+Read this at the start of any session that touches frontend code, UI,
+service workers, or PWA behavior. It tells you which tool to reach for and
+in what order, and what counts as “verified” before you declare a change
+done.
+
+## Tools available
+
+You have three browser-control surfaces. Use the cheapest one that answers
+the question you actually have.
+
+### Chrome DevTools MCP (`chrome-devtools-mcp`)
+
+Default for everyday work. Configure with `--autoConnect` so you attach to
+my already-running Chrome instead of spawning a fresh profile; this keeps
+my login state, extensions, and the tab I was debugging. Best for:
+
+- Console messages with source-mapped stack traces
+  (`list_console_messages`).
+- Network panel inspection.
+- Performance traces and Lighthouse-style audits.
+- Viewport, CPU, and network throttling for responsive checks.
+
+Prefer `take_snapshot` (accessibility tree) over screenshots for verifying
+state. The tree is more token-efficient and less ambiguous. Reach for
+screenshots only when the question is genuinely visual (spacing, layout,
+visual regressions).
+
+### Playwright MCP (`@playwright/mcp`)
+
+Use when you need (a) cross-browser verification including WebKit and
+Firefox, or (b) a reusable test rather than ad-hoc exploration. Anything
+non-trivial you debug via Playwright MCP should leave behind a Playwright
+script under `tests/e2e/` as a regression test.
+
+### BrowserStack Automate (via Playwright, not via their MCP)
+
+Use only for real-device verification on iPhone Safari and Android Chrome.
+Drive it with Playwright pointed at the BrowserStack hub URL. The
+BrowserStack MCP server is acceptable for orchestration (“run this on
+iPhone 15, fetch the session video”) but does not give fine-grained DOM
+control, so don’t use it for the actual asserting. See “Real device runs”
+below.
+
+Note: the open-source BrowserStack plan covers Live, Automate, and Percy.
+It does not include App Automate, so the Appium endpoint for native and
+hybrid apps is not available here. PWA-as-website testing on real devices
+goes through Automate, which is enough for everything we need.
+
+## Standard inner loop
+
+1. Make the code change.
+1. Reload via Chrome DevTools MCP at the dev URL.
+1. `list_console_messages`. Errors and new warnings are not OK; resolve
+   before declaring the change done.
+1. `take_snapshot` and verify the DOM/a11y state matches intent.
+   Screenshot only if the question is visual.
+1. If the change touched layout, emulate at least 375px (iPhone), 768px
+   (tablet), and 1440px (desktop) widths and re-check.
+1. If the change is non-trivial, run a Lighthouse audit and report any
+   regression in PWA, performance, or accessibility scores relative to
+   `audits/baseline.json`.
+
+Do not loop more than three times on the same failing assertion without
+stopping to explain what you’ve tried, what evidence is in front of you,
+and your best two hypotheses. Looping silently is worse than stopping.
+
+## PWA verification checklist
+
+Run after any change to the manifest, service worker, caching strategy,
+or offline behavior. All of it is scripted, not eyeballed.
+
+- `GET /manifest.webmanifest` returns 200 and parses. Required fields
+  present: `name`, `short_name`, `start_url`, `display`, `icons` including
+  192px and 512px. `<link rel="apple-touch-icon">` present in HTML head
+  for iOS.
+- Service worker registers and reaches `activated` within 5s of first
+  load (await `navigator.serviceWorker.ready`).
+- `caches.keys()` after first load contains the expected cache names.
+- With network forced offline (Playwright `context.setOffline(true)`),
+  reload still serves the app shell.
+- Lighthouse PWA score does not regress.
+
+These run inside a normal Playwright session and produce structured
+pass/fail. Do not run this checklist manually with screenshots.
+
+## Real device runs
+
+Trigger when: testing iOS Safari rendering, WebKit-only CSS, PWA install
+behavior, or any bug local emulation has lied about before. Not on every
+change. Real-device runs consume parallel slots and add minutes to the
+loop.
+
+Setup is already in place; just use it:
+
+1. `BrowserStackLocal` runs as a background sidecar (started via
+   `make tunnel`). Verify it is up before launching tests; if not, ask me
+   to start it. Do not start it inside your own subprocess; it must
+   outlive the session.
+1. Credentials are in `.env` as `BROWSERSTACK_USERNAME` and
+   `BROWSERSTACK_ACCESS_KEY`. Never hardcode them, never echo them, never
+   put them in test output.
+1. Run via `npm run test:bs -- <pattern>`. This points Playwright at
+   `https://hub-cloud.browserstack.com/wd/hub` with
+   `bstack:options.local: true` so the remote device reaches our local
+   dev URL through the tunnel.
+1. After a run, fetch the session video and console log via the
+   BrowserStack REST API (or the BrowserStack MCP server if connected)
+   and summarize failures from those, not from guesses. Session URLs are
+   printed in the test output.
+
+Default device matrix unless I specify otherwise: iPhone 15 / iOS 17 /
+Safari, and Pixel 8 / Android 14 / Chrome. Add one major version back of
+iOS if the change touches anything Safari has been finicky about
+historically (focus management, viewport units, IndexedDB, service
+worker scope, intersection observer edge cases).
+
+## Stack notes
+
+The app is PHP with jQuery. Pages render server-side; AJAX is jQuery
+`$.ajax`, not `fetch`. When something looks like “my JS didn’t run”,
+check first whether the `<script>` tag is in the rendered HTML at all
+(server-side conditional) before suspecting a client-side problem. View
+source and console errors usually point at the right answer faster than
+DOM inspection.
+
+CSS is hand-rolled. No Tailwind, no component framework. Expect cascade
+and specificity issues when restyling; use Chrome DevTools MCP’s
+computed-styles output rather than guessing.
+
+Service worker is registered from `/sw.js` at scope `/`. If you change
+its location or filename, scope changes and old caches stick around.
+Plan for cache versioning whenever you touch it.
+
+## Anti-patterns
+
+- Opening a BrowserStack Live (manual) session programmatically. Burns
+  parallel slots, produces no structured output.
+- Driving a remote real-device session click-by-click via screenshots.
+  Write a Playwright script and run it as a batch.
+- Skipping the console-error check “because it looked fine.”
+- Hardcoding credentials, even temporarily, even in scratch files.
+- Running `BrowserStackLocal` inside your own subprocess.
+- Generating UI mockups or fake tool outputs to “demonstrate” something.
+  If the real tool didn’t return what you needed, say so.
+
+## When you get stuck
+
+After three failed attempts on the same problem, stop and write up:
+
+1. What I asked for, in your words.
+1. What you tried, in order.
+1. The actual evidence in front of you now (specific console messages,
+   network responses, snapshot diffs).
+1. Your two best hypotheses, ranked, with what would distinguish them.
+
+Then ask. Do not guess a fourth time.
