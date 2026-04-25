@@ -941,40 +941,67 @@ function initForm() {
             if (btn.disabled) return;
             await initInstallStack(); // ensure instances exist (idempotent)
 
-            // Native prompt path: if the browser queued a beforeinstallprompt,
-            // hand off to the pwa-install web component which fires the
-            // canonical install dialog and dispatches the success/fail events
-            // we listened for above.
+            // v1's exact ordering, ported (PWAInstaller.js around the
+            // initializePWAInstaller click handler):
+            //   1. If beforeinstallprompt was queued → hand off to <pwa-install>.
+            //      That's the "real" install path on Chrome/Edge desktop and
+            //      Chrome on Android.
+            //   2. Otherwise → AddToHomeScreen.show() renders its polished
+            //      cross-platform modal (handles iOS Safari guidance, the
+            //      already-standalone case, etc.).
+            //   3. If AddToHomeScreen reports `canBeStandAlone: false` (the
+            //      browser/OS combo can't auto-install: iOS Chrome,
+            //      iOS Firefox, etc.) → ALSO call pwaInstallEl.showDialog()
+            //      so the @khmyznikov/pwa-install web component's iOS-Chrome-
+            //      specific dialog renders. This is the dialog the user
+            //      reported missing in v2 — the "open in Safari" / install-
+            //      assist UI for non-Safari iOS browsers lives in this
+            //      component, not in AddToHomeScreen alone.
+            //   4. If AddToHomeScreen reports `canBeStandAlone: true` (page
+            //      is already standalone — rare on a fresh click) → mark as
+            //      prompted; the success path will catch the actual install.
+            let prompted = false;
             if (deferredInstallPrompt && pwaInstallEl) {
-                setAtsStatus(wrapper, 'prompted', 'Preparing installation…');
-                btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing…';
+                prompted = true;
                 try { pwaInstallEl.showDialog(); } catch (err) {
                     console.warn('pwa-install showDialog failed', err);
                 }
-                return;
-            }
-
-            // No native prompt — fall back to AddToHomeScreen's platform-
-            // specific modal (iOS Safari guidance, Chrome Android prompt, etc).
-            if (addToHomeInstance) {
-                try {
-                    const result = addToHomeInstance.show();
-                    if (!result || !result.canBeStandAlone) {
-                        setAtsStatus(wrapper, 'no_support',
-                            'Your browser doesn\'t support adding this study to the home screen. Try Safari (iOS), Chrome on Android, or Edge on desktop.');
-                    } else {
-                        setAtsStatus(wrapper, 'prompted', 'Follow the on-screen instructions to add this study to your home screen.');
-                    }
-                } catch (err) {
+            } else if (addToHomeInstance) {
+                let result = null;
+                try { result = addToHomeInstance.show(); } catch (err) {
                     console.warn('AddToHomeScreen.show failed', err);
-                    setAtsStatus(wrapper, 'not_prompted', 'Could not start the install flow. Try a supported browser.');
                 }
-                return;
+                const canBeStandAlone = !!(result && result.canBeStandAlone);
+                if (!canBeStandAlone && pwaInstallEl) {
+                    // Fall through to the web component's dialog — this is
+                    // the path that triggers on iOS Chrome (and Firefox, Edge
+                    // on iOS, etc.).
+                    try { pwaInstallEl.showDialog(); } catch (err) {
+                        console.warn('pwa-install showDialog (fallback) failed', err);
+                    }
+                    prompted = true;
+                } else if (!canBeStandAlone) {
+                    // No web component AND can't standalone — last resort.
+                    setAtsStatus(wrapper, 'no_support',
+                        'Your browser doesn\'t support adding this study to the home screen. Try Safari (iOS), Chrome on Android, or Edge on desktop.');
+                } else {
+                    prompted = true;
+                }
+            } else if (pwaInstallEl) {
+                // AddToHomeScreen lib failed to load but the web component
+                // exists. Use it directly.
+                try { pwaInstallEl.showDialog(); prompted = true; } catch (err) {
+                    console.warn('pwa-install showDialog (no-ats) failed', err);
+                }
             }
 
-            // Last resort: tell the participant to do it manually.
-            setAtsStatus(wrapper, 'not_prompted',
-                'Your browser hasn\'t offered an install prompt. Try a supported browser (Chrome on Android, Edge on desktop, Safari on iOS).');
+            if (prompted) {
+                setAtsStatus(wrapper, 'prompted', 'Preparing installation…');
+                btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing…';
+            } else {
+                setAtsStatus(wrapper, 'not_prompted',
+                    'Your browser hasn\'t offered an install prompt. Try a supported browser (Chrome on Android, Edge on desktop, Safari on iOS).');
+            }
         });
     });
 
