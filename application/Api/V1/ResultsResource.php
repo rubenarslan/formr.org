@@ -7,7 +7,7 @@ class ResultsResource extends BaseResource
 
     public function handle($runName = null)
     {
-        $this->validateRun($runName);
+        $this->run = $this->getRunByName($runName);
         if (!$this->run) {
             return $this;
         }
@@ -24,8 +24,8 @@ class ResultsResource extends BaseResource
         }
 
         $getParam = function ($key) {
-            $val = $_GET[$key] ?? null;
-            if (!$val) return null;
+            $val = $this->request->getParam($key);
+            if ($val === null || $val === '') return null;
             return is_array($val) ? $val : array_map('trim', explode(',', $val));
         };
 
@@ -70,11 +70,5 @@ class ResultsResource extends BaseResource
         $results['shuffles'] = $this->getShuffleResults($this->run, $filterSessions);
 
         return $this->response(200, 'OK', $results);
-    }
-
-    private function validateRun($runName)
-    {
-        $mockRequest = (object) ['run' => (object) ['name' => $runName]];
-        $this->run = $this->getRunFromRequest($mockRequest);
     }
 }

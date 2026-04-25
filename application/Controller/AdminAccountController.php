@@ -123,6 +123,49 @@ class AdminAccountController extends Controller {
         return $this->sendResponse();
     }
 
+    /**
+     * AJAX endpoint for issuing / rotating the caller's OAuth client secret.
+     * The plaintext secret only exists in memory during this response and is
+     * returned to the browser once; storage holds only a hash. AJAX (not
+     * plain POST) is used so a page refresh after issuance cannot re-submit
+     * the rotation and silently invalidate the secret the user just copied.
+     */
+    public function apiCredentialsAction() {
+        if (!$this->user->loggedIn() || !$this->request->isAjaxRequest() || !$this->request->isHTTPPostRequest()) {
+            $this->response->setStatusCode(403, 'Forbidden');
+            $this->response->setContentType('application/json');
+            $this->response->setJsonContent(['success' => false]);
+            return $this->sendResponse();
+        }
+
+        $action = $this->request->str('api_action');
+        if ($action === 'create') {
+            $client = OAuthHelper::getInstance()->createClient($this->user);
+        } elseif ($action === 'rotate') {
+            $client = OAuthHelper::getInstance()->refreshToken($this->user);
+        } else {
+            $this->response->setStatusCode(400, 'Bad Request');
+            $this->response->setContentType('application/json');
+            $this->response->setJsonContent(['success' => false, 'message' => 'Unknown action']);
+            return $this->sendResponse();
+        }
+
+        $this->response->setContentType('application/json');
+        if (!$client || empty($client['client_secret'])) {
+            $this->response->setJsonContent(['success' => false, 'message' => 'Could not issue API credentials.']);
+            return $this->sendResponse();
+        }
+
+        $this->response->setJsonContent([
+            'success' => true,
+            'data' => [
+                'client_id' => $client['client_id'],
+                'client_secret' => $client['client_secret']->getString(),
+            ],
+        ]);
+        return $this->sendResponse();
+    }
+
     protected function minimumWait($start_time = null, $min_seconds = 1.0) {
         if ($start_time === null) {
             return microtime(true);

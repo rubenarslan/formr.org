@@ -133,17 +133,26 @@ class AdminAdvancedController extends AdminController {
             if (!$client) {
                 $content = array('success' => false, 'message' => 'Unable to create client');
             } else {
-                $client['user'] = $user->email;
-                $content = array('success' => true, 'data' => $client);
+                // Only moment the plaintext secret is knowable; storage holds a hash.
+                $content = array('success' => true, 'data' => array(
+                    'user' => $user->email,
+                    'client_id' => $client['client_id'],
+                    'client_secret' => $client['client_secret']->getString(),
+                    'secret_issued' => true,
+                ));
             }
         } elseif ($action === 'get') {
             $client = OAuthHelper::getInstance()->getClient($user);
             if (!$client) {
-                $content = array('success' => true, 'data' => array('client_id' => '', 'client_secret' => '', 'user' => $user->email));
+                $content = array('success' => true, 'data' => array(
+                    'user' => $user->email, 'client_id' => '', 'secret_issued' => false,
+                ));
             } else {
-                $client['user'] = $user->email;
-                $client['client_secret'] = "hidden";
-                $content = array('success' => true, 'data' => $client);
+                $content = array('success' => true, 'data' => array(
+                    'user' => $user->email,
+                    'client_id' => $client['client_id'],
+                    'secret_issued' => false,
+                ));
             }
         } elseif ($action === 'delete') {
             if (OAuthHelper::getInstance()->deleteClient($user)) {
@@ -156,8 +165,12 @@ class AdminAdvancedController extends AdminController {
             if (!$client) {
                 $content = array('success' => false, 'message' => 'An error occured refreshing API secret.');
             } else {
-                $client['user'] = $user->email;
-                $content = array('success' => true, 'data' => $client);
+                $content = array('success' => true, 'data' => array(
+                    'user' => $user->email,
+                    'client_id' => $client['client_id'],
+                    'client_secret' => $client['client_secret']->getString(),
+                    'secret_issued' => true,
+                ));
             }
         }
 

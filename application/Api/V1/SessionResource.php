@@ -7,7 +7,7 @@ class SessionResource extends BaseResource
 
     public function handle($runName = null)
     {
-        $this->validateRun($runName);
+        $this->run = $this->getRunByName($runName);
         if (!$this->run) {
             return $this;
         }
@@ -46,12 +46,6 @@ class SessionResource extends BaseResource
         }
 
         return $this->error(404, 'Endpoint not found or method not allowed');
-    }
-
-    private function validateRun($runName)
-    {
-        $mockRequest = (object) ['run' => (object) ['name' => $runName]];
-        $this->run = $this->getRunFromRequest($mockRequest);
     }
 
     private function listSessions()
@@ -313,7 +307,7 @@ class SessionResource extends BaseResource
                 return $this->error(400, 'Could not advance session. The current unit might not support manual ending.');
             
             default:
-                return $this->error(400, "Invalid action: '$action'. Supported: end_external, toggle_testing, move_to_position");
+                return $this->error(400, "Invalid action: '$action'. Supported: end_external, toggle_testing, move_to_position, execute, advance");
         }
     }
 }

@@ -65,7 +65,7 @@ class SurveyResource extends BaseResource
 
     private function createOrUpdateSurvey()
     {
-        $this->checkScope('run:write');
+        $this->checkScope('survey:write');
 
         $file = null;
         // Check for Google Sheet URL in POST request
@@ -191,19 +191,37 @@ class SurveyResource extends BaseResource
         return $this->error(500, 'Failed to delete survey');
     }
 
+    /**
+     * Fields a client may set via PATCH /v1/surveys/{name}.
+     * Whitelist only — never include id, user_id, name, results_table,
+     * original_file, google_file_id, created, modified, valid.
+     */
+    private static $updatableFields = [
+        'maximum_number_displayed',
+        'displayed_percentage_maximum',
+        'add_percentage_points',
+        'expire_after',
+        'expire_invitation_after',
+        'expire_invitation_grace',
+        'enable_instant_validation',
+        'unlinked',
+        'hide_results',
+        'use_paging',
+    ];
+
     private function updateSurvey($study)
     {
         $this->checkScope('survey:write');
-        $updates = $this->getJsonBody();
+        $payload = $this->getJsonBody();
 
-        if (empty($updates)) {
+        if (empty($payload)) {
             return $this->error(400, 'No updates provided');
         }
 
         try {
             // 1. Handle Google Sheet Sync (Side Effect of updating the sheet URL)
-            if (isset($updates['google_sheet'])) {
-                $googleSheetUrl = $updates['google_sheet'];
+            if (isset($payload['google_sheet'])) {
+                $googleSheetUrl = $payload['google_sheet'];
 
                 // Use shared helper to validate and download
                 $file = $this->fetchAndValidateGoogleSheet($googleSheetUrl);
@@ -224,13 +242,13 @@ class SurveyResource extends BaseResource
                 if (!$success) {
                     throw new Exception("Failed to sync items from Google Sheet: " . implode("; ", $study->errors));
                 }
-
-                // Remove from updates array so we don't try to save it as a raw property again 
-                // (assuming 'google_sheet' isn't a direct DB column)
-                unset($updates['google_sheet']);
             }
 
-            // 2. Apply Standard Metadata Updates (e.g. name, settings)
+            // 2. Apply settings updates from a strict whitelist. Anything else is
+            // dropped silently — this prevents mass-assignment of user_id,
+            // results_table (used as a SQL identifier in UnitSession), id, etc.
+            $updates = array_intersect_key($payload, array_flip(self::$updatableFields));
+
             if (!empty($updates)) {
                 $study->update($updates);
             }

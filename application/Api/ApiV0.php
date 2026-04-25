@@ -1,6 +1,6 @@
 <?php
 
-class ApiHelper extends ApiBase {
+class ApiV0 extends ApiBase {
 
 
     public function results() {

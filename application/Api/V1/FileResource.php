@@ -7,7 +7,7 @@ class FileResource extends BaseResource
 
     public function handle($runName = null)
     {
-        $this->validateRun($runName);
+        $this->run = $this->getRunByName($runName);
         if (!$this->run) {
             return $this;
         }
@@ -28,12 +28,6 @@ class FileResource extends BaseResource
         }
 
         return $this->error(405, 'Method not allowed');
-    }
-
-    private function validateRun($runName)
-    {
-        $mockRequest = (object) ['run' => (object) ['name' => $runName]];
-        $this->run = $this->getRunFromRequest($mockRequest);
     }
 
     private function listFiles()

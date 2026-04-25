@@ -139,7 +139,7 @@ abstract class ApiBase
      * @param int $code HTTP Status Code
      * @param string $msg Status Message
      * @param array $data Response body
-     * @return ApiHelperV1
+     * @return ApiBase
      */
     protected function response($code, $msg, $data = [])
     {
@@ -149,9 +149,10 @@ abstract class ApiBase
 
     protected function error($code, $msg)
     {
+        // The HTTP status already carries the code; the body only needs the
+        // human-readable message. Keeps success and error bodies consistent.
         $this->setData($code, $this->getStatusText($code), [
-            'code' => $code,
-            'message' => $msg
+            'message' => $msg,
         ]);
         return $this;
     }
@@ -217,17 +218,28 @@ abstract class ApiBase
      */
     protected function getRunFromRequest($request)
     {
-        if (empty($request->run->name)) {
-            $this->setData(Response::STATUS_BAD_REQUEST, 'Bad Request', null, 'Required "run : { name: }" parameter not found');
+        $name = isset($request->run->name) ? $request->run->name : null;
+        return $this->getRunByName($name);
+    }
+
+    /**
+     * Load and authorize a Run by its name.
+     * Sets structured error state on the response and returns false on failure.
+     */
+    protected function getRunByName($runName)
+    {
+        if (empty($runName)) {
+            $this->error(Response::STATUS_BAD_REQUEST, 'Run name is required');
             return false;
         }
 
-        $run = new Run($request->run->name);
+        $run = new Run($runName);
         if (!$run->valid || !$this->user) {
-            $this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid Run or run/user not found');
+            $this->error(Response::STATUS_NOT_FOUND, 'Run not found');
             return false;
-        } elseif (!$this->user->created($run)) {
-            $this->setData(Response::STATUS_UNAUTHORIZED, 'Unauthorized', null, 'Unauthorized access to run');
+        }
+        if (!$this->user->created($run)) {
+            $this->error(Response::STATUS_FORBIDDEN, 'You do not have access to this run');
             return false;
         }
 

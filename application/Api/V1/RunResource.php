@@ -77,8 +77,7 @@ class RunResource extends BaseResource
             return $this->createRun($runName);
         }
 
-        $mockRequest = (object) ['run' => (object) ['name' => $runName]];
-        $run = $this->getRunFromRequest($mockRequest);
+        $run = $this->getRunByName($runName);
 
         if (!$run) {
             return $this;
