@@ -14,7 +14,7 @@ Phases 0–5 are code-complete on-branch (with gaps noted below). Phases 6 (docs
 |---|---|---|
 | 0 — Plumbing | ✅ done | `Form` RunUnit, `rendering_mode` column, `form_v2_enabled` flag |
 | 1 — Single-page AJAX form | ✅ done | FormRenderer, Alpine, BS5, form-page-submit |
-| 2 — Item-type coverage | ✅ mostly | audio/video render + warn; still need in-browser capture smoke |
+| 2 — Item-type coverage | ✅ done bar A/V smoke | PWA items wired vanilla; only audio/video need in-browser capture smoke |
 | 3 — Client-side showif + r(...) opt-in | ✅ done | Alpine-driven; compat scanner; dedicated `showif_js` column and hardened parser deferred |
 | 4 — Deferred fill for `value` | ✅ done for `value` | embedded Rmd still OpenCPU-knit at render |
 | 5 — Offline queue | ✅ done bar iOS | page-JS intercept + SW interception + Background Sync + `offline_mode` flag + file-blob queue (10 MB cap). iOS Safari pass still open |
@@ -287,6 +287,9 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] File uploads (multipart branch on Content-Type; `$_FILES['files'][name]` namespace)
 - [x] Button groups (`.js_hidden` re-asserted in form.scss; `initButtonGroups` click wiring; `invalid` event → `.fmr-btn-feedback`)
 - [x] Submit item handling (v2 hides `type='submit'` items — client provides its own nav)
+- [x] AddToHomeScreen / PushNotification: vanilla port in `webroot/assets/form/js/main.js` capturing `beforeinstallprompt`, calling `pushManager.subscribe` against `window.vapidPublicKey`, POSTing to `/{run}/ajax_save_push_subscription`. iOS-Safari guidance shown inline (no programmatic install API there). Hidden-input values match the server-side `validateInput` allowlists (`added`/`already_added`/`not_added`/`not_prompted`/`ios_not_prompted` for AddToHomeScreen; subscription JSON for required PushNotification, `not_supported`/`permission_denied` for optional)
+- [x] RequestCookie / RequestPhone: vanilla wiring (cookie poll + mobile UA detect + status-message updates)
+- [x] PWA manifest + apple-touch-icon + mobile-web-app-capable metas + vapid-key injection in `templates/run/form_index.php` (mirrors `templates/public/head.php`'s logic so v2 forms with configured PWA assets light up the same way as v1)
 - [ ] Audio, video — inherit from File_Item; need `getUserMedia` + multipart round-trip smoke
 - [ ] Date/time/datetime-local/month/week cross-browser smoke
 
@@ -368,30 +371,36 @@ Nothing here is still open; these are the frozen decisions.
 ## 8. Remaining work (prioritized)
 
 **P0 — blockers for merging `feature/form_v2` to master:**
-1. Feature-parity gate: an automated test that upgrades a representative v1 survey to v2 and diffs participant results after a scripted traversal. Needed before default flip.
-2. In-browser smoke for audio/video capture via `getUserMedia` + multipart round-trip (file uploads in general are already verified).
+1. In-browser smoke for audio/video capture via `getUserMedia` + multipart round-trip (file uploads in general are already verified).
 
 **P1 — before calling form_v2 GA:**
-1. iOS Safari compatibility pass for offline queue (Background Sync is unavailable there, but the page-side `online` path still drains — needs a real-device pass).
-2. Full PWA item wiring for v2: AddToHomeScreen + PushNotification still rely on `PWAInstaller.js` (jQuery-based); RequestCookie + RequestPhone have a minimal vanilla port in the form bundle. Until the full port lands, the four items still render but fall into the unverified-types notice.
+1. iOS Safari compatibility pass for offline queue + PWA items (Background Sync is unavailable there, but the page-side `online` path still drains; the install + push items show iOS-specific guidance and need real-device verification).
 
 **P2 — post-GA polish:**
 1. Bundle module split: `webroot/assets/form/js/main.js` is ~1400 lines. Split into `alpine-init`, `showif-runtime`, `page-submit`, `offline-queue`, `r-call`, `deferred-fill`, `validation/*`, `items/*`.
-2. Dedicated `showif_js` column on `survey_items` + proper parser (Esprima or hand-rolled) to replace the regex transpile.
+2. Dedicated `showif_js` column on `survey_items` + import-time `new Function()` parse-check (no full parser; see §9 Deferred for the failure-UI design with CodePen + rdrr.io embeds).
 3. Embedded Rmd in labels / page_body routed through `r(...) + /form-fill` (currently still OpenCPU-knit at render; cache softens the cost but the source still ships to the client).
 4. File-blob queueing: raise the 10 MB cap via admin config, OR add chunked uploads if researchers routinely collect larger audio/video blobs.
 
 **P2 — cleanup and future hardening:**
 1. Bundle module split: `webroot/assets/form/js/main.js` is 982 lines. Split into `alpine-init`, `showif-runtime`, `page-submit`, `offline-queue`, `r-call`, `deferred-fill`, `validation/*`, `items/*`.
 2. Dedicated `showif_js` column on `survey_items` + proper parser (Esprima or hand-rolled) to replace the regex transpile.
-3. `survey_r_call_results` cache table with TTL.
+3. `r_call_results` cache table with TTL.
 4. File-blob queueing with default 10MB cap.
 5. Embedded Rmd in labels / page_body routed through r(...)+fill (currently OpenCPU-knit at render).
-6. Admin UI for the compat scanner (shell script exists; admin wrapper doesn't).
 
 ---
 
-## 9. Appendix: references
+## 9. Deferred:
+1. Admin UI for the compat scanner (shell script exists; admin wrapper doesn't).
+2. **Showif/value transpile-failure UI with embed playgrounds.** Skip a real parser (Esprima or hand-rolled) — sandboxing isn't a security property here since an admin can already inline arbitrary JS via item labels. Detect failures with a plain `try { new Function('"use strict";' + jsExpr); } catch (e) { /* SyntaxError */ }` at import time, store the result on the (deferred) `survey_items.showif_js` column, and let `FormV2CompatScanner` surface flagged rows in the admin compat-scan UI with the source, the transpile output, and the error.
+   - For each flagged row, offer two embedded playgrounds the admin can use to debug in place — both use real prefill APIs, not URL params:
+     - **CodePen prefill embed** (https://blog.codepen.io/documentation/prefill-embeds/): a per-row `<div data-prefill='{...}'>…<pre data-lang="js">{transpiled JS}</pre>…</div>` plus the CodePen embed script. CodePen renders an interactive iframe with the JS already loaded, alongside a mocked `answers` object derived from the survey's other items. The admin can tweak inputs and re-run.
+     - **rdrr.io embed iframe** for R: `<iframe src='https://rdrr.io/snippets/embed/?code=<urlencoded R>'>` — same idea, but for the source-side R expression, so admins can verify what the R version evaluates to before deciding whether to wrap in `r(...)` or rewrite as JS.
+   - Add a "wrap in `r(...)` for me" button per flagged row that mutates `survey_items.showif` (or `value`) in place and re-runs the scan. The compat scanner already prints the suggested wrap; this just automates the click.
+   - Order of operations to ship this: (a) `survey_items.showif_js` column + import-time `new Function()` parse-check; (b) compat-scan UI extension to render the two embeds; (c) auto-wrap button + scanner re-run.
+
+## 10. Appendix: references
 
 **Code:**
 - `application/Model/RunUnit/Form.php` — Form unit; extends Survey; strips `study_id` before delegating to `Survey::create`; loads study via `form_study_id`.

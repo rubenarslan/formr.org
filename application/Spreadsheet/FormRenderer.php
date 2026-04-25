@@ -134,22 +134,15 @@ class FormRenderer extends SpreadsheetRenderer {
     }
 
     /**
-     * Item `type` values that have not yet been smoke-tested in form_v2 OR
-     * that rely on JS wiring the form bundle doesn't yet provide (the PWA /
-     * permission-gated button items below all need
-     * components/PWAInstaller.js and components/AudioRecorder.js, which are
-     * v1 site-bundle imports). They still render through the v1 Item
-     * pipeline, but participant interaction will be incomplete. See
-     * plan_form_v2.md §8 P0 / P1 for the remaining wiring work.
+     * Item `type` values whose v2 wiring is incomplete. As of the SW +
+     * PWA-port pass, only audio/video remain — both inherit from File_Item
+     * and submit through the multipart path in principle, but the
+     * getUserMedia capture UX hasn't been smoke-tested cross-browser. The
+     * banner in renderUnverifiedTypesNotice prompts admins to verify the
+     * capture before relying on it in a live study. See plan_form_v2.md §8
+     * P0 for the remaining smoke work.
      */
-    protected static $unverifiedTypes = [
-        'audio', 'video',
-        'add_to_home_screen', 'push_notification',
-        // request_cookie and request_phone have a minimal vanilla port in
-        // webroot/assets/form/js/main.js; enough for the happy path on both
-        // mobile and desktop. Full QR-code / browser-switch UX still lives
-        // in PWAInstaller.js and is not yet routed through the v2 bundle.
-    ];
+    protected static $unverifiedTypes = ['audio', 'video'];
 
     public function render($form_action = null, $form_append = null) {
         // Emit data-showif on every item with a showif expression, so the client

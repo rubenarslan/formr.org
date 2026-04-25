@@ -656,6 +656,217 @@ function initForm() {
         } catch (e) { /* Background Sync not supported; page-side drain is the fallback. */ }
     };
 
+    // --- PWA: AddToHomeScreen item ---
+    // Capture the browser's deferred install prompt as soon as it fires (even
+    // before the participant lands on the page that hosts the button) so we
+    // can re-fire it on the participant's user-gesture click. Standalone
+    // detection short-circuits — if the page is already running from the
+    // home screen, the install step is a no-op and we mark the input answered.
+    let deferredInstallPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+    });
+    window.addEventListener('appinstalled', () => {
+        deferredInstallPrompt = null;
+        root.querySelectorAll('.add-to-homescreen-wrapper').forEach(markInstalled);
+    });
+
+    const isStandaloneDisplayMode = () =>
+        window.matchMedia('(display-mode: standalone)').matches
+        || window.matchMedia('(display-mode: fullscreen)').matches
+        || window.navigator.standalone === true;
+    const isIOSDevice = () => /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    // Hidden-input values must match AddToHomeScreen_Item::validateInput's
+    // allowlist: 'added', 'ios_not_prompted', 'not_requested', 'not_prompted',
+    // 'already_added', 'no_support', 'not_added'.
+    const markAddedToHomeScreen = (wrapper, value) => {
+        const hidden = wrapper.querySelector('input');
+        const status = wrapper.querySelector('.status-message');
+        const btn = wrapper.querySelector('.add-to-homescreen, button.add-to-homescreen');
+        if (hidden) { hidden.value = value; hidden.setCustomValidity(''); }
+        if (status) status.textContent = 'You are using the installed app.';
+        if (btn) {
+            btn.disabled = true;
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-success');
+            btn.innerHTML = '<i class="fa fa-check"></i> Installed';
+        }
+        wrapper.closest('.form-group')?.classList.add('formr_answered');
+    };
+
+    const showIosInstallHint = (wrapper) => {
+        const status = wrapper.querySelector('.status-message');
+        if (status) {
+            status.innerHTML = 'On iPhone/iPad: tap <i class="fa fa-share"></i> Share, then "Add to Home Screen". Once installed, reopen this study from your home screen.';
+        }
+        const hidden = wrapper.querySelector('input');
+        if (hidden && !['added', 'already_added'].includes(hidden.value)) {
+            hidden.value = 'ios_not_prompted';
+        }
+    };
+
+    root.querySelectorAll('.add-to-homescreen-wrapper, .form-group.item-add_to_home_screen').forEach((wrapper) => {
+        if (isStandaloneDisplayMode()) {
+            markAddedToHomeScreen(wrapper, 'already_added');
+            return;
+        }
+        const required = wrapper.closest('.form-group')?.classList.contains('required');
+        const hidden = wrapper.querySelector('input');
+        if (required && hidden && !['added', 'already_added'].includes(hidden.value)) {
+            hidden.setCustomValidity('Please add this study to your home screen to continue.');
+        }
+        const btn = wrapper.querySelector('button.add-to-homescreen, .add-to-homescreen');
+        if (!btn) return;
+        if (isIOSDevice()) {
+            showIosInstallHint(wrapper);
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                showIosInstallHint(wrapper);
+            });
+            return;
+        }
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            if (!deferredInstallPrompt) {
+                const status = wrapper.querySelector('.status-message');
+                if (status) status.textContent = 'Your browser hasn\'t offered an install prompt. Try a supported browser (Chrome on Android, Edge on desktop, Safari on iOS).';
+                if (hidden) hidden.value = 'not_prompted';
+                return;
+            }
+            try {
+                await deferredInstallPrompt.prompt();
+                const { outcome } = await deferredInstallPrompt.userChoice;
+                deferredInstallPrompt = null;
+                if (outcome === 'accepted') {
+                    markAddedToHomeScreen(wrapper, 'added');
+                } else {
+                    if (hidden) hidden.value = 'not_added';
+                    const status = wrapper.querySelector('.status-message');
+                    if (status) status.textContent = 'Install dismissed. You can add the app to your home screen at any time.';
+                    if (!required) wrapper.closest('.form-group')?.classList.add('formr_answered');
+                }
+            } catch (err) {
+                console.error('install prompt failed', err);
+                if (hidden) hidden.value = 'not_prompted';
+            }
+        });
+    });
+
+    // --- PWA: PushNotification item ---
+    // Subscribe via the SW's pushManager + window.vapidPublicKey, then POST
+    // the subscription JSON to /{run}/ajax_save_push_subscription. Hidden
+    // input tracks state across reloads. On iOS this only works inside the
+    // installed PWA (Safari 16.4+); we surface a helpful error message
+    // when subscribing fails for that reason.
+    const urlBase64ToUint8Array = (base64String) => {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const raw = atob(base64);
+        const arr = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+        return arr;
+    };
+
+    const savePushSubscriptionToServer = async (subscription) => {
+        if (!runUrl) return false;
+        const fd = new FormData();
+        fd.append('subscription', JSON.stringify(subscription));
+        try {
+            const res = await fetch(runUrl + 'ajax_save_push_subscription', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                body: fd,
+            });
+            const body = await res.json().catch(() => null);
+            return !!(body && body.success);
+        } catch (e) {
+            console.error('save push subscription failed', e);
+            return false;
+        }
+    };
+
+    // PushNotification_Item::validateInput accepts: 'not_requested',
+    // 'not_supported', 'permission_denied' (only when item is optional), or
+    // a valid subscription JSON (endpoint + keys.p256dh + keys.auth) for
+    // required items. We write the full subscription JSON on success so the
+    // server-side store has it, mirroring v1 behaviour.
+    const markPushSubscribed = (wrapper, subscription) => {
+        const hidden = wrapper.querySelector('input');
+        const status = wrapper.querySelector('.status-message');
+        const btn = wrapper.querySelector('button.push-notification-permission, .push-notification-permission:not(input)');
+        if (hidden) {
+            hidden.value = JSON.stringify(subscription);
+            hidden.setCustomValidity('');
+        }
+        if (status) status.textContent = 'Push notifications are enabled.';
+        if (btn) {
+            btn.disabled = true;
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-success');
+            btn.innerHTML = '<i class="fa fa-check"></i> Enabled';
+        }
+        wrapper.closest('.form-group')?.classList.add('formr_answered');
+    };
+
+    root.querySelectorAll('.push-notification-wrapper, .form-group.item-push_notification').forEach((wrapper) => {
+        // The hidden input shares class `push-notification-permission` with
+        // the visible <button> (server quirk); pick the input by tag/type.
+        const hidden = wrapper.querySelector('input[type="text"]');
+        const status = wrapper.querySelector('.status-message');
+        const btn = wrapper.querySelector('button.push-notification-permission');
+        const required = wrapper.closest('.form-group')?.classList.contains('required');
+        if (required && hidden && hidden.value === 'not_requested') {
+            hidden.setCustomValidity('Please allow push notifications to continue.');
+        }
+        if (!('Notification' in window) || !('serviceWorker' in navigator) || !window.vapidPublicKey) {
+            if (status) {
+                status.textContent = !window.vapidPublicKey
+                    ? 'Push notifications are not configured for this study.'
+                    : 'Your browser does not support push notifications. On iPhone/iPad, install this study to your home screen first (iOS 16.4+).';
+            }
+            if (hidden) hidden.value = 'not_supported';
+            return;
+        }
+        // Already subscribed? short-circuit.
+        navigator.serviceWorker.ready.then((reg) => reg.pushManager.getSubscription()).then((sub) => {
+            if (sub) markPushSubscribed(wrapper, sub);
+        }).catch(() => {});
+        if (!btn) return;
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    if (hidden) hidden.value = 'permission_denied';
+                    if (status) status.textContent = 'Notification permission was denied. You can change this in your browser settings.';
+                    return;
+                }
+                const reg = await navigator.serviceWorker.ready;
+                const existing = await reg.pushManager.getSubscription();
+                const sub = existing || await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(window.vapidPublicKey),
+                });
+                const saved = await savePushSubscriptionToServer(sub);
+                if (saved) {
+                    markPushSubscribed(wrapper, sub);
+                } else if (status) {
+                    status.textContent = 'Subscription created locally but could not be saved on the server. Please retry.';
+                }
+            } catch (err) {
+                console.error('push subscription failed', err);
+                if (status) {
+                    status.textContent = isIOSDevice() && !isStandaloneDisplayMode()
+                        ? 'On iPhone/iPad, push notifications only work after you install this study to your home screen and reopen it from there (iOS 16.4+).'
+                        : 'Could not subscribe to push notifications. Please try again or check your browser settings.';
+                }
+            }
+        });
+    });
+
     root.querySelectorAll('[data-fmr-next]').forEach((btn) => {
         btn.addEventListener('click', (e) => { e.preventDefault(); submitPage(); });
     });

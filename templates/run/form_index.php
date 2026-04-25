@@ -6,9 +6,49 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="description" content="<?php echo htmlspecialchars($meta['description']); ?>">
-        <link rel="icon" href="<?php echo site_url('favicon.ico'); ?>">
+        <?php
+        // PWA wiring (form_v2): manifest link + Apple icons + standalone
+        // metas, mirroring templates/public/head.php so v2 forms with
+        // configured PWA assets behave the same way as v1.
+        $pwaIconBaseUrl = null;
+        if ($run instanceof Run) {
+            $iconPathVal = $run->getPwaIconPath();
+            if ($iconPathVal) {
+                $iconRoot = APPLICATION_ROOT . 'webroot/' . $iconPathVal;
+                if (is_dir($iconRoot)) {
+                    $pwaIconBaseUrl = asset_url(trim($iconPathVal, '/') . '/', false);
+                }
+            }
+        }
+        $hasManifest = ($run instanceof Run) && $run->getManifestJSONPath();
+        $faviconUrl = ($pwaIconBaseUrl && file_exists($iconRoot . 'favicon.png'))
+            ? $pwaIconBaseUrl . 'favicon.png'
+            : site_url('favicon.ico');
+        $vapidPublicKey = ($run instanceof Run) ? $run->getVapidPublicKey() : null;
+        ?>
+        <link rel="icon" href="<?php echo $faviconUrl; ?>">
+        <?php if ($hasManifest): ?>
+            <link rel="manifest" href="<?php echo run_url($run->name) . 'manifest'; ?>">
+            <?php if ($pwaIconBaseUrl): ?>
+                <link rel="apple-touch-icon" href="<?php echo $pwaIconBaseUrl . 'apple-touch-icon.png'; ?>">
+                <link rel="apple-touch-icon" sizes="152x152" href="<?php echo $pwaIconBaseUrl . 'apple-touch-icon-152x152.png'; ?>">
+                <link rel="apple-touch-icon" sizes="167x167" href="<?php echo $pwaIconBaseUrl . 'apple-touch-icon-167x167.png'; ?>">
+                <link rel="apple-touch-icon" sizes="192x192" href="<?php echo $pwaIconBaseUrl . 'apple-touch-icon-192x192.png'; ?>">
+            <?php endif; ?>
+            <meta name="mobile-web-app-capable" content="yes">
+            <meta name="apple-mobile-web-app-capable" content="yes">
+            <meta name="application-name" content="<?php echo h($run->name); ?>">
+            <meta name="apple-mobile-web-app-title" content="<?php echo h($run->title ?: $run->name); ?>">
+            <meta name="theme-color" content="#2196F3">
+            <meta name="msapplication-navbutton-color" content="#2196F3">
+            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+            <meta name="msapplication-starturl" content="<?php echo run_url($run->name); ?>">
+        <?php endif; ?>
         <script>
             window.formr = <?php echo !empty($jsConfig) ? json_encode($jsConfig) : '{}'; ?>;
+            <?php if ($vapidPublicKey): ?>
+            window.vapidPublicKey = <?php echo json_encode($vapidPublicKey); ?>;
+            <?php endif; ?>
         </script>
     </head>
 
