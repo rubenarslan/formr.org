@@ -52,3 +52,7 @@ feature_diff.patch
 #   .claude/agent-memory/      — local cache (ignored)
 .claude/settings.local.json
 .claude/agent-memory/
+
+playwright-report/
+test-results/
+

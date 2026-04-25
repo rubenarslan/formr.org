@@ -14,7 +14,9 @@
         "build": "npm run build:copy && npm run build:css && npm run build:js",
         "webpack:build": "node --max-old-space-size=1024 node_modules/.bin/webpack --mode production --parallelism=1",
         "webpack:watch": "webpack --watch --env WEBPACK_WATCH=true",
-        "webpack:start": "webpack serve"
+        "webpack:start": "webpack serve",
+        "test:e2e": "playwright test --config tests/e2e/playwright.config.js --project=local-chromium",
+        "test:bs": "playwright test --config tests/e2e/playwright.config.js --project=bs-iphone-15 --project=bs-pixel-8"
     },
     "devDependencies": {
         "@babel/plugin-syntax-dynamic-import": "^7.8.3",
@@ -31,6 +33,7 @@
         "css-loader": "^7.1.2",
         "csslint": "^1.0.5",
         "cssnano": "^6.1.2",
+        "dotenv": "^17.4.2",
         "eslint": "^7.32.0",
         "eslint-plugin-jquery": "^1.5.1",
         "expose-loader": "^5.0.1",
