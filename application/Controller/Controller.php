@@ -206,7 +206,14 @@ abstract class Controller {
         if ($cookieconsent && ($decoded = json_decode($cookieconsent, true))) {
             $config['cookieconsent'] = $decoded;
         }
-        
+        // form_v2 offline-queue blob cap. Hardcoded to 10MB in the bundle
+        // until now; expose via instance config so deployments running
+        // long-form audio/video can raise it. Per-study override is a
+        // future enhancement (would mean a column on survey_studies).
+        $config['form_v2'] = array(
+            'offline_blob_max_mb' => (int) Config::get('form_v2_offline_blob_max_mb', 10),
+        );
+
         return $config;
     }
 

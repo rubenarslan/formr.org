@@ -479,7 +479,12 @@ function initForm() {
         // single file exceeds QUEUE_FILE_SIZE_CAP (default 10 MB) — storing
         // large Blobs in IDB can blow out the browser's per-origin quota and
         // leave the queue in an undrainable state.
-        const QUEUE_FILE_SIZE_CAP = 10 * 1024 * 1024;
+        // Per-instance config (window.formr.form_v2.offline_blob_max_mb,
+        // populated by Controller::getJsConfig from
+        // $settings['form_v2_offline_blob_max_mb']). Default 10MB. Admins
+        // can raise via config/settings.php for long-form audio/video.
+        const QUEUE_FILE_SIZE_CAP_MB = (window.formr?.form_v2?.offline_blob_max_mb) || 10;
+        const QUEUE_FILE_SIZE_CAP = QUEUE_FILE_SIZE_CAP_MB * 1024 * 1024;
         if (isTransientFailure(netErr, res)) {
             const oversizedFile = useMultipart
                 ? fileInputs.find((inp) => inp.files[0] && inp.files[0].size > QUEUE_FILE_SIZE_CAP)
@@ -487,7 +492,7 @@ function initForm() {
             if (!syncUrl || oversizedFile) {
                 console.error('page-submit offline (offline queue disabled or file too large)', netErr || (res && res.status));
                 const msg = oversizedFile
-                    ? `Submission too large to queue offline (${(oversizedFile.files[0].size / 1024 / 1024).toFixed(1)} MB, limit 10 MB). Please retry when you're back online.`
+                    ? `Submission too large to queue offline (${(oversizedFile.files[0].size / 1024 / 1024).toFixed(1)} MB, limit ${QUEUE_FILE_SIZE_CAP_MB} MB). Please retry when you're back online.`
                     : 'Your submission could not be sent. Please check your connection and try again.';
                 window.alert(msg);
                 return;

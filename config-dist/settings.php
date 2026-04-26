@@ -276,6 +276,13 @@ $settings['disabled_features'] = array(
 // affordance in the admin run editor is gated by it.
 $settings['form_v2_enabled'] = false;
 
+// form_v2 offline-queue per-file blob cap (megabytes). Pages with file
+// uploads above this size are NOT queued offline — the participant gets a
+// "submission too large to queue offline" error and is asked to retry once
+// online. Default 10MB matches what the bundle hardcoded historically.
+// Raise for studies that routinely collect long-form audio/video.
+$settings['form_v2_offline_blob_max_mb'] = 10;
+
 // Brand
 $settings['brand'] = '<span>f</span>orm<span>{`r}</span>';
 $settings['brand_long'] = '<b>formr</b> survey framework';
