@@ -1,0 +1,21 @@
+-- Patch 053: cache the v1-transpiled JS for `showif` next to its source.
+--
+-- form_v2's Alpine `x-showif` directive evaluates a JS expression generated
+-- by Item::setMoreOptions() from the spreadsheet's `showif` column via a
+-- regex-based R→JS transpile. Today that transpile re-runs on every
+-- request; the result is non-trivial regex work, identical for the same
+-- input, and impossible to surface as a parse error in admin tooling
+-- because nothing persists.
+--
+-- This patch adds a `showif_js` column populated at item-import time. v2's
+-- FormV2CompatScanner reads it back to classify items, and the admin
+-- compat-scan UI runs a client-side `new Function('"use strict";' + jsExpr)`
+-- to catch SyntaxErrors that the regex transpile produced — see
+-- plan_form_v2.md §9 for the full failure-UI design with CodePen + rdrr.io
+-- embeds.
+--
+-- Backwards compat: column nullable. Existing items without the column
+-- populated continue to work — Item.php still re-transpiles at request
+-- time when `js_showif` isn't pre-supplied.
+ALTER TABLE `survey_items`
+  ADD COLUMN `showif_js` TEXT DEFAULT NULL AFTER `showif`;

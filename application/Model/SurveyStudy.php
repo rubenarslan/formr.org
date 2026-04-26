@@ -472,11 +472,18 @@ class SurveyStudy extends Model {
             // study_id is not among the user_defined columns
         ];
 
-        // Prepare SQL statement for adding items
-        $UPDATES = implode(', ', get_duplicate_update_string($definedColumns));
+        // Prepare SQL statement for adding items.
+        //
+        // `showif_js` (patch 053) caches the v1 regex transpile of `showif`
+        // so per-request renders skip the work and admin tooling can reason
+        // about the produced JS (compat scanner, future hardened parser).
+        // The Item property holding the transpile is `js_showif` (legacy
+        // name); the column is `showif_js`. Bound separately below the
+        // generic loop because the property/column names differ.
+        $UPDATES = implode(', ', get_duplicate_update_string(array_merge($definedColumns, ['showif_js'])));
         $addStmt = $this->db->prepare(
-            "INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `block_order`,`item_order`, `order`) 
-			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :value, :block_order, :item_order, :order) 
+            "INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, showif_js, value, `block_order`,`item_order`, `order`)
+			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :showif_js, :value, :block_order, :item_order, :order)
 			ON DUPLICATE KEY UPDATE $UPDATES");
         $addStmt->bindParam(":study_id", $this->id);
 
@@ -520,6 +527,8 @@ class SurveyStudy extends Model {
             foreach ($definedColumns as $param) {
                 $addStmt->bindValue(":$param", $item->$param);
             }
+            // js_showif → showif_js column (see addItems comment block).
+            $addStmt->bindValue(":showif_js", $item->js_showif);
 
             $result_field = $item->getResultField();
             $ret['new_items'][$item->name] = $result_field;
@@ -653,7 +662,9 @@ class SurveyStudy extends Model {
 
     public function getItems($columns = null, $whereIn = null) {
         if ($columns === null) {
-            $columns = "id, study_id, type, choice_list, type_options, name, label, label_parsed, optional, class, showif, value, block_order,item_order";
+            // showif_js (patch 053) is the cached transpile of `showif`. Item.php
+            // uses it to skip per-request regex work when populated.
+            $columns = "id, study_id, type, choice_list, type_options, name, label, label_parsed, optional, class, showif, showif_js, value, block_order,item_order";
         }
 
         $select = $this->db->select($columns);
