@@ -34,31 +34,66 @@ async function assertHeadWiring(page, { runPath, expectVapid = false } = {}) {
     }
 }
 
-// Wait until the SW reaches 'activated' (not just 'activating'). On real
-// Android we've seen the controller resolve `ready` while the active worker
-// is still mid-install, so polling is necessary. Returns the final state
-// (which may still be 'activating' or null if it never readied).
-async function swActivated(page, { timeout = 12000, pollInterval = 250 } = {}) {
-    return page.evaluate(async ({ timeout, pollInterval }) => {
-        const deadline = Date.now() + timeout;
+// Wait until the SW reaches 'activated'. Polls TEST-side (one page.evaluate
+// per tick) rather than in-page because iOS Safari real-device's setTimeout
+// inside page.evaluate misbehaves under BS automation — promises sometimes
+// settle as null long before the SW is actually ready. Test-side polling
+// uses Playwright's timing, which works on both Pixel and iPhone.
+async function swActivated(page, { timeout = 30000, pollInterval = 1000 } = {}) {
+    const deadline = Date.now() + timeout;
+    let lastState = null;
+    while (Date.now() < deadline) {
         try {
-            const reg = await Promise.race([
-                navigator.serviceWorker.ready,
-                new Promise((_, rej) => setTimeout(() => rej(new Error('sw ready timeout')), timeout)),
-            ]);
-            // reg.active may still be 'installing'/'activating' after .ready resolves.
-            while (Date.now() < deadline) {
-                const state = reg && reg.active ? reg.active.state : null;
-                if (state === 'activated' || state === 'redundant') return state;
-                await new Promise((r) => setTimeout(r, pollInterval));
-            }
-            return reg && reg.active ? reg.active.state : null;
-        } catch (e) { return null; }
-    }, { timeout, pollInterval });
+            const state = await page.evaluate(async () => {
+                if (!('serviceWorker' in navigator)) return 'no-sw';
+                // Don't await `ready` — if the SW is still installing it
+                // won't resolve and we'd block past the per-tick budget.
+                // Instead read getRegistration's active state directly.
+                const reg = await navigator.serviceWorker.getRegistration();
+                if (!reg) return 'no-registration';
+                if (reg.active) return reg.active.state;
+                if (reg.waiting) return 'waiting';
+                if (reg.installing) return reg.installing.state;
+                return null;
+            });
+            lastState = state;
+            if (state === 'activated' || state === 'redundant') return state;
+        } catch {
+            // Page closing / nav in flight — keep trying until deadline.
+        }
+        await page.waitForTimeout(pollInterval);
+    }
+    return lastState;
+}
+
+// Diagnostic for "why did swActivated return null?". Returns a small object
+// describing the SW lifecycle on the page — number of registrations,
+// scriptURL, controller state, latest registration's installing/waiting/
+// active states. Use in tests to surface "SW didn't register" vs "SW
+// registered but didn't activate" vs "SW active but state never
+// transitioned" rather than a generic null.
+async function swDiagnostics(page) {
+    return page.evaluate(async () => {
+        try {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            const controller = navigator.serviceWorker.controller;
+            return {
+                supports: !!navigator.serviceWorker,
+                controller: controller ? { scriptURL: controller.scriptURL, state: controller.state } : null,
+                registrations: regs.map((r) => ({
+                    scope: r.scope,
+                    installingState: r.installing?.state || null,
+                    waitingState: r.waiting?.state || null,
+                    activeState: r.active?.state || null,
+                    activeScriptURL: r.active?.scriptURL || null,
+                })),
+            };
+        } catch (e) { return { error: String(e && e.message || e) }; }
+    });
 }
 
 async function cacheKeys(page) {
     return page.evaluate(async () => ('caches' in self ? await caches.keys() : []));
 }
 
-module.exports = { isLocal, assertManifest, assertHeadWiring, swActivated, cacheKeys };
+module.exports = { isLocal, assertManifest, assertHeadWiring, swActivated, swDiagnostics, cacheKeys };

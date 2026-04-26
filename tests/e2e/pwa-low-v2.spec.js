@@ -49,6 +49,7 @@ test.describe('PWA low-friction v2', () => {
         test.skip(pwa.isLocal(info), 'local-chromium blocks SWs');
         await page.goto(`${baseURL}${participantPath(SUITE, VARIANT)}`, { waitUntil: 'commit', timeout: 60000 });
         const state = await pwa.swActivated(page);
+        if (state !== 'activated') console.error('SW failed; diag:', JSON.stringify(await pwa.swDiagnostics(page)));
         expect(state).toBe('activated');
     });
 
@@ -60,12 +61,15 @@ test.describe('PWA low-friction v2', () => {
             await fillAllVisible(page, page.locator('section.fmr-page:not([hidden])'));
             await context.setOffline(true);
             await page.locator(`${v2.FORM_SELECTOR} section.fmr-page:not([hidden]) [data-fmr-next]`).first().click();
-            await expect(page.locator('.fmr-offline-banner, [data-fmr-queued], .alert:has-text("queued")').first())
-                .toBeVisible({ timeout: 5000 });
+            // The banner class is `.fmr-queue-banner` (warning on enqueue,
+            // success on drain). v2's main.js#showQueueBanner is the only
+            // thing that touches it; it inserts before root.firstChild.
+            await expect(page.locator('.fmr-queue-banner').first())
+                .toBeVisible({ timeout: 8000 });
             await context.setOffline(false);
             await page.waitForResponse(
-                (resp) => /\/form-sync$/.test(new URL(resp.url()).pathname) && resp.status() === 200,
-                { timeout: 10000 },
+                (resp) => /\/form-sync\/?$/.test(new URL(resp.url()).pathname) && resp.status() === 200,
+                { timeout: 12000 },
             );
         } finally {
             await context.close();

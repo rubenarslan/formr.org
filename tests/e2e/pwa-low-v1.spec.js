@@ -43,6 +43,7 @@ test.describe('PWA low-friction v1', () => {
         test.skip(pwa.isLocal(info), 'local-chromium blocks SWs');
         await page.goto(`${baseURL}${participantPath(SUITE, VARIANT)}`, { waitUntil: 'commit', timeout: 60000 });
         const state = await pwa.swActivated(page);
+        if (state !== 'activated') console.error('SW failed; diag:', JSON.stringify(await pwa.swDiagnostics(page)));
         expect(state).toBe('activated');
     });
 });
