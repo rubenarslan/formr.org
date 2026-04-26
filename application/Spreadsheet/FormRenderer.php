@@ -98,12 +98,14 @@ class FormRenderer extends SpreadsheetRenderer {
             }
         }
 
-        // Step 3: dynamic labels. Same page-scoping. The full label text is
-        // the allowlisted expression — we don't extract partial Rmd chunks.
-        // First-page items keep label_parsed = null so the parent's
-        // processDynamicLabelsAndChoices resolves them. Later-page items get
-        // label_parsed = '' which short-circuits the parent's "needs parsing"
-        // detection; client resolves them at page transition.
+        // Step 3: dynamic labels. The full label text is the allowlisted
+        // expression — we don't extract partial Rmd chunks. ALL pages
+        // (including first) defer to /form-render-page: blank label_parsed
+        // and emit data-fmr-label-id; the client batch-resolves on page
+        // show. Costs a brief first-paint flicker on page 1 in exchange for
+        // architectural consistency + cache hits via patch 052 — admins who
+        // can't tolerate the flicker should keep dynamic content off the
+        // first page (plan_form_v2 §8 P2 trade-off).
         foreach ($items as $item) {
             if (!$item) continue;
             if (!$item->needsDynamicLabel(
@@ -118,9 +120,7 @@ class FormRenderer extends SpreadsheetRenderer {
                 $this->db, $this->study->id, 'label', $labelSrc, $item->id
             );
             $item->parent_attributes['data-fmr-label-id'] = (string) $callId;
-            if ($itemPageOf($item) !== $firstPage) {
-                $item->label_parsed = '';
-            }
+            $item->label_parsed = '';
         }
 
         // Step 4: hide submit-type items (v2 supplies its own nav).

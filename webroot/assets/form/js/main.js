@@ -1394,6 +1394,16 @@ function initForm() {
     const paramPage = Number(new URLSearchParams(window.location.search).get('page'));
     showPage(indexForPageParam(paramPage));
 
+    // Resolve any deferred labels / values on the initial page. Labels are
+    // ALWAYS deferred now (FormRenderer Step 3 — see plan_form_v2 §8). For
+    // the first page that means a brief "loading" flicker before content
+    // appears. Fire-and-forget — page is already shown; this just fills.
+    const initialPageEl = pages[currentIndex];
+    if (initialPageEl) {
+        const initialPageNum = Number(initialPageEl.dataset.fmrPage);
+        if (initialPageNum) resolveAndSubstitutePage(initialPageNum);
+    }
+
     window.addEventListener('popstate', () => {
         const p = Number(new URLSearchParams(window.location.search).get('page'));
         showPage(indexForPageParam(p));
