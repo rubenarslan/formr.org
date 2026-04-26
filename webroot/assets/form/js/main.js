@@ -1398,6 +1398,14 @@ function initForm() {
     initRequestCookie(root);
     initRequestPhone(root);
     initAdminPreview({ root, getCurrentPage: () => pages[currentIndex] });
+
+    // Test-side signal that initForm finished — every listener is attached,
+    // every item's init has run. Without this, real-device tests race the
+    // bundle: the submit handler attaches LATE in initForm so a click on
+    // [data-fmr-next] before that line does the default form-POST instead
+    // of the JSON path. waitForBundle() in tests/e2e/helpers/v2Form.js
+    // polls for window.fmrFormReady.
+    window.fmrFormReady = true;
 }
 
 // Alpine `fmrForm` component + `x-showif` directive registered at module

@@ -51,10 +51,27 @@ async function mintTestCode(browser, runName) {
 }
 
 async function freshParticipant(browser, runName, { acceptCookies = true } = {}) {
-    const url = await mintTestCode(browser, runName);
+    // Try admin-mint first — works on local-chromium and on any non-public
+    // run. Fall back to bare navigation when BS rejects the storageState
+    // option (BS Real Mobile doesn't support `browser.newContext({
+    // storageState })`) or when the admin-state isn't loaded — that's the
+    // public-run path.
+    let url;
+    try {
+        url = await mintTestCode(browser, runName);
+    } catch (e) {
+        const msg = String(e && e.message || e);
+        const bsLimitation = msg.includes('browserstack_error') || msg.includes('storageState');
+        if (!bsLimitation && !msg.includes(ADMIN_STATE)) throw e;
+        // eslint-disable-next-line no-console
+        console.warn(`mintTestCode failed (${bsLimitation ? 'BS storageState limitation' : 'no admin-state'}); falling back to bare /${runName}/ — assumes the run is publicly accessible.`);
+        url = `/${encodeURIComponent(runName)}/`;
+    }
     const context = await browser.newContext({ ignoreHTTPSErrors: true });
     const page = await context.newPage();
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    // BS iPhone Safari times out on `domcontentloaded` for the form pages;
+    // `commit` is the safer signal — page bytes have arrived, JS will run.
+    await page.goto(url, { waitUntil: 'commit', timeout: 60000 });
     if (acceptCookies) {
         await acceptCookieConsent(page);
     }

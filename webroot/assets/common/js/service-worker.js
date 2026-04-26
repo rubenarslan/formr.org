@@ -1,4 +1,4 @@
-const sw_version = 'v6';
+const sw_version = 'v7';
 const CACHE_NAME = 'formr-' + sw_version + '-' + self.location.hostname + self.location.pathname.split('/').slice(0, -1).join('-');
 
 console.log("SW loaded", CACHE_NAME);
@@ -351,6 +351,26 @@ self.addEventListener('message', (event) => {
   // server-side at SW install time.
   if (event.data && event.data.type === 'FMR_REGISTER_SYNC_URL' && typeof event.data.url === 'string') {
     fmrSyncUrl = event.data.url;
+    return;
+  }
+  // Test diagnostic: dump cache state via reply port. The page-side
+  // `caches.keys()` is partitioned away from the SW's caches under iOS
+  // Safari + automation, so the e2e cache test asks the SW directly.
+  if (event.data && event.data.type === 'FMR_DUMP_CACHES') {
+    (async () => {
+      try {
+        const keys = await caches.keys();
+        const entries = {};
+        for (const name of keys) {
+          const c = await caches.open(name);
+          const reqs = await c.keys();
+          entries[name] = reqs.length;
+        }
+        event.ports[0]?.postMessage({ keys, entries, cacheName: CACHE_NAME });
+      } catch (err) {
+        event.ports[0]?.postMessage({ error: String(err && err.message || err) });
+      }
+    })();
     return;
   }
   // Handle CACHE_ASSETS message

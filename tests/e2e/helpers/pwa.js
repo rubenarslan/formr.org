@@ -96,4 +96,60 @@ async function cacheKeys(page) {
     return page.evaluate(async () => ('caches' in self ? await caches.keys() : []));
 }
 
-module.exports = { isLocal, assertManifest, assertHeadWiring, swActivated, swDiagnostics, cacheKeys };
+// Poll for caches to populate. iOS Safari can take 15-20s on cold first-
+// install before the SW's cache.addAll() resolves — the install event
+// fires fast, but the fetch-and-store of icons + start_url is slow over
+// real-device cellular emulation.
+async function cacheKeysPoll(page, { timeout = 30000, pollInterval = 1000 } = {}) {
+    const deadline = Date.now() + timeout;
+    let last = [];
+    let iters = 0;
+    while (Date.now() < deadline) {
+        iters++;
+        try {
+            last = await cacheKeys(page);
+            if (last.length > 0) return last;
+        } catch { /* page nav in flight */ }
+        await page.waitForTimeout(pollInterval);
+    }
+    // eslint-disable-next-line no-console
+    console.error(`cacheKeysPoll: timed out after ${iters} iterations, last=${JSON.stringify(last)}`);
+    return last;
+}
+
+// Ask the SW directly for its cache state (page-side `caches.keys()` may be
+// partitioned away from the SW's caches under iOS Safari + BS automation).
+// Returns { keys: string[], entries: { [cacheName]: number } } or { error }
+// if the SW didn't respond / no controller / cache.addAll never resolved.
+//
+// Polled because: each Playwright test gets a fresh page; navigator.service
+// Worker.controller is null until the SW takes over the page (typically on
+// the second navigation, OR via clients.claim() in the SW's activate
+// handler — formr's SW does that). On a cold first navigation in a fresh
+// context, controller may stay null for several seconds.
+async function swReportedCaches(page, { timeout = 25000, pollInterval = 1000 } = {}) {
+    const deadline = Date.now() + timeout;
+    let last = null;
+    while (Date.now() < deadline) {
+        try {
+            last = await page.evaluate(async (perCallTimeout) => {
+                if (!('serviceWorker' in navigator)) return { error: 'no-sw' };
+                if (!navigator.serviceWorker.controller) return { error: 'no controller' };
+                return new Promise((resolve) => {
+                    const channel = new MessageChannel();
+                    const timer = setTimeout(() => resolve({ error: 'sw reply timeout' }), perCallTimeout);
+                    channel.port1.onmessage = (e) => { clearTimeout(timer); resolve(e.data); };
+                    navigator.serviceWorker.controller.postMessage(
+                        { type: 'FMR_DUMP_CACHES' },
+                        [channel.port2],
+                    );
+                });
+            }, 4000);
+            if (last && Array.isArray(last.keys) && last.keys.length > 0) return last;
+        } catch { /* page nav in flight */ }
+        await page.waitForTimeout(pollInterval);
+    }
+    return last;
+}
+
+module.exports = { isLocal, assertManifest, assertHeadWiring, swActivated, swDiagnostics, cacheKeys, cacheKeysPoll, swReportedCaches };

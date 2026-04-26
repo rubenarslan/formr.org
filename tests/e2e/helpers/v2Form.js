@@ -117,18 +117,19 @@ async function progressPercent(page) {
 // Wait until the form bundle has booted (Alpine bound, navigation handler
 // installed). Without this, very early submits race the bundle and the page
 // does a native form-POST instead of the JSON path.
-async function waitForBundle(page, { timeout = 10000 } = {}) {
+async function waitForBundle(page, { timeout = 15000 } = {}) {
+    // Wait for [data-fmr-next] (DOM is up) AND `window.fmrFormReady` (init
+    // ran to completion — every listener attached including the submit
+    // handler that intercepts the default form-POST). On real-device
+    // BrowserStack the submit handler attaches LATE; without the
+    // fmrFormReady wait, an early click defaults to a real form-POST
+    // and the test sees a near-blank page after the navigation.
     await page.waitForFunction(
-        () => !!document.querySelector('form.fmr-form-v2 section.fmr-page:not([hidden]) [data-fmr-next]'),
+        () => !!document.querySelector('form.fmr-form-v2 section.fmr-page:not([hidden]) [data-fmr-next]')
+            && window.fmrFormReady === true,
         null,
         { timeout },
     );
-    // Alpine flag — set by the bundle on init.
-    await page.waitForFunction(
-        () => !!(window.Alpine || document.querySelector('form.fmr-form-v2 [x-data]')),
-        null,
-        { timeout },
-    ).catch(() => {});
 }
 
 module.exports = {
