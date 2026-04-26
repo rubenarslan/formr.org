@@ -1,0 +1,14 @@
+{
+  "all_widgets": {
+    "v1": { "run": "e2e-aw-v1" },
+    "v2": { "run": "e2e-aw-v2" }
+  },
+  "pwa_high": {
+    "v1": { "run": "e2e-pwa-h-v1" },
+    "v2": { "run": "e2e-pwa-h-v2" }
+  },
+  "pwa_low": {
+    "v1": { "run": "e2e-pwa-l-v1" },
+    "v2": { "run": "e2e-pwa-l-v2" }
+  }
+}

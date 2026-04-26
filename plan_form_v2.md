@@ -290,7 +290,7 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] AddToHomeScreen / PushNotification: vanilla port in `webroot/assets/form/js/main.js` capturing `beforeinstallprompt`, calling `pushManager.subscribe` against `window.vapidPublicKey`, POSTing to `/{run}/ajax_save_push_subscription`. iOS-Safari guidance shown inline (no programmatic install API there). Hidden-input values match the server-side `validateInput` allowlists (`added`/`already_added`/`not_added`/`not_prompted`/`ios_not_prompted` for AddToHomeScreen; subscription JSON for required PushNotification, `not_supported`/`permission_denied` for optional)
 - [x] RequestCookie / RequestPhone: vanilla wiring (cookie poll + mobile UA detect + status-message updates)
 - [x] PWA manifest + apple-touch-icon + mobile-web-app-capable metas + vapid-key injection in `templates/run/form_index.php` (mirrors `templates/public/head.php`'s logic so v2 forms with configured PWA assets light up the same way as v1)
-- [ ] Audio, video — inherit from File_Item; need `getUserMedia` + multipart round-trip smoke
+- [x] Audio, video — `initMediaRecorders()` in `webroot/assets/form/js/main.js` is a vanilla port of v1's `AudioRecorder.js` extended to also handle `class=record_video` items. MediaRecorder + getUserMedia capture, recorded Blob is stuffed back into the file input via `DataTransfer` so the existing v2 multipart submit picks it up unchanged. Smoke test at `tests/e2e/media-recorder-v2.spec.js` stubs MediaRecorder + getUserMedia + AudioContext, injects `.record_audio` / `.record_video` markup into the rendered v2 form, drives a synthetic record/stop cycle, asserts the Blob lands in `<input type=file>`. Real-device verification still belongs on BrowserStack iOS/Android.
 - [ ] Date/time/datetime-local/month/week cross-browser smoke
 
 ### Phase 3 — Client-side showif + r(...) opt-in
@@ -337,9 +337,9 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] Admin UI for compat scanner (`AdminSurveyController::formV2CompatScanAction`; `templates/admin/survey/form_v2_compat_scan.php`; scanner extracted to `application/Spreadsheet/FormV2CompatScanner.php` so CLI and UI share it)
 - [x] Documentation updates (`documentation/form_v2.md` admin-facing guide; README points to it)
 - [ ] Example surveys ported to v2
-- [ ] Automated v1↔v2 parity test suite (the "feature-parity gate")
+- [x] Automated v1↔v2 parity test suite (the "feature-parity gate") — `tests/e2e/` Playwright suite: per-fixture v1 and v2 specs (`all-widgets-{v1,v2}.spec.js`, `pwa-{high,low}-{v1,v2}.spec.js`, `media-recorder-v2.spec.js`), shared widget strategy table (`helpers/widgets.js`), v1+v2 form helpers, persistent runs created via the runbook in `tests/e2e/setup/`. globalSetup logs into admin once; per-test fresh test_code minted via `/admin/run/<name>/create_new_test_code` for participant isolation. `npm run test:e2e` is the local entry point; BS-tagged tests skip on local-chromium and run on BrowserStack devices when wired. The pwa_low studies are seeded from the low-friction Google Sheet (add_to_home_screen + push_notification items render and assert). pwa_high item-presence assertions still skip pending the high-friction sheet's link-share being set to "anyone with link → Viewer" — the dev server itself reaches Google fine.
 - [x] CHANGELOG entries for Phases 2–5
-- [ ] Bundle module split (flat ~1400-line `main.js` → logical modules)
+- [x] Bundle module split — `webroot/assets/form/js/main.js` (was ~2.5k lines) split into a slimmer `main.js` (orchestration + page-submit + offline-drain + r-call + PWA-installer + push, ~1.4k lines) plus 13 leaf modules under `lib/`, `offline/`, `validation/`, `showif/`, `items/`. `idb` adopted (~6KB) replacing the hand-rolled `openQueueDB` / `idbTx` / queueAdd-Get-Delete promise wrappers.
 
 ### Rollout gates
 - [ ] Feature-parity gate green
@@ -371,7 +371,7 @@ Nothing here is still open; these are the frozen decisions.
 ## 8. Remaining work (prioritized)
 
 **P0 — blockers for merging `feature/form_v2` to master:**
-1. In-browser smoke for audio/video capture via `getUserMedia` + multipart round-trip (file uploads in general are already verified).
+- (cleared) ~~In-browser smoke for audio/video capture~~. `initMediaRecorders()` ported in `webroot/assets/form/js/main.js`; smoke at `tests/e2e/media-recorder-v2.spec.js`. Real-device sanity belongs on BrowserStack but isn't a merge blocker.
 
 **P1 — before calling form_v2 GA:**
 1. iOS Safari compatibility pass for offline queue + PWA items (Background Sync is unavailable there, but the page-side `online` path still drains; the install + push items show iOS-specific guidance and need real-device verification).

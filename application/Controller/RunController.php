@@ -375,11 +375,18 @@ class RunController extends Controller {
         header('Content-Type: application/json');
         header('Cache-Control: no-cache, no-store, must-revalidate');
 
-        // Serve the manifest file
+        // Serve the manifest file. `getManifestJSONPath()` returns the
+        // webroot-relative path stored in the DB (e.g.
+        // `assets/tmp/admin/HASH.json`); resolve against APPLICATION_ROOT
+        // to get the absolute path. The "Save Manifest Text" textarea path
+        // wrote a relative path, so file_exists() against it failed silently.
         $manifestPath = $run->getManifestJSONPath();
-        if(!empty($manifestPath) && file_exists($manifestPath)) {
-            readfile($manifestPath);
-            exit;
+        if (!empty($manifestPath)) {
+            $absolutePath = APPLICATION_ROOT . 'webroot/' . ltrim($manifestPath, '/');
+            if (is_file($absolutePath) && is_readable($absolutePath)) {
+                readfile($absolutePath);
+                exit;
+            }
         }
 
         // If file doesn't exist, return 404

@@ -55,4 +55,5 @@ feature_diff.patch
 
 playwright-report/
 test-results/
+tests/e2e/setup/admin-state.json
 

@@ -16,6 +16,8 @@
         "webpack:watch": "webpack --watch --env WEBPACK_WATCH=true",
         "webpack:start": "webpack serve",
         "test:e2e": "playwright test --config tests/e2e/playwright.config.js --project=local-chromium",
+        "test:e2e:widgets": "playwright test --config tests/e2e/playwright.config.js --project=local-chromium all-widgets",
+        "test:e2e:pwa": "playwright test --config tests/e2e/playwright.config.js --project=local-chromium pwa-",
         "test:bs": "playwright test --config tests/e2e/playwright.config.js --project=bs-iphone-15 --project=bs-pixel-8"
     },
     "devDependencies": {
@@ -64,6 +66,7 @@
         "font-awesome": "^4.7.0",
         "hammerjs": "^2.0.8",
         "highlight.js": "^9.2.0",
+        "idb": "^8.0.3",
         "jquery": "^3.7.1",
         "qr-code-styling": "^1.9.1",
         "regenerator-runtime": "^0.14.1",

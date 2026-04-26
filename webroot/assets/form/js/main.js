@@ -34,6 +34,29 @@ import TomSelect from 'tom-select';
 import AddToHomeScreen from 'add-to-homescreen/dist/add-to-homescreen.min.js';
 import '@khmyznikov/pwa-install';
 
+import { mysqlDatetime } from './lib/time.js';
+import { genUuid } from './lib/uuid.js';
+import { queueAdd, queueGetAll, queueDelete, buildSyncFormData, isTransientFailure } from './offline/queue.js';
+import { initMediaRecorders } from './items/recorders.js';
+import { initButtonGroups } from './items/button-groups.js';
+import { initGeopoint } from './items/geopoint.js';
+import { initTomSelects } from './items/tom-select.js';
+import { initRequestCookie } from './items/request-cookie.js';
+import { initRequestPhone } from './items/request-phone.js';
+import { initAdminPreview } from './items/admin-preview.js';
+import {
+    clearCustomValidity,
+    findErrorTarget,
+    applyErrors,
+    validatePageAndShowFeedback,
+    installFeedbackClearer,
+} from './validation/feedback.js';
+import {
+    registerFmrForm,
+    registerXShowif,
+    promoteShowifAttributes,
+} from './showif/alpine.js';
+
 function initForm() {
     const root = document.querySelector('.fmr-form-v2');
     if (!root) return;
@@ -46,8 +69,6 @@ function initForm() {
     const progressBar = root.querySelector('[data-fmr-progress-bar]');
     const progressLabel = root.querySelector('[data-fmr-progress-label]');
 
-    // MySQL datetime column format (matches the v1 helper in common/js/main.js).
-    const mysqlDatetime = () => new Date().toISOString().slice(0, 19).replace('T', ' ');
 
     // IntersectionObserver-based `shown` timing: only stamp an item once it
     // actually enters the viewport. Server-side SpreadsheetRenderer sets these
@@ -174,133 +195,9 @@ function initForm() {
         return { data, item_views: itemViews };
     };
 
-    // Clear ONLY the customValidity values that `applyErrors` wrote (server-
-    // side validation responses). Init-armed customValidity from gating items
-    // (AddToHomeScreen, PushNotification, RequestCookie, …) must persist —
-    // otherwise the participant can advance past a required gate without
-    // completing it, which is what `applyErrors` plus `validatePageAndShowFeedback`
-    // were supposed to gate against. We tag server-set inputs with
-    // `data-fmr-server-validity` so this clear is targeted.
-    const clearCustomValidity = (pageEl) => {
-        pageEl.querySelectorAll('input[data-fmr-server-validity], select[data-fmr-server-validity], textarea[data-fmr-server-validity]').forEach((inp) => {
-            inp.setCustomValidity('');
-            delete inp.dataset.fmrServerValidity;
-        });
-    };
-
-    const findErrorTarget = (pageEl, name) => {
-        // First try the exact input name.
-        let el = pageEl.querySelector(`[name="${CSS.escape(name)}"]`);
-        // Geopoint / multi-field items submit via `name` but the visible input
-        // is `name[]`. Fall back to the array-suffixed version.
-        if (!el) el = pageEl.querySelector(`[name="${CSS.escape(name + '[]')}"]`);
-        // Some items may only expose a wrapper via `.item-<name>` — not common
-        // enough to chase here; fall back to null and we'll render a top-banner.
-        return el;
-    };
-
-    const applyErrors = (pageEl, errors) => {
-        // Clear previous BS5-style error state.
-        pageEl.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
-        pageEl.querySelectorAll('.fmr-invalid-feedback').forEach((el) => el.remove());
-
-        let unplaced = [];
-        Object.entries(errors).forEach(([name, msg]) => {
-            const el = findErrorTarget(pageEl, name);
-            if (!el) {
-                unplaced.push({ name, msg: String(msg) });
-                return;
-            }
-            el.setCustomValidity(String(msg));
-            el.dataset.fmrServerValidity = '1';
-            el.classList.add('is-invalid');
-            const feedback = document.createElement('div');
-            feedback.className = 'invalid-feedback fmr-invalid-feedback d-block';
-            feedback.textContent = String(msg);
-            // Insert after the input's immediate parent (so it lines up with BS5 form-control siblings).
-            const anchor = el.closest('.controls, .form-group') || el.parentElement;
-            if (anchor && anchor.parentElement) {
-                anchor.parentElement.insertBefore(feedback, anchor.nextSibling);
-            } else {
-                el.insertAdjacentElement('afterend', feedback);
-            }
-            // Scroll the first offender into view.
-            if (!pageEl.dataset.fmrScrolledToError) {
-                pageEl.dataset.fmrScrolledToError = '1';
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        });
-        delete pageEl.dataset.fmrScrolledToError;
-
-        if (unplaced.length) {
-            let banner = pageEl.querySelector('.fmr-error-banner');
-            if (!banner) {
-                banner = document.createElement('div');
-                banner.className = 'alert alert-danger fmr-error-banner';
-                banner.setAttribute('role', 'alert');
-                pageEl.insertBefore(banner, pageEl.firstChild);
-            }
-            banner.innerHTML = unplaced.map((e) => `<div><strong>${e.name}:</strong> ${e.msg}</div>`).join('');
-        }
-
-        pageEl.reportValidity();
-    };
-
-    // Geopoint item: wire navigator.geolocation to the .geolocator button. v1
-    // did this via webshim + jQuery; the v2 bundle has neither dep.
-    const flatStringifyGeo = (pos) => JSON.stringify({
-        timestamp: pos.timestamp,
-        coords: {
-            accuracy: pos.coords.accuracy,
-            altitude: pos.coords.altitude,
-            altitudeAccuracy: pos.coords.altitudeAccuracy,
-            heading: pos.coords.heading,
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            speed: pos.coords.speed,
-        },
-    });
-
-    const initGeopoint = () => {
-        if (!('geolocation' in navigator)) return;
-        root.querySelectorAll('.geolocator').forEach((btn) => {
-            // v1 wraps the button in <span class="input-group-btn hidden">;
-            // show it now that JS is up.
-            const wrapper = btn.closest('.input-group-btn');
-            if (wrapper && wrapper.classList.contains('hidden')) {
-                wrapper.classList.remove('hidden');
-            }
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                const controls = btn.closest('.controls');
-                if (!controls) return;
-                const hidden = controls.querySelector('input[type=hidden]');
-                const visible = controls.querySelector('input[type=text]');
-                if (visible) {
-                    visible.placeholder = 'You can also enter your location manually';
-                    visible.removeAttribute('readonly');
-                }
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        if (hidden) hidden.value = flatStringifyGeo(pos);
-                        if (visible) {
-                            visible.value = `lat:${pos.coords.latitude}/long:${pos.coords.longitude}`;
-                            visible.setAttribute('readonly', 'readonly');
-                        }
-                        // Clear any prior error state for this item.
-                        controls.querySelectorAll('.is-invalid').forEach((el) => {
-                            el.classList.remove('is-invalid');
-                            el.setCustomValidity('');
-                        });
-                        controls.parentElement && controls.parentElement.querySelectorAll('.fmr-invalid-feedback').forEach((el) => el.remove());
-                    },
-                    () => {
-                        // Permission denied or unavailable — the visible field is now editable for manual entry.
-                    },
-                );
-            });
-        });
-    };
+    // clearCustomValidity / findErrorTarget / applyErrors / validatePageAndShowFeedback /
+    // installFeedbackClearer live in ./validation/feedback.js (imports above).
+    // initGeopoint lives in ./items/geopoint.js (imports above) — called from initForm below.
 
     const submitUrl = root.dataset.submitUrl;
     const runUrl = root.dataset.runUrl;
@@ -318,55 +215,10 @@ function initForm() {
     const syncUrl = offlineModeEnabled ? root.dataset.syncUrl : '';
 
     // --- Offline queue (Phase 5) ---
-    // When a JSON page-submit fails with a network error, persist the payload
-    // to IndexedDB keyed by a client-generated UUID and let the participant
-    // continue locally. On `online` or at next page load, drain the queue by
-    // POSTing each entry to /form-sync (server dedups via
-    // survey_form_submissions.uuid so retries are safe). File uploads still
-    // take the online-only multipart path — we don't serialize Blobs yet.
-    const IDB_NAME = 'formrQueue';
-    const IDB_STORE = 'queue';
-    const openQueueDB = () => new Promise((resolve, reject) => {
-        if (!('indexedDB' in window)) { reject(new Error('no indexeddb')); return; }
-        const req = indexedDB.open(IDB_NAME, 1);
-        req.onupgradeneeded = () => {
-            const db = req.result;
-            if (!db.objectStoreNames.contains(IDB_STORE)) {
-                const store = db.createObjectStore(IDB_STORE, { keyPath: 'uuid' });
-                store.createIndex('client_ts', 'client_ts');
-            }
-        };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-    });
-    const idbTx = async (mode, fn) => {
-        const db = await openQueueDB();
-        return new Promise((resolve, reject) => {
-            const tx = db.transaction(IDB_STORE, mode);
-            const store = tx.objectStore(IDB_STORE);
-            const result = fn(store);
-            tx.oncomplete = () => resolve(result);
-            tx.onerror = () => reject(tx.error);
-            tx.onabort = () => reject(tx.error);
-        });
-    };
-    const queueAdd = (entry) => idbTx('readwrite', (s) => { s.put(entry); return entry; });
-    const queueGetAll = () => idbTx('readonly', (s) => new Promise((res) => {
-        const req = s.getAll();
-        req.onsuccess = () => res(req.result || []);
-        req.onerror = () => res([]);
-    })).then((p) => p);
-    const queueDelete = (uuid) => idbTx('readwrite', (s) => s.delete(uuid));
-
-    const genUuid = () => (typeof crypto !== 'undefined' && crypto.randomUUID)
-        ? crypto.randomUUID()
-        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-              const r = (Math.random() * 16) | 0;
-              const v = c === 'x' ? r : ((r & 0x3) | 0x8);
-              return v.toString(16);
-          });
-
-    // Queued-submission banner. Single DOM node reused across enqueue/drain.
+    // IDB plumbing + multipart serialization + isTransientFailure live in
+    // ./offline/queue.js (imports above). genUuid in ./lib/uuid.js. The
+    // banner + drain orchestration stays here because it pokes `root` and
+    // window navigation directly.
     let queueBanner = null;
     const showQueueBanner = (msg, variant) => {
         if (!queueBanner) {
@@ -382,44 +234,6 @@ function initForm() {
         queueBanner.hidden = false;
     };
     const hideQueueBanner = () => { if (queueBanner) queueBanner.hidden = true; };
-
-    // Network-ish failure: fetch() rejected (no response) OR a 5xx server error.
-    // 4xx is a real "server said no" — don't queue, bubble up as before.
-    const isTransientFailure = (err, res) =>
-        (err != null) || (res && res.status >= 500 && res.status < 600);
-
-    // Build a FormData representation of a queued entry that has `files`.
-    // Keys mirror form-page-submit's multipart branch (see formSyncAction).
-    const buildSyncFormData = (entry) => {
-        const fd = new FormData();
-        fd.append('uuid', entry.uuid);
-        fd.append('page', String(entry.page));
-        if (entry.client_ts) fd.append('client_ts', entry.client_ts);
-        const data = entry.data || {};
-        Object.keys(data).forEach((k) => {
-            const v = data[k];
-            if (Array.isArray(v)) {
-                v.forEach((vv) => fd.append(`data[${k}][]`, vv == null ? '' : String(vv)));
-            } else if (v != null) {
-                fd.append(`data[${k}]`, String(v));
-            }
-        });
-        const views = entry.item_views || {};
-        Object.keys(views).forEach((bucket) => {
-            const m = views[bucket] || {};
-            Object.keys(m).forEach((id) => fd.append(`item_views[${bucket}][${id}]`, String(m[id])));
-        });
-        const files = entry.files || {};
-        Object.keys(files).forEach((itemName) => {
-            const f = files[itemName];
-            if (!f) return;
-            // IDB returns Blobs (File is a subclass of Blob). Preserve the
-            // original filename via the `name` property if present.
-            const fname = (f.name || itemName);
-            fd.append(`files[${itemName}]`, f, fname);
-        });
-        return fd;
-    };
 
     const drainQueue = async () => {
         if (!syncUrl) return;
@@ -592,106 +406,9 @@ function initForm() {
         return out;
     };
 
-    // Client-side native-validation feedback. v1 used webshim to render
-    // consistent inline messages; v2 used to call `reportValidity()` which
-    // shows native browser tooltips. Native tooltips don't render reliably
-    // on iOS Safari (they get clipped, hidden behind sticky headers, or
-    // skipped entirely). Render inline `.fmr-invalid-feedback` near each
-    // failing input instead — same shape as the server-error path.
-    //
-    // Returns true if the page is valid and submit may proceed; false if
-    // we surfaced any inline errors (caller should bail).
-    const validatePageAndShowFeedback = (pageEl) => {
-        // Clear prior inline feedback before re-running.
-        pageEl.querySelectorAll('.fmr-invalid-feedback').forEach((el) => el.remove());
-        pageEl.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
-
-        // Walk every named, non-disabled, non-ancillary input in the page
-        // and ask the browser whether it's valid. We rely on Constraint
-        // Validation API: required, type=email/url, min/max, pattern,
-        // setCustomValidity, etc. all live in `validity`.
-        const fields = Array.from(pageEl.querySelectorAll('input[name], select[name], textarea[name]'))
-            .filter((el) => !el.disabled && !el.name.startsWith('_item_views'));
-
-        const offenders = [];
-        fields.forEach((el) => {
-            if (!el.willValidate) return;
-            if (el.checkValidity()) return;
-            offenders.push(el);
-        });
-
-        if (offenders.length === 0) return true;
-
-        let firstFocusTarget = null;
-        offenders.forEach((el) => {
-            const wrapper = el.closest('.form-group') || el.parentElement;
-            // Skip duplicate messages from same item (e.g. radio groups
-            // where every radio is :invalid). Mark wrapper as invalid once.
-            if (wrapper && wrapper.classList.contains('fmr-has-client-error')) return;
-            if (wrapper) wrapper.classList.add('fmr-has-client-error');
-
-            // For radios/checkboxes hidden under a button group, place the
-            // feedback next to the visible `.btn-group` wrapper instead of
-            // the hidden input. Mirror the existing initButtonGroups path
-            // (.fmr-btn-feedback) — but only render if no btn-feedback is
-            // already present (the invalid-event handler may have rendered).
-            const btnGroup = wrapper && wrapper.querySelector('.btn-group');
-            const isHiddenInput = el.type === 'hidden'
-                || el.style.display === 'none'
-                || (el.offsetParent === null && el.type !== 'radio' && el.type !== 'checkbox');
-
-            if (btnGroup && (isHiddenInput || el.type === 'radio' || el.type === 'checkbox')) {
-                if (!wrapper.querySelector('.fmr-btn-feedback')) {
-                    const fb = document.createElement('div');
-                    fb.className = 'invalid-feedback fmr-btn-feedback d-block';
-                    fb.textContent = el.validationMessage || 'Please choose an option.';
-                    btnGroup.insertAdjacentElement('afterend', fb);
-                }
-                wrapper.classList.add('is-invalid');
-                if (!firstFocusTarget) firstFocusTarget = btnGroup.querySelector('.btn') || btnGroup;
-                return;
-            }
-
-            el.classList.add('is-invalid');
-            const fb = document.createElement('div');
-            fb.className = 'invalid-feedback fmr-invalid-feedback d-block';
-            fb.textContent = el.validationMessage || 'Please fill in this field.';
-            const anchor = el.closest('.controls, .form-group') || el.parentElement;
-            if (anchor && anchor.parentElement) {
-                anchor.parentElement.insertBefore(fb, anchor.nextSibling);
-            } else {
-                el.insertAdjacentElement('afterend', fb);
-            }
-            if (!firstFocusTarget) firstFocusTarget = el;
-        });
-
-        // Clear the marker so the next validation pass starts fresh.
-        pageEl.querySelectorAll('.fmr-has-client-error').forEach((el) => el.classList.remove('fmr-has-client-error'));
-
-        if (firstFocusTarget) {
-            try { firstFocusTarget.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
-            try { firstFocusTarget.focus({ preventScroll: true }); } catch (e) {}
-        }
-        return false;
-    };
-
-    // Clear inline error feedback on any input change in the page so the
-    // participant doesn't see stale "Please fill in this field" after they
-    // type. Single delegated listener — cheaper than per-input.
-    root.addEventListener('input', (e) => {
-        const wrapper = e.target.closest('.form-group');
-        if (!wrapper) return;
-        wrapper.querySelectorAll('.fmr-invalid-feedback, .fmr-btn-feedback').forEach((el) => el.remove());
-        wrapper.classList.remove('is-invalid');
-        wrapper.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
-        // If the field carried a server-side validity message, clear it now —
-        // the participant is editing, give them immediate feedback rather than
-        // making them wait until the next submit attempt.
-        if (e.target.dataset?.fmrServerValidity) {
-            try { e.target.setCustomValidity(''); } catch (err) { /* ignore */ }
-            delete e.target.dataset.fmrServerValidity;
-        }
-    });
+    // validatePageAndShowFeedback + the input-change listener that clears
+    // stale `.fmr-invalid-feedback` live in ./validation/feedback.js.
+    installFeedbackClearer(root);
 
     const submitPage = async () => {
         const page = pages[currentIndex];
@@ -1533,24 +1250,14 @@ function initForm() {
     // Block implicit form submit (Enter key) from doing a real POST — funnel through submitPage.
     root.addEventListener('submit', (e) => { e.preventDefault(); submitPage(); });
 
-    initGeopoint();
+    initGeopoint(root);
 
     // --- Reactive showif via Alpine (Phase 3) ---
-    // Item.php emits `data-showif="<transpiled-js>"` on items whose admin-authored
-    // `showif` column resolved server-side as visible. We promote that attribute
-    // to Alpine's `x-showif` directive (registered at module level) and add
-    // `x-data="fmrForm"` on the form so Alpine has a reactive scope. The
-    // component exposes one top-level reactive field per input name plus the
-    // is.na/answered/contains/… helper set; Alpine handles dep-tracking + re-
-    // evaluation, so we don't maintain a bespoke evaluator or input listeners.
-    root.querySelectorAll('[data-showif]').forEach((el) => {
-        const expr = el.getAttribute('data-showif');
-        if (expr) el.setAttribute('x-showif', expr);
-        el.removeAttribute('data-showif');
-    });
-    if (!root.hasAttribute('x-data')) {
-        root.setAttribute('x-data', 'fmrForm');
-    }
+    // The Alpine `fmrForm` component + `x-showif` directive are registered
+    // once at module load (showif/alpine.js). This call promotes the
+    // server-emitted `data-showif="<transpiled-js>"` attribute to `x-showif`
+    // and adds `x-data="fmrForm"` on the root form.
+    promoteShowifAttributes(root);
 
     // collectAnswers remains as a helper for r-call/fill POST payloads. It
     // reads the DOM fresh each call (same contract as before) rather than
@@ -1659,180 +1366,13 @@ function initForm() {
     // live re-triggers (e.g. an admin-driven retrigger button) — we just
     // don't fire it on every page-load anymore.
 
-    // --- Button groups (Phase 2) ---
-    // v1's ButtonGroup.js leans on jQuery + webshim.addShadowDom to keep a
-    // visible .btn-group in sync with hidden radios/checkboxes inside
-    // .mc-table.js_hidden. In v2 we do this vanilla:
-    //   1. Click on <button data-for="inputId"> → toggle the paired input.
-    //   2. For radio groups (.btn-radio), clicking an already-checked button
-    //      is a no-op (native radios don't untoggle); clicking a new one
-    //      clears siblings and fires change.
-    //   3. For checkbox/check groups, each click toggles independently.
-    //   4. On the hidden input's `invalid` event (native constraint validation
-    //      fires even for display:none inputs), flag the wrapper .form-group
-    //      .is-invalid so the visible button group picks up the CSS outline,
-    //      and append a BS5-style .invalid-feedback message. Clears on any
-    //      subsequent input change.
-    const initButtonGroups = () => {
-        const wrappers = root.querySelectorAll('.form-group.btn-radio, .form-group.btn-checkbox, .form-group.btn-check');
-        wrappers.forEach((wrapper) => {
-            const kind = wrapper.classList.contains('btn-checkbox') ? 'multi'
-                : wrapper.classList.contains('btn-check') ? 'check' : 'radio';
-            const btnGroup = wrapper.querySelector('.btn-group');
-            if (!btnGroup) return;
-            const buttons = Array.from(btnGroup.querySelectorAll('.btn[data-for]'));
-            if (!buttons.length) return;
+    // initButtonGroups + initMediaRecorders + tom-select wiring (plain
+    // <select> and <input.select2add>) live in items/* modules — imports above.
+    initButtonGroups(root);
+    initMediaRecorders(root);
+    window.fmrInitMediaRecorders = () => initMediaRecorders(root);
+    initTomSelects(root);
 
-            // Initial state: mirror existing checked state onto the buttons.
-            const resolveInput = (btn) => wrapper.querySelector('#' + CSS.escape(btn.getAttribute('data-for')));
-            buttons.forEach((btn) => {
-                const input = resolveInput(btn);
-                if (input && input.checked) btn.classList.add('btn-checked');
-            });
-
-            buttons.forEach((btn) => {
-                btn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const input = resolveInput(btn);
-                    if (!input) return;
-                    if (kind === 'radio') {
-                        if (input.checked) return; // native radios don't untoggle
-                        buttons.forEach((b) => b.classList.remove('btn-checked'));
-                        // Uncheck siblings manually — the hidden radios share a
-                        // `name` so browsers sync them, but fire change on the
-                        // newly-selected one to wake up showif listeners.
-                        input.checked = true;
-                        btn.classList.add('btn-checked');
-                    } else {
-                        const nowChecked = !input.checked;
-                        input.checked = nowChecked;
-                        btn.classList.toggle('btn-checked', nowChecked);
-                    }
-                    input.dispatchEvent(new Event('change', { bubbles: true }));
-                });
-            });
-
-            // Native constraint-validation feedback. The hidden inputs live
-            // under .js_hidden (display:none) which kills the default tooltip
-            // position, so we surface the error inline at the button group.
-            const feedbackId = 'fmr-btn-feedback-' + (btnGroup.id || Math.random().toString(36).slice(2, 8));
-            wrapper.querySelectorAll('input[required]').forEach((inp) => {
-                inp.addEventListener('invalid', (e) => {
-                    // Don't preventDefault — let the browser's "first invalid"
-                    // navigation still pick this wrapper; it scrolls the item
-                    // into view even when the input itself is hidden.
-                    wrapper.classList.add('is-invalid');
-                    if (!wrapper.querySelector('.fmr-btn-feedback')) {
-                        const fb = document.createElement('div');
-                        fb.className = 'invalid-feedback fmr-btn-feedback d-block';
-                        fb.id = feedbackId;
-                        fb.textContent = inp.validationMessage || 'Please choose an option.';
-                        btnGroup.insertAdjacentElement('afterend', fb);
-                    }
-                }, true);
-            });
-
-            // Clear invalid state on any change (user-driven or programmatic).
-            wrapper.addEventListener('change', () => {
-                wrapper.classList.remove('is-invalid');
-                const fb = wrapper.querySelector('.fmr-btn-feedback');
-                if (fb) fb.remove();
-            });
-        });
-    };
-    initButtonGroups();
-
-    // Tom-select on <select> elements. v1 auto-wired select2; v2 mirrors that
-    // using tom-select so the participant bundle stays jQuery-free. Large
-    // dropdowns (timezone list, big choice lists) get the search input; small
-    // ones render as a styled click-to-open menu.
-    root.querySelectorAll('select').forEach((sel) => {
-        if (!sel.name || sel.name === '') return; // skip the progress <select> chrome, if any
-        if (sel.dataset.tomSelectInit === '1') return;
-        sel.dataset.tomSelectInit = '1';
-        const needsSearch = sel.options.length > 20 || sel.classList.contains('select2zone');
-        try {
-            new TomSelect(sel, {
-                create: false,
-                controlInput: needsSearch ? '<input>' : null,
-                plugins: sel.multiple ? ['remove_button'] : [],
-                maxOptions: 1000,
-            });
-        } catch (e) {
-            console.warn('tom-select init failed for', sel.name, e);
-        }
-    });
-
-    // Tom-select on select_or_add_one / select_or_add_multiple items. These
-    // render as plain <input class="select2add"> with the choice set in
-    // data-select2add (JSON [{id,text}, ...]). v1 used select2; v2 wires
-    // tom-select directly on the <input> so admins can add free-form choices
-    // unless the form-group opts out (.network_select / .ratgeber_class /
-    // .cant_add_choice — these are designed for selecting existing entities
-    // only, e.g. a network study where participants pick each other).
-    root.querySelectorAll('input.select2add').forEach((inp) => {
-        if (!inp.name || inp.dataset.tomSelectInit === '1') return;
-        inp.dataset.tomSelectInit = '1';
-        let options = [];
-        try {
-            const raw = inp.dataset.select2add;
-            if (raw) {
-                const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-                // v1 packs comma-separated choice strings into single {id,text}
-                // entries; flatten here so each comma-separated token becomes
-                // its own option and tom-select can search them individually.
-                parsed.forEach((opt) => {
-                    const tokens = String(opt.id || '').split(',');
-                    tokens.forEach((tok) => {
-                        const trimmed = tok.trim();
-                        if (trimmed) options.push({ id: trimmed, text: trimmed });
-                    });
-                });
-            }
-        } catch (e) {
-            console.warn('select_or_add: bad data-select2add JSON for', inp.name, e);
-        }
-        const multiple = inp.dataset.select2multiple === '1' || inp.dataset.select2multiple === 1;
-        const maxItems = parseInt(inp.dataset.select2maximumSelectionSize || '0', 10);
-        const maxLength = parseInt(inp.dataset.select2maximumInputLength || '0', 10);
-        const wrapper = inp.closest('.form-group');
-        const lockedToChoices = !!(wrapper && (
-            wrapper.classList.contains('network_select') ||
-            wrapper.classList.contains('ratgeber_class') ||
-            wrapper.classList.contains('cant_add_choice')
-        ));
-        // Seed pre-existing values (back-nav / fill). v1 multi stored as
-        // comma-separated; v1 multi getReply re-joined with \n server-side.
-        const existingRaw = inp.value || '';
-        const items = existingRaw
-            ? (multiple ? existingRaw.split(/[,\n]/).map((s) => s.trim()).filter(Boolean) : [existingRaw.trim()])
-            : [];
-        items.forEach((val) => {
-            if (!options.some((o) => o.id === val)) options.push({ id: val, text: val });
-        });
-        try {
-            new TomSelect(inp, {
-                valueField: 'id',
-                labelField: 'text',
-                searchField: ['text'],
-                options,
-                items,
-                create: !lockedToChoices,
-                persist: false,
-                maxItems: multiple ? (maxItems > 0 ? maxItems : null) : 1,
-                plugins: multiple ? ['remove_button'] : [],
-                maxOptions: 500,
-                onInitialize() {
-                    if (maxLength > 0) {
-                        const ctrl = this.control_input;
-                        if (ctrl) ctrl.setAttribute('maxlength', String(maxLength));
-                    }
-                },
-            });
-        } catch (e) {
-            console.warn('tom-select init failed for select_or_add', inp.name, e);
-        }
-    });
 
     // Initial page from ?page=N. The query-string `page` refers to the
     // server-side `survey_items_display.page` number (which is what shows up
@@ -1854,382 +1394,18 @@ function initForm() {
         showPage(indexForPageParam(p));
     });
 
-    // --- RequestCookie item (functional cookie consent) ---
-    // Minimal vanilla port of PWAInstaller.js::initializeRequestCookie.
-    // Server (RequestCookie_Item) renders a .request-cookie-wrapper with a
-    // hidden <input>, a <button.request-cookie>, and a .status-message.
-    // When the participant has already granted functional consent, the
-    // wrapper needs to mark itself answered; otherwise click opens the
-    // consent dialog via the global showPreferences() if exposed.
-    const hasFunctionalConsent = () => {
-        const row = document.cookie.split('; ').find((r) => r.startsWith('formrcookieconsent='));
-        if (!row) return false;
-        try {
-            const val = decodeURIComponent(row.split('=')[1] || '');
-            return val.indexOf('"necessary","functionality"') !== -1;
-        } catch (e) { return false; }
-    };
-    const markRequestCookieAnswered = (wrapper) => {
-        const hidden = wrapper.querySelector('input');
-        const status = wrapper.querySelector('.status-message');
-        const btn = wrapper.querySelector('button.request-cookie');
-        if (hidden) { hidden.value = 'consent_given'; hidden.setCustomValidity(''); }
-        if (status) status.textContent = 'Functional cookies enabled. You can continue.';
-        if (btn) {
-            btn.disabled = true;
-            btn.classList.remove('btn-primary');
-            btn.classList.add('btn-success');
-            btn.innerHTML = '<i class="fa fa-check"></i> Enabled';
-        }
-        const formGroup = wrapper.closest('.form-group');
-        if (formGroup) formGroup.classList.add('formr_answered');
-    };
-    root.querySelectorAll('.request-cookie-wrapper').forEach((wrapper) => {
-        const hidden = wrapper.querySelector('input');
-        const btn = wrapper.querySelector('button.request-cookie');
-        const required = wrapper.closest('.form-group')?.classList.contains('required');
-        if (required && hidden) {
-            hidden.setCustomValidity('Please enable functional cookies to continue.');
-        }
-        if (hasFunctionalConsent()) {
-            markRequestCookieAnswered(wrapper);
-            return;
-        }
-        if (btn) {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                if (typeof window.showPreferences === 'function') window.showPreferences();
-            });
-        }
-        // Poll for consent granted in another tab / via the footer dialog.
-        const poll = setInterval(() => {
-            if (hasFunctionalConsent()) {
-                markRequestCookieAnswered(wrapper);
-                clearInterval(poll);
-            }
-        }, 1000);
-    });
-
-    // --- RequestPhone item (mobile-device affirmation) ---
-    // Pared-down port of initializeRequestPhone: the server already marks the
-    // item answered on mobile UAs (RequestPhone_Item::setMoreOptions sets
-    // no_user_input_required=true). On desktop we surface a short status
-    // message; full QR-code generation is deferred (part of the PWA wiring
-    // that still lives in PWAInstaller.js).
-    const isMobileUA = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|webOS|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    root.querySelectorAll('.request-phone-wrapper').forEach((wrapper) => {
-        const hidden = wrapper.querySelector('input');
-        const status = wrapper.querySelector('.status-message');
-        const required = wrapper.closest('.form-group')?.classList.contains('required');
-        if (required && hidden && !hidden.value) {
-            hidden.setCustomValidity('Please complete this required step before continuing.');
-        }
-        if (isMobileUA) {
-            if (hidden && !hidden.value) hidden.value = 'is_phone';
-            if (hidden) hidden.setCustomValidity('');
-            if (status) status.textContent = 'You are already on a mobile device. You can continue.';
-            const formGroup = wrapper.closest('.form-group');
-            if (formGroup) formGroup.classList.add('formr_answered');
-        } else if (status) {
-            status.textContent = 'Open this form on your phone to continue. (QR-code / install assistant lives in the v1 participant bundle; v2 port is pending — see plan_form_v2.md §8 P1.)';
-        }
-    });
-
-    // --- Monkey bar buttons (admin preview mode) ---
-    // v1 wired these through jQuery+FormMonkey+select2. v2 provides a light
-    // vanilla port: enough to eyeball a form, not a full parity reimplementation.
-    // The monkey bar lives outside `.fmr-form-v2` (sibling via Run::exec), so
-    // query against document, not root.
-    const monkeyBar = document.querySelector('.monkey_bar');
-    if (monkeyBar) {
-        // "Show hidden items" — un-hide showif-hidden form-groups for inspection.
-        const showHiddenBtn = monkeyBar.querySelector('.show_hidden_items');
-        if (showHiddenBtn && root.querySelector('.form-group.hidden, .form-group[style*="display: none"], .form-group[style*="display:none"]')) {
-            showHiddenBtn.disabled = false;
-            showHiddenBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                root.querySelectorAll('.form-group, .item').forEach((el) => {
-                    el.classList.remove('hidden');
-                    el.style.display = '';
-                    el.querySelectorAll('input, select, textarea').forEach((i) => {
-                        if (i.disabled && i.dataset.fmrShowifDisabled !== '1') {
-                            i.disabled = false;
-                        }
-                    });
-                });
-            });
-        }
-        // "Show hidden debugging messages" — toggle `.hidden` off so OpenCPU
-        // debug panels become visible.
-        const showDebugBtn = monkeyBar.querySelector('.show_hidden_debugging_messages');
-        if (showDebugBtn && document.querySelector('.hidden_debug_message')) {
-            showDebugBtn.disabled = false;
-            showDebugBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                document.querySelectorAll('.hidden_debug_message').forEach((el) => {
-                    el.classList.toggle('hidden');
-                    // Force display override — the page-scope `.hidden_debug_message`
-                    // rule has `!important` so we need to counteract it inline when toggled on.
-                    if (!el.classList.contains('hidden')) {
-                        el.style.display = 'block';
-                    } else {
-                        el.style.display = '';
-                    }
-                });
-            });
-        }
-        // "Monkey mode" — auto-fill every visible input on the current page.
-        // Minimal port of v1's FormMonkey: picks plausible defaults by type,
-        // first option for selects/radio groups, a random 1..max for ranges.
-        const monkeyBtn = monkeyBar.querySelector('button.monkey');
-        if (monkeyBtn) {
-            monkeyBtn.disabled = false;
-            monkeyBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                fillPageWithMonkey();
-            });
-        }
-    }
-
-    function fillPageWithMonkey() {
-        const page = pages[currentIndex];
-        if (!page) return;
-        const today = new Date();
-        const dateStr = today.toISOString().slice(0, 10);
-        const defaultsByType = {
-            text: 'thank the formr monkey',
-            textarea: 'thank the formr monkey\nmany times',
-            email: 'formr_monkey@example.org',
-            url: 'https://formrmonkey.example.org/',
-            date: dateStr,
-            month: dateStr.slice(0, 7),
-            week: (() => {
-                const d = new Date(today);
-                const onejan = new Date(d.getFullYear(), 0, 1);
-                const week = Math.ceil((((d - onejan) / 86400000) + onejan.getDay() + 1) / 7);
-                return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`;
-            })(),
-            yearmonth: dateStr.slice(0, 7),
-            datetime: today.toISOString().slice(0, 16),
-            'datetime-local': today.toISOString().slice(0, 16),
-            time: '11:22',
-            color: '#ff0000',
-            number: 20,
-            tel: '+441234567890',
-        };
-        const visibleItems = page.querySelectorAll('.form-group.form-row:not(.hidden):not(.item-submit):not(.item-note):not(.item-block):not(.item-note_iframe)');
-        visibleItems.forEach((group) => {
-            // Already answered? Skip.
-            const realInputs = [...group.querySelectorAll('input[name], select[name], textarea[name]')]
-                .filter((i) => i.name && !i.name.startsWith('_item_views') && !i.disabled);
-            if (realInputs.length === 0) return;
-            // Radio / checkbox groups: pick the first non-hidden option.
-            const radios = realInputs.filter((i) => i.type === 'radio');
-            const checks = realInputs.filter((i) => i.type === 'checkbox');
-            if (radios.length) {
-                const r = radios[0];
-                r.checked = true;
-                r.dispatchEvent(new Event('change', { bubbles: true }));
-                return;
-            }
-            if (checks.length) {
-                checks.slice(0, 1).forEach((c) => {
-                    c.checked = true;
-                    c.dispatchEvent(new Event('change', { bubbles: true }));
-                });
-                return;
-            }
-            // Selects (incl. tom-select wrapped)
-            const select = realInputs.find((i) => i.tagName === 'SELECT');
-            if (select) {
-                if (select.tomselect) {
-                    const opts = Object.keys(select.tomselect.options || {});
-                    if (opts.length) select.tomselect.setValue(opts[0]);
-                } else if (select.options.length) {
-                    select.selectedIndex = Math.max(1, 0); // skip blank if present
-                    select.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-                return;
-            }
-            // Tom-select-wrapped <input.select2add>
-            const addable = realInputs.find((i) => i.classList.contains('select2add') && i.tomselect);
-            if (addable) {
-                const opts = Object.keys(addable.tomselect.options || {});
-                if (opts.length) addable.tomselect.setValue(opts[0]);
-                else addable.tomselect.addOption({ id: 'monkey', text: 'monkey' }) && addable.tomselect.setValue('monkey');
-                return;
-            }
-            // Plain text-ish inputs + textareas: fill the first non-hidden one.
-            const target = realInputs.find((i) => i.type !== 'hidden' && !i.readOnly);
-            if (!target) return;
-            const t = target.type || target.tagName.toLowerCase();
-            let val = defaultsByType[t];
-            if (t === 'range') {
-                const min = Number(target.min || 0);
-                const max = Number(target.max || 100);
-                val = Math.round((min + max) / 2);
-            }
-            if (t === 'number') {
-                const min = Number(target.min);
-                const max = Number(target.max);
-                if (!isNaN(min) && !isNaN(max)) val = Math.round((min + max) / 2);
-            }
-            if (val === undefined) val = defaultsByType.text;
-            target.value = String(val);
-            target.dispatchEvent(new Event('input', { bubbles: true }));
-            target.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-    }
+    // RequestCookie + RequestPhone + admin "monkey bar" preview live in items/* modules.
+    initRequestCookie(root);
+    initRequestPhone(root);
+    initAdminPreview({ root, getCurrentPage: () => pages[currentIndex] });
 }
 
-// Alpine component + directive registrations. Done at module load so they are
-// in place before Alpine.start() scans the DOM. The form bundle intentionally
-// has a single Alpine scope — `fmrForm` on the outer `<form>` — and a single
-// custom directive (`x-showif`). Everything else rides Alpine's built-ins.
-Alpine.data('fmrForm', () => ({
-    // Helpers — accessible inside any `x-showif` expression as `isNA(X)`,
-    // `answered(X)`, etc. Alpine binds `this` to $data when evaluating, so
-    // method delegates (`answered` → `this.isNA`) resolve correctly.
-    isNA(v) {
-        return v === null || v === undefined || v === ''
-            || (Array.isArray(v) && v.length === 0)
-            || (typeof v === 'number' && isNaN(v));
-    },
-    answered(v) { return !this.isNA(v); },
-    contains(haystack, needle) {
-        if (this.isNA(haystack)) return false;
-        if (Array.isArray(haystack)) return haystack.includes(needle);
-        return String(haystack).indexOf(String(needle)) > -1;
-    },
-    containsWord(haystack, word) {
-        if (this.isNA(haystack)) return false;
-        const re = new RegExp('\\b' + String(word).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
-        return re.test(String(haystack));
-    },
-    startsWith(haystack, prefix) {
-        if (this.isNA(haystack)) return false;
-        return String(haystack).startsWith(String(prefix));
-    },
-    endsWith(haystack, suffix) {
-        if (this.isNA(haystack)) return false;
-        return String(haystack).endsWith(String(suffix));
-    },
-    last(arr) {
-        return Array.isArray(arr) && arr.length > 0 ? arr[arr.length - 1] : arr;
-    },
-
-    init() {
-        // Register one reactive top-level key per named input. Alpine's `reactive`
-        // (Vue 3 Proxy) tracks new keys assigned to `this`, so showif expressions
-        // like `trigger == 'yes'` resolve against `$data.trigger` after the first
-        // assignment. Empty/unchecked normalizes to `null` so helpers see a
-        // single "not answered" shape.
-        const inputs = this.$root.querySelectorAll('input[name], select[name], textarea[name]');
-        inputs.forEach((inp) => {
-            const raw = inp.name || '';
-            if (raw.startsWith('_item_views')) return;
-            const key = raw.endsWith('[]') ? raw.slice(0, -2) : raw;
-            if (!(key in this)) this[key] = null;
-        });
-        // Populate initial values (checked radios, text, selects, etc.).
-        inputs.forEach((inp) => this._syncInput(inp));
-        this.$root.addEventListener('input', (e) => this._syncInput(e.target));
-        this.$root.addEventListener('change', (e) => this._syncInput(e.target));
-    },
-
-    _syncInput(inp) {
-        const raw = inp.name || '';
-        if (!raw || raw.startsWith('_item_views')) return;
-        if (inp.disabled) return; // showif-hidden inputs keep their prior value
-        const isArr = raw.endsWith('[]');
-        const key = isArr ? raw.slice(0, -2) : raw;
-        const coerce = (s) => {
-            if (s === '' || s === null || s === undefined) return null;
-            const n = Number(s);
-            return isNaN(n) ? s : n;
-        };
-        let v;
-        if (inp.type === 'checkbox') {
-            if (isArr) {
-                const boxes = this.$root.querySelectorAll(
-                    `input[type=checkbox][name="${CSS.escape(raw)}"]:checked`
-                );
-                v = Array.from(boxes).map((b) => coerce(b.value));
-            } else {
-                v = inp.checked ? coerce(inp.value) : null;
-            }
-        } else if (inp.type === 'radio') {
-            const checked = this.$root.querySelector(
-                `input[type=radio][name="${CSS.escape(raw)}"]:checked`
-            );
-            v = checked ? coerce(checked.value) : null;
-        } else if (inp.tagName === 'SELECT' && inp.multiple) {
-            v = Array.from(inp.selectedOptions).map((o) => coerce(o.value));
-        } else {
-            v = coerce(inp.value);
-        }
-        this[key] = v;
-    },
-}));
-
-// Custom `x-showif` directive. Same contract as `x-show` but also
-// (a) toggles the Bootstrap `.hidden` class (ships display:none !important,
-// otherwise a parent/ancestor's `.hidden` wins), (b) disables inputs in the
-// hidden region so native `required` doesn't block submit and their values
-// don't get sent, and (c) rewrites v1's `is.na(X)` transpile output from
-// `(typeof(X) === 'undefined')` to `isNA(X)` since our reactive state
-// normalizes empty/unchecked to `null`, not `undefined`.
-//
-// Expression robustness: the transpiled R often carries `//js_only` or `//`
-// line comments, which otherwise swallow our wrapping closing paren and
-// produce a SyntaxError at `new AsyncFunction()` time. Strip comments first.
-// Expressions can also reference names not in `$data` (run-level variables
-// like `ran_group`, or items from other pages not present on this form);
-// wrap the evaluation in a runtime try/catch so ReferenceError defaults to
-// undefined (i.e. "show") instead of noisily blowing up every keystroke.
-Alpine.directive('showif', (el, { expression }, { evaluateLater, effect, cleanup }) => {
-    const cleaned = (expression || '')
-        .replace(/\/\*[\s\S]*?\*\//g, '')
-        .replace(/\/\/.*$/gm, '')
-        .trim();
-    if (!cleaned) return; // no showif → leave the server-side state as-is
-    const rewritten = cleaned.replace(
-        /\(\s*typeof\(\s*([A-Za-z0-9_'"]+)\s*\)\s*===\s*['"]undefined['"]\s*\)/g,
-        'isNA($1)'
-    );
-    const safe = `(function(){try{return (${rewritten})}catch(e){return undefined}})()`;
-
-    const applyVisibility = (visible) => {
-        el.classList.toggle('hidden', !visible);
-        el.toggleAttribute('data-fmr-hidden', !visible);
-        el.style.display = visible ? '' : 'none';
-        el.querySelectorAll('input, select, textarea').forEach((inp) => {
-            if (inp.name && !inp.name.startsWith('_item_views')) {
-                inp.disabled = !visible;
-            }
-        });
-    };
-
-    let getValue;
-    try {
-        getValue = evaluateLater(safe);
-    } catch (e) {
-        // Expression couldn't compile at all (unmatched parens, stray tokens
-        // post-comment-strip, etc.). Fall back to visible so the participant
-        // can still see the item — better than a silently-hidden field that
-        // never reveals.
-        applyVisibility(true);
-        return;
-    }
-    effect(() => {
-        getValue((result) => {
-            // Runtime failure (our inner try/catch returns undefined, or Alpine
-            // itself swallowed something): treat as "show".
-            const visible = (result === undefined) ? true : !!result;
-            applyVisibility(visible);
-        });
-    });
-});
+// Alpine `fmrForm` component + `x-showif` directive registered at module
+// load (so they're in place before Alpine.start() scans the DOM). One Alpine
+// scope on the outer <form>, one custom directive; everything else rides
+// built-ins.
+registerFmrForm(Alpine);
+registerXShowif(Alpine);
 
 window.Alpine = Alpine;
 

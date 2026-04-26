@@ -117,6 +117,7 @@ if (ENABLE_BS && BS_USERNAME && BS_ACCESS_KEY) {
 
 module.exports = defineConfig({
     testDir: '.',
+    globalSetup: require.resolve('./setup/global-setup.js'),
     timeout: 120 * 1000,
     expect: { timeout: 15 * 1000 },
     retries: 0,

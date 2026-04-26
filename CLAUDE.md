@@ -116,7 +116,7 @@ This repo's setup is **not** safe to expose as-is. Production deployments additi
 - **Domain mismatch is intentional:** admin email is on `researchmixtapes.com` (plural), the web instance is on `researchmixtape.com` (singular). Not a typo.
 - **Stack config** lives one directory up at `/home/admin/formr-docker/` — see `docker-compose.yml`, `.env`, `README.md` there for how the containers (app, MariaDB, OpenCPU, proxy) are wired. The active compose file defaults to `docker-compose.yml`; `docker-compose-prod.yml` and `docker-compose-local.yml` are alternatives.
 - **Admin test credentials:** stored in `/home/admin/formr-docker/.env.dev` (gitignored in both this repo and the docker repo). Read with `cat /home/admin/formr-docker/.env.dev` when you need them. Never paste into chat, never commit, never write into memory files.
-- **Participant URLs** use subdomains because `use_study_subdomains=true`: a run named `foo` is reachable at `https://foo.researchmixtape.com/`. The admin and run live on different origins by design — this is part of formr's security model, not incidental.
+- **Participant URLs** do not use subdomains because `use_study_subdomains=false` (live config lives in ../formr_app/config/settings.php): a run named `foo` is reachable at `https://studies.researchmixtape.com/foo`. The admin and run live on different origins by design — this is part of formr's security model, not incidental.
 
 ### UI testing via Playwright MCP
 
