@@ -891,17 +891,28 @@ class RunController extends Controller {
         // actually scheduled on that page in this unit-session — a hostile
         // client passing a different page number can't resolve calls for
         // items not on that page (or not in their session at all).
-        $rows = DB::getInstance()->select('r.id, r.slot, r.expr, r.item_id, i.name AS item_name')
-            ->from('survey_r_calls AS r')
-            ->join('survey_items_display AS d', 'd.item_id = r.item_id', 'INNER')
-            ->join('survey_items AS i', 'i.id = r.item_id', 'INNER')
-            ->where('r.study_id = :study_id AND r.slot IN ("value", "label") AND d.session_id = :session_id AND d.page = :page')
-            ->bindParams(array(
-                'study_id' => (int) $study->id,
-                'session_id' => (int) $unitSession->id,
-                'page' => $pageNum,
-            ))
-            ->fetchAll();
+        // Raw SQL — DB::select()/from() don't support `AS` aliases (quoteCol
+        // wraps "table AS x" in one set of backticks → "`table AS x`" which
+        // doesn't exist), and DB::join() only takes (table, condition);
+        // earlier `->join(..., 'INNER')` got parsed as a second condition
+        // and threw "Unable to get join condition clauses". Both stayed
+        // latent until first-page label deferral made every initial render
+        // hit this query with non-empty results.
+        $stmt = DB::getInstance()->prepare(
+            'SELECT r.id, r.slot, r.expr, r.item_id, i.name AS item_name'
+            . ' FROM survey_r_calls r'
+            . ' INNER JOIN survey_items_display d ON d.item_id = r.item_id'
+            . ' INNER JOIN survey_items i ON i.id = r.item_id'
+            . ' WHERE r.study_id = :study_id'
+            . ' AND r.slot IN ("value", "label")'
+            . ' AND d.session_id = :session_id'
+            . ' AND d.page = :page'
+        );
+        $stmt->bindValue(':study_id', (int) $study->id, PDO::PARAM_INT);
+        $stmt->bindValue(':session_id', (int) $unitSession->id, PDO::PARAM_INT);
+        $stmt->bindValue(':page', (int) $pageNum, PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         if (!$rows) {
             $this->sendJsonResponse(array('values' => array(), 'labels' => array()));
