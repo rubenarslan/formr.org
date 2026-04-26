@@ -57,3 +57,8 @@ playwright-report/
 test-results/
 tests/e2e/setup/admin-state.json
 
+# browserstack-node-sdk runtime logs + temp files
+log/
+playwright-browserstack-sdk.config.temp.json
+tests/e2e/playwright-browserstack-sdk.config.js
+

@@ -47,7 +47,7 @@ test.describe('PWA low-friction v2', () => {
 
     test('service worker activates [BS-only]', async ({ page, baseURL }, info) => {
         test.skip(pwa.isLocal(info), 'local-chromium blocks SWs');
-        await page.goto(`${baseURL}${participantPath(SUITE, VARIANT)}`, { waitUntil: 'domcontentloaded' });
+        await page.goto(`${baseURL}${participantPath(SUITE, VARIANT)}`, { waitUntil: 'commit', timeout: 60000 });
         const state = await pwa.swActivated(page);
         expect(state).toBe('activated');
     });

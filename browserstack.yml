@@ -1,0 +1,49 @@
+# browserstack-node-sdk config for v2 form smoke tests on real mobile.
+#
+# Wired with the SDK approach (npx browserstack-node-sdk playwright test ...)
+# instead of the earlier manual wsEndpoint hack — that hit a wire-protocol
+# mismatch ("browserName: expected one of (chromium|firefox|webkit)" on iOS,
+# "Malformed endpoint" on Android). The SDK injects BS transport into the
+# Playwright config at run time and avoids both errors.
+#
+# Credentials live in /home/admin/formr-docker/.env.dev (gitignored). They
+# are read from the BROWSERSTACK_USERNAME / BROWSERSTACK_ACCESS_KEY env vars
+# the same shell scripts already export — that's what the empty literals
+# below trigger ("set BROWSERSTACK_USERNAME and BROWSERSTACK_ACCESS_KEY as
+# env variables"). DO NOT inline secrets here.
+
+userName: ''
+accessKey: ''
+
+projectName: formr v2 parity smoke
+buildName: formr v2 parity smoke
+buildIdentifier: '#${DATE_TIME}'
+
+# Real-device matrix. Keep tight: each platform burns one parallel slot per
+# test, and the open-source plan we have only allots 5. Two devices × the
+# test-suite (~12 BS-tagged tests after gating) = manageable.
+#
+# iOS Safari for the WebKit-only PWA install / IndexedDB / SW edge cases.
+# Android Chrome for the v2 offline-queue happy path on a non-iOS UA.
+platforms:
+  - browserName: safari
+    osVersion: 17
+    deviceName: iPhone 15 Pro Max
+  - browserName: chrome
+    osVersion: '14.0'
+    deviceName: Google Pixel 8
+
+parallelsPerPlatform: 1
+
+# Dev URL is internet-routable (https://study.researchmixtape.com) — no
+# tunnel needed. Flip to true if a future build runs against localhost.
+browserstackLocal: false
+
+# Debugging hooks — useful for the first few BS runs where we're still
+# tuning. networkLogs adds noticeable session weight; trim to false once
+# the suite stabilises.
+debug: false
+networkLogs: true
+consoleLogs: errors
+
+testReporting: true

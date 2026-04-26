@@ -172,6 +172,19 @@ Don't prefer direct DB inserts for test setup over uploading a fixture — DB sh
 
 **`all_widgets_with_values.xlsx` vs `all_widgets` Google sheet:** the xlsx in `documentation/example_surveys/` surfaced ~40 "OpenCPU showif error" badges in this dev env — the Google-sheet version loads clean. When debugging v2 rendering against a broad surface, prefer the live sheet (`https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw`) imported via "Add a new survey → Import a Googlesheet". The same URL also works as a project-level smoke fixture.
 
+### BrowserStack real-device tests
+
+`npm run test:bs` runs the same suite on real iPhone Safari + Android Chrome via `browserstack-node-sdk playwright test`. Requires `BROWSERSTACK_USERNAME` / `BROWSERSTACK_ACCESS_KEY` in env (already in `.env.dev`).
+
+- **Pin Playwright to ≤1.57.** BS only supports up to 1.57 today; @playwright/test ^1.59 fails with "browserName: expected one of (chromium|firefox|webkit)" because BS's SDK monkey-patch doesn't cover newer wire-protocol versions.
+- **Platforms live in `browserstack.yml`** at repo root. Currently `iPhone 15 Pro Max iOS 17` (browserName: safari) + `Google Pixel 8 Android 14` (browserName: chrome). Each platform burns one parallel slot per spec file; the open-source plan allots 5 slots.
+- **iOS Safari quirks the SDK has surfaced (and the suite already works around):**
+  - `trace: 'retain-on-failure'` errors with "Unsupported Playwright command on iOS: tracingStartChunk". Config detects the SDK runner via `BROWSERSTACK_AUTOMATION=true` and disables tracing then.
+  - SW state may be `'activating'` not `'activated'` when `navigator.serviceWorker.ready` resolves; `helpers/pwa.js#swActivated` polls until `'activated'`.
+  - `page.goto(..., { waitUntil: 'domcontentloaded' })` times out on iPhone for some pages — BS-only specs use `waitUntil: 'commit', timeout: 60000`.
+- **Build dashboards** are linked at the end of every BS run (look for `https://automate.browserstack.com/dashboard/v2/builds/<hash>` in stdout).
+- **Don't commit `log/` or `playwright-browserstack-sdk.config.*`** — they're SDK runtime artifacts, gitignored.
+
 ### Project-scoped subagent: `ui-playwright-tester`
 
 Defined at `.claude/agents/ui-playwright-tester.md` and auto-registered for any Claude Code session started in this repo. Use it via the Agent tool with `subagent_type: "ui-playwright-tester"` when:

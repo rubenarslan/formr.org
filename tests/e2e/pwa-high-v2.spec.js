@@ -43,14 +43,14 @@ test.describe('PWA high-friction v2', () => {
 
     test('service worker activates [BS-only]', async ({ page, baseURL }, info) => {
         test.skip(pwa.isLocal(info), 'local-chromium blocks SWs');
-        await page.goto(`${baseURL}${participantPath(SUITE, VARIANT)}`, { waitUntil: 'domcontentloaded' });
+        await page.goto(`${baseURL}${participantPath(SUITE, VARIANT)}`, { waitUntil: 'commit', timeout: 60000 });
         const state = await pwa.swActivated(page);
         expect(state).toBe('activated');
     });
 
     test('caches populate after first load [BS-only]', async ({ page, baseURL }, info) => {
         test.skip(pwa.isLocal(info), 'local-chromium blocks SWs');
-        await page.goto(`${baseURL}${participantPath(SUITE, VARIANT)}`, { waitUntil: 'domcontentloaded' });
+        await page.goto(`${baseURL}${participantPath(SUITE, VARIANT)}`, { waitUntil: 'commit', timeout: 60000 });
         await page.waitForTimeout(2000);
         const keys = await pwa.cacheKeys(page);
         expect(keys.length).toBeGreaterThan(0);

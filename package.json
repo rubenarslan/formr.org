@@ -18,13 +18,13 @@
         "test:e2e": "playwright test --config tests/e2e/playwright.config.js --project=local-chromium",
         "test:e2e:widgets": "playwright test --config tests/e2e/playwright.config.js --project=local-chromium all-widgets",
         "test:e2e:pwa": "playwright test --config tests/e2e/playwright.config.js --project=local-chromium pwa-",
-        "test:bs": "playwright test --config tests/e2e/playwright.config.js --project=bs-iphone-15 --project=bs-pixel-8"
+        "test:bs": "browserstack-node-sdk playwright test --config tests/e2e/playwright.config.js"
     },
     "devDependencies": {
         "@babel/plugin-syntax-dynamic-import": "^7.8.3",
         "@babel/plugin-transform-strict-mode": "^7.25.9",
         "@babel/preset-env": "^7.26.8",
-        "@playwright/test": "^1.59.1",
+        "@playwright/test": "1.57",
         "autoprefixer": "^10.4.20",
         "babel-loader": "^9.2.1",
         "baseline-browser-mapping": "^2.10.20",

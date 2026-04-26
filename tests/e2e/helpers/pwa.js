@@ -34,16 +34,27 @@ async function assertHeadWiring(page, { runPath, expectVapid = false } = {}) {
     }
 }
 
-async function swActivated(page, { timeout = 8000 } = {}) {
-    return page.evaluate(async (t) => {
+// Wait until the SW reaches 'activated' (not just 'activating'). On real
+// Android we've seen the controller resolve `ready` while the active worker
+// is still mid-install, so polling is necessary. Returns the final state
+// (which may still be 'activating' or null if it never readied).
+async function swActivated(page, { timeout = 12000, pollInterval = 250 } = {}) {
+    return page.evaluate(async ({ timeout, pollInterval }) => {
+        const deadline = Date.now() + timeout;
         try {
             const reg = await Promise.race([
                 navigator.serviceWorker.ready,
-                new Promise((_, rej) => setTimeout(() => rej(new Error('sw timeout')), t)),
+                new Promise((_, rej) => setTimeout(() => rej(new Error('sw ready timeout')), timeout)),
             ]);
+            // reg.active may still be 'installing'/'activating' after .ready resolves.
+            while (Date.now() < deadline) {
+                const state = reg && reg.active ? reg.active.state : null;
+                if (state === 'activated' || state === 'redundant') return state;
+                await new Promise((r) => setTimeout(r, pollInterval));
+            }
             return reg && reg.active ? reg.active.state : null;
         } catch (e) { return null; }
-    }, timeout);
+    }, { timeout, pollInterval });
 }
 
 async function cacheKeys(page) {

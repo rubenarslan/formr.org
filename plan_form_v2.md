@@ -374,7 +374,7 @@ Nothing here is still open; these are the frozen decisions.
 - (cleared) ~~In-browser smoke for audio/video capture~~. `initMediaRecorders()` ported in `webroot/assets/form/js/main.js`; smoke at `tests/e2e/media-recorder-v2.spec.js`. Real-device sanity belongs on BrowserStack but isn't a merge blocker.
 
 **P1 — before calling form_v2 GA:**
-1. iOS Safari compatibility pass for offline queue + PWA items (Background Sync is unavailable there, but the page-side `online` path still drains; the install + push items show iOS-specific guidance and need real-device verification).
+1. iOS Safari compatibility pass for offline queue + PWA items. BrowserStack wiring landed (`npm run test:bs`, real iPhone 15 Pro Max iOS 17 + Google Pixel 8 Android 14 via the `browserstack-node-sdk` runner). Pixel-side SW + caches green on first run. iPhone Safari: SW activation flaky on the service-message page (Safari gates SW activation more aggressively than Chrome — needs a real participant URL with a minted `?code=`, not just the access-denied landing). Push subscription needs a user-gesture on iOS too. Background Sync unavailable; page-side `online` path is the fallback. **Pinned to `@playwright/test` 1.57** — BS supports ≤1.57; bumping past breaks the SDK monkey-patch with "browserName: expected one of (chromium|firefox|webkit)".
 
 **P2 — post-GA polish:**
 1. Bundle module split: `webroot/assets/form/js/main.js` is ~1400 lines. Split into `alpine-init`, `showif-runtime`, `page-submit`, `offline-queue`, `r-call`, `deferred-fill`, `validation/*`, `items/*`.
