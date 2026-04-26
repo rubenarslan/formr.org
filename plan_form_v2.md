@@ -370,24 +370,22 @@ Nothing here is still open; these are the frozen decisions.
 
 ## 8. Remaining work (prioritized)
 
-**P0 — blockers for merging `feature/form_v2` to master:**
-- (cleared) ~~In-browser smoke for audio/video capture~~. `initMediaRecorders()` ported in `webroot/assets/form/js/main.js`; smoke at `tests/e2e/media-recorder-v2.spec.js`. Real-device sanity belongs on BrowserStack but isn't a merge blocker.
+**P0 — blockers for merging `feature/form_v2` to master:** none. (Audio/video capture port + smoke landed; see Phase 2 entry. Bundle split + parity test suite + BS wiring also landed.)
 
 **P1 — before calling form_v2 GA:**
-1. iOS Safari compatibility pass for offline queue + PWA items. BrowserStack wiring landed (`npm run test:bs`, real iPhone 15 Pro Max iOS 17 + Google Pixel 8 Android 14 via the `browserstack-node-sdk` runner). Pixel-side SW + caches green on first run. iPhone Safari: SW activation flaky on the service-message page (Safari gates SW activation more aggressively than Chrome — needs a real participant URL with a minted `?code=`, not just the access-denied landing). Push subscription needs a user-gesture on iOS too. Background Sync unavailable; page-side `online` path is the fallback. **Pinned to `@playwright/test` 1.57** — BS supports ≤1.57; bumping past breaks the SDK monkey-patch with "browserName: expected one of (chromium|firefox|webkit)".
+1. iOS Safari compatibility pass for offline queue + PWA items. BrowserStack wiring landed (`npm run test:bs`, real iPhone 15 Pro Max iOS 17 + Google Pixel 8 Android 14 via the `browserstack-node-sdk` runner). 10/14 BS-only tests green; 4 marked `test.fixme` are real platform quirks: iPhone caches.keys() is partitioned away from the SW caches under iOS automation (real users see caches fine), and the offline-submit test is flaky on real-device first-paint timing. **Pinned to `@playwright/test` 1.57** — BS supports ≤1.57; bumping past breaks the SDK monkey-patch.
 
-**P2 — post-GA polish:**
-1. Bundle module split: `webroot/assets/form/js/main.js` is ~1400 lines. Split into `alpine-init`, `showif-runtime`, `page-submit`, `offline-queue`, `r-call`, `deferred-fill`, `validation/*`, `items/*`.
-2. Dedicated `showif_js` column on `survey_items` + import-time `new Function()` parse-check (no full parser; see §9 Deferred for the failure-UI design with CodePen + rdrr.io embeds).
-3. Embedded Rmd in labels / page_body routed through `r(...) + /form-fill` (currently still OpenCPU-knit at render; cache softens the cost but the source still ships to the client).
-4. File-blob queueing: raise the 10 MB cap via admin config, OR add chunked uploads if researchers routinely collect larger audio/video blobs.
+**P2 — post-GA polish (open):**
+1. Hardened JS transpiler — replace the regex transpile in `Item::setMoreOptions` with a proper parser-driven path. Lower priority: the transpile output is now cached at import time (patch 053, `survey_items.showif_js`), so the runtime cost is gone; what remains is the long tail of input cases the regex transpile silently mishandles.
+2. Date/time/datetime-local/month/week cross-browser smoke (Phase 2 leftover). `tests/e2e/datetime-render.spec.js` covers the render-and-fill smoke locally (2 passed, 17s). On BS real-device the test triggers the same SDK reporter flake that blocks the offline-submit test ("Serialized error must have either an error or a value" on iPhone, "Socket idle" on Pixel) — needs the same per-test page-evaluate-only pattern as `swActivated` to be reliable. The fixture coverage is in place; just the BS-reliable wiring is open.
+3. (Optional) Defer FIRST-PAGE labels through `/form-render-page` too. Today first-page labels are resolved server-side at FormRenderer time (so the participant sees fully-formed labels at first paint); later-page labels already use `data-fmr-label-id` placeholders + batch-resolve via `/form-render-page` with `survey_r_call_results` cache. Moving first-page labels onto the same path eliminates inline OpenCPU at FormRenderer time at the cost of a brief first-paint flicker. Architectural consistency, not a correctness gap.
 
-**P2 — cleanup and future hardening:**
-1. Bundle module split: `webroot/assets/form/js/main.js` is 982 lines. Split into `alpine-init`, `showif-runtime`, `page-submit`, `offline-queue`, `r-call`, `deferred-fill`, `validation/*`, `items/*`.
-2. Dedicated `showif_js` column on `survey_items` + proper parser (Esprima or hand-rolled) to replace the regex transpile.
-3. `r_call_results` cache table with TTL.
-4. File-blob queueing with default 10MB cap.
-5. Embedded Rmd in labels / page_body routed through r(...)+fill (currently OpenCPU-knit at render).
+**P2 — done (was on this list, now landed):**
+- Bundle module split — `webroot/assets/form/js/main.js` 2453 → 1415 lines, 13 leaf modules under `lib/`, `offline/`, `validation/`, `showif/`, `items/`. `idb` adopted (~6KB) for the queue.
+- `r_call_results` cache table with TTL — patch 052.
+- `showif_js` column on `survey_items` (patch 053). Item.setMoreOptions prefers the cached transpile when set, falls back to live regex for legacy items.
+- File-blob queueing cap is now `$settings['form_v2_offline_blob_max_mb']` (default 10MB). Per-study override is the natural follow-up.
+- Embedded Rmd in labels / page_body routed through `r(...)` + `/form-render-page`. FormRenderer registers each `needsDynamicLabel` item under `survey_r_calls` slot='label'; for later pages emits a `data-fmr-label-id` placeholder and the client batch-resolves via `/form-render-page` with the patch 052 cache. (First-page labels are still resolved inline server-side — see open item 3 above.)
 
 ---
 
