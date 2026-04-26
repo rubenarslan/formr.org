@@ -377,7 +377,6 @@ Nothing here is still open; these are the frozen decisions.
 
 **P2 — post-GA polish (open):**
 1. Date/time/datetime-local/month/week cross-browser smoke (Phase 2 leftover). `tests/e2e/datetime-render.spec.js` covers the render-and-fill smoke locally (2 passed, 17s). On BS real-device the test triggers the same SDK reporter flake that blocks the offline-submit test ("Serialized error must have either an error or a value" on iPhone, "Socket idle" on Pixel) — needs the same per-test page-evaluate-only pattern as `swActivated` to be reliable. The fixture coverage is in place; just the BS-reliable wiring is open.
-2. (Optional) Defer FIRST-PAGE labels through `/form-render-page` too. Today first-page labels are resolved server-side at FormRenderer time (so the participant sees fully-formed labels at first paint); later-page labels already use `data-fmr-label-id` placeholders + batch-resolve via `/form-render-page` with `survey_r_call_results` cache. Moving first-page labels onto the same path eliminates inline OpenCPU at FormRenderer time at the cost of a brief first-paint flicker. Architectural consistency, not a correctness gap.
 
 **Explicitly not doing:**
 - Hardened JS transpiler — the regex transpile in `Item::setMoreOptions` stays. Patch 053 caches its output at import time so per-request cost is gone; the long tail of malformed expressions the regex mishandles is acceptable risk (the client `x-showif` directive's try/catch defaults silently-broken expressions to "visible"). Replacing the regex with a parser was historical wishful-thinking.
@@ -387,7 +386,7 @@ Nothing here is still open; these are the frozen decisions.
 - `r_call_results` cache table with TTL — patch 052.
 - `showif_js` column on `survey_items` (patch 053). Item.setMoreOptions prefers the cached transpile when set, falls back to live regex for legacy items.
 - File-blob queueing cap is now `$settings['form_v2_offline_blob_max_mb']` (default 10MB). Per-study override is the natural follow-up.
-- Embedded Rmd in labels / page_body routed through `r(...)` + `/form-render-page`. FormRenderer registers each `needsDynamicLabel` item under `survey_r_calls` slot='label'; for later pages emits a `data-fmr-label-id` placeholder and the client batch-resolves via `/form-render-page` with the patch 052 cache. (First-page labels are still resolved inline server-side — see open item 3 above.)
+- Embedded Rmd in labels / page_body routed through `r(...)` + `/form-render-page`. FormRenderer registers every `needsDynamicLabel` item under `survey_r_calls` slot='label' and always emits a `data-fmr-label-id` placeholder; the client batch-resolves via `/form-render-page` with the patch 052 cache, on initial page load AND on every page transition. Brief "loading" flicker on the first page where dynamic content sits is the deliberate trade-off for one code path + cache hits on first navigation.
 
 ---
 
