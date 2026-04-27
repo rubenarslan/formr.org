@@ -16,27 +16,25 @@ test.describe('PWA low-friction v1', () => {
         await pwa.assertManifest(request, participantPath(SUITE, VARIANT));
     });
 
-    test('v1 form + PWA head wiring', async ({ browser }) => {
-        const { context, page } = await freshParticipant(browser, RUN());
-        try {
-            await expect(page.locator(v1.FORM_SELECTOR).first()).toBeVisible({ timeout: 10000 });
-            await pwa.assertHeadWiring(page, { runPath: participantPath(SUITE, VARIANT), expectVapid: false });
-        } finally {
-            await context.close();
-        }
+    test('v1 form + PWA head wiring', async ({ page, baseURL }) => {
+        const run = RUN();
+        await freshParticipant(page, run, { baseURL });
+        expect(page.url(), 'page should be on the participant URL, not about:blank').toContain(`/${run}/`);
+
+        await expect(page.locator(v1.FORM_SELECTOR).first()).toBeVisible({ timeout: 20000 });
+        await pwa.assertHeadWiring(page, { runPath: participantPath(SUITE, VARIANT), expectVapid: false });
     });
 
-    test('add_to_home_screen / push_notification items present (skipped if fixture lacks them)', async ({ browser }) => {
-        const { context, page } = await freshParticipant(browser, RUN());
-        try {
-            await expect(page.locator(v1.FORM_SELECTOR).first()).toBeVisible({ timeout: 10000 });
-            const a2hs = await page.locator('.item-add_to_home_screen').count();
-            const push = await page.locator('.item-push_notification').count();
-            test.skip(a2hs + push === 0, 'fixture has no PWA items; re-run runbook with the low-friction sheet to enable');
-            expect(a2hs + push).toBeGreaterThan(0);
-        } finally {
-            await context.close();
-        }
+    test('add_to_home_screen / push_notification items present (skipped if fixture lacks them)', async ({ page, baseURL }) => {
+        const run = RUN();
+        await freshParticipant(page, run, { baseURL });
+        expect(page.url()).toContain(`/${run}/`);
+
+        await expect(page.locator(v1.FORM_SELECTOR).first()).toBeVisible({ timeout: 20000 });
+        const a2hs = await page.locator('.item-add_to_home_screen').count();
+        const push = await page.locator('.item-push_notification').count();
+        test.skip(a2hs + push === 0, 'fixture has no PWA items; re-run runbook with the low-friction sheet to enable');
+        expect(a2hs + push).toBeGreaterThan(0);
     });
 
     test('service worker activates [BS-only]', async ({ page, baseURL }, info) => {

@@ -26,26 +26,24 @@ test.describe('PWA high-friction v1', () => {
         await pwa.assertManifest(request, participantPath(SUITE, VARIANT));
     });
 
-    test('v1 form + PWA head wiring', async ({ browser }) => {
-        const { context, page } = await freshParticipant(browser, RUN());
-        try {
-            await expect(page.locator(v1.FORM_SELECTOR).first()).toBeVisible({ timeout: 10000 });
-            await pwa.assertHeadWiring(page, { runPath: participantPath(SUITE, VARIANT), expectVapid: false });
-        } finally {
-            await context.close();
-        }
+    test('v1 form + PWA head wiring', async ({ page, baseURL }) => {
+        const run = RUN();
+        await freshParticipant(page, run, { baseURL });
+        expect(page.url(), 'page should be on the participant URL, not about:blank').toContain(`/${run}/`);
+
+        await expect(page.locator(v1.FORM_SELECTOR).first()).toBeVisible({ timeout: 20000 });
+        await pwa.assertHeadWiring(page, { runPath: participantPath(SUITE, VARIANT), expectVapid: false });
     });
 
-    test('request_phone markup present (skipped if fixture lacks it)', async ({ browser }) => {
-        const { context, page } = await freshParticipant(browser, RUN());
-        try {
-            await expect(page.locator(v1.FORM_SELECTOR).first()).toBeVisible({ timeout: 10000 });
-            const cnt = await page.locator('.item-request_phone, .request-phone-wrapper, .browser-switch-ui').count();
-            test.skip(cnt === 0, 'fixture has no request_phone item; re-run runbook with the high-friction sheet to enable');
-            expect(cnt).toBeGreaterThan(0);
-        } finally {
-            await context.close();
-        }
+    test('request_phone markup present (skipped if fixture lacks it)', async ({ page, baseURL }) => {
+        const run = RUN();
+        await freshParticipant(page, run, { baseURL });
+        expect(page.url()).toContain(`/${run}/`);
+
+        await expect(page.locator(v1.FORM_SELECTOR).first()).toBeVisible({ timeout: 20000 });
+        const cnt = await page.locator('.item-request_phone, .request-phone-wrapper, .browser-switch-ui').count();
+        test.skip(cnt === 0, 'fixture has no request_phone item; re-run runbook with the high-friction sheet to enable');
+        expect(cnt).toBeGreaterThan(0);
     });
 
     test('service worker activates [BS-only]', async ({ page, baseURL }, info) => {

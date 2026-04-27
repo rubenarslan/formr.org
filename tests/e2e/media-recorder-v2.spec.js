@@ -65,8 +65,11 @@ async function installMediaStubs(page, { sampleBytes = 'fmr-test-audio-blob' } =
 }
 
 test.describe('media recorders v2', () => {
-    test('record_audio container gets recorder UI and synthetic blob lands in file input', async ({ browser }) => {
-        const { context, page } = await freshParticipant(browser, RUN());
+    test('record_audio container gets recorder UI and synthetic blob lands in file input', async ({ page, baseURL }) => {
+        const run = RUN();
+        await freshParticipant(page, run, { baseURL });
+        expect(page.url(), 'page should be on the participant URL, not about:blank').toContain(`/${run}/`);
+
         try {
             await v2.waitForBundle(page);
             // Stubs installed AFTER initial bundle load — the form has already
@@ -130,12 +133,15 @@ test.describe('media recorders v2', () => {
             await expect(playBtn).toBeEnabled();
             await expect(deleteBtn).toBeEnabled();
         } finally {
-            await context.close();
+            // Page-fixture: nothing to close.
         }
     });
 
-    test('record_video container also wires up', async ({ browser }) => {
-        const { context, page } = await freshParticipant(browser, RUN());
+    test('record_video container also wires up', async ({ page, baseURL }) => {
+        const run = RUN();
+        await freshParticipant(page, run, { baseURL });
+        expect(page.url(), 'page should be on the participant URL, not about:blank').toContain(`/${run}/`);
+
         try {
             await v2.waitForBundle(page);
             await installMediaStubs(page, { sampleBytes: 'fmr-test-video-blob' });
@@ -177,7 +183,7 @@ test.describe('media recorders v2', () => {
             // Audio + video share the constraints; FakeMediaRecorder defaults to
             // audio/webm. Don't assert mime since the prefix differs by stub.
         } finally {
-            await context.close();
+            // Page-fixture: nothing to close.
         }
     });
 });

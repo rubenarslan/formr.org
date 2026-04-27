@@ -37,131 +37,96 @@ const DATETIME_FIELDS = [
 ];
 
 test.describe('date/time render smoke', () => {
-    test('all date/time variants render with the expected input type', async ({ browser }) => {
+    test('all date/time variants render with the expected input type', async ({ page, baseURL }) => {
         // BS real-device CDP latency makes per-field round-trips slow. Pull
         // the whole snapshot in one page.evaluate and compare in node-land.
-        const { context, page } = await freshParticipant(browser, runName('all_widgets', 'v2'));
-        try {
-            await expect(page.locator('form.fmr-form-v2').first()).toBeVisible({ timeout: 15000 });
+        const run = runName('all_widgets', 'v2');
+        await freshParticipant(page, run, { baseURL });
+        expect(page.url(), 'page should be on the participant URL, not about:blank').toContain(`/${run}/`);
 
-            const names = DATETIME_FIELDS.map((f) => f.name);
-            const observed = await page.evaluate((names) => {
-                const out = {};
-                names.forEach((n) => {
-                    const el = document.querySelector(`input[name="${CSS.escape(n)}"]`);
-                    out[n] = el ? el.type : null;
-                });
-                return out;
-            }, names);
+        await expect(page.locator('form.fmr-form-v2').first()).toBeVisible({ timeout: 20000 });
 
-            for (const field of DATETIME_FIELDS) {
-                const actualType = observed[field.name];
-                if (actualType === null) {
-                    test.info().annotations.push({
-                        type: 'note',
-                        description: `field ${field.name} (${field.itemType}) not present in this fixture`,
-                    });
-                    continue;
-                }
-                if (actualType !== field.inputType && actualType !== 'text') {
-                    throw new Error(
-                        `${field.name} (${field.itemType}): expected input type "${field.inputType}" or "text", got "${actualType}"`,
-                    );
-                }
+        const names = DATETIME_FIELDS.map((f) => f.name);
+        const observed = await page.evaluate((names) => {
+            const out = {};
+            names.forEach((n) => {
+                const el = document.querySelector(`input[name="${CSS.escape(n)}"]`);
+                out[n] = el ? el.type : null;
+            });
+            return out;
+        }, names);
+
+        for (const field of DATETIME_FIELDS) {
+            const actualType = observed[field.name];
+            if (actualType === null) {
                 test.info().annotations.push({
                     type: 'note',
-                    description: actualType === 'text'
-                        ? `${field.name}: browser fell back to text for ${field.itemType} (server validation handles format)`
-                        : `${field.name}: native ${actualType} input`,
+                    description: `field ${field.name} (${field.itemType}) not present in this fixture`,
                 });
+                continue;
             }
-            return; // skip the legacy per-field loop below
-            // eslint-disable-next-line no-unreachable
-            for (const field of DATETIME_FIELDS) {
-                const input = page.locator(`input[name="${field.name}"]`).first();
-                const cnt = await input.count();
-                if (cnt === 0) {
-                    test.info().annotations.push({
-                        type: 'note',
-                        description: `field ${field.name} (${field.itemType}) not present in this fixture; skipping its assertion`,
-                    });
-                    continue;
-                }
-                const actualType = await input.getAttribute('type');
-                // Browsers may downgrade unsupported types to "text" — record
-                // that as a soft note rather than failing, since formr's
-                // server validation is the source of truth.
-                if (actualType !== field.inputType && actualType !== 'text') {
-                    throw new Error(
-                        `${field.name} (${field.itemType}): expected input type "${field.inputType}" or "text", got "${actualType}"`,
-                    );
-                }
-                if (actualType !== 'text') {
-                    test.info().annotations.push({
-                        type: 'note',
-                        description: `${field.name}: native ${actualType} input`,
-                    });
-                } else {
-                    test.info().annotations.push({
-                        type: 'note',
-                        description: `${field.name}: browser fell back to text for ${field.itemType} (server validation handles format)`,
-                    });
-                }
+            if (actualType !== field.inputType && actualType !== 'text') {
+                throw new Error(
+                    `${field.name} (${field.itemType}): expected input type "${field.inputType}" or "text", got "${actualType}"`,
+                );
             }
-        } finally {
-            await context.close();
+            test.info().annotations.push({
+                type: 'note',
+                description: actualType === 'text'
+                    ? `${field.name}: browser fell back to text for ${field.itemType} (server validation handles format)`
+                    : `${field.name}: native ${actualType} input`,
+            });
         }
     });
 
-    test('date/time inputs accept valid values via .fill()', async ({ browser }) => {
-        const { context, page } = await freshParticipant(browser, runName('all_widgets', 'v2'));
-        try {
-            await expect(page.locator('form.fmr-form-v2').first()).toBeVisible({ timeout: 15000 });
+    test('date/time inputs accept valid values via .fill()', async ({ page, baseURL }) => {
+        const run = runName('all_widgets', 'v2');
+        await freshParticipant(page, run, { baseURL });
+        expect(page.url(), 'page should be on the participant URL, not about:blank').toContain(`/${run}/`);
 
-            // Set values via DOM directly (avoid Playwright's per-input fill
-            // round-trip which is slow on BS real-device). Then read back via
-            // a single page.evaluate.
-            const written = await page.evaluate((fields) => {
-                const out = {};
-                fields.forEach((f) => {
-                    const el = document.querySelector(`input[name="${CSS.escape(f.name)}"]`);
-                    if (!el) { out[f.name] = { skipped: 'absent' }; return; }
-                    if (el.type === 'text') { out[f.name] = { skipped: 'text-fallback', type: el.type }; return; }
-                    try {
-                        el.value = f.value;
-                        el.dispatchEvent(new Event('input', { bubbles: true }));
-                        el.dispatchEvent(new Event('change', { bubbles: true }));
-                        out[f.name] = { type: el.type, set: f.value, got: el.value };
-                    } catch (err) {
-                        out[f.name] = { type: el.type, error: String(err && err.message || err) };
-                    }
-                });
-                return out;
-            }, DATETIME_FIELDS);
+        await expect(page.locator('form.fmr-form-v2').first()).toBeVisible({ timeout: 20000 });
 
-            // Soft assertions: any successful set should leave a non-empty
-            // value behind. Browsers may reformat (locale), reject
-            // malformed values, or silently accept anything — annotate per
-            // platform so we have a record without churning the suite green.
-            for (const field of DATETIME_FIELDS) {
-                const r = written[field.name];
-                if (!r) continue;
-                if (r.skipped) {
-                    test.info().annotations.push({ type: 'note', description: `${field.name}: skipped (${r.skipped})` });
-                    continue;
+        // Set values via DOM directly (avoid Playwright's per-input fill
+        // round-trip which is slow on BS real-device). Then read back via
+        // a single page.evaluate.
+        const written = await page.evaluate((fields) => {
+            const out = {};
+            fields.forEach((f) => {
+                const el = document.querySelector(`input[name="${CSS.escape(f.name)}"]`);
+                if (!el) { out[f.name] = { skipped: 'absent' }; return; }
+                if (el.type === 'text') { out[f.name] = { skipped: 'text-fallback', type: el.type }; return; }
+                try {
+                    el.value = f.value;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                    out[f.name] = { type: el.type, set: f.value, got: el.value };
+                } catch (err) {
+                    out[f.name] = { type: el.type, error: String(err && err.message || err) };
                 }
-                if (r.error) {
-                    test.info().annotations.push({ type: 'note', description: `${field.name} (${r.type}): set threw — ${r.error.slice(0, 120)}` });
-                    continue;
-                }
-                if (r.got === '') {
-                    test.info().annotations.push({ type: 'note', description: `${field.name} (${r.type}): browser rejected "${r.set}" silently — value cleared` });
-                } else {
-                    test.info().annotations.push({ type: 'note', description: `${field.name} (${r.type}): set "${r.set}" → got "${r.got}"` });
-                }
+            });
+            return out;
+        }, DATETIME_FIELDS);
+
+        // Soft assertions: any successful set should leave a non-empty
+        // value behind. Browsers may reformat (locale), reject
+        // malformed values, or silently accept anything — annotate per
+        // platform so we have a record without churning the suite green.
+        for (const field of DATETIME_FIELDS) {
+            const r = written[field.name];
+            if (!r) continue;
+            if (r.skipped) {
+                test.info().annotations.push({ type: 'note', description: `${field.name}: skipped (${r.skipped})` });
+                continue;
             }
-        } finally {
-            await context.close();
+            if (r.error) {
+                test.info().annotations.push({ type: 'note', description: `${field.name} (${r.type}): set threw — ${r.error.slice(0, 120)}` });
+                continue;
+            }
+            if (r.got === '') {
+                test.info().annotations.push({ type: 'note', description: `${field.name} (${r.type}): browser rejected "${r.set}" silently — value cleared` });
+            } else {
+                test.info().annotations.push({ type: 'note', description: `${field.name} (${r.type}): set "${r.set}" → got "${r.got}"` });
+            }
         }
     });
 });
