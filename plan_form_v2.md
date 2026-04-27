@@ -2,7 +2,7 @@
 
 Branch: `feature/form_v2` (off `master` at v0.25.1). Not yet merged.
 
-This file was originally a design spec. Phases 0–5 have since landed on the branch, so it has been rewritten to describe what exists, what doesn't, and what's next. Architectural decisions and the remaining-work list are in §1–§9 + §11; day-to-day dev gotchas are in §10.
+This file was originally a design spec. Phases 0–5 have since landed on the branch, so it has been rewritten to describe what exists, what doesn't, and what's next. Architectural decisions and the remaining-work list live here; day-to-day dev gotchas live in `CLAUDE.md` under "form_v2 development notes".
 
 ---
 
@@ -24,7 +24,7 @@ Phases 0–5 are code-complete on-branch (with gaps noted below). Phases 6 (docs
 What's live vs. gated:
 - `form_v2_enabled` in `config/settings.php` gates the admin "Add Form" button (fa-wpforms icon). Once a `SurveyStudy` has `rendering_mode='v2'`, the v2 pipeline fires regardless of the flag — flipping the flag off does not disable existing v2 forms. To roll back a single form, flip its `rendering_mode` back to `'v1'`.
 - Per-study flags (admin survey settings page, visible only for v2 studies): `offline_mode` (default on — IDB queueing on failure) and `allow_previous` (default off — "Previous" button between pages).
-- Service-worker interception is NOT wired — MVP offline is a page-JS IndexedDB queue that drains on the `online` event and on initial page load.
+- Service-worker interception + Background Sync land the queue drain across tab/process death; iOS Safari (no Background Sync) falls back to page-JS `online` event + initial-load drain.
 
 ### Request-time flow
 
@@ -222,27 +222,27 @@ Templates: `templates/run/form_index.php` (single file; the original plan's `tem
 
 ### 5.1 Status
 
-MVP offline queue is **page-JS only**, not a service worker. The SW file (`webroot/assets/common/js/service-worker.js`) is untouched by form_v2.
+Offline queue is page-JS + service-worker, with Background Sync where available.
 
-- IndexedDB store `formrQueue`, one object store `queue`, keyPath `uuid`, `client_ts` index for ordered drain (in `webroot/assets/form/js/main.js`).
+- IndexedDB store `formrQueue`, one object store `queue`, keyPath `uuid`, `client_ts` index for ordered drain (in `webroot/assets/form/js/offline/queue.js`; uses the `idb` wrapper).
 - On fetch failure or 5xx from `/form-page-submit`, the JSON payload is persisted and a `.fmr-queue-banner` (warning variant) is shown. The participant advances locally.
-- On the `online` event and at initial page load, the queue drains by POSTing each entry to `/{runName}/form-sync`. Server dedupes via `survey_form_submissions.uuid` pre-check + UNIQUE backstop (patch 050), applies through the same `UnitSession::updateSurveyStudyRecord` path as `/form-page-submit`.
+- Drain triggers, in order of preference: (a) Background Sync via the `form-v2-drain` tag registered on enqueue, handled by `webroot/assets/common/js/service-worker.js`'s `sync` listener (Chromium/Android); (b) page `online` event; (c) initial-page-load check. (a) survives tab/process death; (b)/(c) are the iOS Safari fallback (no Background Sync there).
+- The SW also intercepts `POST /form-page-submit` and `/form-sync` to keep enqueue/drain consistent across foreground+background. Server dedupes via `survey_form_submissions.uuid` pre-check + UNIQUE backstop (patch 050), applies through the same `UnitSession::updateSurveyStudyRecord` path as `/form-page-submit`.
+- SW is registered unconditionally on v2 runs by `RunController::serviceWorkerAction` (scope `/{runName}/`, `Service-Worker-Allowed` header set).
+- Per-study `offline_mode` flag on `survey_studies` (patch 051; admin toggle): when off the form root sets `data-offline-mode="0"` and the client skips IDB persistence + drains nothing — fail loudly instead.
+- File-blob submissions queue too (patch 051's enqueue path stores the Blob in IDB; drain re-builds the multipart body). Default cap is `$settings['form_v2_offline_blob_max_mb']` (10 MB); over-cap submissions surface a hard error.
 - UUIDs must be RFC 4122 8-4-4-4-12 hex — the server regex-rejects anything else with 400. Client uses `crypto.randomUUID()` with a v4-shape RNG fallback.
 - Drain semantics: success → delete entry; if queue empty AND server returned `redirect`, follow it so the run advances. `drop_entry` (ended session) → drop without retry. Transient failure → stop, leave in place. Validation error → surface `.alert-danger` banner.
 - Timestamps to the server must be MySQL DATETIME format (`YYYY-MM-DD HH:MM:SS`). ISO-8601 with `.sssZ` 500s on `survey_form_submissions.client_ts`.
 
-### 5.2 What's not wired yet (Phase 5 gaps)
+### 5.2 What's not wired yet
 
-- **Service-worker `POST /form-page-submit` interception.** The original plan had the SW register a `sync` tag on the failed POST; right now interception is in page JS only. Replayed queue entries are bound to the tab's lifetime (until the `online` event fires), not the SW's.
-- **Background Sync API.** Not wired. The drain trigger is the page's `online` event + initial-load check. If the participant closes the tab while offline and never reopens, the queue persists in IDB but won't drain.
-- **`offline_mode` flag on `survey_studies`** (opt-out for sensitive studies). Not wired. The original plan's "default on, opt out per-form" design is half-done: default-on is in place, no opt-out column exists. This was answered in §7 ("opt-out is preferable") and needs to land.
-- **File-blob queueing.** File submissions skip the queue entirely today — the multipart path alerts "offline" without queueing. Blob-in-IDB with a default 10MB cap is Phase 5 v2.
-- **iOS Safari compatibility pass.** Not done. iOS has been flaky on SW + IDB in past formr work; expect debugging.
-- **Unconditional SW registration on v2 runs.** Planned for when SW interception lands.
+- **iOS Safari compatibility pass.** Background Sync is unavailable; the page-JS `online` + initial-load drain is the fallback. BrowserStack iPhone runs surface real-device first-paint timing flakes on the offline-submit test (`tests/e2e/pwa-low-v2.spec.js` `test.fixme`); diagnosis is open. See §8 P1.
+- **Queue wipe on logout / PWA uninstall.** §5.3 — security gap; the SW landed but the wipe path didn't.
 
 ### 5.3 Security
 
-Data in IDB is **not encrypted** in this design. Queue entries persist plaintext answers on the participant's device. When the PWA is uninstalled / participant logs out, the SW is meant to wipe the queue — that path is also gated on SW interception landing.
+Data in IDB is **not encrypted** in this design. Queue entries persist plaintext answers on the participant's device. The SW is meant to wipe the queue when the PWA is uninstalled / the participant logs out, but that wipe path is **not yet wired** (no `formrQueue.clear()` call from logout or `pushsubscriptionchange`/uninstall). Tracked as P1 in §8.
 
 ---
 
@@ -305,8 +305,8 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] Debounced (300ms) seq-guarded client r-call resolver
 - [x] Compat scanner (`bin/form_v2_compat_scan.php`) + admin UI (`/admin/survey/<name>/form_v2_compat_scan`)
 - [x] Per-session rate-limit on r-call (30/min token bucket in `$_SESSION`; returns 429)
-- [ ] Hardened JS transpiler (proper parser)
-- [ ] Dedicated `showif_js` column
+- [x] Dedicated `showif_js` column on `survey_items` (`sql/patches/053_survey_items_showif_js.sql`); `Item::setMoreOptions` prefers the cached transpile when set, falls back to live regex for legacy items
+- ~~Hardened JS transpiler (proper parser)~~ — explicitly not doing; the regex transpile + import-time cache (patch 053) + client try/catch fallback are the chosen design (§8)
 
 ### Phase 4 — Deferred fill for `value`
 - [x] `POST /{run}/form-fill` (`RunController::formFillAction`, slot='value', one-shot on load)
@@ -317,7 +317,7 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] Bail-out UI on OpenCPU error (`.fmr-fill-error` + inline feedback)
 - [x] `survey_r_call_results` cache with TTL (patch 052; 30s for showif, 5min for value; REPLACE on write)
 - [x] Rate limiting (30 calls / 60 s per run-session; see Phase 3 block)
-- [ ] Embedded Rmd routed through r(...)+fill (still OpenCPU-knit at render; result cache from patch 052 covers most repeated-render cost)
+- [x] Embedded Rmd routed through `r(...)`+fill — `FormRenderer` registers every `needsDynamicLabel` item in `survey_r_calls` slot='label'; client batch-resolves via `POST /{run}/form-render-page` (`RunController::formRenderPageAction`) on initial page load and on every page transition, with patch 052's TTL cache
 
 ### Phase 5 — Offline queue (page-JS MVP)
 - [x] IndexedDB `formrQueue` store
@@ -374,9 +374,14 @@ Nothing here is still open; these are the frozen decisions.
 
 **P1 — before calling form_v2 GA:**
 1. iOS Safari compatibility pass for offline queue + PWA items. BrowserStack wiring landed (`npm run test:bs`, real iPhone 15 Pro Max iOS 17 + Google Pixel 8 Android 14 via the `browserstack-node-sdk` runner). 10/14 BS-only tests green; 4 marked `test.fixme` are real platform quirks: iPhone caches.keys() is partitioned away from the SW caches under iOS automation (real users see caches fine), and the offline-submit test is flaky on real-device first-paint timing. **Pinned to `@playwright/test` 1.57** — BS supports ≤1.57; bumping past breaks the SDK monkey-patch.
+2. Queue wipe on logout / PWA uninstall (security gap, §5.3). SW interception landed but no `formrQueue.clear()` call exists. Add a `wipeQueue()` to `webroot/assets/form/js/offline/queue.js`; call it from the logout handler (find via `grep -rn "logout" application/Controller/`) and from the SW's `pushsubscriptionchange` / unregister paths. Without this, an uninstalled-but-not-logged-out PWA leaves plaintext answers in IDB.
 
 **P2 — post-GA polish (open):**
 1. Date/time/datetime-local/month/week cross-browser smoke (Phase 2 leftover). `tests/e2e/datetime-render.spec.js` covers the render-and-fill smoke locally (2 passed, 17s). On BS real-device the test triggers the same SDK reporter flake that blocks the offline-submit test ("Serialized error must have either an error or a value" on iPhone, "Socket idle" on Pixel) — needs the same per-test page-evaluate-only pattern as `swActivated` to be reliable. The fixture coverage is in place; just the BS-reliable wiring is open.
+
+**P2 — post-GA polish (open):**
+2. Example surveys ported to v2. `documentation/example_surveys/` has no v2 fixture; `documentation/run_components/` has no Form-unit demo. Author one Form-using run bundle (e.g. a v2 variant of `Basic_Diary.json`) so adopters have an importable starting point.
+3. Default-flip new studies to `rendering_mode='v2'` once P1 is closed and the parity gate is reliably green. Today `application/Model/SurveyStudy.php` defaults to `'v1'`; flip after iOS pass + wipe-on-logout land. Keep the column writable so admins can downgrade individual studies.
 
 **Explicitly not doing:**
 - Hardened JS transpiler — the regex transpile in `Item::setMoreOptions` stays. Patch 053 caches its output at import time so per-request cost is gone; the long tail of malformed expressions the regex mishandles is acceptable risk (the client `x-showif` directive's try/catch defaults silently-broken expressions to "visible"). Replacing the regex with a parser was historical wishful-thinking.
@@ -391,15 +396,14 @@ Nothing here is still open; these are the frozen decisions.
 ---
 
 ## 9. Deferred:
-1. Admin UI for the compat scanner (shell script exists; admin wrapper doesn't).
-2. **Showif/value transpile-failure UI with embed playgrounds.** Skip a real parser (Esprima or hand-rolled) — sandboxing isn't a security property here since an admin can already inline arbitrary JS via item labels. Detect failures with a plain `try { new Function('"use strict";' + jsExpr); } catch (e) { /* SyntaxError */ }` at import time, store the result on the (deferred) `survey_items.showif_js` column, and let `FormV2CompatScanner` surface flagged rows in the admin compat-scan UI with the source, the transpile output, and the error.
+1. **Showif/value transpile-failure UI with embed playgrounds.** Skip a real parser (Esprima or hand-rolled) — sandboxing isn't a security property here since an admin can already inline arbitrary JS via item labels. Detect failures with a plain `try { new Function('"use strict";' + jsExpr); } catch (e) { /* SyntaxError */ }` at import time, store the result on the (deferred) `survey_items.showif_js` column, and let `FormV2CompatScanner` surface flagged rows in the admin compat-scan UI with the source, the transpile output, and the error.
    - For each flagged row, offer two embedded playgrounds the admin can use to debug in place — both use real prefill APIs, not URL params:
      - **CodePen prefill embed** (https://blog.codepen.io/documentation/prefill-embeds/): a per-row `<div data-prefill='{...}'>…<pre data-lang="js">{transpiled JS}</pre>…</div>` plus the CodePen embed script. CodePen renders an interactive iframe with the JS already loaded, alongside a mocked `answers` object derived from the survey's other items. The admin can tweak inputs and re-run.
      - **rdrr.io embed iframe** for R: `<iframe src='https://rdrr.io/snippets/embed/?code=<urlencoded R>'>` — same idea, but for the source-side R expression, so admins can verify what the R version evaluates to before deciding whether to wrap in `r(...)` or rewrite as JS.
    - Add a "wrap in `r(...)` for me" button per flagged row that mutates `survey_items.showif` (or `value`) in place and re-runs the scan. The compat scanner already prints the suggested wrap; this just automates the click.
    - Order of operations to ship this: (a) `survey_items.showif_js` column + import-time `new Function()` parse-check; (b) compat-scan UI extension to render the two embeds; (c) auto-wrap button + scanner re-run.
 
-## 11. Appendix: references
+## 10. Appendix: references
 
 **Code:**
 - `application/Model/RunUnit/Form.php` — Form unit; extends Survey; strips `study_id` before delegating to `Survey::create`; loads study via `form_study_id`.
@@ -420,6 +424,7 @@ Nothing here is still open; these are the frozen decisions.
 - `sql/patches/050_survey_form_submissions.sql` — offline-queue dedupe ledger
 - `sql/patches/051_form_v2_survey_study_flags.sql` — `offline_mode` + `allow_previous`
 - `sql/patches/052_survey_r_call_results.sql` — r-call result cache with TTL
+- `sql/patches/053_survey_items_showif_js.sql` — cached JS transpile of `showif`
 
 **Further reading:**
 - `CLAUDE.md` → "form_v2 development notes" — dev/test gotchas: PHP error log routing, Playwright MCP footguns, BS5 `.hidden` specificity, curl-with-cookie-jar fixture uploads, webpack-doesn't-write-identical-bundles, radio-group sibling-uncheck footgun, etc. Not repeated here.
