@@ -2,7 +2,7 @@
 
 Branch: `feature/form_v2` (off `master` at v0.25.1). Not yet merged.
 
-This file was originally a design spec. Phases 0–5 have since landed on the branch, so it has been rewritten to describe what exists, what doesn't, and what's next. Day-to-day dev gotchas live in `CLAUDE.md` under "form_v2 development notes"; this file keeps only the architectural decisions and the remaining-work list.
+This file was originally a design spec. Phases 0–5 have since landed on the branch, so it has been rewritten to describe what exists, what doesn't, and what's next. Architectural decisions and the remaining-work list are in §1–§9 + §11; day-to-day dev gotchas are in §10.
 
 ---
 
@@ -399,7 +399,7 @@ Nothing here is still open; these are the frozen decisions.
    - Add a "wrap in `r(...)` for me" button per flagged row that mutates `survey_items.showif` (or `value`) in place and re-runs the scan. The compat scanner already prints the suggested wrap; this just automates the click.
    - Order of operations to ship this: (a) `survey_items.showif_js` column + import-time `new Function()` parse-check; (b) compat-scan UI extension to render the two embeds; (c) auto-wrap button + scanner re-run.
 
-## 10. Appendix: references
+## 11. Appendix: references
 
 **Code:**
 - `application/Model/RunUnit/Form.php` — Form unit; extends Survey; strips `study_id` before delegating to `Survey::create`; loads study via `form_study_id`.

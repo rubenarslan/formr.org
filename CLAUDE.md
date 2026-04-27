@@ -16,23 +16,19 @@ composer install
 npm install
 ```
 
-Config lives in `config/settings.php` (gitignored), seeded from `config-dist/settings.php`. `setup.php` loads dist first, then overrides from `config/`. Don't edit `config-dist/` as the "real" config.
+Config lives in `config/settings.php` (gitignored),  (live config lives in ../formr_app/config/settings.php), seeded from `config-dist/settings.php`. `setup.php` loads dist first, then overrides from `config/`. Don't edit `config-dist/` as the "real" config.
 
 ### Build frontend
 
-Two build systems coexist. New code goes through Webpack (bundles `material`, `frontend`, `admin` from `webroot/assets/{site,admin}/js/main.js`); legacy pages still load the older concatenated bundles.
+Two build systems coexist. New code goes through Webpack (bundles `material`, `frontend`, `admin` from `webroot/assets/{site,admin}/js/main.js`).
 
 ```bash
 # Webpack (preferred for new work): outputs to webroot/assets/build or /dev-build
 npm run webpack:build        # production
 npm run webpack:watch        # watch mode → webroot/assets/dev-build
-
-# Legacy build-scripts: concatenate + lint + uglify for formr.js, formr-material.js, formr-admin.js
-npm run build                # = build:copy && build:css && build:js
-npm run build:js             # runs ESLint (.eslintrc.js) and CSSLint; a lint error aborts the build
 ```
 
-The legacy pipeline is driven by `build-scripts/assets.json` (asset bundle definitions) and outputs minified `*.min.js`/`*.min.css` under `webroot/assets/build/`. Source maps and `dev-build/` are gitignored.
+Source maps and `dev-build/` are gitignored.
 
 ### Run tests
 ```bash
@@ -40,7 +36,7 @@ composer test                # phpunit 11, config at tests/phpunit.xml, bootstra
 vendor/bin/phpunit --configuration tests/phpunit.xml --filter SomeTest::testName   # single test
 ```
 
-Tests live flat under `tests/` (e.g. `DBTest.php`, `CryptoTest.php`, `OpenCPUTest.php`). They require a working DB connection per `config/settings.php` — they are integration tests, not pure unit tests.
+Tests live flat under `tests/` (e.g. `DBTest.php`, `CryptoTest.php`, `OpenCPUTest.php`). They require a working DB connection per `config/settings.php` — they are integration tests, not pure unit tests. formr has few tests as of now.
 
 ### SQL migrations
 `sql/schema.sql` is the fresh-install baseline; incremental migrations are numbered files under `sql/patches/NNN_description.sql` and applied in order. When adding a DB change, author a new patch — don't edit `schema.sql` alone. Record the patch number in `CHANGELOG.md` under a **Schema** subsection.
@@ -64,7 +60,7 @@ When `use_study_subdomains = true` and the `FMRSD_CONTEXT` env var is set on the
 `application/Autoloader.php` is a hand-rolled class-map-ish loader that searches, in order: `application/`, `Controller/`, `Model/RunUnit/`, `Model/Item/`, `Model/`, `View/`, `Helper/`, `Queue/`, `Services/`, `Spreadsheet/`. Class names map directly to filenames (no namespaces for app code — composer vendor libs have their own PSR-4). If you add a new class, just drop it into one of these dirs; no manifest to update.
 
 ### Domain model (the mental picture)
-- `Run` (`Model/Run.php`, ~60k lines) — a study. Has owner, privacy settings, PWA manifest config, expiry, OSF linkage, cookie lifetime, etc.
+- `Run` (`Model/Run.php`) — a study. Has owner, privacy settings, PWA manifest config, expiry, OSF linkage, cookie lifetime, etc.
 - `RunUnit` subclasses (`Model/RunUnit/`) — the steps in a run. `RunUnitFactory::SupportedUnits` enumerates the valid types: `Survey`, `Pause`, `Email`, `PushMessage`, `External`, `Page`, `SkipBackward`, `SkipForward`, `Shuffle`, `Wait` (plus `Branch`, `Privacy` used internally). Add a new unit type by extending `RunUnit`, dropping the file in `Model/RunUnit/`, and adding it to `SupportedUnits`.
 - `SurveyStudy` (`Model/SurveyStudy.php`) — a survey definition (items, settings); built from an uploaded spreadsheet via `application/Spreadsheet/SpreadsheetReader.php` and rendered by `SpreadsheetRenderer`/`PagedSpreadsheetRenderer`.
 - `Item` subclasses (`Model/Item/`, ~55 types) — one file per input type. The spreadsheet's `type` column maps to a class here. PWA-adjacent items: `AddToHomeScreen`, `PushNotification`, `RequestCookie`, `RequestPhone`, `Timezone`.
@@ -100,13 +96,11 @@ Two-layer config: defaults in `config-dist/settings.php`, overrides in `config/s
 - The `Autoloader`'s path search order means a class name collision between, say, `Model/` and `Model/RunUnit/` would silently pick the first-found file. Keep class names unique across those dirs.
 - Tests bootstrap via `tests/../setup.php`, which means they get the same DB and crypto wiring as the live app. Running the suite against a production DB will mutate it.
 
-## Frontend conventions (from .cursor/rules)
+## Frontend conventions
 - Prefer `async/await` over `.then()` chains in new JS — especially in `PWAInstaller.js`, `service-worker.js`, `pwa-register.js`.
 - Per-study PWA manifests are generated from `templates/run/manifest_template.json`; study-specific values (name, icons, theme) are substituted server-side, so don't hardcode app identity there.
 
 ## Production notes (abridged from INSTALLATION.md)
-This repo's setup is **not** safe to expose as-is. Production deployments additionally need: OpenCPU hardened with AppArmor, per-study subdomain isolation, HTTPS everywhere, encrypted data at rest, running cron + queue daemons, and careful handling of OpenCPU R package upgrades (OpenCPU freezes package versions per release). Dev/local uses the separate `formr_dev_docker` repo.
-
 ## Release discipline
 `CHANGELOG.md` (current format) vs `CHANGELOG-v1.md` (archived). Each release bumps `VERSION` and `package.json` version; `composer.json` has a drifted version field that is not kept in sync. Entries group under **Added / Fixes / Changes / Schema**.
 
@@ -114,7 +108,7 @@ This repo's setup is **not** safe to expose as-is. Production deployments additi
 
 - **Dev instance:** `https://formr.researchmixtape.com` (login at `/admin/account/login`). **Not production** — safe to create, edit, and delete test forms/runs. Do not run destructive DB operations here without asking first, but ordinary admin actions are fine.
 - **Domain mismatch is intentional:** admin email is on `researchmixtapes.com` (plural), the web instance is on `researchmixtape.com` (singular). Not a typo.
-- **Stack config** lives one directory up at `/home/admin/formr-docker/` — see `docker-compose.yml`, `.env`, `README.md` there for how the containers (app, MariaDB, OpenCPU, proxy) are wired. The active compose file defaults to `docker-compose.yml`; `docker-compose-prod.yml` and `docker-compose-local.yml` are alternatives.
+- **Stack config** lives one directory up at `/home/admin/formr-docker/` — see `docker-compose.yml`, `.env`, `README.md` there for how the containers (app, MariaDB, OpenCPU, proxy) are wired. The active compose file is `docker-compose.yml` merged with `docker-compose-local.yml`.
 - **Admin test credentials:** stored in `/home/admin/formr-docker/.env.dev` (gitignored in both this repo and the docker repo). Read with `cat /home/admin/formr-docker/.env.dev` when you need them. Never paste into chat, never commit, never write into memory files.
 - **Participant URLs** do not use subdomains because `use_study_subdomains=false` (live config lives in ../formr_app/config/settings.php): a run named `foo` is reachable at `https://studies.researchmixtape.com/foo`. The admin and run live on different origins by design — this is part of formr's security model, not incidental.
 
@@ -122,18 +116,15 @@ This repo's setup is **not** safe to expose as-is. Production deployments additi
 
 The Playwright MCP server is registered (`claude mcp list` shows it as ✓ Connected) and exposes browser automation tools (navigate / click / type / screenshot / accessibility snapshot / network control).
 
-- **If the Playwright tools don't appear** in a fresh session (e.g. `ToolSearch "playwright"` returns nothing), quit and restart the `claude` CLI — MCP servers added mid-session sometimes connect without their tools being exposed to the model until a fresh start. `claude mcp list` tells you whether the server itself is healthy.
 - **Golden-path smoke test** after any participant-UI change:
-  1. Navigate to the admin login, authenticate with dev creds from `.env.dev`.
-  2. Create (or open) a test run containing a `Form` RunUnit with a simple multi-page form.
-  3. Open the run's participant subdomain, step through each page, take a screenshot per page.
-  4. For form_v2 offline work specifically: toggle network off in the browser context, submit a page, verify the "queued" banner appears and the user can proceed; toggle network back on, verify the queue drains and results land in the DB.
-- **Clean up test runs** after a session unless you explicitly need them to persist for a later check. Orphaned test runs clutter the dev admin view and confuse later sessions.
+  1. Open a test run containing a `Form` RunUnit with a simple multi-page form.
+  2. Step through each page, take a screenshot per page.
+  3. For form_v2 offline work specifically: toggle network off in the browser context, submit a page, verify the "queued" banner appears and the user can proceed; toggle network back on, verify the queue drains and results land in the DB.
 - **Don't use Playwright against production instances.** This dev instance is the only safe target.
 
 #### Operational gotchas (learned the hard way)
 
-- **First use on a fresh box:** `npx playwright install chrome`. The MCP server wants the branded Chrome binary; the default Chromium isn't enough and `browser_navigate` fails with "Chromium distribution 'chrome' is not found".
+- **First use on a fresh box:** `npx playwright install chrome`. The MCP server wants the branded Chrome binary.
 - **Config edits must land in the docker-bound path.** The running app reads `/var/www/formr/config/settings.php`, which is bind-mounted from **`/home/admin/formr-docker/formr_app/config/settings.php`** — not `formr_source/config/settings.php`. Editing the latter looks correct in the repo but has no runtime effect. PHP picks up changes within ~2s (`opcache.revalidate_freq=2`); no restart needed for `formr_app`, but queue daemons (`formr_mail_daemon`, `formr_run_daemon`) load classes once at startup and need `docker compose restart` to see new PHP code.
 - **The cookie-consent dialog blocks login.** On first navigation to `/admin/account/login`, accept or reject the "Recognize this device again?" dialog before calling `browser_fill_form` — otherwise the form inputs may be obstructed or the dialog reappears after submit.
 - **Snapshot refs (`e138`, `e140`, …) go stale after every DOM mutation.** An AJAX insert (e.g. clicking "Add Survey") shifts the entire ref map; a ref that pointed at "Add Form" pre-click can resolve to "Add Email" post-click, silently creating the wrong unit. Either re-snapshot immediately before each click, or click by CSS selector via `browser_evaluate('() => document.querySelector(".add_form").click()')`.
@@ -145,6 +136,7 @@ The Playwright MCP server is registered (`claude mcp list` shows it as ✓ Conne
 - **Schema patches vs. `sql/schema.sql`.** In this repo `schema.sql` is not kept in sync with recent patches (e.g. 043, 045, 046 are missing columns in schema.sql). Ship just the patch file — don't try to edit schema.sql "for consistency" unless you're separately reconciling it.
 
 ### Example surveys and run bundles (for testing)
+Don't prefer direct DB inserts for test setup over uploading a fixture — DB shortcuts can produce states that no UI flow can actually create, and those states won't catch real-world bugs.
 
 The `documentation/` directory ships fixtures you can feed straight into the admin UI — prefer these over synthesising fake data or inserting rows by hand, since they exercise the real spreadsheet/import pipeline.
 
@@ -166,9 +158,7 @@ The `documentation/` directory ships fixtures you can feed straight into the adm
   - All widgets: `https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw`
   - Just an email field: `https://docs.google.com/spreadsheets/d/1zVKJ8IdSsTknA8OiAstlf7DrfFfctqvnIyjte5Mk-L0`
 
-**Rule of thumb for UI tests:** start from the smallest fixture that exercises the code path you changed (e.g. `just_notes.xlsx` if you touched label rendering; `all_widgets_with_values.xlsx` only when you need a broad surface). Running the whole `Appstinence.json` every time is wasteful and makes failures hard to isolate.
-
-Don't prefer direct DB inserts for test setup over uploading a fixture — DB shortcuts can produce states that no UI flow can actually create, and those states won't catch real-world bugs.
+**Rule of thumb for UI tests:** start from the smallest fixture that exercises the code path you changed (e.g. `just_notes.xlsx` if you touched label rendering). Running the whole `Appstinence.json` every time is wasteful and makes failures hard to isolate.
 
 **`all_widgets_with_values.xlsx` vs `all_widgets` Google sheet:** the xlsx in `documentation/example_surveys/` surfaced ~40 "OpenCPU showif error" badges in this dev env — the Google-sheet version loads clean. When debugging v2 rendering against a broad surface, prefer the live sheet (`https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw`) imported via "Add a new survey → Import a Googlesheet". The same URL also works as a project-level smoke fixture.
 
@@ -195,8 +185,6 @@ Defined at `.claude/agents/ui-playwright-tester.md` and auto-registered for any 
 Typical invocations (the agent handles login, test-run setup, screenshot capture, and cleanup on its own):
 
 - "Smoke-test the participant flow for a multi-page Form RunUnit."
-- "Verify the PWA install prompt fires on iOS-style user agents and the offline queue drains when connectivity returns."
-- "Walk the admin run editor: add each unit type in turn and confirm the unit editor loads without console errors."
 
 The agent has the full Playwright MCP tool surface, project memory, and knowledge of the dev credentials layout. It knows the operational gotchas above (stale snapshot refs, cookie-consent dialog, xdebug leakage into AJAX responses, `.hidden` specificity, etc.) — you don't need to brief it on those. Do give it a specific scenario to test; a bare "please test everything" will have it run the golden-path smoke and stop.
 
