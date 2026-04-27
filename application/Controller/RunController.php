@@ -1115,19 +1115,25 @@ class RunController extends Controller {
             $markdown = implode(OpenCPU::STRING_DELIMITER, $sources);
 
             // Apply the answer overlay onto tail(survey, 1) so inline R chunks
-            // see the latest values. We pass the full standard run-data via
-            // opencpu_define_vars and append a small overlay snippet.
+            // see the latest values. getRunData() returns a structured array
+            // for opencpu_define_vars — we can't `.=` a string onto it (that
+            // coerces to "Array" and the warning HTML breaks our JSON).
+            // Instead, prepend a hidden knitr chunk to the markdown that
+            // overlays the latest answers; matches batchResolveValues' shape.
             $opencpu_vars = $unitSession->getRunData($markdown, $study->name);
             if (!empty($answers)) {
                 $overlayR = self::formatROverlay($answers);
-                $opencpu_vars .= "\n.fmr.overlay <- {$overlayR}\n"
+                $overlayChunk = "```{r overlay,echo=FALSE,results='hide',message=FALSE,warning=FALSE}\n"
+                              . ".fmr.overlay <- {$overlayR}\n"
                               . "if (exists('{$survey_name}') && nrow({$survey_name}) > 0) {\n"
                               . "  for (.n in names(.fmr.overlay)) {\n"
                               . "    if (.n %in% names({$survey_name})) {\n"
                               . "      {$survey_name}[nrow({$survey_name}), .n] <- .fmr.overlay[[.n]]\n"
                               . "    }\n"
                               . "  }\n"
-                              . "}\n";
+                              . "}\n"
+                              . "```\n";
+                $markdown = $overlayChunk . $markdown;
             }
 
             $session = opencpu_knitdisplay($markdown, $opencpu_vars, true, $study->name);
