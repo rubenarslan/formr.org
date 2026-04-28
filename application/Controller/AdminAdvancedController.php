@@ -103,7 +103,7 @@ class AdminAdvancedController extends AdminController {
 
     private function setAdminLevel($user_id, $level) {
         $level = (int) $level;
-        $allowed_levels = array(0, 1, 100);
+        $allowed_levels = array(0, 1, 2, 100);
         $user = new User($user_id, null);
 
         if (!in_array($level, $allowed_levels) || !$user->email) {

@@ -66,6 +66,10 @@ class OAuthHelper
      */
     public function createClient(User $formrUser)
     {
+        if (!$formrUser->canAccessApi()) {
+            return false;
+        }
+
         if ($this->getClient($formrUser)) {
             return false;
         }
@@ -130,6 +134,10 @@ class OAuthHelper
      */
     public function refreshToken(User $formrUser)
     {
+        if (!$formrUser->canAccessApi()) {
+            return false;
+        }
+
         $client = $this->getClient($formrUser);
         if (!$client) {
             return false;
@@ -194,6 +202,10 @@ class OAuthHelper
      */
     public function createAccessTokenForUser(User $formrUser, $scope = null, $includeRefreshToken = false, $tokenLifetime = 120)
     {
+        if (!$formrUser->canAccessApi()) {
+            return false;
+        }
+
         $client = $this->getClient($formrUser);
         if (!$client) {
             $client = $this->createClient($formrUser);

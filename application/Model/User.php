@@ -70,6 +70,10 @@ class User extends Model {
         return $this->admin >= 1;
     }
 
+    public function canAccessApi() {
+        return $this->admin >= 2;
+    }
+
     public function isSuperAdmin() {
         return $this->admin >= 10;
     }
@@ -202,7 +206,7 @@ class User extends Model {
 
         $level = (int) $level;
         $level = max(array(0, $level));
-        $level = $level > 9 ? 1 : $level;
+        $level = $level > 100 ? 100 : $level;
 
         return $this->db->update('survey_users', array('admin' => $level), array('id' => $this->id, 'admin <' => 10));
     }
