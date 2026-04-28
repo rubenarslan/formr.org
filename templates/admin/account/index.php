@@ -226,8 +226,6 @@ remotes::install_github("rubenarslan/formr")</code></pre>
                                     <strong>Warning!</strong> This action cannot be undone. All your data, including surveys, runs, and email accounts will be permanently deleted.
                                 </div>
 
-
-
                                 <div class="form-group">
                                     <label class="control-label" for="delete_confirm">Type "I understand my data will be gone"</label>
                                     <input class="form-control" type="text" id="delete_confirm" name="delete_confirm" required

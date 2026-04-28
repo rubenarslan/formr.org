@@ -125,10 +125,8 @@ class SpreadsheetRenderer {
         $tpl = '
 			<form action="%{action}" method="post" class="%{class}" enctype="%{enctype}" accept-charset="utf-8">
 				<input type="hidden" name="session_id" value="%{session_id}" />
-				<input type="hidden" name="%{name_request_tokens}" value="%{request_tokens}" />
 				<input type="hidden" name="%{name_user_code}" value="%{user_code}" />
 				<input type="hidden" name="%{name_cookie}" value="%{cookie}" />
-				
 				<div class="row progress-container">
 					<div class="progress">
 						<div class="progress-bar" style="width: %{progress}%;" data-percentage-minimum="%{add_percentage_points}" data-percentage-maximum="%{displayed_percentage_maximum}" data-already-answered="%{already_answered}" data-items-left="%{not_answered_on_current_page}" data-items-on-page="%{items_on_page}" data-hidden-but-rendered="%{hidden_but_rendered}">
@@ -172,10 +170,8 @@ class SpreadsheetRenderer {
             'class' => 'form-horizontal main_formr_survey' . ($this->study->enable_instant_validation ? ' ws-validate' : ''),
             'enctype' => $enctype,
             'session_id' => $this->unitSession->id,
-            'name_request_tokens' => Session::REQUEST_TOKENS,
             'name_user_code' => Session::REQUEST_USER_CODE,
             'name_cookie' => Session::REQUEST_NAME,
-            'request_tokens' => Session::getRequestToken(),
             'user_code' => $user ? h($user->user_code) : '', //h($cookie->getData('code')),
             'cookie' => '', //$cookie->getFile(),
             'progress' => $prog,

@@ -278,7 +278,6 @@
                                             <?php foreach ($reminders as $reminder): ?>
                                                 <div class="col-md-6 single_unit_display">
                                                     <form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php echo json_encode($reminder['html_units']); ?>'>
-
                                                         <a href="<?= admin_run_url($run->name, 'delete_run_unit?type=Email&special=ReminderEmail&redirect=settings:::reminder&unit_id=' . $reminder['id']) ?>" class="reminder-delete remove_unit_from_run" data-action="<?php echo admin_run_url($run->name); ?>" data-id="<?php echo $reminder['id']; ?>"><i class="fa fa-2x fa-trash"></i></a>
                                                         <div class="run_units"></div>
                                                     </form>
@@ -336,7 +335,6 @@ qplot(survey_name$created) # plot entries by startdate</code></pre></li>
                                                     <div id="collapseOne" class="panel-collapse collapse in">
                                                         <div class="panel-body">
                                                             <form action="<?php echo admin_url('osf'); ?>" method="post" >
-
                                                                 <div class="alert alert-info alert-dismissible">
                                                                     <a href="#" class="close" data-dismiss="alert" aria-label="close" title="close">&times;</a>
                                                                     <i class="fa fa-exclamation-circle"></i> In order to be able to export your <i>run</i> structure to the Open Science Framework,

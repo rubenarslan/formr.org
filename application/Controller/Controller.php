@@ -66,8 +66,8 @@ abstract class Controller {
             $this->js = $js;
         }
 
-        $this->fdb = DB::getInstance();
         $this->request = $site->request;
+        $this->fdb = DB::getInstance();
         $this->response = new Response();
     }
 
@@ -179,17 +179,6 @@ abstract class Controller {
         }
     }
 
-    protected function replaceAssets($old, $new, $module = 'site') {
-        $assets = get_default_assets($module);
-        foreach ($assets as $i => $asset) {
-            if ($asset === $old) {
-                $assets[$i] = $new;
-            }
-        }
-        $this->css = $this->js = array();
-        $this->registerAssets($assets);
-    }
-
     protected function generateMetaInfo() {
         $meta = array(
             'head_title' => $this->site->makeTitle(),
@@ -203,14 +192,13 @@ abstract class Controller {
 
         return $meta;
     }
-    
     protected function getJsConfig() {
         // Initialize JS config
         $config = array();
         // URLs
         $config['site_url'] = site_url();
         $config['admin_url'] = admin_url();
-        if($this->run) {
+        if ($this->run) {
             $config['run_url'] = run_url($this->run->name);
         }
         // Cookie consent

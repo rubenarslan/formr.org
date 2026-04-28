@@ -24,7 +24,7 @@ Template::loadChild('public/header');
 					</blockquote>
 
                     <blockquote>
-                        Arslan, R.C., &amp; Tata, C.S. (<?php echo date("Y"); ?>). formr: A study framework allowing for automated feedback generation and complex longitudinal experience sampling studies using R. (version <?php echo Config::get('version'); ?>). <a href="https://zenodo.org/badge/latestdoi/11849439"><img src="https://zenodo.org/badge/11849439.svg" alt="DOI"></a>
+                        Arslan, R.C., &amp; Tata, C.S. (<?php echo date("Y"); ?>). formr: A study framework allowing for automated feedback generation and complex longitudinal experience sampling studies using R. (version <?php echo Config::get('version'); ?>). DOI: <a href="https://zenodo.org/badge/latestdoi/11849439" title="Look up the current release's DOI on Zenodo">See Zenodo</a>
                     </blockquote>
                     <p>
                         Once your research is published, 

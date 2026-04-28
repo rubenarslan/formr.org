@@ -89,7 +89,7 @@
 					<button class="btn btn-success confirm-import" aria-hidden="true" type="submit">Import</button>
 					<button class="btn cancel-import" data-dismiss="modal" aria-hidden="true" type="b">Close</button>
 				</div>
-			</form>
+			    </form>
         </div>
     </div>
 </script>

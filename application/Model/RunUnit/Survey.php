@@ -58,12 +58,31 @@ class Survey extends RunUnit {
     }
 
     public function displayForRun($prepend = '') {
+        $expiration_settings = [];
+        if ($this->surveyStudy) {
+            $expire_invitation_after = (int) $this->surveyStudy->expire_invitation_after;
+            $expire_invitation_grace = (int) $this->surveyStudy->expire_invitation_grace;
+            $expire_after = (int) $this->surveyStudy->expire_after;
+
+            if ($expire_invitation_after > 0) {
+                $expiration_settings[] = "Start editing within {$expire_invitation_after} minute(s)";
+            }
+            if ($expire_invitation_grace > 0) {
+                $expiration_settings[] = "Finish editing within {$expire_invitation_grace} minute(s) after the access window closed";
+            }
+            if ($expire_after > 0) {
+                $expiration_settings[] = "Inactivity expiration after {$expire_after} minute(s)";
+            }
+        }
+
         $dialog = Template::get($this->getTemplatePath(), array(
                     'survey' => $this->surveyStudy,
                     'studies' => Site::getCurrentUser()->getStudies('id DESC', null, 'id, name'),
                     'prepend' => $prepend,
                     'resultCount' => $this->id ? $this->getUnitSessionsCount() : null,
                     'time' => $this->surveyStudy ? $this->surveyStudy->getAverageTimeItTakes() : null,
+                    'surveyResultCount' => $this->surveyStudy ? $this->surveyStudy->getResultCount() : null,
+                    'expirationSettings' => $expiration_settings,
         ));
 
         return parent::runDialog($dialog);
@@ -182,46 +201,6 @@ class Survey extends RunUnit {
             if (Request::isHTTPPostRequest() && $contentLength > $postMaxSize) {
                 alert("The uploaded file exceeds the server's maximum file size limit.", "alert-danger");
                 return ['redirect' => run_url($run->name)];
-            }
-
-            // Validate request token for POST requests only
-            if (Request::isHTTPPostRequest() AND !Request::isAjaxRequest()) {
-                // Check if it's actually a form submission or possibly an asset request
-                $isFormSubmission = false;
-                
-                // Determine if this is likely a form submission by checking for common form fields
-                // This helps distinguish between actual form submissions and asset requests
-                if (!empty($_POST)) {
-                    // If POST has data, it's likely a form submission
-                    $isFormSubmission = true;
-                }
-                
-                if ($isFormSubmission) {
-                    // Log details about the form submission before validation
-                    if (DEBUG) {
-                        error_log("Processing form submission in survey: " . $run->name);
-                        error_log("Form fields: " . implode(", ", array_keys($_POST)));
-                    }
-                    
-                    // Attempt token validation
-                    $isValid = Session::canValidateRequestToken($request);
-                    
-                    if (!$isValid) {
-                        // Log detailed information about the failed validation
-                        if (DEBUG) {
-                            error_log("Form submission failed token validation in survey: " . $run->name);
-                            error_log("POST data keys: " . implode(", ", array_keys($_POST)));
-                            error_log("Referrer: " . (isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : 'not set'));
-                            error_log("User Agent: " . (isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : 'not set'));
-                        }
-                        
-                        // Add a more descriptive error message with recovery suggestion
-                        alert("Your form could not be submitted due to a security verification issue. This can happen if the page has been open for a long time or was refreshed in another tab. Please try again from this page.", "alert-warning");
-
-                        // Re-render current page without processing POSTed data by passing a flag downstream
-                        $ignore_post = true;
-                    }
-                }
             }
 
             $unitSession->createSurveyStudyRecord();

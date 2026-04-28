@@ -390,7 +390,7 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
         if ($page < 0) {
             $page = 1;
         }
-        $params = array_diff_key($_REQUEST, $_POST);
+        $params = $_GET;
         unset($params['route'], $params['run_name'], $params['code'], $params['_rsi_']);
         return run_url($this->run->name, $page, $params);
     }

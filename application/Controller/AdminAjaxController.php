@@ -248,13 +248,27 @@ class AdminAjaxController {
 
     private function ajaxDeleteUnitSession() {
         $run = $this->controller->run;
-        $deleted = $this->dbh->delete('survey_unit_sessions', array('id' => $this->request->int('session_id')));
-
-        if ($deleted) {
-            alert('<strong>Success.</strong> You deleted this unit session.', 'alert-success');
+        $session_id = $this->request->int('session_id');
+        
+        // Verify unit session belongs to this run before deleting
+        $belongs_to_run = $this->dbh->prepare('
+            SELECT us.id FROM survey_unit_sessions us
+            JOIN survey_run_sessions rs ON us.run_session_id = rs.id
+            WHERE us.id = :session_id AND rs.run_id = :run_id
+        ');
+        $belongs_to_run->execute(['session_id' => $session_id, 'run_id' => $run->id]);
+        
+        if (!$belongs_to_run->fetch()) {
+            alert('<strong>Error:</strong> Unit session not found in this run.', 'alert-danger');
+            $this->response->setStatusCode(404, 'Not Found');
         } else {
-            alert('<strong>Couldn\'t delete.</strong> ', 'alert-danger');
-            $this->response->setStatusCode(500, 'Bad Request');
+            $deleted = $this->dbh->delete('survey_unit_sessions', array('id' => $session_id));
+            if ($deleted) {
+                alert('<strong>Success.</strong> You deleted this unit session.', 'alert-success');
+            } else {
+                alert('<strong>Couldn\'t delete.</strong> ', 'alert-danger');
+                $this->response->setStatusCode(500, 'Bad Request');
+            }
         }
 
         if (Request::isAjaxRequest()) {
@@ -420,6 +434,121 @@ class AdminAjaxController {
         return $this->response->setContent($content);
     }
 
+    private function ajaxUpdateSurveyFromGoogle() {
+        if (!Request::isAjaxRequest()) {
+            formr_error(406, 'Not Acceptable');
+        }
+
+        $this->response->setContentType('application/json');
+        $run_unit_id = $this->request->int('run_unit_id');
+        if (!$run_unit_id) {
+            $this->response->setStatusCode(400, 'Bad Request');
+            return $this->response->setJsonContent([
+                'success' => false,
+                'message' => 'Missing run unit id.',
+            ]);
+        }
+
+        $unit = RunUnit::findByRunUnitId($run_unit_id, ['ignore_missing' => true]);
+        if (!$unit || $unit->type !== 'Survey' || (int) $unit->run->id !== (int) $this->controller->run->id) {
+            $this->response->setStatusCode(400, 'Bad Request');
+            return $this->response->setJsonContent([
+                'success' => false,
+                'message' => 'This action is only available for survey run units.',
+            ]);
+        }
+
+        /** @var Survey $unit */
+        $study = $unit->getStudy();
+        if (!$study || !$study->valid || empty($study->google_file_id)) {
+            $this->response->setStatusCode(400, 'Bad Request');
+            return $this->response->setJsonContent([
+                'success' => false,
+                'message' => 'No linked Google Sheet found for this survey.',
+            ]);
+        }
+
+        $result_count = $study->getResultCount();
+        if ((int) array_val($result_count, 'real_users', 0) > 0) {
+            $this->response->setStatusCode(400, 'Bad Request');
+            return $this->response->setJsonContent([
+                'success' => false,
+                'message' => 'Quick updates from Google Sheets are only available before this survey has real user data.',
+            ]);
+        }
+
+        $file = google_download_survey_sheet(google_get_sheet_link($study->google_file_id));
+        if (!$file) {
+            $this->response->setStatusCode(400, 'Bad Request');
+            return $this->response->setJsonContent([
+                'success' => false,
+                'message' => 'Unable to download the linked Google Sheet.',
+            ]);
+        }
+
+        $allowedExtensions = ['xls', 'xlsx', 'ods', 'xml', 'txt', 'csv'];
+        $fileExtension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($fileExtension, $allowedExtensions)) {
+            delete_tmp_file($file);
+            $this->response->setStatusCode(400, 'Bad Request');
+            return $this->response->setJsonContent([
+                'success' => false,
+                'message' => 'Downloaded file format is not supported.',
+            ]);
+        }
+
+        $base_name = basename($file['name']);
+        $survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", $base_name);
+        if ($survey_name === null) {
+            delete_tmp_file($file);
+            $this->response->setStatusCode(400, 'Bad Request');
+            return $this->response->setJsonContent([
+                'success' => false,
+                'message' => "Could not extract a valid survey name from the Google Sheet filename '{$base_name}'. Expected the name '{$study->name}.",
+            ]);
+        }
+        if ($study->name !== $survey_name) {
+            delete_tmp_file($file);
+            $this->response->setStatusCode(400, 'Bad Request');
+            return $this->response->setJsonContent([
+                'success' => false,
+                'message' => "The Google Sheet name '{$survey_name}' does not match the survey name '{$study->name}'.",
+            ]);
+        }
+
+        if (($filename = $study->getOriginalFileName()) && files_are_equal($file['tmp_name'], Config::get('survey_upload_dir') . '/' . $filename)) {
+            delete_tmp_file($file);
+            return $this->response->setJsonContent([
+                'success' => true,
+                'message' => 'No changes found. The linked Google Sheet is identical to the currently uploaded survey.',
+            ]);
+        }
+
+        if ($study->uploadItems($file, false, false)) {
+            $message = '<strong>Success!</strong> Survey updated from Google Sheet.';
+            $extra = array_merge($study->messages, $study->warnings);
+            if ($extra) {
+                $message .= '<br>' . implode('<br>', array_map('h', $extra));
+            }
+            delete_tmp_file($file);
+            return $this->response->setJsonContent([
+                'success' => true,
+                'message' => $message,
+            ]);
+        }
+
+        $error_message = implode('<br>', array_map('h', array_merge($study->errors, $study->warnings)));
+        if (!$error_message) {
+            $error_message = 'Survey update failed.';
+        }
+        delete_tmp_file($file);
+        $this->response->setStatusCode(400, 'Bad Request');
+        return $this->response->setJsonContent([
+            'success' => false,
+            'message' => $error_message,
+        ]);
+    }
+
     private function ajaxSaveSettings() {
         if (!Request::isAjaxRequest()) {
             formr_error(406, 'Not Acceptable');
@@ -520,11 +649,35 @@ class AdminAjaxController {
             $content = array('error' => 'Failed to generate manifest');
         } else {
             // Decode JSON string if result is a JSON string, otherwise use as-is
-            $content = is_string($result) ? json_decode($result, true) : $result;
+            $manifest = is_string($result) ? json_decode($result, true) : $result;
             if (json_last_error() !== JSON_ERROR_NONE) {
                 // If JSON decoding fails, return the raw result
-                $content = array('data' => $result);
+                $manifest = array('data' => $result);
             }
+
+            // If an admin generates a manifest (enabling PWA usage), ensure run session cookies
+            // are not limited to browser session by default: bump to at least one year.
+            $one_year_seconds = 365 * 24 * 60 * 60;
+            $cookie_expiry_adjusted = false;
+            $cookie_expiry_new = (int) $run->expire_cookie;
+            if ((int) $run->expire_cookie < $one_year_seconds) {
+                $cookie_expiry_new = $one_year_seconds;
+                $updated = DB::getInstance()->update(
+                    'survey_runs',
+                    ['expire_cookie' => $cookie_expiry_new],
+                    ['id' => $run->id]
+                );
+                if ($updated !== false) {
+                    $run->expire_cookie = $cookie_expiry_new;
+                    $cookie_expiry_adjusted = true;
+                }
+            }
+
+            $content = array(
+                'manifest' => $manifest,
+                'cookie_expiry_adjusted' => $cookie_expiry_adjusted,
+                'cookie_expiry_new' => $cookie_expiry_new
+            );
         }
 
         $this->response->setContentType('application/json');

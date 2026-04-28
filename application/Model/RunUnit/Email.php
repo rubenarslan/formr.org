@@ -173,14 +173,14 @@ class Email extends RunUnit {
                 'no_recipient', 
                 "We could not find an email recipient. Session: {$unitSession->runSession->session}." . ($error ? " Error: {$error}" : "")
             );
-            // @TODO: notify study admin
+            notify_study_admin($unitSession, 'Email unit: could not find an email recipient for session ' . $unitSession->runSession->session, 'error');
             return false;
         }
 
         if ($this->account_id === null) {
             alert("The study administrator (you?) did not set up an email account. <a href='" . admin_url('mail') . "'>Do it now</a> and then select the account in the email dropdown.", 'alert-danger');
             $this->errors['log'] = $this->getLogMessage('no_sender', "The study administrator (you?) did not set up an email account.");
-            // @TODO: notify study admin
+            notify_study_admin($unitSession, 'Email unit: no sender account configured in study', 'error');
             return false;
         }
 
@@ -200,7 +200,7 @@ class Email extends RunUnit {
             $this->errors['log'] = $this->getLogMessage('error_send_eligible', $result['message']);
             $error = "Session: {$unitSession->runSession->session}:\n {$result['message']}";
             alert(nl2br($error), 'alert-danger');
-            // @TODO: notify study admin
+            notify_study_admin($unitSession, 'Email unit: rate limit prevented sending email. ' . $result['message'], 'error');
             return false;
         }
 

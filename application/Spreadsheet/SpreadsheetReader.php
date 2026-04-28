@@ -4,7 +4,7 @@ class SpreadsheetReader
 {
 
     private $choices_columns = array('list_name', 'name', 'label');
-    private $survey_columns = array('name', 'type', 'label', 'optional', 'class', 'showif', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14', 'value', 'order', 'block_order', 'item_order');
+    private $survey_columns = array('name', 'type', 'type_options', 'choice_list', 'label', 'optional', 'class', 'showif', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14', 'value', 'order', 'block_order', 'item_order');
     private $internal_columns = array('choice_list', 'type_options', 'label_parsed');
     private $existing_choice_lists = array();
     public $messages = array();
@@ -778,18 +778,24 @@ class SpreadsheetReader
                             )) &&
                             preg_match('/^[A-Za-z0-9_]{1,20}$/', trim($typeOptions[1]))
                         ) {
-                            $data[$rowNumber]['choice_list'] = trim($typeOptions[1]);
+                            if (!isset($data[$rowNumber]['choice_list']) || trim((string) $data[$rowNumber]['choice_list']) === '') {
+                                $data[$rowNumber]['choice_list'] = trim($typeOptions[1]);
+                            }
                             unset($typeOptions[1]);
                         }
-                        $data[$rowNumber]['type_options'] = implode(' ', $typeOptions);
+                        if (!isset($data[$rowNumber]['type_options']) || trim((string) $data[$rowNumber]['type_options']) === '') {
+                            $data[$rowNumber]['type_options'] = implode(' ', $typeOptions);
+                        }
                         $cellValue = $type;
                     }
 
                     $cellValue = $cellValue;
+                } elseif ($colName == 'class') {
+                    $cellValue = trim(preg_replace('/\s+/', ' ', str_replace(',', ' ', $cellValue)));
                 } elseif ($colName == 'optional') {
-                    if ($cellValue === '*') {
+                    if ($cellValue === '*' || $cellValue === '1' || mb_strtolower($cellValue) === 'true' || mb_strtolower($cellValue) === 'yes') {
                         $cellValue = 1;
-                    } elseif ($cellValue === '!') {
+                    } elseif ($cellValue === '!' || $cellValue === '0' || mb_strtolower($cellValue) === 'false' || mb_strtolower($cellValue) === 'no') {
                         $cellValue = 0;
                     } else {
                         $cellValue = null;

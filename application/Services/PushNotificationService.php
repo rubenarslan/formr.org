@@ -98,24 +98,39 @@ class PushNotificationService
         $message = $options['message'];
 
         $sub = Subscription::create($subscription);
+
+        $title = $options['title'] ?? 'Notification';
+        $clickTarget = $options['clickTarget'] ?? run_url($this->run->name);
+        $tag = $options['title'] ?? null;
+
         $payload = json_encode([
-            'title' => $options['title'] ?? null,
+            'title' => $title,
             'body'  => $message,
-            'clickTarget' => $options['clickTarget'] ?? run_url($this->run->name),
-            // Include additional notification options
-            'tag' => $options['title'] ?? null,
+            'clickTarget' => $clickTarget,
+            'tag' => $tag,
             'priority' => $options['priority'] ?? 'normal',
-            // Use explicit isset checks for numeric values that could be 0
             'timeToLive' => isset($options['timeToLive']) ? (int)$options['timeToLive'] : null,
-            // badgeCount is a custom property, not part of the standard Web Notifications API
-            // It will be stored in the notification's data object
             'badgeCount' => isset($options['badgeCount']) ? (int)$options['badgeCount'] : null,
-            // Ensure vibrate is explicitly set to true or false, never null or undefined
             'vibrate' => isset($options['vibrate']) ? (bool)$options['vibrate'] : true,
-            // Ensure other boolean options are explicitly true or false
             'requireInteraction' => isset($options['requireInteraction']) ? (bool)$options['requireInteraction'] : false,
             'renotify' => isset($options['renotify']) ? (bool)$options['renotify'] : false,
-            'silent' => isset($options['silent']) ? (bool)$options['silent'] : false
+            'silent' => isset($options['silent']) ? (bool)$options['silent'] : false,
+
+            // Declarative Web Push (Safari 18.4+, RFC 8030): if the service worker
+            // fails to call showNotification(), the browser uses this object to
+            // display the notification natively. Prevents iOS from counting the
+            // push as "silent" and terminating the subscription.
+            'web_push' => 8030,
+            'notification' => [
+                'title' => $title,
+                'options' => [
+                    'body' => $message,
+                    'data' => [
+                        'clickTarget' => $clickTarget,
+                    ],
+                    'tag' => $tag,
+                ],
+            ],
         ]);
         
         // Debug log the payload

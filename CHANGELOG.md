@@ -2,6 +2,90 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.25.1] - 21.04.2026
+### Added
+- Google Sheets survey update workflow
+  - New "Update survey" button on the run unit view that re-imports items directly from the source Google Sheet (only shown when the study has no real users yet)
+  - "Create new sheet" button on the add-survey page that opens a copy of the formr survey template
+  - Surface survey expiration settings (`expire_invitation_after`, `expire_invitation_grace`, `expire_after`) on the run unit view
+- Declarative Web Push support (RFC 8030, Safari 18.4+): payloads now include a `web_push`/`notification` object so iOS falls back to a native notification if the service worker fails, preventing Apple from terminating the subscription after ~3 "silent" pushes
+- `SpreadsheetReader` now recognises `type_options` and `choice_list` as first-class columns and preserves author-supplied values instead of overwriting them from parsed `type`
+- `optional` column accepts `1`/`0`/`true`/`false`/`yes`/`no` in addition to `*`/`!`
+- Makes it easier to use a template for Google Sheets
+- `class` column values are normalised (commas and runs of whitespace collapsed to single spaces)
+- Compliance: Registration terms updated; cookie settings link added to footer
+
+### Fixes
+- Removed the old request-token CSRF mechanism
+  - Removed `Session::REQUEST_TOKENS`, `getRequestToken()`, `canValidateRequestToken()` and per-form hidden token inputs
+  - Fixes a bug where the CSRF cookie could end up in the URL
+- PWA / push notifications on iOS
+  - Service worker now `await`s `showNotification()` inside `waitUntil`, so iOS Safari no longer terminates subscriptions
+  - Empty push payloads now show a fallback notification instead of being silently dropped
+  - PWA installer auto-resubscribes when iOS spontaneously drops an active push subscription (if permission is still granted)
+  - Guide users to install the PWA to home screen before attempting to subscribe on iOS Safari
+  - `isSupported()` no longer requires `window.PushManager` (not reliably exposed on iOS)
+  - PWA manifest generation now explicitly tells the admin whether cookie expiry was auto-extended to 1 year, and returns the manifest under a `manifest` key
+  - Fixes session timeout handling and user-ID loss when the service worker is terminated (#654, #628)
+- Pagination links in `PagedSpreadsheetRenderer` now build from `$_GET` instead of `array_diff_key($_REQUEST, $_POST)`, avoiding leaking cookie-derived params into page URLs
+- Cookie consent: "manage cookies" button now calls `preventDefault()` so it no longer appends `#` to the URL
+- Removed GDPR-problematic Zenodo DOI badge images on the About/Publications page; replaced with plain DOI links
+- Improved Google Sheets integration: better error handling for invalid survey names extracted from Sheet filenames (#608); spreadsheet reader trims and normalises whitespace in the `class` column (#661)
+- Misc dependency bumps: jquery 2.2.4 → 3.7.1, phpoffice/phpspreadsheet 1.29.9 → 1.30.0, webpack-dev-server, http-proxy-middleware, on-headers, compression, js-yaml
+
+## [v0.25.0] - 20.04.2026
+### Added
+- Study-admin notifications: email the run owner when units fail
+  - New `Notification` class with per-type throttling configurable via `$settings['notification']` (`default_throttle_minutes`, `throttle_map` for `error`/`warning`/`info`)
+  - Notifications are logged to the new `survey_notifications` table and throttled per run + recipient + type
+  - `notify_study_admin()` helper wired into OpenCPU rendering errors (`RunUnit`), Pause unit `relative_to` failures (both OpenCPU and invalid-result paths), External unit, Page unit, and survey-data save failures in `UnitSession`
+  - New `templates/email/notification.ftpl` with colored severity border
+
+### Fixes
+- OpenCPU error messages for Pause, Page and External units now include the actual R error text in the log, and are forwarded to the study admin notification
+
+### Schema
+- SQL Patch 46: adds `survey_notifications` table
+
+
+## [v0.24.13] - 03.03.2026
+### Changes
+- Improved configurability
+
+## [v0.24.12] - 27.02.2026
+### Changes
+- Session-code collision/deletion handling tightened now that session-code length is configurable
+- Removed an external dependency
+
+## [v0.24.11] - 07.01.2026
+### Fixes
+- Bulk actions in the user overview could affect sessions across multiple runs if session codes were unexpectedly non-unique (possible with shortened custom session codes)
+
+## [v0.24.10] - 22.11.2025
+### Fixes
+- Automated JavaScript expiry messages did not transmit the timezone to the browser, causing them to trigger incorrectly
+
+## [v0.24.9] - 17.10.2025
+### Fixes
+- Second pass at transpiling JavaScript for older browsers (#630)
+
+## [v0.24.8] - 16.10.2025
+### Changes
+- Stopped emitting separate CSS assets (overkill); bundled back into the main build
+
+## [v0.24.7] - 16.10.2025
+### Changes
+- Webpack config adjusted to be more accommodating to old browsers (#629)
+
+## [v0.24.6] - 15.09.2025
+### Fixes
+- Fix bug with security token error (#627)
+
+## [v0.24.5] - 27.08.2025
+### Fixes
+- Use HTTPS wherever reasonable
+- Fix an issue where long pauses overflowed the new interactive-modal pause timeout; disabled for durations longer than 27 days
+
 ## [v0.24.4] - 31.07.2025
 ### Fixes
 - Fixes survey import via run (broken in v0.24.0)

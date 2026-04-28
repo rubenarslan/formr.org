@@ -1,0 +1,11 @@
+<div style='font-family: Arial, sans-serif; padding: 20px;'>
+    <div style='background-color: #f8f9fa; border-left: 4px solid %{typeColor}; padding: 15px; margin: 10px 0;'>
+        <p style='margin: 0;'>%{message}</p>
+    </div>
+    <div style='margin-top: 20px; font-size: 12px; color: #666;'>
+        <p>Run: %{run_name} </p>
+        <p>RunUnit: %{run_unit} </p>
+        <p>Session: %{session} </p>
+        <p>Time: %{date}</p>
+    </div>
+</div>

@@ -100,27 +100,6 @@ $settings['email_thresholds'] = [
 // What regular expression should the user codes match? Make sure your RegEx allows 64 character base64 like ^[A-Za-z0-9+-_~]{64}, as these are the codes formr generates. You can generate shorter/longer codes yourself though.
 $settings['user_code_regular_expression'] = "/^[A-Za-z0-9+-_~]{64}$/";
 
-// This is the message shown on the cookie banner.
-$default_cookie_consent = <<<EOD
-{
-   "content":{
-      "message":"On our website we're using cookies to optimize user experience and to improve our website. By using our website you agree that cookies can be stored on your local computer"
-   },
-   "palette":{
-      "popup":{
-         "background":"#333333",
-         "text":"#fff",
-         "link":"#fff"
-      },
-      "button":{
-         "background":"#8dc63f",
-         "text":"#fff"
-      }
-   },
-   "href": "/"
-}
-EOD;
-
 // Should studies be required to have a non-empty privacy policy before they can go live/public?
 $settings['content_settings']['studies:require_privacy_policy'] = false;
 
@@ -142,8 +121,6 @@ $settings['content_settings']['footer:imprint'] = '';
 $settings['content_settings']['signup:allow'] = true;
 $settings['content_settings']['signup:message'] = '';
 $settings['content_settings']['signup:enable_referral_token'] = true;
-
-$settings['content_settings']['js:cookieconsent'] = $default_cookie_consent;
 
 // Session expiration related settings
 // (for unregistered users. in seconds (defaults to a year))
@@ -324,3 +301,12 @@ $settings['run_session'] = array(
 // To allow users to keep study data indefinitely, set this to INF
 $settings['keep_study_data_for_months_maximum'] = 84;
 
+// Notification settings for sending notifications to study administrators about issues with their study in minutes
+$settings['notification'] = array(
+    'default_throttle_minutes' => 10,
+    'throttle_map' => [
+        'error' => 10,
+        'warning' => 10,
+        'info' => 10,
+    ],
+);

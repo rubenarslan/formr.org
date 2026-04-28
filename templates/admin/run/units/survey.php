@@ -16,13 +16,26 @@
 
         <?php if ($survey && $survey->id): ?>
             <p>
-                <?= (int) $resultCount['finished'] ?> complete <a href="<?= admin_study_url($survey->name, 'show_results') ?>">results</a>,
+                <?= (int) $resultCount['finished'] ?> complete results,
                 <?= (int) $resultCount['begun'] ?> begun <abbr class="hastooltip" title="Median duration participants needed to complete the survey">(in ~ <?= $time ?>m)</abbr>
             </p>
+            <?php if (!empty($expirationSettings)): ?>
+                <p class="text-muted">
+                    <strong>Survey expiration:</strong> <?= h(implode(' | ', $expirationSettings)) ?>
+                </p>
+            <?php endif; ?>
             <p class="btn-group">
-                <a class="btn btn-default" href="<?= admin_study_url($survey->name, 'show_item_table?to=show') ?>">View items</a>
-                <a class="btn btn-default" href="<?= admin_study_url($survey->name, 'upload_items') ?> ">Upload items</a>
+                <?php if (!empty($survey->google_file_id) && (int) array_val($surveyResultCount ?? [], 'real_users', 0) === 0): ?>
+                    <a class="btn btn-default unit_update_survey_from_google"
+                       href="ajax_update_survey_from_google"
+                       title="Update this survey from the google sheet">Update survey</a>
+                <?php else: ?>
+                    <a class="btn btn-default" href="<?= admin_study_url($survey->name, 'upload_items') ?>" title="Upload items">Update</a>
+                <?php endif; ?>
+                <a class="btn btn-default" href="<?= admin_study_url($survey->name, 'show_item_table?to=show') ?>">Items</a>
+                <a class="btn btn-default" href="<?= admin_study_url($survey->name, 'show_results') ?>">Results</a>
             </p>
+            <div class="survey-update-alerts"></div>
             <br />
             <p class="btn-group">
                 <a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Survey">Save</a>

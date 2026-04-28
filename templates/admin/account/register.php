@@ -23,16 +23,22 @@
                 <div class="form-group label-floating">
                     <label class="control-label" for="token"><i class="fa fa-gift"></i> Referral token (if available)</label>
                     <input class="form-control" type="text" id="token" name="referrer_code" autocomplete="off">
-                    <input type="hidden" name="<?= Session::REQUEST_TOKENS ?>" value="<?= Session::getRequestToken() ?>" />
                 </div>
 
                 <div>
-                    <p>If you have a valid token, you'll be able to create studies once you confirm your email address. If you don't have a valid token, sign up first and then write an email to this instance's administrator at <?php $support_email = Site::getSettings('content:docu:support_email', 'no@email.provided'); ?><a href="mailto:<?= $support_email ?>"><?= $support_email ?></a>.</p>
+                    <?php
+                    $support_email = Site::getSettings('content:docu:support_email', 'no@email.provided');
+                    $default_referral_help_text = "If you have a valid token, you'll be able to create studies once you confirm your email address. If you don't have a valid token, sign up first and then write an email to this instance's administrator at %support_email%.";
+                    $referral_help_text = Site::getSettings('signup:referral_token_help', $default_referral_help_text);
+                    $support_email_link = '<a href="mailto:' . h($support_email) . '">' . h($support_email) . '</a>';
+                    ?>
+                    <p><?= str_replace('%support_email%', $support_email_link, $referral_help_text); ?></p>
                 </div>
             <?php endif; ?>
 
             <div>
-                <label><input type="checkbox" name="agree_tos" value="1" required> I agree to the <a href="<?=site_url("terms_of_service") ?>" target="_blank">terms and conditions</a> and the <a href="<?=site_url("privacy_policy") ?>" target="_blank">privacy policy</a>.</label>
+                <label><input type="checkbox" name="agree_tos" value="1" required> I agree to the <a href="<?=site_url("terms_of_service") ?>" target="_blank">terms and conditions</a>.</label>
+                <p class="help-block">You can find further information about data processing in our <a href="<?=site_url("privacy_policy") ?>" target="_blank">privacy policy</a>.</p>
             </div>
 
             <?php if (Config::get('2fa.enabled', true) && Config::get('2fa.allow_during_signup', false)): ?>
