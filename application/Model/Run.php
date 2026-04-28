@@ -167,6 +167,26 @@ class Run extends Model
         return $dues;
     }
 
+    /**
+     * Checks if a run name is an exact match or prefix of a reserved word.
+     *
+     * @param string $runName
+     * @return bool
+     */
+    public static function isReservedName($runName)
+    {
+        $reservedNames = Config::get('reserved_run_names', []);
+
+        if (!is_array($reservedNames) || empty($reservedNames)) {
+            return false;
+        }
+
+        $escapedNames = array_map('preg_quote', $reservedNames);
+        $pattern = '/^(' . implode('|', $escapedNames) . ')(?:-|$)/i';
+
+        return preg_match($pattern, $runName) === 1;
+    }
+
     /* ADMIN functions */
 
     public function getApiSecret($user)
@@ -1234,7 +1254,7 @@ class Run extends Model
             // 5. Handle Type-Specific Logic
             switch ($unit->type) {
                 // Legacy: 'Endpage' is sometimes used in exports but should be treated as 'Page'
-                case 'Endpage': 
+                case 'Endpage':
                 case 'Page':
                     if (strpos($unit->type, 'page') !== false) {
                         $unit->type = 'Page';
@@ -1263,17 +1283,17 @@ class Run extends Model
                 case 'Email':
                     $unit->account_id = null; // Security: don't assume email accounts match across servers
                     break;
-                
-                // Note: 'Wait' unit logic removed. Previous code added start_position to $unit->body.
-                // This was likely a copy-paste error from Skip logic, as Wait body is text/settings, not a position.
+
+                    // Note: 'Wait' unit logic removed. Previous code added start_position to $unit->body.
+                    // This was likely a copy-paste error from Skip logic, as Wait body is text/settings, not a position.
             }
 
             // 6. Create and Save Unit
             $options = array_merge($options, (array)$unit);
-            
+
             // Factory expects specific options, merge ensures strict overrides
             $unitObj = RunUnitFactory::make($this, $options);
-            
+
             if ($unitObj) {
                 $unitObj->create($options);
                 if ($unitObj->valid) {
