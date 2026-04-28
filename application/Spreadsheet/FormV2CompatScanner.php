@@ -16,8 +16,11 @@ class FormV2CompatScanner {
     /**
      * @param int $studyId
      * @return array{
-     *     counts: array<string, array{empty:int, r_wrapped:int, js_ok:int, needs_wrap:int}>,
-     *     flagged: list<array{id:int, name:string, type:string, column:string, source:string, transpiled:string, problems:list<string>}>,
+     *     counts: array{
+     *         showif: array{empty:int, invalid_r:int, js_ok:int, needs_js_rewrite:int},
+     *         value: array{empty:int, literal:int, r:int}
+     *     },
+     *     flagged: list<array{id:int, name:string, type:string, column:string, source:string, transpiled:string, problems:list<string>, suggested_fix:string}>,
      *     itemCount: int
      * }
      */

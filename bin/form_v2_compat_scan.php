@@ -67,14 +67,18 @@ if (!empty($report['flagged'])) {
 }
 
 echo "Summary:\n";
-foreach (['showif', 'value'] as $col) {
-    $c = $report['counts'][$col];
-    $total = array_sum($c);
-    echo "  $col ($total items):\n";
-    echo "    empty:              {$c['empty']}\n";
-    echo "    r(...) wrapped:     {$c['r_wrapped']}\n";
-    echo "    JS-transpile OK:    {$c['js_ok']}\n";
-    echo "    needs r(...) wrap:  {$c['needs_wrap']}\n";
-}
+
+$cs = $report['counts']['showif'];
+echo "  showif (" . array_sum($cs) . " items, JS-only):\n";
+echo "    empty:                  {$cs['empty']}\n";
+echo "    JS-OK:                  {$cs['js_ok']}\n";
+echo "    needs JS rewrite:       {$cs['needs_js_rewrite']}\n";
+echo "    r() in showif (invalid): {$cs['invalid_r']}\n";
+
+$cv = $report['counts']['value'];
+echo "  value (" . array_sum($cv) . " items, R-only):\n";
+echo "    empty:                  {$cv['empty']}\n";
+echo "    literal (numeric):      {$cv['literal']}\n";
+echo "    R (allowlisted):        {$cv['r']}\n";
 
 exit(empty($report['flagged']) ? 0 : 2);
