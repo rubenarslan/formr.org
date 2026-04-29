@@ -42,3 +42,22 @@ node_modules
 webroot/assets/dev-build
 *aardvark*
 feature_diff.patch
+.playwright-mcp/
+
+# Claude Code: share agents + team settings, keep local overrides and cache
+# out of git. Our convention:
+#   .claude/agents/*.md        — team-shared (committed)
+#   .claude/settings.json      — team-shared, if present (committed)
+#   .claude/settings.local.json — per-developer overrides (ignored)
+#   .claude/agent-memory/      — local cache (ignored)
+.claude/settings.local.json
+.claude/agent-memory/
+
+playwright-report/
+test-results/
+tests/e2e/setup/admin-state.json
+
+# browserstack-node-sdk runtime logs + temp files
+log/
+playwright-browserstack-sdk.config.temp.json
+tests/e2e/playwright-browserstack-sdk.config.js
