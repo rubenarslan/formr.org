@@ -61,4 +61,3 @@ tests/e2e/setup/admin-state.json
 log/
 playwright-browserstack-sdk.config.temp.json
 tests/e2e/playwright-browserstack-sdk.config.js
-

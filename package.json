@@ -1,6 +1,6 @@
 {
     "name": "formr.org",
-    "version": "v0.25.1",
+    "version": "v0.25.2",
     "description": "formr survey framework",
     "readme": "../../README.md",
     "authors": [
@@ -67,7 +67,7 @@
         "hammerjs": "^2.0.8",
         "highlight.js": "^9.2.0",
         "idb": "^8.0.3",
-        "jquery": "^3.7.1",
+        "jquery": "~2.2.4",
         "qr-code-styling": "^1.9.1",
         "regenerator-runtime": "^0.14.1",
         "sass": "^1.99.0",

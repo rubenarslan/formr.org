@@ -1895,8 +1895,10 @@ function notify_study_admin(UnitSession $unitSession, string $message, string $t
     try {
         Notification::getInstance()->notifyStudyAdmin($unitSession, $message, $type);
     } catch (Exception $e) {
-        // Handle the exception as needed
-        // formr_log("Error notifying study admin: " . $e->getMessage(), 'ERROR');
+        // Don't let an admin-notification failure bubble up and break the
+        // user-facing request, but do log it so silent breakage is at
+        // least diagnosable in tmp/logs/errors.log.
+        formr_log_exception($e, 'notify_study_admin');
     }
 }
 
