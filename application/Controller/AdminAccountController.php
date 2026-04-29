@@ -135,7 +135,7 @@ class AdminAccountController extends Controller {
         if (!$this->user->loggedIn() || !$this->user->canAccessApi() || !$this->request->isAjaxRequest() || !$this->request->isHTTPPostRequest()) {
             $this->response->setStatusCode(403, 'Forbidden');
             $this->response->setContentType('application/json');
-            $this->response->setJsonContent(['success' => false, 'message' => 'API access requires seperate admin access. Please contact your administrator to discuss access.']);
+            $this->response->setJsonContent(['success' => false, 'message' => 'API access requires separate admin access. Please contact your administrator to discuss access.']);
             return $this->sendResponse();
         }
 

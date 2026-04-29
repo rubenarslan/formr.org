@@ -175,9 +175,16 @@ remotes::install_github("rubenarslan/formr")</code></pre>
                                 </noscript>
                             </div>
                             <?php else: ?>
+                            <?php
+                            // Same pattern as register.php — surface the
+                            // instance's support email so users have a real
+                            // address to write to instead of "an administrator".
+                            $support_email = Site::getSettings('content:docu:support_email', 'no@email.provided');
+                            $support_email_link = '<a href="mailto:' . h($support_email) . '?subject=' . rawurlencode('Request API access') . '">' . h($support_email) . '</a>';
+                            ?>
                             <div class="alert alert-info">
-                                <i class="fa fa-info-circle"></i> 
-                                You do not have API access. Contact an administrator to request API credentials.
+                                <i class="fa fa-info-circle"></i>
+                                You do not have API access. To request API credentials, write to this instance's administrator at <?= $support_email_link ?>.
                             </div>
                             <?php endif; ?>
                             <p> &nbsp; </p>

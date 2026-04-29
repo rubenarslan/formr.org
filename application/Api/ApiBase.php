@@ -58,6 +58,17 @@ abstract class ApiBase
         // Retrieves the user associated with the access token
         $this->user = OAuthHelper::getInstance()->getUserByEmail($token_data['user_id']);
 
+        // Defence-in-depth: re-check canAccessApi at every request, not just
+        // at token issuance. Issuance is gated in OAuthHelper but a token can
+        // outlive its grant — direct DB demotion bypasses setAdminLevel's
+        // cleanup hook, the bshaffer grant flow doesn't consult formr's
+        // admin level, and pre-existing oauth_clients rows from before the
+        // level gate was added still mint tokens. Verifying at use time
+        // closes all three.
+        if (!$this->user || !$this->user->canAccessApi()) {
+            throw new Exception('API access has been revoked for this user.', Response::STATUS_FORBIDDEN);
+        }
+
         // Legacy support: Sets the global user object for older components that rely on it
         global $user;
         $user = $this->user;

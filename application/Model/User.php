@@ -204,18 +204,47 @@ class User extends Model {
             throw new Exception("You need more admin rights to effect this change");
         }
 
+        // Reject anything outside the known set rather than silently coercing.
+        // The previous "$level > 100 ? 100 : $level" cap turned a too-high
+        // input into superadmin (100) — the wrong direction for a defensive
+        // floor. Callers (currently only AdminAdvancedController) already
+        // pre-filter to the same allowlist, so this is the safety net.
         $level = (int) $level;
-        $level = max(array(0, $level));
-        $level = $level > 100 ? 100 : $level;
-
-        $previousLevel = $this->admin;
-        $result = $this->db->update('survey_users', array('admin' => $level), array('id' => $this->id, 'admin <' => 10));
-
-        if ($result && $previousLevel >= 2 && $level < 2) {
-            OAuthHelper::getInstance()->deleteClient($this);
+        $allowed = [0, 1, 2, 100];
+        if (!in_array($level, $allowed, true)) {
+            return false;
         }
 
-        return $result;
+        // Read the pre-update level fresh from the DB rather than trusting
+        // the in-memory $this->admin, which can be stale if the row was
+        // updated elsewhere between this object loading and now. The
+        // demotion-cleanup branch below depends on this being correct.
+        $previousLevel = (int) $this->db->findValue('survey_users', array('id' => $this->id), 'admin');
+
+        // Run the level update and the demotion-cleanup as one transactional
+        // unit — without this, an UPDATE that commits followed by a failing
+        // deleteClient would leave a demoted user with live API tokens,
+        // which is exactly the scenario the cleanup is meant to prevent.
+        try {
+            $this->db->beginTransaction();
+            $result = $this->db->update('survey_users', array('admin' => $level), array('id' => $this->id, 'admin <' => 10));
+
+            if ($result && $previousLevel >= 2 && $level < 2) {
+                OAuthHelper::getInstance()->deleteClient($this);
+            }
+
+            $this->db->commit();
+
+            if ($result) {
+                $this->admin = $level;
+            }
+
+            return $result;
+        } catch (Throwable $e) {
+            $this->db->rollBack();
+            formr_log_exception($e, __METHOD__);
+            return false;
+        }
     }
 
     public function forgotPassword($email) {
