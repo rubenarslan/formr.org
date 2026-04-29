@@ -73,6 +73,23 @@ class RunResource extends BaseResource
     {
         $method = $this->getRequestMethod();
 
+        // Resolve required scope from method first so a token without it
+        // gets a clean 403, regardless of whether the run exists or is
+        // owned by this user. Otherwise getRunByName() would emit a 404
+        // for unauthorized callers, which is misleading and inconsistent.
+        switch ($method) {
+            case 'POST':
+            case 'PATCH':
+            case 'DELETE':
+                $this->checkScope('run:write');
+                break;
+            case 'GET':
+                $this->checkScope('run:read');
+                break;
+            default:
+                return $this->error(405, 'Method not allowed');
+        }
+
         if ($method === 'POST') {
             return $this->createRun($runName);
         }
@@ -99,8 +116,6 @@ class RunResource extends BaseResource
 
     private function createRun($runName)
     {
-        $this->checkScope('run:write');
-
         if (Run::nameExists($runName)) {
             return $this->error(409, "A run with the name '$runName' already exists.");
         }
@@ -135,8 +150,6 @@ class RunResource extends BaseResource
 
     private function getRun($run)
     {
-        $this->checkScope('run:read');
-
         $responseData = [
             'id' => (int) $run->id,
             'name' => $run->name,
@@ -172,7 +185,6 @@ class RunResource extends BaseResource
 
     private function updateRun($run)
     {
-        $this->checkScope('run:write');
         $input = $this->getJsonBody();
 
         $restrictedFields = ['vapid_public_key', 'vapid_private_key', 'osf_project_id', 'name'];
@@ -208,7 +220,6 @@ class RunResource extends BaseResource
 
     private function deleteRun($run)
     {
-        $this->checkScope('run:write');
         if ($run->delete()) {
             return $this->response(200, 'Run deleted successfully');
         } else {

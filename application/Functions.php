@@ -1115,7 +1115,12 @@ function opencpu_prepare_api_access($code, &$variables)
         return null;
     }
 
-    $token_r_code = "'" . $token_data['access_token'] . "'";
+    // Default bshaffer tokens are bin2hex(random_bytes(...)), so safe.
+    // Defensive escape covers a future swap to a generator that might
+    // include a single quote or backslash (JWT, custom, etc.) — without it
+    // the token could break the R string literal we're embedding it in,
+    // or worse, escape into surrounding R code.
+    $token_r_code = "'" . addcslashes($token_data['access_token'], "'\\") . "'";
 
     if (is_string($variables)) {
         // Append the R assignment to an existing string
@@ -1124,7 +1129,7 @@ function opencpu_prepare_api_access($code, &$variables)
         if ($variables === null) {
             $variables = [];
         }
-        $variables['access_token'] = $token_r_code; 
+        $variables['access_token'] = $token_r_code;
     }
 
     return $token_data['access_token'];

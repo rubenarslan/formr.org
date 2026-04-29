@@ -10,8 +10,10 @@ class UserResource extends BaseResource
 
         if ($subPath === 'me') {
             if ($method === 'GET') {
+                $this->checkScope('user:read');
                 return $this->getUserProfile();
             } elseif ($method === 'PATCH') {
+                $this->checkScope('user:write');
                 return $this->updateUserProfile();
             } else {
                 return $this->error(405, 'Method not allowed');
@@ -23,8 +25,6 @@ class UserResource extends BaseResource
 
     private function getUserProfile()
     {
-        $this->checkScope('user:read');
-
         $userData = [
             'id' => (int)$this->user->id,
             'email' => $this->user->email,
@@ -41,7 +41,6 @@ class UserResource extends BaseResource
 
     private function updateUserProfile()
     {
-        $this->checkScope('user:write');
         $body = $this->getJsonBody();
 
         $allowedFields = ['first_name', 'last_name', 'affiliation'];

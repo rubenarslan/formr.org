@@ -93,11 +93,18 @@ class ApiController extends Controller
             $apiResult = $api->$resource(...$arguments);
             $data = $apiResult->getData();
         } catch (Exception $e) {
-            formr_log_exception($e, 'API-V1-Dispatcher');
-            $code = $e->getCode() ?? Response::STATUS_INTERNAL_SERVER_ERROR;
+            // Exception::getCode() returns int 0 by default — `?:` (not `??`)
+            // is what falls back to 500 for un-coded exceptions. Throwers that
+            // mean a 4xx (e.g. ApiBase::checkScope) supply an explicit code.
+            $code = $e->getCode() ?: Response::STATUS_INTERNAL_SERVER_ERROR;
+            // Only log unexpected (5xx) failures; 4xx is client-driven and
+            // doesn't belong in the server error log.
+            if ($code >= 500) {
+                formr_log_exception($e, 'API-V1-Dispatcher');
+            }
             $data = [
                 'statusCode' => $code,
-                'statusText' => 'Internal Server Error',
+                'statusText' => ApiBase::getStatusText($code),
                 'response' => [
                     'code' => $code,
                     'message' => $e->getMessage()

@@ -7,11 +7,6 @@ class SessionResource extends BaseResource
 
     public function handle($runName = null)
     {
-        $this->run = $this->getRunByName($runName);
-        if (!$this->run) {
-            return $this;
-        }
-
         $method = $this->getRequestMethod();
         $sessionsIndex = array_search('sessions', $this->path_segments);
 
@@ -21,6 +16,20 @@ class SessionResource extends BaseResource
 
         $sessionCode = $this->path_segments[$sessionsIndex + 1] ?? null;
         $action = $this->path_segments[$sessionsIndex + 2] ?? null;
+
+        // Scope check before run lookup: a token lacking the right scope
+        // must get 403 regardless of whether the run exists. listSessions
+        // / getSessionDetails are reads; everything else mutates state.
+        if (($method === 'GET') && (empty($sessionCode) || empty($action))) {
+            $this->checkScope('session:read');
+        } else {
+            $this->checkScope('session:write');
+        }
+
+        $this->run = $this->getRunByName($runName);
+        if (!$this->run) {
+            return $this;
+        }
 
         if (empty($sessionCode) && $method === 'GET') {
             return $this->listSessions();
@@ -50,8 +59,6 @@ class SessionResource extends BaseResource
 
     private function listSessions()
     {
-        $this->checkScope('session:read');
-
         $limit = (int)$this->request->getParam('limit', 100);
         $limit = min(max($limit, 1), 10000);
         $offset = (int)$this->request->getParam('offset', 0);
@@ -120,7 +127,6 @@ class SessionResource extends BaseResource
 
     private function createSession()
     {
-        $this->checkScope('session:write');
         $body = $this->getJsonBody();
 
         $codes = $body['code'] ?? null;
@@ -207,8 +213,6 @@ class SessionResource extends BaseResource
 
     private function getSessionDetails(RunSession $runSession)
     {
-        $this->checkScope('session:read');
-
         $data = [
             'id' => (int)$runSession->id,
             'session' => $runSession->session,
@@ -268,7 +272,6 @@ class SessionResource extends BaseResource
 
     private function performSessionAction(RunSession $runSession)
     {
-        $this->checkScope('session:write');
         $body = $this->getJsonBody();
         $action = $body['action'] ?? null;
 

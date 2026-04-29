@@ -7,13 +7,23 @@ class FileResource extends BaseResource
 
     public function handle($runName = null)
     {
+        $method = $this->getRequestMethod();
+        $fileName = $this->getUriSegment(3);
+
+        // Scope first: a token without file:read/write should get 403 even
+        // if the run doesn't exist or isn't theirs.
+        if ($method === 'GET' && empty($fileName)) {
+            $this->checkScope('file:read');
+        } elseif (($method === 'POST' && empty($fileName)) || ($method === 'DELETE' && $fileName)) {
+            $this->checkScope('file:write');
+        } else {
+            return $this->error(405, 'Method not allowed');
+        }
+
         $this->run = $this->getRunByName($runName);
         if (!$this->run) {
             return $this;
         }
-
-        $method = $this->getRequestMethod();
-        $fileName = $this->getUriSegment(3);
 
         if (empty($fileName) && $method === 'GET') {
             return $this->listFiles();
@@ -32,8 +42,6 @@ class FileResource extends BaseResource
 
     private function listFiles()
     {
-        $this->checkScope('file:read');
-
         $files = $this->run->getUploadedFiles();
         $fileList = [];
 
@@ -71,8 +79,6 @@ class FileResource extends BaseResource
 
     private function uploadFile()
     {
-        $this->checkScope('file:write');
-
         if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
             return $this->error(400, 'No valid file uploaded. Send file as multipart/form-data with key "file".');
         }
@@ -102,8 +108,6 @@ class FileResource extends BaseResource
 
     private function deleteFile($fileName)
     {
-        $this->checkScope('file:write');
-
         $decodedFileName = urldecode($fileName);
 
         $fileRecord = $this->db->findRow('survey_uploaded_files', [

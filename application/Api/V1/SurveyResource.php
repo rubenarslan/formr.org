@@ -8,6 +8,19 @@ class SurveyResource extends BaseResource
         $method = $this->getRequestMethod();
         $surveyName = $this->getUriSegment(1);
 
+        // Resolve required scope from method first so a token without it
+        // gets a clean 403 before any DB lookup. Read-only methods (GET)
+        // need survey:read; everything that mutates needs survey:write.
+        if ($method === 'GET') {
+            $this->checkScope('survey:read');
+        } elseif (in_array($method, ['POST', 'PATCH', 'DELETE'], true)) {
+            $this->checkScope('survey:write');
+        } elseif ($method === 'PUT') {
+            return $this->error(405, 'Method not allowed. Use POST /surveys to create a survey.');
+        } else {
+            return $this->error(405, 'Method not allowed');
+        }
+
         if (empty($surveyName)) {
             if ($method === 'GET') {
                 return $this->listSurveys();
@@ -15,32 +28,20 @@ class SurveyResource extends BaseResource
             if ($method === 'POST') {
                 return $this->createOrUpdateSurvey();
             }
-            if ($method === 'PUT') {
-                return $this->error(405, 'Method not allowed. Use POST /surveys to create a survey.');
-            }
             return $this->error(405, 'Method not allowed');
+        }
+
+        $study = SurveyStudy::loadByUserAndName($this->user, $surveyName);
+        if (!$study->valid) {
+            return $this->error(404, "Survey '$surveyName' not found.");
         }
 
         switch ($method) {
             case 'GET':
-                $study = SurveyStudy::loadByUserAndName($this->user, $surveyName);
-                if (!$study->valid) {
-                    return $this->error(404, "Survey '$surveyName' not found.");
-                }
                 return $this->getSurvey($study);
-
             case 'PATCH':
-                $study = SurveyStudy::loadByUserAndName($this->user, $surveyName);
-                if (!$study->valid) {
-                    return $this->error(404, "Survey '$surveyName' not found.");
-                }
                 return $this->updateSurvey($study);
-
             case 'DELETE':
-                $study = SurveyStudy::loadByUserAndName($this->user, $surveyName);
-                if (!$study->valid) {
-                    return $this->error(404, "Survey '$surveyName' not found.");
-                }
                 return $this->deleteSurvey($study);
         }
 
@@ -49,8 +50,6 @@ class SurveyResource extends BaseResource
 
     private function listSurveys()
     {
-        $this->checkScope('survey:read');
-
         $select = $this->db->select('id, name, created, modified, results_table')
             ->from('survey_studies')
             ->where(['user_id' => $this->user->id]);
@@ -65,8 +64,6 @@ class SurveyResource extends BaseResource
 
     private function createOrUpdateSurvey()
     {
-        $this->checkScope('survey:write');
-
         $file = null;
         // Check for Google Sheet URL in POST request
         $googleSheetUrl = $this->request->str('google_sheet');
@@ -163,13 +160,13 @@ class SurveyResource extends BaseResource
 
     private function getSurvey($study)
     {
-        $this->checkScope('survey:read');
-
         $reader = new \SpreadsheetReader();
         $format = $this->request->getParam('format');
 
         switch ($format) {
             case 'xlsx':
+                // Binary download — bypasses the JSON envelope by design;
+                // the writer streams the file with its own headers and exits.
                 $reader->exportItemTableXLSX($study);
                 return;
             case 'xls':
@@ -177,14 +174,15 @@ class SurveyResource extends BaseResource
                 return;
             case 'json':
             default:
-                $reader->exportItemTableJSON($study);
-                return;
+                // Return the structured object inside the standard envelope
+                // so v1 callers don't have to special-case this endpoint.
+                $object = $reader->exportItemTableJSON($study, true);
+                return $this->response(200, 'Survey details', $object);
         }
     }
 
     private function deleteSurvey($study)
     {
-        $this->checkScope('survey:write');
         if ($study->delete()) {
             return $this->response(200, 'Survey deleted');
         }
@@ -211,7 +209,6 @@ class SurveyResource extends BaseResource
 
     private function updateSurvey($study)
     {
-        $this->checkScope('survey:write');
         $payload = $this->getJsonBody();
 
         if (empty($payload)) {

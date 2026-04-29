@@ -7,16 +7,19 @@ class ResultsResource extends BaseResource
 
     public function handle($runName = null)
     {
+        if ($this->getRequestMethod() !== 'GET') {
+            return $this->error(405, 'Method not allowed. Use GET.');
+        }
+
+        // Check scope before resource lookup so an unscoped token gets 403
+        // even for nonexistent / unowned runs.
+        $this->checkScope('data:read');
+
         $this->run = $this->getRunByName($runName);
         if (!$this->run) {
             return $this;
         }
 
-        if ($this->getRequestMethod() !== 'GET') {
-            return $this->error(405, 'Method not allowed. Use GET.');
-        }
-
-        $this->checkScope('data:read');
         ini_set('memory_limit', Config::get('memory_limit.run_get_data'));
 
         if (!$this->db->count('survey_run_sessions', array('run_id' => $this->run->id), 'id')) {

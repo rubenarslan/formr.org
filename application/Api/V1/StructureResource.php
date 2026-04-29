@@ -7,28 +7,31 @@ class StructureResource extends BaseResource
 
     public function handle($runName = null)
     {
+        $method = $this->getRequestMethod();
+
+        // Scope check before run lookup (403 over 404 for nonexistent runs).
+        if ($method === 'GET') {
+            $this->checkScope('run:read');
+        } elseif ($method === 'PUT') {
+            $this->checkScope('run:write');
+        } else {
+            return $this->error(405, 'Method not allowed. Use GET to export or PUT to import.');
+        }
+
         $this->run = $this->getRunByName($runName);
         if (!$this->run) {
             return $this;
         }
 
-        $method = $this->getRequestMethod();
-
         if ($method === 'GET') {
             return $this->exportStructure();
         }
 
-        if ($method === 'PUT') {
-            return $this->importStructure();
-        }
-
-        return $this->error(405, 'Method not allowed. Use GET to export or PUT to import.');
+        return $this->importStructure();
     }
 
     private function exportStructure()
     {
-        $this->checkScope('run:read');
-
         try {
             $exportData = $this->run->exportStructure();
 
@@ -44,8 +47,6 @@ class StructureResource extends BaseResource
 
     private function importStructure()
     {
-        $this->checkScope('run:write');
-
         $jsonString = file_get_contents('php://input');
         $jsonData = json_decode($jsonString);
 

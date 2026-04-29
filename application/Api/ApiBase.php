@@ -151,13 +151,13 @@ abstract class ApiBase
     {
         // The HTTP status already carries the code; the body only needs the
         // human-readable message. Keeps success and error bodies consistent.
-        $this->setData($code, $this->getStatusText($code), [
+        $this->setData($code, self::getStatusText($code), [
             'message' => $msg,
         ]);
         return $this;
     }
 
-    private function getStatusText($code)
+    public static function getStatusText($code)
     {
         $statusTexts = [
             400 => 'Bad Request',
@@ -185,7 +185,11 @@ abstract class ApiBase
     {
         $grantedScopes = explode(' ', isset($this->tokenData['scope']) ? $this->tokenData['scope'] : '');
         if (!in_array($requiredScope, $grantedScopes)) {
-            throw new Exception("Insufficient permissions: '$requiredScope' scope required.");
+            // 403 lets the dispatcher's catch translate this into a real
+            // Forbidden response rather than a generic 500. Without an
+            // explicit code, getCode() defaults to 0 and the dispatcher
+            // ?: fallback would still apply, but being explicit is clearer.
+            throw new Exception("Insufficient permissions: '$requiredScope' scope required.", Response::STATUS_FORBIDDEN);
         }
     }
 
