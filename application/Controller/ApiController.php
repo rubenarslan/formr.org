@@ -92,10 +92,15 @@ class ApiController extends Controller
             // Execute the helper method
             $apiResult = $api->$resource(...$arguments);
             $data = $apiResult->getData();
-        } catch (Exception $e) {
-            // Exception::getCode() returns int 0 by default — `?:` (not `??`)
-            // is what falls back to 500 for un-coded exceptions. Throwers that
-            // mean a 4xx (e.g. ApiBase::checkScope) supply an explicit code.
+        } catch (Throwable $e) {
+            // Throwable, not Exception — PHP raises Error (not Exception) for
+            // typed-arg mismatches, undefined methods, type errors etc., and
+            // we want those to become a JSON 500 envelope rather than crash
+            // the request with a default PHP error page.
+            //
+            // getCode() returns int 0 by default — `?:` (not `??`) is what
+            // falls back to 500. Throwers that mean a 4xx (e.g.
+            // ApiBase::checkScope) supply an explicit code.
             $code = $e->getCode() ?: Response::STATUS_INTERNAL_SERVER_ERROR;
             // Only log unexpected (5xx) failures; 4xx is client-driven and
             // doesn't belong in the server error log.
@@ -245,7 +250,9 @@ class ApiController extends Controller
 
             $api = new ApiV0($request, $this->fdb, $token_data);
             $data = $api->{$method}()->getData();
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
+            // Throwable for the same reason as dispatchV1: PHP Errors must
+            // turn into a JSON envelope, not a default error page.
             formr_log_exception($e, 'API');
             $data = array(
                 'statusCode' => Response::STATUS_INTERNAL_SERVER_ERROR,

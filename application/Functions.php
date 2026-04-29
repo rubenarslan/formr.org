@@ -19,8 +19,11 @@ function formr_log($msg, $type = '')
     error_log($msg . "\n", 3, get_log_file('errors.log'));
 }
 
-function formr_log_exception(Exception $e, $prefix = '', $debug_data = null)
+function formr_log_exception(Throwable $e, $prefix = '', $debug_data = null)
 {
+    // Accept Throwable (not just Exception) so PHP Errors — type errors,
+    // undefined methods, OOM-recoverable errors, etc. — can be logged
+    // through the same path that already handles thrown Exceptions.
     $msg = $prefix . ' Exception: ' . $e->getMessage() . "\n" . $e->getTraceAsString();
     formr_log($msg);
     if ($debug_data !== null) {
@@ -1085,7 +1088,10 @@ function opencpu_get($location, $return_format = 'json', $return_session = false
  */
 function opencpu_prepare_api_access($code, &$variables)
 {
-    if (strpos($code, 'formr_api_authenticate') === false) {
+    // Match the actual call, not the bare identifier — a comment, docstring,
+    // or string literal containing "formr_api_authenticate" should not mint
+    // and immediately delete a one-shot OAuth token for nothing.
+    if (!preg_match('/\bformr_api_authenticate\s*\(/', (string) $code)) {
         return null;
     }
 

@@ -112,24 +112,6 @@ abstract class ApiBase
         return $this->path_segments;
     }
 
-    /**
-     * Magic Method Trait.
-     * * Captures calls to non-existent methods to prevent fatal errors, 
-     * returning a 405 Method Not Allowed JSON response instead.
-     *
-     * @param string $name Name of the method called.
-     * @param array $arguments Arguments passed.
-     * @return $this
-     */
-    public function __call($name, $arguments)
-    {
-        $this->setData(Response::STATUS_METHOD_NOT_ALLOWED, 'Method Not Allowed', [
-            'code' => Response::STATUS_METHOD_NOT_ALLOWED,
-            'message' => "Action '$name' is not available in this API version."
-        ]);
-        return $this;
-    }
-
     // --- SHARED HELPER METHODS ---
 
     /**
