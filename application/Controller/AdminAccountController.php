@@ -115,6 +115,7 @@ class AdminAccountController extends Controller {
         }
         $vars['affiliation'] = $this->user->affiliation ? $this->user->affiliation : '(no affiliation specified)';
         $vars['api_credentials'] = OAuthHelper::getInstance()->getClient($this->user);
+        $vars['can_access_api'] = $this->user->canAccessApi();
         $vars['survey_count'] = $this->fdb->count('survey_studies', ['user_id' => $this->user->id]);
         $vars['run_count'] = $this->fdb->count('survey_runs', ['user_id' => $this->user->id]);
         $vars['mail_count'] = $this->fdb->count('survey_email_accounts', ['user_id' => $this->user->id, 'deleted' => 0]);
@@ -131,10 +132,10 @@ class AdminAccountController extends Controller {
      * the rotation and silently invalidate the secret the user just copied.
      */
     public function apiCredentialsAction() {
-        if (!$this->user->loggedIn() || !$this->request->isAjaxRequest() || !$this->request->isHTTPPostRequest()) {
+        if (!$this->user->loggedIn() || !$this->user->canAccessApi() || !$this->request->isAjaxRequest() || !$this->request->isHTTPPostRequest()) {
             $this->response->setStatusCode(403, 'Forbidden');
             $this->response->setContentType('application/json');
-            $this->response->setJsonContent(['success' => false]);
+            $this->response->setJsonContent(['success' => false, 'message' => 'API access requires seperate admin access. Please contact your administrator to discuss access.']);
             return $this->sendResponse();
         }
 

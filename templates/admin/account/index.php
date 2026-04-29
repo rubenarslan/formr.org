@@ -125,6 +125,7 @@ remotes::install_github("rubenarslan/formr")</code></pre>
                             <p>
                                 See the <a href="https://rubenarslan.github.io/formr/" target="_blank" rel="noopener">package documentation</a> for full usage.
                             </p>
+                            <?php if ($can_access_api): ?>
                             <div id="api-credentials-panel"
                                  data-endpoint="<?= admin_url('account/api-credentials') ?>"
                                  data-has-client="<?= $api_credentials ? '1' : '0' ?>">
@@ -173,6 +174,12 @@ remotes::install_github("rubenarslan/formr")</code></pre>
                                     </div>
                                 </noscript>
                             </div>
+                            <?php else: ?>
+                            <div class="alert alert-info">
+                                <i class="fa fa-info-circle"></i> 
+                                You do not have API access. Contact an administrator to request API credentials.
+                            </div>
+                            <?php endif; ?>
                             <p> &nbsp; </p>
                         </div>
                         <script>
