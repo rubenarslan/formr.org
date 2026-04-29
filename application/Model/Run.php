@@ -181,7 +181,12 @@ class Run extends Model
             return false;
         }
 
-        $escapedNames = array_map('preg_quote', $reservedNames);
+        // Pass the regex delimiter so a reserved name containing '/' (or
+        // any other regex metacharacter) is escaped correctly when we
+        // splice it into the alternation below.
+        $escapedNames = array_map(function ($n) {
+            return preg_quote($n, '/');
+        }, $reservedNames);
         $pattern = '/^(' . implode('|', $escapedNames) . ')(?:-|$)/i';
 
         return preg_match($pattern, $runName) === 1;
@@ -221,7 +226,7 @@ class Run extends Model
             return true;
         } catch (Exception $e) {
             formr_log_exception($e, __METHOD__);
-            alert(__('Could not delete run:', $this->name), 'alert-danger');
+            alert(__('Could not delete run %s.', $this->name), 'alert-danger');
             return false;
         }
     }
@@ -1340,6 +1345,10 @@ class Run extends Model
             return $imported;
         } catch (Exception $e) {
             $this->db->rollBack();
+            // The caller (StructureResource::importStructure) infers failure
+            // from a unit-count mismatch and the alert buffer; log so the
+            // root cause is visible in tmp/logs/errors.log.
+            formr_log_exception($e, __METHOD__);
             return false;
         }
     }
