@@ -43,7 +43,6 @@ node_modules
 webroot/assets/dev-build
 *aardvark*
 feature_diff.patch
-package-lock.json
 repomix-output.xml
 .repomixignore
 repomix-output-formr.xml
