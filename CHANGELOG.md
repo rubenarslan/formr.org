@@ -4,12 +4,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [v0.25.2] - 29.04.2026
 ### Fixes
-- Roll back the jQuery 3.7.1 dependency-bot upgrade introduced in v0.25.1. jQuery 3 has a number of breaking changes (notably `.offset()` now requires the element be in the document and throws on `$(window)`) that webshim's bundled `jquery.ui.position` shim was not updated to handle, causing validation-related code paths to throw mid-render. Pinning back to jQuery 2.2.4 restores the prior baseline; a proper jQuery 3 migration needs to wait for webshim itself to be retired.
-  - Reverts the source-side `$.parseJSON` → `JSON.parse` and `$.isNumeric` → manual numeric check edits (jQuery 2 still ships them).
+- Survey form validation messages render again. The dependency-bot bump to jQuery 3.7.1 in v0.25.1 broke webshim's bundled `jquery.ui.position` — `$(window).offset()` throws on jQuery 3 because window has no `getClientRects`, and that throw fired inside `validityAlert.show()` → `position()` while the popover was being placed, halting the show flow before `display:block` could be set. Webshim itself is unmaintained and not jQuery-3-compatible; pin back to jQuery 2.2.4 until webshim is retired.
+  - Reverts the source-side `$.parseJSON` → `JSON.parse` and `$.isNumeric` → manual numeric check edits introduced alongside the bump (jQuery 2 still ships them, no functional change).
 - `notify_study_admin` now logs failures via `formr_log_exception` instead of swallowing them silently, so admin-notification breakage shows up in `tmp/logs/errors.log`.
-
-### Known issues
-- The original bug report — webshim's validation bubble not painting on `/validation-test` — is *not* fixed by the jQuery downgrade. Reproduces under jQuery 2.2.4 too. Root cause sits inside webshim's `validityAlert.show()` / `setFocus()` interaction (the popover briefly renders and is then hidden by `forceHide` from a stale `hide()` call). Investigation continues under a separate ticket.
 
 ## [v0.25.1] - 21.04.2026
 ### Added
