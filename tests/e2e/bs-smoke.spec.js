@@ -8,7 +8,7 @@
 // Run locally:    npx playwright test --config tests/e2e/playwright.config.js bs-smoke.spec.js
 // Run on BS:      npx browserstack-node-sdk playwright test --config tests/e2e/playwright.config.js bs-smoke.spec.js
 
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./helpers/test');
 const { freshParticipant } = require('./helpers/participant');
 const { runName, participantPath } = require('./helpers/runs');
 

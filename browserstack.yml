@@ -46,4 +46,9 @@ debug: false
 networkLogs: true
 consoleLogs: errors
 
-testReporting: true
+# Off: the SDK's testHub observability layer mis-serializes Playwright
+# error objects on long-running iOS Safari tests, surfacing as
+# `Serialized error must have either an error or a value` and hiding
+# the actual assertion failure. Disabling testHub still leaves the
+# Automate dashboard sessions + videos available for debugging.
+testReporting: false

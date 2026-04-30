@@ -15,6 +15,14 @@
 //     creates a fresh context via `browser.newContext()` so tests don't
 //     share state. Returns `{ context, page, url }`. Will fail on BS —
 //     migrate to the page-fixture form before running on real devices.
+//
+// Under BS the `page` fixture is worker-scoped (helpers/test.js) so the
+// SAME page survives across tests. Cookies and storage from a prior test
+// would otherwise leak into the next one's user_code lookup. We clear
+// them here before navigating, so each call still mints a fresh
+// participant from formr's perspective.
+
+const { clearBrowserState } = require('./test');
 
 async function freshParticipant(arg, runName, { acceptCookies = true, baseURL } = {}) {
     const path = `/${encodeURIComponent(runName)}/`;
@@ -31,6 +39,11 @@ async function freshParticipant(arg, runName, { acceptCookies = true, baseURL } 
     } else {
         throw new Error('freshParticipant: first arg must be a Playwright Page or Browser');
     }
+
+    // BS reuses a single context across tests (worker-scoped fixture).
+    // Wipe cookies + storage before navigating so each test starts as a
+    // brand-new participant and not as the previous test's user_code.
+    await clearBrowserState(page);
 
     // `commit` (not `domcontentloaded`) — iPhone Safari on BS times out
     // waiting for DCL on the form page; commit fires once bytes arrive.

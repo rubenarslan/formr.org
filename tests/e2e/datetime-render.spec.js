@@ -12,7 +12,7 @@
 // e.g. iOS Safari rendering `datetime` as a plain text field, or Pixel
 // Chrome refusing a value that desktop Chrome accepts.
 
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 

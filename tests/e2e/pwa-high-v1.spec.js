@@ -11,7 +11,7 @@
 //   curl -sL -b admin-cookies.txt -X POST .../pwa_request_phone/rename_study -F new_name=e2e_pwa_high
 // (repeat for _v2). Same shape as the low-friction reseed.
 
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./helpers/test');
 const { runName, participantPath } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const v1 = require('./helpers/v1Form');

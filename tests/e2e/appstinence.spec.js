@@ -13,7 +13,7 @@
 // Run locally:    npm run test:e2e
 // Run on BS:      npm run test:bs
 
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./helpers/test');
 
 const APPSTINENCE_PATH = '/appstinence-v2/?code=q447trWh7EQJMEEvUUTGBLkcQn47fLO0wHtttj9HvP-kUgA0Vcjk8lwBIzQy613B';
 
@@ -40,7 +40,7 @@ test.describe('appstinence-v2 smoke', () => {
     });
 
     test('Form unit renders with PWA infra', async ({ page }) => {
-        await page.goto(APPSTINENCE_PATH, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await page.goto(APPSTINENCE_PATH, { waitUntil: 'commit', timeout: 60000 });
         await expect(page).toHaveTitle(/appstinence/i);
 
         // The participant URL renders whatever unit the session is on. If
@@ -69,17 +69,38 @@ test.describe('appstinence-v2 smoke', () => {
 
     test('service worker activates within 5s', async ({ page }, info) => {
         test.skip(isLocal(info), 'local-chromium blocks SWs to avoid a Playwright hang; SW lifecycle is verified on BrowserStack');
-        await page.goto(APPSTINENCE_PATH, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        // `commit` (iOS-friendly) returns before the SW has had a chance to
+        // register from main.js. Don't await `serviceWorker.ready` — on a
+        // first SW install it resolves only once the SW *controls* the
+        // page, which doesn't happen until next navigation. Poll the
+        // registration directly until it has an `active` worker in
+        // 'activated' state.
+        await page.goto(APPSTINENCE_PATH, { waitUntil: 'commit', timeout: 60000 });
+        await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {});
         const swState = await page.evaluate(async () => {
-            const reg = await navigator.serviceWorker.ready;
-            return reg.active ? reg.active.state : null;
+            const deadline = Date.now() + 10000;
+            while (Date.now() < deadline) {
+                const reg = await navigator.serviceWorker.getRegistration();
+                if (reg && reg.active && reg.active.state === 'activated') return 'activated';
+                await new Promise((r) => setTimeout(r, 200));
+            }
+            const reg = await navigator.serviceWorker.getRegistration();
+            if (!reg) return 'no-registration';
+            if (reg.active) return reg.active.state;
+            if (reg.waiting) return `waiting:${reg.waiting.state}`;
+            if (reg.installing) return `installing:${reg.installing.state}`;
+            return 'no-worker';
         });
         expect(swState).toBe('activated');
     });
 
     test('caches populate after first load', async ({ page }, info) => {
         test.skip(isLocal(info), 'local-chromium blocks SWs');
-        await page.goto(APPSTINENCE_PATH, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await page.goto(APPSTINENCE_PATH, { waitUntil: 'commit', timeout: 60000 });
+        // Same rationale as the SW activation test: `commit` returns before
+        // the SW pre-cache step — wait for `load` then sleep for the cache
+        // population to complete.
+        await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {});
         await page.waitForTimeout(2000);
         const cacheNames = await page.evaluate(async () =>
             'caches' in self ? await caches.keys() : []

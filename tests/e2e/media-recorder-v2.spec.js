@@ -12,7 +12,7 @@
 // Real-device verification belongs on BrowserStack iOS/Android; we don't
 // trust local Chromium to model permission prompts faithfully.
 
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const v2 = require('./helpers/v2Form');

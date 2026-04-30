@@ -4,7 +4,7 @@
 // on BS Real Mobile). Each test starts with a URL precheck so a misrouted
 // navigation surfaces immediately instead of asserting against about:blank.
 
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const v2 = require('./helpers/v2Form');

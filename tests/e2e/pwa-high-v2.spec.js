@@ -1,7 +1,7 @@
 // PWA high-friction (enforce-phone) flow, rendered by v2 (Form unit).
 // See pwa-high-v1.spec.js for the fixture caveat.
 
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./helpers/test');
 const { runName, participantPath } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const v2 = require('./helpers/v2Form');
