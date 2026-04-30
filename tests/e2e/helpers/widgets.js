@@ -20,7 +20,7 @@
 
 const NAME_ATTR = 'data-fmr-item-name';
 
-const { bsSafeEvaluate } = require('./test');
+const { bsSafeEvaluate, RUNNING_ON_BS } = require('./test');
 
 // Set a same-name radio group to a specific value, clearing siblings first.
 async function setRadioGroup(page, name, value) {
@@ -319,7 +319,126 @@ const NON_INPUT_TYPES = new Set([
 //
 // Scope can be a Locator (e.g. v2's visible page section) or omitted (whole
 // page). The selector is rooted at scope.
+//
+// On BrowserStack iOS Safari this CDP-per-locator path is unworkable —
+// `locator.fill` and `locator.getAttribute` pipeline several internal
+// calls each, and the BS-Selenium bridge intermittently returns frames
+// Playwright can't parse ("Serialized error must have either an error
+// or a value"). The orphans land on the next CDP boundary (typically
+// the form submit click). `fillAllVisibleInPage` does the entire walk
+// in one bsSafeEvaluate call — DOM mutations only, no CDP round-trips
+// per item — so the bridge sees a single evaluate and one return.
 async function fillAllVisible(page, scope) {
+    if (RUNNING_ON_BS) {
+        const scopeSel = scope && typeof scope.evaluate === 'function'
+            // Locator → use its evaluation context. On BS we can't pass a
+            // Locator handle through bsSafeEvaluate, so resolve the scope
+            // to a CSS selector. v2 is the only caller that passes a
+            // scope; it always uses `form.fmr-form-v2 section.fmr-page:not([hidden])`.
+            ? 'form.fmr-form-v2 section.fmr-page:not([hidden])'
+            : null;
+        return fillAllVisibleInPage(page, scopeSel);
+    }
+    return fillAllVisibleViaLocators(page, scope);
+}
+
+// Single-evaluate filler used on BrowserStack iOS Safari. All DOM
+// mutations happen in the page; no per-input CDP round-trips. Mirrors
+// the WIDGETS table strategies; if you add a new widget type to the
+// table, also add the same strategy here.
+async function fillAllVisibleInPage(page, scopeSelector) {
+    return bsSafeEvaluate(page, ({ scopeSelector }) => {
+        const root = scopeSelector ? document.querySelector(scopeSelector) : document;
+        if (!root) return [];
+
+        const filled = [];
+        const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
+
+        // The strategies below are ports of the WIDGETS table fillValid
+        // entries to "container element"-form. Keep in sync with the
+        // node-side WIDGETS array above.
+        const STRATEGIES = {
+            text: (c) => { const el = c.querySelector('input[type=text]'); if (el) { el.value = 'hello'; fire(el, 'input'); fire(el, 'change'); } },
+            textarea: (c) => { const el = c.querySelector('textarea'); if (el) { el.value = 'multi\nline'; fire(el, 'input'); fire(el, 'change'); } },
+            number: (c) => { const el = c.querySelector('input[type=number]'); if (el) { el.value = '42'; fire(el, 'input'); fire(el, 'change'); } },
+            email: (c) => { const el = c.querySelector('input[type=email]'); if (el) { el.value = 'test@example.com'; fire(el, 'input'); fire(el, 'change'); } },
+            url: (c) => { const el = c.querySelector('input[type=url]'); if (el) { el.value = 'https://example.com'; fire(el, 'input'); fire(el, 'change'); } },
+            tel: (c) => { const el = c.querySelector('input[type=tel]'); if (el) { el.value = '+15551234567'; fire(el, 'input'); fire(el, 'change'); } },
+            date: (c) => { const el = c.querySelector('input[type=date]'); if (el) { el.value = '2024-06-15'; fire(el, 'input'); fire(el, 'change'); } },
+            datetime: (c) => { const el = c.querySelector('input[type="datetime-local"], input[type=text]'); if (el) { el.value = '2024-06-15T10:30'; fire(el, 'input'); fire(el, 'change'); } },
+            time: (c) => { const el = c.querySelector('input[type=time]'); if (el) { el.value = '14:30'; fire(el, 'input'); fire(el, 'change'); } },
+            color: (c) => { const el = c.querySelector('input[type=color]'); if (el) { el.value = '#336699'; fire(el, 'input'); fire(el, 'change'); } },
+            year: (c) => { const el = c.querySelector('input[type=number]'); if (el) { el.value = '1990'; fire(el, 'input'); fire(el, 'change'); } },
+            month: (c) => { const el = c.querySelector('input[type=month], input[type=text]'); if (el) { el.value = '2024-06'; fire(el, 'input'); fire(el, 'change'); } },
+            week: (c) => { const el = c.querySelector('input[type=week], input[type=text]'); if (el) { el.value = '2024-W24'; fire(el, 'input'); fire(el, 'change'); } },
+            range: (c) => {
+                const el = c.querySelector('input[type=range]');
+                if (!el) return;
+                el.value = String((Number(el.min || 0) + Number(el.max || 100)) / 2);
+                fire(el, 'input'); fire(el, 'change');
+            },
+            mc: (c) => {
+                const radios = c.querySelectorAll('input[type=radio]');
+                if (!radios.length) return;
+                radios.forEach((r) => { r.checked = false; });
+                const target = Array.from(radios).find((r) => r.value && r.value !== '');
+                if (target) { target.checked = true; fire(target, 'input'); fire(target, 'change'); }
+            },
+            sex: (c) => STRATEGIES.mc(c),
+            mc_button: (c) => {
+                const inp = c.querySelector('input[type=radio], input[type=checkbox]');
+                if (!inp) return;
+                const btn = c.querySelector(`[data-for="${inp.id}"]`);
+                if (btn) btn.click();
+            },
+            check: (c) => {
+                const boxes = c.querySelectorAll('input[type=checkbox]');
+                const visible = boxes[boxes.length - 1];
+                if (!visible) return;
+                visible.checked = true; fire(visible, 'input'); fire(visible, 'change');
+            },
+            check_button: (c) => STRATEGIES.mc_button(c),
+            mc_multiple: (c) => {
+                const boxes = c.querySelectorAll('input[type=checkbox]');
+                const target = Array.from(boxes).find((b) => b.value && b.value !== '0');
+                if (target) { target.checked = true; fire(target, 'change'); }
+            },
+            mc_multiple_button: (c) => STRATEGIES.mc_button(c),
+            rating_button: (c) => STRATEGIES.mc_button(c),
+            select_one: (c) => {
+                const sel = c.querySelector('select');
+                if (!sel) return;
+                const opt = Array.from(sel.options).find((o) => o.value);
+                if (!opt) return;
+                if (sel.tomselect && typeof sel.tomselect.setValue === 'function') {
+                    sel.tomselect.setValue(opt.value, false);
+                } else {
+                    Array.from(sel.options).forEach((o) => { o.selected = o.value === opt.value; });
+                    fire(sel, 'input'); fire(sel, 'change');
+                }
+            },
+            select_multiple: (c) => STRATEGIES.select_one(c),
+        };
+
+        const items = root.querySelectorAll('[class*="item-"]');
+        items.forEach((node) => {
+            const m = (node.className || '').match(/\bitem-([a-z_]+)\b/);
+            if (!m) return;
+            const type = m[1];
+            const fn = STRATEGIES[type];
+            if (!fn) return;
+            try {
+                fn(node);
+                filled.push({ type });
+            } catch (err) {
+                filled.push({ type, error: String(err && err.message || err) });
+            }
+        });
+        return filled;
+    }, { scopeSelector });
+}
+
+async function fillAllVisibleViaLocators(page, scope) {
     const filled = [];
     const widgetByType = new Map(WIDGETS.map((w) => [w.type, w]));
     const root = scope || page;
