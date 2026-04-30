@@ -26,13 +26,41 @@ async function installMediaStubs(page, { sampleBytes = 'fmr-test-audio-blob' } =
     await bsSafeEvaluate(page, (bytes) => {
         // Replace getUserMedia with one that returns a stream-like object whose
         // tracks have a no-op stop().
+        //
+        // iOS Safari real-device + BS: plain `navigator.mediaDevices
+        // .getUserMedia = stub` SILENTLY no-ops because the property is
+        // non-writable on the device. The bundle's later call hangs on
+        // the real (permissionless) getUserMedia indefinitely. Use
+        // Object.defineProperty with explicit writable+configurable to
+        // override the device's locked-down accessor — this works on
+        // both iOS Safari and Chromium, so no platform-branching needed.
         if (!navigator.mediaDevices) {
             // jsdom-like environments — define the surface.
             Object.defineProperty(navigator, 'mediaDevices', { value: {}, configurable: true });
         }
-        navigator.mediaDevices.getUserMedia = async () => ({
+        const fakeGUM = async () => ({
             getTracks: () => [{ stop: () => {} }],
         });
+        // Override at BOTH instance and prototype. iOS Safari real-device
+        // exposes `getUserMedia` on `MediaDevices.prototype`; an instance-
+        // level assignment doesn't always shadow the prototype lookup from
+        // bundle code (the bundle's `navigator.mediaDevices.getUserMedia`
+        // resolves to the prototype slot). Replace it on whichever object
+        // actually owns the property.
+        const ownerOfGUM = Object.prototype.hasOwnProperty.call(navigator.mediaDevices, 'getUserMedia')
+            ? navigator.mediaDevices
+            : (Object.getPrototypeOf(navigator.mediaDevices) || navigator.mediaDevices);
+        try {
+            Object.defineProperty(ownerOfGUM, 'getUserMedia', {
+                value: fakeGUM,
+                writable: true,
+                configurable: true,
+            });
+        } catch {
+            // Final fallback — direct assignment if defineProperty refuses.
+            try { ownerOfGUM.getUserMedia = fakeGUM; } catch {}
+            navigator.mediaDevices.getUserMedia = fakeGUM;
+        }
 
         // Stub MediaRecorder. The real one fires `dataavailable` on stop and
         // then `stop`. Our stub does the same but with a deterministic Blob.
@@ -131,6 +159,44 @@ test.describe('media recorders v2', () => {
             await expect(playBtn).toBeVisible();
             await expect(deleteBtn).toBeVisible();
 
+            // Hook the page's MediaRecorder.isTypeSupported and
+            // navigator.mediaDevices.getUserMedia so we can tell what the
+            // bundle actually sees on a failing iOS run. Logs land in
+            // `window.__fmrDebug` and get pulled into the diagnostic.
+            // Use defineProperty on the same owner installMediaStubs
+            // wrote to, otherwise the wrap silently overlays an unwritable
+            // slot on iOS Safari and `gum:start` never logs.
+            await bsSafeEvaluate(page, () => {
+                window.__fmrDebug = [];
+                const log = (m) => { try { window.__fmrDebug.push(m); } catch {} };
+                const md = navigator.mediaDevices;
+                const ownerOfGUM = md && (Object.prototype.hasOwnProperty.call(md, 'getUserMedia')
+                    ? md
+                    : (Object.getPrototypeOf(md) || md));
+                const realGUM = md && md.getUserMedia;
+                if (realGUM && ownerOfGUM) {
+                    const wrapped = async function (...a) {
+                        log('gum:start:' + JSON.stringify(a));
+                        try { const r = await realGUM.apply(this, a); log('gum:resolved:' + (r && typeof r.getTracks === 'function' ? 'streamLike' : typeof r)); return r; }
+                        catch (e) { log('gum:rejected:' + (e && e.name) + ':' + (e && e.message)); throw e; }
+                    };
+                    try {
+                        Object.defineProperty(ownerOfGUM, 'getUserMedia', {
+                            value: wrapped, writable: true, configurable: true,
+                        });
+                    } catch (e) {
+                        log('gumWrap:defineFailed:' + (e && e.message));
+                        try { md.getUserMedia = wrapped; } catch (e2) { log('gumWrap:assignFailed:' + (e2 && e2.message)); }
+                    }
+                    log('gumWrap:owner=' + (ownerOfGUM === md ? 'instance' : 'prototype') + ',is=' + (md.getUserMedia === wrapped ? 'wrapped' : 'NOT-wrapped'));
+                }
+                if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported) {
+                    const realIts = MediaRecorder.isTypeSupported.bind(MediaRecorder);
+                    MediaRecorder.isTypeSupported = function (m) { const r = realIts(m); log('its:' + m + ':' + r); return r; };
+                }
+                log('hooks:installed:mrName=' + (window.MediaRecorder && window.MediaRecorder.name));
+            });
+
             // Click record → click stop → verify file input has a File.
             // Programmatic .click() in the page rather than recordBtn.click()
             // — Playwright's actionability click on BS iOS Safari sometimes
@@ -145,7 +211,7 @@ test.describe('media recorders v2', () => {
             await bsSafeEvaluate(page, () => {
                 document.querySelector('.fmr-test-audio-wrap .fmr-recorder-record').click();
             });
-            await page.waitForTimeout(300);
+            await page.waitForTimeout(1500);
 
             // Probe the bundle's DataTransfer path *and* the input.files
             // result. iOS Safari historically rejects programmatic
@@ -162,6 +228,7 @@ test.describe('media recorders v2', () => {
                     blobCtor: typeof Blob,
                     mediaRecorderIsFake: window.MediaRecorder && window.MediaRecorder.name === 'FakeMediaRecorder',
                     trace: window.__fmrRecorderTrace || null,
+                    debug: window.__fmrDebug || null,
                 };
                 if (!input) return probe;
                 probe.fileCount = input.files ? input.files.length : 'no .files';
