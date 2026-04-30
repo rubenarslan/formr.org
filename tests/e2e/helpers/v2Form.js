@@ -12,6 +12,8 @@
 // `.fmr-error-banner`. Initial server-side render of validation errors uses
 // `.fmr-error-messages` (alert at the form top) — same class as v1.
 
+const { bsSafeEvaluate } = require('./test');
+
 const FORM_SELECTOR = 'form.fmr-form-v2';
 
 function form(page) {
@@ -23,7 +25,7 @@ async function isPresent(page) {
 }
 
 async function visiblePageNum(page) {
-    return page.evaluate(() => {
+    return bsSafeEvaluate(page, () => {
         const sec = document.querySelector('form.fmr-form-v2 section.fmr-page:not([hidden])');
         return sec ? Number(sec.getAttribute('data-fmr-page')) : null;
     });
@@ -57,7 +59,7 @@ async function submitV2(page, { timeout = 8000 } = {}) {
     // sometimes obscures Playwright's actionability heuristics, hanging the
     // click for the full 30s default. Programmatic .click() is what real users
     // would experience after the bundle's submit-event handler attaches.
-    await page.evaluate(() => {
+    await bsSafeEvaluate(page, () => {
         const btn = document.querySelector('form.fmr-form-v2 section.fmr-page:not([hidden]) [data-fmr-next]');
         if (btn) btn.click();
     });
@@ -85,7 +87,7 @@ async function goPrevious(page) {
 // All currently-visible inline error messages on the active page, plus any
 // banner errors that didn't have a target input.
 async function errorMessages(page) {
-    return page.evaluate(() => {
+    return bsSafeEvaluate(page, () => {
         const sec = document.querySelector('form.fmr-form-v2 section.fmr-page:not([hidden])');
         if (!sec) return [];
         const inline = Array.from(sec.querySelectorAll('.fmr-invalid-feedback')).map((el) => el.textContent.trim());
@@ -106,7 +108,7 @@ async function topBannerErrors(page) {
 }
 
 async function progressPercent(page) {
-    return page.evaluate(() => {
+    return bsSafeEvaluate(page, () => {
         const bar = document.querySelector('form.fmr-form-v2 [data-fmr-progress-bar]');
         if (!bar) return null;
         const v = bar.getAttribute('aria-valuenow');

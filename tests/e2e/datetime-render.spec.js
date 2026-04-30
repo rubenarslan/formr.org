@@ -12,7 +12,7 @@
 // e.g. iOS Safari rendering `datetime` as a plain text field, or Pixel
 // Chrome refusing a value that desktop Chrome accepts.
 
-const { test, expect } = require('./helpers/test');
+const { test, expect, bsSafeEvaluate } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 
@@ -47,14 +47,19 @@ test.describe('date/time render smoke', () => {
         await expect(page.locator('form.fmr-form-v2').first()).toBeVisible({ timeout: 20000 });
 
         const names = DATETIME_FIELDS.map((f) => f.name);
-        const observed = await page.evaluate((names) => {
+        // bsSafeEvaluate inlines args as JSON into a string-form
+        // page.evaluate so they don't go through BrowserStack's Selenium
+        // arg-serializer (which mangles every object/array into a tagged
+        // structure the function can't destructure). Falls back to the
+        // normal `page.evaluate(fn, arg)` path on local-Chromium.
+        const observed = await bsSafeEvaluate(page, ({ names }) => {
             const out = {};
             names.forEach((n) => {
                 const el = document.querySelector(`input[name="${CSS.escape(n)}"]`);
                 out[n] = el ? el.type : null;
             });
             return out;
-        }, names);
+        }, { names });
 
         for (const field of DATETIME_FIELDS) {
             const actualType = observed[field.name];
@@ -88,8 +93,9 @@ test.describe('date/time render smoke', () => {
 
         // Set values via DOM directly (avoid Playwright's per-input fill
         // round-trip which is slow on BS real-device). Then read back via
-        // a single page.evaluate.
-        const written = await page.evaluate((fields) => {
+        // a single bsSafeEvaluate (see helpers/test.js) — args inlined as
+        // JSON to bypass BS's Selenium arg-serializer mangling.
+        const written = await bsSafeEvaluate(page, ({ fields }) => {
             const out = {};
             fields.forEach((f) => {
                 const el = document.querySelector(`input[name="${CSS.escape(f.name)}"]`);
@@ -105,7 +111,7 @@ test.describe('date/time render smoke', () => {
                 }
             });
             return out;
-        }, DATETIME_FIELDS);
+        }, { fields: DATETIME_FIELDS });
 
         // Soft assertions: any successful set should leave a non-empty
         // value behind. Browsers may reformat (locale), reject

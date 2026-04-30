@@ -49,6 +49,36 @@ const test = RUNNING_ON_BS
     })
     : base.test;
 
+// page.evaluate workaround for BrowserStack Selenium bridge.
+//
+// On BS iOS Safari real devices, the bridge mangles args passed to
+// page.evaluate. Vanilla Playwright sends the arg directly; the bridge
+// wraps it in a tagged structure like
+//
+//     [{ k: "fields", v: { a: [{ o: [{ k: "name", v: { s: "geburtsdatum" } }, …] }] } }]
+//
+// (where k=key, v=value, s=string, n=number, a=array, o=object) and then
+// hands that wrapped structure to the function as its first parameter.
+// Neither `(names) => names.forEach(…)` nor `({ fields }) => fields.forEach(…)`
+// receives what they expect — `names`/`fields` is undefined, the test
+// blows up with `undefined is not a function`.
+//
+// `page.evaluate(<string>)` works around the arg-serializer but the
+// bridge's return-value channel for string-form evaluate appears to
+// return null for object results on iOS. Wrap the call in a no-arg
+// Function instead — Playwright serializes the function body, the
+// bridge needs no args to mangle, and the return value goes through
+// the normal function-evaluate channel that does serialize objects.
+//
+// Local-Chromium goes through the normal `page.evaluate(fn, arg)` path —
+// arg serialization works there.
+async function bsSafeEvaluate(page, fn, args) {
+    if (!RUNNING_ON_BS) return page.evaluate(fn, args);
+    const literal = args === undefined ? 'undefined' : JSON.stringify(args);
+    const wrapper = new Function(`return (${fn.toString()})(${literal});`);
+    return page.evaluate(wrapper);
+}
+
 async function clearBrowserState(page) {
     if (!RUNNING_ON_BS) return; // local: each test already gets a fresh context
     try { await page.context().clearCookies(); } catch {}
@@ -65,4 +95,4 @@ async function clearBrowserState(page) {
     } catch {}
 }
 
-module.exports = { test, expect: base.expect, RUNNING_ON_BS, clearBrowserState };
+module.exports = { test, expect: base.expect, RUNNING_ON_BS, clearBrowserState, bsSafeEvaluate };

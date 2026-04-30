@@ -36,7 +36,11 @@ module.exports = defineConfig({
     globalSetup: require.resolve('./setup/global-setup.js'),
     timeout: 120 * 1000,
     expect: { timeout: 15 * 1000 },
-    retries: 0,
+    // BS sessions occasionally drop the websocket bridge or the device
+    // returns ERR_CONNECTION_CLOSED on a navigation; one retry absorbs
+    // those without papering over real test failures (a real failure
+    // reproduces on retry). Local stays at 0.
+    retries: RUNNING_ON_BS ? 1 : 0,
     workers: 1,
     reporter: [
         ['list'],

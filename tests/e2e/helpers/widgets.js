@@ -20,9 +20,11 @@
 
 const NAME_ATTR = 'data-fmr-item-name';
 
+const { bsSafeEvaluate } = require('./test');
+
 // Set a same-name radio group to a specific value, clearing siblings first.
 async function setRadioGroup(page, name, value) {
-    await page.evaluate(({ name, value }) => {
+    await bsSafeEvaluate(page, ({ name, value }) => {
         const inputs = document.querySelectorAll(`input[type=radio][name="${CSS.escape(name)}"]`);
         inputs.forEach((r) => { r.checked = false; });
         const target = document.querySelector(`input[type=radio][name="${CSS.escape(name)}"][value="${CSS.escape(value)}"]`);
@@ -35,7 +37,7 @@ async function setRadioGroup(page, name, value) {
 }
 
 async function setCheckbox(page, name, checked) {
-    await page.evaluate(({ name, checked }) => {
+    await bsSafeEvaluate(page, ({ name, checked }) => {
         // For check items the form has both a hidden 0 and a visible checkbox sharing name.
         const visible = Array.from(document.querySelectorAll(`input[type=checkbox][name="${CSS.escape(name)}"]`)).pop();
         if (!visible) return;
@@ -64,7 +66,7 @@ async function selectFirstButton(page, container) {
 }
 
 async function setTomSelect(page, selector, value) {
-    return page.evaluate(({ selector, value }) => {
+    return bsSafeEvaluate(page, ({ selector, value }) => {
         const el = document.querySelector(selector);
         if (!el) return false;
         if (el.tomselect && typeof el.tomselect.setValue === 'function') {
@@ -211,7 +213,7 @@ const WIDGETS = [
                 const v = await boxes.nth(i).getAttribute('value');
                 if (v && v !== '0') {
                     const name = await boxes.nth(i).getAttribute('name');
-                    await page.evaluate(({ name, value }) => {
+                    await bsSafeEvaluate(page, ({ name, value }) => {
                         const target = document.querySelector(`input[type=checkbox][name="${CSS.escape(name)}"][value="${CSS.escape(value)}"]`);
                         if (target) {
                             target.checked = true;

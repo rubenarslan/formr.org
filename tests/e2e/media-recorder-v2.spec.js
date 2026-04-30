@@ -12,7 +12,7 @@
 // Real-device verification belongs on BrowserStack iOS/Android; we don't
 // trust local Chromium to model permission prompts faithfully.
 
-const { test, expect } = require('./helpers/test');
+const { test, expect, bsSafeEvaluate } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const v2 = require('./helpers/v2Form');
@@ -23,7 +23,7 @@ const RUN = () => runName('all_widgets', 'v2');
 // cycle synthetically — ondataavailable + onstop fire as soon as stop() is
 // called. Returns a synthetic Blob containing the byte string we passed in.
 async function installMediaStubs(page, { sampleBytes = 'fmr-test-audio-blob' } = {}) {
-    await page.evaluate((bytes) => {
+    await bsSafeEvaluate(page, (bytes) => {
         // Replace getUserMedia with one that returns a stream-like object whose
         // tracks have a no-op stop().
         if (!navigator.mediaDevices) {
@@ -36,20 +36,37 @@ async function installMediaStubs(page, { sampleBytes = 'fmr-test-audio-blob' } =
 
         // Stub MediaRecorder. The real one fires `dataavailable` on stop and
         // then `stop`. Our stub does the same but with a deterministic Blob.
+        // Lifecycle is recorded on `window.__fmrRecorderTrace` so the test
+        // can introspect what fired (e.g., when iOS Safari + BS doesn't run
+        // the bundle's onStop for any reason).
+        window.__fmrRecorderTrace = [];
+        const trace = (msg) => { try { window.__fmrRecorderTrace.push(msg); } catch {} };
         class FakeMediaRecorder {
             constructor(_stream, opts) {
                 this.mimeType = (opts && opts.mimeType) || 'audio/webm';
                 this.state = 'inactive';
                 this.ondataavailable = null;
                 this.onstop = null;
+                trace('ctor:' + this.mimeType);
             }
             static isTypeSupported() { return true; }
-            start() { this.state = 'recording'; }
+            start() { this.state = 'recording'; trace('start'); }
             stop() {
                 this.state = 'inactive';
-                const blob = new Blob([bytes], { type: this.mimeType });
-                if (this.ondataavailable) this.ondataavailable({ data: blob });
-                if (this.onstop) this.onstop();
+                trace('stop:hasOnData=' + !!this.ondataavailable + ',hasOnStop=' + !!this.onstop);
+                let blob;
+                try {
+                    blob = new Blob([bytes], { type: this.mimeType });
+                    trace('blob:size=' + blob.size + ',type=' + blob.type);
+                } catch (e) { trace('blobErr:' + e); }
+                try {
+                    if (this.ondataavailable) this.ondataavailable({ data: blob });
+                    trace('ondataavailable:fired');
+                } catch (e) { trace('ondataErr:' + e); }
+                try {
+                    if (this.onstop) this.onstop();
+                    trace('onstop:fired');
+                } catch (e) { trace('onstopErr:' + e); }
             }
         }
         window.MediaRecorder = FakeMediaRecorder;
@@ -80,7 +97,7 @@ test.describe('media recorders v2', () => {
             // Inject a `.record_audio` wrapper into the visible v2 page section.
             // Mirror the wrapper structure Item.php produces: form-group +
             // controls-inner + a hidden file input named `audio_test`.
-            const injected = await page.evaluate(() => {
+            const injected = await bsSafeEvaluate(page, () => {
                 const target = document.querySelector('form.fmr-form-v2 section.fmr-page:not([hidden])');
                 if (!target) return false;
                 const wrap = document.createElement('div');
@@ -99,7 +116,7 @@ test.describe('media recorders v2', () => {
             expect(injected, 'failed to inject .record_audio markup into v2 page').toBe(true);
 
             // Trigger the bundle's recorder init for the new container.
-            const initOk = await page.evaluate(() => {
+            const initOk = await bsSafeEvaluate(page, () => {
                 if (typeof window.fmrInitMediaRecorders !== 'function') return false;
                 window.fmrInitMediaRecorders();
                 return true;
@@ -115,17 +132,48 @@ test.describe('media recorders v2', () => {
             await expect(deleteBtn).toBeVisible();
 
             // Click record → click stop → verify file input has a File.
-            await recordBtn.click();
-            await recordBtn.click(); // second click stops via the same handler
+            // Programmatic .click() in the page rather than recordBtn.click()
+            // — Playwright's actionability click on BS iOS Safari sometimes
+            // doesn't actually fire the addEventListener handler (the click
+            // event reaches the button but the listener doesn't run). The
+            // FakeMediaRecorder lifecycle trace was empty after Playwright
+            // clicks, but `el.click()` from inside the page consistently
+            // runs the handler.
+            await bsSafeEvaluate(page, () => {
+                document.querySelector('.fmr-test-audio-wrap .fmr-recorder-record').click();
+            });
+            await bsSafeEvaluate(page, () => {
+                document.querySelector('.fmr-test-audio-wrap .fmr-recorder-record').click();
+            });
             await page.waitForTimeout(300);
 
-            const fileInfo = await page.evaluate(() => {
+            // Probe the bundle's DataTransfer path *and* the input.files
+            // result. iOS Safari historically rejects programmatic
+            // `input.files = dt.files` (security on file inputs); when the
+            // bundle's `try { … } catch` quietly swallows that, the file
+            // input is empty even though the recorder UI thinks it
+            // delivered the blob. Diagnostics tell us which branch.
+            const diagnostic = await bsSafeEvaluate(page, () => {
                 const input = document.querySelector('.fmr-test-audio-wrap input[type=file]');
-                if (!input || !input.files || input.files.length === 0) return null;
-                const f = input.files[0];
-                return { name: f.name, size: f.size, type: f.type };
+                const probe = {
+                    hasInput: !!input,
+                    dataTransferCtor: typeof DataTransfer,
+                    fileCtor: typeof File,
+                    blobCtor: typeof Blob,
+                    mediaRecorderIsFake: window.MediaRecorder && window.MediaRecorder.name === 'FakeMediaRecorder',
+                    trace: window.__fmrRecorderTrace || null,
+                };
+                if (!input) return probe;
+                probe.fileCount = input.files ? input.files.length : 'no .files';
+                if (input.files && input.files.length > 0) {
+                    const f = input.files[0];
+                    probe.file = { name: f.name, size: f.size, type: f.type };
+                }
+                return probe;
             });
-            expect(fileInfo, 'no file attached after synthetic record cycle').not.toBeNull();
+            test.info().annotations.push({ type: 'recorder-probe', description: JSON.stringify(diagnostic) });
+            const fileInfo = diagnostic.file || null;
+            expect(fileInfo, `no file attached after synthetic record cycle; probe=${JSON.stringify(diagnostic)}`).not.toBeNull();
             expect(fileInfo.size, 'synthetic blob non-empty').toBeGreaterThan(0);
             expect(fileInfo.type, 'mime should be one of the supported audio/* types').toMatch(/^audio\//);
 
@@ -146,7 +194,7 @@ test.describe('media recorders v2', () => {
             await v2.waitForBundle(page);
             await installMediaStubs(page, { sampleBytes: 'fmr-test-video-blob' });
 
-            await page.evaluate(() => {
+            await bsSafeEvaluate(page, () => {
                 const target = document.querySelector('form.fmr-form-v2 section.fmr-page:not([hidden])');
                 if (!target) return;
                 const wrap = document.createElement('div');
@@ -168,11 +216,16 @@ test.describe('media recorders v2', () => {
             const previewCount = await page.locator('.fmr-test-video-wrap .fmr-recorder-preview').count();
             expect(previewCount).toBe(1);
 
-            await page.locator('.fmr-test-video-wrap .fmr-recorder-record').click();
-            await page.locator('.fmr-test-video-wrap .fmr-recorder-record').click();
+            // Programmatic click — see record_audio test for rationale.
+            await bsSafeEvaluate(page, () => {
+                document.querySelector('.fmr-test-video-wrap .fmr-recorder-record').click();
+            });
+            await bsSafeEvaluate(page, () => {
+                document.querySelector('.fmr-test-video-wrap .fmr-recorder-record').click();
+            });
             await page.waitForTimeout(300);
 
-            const fileInfo = await page.evaluate(() => {
+            const fileInfo = await bsSafeEvaluate(page, () => {
                 const input = document.querySelector('.fmr-test-video-wrap input[type=file]');
                 if (!input || !input.files || input.files.length === 0) return null;
                 const f = input.files[0];
