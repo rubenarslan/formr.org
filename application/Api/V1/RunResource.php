@@ -79,7 +79,11 @@ class RunResource extends BaseResource
         // for unauthorized callers, which is misleading and inconsistent.
         switch ($method) {
             case 'POST':
+                $this->checkScope('run:write');
+                break;
             case 'PATCH':
+                $this->checkScope('run:write');
+                break;
             case 'DELETE':
                 $this->checkScope('run:write');
                 break;
