@@ -36,7 +36,7 @@ import '@khmyznikov/pwa-install';
 
 import { mysqlDatetime } from './lib/time.js';
 import { genUuid } from './lib/uuid.js';
-import { queueAdd, queueGetAll, queueDelete, buildSyncFormData, isTransientFailure } from './offline/queue.js';
+import { queueAdd, queueGetAll, queueDelete, wipeQueue, buildSyncFormData, isTransientFailure } from './offline/queue.js';
 import { initMediaRecorders } from './items/recorders.js';
 import { initButtonGroups } from './items/button-groups.js';
 import { initGeopoint } from './items/geopoint.js';
@@ -44,6 +44,7 @@ import { initTomSelects } from './items/tom-select.js';
 import { initRequestCookie } from './items/request-cookie.js';
 import { initRequestPhone } from './items/request-phone.js';
 import { initAdminPreview } from './items/admin-preview.js';
+import { initExpiryNotifier } from './items/expiry-notifier.js';
 import {
     clearCustomValidity,
     findErrorTarget,
@@ -1413,6 +1414,25 @@ function initForm() {
     initRequestCookie(root);
     initRequestPhone(root);
     initAdminPreview({ root, getCurrentPage: () => pages[currentIndex] });
+    // Show "Page expired" modal when the unit-session expiry passes — same
+    // behaviour as v1's ExpiryNotifier, vanilla port.
+    initExpiryNotifier();
+
+    // Logout-link click handler: wipe the offline queue before navigating.
+    // The SW's fetch handler also wipes (covers cases where the participant
+    // navigates to /<run>/logout from outside the form bundle), but doing
+    // it here too means the wipe is in flight before the browser starts
+    // tearing down the page — useful when there is no SW (queue exists in
+    // IDB regardless of SW availability) or when the SW intercept races
+    // the navigation completion.
+    document.addEventListener('click', (e) => {
+        const a = e.target.closest && e.target.closest('a[href]');
+        if (!a) return;
+        let url;
+        try { url = new URL(a.href, window.location.href); } catch { return; }
+        if (!/\/[^/]+\/logout\/?$/.test(url.pathname)) return;
+        wipeQueue().catch(() => {});
+    });
 
     // Test-side signal that initForm finished — every listener is attached,
     // every item's init has run. Without this, real-device tests race the

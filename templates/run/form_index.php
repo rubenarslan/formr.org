@@ -66,6 +66,24 @@
             <?php if ($vapidPublicKey): ?>
             window.vapidPublicKey = <?php echo json_encode($vapidPublicKey); ?>;
             <?php endif; ?>
+            <?php
+            // Expose the current unit-session expiry so the v2 expiry-notifier
+            // can show a "Page expired" modal when the wall clock crosses it.
+            // Mirrors templates/public/head.php's logic for the v1 path.
+            $expires = null;
+            if (isset($run_session) && $run_session instanceof RunSession && ($us = $run_session->getCurrentUnitSession())) {
+                if (!empty($us->expires)) {
+                    try {
+                        $expires = (new DateTime($us->expires))->format(DateTime::ATOM);
+                    } catch (Exception $e) {
+                        $expires = null;
+                    }
+                }
+            }
+            if ($expires):
+            ?>
+            window.unit_session_expires = <?php echo json_encode($expires); ?>;
+            <?php endif; ?>
         </script>
     </head>
 
