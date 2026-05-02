@@ -46,6 +46,15 @@ export async function queueDelete(uuid) {
     await db.delete(STORE, uuid);
 }
 
+// Wipe every queued entry. Used on logout / account deletion / SW unregister
+// so plaintext answers don't persist on the participant's device beyond their
+// participant relationship with the run. The objectStore stays in place
+// (cheaper than dropping the database and re-creating); only the rows go.
+export async function wipeQueue() {
+    const db = await getDb();
+    await db.clear(STORE);
+}
+
 // Build a FormData representation of a queued entry that has `files`. Keys
 // mirror form-page-submit's multipart branch (see `RunController::formSyncAction`).
 // Pulled out of drainQueue so the multipart shape lives in one place — also

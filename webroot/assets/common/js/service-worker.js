@@ -226,6 +226,19 @@ function fmrQueueDelete(db, uuid) {
   });
 }
 
+// Wipe every queued entry. Used on logout / account deletion / push-
+// subscription revocation so plaintext answers don't outlive the
+// participant's relationship with the run.
+function fmrQueueWipe(db) {
+  return new Promise((resolve) => {
+    const tx = db.transaction(FMR_QUEUE_STORE, 'readwrite');
+    tx.objectStore(FMR_QUEUE_STORE).clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => resolve();
+    tx.onabort = () => resolve();
+  });
+}
+
 function fmrBuildSyncFormData(entry) {
   const fd = new FormData();
   fd.append('uuid', entry.uuid);
@@ -304,6 +317,28 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Wipe the offline queue when the participant navigates to /<run>/logout.
+  // The server destroys their session on that endpoint, so any queued
+  // entries belong to a relationship that no longer exists. We don't
+  // intercept the response — let the navigation proceed normally — but we
+  // do schedule the IDB clear in waitUntil so the SW stays alive for it.
+  try {
+    const u = new URL(event.request.url);
+    if (event.request.mode === 'navigate' && /\/[^/]+\/logout\/?$/.test(u.pathname)) {
+      event.waitUntil((async () => {
+        try {
+          const db = await fmrOpenIDB();
+          await fmrQueueWipe(db);
+          try { db.close(); } catch {}
+        } catch (err) {
+          console.warn('SW logout-wipe: queue wipe failed', err);
+        }
+      })());
+    }
+  } catch {
+    // URL parse failed — ignore and fall through
+  }
+
   // Only handle valid URLs (which now must include /assets/)
   if (!isValidUrl(event.request.url)) {
     return fetch(event.request);  // Don't cache, just fetch normally
@@ -353,6 +388,24 @@ self.addEventListener('message', (event) => {
     fmrSyncUrl = event.data.url;
     return;
   }
+  // form_v2: wipe the offline-queue IDB. Triggered from the page on
+  // logout (so plaintext answers don't outlive the participant's
+  // session) and as a safety net from the pushsubscriptionchange
+  // handler below. Wait the wipe before posting back so the page can
+  // confirm before navigating away.
+  if (event.data && event.data.type === 'FMR_WIPE_QUEUE') {
+    (async () => {
+      try {
+        const db = await fmrOpenIDB();
+        await fmrQueueWipe(db);
+        try { db.close(); } catch {}
+        event.ports[0]?.postMessage({ ok: true });
+      } catch (err) {
+        event.ports[0]?.postMessage({ error: String(err && err.message || err) });
+      }
+    })();
+    return;
+  }
   // Test diagnostic: dump cache state via reply port. The page-side
   // `caches.keys()` is partitioned away from the SW's caches under iOS
   // Safari + automation, so the e2e cache test asks the SW directly.
@@ -398,6 +451,24 @@ self.addEventListener('message', (event) => {
       })()
     );
   }
+});
+
+// `pushsubscriptionchange` fires when the browser invalidates the existing
+// push subscription — most commonly when the user uninstalls the PWA or
+// revokes notification permission. Take the chance to wipe the offline
+// queue (those answers were tied to the participant's relationship with
+// this run, which is now ending) and the cached subscription endpoint.
+// Best-effort: if IDB is unavailable we silently move on.
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil((async () => {
+    try {
+      const db = await fmrOpenIDB();
+      await fmrQueueWipe(db);
+      try { db.close(); } catch {}
+    } catch (err) {
+      console.warn('SW pushsubscriptionchange: queue wipe failed', err);
+    }
+  })());
 });
 
 // Handle incoming push events
