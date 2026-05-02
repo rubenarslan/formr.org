@@ -53,12 +53,15 @@ test.describe('PWA low-friction v2', () => {
 
     test('offline submit queues and drains on reconnect [BS-only]', async ({ page, baseURL }, info) => {
         test.skip(pwa.isLocal(info), 'local-chromium blocks SWs (offline-queue ride-along)');
-        // BS real-device offline-queue test is flaky: iPhone fixture-level
-        // page.goto times out, Pixel sees a near-blank page when click
-        // happens too early. waitForBundle now waits for window.fmrFormReady
-        // which helps locally but is still racy on BS. Marked expected-fail
-        // until the form-bundle init order is stable on real devices.
-        test.fixme(true, 'Real-device offline queue flake; tracked in plan_form_v2 §8 P1');
+        // ctx.setOffline goes through CDP; the BS-Selenium bridge for iOS
+        // Safari doesn't implement it, so the offline state never takes
+        // effect on iPhone — fetch hits the network, no queue entry ever
+        // forms. Pixel 8 does implement setOffline. Skip on iOS until BS
+        // exposes a network-condition primitive there.
+        const projName = (info.project && info.project.name) || '';
+        test.skip(/iPhone|iPad|iPod|safari|webkit/i.test(projName),
+            'BS-Selenium iOS bridge does not implement CDP setOffline; queue never engages. Tracked in plan_form_v2 §8 P1.');
+
         const run = RUN();
         await freshParticipant(page, run, { baseURL });
         expect(page.url(), 'page should be on the participant URL, not about:blank').toContain(`/${run}/`);
@@ -68,7 +71,14 @@ test.describe('PWA low-friction v2', () => {
         // setOffline lives on the context — page-fixture exposes it via page.context().
         const ctx = page.context();
         await ctx.setOffline(true);
-        await page.locator(`${v2.FORM_SELECTOR} section.fmr-page:not([hidden]) [data-fmr-next]`).first().click();
+        // Programmatic in-page click — Playwright's locator.click on the BS
+        // bridge can pipeline several CDP calls that occasionally timeout
+        // mid-actionability under offline mode. el.click() bubbles the
+        // event through the bundle's submit handler the same way.
+        await page.evaluate(() => {
+            const btn = document.querySelector('form.fmr-form-v2 section.fmr-page:not([hidden]) [data-fmr-next]');
+            if (btn) btn.click();
+        });
         // The banner class is `.fmr-queue-banner` (warning on enqueue,
         // success on drain). v2's main.js#showQueueBanner is the only
         // thing that touches it; it inserts before root.firstChild.

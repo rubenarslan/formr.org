@@ -49,12 +49,6 @@ test.describe('PWA high-friction v2', () => {
 
     test('caches populate after first load [BS-only]', async ({ page, baseURL }, info) => {
         test.skip(pwa.isLocal(info), 'local-chromium blocks SWs');
-        // iPhone Safari fixture under BS automation: fixture-level setup
-        // sometimes fails before the test body can run. Combined with the
-        // partitioned caches.keys() API on iOS Safari, marking expected-fail.
-        // Real-user iOS Safari sessions cache fine — see plan_form_v2 §8 P1.
-        test.fixme(/iPhone|iPad|iPod/i.test((info.project && info.project.name) || ''),
-            'iOS Safari + BS automation flake; tracked in plan_form_v2 §8 P1');
         // iOS Safari under BS automation partitions page-side caches.keys()
         // away from the SW's caches AND postMessage to the SW often fails
         // because navigator.serviceWorker.controller stays null in fresh
