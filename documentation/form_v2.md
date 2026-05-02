@@ -158,11 +158,17 @@ The whole thing is on by default. Disable per-study via the **Offline queue** to
 
 ## Known limitations vs. v1
 
-- **Embedded Rmd in labels**: still rendered server-side at page-load; not yet routed through r(...)+fill (cache softens the cost).
 - **Audio / Video items**: render through the same multipart path as File items, but the `getUserMedia` capture UX hasn't been smoke-tested cross-browser. The form shows an admin notice ("Heads up: this form uses audio…"). Use a real device to verify before relying on it.
 - **iOS Safari + Background Sync**: not supported in iOS Safari. The page's own `online` event still drains the queue when the participant reopens the tab; Background Sync just isn't an extra layer there.
 - **`Previous` button mid-flow**: the button reveals already-rendered pages but doesn't refetch them from the server. If your study mutates per-page state on the server (e.g. via Pause units), back-navigation may show stale content. Leave the toggle off unless your design tolerates this.
 - **Spreadsheet-side admin classes** like `mc_width70`, `rotate_label45`, `mc_vertical`, `rating_button_label_width50` — supported. Works the same as v1 (the same `custom_item_classes.css` ships in the v2 bundle).
+- **Range tooltip / animated value indicator**: v1's animated tooltip on `range` and `range_ticks` came from the `webshim` range plugin. v2 doesn't ship webshim and renders a bare native range with side labels — the participant sees their current position via the slider thumb, but no floating-number tooltip. The new `visual_analog_scale` item type below is the v2-native answer for "no default" rating-style items.
+
+## What's new in v2
+
+- **`visual_analog_scale`** item type. Like `range` but with no default value: until the participant moves the slider, the thumb stays hidden and the form submits empty for that item. Required `visual_analog_scale` items therefore catch "participant never engaged with the scale" the same way required text items catch a blank field. Authoring is identical to `range` — `min,max,step` in the type column, left/right pole text in `choice1`/`choice2`. Renders in both v1 and v2 (an inline 4-line touch listener in the rendered HTML mirrors the slider value into a sibling hidden input on first interaction; no bundle wiring required).
+- **Page-expired modal**. v1's `ExpiryNotifier` (a modal that pops when the unit-session passes its `expires` timestamp, with a Reload button) is now ported to the v2 bundle as a vanilla module. `templates/run/form_index.php` exposes `window.unit_session_expires` the same way `templates/public/head.php` does for v1, so per-page session-expiry timing is identical across the two pipelines.
+- **Offline-queue wipe on logout / push-subscription change**. Previously `formrQueue` (IndexedDB) entries persisted on the participant's device past logout — a small but real plaintext-data-at-rest gap. Now the service worker wipes the queue when (a) the participant navigates to `/{run}/logout` (intercepted by the SW's `fetch` handler) and (b) the browser fires `pushsubscriptionchange` (typically on PWA uninstall or notification-permission revocation). The page-side bundle also wipes preemptively when the participant clicks a logout link, so there's a fast path even when no SW is installed.
 
 ## Migration checklist
 
