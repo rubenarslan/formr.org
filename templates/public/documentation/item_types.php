@@ -71,7 +71,13 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         range_ticks <i>min,max,step</i>
     </dt>
     <dd>
-        like range but the individual steps are visually indicated using ticks and the chosen number is shown to the right. 
+        like range but the individual steps are visually indicated using ticks and the chosen number is shown to the right.
+    </dd>
+    <dt>
+        visual_analog_scale <i>min,max,step</i>
+    </dt>
+    <dd>
+        like range but with no default — the slider thumb is hidden until the participant interacts with it, and required items stay invalid until the participant actively chooses a position. The value submitted is empty (rather than the midpoint) if the participant never moves the slider. Defaults are <code>0,100,1</code>.
     </dd>
 </dl>
 

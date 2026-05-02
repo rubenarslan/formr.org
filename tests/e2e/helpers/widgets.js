@@ -177,6 +177,23 @@ const WIDGETS = [
         invalidIsBlank: true,
     },
     {
+        type: 'visual_analog_scale',
+        // The visible range has no `name`; the inline touch listener
+        // mirrors its value into the sibling hidden input on
+        // `input`/`change`. Setting el.value + dispatching input is
+        // what real participant interaction looks like.
+        async fillValid(page, c) {
+            const input = c.locator('.vas-controls input[type=range].vas-display').first();
+            await input.evaluate((el) => {
+                const target = (Number(el.min || 0) + Number(el.max || 100)) / 2;
+                el.value = String(target);
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        },
+        invalidIsBlank: true,
+    },
+    {
         type: 'mc',
         async fillValid(page, c) {
             const name = await c.locator('input[type=radio]').first().getAttribute('name');
@@ -373,6 +390,15 @@ async function fillAllVisibleInPage(page, scopeSelector) {
             week: (c) => { const el = c.querySelector('input[type=week], input[type=text]'); if (el) { el.value = '2024-W24'; fire(el, 'input'); fire(el, 'change'); } },
             range: (c) => {
                 const el = c.querySelector('input[type=range]');
+                if (!el) return;
+                el.value = String((Number(el.min || 0) + Number(el.max || 100)) / 2);
+                fire(el, 'input'); fire(el, 'change');
+            },
+            visual_analog_scale: (c) => {
+                // Visible range has no `name`; the inline touch listener
+                // mirrors the value into the sibling hidden input on
+                // input/change. Same flow as a participant moving the slider.
+                const el = c.querySelector('.vas-controls input[type=range].vas-display');
                 if (!el) return;
                 el.value = String((Number(el.min || 0) + Number(el.max || 100)) / 2);
                 fire(el, 'input'); fire(el, 'change');

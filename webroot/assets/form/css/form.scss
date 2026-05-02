@@ -323,11 +323,13 @@
         padding: 0;
     }
 
-    // Range / range_ticks: labels + slider on one row (v1's pattern: left
-    // label, slider, right label). Without this flex container the slider's
-    // natural `width: 100%` pushes the right label onto the next line.
+    // Range / range_ticks / visual_analog_scale: labels + slider on one row
+    // (v1's pattern: left label, slider, right label). Without this flex
+    // container the slider's natural `width: 100%` pushes the right label
+    // onto the next line.
     .item-range .controls-inner,
-    .item-range_ticks .controls-inner {
+    .item-range_ticks .controls-inner,
+    .item-visual_analog_scale .controls-inner {
         display: flex;
         align-items: center;
         gap: 0.5rem;
@@ -607,4 +609,46 @@
 @keyframes fmr-spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
+}
+
+// Expiry-notifier modal — overlay shown when the unit-session expires while
+// the participant is still on the page. Bare hand-built dialog (no Bootstrap
+// JS dep); fixed-position so it sits above the form regardless of scroll.
+.fmr-expiry-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    .fmr-expiry-modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+    }
+
+    .fmr-expiry-modal-dialog {
+        position: relative;
+        background: #fff;
+        border-radius: 6px;
+        padding: 1.5rem 2rem;
+        max-width: 420px;
+        width: calc(100% - 2rem);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        text-align: center;
+    }
+
+    .fmr-expiry-modal-title {
+        margin-top: 0;
+        margin-bottom: 0.75rem;
+    }
+
+    .fmr-expiry-modal-body {
+        margin-bottom: 1.25rem;
+    }
+
+    .fmr-expiry-modal-reload {
+        min-width: 8rem;
+    }
 }

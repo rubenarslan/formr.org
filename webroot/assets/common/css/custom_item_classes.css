@@ -762,3 +762,38 @@ form.form-horizontal div.form-group.vertical_range div.controls div.controls-inn
 .analogue_rating_scale30 .btn-group>.btn {
 	width: 30px;
 }
+
+/*
+ * Visual analog scale (item type `visual_analog_scale`).
+ * Until the participant interacts with the slider the wrapper carries no
+ * `.vas-touched` class and the thumb stays invisible — what the participant
+ * sees is a bare horizontal track. The inline touch listener in
+ * VisualAnalogScale_Item::render_input adds `.vas-touched` on the first
+ * `input`/`change` event, at which point the thumb appears at the chosen
+ * position and the hidden input that owns the form `name` picks up the
+ * value. This keeps "no default" honest — the form never silently submits
+ * the midpoint as the answer.
+ *
+ * The cursor change is the only visual prompt that the scale is interactive
+ * in its untouched state; the surrounding label text (`note` items above
+ * the scale) is the design-time place to spell out instructions.
+ */
+.vas-controls {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	width: 100%;
+}
+.vas-controls input[type="range"].vas-display {
+	flex: 1 1 auto;
+	cursor: pointer;
+}
+.vas-controls:not(.vas-touched) input[type="range"].vas-display::-webkit-slider-thumb {
+	visibility: hidden;
+}
+.vas-controls:not(.vas-touched) input[type="range"].vas-display::-moz-range-thumb {
+	visibility: hidden;
+}
+.vas-controls:not(.vas-touched) input[type="range"].vas-display::-ms-thumb {
+	visibility: hidden;
+}
