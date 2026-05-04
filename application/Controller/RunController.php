@@ -47,6 +47,43 @@ class RunController extends Controller {
         // OR if cookie is expired then logout
         $this->user = $this->loginUser();
 
+        // Migration self-heal for existing PWA installs that captured a
+        // pre-tokenization start_url. If the request has no ?code= query
+        // but the cookie identifies a participant who already has a
+        // session in this run, 302 to the tokenized form so the URL bar
+        // (and any in-PWA history.replaceState) carries the code from
+        // here on. iOS keeps us in the standalone shell because the
+        // redirect is same-scope. Once the URL has the token, future
+        // launches survive cookie eviction. GET-only, idempotent, runs
+        // before Run::exec so we don't double-render the unit.
+        if ($pageNo === null && Request::isHTTPGetRequest()
+                && empty($_GET['code'])
+                && !empty($this->user->user_code)
+                && $this->run->valid) {
+            $sessionRow = DB::getInstance()
+                ->select('id')
+                ->from('survey_run_sessions')
+                ->where(array(
+                    'session' => $this->user->user_code,
+                    'run_id' => $this->run->id,
+                ))
+                ->fetch();
+            if ($sessionRow) {
+                // Drop the rewrite-engine artifacts (route, run_name) that
+                // mod_rewrite injects into $_GET; keep any explicit
+                // user-supplied params like ?_pwa=true so the
+                // pwa-register.js standalone marker survives.
+                $params = array('code' => $this->user->user_code);
+                foreach ($_GET as $k => $v) {
+                    if ($k === 'route' || $k === 'run_name' || $k === 'code') continue;
+                    $params[$k] = $v;
+                }
+                $target = run_url($this->run->name) . '?' . http_build_query($params);
+                $this->request->redirect($target);
+                return;
+            }
+        }
+
         Session::setSessionLifetime($this->run->expire_cookie);
 
         $run_vars = $this->run->exec($this->user);
