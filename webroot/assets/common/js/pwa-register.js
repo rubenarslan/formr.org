@@ -19,6 +19,60 @@ if ('serviceWorker' in navigator && window.vapidPublicKey) {
             window.history.replaceState({}, '', newUrl);
         }
 
+        // Standalone session-recovery banner.
+        //
+        // A PWA shell launch should never be anonymous — every participant
+        // got there via the in-browser install workflow that started from
+        // a tokenized URL. If we're in standalone with no `code=` query,
+        // either:
+        //   (a) the server's cookie self-heal kicked in and added ?code=
+        //       BEFORE this script ran (URL has ?code=, this branch is
+        //       skipped), or
+        //   (b) the cookie was evicted and the launch landed at the
+        //       captured (token-less) start_url with no recoverable
+        //       identity — the failure mode the manifest tokenization
+        //       fix addresses for new installs but that *existing*
+        //       installs still hit on first launch after eviction
+        //       because iOS won't refetch the captured start_url.
+        //
+        // Show a passive banner with an inline code-paste form. Submitting
+        // GETs the same URL with ?code=PASTED, loginUser() validates, and
+        // the original session is back. Non-disruptive — the underlying
+        // page still renders behind the banner; participants who didn't
+        // lose anything can dismiss it.
+        if (isStandalone && !new URLSearchParams(window.location.search).get('code')) {
+            window.addEventListener('DOMContentLoaded', () => {
+                if (document.getElementById('fmr-pwa-recovery-banner')) return;
+                const form = document.createElement('form');
+                form.id = 'fmr-pwa-recovery-banner';
+                form.method = 'get';
+                form.action = window.formr.run_url;
+                form.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;'
+                    + 'background:#fff8e1;border-bottom:1px solid #f0c419;'
+                    + 'padding:.6em .8em;font:14px/1.4 -apple-system,BlinkMacSystemFont,sans-serif;'
+                    + 'display:flex;flex-wrap:wrap;align-items:center;gap:.5em';
+                form.innerHTML =
+                    '<span style="flex:1 1 100%">'
+                    + 'Lost your sign-in? Paste your participant code or open '
+                    + 'the latest invitation email link.'
+                    + '</span>'
+                    + '<input name="code" required autocomplete="off" autocapitalize="none" '
+                    +   'autocorrect="off" spellcheck="false" '
+                    +   'pattern="[A-Za-z0-9+\\-_~]{8,64}" '
+                    +   'placeholder="Participant code" '
+                    +   'style="flex:1;min-width:180px;padding:.4em;border:1px solid #ccc;'
+                    +   'border-radius:4px;font-family:ui-monospace,Menlo,monospace">'
+                    + '<input type="hidden" name="_pwa" value="true">'
+                    + '<button type="submit" style="padding:.4em .9em;border:0;border-radius:4px;'
+                    +   'background:#1976d2;color:#fff;cursor:pointer">Continue</button>'
+                    + '<button type="button" data-dismiss="1" '
+                    +   'style="padding:.4em .6em;border:0;background:transparent;cursor:pointer;'
+                    +   'color:#666" aria-label="Dismiss">&times;</button>';
+                form.querySelector('[data-dismiss]').addEventListener('click', () => form.remove());
+                document.body.insertBefore(form, document.body.firstChild);
+            });
+        }
+
         navigator.serviceWorker.getRegistration(scope).then(existingRegistration => {
             if (!existingRegistration) {
                 navigator.serviceWorker.register(serviceWorkerPath, { scope }).then(registration => {
