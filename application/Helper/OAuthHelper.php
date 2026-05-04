@@ -142,7 +142,7 @@ class OAuthHelper
         if (!$client) {
             return false;
         }
-        $details = $this->generateClientDetails($formrUser, true);
+        $details = $this->generateClientDetails($formrUser);
         $client_id = $client['client_id'];
         $client_secret = $details['client_secret'];
         $ok = $this->storage->setClientDetails($client_id, $client_secret->getString(), self::DEFAULT_REDIRECT_URL, null, null, $formrUser->email);
@@ -168,25 +168,22 @@ class OAuthHelper
     }
 
     /**
-     * Generate client ID and client Secret from User object.
-     * The client_secret is returned as a HiddenString so it cannot leak
-     * through var_dump / __toString / error logs. Callers that need the
-     * raw value (to store a hash or show it once) must call ->getString().
+     * Generate a fresh client_id + client_secret pair from cryptographically
+     * secure random bytes. Must NOT be derived from the user (id, email,
+     * etc.) since those are externally guessable; the client_secret is the
+     * sole authenticator on the OAuth client_credentials grant.
      *
-     * @param User $formrUser
-     * @param bool $refresh
+     * The client_secret is returned as a HiddenString so it cannot leak
+     * through var_dump / __toString / error logs. Callers that need the raw
+     * value (to store a hash or show it once) must call ->getString().
+     *
+     * @param User $formrUser unused; retained for interface compatibility
      * @return array{client_id: string, client_secret: HiddenString}
      */
-    protected function generateClientDetails(User $formrUser, $refresh = false)
+    protected function generateClientDetails(User $formrUser)
     {
-        $jwt = new OAuth2\Encryption\Jwt();
-        $append = $refresh ? microtime(true) : '';
-        $client_id = md5($formrUser->id . $formrUser->email . $append);
-        if ($refresh) {
-            $client_id = $append . $formrUser->email . $formrUser->id;
-        }
-        $raw_secret = substr(str_replace('.', '', $jwt->encode($client_id, $client_id)), 0, 60);
-        $client_secret = new HiddenString($raw_secret);
+        $client_id = bin2hex(random_bytes(16));
+        $client_secret = new HiddenString(bin2hex(random_bytes(32)));
         return compact('client_id', 'client_secret');
     }
 
