@@ -121,11 +121,42 @@ async function checkAndCloseExpiredNotifications() {
   }
 }
 
-/* 
+/*
  * Service worker event listeners
  */
 
-/* 
+/**
+ * cache.addAll() is atomic — if any single fetch returns non-2xx the
+ * whole call rejects and the caller (install handler, asset-cache
+ * postMessage) treats that as a fatal failure. For an install event
+ * that means the SW transitions to "redundant" and never claims clients;
+ * the participant ends up with no SW, no offline cache, no push.
+ *
+ * safeAddAll caches each URL independently and swallows individual
+ * failures. We log the misses so we can find them in dev console but
+ * the SW still installs cleanly. Mirrors the resilience posture of
+ * Workbox's `addAll({ignoreSearchParams})` family.
+ */
+async function safeAddAll(cache, urls) {
+  const tasks = urls.map(async (url) => {
+    try {
+      const res = await fetch(url, { credentials: 'same-origin' });
+      if (!res.ok) return { url, ok: false, status: res.status };
+      await cache.put(url, res);
+      return { url, ok: true };
+    } catch (err) {
+      return { url, ok: false, error: String(err && err.message || err) };
+    }
+  });
+  const results = await Promise.all(tasks);
+  const failed = results.filter((r) => !r.ok);
+  if (failed.length) {
+    console.warn('SW: skipped uncacheable assets', failed);
+  }
+  return results;
+}
+
+/*
  * Install event listener to cache the manifest and assets
  */
 self.addEventListener('install', (event) => {
@@ -136,7 +167,7 @@ self.addEventListener('install', (event) => {
       const assetsToCache = [...new Set([manifest.start_url, ...manifest.icons.map(icon => icon.src)])];
       const cache = await caches.open(CACHE_NAME);
       console.log('SW: Caching assets:', assetsToCache);
-      return await cache.addAll(assetsToCache);
+      return await safeAddAll(cache, assetsToCache);
     } catch (error) {
       console.error('Install failed:', error);
       throw error;
@@ -232,7 +263,11 @@ self.addEventListener('message', (event) => {
         try {
           const cache = await caches.open(CACHE_NAME);
           console.log("SW: Caching assets:", validAssets);
-          return await cache.addAll(validAssets);
+          // Use the same per-URL resilience as the install handler so
+          // one missing CSS file doesn't reject the whole batch and
+          // leave the postMessage caller hanging on a never-resolved
+          // promise.
+          return await safeAddAll(cache, validAssets);
         } catch (error) {
           console.error('Error caching assets:', error);
           throw error; // Propagate to caller
@@ -381,6 +416,63 @@ self.addEventListener('notificationclick', (event) => {
     } catch (error) {
       console.error('Notification click failed:', error);
       throw error;
+    }
+  })());
+});
+
+
+/*
+ * Push subscription rotation handler.
+ *
+ * Browsers fire `pushsubscriptionchange` when they invalidate and
+ * re-issue the participant's push endpoint — token expiry, push-server
+ * migration, browser update. Without this handler the server's stored
+ * subscription points at the old endpoint, every send bounces, and
+ * after a few bounces the push service marks the subscription dead.
+ * The participant silently stops receiving notifications.
+ *
+ * Re-subscribe with the previous options if the browser didn't already
+ * hand us a new subscription, then POST it to the run's existing
+ * ajax_save_push_subscription endpoint. The endpoint resolves the
+ * participant via cookie + RunSession (loginUser flow), so we don't
+ * need to thread a participant code through the SW; if the cookie has
+ * since evicted, the save fails 401 and the page-side
+ * initializePushNotifications recovers on next launch.
+ */
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil((async () => {
+    try {
+      let newSub = event.newSubscription;
+      // Firefox fires with newSubscription=null and expects the SW to
+      // resubscribe with the previous options. Chrome usually hands us
+      // a populated newSubscription. Cover both.
+      if (!newSub) {
+        const oldOpts = event.oldSubscription && event.oldSubscription.options;
+        if (oldOpts && oldOpts.applicationServerKey) {
+          newSub = await self.registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: oldOpts.applicationServerKey,
+          });
+        }
+      }
+      if (!newSub) {
+        console.warn('SW pushsubscriptionchange: no new subscription available; page-side init will recover.');
+        return;
+      }
+      const saveUrl = self.registration.scope.replace(/\/+$/, '') + '/ajax_save_push_subscription';
+      const body = new URLSearchParams();
+      body.set('subscription', JSON.stringify(newSub));
+      const res = await fetch(saveUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body,
+      });
+      if (!res.ok) {
+        console.warn('SW pushsubscriptionchange: save failed', res.status);
+      }
+    } catch (err) {
+      console.error('SW pushsubscriptionchange: refresh failed', err);
     }
   })());
 });
