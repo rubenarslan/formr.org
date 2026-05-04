@@ -78,3 +78,26 @@ Both are loaded in `setup.php` in that order. When adding a setting, add the def
 - API resource classes follow a uniform `handle()` dispatch pattern; mirror an existing resource (e.g., `SurveyResource`) when adding a new one rather than introducing a new pattern.
 - R/knitr text appears in surveys, pauses, emails, and feedback pages. Anywhere you accept such text, it must round-trip through `OpenCPU` for rendering — never `eval` R-looking input directly.
 - Production hardening (AppArmor for OpenCPU, encrypted-at-rest, study subdomains, daemon supervision) is documented in `INSTALLATION.md`. Local dev does not exercise these paths.
+
+### Untrusted-input contract
+
+`Model::assignProperties` writes any matching `public` property via `property_exists` — no allowlist. `Model::save` resolves UPDATE-vs-INSERT via `entry_exists($table, ['id' => $this->id])` *after* `assignProperties` may have mutated `$this->id`. Combined, that's a mass-assignment hazard for any code path that hands a request body to a model.
+
+The rule for new code: any path that takes a request body (`$_POST`, `php://input`, JSON in V1 API) and reaches `Model::assignProperties` or `DB::insert_update` MUST first either
+
+- (a) `array_intersect_key($body, array_flip($allowedFields))` against an explicit allowlist of column names, OR
+- (b) validate FK ownership via `Model::isOwnedBy($table, $id, $user_id)` for every identity field (`user_id`, `study_id`, `account_id`, `unit_id`, `run_id`).
+
+Lookup-by-row results (`DB::find`, `DB::findRow`) are exempt — those are trusted DB hydration.
+
+In review, reject any new `assignProperties($options)` or `insert_update($table, $data)` call where `$options` / `$data` is reachable from a request without one of those two filters in the same function. The `tests/APIV1_bruno_tests/09_Security/` Bruno suite (driven by `run_security.sh`) is the regression net.
+
+Precedents that landed under this rule:
+
+- `5c6bd873` — random OAuth `client_id` / `client_secret` (was deterministic from `(user_id, email)`)
+- `18651a81` — `Run::importUnits` strip of caller-supplied `user_id` from imported `$unit`
+- `987cfba8` — `SurveyStudy::createFromData` allowlist on `survey_data.settings`
+- `79c4ecd1` — `Survey::create` ownership check on `study_id`
+- `5783f101` — `Email::create` ownership check on `account_id`
+- `ce7a185f` — `AdminSurveyController::changeSettings` allowlist (replaced an int-cast safety-net that didn't catch `user_id`)
+- `ed56a95f` — Constructor-options allowlists on `User`, `RunSession`, `UnitSession`, `SurveyStudy`
