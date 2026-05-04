@@ -35,9 +35,25 @@ class Survey extends RunUnit {
 
         parent::create($options);
 
-        if (!empty($options['study_id']) && $this->db->entry_exists('survey_studies', ['id' => (int)$options['study_id']])) {
-            $this->unit_id = (int) $options['study_id'];
-            $this->surveyStudy = $this->getStudy(true);
+        if (!empty($options['study_id'])) {
+            // Verify the linked study belongs to the current user. Without
+            // this check, a structure-import body (or the admin
+            // ajax_save_run_unit POST) can re-point this run-unit at any
+            // other user's survey_studies row by id — the only previous
+            // gate was entry_exists, which only checked existence. A
+            // participant traversing the attacker's run would then write
+            // into the victim's results_table via
+            // UnitSession::updateSurveyStudyRecord.
+            $studyOwner = $this->db->findValue(
+                'survey_studies',
+                ['id' => (int) $options['study_id']],
+                'user_id'
+            );
+            $currentUser = Site::getCurrentUser();
+            if ($studyOwner && $currentUser && (int) $studyOwner === (int) $currentUser->id) {
+                $this->unit_id = (int) $options['study_id'];
+                $this->surveyStudy = $this->getStudy(true);
+            }
         }
 
         if (empty($options['description']) && $this->surveyStudy) {
