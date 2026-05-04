@@ -573,12 +573,7 @@ function echo_time_points($points)
 
 function crypto_token($length, $url = true)
 {
-    $bytes = openssl_random_pseudo_bytes($length, $crypto_strong);
-    $base64 = base64_url_encode($bytes);
-    if (!$crypto_strong) {
-        formr_error(500, 'Internal Server Error', 'Generated cryptographic tokens are not strong.', 'Cryptographic Error');
-    }
-    return $base64;
+    return base64_url_encode(random_bytes($length));
 }
 
 function base64_url_encode($data)
