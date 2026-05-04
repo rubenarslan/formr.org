@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Stream Timeout Prevention
+ Never write a file longer than ~150 lines in a single tool call.  If a file will be longer, write it in multiple append/edit passes. Keep individual grep/search outputs short. Use flags like
+   `--include` and `-l` (list files only) to limit output size. If you do hit the timeout, retry the same step in a shorter form.  Don't repeat the entire task from scratch.
+
 ## Project
 
 formr is a survey/study framework: PHP 8.2+ backend, MariaDB, jQuery/Bootstrap frontend, with R/knitr feedback rendered through OpenCPU. Users define surveys as item spreadsheets and chain them into "runs" (longitudinal/diary/experimental designs). Each study can also be served as a Progressive Web App.
