@@ -574,17 +574,11 @@ class RunController extends Controller {
         // For a multi-page form, if more pages remain, tell the client to show the
         // next one locally (no reload). If this was the last page, redirect back
         // to the run URL so Run::exec can advance to the next unit.
-        $maxPage = (int) DB::getInstance()
-            ->select('MAX(page)')
-            ->from('survey_items_display')
-            ->where('session_id = :sid')
-            ->bindParams(['sid' => $unitSession->id])
-            ->fetchColumn();
-
-        if ($maxPage > 0 && $submittedPage < $maxPage) {
+        $nextPage = (int) $this->findNextRenderablePage($unitSession->id, $submittedPage);
+        if ($nextPage > 0) {
             $this->sendJsonResponse(array(
                 'status' => 'ok',
-                'next_page' => $submittedPage + 1,
+                'next_page' => $nextPage,
             ));
             return;
         }
@@ -593,6 +587,29 @@ class RunController extends Controller {
             'status' => 'ok',
             'redirect' => run_url($this->run->name),
         ));
+    }
+
+    /**
+     * Return the lowest survey_items_display.page > $submittedPage that still
+     * has at least one unanswered, unhidden item — i.e. the next page the
+     * client will actually render. Earlier code returned $submittedPage + 1
+     * unconditionally, which broke when DOM `data-fmr-page` values were
+     * non-contiguous (submit-only intermediate pages get hidden=1 in
+     * FormRenderer Step 4 + groupByPage drops empty pages; resumed sessions
+     * have fully-answered middle pages stripped by the saved IS NULL filter;
+     * server-side showif can hide every item on a given page). The client
+     * `pages.findIndex` then returned -1 and the navigation silently bailed.
+     *
+     * Returns 0 (or false coerced to 0) when no further page is renderable —
+     * caller redirects to the run URL so Run::exec advances units.
+     */
+    private function findNextRenderablePage($unitSessionId, $submittedPage) {
+        return DB::getInstance()
+            ->select('MIN(page)')
+            ->from('survey_items_display')
+            ->where('session_id = :sid AND page > :p AND saved IS NULL AND (hidden IS NULL OR hidden = 0)')
+            ->bindParams(array('sid' => (int) $unitSessionId, 'p' => (int) $submittedPage))
+            ->fetchColumn();
     }
 
     /**
@@ -727,14 +744,9 @@ class RunController extends Controller {
             }
         }
 
-        $maxPage = (int) DB::getInstance()
-            ->select('MAX(page)')
-            ->from('survey_items_display')
-            ->where('session_id = :sid')
-            ->bindParams(array('sid' => $unitSession->id))
-            ->fetchColumn();
-        if ($maxPage > 0 && $submittedPage < $maxPage) {
-            $this->sendJsonResponse(array('status' => 'ok', 'next_page' => $submittedPage + 1));
+        $nextPage = (int) $this->findNextRenderablePage($unitSession->id, $submittedPage);
+        if ($nextPage > 0) {
+            $this->sendJsonResponse(array('status' => 'ok', 'next_page' => $nextPage));
             return;
         }
         $this->sendJsonResponse(array('status' => 'ok', 'redirect' => run_url($this->run->name)));
