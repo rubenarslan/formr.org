@@ -638,6 +638,7 @@ class RunController extends Controller {
         if ($isMultipart) {
             $uuid = isset($_POST['uuid']) ? (string) $_POST['uuid'] : '';
             $submittedPage = isset($_POST['page']) ? (int) $_POST['page'] : 1;
+            $claimedUnitSessionId = isset($_POST['unit_session_id']) ? (int) $_POST['unit_session_id'] : 0;
             $data = (isset($_POST['data']) && is_array($_POST['data'])) ? $_POST['data'] : array();
             $itemViews = (isset($_POST['item_views']) && is_array($_POST['item_views'])) ? $_POST['item_views'] : array();
             $clientTs = isset($_POST['client_ts']) ? (string) $_POST['client_ts'] : null;
@@ -664,6 +665,7 @@ class RunController extends Controller {
             }
             $uuid = isset($payload['uuid']) ? (string) $payload['uuid'] : '';
             $submittedPage = isset($payload['page']) ? (int) $payload['page'] : 1;
+            $claimedUnitSessionId = isset($payload['unit_session_id']) ? (int) $payload['unit_session_id'] : 0;
             $data = (isset($payload['data']) && is_array($payload['data'])) ? $payload['data'] : array();
             $itemViews = (isset($payload['item_views']) && is_array($payload['item_views'])) ? $payload['item_views'] : array();
             $clientTs = isset($payload['client_ts']) ? (string) $payload['client_ts'] : null;
@@ -708,6 +710,23 @@ class RunController extends Controller {
         }
         if (!($unitSession->runUnit instanceof Survey)) {
             $this->sendJsonResponse(array('error' => 'Current unit is not a survey/form', 'drop_entry' => true), 409);
+            return;
+        }
+
+        // The queue entry was tagged with the unit-session id at enqueue time.
+        // Drop it if the participant has since advanced to a *different* Form
+        // unit (still a Survey instance, FK-shape compatible, but the wrong
+        // record). Without this gate the queued answers would be silently
+        // written into whichever Form unit happens to be current — diary /
+        // multi-Form runs were the canonical break case. Older queue entries
+        // from before this gate landed have unit_session_id=0; we accept
+        // those rather than wedge in-flight queues, matching the lenient
+        // posture of the existing "no current unit" / "not a survey" drops.
+        if ($claimedUnitSessionId > 0 && $claimedUnitSessionId !== (int) $unitSession->id) {
+            $this->sendJsonResponse(array(
+                'error' => 'Queued submission targets a different unit session',
+                'drop_entry' => true,
+            ), 409);
             return;
         }
 

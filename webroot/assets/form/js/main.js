@@ -498,9 +498,18 @@ function initForm() {
                 window.alert(msg);
                 return;
             }
+            // unit_session_id binds the queue entry to the unit-session it
+            // was submitted for; the server uses it to drop_entry if the
+            // participant has since advanced to a different Form unit
+            // (otherwise this page's answers would be silently written
+            // into whatever Form unit is currently active — same FK shape,
+            // wrong record).
+            const sessionInput = root.querySelector('input[name="session_id"]');
+            const unitSessionId = sessionInput ? Number(sessionInput.value) : null;
             const entry = {
                 uuid: genUuid(),
                 page: pageNum,
+                unit_session_id: unitSessionId,
                 data: Object.assign({}, payload.data),
                 item_views: payload.item_views,
                 // MySQL DATETIME rejects ISO-8601 with ".sssZ" — same gotcha as

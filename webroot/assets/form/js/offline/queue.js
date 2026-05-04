@@ -64,6 +64,7 @@ export function buildSyncFormData(entry) {
     const fd = new FormData();
     fd.append('uuid', entry.uuid);
     fd.append('page', String(entry.page));
+    if (entry.unit_session_id != null) fd.append('unit_session_id', String(entry.unit_session_id));
     if (entry.client_ts) fd.append('client_ts', entry.client_ts);
     const data = entry.data || {};
     Object.keys(data).forEach((k) => {
