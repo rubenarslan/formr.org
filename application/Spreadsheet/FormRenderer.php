@@ -71,14 +71,21 @@ class FormRenderer extends SpreadsheetRenderer {
             }
         }
 
-        // Step 2: dynamic values. The `value` column is R-only — no
-        // wrapping, no JS path. v1's Item::needsDynamicValue already
-        // returns false for empty / numeric values (those stay as literal
-        // defaults), so anything that "needs dynamic" is R that we route
-        // through the allowlist.
-        //   - Record the R text in survey_r_calls slot='value'. This is
-        //     what authorizes the client to invoke it via /form-render-page
-        //     — the client never gets the source, only the call_id.
+        // Step 2: dynamic values. The `value` column carries R that we
+        // route through the allowlist; admins can author it bare or
+        // wrapped in r(...) — the latter is the documented bridge for
+        // surfacing R into a JS-only showif (see documentation/form_v2.md
+        // §"Bridging R into a showif"). v1's Item::needsDynamicValue
+        // already returns false for empty / numeric values (those stay
+        // as literal defaults).
+        //   - Unwrap r(...) before recording. base+formr R has no r()
+        //     function, so leaving the wrapper in survey_r_calls.expr
+        //     would make every subsequent OpenCPU eval return NA via
+        //     tryCatch, silently breaking the documented bridge example.
+        //   - Record the (unwrapped) R text in survey_r_calls slot='value'.
+        //     This is what authorizes the client to invoke it via
+        //     /form-render-page — the client never gets the source, only
+        //     the call_id.
         //   - First-page items keep $item->value untouched so the parent's
         //     processDynamicValuesAndShowIfs evaluates it inline at this
         //     render; the participant sees the resolved value immediately.
@@ -87,14 +94,20 @@ class FormRenderer extends SpreadsheetRenderer {
         foreach ($items as $item) {
             if (!$item) continue;
             if (!$item->needsDynamicValue()) continue;
-            $rExpr = trim((string) $item->value);
-            if ($rExpr === '') continue;
+            $rawValue = trim((string) $item->value);
+            if ($rawValue === '') continue;
+            $rExpr = RAllowlistExtractor::unwrap($rawValue) ?? $rawValue;
             $callId = RAllowlistExtractor::record(
                 $this->db, $this->study->id, 'value', $rExpr, $item->id
             );
             $item->parent_attributes['data-fmr-fill-id'] = (string) $callId;
             if ($itemPageOf($item) !== $firstPage) {
                 $item->value = '';
+            } elseif ($rExpr !== $rawValue) {
+                // First-page item with r(...) wrapper: hand the parent
+                // the unwrapped expr so its inline OpenCPU batch evaluates
+                // the same code as later-page items get via /form-fill.
+                $item->value = $rExpr;
             }
         }
 
