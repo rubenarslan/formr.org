@@ -198,6 +198,9 @@ class RunSession extends Model {
         }
 
         try {
+            // Refresh state from DB to catch any concurrent forceTo() or moveOn() updates
+            $this->refresh(['id' => $this->id]);
+
             if ($this->ended) {
                 // User tried to access an already ended run session, logout
                 if (formr_in_console()) {
