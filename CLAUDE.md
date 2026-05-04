@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Stream Timeout Prevention
+ Never write a file longer than ~150 lines in a single tool call.  If a file will be longer, write it in multiple append/edit passes. Keep individual grep/search outputs short. Use flags like
+   `--include` and `-l` (list files only) to limit output size. If you do hit the timeout, retry the same step in a shorter form.  Don't repeat the entire task from scratch.
+
 ## What formr is
 
 formr is a survey/study framework for psychology-style research: participants traverse **runs** (ordered compositions of units — surveys, pauses, emails, push notifications, external redirects, branches, shuffles, skips) that can chain into longitudinal/diary/network studies. Items are authored in spreadsheets (loosely XLSform-based) rather than a drag-and-drop builder. R code is evaluated via OpenCPU for custom feedback, skip logic, and relative-time computations. Each study can be delivered as an installable PWA with web push.
