@@ -86,17 +86,45 @@ function mint_oauth($user_id) {
 $attacker_id = 1;  // pre-existing test admin (rform@researchmixtapes.com)
 $victim_id   = ensure_admin("victim@security-test.local", 2);
 
+// Seed a victim-owned email account so the cross-user account_id link
+// attack (Email::create) has a concrete victim to point at. Idempotent.
+$db = DB::getInstance();
+$victim_email_account_id = (int) $db->findValue(
+    "survey_email_accounts",
+    ["user_id" => $victim_id, "deleted" => 0],
+    "id"
+);
+if (!$victim_email_account_id) {
+    $db->insert("survey_email_accounts", [
+        "user_id" => $victim_id,
+        "from" => "victim-from@security-test.local",
+        "from_name" => "Victim",
+        "host" => "smtp.example.invalid",
+        "port" => 587,
+        "tls" => 1,
+        "username" => "victim",
+        "password" => "fake-not-used-by-tests",
+        "auth_key" => bin2hex(random_bytes(16)),
+        "deleted" => 0,
+        "status" => 0,
+        "created" => mysql_now(),
+        "modified" => mysql_now(),
+    ]);
+    $victim_email_account_id = (int) $db->lastInsertId();
+}
+
 $attacker = mint_oauth($attacker_id);
 $victim   = mint_oauth($victim_id);
 
 echo json_encode([
-    "attacker_user_id"     => $attacker_id,
-    "client_id"            => $attacker["client_id"],
-    "client_secret"        => $attacker["client_secret"],
-    "victim_user_id"       => $victim_id,
-    "victim_email"         => "victim@security-test.local",
-    "victim_client_id"     => $victim["client_id"],
-    "victim_client_secret" => $victim["client_secret"],
+    "attacker_user_id"        => $attacker_id,
+    "client_id"               => $attacker["client_id"],
+    "client_secret"           => $attacker["client_secret"],
+    "victim_user_id"          => $victim_id,
+    "victim_email"            => "victim@security-test.local",
+    "victim_email_account_id" => $victim_email_account_id,
+    "victim_client_id"        => $victim["client_id"],
+    "victim_client_secret"    => $victim["client_secret"],
 ]);
 ' > /tmp/.formr_security_creds.json
 chmod 600 /tmp/.formr_security_creds.json
@@ -105,7 +133,8 @@ CLIENT_SECRET=$(python3 -c 'import json; print(json.load(open("/tmp/.formr_secur
 VICTIM_USER_ID=$(python3 -c 'import json; print(json.load(open("/tmp/.formr_security_creds.json"))["victim_user_id"])')
 VICTIM_CLIENT_ID=$(python3 -c 'import json; print(json.load(open("/tmp/.formr_security_creds.json"))["victim_client_id"])')
 VICTIM_CLIENT_SECRET=$(python3 -c 'import json; print(json.load(open("/tmp/.formr_security_creds.json"))["victim_client_secret"])')
-echo "[setup] attacker user 1, victim user $VICTIM_USER_ID"
+VICTIM_EMAIL_ACCOUNT_ID=$(python3 -c 'import json; print(json.load(open("/tmp/.formr_security_creds.json"))["victim_email_account_id"])')
+echo "[setup] attacker user 1, victim user $VICTIM_USER_ID, victim email account $VICTIM_EMAIL_ACCOUNT_ID"
 
 # 2) Seed the victim row. We INSERT a survey_units placeholder (FK target) and
 #    then a survey_studies row with name='sec_victim' owned by user_id=1. The
@@ -165,10 +194,15 @@ npx --yes @usebruno/cli@latest run \
     "09_Security/Mass-Assign 03 Verify Victim Untouched.bru" \
     "09_Security/Mass-Assign 04 Cleanup Run.bru" \
     "09_Security/Mass-Assign 05 Cleanup Decoy Survey.bru" \
+    "09_Security/Email-Account 01 Setup Run.bru" \
+    "09_Security/Email-Account 02 Attack.bru" \
+    "09_Security/Email-Account 03 Verify Account Id Dropped.bru" \
+    "09_Security/Email-Account 04 Cleanup Run.bru" \
     --env-var "host=$DEV_API_HOST" \
     --env-var "client_id=$CLIENT_ID" \
     --env-var "client_secret=$CLIENT_SECRET" \
     --env-var "victim_survey_id=$VICTIM_ID" \
     --env-var "victim_user_id=$VICTIM_USER_ID" \
     --env-var "victim_client_id=$VICTIM_CLIENT_ID" \
-    --env-var "victim_client_secret=$VICTIM_CLIENT_SECRET"
+    --env-var "victim_client_secret=$VICTIM_CLIENT_SECRET" \
+    --env-var "victim_email_account_id=$VICTIM_EMAIL_ACCOUNT_ID"

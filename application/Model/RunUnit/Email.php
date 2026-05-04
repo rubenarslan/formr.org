@@ -44,6 +44,23 @@ class Email extends RunUnit {
     public function create($options = []) {
         parent::create($options);
 
+        // The email account must belong to the run owner. Without this
+        // check, a structure-import body or AdminAjaxController::ajax_save_
+        // run_unit POST can re-point a Run's Email unit at any other
+        // admin's survey_email_accounts row by id, and subsequent send-
+        // mail dispatches would go through the victim's SMTP credentials.
+        // Run::importUnits also nulls account_id pre-emptively (cross-
+        // server portability), but this is the canonical gate so the
+        // admin-AJAX path is also covered.
+        if (!empty($options['account_id']) && is_numeric($options['account_id'])
+                && !$this->isOwnedBy(
+                    'survey_email_accounts',
+                    (int) $options['account_id'],
+                    (int) $this->run->user_id
+                )) {
+            $options['account_id'] = null;
+        }
+
         $parsedown = new ParsedownExtra();
         if (isset($options['body'])) {
             if (isset($options['account_id']) && is_numeric($options['account_id'])) {
@@ -53,7 +70,7 @@ class Email extends RunUnit {
             $options['html'] = 1;
             $this->assignProperties($options);
         }
-        
+
         if ($this->account_id === null) {
             $email_accounts = Site::getCurrentUser()->getEmailAccounts();
             if (count($email_accounts) > 0) {

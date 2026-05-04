@@ -1285,9 +1285,12 @@ class Run extends Model
                     $unit->if_true = (int)$unit->if_true + $start_position;
                     break;
 
-                case 'Email':
-                    $unit->account_id = null; // Security: don't assume email accounts match across servers
-                    break;
+                // Email::create now validates account_id ownership against the
+                // run owner internally; the previous shallow null-out of
+                // imported $unit->account_id (defense for cross-server
+                // imports + cross-user smuggling) was made redundant in
+                // commit <pending>. The AdminAjaxController::ajax_save_run
+                // _unit POST path is covered by the same check.
 
                     // Note: 'Wait' unit logic removed. Previous code added start_position to $unit->body.
                     // This was likely a copy-paste error from Skip logic, as Wait body is text/settings, not a position.
