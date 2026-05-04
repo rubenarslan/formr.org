@@ -208,14 +208,27 @@ class SurveyStudy extends Model
                 return false;
             }
 
-            // save settings
-            $data->settings = isset($data->settings) ? (array) $data->settings : [];
+            // Save settings. Allowlist what may be written before
+            // assignProperties touches the model — Model::assignProperties
+            // uses property_exists() and would otherwise let the caller
+            // smuggle id, user_id, name, results_table, created, etc.
+            // through this object. The follow-up save() resolves UPDATE vs
+            // INSERT by entry_exists($table, ['id' => $this->id]), so a
+            // smuggled id pointed UPDATE at any pre-existing row.
+            $allowed_settings = [
+                'maximum_number_displayed', 'displayed_percentage_maximum',
+                'add_percentage_points', 'expire_after',
+                'expire_invitation_after', 'expire_invitation_grace',
+                'enable_instant_validation',
+                'unlinked', 'hide_results', 'use_paging',
+            ];
+            $raw_settings = isset($data->settings) ? (array) $data->settings : [];
+            $filtered = array_intersect_key($raw_settings, array_flip($allowed_settings));
             $data->settings = array_merge([
                 'maximum_number_displayed' => 0,
                 'displayed_percentage_maximum' => 100,
                 'add_percentage_points' => 0,
-
-            ], $data->settings);
+            ], $filtered);
             $study->assignProperties($data->settings);
             $study->is_new = true;
             $study->save();

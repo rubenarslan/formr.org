@@ -1,0 +1,27 @@
+meta {
+  name: Mass-Assign 01 Setup Run
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{host}}/v1/runs/sec-mass
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 201
+}
+
+docs {
+  Setup step for the mass-assignment regression test.
+
+  Creates an attacker-owned run that we then use as the entry point for a
+  PUT /v1/runs/{name}/structure import. Subsequent tests submit a malicious
+  survey_data.settings payload to that endpoint.
+}
