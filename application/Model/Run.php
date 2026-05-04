@@ -1294,9 +1294,15 @@ class Run extends Model
             }
 
             // 6. Create and Save Unit
-            $options = array_merge($options, (array)$unit);
+            //    Strip caller-supplied identity fields from $unit before
+            //    merging — otherwise a JSON payload like {"user_id": 999}
+            //    would override the run owner's id we set above for the
+            //    Survey case (and silently land surveys / items in another
+            //    user's account via SurveyStudy::createFromFile).
+            $unitVars = (array)$unit;
+            unset($unitVars['user_id']);
+            $options = array_merge($options, $unitVars);
 
-            // Factory expects specific options, merge ensures strict overrides
             $unitObj = RunUnitFactory::make($this, $options);
 
             if ($unitObj) {

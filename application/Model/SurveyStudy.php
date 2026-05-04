@@ -149,12 +149,15 @@ class SurveyStudy extends Model
         $this->created = mysql_now();
         $this->modified = mysql_now();
 
-        // Use passed user_id if available, otherwise default to current user
-        if (isset($options['user_id'])) {
-            $this->user_id = $options['user_id'];
-        } else {
-            $this->user_id = Site::getCurrentUser()->id;
+        // Survey ownership is bound to the caller. Honor an explicit
+        // $options['user_id'] only when it agrees with the current user;
+        // never blindly accept a caller-supplied id (e.g. via the
+        // structure-import JSON consumed by Run::importUnits).
+        $current_user_id = (int) Site::getCurrentUser()->id;
+        if (isset($options['user_id']) && (int) $options['user_id'] !== $current_user_id) {
+            return false;
         }
+        $this->user_id = $current_user_id;
 
         $results_table = substr("s" . $this->id . '_' . $this->name, 0, 64);
 
@@ -175,12 +178,14 @@ class SurveyStudy extends Model
             return false;
         }
 
-        // Resolve user correctly from options or global context
-        if (isset($options['user_id'])) {
-            $user = new User($options['user_id']);
-        } else {
-            $user = Site::getCurrentUser();
+        // Survey ownership is bound to the caller. Honor an explicit
+        // $options['user_id'] only when it agrees with the current user.
+        // createFromFile applies the same check on the insert path.
+        $current_user = Site::getCurrentUser();
+        if (isset($options['user_id']) && (int) $options['user_id'] !== (int) $current_user->id) {
+            return false;
         }
+        $user = $current_user;
 
         $study = self::loadByUserAndName($user, $data->name);
 
