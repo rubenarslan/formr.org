@@ -361,25 +361,115 @@ class RunController extends Controller {
     }
 
     /**
-     * Serve the manifest file with appropriate headers for the run
+     * Serve the manifest file with appropriate headers for the run.
+     *
+     * If `?code=<participant_session>` is supplied AND validates against a
+     * survey_run_sessions row in this run, the manifest is personalized:
+     * `start_url`, `id`, every `shortcuts[].url`, and every
+     * `protocol_handlers[].url` gets `?code=X` appended. iOS captures
+     * `start_url` into the home-screen icon at install time, so a
+     * tokenized install is recoverable later even if the
+     * formr_session cookie evicts (ITP cap, storage pressure, Safari ↔
+     * standalone container isolation). Without participant context the
+     * un-personalized manifest is served unchanged — public installs
+     * still work.
+     *
+     * Invalid codes 404 rather than 401: a malformed code shouldn't
+     * surface as an install-flow auth error, and the genuine "no code"
+     * path remains a successful 200.
+     *
+     * Source: the on-disk manifest_json file written by generateManifest
+     * (or by the admin's manifest_json textarea in run settings) is the
+     * base; admin customizations to e.g. theme_color, name, icons are
+     * preserved and only the URL fields are touched per request.
      */
     public function manifestAction() {
         $run = $this->getRun();
-
-        // Set appropriate headers
-        header('Content-Type: application/json');
-        header('Cache-Control: no-cache, no-store, must-revalidate');
-
-        // Serve the manifest file
-        $manifestPath = $run->getManifestJSONPath();
-        if(!empty($manifestPath) && file_exists($manifestPath)) {
-            readfile($manifestPath);
-            exit;
+        if (!$run || !$run->valid) {
+            header('HTTP/1.0 404 Not Found');
+            header('Content-Type: text/plain');
+            echo "Manifest not found";
+            return;
         }
 
-        // If file doesn't exist, return 404
-        header('HTTP/1.0 404 Not Found');
-        echo "Manifest not found";
+        $jsonText = $run->getManifestJSON();
+        if (!$jsonText || trim($jsonText) === '') {
+            header('HTTP/1.0 404 Not Found');
+            header('Content-Type: text/plain');
+            echo "Manifest not found";
+            return;
+        }
+
+        $manifest = json_decode($jsonText, true);
+        if (!is_array($manifest)) {
+            header('HTTP/1.0 500 Internal Server Error');
+            header('Content-Type: text/plain');
+            echo "Manifest could not be parsed";
+            return;
+        }
+
+        $code = isset($_GET['code']) ? (string) $_GET['code'] : '';
+        if ($code !== '') {
+            $code_rule = Config::get('user_code_regular_expression');
+            $codeOk = $code_rule && preg_match($code_rule, $code);
+            if ($codeOk) {
+                $exists = DB::getInstance()
+                    ->select('id')
+                    ->from('survey_run_sessions')
+                    ->where(array('session' => $code, 'run_id' => $run->id))
+                    ->fetch();
+                $codeOk = (bool) $exists;
+            }
+            if (!$codeOk) {
+                header('HTTP/1.0 404 Not Found');
+                header('Content-Type: text/plain');
+                echo "Manifest not found";
+                return;
+            }
+            $this->personalizeManifest($manifest, $run, $code);
+        }
+
+        header('Content-Type: application/manifest+json');
+        // private = single-user cache only; no-store = don't keep on disk.
+        // The personalized variant must NEVER be served to a different
+        // participant via an intermediate proxy.
+        header('Cache-Control: private, no-store');
+        echo json_encode($manifest, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        exit;
+    }
+
+    /**
+     * Append ?code=X (or &code=X for URLs that already carry a query) to
+     * every URL field in the manifest that should re-establish the
+     * participant's session on launch / shortcut activation. Mutates
+     * \$manifest in place.
+     */
+    private function personalizeManifest(array &$manifest, Run $run, $code) {
+        $base = run_url($run->name);
+        $tokenized = $base . '?code=' . urlencode($code);
+        $manifest['start_url'] = $tokenized;
+        $manifest['id'] = $tokenized;
+        $appendCode = function ($url) use ($code) {
+            if (!is_string($url) || $url === '') return $url;
+            $sep = (strpos($url, '?') === false) ? '?' : '&';
+            return $url . $sep . 'code=' . urlencode($code);
+        };
+        if (isset($manifest['shortcuts']) && is_array($manifest['shortcuts'])) {
+            foreach ($manifest['shortcuts'] as &$sc) {
+                if (is_array($sc) && isset($sc['url'])) {
+                    $sc['url'] = $appendCode($sc['url']);
+                }
+            }
+            unset($sc);
+        }
+        if (isset($manifest['protocol_handlers']) && is_array($manifest['protocol_handlers'])) {
+            foreach ($manifest['protocol_handlers'] as &$ph) {
+                if (is_array($ph) && isset($ph['url'])) {
+                    $ph['url'] = $appendCode($ph['url']);
+                }
+            }
+            unset($ph);
+        }
     }
 
     private function sendJsonResponse($data, $statusCode = 200) {
