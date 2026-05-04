@@ -82,6 +82,33 @@ class Model {
     public function getDbConnection() {
         return $this->db;
     }
+
+    /**
+     * Confirm a row's $owner_col matches an expected user id. The single
+     * canonical primitive for FK-relink ownership checks; every code path
+     * that re-points a *_id from request input to another row must call
+     * this and reject on false.
+     *
+     * Returns false on missing row, NULL stored owner, or mismatch — never
+     * throws, since callers already know how to handle "not yours" by
+     * dropping or alerting. See application/Model/RunUnit/Survey.php and
+     * application/Model/RunUnit/Email.php for the canonical use sites.
+     *
+     * @param string $table     e.g. 'survey_studies', 'survey_email_accounts'
+     * @param int    $id        FK id supplied by the caller
+     * @param int    $user_id   user the caller asserts owns it (run owner
+     *                          or current user)
+     * @param string $owner_col defaults to 'user_id'
+     * @return bool
+     */
+    public function isOwnedBy($table, $id, $user_id, $owner_col = 'user_id') {
+        if (!$id || !$user_id) {
+            return false;
+        }
+        $stored = $this->db->findValue($table, ['id' => (int) $id], $owner_col);
+        return $stored !== null && $stored !== false
+            && (int) $stored === (int) $user_id;
+    }
     
     public function isCron() {
         return $this->cron;

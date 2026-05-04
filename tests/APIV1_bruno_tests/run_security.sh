@@ -30,24 +30,82 @@ cd "$(dirname "$0")"
 # Traefik admin host historically intercepted /api/* (since fixed).
 : "${DEV_API_HOST:=https://study.researchmixtape.com/api}"
 
-# 1) Mint OAuth credentials directly inside the formr_app container. We cannot
-#    use the admin web AJAX path (admin/account/api-credentials) here because
-#    the Traefik dashboard router historically intercepted /api/* on the admin
-#    host on this dev box; minting via the PHP CLI sidesteps the proxy entirely.
-echo '[setup] Minting OAuth credentials...'
+# 1) Mint OAuth credentials inside the formr_app container for both the
+#    "attacker" admin (user 1, the test admin) and a freshly-seeded "victim"
+#    admin. Two-admin fixture is required so cross-user write attacks (e.g.
+#    Email::create's account_id ownership, Survey::create's study_id
+#    ownership) can be exercised end-to-end in Bruno — single-user attacks
+#    can demonstrate mass-assignment side-effects (Mass-Assign suite) but
+#    not cross-tenant relinking.
+#
+#    Doing this via the PHP CLI rather than the admin AJAX rotate path
+#    because the latter requires a session cookie (login form) — too much
+#    state to thread through a CI script — and because it lets us do
+#    user-creation + OAuth provisioning atomically inside one PHP run.
+echo '[setup] Provisioning attacker + victim admins and OAuth credentials...'
 docker exec formr_app php -r '
 require "/var/www/formr/setup.php";
-$user = new User(1);
-if (!$user->canAccessApi()) { fwrite(STDERR, "user 1 lacks API access\n"); exit(1); }
-$existing = OAuthHelper::getInstance()->getClient($user);
-$res = $existing
-    ? OAuthHelper::getInstance()->refreshToken($user)
-    : OAuthHelper::getInstance()->createClient($user);
-echo json_encode(["client_id"=>$res["client_id"], "client_secret"=>$res["client_secret"]->getString()]);
+
+function ensure_admin($email, $admin_level = 2) {
+    $db = DB::getInstance();
+    $row = $db->findRow("survey_users", ["email" => $email]);
+    if (!$row) {
+        $db->insert("survey_users", [
+            "email" => $email,
+            "user_code" => bin2hex(random_bytes(20)),
+            // Login is not used by the test suite (OAuth client_credentials
+            // grant only); password is set to a fresh random hash purely
+            // so the column NOT NULL semantics are honored.
+            "password" => password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT),
+            "admin" => $admin_level,
+            "email_verified" => 1,
+            "created" => mysql_now(),
+            "modified" => mysql_now(),
+        ]);
+        return (int) $db->lastInsertId();
+    }
+    if ((int) $row["admin"] < $admin_level) {
+        $db->update("survey_users", ["admin" => $admin_level], ["id" => $row["id"]]);
+    }
+    return (int) $row["id"];
+}
+
+function mint_oauth($user_id) {
+    $u = new User($user_id);
+    if (!$u->canAccessApi()) { throw new RuntimeException("user $user_id lacks canAccessApi"); }
+    $existing = OAuthHelper::getInstance()->getClient($u);
+    $res = $existing
+        ? OAuthHelper::getInstance()->refreshToken($u)
+        : OAuthHelper::getInstance()->createClient($u);
+    return [
+        "client_id" => $res["client_id"],
+        "client_secret" => $res["client_secret"]->getString(),
+    ];
+}
+
+$attacker_id = 1;  // pre-existing test admin (rform@researchmixtapes.com)
+$victim_id   = ensure_admin("victim@security-test.local", 2);
+
+$attacker = mint_oauth($attacker_id);
+$victim   = mint_oauth($victim_id);
+
+echo json_encode([
+    "attacker_user_id"     => $attacker_id,
+    "client_id"            => $attacker["client_id"],
+    "client_secret"        => $attacker["client_secret"],
+    "victim_user_id"       => $victim_id,
+    "victim_email"         => "victim@security-test.local",
+    "victim_client_id"     => $victim["client_id"],
+    "victim_client_secret" => $victim["client_secret"],
+]);
 ' > /tmp/.formr_security_creds.json
 chmod 600 /tmp/.formr_security_creds.json
 CLIENT_ID=$(python3 -c 'import json; print(json.load(open("/tmp/.formr_security_creds.json"))["client_id"])')
 CLIENT_SECRET=$(python3 -c 'import json; print(json.load(open("/tmp/.formr_security_creds.json"))["client_secret"])')
+VICTIM_USER_ID=$(python3 -c 'import json; print(json.load(open("/tmp/.formr_security_creds.json"))["victim_user_id"])')
+VICTIM_CLIENT_ID=$(python3 -c 'import json; print(json.load(open("/tmp/.formr_security_creds.json"))["victim_client_id"])')
+VICTIM_CLIENT_SECRET=$(python3 -c 'import json; print(json.load(open("/tmp/.formr_security_creds.json"))["victim_client_secret"])')
+echo "[setup] attacker user 1, victim user $VICTIM_USER_ID"
 
 # 2) Seed the victim row. We INSERT a survey_units placeholder (FK target) and
 #    then a survey_studies row with name='sec_victim' owned by user_id=1. The
@@ -72,11 +130,24 @@ fi
 echo "[setup] victim_survey_id = $VICTIM_ID"
 
 cleanup() {
-    echo '[teardown] Cleaning up seeded + polluted rows...'
+    echo '[teardown] Cleaning up seeded + polluted rows + victim admin...'
     docker exec formr_db sh -c '
 mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE" -e "
 DELETE FROM survey_studies WHERE name IN (\"sec_victim\",\"PWNED\",\"sec_attacker_decoy\") AND user_id=1;
-DELETE FROM survey_units WHERE id NOT IN (SELECT id FROM survey_studies UNION SELECT unit_id FROM survey_run_units WHERE unit_id IS NOT NULL) AND type=\"Survey\";"' 2>/dev/null || true
+DELETE FROM survey_units WHERE id NOT IN (SELECT id FROM survey_studies UNION SELECT unit_id FROM survey_run_units WHERE unit_id IS NOT NULL) AND type=\"Survey\";
+-- Victim admin: drop OAuth client + tokens first (FK from oauth_*tables to
+-- oauth_clients via client_id; tokens reference user_id by email column),
+-- then their email accounts (FK from survey_email_accounts.user_id), then
+-- the user row.
+DELETE oc, oat, ort, oac
+  FROM oauth_clients oc
+  LEFT JOIN oauth_access_tokens oat ON oat.client_id = oc.client_id
+  LEFT JOIN oauth_refresh_tokens ort ON ort.client_id = oc.client_id
+  LEFT JOIN oauth_authorization_codes oac ON oac.client_id = oc.client_id
+  WHERE oc.user_id = \"victim@security-test.local\";
+DELETE FROM survey_email_accounts WHERE user_id IN
+    (SELECT id FROM survey_users WHERE email = \"victim@security-test.local\");
+DELETE FROM survey_users WHERE email = \"victim@security-test.local\";"' 2>/dev/null || true
     rm -f /tmp/.formr_security_creds.json
 }
 trap cleanup EXIT
@@ -97,4 +168,7 @@ npx --yes @usebruno/cli@latest run \
     --env-var "host=$DEV_API_HOST" \
     --env-var "client_id=$CLIENT_ID" \
     --env-var "client_secret=$CLIENT_SECRET" \
-    --env-var "victim_survey_id=$VICTIM_ID"
+    --env-var "victim_survey_id=$VICTIM_ID" \
+    --env-var "victim_user_id=$VICTIM_USER_ID" \
+    --env-var "victim_client_id=$VICTIM_CLIENT_ID" \
+    --env-var "victim_client_secret=$VICTIM_CLIENT_SECRET"
