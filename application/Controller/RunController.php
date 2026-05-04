@@ -988,24 +988,27 @@ class RunController extends Controller {
 
         $normalized = self::normalizeAnswersForHash($answers);
         $argsHash = hash('sha256', json_encode($normalized, JSON_UNESCAPED_UNICODE));
+        $usid = (int) $unitSession->id; // cache scope (patch 054 — see evaluateAllowlistedRCall)
         $now = time();
         $ttl = 300; // value cache TTL (matches single-call /form-fill path)
         $results = array();
         $misses = array();
 
-        // Pull cached rows in one query (`call_id IN (...)` + same args_hash).
+        // Pull cached rows in one query: same (unit_session_id, args_hash) for
+        // every call_id in the batch.
         $callIds = array_keys($valueCalls);
         if ($callIds) {
             $placeholders = implode(',', array_fill(0, count($callIds), '?'));
             $stmt = DB::getInstance()->prepare(
                 "SELECT call_id, result_json, UNIX_TIMESTAMP(created_at) AS ts
                  FROM survey_r_call_results
-                 WHERE call_id IN ($placeholders) AND args_hash = ?"
+                 WHERE call_id IN ($placeholders) AND unit_session_id = ? AND args_hash = ?"
             );
             $i = 1;
             foreach ($callIds as $cid) {
                 $stmt->bindValue($i++, (int) $cid, PDO::PARAM_INT);
             }
+            $stmt->bindValue($i++, $usid, PDO::PARAM_INT);
             $stmt->bindValue($i, $argsHash);
             $stmt->execute();
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1066,10 +1069,11 @@ class RunController extends Controller {
                         // Cache write.
                         try {
                             $stmt = DB::getInstance()->prepare(
-                                'REPLACE INTO `survey_r_call_results` (call_id, args_hash, result_json) '
-                                . 'VALUES (:cid, :hash, :res)'
+                                'REPLACE INTO `survey_r_call_results` (call_id, unit_session_id, args_hash, result_json) '
+                                . 'VALUES (:cid, :usid, :hash, :res)'
                             );
                             $stmt->bindValue(':cid', $cid);
+                            $stmt->bindValue(':usid', $usid);
                             $stmt->bindValue(':hash', $argsHash);
                             $stmt->bindValue(':res', json_encode(array('result' => $val), JSON_UNESCAPED_UNICODE));
                             $stmt->execute();
@@ -1096,6 +1100,7 @@ class RunController extends Controller {
 
         $normalized = self::normalizeAnswersForHash($answers);
         $argsHash = hash('sha256', json_encode($normalized, JSON_UNESCAPED_UNICODE));
+        $usid = (int) $unitSession->id; // cache scope (patch 054 — see evaluateAllowlistedRCall)
         $now = time();
         $ttl = 300; // label cache TTL — labels rarely change per-keystroke; longer is fine
         $results = array();
@@ -1107,12 +1112,13 @@ class RunController extends Controller {
             $stmt = DB::getInstance()->prepare(
                 "SELECT call_id, result_json, UNIX_TIMESTAMP(created_at) AS ts
                  FROM survey_r_call_results
-                 WHERE call_id IN ($placeholders) AND args_hash = ?"
+                 WHERE call_id IN ($placeholders) AND unit_session_id = ? AND args_hash = ?"
             );
             $i = 1;
             foreach ($callIds as $cid) {
                 $stmt->bindValue($i++, (int) $cid, PDO::PARAM_INT);
             }
+            $stmt->bindValue($i++, $usid, PDO::PARAM_INT);
             $stmt->bindValue($i, $argsHash);
             $stmt->execute();
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1179,10 +1185,11 @@ class RunController extends Controller {
                         $results[$cid] = $html;
                         try {
                             $stmt = DB::getInstance()->prepare(
-                                'REPLACE INTO `survey_r_call_results` (call_id, args_hash, result_json) '
-                                . 'VALUES (:cid, :hash, :res)'
+                                'REPLACE INTO `survey_r_call_results` (call_id, unit_session_id, args_hash, result_json) '
+                                . 'VALUES (:cid, :usid, :hash, :res)'
                             );
                             $stmt->bindValue(':cid', $cid);
+                            $stmt->bindValue(':usid', $usid);
                             $stmt->bindValue(':hash', $argsHash);
                             $stmt->bindValue(':res', json_encode(array('result' => $html), JSON_UNESCAPED_UNICODE));
                             $stmt->execute();
@@ -1281,11 +1288,17 @@ class RunController extends Controller {
         $ttl = ($expectedSlot === 'value') ? 300 : 30;
         $normalized = self::normalizeAnswersForHash($answers);
         $argsHash = hash('sha256', json_encode($normalized, JSON_UNESCAPED_UNICODE));
+        // Cache key includes unit_session_id (patch 054). Without it, two
+        // participants with colliding overlays (e.g. empty overlay at page
+        // load, or identical multiple-choice answers) would share cache rows
+        // even though the underlying R expression evaluates against the
+        // participant's persisted survey row via tail(name, 1).
+        $usid = (int) $unitSession->id;
         $cachedRow = DB::getInstance()
             ->select('result_json, UNIX_TIMESTAMP(created_at) AS ts')
             ->from('survey_r_call_results')
-            ->where('call_id = :cid AND args_hash = :hash')
-            ->bindParams(array('cid' => (int) $callId, 'hash' => $argsHash))
+            ->where('call_id = :cid AND unit_session_id = :usid AND args_hash = :hash')
+            ->bindParams(array('cid' => (int) $callId, 'usid' => $usid, 'hash' => $argsHash))
             ->fetch();
         if ($cachedRow && ($now - (int) $cachedRow['ts']) < $ttl) {
             $decoded = json_decode((string) $cachedRow['result_json'], true);
@@ -1321,14 +1334,16 @@ class RunController extends Controller {
             $result = $result[0];
         }
 
-        // Populate cache on successful evaluation. REPLACE so a stale row for
-        // the same (call_id, args_hash) gets bumped to the current timestamp.
+        // Populate cache on successful evaluation. REPLACE so a stale row
+        // for the same (call_id, unit_session_id, args_hash) gets bumped
+        // to the current timestamp.
         try {
             $stmt = DB::getInstance()->prepare(
-                'REPLACE INTO `survey_r_call_results` (call_id, args_hash, result_json) '
-                . 'VALUES (:cid, :hash, :res)'
+                'REPLACE INTO `survey_r_call_results` (call_id, unit_session_id, args_hash, result_json) '
+                . 'VALUES (:cid, :usid, :hash, :res)'
             );
             $stmt->bindValue(':cid', (int) $callId);
+            $stmt->bindValue(':usid', $usid);
             $stmt->bindValue(':hash', $argsHash);
             $stmt->bindValue(':res', json_encode(array('result' => $result), JSON_UNESCAPED_UNICODE));
             $stmt->execute();
