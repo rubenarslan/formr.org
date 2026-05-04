@@ -188,8 +188,28 @@ const FMR_QUEUE_DB = 'formrQueue';
 const FMR_QUEUE_STORE = 'queue';
 const FMR_SYNC_TAG = 'form-v2-drain';
 // The page stashes its sync URL here so the SW knows where to POST entries
-// on a background wake-up. See the SyncController message handler below.
+// on a background wake-up. Lives only for the SW's current execution
+// context — browsers terminate idle SWs (Chromium ~30s) and a Background
+// Sync event later spins up a fresh SW with no controlling clients to
+// repost the URL. fmrResolveSyncUrl below derives a fallback from
+// self.registration.scope, which IS stable across SW restarts.
 let fmrSyncUrl = null;
+
+// Derive the form-sync URL from the SW registration scope. Path-based
+// deploys register the SW with scope=/<runName>/, so scope+form-sync gives
+// /<runName>/form-sync (matches run_url($run, 'form-sync') server-side).
+// Subdomain deploys use scope=/ so we get /form-sync, which the browser
+// resolves against the participant subdomain it loaded the SW from.
+function fmrResolveSyncUrl() {
+  if (fmrSyncUrl) return fmrSyncUrl;
+  try {
+    const scope = self.registration && self.registration.scope;
+    if (!scope) return null;
+    return scope.replace(/\/+$/, '') + '/form-sync';
+  } catch (e) {
+    return null;
+  }
+}
 
 function fmrOpenIDB() {
   return new Promise((resolve, reject) => {
@@ -267,7 +287,8 @@ function fmrBuildSyncFormData(entry) {
 }
 
 async function fmrDrainBackground() {
-  if (!fmrSyncUrl) return;
+  const syncUrl = fmrResolveSyncUrl();
+  if (!syncUrl) return;
   let db;
   try { db = await fmrOpenIDB(); } catch (e) { return; }
   const entries = await fmrQueueGetAll(db);
@@ -276,7 +297,7 @@ async function fmrDrainBackground() {
     const hasFiles = entry.files && Object.keys(entry.files).length > 0;
     let res;
     try {
-      res = await fetch(fmrSyncUrl, {
+      res = await fetch(syncUrl, {
         method: 'POST',
         credentials: 'same-origin',
         headers: hasFiles
