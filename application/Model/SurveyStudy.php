@@ -68,7 +68,17 @@ class SurveyStudy extends Model
     public function __construct($id = null, $options = [])
     {
         parent::__construct();
-        $this->assignProperties($options);
+        // Defense-in-depth allowlist. Static factories loadByName /
+        // loadByUserAndName pass {name, user_id} as lookup keys; load()
+        // also takes 'id' from these. Everything else (results_table,
+        // valid, created, ...) must come from the DB row that load()
+        // resolves, not from caller-provided $options.
+        if ($options) {
+            $this->assignProperties(array_intersect_key(
+                (array) $options,
+                ['name' => true, 'user_id' => true, 'id' => true]
+            ));
+        }
         $this->load($id, $options);
     }
 

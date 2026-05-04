@@ -59,7 +59,17 @@ class RunSession extends Model {
 
         $this->session = $session;
         $this->run = $run;
-        $this->assignProperties($options);
+        // Defense-in-depth allowlist: only 'id' and 'user' are legitimate
+        // constructor options (callers in Run.php / RunUnit.php / Queue
+        // pass these). Everything else — user_id, position, deactivated,
+        // current_unit_session_id, no_email — must come from the DB row
+        // loaded below, not from caller input.
+        if ($options) {
+            $this->assignProperties(array_intersect_key(
+                (array) $options,
+                ['id' => true, 'user' => true]
+            ));
+        }
 
         if (($this->id || $this->session) && $this->run) {
             $this->load();

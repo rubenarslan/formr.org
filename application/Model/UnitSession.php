@@ -44,7 +44,17 @@ class UnitSession extends Model
 
         $this->runSession = $runSession;
         $this->runUnit = $runUnit;
-        $this->assignProperties($options);
+        // Defense-in-depth allowlist. Callers in Run.php / Queue /
+        // RunSession pass only 'id' (PK) and 'load' (a flag). Other
+        // properties — unit_id, run_session_id, ended, expired, queued,
+        // result — come from the DB row in load() below or from
+        // create() upstream, never from caller-provided $options.
+        if ($options) {
+            $this->assignProperties(array_intersect_key(
+                (array) $options,
+                ['id' => true, 'load' => true]
+            ));
+        }
         if (isset($options['id'], $options['load'])) {
             $this->load();
         }
