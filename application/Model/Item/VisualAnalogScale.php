@@ -83,7 +83,15 @@ class VisualAnalogScale_Item extends Range_Item {
              // its parent is the .vas-controls wrapper. Idempotent — the
              // dataset guard makes a re-mount during a page transition a
              // no-op rather than a double-fire.
-             . '<script>(function(s){if(s.dataset.vasInit)return;s.dataset.vasInit="1";var r=s.querySelector(".vas-display"),h=s.querySelector("input[type=hidden]");function t(){h.value=r.value;s.classList.add("vas-touched");}r.addEventListener("input",t);r.addEventListener("change",t);})(document.currentScript.parentNode);</script>'
+             // Imperatively setting `h.value` does NOT trigger native
+             // input/change events, so Alpine's $root delegate at
+             // form/js/showif/alpine.js never re-syncs reactive state for
+             // the VAS field (the bubbled event's target is the visible
+             // range, which has no `name` and is filtered out by the
+             // _syncInput guard). Dispatch bubbling input+change on the
+             // hidden input after the copy so x-showif dependencies on a
+             // VAS field actually re-evaluate as the slider moves.
+             . '<script>(function(s){if(s.dataset.vasInit)return;s.dataset.vasInit="1";var r=s.querySelector(".vas-display"),h=s.querySelector("input[type=hidden]");function t(){h.value=r.value;s.classList.add("vas-touched");h.dispatchEvent(new Event("input",{bubbles:true}));h.dispatchEvent(new Event("change",{bubbles:true}));}r.addEventListener("input",t);r.addEventListener("change",t);})(document.currentScript.parentNode);</script>'
              . '</span>';
 
         return Template::replace($tpl, array(
