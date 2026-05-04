@@ -58,21 +58,25 @@ class RunController extends Controller {
         // before Run::exec so we don't double-render the unit.
         if ($pageNo === null && Request::isHTTPGetRequest()
                 && empty($_GET['code'])
-                && !empty($this->user->user_code)
                 && $this->run->valid) {
-            $sessionRow = DB::getInstance()
-                ->select('id')
-                ->from('survey_run_sessions')
-                ->where(array(
-                    'session' => $this->user->user_code,
-                    'run_id' => $this->run->id,
-                ))
-                ->fetch();
-            if ($sessionRow) {
-                // Drop the rewrite-engine artifacts (route, run_name) that
-                // mod_rewrite injects into $_GET; keep any explicit
-                // user-supplied params like ?_pwa=true so the
-                // pwa-register.js standalone marker survives.
+            $hasSessionInRun = false;
+            if (!empty($this->user->user_code)) {
+                $sessionRow = DB::getInstance()
+                    ->select('id')
+                    ->from('survey_run_sessions')
+                    ->where(array(
+                        'session' => $this->user->user_code,
+                        'run_id' => $this->run->id,
+                    ))
+                    ->fetch();
+                $hasSessionInRun = (bool) $sessionRow;
+            }
+
+            if ($hasSessionInRun) {
+                // Cookie self-heal (existing PWA install with alive cookie).
+                // Drop mod_rewrite's route= / run_name= artifacts; keep
+                // explicit params like _pwa=true so the standalone marker
+                // survives.
                 $params = array('code' => $this->user->user_code);
                 foreach ($_GET as $k => $v) {
                     if ($k === 'route' || $k === 'run_name' || $k === 'code') continue;
@@ -81,6 +85,17 @@ class RunController extends Controller {
                 $target = run_url($this->run->name) . '?' . http_build_query($params);
                 $this->request->redirect($target);
                 return;
+            }
+
+            // Worst-case fallback: PWA shell launched at clean URL with no
+            // recoverable cookie session. Show a code-paste recovery form
+            // so the participant can re-establish the session in-shell
+            // rather than getting dumped into the public landing flow
+            // (or, for non-public runs, the "you cannot access" alert).
+            // Gate on _pwa=true so non-PWA traffic falls through to the
+            // existing public flow unchanged.
+            if (!empty($_GET['_pwa'])) {
+                return $this->renderPwaSessionRecovery();
             }
         }
 
@@ -473,6 +488,48 @@ class RunController extends Controller {
         header('Cache-Control: private, no-store');
         echo json_encode($manifest, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
         exit;
+    }
+
+    /**
+     * Render the in-PWA "session expired" recovery page.
+     *
+     * Reached when the standalone shell (`_pwa=true`) launches at the
+     * clean run URL with no `?code=` and no cookie-resolvable session in
+     * this run — the worst-case post-cookie-eviction state. Shows a
+     * code-paste form that GETs the same run URL with the supplied code
+     * so the participant can recover without leaving the PWA shell or
+     * hunting through Safari for the original email link.
+     */
+    private function renderPwaSessionRecovery() {
+        $form_action = h(run_url($this->run->name));
+        // Pattern matches Config::get('user_code_regular_expression')
+        // loosely (the server-side check in loginUser is authoritative);
+        // we keep the input forgiving so a participant who pastes with
+        // surrounding whitespace still gets to submit.
+        $run_content = '<h1>' . __('Session expired') . '</h1>'
+            . '<p>' . __('Your saved sign-in to this study has expired. '
+                       . 'Please open the latest invitation email link, '
+                       . 'or paste your participant code below to continue.') . '</p>'
+            . '<form method="get" action="' . $form_action . '" class="pwa-recovery-form" '
+            . '      style="margin-top:1.5em;max-width:480px">'
+            . '<label for="pwa-recovery-code" style="display:block;margin-bottom:.25em;font-weight:600">'
+            . h(__('Participant code')) . '</label>'
+            . '<input type="text" id="pwa-recovery-code" name="code" autofocus required '
+            . '       autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" '
+            . '       pattern="[A-Za-z0-9+\\-_~]{8,64}" '
+            . '       style="width:100%;padding:.6em;border:1px solid #ccc;border-radius:4px;'
+            . 'font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:1em">'
+            . '<input type="hidden" name="_pwa" value="true">'
+            . '<button type="submit" class="btn btn-primary" '
+            . '        style="margin-top:.75em;padding:.5em 1.25em">'
+            . h(__('Continue')) . '</button>'
+            . '</form>';
+
+        $this->setView('run/static_page', array(
+            'run_content' => $run_content,
+            'bodyClass' => 'fmr-run fmr-pwa-recovery',
+        ));
+        return $this->sendResponse();
     }
 
     /**
