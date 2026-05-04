@@ -43,6 +43,18 @@ if ('serviceWorker' in navigator && window.vapidPublicKey) {
         if (isStandalone && !new URLSearchParams(window.location.search).get('code')) {
             window.addEventListener('DOMContentLoaded', () => {
                 if (document.getElementById('fmr-pwa-recovery-banner')) return;
+                // The pattern attribute mirrors the server's
+                // user_code_regular_expression (exposed via window.formr
+                // by Controller::getJsConfig). Falls back to omitting
+                // pattern entirely if the server didn't expose one —
+                // server-side loginUser() validation stays authoritative.
+                const codePattern = window.formr.user_code_pattern || '';
+                // The next block builds the banner via static-string
+                // innerHTML for portability + zero deps. Do NOT
+                // interpolate user input into this string; the only
+                // dynamic value is the configured codePattern, which
+                // originates from settings.php and is escaped here.
+                const escAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
                 const form = document.createElement('form');
                 form.id = 'fmr-pwa-recovery-banner';
                 form.method = 'get';
@@ -58,7 +70,7 @@ if ('serviceWorker' in navigator && window.vapidPublicKey) {
                     + '</span>'
                     + '<input name="code" required autocomplete="off" autocapitalize="none" '
                     +   'autocorrect="off" spellcheck="false" '
-                    +   'pattern="[A-Za-z0-9+\\-_~]{8,64}" '
+                    +   (codePattern ? `pattern="${escAttr(codePattern)}" ` : '')
                     +   'placeholder="Participant code" '
                     +   'style="flex:1;min-width:180px;padding:.4em;border:1px solid #ccc;'
                     +   'border-radius:4px;font-family:ui-monospace,Menlo,monospace">'

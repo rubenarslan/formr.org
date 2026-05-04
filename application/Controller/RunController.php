@@ -502,10 +502,14 @@ class RunController extends Controller {
      */
     private function renderPwaSessionRecovery() {
         $form_action = h(run_url($this->run->name));
-        // Pattern matches Config::get('user_code_regular_expression')
-        // loosely (the server-side check in loginUser is authoritative);
-        // we keep the input forgiving so a participant who pastes with
-        // surrounding whitespace still gets to submit.
+        // Pattern attribute is derived from the configured
+        // user_code_regular_expression so customized deployments still
+        // get accurate client-side validation. Server-side loginUser()
+        // remains authoritative.
+        $code_pattern = user_code_html_pattern();
+        $pattern_attr = $code_pattern !== ''
+            ? ' pattern="' . h($code_pattern) . '"'
+            : '';
         $run_content = '<h1>' . __('Session expired') . '</h1>'
             . '<p>' . __('Your saved sign-in to this study has expired. '
                        . 'Please open the latest invitation email link, '
@@ -515,8 +519,8 @@ class RunController extends Controller {
             . '<label for="pwa-recovery-code" style="display:block;margin-bottom:.25em;font-weight:600">'
             . h(__('Participant code')) . '</label>'
             . '<input type="text" id="pwa-recovery-code" name="code" autofocus required '
-            . '       autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" '
-            . '       pattern="[A-Za-z0-9+\\-_~]{8,64}" '
+            . '       autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"'
+            . $pattern_attr
             . '       style="width:100%;padding:.6em;border:1px solid #ccc;border-radius:4px;'
             . 'font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:1em">'
             . '<input type="hidden" name="_pwa" value="true">'
