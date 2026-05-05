@@ -561,10 +561,9 @@ class RunSession extends Model {
                  FROM survey_items_display sid
                  JOIN survey_items si ON si.id = sid.item_id
                  JOIN survey_unit_sessions sus ON sus.id = sid.session_id
-                 WHERE sus.run_session_id = :run_session_id 
+                 WHERE sus.run_session_id = :run_session_id
                  AND si.type = 'push_notification'
-                 AND sid.answer != 'not_requested'
-                 AND sid.answer != 'not_supported'
+                 AND sid.answer NOT IN ('not_requested', 'not_supported', 'expired', 'ios_version_not_supported')
                  ORDER BY sid.created DESC
                  LIMIT 1";
 

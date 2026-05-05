@@ -141,6 +141,15 @@ class PushNotificationService
         foreach ($this->webPush->flush() as $report) {
             if (!$report->isSuccess()) {
                 $this->logPushFailure($sessionId, $message, $report->getReason(), $attempt);
+                // 404/410 from the push service: the subscription is gone for good
+                // (browser uninstalled the PWA, user revoked permissions, iOS
+                // dropped it after silent-push budget exhaustion). No amount of
+                // retries will resurrect it; mark it expired so future sends
+                // skip it and the participant gets re-prompted to subscribe.
+                if ($report->isSubscriptionExpired()) {
+                    $this->markSubscriptionExpired($report->getEndpoint());
+                    throw new Exception("Push notification subscription expired (410/404); marked for re-subscribe.");
+                }
                 if ($attempt < $this->maxRetries) {
                     sleep(pow(2, $attempt)); // exponential backoff
                     $this->sendPushMessage($sessionId, $subscription, $options, $attempt + 1);
@@ -150,6 +159,49 @@ class PushNotificationService
             } else {
                 $this->logPushSuccess($sessionId, $message);
             }
+        }
+    }
+
+    /**
+     * Flag every survey_items_display row carrying this endpoint as expired.
+     *
+     * Endpoint is globally unique per browser-installation, so the same dead
+     * endpoint across multiple sessions / runs is dead everywhere. Mark them
+     * all in one shot so subsequent getSubscription() calls see no
+     * subscription and can re-prompt.
+     */
+    protected function markSubscriptionExpired(string $endpoint): void
+    {
+        // Two-step: SELECT JSON-shaped push_notification rows (sentinels
+        // like 'not_requested' don't contain "endpoint"), parse each
+        // answer in PHP, match exactly. We can't do this purely in SQL
+        // because MariaDB's optimizer evaluates JSON_EXTRACT before NOT
+        // IN filters, so a single bad row in the table aborts the whole
+        // UPDATE with "Syntax error in JSON text". And we can't LIKE on
+        // the endpoint URL itself because json_encode escapes slashes
+        // (`\/`) but JSON.stringify doesn't, so stored shapes vary.
+        try {
+            $rows = $this->db->execute(
+                "SELECT sid.id, sid.answer
+                 FROM survey_items_display sid
+                 JOIN survey_items si ON si.id = sid.item_id
+                 WHERE si.type = 'push_notification'
+                   AND sid.answer LIKE '%\"endpoint\"%'"
+            );
+            $matches = [];
+            foreach ((array) $rows as $row) {
+                $decoded = json_decode($row['answer'], true);
+                if (is_array($decoded) && isset($decoded['endpoint']) && $decoded['endpoint'] === $endpoint) {
+                    $matches[] = (int) $row['id'];
+                }
+            }
+            if (!$matches) {
+                return;
+            }
+            $in = implode(',', $matches);
+            $this->db->execute("UPDATE survey_items_display SET answer = 'expired' WHERE id IN ($in)");
+        } catch (Throwable $e) {
+            error_log("markSubscriptionExpired failed for endpoint {$endpoint}: " . $e->getMessage());
         }
     }
 
