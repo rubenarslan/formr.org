@@ -1127,17 +1127,17 @@ function opencpu_prepare_api_access($code, &$variables)
     // the token could break the R string literal we're embedding it in,
     // or worse, escape into surrounding R code.
     $token_r_code = "'" . addcslashes($token_data['access_token'], "'\\") . "'";
-    $api_url = "'" . addcslashes(rtrim(site_url('api'), '/'), "'\\") . "'";
+    $host = "'" . addcslashes(rtrim(site_url('api'), '/'), "'\\") . "'";
 
     if (is_string($variables)) {
         // Append the R assignment to an existing string
-        $variables .= "\naccess_token = " . $token_r_code . "\napi_url = " . $api_url . "\n";
+        $variables .= "\naccess_token = " . $token_r_code . "\nhost = " . $host . "\n";
     } else {
         if ($variables === null) {
             $variables = [];
         }
         $variables['access_token'] = $token_r_code;
-        $variables['host'] = $api_url;
+        $variables['host'] = $host;
     }
 
     return $token_data['access_token'];
