@@ -41,8 +41,16 @@ if ('serviceWorker' in navigator && window.vapidPublicKey) {
         // page still renders behind the banner; participants who didn't
         // lose anything can dismiss it.
         if (isStandalone && !new URLSearchParams(window.location.search).get('code')) {
-            window.addEventListener('DOMContentLoaded', () => {
+            // DOMContentLoaded may have already fired by the time the
+            // frontend bundle finishes evaluating pwa-register.js (the
+            // bundle is loaded via <script src=…> from <head>, but
+            // bundle parse + execute spans the parser's HTML-streaming
+            // window). addEventListener('DOMContentLoaded') would
+            // silently never fire in that case. Branch on
+            // document.readyState so both timings work.
+            const injectBanner = () => {
                 if (document.getElementById('fmr-pwa-recovery-banner')) return;
+                if (!document.body) return;
                 // The pattern attribute mirrors the server's
                 // user_code_regular_expression (exposed via window.formr
                 // by Controller::getJsConfig). Falls back to omitting
@@ -82,53 +90,56 @@ if ('serviceWorker' in navigator && window.vapidPublicKey) {
                     +   'color:#666" aria-label="Dismiss">&times;</button>';
                 form.querySelector('[data-dismiss]').addEventListener('click', () => form.remove());
                 document.body.insertBefore(form, document.body.firstChild);
-            });
+            };
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', injectBanner, { once: true });
+            } else {
+                injectBanner();
+            }
         }
 
-        navigator.serviceWorker.getRegistration(scope).then(existingRegistration => {
-            if (!existingRegistration) {
-                navigator.serviceWorker.register(serviceWorkerPath, { scope }).then(registration => {
-                    console.log('Service Worker registered:', registration.scope);
-                    // Collect all CSS and JS files from the DOM that match the current domain
-                    const runOrigin = runUrl.origin;
-                    const siteOrigin = siteUrl.origin;
-                    const stylesheets = Array.from(document.styleSheets)
-                        .map(stylesheet => stylesheet.href)
-                        .filter(href => href && (href.startsWith(runOrigin) || href.startsWith(siteOrigin)));
-                    const scripts = Array.from(document.scripts)
-                        .map(script => script.src)
-                        .filter(src => src && (src.startsWith(runOrigin) || src.startsWith(siteOrigin)));
+        // Register (idempotent) then wait for an ACTIVE worker before
+        // posting CACHE_ASSETS. Two prior bugs this collapses:
+        //   (1) the existingRegistration branch never sent CACHE_ASSETS,
+        //       so on second+ loads the SW saw no asset list.
+        //   (2) the fresh-register branch posted to registration.active
+        //       which can be null mid-install; the statechange listener
+        //       was the fallback but it could miss the activated edge if
+        //       the SW activated between register() resolving and the
+        //       listener being attached.
+        // navigator.serviceWorker.ready resolves with the registration
+        // ONLY when there is an active worker (state === 'activated'),
+        // so awaiting it removes both races.
+        (async () => {
+            try {
+                const existing = await navigator.serviceWorker.getRegistration(scope);
+                if (!existing) {
+                    const reg = await navigator.serviceWorker.register(serviceWorkerPath, { scope });
+                    console.log('Service Worker registered:', reg.scope);
+                } else {
+                    console.log('Service Worker already registered:', existing.scope);
+                }
+                const ready = await navigator.serviceWorker.ready;
+                if (!ready.active) return;
 
-                    const filesToCache = [...new Set([...stylesheets, ...scripts])];
+                const runOrigin = runUrl.origin;
+                const siteOrigin = siteUrl.origin;
+                const stylesheets = Array.from(document.styleSheets)
+                    .map(s => s.href)
+                    .filter(h => h && (h.startsWith(runOrigin) || h.startsWith(siteOrigin)));
+                const scripts = Array.from(document.scripts)
+                    .map(s => s.src)
+                    .filter(s => s && (s.startsWith(runOrigin) || s.startsWith(siteOrigin)));
+                const filesToCache = [...new Set([...stylesheets, ...scripts])];
 
-                    // Function to send assets to cache to service worker
-                    const sendAssetsToCache = () => {
-                        console.log('Sending assets to cache to service worker');
-                        registration.active.postMessage({
-                            type: 'CACHE_ASSETS',
-                            assets: filesToCache
-                        });
-                    };
-
-                    // If the service worker is already active, send messages immediately
-                    if (registration.active) {
-                        sendAssetsToCache();
-                    }
-
-                    // Listen for state changes to catch when a new service worker becomes active
-                    const sw = registration.waiting || registration.installing;
-                    if(sw) {
-                        sw.addEventListener('statechange', (e) => {
-                            if (e.target.state === 'activated') {
-                                sendAssetsToCache();
-                            }
-                        });
-                    }
+                ready.active.postMessage({
+                    type: 'CACHE_ASSETS',
+                    assets: filesToCache
                 });
-            } else {
-                console.log('Service Worker already registered:', existingRegistration?.scope);
+            } catch (e) {
+                console.warn('Service Worker registration / asset-cache failed:', e);
             }
-        });
+        })();
     }
 } else {
     console.warn('Service Worker not initialized because of missing serviceWorker or vapidPublicKey');
