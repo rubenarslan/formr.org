@@ -159,6 +159,33 @@ async function safeAddAll(cache, urls) {
 /*
  * Install event listener to cache the manifest and assets
  */
+// Beacon SW lifecycle failures back to the server. SW errors otherwise
+// die silently in the participant's browser console where we never see
+// them; this routes a single POST to the run scope so the failure shows
+// up in formr's PHP error log and we can fix what's actually breaking
+// in production.
+async function beaconLifecycleFailure(stage, err) {
+  try {
+    const beaconUrl = new URL('./pwa-beacon', self.location.href).toString();
+    const body = JSON.stringify({
+      stage,
+      sw_version,
+      cache: CACHE_NAME,
+      error: String((err && err.message) || err),
+      ts: new Date().toISOString(),
+    });
+    // keepalive in case the SW is going redundant immediately after.
+    await fetch(beaconUrl, {
+      method: 'POST',
+      body,
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+    });
+  } catch (_) {
+    // Beacon is best-effort; never let it surface a second error.
+  }
+}
+
 self.addEventListener('install', (event) => {
   console.log('SW: Starting install');
   const pre_cache = async () => {
@@ -170,6 +197,10 @@ self.addEventListener('install', (event) => {
       return await safeAddAll(cache, assetsToCache);
     } catch (error) {
       console.error('Install failed:', error);
+      // Wait on the beacon so it actually goes out before the SW
+      // transitions to redundant — once the install handler rejects,
+      // the SW has roughly no time to make outbound requests.
+      await beaconLifecycleFailure('install', error);
       throw error;
     }
   };

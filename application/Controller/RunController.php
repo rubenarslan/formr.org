@@ -646,4 +646,36 @@ class RunController extends Controller {
             $this->sendJsonResponse(array('error' => 'Failed to delete subscription.'), 500);
         }
     }
+
+    /**
+     * Service-worker / PWA telemetry beacon. Endpoint exists so SW
+     * install / activate failures surface in formr's error log instead
+     * of dying silently in the participant's browser console (where we
+     * never see them). No auth: SW context can't carry session cookies
+     * reliably across all browsers, so we log the bare report as-is.
+     * The participant origin already gates blast radius; we accept
+     * anonymous reports from anyone in-scope. Returns 204.
+     *
+     * Payload is whatever the SW POSTed (small JSON). We log it
+     * verbatim plus User-Agent + remote IP for triage.
+     */
+    public function pwaBeaconAction()
+    {
+        if (!Request::isHTTPPostRequest()) {
+            http_response_code(405);
+            return;
+        }
+        $raw = file_get_contents('php://input');
+        // Cap at 4 KB — beacons are small structured JSON, not bug reports.
+        $raw = $raw === false ? '' : substr((string) $raw, 0, 4096);
+        $this->run = $this->getRun();
+        $context = [
+            'run' => $this->run ? $this->run->name : null,
+            'ua' => substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 256),
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? null,
+        ];
+        formr_log('PWA beacon ' . json_encode($context) . ' body=' . $raw);
+        http_response_code(204);
+        exit;
+    }
 }
