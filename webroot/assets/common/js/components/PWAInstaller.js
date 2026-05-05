@@ -311,17 +311,22 @@ async function updateInstallButtonState() {
         }
     
         return;
-    } else if (localStorage.getItem('pwa-app-installed') === 'true') { // App is installed according to localStorage
-        $hiddenInput.val('already_added');
-        const redirect_link = generateRedirectLink();
-        let appName = document.title;
-        $status.html(t("You've already installed this app. Try closing your browser and opening the app named " + appName + " from your home screen. If you have uninstalled the app, please just click this button again.")
-        );
-        //  + 
-        //    `<a href="web-formrpwaa://test" class="btn btn-primary" target="_blank">${t('Open app')}</a>`
-        $wrapper.closest('.form-group').addClass('formr_answered');
-        $button.removeClass('btn-primary').addClass('btn-success');
-        $button.html(`<i class="fa fa-check"></i> ${t('Installed')}`);
+    } else if (localStorage.getItem('pwa-app-installed') === 'true') {
+        // localStorage said we installed, but we're not in standalone
+        // right now. Two ways this happens: (a) user opened a browser
+        // tab to this URL while the PWA is installed, (b) user
+        // uninstalled the PWA but the flag never got cleared. (b) was a
+        // dead-end UX before — the install button stayed disabled
+        // forever. Clear the flag so we re-detect on this load: if the
+        // app actually IS still installed the browser will dispatch
+        // appinstalled / beforeinstallprompt accordingly; if it's gone
+        // the user gets the install button back. Falls through to the
+        // not-installed branch.
+        localStorage.removeItem('pwa-app-installed');
+        $hiddenInput.val('not_started');
+        $status.html(`<p>${t('Add this app to your home screen for easier access.')}</p>`);
+        $button.prop('disabled', false);
+        $button.html($button.data('default-text'));
     } else { // App is not installed
         $hiddenInput.val('not_started');
         // If not already installed, set platform-specific text.
