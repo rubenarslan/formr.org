@@ -25,7 +25,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 : "${PWA_TEST_HOST:=https://study.researchmixtape.com}"
-: "${PWA_TEST_RUN:=appstinence-v2}"
+: "${PWA_TEST_RUN:=e2e-pwa-h-v1}"
 
 # Look up a real session code for the fixture run if the caller didn't
 # supply one. Falls back to a hardcoded test code on the dev DB if the
