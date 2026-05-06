@@ -56,6 +56,18 @@ class DB {
 
 	protected function __construct() {
         $params = (array) Config::get('database');
+        $driver = isset($params['driver']) ? $params['driver'] : 'mysql';
+
+        // SQLite path for unit tests (see tests/bootstrap.php). The driver
+        // is opt-in via Config; production keeps using MySQL.
+        if ($driver === 'sqlite') {
+            $database = isset($params['database']) ? $params['database'] : ':memory:';
+            $this->PDO = new PDO('sqlite:' . $database, null, null, array(
+                PDO::ATTR_EMULATE_PREPARES => false,
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            ));
+            return;
+        }
 
         $options = array(
             'host' => $params['host'],
