@@ -108,7 +108,21 @@ if (isset($run) && $run instanceof Run && $run->getManifestJSONPath()):
         }
     } // Note: $pwa_icon_base_url_for_head might be re-calculated here if the first check didn't run or needs update
 ?>
-    <link rel="manifest" href="<?php echo run_url($run->name).'manifest'; ?>">
+    <?php
+    // Personalize the manifest URL with ?code=<participant_session> when
+    // there's an active RunSession for this request. iOS captures
+    // start_url at PWA install time and never re-fetches the manifest, so
+    // the icon URL embeds whatever start_url was personalized at the
+    // moment of "Add to Home Screen". Without ?code= here, the captured
+    // start_url is the clean public one, leaving the cookie as the only
+    // session recovery — which iOS evicts via ITP / storage pressure.
+    $manifest_url = run_url($run->name) . 'manifest';
+    if (isset($run->activeRunSession) && $run->activeRunSession instanceof RunSession
+            && $run->activeRunSession->id && $run->activeRunSession->session) {
+        $manifest_url .= '?code=' . urlencode($run->activeRunSession->session);
+    }
+    ?>
+    <link rel="manifest" href="<?php echo h($manifest_url); ?>">
     
     <!-- Safari specific icons -->
     <link rel="apple-touch-icon" href="<?php echo $pwa_icon_base_url_for_head . 'apple-touch-icon.png'; ?>"> <!-- General, e.g. 180x180 -->
