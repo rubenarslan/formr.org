@@ -1,0 +1,59 @@
+name: PHPUnit
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  phpunit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP 8.2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          # SQLite is the test backend (DBTest.php uses :memory:); pdo_sqlite
+          # is what makes that work. The rest mirrors what formr.org needs at
+          # runtime so `composer install` doesn't whine about platform reqs.
+          extensions: mbstring, xml, sodium, pdo_sqlite, pdo_mysql, gd, intl, zip, curl
+          coverage: none
+          tools: composer:v2
+
+      - name: Lint PHP sources
+        run: |
+          ! find application bin tests -name '*.php' -print0 \
+            | xargs -0 -n1 -P4 php -l \
+            | grep -v '^No syntax errors detected'
+
+      - name: Cache composer deps
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - run: composer install --prefer-dist --no-interaction --no-progress
+
+      # setup.php hard-requires config/settings.php (the config dir is
+      # gitignored). Seed it from config-dist so PHPUnit can bootstrap.
+      # Crypto::setup() lazily generates formr-crypto.key on first call.
+      - name: Seed config from dist
+        run: cp config-dist/settings.php config/settings.php
+
+      # Excludes @group integration: tests that need a live DB / OpenCPU /
+      # web server (FirstTest, OpenCPUTest, PushNotificationExpireSubscriptionTest).
+      # Run those in a separate job once the dev stack is reachable from CI.
+      - name: Run phpunit
+        run: vendor/bin/phpunit --configuration tests/phpunit.xml --exclude-group integration

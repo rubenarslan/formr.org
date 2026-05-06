@@ -18,6 +18,8 @@
  *
  * UNIQUE(session_id, item_id) on survey_items_display means we have to
  * mint a fresh survey_items row per seeded display row.
+ *
+ * @group integration
  */
 class PushNotificationExpireSubscriptionTest extends \PHPUnit\Framework\TestCase
 {
