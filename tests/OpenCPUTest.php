@@ -7,7 +7,7 @@
  */
 class OpenCPUTest extends PHPUnit\Framework\TestCase {
 
-    public function configProvider() {
+    public static function configProvider() {
         $settings = array();
         $settings['opencpu_instance'] = array(
             'base_url' => 'https://opencpu.psych.bio.uni-goettingen.de',
