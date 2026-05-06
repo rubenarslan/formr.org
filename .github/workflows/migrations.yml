@@ -1,0 +1,54 @@
+name: SQL migrations
+
+on:
+  pull_request:
+    paths:
+      - 'sql/patches/**'
+      - '.github/workflows/migrations.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Lint new SQL patches against the base branch:
+#   * detects two branches both adding a patch with the same NNN prefix
+#   * detects edits to a patch that's already been merged (those should be a
+#     new patch, not a retroactive edit)
+#   * detects destructive ops (DROP COLUMN with possible data loss, MODIFY
+#     COLUMN that can fail under load, etc.) — flagged so reviewers see them
+#
+# Atlas needs a "dev" database to compute the diff. We use the
+# docker://mariadb/11/dev URL, which spins up an ephemeral container per run.
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # full history so atlas can diff against the merge base
+          fetch-depth: 0
+
+      - uses: ariga/setup-atlas@v0
+
+      # Atlas's default versioned format treats the leading "NNN_" as the
+      # version, so no special configuration is needed for sql/patches/.
+      # We do need an atlas.sum, which we recompute on every run because we
+      # don't commit one upstream.
+      - name: Hash migrations
+        run: atlas migrate hash --dir file://sql/patches
+
+      - name: Lint vs base branch
+        run: |
+          atlas migrate lint \
+            --dir file://sql/patches \
+            --dev-url "docker://mariadb/11/dev" \
+            --git-base "origin/${{ github.base_ref }}"
+
+      - name: Validate integrity
+        run: atlas migrate validate --dir file://sql/patches

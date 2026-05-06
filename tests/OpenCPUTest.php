@@ -1,9 +1,10 @@
 <?php
 
-/*
- * Test Config class
+/**
+ * @group integration
+ *
+ * Hits a live OpenCPU instance — excluded from default CI run.
  */
-
 class OpenCPUTest extends PHPUnit\Framework\TestCase {
 
     public function configProvider() {
