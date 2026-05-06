@@ -1128,16 +1128,18 @@ function opencpu_prepare_api_access($code, &$variables)
     // or worse, escape into surrounding R code.
     $token_r_code = "'" . addcslashes($token_data['access_token'], "'\\") . "'";
     $host = "'" . addcslashes(rtrim(site_url('api'), '/'), "'\\") . "'";
+    $run_name = "'" . addcslashes($run->name, "'\\") . "'";
 
     if (is_string($variables)) {
         // Append the R assignment to an existing string
-        $variables .= "\naccess_token = " . $token_r_code . "\nhost = " . $host . "\n";
+        $variables .= "\naccess_token = " . $token_r_code . "\nhost = " . $host . "\nrun_name = " . $run_name . "\n";
     } else {
         if ($variables === null) {
             $variables = [];
         }
         $variables['access_token'] = $token_r_code;
         $variables['host'] = $host;
+        $variables['run_name'] = $run_name;
     }
 
     return $token_data['access_token'];
