@@ -1137,7 +1137,15 @@ function opencpu_prepare_api_access($code, &$variables)
     }
 
     $oauth = OAuthHelper::getInstance();
-    $token_data = $oauth->createAccessTokenForUser($owner, 'user:read session:read session:write run:read data:read');
+    // 120s is the upper bound on a round-trip: formr mints the token,
+    // embeds it in an R variable, OpenCPU evaluates the snippet (which
+    // may phone back into the v1 API), and we delete the token in the
+    // caller's finally block on return. The short lifetime is a safety
+    // net for the failure modes that skip the explicit delete (process
+    // crash, uncaught exception in opencpu_evaluate, OpenCPU timeout
+    // leaving the request hung). External API consumers go through
+    // the standard client_credentials grant and get the 1h default.
+    $token_data = $oauth->createAccessTokenForUser($owner, 'user:read session:read session:write run:read data:read', false, 120);
 
     if (!$token_data || empty($token_data['access_token'])) {
         return null;

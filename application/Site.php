@@ -312,8 +312,16 @@ class Site {
         // and authorization codes so a DB read does not yield replayable bearer credentials.
         $storage = new HashedTokenOAuth2StoragePdo(array('dsn' => $dsn, 'username' => $username, 'password' => $password));
 
-        // Pass a storage object or array of storage objects to the OAuth2 server class
-        $server = new OAuth2\Server($storage);
+        // Pass a storage object or array of storage objects to the OAuth2 server class.
+        // access_lifetime is set explicitly so the external API contract
+        // (R package, third-party clients via client_credentials) doesn't
+        // silently drift if bshaffer changes its built-in default.
+        // Internal short-lived tokens for the OpenCPU round-trip are
+        // minted via OAuthHelper::createAccessTokenForUser with an
+        // explicit 120s lifetime — see opencpu_prepare_api_access.
+        $server = new OAuth2\Server($storage, array(
+            'access_lifetime' => 3600,
+        ));
 
         // Add the "Client Credentials" grant type (it is the simplest of the grant types)
         $server->addGrantType(new OAuth2\GrantType\ClientCredentials($storage));

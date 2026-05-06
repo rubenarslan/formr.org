@@ -190,14 +190,23 @@ class OAuthHelper
     /**
      * Create an access token for internal API access for a given user.
      * This bypasses the standard grant flows and directly issues a token.
-     * 
+     *
+     * Default lifetime mirrors the external client_credentials grant
+     * (1 hour), so a future caller minting a token for a generic
+     * "act-as this user" workflow gets a sensible default. Short-lived
+     * use cases — e.g. opencpu_prepare_api_access, which embeds the
+     * token into an R variable for the duration of one OpenCPU call
+     * and explicitly deletes it on return — should pass an explicit
+     * lifetime (~120s is the established floor) so the lifetime is a
+     * safety net rather than the contract.
+     *
      * @param User $formrUser The user for whom to create the token.
      * @param string|null $scope The scope for the token.
      * @param bool $includeRefreshToken Whether to include a refresh token. Defaults to false.
-     * @param int $tokenLifetime Token lifetime in seconds. Defaults to 120.
+     * @param int $tokenLifetime Token lifetime in seconds. Defaults to 3600 (1 hour).
      * @return array|false The access token data or false on failure.
      */
-    public function createAccessTokenForUser(User $formrUser, $scope = null, $includeRefreshToken = false, $tokenLifetime = 120)
+    public function createAccessTokenForUser(User $formrUser, $scope = null, $includeRefreshToken = false, $tokenLifetime = 3600)
     {
         if (!$formrUser->canAccessApi()) {
             return false;
