@@ -20,13 +20,31 @@ concurrency:
 #   * detects destructive ops (DROP COLUMN with possible data loss, MODIFY
 #     COLUMN that can fail under load, etc.) — flagged so reviewers see them
 #
-# Atlas needs a "dev" database to compute the diff. We use the
-# docker://mariadb/11/dev URL, which spins up an ephemeral container per run.
+# Atlas needs a "dev" database to compute the diff. We run an official
+# mariadb:noble service container (matches prod's image in
+# docker-compose.yml) instead of the previous `docker://mariadb/11/dev`
+# URL — Atlas's docker:// scheme pulls from arigaio's curated registry,
+# which doesn't publish a MariaDB 11+ tag, so docker://mariadb/11/dev
+# fails with "manifest unknown".
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+
+    services:
+      mariadb:
+        image: mariadb:noble
+        env:
+          MARIADB_ROOT_PASSWORD: lint
+          MARIADB_DATABASE: dev
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mariadb-admin ping -uroot -plint"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
 
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +65,7 @@ jobs:
         run: |
           atlas migrate lint \
             --dir file://sql/patches \
-            --dev-url "docker://mariadb/11/dev" \
+            --dev-url "mariadb://root:lint@127.0.0.1:3306/dev" \
             --git-base "origin/${{ github.base_ref }}"
 
       - name: Validate integrity
