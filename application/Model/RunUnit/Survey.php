@@ -36,17 +36,23 @@ class Survey extends RunUnit {
         parent::create($options);
 
         if (!empty($options['study_id'])) {
-            // The linked study must belong to the current user. Without
+            // The linked study must belong to the run owner. Without
             // this check, a structure-import body (or the admin
             // ajax_save_run_unit POST) can re-point this run-unit at any
             // other user's survey_studies row by id, and a participant
             // traversing the attacker's run would write into the victim's
             // results_table via UnitSession::updateSurveyStudyRecord.
-            $currentUser = Site::getCurrentUser();
-            if ($currentUser && $this->isOwnedBy(
+            //
+            // Use the run owner (not Site::getCurrentUser) so the rule
+            // is uniform across entry points: the API path already
+            // requires user==owner via getRunByName, but a future
+            // non-API caller (cron, console import) would otherwise be
+            // checked against whoever happens to be in the session.
+            // Email::create takes the same approach.
+            if ($this->run && $this->isOwnedBy(
                     'survey_studies',
                     (int) $options['study_id'],
-                    (int) $currentUser->id
+                    (int) $this->run->user_id
             )) {
                 $this->unit_id = (int) $options['study_id'];
                 $this->surveyStudy = $this->getStudy(true);
