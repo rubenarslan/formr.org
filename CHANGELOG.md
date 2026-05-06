@@ -2,6 +2,18 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Added
+- **Versioned RESTful v1 API** at `/api/v1/<resource>`. OAuth2 client_credentials grant with 1 hour access tokens. Resources: `user`, `surveys`, `runs/{name}`, plus per-run sub-resources `sessions`, `results`, `files`, `structure`. Twelve scopes (`user:read/write`, `survey:read/write`, `run:read/write`, `session:read/write`, `data:read`, `file:read/write`); scope is checked before resource lookup, so a token without the right scope returns 403 regardless of whether the run/survey exists or belongs to the caller.
+- New admin level `2` ("API access"). Only users at `admin >= 2` can mint or use API credentials. Existing `admin = 1` accounts keep web-admin rights but lose API access until a SuperAdmin promotes them via the user-management page.
+- One-time client-secret display at `admin/account` → API tab. Secret is shown only at issuance and rotation; storage holds a SHA-256 hash, so a forgotten secret must be rotated, not recovered.
+
+### Changed (BREAKING)
+- **OAuth bearer credentials are now stored as SHA-256 hashes at rest.** On upgrade, patch `048_hash_oauth_tokens.sql` truncates `oauth_access_tokens`, `oauth_refresh_tokens`, and `oauth_authorization_codes`; patch `049_hash_client_secrets.sql` zeroes `oauth_clients.client_secret`. **All currently-issued tokens are invalidated** and **every existing OAuth client must mint a new secret** at `/admin/account#api` after upgrade. Plan a maintenance window for any unattended cron jobs that hold long-lived tokens.
+
+### Security
+- Various security hardening. Operators are encouraged to upgrade and to rotate any OAuth client secrets after upgrading. A detailed advisory will follow once adoption is broader.
+
 ## [v0.25.3] - 06.05.2026
 ### Added
 - PWA persistence — survive cookie eviction without losing the participant's session
