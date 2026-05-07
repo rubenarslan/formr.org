@@ -272,11 +272,14 @@ class Run extends Model {
         $this->saveSettings(array("footer_text" => $footer));
 
         if ($default_expiry !== null) {
+            // Link to the admin run settings page (not the participant-
+            // facing settings URL used in the footer above).
+            $admin_settings_url = admin_run_url($name, "settings");
             alert(
                 "Run data is set to expire on <strong>" . h($default_expiry) . "</strong> "
                 . "(the configured retention maximum of " . (int) $max_months . " months from creation). "
                 . "You can shorten this — or change it to a different date within the same maximum — in "
-                . "<a href=\"" . h($settings_url) . "\">run settings</a>.",
+                . "<a href=\"" . h($admin_settings_url) . "\">run settings</a>.",
                 'alert-info'
             );
         }
