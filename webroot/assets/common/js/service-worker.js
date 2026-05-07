@@ -1,4 +1,8 @@
-const sw_version = 'v6';
+// Bumped to v7 alongside the time-bound handling-reload fix in
+// PWAInstaller.js. Without a sw_version bump installed PWAs would keep
+// serving the old frontend.bundle.js out of the SW cache and the fix
+// wouldn't reach participants.
+const sw_version = 'v7';
 const CACHE_NAME = 'formr-' + sw_version + '-' + self.location.hostname + self.location.pathname.split('/').slice(0, -1).join('-');
 
 console.log("SW loaded", CACHE_NAME);
@@ -188,6 +192,14 @@ async function beaconLifecycleFailure(stage, err) {
 
 self.addEventListener('install', (event) => {
   console.log('SW: Starting install');
+  // skipWaiting so a sw_version bump activates immediately rather than
+  // sitting in 'waiting' until every old PWA window closes. Paired with
+  // the cache-eviction step in 'activate' below — together they get the
+  // new bundle to participants without requiring them to manually
+  // force-quit the PWA. Safe here because we don't change request/response
+  // shapes between SW versions; the only intra-version change at activation
+  // is dropping stale caches.
+  self.skipWaiting();
   const pre_cache = async () => {
     try {
       const manifest = await fetchManifest();
@@ -214,9 +226,42 @@ self.addEventListener('activate', event => {
   console.log('SW: Starting activation');
   const activate = async () => {
     try {
+      // Drop caches from previous sw_versions. Without this, bumping
+      // sw_version creates a new CACHE_NAME but the unscoped
+      // `caches.match()` in the fetch handler still hits the old cache
+      // and serves stale assets — which is how an installed PWA can
+      // keep running yesterday's frontend.bundle.js indefinitely.
+      const allCacheNames = await caches.keys();
+      await Promise.all(
+        allCacheNames
+          .filter((name) => name !== CACHE_NAME && name.startsWith('formr-'))
+          .map((name) => caches.delete(name))
+      );
+
       await clients.claim();
       await checkAndCloseExpiredNotifications();
       console.log("SW: Activation complete, clients claimed");
+
+      // Tell every already-open client to reload, otherwise pages that
+      // were loaded against the OLD sw_version keep running their old
+      // PWAInstaller.js (loaded before this SW activated). The page-side
+      // STATE_INVALIDATED handler is what we re-use here — it's been in
+      // every shipped sw_version, so the message is understood even by
+      // pages running pre-fix code. A fresh Date.now() timestamp passes
+      // the dedup check in reload_invalidated.
+      try {
+        const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+        const reloadTs = Date.now();
+        for (const client of allClients) {
+          try {
+            client.postMessage({ type: 'STATE_INVALIDATED', tag: 'sw-activate', timestamp: reloadTs });
+          } catch (err) {
+            console.warn('SW: activation reload broadcast failed for', client.id, err);
+          }
+        }
+      } catch (broadcastErr) {
+        console.warn('SW: activation reload broadcast skipped:', broadcastErr);
+      }
     } catch (error) {
       console.error("Error during activation:", error);
       throw error;
@@ -242,8 +287,11 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith((async () => {
     try {
-      // Check cache first
-      const cachedResponse = await caches.match(event.request);
+      // Scope to the current CACHE_NAME. Without this, an unscoped
+      // caches.match() falls back to ANY cache the browser holds,
+      // including older sw_version caches that activate is supposed to
+      // have evicted but might still exist if activation hasn't run yet.
+      const cachedResponse = await caches.match(event.request, { cacheName: CACHE_NAME });
       if (cachedResponse) {
         return cachedResponse;
       }

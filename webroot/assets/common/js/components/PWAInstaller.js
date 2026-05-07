@@ -1431,20 +1431,37 @@ async function handlePendingNotifications() {
     }
 }
 
+// Time-bound the in-flight reload guard. If a prior reload never made it
+// to DOMContentLoaded (BFCache transition, navigation cancelled, crash
+// mid-reload, hidden-tab throttling), the flag would otherwise stick
+// forever and silently drop every subsequent NOTIFICATION_CLICK — leaving
+// the participant on a stale unit page. 10s is comfortably longer than any
+// legitimate reload but short enough that the next push retry recovers.
+const HANDLING_RELOAD_STALE_MS = 10_000;
+
 function reload_invalidated(timestamp) {
     localStorage.setItem('state-invalidated', timestamp);
-    if(!localStorage.getItem('handling-reload') &&
+    const handlingRaw = localStorage.getItem('handling-reload');
+    const handlingTs = parseInt(handlingRaw, 10);
+    const handlingFresh = handlingRaw && Number.isFinite(handlingTs) &&
+        (Date.now() - handlingTs < HANDLING_RELOAD_STALE_MS);
+    if(!handlingFresh &&
         (!localStorage.getItem('last-reload-timestamp') || timestamp > parseInt(localStorage.getItem('last-reload-timestamp'), 10))) {
       localStorage.setItem('last-reload-timestamp', Date.now() + 200);
-      localStorage.setItem('handling-reload', 'true');
+      localStorage.setItem('handling-reload', String(Date.now()));
       setTimeout(() => {
         console.log('Reloading page at', timestamp);
-        if (isIOSDevice()) {
-            window.focus();
-            window.location.href = window.location.href;
-        } else {
-            window.location.reload();
-        }
+        // window.location.reload() is the spec'd reload that works on
+        // every engine. The previous iOS branch used
+        //   window.focus(); window.location.href = window.location.href
+        // which had two failure modes on iOS Safari standalone PWAs:
+        //   - window.focus() is a no-op outside a user-gesture context
+        //     and we're inside a setTimeout callback,
+        //   - assigning window.location.href to a byte-identical URL is
+        //     sometimes optimized away (no navigation triggered).
+        // Symptom: tapping a push notification focused the PWA but the
+        // page never reloaded.
+        window.location.reload();
       }, 100);
     } else if(timestamp < parseInt(localStorage.getItem('last-reload-timestamp'), 10)) {
         localStorage.removeItem('state-invalidated');

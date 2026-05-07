@@ -118,6 +118,19 @@ if ('serviceWorker' in navigator && window.vapidPublicKey) {
                     console.log('Service Worker registered:', reg.scope);
                 } else {
                     console.log('Service Worker already registered:', existing.scope);
+                    // Explicitly trigger an update check on every page
+                    // load. The browser is supposed to do this implicitly
+                    // on navigation, but iOS Safari standalone PWAs are
+                    // famously lazy here — on a v6→v7 sw_version bump we
+                    // saw force-quit+reopen NOT fetch the new SW. update()
+                    // forces a byte-compare of the SW script and installs
+                    // a new worker if it differs. Cheap (no-op when no
+                    // change) and safe (returns the same registration).
+                    try {
+                        await existing.update();
+                    } catch (updateErr) {
+                        console.warn('Service Worker update check failed:', updateErr);
+                    }
                 }
                 const ready = await navigator.serviceWorker.ready;
                 if (!ready.active) return;
