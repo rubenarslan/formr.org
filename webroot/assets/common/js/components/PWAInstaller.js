@@ -1431,12 +1431,24 @@ async function handlePendingNotifications() {
     }
 }
 
+// Time-bound the in-flight reload guard. If a prior reload never made it
+// to DOMContentLoaded (BFCache transition, navigation cancelled, crash
+// mid-reload, hidden-tab throttling), the flag would otherwise stick
+// forever and silently drop every subsequent NOTIFICATION_CLICK — leaving
+// the participant on a stale unit page. 10s is comfortably longer than any
+// legitimate reload but short enough that the next push retry recovers.
+const HANDLING_RELOAD_STALE_MS = 10_000;
+
 function reload_invalidated(timestamp) {
     localStorage.setItem('state-invalidated', timestamp);
-    if(!localStorage.getItem('handling-reload') &&
+    const handlingRaw = localStorage.getItem('handling-reload');
+    const handlingTs = parseInt(handlingRaw, 10);
+    const handlingFresh = handlingRaw && Number.isFinite(handlingTs) &&
+        (Date.now() - handlingTs < HANDLING_RELOAD_STALE_MS);
+    if(!handlingFresh &&
         (!localStorage.getItem('last-reload-timestamp') || timestamp > parseInt(localStorage.getItem('last-reload-timestamp'), 10))) {
       localStorage.setItem('last-reload-timestamp', Date.now() + 200);
-      localStorage.setItem('handling-reload', 'true');
+      localStorage.setItem('handling-reload', String(Date.now()));
       setTimeout(() => {
         console.log('Reloading page at', timestamp);
         if (isIOSDevice()) {
