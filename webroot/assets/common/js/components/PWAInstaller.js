@@ -1451,12 +1451,17 @@ function reload_invalidated(timestamp) {
       localStorage.setItem('handling-reload', String(Date.now()));
       setTimeout(() => {
         console.log('Reloading page at', timestamp);
-        if (isIOSDevice()) {
-            window.focus();
-            window.location.href = window.location.href;
-        } else {
-            window.location.reload();
-        }
+        // window.location.reload() is the spec'd reload that works on
+        // every engine. The previous iOS branch used
+        //   window.focus(); window.location.href = window.location.href
+        // which had two failure modes on iOS Safari standalone PWAs:
+        //   - window.focus() is a no-op outside a user-gesture context
+        //     and we're inside a setTimeout callback,
+        //   - assigning window.location.href to a byte-identical URL is
+        //     sometimes optimized away (no navigation triggered).
+        // Symptom: tapping a push notification focused the PWA but the
+        // page never reloaded.
+        window.location.reload();
       }, 100);
     } else if(timestamp < parseInt(localStorage.getItem('last-reload-timestamp'), 10)) {
         localStorage.removeItem('state-invalidated');
