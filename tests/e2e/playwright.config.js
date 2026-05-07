@@ -58,7 +58,12 @@ module.exports = defineConfig({
         trace: RUNNING_ON_BS ? 'off' : 'retain-on-failure',
         screenshot: 'only-on-failure',
         video: 'retain-on-failure',
-        ignoreHTTPSErrors: true,
+        // BS rejects ignoreHTTPSErrors on real iOS contexts unless the
+        // matching native capability `acceptInsecureCerts` is set; for our
+        // dev fixtures (study.researchmixtape.com — real Let's Encrypt
+        // cert) this option is unnecessary anyway. Keep it on for local-
+        // chromium where it occasionally helps with self-signed dev URLs.
+        ignoreHTTPSErrors: !RUNNING_ON_BS,
         // SW block is a local-Chromium hack — Playwright's CDP target hangs
         // waiting on something the dev SW does. Real devices via BS don't
         // have that pathology and we WANT the SW to load there to verify
