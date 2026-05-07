@@ -50,7 +50,9 @@ jobs:
       # gitignored). Seed it from config-dist so PHPUnit can bootstrap.
       # Crypto::setup() lazily generates formr-crypto.key on first call.
       - name: Seed config from dist
-        run: cp config-dist/settings.php config/settings.php
+        run: |
+          mkdir -p config
+          cp config-dist/settings.php config/settings.php
 
       # Excludes @group integration: tests that need a live DB / OpenCPU /
       # web server (FirstTest, OpenCPUTest, PushNotificationExpireSubscriptionTest).
