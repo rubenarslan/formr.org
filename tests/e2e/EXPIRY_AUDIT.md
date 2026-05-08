@@ -180,6 +180,13 @@ multiplicative source of unexpected expiration.
 `getUnitSessionExpirationData()` and only `expire()` if the calc still
 says expired. Otherwise, re-queue with the new `expires`.
 
+**Status: deferred indefinitely** (decision 2026-05-08). Adds an
+OpenCPU eval per Pause queue tick across the whole queue daemon, in
+exchange for closing a small residual drift window that Fix 3 already
+makes negligible in steady-state. Not worth the per-tick cost; revisit
+only if a participant-visible artefact attributable to this drift
+gets reported.
+
 ---
 
 ## 6. `Pause::wait_minutes=0` vs `wait_minutes=NULL` (incl. AMOR's `''`)
