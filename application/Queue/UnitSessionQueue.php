@@ -21,6 +21,15 @@ class UnitSessionQueue extends Queue {
         parent::__construct($db, $config);
     }
 
+    /**
+     * Process the queue exactly once and return. Used by tests
+     * (`bin/queue.php -t UnitSession --once`) to drive the daemon
+     * deterministically; no sleeps, no restart-supervisor behaviour.
+     */
+    public function runOnce() {
+        $this->processQueue();
+    }
+
     public function run() {
         if (empty($this->config['use_queue'])) {
             throw new Exception('Explicitely configure $settings[unit_session][use_queue] to TRUE in order to use DB queuing.');

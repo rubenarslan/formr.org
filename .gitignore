@@ -57,6 +57,12 @@ playwright-report/
 test-results/
 tests/e2e/setup/admin-state.json
 
+# Run exports and other prod artefacts that get dropped into tests/e2e/
+# for ad-hoc analysis (admin Run-export JSONs, sanitised DB dumps, etc.).
+# The exports contain participant tokens and study content; never commit.
+tests/e2e/*.json
+!tests/e2e/playwright.config.json
+
 # browserstack-node-sdk runtime logs + temp files
 log/
 playwright-browserstack-sdk.config.temp.json

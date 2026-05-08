@@ -2,6 +2,26 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.25.6] - 08.05.2026
+### Fixes
+- **Survey expiry algorithm rewrite** to match the [Expiry wiki spec](https://github.com/rubenarslan/formr.org/wiki/Expiry). The pre-fix code walked three rules (inactivity, start-window, grace) in fixed order with each *overwriting* the previous; the rewrite combines them per the wiki's pre/post-access formula (pre-access: `invitation+X`; post-access: `MIN(invitation+X+Y, last_active+Z)`). Eliminates the originally-reported bug where surveys with `X=60, Y=0, Z=0` expired participants who were actively editing. `application/Model/RunUnit/Survey.php`.
+- **Cron stale-reference branch no longer advances the run.** When the queue daemon picks up a unit-session whose run-session has already moved past it, `RunSession::execute()` previously called `removeItem()` AND `moveOn()` — the moveOn cascaded `createUnitSession` calls past the participant's still-active unit, and the supersede side-effect orphaned that active unit's queue entry. Symptom A in the wild: `ended IS NULL, expired IS NULL, queued = -9` while the participant was mid-survey. Now drops the stale reference and stops; active unit-session preserved. `application/Model/RunSession.php:247-251`.
+- **Supersede side-effect scoped to same `unit_id`.** `UnitSession::create()` flipped *every* queued sibling in the run-session to `queued=-9`, regardless of unit. The blanket scope amplified the cron-stale-reference orphan path and could clobber unrelated queued ESM Surveys during a moveOn cascade. Now scopes the supersede WHERE clause to `unit_id = $this->runUnit->id`, catching only genuine duplicates from back-jumps. `application/Model/UnitSession.php:66-70`.
+- **`getCurrentUnitSession` excludes superseded siblings.** The query filtered on `ended IS NULL AND expired IS NULL` but not on `queued`, so once an active sibling's `ended` got set, ORDER BY id DESC LIMIT 1 returned the older `queued=-9` ghost. Adds `queued != -9` to the WHERE. `application/Model/RunSession.php:446`.
+
+### Hygiene
+- `UnitSession::end()` now resets `queued = 0` symmetrically with `expire()`. Pre-fix the asymmetry was masked by the queue daemon's `removeItem` post-end, but exposed in admin / dangling-end / participant flows — leaving `ended IS NOT NULL AND queued != 0` rows that the next `createUnitSession` would supersede.
+- `UnitSession::end()` honours an explicit `$reason` argument for Survey/External (was hardcoded to `'survey_ended'` / `'external_ended'`). Fixes the audit-trail issue where the queue's run-session-ended path passed `'ended_by_queue_rse'` and got it silently overwritten.
+- `getUnitSessionFirstVisit`/`LastVisit` now accept an optional bind-params array, so the `survey_items_display.saved != ...` WHERE clause uses a placeholder instead of string-concatenating `$unitSession->created`.
+
+### Tests + docs
+- 37-test e2e suite (`tests/e2e/{expiry-fixture,survey-symptoms,survey-expiry-matrix,survey-unfinished-pathways,survey-expiry-ui}.spec.js`) characterising the expiry algorithm, the four prod-reported symptom shapes, and the JS/UI drift surfaces. Drives via Playwright + a PHP fixture script (`bin/expiry_fixture.php`) and a diagnostic helper (`bin/expiry_compute.php`).
+- `tests/e2e/EXPIRY_AUDIT.md` — 14-section audit document mapping every wiki↔code divergence, each Symptom-A/B/D pathway, and follow-up fix shapes. `tests/e2e/EXPIRY_PLAN.md` — fix-order rationale.
+- `tests/e2e/prod_expiry_audit.sql` — 9-section diagnostic for re-running on the prod DB to verify orphan-count drop 7-14 days post-deploy.
+
+### Internal
+- `bin/queue.php` gains a `--once` flag (and `UnitSessionQueue::runOnce()`) for deterministic test driving — runs `processQueue()` exactly once, no daemon loop.
+
 ## [v0.25.5] - 07.05.2026
 ### Fixes
 - iOS standalone PWAs: tapping a push notification now reloads the open PWA. The previous iOS-specific reload technique (`window.focus(); window.location.href = window.location.href`) was a no-op on iOS — `window.focus()` outside a user gesture does nothing, and assigning `location.href` to a byte-identical URL gets optimised away. Replaced with `window.location.reload()` (works on every engine).

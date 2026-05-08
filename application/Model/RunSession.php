@@ -245,9 +245,21 @@ class RunSession extends Model {
                     return $this->moveOn();
                 }
             } elseif ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id != $currentUnitSession->id) {
-                // if $currenUnitSession is not identical to the $referenceUnitSession sent by queue then something went terribly bad
+                // The queue handed us a stale reference: its unit-session
+                // is no longer the active one for this run-session (the
+                // run advanced past it via a prior cron tick or a back-jump).
+                // Drop the reference and stop here. The active unit-session
+                // is legitimate; the cron has nothing to do for THIS reference.
+                //
+                // Pre-fix this branch called moveOn() — which advanced the
+                // run-session's position past the active unit AND triggered
+                // a createUnitSession that supersede'd the active unit's
+                // queue entry to queued=-9. That's how participants who were
+                // mid-survey ended up orphaned (`ended IS NULL, expired IS
+                // NULL, queued = -9, results-row populated`). See
+                // tests/e2e/EXPIRY_PLAN.md "Fix 1".
                 UnitSessionQueue::removeItem($referenceUnitSession->id);
-                return $this->moveOn();
+                return ['body' => ''];
             }
 
             $this->debug('Current Unit Is ' . ($currentUnitSession ? $currentUnitSession->runUnit->type : '[none]'), true);
@@ -432,6 +444,15 @@ class RunSession extends Model {
                 ->where('survey_unit_sessions.run_session_id = :run_session_id')
                 ->where('survey_unit_sessions.unit_id = :unit_id')
                 ->where('survey_unit_sessions.ended IS NULL AND survey_unit_sessions.expired IS NULL') //so we know when to runToNextUnit
+                // Exclude superseded siblings (queued=-9 set by
+                // UnitSession::create()'s same-unit_id supersede). Pre-fix
+                // a back-jump iteration created Pause(N)#new which flipped
+                // Pause(N)#old to queued=-9 (ended/expired stayed NULL).
+                // Once #new's `ended` got set, ORDER BY id DESC LIMIT 1
+                // started returning #old — a row that was conceptually
+                // "done" but didn't carry an `ended`/`expired` timestamp.
+                // See tests/e2e/EXPIRY_AUDIT.md §11.
+                ->where('survey_unit_sessions.queued != -9')
                 ->bindParams(array('run_session_id' => $this->id, 'unit_id' => $this->getUnitIdAtPosition($this->position)))
                 ->order('survey_unit_sessions`.id', 'desc')
                 ->limit(1);

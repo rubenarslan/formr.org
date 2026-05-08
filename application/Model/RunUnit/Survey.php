@@ -114,74 +114,129 @@ class Survey extends RunUnit {
     }
 
     public function getUnitSessionExpirationData(UnitSession $unitSession) {
-        $data = [];
+        // Combines the three Access Window settings per the wiki spec
+        // (https://github.com/rubenarslan/formr.org/wiki/Expiry):
+        //
+        //   pre-access (no first_submit yet):
+        //     X > 0        ⇒ deadline = invitation + X
+        //     X = 0        ⇒ never expires (user "kept here forever")
+        //
+        //   post-access (user has submitted at least one real item):
+        //     Y = 0, Z = 0 ⇒ never expires
+        //     Y > 0, Z = 0 ⇒ deadline = invitation + X + Y    (hard cap)
+        //     Y = 0, Z > 0 ⇒ deadline = last_active + Z       (sliding)
+        //     Y > 0, Z > 0 ⇒ deadline = MIN(invite+X+Y, last_active+Z)
+        //
+        // Pre-fix the rules ran in fixed order with each one *overwriting*
+        // the previous, which (a) made X-rule fire unconditionally even
+        // for users in the middle of editing (W4.a — the prod-reported
+        // bug) and (b) anchored the grace block on first_submit instead
+        // of invitation+X, so early starters got less total time than
+        // late starters. See tests/e2e/EXPIRY_PLAN.md "Fix 3" and the
+        // wiki-cell matrix in tests/e2e/survey-expiry-matrix.spec.js.
+        $X = (int) $this->surveyStudy->expire_invitation_after;
+        $Y = (int) $this->surveyStudy->expire_invitation_grace;
+        $Z = (int) $this->surveyStudy->expire_after;
 
-        $expire_invitation = (int) $this->surveyStudy->expire_invitation_after;
-        $grace_period = (int) $this->surveyStudy->expire_invitation_grace;
-        $expire_inactivity = (int) $this->surveyStudy->expire_after;
-
-        if ($expire_inactivity === 0 && $expire_invitation === 0) {
-            return $data;
-        } else {
-            $now = time();
-
-			// Expire if the user started filling the survey and then stopped
-			// This uses "Inactivity Expiration" but can be overriden by "Start editing within"
-            $last_active = $this->getUnitSessionLastVisit($unitSession);
-            $expires = $expire_invitation_time = $expire_inactivity_time = 0;
-            if ($expire_inactivity !== 0 && $last_active != null && strtotime($last_active)) {
-                $expires = strtotime($last_active) + ($expire_inactivity * 60);
-            }
-			
-			// Get expiration time based on when invitation was sent or user arrived in unit but not reacted
-			// This uses "Start editing within"
-            $invitation_sent = $unitSession->created;
-            if ($expire_invitation !== 0 && $invitation_sent && strtotime($invitation_sent)) {
-                $expires = strtotime($invitation_sent) + ($expire_invitation * 60);
-            }
-
-			// Get expiration time if user already started filling and there is a maximum time to spend on the survey
-			// This uses "finishing editing within"
-			$first_active = $this->getUnitSessionFirstVisit($unitSession);
-			$first_submit = $this->getUnitSessionFirstVisit($unitSession, 'survey_items_display.saved != "' . $invitation_sent . '"');
-
-			if ($last_active && $last_active != $invitation_sent && 
-				$grace_period !== 0 && 
-				$first_active != null && strtotime($first_active) &&
-				$first_submit != null && strtotime($first_submit) &&
-                strtotime($first_submit) - strtotime($invitation_sent) > 2
-			) {
-				$expires = strtotime($first_submit) + ($grace_period * 60);
-            }
-
-            $data['expires'] = max(0, $expires);
-            $data['expired'] = ($data['expires'] > 0) && ($now > $data['expires']);
-            $data['queued'] = UnitSessionQueue::QUEUED_TO_END;
-
-            return $data;
+        if ($X === 0 && $Z === 0) {
+            // No deadline either pre- or post-access. Y alone is degenerate
+            // (the wiki doesn't define behaviour for it — Y is always
+            // measured relative to X-anchored windows). Returning empty
+            // signals "no expiry" to UnitSession::isExpired so the queue
+            // doesn't get a stored expires for this unit.
+            return [];
         }
+
+        $now = time();
+        $invitation_sent_str = $unitSession->created;
+        $invitation_sent = $invitation_sent_str ? strtotime($invitation_sent_str) : 0;
+
+        // first_submit = the earliest items_display.saved that is NOT the
+        // bulk auto-save at invitation_sent and is more than 2 s after
+        // invitation_sent (so auto-fill items like browser/IP saved
+        // synchronously with createSurveyStudyRecord don't count as
+        // "started editing").
+        $first_submit_str = $invitation_sent_str
+            ? $this->getUnitSessionFirstVisit(
+                $unitSession,
+                'survey_items_display.saved != :invitation_sent',
+                ['invitation_sent' => $invitation_sent_str]
+            )
+            : null;
+        $started = false;
+        if ($first_submit_str !== null && strtotime($first_submit_str)) {
+            $started = (strtotime($first_submit_str) - $invitation_sent) > 2;
+        }
+
+        $expires = 0;
+        if (!$started) {
+            // Pre-access: only X applies. Z would only apply post-access
+            // per the wiki — applying Z pre-access via the items_display
+            // .created fallback (which approximately equals invitation_sent)
+            // would just clip to invitation+Z, which the wiki does NOT
+            // specify and which broke W5.a.
+            if ($X > 0 && $invitation_sent) {
+                $expires = $invitation_sent + $X * 60;
+            }
+        } else {
+            // Post-access: combine Y and Z with MIN, fall back to "never"
+            // if both are zero.
+            $candidates = [];
+            if ($Y > 0 && $invitation_sent) {
+                // Wiki: "users that accessed your survey have at most
+                // X+Y minutes to fill out the survey". Anchored on
+                // invitation, NOT on first_submit (which would punish
+                // early starters).
+                $candidates[] = $invitation_sent + ($X + $Y) * 60;
+            }
+            if ($Z > 0) {
+                $last_active_str = $this->getUnitSessionLastVisit($unitSession);
+                if ($last_active_str !== null && strtotime($last_active_str)) {
+                    $candidates[] = strtotime($last_active_str) + $Z * 60;
+                }
+            }
+            if ($candidates) {
+                $expires = min($candidates);
+            }
+        }
+
+        return [
+            'expires' => max(0, $expires),
+            'expired' => ($expires > 0) && ($now > $expires),
+            'queued'  => UnitSessionQueue::QUEUED_TO_END,
+        ];
     }
 
-    public function getUnitSessionLastVisit(UnitSession $unitSession, $order = 'desc', $where = null) {
-        // use created (item render time) if viewed time is lacking
-        $arr = $this->db->select(array('COALESCE(`survey_items_display`.saved,`survey_items_display`.created)' => 'last_viewed'))
+    public function getUnitSessionLastVisit(UnitSession $unitSession, $order = 'desc', $where = null, array $whereBinds = []) {
+        // use created (item render time) if viewed time is lacking.
+        // $where: optional extra WHERE fragment with `:placeholder`s.
+        // $whereBinds: associative array of bind values for those
+        // placeholders. Pre-fix the caller interpolated values into
+        // $where directly — fine for current callers (DB-sourced
+        // values only) but a bad pattern. See EXPIRY_AUDIT.md §1's
+        // "pre-existing pattern propagated" note.
+        $query = $this->db->select(array('COALESCE(`survey_items_display`.saved,`survey_items_display`.created)' => 'last_viewed'))
                 ->from('survey_items_display')
                 ->leftJoin('survey_items', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
                 ->where('survey_items_display.session_id IS NOT NULL')
                 ->where('survey_items.study_id = :study_id')
-				->where($where ? $where : '1=1')
+                ->where($where ? $where : '1=1')
                 ->order('survey_items_display.saved', $order)
                 ->order('survey_items_display.created', $order)
                 ->limit(1)
-                ->bindParams(array('session_id' => $unitSession->id, 'study_id' => $this->surveyStudy->id))
-                ->fetch();
+                ->bindParams(array('session_id' => $unitSession->id, 'study_id' => $this->surveyStudy->id));
 
+        if ($whereBinds) {
+            $query->bindParams($whereBinds);
+        }
+
+        $arr = $query->fetch();
         return isset($arr['last_viewed']) ? $arr['last_viewed'] : null;
     }
-	
-	function getUnitSessionFirstVisit(UnitSession $unitSession, $where = null) {
-		return $this->getUnitSessionLastVisit($unitSession, 'asc', $where);
-	}
+
+    public function getUnitSessionFirstVisit(UnitSession $unitSession, $where = null, array $whereBinds = []) {
+        return $this->getUnitSessionLastVisit($unitSession, 'asc', $where, $whereBinds);
+    }
 
     public function getUnitSessionOutput(UnitSession $unitSession) {
         try {
