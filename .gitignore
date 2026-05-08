@@ -56,6 +56,7 @@ feature_diff.patch
 playwright-report/
 test-results/
 tests/e2e/setup/admin-state.json
+tests/e2e/setup/pwa-test-code.txt
 
 # browserstack-node-sdk runtime logs + temp files
 log/

@@ -25,6 +25,7 @@
 //     tests/pwa_manifest_smoke.sh.
 
 const { test, expect } = require('./helpers/test');
+const { getPwaTestCode } = require('./helpers/pwa-test-code');
 
 // e2e-pwa-h-v1 chosen as the default fixture because (a) it has a
 // generated manifest_json_path on dev (so the manifest link is emitted
@@ -33,10 +34,10 @@ const { test, expect } = require('./helpers/test');
 // renders, which makes the recovery-banner specs untestable). Override
 // PWA_TEST_RUN to point at a different fixture if needed.
 const RUN = process.env.PWA_TEST_RUN || 'e2e-pwa-h-v1';
-const CODE = process.env.PWA_TEST_CODE;
+const CODE = getPwaTestCode();
 
 test.describe('PWA manifest personalization', () => {
-    test.skip(!CODE, 'PWA_TEST_CODE env var not set; skipping manifest personalization suite');
+    test.skip(!CODE, 'PWA_TEST_CODE not bootstrapped; global-setup could not mint a code on this run.');
 
     test('clean fetch returns un-tokenized URLs and correct headers', async ({ request, baseURL }) => {
         const res = await request.get(`${baseURL}/${RUN}/manifest`);

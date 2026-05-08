@@ -20,12 +20,13 @@
 // commit-message notes on that limitation.
 
 const { test, expect } = require('./helpers/test');
+const { getPwaTestCode } = require('./helpers/pwa-test-code');
 
 // See pwa-manifest.spec.js for the e2e-pwa-h-v1 fixture rationale.
 // In short: we need a run whose bare URL renders the public/head
 // template (so vapidPublicKey is set and pwa-register.js loads).
 const RUN = process.env.PWA_TEST_RUN || 'e2e-pwa-h-v1';
-const CODE = process.env.PWA_TEST_CODE;
+const CODE = getPwaTestCode();
 
 // Override matchMedia so pwa-register.js sees `display-mode: standalone`
 // regardless of the actual browser context. We also flip
@@ -55,7 +56,7 @@ const STANDALONE_INIT = `
 `;
 
 test.describe('PWA recovery flows', () => {
-    test.skip(!CODE, 'PWA_TEST_CODE env var not set; skipping recovery suite');
+    test.skip(!CODE, 'PWA_TEST_CODE not bootstrapped; global-setup could not mint a code on this run.');
 
     test('cookie self-heal redirects bare URL to ?code= when cookie identifies a participant in this run', async ({ page, context, baseURL }) => {
         // Establish the cookie via a tokenized visit first.
