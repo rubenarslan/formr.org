@@ -238,6 +238,252 @@ ranking the active drop pathways for AMOR in priority order:
 
 ---
 
+## 11. `getCurrentUnitSession` callers and the at-most-one assumption
+
+`RunSession::getCurrentUnitSession()` at `RunSession.php:426-462`:
+
+```php
+->where('survey_unit_sessions.run_session_id = :run_session_id')
+->where('survey_unit_sessions.unit_id = :unit_id')
+->where('survey_unit_sessions.ended IS NULL AND survey_unit_sessions.expired IS NULL')
+->order('survey_unit_sessions.id', 'desc')
+->limit(1);
+```
+
+Returns the LATEST active unit-session for the unit at the run's
+current position. The WHERE clause filters by `ended IS NULL AND
+expired IS NULL` but **does NOT filter on `queued`**. Phase-4 U10
+demonstrated multiple-active-unit-sessions-for-the-same-unit-id is
+reachable: a SkipBackward / `runTo` creates a new unit-session,
+`UnitSession::create()`'s supersede flips the *previous* one's
+`queued` to -9 — but leaves `ended` and `expired` NULL. Both rows
+match getCurrentUnitSession's filter. Only the latest is returned;
+the older "superseded" sibling is invisible to every caller.
+
+### Callers and risk
+
+| File:line | Caller | Action on returned unit-session | Older active siblings |
+|---|---|---|---|
+| `RunSession.php:239` | `execute()` (cron + participant) | Compares id against `referenceUnitSession->id` for END-q branch (`:242`) and stale-reference branch (`:247`). | Older sibling never participates in END-q. Could be re-snapshotted by queue forever (queued=-9 excludes from queue WHERE, so safe) — but if queued were somehow > 0, the stale-reference branch would fire each tick. |
+| `RunSession.php:382` | `forceTo()` (admin send-to-position) | Calls `end()` then sets `result='manual_admin_push'` and `logResult()`. | Older sibling stays untouched. |
+| `RunSession.php:465` | `endCurrentUnitSession()` (queue END-q + admin nextInRun) | For Survey/External: `expire()`. Else: `end($reason)`. | Older sibling stays at `ended/expired NULL` forever. |
+| `AdminAjaxController.php:210` | `ajaxSnipUnitSession()` (admin "snip") | Deletes the latest active row. | Older sibling stays as the new "current". The admin thinks they cleared the position; actually shifted to the previous one. |
+| `Helper/RunHelper.php:79` | `nextInRun()` (admin "next in run") | Calls `end('moved')` then `moveOn()`. | Older sibling untouched. |
+| `Helper/RunHelper.php:106` | `snipUnitSession()` (admin "snip" via Helper) | Same as `ajaxSnipUnitSession`. | Older sibling untouched. |
+
+### Severity tag
+
+**silent-data-corruption** for all six callers. Older active siblings
+are left in `ended/expired NULL, queued=-9` state — the Symptom-A
+shape from the prod report. With Fix 2 (scoping the supersede to
+same `unit_id`) the *cross*-unit case is no longer affected. But
+the *same*-unit case (back-jump duplicates) still produces multiple
+actives, and the supersede only reaches `queued`, not `ended`.
+
+### Reproducible example: U10's two-actives shape
+
+After U10's setup, `survey_unit_sessions` has two rows for the same
+Pause unit_id: `(ps1: queued=-9, ended=NULL, expired=NULL)` and
+`(ps2: queued=2, ended=NULL, expired=NULL)`. `getCurrentUnitSession()`
+returns ps2 (latest by id). ps1 is invisible to:
+- `execute()` → ps1 never gets ended, never gets expired.
+- `endCurrentUnitSession()` / admin actions → only ps2 gets ended.
+
+ps1 sits forever in non-terminal limbo. Cron's queue WHERE
+(`queued > 0`) excludes it because queued=-9 — so it doesn't cause
+ongoing churn. But `Run::deleteRunData` and similar full-data
+operations need to handle these orphans correctly.
+
+### Fix shapes
+
+Two candidates, in increasing order of intrusiveness:
+
+1. **Tighten the WHERE clause** (1 line): add `survey_unit_sessions.queued != -9` to the
+   filter. Excludes superseded siblings cleanly. Doesn't change the
+   semantics of `getCurrentUnitSession()` for code that relies on
+   "latest active"; just makes "active" mean "active and not superseded".
+   Wouldn't fix the underlying "ended/expired NULL but supersede'd"
+   ambiguity but masks the symptom for the six callers.
+
+2. **Make supersede also set `ended` or a new `superseded` column**
+   (small migration + ~5 lines in `UnitSession::create`): treats
+   supersede as a terminal state. `getCurrentUnitSession` then
+   correctly excludes them by the existing `ended IS NULL` filter,
+   no WHERE-clause change needed. Bigger change but cleans up the
+   data shape — a Symptom-A `queued=-9, ended=NULL, expired=NULL`
+   row would no longer be possible.
+
+Recommended for the next branch: **option 1 in this branch**
+(minimal, surgical), **option 2 in a follow-up state-machine
+refactor** (bigger blast radius, deserves its own focus).
+
+### Carry to fix-order section
+
+If we extend the recommended fix order with this finding, it slots
+in between current fixes #2 (supersede side-effect) and #3 (queue
+trusts stored expires). Severity is below the user-visible symptoms
+already addressed; impact is mostly admin-action correctness and
+audit-trail cleanliness.
+
+---
+
+## 12. Pause / Branch spec-vs-impl read
+
+Companion to §1 (which covered Survey). Same overwrite-not-combine
+interaction analysis applied to `Pause::getUnitSessionExpirationData`
+and `Branch::getUnitSessionExpirationData`.
+
+### Pause: three inputs, two SQL branches, one "next day" override
+
+`Pause::getUnitSessionExpirationData` at `Pause.php:110-252` reads
+three inputs (`relative_to`, `wait_minutes`, `wait_until_time` /
+`wait_until_date`) and drives one of three code paths plus a
+common SQL truth-table evaluator at `:228-244`:
+
+| Branch | Trigger | Effect on `$data['expires']` |
+|---|---|---|
+| `:148` "relative_to without wait_minutes" | `has_relative_to && !has_wait_minutes` | If R returns `true` / `false` → `expire_relatively=true`/`false`, `$expires` left empty (SQL test resolves it). If R returns a timestamp → `$expires = strtotime($relative_to)`. If R returns garbage → `check_failed=true`, return early. |
+| `:175` "wait_minutes" | `has_wait_minutes` | If `relative_to` resolves to a timestamp → `$expires = strtotime($relative_to) + wait_minutes*60`. Else `check_failed=true`, return early. |
+| `:209` "wait_until_*" | `wait_date && wait_time && empty(expires)` | Only fires if NEITHER of the above branches set `expires`. Sets `$expires = strtotime("$wait_date $wait_time")`. |
+
+**Subtle interaction**: the `:209` block has `&& empty($data['expires'])`,
+so when `relative_to` already set expires, `wait_until_*` is silently
+ignored. An admin who sets all three fields might expect "MIN of all"
+or "AND of all"; they get whichever branch ran first.
+
+**`:217` "next day" override**: if `wait_until_time` was set and
+`wait_until_date` was NOT (the `!$wait_date_defined` guard), and the
+participant arrived AFTER the time-of-day, expires is bumped 24h
+forward. The implication for U12-style wall-clock ESM Pauses:
+participants who reach a Pause AFTER its target time-of-day get
+"snoozed to the same time tomorrow", which may or may not be the
+intent. The wiki / help text don't cover this.
+
+**Severity**: silent-data-corruption (admin misconfiguration with
+all three fields set) — low blast radius. The `:217` next-day
+override is **UX-visible** but documented behavior in
+`templates/admin/run/units/pause.tpl` (per a quick check).
+
+**Dispatcher convergence with Survey** (`:249`): `$data['end_session']
+= $data['expired'] = $result` — both flags set together. Same
+dispatcher quirk we documented at audit §3 / D1 / D2: `expire()` wins
+the elseif chain at `RunSession.php:311-316`. So Pauses that "end via
+this path" actually have `expired=NOW`, not `ended=NOW`. Already in
+the audit's prod-query advice.
+
+### Branch: clean dispatch but cron/participant fork
+
+`Branch::getUnitSessionExpirationData` at `Branch.php:118-167` is
+simpler: evaluate condition via OpenCPU, get TRUE/FALSE/NULL.
+
+| Result | Dispatch | Runtime |
+|---|---|---|
+| `TRUE` and (`automatically_jump` OR participant request) | `end_session=true; run_to=if_true` → `runTo($if_true)` | Jumps to target position. |
+| `FALSE` and (`automatically_go_on` OR participant request) | `end_session=true; move_on=true` → `moveOn()` | Falls through to next position. |
+| Other (NULL, check_failed) | `check_failed=true` | UnitSession::isExpired re-queues with `expiration_extension` (default `+10 minutes`). |
+
+**Cron/participant fork**: if `automatically_jump` or
+`automatically_go_on` is FALSE AND the request is cron-driven
+(`isExecutedByCron()` true), the branch *waits* (returns
+check_failed). If the same request comes from the participant, the
+branch fires. The intent is "auto-step only when admin opted in"
+but it interacts with multi-tick processing in subtle ways: a
+cron-snapshotted reference fires the wait on tick N, the next tick's
+re-snapshot might evaluate differently if the underlying R data
+changed.
+
+**Severity**: metric-only — the wait-and-retry design absorbs most
+of the variance.
+
+---
+
+## 13. ExpiryNotifier vs server: drift points
+
+Companion to §11 (`getCurrentUnitSession`). Phase-5 J5 confirmed
+that `head.php:80-93` re-emits `unit_session_expires` from the
+fresh `survey_unit_sessions.expires` value on **every** render —
+which means the server-side `queue()` running during `execute()`
+always normalises the column to the algorithm's current verdict
+before the page renders. So the only drift between client and
+server is *within a single rendered page*, not across renders.
+
+### Within-render drift sources
+
+| Source | When | Magnitude |
+|---|---|---|
+| `last_active+Z` slides as the user types | Z>0 set; user types but doesn't re-render | seconds → minutes per typing burst |
+| `first_submit` becomes non-null on first POST | Y>0 set; first POST in a multi-page survey | one-time; deadline shifts post-access |
+| `created` change (admin-only) | admin force-edits row | rare |
+| Cron tick recomputes & writes new expires | Z>0 + queue picks up the row + re-queues | one tick window |
+
+J2 in `survey-expiry-ui.spec.js` exercises the basic case: client
+modal fires on the originally-rendered timestamp regardless of
+server state. The drift is bounded — once the participant interacts
+(POST, page navigation), they get a fresh `unit_session_expires`.
+
+### Severity: **metric-only / UX-cosmetic**.
+
+Worst case: the participant sees the modal a few minutes earlier
+than they "really" should (server has slid the deadline later but
+client doesn't know). Reload re-syncs them. No data is lost.
+
+### Fix shape (deferred)
+
+Adding a periodic `setInterval(checkExpiry, 30s)` polling endpoint
+(GET `/run/<name>/expiry?code=...`) that returns the current server
+expires, with the client adjusting its scheduled timeout as needed,
+would close this drift. Not in scope for this branch.
+
+---
+
+## 14. Pause-skip "sixth path?" probe — deferred R-data inconsistency
+
+Five known Pause-skip surfaces (D-1 … D-5) characterised in §2 and
+in the spec files. The wiki/audit asked whether a sixth path
+existed: a queue-driven `execute()` hits a Pause whose `relative_to`
+references data that was inconsistent at queue-time and is now
+resolved.
+
+### Confirmed-reachable, characterised-but-not-tested
+
+`Pause::getUnitSessionExpirationData` at `:130-141` evaluates the R
+expression on every `execute()` call. There's no caching of the
+result; the queue's stored `expires` was the previous evaluation's
+output. If the R expression's data dependencies changed between
+the queue's snapshot and the current tick, the result changes.
+
+Specifically:
+- **First evaluation, data missing** (e.g., `last(survey_X$field)`
+  where `survey_X` has no rows yet) → R returns NA → PHP receives
+  null → `check_failed=true` → re-queue with `+10 min`.
+- **Subsequent evaluation, data present** (the participant has now
+  filled `survey_X`) → R returns a valid value → expires set
+  accordingly.
+
+If the new value resolves to a *past* timestamp, the Pause expires
+immediately on the next tick. **D-1 covers the boolean-true case;
+this sixth-path covers the timestamp-flip case.** The DB shape is
+identical to D-1 (`expired=NOW, result='expired', queued=0`).
+
+### Severity: **UX-cosmetic** (mostly).
+
+The participant whose Pause was extended by 10min then immediately
+expired on the next tick effectively got a small wait. They then
+proceed to the next unit. This is the "missed window" semantic
+working as designed — just with a small grace built in via the
+re-queue. No drop, no data loss.
+
+### Why not testing it
+
+A deterministic reproduction requires controlling OpenCPU's
+response between cron ticks. The dev OpenCPU is shared with other
+runs and can't be paused mid-eval. Worth a follow-up via either
+(a) a dedicated OpenCPU stub or (b) a Pause whose `relative_to` is
+mocked via a hardcoded short-circuit in `Pause.php:127` (already
+in place for `tail(survey_unit_sessions$created,1)` — could extend).
+
+---
+
 ## 8. Recommended fix order
 
 Ranked by {severity × blast_radius × code-change-size}:
@@ -286,17 +532,24 @@ Ranked by {severity × blast_radius × code-change-size}:
 A2 (Symptom A via dangling-end), B1 (Symptom B via end-on-never-visited),
 D1/D2/D3 (Pause skip variants), P4 (queued-asymmetry isolated).
 
-`tests/e2e/survey-expiry-matrix.spec.js` — Phase 3, 13 tests. 6 with
-`test.fail()` capturing wiki↔code divergences (W1.a, W1.b, W2.a, W2.b,
-W4.a, W5.a). 7 cleanly green (W3.a, W4.b, W5.b, W5.c, B2, B3, B4).
+`tests/e2e/survey-expiry-matrix.spec.js` — Phase 3, **15 tests** (was 13).
+All 15 wiki / boundary cells assert cleanly post-fix; W1.c and W3.b
+added in the carry-over branch.
 
-`tests/e2e/survey-unfinished-pathways.spec.js` — Phase 4, 6 tests.
-U10/U13 (supersede orphans), U11 (Pause two-paths equivalence), U12
-(Pause past timestamp), U9 (P10 — the AMOR-likely cause), U7 (validation
-race — skipped pending fixture extension).
+`tests/e2e/survey-unfinished-pathways.spec.js` — Phase 4, **8 tests**
+(was 6, plus U7 enabled). U10/U13 (supersede orphans), U11 (Pause
+two-paths equivalence), U12 (Pause past timestamp), U9 (P10), U7
+(validation race — now real, was skipped), U2 (admin removes unit),
+U5 (admin forceTo past unvisited Survey).
 
-**Total: 27 tests** (1 skipped, 6 expected-fail divergence-pinning,
-20 cleanly green).
+`tests/e2e/survey-expiry-ui.spec.js` — Phase 5, **5 tests** (new file).
+J1 (modal fires when client clock reaches expires), J2 (modal fires
+client-only without server tick), J3 (lock-timeout reload), J4
+(silent skip-after-expire), J5 (`window.unit_session_expires`
+self-correction across renders).
+
+**Total: 36 tests** all green (post-fix), 0 `test.fail()` annotations
+remaining, 0 skipped. Future regressions turn the suite RED.
 
 ---
 

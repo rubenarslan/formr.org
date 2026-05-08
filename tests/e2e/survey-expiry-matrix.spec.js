@@ -77,6 +77,27 @@ test.describe('Wiki spec compliance — survey expiry algorithm', () => {
         expect(e.expired, 'never-accessed user expires at invitation+X').toBe(true);
     });
 
+    test('W1.c — wiki #1 access at 6:50, fills 1 item per 10 min (interrupted at 7:30)', async () => {
+        // Wiki: hard X+Y cap at invitation+7:30. Snapshot at -7:35 with
+        // first_submit at -0:45 (= 6:50 elapsed since invitation, just
+        // started filling) and last_active at -0:05 (still active 5min
+        // ago).
+        // Post Fix-3: post-access path; Y=30, Z=0; deadline = invitation+X+Y
+        // = -0:05 ago. Already past → expired.
+        // Pre-fix: same expired result via the (different) first_submit+Y
+        // anchor. Right answer, wrong reason — captured here as a green
+        // test post-fix.
+        const f = await setup({ x: 420, y: 30, z: 0, items: 1 });
+        setUnitSessionCreated(f.unit_session_id, 455);                      // -7:35h
+        setItemsDisplaySaved(f.unit_session_id, 45, f.item_ids[0]);         // first_submit -0:45
+        const e = computeExpiry(f.unit_session_id);
+
+        expect(e.expired, 'invitation+X+Y deadline at -0:05 ago').toBe(true);
+        expect(e.ago_minutes, 'expired ~5min ago (X+Y=7:30 from invitation at -7:35)')
+            .toBeGreaterThan(0);
+        expect(e.ago_minutes, 'expired well within 10min window').toBeLessThan(15);
+    });
+
     // ---------------------------------------------------------------
     // Wiki Scenario #2: X=420, Y=0, Z=30
     // "Once started, can string out for hours via inactivity (Z slides)."
@@ -128,6 +149,28 @@ test.describe('Wiki spec compliance — survey expiry algorithm', () => {
         setItemsDisplaySaved(f.unit_session_id, 5, f.item_ids[0]);          // last_active 5min ago
         const e = computeExpiry(f.unit_session_id);
         expect(e.expired, 'single-item: both predict alive (175min ahead)').toBe(false);
+    });
+
+    test('W3.b — wiki #3 idle 40 min after access at 6:50 (Z floor expires at 7:20)', async () => {
+        // Wiki Scenario #3: X=420, Y=180, Z=30. User accesses at 6:50h
+        // (`first_submit ≈ last_active = -6:50h`), then idles. Wiki: Z=30
+        // floor fires at last_active+Z = -6:20h ago. Already past → expired.
+        // Post Fix-3: post-access; deadline = MIN(invitation+X+Y=10h ahead,
+        // last_active+Z=-6:20h ago) = -6:20h. Expired. Matches wiki.
+        const f = await setup({ x: 420, y: 180, z: 30, items: 1 });
+        setUnitSessionCreated(f.unit_session_id, 450);                      // -7:30h
+        // first_submit at -6:50h (10min after invitation). last_active also
+        // at -6:50h (no later activity — user idled). Single submit pin
+        // both timestamps to the same value.
+        setItemsDisplaySaved(f.unit_session_id, 410, f.item_ids[0]);        // -6:50h ago
+        const e = computeExpiry(f.unit_session_id);
+
+        expect(e.expired, 'last_active+Z = -6:20 ago → expired').toBe(true);
+        // Sanity: the deadline that fired should be Z (smaller of the two),
+        // not X+Y (still ~2.5h ahead).
+        expect(e.ago_minutes, 'Z-rule fired ~6:20 ago, not X+Y at 10:00')
+            .toBeGreaterThan(370);   // 6:10h ago = 370 min
+        expect(e.ago_minutes, 'within Z window').toBeLessThan(390);  // 6:30h ago
     });
 
     // ---------------------------------------------------------------

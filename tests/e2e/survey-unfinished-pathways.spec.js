@@ -179,21 +179,62 @@ echo $us->id . "\\n";
         expect(fresh.unit_id).not.toBe(queued.unit_id);
     });
 
-    test('U7 — validation failures do not advance first_submit (grace block does not fire)', async ({ baseURL, page }) => {
+    test('U7 — validation failures do not advance first_submit', async ({ baseURL, page }) => {
         // P7: updateSurveyStudyRecord at UnitSession.php:435-438 early-
         // returns on $this->errors before writing items_display.saved.
         // So a participant who hammers an invalid form does NOT count as
-        // "started editing" for the grace block. The user is still
-        // window-expired.
+        // "started editing" for the grace block.
         //
-        // Setup: X=60, Y=30, Z=0. Visit. Submit an invalid value for q1
-        // (we use a numeric type to make validation fail by submitting
-        // a non-numeric string).
-        // Hmm — q1 is a 'text' item by default in our fixture, which
-        // accepts anything. We need a type that validates. Skip this
-        // test for now (needs --item-type=number support in the fixture);
-        // tag as expected-fixed-pending.
-        test.skip(true, 'fixture does not yet support item types beyond text — needs follow-up');
+        // Test approach: provision X=60, Y=0, Z=0, items=1 (text required).
+        // Visit. The participant submits an empty value (validation fails
+        // because text item is required). Repeat 3x. Confirm
+        // items_display.saved is still NULL after the failed submits;
+        // the algorithm's pre-access path applies (deadline = invitation+X).
+        // After backdating to invitation -65min (5min past X=60),
+        // computeExpiry says expired=true. Then the participant submits
+        // a valid value; items_display.saved is set. The algorithm now
+        // sees first_submit > invitation+2s, switches to post-access,
+        // Y=0+Z=0 → no deadline. But the queue daemon's stored expires
+        // is still past — Survey is expirable. (Wiki-correct semantics:
+        // the algorithm honours the wiki, but the queue's stale expires
+        // means the participant who hammered for 60min is locked out.)
+        const f = await provision({ x: 60, y: 0, z: 0, items: 1, name: 'e2e-expiry-u7' });
+
+        await page.context().clearCookies();
+        await page.goto(`${baseURL}/${f.run_name}/?code=${f.code}`,
+            { waitUntil: 'load', timeout: 30000 });
+        await expect(page.locator('input[name="q1"]')).toBeVisible({ timeout: 10000 });
+
+        // Hammer empty submits — validation fails (q1 required, empty=invalid).
+        for (let i = 0; i < 3; i++) {
+            await page.locator('input[name="q1"]').fill('');
+            await Promise.all([
+                page.waitForLoadState('load', { timeout: 30000 }),
+                page.locator('input[type="submit"], button[type="submit"]').first().click(),
+            ]);
+        }
+
+        const usRow = dbQuery(
+            `SELECT us.id FROM survey_unit_sessions us
+             JOIN survey_units u ON u.id = us.unit_id AND u.type = 'Survey'
+             WHERE us.run_session_id = ${f.run_session_id}`
+        );
+        const usId = parseInt(usRow[0].id, 10);
+
+        // After hammering, items_display.saved should still be NULL
+        // (validation early-returned before saving). Confirms P7.
+        const itemsDisplaySaved = dbQuery(
+            `SELECT COUNT(*) AS cnt FROM survey_items_display
+             WHERE session_id = ${usId} AND saved IS NOT NULL`
+        );
+        expect(parseInt(itemsDisplaySaved[0].cnt, 10),
+            'failed submits do NOT write items_display.saved').toBe(0);
+
+        // Backdate so we're past invitation+X. Pre-access path should
+        // expire the Survey because first_submit is still NULL.
+        setUnitSessionCreated(usId, 65);  // 65 min ago, past X=60
+        const e = computeExpiry(usId);
+        expect(e.expired, 'pre-access X-rule fires when no first_submit ever recorded').toBe(true);
     });
 
     test('U9 — studyCompleted false-positive when items have show-if returning NULL (P10)', async ({ baseURL, page }) => {
@@ -247,6 +288,137 @@ echo $us->id . "\\n";
             'or the dev instance is not running OpenCPU. Either way, this test will need ' +
             'follow-up investigation to nail down the AMOR-style symptom B trigger.');
         expect(ended, 'P10: Survey should have ended despite no answered items').not.toBeNull();
+    });
+
+    test('U2 — admin removes unit while participants have queued sessions', async ({ page, baseURL }) => {
+        // Admin's "remove from run" path (RunUnit::removeFromRun → Run::deleteUnits)
+        // deletes the survey_run_units row but DOES NOT touch existing
+        // unit-sessions for that unit. If a participant has a queued
+        // unit-session for the deleted unit, the cron daemon picks it
+        // up; getUnitIdAtPosition returns null at the deleted position;
+        // execute() falls into the no-current-unit moveOn branch.
+        //
+        // Characterise the resulting shape of the orphan.
+        const f = await provision({
+            x: 0, y: 0, z: 0, items: 1, name: 'e2e-expiry-u2',
+            pause: { wait_minutes: 60 },
+        });
+
+        // Visit + complete Survey → Pause unit-session created (queued=2,
+        // expires=NOW+60).
+        await page.context().clearCookies();
+        await page.goto(`${baseURL}/${f.run_name}/?code=${f.code}`,
+            { waitUntil: 'load', timeout: 30000 });
+        await expect(page.locator('input[name="q1"]')).toBeVisible({ timeout: 10000 });
+        await page.locator('input[name="q1"]').fill('done');
+        await Promise.all([
+            page.waitForLoadState('load', { timeout: 30000 }),
+            page.locator('input[type="submit"], button[type="submit"]').first().click(),
+        ]);
+
+        const pauseRow = dbQuery(
+            `SELECT us.id FROM survey_unit_sessions us
+             JOIN survey_units u ON u.id = us.unit_id AND u.type = 'Pause'
+             WHERE us.run_session_id = ${f.run_session_id}`
+        );
+        expect(pauseRow.length).toBe(1);
+        const pauseUsId = parseInt(pauseRow[0].id, 10);
+        let s = dbState(pauseUsId);
+        expect(parseInt(s.queued, 10)).toBe(2);
+
+        // Admin removes the Pause unit from the run definition.
+        // Backdate Pause's expires so the queue picks it up.
+        dbExecRaw(`DELETE FROM survey_run_units WHERE run_id = ${f.run_id} AND unit_id = ${f.pause_id}`);
+        dbExecRaw(`UPDATE survey_unit_sessions SET expires = DATE_SUB(NOW(), INTERVAL 5 MINUTE) WHERE id = ${pauseUsId}`);
+        runQueueOnce();
+
+        // Predicted post-Fix-1: queue picks up Pause; execute() finds
+        // currentUnitSession = the Pause unit-session (it's still at
+        // position 15 with ended/expired NULL); reference == current →
+        // END-q branch fires → endCurrentUnitSession → for Pause type
+        // calls end() → ends Pause cleanly.
+        // BUT: getCurrentUnitSession's WHERE includes
+        //   survey_unit_sessions.unit_id = :unit_id (= getUnitIdAtPosition(position)).
+        // Since survey_run_units row for Pause was deleted,
+        // getUnitIdAtPosition returns null → query returns no rows →
+        // currentUnitSession = false. execute() falls to line 254-259
+        // no-current-unit moveOn. moveOn cascades. Pause unit-session
+        // is left untouched at queued=2 by the first tick — but Fix 1's
+        // line-247 branch on the SECOND tick (when the cron's snapshot
+        // re-includes the queued Pause and currentUnitSession is now
+        // the Endpage) calls removeItem → Pause becomes queued=0.
+        s = dbState(pauseUsId);
+        // Document the actual end state (post-Fix-1):
+        //  - either queued=2 and untouched (single-tick scenario), OR
+        //  - queued=0 from Fix 1's removeItem (multi-tick).
+        // Both are "abandoned" shapes — Pause unit-session has no
+        // terminal state; participant has moved past it.
+        expect(s.ended, 'Pause is not ended via this path').toBeNull();
+        expect(s.expired, 'Pause is not expired via this path').toBeNull();
+        expect([0, 2]).toContain(parseInt(s.queued, 10));
+        // Note: this leaves Pause in a non-terminal limbo. Audit
+        // candidate: Fix 1's else branch could call expire/end on the
+        // stale reference to clean it up. Captured in EXPIRY_AUDIT.md
+        // §5 (getCurrentUnitSession audit pass) follow-up.
+    });
+
+    test('U5 — admin forceTo past unvisited Survey produces Symptom-B-shape via admin path', async ({ page, baseURL }) => {
+        // Admin's forceTo path: ends current unit, then runTo(target_position).
+        // For an unvisited Survey, the manually-inserted unit-session has
+        // queued=2, expires=future, ended/expired NULL, and NO results-row
+        // (createSurveyStudyRecord only runs on a participant visit).
+        //
+        // After forceTo: end() updates the (non-existent) results-row UPDATE
+        // matches 0 rows, then survey_unit_sessions.ended = NOW. Symptom B.
+        //
+        // Mirrors B1 (queue-driven via run-session-ended) on the admin path.
+        const f = await provision({
+            x: 60, y: 0, z: 0, items: 1, name: 'e2e-expiry-u5',
+        });
+
+        // Manually create an unvisited Survey unit-session.
+        dbExecRaw(
+            `INSERT INTO survey_unit_sessions (unit_id, run_session_id, created, expires, queued)
+             VALUES (${f.study_id}, ${f.run_session_id},
+                     NOW(),
+                     DATE_ADD(NOW(), INTERVAL 60 MINUTE),
+                     2)`
+        );
+        const usRow = dbQuery(
+            `SELECT id FROM survey_unit_sessions
+             WHERE run_session_id = ${f.run_session_id} AND unit_id = ${f.study_id}`
+        );
+        const usId = parseInt(usRow[0].id, 10);
+        dbExecRaw(
+            `UPDATE survey_run_sessions SET position = 10, current_unit_session_id = ${usId} WHERE id = ${f.run_session_id}`
+        );
+
+        // No results-row at this point.
+        let r = dbResultsRow(f.results_table, usId);
+        expect(r, 'no results-row before forceTo').toBeNull();
+
+        // Drive forceTo($endpage_position) via PHP.
+        const phpScript = `<?php
+require '/var/www/formr/setup.php';
+$rs = new RunSession(null, new Run(null, ${f.run_id}), ['id' => ${f.run_session_id}]);
+$rs->forceTo(${f.positions.endpage});
+`;
+        const { execSync } = require('node:child_process');
+        execSync('docker exec -i formr_app php', { input: phpScript, encoding: 'utf8' });
+
+        const s = dbState(usId);
+        expect(s.ended, 'Survey ended via admin forceTo').not.toBeNull();
+        // Note: forceTo at RunSession.php:382-386 calls end() then sets
+        // result='manual_admin_push' and logResult(). But end() set
+        // ended=NOW; logResult's UPDATE has WHERE ended IS NULL, so
+        // result='manual_admin_push' is silently dropped — result stays
+        // at 'survey_ended' from end(). Documented as a separate
+        // dead-code observation; not in scope to fix here.
+        expect(s.result).toBe('survey_ended');
+
+        // The kicker: no results-row was ever created.
+        r = dbResultsRow(f.results_table, usId);
+        expect(r, 'Symptom B via admin: ended=NOW with no results-row').toBeNull();
     });
 
 });
