@@ -325,6 +325,13 @@ trusts stored expires). Severity is below the user-visible symptoms
 already addressed; impact is mostly admin-action correctness and
 audit-trail cleanliness.
 
+### Status: option 1 SHIPPED
+
+`RunSession::getCurrentUnitSession()` now filters
+`survey_unit_sessions.queued != -9`. Regression-tested by U14 in
+`tests/e2e/survey-unfinished-pathways.spec.js`. Option 2 (set `ended`
+on supersede) deferred to a state-machine refactor.
+
 ---
 
 ## 12. Pause / Branch spec-vs-impl read
@@ -548,8 +555,9 @@ client-only without server tick), J3 (lock-timeout reload), J4
 (silent skip-after-expire), J5 (`window.unit_session_expires`
 self-correction across renders).
 
-**Total: 36 tests** all green (post-fix), 0 `test.fail()` annotations
-remaining, 0 skipped. Future regressions turn the suite RED.
+**Total: 37 tests** all green (post-fix), 0 `test.fail()` annotations
+remaining, 0 skipped. Future regressions turn the suite RED. Includes
+U14 regression-gating the §11 `getCurrentUnitSession` fix.
 
 ---
 

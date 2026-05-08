@@ -444,6 +444,15 @@ class RunSession extends Model {
                 ->where('survey_unit_sessions.run_session_id = :run_session_id')
                 ->where('survey_unit_sessions.unit_id = :unit_id')
                 ->where('survey_unit_sessions.ended IS NULL AND survey_unit_sessions.expired IS NULL') //so we know when to runToNextUnit
+                // Exclude superseded siblings (queued=-9 set by
+                // UnitSession::create()'s same-unit_id supersede). Pre-fix
+                // a back-jump iteration created Pause(N)#new which flipped
+                // Pause(N)#old to queued=-9 (ended/expired stayed NULL).
+                // Once #new's `ended` got set, ORDER BY id DESC LIMIT 1
+                // started returning #old — a row that was conceptually
+                // "done" but didn't carry an `ended`/`expired` timestamp.
+                // See tests/e2e/EXPIRY_AUDIT.md §11.
+                ->where('survey_unit_sessions.queued != -9')
                 ->bindParams(array('run_session_id' => $this->id, 'unit_id' => $this->getUnitIdAtPosition($this->position)))
                 ->order('survey_unit_sessions`.id', 'desc')
                 ->limit(1);

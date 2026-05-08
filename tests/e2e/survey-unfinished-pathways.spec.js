@@ -179,6 +179,70 @@ echo $us->id . "\\n";
         expect(fresh.unit_id).not.toBe(queued.unit_id);
     });
 
+    test('U14 — getCurrentUnitSession excludes superseded (queued=-9) siblings post-§11 fix', async () => {
+        // Two unit-sessions for the same unit_id. The older has been
+        // superseded (queued=-9) by the supersede side-effect. The newer
+        // has subsequently expired (ended IS NOT NULL). Pre-§11-fix:
+        // getCurrentUnitSession's WHERE filtered only on
+        // `ended IS NULL AND expired IS NULL` and ORDER BY id DESC LIMIT 1
+        // — so once the newer was excluded by the ended filter, it
+        // returned the OLDER superseded sibling. Post-fix: the additional
+        // `queued != -9` filter excludes the superseded sibling too,
+        // returning false (caller: moveOn).
+        const f = await provision({
+            x: 0, y: 0, z: 0, items: 1, name: 'e2e-expiry-u14',
+            pause: { wait_minutes: 60 },
+        });
+
+        // Insert two siblings for the same Pause unit_id.
+        const olderUsId = insertUnitSession(f.run_session_id, f.pause_id, { queued: 2 });
+        // Use a PHP one-liner that mints the second via UnitSession::create
+        // — that triggers the (Fix 2-scoped) supersede, flipping the
+        // older one to queued=-9.
+        const phpScript = `<?php
+require '/var/www/formr/setup.php';
+$rs = new RunSession(null, new Run(null, ${f.run_id}), ['id' => ${f.run_session_id}]);
+$pause = RunUnitFactory::make($rs->getRun(), ['id' => ${f.pause_id}]);
+$us = new UnitSession($rs, $pause);
+$us->create(true);
+echo $us->id . "\\n";
+`;
+        const { execSync } = require('node:child_process');
+        const newerUsId = parseInt(
+            execSync('docker exec -i formr_app php', { input: phpScript, encoding: 'utf8' }).trim(), 10);
+
+        // Confirm setup: older=-9, newer=0 (UnitSession::create just made it).
+        let older = dbState(olderUsId);
+        let newer = dbState(newerUsId);
+        expect(parseInt(older.queued, 10)).toBe(-9);
+        expect(parseInt(newer.queued, 10), 'fresh insert pre-queue').toBe(0);
+
+        // Now mark the newer as ended (simulating: it expired naturally,
+        // or admin nextInRun ended it). Both siblings now have
+        // queued ∈ {-9, 0}, ended IS NULL on older, ended NOT NULL on newer.
+        dbExecRaw(`UPDATE survey_unit_sessions SET ended = NOW() WHERE id = ${newerUsId}`);
+
+        // Force run.position to the Pause's position (15) so
+        // getCurrentUnitSession would query for unit_id=pause.
+        dbExecRaw(`UPDATE survey_run_sessions SET position = ${f.positions.pause} WHERE id = ${f.run_session_id}`);
+
+        // Drive RunSession::execute() — it calls getCurrentUnitSession
+        // internally. Output the result via PHP.
+        const probeScript = `<?php
+require '/var/www/formr/setup.php';
+$rs = new RunSession(null, new Run(null, ${f.run_id}), ['id' => ${f.run_session_id}]);
+$cur = $rs->getCurrentUnitSession();
+echo ($cur ? $cur->id : 'false') . "\\n";
+`;
+        const probed = execSync('docker exec -i formr_app php', { input: probeScript, encoding: 'utf8' }).trim();
+
+        // Post-§11-fix: getCurrentUnitSession returns false because
+        // (a) the newer sibling has ended IS NOT NULL → excluded;
+        // (b) the older sibling has queued=-9 → excluded.
+        // Pre-fix would have returned the older sibling's id.
+        expect(probed, 'getCurrentUnitSession excludes superseded siblings').toBe('false');
+    });
+
     test('U7 — validation failures do not advance first_submit', async ({ baseURL, page }) => {
         // P7: updateSurveyStudyRecord at UnitSession.php:435-438 early-
         // returns on $this->errors before writing items_display.saved.
