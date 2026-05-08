@@ -159,7 +159,8 @@ class Survey extends RunUnit {
         $first_submit_str = $invitation_sent_str
             ? $this->getUnitSessionFirstVisit(
                 $unitSession,
-                'survey_items_display.saved != "' . $invitation_sent_str . '"'
+                'survey_items_display.saved != :invitation_sent',
+                ['invitation_sent' => $invitation_sent_str]
             )
             : null;
         $started = false;
@@ -206,26 +207,36 @@ class Survey extends RunUnit {
         ];
     }
 
-    public function getUnitSessionLastVisit(UnitSession $unitSession, $order = 'desc', $where = null) {
-        // use created (item render time) if viewed time is lacking
-        $arr = $this->db->select(array('COALESCE(`survey_items_display`.saved,`survey_items_display`.created)' => 'last_viewed'))
+    public function getUnitSessionLastVisit(UnitSession $unitSession, $order = 'desc', $where = null, array $whereBinds = []) {
+        // use created (item render time) if viewed time is lacking.
+        // $where: optional extra WHERE fragment with `:placeholder`s.
+        // $whereBinds: associative array of bind values for those
+        // placeholders. Pre-fix the caller interpolated values into
+        // $where directly — fine for current callers (DB-sourced
+        // values only) but a bad pattern. See EXPIRY_AUDIT.md §1's
+        // "pre-existing pattern propagated" note.
+        $query = $this->db->select(array('COALESCE(`survey_items_display`.saved,`survey_items_display`.created)' => 'last_viewed'))
                 ->from('survey_items_display')
                 ->leftJoin('survey_items', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
                 ->where('survey_items_display.session_id IS NOT NULL')
                 ->where('survey_items.study_id = :study_id')
-				->where($where ? $where : '1=1')
+                ->where($where ? $where : '1=1')
                 ->order('survey_items_display.saved', $order)
                 ->order('survey_items_display.created', $order)
                 ->limit(1)
-                ->bindParams(array('session_id' => $unitSession->id, 'study_id' => $this->surveyStudy->id))
-                ->fetch();
+                ->bindParams(array('session_id' => $unitSession->id, 'study_id' => $this->surveyStudy->id));
 
+        if ($whereBinds) {
+            $query->bindParams($whereBinds);
+        }
+
+        $arr = $query->fetch();
         return isset($arr['last_viewed']) ? $arr['last_viewed'] : null;
     }
-	
-	function getUnitSessionFirstVisit(UnitSession $unitSession, $where = null) {
-		return $this->getUnitSessionLastVisit($unitSession, 'asc', $where);
-	}
+
+    public function getUnitSessionFirstVisit(UnitSession $unitSession, $where = null, array $whereBinds = []) {
+        return $this->getUnitSessionLastVisit($unitSession, 'asc', $where, $whereBinds);
+    }
 
     public function getUnitSessionOutput(UnitSession $unitSession) {
         try {
