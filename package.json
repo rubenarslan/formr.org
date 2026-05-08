@@ -29,7 +29,7 @@
         "babel-loader": "^9.2.1",
         "baseline-browser-mapping": "^2.10.20",
         "browserstack-local": "^1.5.13",
-        "browserstack-node-sdk": "^1.52.2",
+        "browserstack-node-sdk": "^1.53.2",
         "clean-webpack-plugin": "^4.0.0",
         "concat": "^1.0.3",
         "copy-webpack-plugin": "^12.0.2",

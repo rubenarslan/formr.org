@@ -70,7 +70,21 @@ module.exports = defineConfig({
     projects: [
         {
             name: 'local-chromium',
-            use: { browserName: 'chromium' },
+            // Under BS, the SDK monkey-patches one project per platform in
+            // browserstack.yml and uses this base project's `use` block as the
+            // template. iOS Safari works without further wiring because BS
+            // overrides browserName to webkit. Android Chrome on real devices
+            // requires `channel: 'chrome'` so Playwright hands the session off
+            // to the device's stock Chrome rather than trying to launch a
+            // bundled chromium binary that isn't there — without it BS returns
+            // `browserType.connect: Malformed endpoint`. We set channel only
+            // under BS so plain `npm run test:e2e` keeps using the bundled
+            // chromium and doesn't need a system Chrome install.
+            // See https://www.browserstack.com/docs/automate/playwright/playwright-android/nodejs.
+            use: {
+                browserName: 'chromium',
+                ...(RUNNING_ON_BS ? { channel: 'chrome' } : {}),
+            },
         },
     ],
 });

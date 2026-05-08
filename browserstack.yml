@@ -27,19 +27,31 @@ buildName: formr v2 parity smoke
 buildIdentifier: '#${DATE_TIME}'
 
 # Real-device matrix. Keep tight: each platform burns one parallel slot per
-# test, and the open-source plan we have only allots 5. Two devices × the
-# test-suite (~12 BS-tagged tests after gating) = manageable.
+# test, and the open-source plan we have only allots 5.
 #
 # iOS Safari for the WebKit-only PWA install / IndexedDB / SW edge cases
 # (also covers the pwa-reload-fix regression).
-# Android Chrome for the v2 offline-queue happy path on a non-iOS UA.
+#
+# Pixel 8 / Android Chrome was tried with `channel: 'chrome'` set
+# conditionally on RUNNING_ON_BS in playwright.config.js (matches the
+# BS Android sample at
+# https://www.browserstack.com/docs/automate/playwright/playwright-android/nodejs)
+# AND a bump of browserstack-node-sdk to 1.53.2. Browser-context tests
+# still fail with `browserType.connect: Malformed endpoint` from the
+# SDK's mock-process — only `request`-fixture (HTTP-only) tests pass.
+# The BS docs note Playwright 1.57 migrated tests from Chromium to
+# Chrome-for-Testing, which may be what's incompatible with the BS
+# Android wsEndpoint transport. Re-add this platform when either:
+#   (a) we bump @playwright/test to a version BS confirms works for
+#       Android Chrome (or pin DOWN to 1.56.1 if upstream doesn't fix
+#       1.58/1.59), or
+#   (b) BS support resolves the malformed endpoint issue at SDK level.
+# Until then the Android offline-queue smoke stays on local-Chromium
+# + manual / live-session real-device verification.
 platforms:
   - browserName: safari
     osVersion: 17
     deviceName: iPhone 15 Pro Max
-  - browserName: chrome
-    osVersion: '14.0'
-    deviceName: Google Pixel 8
 
 parallelsPerPlatform: 1
 

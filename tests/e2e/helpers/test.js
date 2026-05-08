@@ -52,6 +52,17 @@ const test = RUNNING_ON_BS
         page: async ({ bsPage }, use) => {
             await use(bsPage);
         },
+
+        // Same proxy treatment for the `context` fixture. Without this,
+        // a test that destructures `{ page, context }` triggers
+        // Playwright's default test-scoped context fixture which calls
+        // browser.newContext() — and BS iOS rejects with
+        // "Only one browser context is allowed". Worker-scoped bsPage's
+        // context is the only context BS lets us have, so hand that
+        // back instead.
+        context: async ({ bsPage }, use) => {
+            await use(bsPage.context());
+        },
     })
     : base.test;
 
