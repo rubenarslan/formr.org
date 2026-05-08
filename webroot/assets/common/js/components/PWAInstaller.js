@@ -311,17 +311,22 @@ async function updateInstallButtonState() {
         }
     
         return;
-    } else if (localStorage.getItem('pwa-app-installed') === 'true') { // App is installed according to localStorage
-        $hiddenInput.val('already_added');
-        const redirect_link = generateRedirectLink();
-        let appName = document.title;
-        $status.html(t("You've already installed this app. Try closing your browser and opening the app named " + appName + " from your home screen. If you have uninstalled the app, please just click this button again.")
-        );
-        //  + 
-        //    `<a href="web-formrpwaa://test" class="btn btn-primary" target="_blank">${t('Open app')}</a>`
-        $wrapper.closest('.form-group').addClass('formr_answered');
-        $button.removeClass('btn-primary').addClass('btn-success');
-        $button.html(`<i class="fa fa-check"></i> ${t('Installed')}`);
+    } else if (localStorage.getItem('pwa-app-installed') === 'true') {
+        // localStorage said we installed, but we're not in standalone
+        // right now. Two ways this happens: (a) user opened a browser
+        // tab to this URL while the PWA is installed, (b) user
+        // uninstalled the PWA but the flag never got cleared. (b) was a
+        // dead-end UX before — the install button stayed disabled
+        // forever. Clear the flag so we re-detect on this load: if the
+        // app actually IS still installed the browser will dispatch
+        // appinstalled / beforeinstallprompt accordingly; if it's gone
+        // the user gets the install button back. Falls through to the
+        // not-installed branch.
+        localStorage.removeItem('pwa-app-installed');
+        $hiddenInput.val('not_started');
+        $status.html(`<p>${t('Add this app to your home screen for easier access.')}</p>`);
+        $button.prop('disabled', false);
+        $button.html($button.data('default-text'));
     } else { // App is not installed
         $hiddenInput.val('not_started');
         // If not already installed, set platform-specific text.
@@ -1426,20 +1431,37 @@ async function handlePendingNotifications() {
     }
 }
 
+// Time-bound the in-flight reload guard. If a prior reload never made it
+// to DOMContentLoaded (BFCache transition, navigation cancelled, crash
+// mid-reload, hidden-tab throttling), the flag would otherwise stick
+// forever and silently drop every subsequent NOTIFICATION_CLICK — leaving
+// the participant on a stale unit page. 10s is comfortably longer than any
+// legitimate reload but short enough that the next push retry recovers.
+const HANDLING_RELOAD_STALE_MS = 10_000;
+
 function reload_invalidated(timestamp) {
     localStorage.setItem('state-invalidated', timestamp);
-    if(!localStorage.getItem('handling-reload') &&
+    const handlingRaw = localStorage.getItem('handling-reload');
+    const handlingTs = parseInt(handlingRaw, 10);
+    const handlingFresh = handlingRaw && Number.isFinite(handlingTs) &&
+        (Date.now() - handlingTs < HANDLING_RELOAD_STALE_MS);
+    if(!handlingFresh &&
         (!localStorage.getItem('last-reload-timestamp') || timestamp > parseInt(localStorage.getItem('last-reload-timestamp'), 10))) {
       localStorage.setItem('last-reload-timestamp', Date.now() + 200);
-      localStorage.setItem('handling-reload', 'true');
+      localStorage.setItem('handling-reload', String(Date.now()));
       setTimeout(() => {
         console.log('Reloading page at', timestamp);
-        if (isIOSDevice()) {
-            window.focus();
-            window.location.href = window.location.href;
-        } else {
-            window.location.reload();
-        }
+        // window.location.reload() is the spec'd reload that works on
+        // every engine. The previous iOS branch used
+        //   window.focus(); window.location.href = window.location.href
+        // which had two failure modes on iOS Safari standalone PWAs:
+        //   - window.focus() is a no-op outside a user-gesture context
+        //     and we're inside a setTimeout callback,
+        //   - assigning window.location.href to a byte-identical URL is
+        //     sometimes optimized away (no navigation triggered).
+        // Symptom: tapping a push notification focused the PWA but the
+        // page never reloaded.
+        window.location.reload();
       }, 100);
     } else if(timestamp < parseInt(localStorage.getItem('last-reload-timestamp'), 10)) {
         localStorage.removeItem('state-invalidated');

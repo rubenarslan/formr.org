@@ -1,16 +1,23 @@
-# browserstack-node-sdk config for v2 form smoke tests on real mobile.
+# browserstack-node-sdk config for the BS Automate variant of the e2e
+# suite. Wired by `npm run test:bs` (=
+# `browserstack-node-sdk playwright test --config tests/e2e/playwright.config.js`).
+# The SDK monkey-patches Playwright at runtime to accept the real-device
+# platforms below, then appends one project per platform to the config
+# (see playwright.config.js header for the version pin caveat).
 #
-# Wired with the SDK approach (npx browserstack-node-sdk playwright test ...)
-# instead of the earlier manual wsEndpoint hack — that hit a wire-protocol
-# mismatch ("browserName: expected one of (chromium|firefox|webkit)" on iOS,
-# "Malformed endpoint" on Android). The SDK injects BS transport into the
-# Playwright config at run time and avoids both errors.
-#
-# Credentials live in /home/admin/formr-docker/.env.dev (gitignored). They
-# are read from the BROWSERSTACK_USERNAME / BROWSERSTACK_ACCESS_KEY env vars
-# the same shell scripts already export — that's what the empty literals
-# below trigger ("set BROWSERSTACK_USERNAME and BROWSERSTACK_ACCESS_KEY as
-# env variables"). DO NOT inline secrets here.
+# Conventions adopted from feature/form_v2's browserstack.yml — they
+# survived a round of debugging on real devices we don't want to repeat:
+#   - `browserName: safari` (NOT `playwright-webkit`). The SDK accepts
+#     'safari' and translates it; plain Playwright rejects with
+#     "expected one of (chromium|firefox|webkit)".
+#   - Empty `userName`/`accessKey` literals — that signals the SDK to
+#     read BROWSERSTACK_USERNAME / BROWSERSTACK_ACCESS_KEY from env.
+#     Inline secrets here would commit them to the repo. The
+#     `npm run test:bs` script sources ../.env.dev before exec.
+#   - `testReporting: false`. The SDK's testHub observability layer
+#     mis-serializes Playwright errors on long-running iOS Safari tests
+#     ("Serialized error must have either an error or a value"); turning
+#     it off still leaves Automate dashboard sessions + videos.
 
 userName: ''
 accessKey: ''
@@ -23,7 +30,8 @@ buildIdentifier: '#${DATE_TIME}'
 # test, and the open-source plan we have only allots 5. Two devices × the
 # test-suite (~12 BS-tagged tests after gating) = manageable.
 #
-# iOS Safari for the WebKit-only PWA install / IndexedDB / SW edge cases.
+# iOS Safari for the WebKit-only PWA install / IndexedDB / SW edge cases
+# (also covers the pwa-reload-fix regression).
 # Android Chrome for the v2 offline-queue happy path on a non-iOS UA.
 platforms:
   - browserName: safari
@@ -35,8 +43,9 @@ platforms:
 
 parallelsPerPlatform: 1
 
-# Dev URL is internet-routable (https://study.researchmixtape.com) — no
-# tunnel needed. Flip to true if a future build runs against localhost.
+# study.researchmixtape.com is publicly reachable so we don't need a
+# BrowserStack Local tunnel. Flip to true if a future build runs against
+# localhost.
 browserstackLocal: false
 
 # Debugging hooks — useful for the first few BS runs where we're still
@@ -46,9 +55,4 @@ debug: false
 networkLogs: true
 consoleLogs: errors
 
-# Off: the SDK's testHub observability layer mis-serializes Playwright
-# error objects on long-running iOS Safari tests, surfacing as
-# `Serialized error must have either an error or a value` and hiding
-# the actual assertion failure. Disabling testHub still leaves the
-# Automate dashboard sessions + videos available for debugging.
 testReporting: false

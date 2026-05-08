@@ -66,6 +66,55 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - SQL Patch 51: adds `offline_mode` TINYINT(1) (default 1) and `allow_previous` TINYINT(1) (default 0) columns to `survey_studies` — per-study opt-out/opt-in flags for v2 behaviours.
 - SQL Patch 52: adds `survey_r_call_results` table — per-(call_id, args_hash) cache with `created_at` index for TTL eviction. Rows expire at read time: 30s for showif, 5min for value.
 
+## [v0.25.5] - 07.05.2026
+### Fixes
+- iOS standalone PWAs: tapping a push notification now reloads the open PWA. The previous iOS-specific reload technique (`window.focus(); window.location.href = window.location.href`) was a no-op on iOS — `window.focus()` outside a user gesture does nothing, and assigning `location.href` to a byte-identical URL gets optimised away. Replaced with `window.location.reload()` (works on every engine).
+- Stuck `handling-reload` flag in `PWAInstaller.js` is now self-recovering. The flag was only cleared in `DOMContentLoaded`, so any reload that didn't make it that far (BFCache transition, navigation cancelled, hidden-tab throttling, browser crash mid-reload) left it sticky and silently dropped every subsequent `NOTIFICATION_CLICK` / `STATE_INVALIDATED` message. The flag now stores `Date.now()` and is treated as stale after 10s.
+
+### Service-worker upgrade plumbing
+- `sw_version` bump to `v7`. Required so installed PWAs actually pick up the fix above — without a version bump the SW cache served the old `frontend.bundle.js` indefinitely.
+- `install` handler calls `self.skipWaiting()` so a `sw_version` bump activates immediately rather than waiting for every PWA window to close.
+- `activate` handler deletes every `formr-*` cache that isn't the current `CACHE_NAME`, so subsequent fetches go to network for fresh assets.
+- `activate` handler broadcasts `STATE_INVALIDATED` to every claimed client, so pages running pre-fix `PWAInstaller.js` reload themselves and pick up the new bundle without a manual force-quit.
+- `fetch` handler scopes `caches.match()` to `CACHE_NAME` (defence-in-depth — without this, an unscoped match falls back to any cache the browser holds, including older `sw_version` caches).
+- `pwa-register.js` calls `registration.update()` on every page load when an existing registration is found, so future `sw_version` bumps reach iOS Safari standalone PWAs without relying on the browser's lazy 24 h check.
+
+### Tests
+- `tests/e2e/pwa-notification-reload.spec.js` pins the page-side reload contract on both local-chromium and BrowserStack iPhone 15 Pro Max iOS 17 (`npm run test:bs -- pwa-notification-reload`). Includes a regression test for the stuck-`handling-reload` failure mode.
+- `npm run test:bs` now sources `../.env.dev` before exec so `BROWSERSTACK_USERNAME` / `_ACCESS_KEY` reach the SDK without manual `export`. New top-level `browserstack.yml` (single-platform iOS target).
+
+## [v0.25.4] - 07.05.2026
+### Added
+- New runs default `expiresOn` to the configured retention maximum (`keep_study_data_for_months_maximum`) so admins don't hit the "you must set an expiry before going public" gate on first attempt. An info-level alert after run creation surfaces the date and links to the admin run settings page where it can be shortened. Behaviour is unchanged for deployments where the maximum is `INF` — `expiresOn` stays `null`.
+
+### Fixes
+- (CI) PHPUnit suite now runs against PHPUnit 11 + the no-DB CI: data providers made static (`ConfigTest`, `OpenCPUTest`), `DB::__construct` branches on `driver=sqlite` for tests, `tests/bootstrap.php` seeds the columns `Model::load`'s filters touch (`survey_studies`, `survey_users`), and the `utf8mb` typo (should be `utf8mb4`) in `config-dist/settings.php` is corrected — the latter was a real bug for any deployment using the distributed default verbatim. `DBTest` itself stays `@group integration` because it tickles MySQL-only helpers.
+- (CI) `mkdir -p config` before seeding `config/settings.php` from `config-dist` so PHPUnit can bootstrap on a fresh checkout (`config/` is gitignored).
+
+## [v0.25.3] - 06.05.2026
+### Added
+- PWA persistence — survive cookie eviction without losing the participant's session
+  - Manifest endpoint personalises `start_url`, `id`, `shortcuts[].url`, and `protocol_handlers[].url` with `?code=<participant_session>` when an active RunSession exists, so iOS captures the tokenised URL into the home-screen icon at install time
+  - Manifest `<link>` in run pages now emits the tokenised URL when the request has a participant context, falling back to the public clean manifest otherwise
+  - Server-side cookie self-heal: a bare GET on the run URL with a cookie that resolves to a participant in this run 302s to `?code=<their_session>`, so the URL becomes the authoritative session identifier
+  - Server-side recovery prompt rendered when the request lands at a run URL in standalone PWA shell with no resolvable session — replaces the silent auto-enrolment that previously created orphan participants
+  - Client-side recovery banner detects standalone-shell + no `?code=` cold launches (the case where `_pwa=true` hasn't been replaced yet) and prompts the participant to paste their code; banner's HTML5 `pattern=` attribute derives from the configured `user_code_regular_expression` so client-side validation matches the deployment's actual code shape
+  - New `user_code_html_pattern()` helper exposed via `window.formr.user_code_pattern` for any other code-entry surface
+- Service worker hardening
+  - `pushsubscriptionchange` handler reports the new endpoint to the server when browsers rotate the push subscription
+  - `safeAddAll` cache pre-population: per-URL `cache.put` instead of `cache.addAll`, so a single 404 in the asset list no longer puts the whole SW into `redundant`
+  - `pwa-beacon` POST endpoint at `/<run>/pwa-beacon` accepts up to 4 KB JSON and writes SW lifecycle failures (install, activate, fetch handler) to the formr error log with run name, capped UA, and remote IP — gives the maintainer a signal when an install fails silently in the participant's browser
+- CI workflows in `.github/workflows/`
+  - `test.yml` — PHPUnit on PRs and `master`/`develop` pushes, seeds `config/settings.php` from `config-dist/`, excludes `@group integration` (live-DB / live-OpenCPU / HTTP smoke tests) so default CI doesn't need the dev stack
+  - `migrations.yml` — Atlas migrate-lint on PRs touching `sql/patches/**`, catches duplicate version prefixes, retroactive edits to merged patches, and destructive ops
+
+### Fixes
+- Push subscription cleanup: when web-push reports 404/410 from the push provider (browser uninstalled, permission revoked, iOS dropped the subscription), `PushNotificationService` rewrites the matching `survey_items_display.answer` to the sentinel `'expired'` and stops retrying that endpoint. Subsequent `PushMessage` units on the same session see no subscription and skip cleanly instead of looping retries against a dead endpoint
+- `RunSession::getSubscription` now also skips the `'expired'` sentinel (alongside the pre-existing `not_requested` / `not_supported` / `ios_version_not_supported` filters)
+- PWA installer no longer leaves the install button permanently disabled after an uninstall: the `pwa-app-installed` localStorage flag is cleared on a non-standalone load and the standalone branch is the sole authority for the installed state
+- Asset cache: `pwa-register.js` now `await`s `navigator.serviceWorker.ready` before `postMessage(CACHE_ASSETS)` and posts on every load (not just first install), fixing two race conditions and a missing branch that left the asset cache empty for everything beyond what the install handler precaches from the manifest
+- `pwa-register.js` now beacons SW install failures back to the server via the new `pwa-beacon` endpoint before the SW transitions to redundant
+
 ## [v0.25.2] - 29.04.2026
 ### Fixes
 - Survey form validation messages render again. The dependency-bot bump to jQuery 3.7.1 in v0.25.1 broke webshim's bundled `jquery.ui.position` — `$(window).offset()` throws on jQuery 3 because window has no `getClientRects`, and that throw fired inside `validityAlert.show()` → `position()` while the popover was being placed, halting the show flow before `display:block` could be set. Webshim itself is unmaintained and not jQuery-3-compatible; pin back to jQuery 2.2.4 until webshim is retired.

@@ -33,7 +33,13 @@ const test = RUNNING_ON_BS
         // Worker-scoped context + page. Created once per worker, torn
         // down at worker exit. Survives across every test in the worker.
         bsPage: [async ({ browser }, use) => {
-            const ctx = await browser.newContext({ ignoreHTTPSErrors: true });
+            // Don't pass ignoreHTTPSErrors here — BrowserStack rejects it on
+            // real iOS unless `acceptInsecureCerts: true` is also set in
+            // browserstack.yml, and our dev fixtures (study.researchmixtape.com)
+            // serve real Let's Encrypt certs anyway. If a future test ever
+            // needs self-signed-cert tolerance under BS, set the BS capability
+            // and re-add this option together.
+            const ctx = await browser.newContext();
             const page = await ctx.newPage();
             await use(page);
             await ctx.close().catch(() => {});

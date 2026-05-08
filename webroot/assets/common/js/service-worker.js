@@ -121,28 +121,96 @@ async function checkAndCloseExpiredNotifications() {
   }
 }
 
-/* 
+/*
  * Service worker event listeners
  */
 
-/* 
+/**
+ * cache.addAll() is atomic — if any single fetch returns non-2xx the
+ * whole call rejects and the caller (install handler, asset-cache
+ * postMessage) treats that as a fatal failure. For an install event
+ * that means the SW transitions to "redundant" and never claims clients;
+ * the participant ends up with no SW, no offline cache, no push.
+ *
+ * safeAddAll caches each URL independently and swallows individual
+ * failures. We log the misses so we can find them in dev console but
+ * the SW still installs cleanly. Mirrors the resilience posture of
+ * Workbox's `addAll({ignoreSearchParams})` family.
+ */
+async function safeAddAll(cache, urls) {
+  const tasks = urls.map(async (url) => {
+    try {
+      const res = await fetch(url, { credentials: 'same-origin' });
+      if (!res.ok) return { url, ok: false, status: res.status };
+      await cache.put(url, res);
+      return { url, ok: true };
+    } catch (err) {
+      return { url, ok: false, error: String(err && err.message || err) };
+    }
+  });
+  const results = await Promise.all(tasks);
+  const failed = results.filter((r) => !r.ok);
+  if (failed.length) {
+    console.warn('SW: skipped uncacheable assets', failed);
+  }
+  return results;
+}
+
+/*
  * Install event listener to cache the manifest and assets
  */
+// Beacon SW lifecycle failures back to the server. SW errors otherwise
+// die silently in the participant's browser console where we never see
+// them; this routes a single POST to the run scope so the failure shows
+// up in formr's PHP error log and we can fix what's actually breaking
+// in production.
+async function beaconLifecycleFailure(stage, err) {
+  try {
+    const beaconUrl = new URL('./pwa-beacon', self.location.href).toString();
+    const body = JSON.stringify({
+      stage,
+      sw_version,
+      cache: CACHE_NAME,
+      error: String((err && err.message) || err),
+      ts: new Date().toISOString(),
+    });
+    // keepalive in case the SW is going redundant immediately after.
+    await fetch(beaconUrl, {
+      method: 'POST',
+      body,
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+    });
+  } catch (_) {
+    // Beacon is best-effort; never let it surface a second error.
+  }
+}
+
 self.addEventListener('install', (event) => {
   console.log('SW: Starting install');
+  // skipWaiting so a sw_version bump activates immediately rather than
+  // sitting in 'waiting' until every old PWA window closes. Paired with
+  // the cache-eviction step in 'activate' below — together they get the
+  // new bundle to participants without requiring them to manually
+  // force-quit the PWA. Safe here because we don't change request/response
+  // shapes between SW versions; the only intra-version change at activation
+  // is dropping stale caches.
+  self.skipWaiting();
   const pre_cache = async () => {
     try {
       const manifest = await fetchManifest();
       const assetsToCache = [...new Set([manifest.start_url, ...manifest.icons.map(icon => icon.src)])];
       const cache = await caches.open(CACHE_NAME);
       console.log('SW: Caching assets:', assetsToCache);
-      return await cache.addAll(assetsToCache);
+      return await safeAddAll(cache, assetsToCache);
     } catch (error) {
       // Pre-caching is best-effort: a missing PWA manifest (studies not
       // configured for install) or an offline install shouldn't discard
       // the SW. v2 forms need the SW registered for Background Sync even
-      // when the study is NOT installable. Swallow and continue.
+      // when the study is NOT installable. Swallow and continue, but
+      // beacon the failure so the maintainer still gets a signal.
       console.warn('SW: pre-cache skipped', error);
+      await beaconLifecycleFailure('install', error);
     }
   };
   event.waitUntil(pre_cache());
@@ -155,9 +223,42 @@ self.addEventListener('activate', event => {
   console.log('SW: Starting activation');
   const activate = async () => {
     try {
+      // Drop caches from previous sw_versions. Without this, bumping
+      // sw_version creates a new CACHE_NAME but the unscoped
+      // `caches.match()` in the fetch handler still hits the old cache
+      // and serves stale assets — which is how an installed PWA can
+      // keep running yesterday's frontend.bundle.js indefinitely.
+      const allCacheNames = await caches.keys();
+      await Promise.all(
+        allCacheNames
+          .filter((name) => name !== CACHE_NAME && name.startsWith('formr-'))
+          .map((name) => caches.delete(name))
+      );
+
       await clients.claim();
       await checkAndCloseExpiredNotifications();
       console.log("SW: Activation complete, clients claimed");
+
+      // Tell every already-open client to reload, otherwise pages that
+      // were loaded against the OLD sw_version keep running their old
+      // PWAInstaller.js (loaded before this SW activated). The page-side
+      // STATE_INVALIDATED handler is what we re-use here — it's been in
+      // every shipped sw_version, so the message is understood even by
+      // pages running pre-fix code. A fresh Date.now() timestamp passes
+      // the dedup check in reload_invalidated.
+      try {
+        const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+        const reloadTs = Date.now();
+        for (const client of allClients) {
+          try {
+            client.postMessage({ type: 'STATE_INVALIDATED', tag: 'sw-activate', timestamp: reloadTs });
+          } catch (err) {
+            console.warn('SW: activation reload broadcast failed for', client.id, err);
+          }
+        }
+      } catch (broadcastErr) {
+        console.warn('SW: activation reload broadcast skipped:', broadcastErr);
+      }
     } catch (error) {
       console.error("Error during activation:", error);
       throw error;
@@ -368,8 +469,11 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith((async () => {
     try {
-      // Check cache first
-      const cachedResponse = await caches.match(event.request);
+      // Scope to the current CACHE_NAME. Without this, an unscoped
+      // caches.match() falls back to ANY cache the browser holds,
+      // including older sw_version caches that activate is supposed to
+      // have evicted but might still exist if activation hasn't run yet.
+      const cachedResponse = await caches.match(event.request, { cacheName: CACHE_NAME });
       if (cachedResponse) {
         return cachedResponse;
       }
@@ -465,7 +569,11 @@ self.addEventListener('message', (event) => {
         try {
           const cache = await caches.open(CACHE_NAME);
           console.log("SW: Caching assets:", validAssets);
-          return await cache.addAll(validAssets);
+          // Use the same per-URL resilience as the install handler so
+          // one missing CSS file doesn't reject the whole batch and
+          // leave the postMessage caller hanging on a never-resolved
+          // promise.
+          return await safeAddAll(cache, validAssets);
         } catch (error) {
           console.error('Error caching assets:', error);
           throw error; // Propagate to caller
@@ -632,6 +740,63 @@ self.addEventListener('notificationclick', (event) => {
     } catch (error) {
       console.error('Notification click failed:', error);
       throw error;
+    }
+  })());
+});
+
+
+/*
+ * Push subscription rotation handler.
+ *
+ * Browsers fire `pushsubscriptionchange` when they invalidate and
+ * re-issue the participant's push endpoint — token expiry, push-server
+ * migration, browser update. Without this handler the server's stored
+ * subscription points at the old endpoint, every send bounces, and
+ * after a few bounces the push service marks the subscription dead.
+ * The participant silently stops receiving notifications.
+ *
+ * Re-subscribe with the previous options if the browser didn't already
+ * hand us a new subscription, then POST it to the run's existing
+ * ajax_save_push_subscription endpoint. The endpoint resolves the
+ * participant via cookie + RunSession (loginUser flow), so we don't
+ * need to thread a participant code through the SW; if the cookie has
+ * since evicted, the save fails 401 and the page-side
+ * initializePushNotifications recovers on next launch.
+ */
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil((async () => {
+    try {
+      let newSub = event.newSubscription;
+      // Firefox fires with newSubscription=null and expects the SW to
+      // resubscribe with the previous options. Chrome usually hands us
+      // a populated newSubscription. Cover both.
+      if (!newSub) {
+        const oldOpts = event.oldSubscription && event.oldSubscription.options;
+        if (oldOpts && oldOpts.applicationServerKey) {
+          newSub = await self.registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: oldOpts.applicationServerKey,
+          });
+        }
+      }
+      if (!newSub) {
+        console.warn('SW pushsubscriptionchange: no new subscription available; page-side init will recover.');
+        return;
+      }
+      const saveUrl = self.registration.scope.replace(/\/+$/, '') + '/ajax_save_push_subscription';
+      const body = new URLSearchParams();
+      body.set('subscription', JSON.stringify(newSub));
+      const res = await fetch(saveUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body,
+      });
+      if (!res.ok) {
+        console.warn('SW pushsubscriptionchange: save failed', res.status);
+      }
+    } catch (err) {
+      console.error('SW pushsubscriptionchange: refresh failed', err);
     }
   })());
 });

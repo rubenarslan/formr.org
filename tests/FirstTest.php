@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @group integration
+ *
+ * Fetches WEBROOT pages over HTTP — excluded from default CI run.
+ */
 class FirstTest extends PHPUnit\Framework\TestCase {
 
     private function checkPageForPHPErrors($address) {

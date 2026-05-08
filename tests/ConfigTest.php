@@ -6,7 +6,7 @@
 
 class ConfigTest extends PHPUnit\Framework\TestCase {
 
-    public function configProvider() {
+    public static function configProvider() {
         $settings = array(
             'username' => 'cyril',
             'names' => array(
