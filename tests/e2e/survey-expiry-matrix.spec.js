@@ -43,25 +43,28 @@ test.describe('Wiki spec compliance — survey expiry algorithm', () => {
     // ---------------------------------------------------------------
 
     test('W1.a — access at 2:30, fills (wiki: still alive 5h before X+Y deadline)', async () => {
-        // WIKI: deadline = invitation + X+Y = 7:30h after invitation.
-        //       At 2:30h elapsed with one submit, ~5h remaining → expired=false.
-        // CODE: grace block fires; expires = first_submit + Y*60
-        //       = -2:30h + 0:30h = -2:00h ago → expired=true.
+        // Post Fix-3: deadline = invitation + X+Y = 7:30h after invitation.
+        // At 2:30h elapsed with one submit, ~5h remaining → expired=false.
+        // Pre-fix: grace block anchored on first_submit + Y, so first submit
+        // at -2:30 + Y=30 = -2h → already expired (FALSE divergence).
         const f = await setup({ x: 420, y: 30, z: 0, items: 1 });
         setUnitSessionCreated(f.unit_session_id, 150);                      // -2:30h
         setItemsDisplaySaved(f.unit_session_id, 145, f.item_ids[0]);        // 5min after invitation
         const e = computeExpiry(f.unit_session_id);
 
-        test.fail(e.expired === true,
-            'W1.a divergence: code expires at first_submit+Y instead of invitation+X+Y. ' +
-            'Survey.php:154 anchors grace deadline on first_submit, but the wiki defines it ' +
-            'as invitation+X+Y — a hard cap independent of when the user started.');
-        expect(e.expired, 'wiki: 5h remaining of X+Y window').toBe(false);
+        expect(e.expired, '5h remaining of X+Y window').toBe(false);
     });
 
     test('W1.b — access at 6:50 then idle (wiki: deadline at 7:30; code: 7:00)', async () => {
         // Two snapshots: at 6:59h (before either deadline), and at 7:01h
-        // (past code's X-rule but before wiki's X+Y deadline).
+        // (past code's old X-rule but before wiki's X+Y deadline). Post
+        // Fix-3 the X-rule no longer fires for users who never started
+        // editing only after invitation+X+Y if Y is set; with no
+        // first_submit (the user only loaded the page), the pre-access
+        // path applies: deadline = invitation + X = 7:00h. So both 6:59h
+        // (alive) and 7:01h (expired) match the code behaviour.
+        // Note this case is identical to wiki behaviour: pre-access X
+        // applies regardless of Y — Y is the post-access add-on.
         const f = await setup({ x: 420, y: 30, z: 0, items: 1 });
 
         setUnitSessionCreated(f.unit_session_id, 419);                      // -6:59h
@@ -71,9 +74,7 @@ test.describe('Wiki spec compliance — survey expiry algorithm', () => {
 
         setUnitSessionCreated(f.unit_session_id, 421);                      // -7:01h
         e = computeExpiry(f.unit_session_id);
-        test.fail(e.expired === true,
-            'W1.b divergence: code fires X-rule at 7:00 even when wiki says 7:30 (X+Y).');
-        expect(e.expired, 'wiki: still alive until 7:30').toBe(false);
+        expect(e.expired, 'never-accessed user expires at invitation+X').toBe(true);
     });
 
     // ---------------------------------------------------------------
@@ -82,35 +83,32 @@ test.describe('Wiki spec compliance — survey expiry algorithm', () => {
     // ---------------------------------------------------------------
 
     test('W2.a — string out for hours (wiki: Z slides, can run indefinitely)', async () => {
-        // WIKI: Z=30 from last_active=now-5min ⇒ deadline now+25min ⇒ alive.
-        // CODE: X-rule unconditionally overwrites Z; expires=invitation+X
-        //       = -8h + 7h = -1h ⇒ expired.
+        // Post Fix-3: Y=0 ⇒ no X+Y deadline, only Z. last_active=now-5min,
+        // Z=30 ⇒ deadline=now+25min ⇒ alive. Wiki #2's "stringing out for
+        // hours" promise is now honoured.
+        // Pre-fix: X-rule unconditionally overwrote Z; expires=invitation+X
+        //          = -8h + 7h = -1h ⇒ expired (broke the promise).
         const f = await setup({ x: 420, y: 0, z: 30, items: 1 });
         setUnitSessionCreated(f.unit_session_id, 480);                      // -8h
         setItemsDisplaySaved(f.unit_session_id, 5, f.item_ids[0]);          // last_active 5min ago
         const e = computeExpiry(f.unit_session_id);
 
-        test.fail(e.expired === true,
-            'W2.a divergence: X-rule overrides Z at Survey.php:139-141. ' +
-            'Wiki #2 promises "stringing out for hours" is possible; code makes it impossible.');
-        expect(e.expired, 'wiki: Z=30 sliding, last_active 5min ago → 25min remaining').toBe(false);
+        expect(e.expired, 'Z=30 sliding, last_active 5min ago → 25min remaining').toBe(false);
     });
 
     test('W2.b — idle 40 min after access at 6:50 (wiki: 7:20 from Z; code: 7:00 from X)', async () => {
-        // WIKI: deadline = last_active + Z = 6:50h ago + 30min = 6:20h ago. Already past.
-        // CODE: deadline = invitation + X = 7:00h ago. Also already past.
-        // Both agree the row is expired NOW; the question is the timestamp.
-        // We test the divergent moment by snapshotting at 7:05h (past code's,
-        // but pre-empts wiki's deadline by 15min still).
+        // Post Fix-3: Y=0 ⇒ post-access deadline = last_active + Z =
+        // -6:50h + 30min = -6:20h ago. Snapshot at -7:05h elapsed since
+        // invitation, so deadline is past → expired=true.
+        // Pre-fix: X-rule fired at -7:00 (15min earlier than wiki).
+        // Both agree on "expired" at this snapshot — the difference is
+        // the *timing*, which W2.a above isolates.
         const f = await setup({ x: 420, y: 0, z: 30, items: 1 });
         setUnitSessionCreated(f.unit_session_id, 425);                      // -7:05h
         setItemsDisplaySaved(f.unit_session_id, 410, f.item_ids[0]);        // last_active -6:50h ago
         const e = computeExpiry(f.unit_session_id);
 
-        test.fail(e.expired === true,
-            'W2.b divergence: code expires at -7:00 (X-rule); wiki says deadline is -6:20 (last+Z), ' +
-            'so 15min remaining at -7:05. Same Survey.php:139-141 cause.');
-        expect(e.expired, 'wiki: Z=30 sliding, deadline at -6:20').toBe(false);
+        expect(e.expired, 'last_active+Z = -6:20 → expired').toBe(true);
     });
 
     // ---------------------------------------------------------------
@@ -137,19 +135,17 @@ test.describe('Wiki spec compliance — survey expiry algorithm', () => {
     // "Once started, unlimited time."
     // ---------------------------------------------------------------
 
-    test('W4.a — accessed long ago, wiki: unlimited (code: X-rule still fires)', async () => {
-        // WIKI: X=420 only matters BEFORE access. Once accessed, no Y or Z → unlimited.
-        // CODE: X-rule fires unconditionally regardless of access. expires=-1h, expired=true.
-        // This IS the user-reported bug.
+    test('W4.a — accessed long ago, wiki: unlimited (post-fix matches)', async () => {
+        // Post Fix-3: X=420 only applies pre-access. Once accessed
+        // (first_submit > invitation+2s), Y=0 + Z=0 ⇒ never expire.
+        // This was the originally-reported prod bug; now fixed.
         const f = await setup({ x: 420, y: 0, z: 0, items: 1 });
         setUnitSessionCreated(f.unit_session_id, 480);                      // -8h
         setItemsDisplaySaved(f.unit_session_id, 470, f.item_ids[0]);        // first_submit -7:50h
         const e = computeExpiry(f.unit_session_id);
 
-        test.fail(e.expired === true,
-            'W4.a divergence: PROD REPORT. Wiki #4 promises unlimited time once accessed; ' +
-            'Survey.php:139-141 fires X-rule unconditionally even when participant has been editing.');
-        expect(e.expired, 'wiki: accessed user with Y=Z=0 should never expire').toBe(false);
+        expect(e.expired, 'accessed user with Y=Z=0 → unlimited time').toBe(false);
+        expect(e.expires_unix, 'no deadline computed post-access when Y=Z=0').toBeNull();
     });
 
     test('W4.b — never accessed, wiki & code agree at 7:00', async () => {
@@ -165,27 +161,19 @@ test.describe('Wiki spec compliance — survey expiry algorithm', () => {
     // "Access window forever; once started, snooze 30 min."
     // ---------------------------------------------------------------
 
-    test('W5.a — X=0 with no first_submit, wiki: never expires (code: Z fires off invitation)', async () => {
-        // WIKI: with X=0, pre-access has no deadline. User who never accessed
-        //       stays at this position forever.
-        // CODE: Z-rule fires using last_active=items_display.created (since
-        //       saved is NULL, falls back to created). createSurveyStudyRecord
-        //       set items_display.created to NOW at fixture creation time.
-        //       After backdating the unit-session.created but NOT items_display.created,
-        //       last_active stays "recent" — Z-rule says alive.
-        //
-        // To replicate a user who never interacted at all, we backdate
-        // BOTH: unit-session.created AND every items_display.created.
+    test('W5.a — X=0 with no first_submit (wiki: never expires; post-fix matches)', async () => {
+        // Post Fix-3: with X=0 and no first_submit > invitation+2s, the
+        // pre-access path returns expires=0 (never). Z is post-access only
+        // per the wiki. The fix moved Z out of the pre-access path so it
+        // doesn't fire off items_display.created (which createSurveyStudyRecord
+        // set to NOW on first visit even before any user input).
         const f = await setup({ x: 0, y: 0, z: 30, items: 1 });
         setUnitSessionCreated(f.unit_session_id, 600);                      // -10h
         setItemsDisplayCreated(f.unit_session_id, 600);                     // -10h, all items
         const e = computeExpiry(f.unit_session_id);
 
-        test.fail(e.expired === true,
-            'W5.a divergence: code Z-rule uses items_display.created as last_active fallback, ' +
-            'so a user who only had the survey loaded (auto-created items_display) ' +
-            'still gets a deadline. Wiki says X=0 → no pre-access deadline.');
-        expect(e.expired, 'wiki: X=0 → user never expires until they actually engage').toBe(false);
+        expect(e.expired, 'X=0 → user never expires until they actually engage').toBe(false);
+        expect(e.expires_unix, 'no pre-access deadline when X=0').toBeNull();
     });
 
     test('W5.b — accessed at 6:50 then idle, wiki & code: 7:20 (matches)', async () => {
@@ -213,7 +201,7 @@ test.describe('Wiki spec compliance — survey expiry algorithm', () => {
         setUnitSessionCreated(f.unit_session_id, 480);
         setItemsDisplaySaved(f.unit_session_id, 5, f.item_ids[0]);
         const e = computeExpiry(f.unit_session_id);
-        // Survey.php:123-124: if both X and Z are 0, return [] early — no calc happens.
+        // Post Fix-3: if both X and Z are 0, return [] early — no calc.
         expect(e.expires_unix, 'returns no expires when X and Z are 0').toBeNull();
         expect(e.expired, 'returns expired=false').toBe(false);
     });

@@ -245,9 +245,21 @@ class RunSession extends Model {
                     return $this->moveOn();
                 }
             } elseif ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id != $currentUnitSession->id) {
-                // if $currenUnitSession is not identical to the $referenceUnitSession sent by queue then something went terribly bad
+                // The queue handed us a stale reference: its unit-session
+                // is no longer the active one for this run-session (the
+                // run advanced past it via a prior cron tick or a back-jump).
+                // Drop the reference and stop here. The active unit-session
+                // is legitimate; the cron has nothing to do for THIS reference.
+                //
+                // Pre-fix this branch called moveOn() — which advanced the
+                // run-session's position past the active unit AND triggered
+                // a createUnitSession that supersede'd the active unit's
+                // queue entry to queued=-9. That's how participants who were
+                // mid-survey ended up orphaned (`ended IS NULL, expired IS
+                // NULL, queued = -9, results-row populated`). See
+                // tests/e2e/EXPIRY_PLAN.md "Fix 1".
                 UnitSessionQueue::removeItem($referenceUnitSession->id);
-                return $this->moveOn();
+                return ['body' => ''];
             }
 
             $this->debug('Current Unit Is ' . ($currentUnitSession ? $currentUnitSession->runUnit->type : '[none]'), true);

@@ -63,10 +63,20 @@ class UnitSession extends Model {
                 $this->runSession->currentUnitSession = $this;
                 $this->db->update('survey_run_sessions', ['current_unit_session_id' => $this->id], ['id' => $this->runSession->id]);
 
+                // Supersede prior queue entries for THIS unit only — i.e.
+                // duplicates created by SkipBackward / runTo where a previous
+                // iteration's unit-session for the same unit is still queued.
+                // Pre-fix the WHERE clause was (run_session_id, id <>, queued > 0)
+                // — a blanket flip that would also supersede *unrelated*
+                // queued siblings (a queued ESM Survey while a moveOn cascade
+                // is creating a downstream Pause). That blanket flip was the
+                // damage amplifier for the queue-stale-reference orphan path
+                // (Symptom A in the wild). See tests/e2e/EXPIRY_PLAN.md "Fix 2".
                 $this->db->update('survey_unit_sessions', ['queued' => -9], [
                     'run_session_id' => $this->runSession->id,
-                    'id <>' => $this->id,
-                    'queued >' => 0,
+                    'unit_id'        => $this->runUnit->id,
+                    'id <>'          => $this->id,
+                    'queued >'       => 0,
                 ]);
             }
 
@@ -205,16 +215,22 @@ class UnitSession extends Model {
 
     public function end($reason = null) {
         $unit = $this->runUnit;
-		
+
         if ($unit->type == "Survey" || $unit->type == "External") {
             if ($unit->type == "Survey") {
                 $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
                 $params = array('session_id' => $this->id, 'study_id' => $unit->surveyStudy->id);
                 $this->db->exec($query, $params);
-                
-                $this->result = "survey_ended";
-            } else if ($unit->type == "External") {
-                $this->result = "external_ended";
+            }
+            // Honour an explicit reason from the caller (e.g. the queue's
+            // run-session-ended branch passes 'ended_by_queue_rse').
+            // Pre-fix Survey/External hardcoded 'survey_ended'/'external_ended'
+            // and dropped the caller's reason on the floor — masking audit
+            // trail. See tests/e2e/EXPIRY_PLAN.md "Hygiene 5".
+            if ($reason !== null) {
+                $this->result = $reason;
+            } else {
+                $this->result = $unit->type == "Survey" ? "survey_ended" : "external_ended";
             }
         } else {
             if ($reason !== null) {
@@ -230,12 +246,17 @@ class UnitSession extends Model {
             }
         }
 
-        // @TODO import end from run unit
+        // Reset queued symmetrically with expire(). Pre-fix end() left
+        // queued at whatever it was (typically 2), which the next
+        // createUnitSession in the run-session would supersede to -9 —
+        // making the audit trail ambiguous between "completed normally"
+        // and "orphaned mid-flow". See "Hygiene 4" in EXPIRY_PLAN.md.
         $ended = $this->db->exec(
-                "UPDATE `survey_unit_sessions` SET 
-                `ended` = NOW(), 
-                `result` = :result, 
-                `result_log` = :result_log 
+                "UPDATE `survey_unit_sessions` SET
+                `ended` = NOW(),
+                `result` = :result,
+                `result_log` = :result_log,
+                `queued` = 0
                 WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
                 [
                     'id' => $this->id,

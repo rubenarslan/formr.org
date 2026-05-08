@@ -134,18 +134,21 @@ echo $us->id . "\\n";
         expect(s2.unit_id).toBe(s1.unit_id);
     });
 
-    test('U13 — back-jump style createUnitSession flips queued ESM-style sibling Pause to -9 (AMOR Symptom A)', async () => {
-        // Synthetic ESM-loop reproduction: queued Pause (analogous to
-        // ESM_break_until_10) is in the run-session at the moment a
-        // back-jump (analogous to T1_ESM_repetition_loop's
-        // SkipBackward) creates a new unit-session for an earlier unit.
+    test('U13 — Fix 2 regression guard: createUnitSession does NOT supersede a sibling with a different unit_id', async () => {
+        // Pre-fix this scenario reproduced AMOR Symptom A: a queued Pause
+        // sat in the run-session at the moment any new unit-session was
+        // created (e.g. via a SkipBackward back-jump or a moveOn cascade).
+        // The blanket supersede at UnitSession::create():66-70 flipped
+        // every queued sibling's `queued` to -9 regardless of unit_id.
         //
-        // Setup: provision a Pause that's been queued at expires=NOW+60.
-        // Then create a NEW unit-session (any unit; we use a fresh
-        // Survey) — UnitSession::create's supersede flips the queued
-        // Pause to -9. Resulting DB shape on the Pause: ended=NULL,
-        // expired=NULL, queued=-9, no end timestamp anywhere — exactly
-        // the Symptom A shape the user is hunting in prod.
+        // Post-Fix-2 (EXPIRY_PLAN.md), the supersede WHERE clause adds
+        // `unit_id = $this->runUnit->id`, scoping the flip to genuine
+        // duplicates of the SAME unit (which is what the supersede was
+        // originally meant for — preventing two active unit-sessions at
+        // the same unit_id). Cross-unit_id queued siblings stay intact.
+        //
+        // Setup: queued Pause + then create a Survey (different unit_id).
+        // Pre-fix: Pause queued -> -9. Post-fix: Pause queued stays at 2.
         const f = await provision({
             x: 0, y: 0, z: 0, items: 1, name: 'e2e-expiry-u13',
             pause: { wait_minutes: 60 },
@@ -154,11 +157,7 @@ echo $us->id . "\\n";
         const queuedPauseId = insertUnitSession(f.run_session_id, f.pause_id, { queued: 2 });
         dbExecRaw(`UPDATE survey_unit_sessions SET expires = DATE_ADD(NOW(), INTERVAL 60 MINUTE) WHERE id = ${queuedPauseId}`);
 
-        // Now simulate a back-jump creating a new unit-session for the
-        // Survey unit (we don't actually need a SkipBackward — any
-        // createUnitSession with setAsCurrent=true triggers the
-        // supersede). This is the AMOR pattern: SkipBackward at pos 143
-        // → runTo(122) → createUnitSession for unit_id at position 122.
+        // Create a Survey unit-session — different unit_id from the queued Pause.
         const phpScript = `<?php
 require '/var/www/formr/setup.php';
 $rs = new RunSession(null, new Run(null, ${f.run_id}), ['id' => ${f.run_session_id}]);
@@ -170,13 +169,14 @@ echo $us->id . "\\n";
         const { execSync } = require('node:child_process');
         const newSurveyId = parseInt(execSync('docker exec -i formr_app php', { input: phpScript, encoding: 'utf8' }).trim(), 10);
 
-        const orphaned = dbState(queuedPauseId);
-        expect(parseInt(orphaned.queued, 10), 'AMOR Symptom A: queued=-9 after back-jump').toBe(-9);
-        expect(orphaned.ended, 'AMOR Symptom A: ended=NULL').toBeNull();
-        expect(orphaned.expired, 'AMOR Symptom A: expired=NULL').toBeNull();
-        // The new sibling is the new "current" unit:
+        const queued = dbState(queuedPauseId);
+        expect(parseInt(queued.queued, 10),
+            'cross-unit_id queued sibling preserved post-Fix-2').toBe(2);
+        expect(queued.ended).toBeNull();
+        expect(queued.expired).toBeNull();
+        // The new Survey is the new "current" unit, different unit_id:
         const fresh = dbState(newSurveyId);
-        expect(fresh.unit_id).not.toBe(orphaned.unit_id);
+        expect(fresh.unit_id).not.toBe(queued.unit_id);
     });
 
     test('U7 — validation failures do not advance first_submit (grace block does not fire)', async ({ baseURL, page }) => {

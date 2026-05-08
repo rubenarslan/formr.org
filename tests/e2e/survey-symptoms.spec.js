@@ -116,16 +116,16 @@ test.describe.serial('Symptom A / B / D reproductions', () => {
 
         runQueueOnce();
 
-        // Predicted: queue picks up the Survey unit-session. RunSession::execute()
+        // Queue picks up the Survey unit-session. RunSession::execute()
         // sees run_session.ended, calls referenceUnitSession->end('ended_by_queue_rse').
-        // UnitSession::end() at :211 UPDATEs results_table SET ended=NOW WHERE ended IS NULL —
+        // UnitSession::end() UPDATEs results_table SET ended=NOW WHERE ended IS NULL —
         // matches 0 rows because no row exists. Then UPDATEs survey_unit_sessions SET
-        // ended=NOW unconditionally. Symptom B: ended IS NOT NULL, no results row.
-        // The reason 'ended_by_queue_rse' is overwritten to 'survey_ended' at :215.
+        // ended=NOW. Symptom B: ended IS NOT NULL, no results row.
+        // Post-Hygiene-5 fix: end() honours the explicit reason; result =
+        // 'ended_by_queue_rse', not the hardcoded 'survey_ended'.
         const s = dbState(usId);
         expect(s.ended, 'Survey should be ended despite never being visited').not.toBeNull();
-        expect(s.result, 'reason is overwritten to survey_ended at UnitSession.php:215')
-            .toBe('survey_ended');
+        expect(s.result, 'end() honours explicit $reason post-fix').toBe('ended_by_queue_rse');
         const r = dbResultsRow(f.results_table, usId);
         expect(r, 'no results row should exist for an unvisited Survey').toBeNull();
     });
