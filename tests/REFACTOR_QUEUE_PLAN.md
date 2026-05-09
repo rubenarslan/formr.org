@@ -262,6 +262,91 @@ A12. **Cron-active-but-paused runs never appear in cursor** because
      cron_active off freezes the run for the queue but leaves
      queued rows lingering.
 
+## Data-model issues (non-race)
+
+These aren't race conditions; they're places where the data model
+under-specifies what happened, so downstream consumers (analysis
+exports, merged result tables, the admin queue inspector) have to
+reconstruct context that the unit-session row should have carried
+in the first place.
+
+D1. **Unit-session has `unit_id` but not `run_unit_id`.** When a
+    Survey is reused at multiple positions in a run (e.g.
+    `T1_Screening` at positions 10, 30, 50), each position is a
+    distinct row in `survey_run_units` (which already has its own
+    PK `id` and is referenced as `$run_unit_id` in PHP via
+    `RunUnit::$run_unit_id`), but `survey_unit_sessions` only
+    stores `unit_id`. Three fills of the same Survey by the same
+    participant produce three `survey_unit_sessions` rows that
+    look identical except for `created` timestamp; you cannot tell
+    which row corresponds to which position without ordering or
+    guesswork. The only place that even tries to recover position
+    is `UnitSession::getRunDataNeeded` (line 624 of
+    `UnitSession.php`):
+
+    ```sql
+    LEFT JOIN survey_run_units
+       ON survey_unit_sessions.unit_id = survey_run_units.unit_id
+    LEFT JOIN survey_runs ON survey_runs.id = survey_run_units.run_id
+    ```
+
+    — and that JOIN is ambiguous: it fans out to N rows per
+    unit-session when the unit is reused at N positions. Symptoms
+    in prod: duplicates in merged result-table exports, ambiguous
+    "which iteration of `T1_Screening` did this answer come from"
+    questions during analysis. **Fix in refactor (REQUIRED, not
+    optional)**: `unit_executions.run_unit_id` NOT NULL FK to
+    `survey_run_units.id`; add to the UNIQUE key. Backfill on
+    migration: derivable for runs where unit_id is unique per
+    run (the common case); ambiguous for the multi-position
+    reuse case — those rows get NULL or a best-effort assignment
+    by ordering, with the ambiguity flagged.
+
+D2. **`iteration` not captured today.** SkipBackward loops produce
+    multiple `survey_unit_sessions` rows for the same
+    `(run_session, run_unit)` pair; the only way to distinguish
+    them is `id` order or `created` timestamp. ESM-style runs
+    that loop a day's units for 7 days (AMOR's `T1_ESM_repetition_loop
+    (for 7 days)` at position 143) produce 7 fills per ESM
+    survey; analysts reconstruct day-of-loop from timestamps.
+    **Fix in refactor**: `unit_executions.iteration` (1, 2, 3,
+    …) explicitly counts completions of the same `run_unit_id`.
+    Auto-incremented in the create() path. Combined with D1's
+    `run_unit_id`, gives a unique participant-position-iteration
+    key.
+
+D3. **`survey_unit_sessions.queued`'s four magic values aren't
+    self-documenting.** A SQL audit query needs to know that `-9`
+    means "superseded sibling", `1` means "retry / executeRef",
+    `2` means "waiting for cron pickup", `0` means three different
+    things. **Fix in refactor**: replace with explicit `state`
+    enum on `unit_executions` and a separate `work_items.kind`
+    enum for queue intent.
+
+D4. **No idempotency keys.** Email/Push are deduped by inspecting
+    `result IN (terminal_set)` (v0.25.7 guards). Survey
+    completion is deduped by `ended IS NULL` UPDATE WHERE clause
+    (Hygiene 4). Both work in practice but neither is named or
+    enforced at the schema level. **Fix in refactor**:
+    `work_items.idempotency_key UNIQUE` for any side-effecting
+    job; `unit_executions.state IN (terminal)` enforced via DB
+    CHECK constraint.
+
+D5. **`result_log` is unstructured TEXT.** Mixed format
+    (sometimes JSON, sometimes plain text, sometimes empty).
+    Consumers parse it inconsistently. **Fix in refactor (low
+    priority)**: split into structured `state_log` JSON column
+    with documented schema per `state_reason` value.
+
+D6. **Per-study results table joins on `session_id` (which IS
+    `unit_session_id`) but exports merge across units by
+    `run_session_id`.** Without `run_unit_id` on the unit-session
+    row, merging `survey_<screeningstudy>` with `survey_<esmstudy>`
+    for the same participant requires reconstructing position from
+    `survey_run_units` and timestamps. Fragile. Fixing D1 fixes
+    this transitively because `unit_executions.run_unit_id` lets
+    the merge join through that.
+
 ## Race conditions inventory
 
 R1. **Position-race (FIXED v0.25.7).** Two web requests' RunSession
@@ -353,21 +438,35 @@ R12. **`processQueue` cursor staleness.** Cursor's snapshot is
 CREATE TABLE unit_executions (
     id              BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
     run_session_id  INT UNSIGNED NOT NULL,
-    unit_id         INT UNSIGNED NOT NULL,
-    iteration       INT UNSIGNED NOT NULL DEFAULT 1,    -- back-jump iteration
+    run_unit_id     INT UNSIGNED NOT NULL,    -- FK survey_run_units.id; fixes D1
+    unit_id         INT UNSIGNED NOT NULL,    -- denormalised; equal to run_units.unit_id
+    iteration       INT UNSIGNED NOT NULL DEFAULT 1,    -- back-jump iteration; fixes D2
     state           ENUM('PENDING','RUNNING','WAITING_USER','WAITING_TIMER',
                          'ENDED','EXPIRED','SUPERSEDED') NOT NULL DEFAULT 'PENDING',
     state_reason    VARCHAR(64) NULL,         -- e.g. 'survey_ended', 'pause_ended'
-    state_log       TEXT NULL,                -- prior result_log
+    state_log       TEXT NULL,                -- prior result_log; D5 candidate for JSON
     created_at      DATETIME(3) NOT NULL,
     started_at      DATETIME(3) NULL,
     ended_at        DATETIME(3) NULL,         -- set on ENDED/EXPIRED/SUPERSEDED
     waiting_until   DATETIME(3) NULL,         -- replaces `expires` for WAITING_TIMER
     superseded_by   BIGINT UNSIGNED NULL,     -- FK to unit_executions.id; replaces queued=-9
-    UNIQUE KEY (run_session_id, unit_id, iteration),
+    UNIQUE KEY (run_session_id, run_unit_id, iteration),  -- not unit_id! see D1
     KEY (state, waiting_until),               -- queue-side lookups (see below)
-    KEY (run_session_id, state)               -- "current" lookup
+    KEY (run_session_id, state),              -- "current" lookup
+    CONSTRAINT fk_uxec_run_unit  FOREIGN KEY (run_unit_id)
+                                  REFERENCES survey_run_units(id),
+    CONSTRAINT fk_uxec_run_sess  FOREIGN KEY (run_session_id)
+                                  REFERENCES survey_run_sessions(id)
+                                  ON DELETE CASCADE
 );
+
+-- Note on (run_unit_id, unit_id) denormalisation: unit_id is
+-- functionally dependent on run_unit_id (run_units.unit_id), but
+-- carrying it on unit_executions lets per-study results-table JOINs
+-- (which key off `session_id = unit_executions.id`) avoid a hop
+-- through survey_run_units when the consumer only cares about the
+-- study, not the position. Triggers / app-side asserts maintain the
+-- denorm invariant.
 
 -- Job queue for async work (cron-driven cascades, expiry checks,
 -- email send, push send). Each job is one unit of work for a worker.
@@ -721,8 +820,63 @@ Ship as v0.25.8 hotfix. Watch for a week.
 - Verification: count rows in both tables match, state derivations
   agree.
 
+#### Backfill historical rows (D1 + D2)
+
+For every existing `survey_unit_sessions` row, derive
+`(run_unit_id, iteration)` retroactively. Strategy:
+
+- **Unique-position case** (run reuses a unit at one position
+  only): SQL JOIN
+  `survey_unit_sessions us → survey_run_sessions rs
+   → survey_run_units sru
+   ON sru.run_id = rs.run_id AND sru.unit_id = us.unit_id`
+  yields exactly one `sru.id` per `us` row; assign as `run_unit_id`.
+  Iteration is `ROW_NUMBER() OVER (PARTITION BY us.run_session_id,
+  us.unit_id ORDER BY us.id)`.
+
+- **Multi-position case** (D1): same SQL JOIN yields multiple
+  `sru.id`s. Disambiguate by `survey_run_sessions.position`
+  history if available (it isn't — `position` is current only,
+  not journaled). Fall back to ordering by `us.id`: assume the
+  first N ordered fills correspond to positions ordered ascending.
+  This is "best-effort" backfill — flag rows whose participant
+  flow is ambiguous (e.g. SkipBackward back-jumps mixing
+  iterations) by leaving `run_unit_id` NULL and noting in
+  `unit_executions.state_log` for analyst awareness.
+
+  A backfill report SQL (run after migration) prints per-run:
+  `backfilled_unique`, `backfilled_ordering`, `unresolved`. Hosts
+  with significant `unresolved` counts get a manual-review pass
+  before Phase 4 cutover.
+
+- **Greenfield case** (no historic rows): trivial; the new
+  create() path always sets `run_unit_id`.
+
 Ship as v0.26.0 (bumping minor for new table) — still backwards-
-compatible, no behaviour change.
+compatible, no behaviour change for live participants.
+
+#### Forward write of run_unit_id
+
+Phase 1 also patches `UnitSession::create` (and any direct callers)
+to write `run_unit_id` alongside `unit_id` for every NEW row going
+forward. This is independently shippable as a v0.26.0 hotfix even
+without the `unit_executions` table — the column would live on
+`survey_unit_sessions` itself initially, and migration to
+`unit_executions` becomes a copy. Recommended ordering:
+
+  v0.26.0:
+    a) ALTER TABLE survey_unit_sessions ADD COLUMN run_unit_id
+       INT UNSIGNED NULL.
+    b) UnitSession::create writes run_unit_id (derived from
+       moveOn's current position via a fresh
+       getRunUnitIdAtPosition() helper that returns
+       survey_run_units.id, not unit_id).
+    c) backfill historic rows (script).
+    d) Subsequent reads can JOIN on run_unit_id; export tooling
+       updated to disambiguate D1.
+
+After v0.26.0 ships, D1 is fixed for all forward data. Phase 2+
+work continues against the new column.
 
 ### Phase 2 — introduce `work_items` for new work (2–3 weeks)
 

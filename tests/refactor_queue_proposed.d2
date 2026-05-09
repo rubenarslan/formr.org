@@ -45,6 +45,18 @@ unit_executions: "unit_executions\n(state machine, append-only)" {
   shape: cylinder
   style.fill: "#dcfce7"
 
+  fields: |md
+    | column | meaning |
+    |---|---|
+    | run_session_id | FK survey_run_sessions |
+    | run_unit_id | FK survey_run_units (D1 fix — required) |
+    | unit_id | denormalised from run_units.unit_id |
+    | iteration | back-jump counter (D2 fix) |
+    | state | enum: PENDING/RUNNING/WAITING_*/ENDED/EXPIRED/SUPERSEDED |
+    | superseded_by | FK self; replaces queued=-9 |
+    | UNIQUE(run_session_id, run_unit_id, iteration) | not unit_id |
+  |
+
   PENDING: "PENDING"
   RUNNING: "RUNNING"
   WAITING_USER: "WAITING_USER"
