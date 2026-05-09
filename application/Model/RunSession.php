@@ -101,6 +101,26 @@ class RunSession extends Model {
         return false;
     }
 
+    /**
+     * Re-fetch this RunSession's row from the DB and re-assign properties
+     * (position, ended, current_unit_session_id, etc.) — used inside
+     * execute() right after acquireLock to ensure the cached state
+     * reflects any UPDATEs committed by a concurrent request that won
+     * the lock first. See execute()'s comment for the prod incident
+     * this guards against.
+     */
+    public function reloadFromDb() {
+        if (!$this->id) {
+            return false;
+        }
+        $data = $this->db->findRow('survey_run_sessions', ['id' => (int) $this->id]);
+        if ($data) {
+            $this->assignProperties($data);
+            return true;
+        }
+        return false;
+    }
+
     public function getRun() {
         return $this->run;
     }
@@ -198,6 +218,21 @@ class RunSession extends Model {
         }
 
         try {
+            // Re-fetch run-session state now that we hold the exclusive
+            // lock. Between this RunSession's constructor load() and the
+            // acquireLock above, another request may have advanced
+            // position / set ended / queued sibling unit-sessions. With-
+            // out this refresh, $this->position is stale: two near-
+            // simultaneous user requests at an expired Pause both load
+            // position=N pre-lock, then the second one to acquire the
+            // lock drives moveOn from N (instead of from N+1 where the
+            // run-session has actually advanced), creating duplicate
+            // downstream unit-sessions. Observed on AMOR 2026-05-09 at
+            // 10:03–10:11 (18 affected participants, 2× Email + 2× Push +
+            // 2× Survey rows per Pause anchor). See
+            // tests/e2e/double-expiry.spec.js D1.
+            $this->reloadFromDb();
+
             if ($this->ended) {
                 // User tried to access an already ended run session, logout
                 if (formr_in_console()) {
