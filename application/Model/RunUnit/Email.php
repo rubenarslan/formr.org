@@ -395,6 +395,17 @@ class Email extends RunUnit {
     }
 
     public function getUnitSessionOutput(UnitSession $unitSession) {
+        // Idempotency guard: a successful prior send (sync via sendNow,
+        // queued via queueNow, or admin-skipped) leaves the row's result
+        // set. Don't re-fire sendMail — that would deliver a duplicate
+        // SMTP message / re-insert into survey_email_log. The position-
+        // recheck guard in RunSession::execute should already prevent
+        // the duplicate-cascade path that would re-execute this row;
+        // this is belt-and-braces. See tests/e2e/double-expiry.spec.js.
+        if (in_array($unitSession->result, ['email_sent', 'email_queued', 'email_skipped_user_active', 'email_skipped_user_disabled'], true)) {
+            return ['end_session' => true, 'move_on' => true];
+        }
+
         // If emails should be sent only when cron is active and unit is not called by cron, then end it and move on
         $data = [];
         if ($this->cron_only && !$unitSession->isExecutedByCron()) {

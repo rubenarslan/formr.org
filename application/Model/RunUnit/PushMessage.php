@@ -112,6 +112,16 @@ class PushMessage extends RunUnit {
     }
 
     public function getUnitSessionOutput(UnitSession $unitSession) {
+        // Idempotency guard: a successful prior send leaves result='sent'
+        // (or 'no_subscription' / 'error' / 'message_parse_failed' /
+        // 'title_parse_failed' for terminal-failure cases). Re-executing
+        // would deliver a duplicate push notification. See the matching
+        // guard in Email::getUnitSessionOutput and
+        // tests/e2e/double-expiry.spec.js for context.
+        if (in_array($unitSession->result, ['sent', 'no_subscription', 'error', 'message_parse_failed', 'title_parse_failed'], true)) {
+            return ['move_on' => true];
+        }
+
         $output = array();
         $output['log'] = array();
 
