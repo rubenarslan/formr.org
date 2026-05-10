@@ -40,6 +40,16 @@ class AdminAdvancedController extends AdminController {
             return $this->request->redirect('/');
         }
 
+        // Defense-in-depth: bind the SuperAdmin guard to the method, not
+        // just to the controller-base routing layer. The action mints
+        // OAuth clients, deletes users, sets admin levels — every branch
+        // here is privileged. If a future routing change ever exposes
+        // this controller without the inSuperAdminArea() header gate,
+        // this in-method check still rejects.
+        if (!$this->user || !$this->user->isSuperAdmin()) {
+            formr_error(403, 'Forbidden', 'SuperAdmin access required.');
+        }
+
         $request = new Request($_POST);
 
         if ($request->user_id && is_numeric($request->admin_level)) {

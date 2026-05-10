@@ -59,7 +59,17 @@ class RunSession extends Model {
 
         $this->session = $session;
         $this->run = $run;
-        $this->assignProperties($options);
+        // Defense-in-depth allowlist: only 'id' and 'user' are legitimate
+        // constructor options (callers in Run.php / RunUnit.php / Queue
+        // pass these). Everything else — user_id, position, deactivated,
+        // current_unit_session_id, no_email — must come from the DB row
+        // loaded below, not from caller input.
+        if ($options) {
+            $this->assignProperties(array_intersect_key(
+                (array) $options,
+                ['id' => true, 'user' => true]
+            ));
+        }
 
         if (($this->id || $this->session) && $this->run) {
             $this->load();
@@ -564,10 +574,9 @@ class RunSession extends Model {
                  FROM survey_items_display sid
                  JOIN survey_items si ON si.id = sid.item_id
                  JOIN survey_unit_sessions sus ON sus.id = sid.session_id
-                 WHERE sus.run_session_id = :run_session_id 
+                 WHERE sus.run_session_id = :run_session_id
                  AND si.type = 'push_notification'
-                 AND sid.answer != 'not_requested'
-                 AND sid.answer != 'not_supported'
+                 AND sid.answer NOT IN ('not_requested', 'not_supported', 'expired', 'ios_version_not_supported')
                  ORDER BY sid.created DESC
                  LIMIT 1";
 

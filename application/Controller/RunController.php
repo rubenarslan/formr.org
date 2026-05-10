@@ -47,6 +47,58 @@ class RunController extends Controller {
         // OR if cookie is expired then logout
         $this->user = $this->loginUser();
 
+        // Migration self-heal for existing PWA installs that captured a
+        // pre-tokenization start_url. If the request has no ?code= query
+        // but the cookie identifies a participant who already has a
+        // session in this run, 302 to the tokenized form so the URL bar
+        // (and any in-PWA history.replaceState) carries the code from
+        // here on. iOS keeps us in the standalone shell because the
+        // redirect is same-scope. Once the URL has the token, future
+        // launches survive cookie eviction. GET-only, idempotent, runs
+        // before Run::exec so we don't double-render the unit.
+        if ($pageNo === null && Request::isHTTPGetRequest()
+                && empty($_GET['code'])
+                && $this->run->valid) {
+            $hasSessionInRun = false;
+            if (!empty($this->user->user_code)) {
+                $sessionRow = DB::getInstance()
+                    ->select('id')
+                    ->from('survey_run_sessions')
+                    ->where(array(
+                        'session' => $this->user->user_code,
+                        'run_id' => $this->run->id,
+                    ))
+                    ->fetch();
+                $hasSessionInRun = (bool) $sessionRow;
+            }
+
+            if ($hasSessionInRun) {
+                // Cookie self-heal (existing PWA install with alive cookie).
+                // Drop mod_rewrite's route= / run_name= artifacts; keep
+                // explicit params like _pwa=true so the standalone marker
+                // survives.
+                $params = array('code' => $this->user->user_code);
+                foreach ($_GET as $k => $v) {
+                    if ($k === 'route' || $k === 'run_name' || $k === 'code') continue;
+                    $params[$k] = $v;
+                }
+                $target = run_url($this->run->name) . '?' . http_build_query($params);
+                $this->request->redirect($target);
+                return;
+            }
+
+            // Worst-case fallback: PWA shell launched at clean URL with no
+            // recoverable cookie session. Show a code-paste recovery form
+            // so the participant can re-establish the session in-shell
+            // rather than getting dumped into the public landing flow
+            // (or, for non-public runs, the "you cannot access" alert).
+            // Gate on _pwa=true so non-PWA traffic falls through to the
+            // existing public flow unchanged.
+            if (!empty($_GET['_pwa'])) {
+                return $this->renderPwaSessionRecovery();
+            }
+        }
+
         Session::setSessionLifetime($this->run->expire_cookie);
 
         $run_vars = $this->run->exec($this->user);
@@ -361,25 +413,161 @@ class RunController extends Controller {
     }
 
     /**
-     * Serve the manifest file with appropriate headers for the run
+     * Serve the manifest file with appropriate headers for the run.
+     *
+     * If `?code=<participant_session>` is supplied AND validates against a
+     * survey_run_sessions row in this run, the manifest is personalized:
+     * `start_url`, `id`, every `shortcuts[].url`, and every
+     * `protocol_handlers[].url` gets `?code=X` appended. iOS captures
+     * `start_url` into the home-screen icon at install time, so a
+     * tokenized install is recoverable later even if the
+     * formr_session cookie evicts (ITP cap, storage pressure, Safari ↔
+     * standalone container isolation). Without participant context the
+     * un-personalized manifest is served unchanged — public installs
+     * still work.
+     *
+     * Invalid codes 404 rather than 401: a malformed code shouldn't
+     * surface as an install-flow auth error, and the genuine "no code"
+     * path remains a successful 200.
+     *
+     * Source: the on-disk manifest_json file written by generateManifest
+     * (or by the admin's manifest_json textarea in run settings) is the
+     * base; admin customizations to e.g. theme_color, name, icons are
+     * preserved and only the URL fields are touched per request.
      */
     public function manifestAction() {
         $run = $this->getRun();
-
-        // Set appropriate headers
-        header('Content-Type: application/json');
-        header('Cache-Control: no-cache, no-store, must-revalidate');
-
-        // Serve the manifest file
-        $manifestPath = $run->getManifestJSONPath();
-        if(!empty($manifestPath) && file_exists($manifestPath)) {
-            readfile($manifestPath);
-            exit;
+        if (!$run || !$run->valid) {
+            header('HTTP/1.0 404 Not Found');
+            header('Content-Type: text/plain');
+            echo "Manifest not found";
+            return;
         }
 
-        // If file doesn't exist, return 404
-        header('HTTP/1.0 404 Not Found');
-        echo "Manifest not found";
+        $jsonText = $run->getManifestJSON();
+        if (!$jsonText || trim($jsonText) === '') {
+            header('HTTP/1.0 404 Not Found');
+            header('Content-Type: text/plain');
+            echo "Manifest not found";
+            return;
+        }
+
+        $manifest = json_decode($jsonText, true);
+        if (!is_array($manifest)) {
+            header('HTTP/1.0 500 Internal Server Error');
+            header('Content-Type: text/plain');
+            echo "Manifest could not be parsed";
+            return;
+        }
+
+        $code = isset($_GET['code']) ? (string) $_GET['code'] : '';
+        if ($code !== '') {
+            $code_rule = Config::get('user_code_regular_expression');
+            $codeOk = $code_rule && preg_match($code_rule, $code);
+            if ($codeOk) {
+                $exists = DB::getInstance()
+                    ->select('id')
+                    ->from('survey_run_sessions')
+                    ->where(array('session' => $code, 'run_id' => $run->id))
+                    ->fetch();
+                $codeOk = (bool) $exists;
+            }
+            if (!$codeOk) {
+                header('HTTP/1.0 404 Not Found');
+                header('Content-Type: text/plain');
+                echo "Manifest not found";
+                return;
+            }
+            $this->personalizeManifest($manifest, $run, $code);
+        }
+
+        header('Content-Type: application/manifest+json');
+        // private = single-user cache only; no-store = don't keep on disk.
+        // The personalized variant must NEVER be served to a different
+        // participant via an intermediate proxy.
+        header('Cache-Control: private, no-store');
+        echo json_encode($manifest, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        exit;
+    }
+
+    /**
+     * Render the in-PWA "session expired" recovery page.
+     *
+     * Reached when the standalone shell (`_pwa=true`) launches at the
+     * clean run URL with no `?code=` and no cookie-resolvable session in
+     * this run — the worst-case post-cookie-eviction state. Shows a
+     * code-paste form that GETs the same run URL with the supplied code
+     * so the participant can recover without leaving the PWA shell or
+     * hunting through Safari for the original email link.
+     */
+    private function renderPwaSessionRecovery() {
+        $form_action = h(run_url($this->run->name));
+        // Pattern attribute is derived from the configured
+        // user_code_regular_expression so customized deployments still
+        // get accurate client-side validation. Server-side loginUser()
+        // remains authoritative.
+        $code_pattern = user_code_html_pattern();
+        $pattern_attr = $code_pattern !== ''
+            ? ' pattern="' . h($code_pattern) . '"'
+            : '';
+        $run_content = '<h1>' . __('Session expired') . '</h1>'
+            . '<p>' . __('Your saved sign-in to this study has expired. '
+                       . 'Please open the latest invitation email link, '
+                       . 'or paste your participant code below to continue.') . '</p>'
+            . '<form method="get" action="' . $form_action . '" class="pwa-recovery-form" '
+            . '      style="margin-top:1.5em;max-width:480px">'
+            . '<label for="pwa-recovery-code" style="display:block;margin-bottom:.25em;font-weight:600">'
+            . h(__('Participant code')) . '</label>'
+            . '<input type="text" id="pwa-recovery-code" name="code" autofocus required '
+            . '       autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"'
+            . $pattern_attr
+            . '       style="width:100%;padding:.6em;border:1px solid #ccc;border-radius:4px;'
+            . 'font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:1em">'
+            . '<input type="hidden" name="_pwa" value="true">'
+            . '<button type="submit" class="btn btn-primary" '
+            . '        style="margin-top:.75em;padding:.5em 1.25em">'
+            . h(__('Continue')) . '</button>'
+            . '</form>';
+
+        $this->setView('run/static_page', array(
+            'run_content' => $run_content,
+            'bodyClass' => 'fmr-run fmr-pwa-recovery',
+        ));
+        return $this->sendResponse();
+    }
+
+    /**
+     * Append ?code=X (or &code=X for URLs that already carry a query) to
+     * every URL field in the manifest that should re-establish the
+     * participant's session on launch / shortcut activation. Mutates
+     * \$manifest in place.
+     */
+    private function personalizeManifest(array &$manifest, Run $run, $code) {
+        $base = run_url($run->name);
+        $tokenized = $base . '?code=' . urlencode($code);
+        $manifest['start_url'] = $tokenized;
+        $manifest['id'] = $tokenized;
+        $appendCode = function ($url) use ($code) {
+            if (!is_string($url) || $url === '') return $url;
+            $sep = (strpos($url, '?') === false) ? '?' : '&';
+            return $url . $sep . 'code=' . urlencode($code);
+        };
+        if (isset($manifest['shortcuts']) && is_array($manifest['shortcuts'])) {
+            foreach ($manifest['shortcuts'] as &$sc) {
+                if (is_array($sc) && isset($sc['url'])) {
+                    $sc['url'] = $appendCode($sc['url']);
+                }
+            }
+            unset($sc);
+        }
+        if (isset($manifest['protocol_handlers']) && is_array($manifest['protocol_handlers'])) {
+            foreach ($manifest['protocol_handlers'] as &$ph) {
+                if (is_array($ph) && isset($ph['url'])) {
+                    $ph['url'] = $appendCode($ph['url']);
+                }
+            }
+            unset($ph);
+        }
     }
 
     private function sendJsonResponse($data, $statusCode = 200) {
@@ -457,5 +645,37 @@ class RunController extends Controller {
         } else {
             $this->sendJsonResponse(array('error' => 'Failed to delete subscription.'), 500);
         }
+    }
+
+    /**
+     * Service-worker / PWA telemetry beacon. Endpoint exists so SW
+     * install / activate failures surface in formr's error log instead
+     * of dying silently in the participant's browser console (where we
+     * never see them). No auth: SW context can't carry session cookies
+     * reliably across all browsers, so we log the bare report as-is.
+     * The participant origin already gates blast radius; we accept
+     * anonymous reports from anyone in-scope. Returns 204.
+     *
+     * Payload is whatever the SW POSTed (small JSON). We log it
+     * verbatim plus User-Agent + remote IP for triage.
+     */
+    public function pwaBeaconAction()
+    {
+        if (!Request::isHTTPPostRequest()) {
+            http_response_code(405);
+            return;
+        }
+        $raw = file_get_contents('php://input');
+        // Cap at 4 KB — beacons are small structured JSON, not bug reports.
+        $raw = $raw === false ? '' : substr((string) $raw, 0, 4096);
+        $this->run = $this->getRun();
+        $context = [
+            'run' => $this->run ? $this->run->name : null,
+            'ua' => substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 256),
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? null,
+        ];
+        formr_log('PWA beacon ' . json_encode($context) . ' body=' . $raw);
+        http_response_code(204);
+        exit;
     }
 }

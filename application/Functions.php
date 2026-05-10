@@ -157,6 +157,33 @@ function formr_error_feature_unavailable()
     formr_error('503', 'Feature Unavailable', 'Sorry this feature is temporarily unavailable. Please try again later', '', 'javascript:history.back();', 'Go Back');
 }
 
+/**
+ * Derive an HTML5 `pattern` attribute string from the configured
+ * `user_code_regular_expression` PHP regex. Strips the delimiters,
+ * any trailing flags, and the ^/$ anchors HTML5 auto-applies anyway.
+ * Returns an empty string if the config is missing or shape we don't
+ * recognize — caller can decide whether to omit the pattern attr or
+ * fall back to a permissive default.
+ */
+function user_code_html_pattern()
+{
+    $regex = Config::get('user_code_regular_expression');
+    if (!is_string($regex) || $regex === '') {
+        return '';
+    }
+    if (!preg_match('@^([/~#])(.*)\1[a-zA-Z]*$@s', $regex, $m)) {
+        return '';
+    }
+    $body = $m[2];
+    if ($body !== '' && $body[0] === '^') {
+        $body = substr($body, 1);
+    }
+    if ($body !== '' && substr($body, -1) === '$') {
+        $body = substr($body, 0, -1);
+    }
+    return $body;
+}
+
 function h($text)
 {
     if ($text === null) {
@@ -573,12 +600,7 @@ function echo_time_points($points)
 
 function crypto_token($length, $url = true)
 {
-    $bytes = openssl_random_pseudo_bytes($length, $crypto_strong);
-    $base64 = base64_url_encode($bytes);
-    if (!$crypto_strong) {
-        formr_error(500, 'Internal Server Error', 'Generated cryptographic tokens are not strong.', 'Cryptographic Error');
-    }
-    return $base64;
+    return base64_url_encode(random_bytes($length));
 }
 
 function base64_url_encode($data)
@@ -1115,7 +1137,15 @@ function opencpu_prepare_api_access($code, &$variables)
     }
 
     $oauth = OAuthHelper::getInstance();
-    $token_data = $oauth->createAccessTokenForUser($owner, 'user:read session:read session:write run:read data:read');
+    // 120s is the upper bound on a round-trip: formr mints the token,
+    // embeds it in an R variable, OpenCPU evaluates the snippet (which
+    // may phone back into the v1 API), and we delete the token in the
+    // caller's finally block on return. The short lifetime is a safety
+    // net for the failure modes that skip the explicit delete (process
+    // crash, uncaught exception in opencpu_evaluate, OpenCPU timeout
+    // leaving the request hung). External API consumers go through
+    // the standard client_credentials grant and get the 1h default.
+    $token_data = $oauth->createAccessTokenForUser($owner, 'user:read session:read session:write run:read data:read', false, 120);
 
     if (!$token_data || empty($token_data['access_token'])) {
         return null;
@@ -2091,8 +2121,10 @@ function notify_study_admin(UnitSession $unitSession, string $message, string $t
     try {
         Notification::getInstance()->notifyStudyAdmin($unitSession, $message, $type);
     } catch (Exception $e) {
-        // Handle the exception as needed
-        // formr_log("Error notifying study admin: " . $e->getMessage(), 'ERROR');
+        // Don't let an admin-notification failure bubble up and break the
+        // user-facing request, but do log it so silent breakage is at
+        // least diagnosable in tmp/logs/errors.log.
+        formr_log_exception($e, 'notify_study_admin');
     }
 }
 

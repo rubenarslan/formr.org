@@ -438,7 +438,7 @@ function ajaxifyForm(i, elm) {
 
                 if (!survey.data[obj.name]) {
                     var val = obj.value;
-                    if (!isNaN(parseFloat(val)) && isFinite(val)) {
+                    if ($.isNumeric(val)) {
                         val = parseFloat(val);
                     }
                     survey.data[obj.name] = val;

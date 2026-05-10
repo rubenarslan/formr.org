@@ -1,12 +1,13 @@
 <?php
 
-/*
- * Test Config class
+/**
+ * @group integration
+ *
+ * Hits a live OpenCPU instance — excluded from default CI run.
  */
-
 class OpenCPUTest extends PHPUnit\Framework\TestCase {
 
-    public function configProvider() {
+    public static function configProvider() {
         $settings = array();
         $settings['opencpu_instance'] = array(
             'base_url' => 'https://opencpu.psych.bio.uni-goettingen.de',

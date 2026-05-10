@@ -76,6 +76,20 @@ class ApiController extends Controller
         $this->authenticate($resource);
 
         try {
+            // Explicit allowlist instead of method_exists($api, $resource).
+            // ApiV1 declares only these three top-level resource methods,
+            // but it also inherits public helpers from ApiBase
+            // (getData, getPathSegments, setPathSegments) that
+            // method_exists would happily resolve — leaving them
+            // dispatchable through /api/v1/getData etc. None do anything
+            // privileged, but routing is exactly the wrong place to
+            // trust inheritance.
+            $allowedResources = ['user', 'surveys', 'runs'];
+            if (!in_array($resource, $allowedResources, true)) {
+                $this->respond(404, 'Not Found', ['error' => "Resource '$resource' not found in V1 API."]);
+                return;
+            }
+
             $token_data = $this->oauthServer->getAccessTokenData(OAuth2\Request::createFromGlobals());
 
             if (!class_exists('ApiV1')) {
@@ -83,11 +97,6 @@ class ApiController extends Controller
             }
 
             $api = new ApiV1($this->site->request, $this->fdb, $token_data);
-
-            if (!method_exists($api, $resource)) {
-                $this->respond(404, 'Not Found', ['error' => "Resource '$resource' not found in V1 API."]);
-                return;
-            }
 
             // Execute the helper method
             $apiResult = $api->$resource(...$arguments);

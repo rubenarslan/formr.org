@@ -54,7 +54,7 @@ import {
         var slctdata0 = slct.attr("data-select2init"),
           slctdata;
         if (typeof slctdata0 != "object") {
-          slctdata = JSON.parse(slctdata0);
+          slctdata = $.parseJSON(slctdata0);
         } else {
           slctdata = slctdata0;
         }
@@ -551,7 +551,7 @@ import {
     this.url = this.form.prop("action");
 
     this.units = [];
-    var json_units = JSON.parse(this.form.attr("data-units"));
+    var json_units = $.parseJSON(this.form.attr("data-units"));
 
     for (var i = 0; i < json_units.length; i++) {
       this.units[i] = new RunUnit(this);
@@ -799,7 +799,7 @@ import {
         var json_string = getHTMLTemplate(eid);
         $modal
           .find("textarea")
-          .val(JSON.stringify(JSON.parse(json_string), null, "\t"));
+          .val(JSON.stringify($.parseJSON(json_string), null, "\t"));
       });
 
       $modal

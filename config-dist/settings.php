@@ -26,7 +26,7 @@ $settings['database'] = array(
 	'password' => 'password',
 	'database' => 'database',
 	'prefix' => '',
-	'encoding' => 'utf8mb',
+	'encoding' => 'utf8mb4',
 	'unix_socket' => '',
 );
 

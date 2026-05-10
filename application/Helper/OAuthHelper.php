@@ -142,7 +142,7 @@ class OAuthHelper
         if (!$client) {
             return false;
         }
-        $details = $this->generateClientDetails($formrUser, true);
+        $details = $this->generateClientDetails($formrUser);
         $client_id = $client['client_id'];
         $client_secret = $details['client_secret'];
         $ok = $this->storage->setClientDetails($client_id, $client_secret->getString(), self::DEFAULT_REDIRECT_URL, null, null, $formrUser->email);
@@ -168,39 +168,45 @@ class OAuthHelper
     }
 
     /**
-     * Generate client ID and client Secret from User object.
-     * The client_secret is returned as a HiddenString so it cannot leak
-     * through var_dump / __toString / error logs. Callers that need the
-     * raw value (to store a hash or show it once) must call ->getString().
+     * Generate a fresh client_id + client_secret pair from cryptographically
+     * secure random bytes. Must NOT be derived from the user (id, email,
+     * etc.) since those are externally guessable; the client_secret is the
+     * sole authenticator on the OAuth client_credentials grant.
      *
-     * @param User $formrUser
-     * @param bool $refresh
+     * The client_secret is returned as a HiddenString so it cannot leak
+     * through var_dump / __toString / error logs. Callers that need the raw
+     * value (to store a hash or show it once) must call ->getString().
+     *
+     * @param User $formrUser unused; retained for interface compatibility
      * @return array{client_id: string, client_secret: HiddenString}
      */
-    protected function generateClientDetails(User $formrUser, $refresh = false)
+    protected function generateClientDetails(User $formrUser)
     {
-        $jwt = new OAuth2\Encryption\Jwt();
-        $append = $refresh ? microtime(true) : '';
-        $client_id = md5($formrUser->id . $formrUser->email . $append);
-        if ($refresh) {
-            $client_id = $append . $formrUser->email . $formrUser->id;
-        }
-        $raw_secret = substr(str_replace('.', '', $jwt->encode($client_id, $client_id)), 0, 60);
-        $client_secret = new HiddenString($raw_secret);
+        $client_id = bin2hex(random_bytes(16));
+        $client_secret = new HiddenString(bin2hex(random_bytes(32)));
         return compact('client_id', 'client_secret');
     }
 
     /**
      * Create an access token for internal API access for a given user.
      * This bypasses the standard grant flows and directly issues a token.
-     * 
+     *
+     * Default lifetime mirrors the external client_credentials grant
+     * (1 hour), so a future caller minting a token for a generic
+     * "act-as this user" workflow gets a sensible default. Short-lived
+     * use cases — e.g. opencpu_prepare_api_access, which embeds the
+     * token into an R variable for the duration of one OpenCPU call
+     * and explicitly deletes it on return — should pass an explicit
+     * lifetime (~120s is the established floor) so the lifetime is a
+     * safety net rather than the contract.
+     *
      * @param User $formrUser The user for whom to create the token.
      * @param string|null $scope The scope for the token.
      * @param bool $includeRefreshToken Whether to include a refresh token. Defaults to false.
-     * @param int $tokenLifetime Token lifetime in seconds. Defaults to 120.
+     * @param int $tokenLifetime Token lifetime in seconds. Defaults to 3600 (1 hour).
      * @return array|false The access token data or false on failure.
      */
-    public function createAccessTokenForUser(User $formrUser, $scope = null, $includeRefreshToken = false, $tokenLifetime = 120)
+    public function createAccessTokenForUser(User $formrUser, $scope = null, $includeRefreshToken = false, $tokenLifetime = 3600)
     {
         if (!$formrUser->canAccessApi()) {
             return false;

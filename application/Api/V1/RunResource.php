@@ -191,19 +191,31 @@ class RunResource extends BaseResource
     {
         $input = $this->getJsonBody();
 
+        // Denylist of run_settings columns the API isn't allowed to write
+        // through this endpoint. saveSettings filters by the broader
+        // run_settings allowlist, so anything else (id, user_id, …) is
+        // already dropped; the entries here are columns we explicitly
+        // want immutable via the v1 API even though they live on the
+        // settings allowlist used by the admin UI.
         $restrictedFields = ['vapid_public_key', 'vapid_private_key', 'osf_project_id', 'name'];
         foreach ($restrictedFields as $field) {
-            if (isset($input[$field])) {
-                unset($input[$field]);
-            }
+            unset($input[$field]);
         }
 
-        $textFields = ['title', 'description', 'footer_text', 'public_blurb', 'privacy', 'tos'];
-        foreach ($textFields as $field) {
-            if (isset($input[$field]) && is_string($input[$field])) {
-                $input[$field] = htmlspecialchars(trim($input[$field]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            }
-        }
+        // saveSettings (Markdown / expiresOn validation) and the
+        // togglePublic path both signal soft errors via alert() — the v1
+        // API has no alert pane, so capture them and either fail or
+        // surface as warnings. Flush any pre-existing alerts first so
+        // anything left after this request is attributable to it.
+        // Don't pre-htmlspecialchars Markdown text fields: saveSettings
+        // pipes them through ParsedownExtra (storing the rendered HTML in
+        // *_parsed columns) and templates use h() on the raw originals
+        // when rendering them into edit textareas. Pre-escaping here
+        // would turn '>' (blockquote leader) into '&gt;', double-escape
+        // '&' in URLs, etc., and silently diverge admin-UI runs from
+        // API-edited runs.
+        $site = Site::getInstance();
+        $site->renderAlerts();
 
         $settingsSaved = $run->saveSettings($input);
 
@@ -212,14 +224,36 @@ class RunResource extends BaseResource
             return $this->error(400, 'Failed to update run: ' . $errors);
         }
 
-        if (isset($input['expiresOn'])) {
-            $run->expiresOn = $input['expiresOn'];
+        // togglePublic / toggleLocked aren't on the run_settings
+        // allowlist, so saveSettings doesn't touch them — they need
+        // separate calls. Capture failures: togglePublic returns false
+        // on invalid value, missing/past expiry, or missing privacy
+        // policy when require_privacy_policy is on, so a silent 200
+        // would lie to the client.
+        $toggleErrors = [];
+        if (isset($input['public']) && !$run->togglePublic((int) $input['public'])) {
+            $toggleErrors[] = 'public';
+        }
+        if (isset($input['locked']) && !$run->toggleLocked((int) $input['locked'])) {
+            $toggleErrors[] = 'locked';
         }
 
-        if (isset($input['public'])) $run->togglePublic((int)$input['public']);
-        if (isset($input['locked'])) $run->toggleLocked((int)$input['locked']);
+        $alertsHtml = $site->renderAlerts();
+        $alerts = trim(strip_tags($alertsHtml));
 
-        return $this->response(200, 'Run updated successfully');
+        if (!empty($toggleErrors)) {
+            $msg = 'Could not update field(s): ' . implode(', ', $toggleErrors);
+            if ($alerts !== '') {
+                $msg .= '. ' . $alerts;
+            }
+            return $this->error(400, $msg);
+        }
+
+        $payload = [];
+        if ($alerts !== '') {
+            $payload['warnings'] = $alerts;
+        }
+        return $this->response(200, 'Run updated successfully', $payload);
     }
 
     private function deleteRun($run)

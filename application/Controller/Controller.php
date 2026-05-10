@@ -201,6 +201,13 @@ abstract class Controller {
         if ($this->run) {
             $config['run_url'] = run_url($this->run->name);
         }
+        // HTML5 pattern attribute for participant-code inputs (PWA
+        // recovery banner, etc.). Derived from the configured PHP regex
+        // so deployments that customize user_code_regular_expression
+        // don't have to change client code in lockstep.
+        if (($pattern = user_code_html_pattern()) !== '') {
+            $config['user_code_pattern'] = $pattern;
+        }
         // Cookie consent
         $cookieconsent = Site::getSettings('js:cookieconsent', '{}');
         if ($cookieconsent && ($decoded = json_decode($cookieconsent, true))) {

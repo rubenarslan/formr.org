@@ -2,6 +2,48 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Added
+- **Versioned RESTful v1 API** at `/api/v1/<resource>`. OAuth2 client_credentials grant with 1 hour access tokens. Resources: `user`, `surveys`, `runs/{name}`, plus per-run sub-resources `sessions`, `results`, `files`, `structure`. Twelve scopes (`user:read/write`, `survey:read/write`, `run:read/write`, `session:read/write`, `data:read`, `file:read/write`); scope is checked before resource lookup, so a token without the right scope returns 403 regardless of whether the run/survey exists or belongs to the caller.
+- New admin level `2` ("API access"). Only users at `admin >= 2` can mint or use API credentials. Existing `admin = 1` accounts keep web-admin rights but lose API access until a SuperAdmin promotes them via the user-management page.
+- One-time client-secret display at `admin/account` → API tab. Secret is shown only at issuance and rotation; storage holds a SHA-256 hash, so a forgotten secret must be rotated, not recovered.
+
+### Changed (BREAKING)
+- **OAuth bearer credentials are now stored as SHA-256 hashes at rest.** On upgrade, patch `048_hash_oauth_tokens.sql` truncates `oauth_access_tokens`, `oauth_refresh_tokens`, and `oauth_authorization_codes`; patch `049_hash_client_secrets.sql` zeroes `oauth_clients.client_secret`. **All currently-issued tokens are invalidated** and **every existing OAuth client must mint a new secret** at `/admin/account#api` after upgrade. Plan a maintenance window for any unattended cron jobs that hold long-lived tokens.
+
+### Security
+- Various security hardening. Operators are encouraged to upgrade and to rotate any OAuth client secrets after upgrading. A detailed advisory will follow once adoption is broader.
+
+## [v0.25.3] - 06.05.2026
+### Added
+- PWA persistence — survive cookie eviction without losing the participant's session
+  - Manifest endpoint personalises `start_url`, `id`, `shortcuts[].url`, and `protocol_handlers[].url` with `?code=<participant_session>` when an active RunSession exists, so iOS captures the tokenised URL into the home-screen icon at install time
+  - Manifest `<link>` in run pages now emits the tokenised URL when the request has a participant context, falling back to the public clean manifest otherwise
+  - Server-side cookie self-heal: a bare GET on the run URL with a cookie that resolves to a participant in this run 302s to `?code=<their_session>`, so the URL becomes the authoritative session identifier
+  - Server-side recovery prompt rendered when the request lands at a run URL in standalone PWA shell with no resolvable session — replaces the silent auto-enrolment that previously created orphan participants
+  - Client-side recovery banner detects standalone-shell + no `?code=` cold launches (the case where `_pwa=true` hasn't been replaced yet) and prompts the participant to paste their code; banner's HTML5 `pattern=` attribute derives from the configured `user_code_regular_expression` so client-side validation matches the deployment's actual code shape
+  - New `user_code_html_pattern()` helper exposed via `window.formr.user_code_pattern` for any other code-entry surface
+- Service worker hardening
+  - `pushsubscriptionchange` handler reports the new endpoint to the server when browsers rotate the push subscription
+  - `safeAddAll` cache pre-population: per-URL `cache.put` instead of `cache.addAll`, so a single 404 in the asset list no longer puts the whole SW into `redundant`
+  - `pwa-beacon` POST endpoint at `/<run>/pwa-beacon` accepts up to 4 KB JSON and writes SW lifecycle failures (install, activate, fetch handler) to the formr error log with run name, capped UA, and remote IP — gives the maintainer a signal when an install fails silently in the participant's browser
+- CI workflows in `.github/workflows/`
+  - `test.yml` — PHPUnit on PRs and `master`/`develop` pushes, seeds `config/settings.php` from `config-dist/`, excludes `@group integration` (live-DB / live-OpenCPU / HTTP smoke tests) so default CI doesn't need the dev stack
+  - `migrations.yml` — Atlas migrate-lint on PRs touching `sql/patches/**`, catches duplicate version prefixes, retroactive edits to merged patches, and destructive ops
+
+### Fixes
+- Push subscription cleanup: when web-push reports 404/410 from the push provider (browser uninstalled, permission revoked, iOS dropped the subscription), `PushNotificationService` rewrites the matching `survey_items_display.answer` to the sentinel `'expired'` and stops retrying that endpoint. Subsequent `PushMessage` units on the same session see no subscription and skip cleanly instead of looping retries against a dead endpoint
+- `RunSession::getSubscription` now also skips the `'expired'` sentinel (alongside the pre-existing `not_requested` / `not_supported` / `ios_version_not_supported` filters)
+- PWA installer no longer leaves the install button permanently disabled after an uninstall: the `pwa-app-installed` localStorage flag is cleared on a non-standalone load and the standalone branch is the sole authority for the installed state
+- Asset cache: `pwa-register.js` now `await`s `navigator.serviceWorker.ready` before `postMessage(CACHE_ASSETS)` and posts on every load (not just first install), fixing two race conditions and a missing branch that left the asset cache empty for everything beyond what the install handler precaches from the manifest
+- `pwa-register.js` now beacons SW install failures back to the server via the new `pwa-beacon` endpoint before the SW transitions to redundant
+
+## [v0.25.2] - 29.04.2026
+### Fixes
+- Survey form validation messages render again. The dependency-bot bump to jQuery 3.7.1 in v0.25.1 broke webshim's bundled `jquery.ui.position` — `$(window).offset()` throws on jQuery 3 because window has no `getClientRects`, and that throw fired inside `validityAlert.show()` → `position()` while the popover was being placed, halting the show flow before `display:block` could be set. Webshim itself is unmaintained and not jQuery-3-compatible; pin back to jQuery 2.2.4 until webshim is retired.
+  - Reverts the source-side `$.parseJSON` → `JSON.parse` and `$.isNumeric` → manual numeric check edits introduced alongside the bump (jQuery 2 still ships them, no functional change).
+- `notify_study_admin` now logs failures via `formr_log_exception` instead of swallowing them silently, so admin-notification breakage shows up in `tmp/logs/errors.log`.
+
 ## [v0.25.1] - 21.04.2026
 ### Added
 - Google Sheets survey update workflow

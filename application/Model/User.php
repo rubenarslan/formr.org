@@ -22,8 +22,18 @@ class User extends Model {
 
     public function __construct($id = null, $user_code = null, $options = []) {
         parent::__construct();
-        $this->assignProperties($options);
-        
+        // Only the cron-flag is a legitimate constructor option (set by
+        // bin/cron*.php). assignProperties otherwise writes any matching
+        // public property — admin, email_verified, logged_in, id — which
+        // is a defense-in-depth concern if any future caller forwards
+        // request input here.
+        if ($options) {
+            $this->assignProperties(array_intersect_key(
+                (array) $options,
+                ['cron' => true]
+            ));
+        }
+
         if ($id !== null) { // if there is a registered, logged in user
             $this->id = (int) $id;
             $this->load(); // load his stuff

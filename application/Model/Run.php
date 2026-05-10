@@ -1257,6 +1257,35 @@ class Run extends Model
             $options = [];
 
             // 5. Handle Type-Specific Logic
+            //
+            // Per-unit-type structure-import FK / mass-assignment audit
+            // (Phase B4 of the broader audit; see plan_form_v2.md or the
+            // commit history if you need the precedents):
+            //
+            //   Survey       — $options['study_id'] is gated by
+            //                  Survey::create's isOwnedBy check (79c4ecd1).
+            //                  $options['survey_data']->settings is
+            //                  allowlisted in SurveyStudy::createFromData
+            //                  (987cfba8).
+            //   Email        — $options['account_id'] is gated by
+            //                  Email::create's isOwnedBy check (5783f101).
+            //   Pause, Page, External, Shuffle, Branch, Privacy,
+            //   PushMessage  — write a hardcoded set of content columns
+            //                  via insert_update; the corresponding model
+            //                  has no FK identity public property, so
+            //                  $options can't smuggle ownership.
+            //   SkipBackward,
+            //   SkipForward  — only mutate $unit->if_true (a position
+            //                  integer, not an FK).
+            //   Wait         — handled by the base RunUnit::create.
+            //
+            // Adding a new unit type? The contract is: either use a
+            // hardcoded insert_update field list with no FK identity
+            // columns from $options, or gate every FK with
+            // Model::isOwnedBy() against $this->user_id (the run owner).
+            //
+            // The top-level user_id strip below (line ~1300) catches the
+            // shallow form of the same attack on every type at once.
             switch ($unit->type) {
                 // Legacy: 'Endpage' is sometimes used in exports but should be treated as 'Page'
                 case 'Endpage':
@@ -1285,18 +1314,22 @@ class Run extends Model
                     $unit->if_true = (int)$unit->if_true + $start_position;
                     break;
 
-                case 'Email':
-                    $unit->account_id = null; // Security: don't assume email accounts match across servers
-                    break;
-
-                    // Note: 'Wait' unit logic removed. Previous code added start_position to $unit->body.
-                    // This was likely a copy-paste error from Skip logic, as Wait body is text/settings, not a position.
+                // Note: 'Wait' unit logic removed. Previous code added
+                // start_position to $unit->body — likely a copy-paste
+                // error from the Skip logic, as Wait body is text /
+                // settings, not a position.
             }
 
             // 6. Create and Save Unit
-            $options = array_merge($options, (array)$unit);
+            //    Strip caller-supplied identity fields from $unit before
+            //    merging — otherwise a JSON payload like {"user_id": 999}
+            //    would override the run owner's id we set above for the
+            //    Survey case (and silently land surveys / items in another
+            //    user's account via SurveyStudy::createFromFile).
+            $unitVars = (array)$unit;
+            unset($unitVars['user_id']);
+            $options = array_merge($options, $unitVars);
 
-            // Factory expects specific options, merge ensures strict overrides
             $unitObj = RunUnitFactory::make($this, $options);
 
             if ($unitObj) {

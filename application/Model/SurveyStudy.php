@@ -68,7 +68,17 @@ class SurveyStudy extends Model
     public function __construct($id = null, $options = [])
     {
         parent::__construct();
-        $this->assignProperties($options);
+        // Defense-in-depth allowlist. Static factories loadByName /
+        // loadByUserAndName pass {name, user_id} as lookup keys; load()
+        // also takes 'id' from these. Everything else (results_table,
+        // valid, created, ...) must come from the DB row that load()
+        // resolves, not from caller-provided $options.
+        if ($options) {
+            $this->assignProperties(array_intersect_key(
+                (array) $options,
+                ['name' => true, 'user_id' => true, 'id' => true]
+            ));
+        }
         $this->load($id, $options);
     }
 
@@ -149,12 +159,15 @@ class SurveyStudy extends Model
         $this->created = mysql_now();
         $this->modified = mysql_now();
 
-        // Use passed user_id if available, otherwise default to current user
-        if (isset($options['user_id'])) {
-            $this->user_id = $options['user_id'];
-        } else {
-            $this->user_id = Site::getCurrentUser()->id;
+        // Survey ownership is bound to the caller. Honor an explicit
+        // $options['user_id'] only when it agrees with the current user;
+        // never blindly accept a caller-supplied id (e.g. via the
+        // structure-import JSON consumed by Run::importUnits).
+        $current_user_id = (int) Site::getCurrentUser()->id;
+        if (isset($options['user_id']) && (int) $options['user_id'] !== $current_user_id) {
+            return false;
         }
+        $this->user_id = $current_user_id;
 
         $results_table = substr("s" . $this->id . '_' . $this->name, 0, 64);
 
@@ -175,12 +188,14 @@ class SurveyStudy extends Model
             return false;
         }
 
-        // Resolve user correctly from options or global context
-        if (isset($options['user_id'])) {
-            $user = new User($options['user_id']);
-        } else {
-            $user = Site::getCurrentUser();
+        // Survey ownership is bound to the caller. Honor an explicit
+        // $options['user_id'] only when it agrees with the current user.
+        // createFromFile applies the same check on the insert path.
+        $current_user = Site::getCurrentUser();
+        if (isset($options['user_id']) && (int) $options['user_id'] !== (int) $current_user->id) {
+            return false;
         }
+        $user = $current_user;
 
         $study = self::loadByUserAndName($user, $data->name);
 
@@ -203,14 +218,27 @@ class SurveyStudy extends Model
                 return false;
             }
 
-            // save settings
-            $data->settings = isset($data->settings) ? (array) $data->settings : [];
+            // Save settings. Allowlist what may be written before
+            // assignProperties touches the model — Model::assignProperties
+            // uses property_exists() and would otherwise let the caller
+            // smuggle id, user_id, name, results_table, created, etc.
+            // through this object. The follow-up save() resolves UPDATE vs
+            // INSERT by entry_exists($table, ['id' => $this->id]), so a
+            // smuggled id pointed UPDATE at any pre-existing row.
+            $allowed_settings = [
+                'maximum_number_displayed', 'displayed_percentage_maximum',
+                'add_percentage_points', 'expire_after',
+                'expire_invitation_after', 'expire_invitation_grace',
+                'enable_instant_validation',
+                'unlinked', 'hide_results', 'use_paging',
+            ];
+            $raw_settings = isset($data->settings) ? (array) $data->settings : [];
+            $filtered = array_intersect_key($raw_settings, array_flip($allowed_settings));
             $data->settings = array_merge([
                 'maximum_number_displayed' => 0,
                 'displayed_percentage_maximum' => 100,
                 'add_percentage_points' => 0,
-
-            ], $data->settings);
+            ], $filtered);
             $study->assignProperties($data->settings);
             $study->is_new = true;
             $study->save();
