@@ -1,6 +1,40 @@
-# Refactor plan: unit-session lifecycle and queue (vNext, major)
+# Refactor plan: unit-session lifecycle and queue
 
 Status: draft, pre-implementation. Owner: discuss before any code lands.
+
+## TL;DR — recommended scope
+
+After three rounds of fixes (v0.25.5/6/7) and a careful reading of the
+code, the right move now is **not** the major-version rewrite this
+document originally proposed. It's a smaller, non-breaking hardening
+pass that captures the high-value wins from the analysis below, leaving
+the deeper structural rewrite as an explicitly-deferred follow-up.
+
+- v0.25.6 + v0.25.7 already plug every race observed in prod (R1, R2,
+  R3, R4, R10 — see §races).
+- The remaining wins fall cleanly into two tracks.
+
+| | Track A (recommended now) | Track B (deferred, may never ship) |
+|---|---|---|
+| Version | v0.26.0 — minor | v1.0.0 — major |
+| Effort | ~2 weeks | ~6–10 weeks |
+| Breaking? | No. Additive schema, dual-write, no behaviour change for participants or self-hosters | Yes. Schema cutover, queue rewrite, deployment changes |
+| Captures | D1 `run_unit_id`, D2 `iteration`, D3 named `state` enum, D4 idempotency keys (closes R5), A7 latent bug, structured `state_log`, telemetry baseline | New `unit_executions` + `work_items` tables, `RunSessionDispatcher`, multi-worker via `FOR UPDATE SKIP LOCKED`, drop `queued` magic column |
+| Blocked by | Nothing | Multi-worker becoming a real requirement, OR the Track-A `state` column drifting from `queued` enough to be confusing |
+
+Track A captures the analysis-side pain (`run_unit_id` ambiguity in
+exports, magic queue-state values) and closes the last actual
+correctness gap (R5: cascade interrupt → on-restart double-send) without
+any operational change for self-hosters or external schema consumers.
+Track B is operational scaling, not correctness; defer until either
+prod hits a scale where one `formr_run_daemon` is the bottleneck, or
+horizontal worker scaling becomes a stated requirement. Today the §10
+"open questions" admit "for our scale … one table is fine".
+
+Crucially, Track A's `state` column + `idempotency_key` are exactly the
+wire format Track B would need anyway. Track A is a strictly-incremental
+step toward Track B *if and when* Track B becomes justified — there's
+no rework, only addition.
 
 ## Goal
 
@@ -31,11 +65,13 @@ Goal: redesign so the four concepts are independent.
   `UnitExecution` plus its run-level `position`. Single source of
   truth.
 
-This is a major-version change because the schema, the invariants
-the codebase relies on, and the cron daemon's pickup logic all
-move. We can phase the rollout (see §11) but the end state is
-incompatible with v0.x consumers reading `survey_unit_sessions.queued`
-directly.
+That endpoint is Track B. **Track A keeps the same table**, adds the
+columns the new model would need anyway (`run_unit_id`, `iteration`,
+`state`, `idempotency_key`, `state_log`), and pivots all new writes to
+populate them — a strictly-additive schema change with no operational
+consequences. If Track B never ships, Track A's columns stand on their
+own as a cleaner audit trail and a real fix for the export-side D1
+ambiguity.
 
 ## Non-goals
 
@@ -47,31 +83,9 @@ directly.
 - Replacing the formr admin UI's unit editor. Admin-side stays.
 - Changing the participant URL contract (`/run-name/?code=…`).
 - Touching SkipForward/SkipBackward semantics — they keep producing
-  multiple unit-executions for the same `unit_id`. The new model
-  represents that explicitly, but the run-author-facing behaviour
-  is unchanged.
-
-## Why this is major-version-worthy
-
-A patch fix can plug one race. A minor can rearrange one method.
-This refactor:
-
-1. Adds new tables and rewrites every cron-side WHERE clause.
-2. Changes the on-disk meaning of `queued` (deprecates it) — any
-   external scripts that read it (operator runbooks, external
-   monitoring, the admin UI's queue inspector at
-   `templates/admin/run/sessions_queue.php`) need an update.
-3. Rewrites `RunSession::execute` from a 100-line monolith with
-   four-way dispatch into a small dispatcher that delegates to
-   per-state handlers.
-4. Introduces a worker-pool model. Today's single-process
-   `formr_run_daemon` becomes one of N workers; multi-worker is the
-   default. That changes the deployment story (`docker-compose`
-   scale, supervisor model).
-5. Establishes idempotency contracts that callers (Email, Push)
-   need to honour. Existing call-sites change.
-
-None of these are minor.
+  multiple unit-executions for the same `unit_id`. Track A's
+  `iteration` column represents that explicitly, but the run-author-
+  facing behaviour is unchanged.
 
 ## Current architecture (concise)
 
@@ -236,7 +250,7 @@ A7. **`isExecutedByCron()` returns `runSession->user->cron`, and
     request as user-driven. This is a latent bug; `cron_only=true`
     emails are still sent from cron paths because the `!isCron`
     test fires on web AND cron. Tests in v0.25.6 confirmed this
-    incidentally.
+    incidentally. **Fix in Track A (A5 step).**
 
 A8. **The `survey_email_log` queue is single-worker
     (`formr_mail_daemon`).** It does NOT use `FOR UPDATE`. Multi-
@@ -245,6 +259,7 @@ A8. **The `survey_email_log` queue is single-worker
 A9. **PushMessage has no separate queue.** Each unit-session's
     `getUnitSessionOutput` calls `PushNotificationService::sendPushMessage`
     inline. No retry. No idempotency at the row level pre-v0.25.7.
+    **Fix in Track A (A4 step) by introducing `push_log`.**
 
 A10. **`expires <= NOW()` is the only queue-readiness signal.** No
      priority, no SLAs, no separate "ready" flag. Pause and
@@ -294,13 +309,7 @@ D1. **Unit-session has `unit_id` but not `run_unit_id`.** When a
     unit-session when the unit is reused at N positions. Symptoms
     in prod: duplicates in merged result-table exports, ambiguous
     "which iteration of `T1_Screening` did this answer come from"
-    questions during analysis. **Fix in refactor (REQUIRED, not
-    optional)**: `unit_executions.run_unit_id` NOT NULL FK to
-    `survey_run_units.id`; add to the UNIQUE key. Backfill on
-    migration: derivable for runs where unit_id is unique per
-    run (the common case); ambiguous for the multi-position
-    reuse case — those rows get NULL or a best-effort assignment
-    by ordering, with the ambiguity flagged.
+    questions during analysis. **Fix in Track A (A1 + A2 + A3a).**
 
 D2. **`iteration` not captured today.** SkipBackward loops produce
     multiple `survey_unit_sessions` rows for the same
@@ -309,34 +318,31 @@ D2. **`iteration` not captured today.** SkipBackward loops produce
     that loop a day's units for 7 days (AMOR's `T1_ESM_repetition_loop
     (for 7 days)` at position 143) produce 7 fills per ESM
     survey; analysts reconstruct day-of-loop from timestamps.
-    **Fix in refactor**: `unit_executions.iteration` (1, 2, 3,
-    …) explicitly counts completions of the same `run_unit_id`.
-    Auto-incremented in the create() path. Combined with D1's
-    `run_unit_id`, gives a unique participant-position-iteration
-    key.
+    **Fix in Track A (A1 + A2 + A3a).** `iteration` (1, 2, 3, …)
+    explicitly counts completions of the same `run_unit_id`.
 
 D3. **`survey_unit_sessions.queued`'s four magic values aren't
     self-documenting.** A SQL audit query needs to know that `-9`
     means "superseded sibling", `1` means "retry / executeRef",
     `2` means "waiting for cron pickup", `0` means three different
-    things. **Fix in refactor**: replace with explicit `state`
-    enum on `unit_executions` and a separate `work_items.kind`
-    enum for queue intent.
+    things. **Fix in Track A (A3b).** Replace with explicit `state`
+    enum on `survey_unit_sessions` (dual-written alongside `queued`
+    for backwards compatibility).
 
 D4. **No idempotency keys.** Email/Push are deduped by inspecting
     `result IN (terminal_set)` (v0.25.7 guards). Survey
     completion is deduped by `ended IS NULL` UPDATE WHERE clause
     (Hygiene 4). Both work in practice but neither is named or
-    enforced at the schema level. **Fix in refactor**:
-    `work_items.idempotency_key UNIQUE` for any side-effecting
-    job; `unit_executions.state IN (terminal)` enforced via DB
-    CHECK constraint.
+    enforced at the schema level. **Fix in Track A (A4).**
+    `idempotency_key UNIQUE` on `survey_email_log` and the new
+    `push_log` table; `INSERT ... ON DUPLICATE KEY UPDATE id = id`
+    in the producer.
 
 D5. **`result_log` is unstructured TEXT.** Mixed format
     (sometimes JSON, sometimes plain text, sometimes empty).
-    Consumers parse it inconsistently. **Fix in refactor (low
-    priority)**: split into structured `state_log` JSON column
-    with documented schema per `state_reason` value.
+    Consumers parse it inconsistently. **Fix in Track A (A6),
+    additive.** New `state_log JSON` column with documented schema
+    per state-reason; legacy `result_log` keeps being written.
 
 D6. **Per-study results table joins on `session_id` (which IS
     `unit_session_id`) but exports merge across units by
@@ -344,7 +350,7 @@ D6. **Per-study results table joins on `session_id` (which IS
     row, merging `survey_<screeningstudy>` with `survey_<esmstudy>`
     for the same participant requires reconstructing position from
     `survey_run_units` and timestamps. Fragile. Fixing D1 fixes
-    this transitively because `unit_executions.run_unit_id` lets
+    this transitively because the new `run_unit_id` column lets
     the merge join through that.
 
 ## Race conditions inventory
@@ -371,17 +377,16 @@ R5. **Daemon kill mid-cascade.** SIGKILL between Email row create
     and end() leaves Email in `(created, ended IS NULL, queued=0,
     result=NULL)`. The cascade is half-done. On restart, no
     cursor pickup (queued=0); the orphan stalls until the next web
-    request advances position. **Not yet addressed.** A user-driven
-    visit at position 127 would re-execute Email (idempotency
-    guard catches if `result` already set; but `result IS NULL`
-    means re-attempt — could double-send if email_log already has a
-    queueNow row). Mitigation: end() inside the same transaction
-    as create() for cascade-internal units (Email/Push). See §6.
+    request advances position. **Fix in Track A (A4):**
+    `idempotency_key UNIQUE` on `survey_email_log` makes the
+    on-restart re-INSERT a no-op; the v0.25.7 result-list guard
+    catches the secondary case where the row exists with a non-NULL
+    `result`.
 
 R6. **Multi-process daemon.** Today blocked by single-container
     deployment. If anyone scales `formr_run_daemon` to >1 replica,
     cursor races explode (no `FOR UPDATE`). Mitigated only by
-    convention. **Not yet addressed.**
+    convention. **Track B; do not multi-worker until then.**
 
 R7. **Cron tick + user request lock contention.** Cron's 0.1 s
     timeout means cron always loses to user requests. If user
@@ -389,21 +394,25 @@ R7. **Cron tick + user request lock contention.** Cron's 0.1 s
     is single-process; if a participant holds the lock for a slow
     Survey render (OpenCPU evaluation, large body parse, network),
     cron skips them and tries again 15 s later. Acceptable but
-    wastes daemon ticks.
+    wastes daemon ticks. Note: multi-worker does **not** relieve
+    this — multiple workers contend for the same per-run-session
+    lock. The mitigation if it ever bites is per-run sharding
+    (keyed pool), not pool size.
 
 R8. **`current_unit_session_id` vs derived current.** Two sources
     of truth. `RunSession::execute`'s ended-branch line 207 uses
     `current_unit_session_id` directly; everywhere else uses
     `getCurrentUnitSession()` which derives from `position`. They
     can disagree mid-cascade. Hasn't bitten in prod that we know
-    of; latent.
+    of; latent. Track B addresses by making the pointer the single
+    source of truth.
 
 R9. **`mail_daemon` retry on PHPMailer failure** (EmailQueue.php:254)
     can deliver twice when SMTP transport reports failure but the
     relay actually accepted. Not a code bug, an SMTP-protocol
     quirk. Mitigation: idempotency at the SMTP-relay level (the
     relay should dedupe on Message-ID), or by tracking
-    `survey_email_log.status` more granularly.
+    `survey_email_log.status` more granularly. Out of scope.
 
 R10. **Survey expires recomputed on every render.** A
      `survey_unit_sessions.expires` value is not stable across
@@ -418,7 +427,9 @@ R11. **MariaDB connection drop during cascade.** GET_LOCK auto-
      drops mid-`moveOn`, lock releases, partial state remains. A
      fresh request can acquire and re-cascade. The v0.25.7 fix
      reduces blast radius (idempotency + position-recheck) but
-     doesn't eliminate.
+     doesn't eliminate. Track A's idempotency_key on email/push
+     further reduces it; Track B's atomic state-transition TX
+     would close it.
 
 R12. **`processQueue` cursor staleness.** Cursor's snapshot is
      taken at SELECT time; rows may have been ENDED by another
@@ -426,99 +437,323 @@ R12. **`processQueue` cursor staleness.** Cursor's snapshot is
      `runSession.execute()`; the lock + `getCurrentUnitSession`
      re-read catches it. Wastes work but doesn't corrupt.
 
-## Proposed architecture
+## Track A — v0.26.0 hardening (RECOMMENDED)
 
-### New tables
+```mermaid
+flowchart TD
+  A0[A0: telemetry baseline<br/>error_log probes for residual races<br/>ship as v0.25.8 hotfix] --> A1
+  A1[A1: ALTER TABLE add run_unit_id, iteration,<br/>state, idempotency_key, state_log<br/>all NULL/default — additive] --> A2
+  A2[A2: UnitSession::create writes<br/>run_unit_id + iteration in same txn]
+  A2 --> A3a[A3a: backfill historic rows<br/>SQL script — derive run_unit_id<br/>+ iteration via window fn]
+  A2 --> A3b[A3b: dual-write state column<br/>alongside queued; admin templates<br/>render state when present]
+  A3a --> A4
+  A3b --> A4
+  A4[A4: idempotency_key UNIQUE on<br/>survey_email_log + new push_log table;<br/>Email/Push handlers use as primary guard<br/>— closes R5]
+  A4 --> A5[A5: fix A7 cron_only latent bug<br/>set User->cron in cron path]
+  A5 --> A6[A6: structured state_log JSON column<br/>UnitSession::end / expire / logResult emit JSON]
+  A6 --> A7[A7: docs + admin queue inspector<br/>renders state, iteration, run_unit_id]
+```
+
+### A0. Telemetry baseline
+
+Before touching anything, instrument the existing code to count
+race-condition occurrences in prod. Lets us verify v0.25.7's R1 fix
+held and gives a baseline for measuring A1+. New `error_log` calls
+when:
+
+- `getCurrentUnitSession` returns null at a non-first position
+  (suggests cascade gap).
+- `endCurrentUnitSession()` returns false (race with another path
+  ending first).
+- `moveOn` fires while `position` differs from
+  `survey_run_sessions.position` (would catch any residual
+  position-race).
+- `survey_email_log.status` was 1 when a fresh send was attempted
+  for the same `session_id` (would catch idempotency-bypass paths).
+
+Ship as v0.25.8 hotfix. Watch for a week.
+
+### A1. Schema additions (one Atlas patch)
+
+All NULL/default — additive, no destructive ops, no migration risk.
 
 ```sql
--- One row per execution attempt of a (run_session, unit) pair.
--- Replaces survey_unit_sessions for the participant-visible state
--- (history + active pointer). Append-only after creation; state
--- transitions are explicit in the `state` column with timestamps.
-CREATE TABLE unit_executions (
+ALTER TABLE survey_unit_sessions
+  ADD COLUMN run_unit_id     INT UNSIGNED NULL,
+  ADD COLUMN iteration       INT UNSIGNED NULL DEFAULT 1,
+  ADD COLUMN state           ENUM('PENDING','RUNNING','WAITING_USER',
+                                  'WAITING_TIMER','ENDED','EXPIRED',
+                                  'SUPERSEDED') NULL,
+  ADD COLUMN state_log       JSON NULL,
+  ADD COLUMN idempotency_key VARCHAR(128) NULL,
+  ADD UNIQUE KEY idemp_unit  (idempotency_key),
+  ADD KEY idx_run_unit       (run_session_id, run_unit_id, iteration),
+  ADD CONSTRAINT fk_uxec_run_unit FOREIGN KEY (run_unit_id)
+                                  REFERENCES survey_run_units(id);
+
+ALTER TABLE survey_email_log
+  ADD COLUMN idempotency_key VARCHAR(128) NULL,
+  ADD UNIQUE KEY idemp_email (idempotency_key);
+
+CREATE TABLE push_log (
     id              BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-    run_session_id  INT UNSIGNED NOT NULL,
-    run_unit_id     INT UNSIGNED NOT NULL,    -- FK survey_run_units.id; fixes D1
-    unit_id         INT UNSIGNED NOT NULL,    -- denormalised; equal to run_units.unit_id
-    iteration       INT UNSIGNED NOT NULL DEFAULT 1,    -- back-jump iteration; fixes D2
-    state           ENUM('PENDING','RUNNING','WAITING_USER','WAITING_TIMER',
-                         'ENDED','EXPIRED','SUPERSEDED') NOT NULL DEFAULT 'PENDING',
-    state_reason    VARCHAR(64) NULL,         -- e.g. 'survey_ended', 'pause_ended'
-    state_log       TEXT NULL,                -- prior result_log; D5 candidate for JSON
-    created_at      DATETIME(3) NOT NULL,
-    started_at      DATETIME(3) NULL,
-    ended_at        DATETIME(3) NULL,         -- set on ENDED/EXPIRED/SUPERSEDED
-    waiting_until   DATETIME(3) NULL,         -- replaces `expires` for WAITING_TIMER
-    superseded_by   BIGINT UNSIGNED NULL,     -- FK to unit_executions.id; replaces queued=-9
-    UNIQUE KEY (run_session_id, run_unit_id, iteration),  -- not unit_id! see D1
-    KEY (state, waiting_until),               -- queue-side lookups (see below)
-    KEY (run_session_id, state),              -- "current" lookup
-    CONSTRAINT fk_uxec_run_unit  FOREIGN KEY (run_unit_id)
-                                  REFERENCES survey_run_units(id),
-    CONSTRAINT fk_uxec_run_sess  FOREIGN KEY (run_session_id)
-                                  REFERENCES survey_run_sessions(id)
-                                  ON DELETE CASCADE
+    unit_session_id INT UNSIGNED NOT NULL,
+    subscription_id INT UNSIGNED NULL,
+    payload         JSON NOT NULL,
+    status          ENUM('queued','sending','sent','failed') NOT NULL DEFAULT 'queued',
+    idempotency_key VARCHAR(128) NULL UNIQUE,
+    created         DATETIME NOT NULL,
+    sent            DATETIME NULL,
+    failed_at       DATETIME NULL,
+    last_error      TEXT NULL,
+    KEY (status, created),
+    CONSTRAINT fk_push_log_unit_session FOREIGN KEY (unit_session_id)
+        REFERENCES survey_unit_sessions(id) ON DELETE CASCADE
 );
+```
 
--- Note on (run_unit_id, unit_id) denormalisation: unit_id is
--- functionally dependent on run_unit_id (run_units.unit_id), but
--- carrying it on unit_executions lets per-study results-table JOINs
--- (which key off `session_id = unit_executions.id`) avoid a hop
--- through survey_run_units when the consumer only cares about the
--- study, not the position. Triggers / app-side asserts maintain the
--- denorm invariant.
+`state` co-exists with `queued` during Track A — both are dual-written
+by application code (no triggers; the dual-write trigger phase the
+original plan proposed is a self-inflicted source of desync risk and
+is dropped). `queued` remains the queue-pickup signal — Track A does
+not change `UnitSessionQueue::processQueue`'s SQL.
 
--- Job queue for async work (cron-driven cascades, expiry checks,
--- email send, push send). Each job is one unit of work for a worker.
+### A2. Forward writes
+
+Patch `UnitSession::create()`
+(`application/Model/UnitSession.php:51-89`) to populate `run_unit_id`,
+`iteration`, and `state` inside the existing transaction:
+
+- `run_unit_id` from a new `RunSession::getRunUnitIdAtPosition($position)`
+  helper that queries `survey_run_units.id` (sister to the existing
+  `getUnitIdAtPosition` at `RunSession.php:407`).
+- `iteration` computed with
+  `(SELECT COALESCE(MAX(iteration),0)+1 FROM survey_unit_sessions
+     WHERE run_session_id = ? AND run_unit_id = ?)` inside the same
+  TX. The existing `beginTransaction` already brackets the insert and
+  the supersede-siblings update, so this read-then-insert is safe
+  against the obvious race (the supersede update would conflict
+  anyway).
+- `state = 'PENDING'` on insert; `UnitSession::end / expire / queue`
+  transition to `ENDED / EXPIRED / WAITING_TIMER / WAITING_USER` as
+  appropriate, alongside the existing `queued` updates.
+
+### A3a. Backfill historic rows
+
+One-shot SQL script in `sql/patches/`:
+
+```sql
+-- Unique-position case (the common one): one matching survey_run_units
+-- row per (run, unit_id), so the JOIN is unambiguous.
+UPDATE survey_unit_sessions us
+JOIN survey_run_sessions rs  ON rs.id = us.run_session_id
+JOIN survey_run_units sru    ON sru.run_id = rs.run_id
+                            AND sru.unit_id = us.unit_id
+JOIN (
+    -- only update where the unit appears at exactly one position in the run
+    SELECT run_id, unit_id
+    FROM survey_run_units
+    GROUP BY run_id, unit_id
+    HAVING COUNT(*) = 1
+) uniq ON uniq.run_id = sru.run_id AND uniq.unit_id = sru.unit_id
+SET us.run_unit_id = sru.id
+WHERE us.run_unit_id IS NULL;
+
+-- Iteration: one ROW_NUMBER per (run_session_id, unit_id) ordered by id.
+UPDATE survey_unit_sessions us
+JOIN (
+    SELECT id,
+           ROW_NUMBER() OVER (PARTITION BY run_session_id, unit_id
+                              ORDER BY id) AS rn
+    FROM survey_unit_sessions
+) ranked ON ranked.id = us.id
+SET us.iteration = ranked.rn
+WHERE us.iteration IS NULL OR us.iteration = 1;
+
+-- Multi-position-reuse case stays NULL and is flagged in state_log
+-- for analyst awareness:
+UPDATE survey_unit_sessions us
+SET us.state_log = JSON_OBJECT('backfill', 'run_unit_id_ambiguous',
+                               'reason',   'multi_position_reuse')
+WHERE us.run_unit_id IS NULL;
+
+-- Backfill report — run after the UPDATEs:
+SELECT
+    rs.run_id,
+    SUM(us.run_unit_id IS NOT NULL) AS backfilled_unique,
+    SUM(us.run_unit_id IS NULL)     AS unresolved
+FROM survey_unit_sessions us
+JOIN survey_run_sessions rs ON rs.id = us.run_session_id
+GROUP BY rs.run_id
+ORDER BY unresolved DESC;
+```
+
+Hosts with significant `unresolved` counts get a manual-review pass
+before any consumer (export tooling, admin merge UI) starts depending
+on `run_unit_id`. Greenfield deployments are trivially fine — A2
+already fills all new rows.
+
+### A3b. Named constants + dual-write state column
+
+Three artefacts:
+
+- The four magic values of `queued` already have constants on
+  `UnitSessionQueue` (`QUEUED_TO_EXECUTE`, `QUEUED_TO_END`,
+  `QUEUED_NOT`, `QUEUED_SUPERCEDED` —
+  `application/Queue/UnitSessionQueue.php:14-17`). Audit call-sites
+  for any remaining literal `0`/`1`/`2`/`-9` and replace.
+- New `state` column written from `UnitSession::create / end /
+  expire / queue` alongside the existing `queued` updates.
+- Admin queue inspector templates (`templates/admin/run/sessions_queue
+  .php:53`, `templates/admin/advanced/runs_management_queue.php:50`)
+  learn to render the new `state` column when present, falling back
+  to the `queued` magic mapping for legacy rows.
+
+### A4. Idempotency keys (closes R5)
+
+The remaining real correctness gap.
+
+- `survey_email_log` insert in `Email::queueNow`
+  (`application/Model/RunUnit/Email.php:245-262`) computes
+  `idempotency_key = "email:{unit_session_id}:{email_id}"` and uses
+  `INSERT ... ON DUPLICATE KEY UPDATE id = id`. Daemon-kill mid-cascade
+  → restart re-attempt → the duplicate INSERT is a no-op → no
+  double-send.
+- `PushMessage::getUnitSessionOutput`
+  (`application/Model/RunUnit/PushMessage.php:114-191`) inserts a
+  `push_log` row with
+  `idempotency_key = "push:{unit_session_id}"` BEFORE calling
+  `PushNotificationService::sendPushMessage`. On success, update the
+  row's `status='sent'`. On restart, the duplicate INSERT no-ops and
+  the handler bails on the existing-row check. The existing v0.25.7
+  `result IN (terminal)` guard stays as belt-and-braces.
+
+This closes R5 properly — the v0.25.7 result-list guard is good but
+doesn't survive a SIGKILL between row INSERT and `result` UPDATE.
+
+### A5. Fix A7 cron_only latent bug
+
+Set `User->cron = true` in the cron path. The simplest fix is in
+`UnitSessionQueue::processQueue` (`application/Queue/UnitSessionQueue.php`)
+right after instantiating `RunSession`, before calling `execute()`:
+`$runSession->user->cron = true;`. Two-line change, fixes a documented
+latent bug (Email::cron_only flag currently no-ops on cron because
+`User::$cron` is never set).
+
+Add an e2e test that asserts `cron_only=true` Email is NOT sent from a
+user-driven web request, and IS sent from a cron tick.
+
+### A6. Structured state_log
+
+Backwards-compatible: existing `result_log` text column stays. New
+writes go to both — `result_log` keeps the human-readable string,
+`state_log` gets `{"reason": "...", "ctx": {...}}`. Document the JSON
+shape per state-reason in a doc-block on `UnitSession::logResult`.
+
+### A7. Docs + admin updates
+
+Update CHANGELOG.md, document the v0.26.0 schema additions, refresh
+the admin queue inspector to show `state`/`iteration`/`run_unit_id`.
+
+### What Track A does NOT touch (intentional)
+
+- `RunSession::execute()` stays as-is — the existing 100-line dispatch
+  with `reloadFromDb()` + 3-way ref/current dispatch keeps working.
+  The v0.25.7 fix made it correct; refactoring it to a state-machine
+  dispatcher is a code-quality win, not a correctness one.
+- `UnitSessionQueue::processQueue` keeps `ORDER BY RAND()` and no
+  `FOR UPDATE`. Single-worker semantics preserved.
+- No new `unit_executions` table. No dual-write triggers. No feature
+  flag rollout. CI matrix stays one-axis.
+- `survey_unit_sessions` keeps its name and shape. `queued` column
+  stays. External readers (admin tools, runbooks, exports) keep
+  working.
+- `current_unit_session_id` vs derived-current (R8) stays as-is —
+  latent, hasn't bitten.
+
+## Track B — deferred breaking refactor
+
+This is the original "vNext, major" plan, retained for context but
+explicitly deferred. Each item lists the trigger that would justify
+ship.
+
+### Track B.1. `unit_executions` table
+
+Replaces `survey_unit_sessions` for runtime state (history + active
+pointer). Append-only after creation; state transitions are explicit
+in the `state` column with timestamps. Schema as in the original
+proposed-architecture section below.
+
+**Justified by:** carrying both Track A's `state` enum and the legacy
+`queued` column starts to feel like two sources of truth, OR external
+schema consumers (analysis pipelines reading `survey_unit_sessions.queued`
+directly) need to be cut off cleanly with a major-version bump.
+
+### Track B.2. `work_items` job queue
+
+```sql
 CREATE TABLE work_items (
     id              BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
     kind            ENUM('expire_check','cascade_advance',
                          'send_email','send_push','external_callback') NOT NULL,
-    target_id       BIGINT UNSIGNED NOT NULL,             -- unit_executions.id (usually)
-    payload         JSON NULL,                            -- per-kind extras
-    available_at    DATETIME(3) NOT NULL,                 -- "ready when wallclock >= this"
-    claimed_at      DATETIME(3) NULL,                     -- non-null while a worker holds it
-    claimed_by      VARCHAR(64) NULL,                     -- worker id
+    target_id       BIGINT UNSIGNED NOT NULL,
+    payload         JSON NULL,
+    available_at    DATETIME(3) NOT NULL,
+    claimed_at      DATETIME(3) NULL,
+    claimed_by      VARCHAR(64) NULL,
     attempt_count   INT UNSIGNED NOT NULL DEFAULT 0,
     max_attempts    INT UNSIGNED NOT NULL DEFAULT 3,
     last_error      TEXT NULL,
     completed_at    DATETIME(3) NULL,
     failed_at       DATETIME(3) NULL,
-    idempotency_key VARCHAR(128) NULL UNIQUE,             -- per-kind dedup
-    KEY (available_at, claimed_at),                       -- worker pickup
+    idempotency_key VARCHAR(128) NULL UNIQUE,
+    KEY (available_at, claimed_at),
     KEY (target_id)
-);
-
--- Decoupled email send queue (unchanged in spirit; the existing
--- survey_email_log already does this). Add status='sending' for
--- mid-flight visibility.
-ALTER TABLE survey_email_log
-    ADD COLUMN claimed_at DATETIME(3) NULL,
-    ADD COLUMN claimed_by VARCHAR(64) NULL,
-    ADD KEY (status, claimed_at);
-
--- Push has no current queue; mirror the email model.
-CREATE TABLE push_log (
-    id              BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-    unit_execution_id BIGINT UNSIGNED NOT NULL,
-    subscription_id INT UNSIGNED NOT NULL,
-    payload         JSON NOT NULL,
-    status          ENUM('queued','sending','sent','failed') NOT NULL DEFAULT 'queued',
-    claimed_at      DATETIME(3) NULL,
-    claimed_by      VARCHAR(64) NULL,
-    created_at      DATETIME(3) NOT NULL,
-    sent_at         DATETIME(3) NULL,
-    failed_at       DATETIME(3) NULL,
-    last_error      TEXT NULL,
-    KEY (status, claimed_at)
 );
 ```
 
-`survey_unit_sessions` stays during the migration as the source-of-
-truth for the legacy queue, gradually demoted to a read-replica view
-of `unit_executions` (see §11). Eventually dropped.
+Decoupled from `unit_executions`'s history role.
 
-### State machine
+**Justified by:** multi-worker scaling becomes a real requirement, OR
+cron-vs-user lock contention starves cron in prod (R7 — currently
+theoretical). Track A's idempotency_key on email/push already covers
+the correctness implications; the work_items table is purely an
+operational scaling investment.
+
+### Track B.3. Multi-worker via `FOR UPDATE SKIP LOCKED`
+
+```sql
+SELECT id, kind, target_id, payload
+FROM work_items
+WHERE claimed_at IS NULL
+  AND completed_at IS NULL AND failed_at IS NULL
+  AND available_at <= NOW(3)
+ORDER BY available_at, id LIMIT 1
+FOR UPDATE SKIP LOCKED;
+```
+
+Three worker pools (cascade, mail, push) or one pool dispatching by
+`kind`. Each is a docker service; scale via `docker compose up
+--scale`.
+
+**Justified by:** multi-worker. **Requires:** MariaDB 10.6+ across
+all production hosts (verify before commit).
+
+### Track B.4. `RunSessionDispatcher` + per-unit handlers
+
+`RunSession::execute` becomes a thin shim that delegates to a
+dispatcher class. Unit-type handlers (`SurveyHandler`, `PauseHandler`,
+…) are extracted from `RunUnit::execute()` via a sister method
+`RunUnit::transition($execution)` returning the next state +
+side-jobs. Dispatcher writes to `unit_executions`. Cron daemon runs
+against `work_items` exclusively.
+
+**Justified by:** ongoing maintenance pain in `RunSession`'s
+single-method dispatch. A code-quality investment, not bug-driven.
+Track A leaves this method correct; rewriting it is taste, not
+necessity.
+
+### Track B state-machine reference
 
 ```
 PENDING ──create()──► WAITING_USER  (Survey, Page, External)
@@ -541,57 +776,11 @@ RUNNING       ──unit completes synchronously──► ENDED
                                                 in work_items)
               ──worker fails permanently────► EXPIRED  (rare)
 
-(All terminal states ENDED / EXPIRED / SUPERSEDED never transition
-out. Terminal write is atomic.)
+(All terminal states never transition out. Terminal write atomic.)
 ```
 
-Transitions are validated by a dispatcher class
-`UnitExecution::transition(toState, reason, log)`. Database CHECK
-constraint enforces the state-machine grammar.
-
-### Worker model
-
-`bin/queue.php` rewritten as a generic worker that claims one job
-from `work_items` with:
-
-```sql
-SELECT id, kind, target_id, payload
-FROM work_items
-WHERE claimed_at IS NULL
-  AND completed_at IS NULL
-  AND failed_at IS NULL
-  AND available_at <= NOW(3)
-ORDER BY available_at, id
-LIMIT 1
-FOR UPDATE SKIP LOCKED;
-
--- claim
-UPDATE work_items SET claimed_at = NOW(3), claimed_by = :wid
-WHERE id = :id;
-```
-
-`FOR UPDATE SKIP LOCKED` is MariaDB 10.6+. We're on 10.11+ in prod
-per `docker-compose-prod.yml`. Multi-worker safe by construction.
-
-After processing:
-
-```sql
-UPDATE work_items SET completed_at = NOW(3), claimed_at = NULL
-WHERE id = :id;
-```
-
-On retryable failure: increment `attempt_count`, set `available_at`
-to NOW + backoff, clear `claimed_at`. On permanent failure: set
-`failed_at`. Idempotency_key on insert means re-enqueuing the same
-work doesn't double up.
-
-Three worker pools (or one pool dispatching by `kind`):
-
-- `cascade-worker` — runs cascade_advance / expire_check.
-- `mail-worker` — drains survey_email_log and runs send_email.
-- `push-worker` — drains push_log and runs send_push.
-
-Each is a docker service; scale via `docker-compose up --scale`.
+This is exactly the state set Track A's `state` column provisions for
+— Track A is the strictly-incremental on-ramp.
 
 ## D2 diagram — current architecture
 
@@ -672,16 +861,16 @@ unit_execute.push -> push_provider: "inline\n(no queue, no retry)"
 
 # Race annotations
 race_R1: "R1: position-race\n(FIXED v0.25.7)" {style.fill: "#10b981"}
-race_R5: "R5: daemon kill\nmid-cascade\n(open)" {style.fill: "#ef4444"}
-race_R6: "R6: multi-worker\n(blocked by convention)" {style.fill: "#ef4444"}
-race_R7: "R7: lock contention\nuser vs cron\n(starves cron)" {style.fill: "#f59e0b"}
+race_R5: "R5: daemon kill\nmid-cascade\n(Track A A4 closes)" {style.fill: "#f59e0b"}
+race_R6: "R6: multi-worker\n(blocked by convention; Track B)" {style.fill: "#ef4444"}
+race_R7: "R7: lock contention\nuser vs cron\n(latent)" {style.fill: "#f59e0b"}
 
 run_session.acquire_lock -> race_R7
 moveOn.recurse -> race_R5
 cron -> race_R6
 ```
 
-## D2 diagram — proposed architecture
+## D2 diagram — Track B end state (deferred)
 
 Save as `tests/refactor_queue_proposed.d2`:
 
@@ -787,263 +976,99 @@ worker_pool -> idempotency
 with `d2 tests/refactor_queue_proposed.d2 -o tests/refactor_queue_proposed.svg`
 when needed for review.)
 
-## Migration plan
-
-### Phase 0 — telemetry baseline (1 day)
-
-Before touching anything, instrument the existing code to count
-race-condition occurrences in prod. The position-race fix in
-v0.25.7 lets us verify it's actually closed and gives a baseline
-against which to measure the refactor's improvements. New `error_log`
-calls when:
-
-- `getCurrentUnitSession` returns null at a non-first position
-  (suggests cascade gap).
-- `endCurrentUnitSession()` returns false (race with another path
-  ending first).
-- `moveOn` fires while `position` differs from
-  `survey_run_sessions.position` (would catch any residual
-  position-race).
-- `survey_email_log.status` was 1 when a fresh send was attempted
-  for the same `session_id` (would catch idempotency-bypass paths).
-
-Ship as v0.25.8 hotfix. Watch for a week.
-
-### Phase 1 — introduce `unit_executions` as a shadow read-replica (1–2 weeks)
-
-- Create `unit_executions` table.
-- Triggers (or app-side dual-writes) populate `unit_executions` on
-  every `INSERT`/`UPDATE` of `survey_unit_sessions`. Keep them in
-  sync — `survey_unit_sessions` remains source of truth.
-- Read paths can opt-in to `unit_executions` via a feature flag
-  (`Config::get('use_unit_executions')`).
-- Verification: count rows in both tables match, state derivations
-  agree.
-
-#### Backfill historical rows (D1 + D2)
-
-For every existing `survey_unit_sessions` row, derive
-`(run_unit_id, iteration)` retroactively. Strategy:
-
-- **Unique-position case** (run reuses a unit at one position
-  only): SQL JOIN
-  `survey_unit_sessions us → survey_run_sessions rs
-   → survey_run_units sru
-   ON sru.run_id = rs.run_id AND sru.unit_id = us.unit_id`
-  yields exactly one `sru.id` per `us` row; assign as `run_unit_id`.
-  Iteration is `ROW_NUMBER() OVER (PARTITION BY us.run_session_id,
-  us.unit_id ORDER BY us.id)`.
-
-- **Multi-position case** (D1): same SQL JOIN yields multiple
-  `sru.id`s. Disambiguate by `survey_run_sessions.position`
-  history if available (it isn't — `position` is current only,
-  not journaled). Fall back to ordering by `us.id`: assume the
-  first N ordered fills correspond to positions ordered ascending.
-  This is "best-effort" backfill — flag rows whose participant
-  flow is ambiguous (e.g. SkipBackward back-jumps mixing
-  iterations) by leaving `run_unit_id` NULL and noting in
-  `unit_executions.state_log` for analyst awareness.
-
-  A backfill report SQL (run after migration) prints per-run:
-  `backfilled_unique`, `backfilled_ordering`, `unresolved`. Hosts
-  with significant `unresolved` counts get a manual-review pass
-  before Phase 4 cutover.
-
-- **Greenfield case** (no historic rows): trivial; the new
-  create() path always sets `run_unit_id`.
-
-Ship as v0.26.0 (bumping minor for new table) — still backwards-
-compatible, no behaviour change for live participants.
-
-#### Forward write of run_unit_id
-
-Phase 1 also patches `UnitSession::create` (and any direct callers)
-to write `run_unit_id` alongside `unit_id` for every NEW row going
-forward. This is independently shippable as a v0.26.0 hotfix even
-without the `unit_executions` table — the column would live on
-`survey_unit_sessions` itself initially, and migration to
-`unit_executions` becomes a copy. Recommended ordering:
-
-  v0.26.0:
-    a) ALTER TABLE survey_unit_sessions ADD COLUMN run_unit_id
-       INT UNSIGNED NULL.
-    b) UnitSession::create writes run_unit_id (derived from
-       moveOn's current position via a fresh
-       getRunUnitIdAtPosition() helper that returns
-       survey_run_units.id, not unit_id).
-    c) backfill historic rows (script).
-    d) Subsequent reads can JOIN on run_unit_id; export tooling
-       updated to disambiguate D1.
-
-After v0.26.0 ships, D1 is fixed for all forward data. Phase 2+
-work continues against the new column.
-
-### Phase 2 — introduce `work_items` for new work (2–3 weeks)
-
-- Create `work_items` table.
-- Migrate Email send queue: existing `survey_email_log` drains via
-  `mail-worker` reading from `survey_email_log` (unchanged); new
-  enqueues go through `work_items` with a `send_email` job
-  inserting a `survey_email_log` row in the worker.
-- Add `push-worker` and `push_log` table.
-- Toggle behind a feature flag.
-
-Ship as v0.27.0 (push queue is observable change to ops).
-
-### Phase 3 — refactor RunSession::execute into a state-machine dispatcher (2–4 weeks)
-
-- New class `RunSessionDispatcher` wrapping the lock + reload +
-  state-machine logic.
-- `RunSession::execute` becomes a thin shim that delegates to the
-  dispatcher when the feature flag is on.
-- Unit-type handlers (`SurveyHandler`, `PauseHandler`, …) extracted
-  from `RunUnit::execute()` via a sister method
-  `RunUnit::transition($execution)` returning the next state +
-  side-jobs.
-- Dispatcher writes to `unit_executions` (which dual-writes to
-  `survey_unit_sessions` for the legacy queue's benefit).
-- Cron daemon runs against `work_items` exclusively.
-
-Ship as v0.28.0. Feature-flag rollout: enable per run, then per
-host. e2e suite must pass under both legacy and dispatcher modes
-during the rollout window.
-
-### Phase 4 — cut over the queue (1 week)
-
-- All cron-side reads come from `work_items`. `survey_unit_sessions`
-  stops being a queue (it stays a history table).
-- `queued` column deprecated; existing values stay for audit.
-- Dual-write triggers removed.
-
-Ship as v1.0.0 — major version bump. The deprecated `queued`
-column stays for at least one minor version (warn-on-read in admin
-SQL inspector).
-
-### Phase 5 — drop legacy (1 release later)
-
-- Drop `survey_unit_sessions.queued` column.
-- Drop dual-write triggers.
-- `survey_unit_sessions` becomes a denormalised history view (or
-  is dropped entirely in favour of `unit_executions`).
-
-Ship as v1.1.0 once at least 90 days have passed without any
-hosts running pre-v1.0.
-
-## Rollout / deployment story
-
-- Per-host feature flag in `config/settings.php`:
-  `use_unit_executions = false` initially. Hosts opt-in.
-- Per-run cron-active toggle to drain work for a single run before
-  cutover.
-- Multi-worker default in `docker-compose-prod.yml`:
-  `formr_run_daemon` becomes `formr_cascade_worker` with
-  `deploy.replicas: 3`.
-- Migration scripts (Atlas) are forward-only; the rollback story
-  is "stay on v0.x for that host until v1.0 is debugged on
-  others". Document this loudly.
-
-## Risks
-
-- **Trigger-driven dual-write desync.** If a write to
-  `survey_unit_sessions` slips a trigger (mass-update from admin
-  tool, manual SQL repair), `unit_executions` falls behind. Mitigation:
-  weekly consistency check via SQL diff query, alarm on diff > 0.
-
-- **Atlas migration runs out of order on hosts pinned to different
-  `FORMR_TAG`s.** The CLAUDE.md notes `mysql/atlas/migrations/` is
-  per-host. New tables get migration numbers reserved early; document
-  ordering carefully.
-
-- **`FOR UPDATE SKIP LOCKED` requires MariaDB 10.6+.** Confirmed
-  in current `docker-compose-prod.yml` (10.11). If anyone is on
-  pre-10.6 they need to upgrade before Phase 2.
-
-- **Worker pool replaces a process the operations docs reference
-  by name.** All runbooks mentioning `formr_run_daemon` need
-  updating in lockstep with Phase 4. Add a deprecation alias
-  (`docker compose up formr_run_daemon` resolves to the new
-  cascade-worker) for the v0.x → v1.0 cutover window.
-
-- **Behaviour-preservation regression test surface is enormous.**
-  The refactor must not change observable behaviour for
-  participants. Mitigation: every existing e2e spec runs under
-  both legacy and dispatcher modes via a config-flag test
-  parameterisation.
-
-- **Deferred-execute idempotency contract is new.** Email/Push
-  handlers must not double-send. Need explicit unit tests + an
-  end-to-end test that kills the worker mid-send and confirms the
-  retry doesn't double-deliver.
-
 ## Testing strategy
 
 The v0.25.6 + v0.25.7 e2e suite (`tests/e2e/{survey-symptoms,survey-
 expiry-matrix,survey-unfinished-pathways,survey-expiry-ui,double-
-expiry}.spec.js`) is the regression baseline. Every spec must pass
-under both `use_unit_executions = false` and `= true` during Phases
-1–3. CI matrix: two runs per change.
+expiry}.spec.js`) is the regression baseline. Track A's columns are
+additive and dual-written; the existing suite must pass unchanged
+(no feature flag, no two-axis matrix).
 
-New tests added during the refactor:
+New tests for Track A:
 
-- **Worker idempotency.** `work_items.idempotency_key` collision
-  test — enqueue twice, assert one job runs.
-- **Multi-worker race.** Spawn 3 workers, enqueue 1000 jobs, assert
-  each runs exactly once. Uses Playwright + a Node script that
-  triggers worker spawns via `docker compose run --rm`.
-- **State-machine transitions.** Each illegal transition (e.g.
-  ENDED → RUNNING) must throw / be rejected by the DB CHECK.
-- **Cascade interrupt recovery.** Kill the worker mid-cascade, restart,
-  assert the cascade resumes from the last committed transition.
-- **Crash-only test for Email/Push.** SIGKILL the mail worker
-  mid-`sendMail`; assert `survey_email_log` gets retried but the
-  recipient SMTP only sees one message.
+- **Backfill correctness.** Unit/integration test on a fixture DB
+  asserting the A3a SQL produces expected
+  `run_unit_id` / `iteration` values for: (a) unique-position runs,
+  (b) multi-position-reuse runs (run_unit_id stays NULL,
+  state_log notes ambiguity), (c) SkipBackward-loop runs (iteration
+  counts up).
+- **`cron_only` semantics.** e2e: `cron_only=true` Email is NOT sent
+  on web request, IS sent on cron tick. Closes A7.
+- **Crash-only Email idempotency.** SIGKILL the mail worker
+  mid-`sendMail`; assert `survey_email_log` insert no-ops on retry
+  (UNIQUE collision) and SMTP only sees one message. Closes R5.
+- **Crash-only Push idempotency.** Same, for `push_log`.
 
-## Open questions
+Track B testing (when/if shipped) would add: worker idempotency
+collision, multi-worker race on `FOR UPDATE SKIP LOCKED`, illegal
+state-machine transitions throwing, and cascade-interrupt recovery.
+Out of scope here.
 
-1. Do we want per-run-author observability (a "queue health"
-   admin page showing pending/claimed/failed work_items)? The
-   v0.25.6-era `templates/admin/run/sessions_queue.php` is the
-   precedent. Likely yes, but not a Phase-1 deliverable.
-2. Should `work_items` be partitioned by `kind`? Single-table is
-   simpler; per-kind tables avoid cross-kind contention. For our
-   scale (single-digit thousands of participants) one table is
-   fine; revisit if we hit five-figure participant cohorts.
-3. Should the `iteration` field on `unit_executions` be exposed in
-   the data export? Today users see "rows per session_id" with
-   the back-jump iterations represented as separate rows but no
-   explicit iteration counter. Adding one is a backwards-compatible
-   improvement.
-4. R9 (PHPMailer retry double-delivery) is upstream; out of scope.
-   Document and live with it.
+## Risks (Track A)
+
+- **Backfill produces wrong `iteration` for SkipBackward loops where
+  the run was edited mid-flight.** The `ROW_NUMBER OVER (ORDER BY id)`
+  is best-effort and assumes monotonic creation. Mitigation: backfill
+  report flags suspicious runs; analyst confirms before trusting the
+  iteration column. The legacy `result_log` text still carries the
+  original audit trail.
+- **`idempotency_key` collision in legacy data.** Backfill skips
+  populating `idempotency_key` on existing email_log rows
+  (only forward writes get keys). Retry-on-restart for an in-flight
+  v0.25.x send falls back to the v0.25.7 result-list guard.
+- **Atlas migration ordering on hosts running different versions.**
+  Reserve patch numbers (`047_uxec_track_a.sql`, etc.) early; document
+  the ordering. Each ALTER is independently reversible (DROP COLUMN)
+  if rollback is needed.
+- **Behaviour-preservation regression test surface.** Track A is
+  schema-additive and dual-write; the existing e2e suite is the
+  contract. Any spec failing post-A1 is a real bug, not a config
+  drift.
+
+## Risks (Track B, when/if shipped)
+
+Retained from the original plan and out of scope until Track B is
+scheduled:
+
+- `FOR UPDATE SKIP LOCKED` requires MariaDB 10.6+. Verify across
+  every production host before commit.
+- Worker pool replaces a process operations docs reference by name.
+  Runbooks need updates in lockstep with the cutover.
+- Idempotency contract for deferred-execute (Email, Push) is a new
+  shape — exhaustive crash-only tests required.
+- Atlas migration runs out of order on hosts pinned to different
+  versions. Reserve numbers early.
+
+The original plan also proposed dual-write triggers between
+`survey_unit_sessions` and a new `unit_executions` table; that approach
+is discarded. Triggers desync silently, the diff query catches it
+weekly at best, and the dual-write window during multi-week phased
+rollout is exactly when the synthesis-of-truth bugs would be hardest
+to debug. If Track B happens, do it as a single coordinated cutover
+with a brief read-only window, not a months-long dual-write
+maintenance burden.
 
 ## Effort estimate
 
-- Phase 0: 1–2 days (hotfix + watch).
-- Phase 1: 5–10 days (table + triggers + verification).
-- Phase 2: 10–15 days (work_items + migrate email + add push queue).
-- Phase 3: 15–25 days (the actual dispatcher rewrite + handler
-  extraction).
-- Phase 4: 5 days (cutover, runbook updates).
-- Phase 5: 2 days (drop legacy).
+- **Track A:** 8–12 working days for one engineer.
+  - A0 telemetry: 1 day.
+  - A1 schema patch: 1 day.
+  - A2 forward writes (UnitSession::create, helpers): 1–2 days.
+  - A3a backfill script + report: 1–2 days.
+  - A3b state column + admin templates: 1–2 days.
+  - A4 idempotency keys + push_log + handler updates: 2–3 days.
+  - A5 cron_only fix + e2e test: half a day.
+  - A6 structured state_log: half a day.
+  - A7 docs + CHANGELOG: half a day.
 
-Total: ~6–10 weeks of focused work for a single engineer. Could be
-parallelised across phases 1+2 (independent) and 3+4 (sequential).
+- **Track B:** 6–10 weeks if ever scheduled. Original phased estimate
+  retained as a guide. Not commit-ready until the trigger conditions
+  in §Track B fire.
 
-## Decision needed before starting
+## Decision
 
-This document IS a decision artefact. Approval gates:
-
-- Are we OK with the major-version cutover? (yes = proceed; no =
-  scope to Phase 0–2 only.)
-- Multi-worker deployment OK with the operations team? (yes =
-  Phase 2 design as written; no = single-worker default with
-  scale-up flag.)
-- MariaDB 10.6+ confirmed across all production hosts? (yes =
-  proceed; no = bump that first.)
-
-If any answer is "no", scope drops to a Phase-0/1 hardening pass:
-keep `survey_unit_sessions` as the queue, add `idempotency_key`,
-add explicit `state` enum, drop `queued` magic numbers in favour
-of named constants, add structured `state_log`. That's a minor
-version bump (v0.26.0) and ~2 weeks of work — still useful, but
-doesn't unlock multi-worker.
+Proceed with Track A as v0.26.0. No decision gate is required for
+Track A — it's strictly additive and reversible per ALTER. Track B
+remains parked; revisit when (a) operational scaling pressure
+materialises, or (b) the dual-write `state` ↔ `queued` overhead
+becomes a sustained source of bugs in its own right.
