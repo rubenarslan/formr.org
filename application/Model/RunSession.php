@@ -412,6 +412,24 @@ class RunSession extends Model {
         return $this->positionedUnitIds[$position];
     }
 
+    /**
+     * Resolve the survey_run_units.id that maps this run + position. Sister
+     * to getUnitIdAtPosition() — that one returns the unit definition id
+     * (survey_units.id), this one returns the per-run-per-position id
+     * (survey_run_units.id) which Track A's `survey_unit_sessions.run_unit_id`
+     * column needs in order to disambiguate same-unit-at-multiple-positions
+     * runs (D1 in REFACTOR_QUEUE_PLAN.md). Returns null if the position is
+     * unmapped (defensive — caller stays NULL-safe so legacy data paths
+     * that don't have a clean position match continue to function without
+     * the new column).
+     */
+    public function getRunUnitIdAtPosition($position) {
+        if (!$this->run || !$this->run->id || $position === null) {
+            return null;
+        }
+        return $this->db->findValue('survey_run_units', ['run_id' => $this->run->id, 'position' => $position], 'id');
+    }
+
     public function forceTo($position) {
         // If there a unit for current position, then end the unit's session before moving
         if (($unitSession = $this->getCurrentUnitSession())) {
@@ -487,7 +505,7 @@ class RunSession extends Model {
                 // started returning #old — a row that was conceptually
                 // "done" but didn't carry an `ended`/`expired` timestamp.
                 // See tests/e2e/EXPIRY_AUDIT.md §11.
-                ->where('survey_unit_sessions.queued != -9')
+                ->where('survey_unit_sessions.queued != ' . UnitSessionQueue::QUEUED_SUPERCEDED)
                 ->bindParams(array('run_session_id' => $this->id, 'unit_id' => $this->getUnitIdAtPosition($this->position)))
                 ->order('survey_unit_sessions`.id', 'desc')
                 ->limit(1);
@@ -521,9 +539,25 @@ class RunSession extends Model {
     }
 
     public function endLastExternal() {
+        // Track A A8: this raw-UPDATE bypass to "this External returned
+        // from the redirect, mark it ended" used to write only `ended =
+        // NOW()`, leaving `state` stuck at whatever addItem() last set
+        // (typically WAITING_USER) and `result` NULL. Bring the column
+        // set in line with what UnitSession::end() would have written
+        // so the row reads cleanly in admin tooling and analysis
+        // exports. `queued = 0` matches Hygiene 4. The state_log JSON
+        // shape mirrors UnitSession::buildStateLog (reason / ctx / at).
         $query = "UPDATE `survey_unit_sessions`
 			LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
-			SET `survey_unit_sessions`.`ended` = NOW()
+			SET `survey_unit_sessions`.`ended`       = NOW(),
+			    `survey_unit_sessions`.`result`      = 'external_ended',
+			    `survey_unit_sessions`.`queued`      = 0,
+			    `survey_unit_sessions`.`state`       = 'ENDED',
+			    `survey_unit_sessions`.`state_log`   = JSON_OBJECT(
+			        'reason', 'external_ended',
+			        'ctx',    JSON_OBJECT('unit_type', 'External', 'via', 'endLastExternal'),
+			        'at',     DATE_FORMAT(NOW(), '%Y-%m-%dT%H:%i:%s+00:00')
+			    )
 			WHERE `survey_unit_sessions`.run_session_id = :id AND `survey_units`.type = 'External' AND  `survey_unit_sessions`.ended IS NULL AND `survey_unit_sessions`.expired IS NULL;";
 
         $updated = $this->db->exec($query, array('id' => $this->id));

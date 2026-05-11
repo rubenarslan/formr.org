@@ -27,9 +27,10 @@
                                     <tr>
                                         <th>Session</th>
                                         <th>Unit (position)</th>
+                                        <th>Iter.</th>
                                         <th>Added On</th>
                                         <th>Expires</th>
-                                        <th>To Execute</th>
+                                        <th>State</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -37,7 +38,7 @@
                                     <tr>
                                         <td>
                                             <a class="btn hastooltip" href="<?php echo admin_run_url($run_name, "user_detail?session=" . urlencode(substr($row['session'], 0, 15))); ?>" title="Go to user detail"><i class="fa fa-list"></i></a>
-                                            <?php 
+                                            <?php
                                                 $animal_end = strpos($row['session'], "XXX");
                                                 if ($animal_end === false) {
                                                     $animal_end = 10;
@@ -47,10 +48,12 @@
                                             <small><abbr class="abbreviated_session" title="Click to show the full session" data-full-session="<?php echo $row['session']; ?>"><?php echo $short_session ?>…</abbr> (<?= $row['unit_session_id'] ?>)</small>
                                         </td>
                                         <td><?= $row['unit_type'] ?> (<?=$row['position']?>)</td>
+                                        <td><?= htmlspecialchars((string)($row['iteration'] ?? '')) ?></td>
                                         <td><?php echo $row['created'] ?></td>
                                         <td><?php echo $row['expires'] ?></td>
                                         <td>
-                                            <?php echo $row['queued'] === UnitSessionQueue::QUEUED_TO_EXECUTE ? '<span class="label label-success">YES</span>' : '<span class="label label-default">NO</span>'; ?>
+                                            <?php $stateLabel = UnitSessionQueue::queueLabelForRow($row); ?>
+                                            <span class="label label-<?= htmlspecialchars($stateLabel['color']) ?>"><?= htmlspecialchars($stateLabel['label']) ?></span>
                                         </td>
                                     </tr>
                                     <?php endwhile; ?>

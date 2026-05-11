@@ -2,6 +2,100 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.26.0] - 10.05.2026 — "Track A" unit-session lifecycle hardening
+
+Strictly-additive schema + dual-write hardening pass on the unit-session
+queue. No behaviour change for participants or self-hosters; the columns
+are NULL/default and the legacy `queued` column remains the queue's pickup
+signal. See `documentation/agent_doc/REFACTOR_QUEUE_PLAN.md` for the rationale and for the
+deferred Track B (major-version queue rewrite) that this is the on-ramp
+for.
+
+### Schema (047 + 048 backfill)
+- **`survey_unit_sessions`** gains `run_unit_id`, `iteration`, `state` ENUM
+  (PENDING/RUNNING/WAITING_USER/WAITING_TIMER/ENDED/EXPIRED/SUPERSEDED),
+  `state_log` JSON, and `idempotency_key` (UNIQUE). New indexes:
+  `idx_run_unit_iter (run_session_id, run_unit_id, iteration)`, `idx_state`.
+- **`survey_email_log`** and **`push_logs`** gain `idempotency_key` UNIQUE.
+- **048** backfills historic rows: unique-position runs get `run_unit_id`
+  via JOIN; iteration is computed via `ROW_NUMBER OVER (PARTITION BY
+  run_session_id, unit_id ORDER BY id)`; multi-position-reuse rows stay
+  NULL with `state_log` flagging the ambiguity for analyst review.
+- All ALTERs are reversible per-column for rollback.
+
+### Fixes
+- **R5 — daemon-kill mid-cascade orphan double-send (closed).**
+  `Email::queueNow` and `PushMessage::getUnitSessionOutput` now write a
+  unique `idempotency_key` ("email:{us}:{email_id}" / "push:{us}") via
+  `INSERT ... ON DUPLICATE KEY UPDATE id=id`. A SIGKILL between row
+  INSERT and result UPDATE used to result in a duplicate send on
+  restart; the second INSERT now collides on UNIQUE and is a silent
+  no-op. The v0.25.7 terminal-result guard stays as belt-and-braces.
+- **A7 — `Email::cron_only` latent bug (closed).**
+  `User::$cron` is now set to `true` in `UnitSessionQueue::processQueue`
+  before `RunSession::execute()`. Pre-fix, `isExecutedByCron()` always
+  returned `false` because `User::$cron` was never set anywhere in the
+  cron path, so `cron_only=true` Emails were never delivered (the gate
+  always treated cron ticks as user-driven and skipped them). Now the
+  gate distinguishes correctly: `cron_only=true` Email is sent on cron
+  ticks and skipped on web requests.
+- **A8 — `PushMessage` never transitioned out of PENDING (closed).**
+  `PushMessage::getUnitSessionOutput` returned `move_on` without
+  `end_session` in every terminating branch (success, no_subscription,
+  message_parse_failed, title_parse_failed, error, idempotent skip,
+  v0.25.7 terminal-result guard). Track A's `state` column was silently
+  broken for Push rows: state stayed at `PENDING`, `ended` stayed NULL,
+  and only the `result` column carried the truth. Each terminating
+  return now includes `end_session => true` so the standard cascade
+  dispatcher calls `UnitSession::end()` and dual-writes `state=ENDED`,
+  `ended=NOW()`, and the `state_log` JSON — matching Email's contract.
+
+### Data-model improvements
+- **D1: `run_unit_id` on unit-session rows** disambiguates the same
+  `Survey` reused at multiple positions in a run (e.g. AMOR's
+  `T1_Screening` at positions 10/30/50). Pre-fix, exports merging
+  results across units could fan out N rows per fill via the ambiguous
+  `survey_run_units.unit_id = survey_unit_sessions.unit_id` JOIN.
+- **D2: `iteration` column** explicitly counts back-jump / SkipBackward
+  loop iterations of the same `(run_session_id, run_unit_id)` pair.
+  ESM-style runs that loop a day's units for 7 days (AMOR's
+  `T1_ESM_repetition_loop`) get a clean per-loop counter instead of
+  reconstructing day-of-loop from timestamps.
+- **D3: named `state` ENUM** is dual-written alongside the legacy
+  `queued` magic-value column. Admin queue inspectors render the named
+  state (PENDING/WAITING_*/ENDED/EXPIRED/SUPERSEDED) and fall back to
+  the queued mapping for legacy rows.
+- **D5: structured `state_log` JSON** sibling of the unstructured
+  `result_log` text column. Shape: `{reason, ctx: {unit_type, msg, …},
+  at}`. Documented on `UnitSession::buildStateLog`.
+
+### Internal
+- `UnitSessionQueue::stateForQueuedUnit($runUnit)` and
+  `UnitSessionQueue::queueLabelForRow($row)` are the canonical mappers
+  for state classification and admin-template rendering.
+- `RunSession::getRunUnitIdAtPosition($position)` is the sister of the
+  existing `getUnitIdAtPosition($position)` and resolves the
+  per-run-per-position `survey_run_units.id` for `UnitSession::create`.
+- Literal queued magic values in `removeItem`, `getCurrentUnitSession`,
+  and the supersede-siblings UPDATE replaced with named constants.
+
+### Tests
+- `tests/UnitSessionStateTest.php` (15 cases) — pins the property
+  surface, the named state constants, the runUnit-type → state classifier,
+  and the legacy/Track-A queue-label fallback for admin templates.
+- `tests/EmailCronOnlyTest.php` (4 cases) — TDD-captured the latent A7
+  bug pre-fix (the `processQueue` source-grep test fails without the
+  fix); pins the gate logic on both arms (web vs cron).
+- `tests/IdempotencyKeyTest.php` (3 cases) — pins idempotency-key string
+  format and short-circuit return shape.
+- `tests/StateLogJsonTest.php` (4 cases) — pins the `state_log` JSON
+  shape produced by `UnitSession::buildStateLog`.
+- `bin/test_track_a_smoke.php`, `bin/test_track_a_backfill_smoke.php`,
+  `bin/test_track_a_idempotency_smoke.php` — live-MariaDB integration
+  smokes (the SQLite test bootstrap doesn't carry the JSON / ENUM /
+  UNIQUE / window-function surface). Invoke via
+  `docker exec formr_app php bin/<smoke>.php`.
+
 ## [v0.25.7] - 09.05.2026
 ### Fixes
 - **Prevent duplicate cascade ("double expiry").** Observed in prod on AMOR 2026-05-09 at 10:03–10:11: 18 participants received 2× ESM email + 2× push notifications and ended up with two Survey unit-session rows from one Pause(124) anchor (one participant got four cascades within five seconds). Root cause: when a participant has the run open in two clients (PWA + browser tab) and the Pause's `expires` arrives, both clients fire `window.location.reload()` simultaneously. Both PHP requests construct their `RunSession` with cached `position=124` *before* either acquires the run-session named lock. Whichever wins the lock cascades through 124→127→128→129 and commits position=129; the second request, holding the lock afterwards, drives `moveOn` from its stale cached position=124 and creates a duplicate downstream cascade. Three guards:

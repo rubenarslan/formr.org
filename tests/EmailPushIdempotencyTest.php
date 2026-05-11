@@ -57,10 +57,14 @@ class EmailPushIdempotencyTest extends \PHPUnit\Framework\TestCase
 
         $output = $push->getUnitSessionOutput($unitSession);
 
+        // Track A A8: the terminal-result guard now includes
+        // end_session so re-encountering an already-sent Push row also
+        // transitions state to ENDED. Pre-A8 the guard returned just
+        // ['move_on' => true] and left the row stuck in PENDING.
         $this->assertSame(
-            ['move_on' => true],
+            ['end_session' => true, 'move_on' => true],
             $output,
-            "PushMessage::getUnitSessionOutput should early-return for terminal result '{$result}'"
+            "PushMessage::getUnitSessionOutput should early-return end_session+move_on for terminal result '{$result}'"
         );
     }
 

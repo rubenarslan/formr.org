@@ -16,6 +16,37 @@ class UnitSessionQueue extends Queue {
     const QUEUED_NOT = 0;
     const QUEUED_SUPERCEDED = -9;
 
+    // Track A: named state values written into survey_unit_sessions.state
+    // alongside the legacy `queued` column. The mapping isn't 1:1 with
+    // queued — `queued` answers "is this in the cron pickup set?", `state`
+    // answers "what is this row's lifecycle position?". See
+    // REFACTOR_QUEUE_PLAN.md A3b for design rationale.
+    const STATE_PENDING       = 'PENDING';
+    const STATE_RUNNING       = 'RUNNING';
+    const STATE_WAITING_USER  = 'WAITING_USER';
+    const STATE_WAITING_TIMER = 'WAITING_TIMER';
+    const STATE_ENDED         = 'ENDED';
+    const STATE_EXPIRED       = 'EXPIRED';
+    const STATE_SUPERSEDED    = 'SUPERSEDED';
+
+    /**
+     * Map a queued unit-session to its named state based on the runUnit type.
+     * Used by addItem() to dual-write the state column. The split:
+     *   - Survey / External / Page: WAITING_USER
+     *     (interactive units; the participant is the next actor; the
+     *     queue's expires deadline is the fallback timer for inactivity)
+     *   - everything else (Pause, Wait, Branch, SkipForward/Backward, Shuffle,
+     *     Email, PushMessage): WAITING_TIMER
+     *     (no participant interaction; the cron tick or expires deadline
+     *     is the next actor)
+     */
+    public static function stateForQueuedUnit(RunUnit $runUnit) {
+        if (in_array($runUnit->type, ['Survey', 'External', 'Page', 'Endpage'], true)) {
+            return self::STATE_WAITING_USER;
+        }
+        return self::STATE_WAITING_TIMER;
+    }
+
     public function __construct(DB $db, array $config) {
 		$this->list_type = array_val($config, 'list_type', null);
         parent::__construct($db, $config);
@@ -130,6 +161,16 @@ class UnitSessionQueue extends Queue {
                 continue;
             }
 
+            // Track A A5 / A7 fix: mark the run-session's user as cron-
+            // driven so isExecutedByCron() (which delegates to
+            // User->isCron()) returns true downstream. Without this,
+            // Email::cron_only never fires correctly — the gate sees
+            // every cron tick as a user-driven request and skips the
+            // send. Pre-fix this latent bug meant cron_only=true emails
+            // were effectively undeliverable. See REFACTOR_QUEUE_PLAN.md
+            // A5 + tests/EmailCronOnlyTest.php.
+            $runSession->user->cron = true;
+
             // Execute session again by getting current unit
             // This action might end or expire a session, thereby removing it from queue
             // or session might be re-queued to expire in x minutes
@@ -175,7 +216,7 @@ class UnitSessionQueue extends Queue {
      */
     public static function removeItem($unitSessionId) {
         $db = DB::getInstance();
-        $removed = $db->update('survey_unit_sessions', array('queued' => 0), array('id' => $unitSessionId));
+        $removed = $db->update('survey_unit_sessions', array('queued' => self::QUEUED_NOT), array('id' => $unitSessionId));
 
         return (bool) $removed;
     }
@@ -193,10 +234,16 @@ class UnitSessionQueue extends Queue {
             $db = DB::getInstance();
             $expires = mysql_datetime($data['expires']);
             $unitSession->expires = $expires;
+            // Track A: dual-write the named state alongside the legacy
+            // queued/expires update. The state value is derived from the
+            // runUnit type via stateForQueuedUnit().
+            $state = self::stateForQueuedUnit($runUnit);
             $db->update('survey_unit_sessions', array(
                 'expires' => $expires,
                 'queued' => $data['queued'],
+                'state' => $state,
             ), array('id' => $unitSession->id));
+            $unitSession->state = $state;
         } else {
             UnitSessionQueue::removeItem($unitSession->id);
         }
@@ -219,16 +266,58 @@ class UnitSessionQueue extends Queue {
     }
     
     public static function getRunItems(Run $run) {
+        // Track A: also project state, iteration, run_unit_id so admin
+        // templates can render the named state alongside the legacy
+        // queued column. Legacy rows (pre-047) have NULL state and the
+        // template falls back to the queued mapping below in
+        // queueLabelForRow().
         $query = '
-          SELECT survey_unit_sessions.run_session_id, survey_unit_sessions.id as unit_session_id, session, position, unit_id, survey_unit_sessions.created, expires, queued, survey_units.type as unit_type
+          SELECT survey_unit_sessions.run_session_id, survey_unit_sessions.id as unit_session_id, session, position,
+                 unit_id, survey_unit_sessions.run_unit_id, survey_unit_sessions.iteration,
+                 survey_unit_sessions.created, expires, queued, survey_unit_sessions.state,
+                 survey_units.type as unit_type
           FROM survey_unit_sessions
           LEFT JOIN survey_run_sessions ON survey_run_sessions.id = survey_unit_sessions.run_session_id
           LEFT JOIN survey_units ON survey_units.id = survey_unit_sessions.unit_id
           WHERE survey_run_sessions.run_id = :run AND survey_unit_sessions.queued > :no_queued
           ORDER BY unit_session_id DESC
         ';
-        
+
         return DB::getInstance()->rquery($query, array('run' => $run->id, 'no_queued' => self::QUEUED_NOT));
+    }
+
+    /**
+     * Render-side helper: return a short human label for a queue row's
+     * lifecycle state. Prefers the new `state` column (Track A) when
+     * present; falls back to the legacy `queued` magic-value mapping for
+     * pre-047 rows. Templates use this to render the "To Execute" /
+     * "State" column without re-implementing the mapping.
+     */
+    public static function queueLabelForRow(array $row): array {
+        $state = $row['state'] ?? null;
+        if ($state) {
+            // Color hint follows admin AdminLTE label-* convention.
+            $colors = [
+                self::STATE_PENDING       => 'default',
+                self::STATE_RUNNING       => 'info',
+                self::STATE_WAITING_USER  => 'primary',
+                self::STATE_WAITING_TIMER => 'warning',
+                self::STATE_ENDED         => 'success',
+                self::STATE_EXPIRED       => 'danger',
+                self::STATE_SUPERSEDED    => 'default',
+            ];
+            return ['label' => $state, 'color' => $colors[$state] ?? 'default'];
+        }
+
+        // Legacy fallback — decode the magic queued value.
+        $queued = (int) ($row['queued'] ?? 0);
+        switch ($queued) {
+            case self::QUEUED_TO_EXECUTE:  return ['label' => 'TO_EXECUTE', 'color' => 'success'];
+            case self::QUEUED_TO_END:      return ['label' => 'TO_END',     'color' => 'warning'];
+            case self::QUEUED_NOT:         return ['label' => 'NOT_QUEUED', 'color' => 'default'];
+            case self::QUEUED_SUPERCEDED:  return ['label' => 'SUPERSEDED', 'color' => 'default'];
+            default:                       return ['label' => 'queued=' . $queued, 'color' => 'default'];
+        }
     }
 
 }

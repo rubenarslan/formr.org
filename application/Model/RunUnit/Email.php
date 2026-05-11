@@ -243,21 +243,43 @@ class Email extends RunUnit {
     }
 
     protected function queueNow(EmailAccount $acc, string $subject, string $body, UnitSession $unitSession) {
-        $this->mail_queued = $this->db->insert('survey_email_log', array(
-            'subject' => $subject,
-            'status' => 0,
-            'session_id' => $unitSession->id,
-            'email_id' => $this->id,
-            'message' => $body,
-            'recipient' => $this->recipient,
-            'created' => mysql_datetime(),
-            'account_id' => (int) $this->account_id,
-            'meta' => json_encode(array(
-                'embedded_images' => $this->images,
-                'attachments' => ''
-            )),
-        ));
-        
+        // Track A A4 — closes R5. The idempotency_key is unique per
+        // (unit_session, email_id), so a SIGKILL'd daemon's restart
+        // re-attempt collides on UNIQUE and the second INSERT is a
+        // silent no-op via ON DUPLICATE KEY UPDATE id=id. Without this,
+        // restart re-queues the same email for the mail_daemon to send
+        // a second time. The v0.25.7 terminal-result guard in
+        // getUnitSessionOutput catches the case where this row INSERTed
+        // and result was set; this guard catches the gap between row
+        // INSERT and result UPDATE. See REFACTOR_QUEUE_PLAN.md A4.
+        $idempotency_key = "email:{$unitSession->id}:{$this->id}";
+
+        $affected = $this->db->exec(
+            "INSERT INTO `survey_email_log`
+                (`subject`, `status`, `session_id`, `email_id`, `message`, `recipient`, `created`, `account_id`, `meta`, `idempotency_key`)
+             VALUES
+                (:subject, 0, :session_id, :email_id, :message, :recipient, :created, :account_id, :meta, :idempotency_key)
+             ON DUPLICATE KEY UPDATE `id` = `id`",
+            [
+                'subject'         => $subject,
+                'session_id'      => $unitSession->id,
+                'email_id'        => $this->id,
+                'message'         => $body,
+                'recipient'       => $this->recipient,
+                'created'         => mysql_datetime(),
+                'account_id'      => (int) $this->account_id,
+                'meta'            => json_encode([
+                    'embedded_images' => $this->images,
+                    'attachments'     => '',
+                ]),
+                'idempotency_key' => $idempotency_key,
+            ]
+        );
+
+        // affected = 1 → fresh INSERT. affected = 0 → duplicate, no-op.
+        // Either way the queued state is "an email row exists for this
+        // (us, email)" which is the contract callers care about.
+        $this->mail_queued = $affected !== false;
         return $this->mail_queued;
     }
 
