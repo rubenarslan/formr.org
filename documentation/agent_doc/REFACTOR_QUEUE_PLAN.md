@@ -133,8 +133,25 @@ line each:
   cascade. SkipBackward is the back-jump primitive that legitimately
   produces multiple `unit_id` instances per run-session.
 - **Shuffle** — picks one of N branches at random and `run_to`s it.
-- **Wait** — `Pause`-like but with an OpenCPU-driven condition
-  rather than a wall-clock. Effectively deprecated; see callsites.
+- **Wait** — "deadline + early-completion" primitive. Distinct from
+  Pause: Pause blocks the participant for a fixed duration (the user
+  waits on the timer), Wait blocks the run for a fixed duration *but
+  ends early if the participant arrives* (the system waits for the
+  user, with a timeout-driven escalation). Two terminal arms in
+  `Wait::getUnitSessionOutput`:
+  - **Participant arrived first** (non-cron tick, deadline not yet
+    expired): `end_session+run_to=<body>` — Wait ends with
+    `result='wait_ended_by_user'`, run jumps to the `body` target
+    (skipping whatever reminder / escalation units follow Wait in
+    position order).
+  - **Deadline fired first** (cron tick, expired): `end_session+
+    move_on` — Wait ends with `result='wait_ended'`, run advances to
+    the next position (typically a reminder Email/Push, then back to
+    Wait via a SkipBackward for the next escalation step).
+  The OpenCPU surface is just for dynamic `relative_to` expressions,
+  same as Pause. Wait is the load-bearing primitive for ESM /
+  reminder-chain designs and is **not** redundant with Pause +
+  SkipForward (which can't model "user shows up = skip the rest").
 
 ### Execution paths
 
@@ -784,7 +801,7 @@ This is exactly the state set Track A's `state` column provisions for
 
 ## D2 diagram — current architecture
 
-Save as `tests/refactor_queue_current.d2` and render with `d2`:
+Save as `documentation/agent_doc/refactor_queue_current.d2` and render with `d2`:
 
 ```d2
 direction: right
@@ -872,7 +889,7 @@ cron -> race_R6
 
 ## D2 diagram — Track B end state (deferred)
 
-Save as `tests/refactor_queue_proposed.d2`:
+Save as `documentation/agent_doc/refactor_queue_proposed.d2`:
 
 ```d2
 direction: right
@@ -972,8 +989,10 @@ idempotency: "Idempotency contract" {
 worker_pool -> idempotency
 ```
 
-(Both diagrams are checked into `tests/` next to this plan; render
-with `d2 tests/refactor_queue_proposed.d2 -o tests/refactor_queue_proposed.svg`
+(Both diagrams live in `documentation/agent_doc/` next to this plan,
+along with `refactor_queue_track_a_states.d2` (the shipped Track A
+state machine). Render with
+`d2 documentation/agent_doc/refactor_queue_proposed.d2 -o documentation/agent_doc/refactor_queue_proposed.svg`
 when needed for review.)
 
 ## Testing strategy
