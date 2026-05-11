@@ -2,6 +2,14 @@
 
 class RunResource extends BaseResource
 {
+    private static $updatableFields = [
+        'title', 'description', 'footer_text', 'public_blurb',
+        'privacy', 'tos', 'header_image_path', 'custom_css',
+        'custom_js', 'cron_active',
+        'use_material_design', 'expiresOn',
+        'expire_cookie_value', 'expire_cookie_unit',
+        'public', 'locked',
+    ];
 
     public function handle()
     {
@@ -191,16 +199,12 @@ class RunResource extends BaseResource
     {
         $input = $this->getJsonBody();
 
-        // Denylist of run_settings columns the API isn't allowed to write
-        // through this endpoint. saveSettings filters by the broader
-        // run_settings allowlist, so anything else (id, user_id, …) is
-        // already dropped; the entries here are columns we explicitly
-        // want immutable via the v1 API even though they live on the
-        // settings allowlist used by the admin UI.
-        $restrictedFields = ['vapid_public_key', 'vapid_private_key', 'osf_project_id', 'name'];
-        foreach ($restrictedFields as $field) {
-            unset($input[$field]);
-        }
+        // Allowlist of fields this endpoint may update. Anything else
+        // (vapid keys, osf_project_id, name, manifest_json, expire_cookie,
+        // etc.) is dropped silently — preventing mass-assignment of
+        // sensitive or computed columns that live on the run_settings
+        // allowlist used by the admin UI.
+        $input = array_intersect_key($input, array_flip(self::$updatableFields));
 
         // saveSettings (Markdown / expiresOn validation) and the
         // togglePublic path both signal soft errors via alert() — the v1
