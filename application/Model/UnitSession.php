@@ -379,20 +379,40 @@ class UnitSession extends Model {
      * NULL when there's no useful reason to log (caller's UPDATE then
      * sets state_log = NULL, preserving the legacy NULL semantics for
      * rows the new code chooses to skip).
+     *
+     * Hardened against malformed UTF-8 in `result_log` text (which can
+     * arrive from OpenCPU error responses or external service callbacks
+     * containing raw bytes). Without JSON_INVALID_UTF8_SUBSTITUTE,
+     * json_encode would return false on a single bad byte and the
+     * caller's UPDATE would fail the JSON_VALID CHECK constraint on
+     * the column. The substitution writes U+FFFD in place of bad
+     * bytes; the overall message still round-trips, just lossily on
+     * the bad spans.
      */
     protected function buildStateLog($reason, array $ctx = []): ?string {
         if ($reason === null || $reason === '') {
             return null;
         }
-        // Drop empty/null context keys so the JSON stays compact.
         $ctx = array_filter($ctx, function ($v) {
             return $v !== null && $v !== '';
         });
-        return json_encode([
+        $encoded = json_encode([
             'reason' => (string) $reason,
             'ctx'    => $ctx,
             'at'     => date(DATE_ATOM),
-        ], JSON_UNESCAPED_SLASHES);
+        ], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+        // Last-ditch defence: if encoding still failed (e.g. recursive
+        // ctx structure), write a sentinel rather than `false` so the
+        // CHECK constraint passes and we lose only the offending row's
+        // detail, not the row itself.
+        if ($encoded === false) {
+            return json_encode([
+                'reason' => (string) $reason,
+                'ctx'    => ['encode_error' => json_last_error_msg()],
+                'at'     => date(DATE_ATOM),
+            ], JSON_UNESCAPED_SLASHES);
+        }
+        return $encoded;
     }
 
     protected function hasOrderedStudyItems() {

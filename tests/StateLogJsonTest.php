@@ -70,4 +70,30 @@ class StateLogJsonTest extends \PHPUnit\Framework\TestCase
         $this->assertStringContainsString('https://example.com/x', $json);
         $this->assertStringNotContainsString('https:\/\/example.com\/x', $json);
     }
+
+    /**
+     * Track A: malformed UTF-8 in ctx.msg (e.g. raw bytes from an
+     * OpenCPU error response) must NOT make json_encode return false
+     * — that would land as `false` in the bind and violate the
+     * JSON_VALID CHECK constraint on `state_log`. Hardened path uses
+     * JSON_INVALID_UTF8_SUBSTITUTE which replaces bad bytes with
+     * U+FFFD.
+     */
+    public function testBuildStateLogSurvivesMalformedUtf8InContext(): void
+    {
+        // \xC3\x28 is an invalid 2-byte UTF-8 sequence (continuation
+        // byte missing). \xA0\xA1 is two bare continuation bytes.
+        $bad = "ok-prefix \xC3\x28 mid \xA0\xA1 tail";
+        $json = $this->callBuildStateLog('error_opencpu_r', ['unit_type' => 'Survey', 'msg' => $bad]);
+
+        $this->assertIsString($json, 'must not return false even with bad UTF-8');
+        $decoded = json_decode($json, true);
+        $this->assertIsArray($decoded, 'output must be valid JSON');
+        $this->assertSame('error_opencpu_r', $decoded['reason']);
+        $this->assertArrayHasKey('msg', $decoded['ctx']);
+        // The substitute produces U+FFFD at the bad spans; the
+        // surrounding clean text round-trips.
+        $this->assertStringContainsString('ok-prefix', $decoded['ctx']['msg']);
+        $this->assertStringContainsString('tail', $decoded['ctx']['msg']);
+    }
 }

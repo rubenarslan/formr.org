@@ -150,6 +150,18 @@ try {
     assert_eq((int) $rows[0]['iteration'], 1, 'multi-position row 1: iteration=1 (best-effort by unit_id)');
     assert_eq((int) $rows[1]['iteration'], 2, 'multi-position row 2: iteration=2');
 
+    echo "\n-- Backfill is idempotent: re-applying 048 produces no changes --\n";
+    $idsCsv = implode(',', [$us_a_p1, $us_a_p2, $us_a_s1, $us_b_1, $us_b_2]);
+    $before = $db->execute("SELECT id, run_unit_id, iteration, state, state_log FROM survey_unit_sessions WHERE id IN ($idsCsv) ORDER BY id");
+    $sql2 = preg_replace('/^--[^\n]*$/m', '', file_get_contents('/var/www/formr/sql/patches/048_uxec_track_a_backfill.sql'));
+    foreach (preg_split('/;\s*\n/', $sql2) as $stmt) {
+        $stmt = trim($stmt);
+        if ($stmt === '') continue;
+        $db->exec($stmt);
+    }
+    $after = $db->execute("SELECT id, run_unit_id, iteration, state, state_log FROM survey_unit_sessions WHERE id IN ($idsCsv) ORDER BY id");
+    assert_eq($before === $after, true, 'backfill SQL is idempotent: re-run leaves fixture rows unchanged');
+
     echo "\n";
 } catch (Throwable $e) {
     fwrite(STDERR, "FATAL: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n");

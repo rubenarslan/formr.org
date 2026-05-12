@@ -190,6 +190,62 @@ try {
     $r = $db->execute('SELECT id FROM survey_email_log WHERE idempotency_key = :k', ['k' => $key2], false, true);
     if ($r) $artefacts['email_log_ids'][] = (int) $r['id'];
 
+    echo "\n-- A9: PushNotificationService::logPushSuccess UPDATEs claim row (no duplicate audit row) --\n";
+    // Seed a claim row, then call logPushSuccess via Reflection and
+    // verify exactly ONE push_logs row remains for this key (the claim
+    // row, mutated to status='success').
+    $sid = $unit_session_id;  // re-use the unit_session from the email path
+    $key = "push:{$sid}";
+    // Wipe any prior rows for this key so the assertion is clean.
+    $db->exec('DELETE FROM push_logs WHERE idempotency_key = :k', ['k' => $key]);
+    $db->exec(
+        "INSERT INTO `push_logs`
+            (`unit_session_id`, `run_id`, `message`, `status`, `attempt`, `created`, `idempotency_key`)
+         VALUES (:us, :rid, 'claim', 'queued', 1, NOW(), :k)",
+        ['us' => $sid, 'rid' => $artefacts['run_id'], 'k' => $key]
+    );
+
+    $svc = (new ReflectionClass(PushNotificationService::class))->newInstanceWithoutConstructor();
+    $rp = new ReflectionProperty(PushNotificationService::class, 'db');
+    $rp->setAccessible(true); $rp->setValue($svc, $db);
+    $runObj = (new ReflectionClass(Run::class))->newInstanceWithoutConstructor();
+    $runObj->id = $artefacts['run_id'];
+    $rp = new ReflectionProperty(PushNotificationService::class, 'run');
+    $rp->setAccessible(true); $rp->setValue($svc, $runObj);
+
+    $m = new ReflectionMethod(PushNotificationService::class, 'logPushSuccess');
+    $m->setAccessible(true);
+    $m->invoke($svc, $sid, 'parsed message body');
+
+    $count = (int) $db->execute('SELECT COUNT(*) FROM push_logs WHERE idempotency_key = :k', ['k' => $key], true);
+    assert_eq($count, 1, 'logPushSuccess updates claim row in place — exactly one push_logs row for this key');
+    $row = $db->execute('SELECT status, message FROM push_logs WHERE idempotency_key = :k', ['k' => $key], false, true);
+    assert_eq($row['status'], 'success', 'claim row status flipped to success');
+    assert_eq($row['message'], 'parsed message body', 'claim row message replaced with parsed body');
+    // Track the row for teardown.
+    $r = $db->execute('SELECT id FROM push_logs WHERE idempotency_key = :k', ['k' => $key], false, true);
+    if ($r) $artefacts['push_log_ids'][] = (int) $r['id'];
+
+    echo "\n-- A9: logPushFailure on a key with no claim row falls back to INSERT --\n";
+    $orphan_sid = $unit_session_id + 9999;  // a sessionId that has no claim
+    $orphan_key = "push:{$orphan_sid}";
+    $db->exec('DELETE FROM push_logs WHERE idempotency_key = :k', ['k' => $orphan_key]);
+    $countBefore = (int) $db->execute('SELECT COUNT(*) FROM push_logs WHERE idempotency_key = :k', ['k' => $orphan_key], true);
+    // Need to pass a real unit_session_id (FK constraint) — use the
+    // existing one but with a key that points at a phantom claim. The
+    // INSERT path in upsertPushLog uses sessionId for both us_id and
+    // the key; reset orphan_sid to use the real us_id so FK passes.
+    $m = new ReflectionMethod(PushNotificationService::class, 'logPushFailure');
+    $m->setAccessible(true);
+    // Use an unmatched key indirectly by changing sessionId to a value
+    // where no claim exists (use the second unit_session created
+    // earlier).
+    $m->invoke($svc, $second_us, 'msg', 'transient error', 1);
+    $countAfter = (int) $db->execute('SELECT COUNT(*) FROM push_logs WHERE idempotency_key = :k', ['k' => "push:{$second_us}"], true);
+    assert_eq($countAfter, 1, 'INSERT-fallback path created one row for the unclaimed sessionId');
+    $r = $db->execute('SELECT id FROM push_logs WHERE idempotency_key = :k', ['k' => "push:{$second_us}"], false, true);
+    if ($r) $artefacts['push_log_ids'][] = (int) $r['id'];
+
     echo "\n-- A8: Push terminal-result guard now returns end_session --\n";
     // Round-trip the actual code path: the v0.25.7 guard inside
     // PushMessage::getUnitSessionOutput must include 'end_session' so

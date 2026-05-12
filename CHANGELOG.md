@@ -5,11 +5,32 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [v0.26.0] - 10.05.2026 — "Track A" unit-session lifecycle hardening
 
 Strictly-additive schema + dual-write hardening pass on the unit-session
-queue. No behaviour change for participants or self-hosters; the columns
-are NULL/default and the legacy `queued` column remains the queue's pickup
-signal. See `documentation/agent_doc/REFACTOR_QUEUE_PLAN.md` for the rationale and for the
-deferred Track B (major-version queue rewrite) that this is the on-ramp
-for.
+queue. No behaviour change for participants; one user-visible change for
+study admins (see "Heads-up" below). The columns are NULL/default and
+the legacy `queued` column remains the queue's pickup signal. See
+`documentation/agent_doc/REFACTOR_QUEUE_PLAN.md` for the rationale and
+for the deferred Track B (major-version queue rewrite) that this is the
+on-ramp for.
+
+### Heads-up for self-hosters
+
+- **`cron_only=true` Email units will start delivering after this
+  upgrade.** Pre-fix, every cron tick was misclassified as a user-driven
+  request and the gate skipped the send (latent bug — `User::$cron` was
+  never set in the queue path). If your study has Email units configured
+  with `cron_only=true`, those were silently never sent; from this
+  release onward, the cron daemon delivers them. Audit your `Email`
+  units before deploying if this is unexpected.
+- **PushMessage and External rows now write `state=ENDED` /
+  `ended=NOW()` after a successful send / API callback.** Pre-fix
+  Push rows stayed at `state=PENDING` / `ended=NULL` indefinitely;
+  External rows ended via `/external-end` had only `ended` populated.
+  Affects custom analysis queries that filtered on `ended IS NOT NULL`
+  — those rows are now included.
+- **Admin queue inspector layout changes.** The "To Execute" YES/NO
+  column becomes a named "State" badge (PENDING / WAITING_USER /
+  WAITING_TIMER / ENDED / EXPIRED / SUPERSEDED) plus a new "Iter."
+  column. Bookmarked admin URLs unchanged.
 
 ### Schema (047 + 048 backfill)
 - **`survey_unit_sessions`** gains `run_unit_id`, `iteration`, `state` ENUM
@@ -20,7 +41,10 @@ for.
 - **048** backfills historic rows: unique-position runs get `run_unit_id`
   via JOIN; iteration is computed via `ROW_NUMBER OVER (PARTITION BY
   run_session_id, unit_id ORDER BY id)`; multi-position-reuse rows stay
-  NULL with `state_log` flagging the ambiguity for analyst review.
+  NULL with `state_log` flagging the ambiguity for analyst review;
+  `state` is inferred from `ended` / `expired` / `queued` for the full
+  historical tail (no NULL-state rows post-deploy). All phases are
+  idempotent — re-running 048 is a no-op.
 - All ALTERs are reversible per-column for rollback.
 
 ### Fixes
@@ -49,6 +73,16 @@ for.
   return now includes `end_session => true` so the standard cascade
   dispatcher calls `UnitSession::end()` and dual-writes `state=ENDED`,
   `ended=NOW()`, and the `state_log` JSON — matching Email's contract.
+- **A9 — push_logs row duplication (closed).** Pre-A9 each successful
+  Push send wrote two rows to `push_logs`: a "claim" row inserted by
+  `PushMessage::getUnitSessionOutput` (idempotency_key set,
+  status='queued') and a separate audit row inserted by
+  `PushNotificationService::logPushSuccess` / `logPushFailure`
+  (idempotency_key NULL, status='success'/'failed'). `logPushSuccess`
+  and `logPushFailure` now UPDATE the claim row by `idempotency_key =
+  "push:{sessionId}"` instead of INSERTing a new audit row, falling
+  back to INSERT only when no claim exists (the batch
+  `sendPushMessages` path). One row per send.
 
 ### Data-model improvements
 - **D1: `run_unit_id` on unit-session rows** disambiguates the same

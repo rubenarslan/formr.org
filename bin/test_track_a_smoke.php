@@ -159,6 +159,30 @@ try {
     assert_eq($log['reason'] ?? null, 'expired', 'expire() state_log.reason is "expired"');
     assert_eq($log['ctx']['unit_type'] ?? null, 'Survey', 'expire() state_log.ctx.unit_type is Survey');
 
+    echo "\n-- A8: endLastExternal raw UPDATE writes result/queued/state/state_log --\n";
+    // Insert a synthetic External unit + WAITING_USER row, then call
+    // endLastExternal and verify all four columns get written.
+    $extUnit = $db->insert('survey_units', ['type' => 'External', 'created' => mysql_now(), 'modified' => mysql_now()]);
+    $artefacts['unit_ids'][] = $extUnit;
+    $extRu = $db->insert('survey_run_units', ['run_id' => $artefacts['run_id'], 'unit_id' => $extUnit, 'position' => 30]);
+    $extUs = $db->insert('survey_unit_sessions', [
+        'run_session_id' => $artefacts['rs'],
+        'unit_id'        => $extUnit,
+        'created'        => mysql_now(),
+        'queued'         => 2,
+        'state'          => 'WAITING_USER',
+    ]);
+
+    $rs->endLastExternal();
+    $row = $db->execute('SELECT result, queued, state, ended, state_log FROM survey_unit_sessions WHERE id = :id', ['id' => $extUs], false, true);
+    assert_eq($row['result'], 'external_ended', 'endLastExternal sets result');
+    assert_eq((int) $row['queued'], 0, 'endLastExternal resets queued to 0');
+    assert_eq($row['state'], 'ENDED', 'endLastExternal sets state to ENDED');
+    assert_eq(!empty($row['ended']), true, 'endLastExternal sets ended timestamp');
+    $log = json_decode((string) $row['state_log'], true);
+    assert_eq($log['reason'] ?? null, 'external_ended', 'endLastExternal writes state_log.reason');
+    assert_eq($log['ctx']['via'] ?? null, 'endLastExternal', 'endLastExternal state_log.ctx.via marks the path');
+
     echo "\n-- A2: supersede side-effect of create() sets state=SUPERSEDED on prior queued sibling --\n";
     // Queue us3 (the second pause iteration), then create a 3rd pause — this should supersede us3.
     UnitSessionQueue::addItem($us3, $pauseRunUnit, ['expires' => time() + 3600, 'queued' => 2]);

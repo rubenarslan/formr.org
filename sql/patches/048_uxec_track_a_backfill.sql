@@ -57,4 +57,46 @@ SET `us`.`state_log` = JSON_OBJECT(
         'backfill', 'run_unit_id_ambiguous',
         'reason',   'multi_position_reuse'
     )
-WHERE `us`.`run_unit_id` IS NULL;
+WHERE `us`.`run_unit_id` IS NULL AND `us`.`state_log` IS NULL;
+
+-- Phase 4: backfill the `state` column for terminal historical rows so
+-- the new state ENUM is non-NULL across the full audit trail (not just
+-- post-A2 forward writes). Each UPDATE is constrained to `state IS NULL`
+-- so re-running this patch is a no-op. Order matters within EXPIRED →
+-- ENDED → SUPERSEDED so that an ended-and-expired row (rare) ends up
+-- as ENDED rather than EXPIRED — `ended` is the dominant terminal.
+--
+-- Rows that have neither `ended` nor `expired` AND queued <= 0 are
+-- ambiguous; we leave their state NULL and the admin template's
+-- queueLabelForRow falls back to the queued-magic-value mapping.
+UPDATE `survey_unit_sessions`
+SET `state` = 'EXPIRED'
+WHERE `state` IS NULL AND `expired` IS NOT NULL AND `ended` IS NULL;
+
+UPDATE `survey_unit_sessions`
+SET `state` = 'ENDED'
+WHERE `state` IS NULL AND `ended` IS NOT NULL;
+
+UPDATE `survey_unit_sessions`
+SET `state` = 'SUPERSEDED'
+WHERE `state` IS NULL AND `queued` = -9;
+
+-- Phase 5: backfill `state` for queued-but-not-terminal rows
+-- (WAITING_USER for Survey/External/Page/Endpage; WAITING_TIMER for
+-- everything else). The runUnit-type classifier mirrors
+-- UnitSessionQueue::stateForQueuedUnit.
+UPDATE `survey_unit_sessions` `us`
+JOIN `survey_units` `su` ON `su`.`id` = `us`.`unit_id`
+SET `us`.`state` = CASE
+        WHEN `su`.`type` IN ('Survey', 'External', 'Page', 'Endpage')
+            THEN 'WAITING_USER'
+        ELSE 'WAITING_TIMER'
+    END
+WHERE `us`.`state` IS NULL AND `us`.`queued` > 0;
+
+-- Phase 6: anything still NULL is a fresh-but-not-yet-queued row
+-- (queued = 0, ended IS NULL, expired IS NULL). Track A treats these
+-- as PENDING.
+UPDATE `survey_unit_sessions`
+SET `state` = 'PENDING'
+WHERE `state` IS NULL;
