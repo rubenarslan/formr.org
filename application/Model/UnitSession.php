@@ -91,7 +91,7 @@ class UnitSession extends Model {
                 'iteration' => $iteration,
                 'run_session_id' => $this->runSession->id > 0 ? $this->runSession->id : null,
                 'created' => mysql_now(),
-                'state' => 'PENDING',
+                'state' => UnitSessionQueue::STATE_PENDING,
             ]);
 
             $this->id = $this->db->insert('survey_unit_sessions', $session);
@@ -251,13 +251,14 @@ class UnitSession extends Model {
                 `expired` = NOW(),
                 `result` = 'expired',
                 `queued` = 0,
-                `state` = 'EXPIRED',
+                `state` = :state,
                 `state_log` = :state_log
              WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
              [
                  'id'        => $this->id,
                  'unit_id'   => $unit->id,
-                 'state_log' => $this->buildStateLog('expired', ['unit_type' => $unit->type]),
+                 'state'     => UnitSessionQueue::STATE_EXPIRED,
+                 'state_log' => self::buildStateLog('expired', ['unit_type' => $unit->type]),
              ]
         );
 
@@ -310,7 +311,7 @@ class UnitSession extends Model {
                 `result` = :result,
                 `result_log` = :result_log,
                 `queued` = 0,
-                `state` = 'ENDED',
+                `state` = :state,
                 `state_log` = :state_log
                 WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
                 [
@@ -318,7 +319,8 @@ class UnitSession extends Model {
                     'unit_id'    => $this->runUnit->id,
                     'result'     => $this->result,
                     'result_log' => $this->result_log,
-                    'state_log'  => $this->buildStateLog($this->result, [
+                    'state'      => UnitSessionQueue::STATE_ENDED,
+                    'state_log'  => self::buildStateLog($this->result, [
                         'unit_type' => $unit->type,
                         'msg'       => $this->result_log,
                     ]),
@@ -363,7 +365,7 @@ class UnitSession extends Model {
                     'unit_id'    => $this->runUnit->id,
                     'result'     => $this->result,
                     'result_log' => $this->result_log,
-                    'state_log'  => $this->buildStateLog($this->result, [
+                    'state_log'  => self::buildStateLog($this->result, [
                         'unit_type' => $this->runUnit->type ?? null,
                         'msg'       => $this->result_log,
                     ]),
@@ -389,7 +391,7 @@ class UnitSession extends Model {
      * bytes; the overall message still round-trips, just lossily on
      * the bad spans.
      */
-    protected function buildStateLog($reason, array $ctx = []): ?string {
+    public static function buildStateLog($reason, array $ctx = []): ?string {
         if ($reason === null || $reason === '') {
             return null;
         }

@@ -151,13 +151,13 @@ class PushMessage extends RunUnit {
                 'idempotency_key' => $idempotency_key,
             ]
         );
-        if ((int) $claimed === 0) {
+        if ($claimed === 0) {
             // Idempotent skip: duplicate INSERT means a prior attempt
             // already claimed this unit-session. Bail with the same
             // shape as the v0.25.7 terminal-result guard so the cascade
-            // dispatcher treats this as completed and moves on. Track A
-            // A8: include end_session so this row also transitions to
-            // ENDED (no-op if ended IS NOT NULL).
+            // dispatcher treats this as completed and moves on.
+            // end_session also transitions the row to ENDED (no-op if
+            // ended IS NOT NULL).
             return ['end_session' => true, 'move_on' => true];
         }
 

@@ -34,10 +34,12 @@ class RunSession extends Model {
     public $currentUnitSession;
     /**
      * Cache for unit ids in various positions
-     * 
+     *
      * @var array
      */
     protected $positionedUnitIds = [];
+    /** @var array Cache for survey_run_units.id keyed by position */
+    protected $positionedRunUnitIds = [];
     /** Maximum number of recursions to happen during a run session execution; */
     const MAX_EXECUTION_COUNT = 10;
     /**
@@ -427,7 +429,10 @@ class RunSession extends Model {
         if (!$this->run || !$this->run->id || $position === null) {
             return null;
         }
-        return $this->db->findValue('survey_run_units', ['run_id' => $this->run->id, 'position' => $position], 'id');
+        if (!array_key_exists($position, $this->positionedRunUnitIds)) {
+            $this->positionedRunUnitIds[$position] = $this->db->findValue('survey_run_units', ['run_id' => $this->run->id, 'position' => $position], 'id');
+        }
+        return $this->positionedRunUnitIds[$position];
     }
 
     public function forceTo($position) {
@@ -539,28 +544,26 @@ class RunSession extends Model {
     }
 
     public function endLastExternal() {
-        // Track A A8: this raw-UPDATE bypass to "this External returned
-        // from the redirect, mark it ended" used to write only `ended =
-        // NOW()`, leaving `state` stuck at whatever addItem() last set
-        // (typically WAITING_USER) and `result` NULL. Bring the column
-        // set in line with what UnitSession::end() would have written
-        // so the row reads cleanly in admin tooling and analysis
-        // exports. `queued = 0` matches Hygiene 4. The state_log JSON
-        // shape mirrors UnitSession::buildStateLog (reason / ctx / at).
+        // Track A A8: raw-UPDATE bypass for "External returned from redirect,
+        // mark ended". Column set mirrors what UnitSession::end() writes so the
+        // row reads cleanly in admin tooling and analysis exports.
         $query = "UPDATE `survey_unit_sessions`
 			LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
 			SET `survey_unit_sessions`.`ended`       = NOW(),
 			    `survey_unit_sessions`.`result`      = 'external_ended',
 			    `survey_unit_sessions`.`queued`      = 0,
-			    `survey_unit_sessions`.`state`       = 'ENDED',
-			    `survey_unit_sessions`.`state_log`   = JSON_OBJECT(
-			        'reason', 'external_ended',
-			        'ctx',    JSON_OBJECT('unit_type', 'External', 'via', 'endLastExternal'),
-			        'at',     DATE_FORMAT(NOW(), '%Y-%m-%dT%H:%i:%s+00:00')
-			    )
+			    `survey_unit_sessions`.`state`       = :state,
+			    `survey_unit_sessions`.`state_log`   = :state_log
 			WHERE `survey_unit_sessions`.run_session_id = :id AND `survey_units`.type = 'External' AND  `survey_unit_sessions`.ended IS NULL AND `survey_unit_sessions`.expired IS NULL;";
 
-        $updated = $this->db->exec($query, array('id' => $this->id));
+        $updated = $this->db->exec($query, [
+            'id'        => $this->id,
+            'state'     => UnitSessionQueue::STATE_ENDED,
+            'state_log' => UnitSession::buildStateLog('external_ended', [
+                'unit_type' => 'External',
+                'via'       => 'endLastExternal',
+            ]),
+        ]);
         $success = $updated !== false;
         return $success;
     }
