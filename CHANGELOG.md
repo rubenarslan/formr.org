@@ -2,6 +2,13 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.25.8] - 12.05.2026
+### Fixes
+- PushMessage save no longer errors "Message is required" when the message was typed into the editor.
+
+### Tests
+- `tests/e2e/push-message-save.spec.js` — logs into the dev admin, creates a throw-away run, clicks "Add Push Notification", types into the new unit's ACE editor via `ace.edit(el).setValue(...)`, clicks Save, and asserts no `.run_units .alert-danger "Message is required"` appears and the Save button settles back to a disabled "Saved". Best-effort cleanup deletes the run after. Failed pre-fix (`Received: 1` for the validation-error locator), passes post-fix.
+
 ## [v0.25.7] - 09.05.2026
 ### Fixes
 - **Prevent duplicate cascade ("double expiry").** Observed in prod on AMOR 2026-05-09 at 10:03–10:11: 18 participants received 2× ESM email + 2× push notifications and ended up with two Survey unit-session rows from one Pause(124) anchor (one participant got four cascades within five seconds). Root cause: when a participant has the run open in two clients (PWA + browser tab) and the Pause's `expires` arrives, both clients fire `window.location.reload()` simultaneously. Both PHP requests construct their `RunSession` with cached `position=124` *before* either acquires the run-session named lock. Whichever wins the lock cascades through 124→127→128→129 and commits position=129; the second request, holding the lock afterwards, drives `moveOn` from its stale cached position=124 and creates a duplicate downstream cascade. Three guards:
