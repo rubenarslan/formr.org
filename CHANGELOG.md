@@ -2,133 +2,31 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [v0.26.0] - 10.05.2026 — "Track A" unit-session lifecycle hardening
-
-Strictly-additive schema + dual-write hardening pass on the unit-session
-queue. No behaviour change for participants; one user-visible change for
-study admins (see "Heads-up" below). The columns are NULL/default and
-the legacy `queued` column remains the queue's pickup signal. See
-`documentation/agent_doc/REFACTOR_QUEUE_PLAN.md` for the rationale and
-for the deferred Track B (major-version queue rewrite) that this is the
-on-ramp for.
-
+## [v0.26.0] - 11.05.2026
 ### Heads-up for self-hosters
-
-- **`cron_only=true` Email units will start delivering after this
-  upgrade.** Pre-fix, every cron tick was misclassified as a user-driven
-  request and the gate skipped the send (latent bug — `User::$cron` was
-  never set in the queue path). If your study has Email units configured
-  with `cron_only=true`, those were silently never sent; from this
-  release onward, the cron daemon delivers them. Audit your `Email`
-  units before deploying if this is unexpected.
-- **PushMessage and External rows now write `state=ENDED` /
-  `ended=NOW()` after a successful send / API callback.** Pre-fix
-  Push rows stayed at `state=PENDING` / `ended=NULL` indefinitely;
-  External rows ended via `/external-end` had only `ended` populated.
-  Affects custom analysis queries that filtered on `ended IS NOT NULL`
-  — those rows are now included.
-- **Admin queue inspector layout changes.** The "To Execute" YES/NO
-  column becomes a named "State" badge (PENDING / WAITING_USER /
-  WAITING_TIMER / ENDED / EXPIRED / SUPERSEDED) plus a new "Iter."
-  column. Bookmarked admin URLs unchanged.
-
-### Schema (047 + 048 backfill)
-- **`survey_unit_sessions`** gains `run_unit_id`, `iteration`, `state` ENUM
-  (PENDING/RUNNING/WAITING_USER/WAITING_TIMER/ENDED/EXPIRED/SUPERSEDED),
-  `state_log` JSON, and `idempotency_key` (UNIQUE). New indexes:
-  `idx_run_unit_iter (run_session_id, run_unit_id, iteration)`, `idx_state`.
-- **`survey_email_log`** and **`push_logs`** gain `idempotency_key` UNIQUE.
-- **048** backfills historic rows: unique-position runs get `run_unit_id`
-  via JOIN; iteration is computed via `ROW_NUMBER OVER (PARTITION BY
-  run_session_id, unit_id ORDER BY id)`; multi-position-reuse rows stay
-  NULL with `state_log` flagging the ambiguity for analyst review;
-  `state` is inferred from `ended` / `expired` / `queued` for the full
-  historical tail (no NULL-state rows post-deploy). All phases are
-  idempotent — re-running 048 is a no-op.
-- All ALTERs are reversible per-column for rollback.
+- `cron_only=true` Email units will start delivering after this upgrade. They were silently never sent due to a latent bug; audit affected studies before deploying.
+- Push and External completions now mark the unit-session as ended (was previously left open). Affects analysis queries that filter on `ended IS NOT NULL`.
+- Admin queue inspector replaces the "To Execute" yes/no column with a named state badge and adds an iteration column.
 
 ### Fixes
-- **R5 — daemon-kill mid-cascade orphan double-send (closed).**
-  `Email::queueNow` and `PushMessage::getUnitSessionOutput` now write a
-  unique `idempotency_key` ("email:{us}:{email_id}" / "push:{us}") via
-  `INSERT ... ON DUPLICATE KEY UPDATE id=id`. A SIGKILL between row
-  INSERT and result UPDATE used to result in a duplicate send on
-  restart; the second INSERT now collides on UNIQUE and is a silent
-  no-op. The v0.25.7 terminal-result guard stays as belt-and-braces.
-- **A7 — `Email::cron_only` latent bug (closed).**
-  `User::$cron` is now set to `true` in `UnitSessionQueue::processQueue`
-  before `RunSession::execute()`. Pre-fix, `isExecutedByCron()` always
-  returned `false` because `User::$cron` was never set anywhere in the
-  cron path, so `cron_only=true` Emails were never delivered (the gate
-  always treated cron ticks as user-driven and skipped them). Now the
-  gate distinguishes correctly: `cron_only=true` Email is sent on cron
-  ticks and skipped on web requests.
-- **A8 — `PushMessage` never transitioned out of PENDING (closed).**
-  `PushMessage::getUnitSessionOutput` returned `move_on` without
-  `end_session` in every terminating branch (success, no_subscription,
-  message_parse_failed, title_parse_failed, error, idempotent skip,
-  v0.25.7 terminal-result guard). Track A's `state` column was silently
-  broken for Push rows: state stayed at `PENDING`, `ended` stayed NULL,
-  and only the `result` column carried the truth. Each terminating
-  return now includes `end_session => true` so the standard cascade
-  dispatcher calls `UnitSession::end()` and dual-writes `state=ENDED`,
-  `ended=NOW()`, and the `state_log` JSON — matching Email's contract.
-- **A9 — push_logs row duplication (closed).** Pre-A9 each successful
-  Push send wrote two rows to `push_logs`: a "claim" row inserted by
-  `PushMessage::getUnitSessionOutput` (idempotency_key set,
-  status='queued') and a separate audit row inserted by
-  `PushNotificationService::logPushSuccess` / `logPushFailure`
-  (idempotency_key NULL, status='success'/'failed'). `logPushSuccess`
-  and `logPushFailure` now UPDATE the claim row by `idempotency_key =
-  "push:{sessionId}"` instead of INSERTing a new audit row, falling
-  back to INSERT only when no claim exists (the batch
-  `sendPushMessages` path). One row per send.
+- Daemon kill mid-cascade no longer causes a duplicate Email or Push send on restart (idempotency keys block the duplicate insert)
+- `cron_only=true` Email units now deliver from the cron daemon
+- PushMessage now properly ends its unit-session after a successful send
+- External unit-sessions ended via the API callback now write the same audit columns as the standard end path
+- Push notifications no longer write two `push_logs` rows per send
 
-### Data-model improvements
-- **D1: `run_unit_id` on unit-session rows** disambiguates the same
-  `Survey` reused at multiple positions in a run (e.g. AMOR's
-  `T1_Screening` at positions 10/30/50). Pre-fix, exports merging
-  results across units could fan out N rows per fill via the ambiguous
-  `survey_run_units.unit_id = survey_unit_sessions.unit_id` JOIN.
-- **D2: `iteration` column** explicitly counts back-jump / SkipBackward
-  loop iterations of the same `(run_session_id, run_unit_id)` pair.
-  ESM-style runs that loop a day's units for 7 days (AMOR's
-  `T1_ESM_repetition_loop`) get a clean per-loop counter instead of
-  reconstructing day-of-loop from timestamps.
-- **D3: named `state` ENUM** is dual-written alongside the legacy
-  `queued` magic-value column. Admin queue inspectors render the named
-  state (PENDING/WAITING_*/ENDED/EXPIRED/SUPERSEDED) and fall back to
-  the queued mapping for legacy rows.
-- **D5: structured `state_log` JSON** sibling of the unstructured
-  `result_log` text column. Shape: `{reason, ctx: {unit_type, msg, …},
-  at}`. Documented on `UnitSession::buildStateLog`.
+### Added
+- New columns on `survey_unit_sessions`: `run_unit_id` and `iteration` (disambiguate the same survey reused at multiple positions, count back-jump / SkipBackward loops); `state` ENUM and `state_log` JSON (named lifecycle status alongside the legacy `queued` column)
+- Admin queue inspector renders the new state and iteration columns
 
-### Internal
-- `UnitSessionQueue::stateForQueuedUnit($runUnit)` and
-  `UnitSessionQueue::queueLabelForRow($row)` are the canonical mappers
-  for state classification and admin-template rendering.
-- `RunSession::getRunUnitIdAtPosition($position)` is the sister of the
-  existing `getUnitIdAtPosition($position)` and resolves the
-  per-run-per-position `survey_run_units.id` for `UnitSession::create`.
-- Literal queued magic values in `removeItem`, `getCurrentUnitSession`,
-  and the supersede-siblings UPDATE replaced with named constants.
+### Schema
+- Patch 047: schema additions on `survey_unit_sessions`, `survey_email_log`, `push_logs`
+- Patch 048: one-shot backfill of `state`, `run_unit_id`, `iteration` for historical rows; idempotent (re-runs are no-ops)
 
-### Tests
-- `tests/UnitSessionStateTest.php` (15 cases) — pins the property
-  surface, the named state constants, the runUnit-type → state classifier,
-  and the legacy/Track-A queue-label fallback for admin templates.
-- `tests/EmailCronOnlyTest.php` (4 cases) — TDD-captured the latent A7
-  bug pre-fix (the `processQueue` source-grep test fails without the
-  fix); pins the gate logic on both arms (web vs cron).
-- `tests/IdempotencyKeyTest.php` (3 cases) — pins idempotency-key string
-  format and short-circuit return shape.
-- `tests/StateLogJsonTest.php` (4 cases) — pins the `state_log` JSON
-  shape produced by `UnitSession::buildStateLog`.
-- `bin/test_track_a_smoke.php`, `bin/test_track_a_backfill_smoke.php`,
-  `bin/test_track_a_idempotency_smoke.php` — live-MariaDB integration
-  smokes (the SQLite test bootstrap doesn't carry the JSON / ENUM /
-  UNIQUE / window-function surface). Invoke via
-  `docker exec formr_app php bin/<smoke>.php`.
+### Tests + docs
+- 6 new PHPUnit files (35 cases) covering the state column, idempotency keys, the cron_only gate, the Push state-transition, and the state_log JSON shape
+- 3 live-MariaDB integration smokes under `bin/test_track_a_*_smoke.php`
+- Refactor plan and state-machine diagrams moved to `documentation/agent_doc/`
 
 ## [v0.25.7] - 09.05.2026
 ### Fixes
