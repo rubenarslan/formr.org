@@ -26,7 +26,7 @@
         "bshaffer/oauth2-server-php": "1.*",
         "atrox/haikunator": "1.*",
         "paragonie/halite": "^5",
-        "phpoffice/phpspreadsheet": "1.*",
+        "phpoffice/phpspreadsheet": "^1.30",
         "phpmailer/phpmailer": "6.*",
 		"robthree/twofactorauth": "2.1.0",
 		"chillerlan/php-qrcode": "^5.0",
