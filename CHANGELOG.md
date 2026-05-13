@@ -2,6 +2,15 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.26.2] - 13.05.2026
+### Fixes
+- `composer test` now passes `--exclude-group integration` (matches the bootstrap docstring + CI intent); new `composer test:integration` script runs only that group. Unit lane is green again (was 12 errors + 2 failures from MariaDB-only SQL hitting the SQLite :memory: bootstrap).
+- `DB::table_exists()` validates the table-name argument against `/^[A-Za-z0-9_]+$/` and throws `InvalidArgumentException` on mismatch. Closes a SQL-injection sink (raw concat into `SHOW TABLES LIKE '...'`).
+- `DB::whereIn()` returns `$this` for builder-API parity with `where()` / `like()` (latent bug — no production callers chained through it).
+
+### Tests + docs
+- `documentation/agent_doc/testing.md` catalogs the two PHPUnit lanes, every `@group integration` class, root cause + fix shape for the six deferred test cases, and the env-var bootstrap switch + GitHub Actions service-container sketch for a real-DB CI lane.
+
 ## [v0.26.1] - 13.05.2026
 ### Fixes
 - Tighten `phpoffice/phpspreadsheet` composer constraint from `1.*` to `^1.30`, locking out 19 Dependabot-tracked CVEs (XXE, reflected XSS, SSRF, path traversal). Lockfile moves from 1.30.0 to 1.30.4.
