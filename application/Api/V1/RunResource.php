@@ -2,6 +2,14 @@
 
 class RunResource extends BaseResource
 {
+    // Allowlist of run fields the v1 API may write via updateRun().
+    // Deliberately narrower than Run::$run_settings (used by the admin
+    // UI): omits `name` (security boundary — admin vs study domain),
+    // `vapid_*` (auto-generated), `osf_project_id` (OAuth-managed),
+    // `manifest_json` (computed), and `expire_cookie` (derived from
+    // value × unit pair). New fields added to Run::$run_settings will
+    // NOT auto-propagate here — extend this list explicitly when the
+    // v1 API should expose them.
     private static $updatableFields = [
         'title', 'description', 'footer_text', 'public_blurb',
         'privacy', 'tos', 'header_image_path', 'custom_css',

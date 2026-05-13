@@ -1156,20 +1156,25 @@ function opencpu_prepare_api_access($code, &$variables)
     // include a single quote or backslash (JWT, custom, etc.) — without it
     // the token could break the R string literal we're embedding it in,
     // or worse, escape into surrounding R code.
+    // Inject into the package's hidden `.formr` env (see
+    // formr-r-package/R/shorthands.R) instead of polluting .GlobalEnv.
+    // `host` in particular is a name widely used by httr/curl in user
+    // code. The R-side helpers (formr_api_authenticate, formr_api_results)
+    // read these from `.formr$` as their auto-pickup source.
     $access_token = "'" . addcslashes($token_data['access_token'], "'\\") . "'";
     $host = "'" . addcslashes(rtrim(site_url('api'), '/'), "'\\") . "'";
     $run_name = "'" . addcslashes($run->name, "'\\") . "'";
 
     if (is_string($variables)) {
         // Append the R assignment to an existing string
-        $variables .= "\naccess_token = " . $access_token . "\nhost = " . $host . "\nrun_name = " . $run_name . "\n";
+        $variables .= "\n.formr\$access_token = " . $access_token . "\n.formr\$host = " . $host . "\n.formr\$run_name = " . $run_name . "\n";
     } else {
         if ($variables === null) {
             $variables = [];
         }
-        $variables['access_token'] = $access_token;
-        $variables['host'] = $host;
-        $variables['run_name'] = $run_name;
+        $variables['.formr$access_token'] = $access_token;
+        $variables['.formr$host'] = $host;
+        $variables['.formr$run_name'] = $run_name;
     }
 
     return $token_data['access_token'];
