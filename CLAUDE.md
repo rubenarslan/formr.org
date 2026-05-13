@@ -72,7 +72,7 @@ composer test:integration     # integration lane: SQLite or live MariaDB, --grou
 vendor/bin/phpunit --configuration tests/phpunit.xml --filter SomeTest::testName
 ```
 
-`composer test` is the gate for CI. `composer test:integration` covers `DBTest` (MariaDB-only `SHOW TABLES` / `SHOW COLUMNS` paths) and `PushNotificationExpireSubscriptionTest` (needs seeded `survey_studies` + `survey_unit_sessions` rows); run it from inside the `formr_app` container against the dev DB. Both lanes share `tests/bootstrap.php`, which forces SQLite via `Config::initialize` — the integration lane only resolves cleanly against a live MariaDB when bootstrap.php is bypassed or extended; for now several `@group integration` tests will still fail when run under SQLite (see `documentation/agent_doc/` for follow-up).
+`composer test` is the gate for CI. `composer test:integration` covers `DBTest` (MariaDB-only `SHOW TABLES` / `SHOW COLUMNS` paths) and `PushNotificationExpireSubscriptionTest` (needs seeded `survey_studies` + `survey_unit_sessions` rows). Both lanes share `tests/bootstrap.php`, which currently forces SQLite via `Config::initialize` unconditionally — so under SQLite several `@group integration` tests still fail; the live-MariaDB CI lane that would make them pass is described in `documentation/agent_doc/testing.md` along with the per-test deferred-fix punch list.
 
 Config: `config-dist/settings.php` is the dist default; overrides go
 in `config/settings.php` (gitignored). `setup.php` loads dist first
