@@ -2,6 +2,28 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.26.0] - 13.05.2026
+### Fixes
+- Daemon kill mid-cascade no longer causes a duplicate Email or Push send on restart (idempotency keys block the duplicate insert)
+- `cron_only=true` Email units will start delivering after this upgrade. They were silently never sent due to a latent bug; audit affected studies before deploying.
+- PushMessage now properly ends its unit-session after a successful send
+- External unit-sessions ended via the API callback now write the same audit columns as the standard end path
+- Push notifications no longer write two `push_logs` rows per send
+- Push and External completions now mark the unit-session as ended (was previously left open). Affects analysis queries that filter on `ended IS NOT NULL`.
+
+### Added
+- New columns on `survey_unit_sessions`: `run_unit_id` and `iteration` (disambiguate the same survey reused at multiple positions, count back-jump / SkipBackward loops); `state` ENUM and `state_log` JSON (named lifecycle status alongside the legacy `queued` column)
+- Admin queue inspector replaces the "To Execute" yes/no column with a named state badge and adds an iteration column.
+
+### Schema
+- Patch 047: schema additions on `survey_unit_sessions`, `survey_email_log`, `push_logs`
+- Patch 048: one-shot backfill of `state`, `run_unit_id`, `iteration` for historical rows; idempotent (re-runs are no-ops)
+
+### Tests + docs
+- 6 new PHPUnit files (35 cases) covering the state column, idempotency keys, the cron_only gate, the Push state-transition, and the state_log JSON shape
+- 3 live-MariaDB integration smokes under `bin/test_track_a_*_smoke.php`
+- Refactor plan and state-machine diagrams moved to `documentation/agent_doc/`
+
 ## [v0.25.8] - 12.05.2026
 ### Fixes
 - PushMessage save no longer errors "Message is required" when the message was typed into the editor.

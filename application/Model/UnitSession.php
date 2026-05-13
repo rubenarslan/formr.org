@@ -4,6 +4,8 @@ class UnitSession extends Model {
 
     public $id;
     public $unit_id; // survey_units.id
+    public $run_unit_id; // survey_run_units.id — Track A: disambiguates same-unit-at-multiple-positions
+    public $iteration; // 1-based count of attempts at THIS run_unit_id by THIS run_session
     public $run_session_id;
     public $created;
     public $expires;
@@ -12,6 +14,9 @@ class UnitSession extends Model {
     public $result_log;
     public $ended;
     public $expired;
+    public $state; // ENUM (PENDING, RUNNING, WAITING_USER, WAITING_TIMER, ENDED, EXPIRED, SUPERSEDED)
+    public $state_log; // JSON, structured sibling of result_log
+    public $idempotency_key;
     public $meta;
     public $queueable = 1;
     /**
@@ -52,12 +57,43 @@ class UnitSession extends Model {
         // only one can be current unit session at all times
         try {
             $this->db->beginTransaction();
+
+            // Track A: resolve run_unit_id (the per-position survey_run_units.id)
+            // and iteration (1-based count of prior unit-sessions for this
+            // (run_session, run_unit) pair). Both NULL-safe so paths that
+            // can't compute them (no run_session, no current position)
+            // simply skip the column. See REFACTOR_QUEUE_PLAN.md A2.
+            $run_unit_id = null;
+            $iteration   = 1;
+            if ($this->runSession && $this->runSession->id > 0) {
+                $position    = $this->runSession->position;
+                $run_unit_id = $this->runSession->getRunUnitIdAtPosition($position);
+                if ($run_unit_id !== null) {
+                    // COALESCE(MAX,0)+1 — read inside the open TX, just before
+                    // INSERT, so concurrent inserts in another connection
+                    // serialise on the supersede UPDATE that follows.
+                    $next = $this->db->execute(
+                        "SELECT COALESCE(MAX(`iteration`), 0) + 1 AS next_iter
+                         FROM `survey_unit_sessions`
+                         WHERE `run_session_id` = :rsid AND `run_unit_id` = :ruid",
+                        [':rsid' => $this->runSession->id, ':ruid' => $run_unit_id],
+                        false, true
+                    );
+                    if ($next && isset($next['next_iter'])) {
+                        $iteration = (int) $next['next_iter'];
+                    }
+                }
+            }
+
             $session = $this->assignProperties([
                 'unit_id' => $this->runUnit->id,
+                'run_unit_id' => $run_unit_id,
+                'iteration' => $iteration,
                 'run_session_id' => $this->runSession->id > 0 ? $this->runSession->id : null,
                 'created' => mysql_now(),
+                'state' => UnitSessionQueue::STATE_PENDING,
             ]);
-            
+
             $this->id = $this->db->insert('survey_unit_sessions', $session);
             if ($this->runSession->id !== null && $new_current_unit) {
                 $this->runSession->currentUnitSession = $this;
@@ -72,7 +108,10 @@ class UnitSession extends Model {
                 // is creating a downstream Pause). That blanket flip was the
                 // damage amplifier for the queue-stale-reference orphan path
                 // (Symptom A in the wild). See tests/e2e/EXPIRY_PLAN.md "Fix 2".
-                $this->db->update('survey_unit_sessions', ['queued' => -9], [
+                // Track A also writes state='SUPERSEDED' alongside queued=-9
+                // for the same rows so analysts and admin tooling can read
+                // the named state instead of decoding the queued magic value.
+                $this->db->update('survey_unit_sessions', ['queued' => UnitSessionQueue::QUEUED_SUPERCEDED, 'state' => UnitSessionQueue::STATE_SUPERSEDED], [
                     'run_session_id' => $this->runSession->id,
                     'unit_id'        => $this->runUnit->id,
                     'id <>'          => $this->id,
@@ -89,7 +128,7 @@ class UnitSession extends Model {
     }
 
     public function load() {
-        $columns = 'id, unit_id, run_session_id, created, expires, queued, result, result_log, ended, expired';
+        $columns = 'id, unit_id, run_unit_id, iteration, run_session_id, created, expires, queued, result, result_log, ended, expired, state, state_log, idempotency_key';
         if ($this->id !== null) {
             $vars = $this->db->findRow('survey_unit_sessions', ['id' => (int)$this->id], $columns);
         } else {
@@ -201,13 +240,26 @@ class UnitSession extends Model {
 			}
         }
                 
+        // Track A: dual-write `state = 'EXPIRED'` alongside the legacy
+        // queued=0/expired=NOW() update so admin tooling and analysis
+        // exports get a self-documenting state value without having to
+        // reason about the absence-of-`queued` semantics. The legacy
+        // columns remain authoritative for queue pickup; the `state`
+        // column is additive. state_log captures the structured reason.
         $expired = $this->db->exec(
-            "UPDATE `survey_unit_sessions` SET 
-                `expired` = NOW(), 
+            "UPDATE `survey_unit_sessions` SET
+                `expired` = NOW(),
                 `result` = 'expired',
-                `queued` = 0 
+                `queued` = 0,
+                `state` = :state,
+                `state_log` = :state_log
              WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
-             ['id' => $this->id, 'unit_id' => $unit->id]
+             [
+                 'id'        => $this->id,
+                 'unit_id'   => $unit->id,
+                 'state'     => UnitSessionQueue::STATE_EXPIRED,
+                 'state_log' => self::buildStateLog('expired', ['unit_type' => $unit->type]),
+             ]
         );
 
         return $expired === 1;
@@ -251,18 +303,27 @@ class UnitSession extends Model {
         // createUnitSession in the run-session would supersede to -9 —
         // making the audit trail ambiguous between "completed normally"
         // and "orphaned mid-flow". See "Hygiene 4" in EXPIRY_PLAN.md.
+        // Track A: also set state='ENDED' (dual-write) and state_log
+        // (structured sibling of the human-readable result_log).
         $ended = $this->db->exec(
                 "UPDATE `survey_unit_sessions` SET
                 `ended` = NOW(),
                 `result` = :result,
                 `result_log` = :result_log,
-                `queued` = 0
+                `queued` = 0,
+                `state` = :state,
+                `state_log` = :state_log
                 WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
                 [
-                    'id' => $this->id,
-                    'unit_id' => $this->runUnit->id,
-                    'result' => $this->result,
-                    'result_log' => $this->result_log
+                    'id'         => $this->id,
+                    'unit_id'    => $this->runUnit->id,
+                    'result'     => $this->result,
+                    'result_log' => $this->result_log,
+                    'state'      => UnitSessionQueue::STATE_ENDED,
+                    'state_log'  => self::buildStateLog($this->result, [
+                        'unit_type' => $unit->type,
+                        'msg'       => $this->result_log,
+                    ]),
                 ]
         );
 
@@ -275,21 +336,85 @@ class UnitSession extends Model {
         }
     }
 
+    /**
+     * Persist `result` and `result_log` into the row. Track A also
+     * dual-writes a structured `state_log` JSON value of the form:
+     *
+     *   {
+     *     "reason": "<result string, e.g. survey_started, email_sent>",
+     *     "ctx":    { "unit_type": "Survey", "msg": "<result_log text>" },
+     *     "at":     "<ISO 8601 timestamp>"
+     *   }
+     *
+     * Reason values mirror the `result` column. The "ctx" sub-object is
+     * a per-reason free bag: handlers add unit_type, the human-readable
+     * message, and any reason-specific extras. Consumers (analysis
+     * exports, admin tooling) prefer state_log for structured reads and
+     * fall back to result_log for legacy rows where state_log is NULL.
+     * See REFACTOR_QUEUE_PLAN.md A6 / D5.
+     */
     public function logResult() {
         $log = $this->db->exec(
-                "UPDATE `survey_unit_sessions` SET 
-                `result` = :result, 
-                `result_log` = :result_log 
+                "UPDATE `survey_unit_sessions` SET
+                `result` = :result,
+                `result_log` = :result_log,
+                `state_log` = :state_log
                 WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
                 [
-                    'id' => $this->id,
-                    'unit_id' => $this->runUnit->id,
-                    'result' => $this->result,
-                    'result_log' => $this->result_log
+                    'id'         => $this->id,
+                    'unit_id'    => $this->runUnit->id,
+                    'result'     => $this->result,
+                    'result_log' => $this->result_log,
+                    'state_log'  => self::buildStateLog($this->result, [
+                        'unit_type' => $this->runUnit->type ?? null,
+                        'msg'       => $this->result_log,
+                    ]),
                 ]
         );
 
         return $log;
+    }
+
+    /**
+     * Build the JSON value written into the `state_log` column. Returns
+     * a string so it can be passed straight into a PDO bind. Returns
+     * NULL when there's no useful reason to log (caller's UPDATE then
+     * sets state_log = NULL, preserving the legacy NULL semantics for
+     * rows the new code chooses to skip).
+     *
+     * Hardened against malformed UTF-8 in `result_log` text (which can
+     * arrive from OpenCPU error responses or external service callbacks
+     * containing raw bytes). Without JSON_INVALID_UTF8_SUBSTITUTE,
+     * json_encode would return false on a single bad byte and the
+     * caller's UPDATE would fail the JSON_VALID CHECK constraint on
+     * the column. The substitution writes U+FFFD in place of bad
+     * bytes; the overall message still round-trips, just lossily on
+     * the bad spans.
+     */
+    public static function buildStateLog($reason, array $ctx = []): ?string {
+        if ($reason === null || $reason === '') {
+            return null;
+        }
+        $ctx = array_filter($ctx, function ($v) {
+            return $v !== null && $v !== '';
+        });
+        $encoded = json_encode([
+            'reason' => (string) $reason,
+            'ctx'    => $ctx,
+            'at'     => date(DATE_ATOM),
+        ], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+        // Last-ditch defence: if encoding still failed (e.g. recursive
+        // ctx structure), write a sentinel rather than `false` so the
+        // CHECK constraint passes and we lose only the offending row's
+        // detail, not the row itself.
+        if ($encoded === false) {
+            return json_encode([
+                'reason' => (string) $reason,
+                'ctx'    => ['encode_error' => json_last_error_msg()],
+                'at'     => date(DATE_ATOM),
+            ], JSON_UNESCAPED_SLASHES);
+        }
+        return $encoded;
     }
 
     protected function hasOrderedStudyItems() {

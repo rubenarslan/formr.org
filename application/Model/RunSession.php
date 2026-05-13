@@ -34,10 +34,12 @@ class RunSession extends Model {
     public $currentUnitSession;
     /**
      * Cache for unit ids in various positions
-     * 
+     *
      * @var array
      */
     protected $positionedUnitIds = [];
+    /** @var array Cache for survey_run_units.id keyed by position */
+    protected $positionedRunUnitIds = [];
     /** Maximum number of recursions to happen during a run session execution; */
     const MAX_EXECUTION_COUNT = 10;
     /**
@@ -412,6 +414,27 @@ class RunSession extends Model {
         return $this->positionedUnitIds[$position];
     }
 
+    /**
+     * Resolve the survey_run_units.id that maps this run + position. Sister
+     * to getUnitIdAtPosition() — that one returns the unit definition id
+     * (survey_units.id), this one returns the per-run-per-position id
+     * (survey_run_units.id) which Track A's `survey_unit_sessions.run_unit_id`
+     * column needs in order to disambiguate same-unit-at-multiple-positions
+     * runs (D1 in REFACTOR_QUEUE_PLAN.md). Returns null if the position is
+     * unmapped (defensive — caller stays NULL-safe so legacy data paths
+     * that don't have a clean position match continue to function without
+     * the new column).
+     */
+    public function getRunUnitIdAtPosition($position) {
+        if (!$this->run || !$this->run->id || $position === null) {
+            return null;
+        }
+        if (!array_key_exists($position, $this->positionedRunUnitIds)) {
+            $this->positionedRunUnitIds[$position] = $this->db->findValue('survey_run_units', ['run_id' => $this->run->id, 'position' => $position], 'id');
+        }
+        return $this->positionedRunUnitIds[$position];
+    }
+
     public function forceTo($position) {
         // If there a unit for current position, then end the unit's session before moving
         if (($unitSession = $this->getCurrentUnitSession())) {
@@ -487,7 +510,7 @@ class RunSession extends Model {
                 // started returning #old — a row that was conceptually
                 // "done" but didn't carry an `ended`/`expired` timestamp.
                 // See tests/e2e/EXPIRY_AUDIT.md §11.
-                ->where('survey_unit_sessions.queued != -9')
+                ->where('survey_unit_sessions.queued != ' . UnitSessionQueue::QUEUED_SUPERCEDED)
                 ->bindParams(array('run_session_id' => $this->id, 'unit_id' => $this->getUnitIdAtPosition($this->position)))
                 ->order('survey_unit_sessions`.id', 'desc')
                 ->limit(1);
@@ -521,12 +544,26 @@ class RunSession extends Model {
     }
 
     public function endLastExternal() {
+        // Track A A8: raw-UPDATE bypass for "External returned from redirect,
+        // mark ended". Column set mirrors what UnitSession::end() writes so the
+        // row reads cleanly in admin tooling and analysis exports.
         $query = "UPDATE `survey_unit_sessions`
 			LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
-			SET `survey_unit_sessions`.`ended` = NOW()
+			SET `survey_unit_sessions`.`ended`       = NOW(),
+			    `survey_unit_sessions`.`result`      = 'external_ended',
+			    `survey_unit_sessions`.`queued`      = 0,
+			    `survey_unit_sessions`.`state`       = :state,
+			    `survey_unit_sessions`.`state_log`   = :state_log
 			WHERE `survey_unit_sessions`.run_session_id = :id AND `survey_units`.type = 'External' AND  `survey_unit_sessions`.ended IS NULL AND `survey_unit_sessions`.expired IS NULL;";
 
-        $updated = $this->db->exec($query, array('id' => $this->id));
+        $updated = $this->db->exec($query, [
+            'id'        => $this->id,
+            'state'     => UnitSessionQueue::STATE_ENDED,
+            'state_log' => UnitSession::buildStateLog('external_ended', [
+                'unit_type' => 'External',
+                'via'       => 'endLastExternal',
+            ]),
+        ]);
         $success = $updated !== false;
         return $success;
     }
