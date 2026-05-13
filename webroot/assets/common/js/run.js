@@ -362,6 +362,14 @@ import {
   RunUnit.prototype.save = function (e) {
     e.preventDefault();
 
+    // Flush ACE editor sessions into their underlying textareas before
+    // anything reads .val() on them. validatePushMessage and the
+    // save_inputs.serialize() below both read from the textareas, not
+    // from the ACE editor session, so without this sync the user's typed
+    // message is invisible and validation fails with "Message is required".
+    if (this.session) this.textarea.val(this.session.getValue());
+    if (this.session2) this.textarea2.val(this.session2.getValue());
+
     // Validate PushMessage units before saving
     if (this.save_button.attr("href") && this.save_button.attr("href").indexOf("type=PushMessage") !== -1) {
       if (!validatePushMessage(this.block)) {
@@ -373,9 +381,6 @@ import {
     this.save_button
       .attr("disabled", "disabled")
       .html(old_text + bootstrap_spinner());
-
-    if (this.session) this.textarea.val(this.session.getValue());
-    if (this.session2) this.textarea2.val(this.session2.getValue());
 
     var $unit = this.block;
     $.ajax({

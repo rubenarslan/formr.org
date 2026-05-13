@@ -2,7 +2,7 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [v0.26.0] - 11.05.2026
+## [v0.26.0] - 13.05.2026
 ### Fixes
 - Daemon kill mid-cascade no longer causes a duplicate Email or Push send on restart (idempotency keys block the duplicate insert)
 - `cron_only=true` Email units will start delivering after this upgrade. They were silently never sent due to a latent bug; audit affected studies before deploying.
@@ -23,6 +23,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - 6 new PHPUnit files (35 cases) covering the state column, idempotency keys, the cron_only gate, the Push state-transition, and the state_log JSON shape
 - 3 live-MariaDB integration smokes under `bin/test_track_a_*_smoke.php`
 - Refactor plan and state-machine diagrams moved to `documentation/agent_doc/`
+
+## [v0.25.8] - 12.05.2026
+### Fixes
+- PushMessage save no longer errors "Message is required" when the message was typed into the editor.
+
+### Tests
+- `tests/e2e/push-message-save.spec.js` — logs into the dev admin, creates a throw-away run, clicks "Add Push Notification", types into the new unit's ACE editor via `ace.edit(el).setValue(...)`, clicks Save, and asserts no `.run_units .alert-danger "Message is required"` appears and the Save button settles back to a disabled "Saved". Best-effort cleanup deletes the run after. Failed pre-fix (`Received: 1` for the validation-error locator), passes post-fix.
 
 ## [v0.25.7] - 09.05.2026
 ### Fixes
