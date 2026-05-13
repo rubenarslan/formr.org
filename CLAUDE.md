@@ -15,6 +15,10 @@ individual grep/search outputs short — use `--include` and `-l` flags
 to limit output. If you hit the timeout, retry the same step in a
 shorter form; don't repeat from scratch.
 
+## Git flow
+Use git flow. I.e. development happens in `feature/` branches, no direct push to master/main.
+Release: tag and release on Github.
+
 ## Agent documentation: `documentation/agent_doc/`
 
 Long-form planning docs, design rationale, refactor plans, and the
