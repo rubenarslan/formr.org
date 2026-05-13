@@ -41,6 +41,7 @@
         }
     },
 	"scripts": {
-    	"test": "phpunit --configuration tests/phpunit.xml"
+    	"test": "phpunit --configuration tests/phpunit.xml --exclude-group integration",
+    	"test:integration": "phpunit --configuration tests/phpunit.xml --group integration"
 	}
 }

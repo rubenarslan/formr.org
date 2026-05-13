@@ -66,11 +66,13 @@ npm install
 npm run webpack:build        # production
 npm run webpack:watch        # watch mode → webroot/assets/dev-build
 
-# PHPUnit (SQLite in-memory; integration tests gated):
-composer test
+# PHPUnit:
+composer test                 # unit lane: SQLite :memory:, --exclude-group integration; must stay green
+composer test:integration     # integration lane: SQLite or live MariaDB, --group integration
 vendor/bin/phpunit --configuration tests/phpunit.xml --filter SomeTest::testName
-vendor/bin/phpunit --configuration tests/phpunit.xml --exclude-group integration
 ```
+
+`composer test` is the gate for CI. `composer test:integration` covers `DBTest` (MariaDB-only `SHOW TABLES` / `SHOW COLUMNS` paths) and `PushNotificationExpireSubscriptionTest` (needs seeded `survey_studies` + `survey_unit_sessions` rows). Both lanes share `tests/bootstrap.php`, which currently forces SQLite via `Config::initialize` unconditionally — so under SQLite several `@group integration` tests still fail; the live-MariaDB CI lane that would make them pass is described in `documentation/agent_doc/testing.md` along with the per-test deferred-fix punch list.
 
 Config: `config-dist/settings.php` is the dist default; overrides go
 in `config/settings.php` (gitignored). `setup.php` loads dist first

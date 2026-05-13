@@ -179,6 +179,9 @@ class DB {
     }
 
     public function table_exists($table) {
+        if (!is_string($table) || !preg_match('/^[A-Za-z0-9_]+$/', $table)) {
+            throw new InvalidArgumentException("Invalid table name: " . var_export($table, true));
+        }
         return $this->num_rows("SHOW TABLES LIKE '" . $table . "'") > 0;
     }
 
@@ -686,6 +689,7 @@ class DB_Select {
         $field = $this->parseColName($field);
         $values = array_map(array($this->PDO, 'quote'), $values);
         $this->where[] = "{$field} IN (" . implode(',', $values) . ")";
+        return $this;
     }
 
     public function like($colname, $value, $pad = 'both') {
