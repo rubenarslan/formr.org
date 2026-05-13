@@ -17,7 +17,7 @@ shorter form; don't repeat from scratch.
 
 ## Git flow
 Use git flow. I.e. development happens in `feature/` branches, no direct push to master/main.
-Release: tag and release on Github.
+Release: bump version (consistent in VERSION, package.json, changelog) tag and release on Github.
 
 ## Agent documentation: `documentation/agent_doc/`
 
