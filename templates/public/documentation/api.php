@@ -1,12 +1,27 @@
 <h3>formr API</h3><hr />
 
 <p>
-    The formr API is the primary way to get data/results out of the platform. It's a low-level HTTP-based API that you can use principally to get results of a 
-    study for specified participants (sessions)
+    The formr API is the way to get data out of, push surveys into, and orchestrate runs on the platform from your own code. There are two surfaces:
 </p>
+
+<ul>
+    <li>
+        <b>v1 (recommended)</b> &mdash; a resource-oriented REST API rooted at <code>/api/v1/</code>.
+        Covers runs, surveys, sessions, results, files, and your account profile.
+        OAuth2 <code>client_credentials</code> grant for authentication, scope-based authorisation,
+        optional per-credential restriction to specific runs.
+    </li>
+    <li>
+        <b>Legacy /get/results</b> &mdash; the older results-fetching endpoint. Still works for back-compat,
+        documented at the bottom of this page. New integrations should use v1.
+    </li>
+</ul>
+
 <p>
-    Resource requests to the formr API require that you have a valid access token which you can obtain by providing API credentials (a client id and a client 
-    secret)
+    The easiest way to consume the v1 API is the
+    <a href="https://rubenarslan.github.io/formr/" target="_blank" rel="noopener">formr R package</a>
+    (the <code>formr_api_*</code> family). The reference below is the underlying HTTP contract for callers
+    in any language.
 </p>
 
 <p>
@@ -14,156 +29,228 @@
     <code class="php">https://api.formr.org</code>
 </p>
 
+<h4>1. Get API credentials</h4>
 
-<h4>Obtaining Client ID and Client Secret</h4>
 <p>
-    Access to the API is restricted, so only the administrators of formr are able to provide API credentials to formr users. To 
-    obtain API credentials, send an email to <a title=" We're excited to have people try this out, so you'll get a test account, if you're human or at least cetacean. But let us know a little about what you plan to do." class="schmail" href="mailto:IMNOTSENDINGSPAMTOcyril.tata@that-big-googly-eyed-email-provider.com">Cyril</a> and your credentials will be sent to you.
+    API access requires <b>admin level 2</b> on your account. If you only have admin level 1 (the default for new accounts),
+    open <code>admin/account#api</code> and follow the support-email prompt to request access.
 </p>
 
-<h4>Obtaining An Access Token</h4>
 <p>
-    An access token is an opaque string that identifies a formr user and can be used to make API calls without further authentication. formr API access tokens 
-    are short-lived and have a life span of about an hour.
+    Once your level is set, open <b>Account &rarr; API Credentials</b> (the API tab on your account page). You will be asked to:
 </p>
 
-<p>To generate an access token you need to make an HTTP POST request to the token endpoint of the API</p>
+<ol>
+    <li>
+        <b>Pick the scopes</b> this credential should grant. Each scope is one verb on one resource family:
+        <table style="margin: 0.5em 0;">
+            <tr><td><code>user:read</code> / <code>user:write</code></td><td>Read / update your account profile</td></tr>
+            <tr><td><code>survey:read</code> / <code>survey:write</code></td><td>Read survey definitions / upload + edit them</td></tr>
+            <tr><td><code>run:read</code> / <code>run:write</code></td><td>Read run metadata / create + update + delete runs</td></tr>
+            <tr><td><code>session:read</code> / <code>session:write</code></td><td>Read participant sessions / create + advance them</td></tr>
+            <tr><td><code>data:read</code></td><td>Read participant response data</td></tr>
+            <tr><td><code>file:read</code> / <code>file:write</code></td><td>Download / upload files attached to runs</td></tr>
+        </table>
+        A credential with only <code>run:read</code> will succeed on <code>GET /v1/runs/{name}</code> and 403 on <code>PATCH /v1/runs/{name}</code>.
+    </li>
+    <li>
+        <b>Optionally restrict the credential to specific runs.</b> Leave the run picker empty to allow this credential to act on
+        all of your runs. Tick one or more runs to narrow it. A run-restricted credential implicitly restricts which surveys it can
+        touch &mdash; only surveys that appear as units in one of the allowlisted runs are reachable. Brand-new survey creation is
+        blocked for run-restricted credentials (the new survey would be unreachable until you linked it into a run).
+    </li>
+    <li>
+        Click <b>Generate</b>. The <code>client_id</code> and <code>client_secret</code> are shown <b>once</b>. Copy both immediately
+        &mdash; the server stores only a SHA-256 hash, so a forgotten secret has to be rotated (Generate again), not recovered.
+    </li>
+</ol>
+
+<h4>2. Mint an access token</h4>
+
+<p>
+    Exchange the client credentials for a bearer access token. Tokens are short-lived (1 hour by default) and stored as a
+    SHA-256 hash on the server, so a database compromise alone does not expose replayable tokens.
+</p>
 
 <pre>
 <code class="http">
-POST /oauth/access_token?
-     client_id={client-id}
-    &amp;client_secret={client-secret}
-    &amp;grant_type=client_credentials
+POST /oauth/access_token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials&amp;client_id={client-id}&amp;client_secret={client-secret}
+</code>
+</pre>
+
+<p>Successful response:</p>
+
+<pre>
+<code class="json">
+{
+    "access_token": "XXXXXX3635f0dc13d563504b4d",
+    "expires_in": 3600,
+    "token_type": "Bearer",
+    "scope": "run:read run:write survey:read"
+}
 </code>
 </pre>
 
 <p>
-    This call will return a JSON object containing an access token which can be used to access the API without further authentication required.
-    <br />
-    Sample successful response
+    The <code>scope</code> field echoes the scopes you picked when generating the credential.
+    If the field is empty (<code>""</code>), the credential was created with no scopes selected and every API call will 403 &mdash;
+    rotate it at <code>admin/account#api</code> and pick at least one scope.
+</p>
+
+<p>Error response (invalid client):</p>
+
+<pre>
+<code class="json">
+{
+    "error": "invalid_client",
+    "error_description": "The client credentials are invalid"
+}
+</code>
+</pre>
+
+<h4>3. Call resource endpoints</h4>
+
+<p>Send the token in the <code>Authorization</code> header on every request:</p>
+
+<pre>
+<code class="http">
+Authorization: Bearer {access-token}
+</code>
+</pre>
+
+<p>Resources currently exposed under <code>/api/v1/</code>:</p>
+
+<table style="margin: 0.5em 0;">
+    <tr><th align="left">Endpoint</th><th align="left">Method &rarr; scope required</th></tr>
+    <tr><td><code>/v1/user/me</code></td><td>GET &rarr; <code>user:read</code></td></tr>
+    <tr><td><code>/v1/runs</code></td><td>GET (list) &rarr; <code>run:read</code></td></tr>
+    <tr><td><code>/v1/runs/{name}</code></td><td>GET &rarr; <code>run:read</code>; POST / PATCH / DELETE &rarr; <code>run:write</code></td></tr>
+    <tr><td><code>/v1/runs/{name}/sessions</code></td><td>GET &rarr; <code>session:read</code>; POST / DELETE &rarr; <code>session:write</code></td></tr>
+    <tr><td><code>/v1/runs/{name}/results</code></td><td>GET &rarr; <code>data:read</code></td></tr>
+    <tr><td><code>/v1/runs/{name}/files</code></td><td>GET &rarr; <code>file:read</code>; POST / DELETE &rarr; <code>file:write</code></td></tr>
+    <tr><td><code>/v1/runs/{name}/structure</code></td><td>GET &rarr; <code>run:read</code>; PUT &rarr; <code>run:write</code></td></tr>
+    <tr><td><code>/v1/surveys</code></td><td>GET (list) &rarr; <code>survey:read</code>; POST (upload) &rarr; <code>survey:write</code></td></tr>
+    <tr><td><code>/v1/surveys/{name}</code></td><td>GET &rarr; <code>survey:read</code>; PATCH / DELETE &rarr; <code>survey:write</code></td></tr>
+</table>
+
+<p>
+    A scope check happens <i>before</i> the resource is looked up &mdash; so a token without <code>run:write</code> gets a 403 on
+    <code>PATCH /v1/runs/foo</code> regardless of whether <code>foo</code> exists or belongs to your account.
+</p>
+
+<h5>Response envelope</h5>
+
+<p>
+    Success bodies are the resource (or array of resources) directly. List endpoints (<code>GET /v1/runs</code>,
+    <code>GET /v1/surveys</code>) return a bare JSON array. Detail endpoints return a single object.
+    Error bodies are <code>{"code": &lt;int&gt;, "message": "&lt;text&gt;"}</code> with the HTTP status carrying the same code.
+</p>
+
+<h5>Error shapes you'll see when a scope or allowlist is wrong</h5>
+
+<pre>
+<code class="json">
+// Token is missing the verb scope this endpoint needs.
+HTTP/1.1 403 Forbidden
+{"code": 403, "message": "Insufficient permissions: 'run:write' scope required."}
+
+// Credential's run allowlist doesn't include this run.
+HTTP/1.1 403 Forbidden
+{"code": 403, "message": "This API client is not authorized for run 'foo'."}
+
+// Credential's run allowlist doesn't include any run that uses this survey.
+HTTP/1.1 403 Forbidden
+{"code": 403, "message": "This API client is not authorized for survey 'bar'."}
+
+// Run-restricted credentials cannot create brand-new surveys.
+HTTP/1.1 403 Forbidden
+{"code": 403, "message": "Cannot create surveys with a run-restricted API client; add the survey to a run via the admin UI first, then update it via the API."}
+</code>
+</pre>
+
+<p>
+    All four fix paths route through the same place: open <code>admin/account#api</code>, adjust the scope tickboxes
+    or the run picker, and click Generate (or Rotate). The new <code>client_id</code> is the same; only the
+    <code>client_secret</code> changes.
+</p>
+
+<h4>4. Example: list runs and read one</h4>
+
+<pre>
+<code class="bash">
+# 1) Get a token
+ACCESS_TOKEN=$(curl -s -X POST https://api.formr.org/oauth/access_token \
+  -d grant_type=client_credentials \
+  -d client_id=$CLIENT_ID \
+  -d client_secret=$CLIENT_SECRET | jq -r .access_token)
+
+# 2) List runs visible to this credential
+curl -s https://api.formr.org/v1/runs \
+  -H "Authorization: Bearer $ACCESS_TOKEN" | jq
+
+# 3) Read one run (subject to the credential's run allowlist if any)
+curl -s https://api.formr.org/v1/runs/my-diary \
+  -H "Authorization: Bearer $ACCESS_TOKEN" | jq
+</code>
+</pre>
+
+<h4>5. Using the formr API in R</h4>
+
+<p>
+    The R package handles auth, token refresh, and scoping-aware error hints. Installation and a full walk-through
+    are in the
+    <a href="https://rubenarslan.github.io/formr/articles/getting-started.html" target="_blank" rel="noopener">Getting Started</a>
+    vignette.
 </p>
 
 <pre>
-<code class="json">
-{
-	"access_token":"XXXXXX3635f0dc13d563504b4d",
-	"expires_in":3600,
-	"token_type":"Bearer",
-	"scope":null
-}
+<code class="r">
+library(formr)
+
+# One-time: store the credentials you generated at admin/account#api
+formr_store_keys(
+    host = "https://api.formr.org",
+    client_id = "YOUR_CLIENT_ID",
+    client_secret = "YOUR_CLIENT_SECRET"
+)
+
+# Authenticate (auto-picks up stored keys; also auto-picks up the
+# embedded token when called inside an OpenCPU R block on formr.org)
+formr_api_authenticate(host = "https://api.formr.org")
+
+# Inspect which scopes the credential carries
+formr_api_session()$scope
+#> [1] "run:read run:write survey:read"
+
+# Call resource helpers
+runs    <- formr_api_runs()
+details <- formr_api_get_run("my-diary")
 </code>
 </pre>
 
-The attribute <code>expires_in</code> indicates the number of seconds for which is token is valid from its time of creation. If there is an error for example if the 
-client details are not correct, then an error object is returned containing an error_description and sometimes an error_uri where you can read more about the 
-generated error. An example of an error object is
+<h4>Legacy: /get/results (V0)</h4>
 
-<pre>
-<code class="json">
-{
-	"error":"invalid_client",
-	"error_description":"The client credentials are invalid"
-}
-</code>
-</pre>
-
-
-<h4>Making Resource Requests using generated access token</h4>
-
-With the generated access token, you are able to make requests to the resource endpoints of the formr API. The access token should be sent in the `Authorization` header.
-
-<h5>Getting study results over the API</h5>
-
-<p>To obtain the results of a particular set of sessions in a particular run, send a GET HTTP request to the `get/results` endpoint. Include the access token in the `Authorization` header as a Bearer token.</p>
-
-<h6> REQUEST </h6>
-To obtain the results of a particular set of sessions in a particular run, send a GET HTTP request to the get endpoint along side the access_token obtained above 
-together with the necessary parameters as shown below:
+<p>
+    The older results endpoint still works for back-compat. Same OAuth token flow as v1; the difference is the URL shape
+    and that <code>/get/results</code> returns all surveys of a run in one call rather than per-survey under
+    <code>/v1/runs/{name}/results</code>. New integrations should use the v1 endpoints above.
+</p>
 
 <pre>
 <code class="http">
 GET /get/results?
-     run[name]={name of the run as it appears on formr}
-    &amp;run[sessions]={comma separated list of session codes OR leave empty to get all sessions}
-    &amp;run[sessions]={comma separated list of session codes OR leave empty to get all sessions}
-    &amp;surveys[survey_name1]={comma separated list items to get from survey_name1 OR leave empty to get all items}
-    &amp;surveys[survey_name2]={comma separated list items to get from survey_name2 OR leave empty to get all items}
+     run[name]={name of the run}
+    &amp;run[sessions]={comma-separated list of session codes; empty = all}
+    &amp;surveys[survey_name_1]={comma-separated items; empty = all}
+    &amp;surveys[survey_name_2]={comma-separated items; empty = all}
+
+Authorization: Bearer {access-token}
 </code>
 </pre>
 
 <p>
-    And include the following header: `Authorization: Bearer {access-token}`
-    <b><i>Notes:</i></b><br />
-<ul>
-    <li><i>survey_name1</i> and <i>survey_name2</i> should be the actual survey names</li>
-    <li>If you want to get results for all surveys in the run you can omit the <i><b>survey</b></i> parameter</li>
-    <li>If you want to get all items from a survey, keep the items list empty.</li>
-</ul>
+    Response: an object keyed by survey name, each value an array of session-keyed result rows.
 </p>
-
-<h6>RESPONSE</h6>
-
-<p>
-    The response to a results request is a JSON object. The keys of this JSON structure are the names of the survey that were indicated in the requested and the value associated to each survey entry is an array of objects representing the results collected for that survey for all the requested sessions. An example of a response object could be the following:
-</p>
-
-<pre>
-<code class="json">
-{
-	"survey_1": [{
-		"session": "sdaswew434df",
-		"survey_1_item_1": "answer1",
-		"survey_1_item_2": "answer2",
-		"survey_1_item_2": "answer3",
-	},
-	{
-		"session": "fdgdfg4323",
-		"survey_1_item_1": "answer4",
-		"survey_1_item_2": "answer5",
-		"survey_1_item_2": "answer6",
-	}],
-	"survey_2": [........]
-}
-</code>
-</pre>
-
-<h4>Using the formr API in R</h4>
-<pre><code class="r">
-# load the httr package
-library(httr)
-
-# Login using your client ID and client Secret to get an access token
-login <- list( # define login credentials
-  client_id = "bb472xxxxxxxxe1918",
-  client_secret = "zEfgeyJ0eXXXXXEwYwNGZj",
-  grant_type = "client_credentials"
-)
-request <- POST( # send POST request
-  "https://api.formr.org/oauth/access_token",
-  body = login, 
-  encode = "form"
-)
-# parse response to get access token
-# If there an error then the response object would contain the details of the error in response$error
-response <- content(request)
-access_token <- response$access_token
-
-# With a valid access token, call API to get the results of a particular study (run)
-# Set up the authorization header
-auth_header <- add_headers(Authorization = paste("Bearer", access_token))
-
-# Define the query parameters
-query <- list(
-  "run[name]" = "/enter run name here/",
-  "run[session]" = "/here you can specify a full session code or just a substring(but include the beginning /",
-  "surveys[survey_1]" = "item_1, item_2, item_etc.", # comma separated list of items to get from the survey or leave empty string to get all items
-  "surveys[survey_2]" = "item_3, item_4, item_etc."
-)
-request <- GET("https://api.formr.org/get/results", query = query, auth_header)
-results <- content(request)
-
-# With a valid response you can, for example, extract the results of a particular survey say 'survey_1':
-survey_1 = results$survey_1
-survey_1[, c("item_1","item_2")]
-</code></pre>
