@@ -240,7 +240,11 @@ class User extends Model {
             $result = $this->db->update('survey_users', array('admin' => $level), array('id' => $this->id, 'admin <' => 10));
 
             if ($result && $previousLevel >= 2 && $level < 2) {
-                OAuthHelper::getInstance()->deleteClient($this);
+                // Demotion below the API-access threshold: cascade-revoke
+                // every credential the user holds (user-managed + internal
+                // OpenCPU bridge) so a demoted user can't keep minting
+                // tokens against the API.
+                OAuthHelper::getInstance()->deleteAllClientsForUser($this);
             }
 
             $this->db->commit();

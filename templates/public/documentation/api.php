@@ -37,10 +37,20 @@
 </p>
 
 <p>
-    Once your level is set, open <b>Account &rarr; API Credentials</b> (the API tab on your account page). You will be asked to:
+    Once your level is set, open <b>Account &rarr; API Credentials</b> (the API tab on your account page).
+    You can hold multiple credentials side by side &mdash; each one with its own scope set and run allowlist.
+    A common pattern is one narrow read-only credential for a dashboard, plus a separate broader credential for a cron job. Deleting
+    one credential does not affect the others.
 </p>
 
+<p>To create a credential you will be asked to:</p>
+
 <ol>
+    <li>
+        <b>Give the credential a label.</b> Used only to tell credentials apart in the UI (e.g.
+        <code>dashboard</code>, <code>cron-2026</code>). Must be unique within your account; the label
+        <code>internal</code> is reserved.
+    </li>
     <li>
         <b>Pick the scopes</b> this credential should grant. Each scope is one verb on one resource family:
         <table style="margin: 0.5em 0;">
@@ -60,10 +70,17 @@
         blocked for run-restricted credentials (the new survey would be unreachable until you linked it into a run).
     </li>
     <li>
-        Click <b>Generate</b>. The <code>client_id</code> and <code>client_secret</code> are shown <b>once</b>. Copy both immediately
-        &mdash; the server stores only a SHA-256 hash, so a forgotten secret has to be rotated (Generate again), not recovered.
+        Click <b>Create credential</b>. The <code>client_id</code> and <code>client_secret</code> are shown <b>once</b>. Copy both immediately
+        &mdash; the server stores only a SHA-256 hash, so a forgotten secret has to be rotated, not recovered.
     </li>
 </ol>
+
+<p>
+    Once you have at least one credential, the API tab shows a table of all of them with their labels, scopes, and run counts.
+    Each row has a <b>Rotate</b> button (mints a new <code>client_secret</code> while keeping the same <code>client_id</code>;
+    optionally update the scopes / runs at the same time) and a <b>Delete</b> button (revokes the credential immediately;
+    any service still using it will start getting 401 on the next call).
+</p>
 
 <h4>2. Mint an access token</h4>
 
@@ -172,9 +189,10 @@ HTTP/1.1 403 Forbidden
 </pre>
 
 <p>
-    All four fix paths route through the same place: open <code>admin/account#api</code>, adjust the scope tickboxes
-    or the run picker, and click Generate (or Rotate). The new <code>client_id</code> is the same; only the
-    <code>client_secret</code> changes.
+    All four fix paths route through the same place: open <code>admin/account#api</code>, find the credential row in
+    the table, click <b>Rotate</b>, adjust the scope tickboxes or the run picker, and confirm. The
+    <code>client_id</code> stays the same; only the <code>client_secret</code> changes. (Or create a fresh credential with the
+    right shape and delete the old one once your callers have migrated.)
 </p>
 
 <h4>4. Example: list runs and read one</h4>

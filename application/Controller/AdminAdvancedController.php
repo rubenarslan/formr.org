@@ -135,56 +135,59 @@ class AdminAdvancedController extends AdminController {
     private function apiUserManagement($user_id, $user_email, $action) {
         $user = new User($user_id, null);
         $content = array();
+        $helper = OAuthHelper::getInstance();
 
         if ($user->email !== $user_email) {
-            $content = array('success' => false, 'message' => 'Invalid User');
-        } elseif ($action === 'create') {
-            $client = OAuthHelper::getInstance()->createClient($user);
-            if (!$client) {
-                $content = array('success' => false, 'message' => 'Unable to create client');
-            } else {
-                // Only moment the plaintext secret is knowable; storage holds a hash.
-                $content = array('success' => true, 'data' => array(
-                    'user' => $user->email,
-                    'client_id' => $client['client_id'],
-                    'client_secret' => $client['client_secret']->getString(),
-                    'secret_issued' => true,
-                ));
-            }
-        } elseif ($action === 'get') {
-            $client = OAuthHelper::getInstance()->getClient($user);
-            if (!$client) {
-                $content = array('success' => true, 'data' => array(
-                    'user' => $user->email, 'client_id' => '', 'secret_issued' => false,
-                ));
-            } else {
-                $content = array('success' => true, 'data' => array(
-                    'user' => $user->email,
-                    'client_id' => $client['client_id'],
-                    'secret_issued' => false,
-                ));
-            }
-        } elseif ($action === 'delete') {
-            if (OAuthHelper::getInstance()->deleteClient($user)) {
-                $content = array('success' => true, 'message' => 'Credentials revoked for user ' . $user->email);
-            } else {
-                $content = array('success' => false, 'message' => 'An error occurred');
-            }
-        } elseif ($action === 'change') {
-            $client = OAuthHelper::getInstance()->refreshToken($user);
-            if (!$client) {
-                $content = array('success' => false, 'message' => 'An error occured refreshing API secret.');
-            } else {
-                $content = array('success' => true, 'data' => array(
-                    'user' => $user->email,
-                    'client_id' => $client['client_id'],
-                    'client_secret' => $client['client_secret']->getString(),
-                    'secret_issued' => true,
-                ));
-            }
+            return array('success' => false, 'message' => 'Invalid User');
         }
 
-        return $content;
+        if ($action === 'create') {
+            // Admin-side create cannot prompt for a label inside this
+            // modal, so generate a unique one. The user can rename it
+            // from their own account page if needed (well — currently
+            // labels are immutable; future-friendly default).
+            $label = 'admin-issued-' . date('Ymd-His');
+            $client = $helper->createClient($user, $label);
+            if (!$client) {
+                return array('success' => false, 'message' => 'Unable to create client');
+            }
+            // Only moment the plaintext secret is knowable; storage holds a hash.
+            return array('success' => true, 'data' => array(
+                'user' => $user->email,
+                'client_id' => $client['client_id'],
+                'client_secret' => $client['client_secret']->getString(),
+                'label' => $label,
+                'secret_issued' => true,
+            ));
+        }
+
+        if ($action === 'get') {
+            $clients = $helper->listClientsForUser($user);
+            return array('success' => true, 'data' => array(
+                'user' => $user->email,
+                'client_count' => count($clients),
+                'labels' => array_column($clients, 'label'),
+                'client_id' => count($clients) === 1 ? $clients[0]['client_id'] : '',
+                'secret_issued' => false,
+            ));
+        }
+
+        if ($action === 'delete') {
+            // Emergency kill-switch: drop every credential for the
+            // user, including the internal OpenCPU one. The next
+            // OpenCPU bridge call will mint a fresh internal client.
+            $n = $helper->deleteAllClientsForUser($user);
+            return array('success' => true, 'message' => "Revoked {$n} credential(s) for {$user->email}");
+        }
+
+        if ($action === 'change') {
+            // No longer meaningful at the admin level: a user may hold
+            // multiple credentials and the modal doesn't surface a
+            // selector. Direct the admin to the per-user UI instead.
+            return array('success' => false, 'message' => 'Rotation per-credential happens on the user\'s own API page. Use "Revoke" here for emergency revocation, then ask the user to re-issue.');
+        }
+
+        return array('success' => false, 'message' => 'Unknown action');
     }
 
     public function userManagementAction() {
