@@ -832,13 +832,13 @@ class SurveyStudy extends Model
                 $order = isset($paginate['order']) ? $paginate['order'] : 'asc';
                 $order_by = isset($paginate['order_by']) ? $paginate['order_by'] : "{$results_table}.session_id";
                 if ($this->unlinked) {
-                    $order_by = "RAND()";
+                    $order_by = DB::raw('RAND()');
                 }
                 $select->order($order_by, $order);
                 $select->limit($paginate['limit'], $paginate['offset']);
             } else {
                 if ($this->unlinked) {
-                    $order_by = "RAND()";
+                    $order_by = DB::raw('RAND()');
                 }
                 if (isset($order_by)) {
                     $select->order($order_by);
