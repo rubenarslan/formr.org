@@ -1,6 +1,6 @@
 {
     "name": "formr.org",
-    "version": "v0.25.3",
+    "version": "v0.26.2",
     "description": "formr survey framework",
     "readme": "../../README.md",
     "authors": [
@@ -17,7 +17,7 @@
         "webpack:start": "webpack serve",
         "test:e2e": "playwright test --config tests/e2e/playwright.config.js --project=local-chromium",
         "test:e2e:pwa": "playwright test --config tests/e2e/playwright.config.js --project=local-chromium pwa-",
-        "test:bs": "browserstack-node-sdk playwright test --config tests/e2e/playwright.config.js"
+        "test:bs": "bash -c 'set -a && [ -f ../.env.dev ] && . ../.env.dev; set +a; exec browserstack-node-sdk playwright test --config tests/e2e/playwright.config.js \"$@\"' --"
     },
     "devDependencies": {
         "@babel/core": "^7.28.5",

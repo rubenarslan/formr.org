@@ -260,21 +260,43 @@ class Email extends RunUnit {
     }
 
     protected function queueNow(EmailAccount $acc, string $subject, string $body, UnitSession $unitSession) {
-        $this->mail_queued = $this->db->insert('survey_email_log', array(
-            'subject' => $subject,
-            'status' => 0,
-            'session_id' => $unitSession->id,
-            'email_id' => $this->id,
-            'message' => $body,
-            'recipient' => $this->recipient,
-            'created' => mysql_datetime(),
-            'account_id' => (int) $this->account_id,
-            'meta' => json_encode(array(
-                'embedded_images' => $this->images,
-                'attachments' => ''
-            )),
-        ));
-        
+        // Track A A4 — closes R5. The idempotency_key is unique per
+        // (unit_session, email_id), so a SIGKILL'd daemon's restart
+        // re-attempt collides on UNIQUE and the second INSERT is a
+        // silent no-op via ON DUPLICATE KEY UPDATE id=id. Without this,
+        // restart re-queues the same email for the mail_daemon to send
+        // a second time. The v0.25.7 terminal-result guard in
+        // getUnitSessionOutput catches the case where this row INSERTed
+        // and result was set; this guard catches the gap between row
+        // INSERT and result UPDATE. See REFACTOR_QUEUE_PLAN.md A4.
+        $idempotency_key = "email:{$unitSession->id}:{$this->id}";
+
+        $affected = $this->db->exec(
+            "INSERT INTO `survey_email_log`
+                (`subject`, `status`, `session_id`, `email_id`, `message`, `recipient`, `created`, `account_id`, `meta`, `idempotency_key`)
+             VALUES
+                (:subject, 0, :session_id, :email_id, :message, :recipient, :created, :account_id, :meta, :idempotency_key)
+             ON DUPLICATE KEY UPDATE `id` = `id`",
+            [
+                'subject'         => $subject,
+                'session_id'      => $unitSession->id,
+                'email_id'        => $this->id,
+                'message'         => $body,
+                'recipient'       => $this->recipient,
+                'created'         => mysql_datetime(),
+                'account_id'      => (int) $this->account_id,
+                'meta'            => json_encode([
+                    'embedded_images' => $this->images,
+                    'attachments'     => '',
+                ]),
+                'idempotency_key' => $idempotency_key,
+            ]
+        );
+
+        // affected = 1 → fresh INSERT. affected = 0 → duplicate, no-op.
+        // Either way the queued state is "an email row exists for this
+        // (us, email)" which is the contract callers care about.
+        $this->mail_queued = $affected !== false;
         return $this->mail_queued;
     }
 
@@ -412,6 +434,17 @@ class Email extends RunUnit {
     }
 
     public function getUnitSessionOutput(UnitSession $unitSession) {
+        // Idempotency guard: a successful prior send (sync via sendNow,
+        // queued via queueNow, or admin-skipped) leaves the row's result
+        // set. Don't re-fire sendMail — that would deliver a duplicate
+        // SMTP message / re-insert into survey_email_log. The position-
+        // recheck guard in RunSession::execute should already prevent
+        // the duplicate-cascade path that would re-execute this row;
+        // this is belt-and-braces. See tests/e2e/double-expiry.spec.js.
+        if (in_array($unitSession->result, ['email_sent', 'email_queued', 'email_skipped_user_active', 'email_skipped_user_disabled'], true)) {
+            return ['end_session' => true, 'move_on' => true];
+        }
+
         // If emails should be sent only when cron is active and unit is not called by cron, then end it and move on
         $data = [];
         if ($this->cron_only && !$unitSession->isExecutedByCron()) {

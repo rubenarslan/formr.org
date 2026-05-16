@@ -283,6 +283,18 @@ class Run extends Model
     {
         $name = trim($options['run_name']);
 
+        // Default expiresOn to the configured retention maximum so owners
+        // aren't blocked from going public out of the box (togglePublic
+        // refuses to flip the run unless expiresOn is set when
+        // keep_study_data_for_months_maximum is finite). Owners can shorten
+        // this any time in run settings; saveSettings already clamps to
+        // the same maximum on edit.
+        $default_expiry = null;
+        $max_months = Config::get('keep_study_data_for_months_maximum');
+        if ($max_months !== INF && is_numeric($max_months) && $max_months > 0) {
+            $default_expiry = date('Y-m-d', strtotime('+' . (int) $max_months . ' months'));
+        }
+
         // create run db entry
         $new_secret = crypto_token(66);
         $this->db->insert('survey_runs', array(
@@ -295,7 +307,7 @@ class Run extends Model
             'cron_active' => 1,
             'use_material_design' => 0,
             'expire_cookie' => 0,
-            'expiresOn' => null,
+            'expiresOn' => $default_expiry,
             'public' => 0,
             'footer_text' => "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
             'footer_text_parsed' => "Remember to add your contact info here! Contact the <a href='mailto:email@example.com'>study administration</a> in case of questions.",
@@ -310,6 +322,19 @@ class Run extends Model
         $settings_url = run_url($name, "settings");
         $footer = "Contact the [study administration](mailto:{$owner->email}) in case of questions. [Privacy Policy]($privacy_url). [Terms of Service]($tos_url). [Settings]($settings_url).";
         $this->saveSettings(array("footer_text" => $footer));
+
+        if ($default_expiry !== null) {
+            // Link to the admin run settings page (not the participant-
+            // facing settings URL used in the footer above).
+            $admin_settings_url = admin_run_url($name, "settings");
+            alert(
+                "Run data is set to expire on <strong>" . h($default_expiry) . "</strong> "
+                . "(the configured retention maximum of " . (int) $max_months . " months from creation). "
+                . "You can shorten this — or change it to a different date within the same maximum — in "
+                . "<a href=\"" . h($admin_settings_url) . "\">run settings</a>.",
+                'alert-info'
+            );
+        }
 
         // create default run service message
         $props = RunUnit::getDefaults('ServiceMessagePage');

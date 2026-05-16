@@ -1,0 +1,167 @@
+direction: right
+title: |md
+  # formr unit-session lifecycle — PROPOSED (vNext / v1.0)
+  Source: tests/REFACTOR_QUEUE_PLAN.md §"D2 — proposed"
+| {near: top-center}
+
+participant: "Web request" {shape: person}
+
+# Web request path: read-mostly, only commits when participant
+# submits a final page.
+web: "WebDispatcher::handle()" {
+  shape: rectangle
+  style.fill: "#dbeafe"
+  read_only: "Read run_session pointer\n(no write before lock)" {shape: cloud}
+  lock: "GET_LOCK\nrun_session_<id>" {shape: cloud}
+  load: "Load UnitExecution by\nrun_sessions.current_unit_execution_id" {shape: cloud}
+  state_machine: "Dispatch on state" {shape: diamond}
+  read_only -> lock -> load -> state_machine
+}
+
+worker_pool: "Worker pool\n(N replicas, claim via\nFOR UPDATE SKIP LOCKED)" {
+  shape: hexagon
+  cascade: "cascade-worker\n(handles expire_check\n+ cascade_advance)"
+  mail: "mail-worker"
+  push: "push-worker"
+}
+
+work_items: "work_items\n(jobs, transient)" {
+  shape: cylinder
+  style.fill: "#dcfce7"
+  fields: |md
+    | column | meaning |
+    |---|---|
+    | kind | enum: expire_check, cascade_advance, send_email, send_push, external_callback |
+    | target_id | unit_executions.id |
+    | available_at | when ready (DATETIME) |
+    | claimed_at, claimed_by | who/when |
+    | attempt_count, max_attempts | retry policy |
+    | idempotency_key UNIQUE | dedup |
+    | completed_at, failed_at | terminal |
+  |
+}
+
+unit_executions: "unit_executions\n(state machine, append-only)" {
+  shape: cylinder
+  style.fill: "#dcfce7"
+
+  fields: |md
+    | column | meaning |
+    |---|---|
+    | run_session_id | FK survey_run_sessions |
+    | run_unit_id | FK survey_run_units (D1 fix — required) |
+    | unit_id | denormalised from run_units.unit_id |
+    | iteration | back-jump counter (D2 fix) |
+    | state | enum: PENDING/RUNNING/WAITING_*/ENDED/EXPIRED/SUPERSEDED |
+    | superseded_by | FK self; replaces queued=-9 |
+    | UNIQUE(run_session_id, run_unit_id, iteration) | not unit_id |
+  |
+
+  PENDING: "PENDING"
+  RUNNING: "RUNNING"
+  WAITING_USER: "WAITING_USER"
+  WAITING_TIMER: "WAITING_TIMER"
+  ENDED: "ENDED (terminal)"
+  EXPIRED: "EXPIRED (terminal)"
+  SUPERSEDED: "SUPERSEDED (terminal)\nsuperseded_by FK"
+
+  PENDING -> RUNNING: "synchronous unit\n(Email, Push, Branch)"
+  PENDING -> WAITING_USER: "Survey, Page, External"
+  PENDING -> WAITING_TIMER: "Pause, Wait"
+
+  RUNNING -> ENDED: "completes synchronously\nor enqueues async work"
+  WAITING_USER -> ENDED: "participant final submit"
+  WAITING_USER -> EXPIRED: "X+Y deadline"
+  WAITING_TIMER -> ENDED: "waiting_until ≤ NOW"
+  WAITING_USER -> SUPERSEDED: "admin forceTo /\nback-jump iteration"
+  WAITING_TIMER -> SUPERSEDED: "admin forceTo /\nback-jump iteration"
+  RUNNING -> EXPIRED: "permanent failure"
+}
+
+run_session_pointer: "survey_run_sessions\n.current_unit_execution_id\n(single source of truth)" {shape: cylinder}
+
+participant -> web: HTTP
+web -> unit_executions: read state
+web -> run_session_pointer: read pointer
+web -> work_items: enqueue cascade_advance\non state-machine transition
+
+worker_pool.cascade -> work_items: "FOR UPDATE SKIP LOCKED\nLIMIT 1"
+worker_pool.cascade -> dispatcher
+dispatcher: "CascadeDispatcher" {
+  shape: rectangle
+  style.fill: "#fef3c7"
+
+  by_kind: "Dispatch by\nUnit type + state" {shape: diamond}
+  survey_handler: "Survey handler\n(expire-check or completion)"
+  pause_handler: "Pause handler\n(timer-fire)"
+  email_handler: "Email handler\n→ enqueue send_email"
+  push_handler: "Push handler\n→ enqueue send_push"
+  branch_handler: "Branch / Skip handler\n→ next unit_execution"
+  external_handler: "External handler\n(callback)"
+
+  by_kind -> survey_handler
+  by_kind -> pause_handler
+  by_kind -> email_handler
+  by_kind -> push_handler
+  by_kind -> branch_handler
+  by_kind -> external_handler
+}
+
+dispatcher.email_handler -> work_items: "enqueue send_email\n(idempotency_key=\nunit_exec.id+attempt)"
+dispatcher.push_handler -> work_items: "enqueue send_push\n(idempotency_key=\nunit_exec.id+attempt)"
+
+email_log: "survey_email_log\n(unchanged structure;\nadd claimed_at/by)" {shape: cylinder}
+push_log: "push_log (NEW)\nmirrors email_log" {shape: cylinder}
+
+dispatcher.email_handler -> email_log: INSERT row\n(transactional w/ unit_executions)
+dispatcher.push_handler -> push_log: INSERT row
+
+worker_pool.mail -> email_log: "FOR UPDATE SKIP LOCKED"
+worker_pool.push -> push_log: "FOR UPDATE SKIP LOCKED"
+
+worker_pool.mail -> smtp: "PHPMailer" {shape: cloud}
+worker_pool.push -> push_provider: "Apple/FCM push" {shape: cloud}
+
+# Atomic cascade: each unit transition is one TX
+tx_box: "Transaction boundary\n(single TX per state transition)" {
+  shape: rectangle
+  style.fill: "#fee2e2"
+
+  start: "BEGIN"
+  load_lock: "SELECT unit_executions ... FOR UPDATE"
+  validate: "validate state-machine transition"
+  call_handler: "handler.transition()"
+  insert_next: "INSERT next unit_execution\n(if cascade)"
+  enqueue_jobs: "INSERT work_items\n(if async)"
+  update_pointer: "UPDATE run_sessions\n.current_unit_execution_id"
+  commit: "COMMIT"
+
+  start -> load_lock -> validate -> call_handler -> insert_next -> enqueue_jobs -> update_pointer -> commit
+}
+
+dispatcher -> tx_box
+
+idempotency: "Idempotency contract" {
+  shape: rectangle
+  style.fill: "#dcfce7"
+
+  rule_1: "Each unit_execution row\nis processed AT MOST ONCE\n(state machine enforces)"
+  rule_2: "Each work_item.idempotency_key\nis unique"
+  rule_3: "send_email/send_push handlers\nbail if email_log/push_log\nrow already 'sent'"
+  rule_4: "Cascade transitions are\nwrapped in single TX —\npartial failure rolls back"
+}
+
+worker_pool -> idempotency
+
+# Multi-worker properties
+multi_worker: "Multi-worker properties" {
+  shape: rectangle
+  style.fill: "#dcfce7"
+
+  prop_1: "FOR UPDATE SKIP LOCKED\n→ each job claimed by\nexactly one worker"
+  prop_2: "Reentrant unit_execution\nlock via row-level FOR UPDATE"
+  prop_3: "No GET_LOCK named lock\non worker side\n(web kept for participant\ndedupe; see §13)"
+  prop_4: "Daemon kill recovery:\nclaimed_at + heartbeat;\nstale claims released after\nmax_lease_seconds"
+}
+
+worker_pool -> multi_worker

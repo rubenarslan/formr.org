@@ -1,0 +1,71 @@
+direction: down
+title: |md
+  # Track A (v0.26.0) — `survey_unit_sessions.state` lifecycle
+| {near: top-center}
+
+# States: PENDING is the entry; ENDED / EXPIRED / SUPERSEDED are
+# absorbing terminals. The two WAITING_* arms split by runUnit type
+# (Survey / External / Page / Endpage → WAITING_USER, everything
+# else → WAITING_TIMER).
+
+PENDING: "PENDING\nUnitSession::create()" {
+  shape: rectangle
+  style.fill: "#fef3c7"
+}
+
+WAITING_USER: "WAITING_USER\nSurvey, External,\nPage, Endpage" {
+  shape: rectangle
+  style.fill: "#dbeafe"
+}
+
+WAITING_TIMER: "WAITING_TIMER\nPause, Wait" {
+  shape: rectangle
+  style.fill: "#dbeafe"
+}
+
+ENDED: "ENDED\nend()" {
+  shape: rectangle
+  style.fill: "#dcfce7"
+}
+
+EXPIRED: "EXPIRED\nexpire()" {
+  shape: rectangle
+  style.fill: "#fee2e2"
+}
+
+SUPERSEDED: "SUPERSEDED\ndiagnostic: prior row\nwas still queued > 0\nwhen sibling created\n(should be rare —\nclean end() resets\nqueued = 0 first)" {
+  shape: rectangle
+  style.fill: "#fee2e2"
+  style.stroke-dash: 4
+}
+
+# Synchronous units (Email, Push, Branch, SkipForward/Backward,
+# Shuffle) complete inside one execute() call: PENDING → ENDED with
+# no intervening WAITING_* state.
+PENDING -> ENDED: "synchronous units\n(Email, Push, Branch,\nShuffle, Skip*)\nend() in same execute()"
+
+# Queueing units pass through a WAITING_* state, set by addItem()
+# based on runUnit type.
+PENDING -> WAITING_USER: "addItem()"
+PENDING -> WAITING_TIMER: "addItem()"
+
+WAITING_USER -> ENDED: "end()\nparticipant submits\nfinal page"
+WAITING_USER -> EXPIRED: "expire()\nX+Y or Z deadline"
+WAITING_USER -> SUPERSEDED: "abandoned w/o end()\n(race / partial-state)" {style.stroke-dash: 4}
+
+WAITING_TIMER -> ENDED: "end()\ncron tick / expires hits"
+WAITING_TIMER -> SUPERSEDED: "abandoned w/o end()\n(race / partial-state)" {style.stroke-dash: 4}
+
+# ──────────────────────────  IDEMPOTENCY (A4 / R5)  ──────────────────────────
+# The pre-send INSERT on survey_email_log / push_logs claims the
+# unit-session via UNIQUE(idempotency_key). On SIGKILL-then-restart the
+# duplicate INSERT is a no-op, so the second execute() never reaches
+# the actual SMTP / WebPush call. Keys: "email:{us_id}:{email_id}",
+# "push:{us_id}".
+
+idemp: "idempotency_key UNIQUE\nsurvey_email_log + push_logs\nblocks SIGKILL-restart double-send\nbefore PENDING → ENDED" {
+  shape: cylinder
+  style.fill: "#fce7f3"
+}
+
+idemp -> PENDING: "claim row inserted\nbefore send call" {style.stroke-dash: 2}

@@ -1,0 +1,48 @@
+# browserstack-node-sdk config for the BS Automate variant of the e2e
+# suite. Wired by `npm run test:bs` (=
+# `browserstack-node-sdk playwright test --config tests/e2e/playwright.config.js`).
+# The SDK monkey-patches Playwright at runtime to accept the real-device
+# platforms below, then appends one project per platform to the config
+# (see playwright.config.js header for the version pin caveat).
+#
+# Conventions adopted from feature/form_v2's browserstack.yml — they
+# survived a round of debugging on real devices we don't want to repeat:
+#   - `browserName: safari` (NOT `playwright-webkit`). The SDK accepts
+#     'safari' and translates it; plain Playwright rejects with
+#     "expected one of (chromium|firefox|webkit)".
+#   - Empty `userName`/`accessKey` literals — that signals the SDK to
+#     read BROWSERSTACK_USERNAME / BROWSERSTACK_ACCESS_KEY from env.
+#     Inline secrets here would commit them to the repo. The
+#     `npm run test:bs` script sources ../.env.dev before exec.
+#   - `testReporting: false`. The SDK's testHub observability layer
+#     mis-serializes Playwright errors on long-running iOS Safari tests
+#     ("Serialized error must have either an error or a value"); turning
+#     it off still leaves Automate dashboard sessions + videos.
+
+userName: ''
+accessKey: ''
+
+projectName: formr.org PWA
+buildName: pwa-reload-fix
+buildIdentifier: '#${DATE_TIME}'
+
+# Single iOS target — the platform where the bug manifested. Adding more
+# platforms multiplies BS minute usage; expand only when there's a
+# regression worth catching on a second device.
+platforms:
+  - browserName: safari
+    osVersion: 17
+    deviceName: iPhone 15 Pro Max
+
+parallelsPerPlatform: 1
+
+# study.researchmixtape.com is publicly reachable so we don't need a
+# BrowserStack Local tunnel.
+browserstackLocal: false
+
+debug: false
+networkLogs: false
+consoleLogs: errors
+
+# See above — testHub serialization bug mangles iOS Safari errors.
+testReporting: false
