@@ -694,6 +694,8 @@ class DB_Select {
 
     public function like($colname, $value, $pad = 'both') {
         $colname = $this->parseColName($colname);
+        // Escape LIKE wildcards so user-supplied % / _ / \ match literally.
+        $value = addcslashes((string) $value, '%_\\');
         if ($pad === 'right') {
             $value = "$value%";
         } elseif ($pad === 'left') {
@@ -701,8 +703,9 @@ class DB_Select {
         } else {
             $value = "%$value%";
         }
-        $this->PDO->quote($value);
-        $this->where("$colname LIKE '$value'");
+        $placeholder = ':like_' . count($this->params);
+        $this->where[] = "$colname LIKE $placeholder";
+        $this->params[$placeholder] = $value;
         return $this;
     }
 

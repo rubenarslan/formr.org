@@ -825,12 +825,12 @@ class SurveyStudy extends Model
             }
 
             if ($runId !== null) {
-                $select->where("survey_run_sessions.run_id = {$runId}");
+                $select->where(array('survey_run_sessions.run_id' => (int) $runId));
             }
 
             if ($paginate && isset($paginate['offset'])) {
                 $order = isset($paginate['order']) ? $paginate['order'] : 'asc';
-                $order_by = isset($paginate['order_by']) ? $paginate['order_by'] : '{$results_table}.session_id';
+                $order_by = isset($paginate['order_by']) ? $paginate['order_by'] : "{$results_table}.session_id";
                 if ($this->unlinked) {
                     $order_by = "RAND()";
                 }
@@ -848,7 +848,12 @@ class SurveyStudy extends Model
 
             if (!empty($filter['session'])) {
                 $session = $filter['session'];
-                strlen($session) == 64 ? $select->where("survey_run_sessions.session = '$session'") : $select->like('survey_run_sessions.session', $session, 'right');
+                if (strlen($session) == 64) {
+                    $select->where('survey_run_sessions.session = :session_eq');
+                    $select->bindParams(array('session_eq' => $session));
+                } else {
+                    $select->like('survey_run_sessions.session', $session, 'right');
+                }
             }
 
             if (!empty($filter['results']) && ($res_filter = $this->getResultsFilter($filter['results']))) {
@@ -960,7 +965,12 @@ class SurveyStudy extends Model
 
         if (!empty($filter['session'])) {
             $session = $filter['session'];
-            strlen($session) == 64 ? $filter_select->where("survey_run_sessions.session = '$session'") : $filter_select->like('survey_run_sessions.session', $session, 'right');
+            if (strlen($session) == 64) {
+                $filter_select->where('survey_run_sessions.session = :session_eq');
+                $filter_select->bindParams(array('session_eq' => $session));
+            } else {
+                $filter_select->like('survey_run_sessions.session', $session, 'right');
+            }
         }
 
         if (!empty($filter['results']) && ($res_filter = $this->getResultsFilter($filter['results']))) {
@@ -1133,11 +1143,16 @@ class SurveyStudy extends Model
                 ->leftJoin('survey_run_sessions', "survey_unit_sessions.run_session_id = survey_run_sessions.id");
 
             if ($run_id) {
-                $select->where("survey_run_sessions.run_id = {$run_id}");
+                $select->where(array('survey_run_sessions.run_id' => (int) $run_id));
             }
             if (!empty($filter['session'])) {
                 $session = $filter['session'];
-                strlen($session) == 64 ? $select->where("survey_run_sessions.session = '$session'") : $select->like('survey_run_sessions.session', $session, 'right');
+                if (strlen($session) == 64) {
+                    $select->where('survey_run_sessions.session = :session_eq');
+                    $select->bindParams(array('session_eq' => $session));
+                } else {
+                    $select->like('survey_run_sessions.session', $session, 'right');
+                }
             }
 
             if (!empty($filter['results']) && ($res_filter = $this->getResultsFilter($filter['results']))) {
