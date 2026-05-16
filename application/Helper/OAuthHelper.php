@@ -62,9 +62,21 @@ class OAuthHelper
      * Returns plaintext client_secret wrapped in a HiddenString — this is
      * the one and only moment a caller can read it; storage holds a hash.
      *
+     * @param User $formrUser
+     * @param string[] $scopes Verb scopes to grant (e.g. ['run:read', 'run:write']).
+     *     Must be subset of oauth_scopes table. Empty list = no scopes
+     *     (client_credentials grant will issue tokens with empty scope,
+     *     which then fail every checkScope() call — intentional default
+     *     deny). Internal callers that bypass the grant flow via
+     *     createAccessTokenForUser stamp their own scope onto the token,
+     *     so the empty-scope client is harmless for them.
+     * @param int[] $runIds Run IDs the client may act on. Empty list =
+     *     no run restriction. Every id must reference a survey_runs row
+     *     owned by $formrUser; foreign ids cause the call to fail with
+     *     false and write nothing.
      * @return array{client_id: string, client_secret: HiddenString}|false
      */
-    public function createClient(User $formrUser)
+    public function createClient(User $formrUser, array $scopes = [], array $runIds = [])
     {
         if (!$formrUser->canAccessApi()) {
             return false;
@@ -74,18 +86,29 @@ class OAuthHelper
             return false;
         }
 
+        $scopes = $this->validateScopes($scopes);
+        if ($scopes === false) {
+            return false;
+        }
+
+        $runIds = $this->validateRunIds($formrUser, $runIds);
+        if ($runIds === false) {
+            return false;
+        }
+
         $details = $this->generateClientDetails($formrUser);
         $ok = $this->storage->setClientDetails(
             $details['client_id'],
             $details['client_secret']->getString(),
             self::DEFAULT_REDIRECT_URL,
             null,
-            null,
+            implode(' ', $scopes),
             $formrUser->email
         );
         if (!$ok) {
             return false;
         }
+        $this->replaceClientRuns($details['client_id'], $runIds);
         return $details;
     }
 
@@ -130,9 +153,15 @@ class OAuthHelper
      * Rotate the client secret. Returns plaintext client_secret wrapped in
      * a HiddenString — only moment it's knowable after this call completes.
      *
+     * @param User $formrUser
+     * @param string[]|null $scopes If null, preserves the client's current
+     *     scope string. If an array (including []), replaces it.
+     * @param int[]|null $runIds If null, preserves the client's current
+     *     run allowlist. If an array (including []), replaces it (empty
+     *     array = no run restriction).
      * @return array{client_id: string, client_secret: HiddenString}|false
      */
-    public function refreshToken(User $formrUser)
+    public function refreshToken(User $formrUser, ?array $scopes = null, ?array $runIds = null)
     {
         if (!$formrUser->canAccessApi()) {
             return false;
@@ -142,12 +171,41 @@ class OAuthHelper
         if (!$client) {
             return false;
         }
+
+        if ($scopes === null) {
+            $scopes = $this->parseScopeString($client['scope'] ?? '');
+        } else {
+            $scopes = $this->validateScopes($scopes);
+            if ($scopes === false) {
+                return false;
+            }
+        }
+
+        if ($runIds === null) {
+            $runIds = null; // preserve — don't touch oauth_client_runs
+        } else {
+            $runIds = $this->validateRunIds($formrUser, $runIds);
+            if ($runIds === false) {
+                return false;
+            }
+        }
+
         $details = $this->generateClientDetails($formrUser);
         $client_id = $client['client_id'];
         $client_secret = $details['client_secret'];
-        $ok = $this->storage->setClientDetails($client_id, $client_secret->getString(), self::DEFAULT_REDIRECT_URL, null, null, $formrUser->email);
+        $ok = $this->storage->setClientDetails(
+            $client_id,
+            $client_secret->getString(),
+            self::DEFAULT_REDIRECT_URL,
+            null,
+            implode(' ', $scopes),
+            $formrUser->email
+        );
         if (!$ok) {
             return false;
+        }
+        if ($runIds !== null) {
+            $this->replaceClientRuns($client_id, $runIds);
         }
         return compact('client_id', 'client_secret');
     }
@@ -185,6 +243,135 @@ class OAuthHelper
         $client_id = bin2hex(random_bytes(16));
         $client_secret = new HiddenString(bin2hex(random_bytes(32)));
         return compact('client_id', 'client_secret');
+    }
+
+    /**
+     * Return the granted scopes + allowlisted run ids for a user's
+     * client, so the admin/account#api form can pre-fill on rotate.
+     * Empty allowlist (`run_ids = []`) means no run restriction.
+     *
+     * @return array{scopes: string[], run_ids: int[]}|null Null if the
+     *     user has no client yet.
+     */
+    public function getClientScopesAndRuns(User $formrUser)
+    {
+        $client = $this->getClient($formrUser);
+        if (!$client) {
+            return null;
+        }
+        $db = Site::getDb();
+        $stmt = $db->prepare("SELECT run_id FROM oauth_client_runs WHERE client_id = :cid");
+        $stmt->execute([':cid' => $client['client_id']]);
+        $runIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN, 0));
+        return [
+            'scopes' => $this->parseScopeString($client['scope'] ?? ''),
+            'run_ids' => $runIds,
+        ];
+    }
+
+    /**
+     * Return the run-id allowlist for a given oauth client. Empty array
+     * = no restriction. Caller is responsible for distinguishing the two
+     * semantically; ApiBase::allowedRunIds caches this per-request.
+     *
+     * @return int[]
+     */
+    public function getRunAllowlist($clientId)
+    {
+        if (empty($clientId)) {
+            return [];
+        }
+        $db = Site::getDb();
+        $stmt = $db->prepare("SELECT run_id FROM oauth_client_runs WHERE client_id = :cid");
+        $stmt->execute([':cid' => $clientId]);
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN, 0));
+    }
+
+    /**
+     * Validate that every scope is a known row in oauth_scopes. Returns
+     * a de-duplicated, ordered list on success or false on first
+     * unknown value — fail-closed so a typo can't silently grant an
+     * empty token.
+     *
+     * @param string[] $scopes
+     * @return string[]|false
+     */
+    protected function validateScopes(array $scopes)
+    {
+        $scopes = array_values(array_unique(array_filter(array_map('strval', $scopes), 'strlen')));
+        if (empty($scopes)) {
+            return [];
+        }
+        $db = Site::getDb();
+        $placeholders = implode(',', array_fill(0, count($scopes), '?'));
+        $stmt = $db->prepare("SELECT scope FROM {$this->config['scope_table']} WHERE scope IN ($placeholders)");
+        $stmt->execute($scopes);
+        $known = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+        if (count($known) !== count($scopes)) {
+            return false;
+        }
+        return $scopes;
+    }
+
+    /**
+     * Validate that every run id is owned by $formrUser. Foreign runs
+     * fail the whole call (return false) — never silently dropped —
+     * since the form is supposed to only surface the user's own runs.
+     *
+     * @param int[] $runIds
+     * @return int[]|false
+     */
+    protected function validateRunIds(User $formrUser, array $runIds)
+    {
+        $runIds = array_values(array_unique(array_filter(array_map('intval', $runIds))));
+        if (empty($runIds)) {
+            return [];
+        }
+        $db = Site::getDb();
+        $placeholders = implode(',', array_fill(0, count($runIds), '?'));
+        $stmt = $db->prepare(
+            "SELECT id FROM survey_runs WHERE user_id = ? AND id IN ($placeholders)"
+        );
+        $stmt->execute(array_merge([$formrUser->id], $runIds));
+        $owned = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN, 0));
+        if (count($owned) !== count($runIds)) {
+            return false;
+        }
+        return $runIds;
+    }
+
+    /**
+     * Replace the run allowlist for a client atomically. Empty $runIds
+     * means "no restriction" — the rows are simply deleted.
+     *
+     * @param string $clientId
+     * @param int[] $runIds
+     */
+    protected function replaceClientRuns($clientId, array $runIds)
+    {
+        $db = Site::getDb();
+        $db->delete('oauth_client_runs', ['client_id' => $clientId]);
+        foreach ($runIds as $runId) {
+            $db->insert('oauth_client_runs', [
+                'client_id' => $clientId,
+                'run_id' => $runId,
+            ]);
+        }
+    }
+
+    /**
+     * Parse a space-delimited scope string into a list. Returns [] for
+     * null/empty input (the default-deny state for new clients).
+     *
+     * @param string|null $scopeString
+     * @return string[]
+     */
+    protected function parseScopeString($scopeString)
+    {
+        if (!is_string($scopeString) || $scopeString === '') {
+            return [];
+        }
+        return array_values(array_filter(preg_split('/\s+/', trim($scopeString)), 'strlen'));
     }
 
     /**

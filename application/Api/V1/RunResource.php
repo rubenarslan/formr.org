@@ -46,6 +46,15 @@ class RunResource extends BaseResource
                 ->from('survey_runs')
                 ->where(['user_id' => $this->user->id]);
 
+            // If the client is restricted to specific runs, narrow the
+            // listing to exactly those — otherwise a "scoped" client
+            // would still see every run name in the index, leaking the
+            // names of runs it can't touch.
+            $allowed = $this->allowedRunIds();
+            if (!empty($allowed)) {
+                $select->whereIn('id', $allowed);
+            }
+
             if ($nameFilter = $this->request->getParam('name')) {
                 $select->like('name', $nameFilter);
             }

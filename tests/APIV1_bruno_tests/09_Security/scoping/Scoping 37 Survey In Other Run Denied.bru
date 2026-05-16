@@ -1,0 +1,26 @@
+meta {
+  name: Scoping 37 Survey In Other Run Denied
+  type: http
+  seq: 37
+}
+
+get {
+  url: {{host}}/v1/surveys/{{survey_b_name}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{allow_token}}
+}
+
+assert {
+  res.status: eq 403
+  res.body.message: contains not authorized for survey
+}
+
+docs {
+  scope_survey_b is only linked to scope-run-b — which is NOT in the
+  token's run allowlist. The survey-allowlist check in
+  SurveyResource::handle must therefore 403, not 200.
+}

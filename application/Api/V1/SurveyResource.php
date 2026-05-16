@@ -1,5 +1,21 @@
 <?php
 
+/**
+ * Survey-resource access rules:
+ *
+ * - The caller must own the survey (enforced by every read/write path
+ *   via `survey_studies.user_id = $this->user->id` joins).
+ * - If the caller's API client has a non-empty run allowlist
+ *   (oauth_client_runs), the survey must also appear as a unit in at
+ *   least one allowlisted run — checked via `clientMayAccessSurvey()`
+ *   on detail paths and via an INNER JOIN on the list path.
+ *
+ * The create path (`POST /v1/surveys`) is blocked for run-restricted
+ * clients because a fresh survey is unreachable through any run until
+ * the admin UI links it into a run's structure — silently succeeding
+ * with an immediately unreadable artifact would be worse than failing
+ * with a clear 403.
+ */
 class SurveyResource extends BaseResource
 {
 
@@ -36,6 +52,10 @@ class SurveyResource extends BaseResource
             return $this->error(404, "Survey '$surveyName' not found.");
         }
 
+        if (!$this->clientMayAccessSurvey((int) $study->id)) {
+            return $this->error(403, "This API client is not authorized for survey '$surveyName'.");
+        }
+
         switch ($method) {
             case 'GET':
                 return $this->getSurvey($study);
@@ -50,9 +70,26 @@ class SurveyResource extends BaseResource
 
     private function listSurveys()
     {
-        $select = $this->db->select('id, name, created, modified, results_table')
-            ->from('survey_studies')
-            ->where(['user_id' => $this->user->id]);
+        $allowed = $this->allowedRunIds();
+        if (!empty($allowed)) {
+            // Restricted clients see only surveys that appear as units
+            // in one of their allowlisted runs. survey-type units share
+            // their id with survey_studies.id (same join used by
+            // Run::getAllSurveys); DISTINCT collapses surveys reused
+            // across multiple allowlisted runs.
+            $select = $this->db->select(
+                'DISTINCT survey_studies.id, survey_studies.name, survey_studies.created,'
+                . ' survey_studies.modified, survey_studies.results_table'
+            )
+                ->from('survey_studies')
+                ->join('survey_run_units', 'survey_run_units.unit_id = survey_studies.id')
+                ->where(['survey_studies.user_id' => $this->user->id]);
+            $select->whereIn('survey_run_units.run_id', $allowed);
+        } else {
+            $select = $this->db->select('id, name, created, modified, results_table')
+                ->from('survey_studies')
+                ->where(['user_id' => $this->user->id]);
+        }
 
         if ($nameFilter = $this->request->getParam('name')) {
             $select->like('name', $nameFilter);
@@ -102,6 +139,26 @@ class SurveyResource extends BaseResource
             $this->db->beginTransaction();
 
             $study = SurveyStudy::loadByUserAndName($this->user, $surveyName);
+
+            // Run-restriction gate: blocks creating brand-new surveys
+            // (they'd be unreachable through the allowlist until linked
+            // into a run) and blocks updating surveys that don't appear
+            // in any of the client's allowlisted runs.
+            if ($study->valid) {
+                if (!$this->clientMayAccessSurvey((int) $study->id)) {
+                    $this->db->rollBack();
+                    if ($googleSheetUrl) delete_tmp_file($file);
+                    return $this->error(403, "This API client is not authorized for survey '$surveyName'.");
+                }
+            } elseif (!empty($this->allowedRunIds())) {
+                $this->db->rollBack();
+                if ($googleSheetUrl) delete_tmp_file($file);
+                return $this->error(
+                    403,
+                    "Cannot create surveys with a run-restricted API client; "
+                    . "add the survey to a run via the admin UI first, then update it via the API."
+                );
+            }
 
             $options = [
                 'user_id' => $this->user->id,

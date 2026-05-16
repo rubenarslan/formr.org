@@ -1,0 +1,28 @@
+meta {
+  name: Scoping 35 Other Run Denied
+  type: http
+  seq: 35
+}
+
+get {
+  url: {{host}}/v1/runs/{{run_b_name}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{allow_token}}
+}
+
+assert {
+  res.status: eq 403
+  res.body.message: contains not authorized for run
+}
+
+docs {
+  The token owns run-b (same admin user) but is allowlisted only to
+  run-a, so ApiBase::getRunByName -> clientMayAccessRun must 403. The
+  message assertion guards against accidentally falling through to the
+  pre-existing ownership 403 ("You do not have access to this run"),
+  which would mask a per-client allowlist regression.
+}

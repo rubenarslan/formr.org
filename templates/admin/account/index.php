@@ -140,12 +140,49 @@ remotes::install_github("rubenarslan/formr")</code></pre>
                                             <td><em class="text-muted">Stored as a hash — rotate to see a new one.</em></td>
                                         </tr>
                                     </table>
-                                    <button type="button" class="btn btn-warning btn-raised" id="api-rotate-btn">
-                                        <i class="fa fa-refresh"></i> Rotate Client Secret
-                                    </button>
                                 <?php else: ?>
                                     <p class="text-muted">You do not have API credentials yet.</p>
-                                    <button type="button" class="btn btn-primary btn-raised" id="api-create-btn">
+                                <?php endif; ?>
+
+                                <fieldset class="api-scope-picker" style="margin-top: 15px;">
+                                    <legend>Scopes</legend>
+                                    <p class="help-block">
+                                        Pick exactly the capabilities this credential should grant. A token with no scopes cannot do anything.
+                                    </p>
+                                    <?php foreach ($available_scopes as $scope_key => $scope_label): ?>
+                                        <div class="checkbox">
+                                            <label>
+                                                <input type="checkbox" name="api_scope[]" value="<?= h($scope_key) ?>"
+                                                    <?= in_array($scope_key, $current_scope_selection, true) ? 'checked' : '' ?>>
+                                                <code><?= h($scope_key) ?></code> — <?= h($scope_label) ?>
+                                            </label>
+                                        </div>
+                                    <?php endforeach; ?>
+
+                                    <legend style="margin-top: 20px;">Restrict to runs</legend>
+                                    <p class="help-block">
+                                        Leave empty to allow this credential to act on all of your runs. Selecting one or more runs limits the credential to those runs and to surveys that are part of them.
+                                    </p>
+                                    <?php if (empty($user_runs)): ?>
+                                        <p class="text-muted"><em>You have no runs yet.</em></p>
+                                    <?php else: ?>
+                                        <select name="api_run_ids[]" multiple class="form-control" size="<?= min(8, max(3, count($user_runs))) ?>" style="width: 100%; max-width: 480px;">
+                                            <?php foreach ($user_runs as $run_row): ?>
+                                                <option value="<?= (int) $run_row['id'] ?>"
+                                                    <?= in_array((int) $run_row['id'], $current_run_allowlist, true) ? 'selected' : '' ?>>
+                                                    <?= h($run_row['name']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    <?php endif; ?>
+                                </fieldset>
+
+                                <?php if ($api_credentials): ?>
+                                    <button type="button" class="btn btn-warning btn-raised" id="api-rotate-btn" style="margin-top: 15px;">
+                                        <i class="fa fa-refresh"></i> Rotate Client Secret &amp; Update Scopes
+                                    </button>
+                                <?php else: ?>
+                                    <button type="button" class="btn btn-primary btn-raised" id="api-create-btn" style="margin-top: 15px;">
                                         <i class="fa fa-key"></i> Generate API Credentials
                                     </button>
                                 <?php endif; ?>
@@ -204,12 +241,30 @@ remotes::install_github("rubenarslan/formr")</code></pre>
                                     'formr_api_authenticate(host = "' + apiHost + '")';
                             }
 
+                            function collectSelections() {
+                                var scopes = $panel.find('input[name="api_scope[]"]:checked').map(function () {
+                                    return this.value;
+                                }).get();
+                                var runIds = $panel.find('select[name="api_run_ids[]"] option:selected').map(function () {
+                                    return this.value;
+                                }).get();
+                                return { scope: scopes, run_ids: runIds };
+                            }
+
                             function issue(apiAction, confirmMsg) {
                                 if (confirmMsg && !confirm(confirmMsg)) { return; }
+                                var sel = collectSelections();
+                                if (sel.scope.length === 0
+                                    && !confirm('You have not selected any scopes. A token with no scopes cannot access the API. Continue anyway?')) {
+                                    return;
+                                }
                                 jQuery.ajax({
                                     type: 'POST',
                                     url: endpoint,
-                                    data: { api_action: apiAction },
+                                    // jQuery serialises arrays as scope[]=run:read&scope[]=run:write
+                                    // by default, which Request::arr() will parse back into a list.
+                                    traditional: false,
+                                    data: jQuery.extend({ api_action: apiAction }, sel),
                                     dataType: 'json'
                                 }).done(function (response) {
                                     if (!response || !response.success) {

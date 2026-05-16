@@ -70,16 +70,108 @@ function ensure_admin($email, $admin_level = 2) {
     return (int) $row["id"];
 }
 
-function mint_oauth($user_id) {
+// Default scopes for the main attacker/victim clients used by the
+// pre-existing Mass-Assign + Email-Account suites. Must match the
+// hard-coded scope assertion in 01_Auth/authentificate.bru (ordering
+// matters — OAuthHelper stores the scope string verbatim).
+const FULL_SCOPES = ["user:read","user:write","survey:read","survey:write","run:read","run:write","session:read","session:write","data:read","file:read","file:write"];
+
+function mint_oauth($user_id, array $scopes = FULL_SCOPES, array $run_ids = []) {
     $u = new User($user_id);
     if (!$u->canAccessApi()) { throw new RuntimeException("user $user_id lacks canAccessApi"); }
     $existing = OAuthHelper::getInstance()->getClient($u);
     $res = $existing
-        ? OAuthHelper::getInstance()->refreshToken($u)
-        : OAuthHelper::getInstance()->createClient($u);
+        ? OAuthHelper::getInstance()->refreshToken($u, $scopes, $run_ids)
+        : OAuthHelper::getInstance()->createClient($u, $scopes, $run_ids);
+    if (!$res) {
+        throw new RuntimeException("failed to mint OAuth client for user $user_id");
+    }
     return [
         "client_id" => $res["client_id"],
         "client_secret" => $res["client_secret"]->getString(),
+    ];
+}
+
+// Mint an additional oauth_clients row for a user, bypassing
+// OAuthHelpers one-client-per-user constraint. Used only by the
+// scoping suite, which needs four distinct credentials (read-only,
+// write-only, run-allowlisted, unrestricted) for the same admin to
+// exercise the new scope chokepoints in ApiBase / SurveyResource /
+// RunResource without managing four separate test users.
+function mint_extra_client($user_id, array $scopes, array $run_ids) {
+    $u = new User($user_id);
+    $db = DB::getInstance();
+    $client_id = bin2hex(random_bytes(16));
+    $client_secret = bin2hex(random_bytes(32));
+    // SHA-256 hash matches HashedTokenOAuth2StoragePdo::hashToken so
+    // the bshaffer client_credentials grant validates it normally.
+    $db->insert("oauth_clients", [
+        "client_id" => $client_id,
+        "client_secret" => hash("sha256", $client_secret),
+        "redirect_uri" => "https://formr.org",
+        "scope" => implode(" ", $scopes),
+        "user_id" => $u->email,
+    ]);
+    foreach ($run_ids as $rid) {
+        $db->insert("oauth_client_runs", [
+            "client_id" => $client_id,
+            "run_id" => (int) $rid,
+        ]);
+    }
+    return ["client_id" => $client_id, "client_secret" => $client_secret];
+}
+
+function seed_scoping_fixtures($user_id) {
+    $db = DB::getInstance();
+    // Two runs owned by the attacker — one inside the allowlist, one
+    // outside. Idempotent: drop+recreate so re-running the suite picks
+    // up any schema changes.
+    foreach (["scope-run-a","scope-run-b"] as $name) {
+        $db->exec("DELETE FROM survey_runs WHERE name = " . $db->pdo()->quote($name) . " AND user_id = " . (int) $user_id);
+    }
+    $db->insert("survey_runs", [
+        "user_id" => $user_id, "name" => "scope-run-a",
+        "created" => mysql_now(), "modified" => mysql_now(),
+    ]);
+    $run_a_id = (int) $db->lastInsertId();
+    $db->insert("survey_runs", [
+        "user_id" => $user_id, "name" => "scope-run-b",
+        "created" => mysql_now(), "modified" => mysql_now(),
+    ]);
+    $run_b_id = (int) $db->lastInsertId();
+
+    // Surveys: scope_survey_a in run-a, scope_survey_b in run-b,
+    // scope_orphan in neither.
+    // survey-type units share their id with survey_studies.id (see
+    // application/Model/Run.php:907 join), so we insert a survey_units
+    // row first to get the id, then a survey_studies row with the same
+    // id, then a survey_run_units row to link it into the run.
+    $surveys = [];
+    foreach ([
+        ["scope_survey_a", $run_a_id],
+        ["scope_survey_b", $run_b_id],
+        ["scope_orphan",   null],
+    ] as [$sname, $linked_run_id]) {
+        $db->exec("DELETE FROM survey_studies WHERE name = " . $db->pdo()->quote($sname) . " AND user_id = " . (int) $user_id);
+        $db->insert("survey_units", ["type" => "Survey", "created" => mysql_now(), "modified" => mysql_now()]);
+        $sid = (int) $db->lastInsertId();
+        $db->insert("survey_studies", [
+            "id" => $sid, "user_id" => $user_id, "name" => $sname,
+            "results_table" => "s{$sid}_{$sname}", "valid" => 1,
+            "created" => mysql_now(), "modified" => mysql_now(),
+        ]);
+        if ($linked_run_id) {
+            $db->insert("survey_run_units", [
+                "run_id" => $linked_run_id, "unit_id" => $sid, "position" => 10,
+            ]);
+        }
+        $surveys[$sname] = $sid;
+    }
+    return [
+        "run_a_id" => $run_a_id, "run_b_id" => $run_b_id,
+        "survey_a_id" => $surveys["scope_survey_a"],
+        "survey_b_id" => $surveys["scope_survey_b"],
+        "survey_orphan_id" => $surveys["scope_orphan"],
     ];
 }
 
@@ -116,7 +208,24 @@ if (!$victim_email_account_id) {
 $attacker = mint_oauth($attacker_id);
 $victim   = mint_oauth($victim_id);
 
-echo json_encode([
+// Scoping fixtures: 2 runs (one in the test allowlist, one out), 3
+// surveys (one in each run, one orphan), and 4 extra OAuth clients for
+// the attacker covering the meaningful matrix:
+//   - ro_client: run:read only, allowlisted to run-a
+//   - wo_client: run:write only, allowlisted to run-a
+//   - allow_client: run:read + run:write + survey:read, allowlisted to run-a
+//   - unrestricted_client: run:read + survey:read, no run allowlist
+$scoping_fix = seed_scoping_fixtures($attacker_id);
+$ro_client   = mint_extra_client($attacker_id, ["run:read"], [$scoping_fix["run_a_id"]]);
+$wo_client   = mint_extra_client($attacker_id, ["run:write"], [$scoping_fix["run_a_id"]]);
+$allow_client = mint_extra_client($attacker_id,
+    ["run:read","run:write","survey:read"],
+    [$scoping_fix["run_a_id"]]);
+$unrestricted_client = mint_extra_client($attacker_id,
+    ["run:read","survey:read"],
+    []);
+
+echo json_encode(array_merge([
     "attacker_user_id"        => $attacker_id,
     "client_id"               => $attacker["client_id"],
     "client_secret"           => $attacker["client_secret"],
@@ -125,7 +234,15 @@ echo json_encode([
     "victim_email_account_id" => $victim_email_account_id,
     "victim_client_id"        => $victim["client_id"],
     "victim_client_secret"    => $victim["client_secret"],
-]);
+    "ro_client_id"            => $ro_client["client_id"],
+    "ro_client_secret"        => $ro_client["client_secret"],
+    "wo_client_id"            => $wo_client["client_id"],
+    "wo_client_secret"        => $wo_client["client_secret"],
+    "allow_client_id"         => $allow_client["client_id"],
+    "allow_client_secret"     => $allow_client["client_secret"],
+    "unrestricted_client_id"  => $unrestricted_client["client_id"],
+    "unrestricted_client_secret" => $unrestricted_client["client_secret"],
+], $scoping_fix));
 ' > /tmp/.formr_security_creds.json
 chmod 600 /tmp/.formr_security_creds.json
 CLIENT_ID=$(python3 -c 'import json; print(json.load(open("/tmp/.formr_security_creds.json"))["client_id"])')
@@ -134,7 +251,25 @@ VICTIM_USER_ID=$(python3 -c 'import json; print(json.load(open("/tmp/.formr_secu
 VICTIM_CLIENT_ID=$(python3 -c 'import json; print(json.load(open("/tmp/.formr_security_creds.json"))["victim_client_id"])')
 VICTIM_CLIENT_SECRET=$(python3 -c 'import json; print(json.load(open("/tmp/.formr_security_creds.json"))["victim_client_secret"])')
 VICTIM_EMAIL_ACCOUNT_ID=$(python3 -c 'import json; print(json.load(open("/tmp/.formr_security_creds.json"))["victim_email_account_id"])')
+
+# Scoping suite extras.
+read_json() { python3 -c "import json,sys; print(json.load(open('/tmp/.formr_security_creds.json'))['$1'])"; }
+RO_CLIENT_ID=$(read_json ro_client_id)
+RO_CLIENT_SECRET=$(read_json ro_client_secret)
+WO_CLIENT_ID=$(read_json wo_client_id)
+WO_CLIENT_SECRET=$(read_json wo_client_secret)
+ALLOW_CLIENT_ID=$(read_json allow_client_id)
+ALLOW_CLIENT_SECRET=$(read_json allow_client_secret)
+UNRESTRICTED_CLIENT_ID=$(read_json unrestricted_client_id)
+UNRESTRICTED_CLIENT_SECRET=$(read_json unrestricted_client_secret)
+RUN_A_ID=$(read_json run_a_id)
+RUN_B_ID=$(read_json run_b_id)
+SURVEY_A_ID=$(read_json survey_a_id)
+SURVEY_B_ID=$(read_json survey_b_id)
+SURVEY_ORPHAN_ID=$(read_json survey_orphan_id)
+
 echo "[setup] attacker user 1, victim user $VICTIM_USER_ID, victim email account $VICTIM_EMAIL_ACCOUNT_ID"
+echo "[setup] scoping: run-a=$RUN_A_ID run-b=$RUN_B_ID survey-a=$SURVEY_A_ID survey-b=$SURVEY_B_ID orphan=$SURVEY_ORPHAN_ID"
 
 # 2) Seed the victim row. We INSERT a survey_units placeholder (FK target) and
 #    then a survey_studies row with name='sec_victim' owned by user_id=1. The
@@ -159,9 +294,18 @@ fi
 echo "[setup] victim_survey_id = $VICTIM_ID"
 
 cleanup() {
-    echo '[teardown] Cleaning up seeded + polluted rows + victim admin...'
+    echo '[teardown] Cleaning up seeded + polluted rows + victim admin + scoping fixtures...'
     docker exec formr_db sh -c '
 mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE" -e "
+-- Scoping fixtures (drop runs first; survey_run_units has FK to
+-- survey_runs but the schema doesnt declare ON DELETE CASCADE, so we
+-- explicitly clean both. Extra oauth clients we created direct-SQL for
+-- the scoping suite cascade through oauth_client_runs via the FK on
+-- patch 052.)
+DELETE FROM oauth_clients WHERE user_id = \"rform@researchmixtapes.com\" AND scope IS NOT NULL AND scope <> \"user:read user:write survey:read survey:write run:read run:write session:read session:write data:read file:read file:write\";
+DELETE FROM survey_run_units WHERE run_id IN (SELECT id FROM survey_runs WHERE name IN (\"scope-run-a\",\"scope-run-b\") AND user_id = 1);
+DELETE FROM survey_runs WHERE name IN (\"scope-run-a\",\"scope-run-b\") AND user_id = 1;
+DELETE FROM survey_studies WHERE name IN (\"scope_survey_a\",\"scope_survey_b\",\"scope_orphan\") AND user_id = 1;
 DELETE FROM survey_studies WHERE name IN (\"sec_victim\",\"PWNED\",\"sec_attacker_decoy\") AND user_id=1;
 DELETE FROM survey_units WHERE id NOT IN (SELECT id FROM survey_studies UNION SELECT unit_id FROM survey_run_units WHERE unit_id IS NOT NULL) AND type=\"Survey\";
 -- Victim admin: drop OAuth client + tokens first (FK from oauth_*tables to
@@ -198,6 +342,18 @@ npx --yes @usebruno/cli@latest run \
     "09_Security/Email-Account 02 Attack.bru" \
     "09_Security/Email-Account 03 Verify Account Id Dropped.bru" \
     "09_Security/Email-Account 04 Cleanup Run.bru" \
+    "09_Security/scoping/Scoping 30 RO Auth.bru" \
+    "09_Security/scoping/Scoping 31 RO Read Allowed.bru" \
+    "09_Security/scoping/Scoping 32 RO Write Denied.bru" \
+    "09_Security/scoping/Scoping 33 Allow Auth.bru" \
+    "09_Security/scoping/Scoping 34 Allowed Run OK.bru" \
+    "09_Security/scoping/Scoping 35 Other Run Denied.bru" \
+    "09_Security/scoping/Scoping 36 Survey In Allowlisted Run.bru" \
+    "09_Security/scoping/Scoping 37 Survey In Other Run Denied.bru" \
+    "09_Security/scoping/Scoping 38 Orphan Survey Denied.bru" \
+    "09_Security/scoping/Scoping 39 Run List Filtered.bru" \
+    "09_Security/scoping/Scoping 40 Unrestricted Auth.bru" \
+    "09_Security/scoping/Scoping 41 Unrestricted Sees Other Run.bru" \
     --env-var "host=$DEV_API_HOST" \
     --env-var "client_id=$CLIENT_ID" \
     --env-var "client_secret=$CLIENT_SECRET" \
@@ -205,4 +361,17 @@ npx --yes @usebruno/cli@latest run \
     --env-var "victim_user_id=$VICTIM_USER_ID" \
     --env-var "victim_client_id=$VICTIM_CLIENT_ID" \
     --env-var "victim_client_secret=$VICTIM_CLIENT_SECRET" \
-    --env-var "victim_email_account_id=$VICTIM_EMAIL_ACCOUNT_ID"
+    --env-var "victim_email_account_id=$VICTIM_EMAIL_ACCOUNT_ID" \
+    --env-var "ro_client_id=$RO_CLIENT_ID" \
+    --env-var "ro_client_secret=$RO_CLIENT_SECRET" \
+    --env-var "wo_client_id=$WO_CLIENT_ID" \
+    --env-var "wo_client_secret=$WO_CLIENT_SECRET" \
+    --env-var "allow_client_id=$ALLOW_CLIENT_ID" \
+    --env-var "allow_client_secret=$ALLOW_CLIENT_SECRET" \
+    --env-var "unrestricted_client_id=$UNRESTRICTED_CLIENT_ID" \
+    --env-var "unrestricted_client_secret=$UNRESTRICTED_CLIENT_SECRET" \
+    --env-var "run_a_name=scope-run-a" \
+    --env-var "run_b_name=scope-run-b" \
+    --env-var "survey_a_name=scope_survey_a" \
+    --env-var "survey_b_name=scope_survey_b" \
+    --env-var "survey_orphan_name=scope_orphan"

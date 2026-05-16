@@ -43,6 +43,20 @@ abstract class ApiBase
     protected $tokenData = array();
 
     /**
+     * Per-request cache of the run allowlist for the calling client.
+     * - null: not yet loaded.
+     * - []: client has no rows in oauth_client_runs — UNRESTRICTED.
+     *      (Same shape as `[]`; distinguished from "restricted to no
+     *      runs" by emptiness *plus* the loaded flag.)
+     * - [42, 57]: client may only act on these run ids.
+     *
+     * Use allowedRunIds() to access — it loads lazily and never returns
+     * the raw null sentinel to callers.
+     */
+    private $cachedAllowedRunIds = null;
+    private $allowedRunIdsLoaded = false;
+
+    /**
      * Constructor.
      * * Initializes the API handler with the Request object, Database connection, and Token data.
      * It also hydrates the authenticated User based on the token's user_id.
@@ -240,7 +254,71 @@ abstract class ApiBase
             return false;
         }
 
+        if (!$this->clientMayAccessRun((int) $run->id)) {
+            $this->error(
+                Response::STATUS_FORBIDDEN,
+                "This API client is not authorized for run '{$run->name}'."
+            );
+            return false;
+        }
+
         return $run;
+    }
+
+    /**
+     * Per-request lookup of which run ids the calling client may touch.
+     * Empty array = no restriction (every run the user owns is fair
+     * game). Non-empty array = exact set. Cached for the lifetime of
+     * the request because sub-resource dispatch within a single API
+     * call can hit getRunByName() repeatedly.
+     *
+     * @return int[]
+     */
+    public function allowedRunIds()
+    {
+        if (!$this->allowedRunIdsLoaded) {
+            $clientId = isset($this->tokenData['client_id']) ? $this->tokenData['client_id'] : null;
+            $this->cachedAllowedRunIds = OAuthHelper::getInstance()->getRunAllowlist($clientId);
+            $this->allowedRunIdsLoaded = true;
+        }
+        return $this->cachedAllowedRunIds;
+    }
+
+    /**
+     * True when the calling client is permitted to act on $runId.
+     * Empty allowlist => unrestricted (every owned run is permitted).
+     */
+    protected function clientMayAccessRun($runId)
+    {
+        $allowed = $this->allowedRunIds();
+        if (empty($allowed)) {
+            return true;
+        }
+        return in_array((int) $runId, $allowed, true);
+    }
+
+    /**
+     * True when the calling client is permitted to act on $surveyId.
+     * Empty allowlist => unrestricted. Non-empty allowlist => the
+     * survey must appear as a unit in at least one allowlisted run
+     * (survey-type units in formr share their id with
+     * survey_studies.id; see Run::getAllSurveys at
+     * application/Model/Run.php:907 for the same join).
+     */
+    protected function clientMayAccessSurvey($surveyId)
+    {
+        $allowed = $this->allowedRunIds();
+        if (empty($allowed)) {
+            return true;
+        }
+        $placeholders = implode(',', array_fill(0, count($allowed), '?'));
+        $stmt = $this->db->prepare(
+            "SELECT 1 FROM survey_run_units
+             WHERE unit_id = ? AND run_id IN ($placeholders)
+             LIMIT 1"
+        );
+        $stmt->execute(array_merge([(int) $surveyId], $allowed));
+        return (bool) $stmt->fetchColumn();
     }
 
     protected function setData($statusCode = null, $statusText = null, $response = null, $error = null)

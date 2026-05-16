@@ -1,0 +1,27 @@
+meta {
+  name: Scoping 38 Orphan Survey Denied
+  type: http
+  seq: 38
+}
+
+get {
+  url: {{host}}/v1/surveys/{{survey_orphan_name}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{allow_token}}
+}
+
+assert {
+  res.status: eq 403
+  res.body.message: contains not authorized for survey
+}
+
+docs {
+  scope_orphan has no survey_run_units row at all — owned by the
+  attacker user but linked to no run. A run-restricted client must not
+  be able to read or update it, since the survey is unreachable through
+  the allowlist join.
+}
