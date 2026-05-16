@@ -366,6 +366,43 @@ class OAuthHelper
      * @param string|null $scopeString
      * @return string[]
      */
+    /**
+     * Convert a Run object, an int, or an iterable of ints into a
+     * de-duplicated list of positive integers. Anything else returns
+     * []. Used by createAccessTokenForUser to normalise the $forRun
+     * parameter into a list of run ids that's safe to write into the
+     * token row's run_ids column.
+     *
+     * @param mixed $forRun
+     * @return int[]
+     */
+    protected function normaliseRunIds($forRun)
+    {
+        if ($forRun instanceof Run) {
+            $id = (int) $forRun->id;
+            return $id > 0 ? [$id] : [];
+        }
+        if (is_int($forRun) || (is_string($forRun) && ctype_digit($forRun))) {
+            $id = (int) $forRun;
+            return $id > 0 ? [$id] : [];
+        }
+        if (is_array($forRun) || $forRun instanceof Traversable) {
+            $out = [];
+            foreach ($forRun as $v) {
+                if ($v instanceof Run) {
+                    $id = (int) $v->id;
+                } else {
+                    $id = (int) $v;
+                }
+                if ($id > 0) {
+                    $out[] = $id;
+                }
+            }
+            return array_values(array_unique($out));
+        }
+        return [];
+    }
+
     protected function parseScopeString($scopeString)
     {
         if (!is_string($scopeString) || $scopeString === '') {
@@ -391,9 +428,18 @@ class OAuthHelper
      * @param string|null $scope The scope for the token.
      * @param bool $includeRefreshToken Whether to include a refresh token. Defaults to false.
      * @param int $tokenLifetime Token lifetime in seconds. Defaults to 3600 (1 hour).
+     * @param Run|int[]|null $forRun Per-token run allowlist. Accepts a
+     *     Run object or an explicit list of run ids. When set, the
+     *     token row's `run_ids` column is populated so ApiBase narrows
+     *     access to exactly these runs — independent of any per-client
+     *     `oauth_client_runs` allowlist. Callers that mint a token for
+     *     a specific operation (OpenCPU rendering a survey, expiry
+     *     cron checking a single run) should pass this; the
+     *     client_credentials grant flow leaves it null (the
+     *     per-credential `oauth_client_runs` allowlist takes over).
      * @return array|false The access token data or false on failure.
      */
-    public function createAccessTokenForUser(User $formrUser, $scope = null, $includeRefreshToken = false, $tokenLifetime = 3600)
+    public function createAccessTokenForUser(User $formrUser, $scope = null, $includeRefreshToken = false, $tokenLifetime = 3600, $forRun = null)
     {
         if (!$formrUser->canAccessApi()) {
             return false;
@@ -425,6 +471,26 @@ class OAuthHelper
         // Verify token creation succeeded and has required fields
         if (!$token || !is_array($token) || empty($token['access_token'])) {
             return false;
+        }
+
+        // Stamp per-token run_ids if the caller asked for it. Done as a
+        // post-insert UPDATE because bshaffer's setAccessToken signature
+        // is fixed by interface — adding a parameter would break the
+        // grant flow's call site. Two SQL hits for internal tokens,
+        // zero overhead for external ones (which pass $forRun = null).
+        if ($forRun !== null) {
+            $runIds = $this->normaliseRunIds($forRun);
+            if (!empty($runIds)) {
+                $db = Site::getDb();
+                $stmt = $db->prepare(sprintf(
+                    'UPDATE %s SET run_ids = :run_ids WHERE access_token = :access_token',
+                    $this->config['access_token_table']
+                ));
+                $stmt->execute([
+                    ':run_ids' => implode(',', $runIds),
+                    ':access_token' => hash('sha256', $token['access_token']),
+                ]);
+            }
         }
 
         return $token;

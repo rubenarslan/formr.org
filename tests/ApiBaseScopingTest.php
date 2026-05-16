@@ -156,4 +156,102 @@ SQL);
         $base = $this->makeFixture([1, 2]);
         $this->assertTrue($base->callMayAccessSurvey(100));
     }
+
+    // --- allowedRunIds precedence (per-token wins over per-client) ----
+
+    /**
+     * Build a fixture without pre-loading the cache, so allowedRunIds()
+     * lazily resolves through its real lookup path.
+     */
+    private function makeFixtureForLazyLookup(array $tokenData)
+    {
+        $fixtureRef = new ReflectionClass(_ApiBaseScopingFixture::class);
+        $obj = $fixtureRef->newInstanceWithoutConstructor();
+        $tokenProp = $fixtureRef->getProperty('tokenData');
+        $tokenProp->setAccessible(true);
+        $tokenProp->setValue($obj, $tokenData);
+        return $obj;
+    }
+
+    public function testPerTokenRunIdsOverridePerClientFallback()
+    {
+        // No client_id at all — so the per-client lookup would return
+        // [] (unrestricted). With a per-token run_ids string set,
+        // allowedRunIds must return that list, not fall through to
+        // unrestricted.
+        $base = $this->makeFixtureForLazyLookup([
+            'scope'   => 'run:read',
+            'user_id' => 'unused@example.com',
+            'run_ids' => '42,57',
+        ]);
+        $this->assertSame([42, 57], $base->allowedRunIds());
+        $this->assertTrue($base->callMayAccessRun(42));
+        $this->assertTrue($base->callMayAccessRun(57));
+        $this->assertFalse($base->callMayAccessRun(43));
+    }
+
+    public function testPerTokenRunIdsSingleEntry()
+    {
+        $base = $this->makeFixtureForLazyLookup([
+            'scope'   => 'run:read',
+            'user_id' => 'u@example.com',
+            'run_ids' => '42',
+        ]);
+        $this->assertSame([42], $base->allowedRunIds());
+    }
+
+    public function testPerTokenRunIdsEmptyStringIsExplicitDenyEverything()
+    {
+        // Defensive: a token row with run_ids = '' (rather than NULL)
+        // should be treated as an explicit empty allowlist, not as
+        // "no restriction". The OpenCPU mint path only writes
+        // non-empty lists so this state shouldn't occur in practice,
+        // but if it does — fail closed.
+        $base = $this->makeFixtureForLazyLookup([
+            'scope'   => 'run:read',
+            'user_id' => 'u@example.com',
+            'run_ids' => '',
+        ]);
+        $this->assertSame([], $base->allowedRunIds());
+    }
+
+    public function testTokenWithoutRunIdsFieldFallsThroughToPerClient()
+    {
+        // run_ids key absent entirely → per-client lookup runs.
+        // Stub the OAuthHelper singleton so allowedRunIds() doesn't
+        // try to materialise the real Site::getOauthServer (which
+        // would reach for the live MySQL connection — the unit-test
+        // bootstrap only has SQLite). The stub answers
+        // getRunAllowlist(...) with [] = unrestricted, mirroring an
+        // empty oauth_client_runs lookup.
+        $stub = new class extends OAuthHelper {
+            public function __construct() { /* no Site::getOauthServer */ }
+            public function getRunAllowlist($clientId) { return []; }
+        };
+        $singletonProp = (new ReflectionClass(OAuthHelper::class))->getProperty('instance');
+        $singletonProp->setAccessible(true);
+        $prev = $singletonProp->getValue();
+        $singletonProp->setValue(null, $stub);
+        try {
+            $base = $this->makeFixtureForLazyLookup([
+                'scope'   => 'run:read',
+                'user_id' => 'u@example.com',
+                'client_id' => 'c_test',
+            ]);
+            $this->assertSame([], $base->allowedRunIds());
+            $this->assertTrue($base->callMayAccessRun(123));
+        } finally {
+            $singletonProp->setValue(null, $prev);
+        }
+    }
+
+    public function testPerTokenRunIdsIgnoresNonNumericNoise()
+    {
+        $base = $this->makeFixtureForLazyLookup([
+            'scope'   => 'run:read',
+            'user_id' => 'u@example.com',
+            'run_ids' => '42, , bogus, 7',
+        ]);
+        $this->assertSame([42, 7], $base->allowedRunIds());
+    }
 }

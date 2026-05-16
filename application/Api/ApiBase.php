@@ -277,11 +277,52 @@ abstract class ApiBase
     public function allowedRunIds()
     {
         if (!$this->allowedRunIdsLoaded) {
-            $clientId = isset($this->tokenData['client_id']) ? $this->tokenData['client_id'] : null;
-            $this->cachedAllowedRunIds = OAuthHelper::getInstance()->getRunAllowlist($clientId);
+            // Resolution precedence (most specific wins):
+            //   1. Per-token run_ids on the access-token row. Internal
+            //      callers (OpenCPU) stamp this via createAccessTokenForUser
+            //      so a token minted to render run X cannot touch run Y
+            //      even if the user's per-client allowlist would have
+            //      allowed it.
+            //   2. Per-client oauth_client_runs allowlist. The external
+            //      client_credentials path: scope and runs are decided
+            //      at credential-creation time in admin/account#api.
+            //   3. Empty = unrestricted (back-compat for tokens minted
+            //      before either mechanism existed and for internal
+            //      callers that legitimately need cross-run access).
+            $tokenRunIds = $this->parseTokenRunIds();
+            if ($tokenRunIds !== null) {
+                $this->cachedAllowedRunIds = $tokenRunIds;
+            } else {
+                $clientId = isset($this->tokenData['client_id']) ? $this->tokenData['client_id'] : null;
+                $this->cachedAllowedRunIds = OAuthHelper::getInstance()->getRunAllowlist($clientId);
+            }
             $this->allowedRunIdsLoaded = true;
         }
         return $this->cachedAllowedRunIds;
+    }
+
+    /**
+     * Parse the per-token run_ids string from the token row. Returns
+     * an int[] when the column is set (even to ''), null when it
+     * isn't — so callers can distinguish "no per-token restriction
+     * configured" from "explicit empty list" (the latter shouldn't
+     * really happen but is treated as "deny everything" if it does).
+     */
+    private function parseTokenRunIds()
+    {
+        if (!array_key_exists('run_ids', $this->tokenData) || $this->tokenData['run_ids'] === null) {
+            return null;
+        }
+        $raw = (string) $this->tokenData['run_ids'];
+        if ($raw === '') {
+            return [];
+        }
+        $ids = [];
+        foreach (preg_split('/\s*,\s*/', trim($raw)) as $part) {
+            if ($part === '' || !ctype_digit($part)) continue;
+            $ids[] = (int) $part;
+        }
+        return array_values(array_unique($ids));
     }
 
     /**
