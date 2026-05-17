@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'sql/patches/**'
+      - 'sql/schema.sql'
       - '.github/workflows/migrations.yml'
 
 permissions:
@@ -13,19 +14,30 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Lint new SQL patches against the base branch:
-#   * detects two branches both adding a patch with the same NNN prefix
-#   * detects edits to a patch that's already been merged (those should be a
-#     new patch, not a retroactive edit)
-#   * detects destructive ops (DROP COLUMN with possible data loss, MODIFY
-#     COLUMN that can fail under load, etc.) — flagged so reviewers see them
+# Validates that the SQL patches added in this PR actually apply cleanly
+# on top of the schema state that's already on master. Mirrors what
+# ./db_atlas_apply.sh apply does in the deployment repo
+# (https://github.com/rubenarslan/formr-docker):
 #
-# Atlas needs a "dev" database to compute the diff. We run an official
-# mariadb:noble service container (matches prod's image in
-# docker-compose.yml) instead of the previous `docker://mariadb/11/dev`
-# URL — Atlas's docker:// scheme pulls from arigaio's curated registry,
-# which doesn't publish a MariaDB 11+ tag, so docker://mariadb/11/dev
-# fails with "manifest unknown".
+#   1. Spin up an empty MariaDB matching the prod image.
+#   2. Load sql/schema.sql — the fresh-install baseline. The numbered
+#      patches aren't standalone; they ALTER tables that only exist
+#      after schema.sql has been loaded (e.g. 041_expiring_runs.sql
+#      touches survey_studies, which is only defined in schema.sql).
+#   3. Tell Atlas the dev DB is already at the highest patch version
+#      present on origin/<base_ref>. Atlas writes that as the baseline
+#      into atlas_schema_revisions without re-running any pre-base
+#      migration.
+#   4. Apply the new patches introduced by this PR. If any of them
+#      fails (FK target missing, column already exists, syntax error,
+#      …), the job fails with the actual atlas error.
+#
+# Atlas's `migrate lint` would also surface destructive-op warnings,
+# but it insists on owning the dev DB as a sandbox — it wipes whatever
+# state is preloaded — so it can't lint patches that depend on a
+# schema-baseline file. v0.38+ also moved lint behind Atlas Pro.
+# `migrate apply` against a properly seeded dev DB is the
+# corresponding free + production-faithful check.
 
 jobs:
   lint:
@@ -49,41 +61,53 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # full history so atlas can diff against the merge base
+          # full history so we can read sql/patches/ off origin/<base_ref>
           fetch-depth: 0
 
       - uses: ariga/setup-atlas@v0
         with:
-          # v0.38 moved `migrate lint` behind Atlas Pro; pin to the last
-          # release where it's still free. Bump only after either signing
-          # up for Pro (and wiring a token) or after the lint step is
-          # removed.
+          # Pin to the last release where `migrate lint` is free, so
+          # this workflow stays bumpable in either direction. The lint
+          # step itself isn't used (see top comment), but other atlas
+          # subcommands behave the same.
           version: v0.37.0
 
-      # Atlas's default versioned format treats the leading "NNN_" as the
-      # version, so no special configuration is needed for sql/patches/.
-      # We do need an atlas.sum, which we recompute on every run because we
-      # don't commit one upstream.
+      - name: Install mariadb client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends mariadb-client
+
+      - name: Seed fresh-install schema into dev DB
+        run: |
+          mariadb -h 127.0.0.1 -P 3306 -uroot -plint dev < sql/schema.sql
+
+      # Atlas's default versioned format treats the leading "NNN_" as
+      # the version. atlas.sum is regenerated each run (we don't commit
+      # it — see .gitignore).
       - name: Hash migrations
         run: atlas migrate hash --dir file://sql/patches
 
-      # Non-blocking until the dev-DB bootstrap is fixed. Atlas's `migrate
-      # lint` first replays every prior migration into the dev DB to reach
-      # the base state, then analyzes the new ones. But sql/patches/*.sql
-      # are not standalone — they assume sql/schema.sql has been loaded
-      # (e.g. 041_expiring_runs.sql ALTERs survey_studies, which is only
-      # defined in schema.sql). To make this gating, the workflow needs
-      # to seed schema.sql into dev and baseline Atlas at the highest
-      # in-master patch version before this step runs. Tracked as a
-      # follow-up; for now we surface the output so reviewers can still
-      # eyeball destructive-op warnings.
-      - name: Lint vs base branch
-        continue-on-error: true
+      - name: Determine baseline version from base branch
+        id: baseline
         run: |
-          atlas migrate lint \
+          version=$(git ls-tree --name-only "origin/${{ github.base_ref }}" sql/patches/ \
+            | grep '\.sql$' \
+            | sed 's|^sql/patches/||; s|\.sql$||' \
+            | sort \
+            | tail -1)
+          if [ -z "$version" ]; then
+            echo "No patches on origin/${{ github.base_ref }}; aborting" >&2
+            exit 1
+          fi
+          echo "Baseline at: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Apply new patches on top of baseline
+        run: |
+          atlas migrate apply \
             --dir file://sql/patches \
-            --dev-url "mariadb://root:lint@127.0.0.1:3306/dev" \
-            --git-base "origin/${{ github.base_ref }}"
+            --url "mariadb://root:lint@127.0.0.1:3306/dev" \
+            --baseline "${{ steps.baseline.outputs.version }}"
 
       - name: Validate integrity
         run: atlas migrate validate --dir file://sql/patches
