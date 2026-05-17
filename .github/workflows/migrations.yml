@@ -90,10 +90,12 @@ jobs:
       - name: Determine baseline version from base branch
         id: baseline
         run: |
+          # Atlas's default versioned format treats the numeric prefix
+          # (everything before the first underscore) as the version, so
+          # strip the description for the baseline arg.
           version=$(git ls-tree --name-only "origin/${{ github.base_ref }}" sql/patches/ \
-            | grep '\.sql$' \
-            | sed 's|^sql/patches/||; s|\.sql$||' \
-            | sort \
+            | grep -oE '[0-9]+' \
+            | sort -n \
             | tail -1)
           if [ -z "$version" ]; then
             echo "No patches on origin/${{ github.base_ref }}; aborting" >&2
