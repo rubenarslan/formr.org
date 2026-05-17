@@ -79,7 +79,16 @@ jobs:
 
       - name: Seed fresh-install schema into dev DB
         run: |
-          mariadb -h 127.0.0.1 -P 3306 -uroot -plint dev < sql/schema.sql
+          # schema.sql opens with `CREATE DATABASE IF NOT EXISTS formr`
+          # + `USE formr;`. The deployment's build.sh rewrites those two
+          # lines per-host with envsubst before loading (see formr-docker
+          # build.sh around the schema.sql copy block). In CI we drop
+          # them so the schema lands in the already-connected `dev`
+          # database — without this strip, USE formr; would silently
+          # redirect every CREATE TABLE into a separate `formr` database
+          # and atlas (connected to dev) would see an empty schema.
+          sed -e '/^CREATE DATABASE/d' -e '/^USE /d' sql/schema.sql \
+            | mariadb -h 127.0.0.1 -P 3306 -uroot -plint dev
 
       # Atlas's default versioned format treats the leading "NNN_" as
       # the version. atlas.sum is regenerated each run (we don't commit
