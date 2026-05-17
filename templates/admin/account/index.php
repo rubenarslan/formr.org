@@ -116,22 +116,288 @@
                         </div>
 
                         <div class="tab-pane" id="api">
-                            <?php if ($api_credentials): ?>
-                                <h4 class="lead"> <i class="fa fa-lock"></i> API Credentials</h4>
-                                <table class="table table-bordered">
-                                    <tr>
-                                        <td>Client ID</td>
-                                        <td><code><?= $api_credentials['client_id'] ?></code></td>
-                                    </tr>
+                            <h4 class="lead"> <i class="fa fa-lock"></i> API Credentials</h4>
+                            <p>
+                                The <code>formr</code> R package is the easiest way to use these credentials. Install it from GitHub with the <code>remotes</code> package:
+                            </p>
+                            <pre><code class="r copy-on-click">install.packages("remotes")
+remotes::install_github("rubenarslan/formr")</code></pre>
+                            <p>
+                                See the <a href="https://rubenarslan.github.io/formr/" target="_blank" rel="noopener">package documentation</a> for full usage. You can hold several credentials side by side — give each one a label and pick the scopes it needs for its specific use.
+                            </p>
+                            <?php if ($can_access_api): ?>
+                            <div id="api-credentials-panel"
+                                 data-endpoint="<?= admin_url('account/api-credentials') ?>">
 
-                                    <tr>
-                                        <td>Client Secret</td>
-                                        <td><code><?= $api_credentials['client_secret'] ?></code></td>
-                                    </tr>
-                                </table>
-                                <p> &nbsp; </p>
+                                <h5 style="margin-top: 20px;">Your credentials</h5>
+                                <?php if (empty($api_credentials_list)): ?>
+                                    <p class="text-muted"><em>You have no API credentials yet. Create one below.</em></p>
+                                <?php else: ?>
+                                    <table class="table table-bordered api-credentials-list">
+                                        <thead>
+                                            <tr>
+                                                <th>Label</th>
+                                                <th>Client ID</th>
+                                                <th>Scopes</th>
+                                                <th>Runs</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                        <?php foreach ($api_credentials_list as $cred): ?>
+                                            <tr data-client-id="<?= h($cred['client_id']) ?>" data-label="<?= h($cred['label']) ?>">
+                                                <td><strong><?= h($cred['label']) ?></strong></td>
+                                                <td><code><?= h($cred['client_id']) ?></code></td>
+                                                <td>
+                                                    <?php if (empty($cred['scopes'])): ?>
+                                                        <em class="text-muted">none — token cannot access API</em>
+                                                    <?php else: ?>
+                                                        <?php foreach ($cred['scopes'] as $sc): ?>
+                                                            <code style="margin-right: 4px;"><?= h($sc) ?></code>
+                                                        <?php endforeach; ?>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td><?= empty($cred['run_ids']) ? '<em class="text-muted">all</em>' : count($cred['run_ids']) . ' selected' ?></td>
+                                                <td>
+                                                    <button type="button" class="btn btn-warning btn-xs api-rotate-btn"><i class="fa fa-refresh"></i> Rotate</button>
+                                                    <button type="button" class="btn btn-danger btn-xs api-delete-btn"><i class="fa fa-trash"></i> Delete</button>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                <?php endif; ?>
+
+                                <h5 style="margin-top: 30px;">Create a new credential</h5>
+                                <div class="api-form" data-form-mode="create">
+                                    <div class="form-group">
+                                        <label class="control-label" for="api-label-input">Label</label>
+                                        <input id="api-label-input" type="text" maxlength="64" class="form-control"
+                                               style="max-width: 360px;"
+                                               placeholder="e.g. dashboard, cron-2026">
+                                        <p class="help-block">Used only on this page to tell credentials apart. Must be unique within your account; <code>internal</code> is reserved.</p>
+                                    </div>
+
+                                    <fieldset class="api-scope-picker">
+                                        <legend>Scopes</legend>
+                                        <p class="help-block">
+                                            Pick exactly the capabilities this credential should grant. A token with no scopes cannot do anything.
+                                        </p>
+                                        <?php foreach ($available_scopes as $scope_key => $scope_label): ?>
+                                            <div class="checkbox">
+                                                <label>
+                                                    <input type="checkbox" name="api_scope[]" value="<?= h($scope_key) ?>">
+                                                    <code><?= h($scope_key) ?></code> — <?= h($scope_label) ?>
+                                                </label>
+                                            </div>
+                                        <?php endforeach; ?>
+
+                                        <legend style="margin-top: 20px;">Restrict to runs</legend>
+                                        <p class="help-block">
+                                            Leave empty to allow this credential to act on all of your runs. Selecting one or more runs limits the credential to those runs and to surveys that are part of them.
+                                        </p>
+                                        <?php if (empty($user_runs)): ?>
+                                            <p class="text-muted"><em>You have no runs yet.</em></p>
+                                        <?php else: ?>
+                                            <select name="api_run_ids[]" multiple class="form-control" size="<?= min(8, max(3, count($user_runs))) ?>" style="width: 100%; max-width: 480px;">
+                                                <?php foreach ($user_runs as $run_row): ?>
+                                                    <option value="<?= (int) $run_row['id'] ?>"><?= h($run_row['name']) ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        <?php endif; ?>
+                                    </fieldset>
+
+                                    <button type="button" class="btn btn-primary btn-raised" id="api-create-btn" style="margin-top: 15px;">
+                                        <i class="fa fa-key"></i> <span class="api-submit-label">Create credential</span>
+                                    </button>
+                                    <button type="button" class="btn btn-default" id="api-cancel-rotate-btn" style="margin-top: 15px; display: none;">
+                                        Cancel
+                                    </button>
+                                </div>
+
+                                <div id="api-secret-once" class="hidden" style="margin-top: 20px;">
+                                    <div class="alert alert-warning">
+                                        <strong>One-time display.</strong> Copy the client secret now — we only store a hash, so it cannot be recovered later.
+                                    </div>
+                                    <table class="table table-bordered">
+                                        <tr>
+                                            <td>Client ID</td>
+                                            <td><code class="copy-on-click api-out-client-id"></code></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Client Secret</td>
+                                            <td><code class="copy-on-click api-out-client-secret"></code></td>
+                                        </tr>
+                                        <tr>
+                                            <td>R command</td>
+                                            <td><pre><code class="r copy-on-click api-out-r-cmd"></code></pre></td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <noscript>
+                                    <div class="alert alert-info" style="margin-top: 15px;">
+                                        JavaScript is required to generate or rotate API credentials.
+                                    </div>
+                                </noscript>
+                            </div>
+                            <?php else: ?>
+                            <?php
+                            // Same pattern as register.php — surface the
+                            // instance's support email so users have a real
+                            // address to write to instead of "an administrator".
+                            $support_email = Site::getSettings('content:docu:support_email', 'no@email.provided');
+                            $support_email_link = '<a href="mailto:' . h($support_email) . '?subject=' . rawurlencode('Request API access') . '">' . h($support_email) . '</a>';
+                            ?>
+                            <div class="alert alert-info">
+                                <i class="fa fa-info-circle"></i>
+                                You do not have API access. To request API credentials, write to this instance's administrator at <?= $support_email_link ?>.
+                            </div>
                             <?php endif; ?>
+                            <p> &nbsp; </p>
                         </div>
+                        <script>
+                        (function () {
+                            var $panel = jQuery('#api-credentials-panel');
+                            if (!$panel.length) { return; }
+                            var endpoint = $panel.data('endpoint');
+                            var apiHost = <?= json_encode(rtrim(site_url('api'), '/')) ?>;
+                            var $form = $panel.find('.api-form');
+                            var $submitBtn = $panel.find('#api-create-btn');
+                            var $submitLabel = $panel.find('.api-submit-label');
+                            var $cancelBtn = $panel.find('#api-cancel-rotate-btn');
+                            var $labelInput = $panel.find('#api-label-input');
+                            // rotate state — when non-null the form submits a rotate
+                            // for this client_id (label is fixed and disabled).
+                            var rotateClientId = null;
+
+                            function rCommand(clientId, clientSecret) {
+                                return 'library(formr)\n' +
+                                    'formr_store_keys(host = "' + apiHost +
+                                    '", client_id = "' + clientId +
+                                    '", client_secret = "' + clientSecret + '")\n' +
+                                    'formr_api_authenticate(host = "' + apiHost + '")';
+                            }
+
+                            function collectSelections() {
+                                var scopes = $form.find('input[name="api_scope[]"]:checked').map(function () {
+                                    return this.value;
+                                }).get();
+                                var runIds = $form.find('select[name="api_run_ids[]"] option:selected').map(function () {
+                                    return this.value;
+                                }).get();
+                                return { scope: scopes, run_ids: runIds };
+                            }
+
+                            function enterCreateMode() {
+                                rotateClientId = null;
+                                $form.attr('data-form-mode', 'create');
+                                $labelInput.prop('disabled', false).val('');
+                                $submitLabel.text('Create credential');
+                                $submitBtn.removeClass('btn-warning').addClass('btn-primary');
+                                $cancelBtn.hide();
+                                $form.find('input[name="api_scope[]"]').prop('checked', false);
+                                $form.find('select[name="api_run_ids[]"] option:selected').prop('selected', false);
+                                $panel.find('#api-secret-once').addClass('hidden');
+                            }
+
+                            function enterRotateMode(clientId, label, scopes, runIds) {
+                                rotateClientId = clientId;
+                                $form.attr('data-form-mode', 'rotate');
+                                $labelInput.prop('disabled', true).val(label);
+                                $submitLabel.text('Rotate secret for "' + label + '"');
+                                $submitBtn.removeClass('btn-primary').addClass('btn-warning');
+                                $cancelBtn.show();
+                                $form.find('input[name="api_scope[]"]').each(function () {
+                                    this.checked = scopes.indexOf(this.value) !== -1;
+                                });
+                                $form.find('select[name="api_run_ids[]"] option').each(function () {
+                                    this.selected = runIds.indexOf(parseInt(this.value, 10)) !== -1;
+                                });
+                                $panel.find('#api-secret-once').addClass('hidden');
+                                jQuery('html, body').animate({
+                                    scrollTop: $form.offset().top - 80
+                                }, 200);
+                            }
+
+                            function reloadAfter(ms) {
+                                setTimeout(function () { window.location.reload(); }, ms);
+                            }
+
+                            function submitForm() {
+                                var sel = collectSelections();
+                                if (sel.scope.length === 0
+                                    && !confirm('You have not selected any scopes. A token with no scopes cannot access the API. Continue anyway?')) {
+                                    return;
+                                }
+                                var payload;
+                                if (rotateClientId === null) {
+                                    var label = jQuery.trim($labelInput.val());
+                                    if (!label) {
+                                        alert('Please pick a label for this credential.');
+                                        return;
+                                    }
+                                    payload = jQuery.extend({ api_action: 'create', label: label }, sel);
+                                } else {
+                                    if (!confirm('Rotating will invalidate the current secret. Continue?')) { return; }
+                                    payload = jQuery.extend({ api_action: 'rotate', client_id: rotateClientId }, sel);
+                                }
+                                $submitBtn.prop('disabled', true);
+                                jQuery.ajax({
+                                    type: 'POST',
+                                    url: endpoint,
+                                    traditional: false,
+                                    data: payload,
+                                    dataType: 'json'
+                                }).done(function (response) {
+                                    if (!response || !response.success) {
+                                        alert((response && response.message) || 'Could not issue API credentials.');
+                                        $submitBtn.prop('disabled', false);
+                                        return;
+                                    }
+                                    $panel.find('.api-out-client-id').text(response.data.client_id);
+                                    $panel.find('.api-out-client-secret').text(response.data.client_secret);
+                                    $panel.find('.api-out-r-cmd').text(rCommand(response.data.client_id, response.data.client_secret));
+                                    $panel.find('#api-secret-once').removeClass('hidden');
+                                    reloadAfter(60000); // reload after a minute so the list refreshes
+                                }).fail(function () {
+                                    alert('Request failed.');
+                                    $submitBtn.prop('disabled', false);
+                                });
+                            }
+
+                            $panel.on('click', '.api-rotate-btn', function () {
+                                var $row = jQuery(this).closest('tr');
+                                var clientId = $row.data('client-id');
+                                var label = $row.data('label');
+                                // Pre-fetch the current scopes/runs from the row's badge column
+                                var scopes = $row.find('td:eq(2) code').map(function () { return jQuery(this).text(); }).get();
+                                // The row only shows a count of runs, not the actual ids — leave runs unselected
+                                // and the user can re-pick. (Keeping the previous allowlist would require an extra
+                                // round-trip.)
+                                enterRotateMode(clientId, label, scopes, []);
+                            });
+                            $panel.on('click', '.api-delete-btn', function () {
+                                var $row = jQuery(this).closest('tr');
+                                var clientId = $row.data('client-id');
+                                var label = $row.data('label');
+                                if (!confirm('Delete the "' + label + '" credential? This cannot be undone — any service still using it will get 401 on the next call.')) { return; }
+                                jQuery.ajax({
+                                    type: 'POST',
+                                    url: endpoint,
+                                    data: { api_action: 'delete', client_id: clientId },
+                                    dataType: 'json'
+                                }).done(function (response) {
+                                    if (response && response.success) {
+                                        $row.remove();
+                                    } else {
+                                        alert((response && response.message) || 'Could not delete credential.');
+                                    }
+                                }).fail(function () { alert('Request failed.'); });
+                            });
+                            $panel.on('click', '#api-create-btn', submitForm);
+                            $panel.on('click', '#api-cancel-rotate-btn', enterCreateMode);
+                        })();
+                        </script>
                         <!-- /.tab-pane -->
                         <div class="tab-pane" id="data">
                             <form method="post" action="">

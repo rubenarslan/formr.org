@@ -1,0 +1,24 @@
+meta {
+  name: Upload Image
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{host}}/v1/runs/api-test/files
+  body: multipartForm
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:multipart-form {
+  file: @file(assets/test_image.png)
+}
+
+assert {
+  res.status: eq 201
+  res.body.file: eq "test_image.png"
+}

@@ -3,6 +3,27 @@ use RobThree\Auth\TwoFactorAuth;
 
 class AdminAccountController extends Controller {
 
+    /**
+     * Human-readable labels for the 11 scopes seeded by
+     * sql/patches/049_add_oauth_scopes.sql. Kept on the controller (not
+     * in the DB) so the label set tracks the code that consumes the
+     * scope strings — and so an instance can't get a partially-
+     * translated set if the DB seed lags behind the app.
+     */
+    const API_SCOPES = [
+        'user:read'    => 'Read your account profile',
+        'user:write'   => 'Update your account profile',
+        'survey:read'  => 'Read survey definitions and items',
+        'survey:write' => 'Create / update / delete surveys',
+        'run:read'     => 'Read run metadata and settings',
+        'run:write'    => 'Create / update / delete runs',
+        'session:read' => 'Read participant sessions',
+        'session:write'=> 'Create / advance / delete sessions',
+        'data:read'    => 'Read participant response data',
+        'file:read'    => 'Download files attached to runs',
+        'file:write'   => 'Upload files to runs',
+    ];
+
     public function __construct(Site &$site) {
         parent::__construct($site);
         if (!Request::isAjaxRequest()) {
@@ -114,12 +135,106 @@ class AdminAccountController extends Controller {
             $vars['names'] = $this->user->email;
         }
         $vars['affiliation'] = $this->user->affiliation ? $this->user->affiliation : '(no affiliation specified)';
-        $vars['api_credentials'] = OAuthHelper::getInstance()->getClient($this->user);
+        $vars['can_access_api'] = $this->user->canAccessApi();
+        // Scope picker inputs. Always populate even if the user can't
+        // access the API — the template only consults them inside the
+        // `$can_access_api` branch.
+        $vars['available_scopes'] = self::API_SCOPES;
+        $vars['user_runs'] = $this->user->getRuns('id DESC', null);
+        $vars['api_credentials_list'] = $vars['can_access_api']
+            ? OAuthHelper::getInstance()->listClientsForUser($this->user)
+            : [];
         $vars['survey_count'] = $this->fdb->count('survey_studies', ['user_id' => $this->user->id]);
         $vars['run_count'] = $this->fdb->count('survey_runs', ['user_id' => $this->user->id]);
         $vars['mail_count'] = $this->fdb->count('survey_email_accounts', ['user_id' => $this->user->id, 'deleted' => 0]);
 
         $this->setView('admin/account/index', $vars);
+        return $this->sendResponse();
+    }
+
+    /**
+     * AJAX endpoint for managing the caller's OAuth credentials.
+     * Supports four sub-actions selected by the `api_action` POST param:
+     *
+     *   create   — mint a new credential with a chosen label + scopes
+     *              + run allowlist. Returns the plaintext client_secret
+     *              once (storage holds only the hash).
+     *   rotate   — rotate the secret of an existing credential
+     *              identified by `client_id`. Optionally replaces its
+     *              scopes / runs.
+     *   delete   — drop an existing credential identified by `client_id`,
+     *              cascade-deleting its tokens.
+     *
+     * AJAX (not plain POST) so a page refresh after issuance cannot
+     * re-submit the rotation and silently invalidate the secret the
+     * user just copied.
+     */
+    public function apiCredentialsAction() {
+        if (!$this->user->loggedIn() || !$this->user->canAccessApi() || !$this->request->isAjaxRequest() || !$this->request->isHTTPPostRequest()) {
+            $this->response->setStatusCode(403, 'Forbidden');
+            $this->response->setContentType('application/json');
+            $this->response->setJsonContent(['success' => false, 'message' => 'API access requires separate admin access. Please contact your administrator to discuss access.']);
+            return $this->sendResponse();
+        }
+
+        $action = $this->request->str('api_action');
+        $clientId = $this->request->str('client_id');
+        $label = $this->request->str('label');
+
+        // Scope + run-allowlist inputs. Both default to empty arrays;
+        // the helper validates each value against oauth_scopes /
+        // survey_runs(user_id = $this->user->id), so a malicious or
+        // typo'd POST gets a clean false back and no rows are written.
+        $rawScopes = $this->request->arr('scope', []);
+        $scopes = is_array($rawScopes) ? array_values($rawScopes) : [];
+        $rawRunIds = $this->request->arr('run_ids', []);
+        $runIds = is_array($rawRunIds) ? array_map('intval', array_values($rawRunIds)) : [];
+
+        $helper = OAuthHelper::getInstance();
+        $this->response->setContentType('application/json');
+        if ($action === 'create') {
+            $client = $helper->createClient($this->user, $label, $scopes, $runIds);
+            if (!$client || empty($client['client_secret'])) {
+                $this->response->setJsonContent(['success' => false, 'message' => 'Could not create credential. Check the label (must be unique, 1–64 chars, not "internal") and your scope/run selections.']);
+                return $this->sendResponse();
+            }
+            $this->response->setJsonContent([
+                'success' => true,
+                'data' => [
+                    'client_id' => $client['client_id'],
+                    'client_secret' => $client['client_secret']->getString(),
+                    'label' => $label,
+                ],
+            ]);
+            return $this->sendResponse();
+        }
+
+        if ($action === 'rotate') {
+            $client = $helper->rotateClient($this->user, $clientId, $scopes, $runIds);
+            if (!$client || empty($client['client_secret'])) {
+                $this->response->setJsonContent(['success' => false, 'message' => 'Could not rotate credential. Check your scope and run selections.']);
+                return $this->sendResponse();
+            }
+            $this->response->setJsonContent([
+                'success' => true,
+                'data' => [
+                    'client_id' => $client['client_id'],
+                    'client_secret' => $client['client_secret']->getString(),
+                ],
+            ]);
+            return $this->sendResponse();
+        }
+
+        if ($action === 'delete') {
+            $ok = $helper->deleteClient($this->user, $clientId);
+            $this->response->setJsonContent($ok
+                ? ['success' => true]
+                : ['success' => false, 'message' => 'Could not delete credential.']);
+            return $this->sendResponse();
+        }
+
+        $this->response->setStatusCode(400, 'Bad Request');
+        $this->response->setJsonContent(['success' => false, 'message' => 'Unknown action']);
         return $this->sendResponse();
     }
 

@@ -14,6 +14,7 @@ formr-package/man
 /tmp/*.lock
 /tmp/*.*
 /nbproject
+/webroot/assets/build
 /webroot/assets/tmp/*
 /webroot/assets/dsc.php
 /webroot/assets/node_modules/*
@@ -42,6 +43,9 @@ node_modules
 webroot/assets/dev-build
 *aardvark*
 feature_diff.patch
+repomix-output.xml
+.repomixignore
+repomix-output-formr.xml
 .playwright-mcp/
 
 # Claude Code: share agents + team settings, keep local overrides and cache
@@ -67,3 +71,4 @@ tests/e2e/*.json
 log/
 playwright-browserstack-sdk.config.temp.json
 tests/e2e/playwright-browserstack-sdk.config.js
+sql/patches/atlas.sum

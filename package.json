@@ -1,6 +1,6 @@
 {
     "name": "formr.org",
-    "version": "v0.26.2",
+    "version": "v1.0.0",
     "description": "formr survey framework",
     "readme": "../../README.md",
     "authors": [
@@ -12,7 +12,7 @@
         "build:css": "node build-scripts/css.js",
         "build:js": "node build-scripts/js.js",
         "build": "npm run build:copy && npm run build:css && npm run build:js",
-        "webpack:build": "node --max-old-space-size=1024 node_modules/.bin/webpack --mode production --parallelism=1",
+        "webpack:build": "node --max-old-space-size=2048 node_modules/.bin/webpack --mode production --parallelism=1 --progress",
         "webpack:watch": "webpack --watch --env WEBPACK_WATCH=true",
         "webpack:start": "webpack serve",
         "test:e2e": "playwright test --config tests/e2e/playwright.config.js --project=local-chromium",
@@ -20,13 +20,14 @@
         "test:bs": "bash -c 'set -a && [ -f ../.env.dev ] && . ../.env.dev; set +a; exec browserstack-node-sdk playwright test --config tests/e2e/playwright.config.js \"$@\"' --"
     },
     "devDependencies": {
+        "@babel/core": "^7.28.5",
         "@babel/plugin-syntax-dynamic-import": "^7.8.3",
         "@playwright/test": "1.57",
         "browserstack-local": "^1.5.13",
         "browserstack-node-sdk": "^1.52.2",
         "dotenv": "^17.4.2",
         "@babel/plugin-transform-strict-mode": "^7.25.9",
-        "@babel/preset-env": "^7.26.8",
+        "@babel/preset-env": "^7.28.5",
         "autoprefixer": "^10.4.20",
         "babel-loader": "^9.2.1",
         "baseline-browser-mapping": "^2.10.20",
@@ -43,6 +44,7 @@
         "fs-extra": "^11.3.0",
         "mini-css-extract-plugin": "^2.9.4",
         "postcss-cli": "^11.0.0",
+        "repomix": "^1.9.2",
         "string-replace-loader": "^3.3.0",
         "style-loader": "^4.0.0",
         "terser": "^5.38.1",

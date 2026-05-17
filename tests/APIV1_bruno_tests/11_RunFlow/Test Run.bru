@@ -1,0 +1,21 @@
+meta {
+  name: Test Run
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{host_no_api}}/api-test/
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body: contains Hi there, Pokémaster!
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

@@ -6,7 +6,8 @@
 // - calculate survey_run_sessions$session in the unlinked surveys
 // - calculate private data from unlinked survey in linked survey
 // - check user_overview to see which users have already made it to the unlinked survey
-class SurveyStudy extends Model {
+class SurveyStudy extends Model
+{
 
     public $id = null;
     public $user_id = null;
@@ -30,19 +31,30 @@ class SurveyStudy extends Model {
 
     public $created = null;
     public $modified = null;
-    
+
     protected $valid_name_pattern = "/[a-zA-Z][a-zA-Z0-9_]{2,64}/";
-    
+
     protected $table = 'survey_studies';
 
     private $result_count = null;
-    
+
     protected $user_defined_columns = [
-        'name', 'label', 'label_parsed', 'type', 'type_options', 'choice_list', 
-        'optional', 'class', 'showif', 'value', 'block_order', 'item_order', 'order',
+        'name',
+        'label',
+        'label_parsed',
+        'type',
+        'type_options',
+        'choice_list',
+        'optional',
+        'class',
+        'showif',
+        'value',
+        'block_order',
+        'item_order',
+        'order',
         // study_id is not among the user_defined columns
     ];
-    
+
     protected $can_delete = false;
     protected $is_new = false;
 
@@ -53,9 +65,20 @@ class SurveyStudy extends Model {
      * @param int $id
      * @param array $options
      */
-    public function __construct($id = null, $options = []) {
+    public function __construct($id = null, $options = [])
+    {
         parent::__construct();
-        $this->assignProperties($options);
+        // Defense-in-depth allowlist. Static factories loadByName /
+        // loadByUserAndName pass {name, user_id} as lookup keys; load()
+        // also takes 'id' from these. Everything else (results_table,
+        // valid, created, ...) must come from the DB row that load()
+        // resolves, not from caller-provided $options.
+        if ($options) {
+            $this->assignProperties(array_intersect_key(
+                (array) $options,
+                ['name' => true, 'user_id' => true, 'id' => true]
+            ));
+        }
         $this->load($id, $options);
     }
 
@@ -65,7 +88,8 @@ class SurveyStudy extends Model {
      * @param int $id
      * @return SurveyStudy
      */
-    public static function loadById($id) {
+    public static function loadById($id)
+    {
         return new SurveyStudy((int) $id);
     }
 
@@ -75,7 +99,8 @@ class SurveyStudy extends Model {
      * @param string $name
      * @return SurveyStudy
      */
-    public static function loadByName($name) {
+    public static function loadByName($name)
+    {
         $options = ['name' => $name];
         return new SurveyStudy(null, $options);
     }
@@ -86,7 +111,8 @@ class SurveyStudy extends Model {
      * @param string $name
      * @return \SurveyStudy
      */
-    public static function loadByUserAndName(User $user, $name) {
+    public static function loadByUserAndName(User $user, $name)
+    {
         $options = [
             'name' => $name,
             'user_id' => $user->id,
@@ -94,11 +120,12 @@ class SurveyStudy extends Model {
         return new SurveyStudy(null, $options);
     }
 
-    protected function load($id, $options) {
+    protected function load($id, $options)
+    {
         if (!$options || !is_array($options)) {
             $options = [];
         }
-        
+
         if ($id) {
             $options['id'] = (int) $id;
         }
@@ -108,11 +135,11 @@ class SurveyStudy extends Model {
             if (!$this->results_table) {
                 $this->results_table = $this->name;
             }
-            
+
             $this->valid = true;
         }
     }
- 
+
     /**
      * 
      * @param array $file
@@ -120,17 +147,27 @@ class SurveyStudy extends Model {
      * @return boolean
      */
 
-    public function createFromFile($file, $options = []) {
+    public function createFromFile($file, $options = [])
+    {
         // Create the corresponding entry in survey_units to get the ID
         $id = RunUnitFactory::make(new Run(), ['type' => 'Survey'])->create($options)->id;
         $this->assignProperties($file);
-        
+
         $this->id = $id;
         $this->name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", basename($file['name']));
         $this->results_table = substr("s" . $this->id . '_' . $this->name, 0, 64);
         $this->created = mysql_now();
         $this->modified = mysql_now();
-        $this->user_id = Site::getCurrentUser()->id;
+
+        // Survey ownership is bound to the caller. Honor an explicit
+        // $options['user_id'] only when it agrees with the current user;
+        // never blindly accept a caller-supplied id (e.g. via the
+        // structure-import JSON consumed by Run::importUnits).
+        $current_user_id = (int) Site::getCurrentUser()->id;
+        if (isset($options['user_id']) && (int) $options['user_id'] !== $current_user_id) {
+            return false;
+        }
+        $this->user_id = $current_user_id;
 
         $results_table = substr("s" . $this->id . '_' . $this->name, 0, 64);
 
@@ -143,19 +180,29 @@ class SurveyStudy extends Model {
 
         return true;
     }
-    
-    public static function createFromData($data, $options = []) {
+
+    public static function createFromData($data, $options = [])
+    {
         unset($options['survey_data']);
         if (empty($data->name) || empty($data->items)) {
             return false;
         }
-        
-        $study = self::loadByUserAndName(Site::getCurrentUser(), $data->name);
+
+        // Survey ownership is bound to the caller. Honor an explicit
+        // $options['user_id'] only when it agrees with the current user.
+        // createFromFile applies the same check on the insert path.
+        $current_user = Site::getCurrentUser();
+        if (isset($options['user_id']) && (int) $options['user_id'] !== (int) $current_user->id) {
+            return false;
+        }
+        $user = $current_user;
+
+        $study = self::loadByUserAndName($user, $data->name);
 
         if ($study->valid) {
             // Survey exists so use existing data
             $unit = [
-                'id'=> $study->id,
+                'id' => $study->id,
                 'study_id' => $study->id,
                 'type' => 'Survey',
                 'importing' => true,
@@ -165,25 +212,38 @@ class SurveyStudy extends Model {
             RunUnitFactory::make($options['run'], $unit)->create($options);
         } else {
             $study = new SurveyStudy();
-            $file = ['name' => $data->name .'.xlsx'];
+            $file = ['name' => $data->name . '.xlsx'];
             unset($options['is_import']);
             if (!$study->createFromFile($file, $options)) {
                 return false;
             }
 
-            // save settings
-            $data->settings = isset($data->settings) ? (array) $data->settings : [];
+            // Save settings. Allowlist what may be written before
+            // assignProperties touches the model — Model::assignProperties
+            // uses property_exists() and would otherwise let the caller
+            // smuggle id, user_id, name, results_table, created, etc.
+            // through this object. The follow-up save() resolves UPDATE vs
+            // INSERT by entry_exists($table, ['id' => $this->id]), so a
+            // smuggled id pointed UPDATE at any pre-existing row.
+            $allowed_settings = [
+                'maximum_number_displayed', 'displayed_percentage_maximum',
+                'add_percentage_points', 'expire_after',
+                'expire_invitation_after', 'expire_invitation_grace',
+                'enable_instant_validation',
+                'unlinked', 'hide_results', 'use_paging',
+            ];
+            $raw_settings = isset($data->settings) ? (array) $data->settings : [];
+            $filtered = array_intersect_key($raw_settings, array_flip($allowed_settings));
             $data->settings = array_merge([
                 'maximum_number_displayed' => 0,
                 'displayed_percentage_maximum' => 100,
                 'add_percentage_points' => 0,
-
-                ], $data->settings);
+            ], $filtered);
             $study->assignProperties($data->settings);
             $study->is_new = true;
             $study->save();
         }
-        
+
         // Mock SpreadSheetReader to use existing mechanism of creating survey items
         $reader = new SpreadsheetReader();
         foreach ($data->items as $item) {
@@ -218,10 +278,11 @@ class SurveyStudy extends Model {
         return $study;
     }
 
-    public function uploadItems($file, $can_delete = false, $is_new = false) {
+    public function uploadItems($file, $can_delete = false, $is_new = false)
+    {
         umask(0002);
         ini_set('memory_limit', Config::get('memory_limit.survey_upload_items'));
-        
+
         $filepath = $file['tmp_name'];
         $filename = $file['name'];
         $this->can_delete = $can_delete;
@@ -231,7 +292,7 @@ class SurveyStudy extends Model {
 
         $reader = new SpreadsheetReader();
         $reader->readItemTableFile($filepath);
-        
+
         $this->errors = array_merge($this->errors, $reader->errors);
         $this->warnings = array_unique(array_merge($this->warnings, $reader->warnings));
         $this->messages = array_unique(array_merge($this->messages, $reader->messages));
@@ -249,7 +310,7 @@ class SurveyStudy extends Model {
             // save original survey sheet
             $filename = 'formr-survey-' . Site::getCurrentUser()->id . '-' . $filename;
             $file = Config::get('survey_upload_dir') . '/' . $filename;
-            
+
             if (file_exists($filepath) && (move_uploaded_file($filepath, $file) || rename($filepath, $file))) {
                 $this->original_file = $filename;
                 $this->modified = mysql_datetime();
@@ -265,35 +326,37 @@ class SurveyStudy extends Model {
         }
     }
 
-    protected function resultsTableExists() {
-		if (!$this->results_table) {
-			return false;
-		}
+    protected function resultsTableExists()
+    {
+        if (!$this->results_table) {
+            return false;
+        }
 
         return $this->db->table_exists($this->results_table);
     }
-    
-    protected function toArray() {
+
+    protected function toArray()
+    {
         return [
-           'id' => $this->id, 
-           'user_id' => $this->user_id,
-           'name' => $this->name,
-           'results_table' => $this->results_table,
-           'valid' => $this->valid,
-           'maximum_number_displayed' => $this->maximum_number_displayed, 
-           'displayed_percentage_maximum' => $this->displayed_percentage_maximum,
-           'add_percentage_points' => $this->add_percentage_points,
-           'expire_after' => $this->expire_after,
-           'expire_invitation_after' => $this->expire_invitation_after,
-           'expire_invitation_grace' => $this->expire_invitation_grace,
-           'enable_instant_validation' => $this->enable_instant_validation,
-           'original_file' => $this->original_file,
-           'google_file_id' => $this->google_file_id, 
-           'unlinked' => $this->unlinked,
-           'hide_results' => $this->hide_results,
-           'use_paging' => $this->use_paging,
-           'created' => $this->created,
-           'modified' => $this->modified,
+            'id' => $this->id,
+            'user_id' => $this->user_id,
+            'name' => $this->name,
+            'results_table' => $this->results_table,
+            'valid' => $this->valid,
+            'maximum_number_displayed' => $this->maximum_number_displayed,
+            'displayed_percentage_maximum' => $this->displayed_percentage_maximum,
+            'add_percentage_points' => $this->add_percentage_points,
+            'expire_after' => $this->expire_after,
+            'expire_invitation_after' => $this->expire_invitation_after,
+            'expire_invitation_grace' => $this->expire_invitation_grace,
+            'enable_instant_validation' => $this->enable_instant_validation,
+            'original_file' => $this->original_file,
+            'google_file_id' => $this->google_file_id,
+            'unlinked' => $this->unlinked,
+            'hide_results' => $this->hide_results,
+            'use_paging' => $this->use_paging,
+            'created' => $this->created,
+            'modified' => $this->modified,
         ];
     }
 
@@ -304,7 +367,8 @@ class SurveyStudy extends Model {
      * @param string $label
      * @return $array Returns an array indexed by list name;
      */
-    public function getChoices($specific = null, $label = 'label') {
+    public function getChoices($specific = null, $label = 'label')
+    {
         $select = $this->db->select('list_name, name, label, label_parsed');
         $select->from('survey_item_choices');
         $select->where(array('study_id' => $this->id));
@@ -315,7 +379,7 @@ class SurveyStudy extends Model {
             $select->whereIn('list_name', $specific);
         }
         $select->order('id', 'ASC');
-        
+
         $lists = array();
         $stmt = $select->statement();
 
@@ -334,11 +398,12 @@ class SurveyStudy extends Model {
         return $lists;
     }
 
-    public function getChoicesForSheet() {
+    public function getChoicesForSheet()
+    {
         return $this->db->select('list_name, name, label')
-                        ->from('survey_item_choices')
-                        ->where(array('study_id' => $this->id))
-                        ->order('id', 'ASC')->fetchAll();
+            ->from('survey_item_choices')
+            ->where(array('study_id' => $this->id))
+            ->order('id', 'ASC')->fetchAll();
     }
 
     /**
@@ -355,7 +420,8 @@ class SurveyStudy extends Model {
      * @param SpreadsheetReader|JsonReader $reader
      * @return boolean
      */
-    protected function saveUploadedItemsFromReader($reader) {
+    protected function saveUploadedItemsFromReader($reader)
+    {
 
         // Get old choice lists for getting old items
         $choiceLists = $this->getChoices();
@@ -376,7 +442,7 @@ class SurveyStudy extends Model {
         }
 
         try {
-            
+
             $this->db->beginTransaction();
             $data = $this->addItems($reader);
             $new_items = $data['new_items'];
@@ -385,7 +451,7 @@ class SurveyStudy extends Model {
             $added = array_diff_assoc($new_items, $old_items);
             $deleted = array_diff_assoc($old_items, $new_items);
             $unused = $itemFactory->unusedChoiceLists();
-            
+
             if ($unused) {
                 $this->warnings[] = __("These choice lists were not used: '%s'", implode("', '", $unused));
             }
@@ -454,15 +520,27 @@ class SurveyStudy extends Model {
      * @param SpreadsheetReader|JsonReader $reader
      * @return array array(new_items, result_columns)
      */
-    protected function addItems($reader) {
+    protected function addItems($reader)
+    {
         // Save new choices and re-build the item factory
         $this->addChoices($reader);
         $choice_lists = $this->getChoices();
         $itemFactory = new ItemFactory($choice_lists);
-        
+
         $definedColumns = [
-            'name', 'label', 'label_parsed', 'type', 'type_options', 'choice_list', 
-            'optional', 'class', 'showif', 'value', 'block_order', 'item_order', 'order',
+            'name',
+            'label',
+            'label_parsed',
+            'type',
+            'type_options',
+            'choice_list',
+            'optional',
+            'class',
+            'showif',
+            'value',
+            'block_order',
+            'item_order',
+            'order',
             // study_id is not among the user_defined columns
         ];
 
@@ -471,7 +549,8 @@ class SurveyStudy extends Model {
         $addStmt = $this->db->prepare(
             "INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `block_order`,`item_order`, `order`) 
 			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :value, :block_order, :item_order, :order) 
-			ON DUPLICATE KEY UPDATE $UPDATES");
+			ON DUPLICATE KEY UPDATE $UPDATES"
+        );
         $addStmt->bindParam(":study_id", $this->id);
 
         $ret = array(
@@ -499,14 +578,14 @@ class SurveyStudy extends Model {
 
             // if the parsed label is constant or exists
             if (!knitting_needed($item->label) && !$item->label_parsed) {
-				try {
-					$markdown = $reader->parsedown->text($item->label);
-				} catch (Exception $e) {
-					formr_log_exception($e, 'PARSEDOWN.TEXT');
-					$markdown = $item->label;
-				}
+                try {
+                    $markdown = $reader->parsedown->text($item->label);
+                } catch (Exception $e) {
+                    formr_log_exception($e, 'PARSEDOWN.TEXT');
+                    $markdown = $item->label;
+                }
                 $item->label_parsed = $markdown;
-                if (mb_substr_count($markdown, "</p>") === 1 AND preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)) {
+                if (mb_substr_count($markdown, "</p>") === 1 and preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)) {
                     $item->label_parsed = $matches[1];
                 }
             }
@@ -525,7 +604,8 @@ class SurveyStudy extends Model {
         return $ret;
     }
 
-    public function getItemsWithChoices($columns = null, $whereIn = null) {
+    public function getItemsWithChoices($columns = null, $whereIn = null)
+    {
         if ($this->resultsTableExists()) {
             $choice_lists = $this->getChoices();
             $itemFactory = new ItemFactory($choice_lists);
@@ -543,10 +623,11 @@ class SurveyStudy extends Model {
         }
     }
 
-    public function getItemsInResultsTable() {
-		if (($existingColumns = $this->db->getTableDefinition($this->results_table, 'Field'))) {
-			$existingColumns = array_keys($existingColumns);
-		}
+    public function getItemsInResultsTable()
+    {
+        if (($existingColumns = $this->db->getTableDefinition($this->results_table, 'Field'))) {
+            $existingColumns = array_keys($existingColumns);
+        }
 
         $items = $this->getItems();
         $names = array();
@@ -560,12 +641,13 @@ class SurveyStudy extends Model {
         return $names;
     }
 
-    private function addChoices($reader) {
+    private function addChoices($reader)
+    {
         // delete cascades to item display ?? FIXME so maybe not a good idea to delete then
         $definedColumns = ['list_name', 'name', 'label', 'label_parsed'];
         $deleted = $this->db->delete('survey_item_choices', array('study_id' => $this->id));
         $addChoiceStmt = $this->db->prepare(
-             'INSERT INTO `survey_item_choices` (study_id, list_name, name, label, label_parsed) 
+            'INSERT INTO `survey_item_choices` (study_id, list_name, name, label, label_parsed) 
 			 VALUES (:study_id, :list_name, :name, :label, :label_parsed )'
         );
         $addChoiceStmt->bindParam(":study_id", $this->id);
@@ -577,7 +659,7 @@ class SurveyStudy extends Model {
                 if (!knitting_needed($choice['label']) && empty($choice['label_parsed'])) { // if the parsed label is constant
                     $markdown = $reader->parsedown->text($choice['label']); // transform upon insertion into db instead of at runtime
                     $choice['label_parsed'] = $markdown;
-                    if (mb_substr_count($markdown, "</p>") === 1 AND preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)) {
+                    if (mb_substr_count($markdown, "</p>") === 1 and preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)) {
                         $choice['label_parsed'] = $matches[1];
                     }
                 }
@@ -592,7 +674,8 @@ class SurveyStudy extends Model {
         return true;
     }
 
-    private function getResultsTableSyntax($columns) {
+    private function getResultsTableSyntax($columns)
+    {
         $columns = array_filter($columns); // remove null, false, '' values (note, fork, submit, ...)
 
         if (empty($columns)) {
@@ -630,22 +713,43 @@ class SurveyStudy extends Model {
         return $create;
     }
 
-    private function createResultsTable($syntax) {
+    private function createResultsTable($syntax)
+    {
+        // 1. Attempt to drop the table if allowed
         if ($this->deleteResults()) {
             $drop = $this->db->query("DROP TABLE IF EXISTS `{$this->results_table}` ;");
             $drop->execute();
         } else {
+            // If we aren't allowed to delete results, usually we return false.
+            // However, checking if the table exists and returning true would be safer here,
+            // but let's stick to the original logic for the 'else' block to minimize side effects.
             return false;
         }
 
-        $create_table = $this->db->query($syntax);
-        if ($create_table) {
-            return true;
+        // 2. Attempt to create the table, catching "Table already exists" errors
+        try {
+            $create_table = $this->db->query($syntax);
+            if ($create_table) {
+                return true;
+            }
+        } catch (\PDOException $e) {
+            // Check for SQLSTATE 42S01 (Base table or view already exists)
+            // or MySQL Error Code 1050 (Table already exists)
+            if ($e->getCode() === '42S01' || $e->getCode() == 1050) {
+                // The table exists, which is good! We can proceed.
+                // This prevents the crash and allows the Run to link to this existing table.
+                return true;
+            }
+
+            // If it's a different error, re-throw it so we know something else is wrong
+            throw $e;
         }
+
         return false;
     }
 
-    public function getItems($columns = null, $whereIn = null) {
+    public function getItems($columns = null, $whereIn = null)
+    {
         if ($columns === null) {
             $columns = "id, study_id, type, choice_list, type_options, name, label, label_parsed, optional, class, showif, value, block_order,item_order";
         }
@@ -660,12 +764,13 @@ class SurveyStudy extends Model {
         return $select->fetchAll();
     }
 
-    public function getItemsForSheet() {
+    public function getItemsForSheet()
+    {
         $get_items = $this->db->select('type, type_options, choice_list, name, label, optional, class, showif, value, block_order, item_order')
-                ->from('survey_items')
-                ->where(array('study_id' => $this->id))
-                ->order("`survey_items`.order")
-                ->statement();
+            ->from('survey_items')
+            ->where(array('study_id' => $this->id))
+            ->order("`survey_items`.order")
+            ->statement();
 
         $results = array();
         while ($row = $get_items->fetch(PDO::FETCH_ASSOC)) {
@@ -677,7 +782,8 @@ class SurveyStudy extends Model {
         return $results;
     }
 
-    public function getResults($items = null, $filter = null, array $paginate = null, $runId = null, $rstmt = false) {
+    public function getResults($items = null, $filter = null, array $paginate = null, $runId = null, $rstmt = false)
+    {
         if ($this->resultsTableExists()) {
             ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
 
@@ -695,7 +801,7 @@ class SurveyStudy extends Model {
                 $get_all = false;
             }
             if ($this->unlinked) {
-                $columns = array_map(function($item) use ($results_table) {
+                $columns = array_map(function ($item) use ($results_table) {
                     return "`{$results_table}`.`" . $item . "`";
                 }, $items);
                 // considered showing data for test sessions, but then researchers could set real users to "test" to identify them
@@ -711,38 +817,43 @@ class SurveyStudy extends Model {
             }
 
             $select = $this->db->select($columns)
-                    ->from($results_table)
-                    ->leftJoin('survey_unit_sessions', "{$results_table}.session_id = survey_unit_sessions.id")
-                    ->leftJoin('survey_run_sessions', 'survey_unit_sessions.run_session_id = survey_run_sessions.id');
+                ->from($results_table)
+                ->leftJoin('survey_unit_sessions', "{$results_table}.session_id = survey_unit_sessions.id")
+                ->leftJoin('survey_run_sessions', 'survey_unit_sessions.run_session_id = survey_run_sessions.id');
             if (!$get_all) {
                 $select->where('survey_run_sessions.testing = 1');
             }
 
             if ($runId !== null) {
-                $select->where("survey_run_sessions.run_id = {$runId}");
+                $select->where(array('survey_run_sessions.run_id' => (int) $runId));
             }
 
             if ($paginate && isset($paginate['offset'])) {
                 $order = isset($paginate['order']) ? $paginate['order'] : 'asc';
-                $order_by = isset($paginate['order_by']) ? $paginate['order_by'] : '{$results_table}.session_id';
+                $order_by = isset($paginate['order_by']) ? $paginate['order_by'] : "{$results_table}.session_id";
                 if ($this->unlinked) {
-                    $order_by = "RAND()";
+                    $order_by = DB::raw('RAND()');
                 }
                 $select->order($order_by, $order);
                 $select->limit($paginate['limit'], $paginate['offset']);
             } else {
                 if ($this->unlinked) {
-                    $order_by = "RAND()";
+                    $order_by = DB::raw('RAND()');
                 }
-                if(isset($order_by)) {
+                if (isset($order_by)) {
                     $select->order($order_by);
                 }
             }
-            
-            
+
+
             if (!empty($filter['session'])) {
                 $session = $filter['session'];
-                strlen($session) == 64 ? $select->where("survey_run_sessions.session = '$session'") : $select->like('survey_run_sessions.session', $session, 'right');
+                if (strlen($session) == 64) {
+                    $select->where('survey_run_sessions.session = :session_eq');
+                    $select->bindParams(array('session_eq' => $session));
+                } else {
+                    $select->like('survey_run_sessions.session', $session, 'right');
+                }
             }
 
             if (!empty($filter['results']) && ($res_filter = $this->getResultsFilter($filter['results']))) {
@@ -776,7 +887,8 @@ class SurveyStudy extends Model {
      * @param boolean $rstmt If TRUE, PDOStament will be returned instead
      * @return array|PDOStatement
      */
-    public function getItemDisplayResults($items = array(), $filter = null, array $paginate = null, $rstmt = false) {
+    public function getItemDisplayResults($items = array(), $filter = null, array $paginate = null, $rstmt = false)
+    {
         ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
 
         $count = $this->getResultCount();
@@ -803,15 +915,15 @@ class SurveyStudy extends Model {
 		`survey_items_display`.`hidden`");
 
         $select->from('survey_items_display')
-                ->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
-                ->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
-                ->leftJoin('survey_items', 'survey_items_display.item_id = survey_items.id')
-                ->where('survey_items.study_id = :study_id')
-                ->order('survey_run_sessions.session')
-                ->order('survey_run_sessions.created')
-                ->order('survey_unit_sessions.created')
-                ->order('survey_items_display.display_order')
-                ->bindParams(array('study_id' => $this->id));
+            ->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
+            ->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
+            ->leftJoin('survey_items', 'survey_items_display.item_id = survey_items.id')
+            ->where('survey_items.study_id = :study_id')
+            ->order('survey_run_sessions.session')
+            ->order('survey_run_sessions.created')
+            ->order('survey_unit_sessions.created')
+            ->order('survey_items_display.display_order')
+            ->bindParams(array('study_id' => $this->id));
 
         if ($items) {
             $select->whereIn('survey_items.name', $items);
@@ -838,7 +950,8 @@ class SurveyStudy extends Model {
         return $select->fetchAll();
     }
 
-    public function getResultsByItemsPerSession($items = array(), $filter = null, array $paginate = null, $rstmt = false) {
+    public function getResultsByItemsPerSession($items = array(), $filter = null, array $paginate = null, $rstmt = false)
+    {
         if ($this->unlinked) {
             alert("You cannot view detailed results once you've unlinked a survey", 'alert-warning');
             return array();
@@ -852,7 +965,12 @@ class SurveyStudy extends Model {
 
         if (!empty($filter['session'])) {
             $session = $filter['session'];
-            strlen($session) == 64 ? $filter_select->where("survey_run_sessions.session = '$session'") : $filter_select->like('survey_run_sessions.session', $session, 'right');
+            if (strlen($session) == 64) {
+                $filter_select->where('survey_run_sessions.session = :session_eq');
+                $filter_select->bindParams(array('session_eq' => $session));
+            } else {
+                $filter_select->like('survey_run_sessions.session', $session, 'right');
+            }
         }
 
         if (!empty($filter['results']) && ($res_filter = $this->getResultsFilter($filter['results']))) {
@@ -887,14 +1005,14 @@ class SurveyStudy extends Model {
 		`survey_items_display`.`hidden`");
 
         $select->from('survey_items_display')
-                ->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
-                ->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
-                ->leftJoin('survey_items', 'survey_items.id = survey_items_display.item_id')
-                ->where('survey_items.study_id = :study_id')
-                ->where('survey_items_display.session_id IN (' . $session_ids . ')')
-                ->order('survey_items_display.session_id')
-                ->order('survey_items_display.display_order')
-                ->bindParams(array('study_id' => $this->id));
+            ->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
+            ->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
+            ->leftJoin('survey_items', 'survey_items.id = survey_items_display.item_id')
+            ->where('survey_items.study_id = :study_id')
+            ->where('survey_items_display.session_id IN (' . $session_ids . ')')
+            ->order('survey_items_display.session_id')
+            ->order('survey_items_display.display_order')
+            ->bindParams(array('study_id' => $this->id));
 
         if ($items) {
             $select->whereIn('survey_items.name', $items);
@@ -913,22 +1031,23 @@ class SurveyStudy extends Model {
      * @param array $sessions If specified, only results of that particular session will be returned
      * @return array
      */
-    public function getResultsByItemAndSession($items = array(), $sessions = null) {
+    public function getResultsByItemAndSession($items = array(), $sessions = null)
+    {
         $select = $this->db->select('
 		`survey_run_sessions`.session,
 		`survey_items`.name,
 		`survey_items_display`.answer');
 
         $select->from('survey_items_display')
-                ->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
-                ->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
-                ->leftJoin('survey_items', 'survey_items_display.item_id = survey_items.id')
-                ->where('survey_items.study_id = :study_id')
-                ->order('survey_run_sessions.session')
-                ->order('survey_run_sessions.created')
-                ->order('survey_unit_sessions.created')
-                ->order('survey_items_display.display_order')
-                ->bindParams(array('study_id' => $this->id));
+            ->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
+            ->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
+            ->leftJoin('survey_items', 'survey_items_display.item_id = survey_items.id')
+            ->where('survey_items.study_id = :study_id')
+            ->order('survey_run_sessions.session')
+            ->order('survey_run_sessions.created')
+            ->order('survey_unit_sessions.created')
+            ->order('survey_items_display.display_order')
+            ->bindParams(array('study_id' => $this->id));
 
         if (!empty($items)) {
             $select->whereIn('survey_items.name', $items);
@@ -941,7 +1060,8 @@ class SurveyStudy extends Model {
         return $select->fetchAll();
     }
 
-    protected function hasData() {
+    protected function hasData()
+    {
         $this->result_count = $this->getResultCount();
         if (($this->result_count["real_users"] + $this->result_count['testers']) > 0) {
             return true;
@@ -950,7 +1070,8 @@ class SurveyStudy extends Model {
         }
     }
 
-    protected function hasRealData() {
+    protected function hasRealData()
+    {
         $this->result_count = $this->getResultCount();
         if ($this->result_count["real_users"] > 1) {
             return true;
@@ -959,7 +1080,8 @@ class SurveyStudy extends Model {
         }
     }
 
-    public function deleteResults($run_id = null) {
+    public function deleteResults($run_id = null)
+    {
         $this->result_count = $this->getResultCount($run_id);
 
         if (array_sum($this->result_count) === 0) {
@@ -982,7 +1104,8 @@ class SurveyStudy extends Model {
         }
     }
 
-    public function backupResults($itemNames = null) {
+    public function backupResults($itemNames = null)
+    {
         $this->result_count = $this->getResultCount();
         if ($this->hasRealData()) {
             $this->messages[] = __("<strong>Backed up.</strong> The old results were backed up in a file (%s results)", array_sum($this->result_count));
@@ -1000,7 +1123,8 @@ class SurveyStudy extends Model {
         }
     }
 
-    public function getResultCount($run_id = null, $filter = array()) {
+    public function getResultCount($run_id = null, $filter = array())
+    {
         // If there is no filter and results have been saved in a previous operation then that
         if ($this->result_count !== null && !$filter) {
             return $this->result_count;
@@ -1010,20 +1134,25 @@ class SurveyStudy extends Model {
         if ($this->resultsTableExists()) {
             $results_table = $this->results_table;
             $select = $this->db->select(array(
-                        "SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0 AND `{$results_table}`.ended IS null)" => 'begun',
-                        "SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0 AND `{$results_table}`.ended IS NOT NULL)" => 'finished',
-                        "SUM(`survey_run_sessions`.`testing` IS NULL OR `survey_run_sessions`.`testing` = 1)" => 'testers',
-                        "SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0)" => 'real_users'
-                    ))->from($results_table)
-                    ->leftJoin('survey_unit_sessions', "survey_unit_sessions.id = {$results_table}.session_id")
-                    ->leftJoin('survey_run_sessions', "survey_unit_sessions.run_session_id = survey_run_sessions.id");
+                "SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0 AND `{$results_table}`.ended IS null)" => 'begun',
+                "SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0 AND `{$results_table}`.ended IS NOT NULL)" => 'finished',
+                "SUM(`survey_run_sessions`.`testing` IS NULL OR `survey_run_sessions`.`testing` = 1)" => 'testers',
+                "SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0)" => 'real_users'
+            ))->from($results_table)
+                ->leftJoin('survey_unit_sessions', "survey_unit_sessions.id = {$results_table}.session_id")
+                ->leftJoin('survey_run_sessions', "survey_unit_sessions.run_session_id = survey_run_sessions.id");
 
             if ($run_id) {
-                $select->where("survey_run_sessions.run_id = {$run_id}");
+                $select->where(array('survey_run_sessions.run_id' => (int) $run_id));
             }
             if (!empty($filter['session'])) {
                 $session = $filter['session'];
-                strlen($session) == 64 ? $select->where("survey_run_sessions.session = '$session'") : $select->like('survey_run_sessions.session', $session, 'right');
+                if (strlen($session) == 64) {
+                    $select->where('survey_run_sessions.session = :session_eq');
+                    $select->bindParams(array('session_eq' => $session));
+                } else {
+                    $select->like('survey_run_sessions.session', $session, 'right');
+                }
             }
 
             if (!empty($filter['results']) && ($res_filter = $this->getResultsFilter($filter['results']))) {
@@ -1037,7 +1166,8 @@ class SurveyStudy extends Model {
         return $count;
     }
 
-    public function getAverageTimeItTakes() {
+    public function getAverageTimeItTakes()
+    {
         if ($this->resultsTableExists()) {
             $get = "SELECT AVG(middle_values) AS 'median' FROM (
 			  SELECT took AS 'middle_values' FROM
@@ -1066,24 +1196,26 @@ class SurveyStudy extends Model {
         return '';
     }
 
-    public function delete() {
+    public function delete()
+    {
         if ($this->deleteResults()) {
             $this->db->query("DROP TABLE IF EXISTS `{$this->results_table}`");
             if (($filename = $this->getOriginalFileName())) {
                 @unlink(Config::get('survey_upload_dir') . '/' . $filename);
             }
-                        
+
             $this->db->query('DELETE FROM survey_items WHERE study_id = ' . $this->id);
             return $this->db->query('DELETE FROM survey_units WHERE id = ' . $this->id);
         }
-        
+
         return false;
     }
 
     /**
      * Fetch all uploaded files associated with this study
      */
-    public function getUploadedFiles() {
+    public function getUploadedFiles()
+    {
         return $this->db->select(['id', 'study_id', 'unit_session_id', 'original_filename', 'created', 'stored_path'])
             ->from('user_uploaded_files')
             ->where(['study_id' => $this->id]);
@@ -1092,7 +1224,8 @@ class SurveyStudy extends Model {
     /**
      * Delete all uploaded files associated with this study
      */
-    protected function deleteUploadedFiles() {
+    protected function deleteUploadedFiles()
+    {
         $files = $this->getUploadedFiles()->fetchAll();
 
         foreach ($files as $file) {
@@ -1114,7 +1247,8 @@ class SurveyStudy extends Model {
      * @param array $deleteItems
      * @return bool;
      */
-    private function alterResultsTable(array $newItems, array $deleteItems) {
+    private function alterResultsTable(array $newItems, array $deleteItems)
+    {
         $actions = $toAdd = $toDelete = array();
         $deleteQuery = $addQuery = array();
         $addQ = $delQ = null;
@@ -1166,17 +1300,20 @@ class SurveyStudy extends Model {
         return true;
     }
 
-    public function getOriginalFileName() {
+    public function getOriginalFileName()
+    {
         return $this->original_file;
         //return $this->db->findValue('survey_studies', array('id' => $this->id), 'original_file');
     }
 
-    public function getGoogleFileId() {
+    public function getGoogleFileId()
+    {
         return $this->google_file_id;
         //return $this->db->findValue('survey_studies', array('id' => $this->id), 'google_file_id');
     }
 
-    public function getResultsFilter($f = null) {
+    public function getResultsFilter($f = null)
+    {
         $filter = array(
             'all' => array(
                 'title' => 'Show All',
@@ -1194,18 +1331,19 @@ class SurveyStudy extends Model {
 
         return $f !== null ? array_val($filter, $f, null) : $filter;
     }
-    
-    public function getOrderedItemsIds() {
+
+    public function getOrderedItemsIds()
+    {
         $get_items = $this->db->select('
 				`survey_items`.id,
 				`survey_items`.`type`,
 				`survey_items`.`item_order`,
 				`survey_items`.`block_order`')
-                ->from('survey_items')
-                ->where("`survey_items`.`study_id` = :study_id")
-                ->order("`survey_items`.order")
-                ->bindParams(array('`study_id`' => $this->id))
-                ->statement();
+            ->from('survey_items')
+            ->where("`survey_items`.`study_id` = :study_id")
+            ->order("`survey_items`.order")
+            ->bindParams(array('`study_id`' => $this->id))
+            ->statement();
 
         // sort blocks randomly (if they are consecutive), then by item number and if the latter are identical, randomly
         $block_segment = $block_order = $item_order = $random_order = $block_numbers = $item_ids = array();
@@ -1250,18 +1388,27 @@ class SurveyStudy extends Model {
         return array($item_ids, $types);
     }
 
-    public function getSettings() {
+    public function getSettings()
+    {
         $keys = [
-            'maximum_number_displayed', 'displayed_percentage_maximum', 'add_percentage_points',
-            'enable_instant_validation', 'expire_after', 'google_file_id', 'unlinked',
-            'expire_invitation_after', 'expire_invitation_grace', 'hide_results', 'use_paging',
+            'maximum_number_displayed',
+            'displayed_percentage_maximum',
+            'add_percentage_points',
+            'enable_instant_validation',
+            'expire_after',
+            'google_file_id',
+            'unlinked',
+            'expire_invitation_after',
+            'expire_invitation_grace',
+            'hide_results',
+            'use_paging',
         ];
         $settings = [];
-        
+
         foreach ($keys as $key) {
             $settings[$key] = $this->{$key};
         }
-        
+
         return $settings;
     }
 }

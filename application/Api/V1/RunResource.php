@@ -1,0 +1,289 @@
+<?php
+
+class RunResource extends BaseResource
+{
+    // Allowlist of run fields the v1 API may write via updateRun().
+    // Deliberately narrower than Run::$run_settings (used by the admin
+    // UI): omits `name` (security boundary — admin vs study domain),
+    // `vapid_*` (auto-generated), `osf_project_id` (OAuth-managed),
+    // `manifest_json` (computed), and `expire_cookie` (derived from
+    // value × unit pair). New fields added to Run::$run_settings will
+    // NOT auto-propagate here — extend this list explicitly when the
+    // v1 API should expose them.
+    private static $updatableFields = [
+        'title', 'description', 'footer_text', 'public_blurb',
+        'privacy', 'tos', 'header_image_path', 'custom_css',
+        'custom_js', 'cron_active',
+        'use_material_design', 'expiresOn',
+        'expire_cookie_value', 'expire_cookie_unit',
+        'public', 'locked',
+    ];
+
+    public function handle()
+    {
+        $runName = $this->getUriSegment(1);
+        $subResource = $this->getUriSegment(2);
+
+        if (empty($runName)) {
+            return $this->handleRoot();
+        }
+
+        if ($subResource) {
+            return $this->handleSubResource($runName, $subResource);
+        }
+
+        return $this->handleSpecificRun($runName);
+    }
+
+    private function handleRoot()
+    {
+        $method = $this->getRequestMethod();
+
+        if ($method === 'GET') {
+            $this->checkScope('run:read');
+
+            $select = $this->db->select('id, name, title, public, cron_active, locked, created, modified')
+                ->from('survey_runs')
+                ->where(['user_id' => $this->user->id]);
+
+            // If the client is restricted to specific runs, narrow the
+            // listing to exactly those — otherwise a "scoped" client
+            // would still see every run name in the index, leaking the
+            // names of runs it can't touch.
+            $allowed = $this->allowedRunIds();
+            if (!empty($allowed)) {
+                $select->whereIn('id', $allowed);
+            }
+
+            if ($nameFilter = $this->request->getParam('name')) {
+                $select->like('name', $nameFilter);
+            }
+            $publicFilter = $this->request->getParam('public');
+            if ($publicFilter !== null && $publicFilter !== '') {
+                $select->where(['public' => (int)$publicFilter]);
+            }
+
+            $runs = $select->fetchAll();
+            return $this->response(200, 'Runs listed', $runs);
+        }
+
+        return $this->error(405, 'Method not allowed. Use POST /runs/{name} to create a run.');
+    }
+
+    private function handleSubResource($runName, $subResource)
+    {
+        $resourceClass = null;
+        switch ($subResource) {
+            case 'sessions':
+                $resourceClass = new SessionResource($this->request, $this->db, $this->tokenData);
+                break;
+            case 'results':
+                $resourceClass = new ResultsResource($this->request, $this->db, $this->tokenData);
+                break;
+            case 'files':
+                $resourceClass = new FileResource($this->request, $this->db, $this->tokenData);
+                break;
+            case 'structure':
+                $resourceClass = new StructureResource($this->request, $this->db, $this->tokenData);
+                break;
+            default:
+                return $this->error(404, 'Run sub-resource not found');
+        }
+
+        $resourceClass->setPathSegments($this->path_segments);
+        return $resourceClass->handle($runName);
+    }
+
+    private function handleSpecificRun($runName)
+    {
+        $method = $this->getRequestMethod();
+
+        // Resolve required scope from method first so a token without it
+        // gets a clean 403, regardless of whether the run exists or is
+        // owned by this user. Otherwise getRunByName() would emit a 404
+        // for unauthorized callers, which is misleading and inconsistent.
+        switch ($method) {
+            case 'POST':
+                $this->checkScope('run:write');
+                break;
+            case 'PATCH':
+                $this->checkScope('run:write');
+                break;
+            case 'DELETE':
+                $this->checkScope('run:write');
+                break;
+            case 'GET':
+                $this->checkScope('run:read');
+                break;
+            default:
+                return $this->error(405, 'Method not allowed');
+        }
+
+        if ($method === 'POST') {
+            return $this->createRun($runName);
+        }
+
+        $run = $this->getRunByName($runName);
+
+        if (!$run) {
+            return $this;
+        }
+
+        switch ($method) {
+            case 'GET':
+                return $this->getRun($run);
+
+            case 'PATCH':
+                return $this->updateRun($run);
+
+            case 'DELETE':
+                return $this->deleteRun($run);
+        }
+
+        return $this->error(405, 'Method not allowed');
+    }
+
+    private function createRun($runName)
+    {
+        if (Run::nameExists($runName)) {
+            return $this->error(409, "A run with the name '$runName' already exists.");
+        }
+
+        if (!preg_match("/^[a-zA-Z][a-zA-Z0-9-]{2,255}$/", $runName)) {
+            return $this->error(400, "Invalid run name. Must start with a letter, contain only a-z, 0-9, hyphens, and be 3-255 chars long.");
+        }
+
+        if (Run::isReservedName($runName)) {
+            return $this->error(400, "Run name '$runName' uses a reserved name or prefix.");
+        }
+
+        try {
+            $run = new Run();
+            $createdName = $run->create([
+                'run_name' => $runName,
+                'user_id'  => $this->user->id
+            ]);
+
+            if ($createdName) {
+                return $this->response(201, 'Run created successfully', [
+                    'name' => $createdName,
+                    'link' => run_url($createdName)
+                ]);
+            } else {
+                return $this->error(500, 'Failed to create run.');
+            }
+        } catch (Exception $e) {
+            return $this->error(500, $e->getMessage());
+        }
+    }
+
+    private function getRun($run)
+    {
+        $responseData = [
+            'id' => (int) $run->id,
+            'name' => $run->name,
+            'link' => run_url($run->name),
+            'public' => (int) $run->public,
+            'locked' => (bool) $run->locked,
+            'cron_active' => (bool) $run->cron_active,
+            'created' => $run->created,
+            'modified' => $run->modified,
+        ];
+
+        $settings = [
+            'title' => $run->title,
+            'description' => $run->description,
+            'header_image_path' => $run->header_image_path,
+            'footer_text' => $run->footer_text,
+            'public_blurb' => $run->public_blurb,
+            'privacy' => $run->privacy,
+            'tos' => $run->tos,
+            'use_material_design' => (bool) $run->use_material_design,
+            'expiresOn' => $run->expiresOn,
+            'expire_cookie_value' => (int) $run->expire_cookie_value,
+            'expire_cookie_unit' => $run->expire_cookie_unit,
+            'custom_css' => $run->getCustomCSS(),
+            'custom_js' => $run->getCustomJS(),
+            'manifest_json' => $run->getManifestJSON(),
+        ];
+
+        $responseData = array_merge($responseData, $settings);
+
+        return $this->response(200, 'Run details', $responseData);
+    }
+
+    private function updateRun($run)
+    {
+        $input = $this->getJsonBody();
+
+        // Allowlist of fields this endpoint may update. Anything else
+        // (vapid keys, osf_project_id, name, manifest_json, expire_cookie,
+        // etc.) is dropped silently — preventing mass-assignment of
+        // sensitive or computed columns that live on the run_settings
+        // allowlist used by the admin UI.
+        $input = array_intersect_key($input, array_flip(self::$updatableFields));
+
+        // saveSettings (Markdown / expiresOn validation) and the
+        // togglePublic path both signal soft errors via alert() — the v1
+        // API has no alert pane, so capture them and either fail or
+        // surface as warnings. Flush any pre-existing alerts first so
+        // anything left after this request is attributable to it.
+        // Don't pre-htmlspecialchars Markdown text fields: saveSettings
+        // pipes them through ParsedownExtra (storing the rendered HTML in
+        // *_parsed columns) and templates use h() on the raw originals
+        // when rendering them into edit textareas. Pre-escaping here
+        // would turn '>' (blockquote leader) into '&gt;', double-escape
+        // '&' in URLs, etc., and silently diverge admin-UI runs from
+        // API-edited runs.
+        $site = Site::getInstance();
+        $site->renderAlerts();
+
+        $settingsSaved = $run->saveSettings($input);
+
+        if (!$settingsSaved) {
+            $errors = !empty($run->errors) ? implode('; ', $run->errors) : 'Unknown error saving settings';
+            return $this->error(400, 'Failed to update run: ' . $errors);
+        }
+
+        // togglePublic / toggleLocked aren't on the run_settings
+        // allowlist, so saveSettings doesn't touch them — they need
+        // separate calls. Capture failures: togglePublic returns false
+        // on invalid value, missing/past expiry, or missing privacy
+        // policy when require_privacy_policy is on, so a silent 200
+        // would lie to the client.
+        $toggleErrors = [];
+        if (isset($input['public']) && !$run->togglePublic((int) $input['public'])) {
+            $toggleErrors[] = 'public';
+        }
+        if (isset($input['locked']) && !$run->toggleLocked((int) $input['locked'])) {
+            $toggleErrors[] = 'locked';
+        }
+
+        $alertsHtml = $site->renderAlerts();
+        $alerts = trim(strip_tags($alertsHtml));
+
+        if (!empty($toggleErrors)) {
+            $msg = 'Could not update field(s): ' . implode(', ', $toggleErrors);
+            if ($alerts !== '') {
+                $msg .= '. ' . $alerts;
+            }
+            return $this->error(400, $msg);
+        }
+
+        $payload = [];
+        if ($alerts !== '') {
+            $payload['warnings'] = $alerts;
+        }
+        return $this->response(200, 'Run updated successfully', $payload);
+    }
+
+    private function deleteRun($run)
+    {
+        if ($run->delete()) {
+            return $this->response(200, 'Run deleted successfully');
+        } else {
+            $errors = !empty($run->errors) ? implode('; ', $run->errors) : 'Unable to delete run';
+            return $this->error(500, $errors);
+        }
+    }
+}

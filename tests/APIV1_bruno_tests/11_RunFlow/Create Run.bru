@@ -1,0 +1,21 @@
+meta {
+  name: Create Run
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{host}}/v1/runs/api-test
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 201
+  res.body.name: eq "api-test"
+  res.body.link: contains "api-test/"
+}

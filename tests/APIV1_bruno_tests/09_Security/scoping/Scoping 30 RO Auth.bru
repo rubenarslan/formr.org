@@ -1,0 +1,35 @@
+meta {
+  name: Scoping 30 RO Auth
+  type: http
+  seq: 30
+}
+
+post {
+  url: {{host}}/oauth/access_token
+  body: formUrlEncoded
+  auth: none
+}
+
+body:form-urlencoded {
+  grant_type: client_credentials
+  client_id: {{ro_client_id}}
+  client_secret: {{ro_client_secret}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.access_token: isNotEmpty
+  res.body.scope: eq run:read
+}
+
+script:post-response {
+  if (res.body.access_token) {
+    bru.setVar("ro_token", res.body.access_token);
+  }
+}
+
+docs {
+  Mints a token from a credential that was provisioned with `run:read`
+  only, allowlisted to scope-run-a. Stashed as `ro_token` for the next
+  two tests.
+}

@@ -1,0 +1,25 @@
+meta {
+  name: End last external
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{host}}/v1/runs/api-test/sessions/TestUser_Alpha_0000000000000000000000000000000000000000000000001/actions
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+      "action": "end_external"
+  }
+}
+
+assert {
+  res.status: eq 200
+}

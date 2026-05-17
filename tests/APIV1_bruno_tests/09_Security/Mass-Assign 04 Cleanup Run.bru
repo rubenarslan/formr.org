@@ -1,0 +1,22 @@
+meta {
+  name: Mass-Assign 04 Cleanup Run
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{host}}/v1/runs/sec-mass
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  Best-effort cleanup. The run was created in seq 2 and any units it
+  accumulated during the attack are torn down with it. We do not assert a
+  specific status because the test is intentionally robust to partial
+  failure of earlier steps (e.g. setup never ran, run already deleted).
+}

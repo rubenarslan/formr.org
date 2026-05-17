@@ -4,7 +4,8 @@
  * @todo
  * Wrap all public actions in try..catch construct
  */
-class ApiController extends Controller {
+class ApiController extends Controller
+{
 
     /**
      * POST Request variables
@@ -31,17 +32,105 @@ class ApiController extends Controller {
     protected $oauthServer;
 
     protected $unrestrictedActions = ['end-last-external'];
-    
-    public function __construct(Site &$site) {
+
+    public function __construct(Site &$site)
+    {
         parent::__construct($site);
         $this->initialize();
     }
 
-    public function indexAction() {
-        $this->respond(Response::STATUS_FORBIDDEN, 'Invalid', array('error' => 'No Entry Point'));
+    /**
+     * Main API Entry Point.
+     * * Determines if the request targets the V1 REST API or falls back to legacy behavior.
+     *
+     * @param string|null $resource The requested resource (or 'v1').
+     * @param string|null $version  The version string (optional).
+     * @return mixed Response object or void.
+     */
+    public function indexAction($resource = null, $version = null)
+    {
+        if ($version === 'v1' && $resource) {
+            // Pass the rest of the arguments
+            $args = array_slice(func_get_args(), 2);
+            return $this->dispatchV1($resource, $args);
+        }
+
+        // Default behavior (Legacy 403)
+        $this->respond(Response::STATUS_FORBIDDEN, 'Forbidden', array(
+            'code' => Response::STATUS_FORBIDDEN,
+            'message' => 'No valid API entry point found'
+        ));
     }
 
-    public function oauthAction($action = null) {
+    /**
+     * V1 API Dispatcher.
+     * * Authenticates the user, instantiates the V1 Helper, and dynamically calls 
+     * the requested resource method. Wraps execution in a global try/catch for JSON error handling.
+     *
+     * @param string $resource The API resource to invoke (e.g., 'user', 'runs').
+     * @param array $arguments Additional arguments passed from the router.
+     * @return void Sends a JSON response.
+     */
+    private function dispatchV1($resource, $arguments = [])
+    {
+        $this->authenticate($resource);
+
+        try {
+            // Explicit allowlist instead of method_exists($api, $resource).
+            // ApiV1 declares only these three top-level resource methods,
+            // but it also inherits public helpers from ApiBase
+            // (getData, getPathSegments, setPathSegments) that
+            // method_exists would happily resolve — leaving them
+            // dispatchable through /api/v1/getData etc. None do anything
+            // privileged, but routing is exactly the wrong place to
+            // trust inheritance.
+            $allowedResources = ['user', 'surveys', 'runs'];
+            if (!in_array($resource, $allowedResources, true)) {
+                $this->respond(404, 'Not Found', ['error' => "Resource '$resource' not found in V1 API."]);
+                return;
+            }
+
+            $token_data = $this->oauthServer->getAccessTokenData(OAuth2\Request::createFromGlobals());
+
+            if (!class_exists('ApiV1')) {
+                throw new Exception("V1 API not installed.");
+            }
+
+            $api = new ApiV1($this->site->request, $this->fdb, $token_data);
+
+            // Execute the helper method
+            $apiResult = $api->$resource(...$arguments);
+            $data = $apiResult->getData();
+        } catch (Throwable $e) {
+            // Throwable, not Exception — PHP raises Error (not Exception) for
+            // typed-arg mismatches, undefined methods, type errors etc., and
+            // we want those to become a JSON 500 envelope rather than crash
+            // the request with a default PHP error page.
+            //
+            // getCode() returns int 0 by default — `?:` (not `??`) is what
+            // falls back to 500. Throwers that mean a 4xx (e.g.
+            // ApiBase::checkScope) supply an explicit code.
+            $code = $e->getCode() ?: Response::STATUS_INTERNAL_SERVER_ERROR;
+            // Only log unexpected (5xx) failures; 4xx is client-driven and
+            // doesn't belong in the server error log.
+            if ($code >= 500) {
+                formr_log_exception($e, 'API-V1-Dispatcher');
+            }
+            $data = [
+                'statusCode' => $code,
+                'statusText' => ApiBase::getStatusText($code),
+                'response' => [
+                    'code' => $code,
+                    'message' => $e->getMessage()
+                ]
+            ];
+        }
+
+        $this->respond($data['statusCode'], $data['statusText'], $data['response']);
+    }
+
+    public function oauthAction($action = null)
+    {
         if (!$this->isValidAction('oauth', $action)) {
             $this->response->badRequest('Invalid Auth Request');
         }
@@ -51,10 +140,13 @@ class ApiController extends Controller {
             $this->authorize();
         } elseif ($action === 'access_token') {
             $this->access_token();
+        } elseif ($action === 'delete_token') {
+            $this->delete_token();
         }
     }
 
-    public function postAction($action = null) {
+    public function postAction($action = null)
+    {
         if (!Request::isHTTPPostRequest()) {
             $this->response->badMethod('Invalid Request Method');
         }
@@ -66,7 +158,8 @@ class ApiController extends Controller {
         $this->doAction($this->post, $action);
     }
 
-    public function getAction($action = null) {
+    public function getAction($action = null)
+    {
         if (!Request::isHTTPGetRequest()) {
             $this->response->badMethod('Invalid Request Method');
         }
@@ -78,7 +171,18 @@ class ApiController extends Controller {
         $this->doAction($this->get, $action);
     }
 
-    public function osfAction($do = '') {
+    /**
+     * OSF Integration Handler.
+     * * Manages the OAuth2 flow with the Open Science Framework. Handles:
+     * 1. Login redirection.
+     * 2. Authorization code exchange.
+     * 3. Error handling for denied access.
+     *
+     * @param string $do The specific action to perform (e.g., 'login').
+     * @return void Redirects user based on authentication outcome.
+     */
+    public function osfAction($do = '')
+    {
         $user = Site::getCurrentUser();
         if (!$user->loggedIn()) {
             alert('You need to login to access this section', 'alert-warning');
@@ -146,27 +250,33 @@ class ApiController extends Controller {
         redirect_to('index');
     }
 
-    protected function doAction(Request $request, $action) {
+    protected function doAction(Request $request, $action)
+    {
         try {
             $this->authenticate($action); // only proceed if authenticated, if not exit via response
+            $token_data = $this->oauthServer->getAccessTokenData(OAuth2\Request::createFromGlobals());
             $method = $this->getPrivateAction($action, '-', true);
-            $helper = new ApiHelper($request, $this->fdb);
-            $data = $helper->{$method}()->getData();
-        } catch (Exception $e) {
+
+            $api = new ApiV0($request, $this->fdb, $token_data);
+            $data = $api->{$method}()->getData();
+        } catch (Throwable $e) {
+            // Throwable for the same reason as dispatchV1: PHP Errors must
+            // turn into a JSON envelope, not a default error page.
             formr_log_exception($e, 'API');
             $data = array(
                 'statusCode' => Response::STATUS_INTERNAL_SERVER_ERROR,
                 'statusText' => 'Internal Server Error',
-                'response' => array('error' => 'An unexpected error occured', 'error_code' => Response::STATUS_INTERNAL_SERVER_ERROR),
+                'response' => array('code' => Response::STATUS_INTERNAL_SERVER_ERROR, 'message' => 'An unexpected error occurred'),
             );
         }
 
         $this->respond($data['statusCode'], $data['statusText'], $data['response']);
     }
 
-    protected function isValidAction($type, $action) {
+    protected function isValidAction($type, $action)
+    {
         $actions = array(
-            'oauth' => array('authorize', 'access_token'),
+            'oauth' => array('authorize', 'access_token', 'delete_token'),
             'post' => array('create-session', 'end-last-external'),
             'get' => array('results'),
         );
@@ -174,7 +284,8 @@ class ApiController extends Controller {
         return isset($actions[$type]) && in_array($action, $actions[$type]);
     }
 
-    protected function authorize() {
+    protected function authorize()
+    {
         /*
          * @todo
          * Implement authorization under oauth
@@ -182,38 +293,46 @@ class ApiController extends Controller {
         $this->response->badRequest('Not Implemented');
     }
 
-    protected function access_token() {
+    protected function access_token()
+    {
         // Ex: curl -u testclient:testpass https://formr.org/api/oauth/token -d 'grant_type=client_credentials'
         $this->oauthServer->handleTokenRequest(OAuth2\Request::createFromGlobals())->send();
     }
 
-    protected function authenticate($action) {
+    protected function delete_token()
+    {
+        OAuthHelper::getInstance()->deleteAccessToken($this->post->access_token);
+        $this->respond(Response::STATUS_OK, 'Token deleted');
+    }
+
+    protected function authenticate($action)
+    {
         if (!in_array($action, $this->unrestrictedActions)) {
             $this->oauthServer = Site::getOauthServer();
             // Handle a request to a resource and authenticate the access token
-            // Ex: curl https://formr.org/api/post/action-name -d 'access_token=YOUR_TOKEN'
+            // Ex: curl -H "Authorization: Bearer YOUR_TOKEN" https://formr.org/api/get/results
             if (!$this->oauthServer->verifyResourceRequest(OAuth2\Request::createFromGlobals())) {
-                $this->respond(Response::STATUS_UNAUTHORIZED, 'Unauthorized Access', array(
-                    'error' => 'Invalid/Unauthorized access token',
-                    'error_code' => Response::STATUS_UNAUTHORIZED,
-                    'error_description' => 'Access token for this resouce request is invalid or unauthorized',
+                $this->respond(Response::STATUS_UNAUTHORIZED, 'Unauthorized', array(
+                    'code' => Response::STATUS_UNAUTHORIZED,
+                    'message' => 'Access token for this resource request is invalid or unauthorized',
                 ));
             }
         }
     }
 
-    protected function respond($statusCode = Response::STATUS_OK, $statusText = 'OK', $response = null) {
+    protected function respond($statusCode = Response::STATUS_OK, $statusText = 'OK', $response = null)
+    {
         $this->response->setStatusCode($statusCode, $statusText);
         $this->response->setContentType('application/json');
         $this->response->setJsonContent($response);
         return $this->sendResponse();
     }
 
-    protected function initialize() {
+    protected function initialize()
+    {
         $this->view = null;
         $this->post = new Request($_POST);
         $this->get = new Request($_GET);
         $this->response = new Response();
     }
-
 }

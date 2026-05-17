@@ -1,0 +1,44 @@
+meta {
+  name: Scoping 39 Run List Filtered
+  type: http
+  seq: 39
+}
+
+get {
+  url: {{host}}/v1/runs
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{allow_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+script:post-response {
+  // Confirm the listing shows only the allowlisted run, regardless of
+  // how many other runs the user owns. The /v1/runs body is the bare
+  // array, not wrapped in an envelope (see ApiController::respond).
+  const rows = Array.isArray(res.body) ? res.body : [];
+  const names = rows.map(r => r.name);
+  // run_a_name/run_b_name come from --env-var in run_security.sh, so
+  // they live in the env namespace, not the collection-var namespace
+  // (which is what bru.getVar reads).
+  const runA = bru.getEnvVar("run_a_name");
+  const runB = bru.getEnvVar("run_b_name");
+  if (!names.includes(runA)) {
+    throw new Error("expected allowlisted run " + runA + " in list, got: " + JSON.stringify(names));
+  }
+  if (names.includes(runB)) {
+    throw new Error("non-allowlisted run " + runB + " leaked into list: " + JSON.stringify(names));
+  }
+}
+
+docs {
+  GET /v1/runs returns only runs the client is allowlisted to. A leak
+  here would mean a "scoped" credential can enumerate all the user's
+  runs by name — defeats the purpose of restricting it.
+}

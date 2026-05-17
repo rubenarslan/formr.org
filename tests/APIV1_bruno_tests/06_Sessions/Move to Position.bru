@@ -1,0 +1,26 @@
+meta {
+  name: Move to Position
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{host}}/v1/runs/api-test/sessions/TestUser_Alpha_0000000000000000000000000000000000000000000000001/actions
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+      "action": "move_to_position",
+      "position": 10
+  }
+}
+
+assert {
+  res.status: eq 200
+}

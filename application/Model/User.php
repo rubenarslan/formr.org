@@ -22,8 +22,18 @@ class User extends Model {
 
     public function __construct($id = null, $user_code = null, $options = []) {
         parent::__construct();
-        $this->assignProperties($options);
-        
+        // Only the cron-flag is a legitimate constructor option (set by
+        // bin/cron*.php). assignProperties otherwise writes any matching
+        // public property — admin, email_verified, logged_in, id — which
+        // is a defense-in-depth concern if any future caller forwards
+        // request input here.
+        if ($options) {
+            $this->assignProperties(array_intersect_key(
+                (array) $options,
+                ['cron' => true]
+            ));
+        }
+
         if ($id !== null) { // if there is a registered, logged in user
             $this->id = (int) $id;
             $this->load(); // load his stuff
@@ -68,6 +78,10 @@ class User extends Model {
 
     public function isAdmin() {
         return $this->admin >= 1;
+    }
+
+    public function canAccessApi() {
+        return $this->admin >= 2;
     }
 
     public function isSuperAdmin() {
@@ -200,11 +214,51 @@ class User extends Model {
             throw new Exception("You need more admin rights to effect this change");
         }
 
+        // Reject anything outside the known set rather than silently coercing.
+        // The previous "$level > 100 ? 100 : $level" cap turned a too-high
+        // input into superadmin (100) — the wrong direction for a defensive
+        // floor. Callers (currently only AdminAdvancedController) already
+        // pre-filter to the same allowlist, so this is the safety net.
         $level = (int) $level;
-        $level = max(array(0, $level));
-        $level = $level > 9 ? 1 : $level;
+        $allowed = [0, 1, 2, 100];
+        if (!in_array($level, $allowed, true)) {
+            return false;
+        }
 
-        return $this->db->update('survey_users', array('admin' => $level), array('id' => $this->id, 'admin <' => 10));
+        // Read the pre-update level fresh from the DB rather than trusting
+        // the in-memory $this->admin, which can be stale if the row was
+        // updated elsewhere between this object loading and now. The
+        // demotion-cleanup branch below depends on this being correct.
+        $previousLevel = (int) $this->db->findValue('survey_users', array('id' => $this->id), 'admin');
+
+        // Run the level update and the demotion-cleanup as one transactional
+        // unit — without this, an UPDATE that commits followed by a failing
+        // deleteClient would leave a demoted user with live API tokens,
+        // which is exactly the scenario the cleanup is meant to prevent.
+        try {
+            $this->db->beginTransaction();
+            $result = $this->db->update('survey_users', array('admin' => $level), array('id' => $this->id, 'admin <' => 10));
+
+            if ($result && $previousLevel >= 2 && $level < 2) {
+                // Demotion below the API-access threshold: cascade-revoke
+                // every credential the user holds (user-managed + internal
+                // OpenCPU bridge) so a demoted user can't keep minting
+                // tokens against the API.
+                OAuthHelper::getInstance()->deleteAllClientsForUser($this);
+            }
+
+            $this->db->commit();
+
+            if ($result) {
+                $this->admin = $level;
+            }
+
+            return $result;
+        } catch (Throwable $e) {
+            $this->db->rollBack();
+            formr_log_exception($e, __METHOD__);
+            return false;
+        }
     }
 
     public function forgotPassword($email) {

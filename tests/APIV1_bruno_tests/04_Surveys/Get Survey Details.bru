@@ -1,0 +1,25 @@
+meta {
+  name: Get Survey Details
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{host}}/v1/surveys/all_widgets
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.name: eq all_widgets
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}

@@ -1,0 +1,46 @@
+meta {
+  name: Email-Account 02 Attack
+  type: http
+  seq: 12
+}
+
+put {
+  url: {{host}}/v1/runs/sec-email-link/structure
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "units": [
+      {
+        "type": "Email",
+        "position": 1,
+        "description": "cross-user account_id link attempt",
+        "subject": "x",
+        "account_id": {{victim_email_account_id}},
+        "body": "x",
+        "recipient_field": "",
+        "cron_only": 0
+      }
+    ]
+  }
+}
+
+assert {
+  res.status: gte 200
+  res.status: lte 599
+}
+
+docs {
+  Submit a structure-import body whose Email unit's account_id points at
+  the victim admin's survey_email_accounts row. Pre-fix, Run::importUnits
+  nulled $unit->account_id at line 1289 as the only defense for this
+  endpoint; that line is now removed in favor of an in-Email::create
+  ownership check, so the V1 path is no longer special-cased and the
+  fix needs to hold in Email::create itself. Verify happens in seq 13.
+}

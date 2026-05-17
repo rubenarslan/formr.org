@@ -1,0 +1,20 @@
+meta {
+  name: Email-Account 04 Cleanup Run
+  type: http
+  seq: 14
+}
+
+delete {
+  url: {{host}}/v1/runs/sec-email-link
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  Best-effort cleanup of the attacker's run from seq 11. Deleting the
+  run cascades the Email unit and its survey_emails row.
+}

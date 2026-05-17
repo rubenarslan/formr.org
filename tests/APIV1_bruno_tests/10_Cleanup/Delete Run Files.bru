@@ -1,0 +1,19 @@
+meta {
+  name: Delete Run Files
+  type: http
+  seq: 1
+}
+
+delete {
+  url: {{host}}/v1/runs/api-test/files/test_image.png
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+}

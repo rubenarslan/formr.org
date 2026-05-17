@@ -1,0 +1,48 @@
+meta {
+  name: Create Session: Created
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{host}}/v1/runs/api-test/sessions
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "code": [
+      "TestUser_Alpha_0000000000000000000000000000000000000000000000001",
+      "TestUser_Beta__0000000000000000000000000000000000000000000000001",
+      "TestUser_Gamma_0000000000000000000000000000000000000000000000001"
+    ],
+    "testing": 0
+  }
+}
+
+assert {
+  res.body.count_created: eq 3
+  res.body.errors: isUndefined
+}
+
+script:post-response {
+  var code = null;
+    
+    if (res.body.code) {
+      code = res.body.code;
+    } else if (res.body.sessions && res.body.sessions.length > 0) {
+      code = res.body.sessions[0];
+    }
+  
+    if (code) {
+      bru.setVar("session_code", code);
+      console.log("✅ Session captured: " + code);
+    } else {
+      console.log("⚠️ No session code found in response");
+    }
+}

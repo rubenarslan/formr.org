@@ -1,0 +1,535 @@
+<?php
+
+abstract class ApiBase
+{
+
+    /**
+     * @var DB
+     */
+    protected $db;
+
+    /**
+     * @var Request
+     */
+    protected $request;
+
+    /**
+     * @var User
+     */
+    protected $user = null;
+
+    /**
+     * A container to hold processed request's outcome
+     * @var array
+     */
+    protected $data = array(
+        'statusCode' => Response::STATUS_OK,
+        'statusText' => 'OK',
+        'response' => array(),
+    );
+
+    /** 
+     * Stores the parsed URI segments 
+     * @var array 
+     */
+    protected $path_segments;
+
+    /**
+     * Error information
+     * @var array
+     */
+    protected $error = array();
+
+    protected $tokenData = array();
+
+    /**
+     * Per-request cache of the run allowlist for the calling client.
+     * - null: not yet loaded.
+     * - []: client has no rows in oauth_client_runs — UNRESTRICTED.
+     *      (Same shape as `[]`; distinguished from "restricted to no
+     *      runs" by emptiness *plus* the loaded flag.)
+     * - [42, 57]: client may only act on these run ids.
+     *
+     * Use allowedRunIds() to access — it loads lazily and never returns
+     * the raw null sentinel to callers.
+     */
+    private $cachedAllowedRunIds = null;
+    private $allowedRunIdsLoaded = false;
+
+    /**
+     * Constructor.
+     * * Initializes the API handler with the Request object, Database connection, and Token data.
+     * It also hydrates the authenticated User based on the token's user_id.
+     * * @param Request $request The HTTP request object wrapping $_GET/$_POST/$_SERVER.
+     * @param DB $db The Database instance.
+     * @param array $token_data Associative array containing OAuth2 token details (e.g., 'user_id', 'scope').
+     */
+    public function __construct(Request $request, DB $db, $token_data)
+    {
+        $this->db = $db;
+        $this->request = $request;
+        $this->tokenData = $token_data;
+        // Retrieves the user associated with the access token
+        $this->user = OAuthHelper::getInstance()->getUserByEmail($token_data['user_id']);
+
+        // Defence-in-depth: re-check canAccessApi at every request, not just
+        // at token issuance. Issuance is gated in OAuthHelper but a token can
+        // outlive its grant — direct DB demotion bypasses setAdminLevel's
+        // cleanup hook, the bshaffer grant flow doesn't consult formr's
+        // admin level, and pre-existing oauth_clients rows from before the
+        // level gate was added still mint tokens. Verifying at use time
+        // closes all three.
+        if (!$this->user || !$this->user->canAccessApi()) {
+            throw new Exception('API access has been revoked for this user.', Response::STATUS_FORBIDDEN);
+        }
+
+        // Legacy support: Sets the global user object for older components that rely on it
+        global $user;
+        $user = $this->user;
+    }
+
+    /**
+     * Retrieve the processed response data.
+     * @return array The associative array containing 'statusCode', 'statusText', and 'response' body.
+     */
+    public function getData()
+    {
+        return $this->data;
+    }
+
+    /**
+     * URI Segment Parser.
+     * * Analyzes `REQUEST_URI` to extract specific path segments relative to the API version.
+     * It normalizes the path by stripping the base prefix (up to 'v1') to ensure consistent
+     * segment retrieval regardless of the server's sub-directory configuration.
+     *
+     * @param int $index The offset index of the segment to retrieve (0-based relative to version).
+     * @return string|null The segment value, or null if the index does not exist.
+     */
+    protected function getUriSegment($index)
+    {
+        if (!isset($this->path_segments)) {
+            $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+            $path = trim($path, '/');
+
+            $segments = explode('/', $path);
+
+            $v1Index = array_search('v1', $segments);
+
+            if ($v1Index !== false) {
+                $this->path_segments = array_slice($segments, $v1Index + 1);
+            } else {
+                $this->path_segments = $segments;
+            }
+        }
+
+        return $this->path_segments[$index] ?? null;
+    }
+
+    public function setPathSegments($segments)
+    {
+        $this->path_segments = $segments;
+    }
+
+    public function getPathSegments()
+    {
+        return $this->path_segments;
+    }
+
+    // --- SHARED HELPER METHODS ---
+
+    /**
+     * Response Builder
+     * * Helper wrapper around `ApiBase::setData` to chain the return.
+     *
+     * @param int $code HTTP Status Code
+     * @param string $msg Status Message
+     * @param array $data Response body
+     * @return ApiBase
+     */
+    protected function response($code, $msg, $data = [])
+    {
+        $this->setData($code, $msg, $data);
+        return $this;
+    }
+
+    protected function error($code, $msg)
+    {
+        // The HTTP status already carries the code; the body only needs the
+        // human-readable message. Keeps success and error bodies consistent.
+        $this->setData($code, self::getStatusText($code), [
+            'message' => $msg,
+        ]);
+        return $this;
+    }
+
+    public static function getStatusText($code)
+    {
+        $statusTexts = [
+            400 => 'Bad Request',
+            401 => 'Unauthorized',
+            403 => 'Forbidden',
+            404 => 'Not Found',
+            405 => 'Method Not Allowed',
+            409 => 'Conflict',
+            415 => 'Unsupported Media Type',
+            500 => 'Internal Server Error',
+        ];
+        return $statusTexts[$code] ?? 'Error';
+    }
+
+    /**
+     * OAuth2 Scope Validator.
+     * * Verifies if the access token used for the request includes the specific scope required 
+     * to perform the action.
+     *
+     * @param string $requiredScope The scope string required (e.g., 'user:read').
+     * @throws Exception If the token does not grant the required scope.
+     * @return void
+     */
+    protected function checkScope($requiredScope)
+    {
+        $grantedScopes = explode(' ', isset($this->tokenData['scope']) ? $this->tokenData['scope'] : '');
+        if (!in_array($requiredScope, $grantedScopes)) {
+            // 403 lets the dispatcher's catch translate this into a real
+            // Forbidden response rather than a generic 500. Without an
+            // explicit code, getCode() defaults to 0 and the dispatcher
+            // ?: fallback would still apply, but being explicit is clearer.
+            throw new Exception("Insufficient permissions: '$requiredScope' scope required.", Response::STATUS_FORBIDDEN);
+        }
+    }
+
+    protected function getRequestMethod()
+    {
+        return $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    }
+
+    /**
+     * JSON Body Parser.
+     * * Reads the raw input stream ('php://input') and decodes it as a JSON associative array.
+     * Useful for handling RESTful payloads.
+     * * @return array The decoded JSON body or an empty array if decoding fails.
+     */
+    protected function getJsonBody()
+    {
+        return json_decode(file_get_contents('php://input'), true) ?? [];
+    }
+
+    /**
+     * Run Validator and Retriever.
+     * * Extracts the Run object based on the request parameters.
+     * It enforces security policies:
+     * 1. Checks if the Run exists.
+     * 2. Checks if the authenticated user is the owner.
+     * 3. Alternatively, checks if an API secret is provided and valid (machine-to-machine access).
+     *
+     * @param object $request The JSON request object containing the run name.
+     * @return Run|false Returns the Run model on success, or false on failure (sets error data internally).
+     */
+    protected function getRunFromRequest($request)
+    {
+        $name = isset($request->run->name) ? $request->run->name : null;
+        return $this->getRunByName($name);
+    }
+
+    /**
+     * Load and authorize a Run by its name.
+     * Sets structured error state on the response and returns false on failure.
+     */
+    protected function getRunByName($runName)
+    {
+        if (empty($runName)) {
+            $this->error(Response::STATUS_BAD_REQUEST, 'Run name is required');
+            return false;
+        }
+
+        $run = new Run($runName);
+        if (!$run->valid || !$this->user) {
+            $this->error(Response::STATUS_NOT_FOUND, 'Run not found');
+            return false;
+        }
+        if (!$this->user->created($run)) {
+            $this->error(Response::STATUS_FORBIDDEN, 'You do not have access to this run');
+            return false;
+        }
+
+        if (!$this->clientMayAccessRun((int) $run->id)) {
+            $this->error(
+                Response::STATUS_FORBIDDEN,
+                "This API client is not authorized for run '{$run->name}'."
+            );
+            return false;
+        }
+
+        return $run;
+    }
+
+    /**
+     * Per-request lookup of which run ids the calling client may touch.
+     * Empty array = no restriction (every run the user owns is fair
+     * game). Non-empty array = exact set. Cached for the lifetime of
+     * the request because sub-resource dispatch within a single API
+     * call can hit getRunByName() repeatedly.
+     *
+     * @return int[]
+     */
+    public function allowedRunIds()
+    {
+        if (!$this->allowedRunIdsLoaded) {
+            // Resolution precedence (most specific wins):
+            //   1. Per-token run_ids on the access-token row. Internal
+            //      callers (OpenCPU) stamp this via createAccessTokenForUser
+            //      so a token minted to render run X cannot touch run Y
+            //      even if the user's per-client allowlist would have
+            //      allowed it.
+            //   2. Per-client oauth_client_runs allowlist. The external
+            //      client_credentials path: scope and runs are decided
+            //      at credential-creation time in admin/account#api.
+            //   3. Empty = unrestricted (back-compat for tokens minted
+            //      before either mechanism existed and for internal
+            //      callers that legitimately need cross-run access).
+            $tokenRunIds = $this->parseTokenRunIds();
+            if ($tokenRunIds !== null) {
+                $this->cachedAllowedRunIds = $tokenRunIds;
+            } else {
+                $clientId = isset($this->tokenData['client_id']) ? $this->tokenData['client_id'] : null;
+                $this->cachedAllowedRunIds = OAuthHelper::getInstance()->getRunAllowlist($clientId);
+            }
+            $this->allowedRunIdsLoaded = true;
+        }
+        return $this->cachedAllowedRunIds;
+    }
+
+    /**
+     * Parse the per-token run_ids string from the token row. Returns
+     * an int[] when the column is set (even to ''), null when it
+     * isn't — so callers can distinguish "no per-token restriction
+     * configured" from "explicit empty list" (the latter shouldn't
+     * really happen but is treated as "deny everything" if it does).
+     */
+    private function parseTokenRunIds()
+    {
+        if (!array_key_exists('run_ids', $this->tokenData) || $this->tokenData['run_ids'] === null) {
+            return null;
+        }
+        $raw = (string) $this->tokenData['run_ids'];
+        if ($raw === '') {
+            return [];
+        }
+        $ids = [];
+        foreach (preg_split('/\s*,\s*/', trim($raw)) as $part) {
+            if ($part === '' || !ctype_digit($part)) continue;
+            $ids[] = (int) $part;
+        }
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * True when the calling client is permitted to act on $runId.
+     * Empty allowlist => unrestricted (every owned run is permitted).
+     */
+    protected function clientMayAccessRun($runId)
+    {
+        $allowed = $this->allowedRunIds();
+        if (empty($allowed)) {
+            return true;
+        }
+        return in_array((int) $runId, $allowed, true);
+    }
+
+    /**
+     * True when the calling client is permitted to act on $surveyId.
+     * Empty allowlist => unrestricted. Non-empty allowlist => the
+     * survey must appear as a unit in at least one allowlisted run
+     * (survey-type units in formr share their id with
+     * survey_studies.id; see Run::getAllSurveys at
+     * application/Model/Run.php:907 for the same join).
+     */
+    protected function clientMayAccessSurvey($surveyId)
+    {
+        $allowed = $this->allowedRunIds();
+        if (empty($allowed)) {
+            return true;
+        }
+        $placeholders = implode(',', array_fill(0, count($allowed), '?'));
+        $stmt = $this->db->prepare(
+            "SELECT 1 FROM survey_run_units
+             WHERE unit_id = ? AND run_id IN ($placeholders)
+             LIMIT 1"
+        );
+        $stmt->execute(array_merge([(int) $surveyId], $allowed));
+        return (bool) $stmt->fetchColumn();
+    }
+
+    protected function setData($statusCode = null, $statusText = null, $response = null, $error = null)
+    {
+        if ($error !== null) {
+            $this->setError($statusCode, $statusText, $error);
+            return $this->setData($statusCode, $statusText, $this->error);
+        }
+
+        if ($statusCode !== null) {
+            $this->data['statusCode'] = $statusCode;
+        }
+        if ($statusText !== null) {
+            $this->data['statusText'] = $statusText;
+        }
+        if ($response !== null) {
+            $this->data['response'] = $response;
+        }
+    }
+
+    protected function setError($code = null, $message = null, $desc = null)
+    {
+        if ($code !== null) {
+            $this->error['code'] = $code;
+        }
+        if ($message !== null) {
+            $this->error['message'] = $message;
+        }
+        if ($desc !== null) {
+            $this->error['description'] = $desc;
+        }
+    }
+
+    protected function parseJsonRequest()
+    {
+        $request = $this->request->str('request', null) ? $this->request->str('request') : file_get_contents('php://input');
+        if (!$request) {
+            $this->setData(Response::STATUS_BAD_REQUEST, 'Invalid Request', null, "Request payload not found");
+            return false;
+        }
+        $object = json_decode($request);
+        if (!$object) {
+            $this->setData(Response::STATUS_BAD_REQUEST, 'Invalid Request', null, "Unable to parse JSON request");
+            return false;
+        }
+        return $object;
+    }
+
+    /**
+     * Secure Survey Results Retriever using PDO Prepared Statements
+     */
+    protected function getSurveyResults(Run $run, $survey_name, $survey_items = null, $sessions = null)
+    {
+        $results = array();
+
+        // 1. Base Query with Placeholders
+        $sql = "
+            SELECT itms_display.item_id, itms_display.session_id, itms_display.answer, itms_display.created,
+                   survey_items.name AS item_name, survey_run_sessions.session AS run_session, survey_run_sessions.position AS current_position
+            FROM survey_items_display AS itms_display
+            INNER JOIN survey_unit_sessions ON survey_unit_sessions.id = itms_display.session_id
+            INNER JOIN survey_run_sessions ON survey_run_sessions.id = survey_unit_sessions.run_session_id
+            INNER JOIN survey_items ON survey_items.id = itms_display.item_id
+            INNER JOIN survey_studies ON survey_studies.id = survey_items.study_id
+            WHERE survey_studies.name = :survey_name
+            AND survey_studies.user_id = :user_id
+            AND survey_run_sessions.run_id = :run_id
+        ";
+
+        // 2. Initial Bind Parameters
+        $params = [
+            ':survey_name' => $survey_name,
+            ':user_id'     => $this->user->id,
+            ':run_id'      => $run->id,
+        ];
+
+        // 3. Dynamic 'WHERE IN' clause for survey items
+        if ($survey_items && is_string($survey_items)) {
+            $item_names = explode(',', $survey_items);
+            $in_placeholders = [];
+
+            foreach ($item_names as $i => $name) {
+                $ph = ":item_name_$i";
+                $in_placeholders[] = $ph;
+                $params[$ph] = trim($name);
+            }
+            if (!empty($in_placeholders)) {
+                $sql .= ' AND survey_items.name IN (' . implode(',', $in_placeholders) . ') ';
+            }
+        }
+
+        // 4. Dynamic 'LIKE' clauses for sessions (Preventing Wildcard DoS)
+        if ($sessions && is_array($sessions)) {
+            $like_clauses = [];
+            foreach ($sessions as $i => $session) {
+                // Escape existing wildcards to treat them as literals
+                $clean_session = addcslashes($session, '%_');
+                $ph = ":sess_$i";
+                $like_clauses[] = "survey_run_sessions.session LIKE $ph";
+                $params[$ph] = $clean_session . '%'; // Append intended wildcard
+            }
+            if (!empty($like_clauses)) {
+                $sql .= ' AND (' . implode(' OR ', $like_clauses) . ') ';
+            }
+        }
+
+        // 5. Execute Prepared Statement
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+
+        // 6. Fetch Results
+        while (($row = $stmt->fetch(PDO::FETCH_ASSOC))) {
+            $session_id = $row['session_id'];
+            if (!isset($results[$session_id])) {
+                $results[$session_id] = array(
+                    'session' => $row['run_session'],
+                    'created' => $row['created'],
+                    'current_position' => $row['current_position']
+                );
+            }
+            if ($row['created'] && empty($results[$session_id]['created'])) {
+                $results[$session_id]['created'] = $row['created'];
+            }
+            $results[$session_id][$row['item_name']] = $row['answer'];
+        }
+
+        return array_values($results);
+    }
+
+    /**
+     * Secure Shuffle Results Retriever (Fixed Typo + Prepared Statements)
+     */
+    protected function getShuffleResults(Run $run, $sessions = null)
+    {
+        $sql = "
+            SELECT 
+                sus.id AS session_id,
+                srs.session AS run_session,
+                sru.position,
+                sus.unit_id,
+                sus.result AS `group`,
+                sus.created
+            FROM survey_unit_sessions AS sus
+            LEFT JOIN survey_run_sessions AS srs ON srs.id = sus.run_session_id
+            LEFT JOIN survey_units AS u ON u.id = sus.unit_id
+            LEFT JOIN survey_run_units AS sru ON sru.unit_id = u.id AND sru.run_id = srs.run_id
+            WHERE srs.run_id = :run_id
+            AND u.type = 'Shuffle'
+        ";
+
+        $params = [':run_id' => $run->id];
+
+        if ($sessions && is_array($sessions)) {
+            $like_clauses = [];
+            foreach ($sessions as $i => $session) {
+                $clean_session = addcslashes($session, '%_');
+                $ph = ":sess_$i";
+                $like_clauses[] = "srs.session LIKE $ph";
+                $params[$ph] = $clean_session . '%';
+            }
+            if (!empty($like_clauses)) {
+                $sql .= ' AND (' . implode(' OR ', $like_clauses) . ') ';
+            }
+        }
+
+        $sql .= ' ORDER BY sus.created ASC';
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+}

@@ -1,0 +1,35 @@
+meta {
+  name: Scoping 33 Allow Auth
+  type: http
+  seq: 33
+}
+
+post {
+  url: {{host}}/oauth/access_token
+  body: formUrlEncoded
+  auth: none
+}
+
+body:form-urlencoded {
+  grant_type: client_credentials
+  client_id: {{allow_client_id}}
+  client_secret: {{allow_client_secret}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.access_token: isNotEmpty
+  res.body.scope: eq run:read run:write survey:read
+}
+
+script:post-response {
+  if (res.body.access_token) {
+    bru.setVar("allow_token", res.body.access_token);
+  }
+}
+
+docs {
+  Mints a token from a credential allowlisted to scope-run-a with
+  read+write run scopes and survey:read. Stashed as `allow_token` for
+  the run-allowlist + survey-allowlist assertions that follow.
+}

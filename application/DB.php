@@ -512,6 +512,17 @@ class DB {
         return $table !== null ? "`$table`.`$col`" : "`$col`";
     }
 
+    /**
+     * Wrap a raw SQL expression so it can pass through DB_Select::order()
+     * (and future strict-validating sinks) without being rejected as a
+     * non-identifier. Use sparingly — the wrapped string is concatenated
+     * verbatim into SQL, so the caller is fully responsible for ensuring
+     * it contains no untrusted input.
+     */
+    public static function raw($expression) {
+        return new DB_Raw($expression);
+    }
+
     public static function parseColName($string) {
         if (strpos($string, '.') !== false) {
             $string = explode('.', $string, 2);
@@ -694,6 +705,8 @@ class DB_Select {
 
     public function like($colname, $value, $pad = 'both') {
         $colname = $this->parseColName($colname);
+        // Escape LIKE wildcards so user-supplied % / _ / \ match literally.
+        $value = addcslashes((string) $value, '%_\\');
         if ($pad === 'right') {
             $value = "$value%";
         } elseif ($pad === 'left') {
@@ -701,8 +714,9 @@ class DB_Select {
         } else {
             $value = "%$value%";
         }
-        $this->PDO->quote($value);
-        $this->where("$colname LIKE '$value'");
+        $placeholder = ':like_' . count($this->params);
+        $this->where[] = "$colname LIKE $placeholder";
+        $this->params[$placeholder] = $value;
         return $this;
     }
 
@@ -713,13 +727,41 @@ class DB_Select {
     }
 
     public function order($by, $order = 'asc') {
+        // DB::raw() escape hatch — caller takes responsibility for the
+        // expression. $order, if non-null, is whitelisted as before.
+        if ($by instanceof DB_Raw) {
+            if ($order === null) {
+                $this->order[] = $by->getExpression();
+                return $this;
+            }
+            $order = strtoupper($order);
+            if (!in_array($order, array('ASC', 'DESC'))) {
+                throw new Exception("Invalid Order");
+            }
+            $this->order[] = $by->getExpression() . " $order";
+            return $this;
+        }
+
+        // Legacy shortcut — prefer DB::raw('RAND()').
         if ($by === 'RAND') {
             $this->order[] = 'RAND()';
             return $this;
         }
 
+        // $order === null means the caller wants to pass either a bare
+        // column or a "column DIRECTION" combined form. Parse strictly:
+        // legitimate callers (e.g. User::getStudies('id DESC')) match;
+        // anything containing function calls, commas, or other tokens
+        // is rejected. Use DB::raw() for raw expressions.
         if ($order === null) {
-            $this->order[] = $by;
+            $byStr = trim((string) $by);
+            if (preg_match('/^(.+?)\s+(ASC|DESC)$/i', $byStr, $m)) {
+                $col = $this->parseStrictIdentifier($m[1]);
+                $this->order[] = $col . ' ' . strtoupper($m[2]);
+                return $this;
+            }
+            $col = $this->parseStrictIdentifier($byStr);
+            $this->order[] = $col;
             return $this;
         }
 
@@ -727,9 +769,28 @@ class DB_Select {
         if (!in_array($order, array('ASC', 'DESC'))) {
             throw new Exception("Invalid Order");
         }
-        $by = $this->parseColName($by);
+        $by = $this->parseStrictIdentifier($by);
         $this->order[] = "$by $order";
         return $this;
+    }
+
+    /**
+     * Strict variant of parseColName for sinks reachable from user input
+     * (order_by). Accepts only `column` or `table.column`, with optional
+     * backticks. SQL functions, aliases, and other expressions must be
+     * wrapped in DB::raw().
+     */
+    private function parseStrictIdentifier($string) {
+        $string = trim((string) $string);
+        if (preg_match('/^`?([a-zA-Z_][a-zA-Z0-9_]*)`?(?:\.`?([a-zA-Z_][a-zA-Z0-9_]*)`?)?$/', $string, $m)) {
+            if (!empty($m[2])) {
+                return DB::quoteCol($m[1]) . '.' . DB::quoteCol($m[2]);
+            }
+            return DB::quoteCol($m[1]);
+        }
+        throw new InvalidArgumentException(
+            "Invalid column identifier: '$string'. Wrap SQL expressions in DB::raw()."
+        );
     }
 
     /**
@@ -918,4 +979,26 @@ class DB_Select {
         );
     }
 
+}
+
+/**
+ * Sentinel value object that lets a caller mark a string as a raw SQL
+ * expression — opting out of the strict identifier validation in
+ * DB_Select::order(). Construct via DB::raw().
+ */
+class DB_Raw {
+
+    private $expression;
+
+    public function __construct($expression) {
+        $this->expression = (string) $expression;
+    }
+
+    public function getExpression() {
+        return $this->expression;
+    }
+
+    public function __toString() {
+        return $this->expression;
+    }
 }

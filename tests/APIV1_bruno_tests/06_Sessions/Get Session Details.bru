@@ -1,0 +1,22 @@
+meta {
+  name: Get Session Details
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{host}}/v1/runs/api-test/sessions/TestUser_Alpha_0000000000000000000000000000000000000000000000001
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.session: eq TestUser_Alpha_0000000000000000000000000000000000000000000000001
+  res.body.testing: eq true
+  res.body.position: eq 10
+}
