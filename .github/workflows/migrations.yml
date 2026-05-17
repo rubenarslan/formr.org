@@ -53,6 +53,12 @@ jobs:
           fetch-depth: 0
 
       - uses: ariga/setup-atlas@v0
+        with:
+          # v0.38 moved `migrate lint` behind Atlas Pro; pin to the last
+          # release where it's still free. Bump only after either signing
+          # up for Pro (and wiring a token) or after the lint step is
+          # removed.
+          version: v0.37.0
 
       # Atlas's default versioned format treats the leading "NNN_" as the
       # version, so no special configuration is needed for sql/patches/.
