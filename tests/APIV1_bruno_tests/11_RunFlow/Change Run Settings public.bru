@@ -1,0 +1,25 @@
+meta {
+  name: Change Run Settings public
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{host}}/v1/runs/api-test
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "public": 2
+  }
+}
+
+assert {
+  res.status: eq 200
+}

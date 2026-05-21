@@ -7,12 +7,14 @@ class UserHelper {
         $pagination = new Pagination($count, 200, true);
         $limits = $pagination->getLimits();
         $where = " ";
+        $binds = array();
         if (!empty($params['email'])) {
-            $where = " WHERE email LIKE '%{$params['email']}%' ";
+            $where = " WHERE email LIKE :email ";
+            $binds[':email'] = '%' . addcslashes($params['email'], '%_\\') . '%';
         }
 
         $itemsQuery = "
-            SELECT 
+            SELECT
                 `survey_users`.id,
                 `survey_users`.created,
                 `survey_users`.modified,
@@ -25,7 +27,7 @@ class UserHelper {
         ";
 
         $stmt = DB::getInstance()->prepare($itemsQuery);
-        $stmt->execute();
+        $stmt->execute($binds);
 
         return array(
             'search_email' => $params['email'] ?? '',

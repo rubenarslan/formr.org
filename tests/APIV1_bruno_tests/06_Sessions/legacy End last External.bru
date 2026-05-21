@@ -1,0 +1,24 @@
+meta {
+  name: legacy End last External
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{host}}/post/end-last-external
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "run": {
+      "name": "api-test",
+      "session": "TestUser_Alpha_0000000000000000000000000000000000000000000000001"
+    }
+  }
+}

@@ -1,0 +1,61 @@
+meta {
+  name: Mass-Assign 02 Attack
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{host}}/v1/runs/sec-mass/structure
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "units": [
+      {
+        "type": "Survey",
+        "position": 1,
+        "description": "mass-assign attack",
+        "survey_data": {
+          "name": "sec_attacker_decoy",
+          "items": [
+            {"type": "note", "name": "intro", "label": "x", "item_order": 1},
+            {"type": "submit", "name": "send_off", "label": "Submit", "item_order": 2}
+          ],
+          "settings": {
+            "id": {{victim_survey_id}},
+            "name": "PWNED",
+            "results_table": "PWNED_TABLE"
+          }
+        }
+      }
+    ]
+  }
+}
+
+docs {
+  Attack: PUT /v1/runs/{name}/structure with a Survey unit whose
+  survey_data.settings tries to mass-assign id, name, and results_table
+  onto an arbitrary survey_studies row (the victim, captured in seq 3).
+
+  Pre-fix: SurveyStudy::createFromData calls $study->assignProperties(
+  $data->settings) with no allowlist, $study->save() then UPDATEs the
+  victim row by id.
+
+  We don't strictly assert the response here — both pre-fix and post-fix
+  responses are 200/500-range depending on whether the unit ends up
+  "valid". The actual security assertion lives in seq 5 (Verify Victim
+  Untouched), which checks that the victim row's name is unchanged.
+
+  Sanity-only assertion: the request reaches the server and isn't a 404.
+}
+
+assert {
+  res.status: gte 200
+  res.status: lte 599
+}

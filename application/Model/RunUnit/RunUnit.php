@@ -488,7 +488,7 @@ plot(cars)
             ), array('opencpu_url'));
 
             // If there is a cache of opencpu, check if it still exists
-            if ($opencpu_url && ($ocpu = opencpu_get($opencpu_url, '', null, true))) {
+            if ($opencpu_url && ($ocpu = opencpu_get($opencpu_url, '', true))) {
                 if ($isCron) {
                     // don't regenerate once we once had a report for this feedback, if it's only the cronjob
                     return null;

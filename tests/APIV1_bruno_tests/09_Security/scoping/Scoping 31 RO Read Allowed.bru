@@ -1,0 +1,26 @@
+meta {
+  name: Scoping 31 RO Read Allowed
+  type: http
+  seq: 31
+}
+
+get {
+  url: {{host}}/v1/runs/{{run_a_name}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ro_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.name: eq {{run_a_name}}
+}
+
+docs {
+  Read-only token can GET its allowlisted run. Sanity check that the
+  read path stays open under per-run scoping when the read scope is
+  granted and the run is in the allowlist.
+}

@@ -1,0 +1,37 @@
+meta {
+  name: Scoping 40 Unrestricted Auth
+  type: http
+  seq: 40
+}
+
+post {
+  url: {{host}}/oauth/access_token
+  body: formUrlEncoded
+  auth: none
+}
+
+body:form-urlencoded {
+  grant_type: client_credentials
+  client_id: {{unrestricted_client_id}}
+  client_secret: {{unrestricted_client_secret}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.access_token: isNotEmpty
+  res.body.scope: eq run:read survey:read
+}
+
+script:post-response {
+  if (res.body.access_token) {
+    bru.setVar("unrestricted_token", res.body.access_token);
+  }
+}
+
+docs {
+  Mints a token from a credential with no run allowlist rows (so
+  clientMayAccessRun returns true for every owned run). Verifies that
+  the empty allowlist is the unrestricted state — back-compat with
+  internal callers (OpenCPU) that mint tokens without ever touching
+  oauth_client_runs.
+}

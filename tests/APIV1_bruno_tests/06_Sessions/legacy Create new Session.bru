@@ -1,0 +1,45 @@
+meta {
+  name: legacy Create new Session
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{host}}/post/create-session
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "run": {
+      "name": "api-test"
+    }
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.sessions: isNotEmpty
+}
+
+script:post-response {
+  var code = null;
+    
+    if (res.body.code) {
+      code = res.body.code;
+    } else if (res.body.sessions && res.body.sessions.length > 0) {
+      code = res.body.sessions[0];
+    }
+  
+    if (code) {
+      bru.setVar("session_code", code);
+      console.log("✅ Session captured: " + code);
+    } else {
+      console.log("⚠️ No session code found in response");
+    }
+}

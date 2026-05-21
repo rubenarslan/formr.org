@@ -1,0 +1,26 @@
+meta {
+  name: Scoping 34 Allowed Run OK
+  type: http
+  seq: 34
+}
+
+get {
+  url: {{host}}/v1/runs/{{run_a_name}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{allow_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.name: eq {{run_a_name}}
+}
+
+docs {
+  Run allowlist + scope both happy: GET on the allowlisted run with the
+  correct read scope returns 200. Establishes the positive baseline for
+  the deny tests below.
+}

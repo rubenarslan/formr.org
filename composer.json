@@ -1,7 +1,7 @@
 {
 	"name": "rubenarslan/formr",
 	"description": "make complex (longitudinal, network, diary, ...) studies using spreadsheets and give feedback with R graphs",
-	"version": "0.22.0",
+	"version": "1.0.0",
 	"keywords": ["form", "survey", "study", "psychology", "R", "feedback"],
 	"homepage": "https://github.com/rubenarslan/formr.org",
 	"license": "BSD-2-Clause-FreeBSD",
@@ -26,7 +26,7 @@
         "bshaffer/oauth2-server-php": "1.*",
         "atrox/haikunator": "1.*",
         "paragonie/halite": "^5",
-        "phpoffice/phpspreadsheet": "1.*",
+        "phpoffice/phpspreadsheet": "^1.30",
         "phpmailer/phpmailer": "6.*",
 		"robthree/twofactorauth": "2.1.0",
 		"chillerlan/php-qrcode": "^5.0",
@@ -41,6 +41,7 @@
         }
     },
 	"scripts": {
-    	"test": "phpunit --configuration tests/phpunit.xml"
+    	"test": "phpunit --configuration tests/phpunit.xml --exclude-group integration",
+    	"test:integration": "phpunit --configuration tests/phpunit.xml --group integration"
 	}
 }

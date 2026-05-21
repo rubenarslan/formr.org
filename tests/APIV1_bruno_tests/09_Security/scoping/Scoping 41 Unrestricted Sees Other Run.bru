@@ -1,0 +1,26 @@
+meta {
+  name: Scoping 41 Unrestricted Sees Other Run
+  type: http
+  seq: 41
+}
+
+get {
+  url: {{host}}/v1/runs/{{run_b_name}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{unrestricted_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.name: eq {{run_b_name}}
+}
+
+docs {
+  Same admin user owns scope-run-b. With no run allowlist on this
+  client, that run must be reachable — proves the empty-allowlist
+  semantics are "no restriction", not "restricted to nothing".
+}

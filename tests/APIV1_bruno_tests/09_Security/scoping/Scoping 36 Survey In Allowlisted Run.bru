@@ -1,0 +1,25 @@
+meta {
+  name: Scoping 36 Survey In Allowlisted Run
+  type: http
+  seq: 36
+}
+
+get {
+  url: {{host}}/v1/surveys/{{survey_a_name}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{allow_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+docs {
+  scope_survey_a is part of scope-run-a (linked via survey_run_units),
+  and the token is allowlisted to scope-run-a — so survey access must
+  pass. Positive baseline for the survey-allowlist deny tests.
+}

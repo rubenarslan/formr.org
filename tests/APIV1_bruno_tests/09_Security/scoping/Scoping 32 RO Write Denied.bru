@@ -1,0 +1,33 @@
+meta {
+  name: Scoping 32 RO Write Denied
+  type: http
+  seq: 32
+}
+
+patch {
+  url: {{host}}/v1/runs/{{run_a_name}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ro_token}}
+}
+
+body:json {
+  {
+    "title": "scoping test should not land"
+  }
+}
+
+assert {
+  res.status: eq 403
+  res.body.message: contains run:write
+}
+
+docs {
+  PATCH on the allowlisted run must 403 because the token only carries
+  `run:read`. Asserts on the scope-mismatch message so we'd catch a
+  regression where the run-allowlist check (which fires later in the
+  flow) somehow returned the wrong 403 wording.
+}

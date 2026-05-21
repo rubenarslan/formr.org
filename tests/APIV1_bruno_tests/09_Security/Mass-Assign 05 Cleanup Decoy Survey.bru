@@ -1,0 +1,24 @@
+meta {
+  name: Mass-Assign 05 Cleanup Decoy Survey
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{host}}/v1/surveys/sec_attacker_decoy
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  Best-effort cleanup. createFromData inserts a fresh row with the
+  attacker-supplied name (here "sec_attacker_decoy") before assignProperties
+  redirects $study->id to the victim. Pre-fix, that fresh row orphans —
+  it's owned by the attacker but has no run-unit linkage. Post-fix the
+  row may or may not exist depending on which branch of createFromData
+  fired; either way we attempt the DELETE.
+}

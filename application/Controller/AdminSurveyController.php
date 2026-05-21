@@ -528,6 +528,22 @@ class AdminSurveyController extends AdminController {
     
     private function changeSettings($settings) {
         $errors = false;
+
+        // Allowlist before any further processing. The previous safety net
+        // was an array_walk that int-cast every value except google_file_id
+        // — which "worked" because most columns happen to be integer-typed,
+        // but it did not protect numeric identity columns like user_id.
+        // An attacker submitting &user_id=999 to admin/survey/<name> would
+        // have user_id=999 land in $this->study->update(...), which calls
+        // assignProperties + save and would change the survey's owner.
+        $allowed = [
+            'maximum_number_displayed', 'displayed_percentage_maximum',
+            'add_percentage_points', 'expire_after',
+            'expire_invitation_after', 'expire_invitation_grace',
+            'enable_instant_validation', 'hide_results', 'use_paging',
+            'unlinked', 'google_file_id',
+        ];
+        $settings = array_intersect_key($settings, array_flip($allowed));
         array_walk($settings, function (&$value, $key) {
             if ($key !== 'google_file_id') {
                 $value = (int) $value;

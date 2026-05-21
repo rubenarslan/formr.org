@@ -1,0 +1,50 @@
+meta {
+  name: Create Session: Multi-Status
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{host}}/v1/runs/api-test/sessions
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "code": [
+      "TestUser_Valid_0000000000000000000000000000000000000000000000001",
+      "Invalid/Char/In/This/Code/It/Will/Fail/The/Url/Safety/Check/Hopefully",
+      "TooShort_Fail_Cofig_Regex"
+    ],
+    "testing": 0
+  }
+}
+
+assert {
+  res.body.count_created: eq 1
+  res.body.count_failed: eq 2
+  res.body.errors[0].reason: eq Invalid characters. Only alphanumeric and - _ ~ are allowed.
+  res.body.errors[1].reason: eq Does not match required format: /^[A-Za-z0-9+-_~]{64}$/
+}
+
+script:post-response {
+  var code = null;
+    
+    if (res.body.code) {
+      code = res.body.code;
+    } else if (res.body.sessions && res.body.sessions.length > 0) {
+      code = res.body.sessions[0];
+    }
+  
+    if (code) {
+      bru.setVar("session_code", code);
+      console.log("✅ Session captured: " + code);
+    } else {
+      console.log("⚠️ No session code found in response");
+    }
+}

@@ -1,0 +1,102 @@
+-- Track A (v0.26.0) — historical backfill of survey_unit_sessions.run_unit_id
+-- and iteration. Forward writes since 047 already populate these for all
+-- newly-created rows; this fills in the historical tail. Run once.
+--
+-- Fresh deployments (no historical rows) get a no-op execution.
+--
+-- See REFACTOR_QUEUE_PLAN.md A3a for the design rationale and edge cases.
+
+-- Phase 1: unique-position case (the common one). When the same
+-- (run_id, unit_id) maps to exactly one survey_run_units.id, we can
+-- safely set survey_unit_sessions.run_unit_id from the JOIN. The HAVING
+-- COUNT(*) = 1 subquery filters out runs where the same unit appears at
+-- multiple positions — those need the multi-position phase below.
+UPDATE `survey_unit_sessions` `us`
+JOIN `survey_run_sessions` `rs` ON `rs`.`id` = `us`.`run_session_id`
+JOIN `survey_run_units` `sru`
+        ON `sru`.`run_id` = `rs`.`run_id`
+       AND `sru`.`unit_id` = `us`.`unit_id`
+JOIN (
+    SELECT `run_id`, `unit_id`
+    FROM `survey_run_units`
+    GROUP BY `run_id`, `unit_id`
+    HAVING COUNT(*) = 1
+) `uniq` ON `uniq`.`run_id` = `sru`.`run_id`
+        AND `uniq`.`unit_id` = `sru`.`unit_id`
+SET `us`.`run_unit_id` = `sru`.`id`
+WHERE `us`.`run_unit_id` IS NULL;
+
+-- Phase 2: iteration. Best-effort by historical (run_session_id, unit_id)
+-- partitioning ordered by id (proxy for created-at). Production
+-- post-A2 rows already carry the correct iteration computed by
+-- UnitSession::create — we leave those alone and only fill rows with
+-- iteration IS NULL. Pre-A2 rows have iteration NULL by definition
+-- (the column didn't exist before 047).
+--
+-- For multi-position-reuse runs this counts iterations across all
+-- positions of the same unit, which is the same model that legacy
+-- analysis tooling has always implicitly used (since it had no
+-- per-position discriminator either). The backfill report at the bottom
+-- surfaces unresolved cases for analyst review.
+UPDATE `survey_unit_sessions` `us`
+JOIN (
+    SELECT `id`,
+           ROW_NUMBER() OVER (PARTITION BY `run_session_id`, `unit_id`
+                              ORDER BY `id`) AS `rn`
+    FROM `survey_unit_sessions`
+) `ranked` ON `ranked`.`id` = `us`.`id`
+SET `us`.`iteration` = `ranked`.`rn`
+WHERE `us`.`iteration` IS NULL;
+
+-- Phase 3: flag the multi-position-reuse rows that stayed NULL after
+-- phase 1 so analysts know the run_unit_id is genuinely ambiguous and
+-- not just a missed backfill. JSON shape is documented in the doc-block
+-- of UnitSession::logResult (state_log column).
+UPDATE `survey_unit_sessions` `us`
+SET `us`.`state_log` = JSON_OBJECT(
+        'backfill', 'run_unit_id_ambiguous',
+        'reason',   'multi_position_reuse'
+    )
+WHERE `us`.`run_unit_id` IS NULL AND `us`.`state_log` IS NULL;
+
+-- Phase 4: backfill the `state` column for terminal historical rows so
+-- the new state ENUM is non-NULL across the full audit trail (not just
+-- post-A2 forward writes). Each UPDATE is constrained to `state IS NULL`
+-- so re-running this patch is a no-op. Order matters within EXPIRED →
+-- ENDED → SUPERSEDED so that an ended-and-expired row (rare) ends up
+-- as ENDED rather than EXPIRED — `ended` is the dominant terminal.
+--
+-- Rows that have neither `ended` nor `expired` AND queued <= 0 are
+-- ambiguous; we leave their state NULL and the admin template's
+-- queueLabelForRow falls back to the queued-magic-value mapping.
+UPDATE `survey_unit_sessions`
+SET `state` = 'EXPIRED'
+WHERE `state` IS NULL AND `expired` IS NOT NULL AND `ended` IS NULL;
+
+UPDATE `survey_unit_sessions`
+SET `state` = 'ENDED'
+WHERE `state` IS NULL AND `ended` IS NOT NULL;
+
+UPDATE `survey_unit_sessions`
+SET `state` = 'SUPERSEDED'
+WHERE `state` IS NULL AND `queued` = -9;
+
+-- Phase 5: backfill `state` for queued-but-not-terminal rows
+-- (WAITING_USER for Survey/External/Page/Endpage; WAITING_TIMER for
+-- everything else). The runUnit-type classifier mirrors
+-- UnitSessionQueue::stateForQueuedUnit.
+UPDATE `survey_unit_sessions` `us`
+JOIN `survey_units` `su` ON `su`.`id` = `us`.`unit_id`
+SET `us`.`state` = CASE
+        WHEN `su`.`type` IN ('Survey', 'External', 'Page', 'Endpage')
+            THEN 'WAITING_USER'
+        ELSE 'WAITING_TIMER'
+    END
+WHERE `us`.`state` IS NULL AND `us`.`queued` > 0;
+
+-- Phase 6: anything still NULL is a fresh-but-not-yet-queued row
+-- (queued = 0, ended IS NULL, expired IS NULL). Track A treats these
+-- as PENDING.
+UPDATE `survey_unit_sessions`
+SET `state` = 'PENDING'
+WHERE `state` IS NULL;

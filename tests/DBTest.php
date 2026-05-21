@@ -290,6 +290,79 @@ class DBTest extends TestCase
     }
 
     /**
+     * Hardening: DB_Select::order() must accept simple identifiers and the
+     * combined "col DIR" form, and reject anything that looks like a SQL
+     * expression unless wrapped in DB::raw().
+     */
+    public function testOrderAcceptsStrictIdentifier()
+    {
+        $sql = $this->db->select('id')->from('users')->order('id', 'desc')->lastQuery();
+        $this->assertStringContainsString('ORDER BY `id` DESC', $sql);
+    }
+
+    public function testOrderAcceptsTableDotColumn()
+    {
+        $sql = $this->db->select('id')->from('users')->order('users.id', 'asc')->lastQuery();
+        $this->assertStringContainsString('ORDER BY `users`.`id` ASC', $sql);
+    }
+
+    public function testOrderAcceptsBacktickedIdentifier()
+    {
+        $sql = $this->db->select('id')->from('users')->order('`users`.`id`', 'desc')->lastQuery();
+        $this->assertStringContainsString('ORDER BY `users`.`id` DESC', $sql);
+    }
+
+    public function testOrderAcceptsCombinedDirectionWhenOrderIsNull()
+    {
+        // The User::getStudies('id DESC') idiom.
+        $sql = $this->db->select('id')->from('users')->order('id DESC', null)->lastQuery();
+        $this->assertStringContainsString('ORDER BY `id` DESC', $sql);
+    }
+
+    public function testOrderRejectsFunctionExpression()
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->db->select('id')->from('users')->order('RAND()', 'asc');
+    }
+
+    public function testOrderRejectsSqlInjectionPayload()
+    {
+        // The exact shape an attacker would forward from a ?sort= param if
+        // a future caller threaded user input into order_by.
+        $this->expectException(InvalidArgumentException::class);
+        $this->db->select('id')->from('users')
+            ->order("id ASC; DROP TABLE users--", null);
+    }
+
+    public function testOrderRejectsCommaSeparatedInjection()
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->db->select('id')->from('users')
+            ->order("id ASC, (SELECT password FROM users LIMIT 1) DESC", null);
+    }
+
+    public function testOrderAcceptsDbRawForFunctionExpression()
+    {
+        $sql = $this->db->select('id')->from('users')
+            ->order(DB::raw('RAND()'))->lastQuery();
+        $this->assertStringContainsString('ORDER BY RAND()', $sql);
+    }
+
+    public function testOrderAcceptsDbRawWithDirection()
+    {
+        $sql = $this->db->select('id')->from('users')
+            ->order(DB::raw('LENGTH(username)'), 'desc')->lastQuery();
+        $this->assertStringContainsString('ORDER BY LENGTH(username) DESC', $sql);
+    }
+
+    public function testDbRawIsStringable()
+    {
+        $raw = DB::raw('NOW()');
+        $this->assertEquals('NOW()', (string) $raw);
+        $this->assertEquals('NOW()', $raw->getExpression());
+    }
+
+    /**
      * Clean up after tests
      */
     protected function tearDown(): void

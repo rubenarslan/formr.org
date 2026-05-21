@@ -1,0 +1,38 @@
+meta {
+  name: Mass-Assign 03 Verify Victim Untouched
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{host}}/v1/surveys/sec_victim
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.name: eq sec_victim
+}
+
+docs {
+  THE security assertion. After the mass-assign attack in seq 4, the victim
+  survey row must still be reachable by its original name and must still
+  carry that name.
+
+  Pre-fix: createFromData clobbered the row's name to "PWNED" via the
+  unfiltered assignProperties → save round-trip, so this GET 404s and the
+  test fails (red).
+  Post-fix: settings is allowlisted to the legitimate config columns and
+  id/name/user_id/results_table can no longer be smuggled through, so the
+  victim row is untouched and this GET succeeds (green).
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}

@@ -1,0 +1,19 @@
+meta {
+  name: Delete Survey google sheets
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{host}}/v1/surveys/all_widgets
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+}

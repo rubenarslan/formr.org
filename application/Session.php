@@ -260,7 +260,11 @@ class Session {
     public static function getAdminCookie() {
         $cookie = array_val($_COOKIE, self::ADMIN_COOKIE);
         if ($cookie) {
-            $cookie_data = explode('-', Crypto::decrypt($cookie));
+            $decrypted_cookie = Crypto::decrypt($cookie);
+            if ($decrypted_cookie === null) {
+                return null;
+            }
+            $cookie_data = explode('-', $decrypted_cookie);
             $session_data = Session::get('admin', []);
             if ($cookie_data && $session_data && $cookie_data[0] == $session_data[0]) {
                 return $session_data;

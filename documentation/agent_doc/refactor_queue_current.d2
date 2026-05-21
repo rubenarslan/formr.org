@@ -1,0 +1,94 @@
+direction: right
+title: |md
+  # formr unit-session lifecycle — CURRENT (v0.25.7)
+  Source: tests/REFACTOR_QUEUE_PLAN.md §"D2 — current"
+| {near: top-center}
+
+participant: "Web request" {shape: person}
+cron: "formr_run_daemon\n(single process)" {shape: hexagon}
+
+run_session: "RunSession::execute()" {
+  shape: rectangle
+  style.fill: "#fef3c7"
+  acquire_lock: "GET_LOCK\nrun_session_<id>\nweb=10s, cron=0.1s" {shape: cloud}
+  reload: "reloadFromDb()\n(v0.25.7)" {shape: cloud}
+  current: "getCurrentUnitSession()\nORDER BY id DESC LIMIT 1\nWHERE ended IS NULL\n  AND expired IS NULL\n  AND queued != -9" {shape: cloud}
+  dispatch: "3-way dispatch\non (ref, current)" {shape: diamond}
+  acquire_lock -> reload -> current -> dispatch
+}
+
+end_q: "END-q branch:\nendCurrentUnitSession()\n+ moveOn()" {shape: rectangle}
+stale: "stale-reference branch:\nremoveItem()\nreturn body=''\n(v0.25.6 fix)" {shape: rectangle}
+active: "currently-active:\nexecuteUnitSession()" {shape: rectangle}
+
+run_session.dispatch -> end_q: "ref==current\n!executeRef"
+run_session.dispatch -> stale: "ref!=current"
+run_session.dispatch -> active: "no-ref OR\nexecuteRef=true"
+
+unit_session_table: "survey_unit_sessions\n(history + queue + active)" {
+  shape: cylinder
+  style.fill: "#fee2e2"
+
+  queued_2: "queued=2 (waiting cron)"
+  queued_1: "queued=1 (retry / executeRef)"
+  queued_0: "queued=0 (in-flight\nor terminal)"
+  queued_minus9: "queued=-9 (superseded sibling)"
+}
+
+participant -> run_session: HTTP GET/POST
+cron -> run_session: cursor pickup\nWHERE queued > 0\nAND expires <= NOW()
+unit_session_table -> cron: ORDER BY RAND()\n(no FOR UPDATE)
+
+active -> unit_execute: "calls"
+unit_execute: "RunUnit::getUnitSessionOutput()" {
+  shape: rectangle
+  style.fill: "#dbeafe"
+
+  survey: "Survey: render form / processStudy\nreturns content / end_session+move_on"
+  pause: "Pause: getUnitSessionExpirationData\nreturns content + queue:{expires, queued=2}\nor expired+end_session+move_on"
+  email: "Email: sendMail (queueNow → mail_log\nor sendNow inline)\nreturns end_session+move_on"
+  push: "PushMessage: sendPushMessage\nreturns move_on (no end_session!)"
+  external: "External: redirect URL"
+  page: "Page (Endpage): render"
+  branch: "SkipForward/Backward/Shuffle:\nrun_to=position"
+}
+
+end_q -> moveOn
+active -> moveOn: "result has\nmove_on / end_session"
+moveOn: "RunSession::moveOn()" {
+  shape: rectangle
+  style.fill: "#fef3c7"
+  advance: "position++"
+  create: "createUnitSession(nextUnit)\n— transactional INSERT\n— supersede same-unit_id siblings\n  to queued=-9"
+  recurse: "execute() recursive\n(reentrant lock)"
+  advance -> create -> recurse
+}
+moveOn.recurse -> run_session: "loop while move_on"
+
+mail_daemon: "formr_mail_daemon\n(separate process)" {shape: hexagon}
+email_log: "survey_email_log\n(decoupled queue)" {shape: cylinder}
+unit_execute.email -> email_log: queueNow INSERT
+mail_daemon -> email_log: SELECT WHERE status=0\n(no FOR UPDATE)
+mail_daemon -> smtp: "PHPMailer\n(retry once on failure)" {shape: cloud}
+smtp -> recipient: SMTP
+
+push_provider: "Apple/FCM push" {shape: cloud}
+unit_execute.push -> push_provider: "inline\n(no queue, no retry)"
+
+# Race annotations (colours: green=fixed, yellow=mitigated, red=open)
+race_R1: "R1: position-race\nFIXED v0.25.7" {style.fill: "#10b981"}
+race_R2: "R2: stale-ref cascade\nFIXED v0.25.6" {style.fill: "#10b981"}
+race_R3: "R3: blanket supersede\nFIXED v0.25.6" {style.fill: "#10b981"}
+race_R4: "R4: Email/Push double-send\nFIXED v0.25.7" {style.fill: "#10b981"}
+race_R5: "R5: daemon kill mid-cascade\nOPEN" {style.fill: "#ef4444"}
+race_R6: "R6: multi-worker unsafe\nOPEN (single-process by convention)" {style.fill: "#ef4444"}
+race_R7: "R7: cron lock starvation\nMITIGATED" {style.fill: "#f59e0b"}
+race_R8: "R8: current_unit_session_id vs\nderived current\n(latent)" {style.fill: "#f59e0b"}
+race_R9: "R9: SMTP relay double-delivery\nOPEN (out of scope)" {style.fill: "#ef4444"}
+race_R10: "R10: Survey expires recomputed\non every render\nMITIGATED (J5 test)" {style.fill: "#f59e0b"}
+
+run_session.acquire_lock -> race_R7
+moveOn.recurse -> race_R5
+cron -> race_R6
+mail_daemon -> race_R9
+unit_execute.survey -> race_R10

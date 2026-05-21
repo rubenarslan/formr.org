@@ -1,0 +1,27 @@
+meta {
+  name: Email-Account 01 Setup Run
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{host}}/v1/runs/sec-email-link
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 201
+}
+
+docs {
+  Setup for the Email account_id cross-user-link regression test
+  (Phase B1 of the broader audit). Creates the attacker's run; the
+  attack in seq 12 imports a structure containing an Email unit whose
+  account_id points at the victim admin's survey_email_accounts row
+  (seeded by run_security.sh's Phase A fixture).
+}

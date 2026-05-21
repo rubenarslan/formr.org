@@ -66,6 +66,101 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - SQL Patch 51: adds `offline_mode` TINYINT(1) (default 1) and `allow_previous` TINYINT(1) (default 0) columns to `survey_studies` — per-study opt-out/opt-in flags for v2 behaviours.
 - SQL Patch 52: adds `survey_r_call_results` table — per-(call_id, args_hash) cache with `created_at` index for TTL eviction. Rows expire at read time: 30s for showif, 5min for value.
 
+## [v1.0.0] - 16.05.2026
+### Added
+- **Versioned RESTful v1 API** at `/api/v1/<resource>`. OAuth2 client_credentials grant with 1 hour access tokens. Resources: `user`, `surveys`, `runs/{name}`, plus per-run sub-resources `sessions`, `results`, `files`, `structure`. Twelve scopes (`user:read/write`, `survey:read/write`, `run:read/write`, `session:read/write`, `data:read`, `file:read/write`); scope is checked before resource lookup, so a token without the right scope returns 403 regardless of whether the run/survey exists or belongs to the caller.
+- New admin level `2` ("API access"). Only users at `admin >= 2` can mint or use API credentials. Existing `admin = 1` accounts keep web-admin rights but lose API access until a SuperAdmin promotes them via the user-management page.
+- One-time client-secret display at `admin/account` → API tab. Secret is shown only at issuance and rotation; storage holds a SHA-256 hash, so a forgotten secret must be rotated, not recovered.
+- **Multiple labelled API credentials per user.** Patch `054_oauth_client_labels.sql` adds `oauth_clients.label` with `UNIQUE(user_id, label)`. The admin/account API tab is now a credential table — each row has its own scopes, run allowlist, rotate button, and delete button. A common pattern is one narrow read-only credential for a dashboard plus a broader credential for a cron job. The label `internal` is reserved for the auto-managed OpenCPU bridge credential and is hidden from the listing.
+
+### Changed (BREAKING)
+- **OAuth bearer credentials are now stored as SHA-256 hashes at rest.** On upgrade, patch `050_hash_oauth_tokens.sql` truncates `oauth_access_tokens`, `oauth_refresh_tokens`, and `oauth_authorization_codes`; patch `051_hash_client_secrets.sql` zeroes `oauth_clients.client_secret`. **All currently-issued tokens are invalidated** and **every existing OAuth client must mint a new secret** at `/admin/account#api` after upgrade. Plan a maintenance window for any unattended cron jobs that hold long-lived tokens.
+- **API credentials must now explicitly request scopes and (optionally) be restricted to specific runs.** Patch `052_oauth_client_runs.sql` adds `oauth_client_runs(client_id, run_id)` (empty rows = unrestricted) and widens `oauth_clients.scope` to VARCHAR(2000); it also clears `oauth_scopes.is_default` for every row and wipes existing access/refresh/authorization tokens. After upgrade, users open the API tab at `admin/account#api`, pick the read/write scopes their credential should carry, optionally limit it to specific runs, and click **Create credential** / Rotate. Tokens minted under the old "all scopes" default no longer work.
+- **Internal tokens (OpenCPU R-callbacks) now carry a per-token run allowlist.** Patch `053_oauth_access_token_run_ids.sql` adds `oauth_access_tokens.run_ids`. `OAuthHelper::createAccessTokenForUser($user, $scope, ..., $forRun)` stamps the column at mint time; `opencpu_prepare_api_access` passes the active `Run`. `ApiBase::allowedRunIds()` prefers per-token `run_ids` over the per-client `oauth_client_runs` allowlist, so a token minted to render run X cannot touch run Y even if the owner's client is unrestricted. External (`client_credentials` grant) tokens leave the column NULL and continue to use the per-client allowlist — back-compat.
+- **`OAuthHelper` API reshaped for multi-client per user.** `createClient` now takes a `$label`; the old single-client lookups (`getClient(User)`, `refreshToken(User, ...)`, `deleteClient(User)`) are replaced by `listClientsForUser(User)`, `getClientForUser(User, $clientId)`, `rotateClient(User, $clientId, ...)`, `deleteClient(User, $clientId)`, and the emergency-revoke `deleteAllClientsForUser(User)`. Direct callers of the old API in this repo were migrated in the same commit; downstream integrations that subclass / call these helpers will need to update.
+
+### Security
+- **Strict identifier validation in `DB_Select::order()`.** The previous pass-through let any string flow into `ORDER BY` verbatim. A future caller threading a `?sort=` request param to `paginate['order_by']` would have been a SQLi sink (UNION-based row exfiltration). The new `parseStrictIdentifier()` accepts only `column` or `table.column` (with optional backticks); SQL function calls (`RAND()`, `COUNT(*)`, `COALESCE(...)`) now require the new `DB::raw()` escape hatch.
+- **Parameterised the last interpolating SQL helpers.** `DB::like()` was discarding `PDO::quote()`'s return value and concatenating user input into a LIKE literal, which let any `name=` filter forwarded to the v1 API break out of the `WHERE user_id = ?` clause. Two `LIKE`/`session = '...'` sites in `UserHelper::getUserManagementTablePdoStatement` (superadmin `email` filter) and `SurveyStudy` (admin results `session` filter) had the same shape and are now bound through `:placeholder` with wildcard escaping.
+- Operators are encouraged to upgrade and to rotate any OAuth client secrets after upgrading. A detailed advisory will follow once adoption is broader.
+
+## [v0.26.2] - 13.05.2026
+### Fixes
+- `composer test` now passes `--exclude-group integration` (matches the bootstrap docstring + CI intent); new `composer test:integration` script runs only that group. Unit lane is green again (was 12 errors + 2 failures from MariaDB-only SQL hitting the SQLite :memory: bootstrap).
+- `DB::table_exists()` validates the table-name argument against `/^[A-Za-z0-9_]+$/` and throws `InvalidArgumentException` on mismatch. Closes a SQL-injection sink (raw concat into `SHOW TABLES LIKE '...'`).
+- `DB::whereIn()` returns `$this` for builder-API parity with `where()` / `like()` (latent bug — no production callers chained through it).
+
+### Tests + docs
+- `documentation/agent_doc/testing.md` catalogs the two PHPUnit lanes, every `@group integration` class, root cause + fix shape for the six deferred test cases, and the env-var bootstrap switch + GitHub Actions service-container sketch for a real-DB CI lane.
+
+## [v0.26.1] - 13.05.2026
+### Fixes
+- Tighten `phpoffice/phpspreadsheet` composer constraint from `1.*` to `^1.30`, locking out 19 Dependabot-tracked CVEs (XXE, reflected XSS, SSRF, path traversal). Lockfile moves from 1.30.0 to 1.30.4.
+
+## [v0.26.0] - 13.05.2026
+### Fixes
+- Daemon kill mid-cascade no longer causes a duplicate Email or Push send on restart (idempotency keys block the duplicate insert)
+- `cron_only=true` Email units will start delivering after this upgrade. They were silently never sent due to a latent bug; audit affected studies before deploying.
+- PushMessage now properly ends its unit-session after a successful send
+- External unit-sessions ended via the API callback now write the same audit columns as the standard end path
+- Push notifications no longer write two `push_logs` rows per send
+- Push and External completions now mark the unit-session as ended (was previously left open). Affects analysis queries that filter on `ended IS NOT NULL`.
+
+### Added
+- New columns on `survey_unit_sessions`: `run_unit_id` and `iteration` (disambiguate the same survey reused at multiple positions, count back-jump / SkipBackward loops); `state` ENUM and `state_log` JSON (named lifecycle status alongside the legacy `queued` column)
+- Admin queue inspector replaces the "To Execute" yes/no column with a named state badge and adds an iteration column.
+
+### Schema
+- Patch 047: schema additions on `survey_unit_sessions`, `survey_email_log`, `push_logs`
+- Patch 048: one-shot backfill of `state`, `run_unit_id`, `iteration` for historical rows; idempotent (re-runs are no-ops)
+
+### Tests + docs
+- 6 new PHPUnit files (35 cases) covering the state column, idempotency keys, the cron_only gate, the Push state-transition, and the state_log JSON shape
+- 3 live-MariaDB integration smokes under `bin/test_track_a_*_smoke.php`
+- Refactor plan and state-machine diagrams moved to `documentation/agent_doc/`
+
+## [v0.25.8] - 12.05.2026
+### Fixes
+- PushMessage save no longer errors "Message is required" when the message was typed into the editor.
+
+### Tests
+- `tests/e2e/push-message-save.spec.js` — logs into the dev admin, creates a throw-away run, clicks "Add Push Notification", types into the new unit's ACE editor via `ace.edit(el).setValue(...)`, clicks Save, and asserts no `.run_units .alert-danger "Message is required"` appears and the Save button settles back to a disabled "Saved". Best-effort cleanup deletes the run after. Failed pre-fix (`Received: 1` for the validation-error locator), passes post-fix.
+
+## [v0.25.7] - 09.05.2026
+### Fixes
+- **Prevent duplicate cascade ("double expiry").** Observed in prod on AMOR 2026-05-09 at 10:03–10:11: 18 participants received 2× ESM email + 2× push notifications and ended up with two Survey unit-session rows from one Pause(124) anchor (one participant got four cascades within five seconds). Root cause: when a participant has the run open in two clients (PWA + browser tab) and the Pause's `expires` arrives, both clients fire `window.location.reload()` simultaneously. Both PHP requests construct their `RunSession` with cached `position=124` *before* either acquires the run-session named lock. Whichever wins the lock cascades through 124→127→128→129 and commits position=129; the second request, holding the lock afterwards, drives `moveOn` from its stale cached position=124 and creates a duplicate downstream cascade. Three guards:
+  - `RunSession::execute` calls `reloadFromDb()` immediately after `acquireLock` so cached `position` / `ended` / `current_unit_session_id` reflect any UPDATEs committed by a concurrent request that won the lock first. Primary fix; closes the position-race entirely. `application/Model/RunSession.php`.
+  - `Email::getUnitSessionOutput` and `PushMessage::getUnitSessionOutput` early-return when the unit-session row already shows a terminal send result (`email_sent` / `email_queued` / `sent` / `no_subscription` / etc.). Belt-and-braces: even if some other path re-executes a terminated row, no duplicate delivery. `application/Model/RunUnit/Email.php`, `application/Model/RunUnit/PushMessage.php`.
+  - `ExpiryNotifier` auto-reload throttled to once per 30 seconds via a `localStorage` timestamp. Reduces redundant duplicate reload requests per client. `webroot/assets/common/js/components/ExpiryNotifier.js`.
+
+### Tests
+- `tests/e2e/double-expiry.spec.js` — D1 races two HTTP GETs through the run-session lock and verifies exactly one downstream cascade fires (failed pre-fix with 2 Endpage rows; passes post-fix). D4 exercises the `localStorage` throttle key.
+- `tests/e2e/helpers/race.js` — `raceTwoGets` / `raceTwoGetsBehindLock` helpers fanning out two parallel `APIRequestContext` objects against the same run URL while a third process holds the named lock externally to make the bug deterministic.
+- `tests/EmailPushIdempotencyTest.php` — 11 cases via `ReflectionClass::newInstanceWithoutConstructor` probing each guard's terminal-result list.
+
+### Diagnostic
+- `tests/e2e/prod_release_compare.sql` extended with `§J` (per-position duplicate-cascade count), `§J-dump` (per-row evidence for the top-3 offenders) and `§J-stale` (pre-Hygiene-4 ended-but-still-queued legacy debt). Use to verify the duplicate-cascade rate drops to zero post-deploy by re-running 7–14 days later.
+
+## [v0.25.6] - 08.05.2026
+### Fixes
+- **Survey expiry algorithm rewrite** to match the [Expiry wiki spec](https://github.com/rubenarslan/formr.org/wiki/Expiry). The pre-fix code walked three rules (inactivity, start-window, grace) in fixed order with each *overwriting* the previous; the rewrite combines them per the wiki's pre/post-access formula (pre-access: `invitation+X`; post-access: `MIN(invitation+X+Y, last_active+Z)`). Eliminates the originally-reported bug where surveys with `X=60, Y=0, Z=0` expired participants who were actively editing. `application/Model/RunUnit/Survey.php`.
+- **Cron stale-reference branch no longer advances the run.** When the queue daemon picks up a unit-session whose run-session has already moved past it, `RunSession::execute()` previously called `removeItem()` AND `moveOn()` — the moveOn cascaded `createUnitSession` calls past the participant's still-active unit, and the supersede side-effect orphaned that active unit's queue entry. Symptom A in the wild: `ended IS NULL, expired IS NULL, queued = -9` while the participant was mid-survey. Now drops the stale reference and stops; active unit-session preserved. `application/Model/RunSession.php:247-251`.
+- **Supersede side-effect scoped to same `unit_id`.** `UnitSession::create()` flipped *every* queued sibling in the run-session to `queued=-9`, regardless of unit. The blanket scope amplified the cron-stale-reference orphan path and could clobber unrelated queued ESM Surveys during a moveOn cascade. Now scopes the supersede WHERE clause to `unit_id = $this->runUnit->id`, catching only genuine duplicates from back-jumps. `application/Model/UnitSession.php:66-70`.
+- **`getCurrentUnitSession` excludes superseded siblings.** The query filtered on `ended IS NULL AND expired IS NULL` but not on `queued`, so once an active sibling's `ended` got set, ORDER BY id DESC LIMIT 1 returned the older `queued=-9` ghost. Adds `queued != -9` to the WHERE. `application/Model/RunSession.php:446`.
+
+### Hygiene
+- `UnitSession::end()` now resets `queued = 0` symmetrically with `expire()`. Pre-fix the asymmetry was masked by the queue daemon's `removeItem` post-end, but exposed in admin / dangling-end / participant flows — leaving `ended IS NOT NULL AND queued != 0` rows that the next `createUnitSession` would supersede.
+- `UnitSession::end()` honours an explicit `$reason` argument for Survey/External (was hardcoded to `'survey_ended'` / `'external_ended'`). Fixes the audit-trail issue where the queue's run-session-ended path passed `'ended_by_queue_rse'` and got it silently overwritten.
+- `getUnitSessionFirstVisit`/`LastVisit` now accept an optional bind-params array, so the `survey_items_display.saved != ...` WHERE clause uses a placeholder instead of string-concatenating `$unitSession->created`.
+
+### Tests + docs
+- 37-test e2e suite (`tests/e2e/{expiry-fixture,survey-symptoms,survey-expiry-matrix,survey-unfinished-pathways,survey-expiry-ui}.spec.js`) characterising the expiry algorithm, the four prod-reported symptom shapes, and the JS/UI drift surfaces. Drives via Playwright + a PHP fixture script (`bin/expiry_fixture.php`) and a diagnostic helper (`bin/expiry_compute.php`).
+- `tests/e2e/EXPIRY_AUDIT.md` — 14-section audit document mapping every wiki↔code divergence, each Symptom-A/B/D pathway, and follow-up fix shapes. `tests/e2e/EXPIRY_PLAN.md` — fix-order rationale.
+- `tests/e2e/prod_expiry_audit.sql` — 9-section diagnostic for re-running on the prod DB to verify orphan-count drop 7-14 days post-deploy.
+
+### Internal
+- `bin/queue.php` gains a `--once` flag (and `UnitSessionQueue::runOnce()`) for deterministic test driving — runs `processQueue()` exactly once, no daemon loop.
+
 ## [v0.25.5] - 07.05.2026
 ### Fixes
 - iOS standalone PWAs: tapping a push notification now reloads the open PWA. The previous iOS-specific reload technique (`window.focus(); window.location.href = window.location.href`) was a no-op on iOS — `window.focus()` outside a user gesture does nothing, and assigning `location.href` to a byte-identical URL gets optimised away. Replaced with `window.location.reload()` (works on every engine).

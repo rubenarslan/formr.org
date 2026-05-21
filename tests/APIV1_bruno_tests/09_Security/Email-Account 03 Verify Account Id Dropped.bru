@@ -1,0 +1,47 @@
+meta {
+  name: Email-Account 03 Verify Account Id Dropped
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{host}}/v1/runs/sec-email-link/structure
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.units[0].type: eq Email
+}
+
+tests {
+  test("Email unit's account_id is not the victim's", function() {
+    const expect = require("chai").expect;
+    // --env-var populates env-vars, not collection-vars; getEnvVar is the
+    // accessor for the value passed in by run_security.sh.
+    const victimId = parseInt(bru.getEnvVar("victim_email_account_id"), 10);
+    expect(victimId).to.be.a("number").and.to.be.greaterThan(0);
+    const got = res.getBody().units[0].account_id;
+    expect(got).to.not.equal(victimId);
+  });
+}
+
+docs {
+  THE security assertion for Phase B1. Post-fix, Email::create's
+  isOwnedBy gate dropped the victim's account_id (not owned by the run
+  owner) and the resulting Email unit's account_id is either NULL or
+  the run owner's own first email account — never the victim's.
+
+  Pre-fix (with Run.php:1289 also reverted), the assertion would fail
+  because account_id would still point at the victim's id.
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}

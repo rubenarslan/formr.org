@@ -1,0 +1,44 @@
+meta {
+  name: Change Run Settings
+  type: http
+  seq: 3
+}
+
+patch {
+  url: {{host}}/v1/runs/api-test
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "title": "Comprehensive Study Title Update",
+    "description": "This description has been updated via the API. Markdown is supported here.",
+    "public_blurb": "Join our study! This text appears on the public studies page.",
+    "footer_text": "Contact: support@example.com | <a href='/privacy'>Privacy</a>",
+    "privacy": "## Privacy Policy\n\nYour data is handled securely according to GDPR.",
+    "tos": "## Terms of Service\n\nBy participating, you agree to be nice.",
+    "header_image_path": "assets/img/my_custom_header.png",
+    "custom_css": ".run-container { background-color: #f0f0f0; }",
+    "custom_js": "console.log('Custom JS loaded via API');",
+    "manifest_json": "{\n  \"name\": \"My Study App\",\n  \"short_name\": \"Study\",\n  \"start_url\": \".\",\n  \"display\": \"standalone\"\n}",
+    
+    "locked": 0,
+    "cron_active": 1,
+    "use_material_design": 0,
+    
+    "expire_cookie_value": 2,
+    "expire_cookie_unit": "hours",
+    
+    "expiresOn": "2030-12-31",
+    "osf_project_id": "ab12c"
+  }
+}
+
+assert {
+  res.status: eq 200
+}

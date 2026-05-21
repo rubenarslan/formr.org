@@ -74,11 +74,16 @@ function __formr_setup($settings = array()) {
 
 	// General PHP-side configuration
 	error_reporting(-1);
-	if (DEBUG > 0) {
-		ini_set('display_errors', 1);
-	} else {
-		ini_set('display_errors',  0);
- 	}
+	// display_errors stays off in both modes: log_errors + error_log
+	// (set below) capture everything to disk / docker-stderr where
+	// it's inspectable, while display_errors=1 would echo PHP notices
+	// into HTML and JSON response bodies. AJAX endpoints don't
+	// ob_clean() before emitting JSON, so even a single deprecation
+	// notice mid-render corrupts the response shape (e.g.
+	// #run_unit_<N> pollution in the admin UI — see
+	// formr_source/CLAUDE.md "Xdebug output can pollute AJAX HTML
+	// responses").
+	ini_set('display_errors', 0);
 	
 	ini_set("log_errors", 1);
 	ini_set("error_log", get_log_file('errors.log'));

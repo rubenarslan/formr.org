@@ -240,26 +240,30 @@ class PushNotificationService
     }
 
     /**
-     * Log a successful push notification to the push_logs table.
+     * Log a successful push notification. Track A A9: prefer UPDATE
+     * of the claim row that PushMessage::getUnitSessionOutput inserted
+     * (idempotency_key = "push:{sessionId}") so each send corresponds
+     * to exactly ONE push_logs row instead of two (claim + audit).
+     * Falls back to INSERT for callers that bypass the PushMessage
+     * handler (notably the batch sendPushMessages path) where no
+     * claim row exists.
      *
      * @param int    $sessionId
      * @param string $message
      */
     protected function logPushSuccess(int $sessionId, string $message)
     {
-        $this->db->insert('push_logs', [
-            'unit_session_id' => $sessionId,
-            'run_id' => $this->run->id,
-            'message' => $message,
-            'status' => 'success',
-            'error_message' => null,
-            'attempt' => 1,
-            'created' => mysql_now()
-        ]);
+        $this->upsertPushLog($sessionId, $message, 'success', null, 1);
     }
 
     /**
-     * Log a failed push notification to the push_logs table.
+     * Log a failed push notification. Same UPDATE-then-fallback-to-INSERT
+     * shape as logPushSuccess. The retry loop in sendPushMessage calls
+     * this once per attempt — under the UPDATE path, the row's
+     * `attempt` and `error_message` reflect the LAST attempt; the
+     * intermediate retry history is lost (acceptable trade-off; the
+     * pre-fix per-attempt audit rows weren't load-bearing for any
+     * downstream consumer).
      *
      * @param int    $sessionId
      * @param string $message
@@ -272,14 +276,69 @@ class PushNotificationService
         string $error,
         int $attempt
     ) {
-        $this->db->insert('push_logs', [
-            'unit_session_id' => $sessionId,
-            'run_id' => $this->run->id,
-            'message' => $message,
-            'status' => 'failed',
-            'error_message' => $error,
-            'attempt' => $attempt,
-            'created' => mysql_now()
-        ]);
+        $this->upsertPushLog($sessionId, $message, 'failed', $error, $attempt);
+    }
+
+    /**
+     * Track A A9 helper: UPDATE the claim row for this sessionId, or
+     * INSERT if no claim exists (batch path / pre-Track-A historical
+     * paths). Single source of truth for what gets written into
+     * push_logs from the service. The claim's `idempotency_key` is
+     * derived from sessionId by the same convention used in
+     * PushMessage::getUnitSessionOutput — keep both sides in lockstep.
+     */
+    private function upsertPushLog(int $sessionId, string $message, string $status, ?string $error, int $attempt): void
+    {
+        $idempotency_key = "push:{$sessionId}";
+
+        $affected = $this->db->exec(
+            "UPDATE `push_logs`
+             SET `status` = :status,
+                 `error_message` = :error,
+                 `attempt` = :attempt,
+                 `message` = :message
+             WHERE `idempotency_key` = :key",
+            [
+                'status'  => $status,
+                'error'   => $error,
+                'attempt' => $attempt,
+                'message' => $message,
+                'key'     => $idempotency_key,
+            ]
+        );
+
+        if ((int) $affected > 0) {
+            return;
+        }
+
+        // No claim row to update — fall back to INSERT. Happens for the
+        // batch sendPushMessages path that bypasses PushMessage. The
+        // INSERT also carries the idempotency_key so a follow-up retry
+        // through the same path no-ops on the UNIQUE collision; if the
+        // status differs (success vs failed across retries), the next
+        // call lands here again, finds the row via UPDATE, and writes
+        // through.
+        $this->db->exec(
+            "INSERT INTO `push_logs`
+                (`unit_session_id`, `run_id`, `message`, `status`,
+                 `error_message`, `attempt`, `created`, `idempotency_key`)
+             VALUES
+                (:us_id, :run_id, :message, :status,
+                 :error, :attempt, NOW(), :key)
+             ON DUPLICATE KEY UPDATE
+                `status` = VALUES(`status`),
+                `error_message` = VALUES(`error_message`),
+                `attempt` = VALUES(`attempt`),
+                `message` = VALUES(`message`)",
+            [
+                'us_id'   => $sessionId,
+                'run_id'  => $this->run->id,
+                'message' => $message,
+                'status'  => $status,
+                'error'   => $error,
+                'attempt' => $attempt,
+                'key'     => $idempotency_key,
+            ]
+        );
     }
 }
