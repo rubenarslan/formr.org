@@ -31,6 +31,7 @@ class SurveyStudy extends Model
     public $rendering_mode = 'v1';
     public $offline_mode = 1;
     public $allow_previous = 0;
+    public $last_iteration = 0; // per-study counter for survey_unit_sessions.study_iteration; patch 055
 
     public $created = null;
     public $modified = null;
@@ -801,6 +802,23 @@ class SurveyStudy extends Model
 
     public function getResults($items = null, $filter = null, array $paginate = null, $runId = null, $rstmt = false)
     {
+        // form_v2 studies pivot survey_items_display into the wide
+        // shape at read time. Wide-table dual-write stays on so the
+        // pivot can be validated against the byte-identical wide row;
+        // see pivotedResultsStatement() for the column-sourcing
+        // contract.
+        if ($this->rendering_mode === 'v2') {
+            $stmt = $this->pivotedResultsStatement($items, $filter, $paginate, $runId);
+            if ($rstmt === true) {
+                return $stmt;
+            }
+            $results = array();
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = $row;
+            }
+            return $results;
+        }
+
         if ($this->resultsTableExists()) {
             ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
 
@@ -893,6 +911,219 @@ class SurveyStudy extends Model
         } else {
             return array();
         }
+    }
+
+    /**
+     * Pivot survey_items_display rows into the per-study wide shape.
+     *
+     * Used for rendering_mode='v2' studies as a step toward retiring the
+     * dual-write to the per-study results table. Output column shape
+     * mirrors the wide read in getResults(): session, session_id,
+     * iteration, created, modified, ended, expired, then one column per
+     * scorable item.
+     *
+     * Sourcing per column:
+     *   session, session_id, ended, expired -> survey_unit_sessions / survey_run_sessions
+     *   created -> MIN(survey_items_display.created)
+     *   modified -> MAX(survey_items_display.saved)
+     *   iteration -> survey_unit_sessions.study_iteration (patch 055).
+     *     Pre-patch sessions are backfilled from the wide table by
+     *     bin/backfill_study_iteration.php. ROW_NUMBER() fallback is
+     *     used only when the column is unexpectedly NULL (e.g. backfill
+     *     hasn't run yet for a study currently being read) so the
+     *     export still produces a sensible value — that value won't
+     *     match historical wide iteration byte-for-byte.
+     *   answer columns -> MAX(CASE WHEN item_id = X THEN answer END)
+     *
+     * All answer values come back as TEXT — type coercion is the
+     * researcher's responsibility via the formr R package or downstream
+     * tooling.
+     */
+    private function pivotedResultsStatement($items = null, $filter = null, array $paginate = null, $runId = null)
+    {
+        ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
+
+        // Resolve scorable items via the same ItemFactory check
+        // getItemsInResultsTable uses, so the column set matches the
+        // wide table's by construction. Don't cross-reference the wide
+        // table — that's the point of this path.
+        $rows = $this->getItems();
+        $itemFactory = new ItemFactory(array());
+        $scorableById = array();
+        foreach ($rows as $row) {
+            $it = $itemFactory->make($row);
+            if ($it && $it->isStoredInResultsTable()) {
+                $scorableById[(int) $row['id']] = $it->name;
+            }
+        }
+        if ($items) {
+            $allowed = array_flip($items);
+            $scorableById = array_filter($scorableById, function ($name) use ($allowed) {
+                return isset($allowed[$name]);
+            });
+        }
+
+        // Unlinked guard (mirrors getResults)
+        $count = $this->getResultCount();
+        $get_all = true;
+        if ($this->unlinked && $count['real_users'] <= 10) {
+            if ($count['real_users'] > 0) {
+                alert("<strong>You cannot see the real results yet.</strong> It will only be possible after 10 real users have registered.", 'alert-warning');
+            }
+            $get_all = false;
+        }
+
+        // Saved filters operate against the wide table's named columns
+        // in WHERE-clause form. Translating them to HAVING against the
+        // pivot is a separate slice; refuse for now and surface a notice.
+        if (!empty($filter['results'])) {
+            alert('Saved results filters are not yet supported for form_v2 studies in the long-form export path.', 'alert-warning');
+            $empty = $this->db->prepare('SELECT NULL WHERE 1 = 0');
+            $empty->execute();
+            return $empty;
+        }
+
+        list($sql, $bindings) = self::buildPivotSql(
+            $this->id,
+            $scorableById,
+            $this->unlinked,
+            $get_all,
+            $filter,
+            $paginate,
+            $runId
+        );
+
+        $stmt = $this->db->prepare($sql);
+        foreach ($bindings as $k => $v) {
+            $stmt->bindValue($k, $v);
+        }
+        $stmt->execute();
+        return $stmt;
+    }
+
+    /**
+     * Build the pivot SQL and named-placeholder bindings.
+     *
+     * Pure function: no DB access, no $this. Extracted so the SQL shape
+     * can be unit-tested without standing up a MariaDB fixture.
+     *
+     * @param int    $studyId           SurveyStudy::id
+     * @param array  $scorableById      [item_id => item_name] for scorable items
+     * @param bool   $unlinked          $study->unlinked
+     * @param bool   $getAll            False when unlinked guard restricts to test
+     *                                   sessions only
+     * @param array|null $filter        ['session' => ..., 'results' => ...]
+     * @param array|null $paginate      ['offset', 'limit', 'order', 'order_by']
+     * @param int|null $runId
+     * @return array{0: string, 1: array<string, mixed>}
+     */
+    public static function buildPivotSql(
+        $studyId,
+        array $scorableById,
+        $unlinked,
+        $getAll,
+        $filter,
+        array $paginate = null,
+        $runId = null
+    ) {
+        $pivotCols = array();
+        foreach ($scorableById as $id => $name) {
+            // Item names are validated as identifiers at upload time
+            // (createResultsTable would have failed otherwise). Backtick
+            // any stray backticks defensively.
+            $safeName = str_replace('`', '``', $name);
+            $pivotCols[] = sprintf(
+                "MAX(CASE WHEN `sid`.`item_id` = %d THEN `sid`.`answer` END) AS `%s`",
+                (int) $id,
+                $safeName
+            );
+        }
+
+        // Iteration: survey_unit_sessions.study_iteration is the long-
+        // form source of truth (patch 055). COALESCE to ROW_NUMBER()
+        // covers any session row whose study_iteration is NULL — pre-
+        // 055 sessions whose backfill hasn't run yet, or non-Survey
+        // unit_sessions that somehow ended up here. The ROW_NUMBER()
+        // fallback is a 1..N sequence per result set, not byte-equal
+        // to a historical wide.iteration; the backfill closes that
+        // gap once it's run.
+        $iterationExpr = "COALESCE(`us`.`study_iteration`, ROW_NUMBER() OVER (ORDER BY `us`.`id` ASC))";
+
+        if ($unlinked) {
+            $selectParts = $pivotCols;
+        } else {
+            $selectParts = array_merge(array(
+                "`rs`.`session` AS `session`",
+                "`us`.`id` AS `session_id`",
+                "$iterationExpr AS `iteration`",
+                "MIN(`sid`.`created`) AS `created`",
+                "MAX(`sid`.`saved`) AS `modified`",
+                "`us`.`ended` AS `ended`",
+                "`us`.`expired` AS `expired`",
+            ), $pivotCols);
+        }
+
+        $select = implode(",\n            ", $selectParts);
+        $bindings = array(':study_id' => (int) $studyId);
+        $wheres = array('`i`.`study_id` = :study_id');
+
+        $sql = "SELECT $select
+        FROM `survey_items_display` `sid`
+        INNER JOIN `survey_items` `i` ON `i`.`id` = `sid`.`item_id`
+        INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `sid`.`session_id`
+        LEFT JOIN `survey_run_sessions` `rs` ON `rs`.`id` = `us`.`run_session_id`";
+
+        if (!$getAll) {
+            $wheres[] = '`rs`.`testing` = 1';
+        }
+        if ($runId !== null) {
+            $wheres[] = '`rs`.`run_id` = :run_id';
+            $bindings[':run_id'] = (int) $runId;
+        }
+        if (!empty($filter['session'])) {
+            $session = $filter['session'];
+            if (strlen($session) == 64) {
+                $wheres[] = '`rs`.`session` = :session_eq';
+                $bindings[':session_eq'] = $session;
+            } else {
+                $wheres[] = '`rs`.`session` LIKE :session_like';
+                $bindings[':session_like'] = $session . '%';
+            }
+        }
+
+        $sql .= "\n        WHERE " . implode(' AND ', $wheres);
+        // GROUP BY the wide-row identity (one row per unit-session).
+        // study_iteration is functionally dependent on us.id (PK), but
+        // ONLY_FULL_GROUP_BY can't always prove that across the LEFT
+        // JOIN, so list it explicitly.
+        $groupCols = array('`us`.`id`', '`us`.`study_iteration`', '`rs`.`session`', '`us`.`ended`', '`us`.`expired`');
+        $sql .= "\n        GROUP BY " . implode(', ', $groupCols);
+
+        if ($unlinked) {
+            $sql .= "\n        ORDER BY RAND()";
+        } elseif ($paginate && isset($paginate['offset'])) {
+            $order = isset($paginate['order']) && strtolower($paginate['order']) === 'desc' ? 'DESC' : 'ASC';
+            $allowedOrderCols = array(
+                'session_id' => '`us`.`id`',
+                'iteration' => '`us`.`id`',
+                'created' => 'MIN(`sid`.`created`)',
+                'modified' => 'MAX(`sid`.`saved`)',
+                'ended' => '`us`.`ended`',
+                'session' => '`rs`.`session`',
+            );
+            $orderByKey = isset($paginate['order_by']) ? $paginate['order_by'] : 'session_id';
+            if (strpos($orderByKey, '.') !== false) {
+                $orderByKey = substr($orderByKey, strrpos($orderByKey, '.') + 1);
+            }
+            $orderExpr = isset($allowedOrderCols[$orderByKey]) ? $allowedOrderCols[$orderByKey] : '`us`.`id`';
+            $sql .= sprintf("\n        ORDER BY %s %s", $orderExpr, $order);
+        }
+
+        if ($paginate && isset($paginate['offset'])) {
+            $sql .= sprintf("\n        LIMIT %d OFFSET %d", (int) $paginate['limit'], (int) $paginate['offset']);
+        }
+
+        return array($sql, $bindings);
     }
 
     /**
