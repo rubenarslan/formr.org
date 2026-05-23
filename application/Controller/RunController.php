@@ -1169,7 +1169,7 @@ class RunController extends Controller {
 
         $normalized = self::normalizeAnswersForHash($answers);
         $argsHash = hash('sha256', json_encode($normalized, JSON_UNESCAPED_UNICODE));
-        $usid = (int) $unitSession->id; // cache scope (patch 054 — see evaluateAllowlistedRCall)
+        $usid = (int) $unitSession->id; // cache scope (patch 064 — see evaluateAllowlistedRCall)
         $now = time();
         $ttl = 300; // value cache TTL (matches single-call /form-fill path)
         $results = array();
@@ -1281,7 +1281,7 @@ class RunController extends Controller {
 
         $normalized = self::normalizeAnswersForHash($answers);
         $argsHash = hash('sha256', json_encode($normalized, JSON_UNESCAPED_UNICODE));
-        $usid = (int) $unitSession->id; // cache scope (patch 054 — see evaluateAllowlistedRCall)
+        $usid = (int) $unitSession->id; // cache scope (patch 064 — see evaluateAllowlistedRCall)
         $now = time();
         $ttl = 300; // label cache TTL — labels rarely change per-keystroke; longer is fine
         $results = array();
@@ -1460,7 +1460,7 @@ class RunController extends Controller {
             return array('ok' => false, 'status' => 429, 'error' => 'Rate limit exceeded');
         }
 
-        // Result cache lookup (patch 052). Keyed on (call_id, sha256 of a
+        // Result cache lookup (patch 062). Keyed on (call_id, sha256 of a
         // normalized JSON encoding of the answers). TTL differs by slot:
         // showif is reactive and wants short-lived cache (30s) so an admin's
         // quick edit flows through; value is one-shot on page load and
@@ -1469,7 +1469,7 @@ class RunController extends Controller {
         $ttl = ($expectedSlot === 'value') ? 300 : 30;
         $normalized = self::normalizeAnswersForHash($answers);
         $argsHash = hash('sha256', json_encode($normalized, JSON_UNESCAPED_UNICODE));
-        // Cache key includes unit_session_id (patch 054). Without it, two
+        // Cache key includes unit_session_id (patch 064). Without it, two
         // participants with colliding overlays (e.g. empty overlay at page
         // load, or identical multiple-choice answers) would share cache rows
         // even though the underlying R expression evaluates against the

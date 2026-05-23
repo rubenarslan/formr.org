@@ -116,7 +116,7 @@ class FormRenderer extends SpreadsheetRenderer {
         // (including first) defer to /form-render-page: blank label_parsed
         // and emit data-fmr-label-id; the client batch-resolves on page
         // show. Costs a brief first-paint flicker on page 1 in exchange for
-        // architectural consistency + cache hits via patch 052 — admins who
+        // architectural consistency + cache hits via patch 062 — admins who
         // can't tolerate the flicker should keep dynamic content off the
         // first page (plan_form_v2 §8 P2 trade-off).
         foreach ($items as $item) {

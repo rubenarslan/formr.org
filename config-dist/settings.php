@@ -285,7 +285,7 @@ $settings['form_v2_enabled'] = false;
 // and the v1 API's /api/v1/runs/{name}/results endpoint).
 //
 // Leave on (default) until you've verified that downstream consumers
-// you care about have been migrated off the wide path. As of patch 055
+// you care about have been migrated off the wide path. As of patch 065
 // the still-wide-dependent readers are:
 //   - UnitSession::getRunData (OpenCPU R overlay — tail(survey, 1))
 //   - SurveyStudy::getResultCount (admin survey page "begun/finished")

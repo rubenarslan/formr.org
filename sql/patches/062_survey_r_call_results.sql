@@ -1,4 +1,4 @@
--- SQL Patch 052: r-call result cache (form_v2 Phase 4 polish).
+-- SQL Patch 062: r-call result cache (form_v2 Phase 4 polish).
 --
 -- Memoizes OpenCPU-evaluated results for allowlisted r(...) expressions,
 -- keyed on (call_id, args_hash). The reactive showif cadence is already

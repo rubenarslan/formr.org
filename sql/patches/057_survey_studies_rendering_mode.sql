@@ -1,4 +1,4 @@
--- SQL Patch 047: Add rendering_mode column to survey_studies
+-- SQL Patch 057: Add rendering_mode column to survey_studies
 --
 -- Phase 0 of form_v2 (see plan_form_v2.md §1 and §8): this column distinguishes
 -- surveys rendered by the legacy Survey pipeline ('v1') from those rendered by

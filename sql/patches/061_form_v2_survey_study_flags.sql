@@ -1,4 +1,4 @@
--- SQL Patch 051: form_v2 per-study behaviour flags
+-- SQL Patch 061: form_v2 per-study behaviour flags
 --
 -- `offline_mode` (default 1 / opt-out): when 0, the v2 client skips the
 -- IndexedDB queue and surfaces fetch failures immediately. Admins of studies

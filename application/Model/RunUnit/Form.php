@@ -6,7 +6,7 @@
  * Unlike Survey, which shares its survey_units row with a SurveyStudy (via a
  * shared primary key and a re-point of survey_run_units.unit_id at save time),
  * a Form keeps its own survey_units row of type='Form' and references its
- * SurveyStudy through the form_study_id column (patch 048). This is what lets
+ * SurveyStudy through the form_study_id column (patch 058). This is what lets
  * the RunUnit factory instantiate a Form (not a Survey) when loading the run
  * at request time.
  *

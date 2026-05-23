@@ -1,4 +1,4 @@
--- Patch 053: cache the v1-transpiled JS for `showif` next to its source.
+-- Patch 063: cache the v1-transpiled JS for `showif` next to its source.
 --
 -- form_v2's Alpine `x-showif` directive evaluates a JS expression generated
 -- by Item::setMoreOptions() from the spreadsheet's `showif` column via a
