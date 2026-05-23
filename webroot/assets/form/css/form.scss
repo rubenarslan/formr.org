@@ -653,4 +653,11 @@
     }
 }
 
+// v2 polish slices — each scopes itself under .fmr-form-v2 so they
+// don't leak to admin / v1.
+@import 'modern';
+@import 'validation-soft';
+@import 'floating-next';
+@import 'save-indicator';
+@import 'completion';
 @import 'solo';

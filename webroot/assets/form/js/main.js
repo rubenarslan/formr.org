@@ -70,6 +70,49 @@ function initForm() {
     const progressBar = root.querySelector('[data-fmr-progress-bar]');
     const progressLabel = root.querySelector('[data-fmr-progress-label]');
 
+    // ---- Save indicator (patch 067) --------------------------------------
+    // Surfaces the existing /form-page-submit + /form-sync state to the
+    // participant so they know the answers are safely persisted. Not a new
+    // data flow; just a visible affordance. aria-live="polite" gives screen
+    // readers an unobtrusive announcement.
+    const savePill = document.createElement('div');
+    savePill.className = 'fmr-save-pill';
+    savePill.setAttribute('role', 'status');
+    savePill.setAttribute('aria-live', 'polite');
+    savePill.innerHTML = '<span class="fmr-save-pill-icon" aria-hidden="true"></span><span class="fmr-save-pill-text"></span>';
+    root.appendChild(savePill);
+    const savePillText = savePill.querySelector('.fmr-save-pill-text');
+    let savePillHideTimer = null;
+    const setSaveState = (state, text, autohideMs = 1800) => {
+        if (savePillHideTimer) { clearTimeout(savePillHideTimer); savePillHideTimer = null; }
+        savePill.dataset.state = state;
+        savePillText.textContent = text;
+        savePill.classList.add('is-visible');
+        if (autohideMs > 0) {
+            savePillHideTimer = setTimeout(() => savePill.classList.remove('is-visible'), autohideMs);
+        }
+    };
+
+    // ---- Completion overlay --------------------------------------------
+    // Brief check-mark beat between the last successful POST and the
+    // run-level redirect — the abrupt jump from a filled form to the
+    // authored end-page felt curt.
+    const completion = document.createElement('div');
+    completion.className = 'fmr-completion-overlay';
+    completion.setAttribute('role', 'status');
+    completion.setAttribute('aria-live', 'polite');
+    completion.hidden = true;
+    completion.innerHTML = '<div class="fmr-completion-card"><div class="fmr-completion-icon" aria-hidden="true"></div><div class="fmr-completion-text">Thanks — sending your answers…</div></div>';
+    root.appendChild(completion);
+    const showCompletion = (text) => {
+        const t = completion.querySelector('.fmr-completion-text');
+        if (text && t) t.textContent = text;
+        completion.hidden = false;
+        // Force layout flush so the opacity transition runs.
+        // eslint-disable-next-line no-unused-expressions
+        completion.offsetHeight;
+        completion.classList.add('is-visible');
+    };
 
     // IntersectionObserver-based `shown` timing: only stamp an item once it
     // actually enters the viewport. Server-side SpreadsheetRenderer sets these
@@ -125,6 +168,20 @@ function initForm() {
         if (p) {
             window.scrollTo({ top: 0, behavior: 'smooth' });
             observeItems(p);
+            // a11y: move focus into the new page so keyboard + screen-
+            // reader users continue from a sensible anchor rather than
+            // hanging on the now-hidden previous page's button.
+            const focusTarget = p.querySelector('.fmr-page-title, h1, h2, h3, h4')
+                || p.querySelector('input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])');
+            if (focusTarget) {
+                // Headings aren't focusable by default — give a temporary
+                // tabindex so they can receive focus, then remove it on blur.
+                if (!/^(INPUT|SELECT|TEXTAREA|BUTTON|A)$/.test(focusTarget.tagName) && !focusTarget.hasAttribute('tabindex')) {
+                    focusTarget.setAttribute('tabindex', '-1');
+                    focusTarget.addEventListener('blur', () => focusTarget.removeAttribute('tabindex'), { once: true });
+                }
+                try { focusTarget.focus({ preventScroll: true }); } catch (e) { /* noop */ }
+            }
         }
     };
 
@@ -331,6 +388,7 @@ function initForm() {
         }
         const remaining = await queueGetAll();
         if (!remaining.length) {
+            setSaveState('synced', 'Synced', 2500);
             showQueueBanner('All queued submissions have been sent.', 'success');
             setTimeout(hideQueueBanner, 3000);
         }
@@ -454,6 +512,7 @@ function initForm() {
         if (!validatePageAndShowFeedback(page)) {
             return;
         }
+        setSaveState('saving', 'Saving…', 0);
         const pageNum = Number(page.dataset.fmrPage) || (currentIndex + 1);
         const payload = Object.assign({ page: pageNum }, collectPayload(page));
 
@@ -575,6 +634,7 @@ function initForm() {
             // browsers without Background Sync — page-JS online event still
             // catches it there.
             registerBackgroundSync();
+            setSaveState('offline', 'Saved offline', 2500);
             showQueueBanner('You\'re offline. This submission is queued and will be sent when you reconnect.', 'warning');
             // Advance locally so the participant can continue — next drain
             // applies in order server-side. If this was the last page, leave
@@ -589,20 +649,27 @@ function initForm() {
         }
         if (!res.ok) {
             console.error('page-submit HTTP', res.status);
+            // Drop the saving pill — error UI takes over.
+            savePill.classList.remove('is-visible');
             window.alert('Sorry, something went wrong. Please try again.');
             return;
         }
         const body = await res.json().catch(() => null);
         if (!body) return;
         if (body.status === 'errors' && body.errors) {
+            savePill.classList.remove('is-visible');
             applyErrors(page, body.errors);
             return;
         }
         if (body.redirect) {
-            window.location.href = body.redirect;
+            // Last page just landed — pause briefly so the participant sees
+            // the completion beat instead of an abrupt jump to the end-page.
+            showCompletion('Thanks — sending you to the next step…');
+            setTimeout(() => { window.location.href = body.redirect; }, 600);
             return;
         }
         if (typeof body.next_page === 'number') {
+            setSaveState('saved', 'Saved');
             const nextIdx = pages.findIndex((p) => Number(p.dataset.fmrPage) === body.next_page);
             if (nextIdx !== -1) {
                 // Resolve the next page's dynamic labels + values via the
@@ -617,7 +684,10 @@ function initForm() {
             }
         }
         if (body.move_on || body.end_session) {
-            window.location.href = runUrl || window.location.pathname;
+            showCompletion('Thanks — sending you to the next step…');
+            setTimeout(() => {
+                window.location.href = runUrl || window.location.pathname;
+            }, 600);
         }
     };
 

@@ -109,7 +109,9 @@ export function validatePageAndShowFeedback(pageEl) {
             if (!wrapper.querySelector('.fmr-btn-feedback')) {
                 const fb = document.createElement('div');
                 fb.className = 'invalid-feedback fmr-btn-feedback d-block';
-                fb.textContent = el.validationMessage || 'Please choose an option.';
+                // Prefer the browser's contextual message (e.g. for malformed
+                // input formats); fall back to friendlier copy.
+                fb.textContent = el.validationMessage || 'Please pick an option to continue.';
                 btnGroup.insertAdjacentElement('afterend', fb);
             }
             wrapper.classList.add('is-invalid');
@@ -120,7 +122,7 @@ export function validatePageAndShowFeedback(pageEl) {
         el.classList.add('is-invalid');
         const fb = document.createElement('div');
         fb.className = 'invalid-feedback fmr-invalid-feedback d-block';
-        fb.textContent = el.validationMessage || 'Please fill in this field.';
+        fb.textContent = el.validationMessage || "We'll need this to continue.";
         const anchor = el.closest('.controls, .form-group') || el.parentElement;
         if (anchor && anchor.parentElement) {
             anchor.parentElement.insertBefore(fb, anchor.nextSibling);

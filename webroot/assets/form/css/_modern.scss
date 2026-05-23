@@ -1,0 +1,102 @@
+// Modern default theme — typography + focus pass.
+//
+// Tightens the v2 default to read less like a 2010-Bootstrap grid:
+//   - Larger, calmer question labels with more vertical rhythm.
+//   - Lighter input borders that gain weight only on focus.
+//   - `:focus-visible` rings so mouse users don't get rings on click but
+//     keyboard users do — a small but load-bearing a11y win.
+//
+// Scoped under `.fmr-form-v2` so admin pages and v1 surveys are
+// untouched. Default skin only — the solo skin in `_solo.scss` adds
+// its own scale on top.
+
+.fmr-form-v2 {
+
+    // Labels: the question text is the participant's primary focus,
+    // so size + weight it accordingly. Captions and help text stay
+    // unobtrusive.
+    .form-group > label,
+    .form-group > .control-label,
+    .control-label {
+        font-size: 1.0625rem;
+        line-height: 1.5;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+    }
+
+    // More breathing room between items. The legacy v1 form-horizontal
+    // baseline is too dense for modern phones — bump to 1.5rem.
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    // Inputs: lighter resting border, full-strength on focus. Larger
+    // tap target than Bootstrap's 38px default — still fits desktop
+    // densities, much friendlier on mobile.
+    .form-control,
+    select.form-control {
+        border-color: rgba(0, 0, 0, 0.15);
+        padding: 0.5rem 0.75rem;
+        min-height: 2.5rem;
+        transition: border-color 120ms ease-out, box-shadow 120ms ease-out;
+    }
+
+    .form-control:hover,
+    select.form-control:hover {
+        border-color: rgba(0, 0, 0, 0.3);
+    }
+
+    // Focus state: BS5 already adds a focus shadow; we replace it with a
+    // keyboard-only ring that respects :focus-visible. Mouse-click focus
+    // gets only the border weight change.
+    .form-control:focus,
+    select.form-control:focus,
+    .form-control:focus-visible,
+    select.form-control:focus-visible {
+        border-color: var(--bs-primary, #0d6efd);
+        outline: none;
+    }
+    .form-control:focus-visible,
+    select.form-control:focus-visible {
+        box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
+    }
+    .form-control:focus:not(:focus-visible),
+    select.form-control:focus:not(:focus-visible) {
+        box-shadow: none;
+    }
+
+    // Buttons in the form (Next, Previous, Submit) get the same
+    // keyboard-ring treatment.
+    .btn:focus,
+    .btn:focus-visible {
+        outline: none;
+    }
+    .btn:focus-visible {
+        box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.35);
+    }
+    .btn:focus:not(:focus-visible) {
+        box-shadow: none;
+    }
+
+    // Radio + checkbox option labels: slightly larger, more space.
+    .radio label,
+    .checkbox label,
+    .form-check-label {
+        font-size: 1rem;
+        padding-left: 0.25rem;
+    }
+    .radio,
+    .checkbox,
+    .form-check {
+        margin-bottom: 0.5rem;
+    }
+
+    // Help text (the small "(optional)" / instructions). Keep
+    // distinctly secondary.
+    .help-block,
+    .form-text {
+        color: rgba(0, 0, 0, 0.55);
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+}
