@@ -196,6 +196,19 @@
                                 </tr>
                                 <tr>
                                     <td colspan="2">
+                                        <label>Layout</label>
+                                        <span class="help-block">
+                                            <i class="fa fa-info-circle"></i>
+                                            <strong>Default</strong> renders all items on an authored page together (classic survey grid). <strong>Solo</strong> presents one item per screen with auto-scroll on answer — a livelier, Typeform-style cadence that works best on mobile. Authored page boundaries still determine submission units; only the visual rhythm changes.
+                                        </span>
+                                        <select name="layout" class="form-control" style="max-width: 22em;">
+                                            <option value="default" <?php if ($study->layout !== 'solo') echo 'selected'; ?>>Default — multiple items per page</option>
+                                            <option value="solo" <?php if ($study->layout === 'solo') echo 'selected'; ?>>Solo — one item per screen</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2">
                                         <label>Compatibility scan</label>
                                         <span class="help-block">
                                             <i class="fa fa-info-circle"></i>

@@ -1,0 +1,95 @@
+// Solo-layout skin for form_v2 (patch 066).
+//
+// One item per screen, CSS scroll-snap. All form_v2 items remain mounted —
+// only their visual layout changes — so Alpine `x-showif`, the offline
+// queue, validation, and allow_previous keep working unchanged. Auto-
+// advance on answer commit is in main.js, gated on data-layout="solo".
+//
+// Scoped under .fmr-form-v2[data-layout="solo"] so the default layout
+// renders byte-identical to pre-patch behaviour.
+
+.fmr-form-v2[data-layout="solo"] {
+
+    // The page <section> becomes the scroll-snap container. Each page's
+    // items snap one at a time within the viewport.
+    .fmr-page {
+        scroll-snap-type: y mandatory;
+        height: 100vh;
+        overflow-y: auto;
+        scroll-behavior: smooth;
+        // Use small-viewport units where supported (avoids mobile URL-bar
+        // jitter), fall back to 100vh on older browsers.
+        @supports (height: 100svh) {
+            height: 100svh;
+        }
+    }
+
+    .form-group {
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+        min-height: 100vh;
+        @supports (height: 100svh) {
+            min-height: 100svh;
+        }
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 2rem 1rem;
+        box-sizing: border-box;
+
+        // Larger touch targets and readable text — the skin's main win
+        // is on phones.
+        label {
+            font-size: 1.25rem;
+            line-height: 1.4;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="number"],
+        input[type="tel"],
+        input[type="url"],
+        input[type="date"],
+        input[type="datetime-local"],
+        input[type="time"],
+        textarea,
+        select {
+            font-size: 1.15rem;
+            padding: 0.75rem 1rem;
+            min-height: 3rem;
+        }
+
+        // Radios / checkboxes: give each option breathing room.
+        .radio,
+        .checkbox {
+            padding: 0.5rem 0;
+            label {
+                font-size: 1.1rem;
+            }
+        }
+    }
+
+    // Showif-hidden items must not trap the snap. `.hidden` is added by
+    // the x-showif directive (alpine.js:113-115).
+    .form-group.hidden {
+        scroll-snap-align: none;
+        min-height: 0;
+    }
+
+    // The page's Submit/Next button area also wants its own screen so it
+    // doesn't crowd the last item.
+    .form-group:has(button[data-fmr-next]),
+    .form-group:has(button[type="submit"]) {
+        // No-op override — buttons stay on whatever screen they were
+        // authored into. Reserved for future tuning.
+    }
+
+    // Subtle visual aid: a fade in at the top/bottom of each snapped
+    // item so the user senses there's more to scroll. Disabled for users
+    // who prefer reduced motion.
+    @media (prefers-reduced-motion: no-preference) {
+        .form-group {
+            transition: opacity 0.2s ease-out;
+        }
+    }
+}

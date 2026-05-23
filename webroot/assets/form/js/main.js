@@ -141,6 +141,43 @@ function initForm() {
         });
     });
 
+    // Solo layout (patch 066): auto-advance scroll to the next visible item
+    // when the current one's answer is committed. All items stay mounted, so
+    // x-showif and validation keep their normal semantics — we just move the
+    // viewport. Debounced so multi-checkbox items don't fly past.
+    if (root.dataset.layout === 'solo') {
+        let advanceTimer = null;
+        const advanceFromItem = (itemEl) => {
+            if (!itemEl) return;
+            clearTimeout(advanceTimer);
+            advanceTimer = setTimeout(() => {
+                if (itemEl.classList.contains('has-error')) return;
+                const page = itemEl.closest('[data-fmr-page]');
+                if (!page) return;
+                const items = Array.from(page.querySelectorAll('.form-group'));
+                const idx = items.indexOf(itemEl);
+                for (let i = idx + 1; i < items.length; i++) {
+                    const cand = items[i];
+                    if (cand.classList.contains('hidden')) continue;
+                    if (cand.offsetParent === null) continue;
+                    cand.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    const firstInput = cand.querySelector('input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])');
+                    if (firstInput) {
+                        setTimeout(() => firstInput.focus({ preventScroll: true }), 450);
+                    }
+                    return;
+                }
+            }, 400);
+        };
+        root.addEventListener('change', (e) => {
+            const t = e.target;
+            if (!(t instanceof Element)) return;
+            if (t.name && t.name.startsWith('_item_views')) return;
+            const item = t.closest('.form-group');
+            if (item) advanceFromItem(item);
+        });
+    }
+
     const collectPayload = (pageEl) => {
         const data = {};
         const itemViews = { shown: {}, shown_relative: {}, answered: {}, answered_relative: {} };

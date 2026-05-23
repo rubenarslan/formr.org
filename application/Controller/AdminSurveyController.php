@@ -542,10 +542,18 @@ class AdminSurveyController extends AdminController {
             'expire_invitation_after', 'expire_invitation_grace',
             'enable_instant_validation', 'hide_results', 'use_paging',
             'unlinked', 'google_file_id',
+            // form_v2 per-study flags. Without these in the allowlist the
+            // array_intersect_key below would strip them before the v2
+            // handling block runs and the saves would silently rewrite
+            // the columns to their false/null defaults.
+            'offline_mode', 'allow_previous', 'layout',
         ];
         $settings = array_intersect_key($settings, array_flip($allowed));
-        array_walk($settings, function (&$value, $key) {
-            if ($key !== 'google_file_id') {
+        // String-typed columns must opt out of the int cast — google_file_id
+        // is a Drive ID; layout is an ENUM('default','solo').
+        $stringCols = ['google_file_id', 'layout'];
+        array_walk($settings, function (&$value, $key) use ($stringCols) {
+            if (!in_array($key, $stringCols, true)) {
                 $value = (int) $value;
             }
         });
@@ -575,8 +583,10 @@ class AdminSurveyController extends AdminController {
         if ($this->study->rendering_mode === 'v2') {
             $settings['offline_mode'] = (int) (isset($settings['offline_mode']) && $settings['offline_mode'] === 1);
             $settings['allow_previous'] = (int) (isset($settings['allow_previous']) && $settings['allow_previous'] === 1);
+            $layoutInput = $settings['layout'] ?? 'default';
+            $settings['layout'] = in_array($layoutInput, ['default', 'solo'], true) ? $layoutInput : 'default';
         } else {
-            unset($settings['offline_mode'], $settings['allow_previous']);
+            unset($settings['offline_mode'], $settings['allow_previous'], $settings['layout']);
         }
 
         // user can't revert unlinking
