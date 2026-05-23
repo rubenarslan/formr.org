@@ -27,6 +27,11 @@ class Site {
      * @var RunSession[]
      */
     protected $runSessions = array();
+
+    /**
+     * Session key for the admin-context current run name. See setRun().
+     */
+    const ADMIN_RUN_NAME_KEY = 'current_admin_run_name';
     
     /**
      * 
@@ -216,13 +221,37 @@ class Site {
             // if $id is null, get from current session
             $session = Session::get('current_run_session_code');
         }
-        
+
         if (!$session) {
             return null;
         }
 
         $id = md5($session);
         return isset($this->runSessions[$id]) ? $this->runSessions[$id] : null;
+    }
+
+    /**
+     * Mark a run as the admin's currently-active run. Stored in $_SESSION
+     * (not on $this) because index.php and Site::getInstance() return
+     * different Site instances within the same request — anything set on
+     * the controller-threaded Site is invisible to globals-driven callers
+     * like opencpu_prepare_api_access that go through Site::getInstance().
+     * Mirrors how setRunSession persists `current_run_session_code`.
+     */
+    public function setRun(Run $run) {
+        Session::set(self::ADMIN_RUN_NAME_KEY, $run->name);
+    }
+
+    /**
+     * @return Run|null
+     */
+    public function getRun() {
+        $name = Session::get(self::ADMIN_RUN_NAME_KEY);
+        if (!$name) {
+            return null;
+        }
+        $run = new Run($name);
+        return $run->valid ? $run : null;
     }
 
     /**
@@ -290,27 +319,21 @@ class Site {
             return $server;
         }
 
-        // Setup DB connection for oauth
-        $db_config = (array) Config::get('database');
-        $options = array(
-            'host' => $db_config['host'],
-            'dbname' => $db_config['database'],
-            'charset' => 'utf8',
-        );
-        if (!empty($db_config['port'])) {
-            $options['port'] = $db_config['port'];
-        }
-
-        $dsn = 'mysql:' . http_build_query($options, '', ';');
-        $username = $db_config['login'];
-        $password = $db_config['password'];
-
         OAuth2\Autoloader::register();
 
-        // $dsn is the Data Source Name for your database, for exmaple "mysql:dbname=my_oauth2_db;host=localhost"
+        // Share the app's PDO with the OAuth storage so a DB::beginTransaction()
+        // on Site::getDb() actually covers the storage writes (setClientDetails,
+        // setAccessToken, etc.). Constructing a second PDO from the same DSN —
+        // the previous shape — produced an isolated connection, so the credential-
+        // creation path couldn't be made atomic across the bshaffer storage
+        // call and the surrounding $db->insert/$db->delete in OAuthHelper.
+        // bshaffer's storage constructor accepts a PDO instance directly
+        // (vendor/bshaffer/oauth2-server-php/src/OAuth2/Storage/Pdo.php:49)
+        // and ATTR_ERRMODE / ATTR_EMULATE_PREPARES are already set to the
+        // same values both layers expect, so the shared connection is safe.
         // HashedTokenOAuth2StoragePdo stores SHA-256 hashes of access/refresh tokens
         // and authorization codes so a DB read does not yield replayable bearer credentials.
-        $storage = new HashedTokenOAuth2StoragePdo(array('dsn' => $dsn, 'username' => $username, 'password' => $password));
+        $storage = new HashedTokenOAuth2StoragePdo(self::getDb()->pdo());
 
         // Pass a storage object or array of storage objects to the OAuth2 server class.
         // access_lifetime is set explicitly so the external API contract
@@ -318,7 +341,8 @@ class Site {
         // silently drift if bshaffer changes its built-in default.
         // Internal short-lived tokens for the OpenCPU round-trip are
         // minted via OAuthHelper::createAccessTokenForUser with an
-        // explicit 120s lifetime — see opencpu_prepare_api_access.
+        // explicit 180s lifetime, matching the OpenCPU `timelimit.post`
+        // ceiling — see opencpu_prepare_api_access.
         $server = new OAuth2\Server($storage, array(
             'access_lifetime' => 3600,
         ));

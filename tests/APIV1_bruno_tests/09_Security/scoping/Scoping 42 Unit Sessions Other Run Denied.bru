@@ -1,0 +1,29 @@
+meta {
+  name: Scoping 42 Unit Sessions Other Run Denied
+  type: http
+  seq: 42
+}
+
+get {
+  url: {{host}}/v1/runs/{{run_b_name}}/unit_sessions
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{allow_token}}
+}
+
+assert {
+  res.status: eq 403
+  res.body.message: contains not authorized for run
+}
+
+docs {
+  The token's per-client run allowlist is run-a only. Hitting
+  /v1/runs/<run-b>/unit_sessions must be denied by the same
+  ApiBase::getRunByName -> clientMayAccessRun gate that protects the
+  /sessions and /results paths. Catching this here ensures any future
+  RunResource::handleSubResource refactor doesn't accidentally route
+  unit_sessions before the run allowlist check.
+}

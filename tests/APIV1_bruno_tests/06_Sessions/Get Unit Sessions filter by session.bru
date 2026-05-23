@@ -1,0 +1,30 @@
+meta {
+  name: Get Unit Sessions filter by session
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{host}}/v1/runs/apitest/unit_sessions?session={{session_code}}&limit=100
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("every row belongs to the requested session", function() {
+    if (res.body.length === 0) {
+      return; // legitimate if the test code hasn't generated unit sessions yet
+    }
+    for (const row of res.body) {
+      expect(row.session).to.equal(bru.getVar("session_code"));
+    }
+  });
+}

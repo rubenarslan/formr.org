@@ -77,6 +77,9 @@ class RunResource extends BaseResource
             case 'sessions':
                 $resourceClass = new SessionResource($this->request, $this->db, $this->tokenData);
                 break;
+            case 'unit_sessions':
+                $resourceClass = new UnitSessionResource($this->request, $this->db, $this->tokenData);
+                break;
             case 'results':
                 $resourceClass = new ResultsResource($this->request, $this->db, $this->tokenData);
                 break;

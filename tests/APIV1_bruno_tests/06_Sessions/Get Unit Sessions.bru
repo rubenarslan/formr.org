@@ -1,0 +1,56 @@
+meta {
+  name: Get Unit Sessions
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{host}}/v1/runs/apitest/unit_sessions?limit=5
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("returns an array", function() {
+    expect(res.body).to.be.an("array");
+  });
+
+  test("each row carries the expected shape when populated", function() {
+    if (res.body.length === 0) {
+      return; // empty run is fine, nothing to assert against
+    }
+    const row = res.body[0];
+    expect(row).to.have.property("unit_session_id").that.is.a("number");
+    expect(row).to.have.property("session").that.is.a("string");
+    expect(row).to.have.property("testing");
+    expect(row).to.have.property("unit_type");
+    expect(row).to.have.property("created");
+    // position is integer for ordered units, null for specials
+    expect(row).to.have.property("position");
+    // state is one of Track A's enum values when populated
+    if (row.state !== null) {
+      expect(["PENDING","RUNNING","WAITING_USER","WAITING_TIMER","ENDED","EXPIRED","SUPERSEDED"])
+        .to.include(row.state);
+    }
+  });
+
+  test("results are ordered (session, created)", function() {
+    let lastSession = null;
+    let lastCreated = null;
+    for (const row of res.body) {
+      if (lastSession === row.session && lastCreated !== null) {
+        expect(row.created >= lastCreated).to.equal(true);
+      }
+      lastSession = row.session;
+      lastCreated = row.created;
+    }
+  });
+}

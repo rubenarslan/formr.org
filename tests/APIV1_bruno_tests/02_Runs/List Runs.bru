@@ -1,7 +1,7 @@
 meta {
   name: List Runs
   type: http
-  seq: 4
+  seq: 5
 }
 
 get {
@@ -16,5 +16,5 @@ auth:bearer {
 
 assert {
   res.status: eq 200
-  res.body.map(item => item.name): contains "api-test"
+  res.body.map(item => item.name): contains "apitest"
 }

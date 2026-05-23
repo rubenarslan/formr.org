@@ -56,7 +56,15 @@ function notify_user_error($error, $public_message = '')
 
     $message = $date . ': ' . $public_message . "<br>";
 
-    if ($run_session && ($run_session->isCron() || $run_session->isTesting())) {
+    // Show the actual error body whenever the viewer isn't a real
+    // participant. That's: cron/queue daemons, test sessions, and
+    // admin contexts that have no run_session at all (e.g. the
+    // OverviewScriptPage render path). The participant-facing case
+    // — a regular run_session that isn't cron and isn't testing —
+    // still gets only the public_message, so internal error text
+    // doesn't leak through a survey page. Matches the same logic
+    // that drives $show_errors='TRUE' in the OpenCPU knit chunks.
+    if (!$run_session || $run_session->isCron() || $run_session->isTesting()) {
         if ($error instanceof Exception) {
             $message .= $error->getMessage();
         } else {
@@ -820,6 +828,19 @@ function site_url($uri = '', $params = array())
     return $url;
 }
 
+function api_base_url()
+{
+    $protocol = Config::get('protocol', 'https://');
+    $domain = Config::get('api_domain', '');
+    if (empty($domain)) {
+        $domain = Config::get('admin_domain', '');
+    }
+    if (empty($domain)) {
+        return rtrim(site_url('api'), '/');
+    }
+    return rtrim($protocol . $domain . '/api', '/');
+}
+
 function admin_url($uri = '', $params = array())
 {
     if ($uri) {
@@ -1133,11 +1154,20 @@ function opencpu_prepare_api_access($code, &$variables)
         // Try to get the run session from the Site instance for test runs where run_session() does not work.
         $run_session = Site::getInstance()->getRunSession();
     }
-    if (!$run_session) {
-        return null;
-    }
 
-    $run = $run_session->getRun();
+    $run = null;
+    if ($run_session) {
+        $run = $run_session->getRun();
+    }
+    if (!$run) {
+        // Admin contexts (overview-script render, mockup, etc.) reach
+        // this helper without a participant RunSession. Fall back to the
+        // Site-level current run, which AdminRunController pushes when
+        // it routes to a specific run. The embedded token is owner-scoped
+        // and run-restricted, so this is safe — the admin can't reach
+        // this code path without being authorized to view the run.
+        $run = Site::getInstance()->getRun();
+    }
     if (!$run) {
         return null;
     }
@@ -1148,12 +1178,17 @@ function opencpu_prepare_api_access($code, &$variables)
     }
 
     $oauth = OAuthHelper::getInstance();
-    // 120s is the upper bound on a round-trip: formr mints the token,
-    // embeds it in an R variable, OpenCPU evaluates the snippet (which
-    // may phone back into the v1 API), and we delete the token in the
-    // caller's finally block on return. The short lifetime is a safety
-    // net for the failure modes that skip the explicit delete (process
-    // crash, uncaught exception in opencpu_evaluate, OpenCPU timeout
+    // Token lifetime is pinned to OpenCPU's `timelimit.post` (180s, set
+    // in opencpu/conf/server.conf): that's the hard wall on any single
+    // OpenCPU POST, so a token issued just before the POST can never
+    // need to outlive 180s — anything longer is dead weight, anything
+    // shorter risks the R session's last API call (after computation,
+    // plotting, knitr chunks) hitting an already-expired token.
+    // 120s was the original ceiling and turned out to be tight: overview
+    // scripts that ran for >2min between formr_api_authenticate() and
+    // a subsequent fetch 401'd on the fetch. The lifetime also functions
+    // as a safety net for the failure modes that skip the explicit
+    // delete (process crash, uncaught exception, OpenCPU timeout
     // leaving the request hung). External API consumers go through
     // the standard client_credentials grant and get the 1h default.
     // Stamp the token with a per-token run allowlist: this OpenCPU call
@@ -1162,7 +1197,7 @@ function opencpu_prepare_api_access($code, &$variables)
     // owns. Without $forRun, the token would inherit the owner's
     // per-client allowlist (commonly empty = unrestricted), which is
     // wider than what this short-lived helper needs.
-    $token_data = $oauth->createAccessTokenForUser($owner, 'user:read session:read session:write run:read data:read', false, 120, $run);
+    $token_data = $oauth->createAccessTokenForUser($owner, 'user:read session:read session:write run:read data:read', false, 180, $run);
 
     if (!$token_data || empty($token_data['access_token'])) {
         return null;
@@ -1179,7 +1214,7 @@ function opencpu_prepare_api_access($code, &$variables)
     // code. The R-side helpers (formr_api_authenticate, formr_api_results)
     // read these from `.formr$` as their auto-pickup source.
     $access_token = "'" . addcslashes($token_data['access_token'], "'\\") . "'";
-    $host = "'" . addcslashes(rtrim(site_url('api'), '/'), "'\\") . "'";
+    $host = "'" . addcslashes(api_base_url(), "'\\") . "'";
     $run_name = "'" . addcslashes($run->name, "'\\") . "'";
 
     if (is_string($variables)) {
@@ -1416,8 +1451,18 @@ function opencpu_knit_iframe($source, $variables = null, $return_session = false
         $source = $parts[2];
     }
 
+    // include=FALSE on the settings chunk: the chunk's R code still runs
+    // (library() / opts_chunk$set() / variable assignments), but the chunk
+    // source never lands in the rendered output. This matters because
+    // $variables contains the .formr$access_token = '…' assignment that
+    // opencpu_prepare_api_access injected — with echo=TRUE (the previous
+    // mode in admin/test context) that token leaked into the rendered
+    // iframe. include=FALSE also dominates over echo / warning / message,
+    // so a stray warning during the variable assignment can't leak the
+    // token either. opts_chunk$set on the next line still carries the
+    // show_warnings setting forward to user chunks.
     $source = $yaml .
-        '```{r settings,warning=' . $show_warnings . ',message=' . $show_warnings . ',error=' . $show_errors . ',echo=' . $show_warnings . '}
+        '```{r settings,include=FALSE}
 library(knitr); library(formr)
 opts_chunk$set(warning=' . $show_warnings . ',message=' . $show_warnings . ',error=' . $show_errors . ',echo=' . $show_warnings . ',fig.height=7,fig.width=10)
 ' . $variables . '

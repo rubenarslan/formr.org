@@ -1,11 +1,11 @@
 meta {
-  name: Delete Run
+  name: Create Run reserved prefix
   type: http
   seq: 2
 }
 
-delete {
-  url: {{host}}/v1/runs/apitest
+post {
+  url: {{host}}/v1/runs/api-test
   body: none
   auth: bearer
 }
@@ -15,5 +15,5 @@ auth:bearer {
 }
 
 assert {
-  res.status: eq 200
+  res.status: eq 400
 }

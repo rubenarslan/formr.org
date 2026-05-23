@@ -8,6 +8,7 @@ $settings['use_study_subdomains'] = true;
 $settings['admin_domain'] = "www.example.com";
 # ideally not the same domain as the admin domain, for study subdomains use *.example.com
 $settings['study_domain'] = "*.example.com";
+$settings['api_domain'] = "";
 $settings['protocol'] = "https://";
 
 // Codes listed here can be entered in the sign-up box to turn

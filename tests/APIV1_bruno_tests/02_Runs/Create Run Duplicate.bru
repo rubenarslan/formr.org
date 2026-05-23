@@ -1,11 +1,11 @@
 meta {
   name: Create Run Duplicate
   type: http
-  seq: 2
+  seq: 3
 }
 
 post {
-  url: {{host}}/v1/runs/api-test
+  url: {{host}}/v1/runs/apitest
   body: none
   auth: bearer
 }
@@ -16,5 +16,5 @@ auth:bearer {
 
 assert {
   res.status: eq 409
-  res.body.message: eq A run with the name 'api-test' already exists.
+  res.body.message: eq A run with the name 'apitest' already exists.
 }

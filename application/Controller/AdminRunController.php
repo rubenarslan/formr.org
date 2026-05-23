@@ -602,6 +602,10 @@ class AdminRunController extends AdminController
             formr_error(401, 'Unauthorized', 'You do not have access to modify this run');
         }
         $this->run = $run;
+        // Surface the active run on the Site singleton so opencpu helpers
+        // (overview script render, etc.) can mint an owner-scoped API
+        // token even though there's no participant RunSession in scope.
+        $this->site->setRun($run);
     }
 
     private function exportAction()

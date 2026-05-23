@@ -282,6 +282,11 @@ class SurveyResource extends BaseResource
             return $this->error(400, 'No updates provided');
         }
 
+        // $file is scoped outside the try so the finally can clean it up on
+        // every exit path — including the case where uploadItems throws
+        // mid-sync and the catch returns 400 before delete_tmp_file would
+        // have been reached inline. Mirrors createOrUpdateSurvey's pattern.
+        $file = null;
         try {
             // 1. Handle Google Sheet Sync (Side Effect of updating the sheet URL)
             if (isset($payload['google_sheet'])) {
@@ -300,9 +305,6 @@ class SurveyResource extends BaseResource
                 // This ensures the questions in the DB match the new sheet
                 $success = $study->uploadItems($file, true);
 
-                // Cleanup temp file
-                delete_tmp_file($file);
-
                 if (!$success) {
                     throw new Exception("Failed to sync items from Google Sheet: " . implode("; ", $study->errors));
                 }
@@ -320,6 +322,10 @@ class SurveyResource extends BaseResource
             return $this->response(200, 'Survey updated successfully.');
         } catch (Exception $e) {
             return $this->error(400, $e->getMessage()); // 400 Bad Request for validation/logic errors
+        } finally {
+            if ($file) {
+                delete_tmp_file($file);
+            }
         }
     }
 

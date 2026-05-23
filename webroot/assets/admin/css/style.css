@@ -324,3 +324,6 @@ body.skin-black .content-wrapper {
     right: -100px;
     top: -40px;
 }
+.api-credentials-list td:first-child {
+    word-break: break-word;
+}

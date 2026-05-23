@@ -106,7 +106,20 @@ import {
     });
 
     this.test_button = this.block.find("a.unit_test");
-    this.test_button.on("click", $.proxy(this.test, this));
+    if (this.special === "OverviewScriptPage") {
+      // Overview scripts have no meaningful "Test" — testing a Page
+      // requires a participant UnitSession, which OverviewScriptPage
+      // never reaches in normal use, so the ajax_test_unit path
+      // errors. Repurpose the button as a link to the run's
+      // /overview page, which renders the same script in the admin
+      // context (see AdminRunController::overviewAction).
+      this.test_button
+        .attr("href", this.run.url + "overview/")
+        .attr("target", "_blank")
+        .html('<i class="fa fa-eye"></i> Get Overview');
+    } else {
+      this.test_button.on("click", $.proxy(this.test, this));
+    }
 
     this.update_survey_button = this.block.find("a.unit_update_survey_from_google");
     this.update_survey_button.on("click", $.proxy(this.updateSurveyFromGoogle, this));

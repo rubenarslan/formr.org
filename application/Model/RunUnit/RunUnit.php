@@ -210,14 +210,36 @@ class RunUnit extends Model {
             'body' => "# Service message \n This study is currently being serviced. Please return at a later time."
         );
 
+        // The default overview is a trajectory Sankey across all real
+        // participants — both a starter demo of the v1 API + R helpers
+        // and a useful first dashboard. Owners can swap it for any R
+        // they like (knitr chunks, plotly / ggplot, raw markdown).
+        // Stays in sync with formr_api_unit_sessions() in the formr R
+        // package, which wraps GET /v1/runs/{name}/unit_sessions.
         $defaults['OverviewScriptPage'] = array(
             'type' => 'Page',
             'title' => 'Overview script',
             'special' => 'OverviewScriptPage',
-            'body' => "# Intersperse Markdown with R
-```{r}
-plot(cars)
-```");
+            'body' => <<<'OVERVIEW_BODY'
+# Study overview
+
+This page is rendered for the run owner through the formr v1 API.
+See `?formr_api_authenticate` for the authentication helper, or
+`?formr_overview_sankey` for how the participant flow through the study is drawn.
+
+```{r setup, include = FALSE}
+library(formr)
+formr_api_authenticate()
+```
+
+```{r sankey, echo = FALSE}
+formr_overview_sankey()
+```
+
+Customise freely — drop any R, knitr chunks, plotly / ggplot, raw
+markdown based on run data.
+OVERVIEW_BODY
+        );
         $defaults['ReminderEmail'] = array(
             'type' => 'Email',
             'subject' => 'Reminder',

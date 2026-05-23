@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: {{host}}/v1/runs/api-test
+  url: {{host}}/v1/runs/apitest
   body: none
   auth: bearer
 }
@@ -16,6 +16,6 @@ auth:bearer {
 
 assert {
   res.status: eq 201
-  res.body.name: eq "api-test"
-  res.body.link: contains "api-test/"
+  res.body.name: eq "apitest"
+  res.body.link: contains "apitest/"
 }

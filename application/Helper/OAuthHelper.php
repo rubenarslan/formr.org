@@ -97,10 +97,12 @@ class OAuthHelper
     public function createClient(User $formrUser, $label, array $scopes = [], array $runIds = [])
     {
         if (!$formrUser->canAccessApi()) {
+            error_log('OAuthHelper::createClient denied — user ' . $formrUser->id . ' cannot access API (admin level ' . $formrUser->admin . ')');
             return false;
         }
         $label = $this->validateLabel($label, false);
         if ($label === false) {
+            error_log('OAuthHelper::createClient label validation failed for user ' . $formrUser->id);
             return false;
         }
         return $this->createClientInternal($formrUser, $label, $scopes, $runIds);
@@ -312,41 +314,52 @@ class OAuthHelper
 
         $details = $this->generateClientDetails($formrUser);
         $db = Site::getDb();
-        // Pre-insert a stub row carrying the label, so that
-        // setClientDetails takes the UPDATE branch (which doesn't touch
-        // label) instead of the INSERT branch (which would write a NULL
-        // label and trip the NOT NULL constraint added in patch 054).
+
+        // All three writes (stub INSERT into oauth_clients, the
+        // setClientDetails UPDATE through bshaffer's storage, and the
+        // oauth_client_runs allowlist via replaceClientRuns) must succeed
+        // or fail together — otherwise a setClientDetails-fails branch
+        // could leave a stub credential with empty scope/secret, and a
+        // replaceClientRuns-fails branch could leave a credential with
+        // the wrong run allowlist. Site::getOauthServer shares the PDO
+        // with Site::getDb() specifically so this transaction covers
+        // the storage write too.
+        //
+        // The stub INSERT is required because oauth_clients.label is
+        // NOT NULL (patch 054) but setClientDetails — bshaffer's INSERT
+        // branch — doesn't include the label column. The stub gives
+        // setClientDetails an UPDATE path that doesn't touch label.
         try {
+            $db->beginTransaction();
+
             $db->insert($this->config['client_table'], [
                 'client_id' => $details['client_id'],
                 'client_secret' => '',
                 'user_id' => $formrUser->email,
                 'label' => $label,
             ]);
-        } catch (\Exception $e) {
-            // Most likely cause: UNIQUE(user_id, label) collision. Fail
-            // closed so the caller can surface the duplicate-label
-            // error from validateLabel's pre-flight (which checks the
-            // listing, not the index) before retrying.
-            return false;
-        }
 
-        $ok = $this->storage->setClientDetails(
-            $details['client_id'],
-            $details['client_secret']->getString(),
-            self::DEFAULT_REDIRECT_URL,
-            null,
-            implode(' ', $scopes),
-            $formrUser->email
-        );
-        if (!$ok) {
-            // Roll back the stub row so a failed setClientDetails
-            // doesn't leave an unusable record with empty secret.
-            $db->delete($this->config['client_table'], ['client_id' => $details['client_id']]);
+            $ok = $this->storage->setClientDetails(
+                $details['client_id'],
+                $details['client_secret']->getString(),
+                self::DEFAULT_REDIRECT_URL,
+                null,
+                implode(' ', $scopes),
+                $formrUser->email
+            );
+            if (!$ok) {
+                throw new \Exception('setClientDetails returned false');
+            }
+
+            $this->replaceClientRuns($details['client_id'], $runIds);
+
+            $db->commit();
+            return $details;
+        } catch (\Exception $e) {
+            $db->rollBack();
+            error_log('OAuthHelper::createClientInternal failed for user ' . $formrUser->id . ' label "' . $label . '": ' . $e->getMessage());
             return false;
         }
-        $this->replaceClientRuns($details['client_id'], $runIds);
-        return $details;
     }
 
     /**
@@ -491,10 +504,11 @@ class OAuthHelper
         }
         $db = Site::getDb();
         $placeholders = implode(',', array_fill(0, count($scopes), '?'));
-        $stmt = $db->prepare("SELECT scope FROM {$this->config['scope_table']} WHERE scope IN ($placeholders)");
+        $stmt = $db->prepare("SELECT DISTINCT scope FROM {$this->config['scope_table']} WHERE scope IN ($placeholders)");
         $stmt->execute($scopes);
         $known = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
         if (count($known) !== count($scopes)) {
+            error_log('OAuthHelper::validateScopes failed. Submitted scopes: ' . implode(', ', $scopes) . ' | Known scopes: ' . implode(', ', $known));
             return false;
         }
         return $scopes;
@@ -522,6 +536,7 @@ class OAuthHelper
         $stmt->execute(array_merge([$formrUser->id], $runIds));
         $owned = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN, 0));
         if (count($owned) !== count($runIds)) {
+            error_log('OAuthHelper::validateRunIds failed. Submitted run IDs: ' . implode(', ', $runIds) . ' | Owned by user ' . $formrUser->id . ': ' . implode(', ', $owned));
             return false;
         }
         return $runIds;
@@ -667,12 +682,20 @@ class OAuthHelper
         // is fixed by interface — adding a parameter would break the
         // grant flow's call site. Two SQL hits for internal tokens,
         // zero overhead for external ones (which pass $forRun = null).
+        // `expires = expires` is load-bearing: the `oauth_access_tokens`
+        // table historically carried MariaDB's auto-applied
+        // `ON UPDATE current_timestamp()` on the `expires` column, which
+        // would otherwise clobber the freshly-set lifetime back to NOW()
+        // and 401 the embedded token on its first use. Patch 056 strips
+        // the ON UPDATE clause on hosts that migrate forward, but we
+        // include the field explicitly here so the fix also holds on
+        // hosts that haven't applied 056 yet.
         if ($forRun !== null) {
             $runIds = $this->normaliseRunIds($forRun);
             if (!empty($runIds)) {
                 $db = Site::getDb();
                 $stmt = $db->prepare(sprintf(
-                    'UPDATE %s SET run_ids = :run_ids WHERE access_token = :access_token',
+                    'UPDATE %s SET run_ids = :run_ids, expires = expires WHERE access_token = :access_token',
                     $this->config['access_token_table']
                 ));
                 $stmt->execute([

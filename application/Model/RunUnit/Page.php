@@ -73,12 +73,32 @@ class Page extends RunUnit {
 
         $ocpu = opencpu_knit_iframe($this->body, array(), true, null, $this->run->description, $this->run->footer_text);
 
+        // On error: return the failure as inline HTML where the iframe
+        // would have been. The overview template renders alerts BEFORE
+        // calling render(), so an alert added here would land in a
+        // buffer that's already been flushed — the admin would see a
+        // blank Overview box with no indication the script failed.
+        // Inlining the OpenCPU debugger keeps the error visible at
+        // exactly the spot the broken output should have rendered.
         if (empty($ocpu)) {
-            alert('OpenCPU is probably down or inaccessible. Please retry in a few minutes.', 'alert-danger');
-            return false;
+            return '<div class="alert alert-danger">'
+                . '<strong>OpenCPU is unreachable.</strong> '
+                . 'The R runtime didn\'t respond — usually a temporary issue. Retry in a few minutes.'
+                . '</div>';
         } elseif ($ocpu->hasError()) {
-            notify_user_error(opencpu_debug($ocpu), 'There was a computational error.');
-            return false;
+            // Also push the error into the alert pipeline so other
+            // observers (logs, future template orderings) pick it up.
+            notify_user_error(opencpu_debug($ocpu), 'Overview script: computational error.');
+            return '<div class="alert alert-danger">'
+                . '<strong>Overview script: computational error.</strong> '
+                . 'The R code in this Overview script failed. Details from OpenCPU are below; '
+                . 'you can also edit the script via '
+                . '<a href="' . h(admin_run_url($this->run->name, 'settings')) . '#overview">Run settings &rarr; Overview script</a>.'
+                . '</div>'
+                . '<details open class="opencpu-overview-error" style="margin-top:1em;">'
+                . '<summary>OpenCPU debugger</summary>'
+                . opencpu_debug($ocpu)
+                . '</details>';
         }
 
         print_hidden_opencpu_debug_message($ocpu, "OpenCPU debugger for overview script at position {$this->position}.");

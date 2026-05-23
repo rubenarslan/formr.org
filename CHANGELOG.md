@@ -67,17 +67,42 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - SQL Patch 52: adds `survey_r_call_results` table — per-(call_id, args_hash) cache with `created_at` index for TTL eviction. Rows expire at read time: 30s for showif, 5min for value.
 
 ## [v1.0.0] - 16.05.2026
+
+### Upgrade procedure — REQUIRED
+
+Patches `050_hash_oauth_tokens`, `051_hash_client_secrets`, and
+`052_oauth_client_runs` invalidate every outstanding OAuth access /
+refresh / authorization token and zero every `oauth_clients.client_secret`.
+Atlas applies them silently as part of any routine `update.sh` /
+`db_atlas_apply.sh apply` — so unattended jobs holding long-lived
+tokens will start 401-ing immediately on deploy with no advance signal.
+
+**Before you bump `FORMR_TAG`:** see
+[`UPGRADING-v1.0.0.md`](UPGRADING-v1.0.0.md) for the audit + rotation
+checklist (identify clients, schedule downtime, rotate secrets, restate
+scopes + run allowlists, re-test). Skip it and you'll spend the next
+24 hours fielding "the API stopped working" tickets.
+
 ### Added
 - **Versioned RESTful v1 API** at `/api/v1/<resource>`. OAuth2 client_credentials grant with 1 hour access tokens. Resources: `user`, `surveys`, `runs/{name}`, plus per-run sub-resources `sessions`, `results`, `files`, `structure`. Twelve scopes (`user:read/write`, `survey:read/write`, `run:read/write`, `session:read/write`, `data:read`, `file:read/write`); scope is checked before resource lookup, so a token without the right scope returns 403 regardless of whether the run/survey exists or belongs to the caller.
 - New admin level `2` ("API access"). Only users at `admin >= 2` can mint or use API credentials. Existing `admin = 1` accounts keep web-admin rights but lose API access until a SuperAdmin promotes them via the user-management page.
 - One-time client-secret display at `admin/account` → API tab. Secret is shown only at issuance and rotation; storage holds a SHA-256 hash, so a forgotten secret must be rotated, not recovered.
 - **Multiple labelled API credentials per user.** Patch `054_oauth_client_labels.sql` adds `oauth_clients.label` with `UNIQUE(user_id, label)`. The admin/account API tab is now a credential table — each row has its own scopes, run allowlist, rotate button, and delete button. A common pattern is one narrow read-only credential for a dashboard plus a broader credential for a cron job. The label `internal` is reserved for the auto-managed OpenCPU bridge credential and is hidden from the listing.
+- **Unit-session history endpoint** `GET /v1/runs/{name}/unit_sessions`. One row per (participant × unit × iteration) — the complement to `/v1/runs/{name}/sessions`, which only exposes each participant's *current* unit. Rows arrive ordered by `(session, created, unit_session_id)`, so consecutive rows per participant are trajectory edges. Filters: `?session=`, `?testing=`, `?since=`; pagination via `limit` (default 1000, max 10000) + `offset`. Scope: `session:read`. R wrapper: `formr_api_unit_sessions()` in the formr package.
+- **Trajectory-Sankey default for new runs' Overview script.** `RunUnit::getDefaults('OverviewScriptPage')` replaces the prior `plot(cars)` placeholder with a slim knitr template that calls `formr_overview_sankey()` from the formr R package. The helper pulls history via `formr_api_unit_sessions()`, collapses re-iterations to one node per position (so diary / longitudinal designs don't create cycles a Sankey can't draw), and surfaces the per-participant average visit count as an `(avg N visits)` label suffix when it exceeds 1. Top-to-bottom orientation by default. Terminal arrows route to `Completed` / `Expired` / `Active @ <position>`. New runs only — existing OverviewScriptPage bodies are not touched.
 
 ### Changed (BREAKING)
 - **OAuth bearer credentials are now stored as SHA-256 hashes at rest.** On upgrade, patch `050_hash_oauth_tokens.sql` truncates `oauth_access_tokens`, `oauth_refresh_tokens`, and `oauth_authorization_codes`; patch `051_hash_client_secrets.sql` zeroes `oauth_clients.client_secret`. **All currently-issued tokens are invalidated** and **every existing OAuth client must mint a new secret** at `/admin/account#api` after upgrade. Plan a maintenance window for any unattended cron jobs that hold long-lived tokens.
 - **API credentials must now explicitly request scopes and (optionally) be restricted to specific runs.** Patch `052_oauth_client_runs.sql` adds `oauth_client_runs(client_id, run_id)` (empty rows = unrestricted) and widens `oauth_clients.scope` to VARCHAR(2000); it also clears `oauth_scopes.is_default` for every row and wipes existing access/refresh/authorization tokens. After upgrade, users open the API tab at `admin/account#api`, pick the read/write scopes their credential should carry, optionally limit it to specific runs, and click **Create credential** / Rotate. Tokens minted under the old "all scopes" default no longer work.
 - **Internal tokens (OpenCPU R-callbacks) now carry a per-token run allowlist.** Patch `053_oauth_access_token_run_ids.sql` adds `oauth_access_tokens.run_ids`. `OAuthHelper::createAccessTokenForUser($user, $scope, ..., $forRun)` stamps the column at mint time; `opencpu_prepare_api_access` passes the active `Run`. `ApiBase::allowedRunIds()` prefers per-token `run_ids` over the per-client `oauth_client_runs` allowlist, so a token minted to render run X cannot touch run Y even if the owner's client is unrestricted. External (`client_credentials` grant) tokens leave the column NULL and continue to use the per-client allowlist — back-compat.
 - **`OAuthHelper` API reshaped for multi-client per user.** `createClient` now takes a `$label`; the old single-client lookups (`getClient(User)`, `refreshToken(User, ...)`, `deleteClient(User)`) are replaced by `listClientsForUser(User)`, `getClientForUser(User, $clientId)`, `rotateClient(User, $clientId, ...)`, `deleteClient(User, $clientId)`, and the emergency-revoke `deleteAllClientsForUser(User)`. Direct callers of the old API in this repo were migrated in the same commit; downstream integrations that subclass / call these helpers will need to update.
+
+### Fixes
+- **Settings chunk in `opencpu_knit_iframe` is now `include=FALSE`.** Previously the rendered chunk source was echoed in admin / test contexts (`echo=$show_warnings`), which leaked the `.formr$access_token = '…'` assignment that `opencpu_prepare_api_access` injects. Side effects (`opts_chunk$set` + variable assignment) still apply to subsequent user chunks.
+- **`Page::render` (OverviewScriptPage admin path) now inlines the OpenCPU debugger on error.** The overview template renders alerts *before* calling `render()`, so the previous code path's `notify_user_error()` landed in an already-flushed buffer and the admin saw a blank Overview box. The error now appears as a red banner + collapsible `<details>` block with the full debugger output, in the spot the iframe would have rendered.
+- **`notify_user_error` surfaces the error body in admin contexts too.** Gate broadened from `$run_session && (isCron || isTesting)` to `!$run_session || isCron || isTesting`. Real participants still see only the public_message; admin-context callers (no `$run_session`) and cron / queue daemons see the actual error. Matches the same logic that drives `$show_errors='TRUE'` in the OpenCPU helpers.
+- **`SurveyResource::updateSurvey` tmp file cleanup.** Google-Sheet download is now wrapped in try/finally so the tmp file is removed on the `uploadItems` exception path too. Matches the pattern already used by `createOrUpdateSurvey`.
+- **`OAuthHelper::createClientInternal` wraps the credential creation in a real transaction.** `Site::getOauthServer()` now passes the shared `Site::getDb()->pdo()` into `HashedTokenOAuth2StoragePdo`, so the stub `INSERT`, the `setClientDetails` `UPDATE`, and the `replaceClientRuns` writes commit or rollback as a unit. Previously the storage layer had its own PDO connection and a `setClientDetails` failure could leave a stub credential with empty scope/secret.
 
 ### Security
 - **Strict identifier validation in `DB_Select::order()`.** The previous pass-through let any string flow into `ORDER BY` verbatim. A future caller threading a `?sort=` request param to `paginate['order_by']` would have been a SQLi sink (UNION-based row exfiltration). The new `parseStrictIdentifier()` accepts only `column` or `table.column` (with optional backticks); SQL function calls (`RAND()`, `COUNT(*)`, `COALESCE(...)`) now require the new `DB::raw()` escape hatch.

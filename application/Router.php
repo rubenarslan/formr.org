@@ -91,8 +91,10 @@ class Router {
             throw new Exception("Controller $controllerName does not exist");
         }
 
-        // Sub-domains for now are used only for accessing studies
-        if ($this->usingSubDomain && FMRSD_CONTEXT) {
+        // Sub-domains for now are used only for accessing studies.
+        // Preserve API route even on a study subdomain so that
+        // formr.rstudy.org/api reaches ApiController, not RunController.
+        if ($this->usingSubDomain && FMRSD_CONTEXT && $controller !== 'ApiController') {
             list($controllerName, $actionName) = $this->getStudyRoute();
             $runName = $this->getRunFromSubDomain();
             if ($action !== 'index') {

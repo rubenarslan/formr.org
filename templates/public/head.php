@@ -58,7 +58,7 @@ if (isset($run) && $run instanceof Run) {
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="<?php echo $meta['title']; ?>" />
 <meta name="twitter:image" content="<?php echo $meta['image']; ?>" />
-<meta name="twitter:image:alt" content="formr.org logo" />
+<meta name="twitter:image:alt" content="formr logo" />
 <meta name="twitter:url" content="<?php echo $meta['url']; ?>" />
 <meta name="twitter:description" content="<?php echo $meta['description']; ?>" />
 

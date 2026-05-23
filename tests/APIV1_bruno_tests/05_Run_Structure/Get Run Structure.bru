@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{host}}/v1/runs/api-test/structure
+  url: {{host}}/v1/runs/apitest/structure
   body: none
   auth: bearer
 }
@@ -16,5 +16,5 @@ auth:bearer {
 
 assert {
   res.status: eq 200
-  res.body.name: eq api-test
+  res.body.name: eq apitest
 }

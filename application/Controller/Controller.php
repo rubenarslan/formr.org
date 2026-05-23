@@ -185,7 +185,7 @@ abstract class Controller {
             'title' => 'formr - an online survey framework with live feedback',
             'description' => 'formr survey framework. chain simple surveys into long runs, use the power of R to generate pretty feedback and complex designs',
             'keywords' => 'formr, online survey, R software, opencpu, live feedback',
-            'author' => 'formr.org',
+            'author' => 'formr',
             'url' => site_url(),
             'image' => asset_url('build/img/formr-og.png'),
         );

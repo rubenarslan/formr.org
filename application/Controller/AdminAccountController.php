@@ -195,6 +195,7 @@ class AdminAccountController extends Controller {
         if ($action === 'create') {
             $client = $helper->createClient($this->user, $label, $scopes, $runIds);
             if (!$client || empty($client['client_secret'])) {
+                error_log('AdminAccountController::apiCredentialsAction create failed for user ' . $this->user->id . ' label="' . $label . '" scopes=' . json_encode($scopes) . ' run_ids=' . json_encode($runIds));
                 $this->response->setJsonContent(['success' => false, 'message' => 'Could not create credential. Check the label (must be unique, 1–64 chars, not "internal") and your scope/run selections.']);
                 return $this->sendResponse();
             }
