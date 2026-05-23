@@ -96,14 +96,15 @@ foreach ($studies as $study) {
     $maxSql = "SELECT COALESCE(MAX(`iteration`), 0) AS max_iter FROM `{$safeWide}`";
 
     if ($dryRun) {
-        $countStmt = $db->query("SELECT COUNT(*) AS n FROM `{$safeWide}` `w`
+        // DB::query() returns fetchAll() rows for SELECTs (not a PDOStatement),
+        // so index into the result array directly.
+        $countRows = $db->query("SELECT COUNT(*) AS n FROM `{$safeWide}` `w`
             INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `w`.`session_id`
             WHERE `us`.`study_iteration` IS NULL AND `w`.`iteration` IS NOT NULL");
-        $countRow = $countStmt->fetch(PDO::FETCH_ASSOC);
-        $wouldUpdate = (int) $countRow['n'];
+        $wouldUpdate = isset($countRows[0]['n']) ? (int) $countRows[0]['n'] : 0;
 
-        $maxRow = $db->query($maxSql)->fetch(PDO::FETCH_ASSOC);
-        $maxIter = (int) $maxRow['max_iter'];
+        $maxRows = $db->query($maxSql);
+        $maxIter = isset($maxRows[0]['max_iter']) ? (int) $maxRows[0]['max_iter'] : 0;
 
         printf("  study %5d %-40s rows_to_backfill=%d last_iteration->%d\n",
             $studyId, $name, $wouldUpdate, $maxIter);
@@ -114,11 +115,13 @@ foreach ($studies as $study) {
 
     $db->beginTransaction();
     try {
+        // DB::query() returns a PDOStatement for non-SELECT (UPDATE here).
         $updateStmt = $db->query($updateSql);
         $rowsUpdated = $updateStmt->rowCount();
 
-        $maxRow = $db->query($maxSql)->fetch(PDO::FETCH_ASSOC);
-        $maxIter = (int) $maxRow['max_iter'];
+        // DB::query() returns fetchAll() rows for SELECT; index directly.
+        $maxRows = $db->query($maxSql);
+        $maxIter = isset($maxRows[0]['max_iter']) ? (int) $maxRows[0]['max_iter'] : 0;
 
         $db->update('survey_studies',
             ['last_iteration' => $maxIter],

@@ -458,8 +458,10 @@ class UnitSession extends Model {
             'UPDATE `survey_studies` SET `last_iteration` = LAST_INSERT_ID(`last_iteration` + 1) WHERE `id` = :study_id',
             ['study_id' => (int) $studyId]
         );
-        $row = $this->db->query('SELECT LAST_INSERT_ID() AS iter')->fetch(PDO::FETCH_ASSOC);
-        return (int) $row['iter'];
+        // DB::query() returns fetchAll() rows for SELECTs (not a PDOStatement),
+        // so index into the result array directly.
+        $rows = $this->db->query('SELECT LAST_INSERT_ID() AS iter');
+        return isset($rows[0]['iter']) ? (int) $rows[0]['iter'] : 0;
     }
 
     /**
