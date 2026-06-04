@@ -52,6 +52,7 @@ import {
     applyErrors,
     validatePageAndShowFeedback,
     installFeedbackClearer,
+    installBlurValidation,
 } from './validation/feedback.js';
 import {
     registerFmrForm,
@@ -486,8 +487,9 @@ function initForm() {
     // validatePageAndShowFeedback + the input-change listener that clears
     // stale `.fmr-invalid-feedback` live in ./validation/feedback.js.
     installFeedbackClearer(root);
+    installBlurValidation(root);
 
-    const submitPage = async () => {
+    const submitPageInner = async () => {
         const page = pages[currentIndex];
         clearCustomValidity(page);
         if (!validatePageAndShowFeedback(page)) {
@@ -670,6 +672,19 @@ function initForm() {
                 window.location.href = runUrl || window.location.pathname;
             }, 600);
         }
+    };
+
+    // Single-flight guard: a rapid double-tap / Enter-repeat on Next must not
+    // fire two page POSTs. Solo already guards via the controller's
+    // submittingPage flag; this also covers default mode and the Enter-submit
+    // path. Cleared once the in-flight submit settles (success advances to a new
+    // page; failure leaves the participant free to retry).
+    let pageSubmitInFlight = false;
+    const submitPage = async () => {
+        if (pageSubmitInFlight) return;
+        pageSubmitInFlight = true;
+        try { return await submitPageInner(); }
+        finally { pageSubmitInFlight = false; }
     };
 
     // Solo step controller — one item per screen, Typeform-style. Created here

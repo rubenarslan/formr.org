@@ -120,6 +120,15 @@ class Item {
     protected $presetValues = array();
     protected $probably_render = null;
     protected $js_hidden = false;
+    // a11y: when an item is a group of related controls sharing one stem
+    // (radio / checkbox sets), choice subclasses set this to 'radiogroup' or
+    // 'group'. render_inner() then puts the role + aria-labelledby (pointing at
+    // the stem label's id) on the .controls wrapper so a screen reader announces
+    // the group stem on entry. Literal <fieldset>/<legend> would fight the
+    // BS3-derived flex/grid CSS and the button-group/showif JS that target the
+    // current .control-label/.controls structure, so we use ARIA grouping
+    // instead — same SR outcome, no layout/JS breakage.
+    protected $group_role = null;
 
     /**
      * Minimized attributes
@@ -378,7 +387,7 @@ class Item {
     }
 
     protected function render_label() {
-        $template = '<label class="%{class}" for="item%{id}">%{error} %{text} </label>';
+        $template = '<label class="%{class}" id="item%{id}-label" for="item%{id}">%{error} %{text} </label>';
 
         return Template::replace($template, array(
                     'class' => implode(' ', $this->classes_label),
@@ -409,7 +418,7 @@ class Item {
     protected function render_inner() {
         $template = $this->render_label();
         $template .= '
-			<div class="%{classes_controls}">
+			<div class="%{classes_controls}" %{group_attrs}>
 				<div class="controls-inner">
 					%{input_group_open}
 						%{prepended} %{input} %{appended}
@@ -419,8 +428,13 @@ class Item {
 		';
 
         $inputgroup = isset($this->prepend) || isset($this->append);
+        // a11y group semantics for radio/checkbox sets (see $group_role).
+        $group_attrs = $this->group_role
+            ? sprintf('role="%s" aria-labelledby="item%d-label"', $this->group_role, (int) $this->id)
+            : '';
         return Template::replace($template, array(
                     'classes_controls' => implode(' ', $this->classes_controls),
+                    'group_attrs' => $group_attrs,
                     'input_group_open' => $inputgroup ? '<div class="input-group">' : '',
                     'input_group_close' => $inputgroup ? '</div>' : '',
                     'prepended' => $this->render_prepended(),

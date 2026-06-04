@@ -179,13 +179,19 @@
     }
 
     // --- Page nav (previous / next buttons) ---
+    // Sticky to the bottom of the viewport so Next/Submit is reachable without
+    // scrolling to the end of a long scrolling-mode page (spec: "sticky Next").
     .fmr-page-nav {
+        position: sticky;
+        bottom: 0;
+        z-index: 50;
         display: flex;
         justify-content: space-between;
         gap: 1rem;
         margin-top: 2rem;
-        padding-top: 1.25rem;
+        padding: 1.25rem 0 calc(0.85rem + env(safe-area-inset-bottom));
         border-top: 1px solid var(--bs-border-color, #dee2e6);
+        background: linear-gradient(to top, var(--bs-body-bg, #fff) 70%, rgba(255, 255, 255, 0));
 
         &__left,
         &__right {
@@ -203,42 +209,29 @@
     // label-danger, input-group-btn, controls/controls-inner). Rather than fork
     // Item rendering we map them to BS5-ish visuals here.
 
-    // Two-column: label left (right-aligned, fixed width), controls right
-    // (flex-grow). Mobile stacks vertically. Matches v1's
-    // `.form-horizontal .control-label { float: left; width: 300px; text-align: right }`
-    // look — but authored with flex so items without a label still lay out.
+    // Single column, label ABOVE input (spec: persistent top-aligned labels;
+    // never label-left/right-aligned, which wraps long sentence stems badly).
+    // The label-input gap (0.4rem) is deliberately tighter than the gap between
+    // items (the 1rem padding + border-top) so proximity reads correctly.
     .form-group.form-row {
         display: flex;
-        flex-direction: row;
-        align-items: flex-start;
-        gap: 1.5rem;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.4rem;
         margin: 0;
-        padding: 1rem 0;
+        padding: 1rem 0 1.1rem;
         border-top: 1px solid rgba(0, 0, 0, 0.06);
 
         &:first-child { border-top: 0; }
 
-        @media (max-width: 768px) {
-            flex-direction: column;
-            gap: 0.5rem;
-            padding: 0.75rem 0;
-        }
-
         > .control-label {
-            flex: 0 0 260px;
-            max-width: 260px;
-            text-align: right;
-            padding-top: 0.25rem;
+            flex: none;
+            max-width: none;
+            text-align: left;
+            padding-top: 0;
             margin: 0;
-            font-weight: 400;
-            line-height: 1.35;
-
-            @media (max-width: 768px) {
-                flex: 1 1 auto;
-                max-width: none;
-                text-align: left;
-                padding-top: 0;
-            }
+            font-weight: 600;
+            line-height: 1.4;
 
             h1, h2, h3, h4, h5, h6 {
                 margin: 0 0 0.15rem;
@@ -269,7 +262,8 @@
         }
 
         > .controls {
-            flex: 1 1 auto;
+            flex: none;
+            width: 100%;
             min-width: 0;
         }
     }

@@ -182,6 +182,46 @@ export function validatePageAndShowFeedback(pageEl) {
     return false;
 }
 
+// Inline validation on blur (focusout). Surfaces FORMAT errors (malformed
+// email, out-of-range number/date) the moment a filled field loses focus, per
+// the spec's "validate on blur, not on every keystroke." Deliberately does NOT
+// flag empty required fields on blur — nagging about every field the
+// participant tabs past is a breakoff driver; required-ness is caught at
+// submit. One delegated focusout listener (blur doesn't bubble; focusout does).
+export function installBlurValidation(root) {
+    root.addEventListener('focusout', (e) => {
+        const el = e.target;
+        if (!el || !el.matches || !el.matches('input, select, textarea')) return;
+        if (el.disabled || !el.willValidate) return;
+        if (el.name && el.name.startsWith('_item_views')) return;
+        // Skip button-group radios/checkboxes — blur on those is noisy and they
+        // surface via .fmr-btn-feedback at submit instead.
+        if (el.type === 'radio' || el.type === 'checkbox') return;
+
+        const wrapper = el.closest('.form-group');
+        const clear = () => {
+            el.classList.remove('is-invalid');
+            if (wrapper) wrapper.querySelectorAll('.fmr-invalid-feedback').forEach((x) => x.remove());
+        };
+        // Empty → not our job on blur (required handled at submit).
+        if (el.value == null || el.value === '') { clear(); return; }
+        if (el.checkValidity()) { clear(); return; }
+
+        // Invalid + non-empty → show the inline message next to the field.
+        if (wrapper && wrapper.querySelector('.fmr-invalid-feedback')) return; // already shown
+        el.classList.add('is-invalid');
+        const fb = document.createElement('div');
+        fb.className = 'invalid-feedback fmr-invalid-feedback d-block';
+        fb.textContent = el.validationMessage || 'Please check this entry.';
+        const anchor = el.closest('.controls, .form-group') || el.parentElement;
+        if (anchor && anchor.parentElement) {
+            anchor.parentElement.insertBefore(fb, anchor.nextSibling);
+        } else {
+            el.insertAdjacentElement('afterend', fb);
+        }
+    });
+}
+
 // Clear inline feedback on any input change so participants don't see stale
 // "Please fill in this field" after they type. One delegated listener.
 export function installFeedbackClearer(root) {
