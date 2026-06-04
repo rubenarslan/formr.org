@@ -583,7 +583,7 @@ class UnitSession extends Model {
      * @return boolean Returns TRUE if all data was successfully validated and saved or FALSE otherwise
      * @throws Exception
      */
-    public function updateSurveyStudyRecord($posted, $validate = true) {
+    public function updateSurveyStudyRecord($posted, $validate = true, $quiet = false) {
         /** @var SurveyStudy $study */
         $study = $this->runUnit->surveyStudy;
 
@@ -744,11 +744,17 @@ class UnitSession extends Model {
             return true;
         } catch (Exception $e) {
             $this->db->rollBack();
-            notify_user_error($e, 'An error occurred while trying to save your survey data. Please notify the author of this survey with this date and time');
             formr_log_exception($e, __CLASS__);
-            // Notify study admin about failure to save posted survey data
-            $message = 'Failed to save posted survey data: ' . $e->getMessage();
-            notify_study_admin($this, $message, 'error');
+            // $quiet (best-effort autosave): swallow without surfacing a user
+            // error or emailing the study admin — a partial/rate-limited save
+            // that loses a race is harmless (the explicit page-submit is the
+            // durable path), and spamming the admin on every such miss is not.
+            if (!$quiet) {
+                notify_user_error($e, 'An error occurred while trying to save your survey data. Please notify the author of this survey with this date and time');
+                // Notify study admin about failure to save posted survey data
+                $message = 'Failed to save posted survey data: ' . $e->getMessage();
+                notify_study_admin($this, $message, 'error');
+            }
             return false;
         }
         

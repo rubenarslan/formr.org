@@ -290,6 +290,10 @@ function initForm() {
     // When offline mode is off, don't expose the sync URL to the queue path —
     // submissions fail hard as if the endpoint didn't exist.
     const syncUrl = offlineModeEnabled ? root.dataset.syncUrl : '';
+    // Incremental autosave endpoint (form-save). Persists answers as they're
+    // given (rate-limited) so a mid-page breakoff still yields partial data,
+    // independent of the explicit page-submit. Best-effort; see persist block.
+    const saveUrl = root.dataset.saveUrl || '';
 
     // --- Offline queue (Phase 5) ---
     // IDB plumbing + multipart serialization + isTransientFailure live in
@@ -686,6 +690,79 @@ function initForm() {
         try { return await submitPageInner(); }
         finally { pageSubmitInFlight = false; }
     };
+
+    // --- Incremental autosave (spec: persist on advance/blur, rate limited) ---
+    // Fires from `change` (commit) events — a natural proxy for "on advance"
+    // (solo: each answer precedes its advance) and "on blur" (default: text
+    // commits on blur). Rate-limited to at most one request per SAVE_MIN_INTERVAL
+    // (spec: <=1/20s) with a trailing flush so the last change always lands.
+    // Best-effort and silent: failures are swallowed because the explicit
+    // page-submit (+ offline queue) is the durable path. Files are excluded
+    // (collectPayload drops them on the JSON path); they ride the explicit submit.
+    const SAVE_MIN_INTERVAL = 20000;
+    let lastSaveAt = 0, saveTimer = null, savePending = false, saveInFlight = false;
+    const flushPersist = async () => {
+        if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+        if (!savePending || saveInFlight || !saveUrl) return;
+        const page = pages[currentIndex];
+        if (!page) return;
+        const payload = collectPayload(page);
+        if (!payload.data || Object.keys(payload.data).length === 0) return;
+        savePending = false;
+        saveInFlight = true;
+        lastSaveAt = Date.now();
+        try {
+            await fetch(saveUrl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ data: payload.data, item_views: payload.item_views }),
+                keepalive: true,
+            });
+        } catch (e) { /* best-effort; explicit submit + offline queue are the net */ }
+        finally { saveInFlight = false; }
+    };
+    const schedulePersist = () => {
+        if (!saveUrl) return;
+        savePending = true;
+        const elapsed = Date.now() - lastSaveAt;
+        if (elapsed >= SAVE_MIN_INTERVAL) {
+            flushPersist();
+        } else if (!saveTimer) {
+            saveTimer = setTimeout(flushPersist, SAVE_MIN_INTERVAL - elapsed);
+        }
+    };
+    if (saveUrl) {
+        root.addEventListener('change', (e) => {
+            const t = e.target;
+            if (!(t instanceof Element) || !t.name) return;
+            if (t.name.startsWith('_item_views')) return;   // tracking inputs, not answers
+            if (t.type === 'file') return;                  // files ride the explicit submit
+            schedulePersist();
+        });
+        // A breakoff right before leaving must not lose the last unsaved change.
+        // sendBeacon survives unload where fetch may not; fall back to a keepalive flush.
+        const beaconFlush = () => {
+            if (!savePending || !saveUrl) return;
+            const page = pages[currentIndex];
+            if (!page) return;
+            const payload = collectPayload(page);
+            if (!payload.data || Object.keys(payload.data).length === 0) return;
+            savePending = false;
+            const body = JSON.stringify({ data: payload.data, item_views: payload.item_views });
+            try {
+                if (navigator.sendBeacon) {
+                    navigator.sendBeacon(saveUrl, new Blob([body], { type: 'application/json' }));
+                } else {
+                    flushPersist();
+                }
+            } catch (e) { /* noop */ }
+        };
+        window.addEventListener('pagehide', beaconFlush);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') beaconFlush();
+        });
+    }
 
     // Solo step controller — one item per screen, Typeform-style. Created here
     // (not at the top) because it drives submitPage() at page boundaries and

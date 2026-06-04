@@ -424,6 +424,7 @@ class FormRenderer extends SpreadsheetRenderer {
         $rcallUrl = run_url($this->run->name, 'form-r-call');
         $fillUrl = run_url($this->run->name, 'form-fill');
         $syncUrl = run_url($this->run->name, 'form-sync');
+        $saveUrl = run_url($this->run->name, 'form-save');
         $runUrl = run_url($this->run->name);
         $currentUser = Site::getCurrentUser();
         $userCode = $currentUser ? $currentUser->user_code : '';
@@ -439,11 +440,12 @@ class FormRenderer extends SpreadsheetRenderer {
         // …) — the admin-choosable layout modifiers. Keep it on the v2 form
         // so those classes keep working without a parallel scss port.
         $html = sprintf(
-            '<form class="fmr-form-v2 form-horizontal" method="post" data-submit-url="%s" data-rcall-url="%s" data-fill-url="%s" data-sync-url="%s" data-run-url="%s" data-offline-mode="%s" data-allow-previous="%s" data-layout="%s" data-option-keys="%s" novalidate>',
+            '<form class="fmr-form-v2 form-horizontal" method="post" data-submit-url="%s" data-rcall-url="%s" data-fill-url="%s" data-sync-url="%s" data-save-url="%s" data-run-url="%s" data-offline-mode="%s" data-allow-previous="%s" data-layout="%s" data-option-keys="%s" novalidate>',
             htmlspecialchars($submitUrl, ENT_QUOTES),
             htmlspecialchars($rcallUrl, ENT_QUOTES),
             htmlspecialchars($fillUrl, ENT_QUOTES),
             htmlspecialchars($syncUrl, ENT_QUOTES),
+            htmlspecialchars($saveUrl, ENT_QUOTES),
             htmlspecialchars($runUrl, ENT_QUOTES),
             $offlineMode,
             $allowPrevious,

@@ -771,6 +771,84 @@ class RunController extends Controller {
     }
 
     /**
+     * form_v2: incremental ("autosave") persistence.
+     *
+     * URL: POST /{runName}/form-save  — JSON only: {data:{...}, item_views:{...}}.
+     *
+     * Writes whatever answers the participant has entered so far WITHOUT
+     * page-completion semantics: no required-gating, no page advance, no
+     * redirect. So a mid-page breakoff (close tab, lose signal, walk away) still
+     * yields partial data — the spec's "persist on advance/blur, not only on
+     * explicit submit." Idempotent: updateSurveyStudyRecord upserts
+     * survey_items_display by (session_id, item_id) and the results row by
+     * (study_id, session_id), so a later validated page-submit cleanly
+     * overwrites. Best-effort by design — the client rate-limits these and
+     * treats failures as non-fatal (the explicit submit + offline queue are the
+     * durable path). Files are not autosaved (they ride the explicit submit).
+     */
+    public function formSaveAction() {
+        if (!Request::isHTTPPostRequest()) {
+            $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
+            return;
+        }
+        $raw = file_get_contents('php://input');
+        $payload = json_decode($raw, true);
+        if (!is_array($payload)) {
+            $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
+            return;
+        }
+        $data = (isset($payload['data']) && is_array($payload['data'])) ? $payload['data'] : array();
+        $itemViews = (isset($payload['item_views']) && is_array($payload['item_views'])) ? $payload['item_views'] : array();
+
+        // Keep only actually-answered fields. The client's collectPayload also
+        // emits the empty hidden placeholder of each mc/mc_multiple item
+        // (name=..., value=""), and writing "" raw to a typed results column
+        // (e.g. a TINYINT mc) errors; it would also mark an unanswered REQUIRED
+        // item as saved and let the participant bypass it. Dropping empties here
+        // means autosave persists only what's been entered.
+        $clean = array();
+        foreach ($data as $k => $v) {
+            if (is_array($v)) {
+                $v = array_values(array_filter($v, function ($x) { return $x !== '' && $x !== null; }));
+                if ($v) $clean[$k] = $v;
+            } elseif ($v !== '' && $v !== null) {
+                $clean[$k] = $v;
+            }
+        }
+        $data = $clean;
+        if (!$data) {
+            $this->sendJsonResponse(array('status' => 'noop'));
+            return;
+        }
+
+        $this->run = $this->getRun();
+        $this->user = $this->loginUser();
+        $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
+        if (!$runSession->id) {
+            $this->sendJsonResponse(array('error' => 'No active run session'), 403);
+            return;
+        }
+        $unitSession = $runSession->getCurrentUnitSession();
+        if (!$unitSession || !$unitSession->runUnit) {
+            $this->sendJsonResponse(array('error' => 'No current unit session'), 409);
+            return;
+        }
+        if (!($unitSession->runUnit instanceof Survey)) {
+            $this->sendJsonResponse(array('error' => 'Current unit is not a survey/form'), 409);
+            return;
+        }
+
+        // survey_items_display rows already exist from the GET render; we only
+        // UPDATE them. validate=false → save the partial answers as-is; quiet=true
+        // → a lost race is silent (no user error, no admin email).
+        $posted = $data;
+        $posted['_item_views'] = $itemViews;
+        $unitSession->updateSurveyStudyRecord($posted, false, true);
+
+        $this->sendJsonResponse(array('status' => 'saved'));
+    }
+
+    /**
      * Return the lowest survey_items_display.page > $submittedPage that still
      * has at least one unanswered, unhidden item — i.e. the next page the
      * client will actually render. Earlier code returned $submittedPage + 1
