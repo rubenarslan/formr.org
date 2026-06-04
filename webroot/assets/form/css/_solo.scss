@@ -1,95 +1,322 @@
-// Solo-layout skin for form_v2 (patch 066).
+// Typeform-style "solo" skin for form_v2 (layout=solo).
 //
-// One item per screen, CSS scroll-snap. All form_v2 items remain mounted —
-// only their visual layout changes — so Alpine `x-showif`, the offline
-// queue, validation, and allow_previous keep working unchanged. Auto-
-// advance on answer commit is in main.js, gated on data-layout="solo".
-//
-// Scoped under .fmr-form-v2[data-layout="solo"] so the default layout
-// renders byte-identical to pre-patch behaviour.
+// One item per screen, JS-driven stepping (js/solo/controller.js). Unlike the
+// original patch-066 scroll-snap version, exactly ONE .form-group is visible at
+// a time (.fmr-solo-current); the controller manages forward/back, per-item
+// validation, a thin top progress bar and a fixed Back / OK nav footer. Scoped
+// under .fmr-form-v2[data-layout="solo"] so the default layout is byte-identical
+// to pre-patch behaviour.
 
 .fmr-form-v2[data-layout="solo"] {
+    max-width: none;
+    margin: 0;
+    padding: 0;
 
-    // The page <section> becomes the scroll-snap container. Each page's
-    // items snap one at a time within the viewport.
-    .fmr-page {
-        scroll-snap-type: y mandatory;
-        height: 100vh;
-        overflow-y: auto;
-        scroll-behavior: smooth;
-        // Use small-viewport units where supported (avoids mobile URL-bar
-        // jitter), fall back to 100vh on older browsers.
-        @supports (height: 100svh) {
-            height: 100svh;
-        }
+    // --- thin fixed progress bar (never overlaps content) ----------------
+    .fmr-progress {
+        position: fixed;
+        top: 0; left: 0; right: 0;
+        z-index: 1000;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
     }
+    .fmr-progress-track {
+        height: 4px;
+        border-radius: 0;
+        background: rgba(0, 0, 0, 0.08);
+    }
+    .fmr-progress-bar {
+        transition: width 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
+    }
+    // "N of M" counter, parked top-right out of the content column.
+    .fmr-progress-label {
+        position: fixed;
+        top: 0.8rem; right: 1rem;
+        z-index: 1000;
+        margin: 0;
+        font-size: 0.8rem;
+        font-variant-numeric: tabular-nums;
+        color: var(--bs-secondary-color, #6c757d);
+        text-align: right;
+    }
+    // Save pill must clear the counter.
+    .fmr-save-pill { top: 2.4rem; }
 
-    .form-group {
-        scroll-snap-align: start;
-        scroll-snap-stop: always;
-        min-height: 100vh;
-        @supports (height: 100svh) {
-            min-height: 100svh;
-        }
+    // The page section is a passive container now (no scroll-snap).
+    .fmr-page { min-height: 0; }
+    // Default Prev/Next row is replaced by .fmr-solo-nav.
+    .fmr-page-nav { display: none !important; }
+
+    // --- one step at a time ----------------------------------------------
+    // Hide every direct-child item; reveal only the current one. `.hidden`
+    // (showif) keeps display:none !important and so always wins over this.
+    .fmr-page > .form-group { display: none; }
+
+    .fmr-page > .form-group.fmr-solo-current {
         display: flex;
         flex-direction: column;
         justify-content: center;
-        padding: 2rem 1rem;
+        min-height: 100vh;
+        @supports (min-height: 100svh) { min-height: 100svh; }
+        max-width: 720px;
+        margin: 0 auto;
+        // top: clear the progress bar; bottom: clear the fixed nav footer.
+        padding: 5.5rem 1.25rem 8rem;
         box-sizing: border-box;
+    }
+    // form-row items are flex-row (label left, 260px). Force a single
+    // full-width column so the question + input own the whole screen.
+    .fmr-page > .form-group.fmr-solo-current.form-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        border-top: 0;
+    }
+    .fmr-solo-current.form-row > .control-label {
+        flex: none;
+        max-width: none;
+        text-align: left;
+        padding-top: 0;
+    }
+    .fmr-solo-current.form-row > .controls { flex: none; width: 100%; }
 
-        // Larger touch targets and readable text — the skin's main win
-        // is on phones.
-        label {
-            font-size: 1.25rem;
-            line-height: 1.4;
+    // --- big readable question + full-bleed inputs -----------------------
+    .fmr-solo-current {
+        > .control-label,
+        > label.control-label {
+            font-size: clamp(1.35rem, 1.05rem + 1.3vw, 1.9rem);
+            font-weight: 600;
+            line-height: 1.3;
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+        .control-label h1, .control-label h2, .control-label h3,
+        .control-label h4, .control-label h5 {
+            font-size: 1em;
+            font-weight: 600;
+            margin: 0 0 0.25rem;
+            line-height: 1.25;
+            color: inherit;
+        }
+        .control-label p {
+            font-size: 0.78em;
+            font-weight: 400;
+            color: var(--bs-secondary-color, #6c757d);
+            margin: 0.4rem 0 0;
+            line-height: 1.5;
         }
 
-        input[type="text"],
-        input[type="email"],
-        input[type="number"],
-        input[type="tel"],
-        input[type="url"],
-        input[type="date"],
-        input[type="datetime-local"],
-        input[type="time"],
-        textarea,
-        select {
-            font-size: 1.15rem;
-            padding: 0.75rem 1rem;
-            min-height: 3rem;
+        .form-control,
+        textarea.form-control,
+        select.form-control {
+            max-width: 100%;
+            width: 100%;
+            font-size: 1.2rem;
+            padding: 0.85rem 1rem;
+            min-height: 3.25rem;
+            border-width: 1.5px;
+        }
+        textarea.form-control { min-height: 7rem; }
+        input[type=range] { width: 100%; max-width: 100%; }
+
+        // tom-select (select_one / select_or_add): make the visible control
+        // fill the column and match the input scale.
+        .ts-wrapper { width: 100%; max-width: 100%; }
+        .ts-control {
+            min-height: 3.25rem;
+            font-size: 1.2rem;
+            padding: 0.6rem 0.9rem;
         }
 
-        // Radios / checkboxes: give each option breathing room.
-        .radio,
-        .checkbox {
-            padding: 0.5rem 0;
-            label {
-                font-size: 1.1rem;
+        .help-block { font-size: 0.95rem; margin-top: 0.5rem; }
+    }
+
+    // The _validation-soft wrapper accent is a 3px left border on the
+    // form-group; on a 100vh-tall solo step that becomes a full-height red
+    // rule down the screen. The inline input border + message carry the error
+    // here, so drop the wrapper accent for the active step.
+    .fmr-page > .form-group.fmr-solo-current.is-invalid,
+    .fmr-page > .form-group.fmr-solo-current:has(.is-invalid) {
+        border-left: 0;
+        margin-left: auto;
+        padding-left: 1.25rem;
+    }
+
+    // --- option lists as cards (plain mc / mc_multiple radio+checkbox) ----
+    // Skip matrix / rotated / hide-label / square / button-group layouts:
+    // those carry their own geometry. Cards turn vertical choice lists into
+    // big tap targets with a letter badge (A·B·C…, also the keyboard shortcut
+    // — see controller.js) and a clear selected state.
+    $mc: '.fmr-solo-current.item-mc:not(.square):not(.hide_label):not(.rotate_label45):not(.rotate_label30):not(.rotate_label90):not(.mc_heading)';
+    $mcm: '.fmr-solo-current.item-mc_multiple:not(.square)';
+
+    // Base card (always on in solo) — big tap target + selected highlight, with
+    // the native control shown. The letter-badge layer below (opt-in) hides the
+    // native control and swaps in an A·B·C tile.
+    #{$mc} .mc-table > label,
+    #{$mcm} .mc-table > label {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        width: 100%;
+        margin: 0 0 0.65rem;
+        padding: 0.85rem 1rem;
+        font-size: 1.1rem;
+        line-height: 1.35;
+        border: 1.5px solid var(--bs-border-color, #dee2e6);
+        border-radius: 0.65rem;
+        cursor: pointer;
+        transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+
+        input[type=radio], input[type=checkbox] { width: 1.2rem; height: 1.2rem; margin: 0; flex: 0 0 auto; }
+        img { max-width: 100%; height: auto; }
+
+        &:hover { border-color: var(--bs-primary, #0d6efd); background: rgba(13, 110, 253, 0.03); }
+        &:has(input:checked) {
+            border-color: var(--bs-primary, #0d6efd);
+            background: var(--bs-primary-bg-subtle, #e7f1ff);
+            box-shadow: inset 0 0 0 1px var(--bs-primary, #0d6efd);
+        }
+    }
+
+    // Letter badges (A·B·C…) — opt-in via SurveyStudy.option_keys. Replaces the
+    // native control with a letter tile that doubles as the keyboard shortcut.
+    &[data-option-keys="on"] {
+        #{$mc} .mc-table,
+        #{$mcm} .mc-table { counter-reset: fmropt; }
+
+        #{$mc} .mc-table > label,
+        #{$mcm} .mc-table > label {
+            counter-increment: fmropt;
+
+            &::before {
+                content: counter(fmropt, upper-alpha);
+                flex: 0 0 auto;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 1.9rem;
+                height: 1.9rem;
+                border: 1.5px solid var(--bs-border-color, #ced4da);
+                border-radius: 0.4rem;
+                background: var(--bs-body-bg, #fff);
+                color: var(--bs-secondary-color, #6c757d);
+                font-size: 0.9rem;
+                font-weight: 600;
+                transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease, color 0.12s ease;
+            }
+            // Hide the native control but keep it focusable / submittable / valid.
+            input[type=radio], input[type=checkbox] {
+                position: absolute;
+                opacity: 0;
+                width: 1px; height: 1px;
+                margin: 0;
+                pointer-events: none;
+            }
+            &:hover::before { border-color: var(--bs-primary, #0d6efd); color: var(--bs-primary, #0d6efd); }
+            &:has(input:focus-visible)::before {
+                box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.35);
+                border-color: var(--bs-primary, #0d6efd);
+            }
+            &:has(input:checked)::before {
+                background: var(--bs-primary, #0d6efd);
+                border-color: var(--bs-primary, #0d6efd);
+                color: #fff;
             }
         }
     }
 
-    // Showif-hidden items must not trap the snap. `.hidden` is added by
-    // the x-showif directive (alpine.js:113-115).
-    .form-group.hidden {
-        scroll-snap-align: none;
-        min-height: 0;
-    }
+    // Single checkbox (check): make the toggle comfortably tappable.
+    .fmr-solo-current.item-check .checkbox input[type=checkbox] { width: 1.4rem; height: 1.4rem; }
 
-    // The page's Submit/Next button area also wants its own screen so it
-    // doesn't crowd the last item.
-    .form-group:has(button[data-fmr-next]),
-    .form-group:has(button[type="submit"]) {
-        // No-op override — buttons stay on whatever screen they were
-        // authored into. Reserved for future tuning.
-    }
+    // Button-group + square items: scale up the existing tap targets.
+    .fmr-solo-current .btn-group .btn { font-size: 1.1rem; padding: 0.7rem 1.25rem; }
+    .fmr-solo-current.square .controls > label,
+    .fmr-solo-current.square .mc-table > label { min-width: 5.5rem; min-height: 5.5rem; font-size: 1.05rem; }
 
-    // Subtle visual aid: a fade in at the top/bottom of each snapped
-    // item so the user senses there's more to scroll. Disabled for users
-    // who prefer reduced motion.
+    // --- directional slide transitions -----------------------------------
+    // Forward: outgoing rises & fades up, incoming rises from below.
+    // Back:    outgoing drops & fades down, incoming drops from above.
+    // Driven by controller.js (it adds/removes the classes around a 150ms gap).
     @media (prefers-reduced-motion: no-preference) {
-        .form-group {
-            transition: opacity 0.2s ease-out;
-        }
+        .fmr-page > .form-group.fmr-solo-enter-up   { animation: fmrSoloEnterUp   300ms cubic-bezier(0.22, 0.61, 0.36, 1); }
+        .fmr-page > .form-group.fmr-solo-enter-down { animation: fmrSoloEnterDown 300ms cubic-bezier(0.22, 0.61, 0.36, 1); }
+        .fmr-page > .form-group.fmr-solo-leave-up   { animation: fmrSoloLeaveUp   150ms ease-in forwards; }
+        .fmr-page > .form-group.fmr-solo-leave-down { animation: fmrSoloLeaveDown 150ms ease-in forwards; }
+    }
+
+    // --- fixed nav footer (Back / hint / OK) -----------------------------
+    .fmr-solo-nav {
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        z-index: 90;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.85rem 1.25rem;
+        padding-bottom: calc(0.85rem + env(safe-area-inset-bottom));
+        background: linear-gradient(to top, var(--bs-body-bg, #fff) 65%, rgba(255, 255, 255, 0));
+        pointer-events: none;     // let the gradient's transparent top pass clicks through
+        > * { pointer-events: auto; }
+    }
+    .fmr-solo-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        border: 1px solid var(--bs-border-color, #dee2e6);
+        background: var(--bs-body-bg, #fff);
+        color: var(--bs-secondary-color, #6c757d);
+        border-radius: 0.5rem;
+        padding: 0.5rem 0.9rem;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: background 0.12s ease, color 0.12s ease;
+        &:hover { background: var(--bs-tertiary-bg, #f1f3f5); color: var(--bs-body-color, #212529); }
+    }
+    .fmr-solo-advance { display: inline-flex; align-items: center; gap: 0.85rem; }
+    .fmr-solo-hint {
+        font-size: 0.85rem;
+        color: var(--bs-secondary-color, #6c757d);
+        @media (max-width: 575px) { display: none; }
+    }
+    .fmr-solo-ok { min-width: 6.5rem; font-size: 1.05rem; padding: 0.6rem 1.5rem; font-weight: 600; }
+
+    // --- page-boundary loading overlay (#7) ------------------------------
+    // Shown by the controller while an authored page submits (POST + OpenCPU
+    // resolve), so the network pause reads as an intentional transition rather
+    // than a freeze. Blocks input while visible to prevent double-submit.
+    .fmr-solo-loading {
+        position: fixed;
+        inset: 0;
+        z-index: 150;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.72);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s ease;
+        @supports (backdrop-filter: blur(2px)) { backdrop-filter: blur(2px); }
+
+        &.is-visible { opacity: 1; pointer-events: auto; }
+    }
+    .fmr-solo-spinner {
+        width: 2.5rem;
+        height: 2.5rem;
+        border: 3px solid rgba(0, 0, 0, 0.12);
+        border-top-color: var(--bs-primary, #0d6efd);
+        border-radius: 50%;
+        animation: fmr-spin 0.7s linear infinite;   // keyframes in form.scss
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .fmr-solo-spinner { animation-duration: 1.4s; }
     }
 }
+
+@keyframes fmrSoloEnterUp   { from { opacity: 0; transform: translateY(26px); }  to { opacity: 1; transform: none; } }
+@keyframes fmrSoloEnterDown { from { opacity: 0; transform: translateY(-26px); } to { opacity: 1; transform: none; } }
+@keyframes fmrSoloLeaveUp   { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-26px); } }
+@keyframes fmrSoloLeaveDown { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(26px); } }

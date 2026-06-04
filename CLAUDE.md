@@ -63,14 +63,18 @@ composer install
 npm install
 
 # Frontend build (Webpack preferred for new work):
-npm run webpack:build        # production
-npm run webpack:watch        # watch mode → webroot/assets/dev-build
+npm run webpack:build        # production → webroot/assets/build (slow, ~90s)
+npm run webpack:watch        # watch mode  → webroot/assets/dev-build (rebuilds in <1s on save)
 
 # PHPUnit:
 composer test                 # unit lane: SQLite :memory:, --exclude-group integration; must stay green
 composer test:integration     # integration lane: SQLite or live MariaDB, --group integration
 vendor/bin/phpunit --configuration tests/phpunit.xml --filter SomeTest::testName
 ```
+
+**Built assets are NOT committed (since v1.0.0).** `webroot/assets/build/` and `webroot/assets/dev-build/` are both gitignored. Production bundles are produced by the **`formr_app` Docker image build** (`npm ci && npm run webpack:build && npm run build`, in the deployment repo's `formr_app/Dockerfile`, driven by its `build-images.yml` CI) — there is no committed bundle to refresh and no manual rebuild step before a commit. Do **not** `git add` anything under `webroot/assets/build/`. (Heads-up: the `feature/form_v2` branch still has 11 stale `build/` files tracked from before the convention changed — `git rm --cached` them when convenient so it merges clean against master, which already untracks them.)
+
+**When working on JS/CSS, run `npm run webpack:watch` as a background task and leave it running.** Watch emits to `webroot/assets/dev-build/` and rebuilds in <1s on save; `templates/run/form_index.php` (and the other views) auto-prefer `dev-build/` over `build/` whenever **both** the JS and the extracted CSS exist there, so edits go live on the dev instance with no manual build step. Caveats: (1) `webpack:watch` is killed when the Claude Code session restarts — restart it. (2) the one-shot `npm run webpack:build` is slow (~90s) and only needed to sanity-check a production build locally — not for committing. (3) production `webpack:build` skips the file-write when the output is byte-identical, so confirm a change landed by grepping the bundle for a distinctive string, not by mtime.
 
 `composer test` is the gate for CI. `composer test:integration` covers `DBTest` (MariaDB-only `SHOW TABLES` / `SHOW COLUMNS` paths) and `PushNotificationExpireSubscriptionTest` (needs seeded `survey_studies` + `survey_unit_sessions` rows). Both lanes share `tests/bootstrap.php`, which currently forces SQLite via `Config::initialize` unconditionally — so under SQLite several `@group integration` tests still fail; the live-MariaDB CI lane that would make them pass is described in `documentation/agent_doc/testing.md` along with the per-test deferred-fix punch list.
 

@@ -160,3 +160,27 @@ participant session gets stuck in a state the form can't render past), reset
 sessions with the participant subdomain DELETE shortcut documented in the
 top-level CLAUDE.md "form_v2 development notes" section, **not** by
 deleting the run itself.
+
+## Fixture: bot_check (`e2e-botcheck-v2`)
+
+For `bot-check-v2.spec.js` — the local-only proof-of-work "are you human"
+item. One v2-only fixture; no v1 run yet (the v1 participant bundle doesn't
+import the solver widget).
+
+1. Upload the survey: `/admin/survey/` → "Add a new survey" → upload
+   `tests/e2e/setup/e2e_bot_check.xlsx`.
+   The study name is derived from the filename → `e2e_bot_check`. It has four
+   items: `intro` (note), `human_check` (**bot_check, required**), `feeling`
+   (text), `go` (submit).
+2. Create run `e2e-botcheck-v2`. Add the `e2e_bot_check` survey as a **Form**
+   unit (this sets `survey_units.form_study_id` and flips the study to
+   `rendering_mode='v2'`), then add a **Stop** unit.
+3. In run settings set a data-retention/expiry date + a privacy policy (public
+   runs require both), then toggle **public = 2** ("Anyone with the link").
+4. Verify the Form unit linked: `survey_units.form_study_id` for the run's
+   position-10 unit must equal the `e2e_bot_check` study id, and
+   `survey_studies.rendering_mode` must be `v2`. (The admin "add Form unit"
+   flow occasionally leaves `form_study_id` NULL; if so, set it by hand.)
+
+Backend mint/verify is unit-tested separately by `bin/bot_check_smoke.php`
+(run: `docker exec formr_app php /var/www/formr/bin/bot_check_smoke.php`).

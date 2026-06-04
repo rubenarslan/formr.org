@@ -1,0 +1,367 @@
+// Typeform-style "solo" step controller for form_v2 (layout=solo).
+//
+// Replaces the original patch-066 CSS-scroll-snap skin, which broke down on
+// multi-page forms (nested 100vh scroll containers), had no explicit
+// forward/back affordance, auto-advanced on the first `change` of a
+// multi-checkbox item, and let the sticky progress bar overlap content.
+//
+// Model: one *item* per screen. A "step" is a navigable `.form-group` in the
+// currently-visible `.fmr-page`. Authored page boundaries still drive real
+// submission — when the participant clicks OK past the last step of a page we
+// call the host's `submitPage()` (validate → POST → showPage(next)), and
+// `onPageShown()` re-seats the controller on the new page's first step. All
+// items stay mounted, so Alpine `x-showif`, validation, r-calls, the offline
+// queue and `allow_previous` keep their normal semantics; we only manage which
+// single step is visible and the nav/progress chrome around it.
+//
+// Inner helpers are `function` declarations (hoisted) so the public surface can
+// sit up top and the file reads in narrative order.
+
+// Item types that render no participant-visible UI (pure hidden inputs filled
+// server-side). They must never become their own blank screen.
+const HIDDEN_TYPES = ['hidden', 'get', 'random', 'referrer', 'ip', 'browser', 'calculate', 'server'];
+
+export function initSolo(opts) {
+    const { root, pages, getCurrentIndex, showPage, submitPage, validate, allowPrevious } = opts;
+
+    let current = null;          // the active step element (.form-group)
+    let pendingGoLast = false;   // next onPageShown should land on the last step (back-nav)
+    let advanceTimer = null;
+    let transitioning = false;   // guards against double-advance mid-slide
+    let submittingPage = false;  // guards against double page-submit at a boundary
+
+    // Letter-key badges (A·B·C…) are a per-study toggle (SurveyStudy.option_keys
+    // → data-option-keys). When off, options render as a plain card list and the
+    // A/B/C keyboard shortcuts are disabled. Default on for pre-patch-067 forms.
+    const optionKeys = (root.dataset.optionKeys || 'on') !== 'off';
+
+    const reduceMotion = window.matchMedia
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const LEAVE_MS = 150;
+
+    const progressBar = root.querySelector('[data-fmr-progress-bar]');
+    const progressLabel = root.querySelector('[data-fmr-progress-label]');
+    let navEl = null, backBtn = null, okBtn = null, hintEl = null;
+    let loadingEl = null;
+
+    // A "card choice" is a plain vertical mc / mc_multiple list (the option-card
+    // skin in _solo.scss). Matrix / rotated / hide-label / square / button-group
+    // layouts are excluded — they have their own geometry and no letter badges.
+    function isCardChoice(el) {
+        return !!el && el.matches('.item-mc, .item-mc_multiple')
+            && !el.matches('.square, .hide_label, .rotate_label45, .rotate_label30, .rotate_label90, .mc_heading');
+    }
+    function cardOptionLabels(el) {
+        return isCardChoice(el) ? Array.from(el.querySelectorAll('.mc-table > label')) : [];
+    }
+
+    // --- step discovery ------------------------------------------------------
+    function directGroups(pageEl) {
+        return Array.from(pageEl.querySelectorAll(':scope > .form-group'));
+    }
+    function isNavigable(el) {
+        if (!el) return false;
+        // `.hidden` is the showif signal (alpine.js toggles it); `[hidden]`
+        // guards a not-yet-shown page section's children defensively.
+        if (el.classList.contains('hidden') || el.hasAttribute('hidden')) return false;
+        for (const t of HIDDEN_TYPES) {
+            if (el.classList.contains('item-' + t)) return false;
+        }
+        return true;
+    }
+    function steps(pageEl) { return directGroups(pageEl).filter(isNavigable); }
+    function nextStep(el) {
+        const s = steps(pages[getCurrentIndex()]);
+        const i = s.indexOf(el);
+        return i === -1 ? null : (s[i + 1] || null);
+    }
+    function prevStep(el) {
+        const s = steps(pages[getCurrentIndex()]);
+        const i = s.indexOf(el);
+        return i <= 0 ? null : s[i - 1];
+    }
+    function firstInvalidStep(pageEl) {
+        for (const s of steps(pageEl)) {
+            if (s.classList.contains('is-invalid') || s.querySelector('.is-invalid')) return s;
+        }
+        return null;
+    }
+    function isLastPage() { return getCurrentIndex() >= pages.length - 1; }
+    function isTerminal(el) { return !nextStep(el) && isLastPage(); }
+
+    // --- input classification ------------------------------------------------
+    // Auto-advance only for single-choice radio groups (mc / mc_button /
+    // rating_button / square). Checkboxes, multi-selects, plain selects, text
+    // and textareas all require an explicit OK so the participant controls when
+    // a multi-value or free-text answer is "done".
+    function autoAdvances(el) {
+        if (!el) return false;
+        if (el.querySelector('textarea')) return false;
+        if (el.querySelector('input[type=checkbox]')) return false;
+        if (el.querySelector('select')) return false;
+        if (el.querySelector('input:not([type=radio]):not([type=checkbox]):not([type=hidden]):not([disabled])')) return false;
+        return !!el.querySelector('input[type=radio]:not([disabled])');
+    }
+    function hasSelection(el) {
+        return !!el && !!el.querySelector('input[type=radio]:checked, input[type=checkbox]:checked');
+    }
+    function hintFor(el) {
+        if (!el) return '';
+        if (el.querySelector('textarea')) return 'Ctrl + Enter to continue';
+        if (el.querySelector('input[type=checkbox]') || el.querySelector('select[multiple]')) {
+            return 'Choose all that apply, then OK';
+        }
+        if (autoAdvances(el)) return '';
+        if (el.querySelector('input:not([type=hidden]):not([type=radio]):not([type=checkbox]), select')) {
+            return 'press Enter ↵';
+        }
+        return '';
+    }
+    function focusFirst(el) {
+        const f = el.querySelector(
+            'input:not([type=hidden]):not([disabled]):not([type=radio]):not([type=checkbox]), textarea:not([disabled])'
+        ) || el.querySelector('input[type=radio]:not([disabled]), input[type=checkbox]:not([disabled])');
+        if (f) setTimeout(() => { try { f.focus({ preventScroll: true }); } catch (e) { /* noop */ } }, 60);
+    }
+
+    // --- navigation ----------------------------------------------------------
+    const ANIM = ['fmr-solo-enter-up', 'fmr-solo-enter-down', 'fmr-solo-leave-up', 'fmr-solo-leave-down'];
+    function clearAnim(el) { if (el) el.classList.remove(...ANIM); }
+
+    // Seat `el` as the current step. `dir` ('forward' | 'back') picks the
+    // entrance direction (forward rises from below, back drops from above).
+    function seat(el, dir) {
+        root.querySelectorAll('.form-group.fmr-solo-current').forEach((g) => {
+            g.classList.remove('fmr-solo-current');
+            clearAnim(g);
+        });
+        current = el;
+        el.classList.add('fmr-solo-current');
+        clearAnim(el);
+        if (!reduceMotion) {
+            void el.offsetWidth;   // restart the animation
+            el.classList.add(dir === 'back' ? 'fmr-solo-enter-down' : 'fmr-solo-enter-up');
+        }
+        updateNav();
+        updateProgress();
+        try { window.scrollTo({ top: 0 }); } catch (e) { /* noop */ }
+        focusFirst(el);
+        transitioning = false;
+    }
+
+    // Animate the current step out (when it's actually on screen) before
+    // seating the next, so navigation reads as a directional slide.
+    function goTo(el, dir) {
+        if (!el) return;
+        dir = dir || 'forward';
+        const old = current;
+        if (old && old !== el && !reduceMotion && old.offsetParent !== null) {
+            transitioning = true;
+            clearAnim(old);
+            void old.offsetWidth;
+            old.classList.add(dir === 'back' ? 'fmr-solo-leave-down' : 'fmr-solo-leave-up');
+            setTimeout(() => seat(el, dir), LEAVE_MS);
+        } else {
+            seat(el, dir);
+        }
+    }
+    function onContinue() {
+        if (transitioning || submittingPage) return;
+        const pageEl = pages[getCurrentIndex()];
+        const nxt = nextStep(current);
+        if (nxt) {
+            if (current && !validate(current)) return;   // validate just this step
+            goTo(nxt, 'forward');
+            return;
+        }
+        // Last step of the page → validate the whole page so a showif-revealed
+        // required item we never landed on still gets caught, then submit.
+        if (!validate(pageEl)) {
+            const bad = firstInvalidStep(pageEl);
+            if (bad && bad !== current) goTo(bad, 'forward');
+            return;
+        }
+        // Page boundary → a real submit (POST + OpenCPU resolve). Show a loading
+        // cue if it runs longer than a moment, and guard against double-submit.
+        submittingPage = true;
+        const cueTimer = setTimeout(showLoading, 220);
+        Promise.resolve(submitPage()).catch(() => {}).finally(() => {
+            submittingPage = false;
+            clearTimeout(cueTimer);
+            hideLoading();
+        });
+    }
+    // Page-boundary loading overlay (#7). Built lazily; shown only when a page
+    // submit takes >220ms so fast transitions don't flash a spinner.
+    function showLoading() {
+        if (!loadingEl) {
+            loadingEl = document.createElement('div');
+            loadingEl.className = 'fmr-solo-loading';
+            loadingEl.setAttribute('aria-hidden', 'true');
+            loadingEl.innerHTML = '<div class="fmr-solo-spinner"></div>';
+            root.appendChild(loadingEl);
+        }
+        loadingEl.classList.add('is-visible');
+    }
+    function hideLoading() { if (loadingEl) loadingEl.classList.remove('is-visible'); }
+    function onBack() {
+        if (transitioning) return;
+        const prv = prevStep(current);
+        if (prv) { goTo(prv, 'back'); return; }
+        const idx = getCurrentIndex();
+        if (allowPrevious && idx > 0) {
+            pendingGoLast = true;
+            showPage(idx - 1);     // host updates currentIndex + fires onPageShown
+        }
+    }
+    function onPageShown(pageEl) {
+        const s = steps(pageEl);
+        const dir = pendingGoLast ? 'back' : 'forward';
+        if (!s.length) { current = null; updateNav(); updateProgress(); return; }
+        const target = pendingGoLast ? s[s.length - 1] : s[0];
+        pendingGoLast = false;
+        goTo(target, dir);
+    }
+
+    // --- chrome (nav footer + progress) -------------------------------------
+    function buildNav() {
+        navEl = document.createElement('div');
+        navEl.className = 'fmr-solo-nav';
+        navEl.innerHTML =
+            '<button type="button" class="fmr-solo-back" aria-label="Go to previous question">'
+            + '<i class="fa fa-arrow-up" aria-hidden="true"></i> Back</button>'
+            + '<div class="fmr-solo-advance">'
+            + '<span class="fmr-solo-hint" aria-hidden="true"></span>'
+            + '<button type="button" class="btn btn-primary fmr-solo-ok">OK <i class="fa fa-check" aria-hidden="true"></i></button>'
+            + '</div>';
+        root.appendChild(navEl);
+        backBtn = navEl.querySelector('.fmr-solo-back');
+        okBtn = navEl.querySelector('.fmr-solo-ok');
+        hintEl = navEl.querySelector('.fmr-solo-hint');
+        backBtn.addEventListener('click', (e) => { e.preventDefault(); onBack(); });
+        okBtn.addEventListener('click', (e) => { e.preventDefault(); onContinue(); });
+
+        // Mobile: when the soft keyboard opens, the layout viewport doesn't
+        // shrink on iOS, so a `bottom:0` bar ends up behind the keyboard. Lift
+        // the footer by the keyboard overlap using the visual-viewport API.
+        const vv = window.visualViewport;
+        if (vv) {
+            const adjust = () => {
+                const overlap = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+                navEl.style.transform = overlap > 1 ? `translateY(${-overlap}px)` : '';
+            };
+            vv.addEventListener('resize', adjust);
+            vv.addEventListener('scroll', adjust);
+        }
+    }
+    function updateNav() {
+        if (!navEl) buildNav();
+        const canBack = !!prevStep(current) || (allowPrevious && getCurrentIndex() > 0);
+        backBtn.style.visibility = canBack ? '' : 'hidden';
+        const terminal = isTerminal(current);
+        // #4: single-choice steps advance on pick, so hide OK (Typeform-style).
+        // Keep it on the terminal step (explicit Submit) and on an already-
+        // answered step reached via Back, so the participant can move on
+        // without having to re-pick the same option.
+        const hideOk = autoAdvances(current) && !terminal && !hasSelection(current);
+        okBtn.style.display = hideOk ? 'none' : '';
+        okBtn.innerHTML = terminal
+            ? 'Submit <i class="fa fa-paper-plane" aria-hidden="true"></i>'
+            : 'OK <i class="fa fa-check" aria-hidden="true"></i>';
+        hintEl.textContent = hintFor(current);
+    }
+    function updateProgress() {
+        let total = 0, before = 0;
+        pages.forEach((p, idx) => {
+            const n = steps(p).length;
+            if (idx < getCurrentIndex()) before += n;
+            total += n;
+        });
+        const cur = steps(pages[getCurrentIndex()]);
+        const within = Math.max(0, cur.indexOf(current));
+        const globalIdx = before + within;
+        const pct = total > 0 ? Math.round(((globalIdx + 1) / total) * 100) : 0;
+        if (progressBar) {
+            progressBar.style.width = pct + '%';
+            progressBar.setAttribute('aria-valuenow', String(pct));
+        }
+        if (progressLabel) progressLabel.textContent = total > 0 ? (globalIdx + 1) + ' of ' + total : '';
+    }
+
+    // --- input wiring --------------------------------------------------------
+    root.addEventListener('change', (e) => {
+        const t = e.target;
+        if (!(t instanceof Element)) return;
+        if (t.name && t.name.startsWith('_item_views')) return;
+        if (!current || !current.contains(t)) return;
+        if (!autoAdvances(current)) return;
+        if (isTerminal(current)) return;     // require an explicit Submit at the very end
+        clearTimeout(advanceTimer);
+        advanceTimer = setTimeout(onContinue, 450);
+    });
+    // --- keyboard ------------------------------------------------------------
+    // True when the target is a control that consumes the keystroke itself
+    // (free text, dropdowns, tom-select) — we must not hijack those.
+    function isEditableTarget(t) {
+        if (!t || !t.tagName) return false;
+        if (t.tagName === 'TEXTAREA' || t.tagName === 'SELECT') return true;
+        if (t.closest && t.closest('.ts-wrapper')) return true;
+        return t.tagName === 'INPUT'
+            && !['hidden', 'checkbox', 'radio', 'button', 'submit', 'file', 'reset'].includes(t.type);
+    }
+    // Is the page taller than the viewport right now? If so leave arrow keys to
+    // scroll rather than hijacking them to navigate.
+    function pageScrollable() {
+        return document.documentElement.scrollHeight > window.innerHeight + 4;
+    }
+
+    // Listen on document, not root: on a statement screen focus rests on
+    // <body> (outside the form), so a root-scoped handler would never see
+    // Enter. Guard to our own scope so we don't hijack keys aimed at unrelated
+    // page chrome (footer links, etc.).
+    document.addEventListener('keydown', (e) => {
+        const t = e.target;
+        const inScope = t === document.body || (root.contains && root.contains(t));
+        if (!inScope || !current) return;
+
+        // Letter shortcuts (A, B, C …) select the matching option on card-style
+        // choice steps — Typeform's signature. Single-choice then auto-advances
+        // (via the change handler); multi-select toggles and waits for OK.
+        if (optionKeys && /^[a-z]$/i.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey
+            && current && !isEditableTarget(t)) {
+            const labels = cardOptionLabels(current);
+            const idx = e.key.toUpperCase().charCodeAt(0) - 65;
+            if (labels[idx]) { e.preventDefault(); labels[idx].click(); return; }
+        }
+
+        // Enter advances: single-line inputs, choice steps, and statement
+        // screens alike. Textareas keep Enter = newline (Ctrl/Cmd+Enter
+        // advances); tom-select and real buttons keep their own Enter.
+        if (e.key === 'Enter') {
+            if (transitioning) { e.preventDefault(); return; }
+            if (t.tagName === 'TEXTAREA') {
+                if (e.ctrlKey || e.metaKey) { e.preventDefault(); onContinue(); }
+                return;
+            }
+            if (t.closest && t.closest('.ts-wrapper')) return;
+            if (t.tagName === 'BUTTON') return;   // the button activates itself
+            e.preventDefault();
+            onContinue();
+            return;
+        }
+
+        // Arrow navigation when it can't be mistaken for editing or scrolling:
+        // not in an editable control, not in a radio/checkbox group (arrows move
+        // between options there), and not while the step overflows the viewport.
+        if ((e.key === 'ArrowDown' || e.key === 'ArrowUp')
+            && !e.ctrlKey && !e.metaKey && !e.altKey
+            && !isEditableTarget(t)
+            && !(t.tagName === 'INPUT' && (t.type === 'radio' || t.type === 'checkbox'))
+            && !pageScrollable()) {
+            e.preventDefault();
+            if (e.key === 'ArrowDown') onContinue(); else onBack();
+        }
+    });
+
+    return { onPageShown, onContinue, onBack };
+}

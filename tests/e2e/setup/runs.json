@@ -10,5 +10,8 @@
   "pwa_low": {
     "v1": { "run": "e2e-pwa-l-v1" },
     "v2": { "run": "e2e-pwa-l-v2" }
+  },
+  "bot_check": {
+    "v2": { "run": "e2e-botcheck-v2", "study": "e2e_bot_check" }
   }
 }

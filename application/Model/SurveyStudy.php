@@ -32,6 +32,7 @@ class SurveyStudy extends Model
     public $offline_mode = 1;
     public $allow_previous = 0;
     public $layout = 'default';
+    public $option_keys = 1; // solo layout: letter-key badges on mc options (patch 067)
     public $last_iteration = 0; // per-study counter for survey_unit_sessions.study_iteration; patch 065
 
     public $created = null;
@@ -364,6 +365,7 @@ class SurveyStudy extends Model
             'offline_mode' => $this->offline_mode,
             'allow_previous' => $this->allow_previous,
             'layout' => $this->layout,
+            'option_keys' => $this->option_keys,
             'created' => $this->created,
             'modified' => $this->modified,
         ];

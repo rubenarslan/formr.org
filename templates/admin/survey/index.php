@@ -205,6 +205,13 @@
                                             <option value="default" <?php if ($study->layout !== 'solo') echo 'selected'; ?>>Default — multiple items per page</option>
                                             <option value="solo" <?php if ($study->layout === 'solo') echo 'selected'; ?>>Solo — one item per screen</option>
                                         </select>
+                                        <div class="checkbox" style="margin-top: 0.75em;">
+                                            <label> <input type="checkbox" name="option_keys" value="1" <?php if ($study->option_keys) echo 'checked="checked"'; ?>> <strong>Solo: letter-key choice cards (A·B·C…)</strong> </label>
+                                            <span class="help-block" style="margin-top: 0.25em;">
+                                                <i class="fa fa-info-circle"></i>
+                                                Only applies to the <strong>Solo</strong> layout. Renders multiple-choice / checkbox options as cards with letter badges that double as keyboard shortcuts. Turn off for a plainer radio/checkbox list.
+                                            </span>
+                                        </div>
                                     </td>
                                 </tr>
                                 <tr>

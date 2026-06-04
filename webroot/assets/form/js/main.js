@@ -39,6 +39,7 @@ import { genUuid } from './lib/uuid.js';
 import { queueAdd, queueGetAll, queueDelete, wipeQueue, buildSyncFormData, isTransientFailure } from './offline/queue.js';
 import { initMediaRecorders } from './items/recorders.js';
 import { initButtonGroups } from './items/button-groups.js';
+import { initBotCheck } from './items/bot-check.js';
 import { initGeopoint } from './items/geopoint.js';
 import { initTomSelects } from './items/tom-select.js';
 import { initRequestCookie } from './items/request-cookie.js';
@@ -57,6 +58,7 @@ import {
     registerXShowif,
     promoteShowifAttributes,
 } from './showif/alpine.js';
+import { initSolo } from './solo/controller.js';
 
 function initForm() {
     const root = document.querySelector('.fmr-form-v2');
@@ -66,6 +68,10 @@ function initForm() {
     if (pages.length === 0) return;
 
     let currentIndex = 0;
+    // Solo step controller (layout=solo). Assigned after submitPage is defined;
+    // showPage() calls its onPageShown hook so a page swap re-seats stepping.
+    let soloController = null;
+    const isSolo = root.dataset.layout === 'solo';
 
     const progressBar = root.querySelector('[data-fmr-progress-bar]');
     const progressLabel = root.querySelector('[data-fmr-progress-label]');
@@ -156,18 +162,26 @@ function initForm() {
     const showPage = (i) => {
         pages.forEach((p, idx) => { p.hidden = (idx !== i); });
         currentIndex = i;
-        if (progressBar) {
-            const pct = Math.round(((i + 1) / pages.length) * 100);
-            progressBar.style.width = pct + '%';
-            progressBar.setAttribute('aria-valuenow', String(pct));
-        }
-        if (progressLabel) {
-            progressLabel.textContent = `Page ${i + 1} of ${pages.length}`;
+        // In solo, the step controller owns progress (per-item, not per-page)
+        // and focus; it re-seats stepping via onPageShown below.
+        if (!isSolo) {
+            if (progressBar) {
+                const pct = Math.round(((i + 1) / pages.length) * 100);
+                progressBar.style.width = pct + '%';
+                progressBar.setAttribute('aria-valuenow', String(pct));
+            }
+            if (progressLabel) {
+                progressLabel.textContent = `Page ${i + 1} of ${pages.length}`;
+            }
         }
         const p = pages[i];
         if (p) {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
             observeItems(p);
+            if (isSolo) {
+                if (soloController) soloController.onPageShown(p);
+                return;
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             // a11y: move focus into the new page so keyboard + screen-
             // reader users continue from a sensible anchor rather than
             // hanging on the now-hidden previous page's button.
@@ -198,42 +212,9 @@ function initForm() {
         });
     });
 
-    // Solo layout (patch 066): auto-advance scroll to the next visible item
-    // when the current one's answer is committed. All items stay mounted, so
-    // x-showif and validation keep their normal semantics — we just move the
-    // viewport. Debounced so multi-checkbox items don't fly past.
-    if (root.dataset.layout === 'solo') {
-        let advanceTimer = null;
-        const advanceFromItem = (itemEl) => {
-            if (!itemEl) return;
-            clearTimeout(advanceTimer);
-            advanceTimer = setTimeout(() => {
-                if (itemEl.classList.contains('has-error')) return;
-                const page = itemEl.closest('[data-fmr-page]');
-                if (!page) return;
-                const items = Array.from(page.querySelectorAll('.form-group'));
-                const idx = items.indexOf(itemEl);
-                for (let i = idx + 1; i < items.length; i++) {
-                    const cand = items[i];
-                    if (cand.classList.contains('hidden')) continue;
-                    if (cand.offsetParent === null) continue;
-                    cand.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    const firstInput = cand.querySelector('input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])');
-                    if (firstInput) {
-                        setTimeout(() => firstInput.focus({ preventScroll: true }), 450);
-                    }
-                    return;
-                }
-            }, 400);
-        };
-        root.addEventListener('change', (e) => {
-            const t = e.target;
-            if (!(t instanceof Element)) return;
-            if (t.name && t.name.startsWith('_item_views')) return;
-            const item = t.closest('.form-group');
-            if (item) advanceFromItem(item);
-        });
-    }
+    // Solo layout (layout=solo): the Typeform-style one-item-per-screen step
+    // controller is initialized further down (after submitPage is defined, so
+    // it can drive page submission at page boundaries). See ./solo/controller.js.
 
     const collectPayload = (pageEl) => {
         const data = {};
@@ -690,6 +671,23 @@ function initForm() {
             }, 600);
         }
     };
+
+    // Solo step controller — one item per screen, Typeform-style. Created here
+    // (not at the top) because it drives submitPage() at page boundaries and
+    // calls showPage() for cross-page back-navigation. showPage()'s onPageShown
+    // hook (above) seats it on the right step after every page swap; the
+    // initial showPage() near the bottom of initForm fires the first seating.
+    if (isSolo) {
+        soloController = initSolo({
+            root,
+            pages,
+            getCurrentIndex: () => currentIndex,
+            showPage,
+            submitPage,
+            validate: validatePageAndShowFeedback,
+            allowPrevious: (root.dataset.allowPrevious || 'off') !== 'off',
+        });
+    }
 
     // Drain triggers: browser-reported connectivity change + initial load (in
     // case the tab was reloaded with entries still pending).
@@ -1369,8 +1367,14 @@ function initForm() {
         });
     });
 
-    // Block implicit form submit (Enter key) from doing a real POST — funnel through submitPage.
-    root.addEventListener('submit', (e) => { e.preventDefault(); submitPage(); });
+    // Block implicit form submit (Enter key) from doing a real POST. In solo
+    // mode Enter on a single-line input should advance one step (onContinue),
+    // not submit the whole page; default mode funnels straight to submitPage.
+    root.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (soloController) soloController.onContinue();
+        else submitPage();
+    });
 
     initGeopoint(root);
 
@@ -1491,6 +1495,7 @@ function initForm() {
     // initButtonGroups + initMediaRecorders + tom-select wiring (plain
     // <select> and <input.select2add>) live in items/* modules — imports above.
     initButtonGroups(root);
+    initBotCheck(root);
     initMediaRecorders(root);
     window.fmrInitMediaRecorders = () => initMediaRecorders(root);
     initTomSelects(root);

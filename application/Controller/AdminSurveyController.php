@@ -546,7 +546,7 @@ class AdminSurveyController extends AdminController {
             // array_intersect_key below would strip them before the v2
             // handling block runs and the saves would silently rewrite
             // the columns to their false/null defaults.
-            'offline_mode', 'allow_previous', 'layout',
+            'offline_mode', 'allow_previous', 'layout', 'option_keys',
         ];
         $settings = array_intersect_key($settings, array_flip($allowed));
         // String-typed columns must opt out of the int cast — google_file_id
@@ -585,8 +585,9 @@ class AdminSurveyController extends AdminController {
             $settings['allow_previous'] = (int) (isset($settings['allow_previous']) && $settings['allow_previous'] === 1);
             $layoutInput = $settings['layout'] ?? 'default';
             $settings['layout'] = in_array($layoutInput, ['default', 'solo'], true) ? $layoutInput : 'default';
+            $settings['option_keys'] = (int) (isset($settings['option_keys']) && $settings['option_keys'] === 1);
         } else {
-            unset($settings['offline_mode'], $settings['allow_previous'], $settings['layout']);
+            unset($settings['offline_mode'], $settings['allow_previous'], $settings['layout'], $settings['option_keys']);
         }
 
         // user can't revert unlinking

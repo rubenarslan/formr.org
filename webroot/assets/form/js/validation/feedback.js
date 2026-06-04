@@ -92,7 +92,18 @@ export function validatePageAndShowFeedback(pageEl) {
         offenders.push(el);
     });
 
-    if (offenders.length === 0) return true;
+    // bot_check gate: an unverified "are you human" widget. Its value lives in a
+    // hidden input (willValidate === false), so native Constraint Validation
+    // never flags it — handle it explicitly. Skip optional ones and any inside a
+    // showif-hidden group.
+    const botOffenders = Array.from(pageEl.querySelectorAll('.fmr-botcheck'))
+        .filter((w) => w.dataset.state !== 'verified')
+        .map((w) => w.closest('.form-group'))
+        .filter((g, i, a) => g && a.indexOf(g) === i
+            && g.classList.contains('required')
+            && !g.classList.contains('hidden') && g.offsetParent !== null);
+
+    if (offenders.length === 0 && botOffenders.length === 0) return true;
 
     let firstFocusTarget = null;
     offenders.forEach((el) => {
@@ -133,6 +144,17 @@ export function validatePageAndShowFeedback(pageEl) {
     });
 
     pageEl.querySelectorAll('.fmr-has-client-error').forEach((el) => el.classList.remove('fmr-has-client-error'));
+
+    botOffenders.forEach((g) => {
+        g.classList.add('is-invalid');
+        if (!g.querySelector('.fmr-botcheck-feedback')) {
+            const fb = document.createElement('div');
+            fb.className = 'invalid-feedback fmr-invalid-feedback fmr-botcheck-feedback d-block';
+            fb.textContent = 'Please verify that you are human to continue.';
+            (g.querySelector('.fmr-botcheck') || g).appendChild(fb);
+        }
+        if (!firstFocusTarget) firstFocusTarget = g.querySelector('.fmr-botcheck-box') || g;
+    });
 
     if (firstFocusTarget) {
         try { firstFocusTarget.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch {}
