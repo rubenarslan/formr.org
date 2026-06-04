@@ -147,6 +147,11 @@ class FormRenderer extends SpreadsheetRenderer {
             }
         }
 
+        // Step 4b: attach choices to ALL items (no OpenCPU). Step 5's
+        // first-page-only label/choice pass would otherwise leave later-page
+        // mc/select items with an empty choice list — an unanswerable screen.
+        $this->attachStaticChoices($items);
+
         // Step 5: page-scoped OpenCPU resolution. Run the parent's batches
         // over first-page items only — later pages have placeholders + IDs
         // and resolve at page transition via /form-render-page.
@@ -173,6 +178,52 @@ class FormRenderer extends SpreadsheetRenderer {
 
         $this->toRender = $merged;
         $this->renderedItems = $this->getRenderedStudyItems();
+    }
+
+    /**
+     * Attach choice options to every item that has a choice_list, using the
+     * choice labels straight from the DB (no OpenCPU).
+     *
+     * The parent's processDynamicLabelsAndChoices does TWO things — parse
+     * dynamic labels via OpenCPU *and* call setChoices() — but FormRenderer
+     * only runs it on the first visible page (Step 5) to keep OpenCPU
+     * page-scoped. The side effect was that later-page mc / mc_heading /
+     * select items rendered with an empty `.mc-table` (no radios at all), so a
+     * required choice question on page 2+ became an unanswerable dead screen.
+     * Choices don't need OpenCPU unless a choice *label* carries dynamic R, so
+     * attach them here for ALL pages; first-page items are re-set with the
+     * OpenCPU-parsed labels when Step 5 runs. Dynamic choice labels on later
+     * pages degrade to their raw source text rather than disappearing.
+     */
+    protected function attachStaticChoices(array &$items) {
+        $lists = [];
+        foreach ($items as $item) {
+            if ($item && $item->choice_list) {
+                $lists[] = $item->choice_list;
+            }
+        }
+        if (!$lists) {
+            return;
+        }
+        $rows = $this->study->getChoices(array_values(array_unique($lists)), null);
+        $byList = [];
+        foreach ((array) $rows as $row) {
+            if (!isset($row['list_name'], $row['name'])) {
+                continue;
+            }
+            $parsed = $row['label_parsed'] ?? null;
+            $byList[$row['list_name']][$row['name']] =
+                ($parsed !== null && $parsed !== '') ? $parsed : $row['label'];
+        }
+        foreach ($items as $name => $item) {
+            if (!$item || !$item->choice_list) {
+                continue;
+            }
+            if (isset($byList[$item->choice_list])) {
+                $list = array_filter($byList[$item->choice_list], 'is_formr_truthy');
+                $items[$name]->setChoices($list);
+            }
+        }
     }
 
     /**
