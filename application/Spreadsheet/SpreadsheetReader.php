@@ -443,6 +443,17 @@ class SpreadsheetReader
         }
     }
 
+    /**
+     * Columns a survey item row may carry. Lets callers (e.g.
+     * SurveyStudy::createFromData) strip export-only fields such as `showif_js`
+     * from a JSON survey export before addSurveyItem(), which otherwise rejects
+     * any unrecognised column.
+     */
+    public function getAllowedColumns()
+    {
+        return array_merge($this->survey_columns, $this->internal_columns);
+    }
+
     public function addSurveyItem(array $row)
     {
         // @todo validate items in $data

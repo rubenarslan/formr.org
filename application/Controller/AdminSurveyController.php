@@ -60,6 +60,30 @@ class AdminSurveyController extends AdminController {
             
             
             if ($this->validateUploadedFile($file)) {
+                // JSON survey export → import via createFromData (the same path
+                // run-structure imports use). Only reached for new surveys; the
+                // edit/re-upload path stays spreadsheet-only.
+                if (strtolower(pathinfo($file['name'], PATHINFO_EXTENSION)) === 'json') {
+                    $data = json_decode(file_get_contents($file['tmp_name']));
+                    if (!is_object($data) || empty($data->name) || empty($data->items)) {
+                        alert('<strong>Error:</strong> That is not a valid survey JSON export (it must have "name" and "items").', 'alert-danger');
+                        delete_tmp_file($file);
+                        return $this->request->redirect('admin/survey');
+                    }
+                    if (SurveyStudy::createFromData($data, array('user_id' => $this->user->id))) {
+                        alert('<strong>Success!</strong> New survey created from JSON!', 'alert-success');
+                        $created = SurveyStudy::loadByUserAndName($this->user, $data->name);
+                        $redirect = ($created && $created->valid)
+                            ? admin_study_url($created->name, 'show_item_table')
+                            : 'admin/survey';
+                    } else {
+                        alert('<strong>Bugger!</strong> The survey JSON could not be imported. See the messages above.', 'alert-danger');
+                        $redirect = 'admin/survey';
+                    }
+                    delete_tmp_file($file);
+                    return $this->request->redirect($redirect);
+                }
+
                 $study = new SurveyStudy(null);
                 if ($study->createFromFile($file)) {
                     // upload items
@@ -93,13 +117,19 @@ class AdminSurveyController extends AdminController {
             return false;
         }
 
-        // Define the list of allowed extensions
+        // Define the list of allowed extensions. A .json survey export is
+        // accepted only when adding a NEW survey (createFromData); the edit /
+        // re-upload-items path runs the spreadsheet reader, which can't parse it.
         $allowedExtensions = array('xls', 'xlsx', 'ods', 'xml', 'txt', 'csv');
+        if (!$editing) {
+            $allowedExtensions[] = 'json';
+        }
         // Get the file extension
         $fileExtension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         // Check if the extension is in the allowed list
         if(!in_array($fileExtension, $allowedExtensions)){
-            alert("<strong>Error:</strong> The format must be one of .xls, .xlsx, .ods, .xml, .txt, or .csv.", 'alert-danger');
+            $formats = $editing ? '.xls, .xlsx, .ods, .xml, .txt, or .csv' : '.xls, .xlsx, .ods, .xml, .txt, .csv, or .json';
+            alert("<strong>Error:</strong> The format must be one of {$formats}.", 'alert-danger');
             return false;
         }
         

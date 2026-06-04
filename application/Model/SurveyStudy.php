@@ -263,7 +263,12 @@ class SurveyStudy extends Model
                 }
                 unset($item->choices);
             }
-            $reader->addSurveyItem((array) $item);
+            // Strip export-only / unrecognised fields (e.g. showif_js,
+            // label_parsed is allowed, item_order is allowed) so a full JSON
+            // survey export imports cleanly — addSurveyItem rejects unknown
+            // columns.
+            $row = array_intersect_key((array) $item, array_flip($reader->getAllowedColumns()));
+            $reader->addSurveyItem($row);
         }
 
         if ($study->saveUploadedItemsFromReader($reader)) {

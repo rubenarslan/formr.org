@@ -22,7 +22,12 @@ class ItemFactory {
             if (isset($this->choice_lists[$item['choice_list']])) { // if this choice_list exists
                 $item['choices'] = $this->choice_lists[$item['choice_list']]; // take it
                 $this->used_choice_lists[] = $item['choice_list']; // check it as used
-            } else {
+            } elseif ($item['choice_list'] !== '*') {
+                // '*' is the wildcard sentinel for items that supply their own
+                // choices (e.g. timezone → timezone_identifiers_list()). It
+                // legitimately has no entry in the choices sheet, so don't treat
+                // it as a missing list — this is what lets a JSON survey export
+                // (which stores choice_list="*") round-trip back in.
                 $item['val_errors'] = array(__("Choice list %s does not exist, but is specified for item %s", $item['choice_list'], $item['name']));
             }
         }

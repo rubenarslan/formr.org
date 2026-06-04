@@ -1085,7 +1085,7 @@
         },
         {
             "type": "visual_analog_scale",
-            "choice_list": null,
+            "choice_list": "vas_demo",
             "type_options": "0,100",
             "name": "vas_demo",
             "label": "### visual_analog_scale\nDrag along the line. Like `range` but without a visible default.",
@@ -1119,7 +1119,7 @@
         },
         {
             "type": "choose_two_weekdays",
-            "choice_list": null,
+            "choice_list": "weekdays_demo",
             "type_options": null,
             "name": "weekdays_demo",
             "label": "### choose_two_weekdays\nPick two weekdays (e.g. for a diary schedule).",
@@ -1130,7 +1130,16 @@
             "showif_js": null,
             "value": "",
             "block_order": null,
-            "item_order": 76
+            "item_order": 76,
+            "choices": {
+                "1": "Monday",
+                "2": "Tuesday",
+                "3": "Wednesday",
+                "4": "Thursday",
+                "5": "Friday",
+                "6": "Saturday",
+                "7": "Sunday"
+            }
         },
         {
             "type": "file",
@@ -1224,7 +1233,7 @@
         },
         {
             "type": "request_cookie",
-            "choice_list": null,
+            "choice_list": "cookie_demo",
             "type_options": null,
             "name": "cookie_demo",
             "label": "### request_cookie\nAsk the browser to remember the participant across sessions.",
@@ -1235,7 +1244,10 @@
             "showif_js": null,
             "value": "",
             "block_order": null,
-            "item_order": 83
+            "item_order": 83,
+            "choices": {
+                "1": "Remember me on this device"
+            }
         },
         {
             "type": "request_phone",
@@ -1254,7 +1266,7 @@
         },
         {
             "type": "add_to_home_screen",
-            "choice_list": null,
+            "choice_list": "ats_demo",
             "type_options": null,
             "name": "ats_demo",
             "label": "### add_to_home_screen\nPrompt to install the study as a PWA (works on a PWA-configured run).",
@@ -1272,7 +1284,7 @@
         },
         {
             "type": "push_notification",
-            "choice_list": null,
+            "choice_list": "push_demo",
             "type_options": null,
             "name": "push_demo",
             "label": "### push_notification\nAsk permission to send web-push notifications (PWA-configured runs).",
@@ -1283,7 +1295,10 @@
             "showif_js": null,
             "value": "",
             "block_order": null,
-            "item_order": 86
+            "item_order": 86,
+            "choices": {
+                "1": "Enable notifications"
+            }
         },
         {
             "type": "bot_check",
