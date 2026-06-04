@@ -19,6 +19,7 @@ const { test, expect } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const v2 = require('./helpers/v2Form');
+const db = require('./helpers/db');
 
 const RUN = () => runName('all_widgets', 'v2');
 // The `e2e-aw-v2` run's Form unit binds to a study named `all_widgets`
@@ -226,6 +227,47 @@ test.describe('solo-layout: solo mode', () => {
         // _solo.scss: min-height 100vh, 100svh where supported (svh can
         // be smaller than vh by browser-chrome offset — tolerate ±60px).
         expect(measured.minHeightPx).toBeGreaterThanOrEqual(measured.vh - 60);
+    });
+
+    test('records layout="solo" in the response paradata', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        expect(await v2.form(page).getAttribute('data-layout')).toBe('solo');
+        await page.waitForTimeout(300);
+        const rows = db.dbQuery(
+            "SELECT us.layout AS layout FROM survey_unit_sessions us " +
+            "JOIN survey_run_sessions rs ON rs.id = us.run_session_id " +
+            "JOIN survey_runs r ON r.id = rs.run_id " +
+            "WHERE r.name = 'e2e-aw-v2' ORDER BY us.id DESC LIMIT 1",
+        );
+        expect(rows[0] && rows[0].layout, 'solo response must record layout=solo').toBe('solo');
+    });
+
+    test('progress bar is monotonic (never jumps backward)', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        const seq = await page.evaluate(async () => {
+            const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+            const bar = document.querySelector('[data-fmr-progress-bar]');
+            const read = () => parseFloat(bar.getAttribute('aria-valuenow') || '0');
+            const vals = [read()];
+            // advance several steps and sample the bar after each
+            for (let i = 0; i < 5; i++) {
+                const cur = document.querySelector('.fmr-solo-current');
+                if (!cur) break;
+                const inp = cur.querySelector('input:not([type=hidden]):not([disabled]),textarea');
+                if (inp) { inp.value = inp.value || 'x'; inp.dispatchEvent(new Event('input', { bubbles: true })); }
+                document.querySelector('.fmr-solo-ok').click();
+                await sleep(650);
+                vals.push(read());
+            }
+            return vals;
+        });
+        // never decreases between consecutive samples
+        for (let i = 1; i < seq.length; i++) {
+            expect(seq[i], `progress went backward: ${seq.join(' -> ')}`).toBeGreaterThanOrEqual(seq[i - 1]);
+        }
+        expect(seq[seq.length - 1], 'progress should advance').toBeGreaterThan(seq[0]);
     });
 
 });

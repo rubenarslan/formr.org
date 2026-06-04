@@ -29,6 +29,7 @@ export function initSolo(opts) {
     let advanceTimer = null;
     let transitioning = false;   // guards against double-advance mid-slide
     let submittingPage = false;  // guards against double page-submit at a boundary
+    let maxPct = 0;              // progress bar is monotonic — see updateProgress
 
     // Letter-key badges (A·B·C…) are a per-study toggle (SurveyStudy.option_keys
     // → data-option-keys). When off, options render as a plain card list and the
@@ -326,9 +327,15 @@ export function initSolo(opts) {
         const within = Math.max(0, cur.indexOf(current));
         const globalIdx = before + within;
         const pct = total > 0 ? Math.round(((globalIdx + 1) / total) * 100) : 0;
+        // Honest progress: showif can reveal/hide steps, which changes `total`
+        // and would otherwise let the bar jump BACKWARD as new steps appear —
+        // the misrepresentation the spec warns against. Clamp the bar so it only
+        // ever moves forward. The "N of M" label still reflects the current
+        // known totals (honest about what's left), but the bar never regresses.
+        maxPct = Math.max(maxPct, pct);
         if (progressBar) {
-            progressBar.style.width = pct + '%';
-            progressBar.setAttribute('aria-valuenow', String(pct));
+            progressBar.style.width = maxPct + '%';
+            progressBar.setAttribute('aria-valuenow', String(maxPct));
         }
         if (progressLabel) progressLabel.textContent = total > 0 ? (globalIdx + 1) + ' of ' + total : '';
     }

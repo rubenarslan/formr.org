@@ -168,11 +168,6 @@ test.describe('form_v2 spec: incremental autosave', () => {
         await v2.waitForBundle(page);
 
         const probe = 'autosave_e2e_' + Date.now();
-        const savePromise = page.waitForResponse(
-            (resp) => /\/form-save\/?$/.test(new URL(resp.url()).pathname),
-            { timeout: 10000 },
-        ).catch(() => null);
-
         const set = await page.evaluate((val) => {
             const abode = document.querySelector('input[name="abode"]');
             if (!abode) return false;
@@ -182,21 +177,47 @@ test.describe('form_v2 spec: incremental autosave', () => {
         }, probe);
         test.skip(!set, 'fixture has no abode text item');
 
-        const resp = await savePromise;
-        expect(resp, 'a /form-save request should fire on the first change').not.toBeNull();
-        expect(resp.status()).toBe(200);
-
-        // Confirm it actually landed: latest e2e-aw-v2 session's abode answer.
-        await page.waitForTimeout(300);
-        const rows = db.dbQuery(
+        // Poll the DB for the autosaved value rather than racing the network
+        // response: autosave is rate-limited to <=1 req/20s with a trailing
+        // flush, so an init-time change could defer this save up to ~20s. The
+        // poll covers both the immediate and the deferred (trailing) save.
+        const query =
             "SELECT sid.answer AS answer FROM survey_items_display sid " +
             "JOIN survey_items si ON si.id = sid.item_id " +
             "WHERE si.name = 'abode' AND sid.session_id = (" +
             "  SELECT MAX(us.id) FROM survey_unit_sessions us " +
             "  JOIN survey_run_sessions rs ON rs.id = us.run_session_id " +
-            "  JOIN survey_runs r ON r.id = rs.run_id WHERE r.name = 'e2e-aw-v2')",
+            "  JOIN survey_runs r ON r.id = rs.run_id WHERE r.name = 'e2e-aw-v2')";
+        let answer = null;
+        for (let i = 0; i < 16; i++) {            // up to ~24s (covers the 20s rate limit)
+            const rows = db.dbQuery(query);
+            answer = rows[0] && rows[0].answer;
+            if (answer === probe) break;
+            await page.waitForTimeout(1500);
+        }
+        expect(answer, 'abode answer should be persisted by autosave').toBe(probe);
+    });
+
+});
+
+test.describe('form_v2 spec: layout recorded per response', () => {
+
+    test('the response paradata records the layout mode (default)', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        expect(await v2.form(page).getAttribute('data-layout')).toBe('default');
+
+        // createSurveyStudyRecord stamps SurveyStudy.layout onto the unit
+        // session at first render (patch 068). The most recent e2e-aw-v2 unit
+        // session is this participant's.
+        await page.waitForTimeout(300);
+        const rows = db.dbQuery(
+            "SELECT us.layout AS layout FROM survey_unit_sessions us " +
+            "JOIN survey_run_sessions rs ON rs.id = us.run_session_id " +
+            "JOIN survey_runs r ON r.id = rs.run_id " +
+            "WHERE r.name = 'e2e-aw-v2' ORDER BY us.id DESC LIMIT 1",
         );
-        expect(rows[0] && rows[0].answer, 'abode answer should be persisted by autosave').toBe(probe);
+        expect(rows[0] && rows[0].layout, 'layout mode must be recorded in paradata').toBe('default');
     });
 
 });

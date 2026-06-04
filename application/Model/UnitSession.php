@@ -501,8 +501,11 @@ class UnitSession extends Model {
         $sessionStarted = false;
         if (!$alreadyAllocated) {
             $iteration = $this->allocateStudyIteration($study->id);
+            // Stamp the layout mode this response is collected under (paradata
+            // for measurement equivalence; patch 068). Captured at first render
+            // so a later flip of the study's layout doesn't rewrite history.
             $this->db->update('survey_unit_sessions',
-                ['study_iteration' => $iteration],
+                ['study_iteration' => $iteration, 'layout' => $study->layout],
                 ['id' => $this->id]);
             $this->study_iteration = $iteration;
             $sessionStarted = true;
