@@ -133,6 +133,37 @@
         .help-block { font-size: 0.95rem; margin-top: 0.5rem; }
     }
 
+    // Neutralise v1 horizontal label-width modifiers (left0…left800): they set
+    // .control-label width + .controls margin-left for a label-left grid, which
+    // in solo's stacked full-width column caps the question and shoves the
+    // control (e.g. a range slider) off the right edge. Specificity 0,6,0 beats
+    // custom_item_classes' `.form-horizontal div.form-group.leftNNN .controls`.
+    .fmr-page > .form-group.fmr-solo-current > .controls { margin-left: 0; }
+    .fmr-page > .form-group.fmr-solo-current > .control-label { width: auto; max-width: none; }
+
+    // Range / range_ticks / visual_analog_scale: pole labels + slider on one
+    // row, slider takes the remaining width, wrap on narrow screens.
+    .fmr-solo-current.item-range .controls-inner,
+    .fmr-solo-current.item-range_ticks .controls-inner,
+    .fmr-solo-current.item-visual_analog_scale .controls-inner {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+    .fmr-solo-current.item-range input[type=range],
+    .fmr-solo-current.item-range_ticks input[type=range],
+    .fmr-solo-current.item-visual_analog_scale input[type=range] {
+        flex: 1 1 8rem;
+        min-width: 0;
+        max-width: 100%;
+    }
+    .fmr-solo-current.item-range .controls-inner > label,
+    .fmr-solo-current.item-range_ticks .controls-inner > label,
+    .fmr-solo-current.item-visual_analog_scale .controls-inner > label {
+        flex: 0 0 auto;
+        max-width: 40%;
+        white-space: normal;
+    }
+
     // The _validation-soft wrapper accent is a 3px left border on the
     // form-group; on a 100vh-tall solo step that becomes a full-height red
     // rule down the screen. The inline input border + message carry the error
@@ -142,6 +173,30 @@
         border-left: 0;
         margin-left: auto;
         padding-left: 1.25rem;
+    }
+
+    // `block` items render as `.alert.alert-danger` ON the form-group itself, so
+    // in solo's 100vh flex column the red fills the entire screen as a bare
+    // rectangle (the participant's complaint). Contain it: strip the full-bleed
+    // background/border from the step and re-apply the alert look to just the
+    // message, so it reads as a centred warning card with whitespace around it.
+    .fmr-page > .form-group.fmr-solo-current.item-block {
+        background: transparent;
+        border: 0;
+
+        > .control-label {
+            margin: 0;
+            padding: 1.4rem 1.6rem;
+            background: var(--bs-danger-bg-subtle, #f8d7da);
+            color: var(--bs-danger-text-emphasis, #842029);
+            border: 1px solid var(--bs-danger-border-subtle, #f1aeb5);
+            border-radius: 0.85rem;
+            font-size: clamp(1.2rem, 1rem + 0.9vw, 1.6rem);
+            font-weight: 600;
+            line-height: 1.4;
+        }
+        // collapse the zero-size guard checkbox's row so it adds no stray gap.
+        > .controls { margin: 0; min-height: 0; }
     }
 
     // --- option lists as cards (plain mc / mc_multiple radio+checkbox) ----
@@ -263,6 +318,7 @@
         > * { pointer-events: auto; }
     }
     .fmr-solo-back {
+        order: -1;            // DOM has OK first (for tab order); keep Back on the visual left
         display: inline-flex;
         align-items: center;
         gap: 0.4rem;
@@ -320,3 +376,33 @@
 @keyframes fmrSoloEnterDown { from { opacity: 0; transform: translateY(-26px); } to { opacity: 1; transform: none; } }
 @keyframes fmrSoloLeaveUp   { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-26px); } }
 @keyframes fmrSoloLeaveDown { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(26px); } }
+
+// Run footer (contact / privacy / ToS / settings links) in solo. It's a <p>
+// sibling of the form inside .container-fluid, so it sits OUTSIDE the
+// [data-layout="solo"] form and can't be scoped from within. In normal flow
+// under a 100svh step it forces a permanent ~24px over-scroll on every step and
+// peeks at the bottom as a stray, poorly-laid-out "page". Pin it just above the
+// Back/OK bar (out of flow) so each step fills exactly one viewport.
+body:has(.fmr-form-v2[data-layout="solo"]) .container-fluid > p {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 4rem;
+    z-index: 80;
+    margin: 0;
+    padding: 0 1rem;
+    text-align: center;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    color: var(--bs-secondary-color, #6c757d);
+    pointer-events: none;
+}
+body:has(.fmr-form-v2[data-layout="solo"]) .container-fluid > p a { pointer-events: auto; }
+
+// #1: the solo controller adds `.fmr-solo-locked` to <html> whenever the seated
+// step's settled content fits one viewport. Locking scroll there stops the
+// entrance animation's transient translateY(26px) from producing a phantom
+// scrollbar / wheel-bounce on pages that don't need to scroll. It's removed for
+// genuinely tall steps (e.g. note/plot) and while the mobile keyboard is open.
+html.fmr-solo-locked,
+html.fmr-solo-locked body { overflow: hidden; }

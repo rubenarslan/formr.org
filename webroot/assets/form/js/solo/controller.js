@@ -90,23 +90,37 @@ export function initSolo(opts) {
     function isTerminal(el) { return !nextStep(el) && isLastPage(); }
 
     // --- input classification ------------------------------------------------
-    // Auto-advance only for single-choice radio groups (mc / mc_button /
-    // rating_button / square). Checkboxes, multi-selects, plain selects, text
-    // and textareas all require an explicit OK so the participant controls when
-    // a multi-value or free-text answer is "done".
+    // Auto-advance on commit for single-choice radio groups, single <select>
+    // (incl. tom-select), and range-type sliders. Checkboxes, multi-selects,
+    // free text and textareas need an explicit OK.
     function autoAdvances(el) {
         if (!el) return false;
         if (el.querySelector('textarea')) return false;
         if (el.querySelector('input[type=checkbox]')) return false;
-        if (el.querySelector('select')) return false;
-        if (el.querySelector('input:not([type=radio]):not([type=checkbox]):not([type=hidden]):not([disabled])')) return false;
-        return !!el.querySelector('input[type=radio]:not([disabled])');
+        if (el.querySelector('select[multiple]')) return false;
+        // free-text-ish inputs (text/email/number/url/tel/date/…) stay manual
+        if (el.querySelector('input:not([type=radio]):not([type=checkbox]):not([type=hidden]):not([type=range]):not([disabled])')) return false;
+        return !!el.querySelector('input[type=radio]:not([disabled]), select:not([multiple]):not([disabled]), input[type=range]:not([disabled])');
+    }
+    // A plain single-choice radio card (mc / mc_button / rating_button / square)
+    // — the ONLY kind where we hide OK (picking advances). Selects and sliders
+    // keep OK visible because they may carry a default the participant accepts
+    // without ever firing `change`.
+    function isRadioChoice(el) {
+        return !!el && !!el.querySelector('input[type=radio]:not([disabled])')
+            && !el.querySelector('input[type=checkbox], select, textarea, input[type=range]')
+            && !el.querySelector('input:not([type=radio]):not([type=checkbox]):not([type=hidden]):not([disabled])');
     }
     function hasSelection(el) {
         return !!el && !!el.querySelector('input[type=radio]:checked, input[type=checkbox]:checked');
     }
     function hintFor(el) {
         if (!el) return '';
+        // `block` items are display-only guards backed by a zero-size required
+        // checkbox the participant can't tick — their own red message IS the
+        // instruction, so the "Choose all that apply" hint (triggered by that
+        // hidden checkbox) is wrong. Suppress it.
+        if (el.classList.contains('item-block')) return '';
         if (el.querySelector('textarea')) return 'Ctrl + Enter to continue';
         if (el.querySelector('input[type=checkbox]') || el.querySelector('select[multiple]')) {
             return 'Choose all that apply, then OK';
@@ -131,6 +145,7 @@ export function initSolo(opts) {
     // Seat `el` as the current step. `dir` ('forward' | 'back') picks the
     // entrance direction (forward rises from below, back drops from above).
     function seat(el, dir) {
+        clearTimeout(advanceTimer); // cancel a pending auto-advance so a manual OK can't double-advance
         root.querySelectorAll('.form-group.fmr-solo-current').forEach((g) => {
             g.classList.remove('fmr-solo-current');
             clearAnim(g);
@@ -144,10 +159,33 @@ export function initSolo(opts) {
         }
         updateNav();
         updateProgress();
+        lockScrollToFit(el);
         try { window.scrollTo({ top: 0 }); } catch (e) { /* noop */ }
         focusFirst(el);
         transitioning = false;
     }
+
+    // #1: a step is `min-height:100vh`, so when its content fits it's exactly
+    // one viewport and shouldn't scroll at all. But the entrance animation
+    // translates the box down by 26px, which transiently extends the document
+    // and lets the wheel/trackpad "bounce" ~26px before settling. Layout height
+    // (offsetHeight) ignores the transform, so we can tell *now* whether the
+    // settled step overflows: if it fits, lock body scroll (the transient
+    // overflow is clipped, no phantom scrollbar); if it genuinely overflows
+    // (e.g. a tall note/plot), leave scrolling enabled.
+    function lockScrollToFit(el) {
+        const fits = !el || el.offsetHeight <= window.innerHeight + 2;
+        document.documentElement.classList.toggle('fmr-solo-locked', fits);
+    }
+    // The seat-time measurement misses content that grows *after* seating —
+    // late-loading note images / OpenCPU feedback plots, font reflow, a showif
+    // reveal. Re-run the fit check whenever the current step's rendered size
+    // changes. ResizeObserver tracks content-box size, not transforms, so the
+    // entrance animation never triggers it.
+    if (window.ResizeObserver) {
+        new ResizeObserver(() => { if (current) lockScrollToFit(current); }).observe(root);
+    }
+    window.addEventListener('resize', () => lockScrollToFit(current));
 
     // Animate the current step out (when it's actually on screen) before
     // seating the next, so navigation reads as a directional slide.
@@ -227,13 +265,16 @@ export function initSolo(opts) {
     function buildNav() {
         navEl = document.createElement('div');
         navEl.className = 'fmr-solo-nav';
+        // OK comes FIRST in the DOM so tabbing out of an input lands on OK (the
+        // primary action), not Back. _solo.scss uses `order` to keep Back on the
+        // visual left and OK on the right.
         navEl.innerHTML =
-            '<button type="button" class="fmr-solo-back" aria-label="Go to previous question">'
-            + '<i class="fa fa-arrow-up" aria-hidden="true"></i> Back</button>'
-            + '<div class="fmr-solo-advance">'
+            '<div class="fmr-solo-advance">'
             + '<span class="fmr-solo-hint" aria-hidden="true"></span>'
             + '<button type="button" class="btn btn-primary fmr-solo-ok">OK <i class="fa fa-check" aria-hidden="true"></i></button>'
-            + '</div>';
+            + '</div>'
+            + '<button type="button" class="fmr-solo-back" aria-label="Go to previous question">'
+            + '<i class="fa fa-arrow-up" aria-hidden="true"></i> Back</button>';
         root.appendChild(navEl);
         backBtn = navEl.querySelector('.fmr-solo-back');
         okBtn = navEl.querySelector('.fmr-solo-ok');
@@ -249,6 +290,10 @@ export function initSolo(opts) {
             const adjust = () => {
                 const overlap = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
                 navEl.style.transform = overlap > 1 ? `translateY(${-overlap}px)` : '';
+                // Keyboard open → release the fit-lock so a focused input that the
+                // keyboard now covers can still be scrolled into view.
+                if (overlap > 1) document.documentElement.classList.remove('fmr-solo-locked');
+                else lockScrollToFit(current);
             };
             vv.addEventListener('resize', adjust);
             vv.addEventListener('scroll', adjust);
@@ -263,7 +308,7 @@ export function initSolo(opts) {
         // Keep it on the terminal step (explicit Submit) and on an already-
         // answered step reached via Back, so the participant can move on
         // without having to re-pick the same option.
-        const hideOk = autoAdvances(current) && !terminal && !hasSelection(current);
+        const hideOk = isRadioChoice(current) && !terminal && !hasSelection(current);
         okBtn.style.display = hideOk ? 'none' : '';
         okBtn.innerHTML = terminal
             ? 'Submit <i class="fa fa-paper-plane" aria-hidden="true"></i>'

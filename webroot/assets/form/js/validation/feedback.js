@@ -80,7 +80,16 @@ export function applyErrors(pageEl, errors) {
 // surfaced any inline errors (caller should bail).
 export function validatePageAndShowFeedback(pageEl) {
     pageEl.querySelectorAll('.fmr-invalid-feedback').forEach((el) => el.remove());
-    pageEl.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
+    // Reset stale validation state on BOTH descendants AND pageEl itself. In the
+    // solo layout `validate(current)` passes a single `.form-group` as pageEl, so
+    // any `is-invalid` / `fmr-has-client-error` (a within-pass dedup flag) that
+    // landed on that form-group survives `querySelectorAll` (descendants only)
+    // and, on the next attempt, makes the offenders loop `return` early before
+    // rendering feedback — i.e. an invalid required field silently blocks with no
+    // message on the 2nd OK. Clearing pageEl too closes that leak.
+    pageEl.classList.remove('is-invalid', 'fmr-has-client-error');
+    pageEl.querySelectorAll('.is-invalid, .fmr-has-client-error')
+        .forEach((el) => el.classList.remove('is-invalid', 'fmr-has-client-error'));
 
     const fields = Array.from(pageEl.querySelectorAll('input[name], select[name], textarea[name]'))
         .filter((el) => !el.disabled && !el.name.startsWith('_item_views'));
@@ -110,6 +119,16 @@ export function validatePageAndShowFeedback(pageEl) {
         const wrapper = el.closest('.form-group') || el.parentElement;
         if (wrapper && wrapper.classList.contains('fmr-has-client-error')) return;
         if (wrapper) wrapper.classList.add('fmr-has-client-error');
+
+        // A `block` item is a display-only guard (e.g. "you can't spend > $100")
+        // enforced by a hidden required checkbox that can't be ticked. Its own
+        // red message IS the explanation — don't append a misleading "please
+        // check this box". Still counts as an offender, so the submit is blocked.
+        if (wrapper && wrapper.classList.contains('item-block')) {
+            wrapper.classList.add('is-invalid');
+            if (!firstFocusTarget) firstFocusTarget = wrapper;
+            return;
+        }
 
         const btnGroup = wrapper && wrapper.querySelector('.btn-group');
         const isHiddenInput = el.type === 'hidden'
@@ -170,7 +189,7 @@ export function installFeedbackClearer(root) {
         const wrapper = e.target.closest('.form-group');
         if (!wrapper) return;
         wrapper.querySelectorAll('.fmr-invalid-feedback, .fmr-btn-feedback').forEach((el) => el.remove());
-        wrapper.classList.remove('is-invalid');
+        wrapper.classList.remove('is-invalid', 'fmr-has-client-error');
         wrapper.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
         if (e.target.dataset?.fmrServerValidity) {
             try { e.target.setCustomValidity(''); } catch {}
