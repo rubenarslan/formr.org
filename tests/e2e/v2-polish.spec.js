@@ -164,16 +164,22 @@ test.describe('v2-polish: floating Next on mobile', () => {
         expect(pos.bottom).toBe('0px');
     });
 
-    test('desktop (>=768px) keeps the page-nav inline', async ({ page, baseURL }) => {
+    test('desktop (>=768px) keeps the page-nav reachable (sticky)', async ({ page, baseURL }) => {
+        // Spec: Next/Submit must be reachable without hunting to the end of a
+        // long scrolling-mode page. The nav is now sticky to the bottom of the
+        // viewport on desktop (mobile uses the fixed-bottom rule tested above).
         await page.setViewportSize({ width: 1024, height: 768 });
         await freshParticipant(page, RUN(), { baseURL });
         await v2.waitForBundle(page);
         const pos = await page.evaluate(() => {
             const nav = document.querySelector('.fmr-form-v2 .fmr-page-nav');
-            return nav ? getComputedStyle(nav).position : null;
+            if (!nav) return null;
+            const cs = getComputedStyle(nav);
+            return { position: cs.position, bottom: cs.bottom };
         });
-        // Not pinned — either static or relative.
-        expect(['static', 'relative']).toContain(pos);
+        expect(pos).not.toBeNull();
+        expect(pos.position).toBe('sticky');
+        expect(pos.bottom).toBe('0px');
     });
 
 });
