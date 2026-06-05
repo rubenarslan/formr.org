@@ -30,6 +30,7 @@ export function initSolo(opts) {
     let transitioning = false;   // guards against double-advance mid-slide
     let submittingPage = false;  // guards against double page-submit at a boundary
     let maxPct = 0;              // progress bar is monotonic — see updateProgress
+    let preambleMoved = false;   // the above-form notice is moved into step 1 once
 
     // Letter-key badges (A·B·C…) are a per-study toggle (SurveyStudy.option_keys
     // → data-option-keys). When off, options render as a plain card list and the
@@ -115,6 +116,13 @@ export function initSolo(opts) {
     function hasSelection(el) {
         return !!el && !!el.querySelector('input[type=radio]:checked, input[type=checkbox]:checked');
     }
+    // A step whose first control is a real text field (the kind that needs a
+    // soft keyboard). Used for the iOS keyboard hand-off in onContinue.
+    function leadingTextField(el) {
+        return !!el && !!el.querySelector(
+            'input:not([type=hidden]):not([disabled]):not([type=radio]):not([type=checkbox]):not([type=range]):not([type=button]):not([type=submit]):not([type=reset]), textarea:not([disabled])'
+        );
+    }
     function hintFor(el) {
         if (!el) return '';
         // `block` items are display-only guards backed by a zero-size required
@@ -132,7 +140,11 @@ export function initSolo(opts) {
         }
         return '';
     }
-    function focusFirst(el) {
+    // `sync` focuses the field synchronously (in the caller's call stack) so an
+    // advancing tap/Enter can raise the iOS soft keyboard — iOS only opens the
+    // keyboard for a focus() that runs inside the user-gesture task. Otherwise
+    // (initial seat, auto-advance) focus is deferred as before.
+    function focusFirst(el, sync) {
         const f = el.querySelector(
             'input:not([type=hidden]):not([disabled]):not([type=radio]):not([type=checkbox]), textarea:not([disabled])'
         ) || el.querySelector('input[type=radio]:not([disabled]), input[type=checkbox]:not([disabled])');
@@ -144,16 +156,24 @@ export function initSolo(opts) {
         const visible = (f && f.getBoundingClientRect().height > 0)
             ? f
             : (el.querySelector('.controls-inner, .controls') || el);
-        if (f || visible) setTimeout(() => {
-            if (f) { try { f.focus({ preventScroll: true }); } catch (e) { /* noop */ } }
-            // When the step is scrollable (not fit-locked — e.g. a banner pushed
-            // a short-screen step partly below the fold), centre the control in
-            // the viewport so it lands clear of the fixed footer/nav instead of
-            // sitting under them. scroll-padding (in _solo.scss) keeps the
-            // clearance; on a fit-locked step this is a no-op (overflow:hidden).
+        // When the step is scrollable (not fit-locked — e.g. a banner pushed
+        // a short-screen step partly below the fold), centre the control in
+        // the viewport so it lands clear of the fixed footer/nav instead of
+        // sitting under them. scroll-padding (in _solo.scss) keeps the
+        // clearance; on a fit-locked step this is a no-op (overflow:hidden).
+        const reveal = () => {
             if (!document.documentElement.classList.contains('fmr-solo-locked')) {
                 try { visible.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (e) { /* noop */ }
             }
+        };
+        if (sync && f) {
+            try { f.focus({ preventScroll: true }); } catch (e) { /* noop */ }
+            setTimeout(reveal, 60);
+            return;
+        }
+        if (f || visible) setTimeout(() => {
+            if (f) { try { f.focus({ preventScroll: true }); } catch (e) { /* noop */ } }
+            reveal();
         }, 60);
     }
 
@@ -163,7 +183,9 @@ export function initSolo(opts) {
 
     // Seat `el` as the current step. `dir` ('forward' | 'back') picks the
     // entrance direction (forward rises from below, back drops from above).
-    function seat(el, dir) {
+    // `sync` (set when seating directly from a user gesture) focuses the field
+    // synchronously so iOS raises the keyboard — see focusFirst.
+    function seat(el, dir, sync) {
         clearTimeout(advanceTimer); // cancel a pending auto-advance so a manual OK can't double-advance
         root.querySelectorAll('.form-group.fmr-solo-current').forEach((g) => {
             g.classList.remove('fmr-solo-current');
@@ -180,7 +202,7 @@ export function initSolo(opts) {
         updateProgress();
         lockScrollToFit(el);
         try { window.scrollTo({ top: 0 }); } catch (e) { /* noop */ }
-        focusFirst(el);
+        focusFirst(el, sync);
         transitioning = false;
     }
 
@@ -239,12 +261,21 @@ export function initSolo(opts) {
             seat(el, dir);
         }
     }
-    function onContinue() {
+    function onContinue(userGesture) {
         if (transitioning || submittingPage) return;
         const pageEl = pages[getCurrentIndex()];
         const nxt = nextStep(current);
         if (nxt) {
             if (current && !validate(current)) return;   // validate just this step
+            // iOS keyboard hand-off: when a real tap/Enter advances to a
+            // text-field step, seat it synchronously so we can focus the field
+            // inside this gesture (the keyboard rises like tabbing to the next
+            // field). Costs the slide animation on those transitions — a fair
+            // trade for not making the participant tap the field separately.
+            if (userGesture && leadingTextField(nxt)) {
+                seat(nxt, 'forward', true);
+                return;
+            }
             goTo(nxt, 'forward');
             return;
         }
@@ -293,8 +324,26 @@ export function initSolo(opts) {
         const dir = pendingGoLast ? 'back' : 'forward';
         if (!s.length) { current = null; updateNav(); updateProgress(); return; }
         const target = pendingGoLast ? s[s.length - 1] : s[0];
+        // Move the above-form notice into the first step the participant sees,
+        // once. In flow it sits above EVERY step (it's rendered before <form>),
+        // pushing each one down and making a step that fits the viewport
+        // scrollable — the reported "select screen scrolls though it fits" bug.
+        if (!preambleMoved) { relocatePreamble(s[0]); preambleMoved = true; }
         pendingGoLast = false;
         goTo(target, dir);
+    }
+
+    // Solo shows one item per screen; the v2 "unverified types" heads-up is
+    // rendered above the <form> (FormRenderer line ~339), so as a flow sibling
+    // it would push every step down. Move it into the first step so it shares
+    // that one screen and adds no scroll height to the rest.
+    function relocatePreamble(firstStepEl) {
+        if (!firstStepEl) return;
+        const notice = document.querySelector('.fmr-unverified-types');
+        if (notice && !firstStepEl.contains(notice)) {
+            notice.classList.add('fmr-solo-preamble');
+            firstStepEl.insertBefore(notice, firstStepEl.firstChild);
+        }
     }
 
     // --- chrome (nav footer + progress) -------------------------------------
@@ -316,7 +365,7 @@ export function initSolo(opts) {
         okBtn = navEl.querySelector('.fmr-solo-ok');
         hintEl = navEl.querySelector('.fmr-solo-hint');
         backBtn.addEventListener('click', (e) => { e.preventDefault(); onBack(); });
-        okBtn.addEventListener('click', (e) => { e.preventDefault(); onContinue(); });
+        okBtn.addEventListener('click', (e) => { e.preventDefault(); onContinue(true); });
 
         // Mobile: when the soft keyboard opens, the layout viewport doesn't
         // shrink on iOS, so a `bottom:0` bar ends up behind the keyboard. Lift
@@ -427,13 +476,13 @@ export function initSolo(opts) {
         if (e.key === 'Enter') {
             if (transitioning) { e.preventDefault(); return; }
             if (t.tagName === 'TEXTAREA') {
-                if (e.ctrlKey || e.metaKey) { e.preventDefault(); onContinue(); }
+                if (e.ctrlKey || e.metaKey) { e.preventDefault(); onContinue(true); }
                 return;
             }
             if (t.closest && t.closest('.ts-wrapper')) return;
             if (t.tagName === 'BUTTON') return;   // the button activates itself
             e.preventDefault();
-            onContinue();
+            onContinue(true);
             return;
         }
 
@@ -446,7 +495,7 @@ export function initSolo(opts) {
             && !(t.tagName === 'INPUT' && (t.type === 'radio' || t.type === 'checkbox'))
             && !pageScrollable()) {
             e.preventDefault();
-            if (e.key === 'ArrowDown') onContinue(); else onBack();
+            if (e.key === 'ArrowDown') onContinue(true); else onBack();
         }
     });
 

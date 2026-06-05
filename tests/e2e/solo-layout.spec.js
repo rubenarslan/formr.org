@@ -311,6 +311,77 @@ test.describe('solo-layout: solo mode', () => {
         expect(visited.length, 'expected to walk several solo steps').toBeGreaterThan(2);
     });
 
+    // Regression: the v2 "unverified types" heads-up is rendered above the
+    // <form>, so in flow it sat above EVERY step, pushing each one down ~190px
+    // and making a step that fits the viewport scrollable (reported as "select
+    // screens scroll though everything fits"). The controller now moves it into
+    // the first step; later steps must start at the top with no phantom scroll.
+    test('above-form notice does not push later steps (no phantom scroll) @375x667', async ({ page, baseURL }) => {
+        await page.setViewportSize(SHORT);
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        // step off the first step (which legitimately holds the relocated notice)
+        await walkSolo(page, { maxSteps: 2, settle: 800, onStep: async () => {} });
+        await page.waitForTimeout(300);
+        const m = await page.evaluate(() => {
+            const cur = document.querySelector('.fmr-solo-current');
+            const absTop = (el) => { let t = 0; for (let n = el; n; n = n.offsetParent) t += n.offsetTop; return t; };
+            const de = document.documentElement;
+            const notice = document.querySelector('.fmr-unverified-types');
+            return {
+                stepAbsTop: Math.round(absTop(cur)),
+                scrollBy: Math.round(de.scrollHeight - window.innerHeight),
+                locked: de.classList.contains('fmr-solo-locked'),
+                noticeAbove: notice ? absTop(notice) < absTop(cur) - 1 : false,
+            };
+        });
+        expect(m.noticeAbove, 'the notice must not sit above a later step').toBe(false);
+        expect(m.stepAbsTop, 'a later step should start at the top (nothing above it)').toBeLessThanOrEqual(8);
+        // a later step that fits should lock (no phantom scroll); if it genuinely
+        // overflows it may stay scrollable, so only assert the no-banner-push.
+    });
+
+    // Regression for the iOS keyboard hand-off (the "cue OK as a tab-to-next"
+    // idea): advancing via the OK button to a text-field step must seat that
+    // step and focus its field SYNCHRONOUSLY inside the click handler — that is
+    // the only thing iOS accepts as the user gesture that raises the keyboard.
+    // Verified structurally (no real keyboard needed): focus lands in the same
+    // tick as the click. The real-device delta is checked in solo-real-device.
+    test('OK on a text step focuses the next text field synchronously (iOS keyboard hand-off)', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        const r = await page.evaluate(async () => {
+            const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+            const typeOf = (g) => (g ? (g.className.match(/item-[a-z_0-9]+/) || ['?'])[0] : null);
+            const isText = (g) => !!(g && g.querySelector('input[type=text],input[type=email],input[type=number],input[type=url],input[type=tel],textarea'));
+            const advance = () => {
+                const cur = document.querySelector('.fmr-solo-current');
+                const single = typeOf(cur) === 'item-mc' && cur.querySelector('input[type=radio]:not([disabled])') && !cur.querySelector('input[type=checkbox],select,textarea');
+                if (single) { (cur.querySelector('.mc-table > label') || cur.querySelector('input[type=radio]')).click(); return; }
+                const inp = cur.querySelector('input:not([type=hidden]):not([disabled]),textarea');
+                if (inp) { const t = (inp.type || inp.tagName).toLowerCase(); if (['text', 'number', 'email', 'url', 'tel', 'search', 'textarea'].includes(t)) { inp.value = inp.value || 'x'; inp.dispatchEvent(new Event('input', { bubbles: true })); } }
+                const ok = document.querySelector('.fmr-solo-ok'); if (ok) ok.click();
+            };
+            for (let i = 0; i < 14; i++) {
+                const cur = document.querySelector('.fmr-solo-current');
+                if (isText(cur)) {
+                    const inp = cur.querySelector('input:not([type=hidden]):not([disabled]),textarea');
+                    if (inp) { const t = (inp.type || inp.tagName).toLowerCase(); inp.value = t === 'email' ? 'a@b.co' : (t === 'url' ? 'https://x.co' : (t === 'number' ? '3' : 'x')); inp.dispatchEvent(new Event('input', { bubbles: true })); }
+                    document.querySelector('.fmr-solo-ok').click();      // user-gesture path
+                    const ae = document.activeElement;                   // SYNCHRONOUS read
+                    const next = document.querySelector('.fmr-solo-current');
+                    return { advancedSync: next !== cur, nextIsText: isText(next), activeInNext: !!(next && ae && next.contains(ae)) };
+                }
+                advance(); await sleep(550);
+            }
+            return { reached: false };
+        });
+        expect(r.advancedSync, 'OK should seat the next step synchronously').toBe(true);
+        if (r.nextIsText) {
+            expect(r.activeInNext, 'next text field must be focused in the same tick as the OK click').toBe(true);
+        }
+    });
+
 });
 
 test.describe('solo-layout: admin round-trip', () => {
