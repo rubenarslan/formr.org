@@ -184,6 +184,7 @@ Migrating a study from `Survey` to `Form`:
 
 ## See also
 
+- `documentation/agent_doc/form_v2_layout_modes.md` — design notes for the two layouts (default/scrolling, solo/paged): the step controller, autosave/throttle/bfcache guard, group a11y, per-response layout paradata, spec alignment, and the v1-vs-solo trade-offs.
 - `plan_form_v2.md` — the engineering-side plan: phase status, remaining work, deferred designs.
 - `CLAUDE.md` → "form_v2 development notes" — day-to-day dev gotchas (DOM specificity, BS3↔BS5 coexistence, PHP `$_POST` semantics, etc.).
 - `bin/form_v2_compat_scan.php` — CLI source for the compatibility scanner (`application/Spreadsheet/FormV2CompatScanner.php`).
