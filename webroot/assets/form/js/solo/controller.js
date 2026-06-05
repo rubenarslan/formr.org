@@ -193,7 +193,12 @@ export function initSolo(opts) {
         current = el;
         el.classList.add('fmr-solo-current');
         clearAnim(el);
-        if (!reduceMotion) {
+        // Skip the entrance translate on a synchronous (keyboard-hand-off) seat:
+        // the field is focused in the same tick and iOS raises the keyboard, so
+        // a translateY(26px→0) slide would make the input visibly jump up as the
+        // keyboard appears. A stationary field is the right call there; the slide
+        // stays for every normal advance.
+        if (!reduceMotion && !sync) {
             void el.offsetWidth;   // restart the animation
             el.classList.add(dir === 'back' ? 'fmr-solo-enter-down' : 'fmr-solo-enter-up');
         }

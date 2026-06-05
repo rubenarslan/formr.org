@@ -83,6 +83,27 @@ Seven participant-reported solo bugs, all fixed and e2e-covered:
    message is the explanation; also suppressed the misfiring "Choose all that
    apply" hint and contained the full-bleed `alert-danger` into a centred card.
 
+### iOS keyboard hand-off on OK
+
+iOS only raises the soft keyboard for a `focus()` that runs **inside the
+user-gesture task**. The controller used to focus inside two nested
+`setTimeout`s (the 150ms slide + 60ms), so tapping OK never raised the keyboard
+for the next field — the participant had to tap the field too. Now a tap/Enter
+that advances to a **text-field step** seats it *synchronously* and focuses the
+field in the gesture (`onContinue(userGesture) → seat(el, dir, sync=true) →
+focusFirst(el, sync)`), so the keyboard rises like tabbing to the next field.
+
+Two consequences that bit us:
+- The sync seat **skips the entrance `translateY(26px→0)` animation** — otherwise
+  the field slid up *as the keyboard rose*, which read as "the input jumps when I
+  type into it" (confirmed on a real iPhone: 26px → fixed to 0px). The slide
+  stays for every normal (non-keyboard) advance.
+- **BrowserStack Automate can't drive the soft keyboard** (the visual viewport
+  never shrinks, typed text never enters), so keyboard-rise / during-typing
+  behavior must be verified on a physical device; automation can only check the
+  keyboard-independent parts (the entrance-jump regression, focus-in-gesture,
+  geometry). See the BS iOS quirks memory.
+
 ## Default (scrolling) layout
 
 - **Top-aligned labels, single column** (`form.scss .form-group.form-row` →

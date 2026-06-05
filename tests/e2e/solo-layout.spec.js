@@ -376,6 +376,53 @@ test.describe('solo-layout: solo mode', () => {
         }
     });
 
+    // Regression for the "inputs jump when I type" report (confirmed on real
+    // iOS): the keyboard-hand-off seat focuses the field synchronously, but the
+    // entrance animation also slid it translateY(26px→0) — so the input visibly
+    // jumped up as the keyboard rose. The sync seat now skips the entrance
+    // translate; the focused field must be stationary. (Animation is CSS, so
+    // this reproduces on local Chromium without a real keyboard.)
+    test('OK into a text step does not slide the focused field (no entrance jump)', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        const r = await page.evaluate(async () => {
+            const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+            const typeOf = (g) => (g ? (g.className.match(/item-[a-z_0-9]+/) || ['?'])[0] : null);
+            const isText = (g) => !!(g && g.querySelector('input[type=text],input[type=email],input[type=number],input[type=url],input[type=tel],textarea'));
+            const advance = () => {
+                const cur = document.querySelector('.fmr-solo-current');
+                const single = typeOf(cur) === 'item-mc' && cur.querySelector('input[type=radio]:not([disabled])') && !cur.querySelector('input[type=checkbox],select,textarea');
+                if (single) { (cur.querySelector('.mc-table > label') || cur.querySelector('input[type=radio]')).click(); return; }
+                const inp = cur.querySelector('input:not([type=hidden]):not([disabled]),textarea');
+                if (inp) { const t = (inp.type || inp.tagName).toLowerCase(); if (['text', 'number', 'email', 'url', 'tel', 'search', 'textarea'].includes(t)) { inp.value = inp.value || 'x'; inp.dispatchEvent(new Event('input', { bubbles: true })); } }
+                const ok = document.querySelector('.fmr-solo-ok'); if (ok) ok.click();
+            };
+            for (let i = 0; i < 14; i++) {
+                const cur = document.querySelector('.fmr-solo-current');
+                if (isText(cur)) {
+                    const inp = cur.querySelector('input:not([type=hidden]):not([disabled]),textarea');
+                    if (inp) { const t = (inp.type || inp.tagName).toLowerCase(); inp.value = t === 'email' ? 'a@b.co' : (t === 'url' ? 'https://x.co' : (t === 'number' ? '3' : 'x')); inp.dispatchEvent(new Event('input', { bubbles: true })); }
+                    document.querySelector('.fmr-solo-ok').click();          // sync keyboard-hand-off seat
+                    const seated = document.querySelector('.fmr-solo-current');
+                    if (!seated || !isText(seated)) return { applicable: false };
+                    const tops = [];
+                    for (let k = 0; k <= 8; k++) {
+                        const ae = document.activeElement;
+                        const rect = ae && ae.getBoundingClientRect ? ae.getBoundingClientRect() : null;
+                        if (rect) tops.push(Math.round(rect.top));
+                        await sleep(50);                                     // span the 300ms entrance window
+                    }
+                    return { applicable: true, range: tops.length ? Math.max(...tops) - Math.min(...tops) : 0, tops };
+                }
+                advance(); await sleep(550);
+            }
+            return { applicable: false };
+        });
+        if (r.applicable) {
+            expect(r.range, `focused field slid ${r.range}px during the keyboard hand-off (must be stationary): ${JSON.stringify(r.tops)}`).toBeLessThanOrEqual(4);
+        }
+    });
+
 });
 
 test.describe('solo-layout: admin round-trip', () => {
