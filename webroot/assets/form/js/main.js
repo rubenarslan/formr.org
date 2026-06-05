@@ -1670,6 +1670,12 @@ function initForm() {
         wipeQueue().catch(() => {});
     });
 
+    // Test hook: exercise the real bundled page validator deterministically
+    // (used by e2e to assert e.g. that a required, untouched visual_analog_scale
+    // is blocked client-side, without needing a dedicated required-VAS run).
+    // Harmless in prod — it's the same function the submit/solo paths call.
+    window.fmrValidatePage = validatePageAndShowFeedback;
+
     // Test-side signal that initForm finished — every listener is attached,
     // every item's init has run. Without this, real-device tests race the
     // bundle: the submit handler attaches LATE in initForm so a click on

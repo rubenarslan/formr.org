@@ -301,4 +301,45 @@ test.describe('form_v2 spec: visual analog scale has no visible default', () => 
         expect(r.hiddenEmpty, 'the submitted value is empty until the participant moves the slider').toBe(true);
     });
 
+    // A required VAS owns its value in a hidden input (barred from native
+    // constraint validation), so without explicit handling the v2 client lets an
+    // untouched required VAS advance and only the server rejects it. Assert the
+    // real bundled validator (window.fmrValidatePage) blocks it with an inline
+    // message and that moving the slider clears the block. Uses the in-document
+    // VAS (the fixture's is optional, so we mark it required for the check).
+    test('a required, untouched VAS is blocked client-side; touching it clears the block', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        const r = await page.evaluate(async () => {
+            const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+            const grp = document.querySelector('.item-visual_analog_scale');
+            if (!grp || typeof window.fmrValidatePage !== 'function') return { present: false };
+            // make the group visible + required + untouched
+            const sec = grp.closest('.fmr-page'); if (sec) sec.removeAttribute('hidden');
+            grp.classList.add('fmr-solo-current');             // harmless in default layout
+            document.documentElement.classList.remove('fmr-solo-locked');
+            const wrap = grp.querySelector('.vas-controls');
+            const hidden = wrap.querySelector('input[type=hidden]');
+            grp.classList.remove('optional'); grp.classList.add('required');
+            hidden.value = ''; wrap.classList.remove('vas-touched');
+
+            const blockedUntouched = window.fmrValidatePage(grp) === false;
+            const messageShown = !!grp.querySelector('.fmr-vas-feedback');
+
+            const disp = grp.querySelector('.vas-display');
+            disp.value = 42; disp.dispatchEvent(new Event('input', { bubbles: true }));
+            await sleep(60);
+            const passesAfterTouch = window.fmrValidatePage(grp) === true;
+            const messageCleared = !grp.querySelector('.fmr-vas-feedback');
+            return { present: true, visible: grp.offsetParent !== null, blockedUntouched, messageShown, touched: wrap.classList.contains('vas-touched'), passesAfterTouch, messageCleared };
+        });
+        test.skip(!r.present, 'fixture has no visual_analog_scale item or no validate hook');
+        expect(r.visible, 'group must be displayed for the gate to apply').toBe(true);
+        expect(r.blockedUntouched, 'untouched required VAS must block submit client-side').toBe(true);
+        expect(r.messageShown, 'an inline "choose a point" message is surfaced').toBe(true);
+        expect(r.touched, 'moving the slider marks the VAS touched').toBe(true);
+        expect(r.passesAfterTouch, 'once touched, the VAS no longer blocks').toBe(true);
+        expect(r.messageCleared, 'the inline message clears once touched').toBe(true);
+    });
+
 });

@@ -112,7 +112,18 @@ export function validatePageAndShowFeedback(pageEl) {
             && g.classList.contains('required')
             && !g.classList.contains('hidden') && g.offsetParent !== null);
 
-    if (offenders.length === 0 && botOffenders.length === 0) return true;
+    // VAS gate: a visual_analog_scale owns its form value in a hidden input
+    // (willValidate === false → skipped above) that stays empty until the
+    // participant moves the slider (wrapper gains `.vas-touched`). Without this
+    // the untouched required VAS slips past the client and is only caught by the
+    // server. Skip optional ones and any inside a showif-hidden group.
+    const vasOffenders = Array.from(pageEl.querySelectorAll('.vas-controls:not(.vas-touched)'))
+        .map((w) => w.closest('.form-group'))
+        .filter((g, i, a) => g && a.indexOf(g) === i
+            && g.classList.contains('required')
+            && !g.classList.contains('hidden') && g.offsetParent !== null);
+
+    if (offenders.length === 0 && botOffenders.length === 0 && vasOffenders.length === 0) return true;
 
     let firstFocusTarget = null;
     offenders.forEach((el) => {
@@ -173,6 +184,18 @@ export function validatePageAndShowFeedback(pageEl) {
             (g.querySelector('.fmr-botcheck') || g).appendChild(fb);
         }
         if (!firstFocusTarget) firstFocusTarget = g.querySelector('.fmr-botcheck-box') || g;
+    });
+
+    vasOffenders.forEach((g) => {
+        g.classList.add('is-invalid');
+        const wrap = g.querySelector('.vas-controls');
+        if (wrap && !wrap.parentElement.querySelector('.fmr-vas-feedback')) {
+            const fb = document.createElement('div');
+            fb.className = 'invalid-feedback fmr-invalid-feedback fmr-vas-feedback d-block';
+            fb.textContent = 'Please choose a point on the scale to continue.';
+            wrap.insertAdjacentElement('afterend', fb);
+        }
+        if (!firstFocusTarget) firstFocusTarget = (wrap && wrap.querySelector('.vas-display')) || g;
     });
 
     if (firstFocusTarget) {

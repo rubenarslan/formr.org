@@ -348,36 +348,42 @@
     // it (the wrapper gains `.vas-touched`) — now the hide actually applies.
     // Scoped to .vas-display so ordinary Range / range_ticks sliders are
     // untouched.
+    // The thumb is a thick vertical "pencil mark", not a circle — closer to the
+    // paper VAS the participant is used to. Centring is exact: the thumb height
+    // equals the track height so margin-top is 0 (no fragile fractional offset,
+    // which is what tilted the circle upward). WebKit draws the line as the
+    // input's gradient background showing through a transparent runnable-track;
+    // Firefox draws it on ::-moz-range-track and centres the thumb itself.
+    $vas-h: 1.6rem;
     .vas-controls input[type="range"].vas-display {
         -webkit-appearance: none;
         appearance: none;
-        height: 6px;
-        border-radius: 3px;
-        background: var(--bs-border-color, #ced4da);
+        height: $vas-h;
         cursor: pointer;
+        background: linear-gradient(var(--bs-border-color, #ced4da), var(--bs-border-color, #ced4da)) center / 100% 3px no-repeat;
 
+        &::-webkit-slider-runnable-track { height: $vas-h; background: transparent; border: 0; }
         &::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 1.4rem;
-            height: 1.4rem;
-            margin-top: -0.55rem;          // centre the thumb on the 6px track
-            border-radius: 50%;
-            background: var(--bs-primary, #0d6efd);
-            border: 2px solid var(--bs-body-bg, #fff);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            width: 4px;
+            height: $vas-h;
+            margin-top: 0;                 // thumb height == track height → centred
+            border-radius: 1px;
+            background: var(--bs-body-color, #212529);
+            border: 0;
+            box-shadow: none;
             cursor: pointer;
         }
+        &::-moz-range-track { height: 3px; border-radius: 2px; background: var(--bs-border-color, #ced4da); }
         &::-moz-range-thumb {
-            width: 1.4rem;
-            height: 1.4rem;
-            border-radius: 50%;
-            background: var(--bs-primary, #0d6efd);
-            border: 2px solid var(--bs-body-bg, #fff);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            width: 4px;
+            height: $vas-h;
+            border-radius: 1px;
+            background: var(--bs-body-color, #212529);
+            border: 0;
             cursor: pointer;
         }
-        &::-moz-range-track { height: 6px; border-radius: 3px; background: var(--bs-border-color, #ced4da); }
     }
     // Hidden until touched — effective now the control is appearance:none.
     .vas-controls:not(.vas-touched) input[type="range"].vas-display {
