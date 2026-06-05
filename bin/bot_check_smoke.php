@@ -46,8 +46,15 @@ $check('lowered difficulty rejected (sig)', BotCheckChallenge::verify(json_encod
 $badSig = $tok; $badSig['sig'] = str_repeat('0', 64);
 $check('forged sig rejected', BotCheckChallenge::verify(json_encode($badSig)), false);
 
-$tooFast = $tok; $tooFast['el'] = 10;
-$check('too-fast solve rejected', BotCheckChallenge::verify(json_encode($tooFast)), false);
+// A fast PoW solve must be ACCEPTED: `el` is client-reported (a real bot just
+// claims a large value) and diff-15 legitimately finishes in tens of ms on
+// modern hardware, so gating on it only blocked honest fast clients ("verified
+// but can't proceed"). The signed PoW is the real proof; a forged nonce is
+// still rejected above.
+$fastSolve = $tok; $fastSolve['el'] = 10;
+$check('fast solve accepted (el not gated)', BotCheckChallenge::verify(json_encode($fastSolve)), true);
+$noEl = $tok; unset($noEl['el']);
+$check('missing el accepted', BotCheckChallenge::verify(json_encode($noEl)), true);
 
 $hp = $tok; $hp['hp'] = 'spam';
 $check('honeypot filled rejected', BotCheckChallenge::verify(json_encode($hp)), false);

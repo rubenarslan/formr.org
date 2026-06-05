@@ -11,8 +11,8 @@
  *   mint()   — issued at render time; an HMAC-signed {iat, salt, diff} bound to
  *              the current participant (user_code). Embedded in the widget.
  *   verify() — recomputes the signature (so iat/salt/diff can't be tampered or
- *              the difficulty lowered), checks the PoW solution, a honeypot and
- *              a minimum solve time. Stateless: the signature binds the token to
+ *              the difficulty lowered), checks the PoW solution and a honeypot.
+ *              Stateless: the signature binds the token to
  *              the session, so a harvested token is worthless for another
  *              participant and a direct-POST bot can't forge one at all.
  *
@@ -24,7 +24,6 @@
 class BotCheckChallenge {
 
     const TTL = 1800;        // a minted challenge is valid for 30 minutes
-    const MIN_SOLVE_MS = 200; // anything faster than this is almost certainly scripted
     const DEFAULT_DIFFICULTY = 15; // leading zero bits (~32k SHA-256 tries)
     const MIN_DIFFICULTY = 10;
     const MAX_DIFFICULTY = 22;
@@ -92,7 +91,7 @@ class BotCheckChallenge {
 
     /**
      * Verify a client token (the JSON the widget writes into the hidden input).
-     * Returns true only if the signature, PoW, honeypot and timing all pass.
+     * Returns true only if the signature, PoW and honeypot all pass.
      */
     public static function verify($token) {
         if (self::secret() === null) {
@@ -114,9 +113,16 @@ class BotCheckChallenge {
         // Freshness.
         $age = time() - $iat;
         if ($age < -120 || $age > self::TTL) return false;
-        // Honeypot must be empty; solve time must be plausible.
+        // Honeypot must be empty.
         if (!empty($t['hp'])) return false;
-        if (isset($t['el']) && (int) $t['el'] < self::MIN_SOLVE_MS) return false;
+        // NOTE: we deliberately do NOT gate on a minimum solve time. The client
+        // reports `el` (PoW wall-time), but (1) it's client-supplied so a real
+        // bot just claims a large value, and (2) the PoW solve time is highly
+        // variable — diff-15 legitimately finishes in tens of ms on modern
+        // hardware (~40%+ of honest solves came in under 200ms in testing), so
+        // any floor false-positives real participants ("verified but can't
+        // proceed"). The signed PoW + freshness + isTrusted gate are the real
+        // deterrents; the timing added no bot signal, only honest-user blocks.
         // Proof of work: SHA-256(salt . nonce) has >= diff leading zero bits.
         if (!preg_match('/^[A-Za-z0-9_-]{1,64}$/', (string) $t['nonce'])) return false;
         $digest = hash('sha256', $salt . (string) $t['nonce'], true);
