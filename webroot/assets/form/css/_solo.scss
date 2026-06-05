@@ -387,7 +387,9 @@ body:has(.fmr-form-v2[data-layout="solo"]) .container-fluid > p {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 4rem;
+    // Sit clear of the fixed Back/OK nav (~4.5rem tall + safe-area) — at the old
+    // 4rem the footer text overlapped the nav buttons on short screens.
+    bottom: calc(5.25rem + env(safe-area-inset-bottom));
     z-index: 80;
     margin: 0;
     padding: 0 1rem;
@@ -406,3 +408,11 @@ body:has(.fmr-form-v2[data-layout="solo"]) .container-fluid > p a { pointer-even
 // genuinely tall steps (e.g. note/plot) and while the mobile keyboard is open.
 html.fmr-solo-locked,
 html.fmr-solo-locked body { overflow: hidden; }
+
+// scrollIntoView (focusFirst on seat; validation focus) must leave the fixed
+// progress (top) and the Back/OK nav + footer (bottom) clear, so a centred /
+// "nearest" scroll never tucks a control under them.
+html:has(.fmr-form-v2[data-layout="solo"]) {
+    scroll-padding-top: 5.5rem;
+    scroll-padding-bottom: calc(7.5rem + env(safe-area-inset-bottom));
+}

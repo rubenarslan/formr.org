@@ -136,7 +136,25 @@ export function initSolo(opts) {
         const f = el.querySelector(
             'input:not([type=hidden]):not([disabled]):not([type=radio]):not([type=checkbox]), textarea:not([disabled])'
         ) || el.querySelector('input[type=radio]:not([disabled]), input[type=checkbox]:not([disabled])');
-        if (f) setTimeout(() => { try { f.focus({ preventScroll: true }); } catch (e) { /* noop */ } }, 60);
+        // What to scroll into view: the focusable IF it's actually visible;
+        // otherwise the visible control area (button-group / card items hide the
+        // real radio and show .btn proxies — centring the hidden input would
+        // leave the visible buttons under the chrome). Fall back to the controls
+        // block, then the step.
+        const visible = (f && f.getBoundingClientRect().height > 0)
+            ? f
+            : (el.querySelector('.controls-inner, .controls') || el);
+        if (f || visible) setTimeout(() => {
+            if (f) { try { f.focus({ preventScroll: true }); } catch (e) { /* noop */ } }
+            // When the step is scrollable (not fit-locked — e.g. a banner pushed
+            // a short-screen step partly below the fold), centre the control in
+            // the viewport so it lands clear of the fixed footer/nav instead of
+            // sitting under them. scroll-padding (in _solo.scss) keeps the
+            // clearance; on a fit-locked step this is a no-op (overflow:hidden).
+            if (!document.documentElement.classList.contains('fmr-solo-locked')) {
+                try { visible.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (e) { /* noop */ }
+            }
+        }, 60);
     }
 
     // --- navigation ----------------------------------------------------------
@@ -175,7 +193,24 @@ export function initSolo(opts) {
     // overflow is clipped, no phantom scrollbar); if it genuinely overflows
     // (e.g. a tall note/plot), leave scrolling enabled.
     function lockScrollToFit(el) {
-        const fits = !el || el.offsetHeight <= window.innerHeight + 2;
+        // Lock ONLY when the whole document fits the actually-visible area — so
+        // the entrance animation's transient translateY can't wheel-bounce, but
+        // content is NEVER trapped. Two corrections over the naive
+        // "offsetHeight <= innerHeight":
+        //   - measure against window.visualViewport.height: on iOS the URL/
+        //     toolbar (and the keyboard) shrink the visible area below
+        //     innerHeight, so innerHeight over-reports the room.
+        //   - add in-flow chrome ABOVE the step (the audio/video "unverified"
+        //     banner, the validation summary) via the step's document offsetTop.
+        //     offsetTop/offsetHeight ignore transforms, so this stays correct
+        //     during the entrance animation (unlike scrollHeight).
+        // When a banner pushes a "fitting" step partly below the fold, the doc
+        // no longer fits → we DON'T lock → the participant can scroll the input
+        // out from under the fixed footer/nav. (This was the iOS overlap bug.)
+        const usable = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+        let top = 0;
+        for (let n = el; n; n = n.offsetParent) top += n.offsetTop;
+        const fits = !el || (top + el.offsetHeight) <= usable + 2;
         document.documentElement.classList.toggle('fmr-solo-locked', fits);
     }
     // The seat-time measurement misses content that grows *after* seating —
