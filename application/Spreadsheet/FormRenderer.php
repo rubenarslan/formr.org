@@ -491,8 +491,15 @@ class FormRenderer extends SpreadsheetRenderer {
      * cheaper than missing real-world UX bugs because nobody saw the banner.
      * Not a hard gate: the items still render and submit through the normal
      * v1-inherited pipeline.
+     *
+     * Omitted in the solo (one-item-per-screen) layout: it's an author-facing
+     * dev hint with nowhere to sit there without either pushing every step
+     * down or eating the participant's first screen.
      */
     protected function renderUnverifiedTypesNotice() {
+        if (($this->study->layout ?? 'default') === 'solo') {
+            return '';
+        }
         $present = [];
         foreach ($this->renderedItems as $item) {
             if (!isset($item->type)) continue;

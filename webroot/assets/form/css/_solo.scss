@@ -283,18 +283,6 @@
         }
     }
 
-    // The v2 "unverified types" heads-up, relocated by the controller into the
-    // first step (so it no longer sits above EVERY step pushing each one down
-    // and making a fitting step scrollable). Keep it compact and above the
-    // question rather than full-bleed and centred with it.
-    .fmr-solo-current .fmr-solo-preamble {
-        flex: 0 0 auto;
-        margin: 0 0 1.5rem;
-        padding: 0.6rem 0.9rem;
-        font-size: 0.85rem;
-        line-height: 1.4;
-    }
-
     // Single checkbox (check): make the toggle comfortably tappable.
     .fmr-solo-current.item-check .checkbox input[type=checkbox] { width: 1.4rem; height: 1.4rem; }
 

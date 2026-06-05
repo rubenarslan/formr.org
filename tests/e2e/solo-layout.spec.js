@@ -314,31 +314,25 @@ test.describe('solo-layout: solo mode', () => {
     // Regression: the v2 "unverified types" heads-up is rendered above the
     // <form>, so in flow it sat above EVERY step, pushing each one down ~190px
     // and making a step that fits the viewport scrollable (reported as "select
-    // screens scroll though everything fits"). The controller now moves it into
-    // the first step; later steps must start at the top with no phantom scroll.
-    test('above-form notice does not push later steps (no phantom scroll) @375x667', async ({ page, baseURL }) => {
+    // screens scroll though everything fits"). It's now suppressed entirely in
+    // solo (FormRenderer::renderUnverifiedTypesNotice) — an author-facing dev
+    // hint with nowhere to sit in a one-item-per-screen layout. So in solo the
+    // notice must not exist at all, and the first step starts at the top.
+    test('unverified-types notice is suppressed in solo (no phantom scroll) @375x667', async ({ page, baseURL }) => {
         await page.setViewportSize(SHORT);
         await freshParticipant(page, RUN(), { baseURL });
         await v2.waitForBundle(page);
-        // step off the first step (which legitimately holds the relocated notice)
-        await walkSolo(page, { maxSteps: 2, settle: 800, onStep: async () => {} });
         await page.waitForTimeout(300);
         const m = await page.evaluate(() => {
             const cur = document.querySelector('.fmr-solo-current');
             const absTop = (el) => { let t = 0; for (let n = el; n; n = n.offsetParent) t += n.offsetTop; return t; };
-            const de = document.documentElement;
-            const notice = document.querySelector('.fmr-unverified-types');
             return {
-                stepAbsTop: Math.round(absTop(cur)),
-                scrollBy: Math.round(de.scrollHeight - window.innerHeight),
-                locked: de.classList.contains('fmr-solo-locked'),
-                noticeAbove: notice ? absTop(notice) < absTop(cur) - 1 : false,
+                noticePresent: !!document.querySelector('.fmr-unverified-types'),
+                firstStepAbsTop: Math.round(absTop(cur)),
             };
         });
-        expect(m.noticeAbove, 'the notice must not sit above a later step').toBe(false);
-        expect(m.stepAbsTop, 'a later step should start at the top (nothing above it)').toBeLessThanOrEqual(8);
-        // a later step that fits should lock (no phantom scroll); if it genuinely
-        // overflows it may stay scrollable, so only assert the no-banner-push.
+        expect(m.noticePresent, 'the heads-up notice must not render in solo').toBe(false);
+        expect(m.firstStepAbsTop, 'the first step should start at the top (nothing above it)').toBeLessThanOrEqual(8);
     });
 
     // Regression for the iOS keyboard hand-off (the "cue OK as a tab-to-next"

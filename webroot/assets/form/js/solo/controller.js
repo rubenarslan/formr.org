@@ -30,7 +30,6 @@ export function initSolo(opts) {
     let transitioning = false;   // guards against double-advance mid-slide
     let submittingPage = false;  // guards against double page-submit at a boundary
     let maxPct = 0;              // progress bar is monotonic — see updateProgress
-    let preambleMoved = false;   // the above-form notice is moved into step 1 once
 
     // Letter-key badges (A·B·C…) are a per-study toggle (SurveyStudy.option_keys
     // → data-option-keys). When off, options render as a plain card list and the
@@ -324,26 +323,8 @@ export function initSolo(opts) {
         const dir = pendingGoLast ? 'back' : 'forward';
         if (!s.length) { current = null; updateNav(); updateProgress(); return; }
         const target = pendingGoLast ? s[s.length - 1] : s[0];
-        // Move the above-form notice into the first step the participant sees,
-        // once. In flow it sits above EVERY step (it's rendered before <form>),
-        // pushing each one down and making a step that fits the viewport
-        // scrollable — the reported "select screen scrolls though it fits" bug.
-        if (!preambleMoved) { relocatePreamble(s[0]); preambleMoved = true; }
         pendingGoLast = false;
         goTo(target, dir);
-    }
-
-    // Solo shows one item per screen; the v2 "unverified types" heads-up is
-    // rendered above the <form> (FormRenderer line ~339), so as a flow sibling
-    // it would push every step down. Move it into the first step so it shares
-    // that one screen and adds no scroll height to the rest.
-    function relocatePreamble(firstStepEl) {
-        if (!firstStepEl) return;
-        const notice = document.querySelector('.fmr-unverified-types');
-        if (notice && !firstStepEl.contains(notice)) {
-            notice.classList.add('fmr-solo-preamble');
-            firstStepEl.insertBefore(notice, firstStepEl.firstChild);
-        }
     }
 
     // --- chrome (nav footer + progress) -------------------------------------
