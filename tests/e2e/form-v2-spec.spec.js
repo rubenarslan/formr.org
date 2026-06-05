@@ -221,3 +221,42 @@ test.describe('form_v2 spec: layout recorded per response', () => {
     });
 
 });
+
+test.describe('form_v2 spec: beforeunload guard (bfcache-scoped)', () => {
+
+    test('the leave guard is armed only while a change is pending', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+
+        const r = await page.evaluate(async () => {
+            const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+            // A synthetic cancelable beforeunload reveals whether the guard
+            // handler is attached: our handler calls preventDefault().
+            const probe = () => {
+                const e = new Event('beforeunload', { cancelable: true });
+                window.dispatchEvent(e);
+                return e.defaultPrevented;
+            };
+            const setAbode = (v) => {
+                const a = document.querySelector('input[name="abode"]');
+                if (!a) return false;
+                a.value = v;
+                a.dispatchEvent(new Event('change', { bubbles: true }));
+                return true;
+            };
+            const initial = probe();                 // no change yet → no guard
+            if (!setAbode('guard_e1')) return { noAbode: true };
+            setAbode('guard_e2'); await sleep(80);   // 2 changes → a save is pending (armed)
+            const pending = probe();
+            // the throttle flushes (<=20s); the guard must come back off.
+            let cleared = false;
+            for (let i = 0; i < 18; i++) { if (!probe()) { cleared = true; break; } await sleep(1500); }
+            return { initial, pending, cleared };
+        });
+        test.skip(r.noAbode, 'fixture has no abode text item');
+        expect(r.initial, 'no guard before any change keeps the page bfcache-eligible').toBe(false);
+        expect(r.pending, 'guard armed while a change is pending').toBe(true);
+        expect(r.cleared, 'guard removed once the change is flushed (bfcache-eligible again)').toBe(true);
+    });
+
+});

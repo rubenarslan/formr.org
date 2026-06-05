@@ -701,14 +701,35 @@ function initForm() {
     // (collectPayload drops them on the JSON path); they ride the explicit submit.
     const SAVE_MIN_INTERVAL = 20000;
     let lastSaveAt = 0, saveTimer = null, savePending = false, saveInFlight = false;
+    // "Leave with unsaved changes?" guard — armed ONLY while a change is pending
+    // (un-flushed), removed the instant a flush starts. A `beforeunload` listener
+    // disqualifies the back/forward cache on iOS Safari / Android Chrome, so
+    // confining it to the throttle window (rather than the whole session) keeps
+    // Back instant whenever there's nothing at risk. The pagehide/sendBeacon
+    // path still saves the data if they leave anyway, so this is purely the
+    // user-facing prompt.
+    let unloadGuarded = false;
+    const beforeUnloadGuard = (e) => { e.preventDefault(); e.returnValue = ''; return ''; };
+    const updateUnloadGuard = () => {
+        if (savePending && !unloadGuarded) {
+            window.addEventListener('beforeunload', beforeUnloadGuard);
+            unloadGuarded = true;
+        } else if (!savePending && unloadGuarded) {
+            window.removeEventListener('beforeunload', beforeUnloadGuard);
+            unloadGuarded = false;
+        }
+    };
     const flushPersist = async () => {
         if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
         if (!savePending || saveInFlight || !saveUrl) return;
         const page = pages[currentIndex];
         if (!page) return;
         const payload = collectPayload(page);
-        if (!payload.data || Object.keys(payload.data).length === 0) return;
+        if (!payload.data || Object.keys(payload.data).length === 0) {
+            savePending = false; updateUnloadGuard(); return;   // nothing to save — don't strand the guard
+        }
         savePending = false;
+        updateUnloadGuard();   // flush starting; keepalive completes the in-flight send
         saveInFlight = true;
         lastSaveAt = Date.now();
         try {
@@ -725,6 +746,7 @@ function initForm() {
     const schedulePersist = () => {
         if (!saveUrl) return;
         savePending = true;
+        updateUnloadGuard();   // a change is now pending → arm the leave guard
         const elapsed = Date.now() - lastSaveAt;
         if (elapsed >= SAVE_MIN_INTERVAL) {
             flushPersist();
@@ -749,6 +771,7 @@ function initForm() {
             const payload = collectPayload(page);
             if (!payload.data || Object.keys(payload.data).length === 0) return;
             savePending = false;
+            updateUnloadGuard();
             const body = JSON.stringify({ data: payload.data, item_views: payload.item_views });
             try {
                 if (navigator.sendBeacon) {
