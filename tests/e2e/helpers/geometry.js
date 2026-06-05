@@ -192,12 +192,50 @@ async function assertSoloStepGeometry(page, { label = '' } = {}) {
     return { overlap, reach };
 }
 
+/* eslint-disable no-undef */
+// State of the currently-focused field relative to the visual viewport. Read
+// AFTER a tap to tell whether the soft keyboard rose (vvH shrank vs the
+// pre-tap value the caller recorded) and whether the focused field stayed
+// above it (bottom within the shrunken visualViewport). No-arg → BS-safe.
+function focusedFieldGeomFn() {
+    const vv = window.visualViewport;
+    const vvTop = vv ? vv.offsetTop : 0;
+    const vvH = vv ? vv.height : window.innerHeight;
+    const vvBottom = vvTop + vvH;
+    const ae = document.activeElement;
+    const tag = ae ? ae.tagName.toLowerCase() : null;
+    const editable = ae && ['input', 'textarea', 'select'].includes(tag);
+    const r = editable ? ae.getBoundingClientRect() : null;
+    return {
+        vvH: Math.round(vvH),
+        vvTop: Math.round(vvTop),
+        innerH: window.innerHeight,
+        activeTag: tag,
+        activeType: (ae && ae.type) || null,
+        activeRect: r ? { top: Math.round(r.top), bottom: Math.round(r.bottom) } : null,
+        // focused field fully inside the keyboard-aware viewport?
+        aboveKeyboard: r ? (r.bottom <= vvBottom + 2 && r.top >= vvTop - 2) : null,
+    };
+}
+
+// Is there a free-text field (one that would raise a keyboard) on the seated
+// step? Used to walk to a tappable field. No-arg → BS-safe.
+function hasFreeTextFn() {
+    const cur = document.querySelector('.fmr-solo-current');
+    return !!(cur && cur.querySelector(
+        'input[type=text],input[type=email],input[type=number],input[type=url],input[type=tel],input[type=search],textarea',
+    ));
+}
+/* eslint-enable no-undef */
+
 module.exports = {
     CTRL_SEL,
     overlapProbeFn,
     reachProbeFn,
     chromeOverlap,
     reachability,
+    focusedFieldGeomFn,
+    hasFreeTextFn,
     assertNoChromeOverlap,
     assertControlsReachable,
     assertSoloStepGeometry,

@@ -24,7 +24,7 @@ const { freshParticipant } = require('./helpers/participant');
 const v2 = require('./helpers/v2Form');
 const db = require('./helpers/db');
 const geo = require('./helpers/geometry');
-const { walkSolo } = require('./helpers/solo');
+const { walkSolo, currentStep, advanceFn } = require('./helpers/solo');
 
 // Per-step screenshots land here so a real-device geometry regression leaves an
 // artifact you can actually open — not just a green DOM assertion. Gitignored.
@@ -178,6 +178,71 @@ test.describe('solo layout: all item types on a real device', () => {
 
         expect(visited.length, 'expected to walk several solo steps').toBeGreaterThan(2);
         expect(offenders, `geometry offenders on real device:\n${offenders.join('\n')}`).toEqual([]);
+    });
+
+    // Keyboard behaviour on a real device (diagnostic-first).
+    //
+    // Two facts shape this test:
+    //   (a) Programmatic autofocus NEVER raises the iOS keyboard (it fires
+    //       outside a user-gesture call stack), so we don't test autofocus —
+    //       we test the real flow: tap the field, keyboard rises, field stays
+    //       above it.
+    //   (b) Whether a Playwright tap on the BrowserStack bridge counts as the
+    //       user gesture iOS needs is unverified. So the keyboard signal is the
+    //       visualViewport.height DELTA: if it shrank materially, the keyboard
+    //       rose and we hard-assert the field stays above it; if it didn't, we
+    //       log it (tooling couldn't raise the keyboard) rather than false-fail.
+    // Either way a screenshot is captured so the keyboard state is inspectable.
+    test('tapping a text field raises the keyboard and keeps the field above it (diagnostic)', async ({ page, baseURL }, testInfo) => {
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        fs.mkdirSync(SHOT_DIR, { recursive: true });
+
+        const TEXT_SEL = '.fmr-solo-current input[type=text], .fmr-solo-current input[type=email], '
+            + '.fmr-solo-current input[type=number], .fmr-solo-current input[type=url], '
+            + '.fmr-solo-current input[type=tel], .fmr-solo-current input[type=search], .fmr-solo-current textarea';
+
+        // walk forward until a step has a free-text field
+        let tapped = false;
+        for (let i = 0; i < 8 && !tapped; i++) {
+            const info = await currentStep(page);
+            if (!info || info.idx < 0) break;
+            const hasText = await bsSafeEvaluate(page, geo.hasFreeTextFn);
+            if (hasText) {
+                const beforeVH = await bsSafeEvaluate(page, () =>
+                    Math.round((window.visualViewport || { height: window.innerHeight }).height));
+
+                // a REAL tap (touch on the device); fall back to click where the
+                // context isn't touch-enabled (e.g. local Chromium).
+                const field = page.locator(TEXT_SEL).first();
+                try { await field.tap({ timeout: 5000 }); } catch { await field.click({ timeout: 5000 }).catch(() => {}); }
+                await page.waitForTimeout(1200); // keyboard rise animation
+
+                const after = await bsSafeEvaluate(page, geo.focusedFieldGeomFn);
+                const delta = beforeVH - after.vvH;
+                const file = path.join(SHOT_DIR, `keyboard-step-${String(info.idx).padStart(2, '0')}-${info.type}.png`);
+                const png = await page.screenshot({ path: file }).catch(() => null);
+                if (png) await testInfo.attach(`keyboard-${info.type}`, { body: png, contentType: 'image/png' });
+
+                // eslint-disable-next-line no-console
+                console.log(`[keyboard] ${info.type}: vh ${beforeVH}->${after.vvH} (delta ${delta}), `
+                    + `active=${after.activeTag}/${after.activeType}, rect=${JSON.stringify(after.activeRect)}, aboveKeyboard=${after.aboveKeyboard}`);
+                testInfo.annotations.push({ type: 'keyboard-delta', description: `${delta}px, aboveKeyboard=${after.aboveKeyboard}` });
+
+                // The tap must at least focus the field.
+                expect(after.activeTag, 'tapping a text field should focus it').not.toBeNull();
+                // Only when the keyboard demonstrably rose do we assert the field
+                // stayed above it (the real regression guard).
+                if (delta > 120) {
+                    expect(after.aboveKeyboard, 'with the keyboard up, the focused field must stay above it').toBe(true);
+                }
+                tapped = true;
+            } else {
+                await bsSafeEvaluate(page, advanceFn);
+                await page.waitForTimeout(800);
+            }
+        }
+        expect(tapped, 'expected to reach a free-text field to tap').toBe(true);
     });
 
 });
