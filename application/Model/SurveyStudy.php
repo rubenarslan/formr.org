@@ -490,11 +490,20 @@ class SurveyStudy extends Model
 
             $actually_deleted = array_diff(array_keys($deleted), array_keys($added));
             if ($deleted && $actually_deleted) {
-                // some items were just re-typed, they only have to be deleted from the wide format table which has inflexible types
+                // (items merely re-typed appear in both $deleted and $added by
+                // name, so they're excluded here — they only need the wide-table
+                // column rebuild in alterResultsTable below.)
+                //
+                // Soft-delete (patch 069): flip removed / renamed-away items to a
+                // `deleted` marker instead of DELETE. Keeping the survey_items row
+                // means its CASCADE-linked survey_items_display answers survive, so
+                // the long-format participant data is preserved and stays in
+                // exports (marked deleted). Re-adding the same name later revives
+                // the row (addItems clears the marker), restoring its old answers.
                 $toDelete = implode(',', array_map(array($this->db, 'quote'), $actually_deleted));
                 $studyId = (int) $this->id;
-                $delQ = "DELETE FROM survey_items WHERE `name` IN ($toDelete) AND study_id = $studyId";
-                $this->db->query($delQ);
+                $softDelQ = "UPDATE survey_items SET `deleted` = NOW() WHERE `name` IN ($toDelete) AND study_id = $studyId AND `deleted` IS NULL";
+                $this->db->query($softDelQ);
             }
 
             // we start fresh if it's a new creation, no results table exist or it is completely empty
@@ -569,6 +578,10 @@ class SurveyStudy extends Model
         // name); the column is `showif_js`. Bound separately below the
         // generic loop because the property/column names differ.
         $UPDATES = implode(', ', get_duplicate_update_string(array_merge($definedColumns, ['showif_js'])));
+        // Re-uploading a name that was soft-deleted (patch 069) revives it: clear
+        // the marker on upsert so an item that reappears in the sheet is live
+        // again, and its preserved survey_items_display answers re-enter the form.
+        $UPDATES .= ', `deleted` = NULL';
         $addStmt = $this->db->prepare(
             "INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, showif_js, value, `block_order`,`item_order`, `order`)
 			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :showif_js, :value, :block_order, :item_order, :order)
@@ -773,17 +786,24 @@ class SurveyStudy extends Model
         return false;
     }
 
-    public function getItems($columns = null, $whereIn = null)
+    public function getItems($columns = null, $whereIn = null, $includeDeleted = false)
     {
         if ($columns === null) {
             // showif_js (patch 063) is the cached transpile of `showif`. Item.php
             // uses it to skip per-request regex work when populated.
-            $columns = "id, study_id, type, choice_list, type_options, name, label, label_parsed, optional, class, showif, showif_js, value, block_order,item_order";
+            // `deleted` (patch 069) is the soft-delete marker.
+            $columns = "id, study_id, type, choice_list, type_options, name, label, label_parsed, optional, class, showif, showif_js, value, block_order,item_order, deleted";
         }
 
         $select = $this->db->select($columns);
         $select->from('survey_items');
         $select->where(array('study_id' => $this->id));
+        // Soft-deleted items (patch 069) don't render and aren't editable, so
+        // they're excluded by default. Results/export callers pass
+        // $includeDeleted = true to keep the preserved data recoverable.
+        if (!$includeDeleted) {
+            $select->where('`deleted` IS NULL');
+        }
         if ($whereIn) {
             $select->whereIn($whereIn['field'], $whereIn['values']);
         }
@@ -796,6 +816,9 @@ class SurveyStudy extends Model
         $get_items = $this->db->select('type, type_options, choice_list, name, label, optional, class, showif, value, block_order, item_order')
             ->from('survey_items')
             ->where(array('study_id' => $this->id))
+            // soft-deleted items (patch 069) stay out of the editable sheet, so a
+            // download→re-upload round-trip doesn't silently revive them.
+            ->where('`deleted` IS NULL')
             ->order("`survey_items`.order")
             ->statement();
 
@@ -1160,6 +1183,7 @@ class SurveyStudy extends Model
 		`survey_items_display`.`session_id` as `unit_session_id`,
 		`survey_items_display`.`item_id`,
 		`survey_items`.`name` as `item_name`,
+		`survey_items`.`deleted` as `item_deleted`,
 		`survey_items_display`.`answer`,
 		`survey_items_display`.`created`,
 		`survey_items_display`.`saved`,
@@ -1597,7 +1621,8 @@ class SurveyStudy extends Model
 				`survey_items`.`item_order`,
 				`survey_items`.`block_order`')
             ->from('survey_items')
-            ->where("`survey_items`.`study_id` = :study_id")
+            // soft-deleted items (patch 069) get no new survey_items_display rows
+            ->where("`survey_items`.`study_id` = :study_id AND `survey_items`.`deleted` IS NULL")
             ->order("`survey_items`.order")
             ->bindParams(array('`study_id`' => $this->id))
             ->statement();

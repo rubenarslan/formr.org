@@ -285,7 +285,7 @@ class FormRenderer extends SpreadsheetRenderer {
             `survey_items_display`.answered')
             ->from('survey_items')
             ->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-            ->where('(survey_items.study_id = :study_id) AND (survey_items_display.saved IS null) AND (survey_items_display.hidden IS NULL OR survey_items_display.hidden = 0)')
+            ->where('(survey_items.study_id = :study_id) AND (survey_items.deleted IS NULL) AND (survey_items_display.saved IS null) AND (survey_items_display.hidden IS NULL OR survey_items_display.hidden = 0)')
             ->order('`survey_items_display`.`display_order`', 'asc')
             ->order('survey_items.`order`', 'asc')
             ->order('survey_items.id', 'asc')

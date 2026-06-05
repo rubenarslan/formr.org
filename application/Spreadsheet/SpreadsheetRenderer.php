@@ -274,8 +274,9 @@ class SpreadsheetRenderer {
 				`survey_items_display`.answered')
                 ->from('survey_items')
                 ->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-                ->where('(survey_items.study_id = :study_id) AND 
-				     (survey_items_display.saved IS null) AND 
+                ->where('(survey_items.study_id = :study_id) AND
+				     (survey_items.deleted IS NULL) AND
+				     (survey_items_display.saved IS null) AND
 				     (survey_items_display.hidden IS NULL OR survey_items_display.hidden = 0)')
                 ->order('`survey_items_display`.`display_order`', 'asc')
                 ->order('survey_items.`order`', 'asc') // only needed for transfer
@@ -567,6 +568,7 @@ class SpreadsheetRenderer {
                 ->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
                 ->where('survey_items_display.session_id IS NOT NULL')
                 ->where('survey_items.study_id = :study_id')
+                ->where('survey_items.deleted IS NULL')   // soft-deleted items don't count toward progress (patch 069)
                 ->where("survey_items.type NOT IN ('submit')")
                 ->where("`survey_items_display`.saved IS NOT NULL")
                 ->bindParams(array('session_id' => $this->unitSession->id, 'study_id' => $study->id))
