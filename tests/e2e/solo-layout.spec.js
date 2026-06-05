@@ -20,6 +20,17 @@ const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const v2 = require('./helpers/v2Form');
 const db = require('./helpers/db');
+const geo = require('./helpers/geometry');
+const { walkSolo } = require('./helpers/solo');
+
+// The short-phone viewport that was NOT covered when the iOS overlap/lock-trap
+// bug shipped: the only mobile size previously tested was 375x812 (tall). At
+// 375x667 (iPhone SE / 8, and the effective height of a 6.x phone once the
+// Safari toolbars are showing) the fixed footer+nav eat enough of the bottom
+// that an un-centred or scroll-locked control lands under them. Geometry is
+// measured against visualViewport, so a real keyboard/toolbar offset is
+// reflected the same way it is on a device.
+const SHORT = { width: 375, height: 667 };
 
 const RUN = () => runName('all_widgets', 'v2');
 // The `e2e-aw-v2` run's Form unit binds to a study named `all_widgets`
@@ -268,6 +279,36 @@ test.describe('solo-layout: solo mode', () => {
             expect(seq[i], `progress went backward: ${seq.join(' -> ')}`).toBeGreaterThanOrEqual(seq[i - 1]);
         }
         expect(seq[seq.length - 1], 'progress should advance').toBeGreaterThan(seq[0]);
+    });
+
+    // --- GEOMETRY at 375x667 (the regression the iOS bug exposed) ----------
+    // These assert pixels, not DOM presence: the seated step's interactive
+    // controls must not intersect the fixed chrome (progress bar / Back-OK nav
+    // / pinned run footer) and must be reachable inside the visual viewport.
+    // The shipped bug — first text item painted under the footer, controls
+    // trapped by the scroll-lock — passed every DOM-only check but fails these.
+
+    test('first step is clear of fixed chrome and reachable (375x667)', async ({ page, baseURL }) => {
+        await page.setViewportSize(SHORT);
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        await page.waitForTimeout(400); // let the seat/lock/focus settle
+        await geo.assertSoloStepGeometry(page, { label: 'first step @375x667' });
+    });
+
+    test('every walked step stays clear of fixed chrome and reachable (375x667)', async ({ page, baseURL }) => {
+        await page.setViewportSize(SHORT);
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        const visited = await walkSolo(page, {
+            maxSteps: 8,
+            settle: 800,
+            onStep: async ({ type, index }) => {
+                await page.waitForTimeout(250); // settle entrance animation
+                await geo.assertSoloStepGeometry(page, { label: `step ${index} (${type}) @375x667` });
+            },
+        });
+        expect(visited.length, 'expected to walk several solo steps').toBeGreaterThan(2);
     });
 
 });

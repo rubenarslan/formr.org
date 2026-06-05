@@ -16,11 +16,19 @@
 // no multi-page walk (page 1's readonly required geopoint can't be satisfied
 // headlessly — see all-widgets-v2.spec).
 
+const fs = require('node:fs');
+const path = require('node:path');
 const { test, expect, bsSafeEvaluate, clearBrowserState } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const v2 = require('./helpers/v2Form');
 const db = require('./helpers/db');
+const geo = require('./helpers/geometry');
+const { walkSolo } = require('./helpers/solo');
+
+// Per-step screenshots land here so a real-device geometry regression leaves an
+// artifact you can actually open — not just a green DOM assertion. Gitignored.
+const SHOT_DIR = path.resolve(__dirname, 'artifacts', 'solo-ios');
 
 const RUN = () => runName('all_widgets', 'v2');
 const STUDY_ID = () => {
@@ -133,6 +141,43 @@ test.describe('solo layout: all item types on a real device', () => {
         });
         expect(r.reached, 'expected a single-choice mc step').toBe(true);
         expect(r.advanced, 'tapping a card should auto-advance').toBe(true);
+    });
+
+    // The check that would have caught the reported iOS bug: walk the first
+    // several solo steps and, on the REAL device viewport, assert pixel
+    // geometry (no interactive control under the fixed footer/nav; every
+    // control reachable inside visualViewport) AND save a screenshot per step.
+    // The probes use visualViewport, so the device's real toolbar/keyboard
+    // offset is reflected. Screenshots are attached to the report and written
+    // to tests/e2e/artifacts/solo-ios/ for direct inspection.
+    test('every solo step is clear of fixed chrome on the real device (with screenshots)', async ({ page, baseURL }, testInfo) => {
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        fs.mkdirSync(SHOT_DIR, { recursive: true });
+
+        const offenders = [];
+        const visited = await walkSolo(page, {
+            maxSteps: 8,
+            settle: 900,
+            onStep: async ({ index, type }) => {
+                await page.waitForTimeout(300); // settle entrance animation
+                const file = path.join(SHOT_DIR, `step-${String(index).padStart(2, '0')}-${type}.png`);
+                const png = await page.screenshot({ path: file }).catch(() => null);
+                if (png) await testInfo.attach(`step-${index}-${type}`, { body: png, contentType: 'image/png' });
+
+                const overlap = await geo.chromeOverlap(page);
+                const reach = await geo.reachability(page);
+                for (const c of (overlap.overlaps || [])) {
+                    offenders.push(`step ${index} (${type}): ${c.sel}[${c.top}-${c.bottom}] overlaps ${c.chromeHit}`);
+                }
+                for (const o of (reach.offenders || [])) {
+                    offenders.push(`step ${index} (${type}): ${o.sel}[${o.top}-${o.bottom}] outside band[${o.topEdge}-${o.bottomEdge}]`);
+                }
+            },
+        });
+
+        expect(visited.length, 'expected to walk several solo steps').toBeGreaterThan(2);
+        expect(offenders, `geometry offenders on real device:\n${offenders.join('\n')}`).toEqual([]);
     });
 
 });

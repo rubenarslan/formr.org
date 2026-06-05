@@ -252,8 +252,8 @@ cleaner mobile ergonomics.
 | Spec | Covers |
 | --- | --- |
 | `tests/e2e/form-v2-spec.spec.js` | group a11y, top labels, later-page choices, on-blur validation, double-submit guard, autosave (DB-verified, rate-limit-robust), layout paradata, bfcache-scoped beforeunload guard |
-| `tests/e2e/solo-layout.spec.js` | step controller (one step, viewport-fill + nav, fit-lock, single-choice auto-advance), solo paradata, monotonic progress, admin layout round-trip |
-| `tests/e2e/solo-real-device.spec.js` | **BrowserStack** real iPhone Safari: solo renders, every catalogued item type renders a control in solo, tap-to-advance. `npm run test:bs -- solo-real-device` |
+| `tests/e2e/solo-layout.spec.js` | step controller (one step, viewport-fill + nav, fit-lock, single-choice auto-advance), solo paradata, monotonic progress, admin layout round-trip, **geometry at 375×667** (no control under fixed chrome; every control reachable) |
+| `tests/e2e/solo-real-device.spec.js` | **BrowserStack** real iPhone Safari: solo renders, every catalogued item type renders a control in solo, tap-to-advance, **per-step geometry + screenshots**. `npm run test:bs -- solo-real-device` |
 | `tests/e2e/v2-polish.spec.js` | save pill, completion overlay, sticky progress + nav, focus management |
 
 Notes: specs run against the dev instance, `workers:1`; `solo-layout` and
@@ -261,6 +261,38 @@ Notes: specs run against the dev instance, `workers:1`; `solo-layout` and
 The autosave test polls the DB (the 20s throttle defers the trailing save, so
 racing the network response is flaky). BrowserStack iOS Automate works
 (`browserstack-node-sdk`, Playwright pinned 1.57); Android is parked.
+
+### Geometry assertions (why DOM checks weren't enough)
+
+A real iPhone bug shipped despite green tests: the first item's text box was
+painted **under** the fixed Back/OK footer, and on short screens controls were
+trapped by the scroll-lock and unreachable. Every existing check passed because
+they asserted the **DOM** (element present, `offsetHeight <= innerHeight`,
+`activeElement === input`) — none asserted **pixels**. The lesson: layout bugs
+need pixel-geometry assertions measured against `visualViewport` (the
+keyboard/toolbar-aware viewport), not `window.innerHeight` (which on iOS counts
+area the browser chrome covers).
+
+`tests/e2e/helpers/geometry.js` provides two in-page probes (both no-arg, so they
+survive the BrowserStack arg-mangling bridge — see `helpers/test.js`):
+
+- **`overlapProbeFn`** — does any interactive control on the seated step
+  intersect a fixed/sticky chrome element (progress bar, `.fmr-solo-nav`, the
+  pinned run footer `<p>`)? Catches "text box overlaps footer".
+- **`reachProbeFn`** — after `scrollIntoView`, does every control land inside the
+  safe band (between top- and bottom-anchored chrome, within `visualViewport`)?
+  Catches "control unreachable through scroll" (the lock-trap).
+
+Wrappers `assertNoChromeOverlap` / `assertControlsReachable` / `assertSoloStepGeometry`
+fail with the offending selector + its rect + the chrome it hit.
+`tests/e2e/helpers/solo.js` adds `walkSolo(page, {onStep})` to run a gate at each
+seated step. The local spec runs this at **375×667** (the short-phone size that
+was never covered — only 375×812 was). The BrowserStack spec runs the same probes
+on the real device **and writes a screenshot per step** to
+`tests/e2e/artifacts/solo-ios/` (gitignored) + attaches them to the report, so a
+geometry regression leaves an artifact to open rather than just a red assertion.
+The harness is self-validated: a negative control (shoving a control into the nav
+band) confirms `overlapProbeFn` flags it, so the green result isn't trivial.
 
 ## Key commits (feature/form_v2)
 
