@@ -260,3 +260,45 @@ test.describe('form_v2 spec: beforeunload guard (bfcache-scoped)', () => {
     });
 
 });
+
+test.describe('form_v2 spec: visual analog scale has no visible default', () => {
+
+    // A native range always paints a thumb at the midpoint, which reads as a
+    // pre-chosen answer. The v1 hide rule (::-*-thumb{visibility:hidden}) is
+    // INERT on a native control — WebKit/Blink ignore thumb styling unless the
+    // input is appearance:none. The v2 fix takes .vas-display to appearance:none
+    // (+ custom track/thumb) so the hide-until-touched actually applies.
+    // getComputedStyle on the thumb pseudo is unreliable, so we assert the
+    // precondition that makes the hide work (appearance:none) plus the markup
+    // "no default" contract (display input carries no name and no value attr,
+    // wrapper not yet .vas-touched). v2 renders all pages, so the VAS is in the
+    // document even if it's on a later (hidden) page.
+    test('vas-display is appearance:none and submits no default', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        const r = await page.evaluate(() => {
+            const disp = document.querySelector('.vas-display');
+            if (!disp) return { present: false };
+            const wrap = disp.closest('.vas-controls');
+            const cs = getComputedStyle(disp);
+            const hidden = wrap ? wrap.querySelector('input[type=hidden]') : null;
+            return {
+                present: true,
+                appearance: cs.getPropertyValue('appearance') || cs.getPropertyValue('-webkit-appearance'),
+                displayHasName: disp.hasAttribute('name'),       // must NOT own the form name
+                displayHasValueAttr: disp.hasAttribute('value'), // no default value baked in
+                touched: wrap ? wrap.classList.contains('vas-touched') : null,
+                hiddenName: hidden ? hidden.getAttribute('name') : null,
+                hiddenEmpty: hidden ? (hidden.value === '') : null,
+            };
+        });
+        test.skip(!r.present, 'fixture has no visual_analog_scale item');
+        expect(r.appearance, 'vas-display must be appearance:none so the thumb-hide rule applies').toBe('none');
+        expect(r.displayHasName, 'the visible range must not own the form name (it always submits a value)').toBe(false);
+        expect(r.displayHasValueAttr, 'the visible range must not bake in a default value').toBe(false);
+        expect(r.touched, 'wrapper starts un-touched (thumb hidden)').toBe(false);
+        expect(r.hiddenName, 'the hidden sibling owns the form name').toBeTruthy();
+        expect(r.hiddenEmpty, 'the submitted value is empty until the participant moves the slider').toBe(true);
+    });
+
+});
