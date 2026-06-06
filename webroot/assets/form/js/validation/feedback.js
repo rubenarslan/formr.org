@@ -169,6 +169,24 @@ export function validatePageAndShowFeedback(pageEl) {
             return;
         }
 
+        // A `bot_check` is gated by Altcha's own required checkbox, whose native
+        // message ("Please check this box…") is generic and doesn't match the
+        // server's BotCheckChallenge::verify message. Show the domain message so
+        // client and server agree, regardless of the browser's wording.
+        if (wrapper && wrapper.classList.contains('item-bot_check')) {
+            el.classList.add('is-invalid');
+            wrapper.classList.add('is-invalid');
+            if (!wrapper.querySelector('.fmr-invalid-feedback, .fmr-btn-feedback')) {
+                const fb = document.createElement('div');
+                fb.className = 'invalid-feedback fmr-invalid-feedback d-block fmr-botcheck-feedback';
+                fb.textContent = requiredMsg(wrapper);
+                const anchor = wrapper.querySelector('.fmr-botcheck') || el.closest('.controls') || el;
+                anchor.insertAdjacentElement('afterend', fb);
+            }
+            if (!firstFocusTarget) firstFocusTarget = wrapper.querySelector('.fmr-botcheck-box, input[type=checkbox]') || el;
+            return;
+        }
+
         const btnGroup = wrapper && wrapper.querySelector('.btn-group');
         const isHiddenInput = el.type === 'hidden'
             || el.style.display === 'none'

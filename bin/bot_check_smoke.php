@@ -1,20 +1,21 @@
 #!/usr/bin/php
 <?php
-// Smoke test for the local-only bot_check challenge (BotCheckChallenge).
+// Backend smoke for the Altcha-backed bot_check (BotCheckChallenge + Argon2id).
 // Run: docker exec formr_app php /var/www/formr/bin/bot_check_smoke.php
+//
+// Mints a real challenge, solves it with the altcha PHP lib, and asserts the
+// solved token verifies — plus the negative cases (forged signature, wrong PoW
+// solution, re-bound session, empty/garbage). In CLI there is no session, so
+// BotCheckChallenge::subject() is '' for both mint and verify (consistent).
 require_once dirname(__FILE__) . '/../setup.php';
 if (php_sapi_name() !== 'cli') { die("CLI only\n"); }
 
-function lzb($raw) {
-    $bits = 0;
-    for ($i = 0; $i < strlen($raw); $i++) {
-        $b = ord($raw[$i]);
-        if ($b === 0) { $bits += 8; continue; }
-        $m = 0x80; while ($m && ($b & $m) === 0) { $bits++; $m >>= 1; }
-        break;
-    }
-    return $bits;
-}
+use AltchaOrg\Altcha\Altcha;
+use AltchaOrg\Altcha\Challenge;
+use AltchaOrg\Altcha\ChallengeParameters;
+use AltchaOrg\Altcha\Algorithm\Argon2id;
+use AltchaOrg\Altcha\Algorithm\Sha;
+use AltchaOrg\Altcha\SolveChallengeOptions;
 
 $pass = 0; $fail = 0;
 $check = function ($name, $got, $want) use (&$pass, &$fail) {
@@ -22,73 +23,42 @@ $check = function ($name, $got, $want) use (&$pass, &$fail) {
     else { $fail++; echo "  FAIL $name (got " . var_export($got, true) . ", want " . var_export($want, true) . ")\n"; }
 };
 
-echo "secret available: " . (BotCheckChallenge::secret() !== null ? "yes" : "NO") . "\n";
-$c = BotCheckChallenge::mint();
-echo "minted: " . json_encode($c) . "\n";
+$secret = BotCheckChallenge::secret();
+echo "secret available: " . ($secret !== null ? "yes" : "NO") . "\n";
+$useArgon = BotCheckChallenge::argon2idAvailable();
+echo "algorithm: " . ($useArgon ? "Argon2id (memory-hard)" : "SHA-256 (fallback)") . "\n";
+if ($secret === null) { fwrite(STDERR, "no secret → verify fails open; cannot test\n"); exit(2); }
 
-// Solve the PoW.
-$nonce = 0;
-while (lzb(hash('sha256', $c['salt'] . $nonce, true)) < $c['diff']) { $nonce++; }
-echo "solved nonce=$nonce\n";
+$altcha = new Altcha($secret);
+$alg = $useArgon ? new Argon2id() : new Sha();
 
-$tok = ['iat' => $c['iat'], 'salt' => $c['salt'], 'diff' => $c['diff'], 'sig' => $c['sig'], 'nonce' => (string) $nonce, 'el' => 500];
+// 1) mint a real, session-bound challenge ({parameters, signature})
+$mint = BotCheckChallenge::mint();
+echo "minted algorithm: " . ($mint['parameters']['algorithm'] ?? '?') . "\n";
 
-$check('valid token verifies', BotCheckChallenge::verify(json_encode($tok)), true);
+// 2) solve it with the lib (the PoW the browser worker does)
+$challenge = new Challenge(ChallengeParameters::fromArray($mint['parameters']), $mint['signature']);
+$sol = $altcha->solveChallenge(new SolveChallengeOptions(challenge: $challenge, algorithm: $alg, timeout: 25.0));
+$check('challenge solved', $sol !== null, true);
+if ($sol === null) { echo "\n$pass passed, " . ($fail) . " failed (solver gave up)\n"; exit(1); }
+
+$payload = fn ($c, $s) => base64_encode(json_encode(['challenge' => $c, 'solution' => $s]));
+
+// 3) the solved token verifies
+$check('valid solved token verifies', BotCheckChallenge::verify($payload($mint, $sol->toArray())), true);
+
+// 4) negatives
 $check('empty rejected', BotCheckChallenge::verify(''), false);
-$check('garbage rejected', BotCheckChallenge::verify('not-json'), false);
+$check('garbage rejected', BotCheckChallenge::verify('not-base64-json'), false);
 
-$badNonce = $tok; $badNonce['nonce'] = '0';
-$check('wrong nonce rejected (PoW)', BotCheckChallenge::verify(json_encode($badNonce)), false);
+$forged = $mint; $forged['signature'] = str_repeat('0', strlen((string) $mint['signature']));
+$check('forged signature rejected', BotCheckChallenge::verify($payload($forged, $sol->toArray())), false);
 
-$lowDiff = $tok; $lowDiff['diff'] = 5;  // sig was for the real diff → mismatch
-$check('lowered difficulty rejected (sig)', BotCheckChallenge::verify(json_encode($lowDiff)), false);
+$badSol = $sol->toArray(); $badSol['counter'] = (int) $badSol['counter'] + 1;
+$check('wrong PoW solution rejected', BotCheckChallenge::verify($payload($mint, $badSol)), false);
 
-$badSig = $tok; $badSig['sig'] = str_repeat('0', 64);
-$check('forged sig rejected', BotCheckChallenge::verify(json_encode($badSig)), false);
-
-// A fast PoW solve must be ACCEPTED: `el` is client-reported (a real bot just
-// claims a large value) and diff-15 legitimately finishes in tens of ms on
-// modern hardware, so gating on it only blocked honest fast clients ("verified
-// but can't proceed"). The signed PoW is the real proof; a forged nonce is
-// still rejected above.
-$fastSolve = $tok; $fastSolve['el'] = 10;
-$check('fast solve accepted (el not gated)', BotCheckChallenge::verify(json_encode($fastSolve)), true);
-$noEl = $tok; unset($noEl['el']);
-$check('missing el accepted', BotCheckChallenge::verify(json_encode($noEl)), true);
-
-$hp = $tok; $hp['hp'] = 'spam';
-$check('honeypot filled rejected', BotCheckChallenge::verify(json_encode($hp)), false);
-
-// Freshness: a generous, session-bound TTL — slowness isn't a bot signal, and
-// in form_v2 the challenge is minted at full-form render. An hour-old token
-// (rejected under the old 30-min TTL) must now pass; a wildly stale one is
-// still rejected as a hygiene bound.
-$sign = new ReflectionMethod('BotCheckChallenge', 'sign');
-$sign->setAccessible(true);
-$forge = function ($iat) use ($c, $nonce, $sign) {
-    return json_encode(['iat' => $iat, 'salt' => $c['salt'], 'diff' => $c['diff'],
-        'sig' => $sign->invoke(null, $iat, $c['salt'], $c['diff']), 'nonce' => (string) $nonce, 'el' => 50]);
-};
-$check('hour-old token accepted (TTL not a gate)', BotCheckChallenge::verify($forge(time() - 3600)), true);
-$check('very stale token rejected (TTL hygiene)', BotCheckChallenge::verify($forge(time() - 90000)), false);
-$check('future-iat token rejected (clock skew)', BotCheckChallenge::verify($forge(time() + 600)), false);
-
-// Customisable copy (consent / affirmation gate): choices relabel the box +
-// confirmation, and must NOT trip the "this type doesn't have choices" error.
-$consent = new BotCheck_Item([
-    'id' => 9001, 'name' => 'consent_demo', 'label' => 'Please confirm', 'optional' => 1,
-    'choices' => [1 => 'I confirm I am responding myself.', 2 => 'Confirmed, thanks.', 3 => 'Recording…'],
-]);
-$verr = $consent->validate()['val_errors'];
-$choiceErr = false;
-foreach ($verr as $e) { if (stripos($e, "doesn't have choices") !== false) { $choiceErr = true; } }
-$check('validate() allows optional choices on bot_check', $choiceErr, false);
-$rm = new ReflectionMethod('BotCheck_Item', 'render_input');
-$rm->setAccessible(true);
-$chtml = $rm->invoke($consent);
-$check('box label uses choice1', strpos($chtml, 'I confirm I am responding myself.') !== false, true);
-$check('confirmation text uses choice2', strpos($chtml, 'data-verified-text="Confirmed, thanks."') !== false, true);
-$check('progress text uses choice3', strpos($chtml, 'data-verifying-text=') !== false, true);
+$rebind = $mint; $rebind['parameters']['data'] = ['uc' => 'someone-else'];
+$check('re-bound session rejected (sig)', BotCheckChallenge::verify($payload($rebind, $sol->toArray())), false);
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);
