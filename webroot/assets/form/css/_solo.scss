@@ -393,6 +393,17 @@ body:has(.fmr-form-v2[data-layout="solo"]) .container-fluid > p a { pointer-even
 html.fmr-solo-locked,
 html.fmr-solo-locked body { overflow: hidden; }
 
+// Soft keyboard open (controller toggles html.fmr-solo-kbd-open on
+// visualViewport resize): top-align the seated step instead of centring it in
+// 100vh. The layout viewport doesn't shrink under the iOS keyboard, so a centred
+// field lands in the lower half BEHIND the keyboard with no overflow to scroll
+// it up (the step already fits 100vh). Aligning to the top lifts the label+field
+// into the area above the keyboard. Reported as "the text input is scrolled
+// below the keyboard for the first input after a note".
+html.fmr-solo-kbd-open .fmr-form-v2[data-layout="solo"] .fmr-page > .form-group.fmr-solo-current {
+    justify-content: flex-start;
+}
+
 // scrollIntoView (focusFirst on seat; validation focus) must leave the fixed
 // progress (top) and the Back/OK nav + footer (bottom) clear, so a centred /
 // "nearest" scroll never tucks a control under them.

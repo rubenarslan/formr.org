@@ -358,10 +358,27 @@ export function initSolo(opts) {
             const adjust = () => {
                 const overlap = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
                 navEl.style.transform = overlap > 1 ? `translateY(${-overlap}px)` : '';
-                // Keyboard open → release the fit-lock so a focused input that the
-                // keyboard now covers can still be scrolled into view.
-                if (overlap > 1) document.documentElement.classList.remove('fmr-solo-locked');
-                else lockScrollToFit(current);
+                const kbdOpen = overlap > 1;
+                // Keyboard open →
+                //  (1) top-align the step instead of centring it in 100vh. The
+                //      layout viewport doesn't shrink on iOS, so a centred field
+                //      lands in the lower half BEHIND the keyboard, with no
+                //      overflow to scroll it up (the step already fits 100vh).
+                //      Top-aligning lifts the label+field into the upper area
+                //      above the keyboard. Most visible on a text step that
+                //      follows a tall note (the reported bug).
+                //  (2) release the fit-lock so any overflow can scroll, and
+                //  (3) nudge the focused field into the visible area.
+                document.documentElement.classList.toggle('fmr-solo-kbd-open', kbdOpen);
+                if (kbdOpen) {
+                    document.documentElement.classList.remove('fmr-solo-locked');
+                    const ae = document.activeElement;
+                    if (ae && current && current.contains(ae) && ae.scrollIntoView) {
+                        try { ae.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (e) { /* noop */ }
+                    }
+                } else {
+                    lockScrollToFit(current);
+                }
             };
             vv.addEventListener('resize', adjust);
             vv.addEventListener('scroll', adjust);
