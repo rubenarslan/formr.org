@@ -16,7 +16,12 @@
 
 // Side-effect import: registers the <altcha-widget> custom element and creates
 // the global window.$altcha (AltchaGlobal: { algorithms, defaults, i18n, ... }).
-import 'altcha';
+// Use the `external` (browser-standalone) build, NOT the package main entry —
+// altcha's main ESM build references `require` (Node/SSR-oriented) and throws
+// "require is not defined" once webpack bundles it for the browser. The external
+// build self-`customElements.define`s the widget and sets window.$altcha, with
+// no require().
+import 'altcha/external';
 
 let workerRegistered = false;
 

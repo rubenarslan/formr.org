@@ -28,6 +28,14 @@ module.exports = (env, argv) => {
             extensions: ['.js'],
         },
         module: {
+            // Altcha's browser build (dist/external) is a self-contained, already-
+            // bundled module whose internal plugin loader calls `require(name)`
+            // dynamically. Webpack can't statically resolve that and leaves a bare
+            // `require`, which throws "require is not defined" in the browser. The
+            // file has no real imports of its own, so tell webpack to include it
+            // VERBATIM (no parse/transform); its own machinery (customElements
+            // .define + window.$altcha) then runs as the vendor authored it.
+            noParse: /[\\/]node_modules[\\/]altcha[\\/]dist[\\/]external[\\/]/,
             rules: [
                 {
                     test: require.resolve('jquery'),
