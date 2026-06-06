@@ -76,6 +76,41 @@ export function applyErrors(pageEl, errors) {
     pageEl.reportValidity();
 }
 
+// Has a required group been "answered"? Many item types own their value in an
+// input native Constraint Validation can't see — a hidden carrier (bot_check
+// token, VAS slider value, geopoint coords, audio/video/file recordings) or a
+// readonly field (geopoint) — so checkValidity never flags a required-but-empty
+// one. This generic check covers them uniformly: a real answer is a checked
+// option, a chosen file, a non-empty visible (non-readonly) named field, or a
+// non-empty value-carrier hidden input.
+function isAnswered(g) {
+    if (g.querySelector('input[type=radio]:checked, input[type=checkbox]:checked')) return true;
+    for (const f of g.querySelectorAll('input[type=file]')) {
+        if (f.files && f.files.length) return true;
+    }
+    const named = g.querySelectorAll(
+        'input[name]:not([type=hidden]):not([type=radio]):not([type=checkbox]):not([type=file]), textarea[name], select[name]',
+    );
+    for (const el of named) {
+        if (el.readOnly || el.disabled) continue;       // readonly geopoint field doesn't count
+        if (String(el.value == null ? '' : el.value).trim() !== '') return true;
+    }
+    for (const h of g.querySelectorAll('input[type=hidden]')) {
+        if (h.name && h.name.startsWith('_item_views')) continue; // bookkeeping, not an answer
+        if (String(h.value == null ? '' : h.value).trim() !== '') return true;
+    }
+    return false;
+}
+
+// Friendly per-type message for a required-but-unanswered group.
+function requiredMsg(g) {
+    if (g.classList.contains('item-bot_check')) return 'Please verify that you are human to continue.';
+    if (g.classList.contains('item-visual_analog_scale')) return 'Please choose a point on the scale to continue.';
+    if (g.classList.contains('item-geopoint')) return 'Please provide your location to continue.';
+    if (g.matches('.item-file, .item-image, .item-audio, .item-video')) return 'Please add a file to continue.';
+    return "We'll need this to continue.";
+}
+
 // Returns true if the page is valid and submit may proceed; false if we
 // surfaced any inline errors (caller should bail).
 export function validatePageAndShowFeedback(pageEl) {
@@ -101,29 +136,22 @@ export function validatePageAndShowFeedback(pageEl) {
         offenders.push(el);
     });
 
-    // bot_check gate: an unverified "are you human" widget. Its value lives in a
-    // hidden input (willValidate === false), so native Constraint Validation
-    // never flags it — handle it explicitly. Skip optional ones and any inside a
-    // showif-hidden group.
-    const botOffenders = Array.from(pageEl.querySelectorAll('.fmr-botcheck'))
-        .filter((w) => w.dataset.state !== 'verified')
-        .map((w) => w.closest('.form-group'))
-        .filter((g, i, a) => g && a.indexOf(g) === i
-            && g.classList.contains('required')
-            && !g.classList.contains('hidden') && g.offsetParent !== null);
+    // Generic required-but-unanswered gate. Catches every item whose required-ness
+    // native validation can't see (bot_check, visual_analog_scale, geopoint,
+    // file/image/audio/video, …) so a required-but-empty one is blocked client-side
+    // with a message instead of silently bouncing off the server. Scope: the page
+    // section in default layout, or the single seated group in solo (where
+    // `validate(current)` passes one .form-group). Skip groups already flagged by
+    // native validation above (no double message) and showif-hidden ones.
+    const nativeGroups = new Set(offenders.map((el) => el.closest('.form-group')).filter(Boolean));
+    const scope = (pageEl.matches && pageEl.matches('.form-group'))
+        ? [pageEl]
+        : Array.from(pageEl.querySelectorAll('.form-group'));
+    const unanswered = scope.filter((g) => g.classList.contains('required')
+        && !g.classList.contains('hidden') && g.offsetParent !== null
+        && !nativeGroups.has(g) && !isAnswered(g));
 
-    // VAS gate: a visual_analog_scale owns its form value in a hidden input
-    // (willValidate === false → skipped above) that stays empty until the
-    // participant moves the slider (wrapper gains `.vas-touched`). Without this
-    // the untouched required VAS slips past the client and is only caught by the
-    // server. Skip optional ones and any inside a showif-hidden group.
-    const vasOffenders = Array.from(pageEl.querySelectorAll('.vas-controls:not(.vas-touched)'))
-        .map((w) => w.closest('.form-group'))
-        .filter((g, i, a) => g && a.indexOf(g) === i
-            && g.classList.contains('required')
-            && !g.classList.contains('hidden') && g.offsetParent !== null);
-
-    if (offenders.length === 0 && botOffenders.length === 0 && vasOffenders.length === 0) return true;
+    if (offenders.length === 0 && unanswered.length === 0) return true;
 
     let firstFocusTarget = null;
     offenders.forEach((el) => {
@@ -175,27 +203,25 @@ export function validatePageAndShowFeedback(pageEl) {
 
     pageEl.querySelectorAll('.fmr-has-client-error').forEach((el) => el.classList.remove('fmr-has-client-error'));
 
-    botOffenders.forEach((g) => {
+    unanswered.forEach((g) => {
+        if (g.classList.contains('is-invalid')) return;
         g.classList.add('is-invalid');
-        if (!g.querySelector('.fmr-botcheck-feedback')) {
+        if (!g.querySelector('.fmr-invalid-feedback, .fmr-btn-feedback')) {
+            // Keep the type-specific feedback classes some tests/styles key on.
+            const extra = g.classList.contains('item-visual_analog_scale') ? ' fmr-vas-feedback'
+                : g.classList.contains('item-bot_check') ? ' fmr-botcheck-feedback' : '';
             const fb = document.createElement('div');
-            fb.className = 'invalid-feedback fmr-invalid-feedback fmr-botcheck-feedback d-block';
-            fb.textContent = 'Please verify that you are human to continue.';
-            (g.querySelector('.fmr-botcheck') || g).appendChild(fb);
+            fb.className = 'invalid-feedback fmr-invalid-feedback d-block' + extra;
+            fb.textContent = requiredMsg(g);
+            // Anchor the message just after the widget/control area.
+            const anchor = g.querySelector('.vas-controls, .fmr-botcheck, .controls-inner, .controls') || g;
+            anchor.insertAdjacentElement('afterend', fb);
         }
-        if (!firstFocusTarget) firstFocusTarget = g.querySelector('.fmr-botcheck-box') || g;
-    });
-
-    vasOffenders.forEach((g) => {
-        g.classList.add('is-invalid');
-        const wrap = g.querySelector('.vas-controls');
-        if (wrap && !wrap.parentElement.querySelector('.fmr-vas-feedback')) {
-            const fb = document.createElement('div');
-            fb.className = 'invalid-feedback fmr-invalid-feedback fmr-vas-feedback d-block';
-            fb.textContent = 'Please choose a point on the scale to continue.';
-            wrap.insertAdjacentElement('afterend', fb);
+        if (!firstFocusTarget) {
+            firstFocusTarget = g.querySelector(
+                'input:not([type=hidden]):not([disabled]), textarea, select, .fmr-botcheck-box, .vas-display, .btn[data-for]',
+            ) || g;
         }
-        if (!firstFocusTarget) firstFocusTarget = (wrap && wrap.querySelector('.vas-display')) || g;
     });
 
     if (firstFocusTarget) {
