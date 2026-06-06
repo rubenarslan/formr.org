@@ -12,6 +12,17 @@
  * Spreadsheet usage:  type = `bot_check`  (optionally `bot_check 18` to set the
  * PoW difficulty in leading-zero bits). Mark the item required (the default) so
  * a failed/missing token blocks the page submit.
+ *
+ * Customisable text — repurpose it as a consent / "I'm answering myself"
+ * affirmation gate:
+ *   - `label`   → the prompt/statement shown above the box (standard item label).
+ *   - `choice1` → the box's clickable affirmation (default "Verify you are
+ *                 human"), e.g. "I confirm I am completing this survey myself,
+ *                 without automation."
+ *   - `choice2` → the confirmation shown after clicking (default "Verified"),
+ *                 e.g. "Thank you — confirmed."
+ *   - `choice3` → the in-progress text (default "Verifying…").
+ * Choices are optional here (unlike real choice items).
  */
 class BotCheck_Item extends Item {
 
@@ -29,12 +40,39 @@ class BotCheck_Item extends Item {
         return ($opt !== '' && is_numeric($opt)) ? (int) $opt : null;
     }
 
+    /**
+     * bot_check optionally carries choices to relabel the box / confirmation
+     * (a consent affirmation). The base validator rejects any choices on a
+     * non-choice type; suppress just that check while keeping the rest (name,
+     * type, classes). Choices are restored afterwards for rendering.
+     */
+    public function validate() {
+        $choices = $this->choices;
+        $choiceList = $this->choice_list;
+        $this->choices = array();
+        $this->choice_list = null;
+        $result = parent::validate();
+        $this->choices = $choices;
+        $this->choice_list = $choiceList;
+        return $result;
+    }
+
     protected function render_input() {
         $challenge = BotCheckChallenge::mint($this->chosenDifficulty());
 
-        $label = 'Verify you are human';
-        if (!empty($this->choices)) {
-            $label = reset($this->choices);
+        // Customisable copy via choices (all optional): 1 = box affirmation,
+        // 2 = verified confirmation, 3 = in-progress text. Falls back to the
+        // human-verification defaults.
+        $choiceVals = array_values($this->choices);
+        $label = (isset($choiceVals[0]) && $choiceVals[0] !== '') ? $choiceVals[0] : 'Verify you are human';
+        $verifiedText = (isset($choiceVals[1]) && $choiceVals[1] !== '') ? $choiceVals[1] : '';
+        $verifyingText = (isset($choiceVals[2]) && $choiceVals[2] !== '') ? $choiceVals[2] : '';
+        $stateAttrs = '';
+        if ($verifiedText !== '') {
+            $stateAttrs .= sprintf(' data-verified-text="%s"', htmlspecialchars($verifiedText, ENT_QUOTES));
+        }
+        if ($verifyingText !== '') {
+            $stateAttrs .= sprintf(' data-verifying-text="%s"', htmlspecialchars($verifyingText, ENT_QUOTES));
         }
 
         // Challenge data for the widget. When the server can't sign (no crypto
@@ -59,7 +97,7 @@ class BotCheck_Item extends Item {
         // Turnstile-style control: a div (role=checkbox) the widget drives
         // through unverified → verifying → verified. The real gate is the signed
         // PoW token written into the hidden input, not the click itself.
-        $template = '<div class="fmr-botcheck" data-fmr-botcheck%s>'
+        $template = '<div class="fmr-botcheck" data-fmr-botcheck%s%s>'
             . '%s'
             . '<div class="fmr-botcheck-box" role="checkbox" aria-checked="false" tabindex="0">'
             . '<span class="fmr-botcheck-indicator" aria-hidden="true"></span>'
@@ -68,7 +106,7 @@ class BotCheck_Item extends Item {
             . '<div class="fmr-botcheck-status" aria-live="polite"></div>'
             . '</div>';
 
-        return sprintf($template, $data, $hidden, htmlspecialchars($label, ENT_QUOTES));
+        return sprintf($template, $data, $stateAttrs, $hidden, htmlspecialchars($label, ENT_QUOTES));
     }
 
     public function validateInput($reply) {

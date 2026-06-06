@@ -53,6 +53,11 @@ export function initBotCheck(root) {
         const salt = widget.dataset.salt;
         const diff = parseInt(widget.dataset.diff || '0', 10);
         const sig = widget.dataset.sig;
+        // Author-customisable copy (BotCheck_Item choices) — defaults keep the
+        // human-verification wording; set them to repurpose as a consent /
+        // affirmation gate.
+        const VERIFYING = widget.dataset.verifyingText || 'Verifying…';
+        const VERIFIED = widget.dataset.verifiedText || 'Verified';
         // No server challenge (server couldn't sign) → plain confirm box; the
         // server's verify() fails open in that misconfiguration.
         const hasChallenge = !!(iat && salt && diff && sig);
@@ -69,7 +74,7 @@ export function initBotCheck(root) {
         const finish = () => {
             solved = true;
             solving = false;
-            setState('verified', 'Verified');
+            setState('verified', VERIFIED);
             hidden.dispatchEvent(new Event('input', { bubbles: true }));
             hidden.dispatchEvent(new Event('change', { bubbles: true }));
         };
@@ -82,7 +87,7 @@ export function initBotCheck(root) {
             if (solving || solved) return;
             solving = true;
             const t0 = performance.now();
-            setState('verifying', 'Verifying…');
+            setState('verifying', VERIFYING);
 
             if (!hasChallenge) { hidden.value = 'ok'; finish(); return; }
             try {

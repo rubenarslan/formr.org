@@ -23,7 +23,18 @@
  */
 class BotCheckChallenge {
 
-    const TTL = 1800;        // a minted challenge is valid for 30 minutes
+    // How long a minted challenge stays valid. The token is bound to the
+    // participant's session (the signature includes user_code), so a long
+    // window grants an attacker nothing: a harvested challenge is useless to
+    // anyone else and the PoW costs the same work regardless. Slowness is NOT a
+    // bot signal, so this must comfortably exceed how long a real participant
+    // might take to reach the check — and in form_v2 the challenge is minted
+    // when the WHOLE form renders (all pages at once), not when the check is
+    // reached, so a participant working through earlier pages is already eating
+    // into it. Default 24h (a single page-session never approaches that; a
+    // reload re-mints). Override via Config('bot_check_ttl') for, e.g., a diary
+    // page left open for days.
+    const TTL = 86400;       // 24 hours
     const DEFAULT_DIFFICULTY = 15; // leading zero bits (~32k SHA-256 tries)
     const MIN_DIFFICULTY = 10;
     const MAX_DIFFICULTY = 22;
@@ -110,9 +121,13 @@ class BotCheckChallenge {
         $expected = self::sign($iat, $salt, $diff);
         if ($expected === '' || !hash_equals($expected, (string) $t['sig'])) return false;
         if ($diff < self::MIN_DIFFICULTY) return false;
-        // Freshness.
+        // Freshness: reject a token issued in the future (clock skew) or older
+        // than the (generous, session-bound) TTL. See the TTL note above —
+        // slowness isn't a bot signal, so this is a hygiene bound, not a gate.
+        $ttl = (int) Config::get('bot_check_ttl', self::TTL);
+        if ($ttl < 60) { $ttl = self::TTL; }
         $age = time() - $iat;
-        if ($age < -120 || $age > self::TTL) return false;
+        if ($age < -120 || $age > $ttl) return false;
         // Honeypot must be empty.
         if (!empty($t['hp'])) return false;
         // NOTE: we deliberately do NOT gate on a minimum solve time. The client

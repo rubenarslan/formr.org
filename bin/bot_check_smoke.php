@@ -59,5 +59,36 @@ $check('missing el accepted', BotCheckChallenge::verify(json_encode($noEl)), tru
 $hp = $tok; $hp['hp'] = 'spam';
 $check('honeypot filled rejected', BotCheckChallenge::verify(json_encode($hp)), false);
 
+// Freshness: a generous, session-bound TTL — slowness isn't a bot signal, and
+// in form_v2 the challenge is minted at full-form render. An hour-old token
+// (rejected under the old 30-min TTL) must now pass; a wildly stale one is
+// still rejected as a hygiene bound.
+$sign = new ReflectionMethod('BotCheckChallenge', 'sign');
+$sign->setAccessible(true);
+$forge = function ($iat) use ($c, $nonce, $sign) {
+    return json_encode(['iat' => $iat, 'salt' => $c['salt'], 'diff' => $c['diff'],
+        'sig' => $sign->invoke(null, $iat, $c['salt'], $c['diff']), 'nonce' => (string) $nonce, 'el' => 50]);
+};
+$check('hour-old token accepted (TTL not a gate)', BotCheckChallenge::verify($forge(time() - 3600)), true);
+$check('very stale token rejected (TTL hygiene)', BotCheckChallenge::verify($forge(time() - 90000)), false);
+$check('future-iat token rejected (clock skew)', BotCheckChallenge::verify($forge(time() + 600)), false);
+
+// Customisable copy (consent / affirmation gate): choices relabel the box +
+// confirmation, and must NOT trip the "this type doesn't have choices" error.
+$consent = new BotCheck_Item([
+    'id' => 9001, 'name' => 'consent_demo', 'label' => 'Please confirm', 'optional' => 1,
+    'choices' => [1 => 'I confirm I am responding myself.', 2 => 'Confirmed, thanks.', 3 => 'Recording…'],
+]);
+$verr = $consent->validate()['val_errors'];
+$choiceErr = false;
+foreach ($verr as $e) { if (stripos($e, "doesn't have choices") !== false) { $choiceErr = true; } }
+$check('validate() allows optional choices on bot_check', $choiceErr, false);
+$rm = new ReflectionMethod('BotCheck_Item', 'render_input');
+$rm->setAccessible(true);
+$chtml = $rm->invoke($consent);
+$check('box label uses choice1', strpos($chtml, 'I confirm I am responding myself.') !== false, true);
+$check('confirmation text uses choice2', strpos($chtml, 'data-verified-text="Confirmed, thanks."') !== false, true);
+$check('progress text uses choice3', strpos($chtml, 'data-verifying-text=') !== false, true);
+
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);
