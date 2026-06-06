@@ -190,6 +190,16 @@ export function initSolo(opts) {
         updateNav();
         updateProgress();
         lockScrollToFit(el);
+        // OK/Back no longer blur the field on tap (pointerdown keepFocus), so when
+        // we advance to a step with no text field to receive the keyboard, close it
+        // ourselves. A sync hand-off (sync=true) is a text→text move — keep focus
+        // so the keyboard rides along without flickering shut.
+        if (!sync) {
+            const ae = document.activeElement;
+            if (ae && ae !== document.body && ae.blur && !leadingTextField(el)) {
+                try { ae.blur(); } catch (e) { /* noop */ }
+            }
+        }
         try { window.scrollTo({ top: 0 }); } catch (e) { /* noop */ }
         focusFirst(el, sync);
         transitioning = false;
@@ -340,6 +350,18 @@ export function initSolo(opts) {
         okBtn = navEl.querySelector('.fmr-solo-ok');
         hintEl = navEl.querySelector('.fmr-solo-hint');
         helpBtn = navEl.querySelector('.fmr-solo-help');
+        // Keep the soft keyboard (and the lifted nav position) stable when OK/Back
+        // is tapped from a focused field: preventDefault on pointerdown stops the
+        // button stealing focus, so the field doesn't blur, the keyboard doesn't
+        // flicker shut, and the nav doesn't drop out from under the finger mid-tap
+        // — which on mobile dropped the tap so OK appeared not to fire. The click
+        // still fires (pointerdown.preventDefault doesn't cancel it); seat() blurs
+        // the field when the next step has no text input, so the keyboard closes
+        // exactly when it should. validate()/collectAnswers read the live .value,
+        // so not firing `change` on the tap loses nothing.
+        const keepFocus = (e) => { e.preventDefault(); };
+        backBtn.addEventListener('pointerdown', keepFocus);
+        okBtn.addEventListener('pointerdown', keepFocus);
         backBtn.addEventListener('click', (e) => { e.preventDefault(); onBack(); });
         okBtn.addEventListener('click', (e) => { e.preventDefault(); onContinue(true); });
         // The run footer (contact / privacy / ToS / settings) is hidden by
@@ -355,30 +377,34 @@ export function initSolo(opts) {
         // the footer by the keyboard overlap using the visual-viewport API.
         const vv = window.visualViewport;
         if (vv) {
+            let kbdWas = false;
             const adjust = () => {
+                // (1) Keep the fixed nav (Back/OK) lifted to sit just above the
+                //     keyboard. Recomputed on every resize/scroll so it tracks the
+                //     keyboard as it animates open and as the page scrolls under it.
                 const overlap = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
                 navEl.style.transform = overlap > 1 ? `translateY(${-overlap}px)` : '';
                 const kbdOpen = overlap > 1;
-                // Keyboard open →
-                //  (1) top-align the step instead of centring it in 100vh. The
-                //      layout viewport doesn't shrink on iOS, so a centred field
-                //      lands in the lower half BEHIND the keyboard, with no
-                //      overflow to scroll it up (the step already fits 100vh).
-                //      Top-aligning lifts the label+field into the upper area
-                //      above the keyboard. Most visible on a text step that
-                //      follows a tall note (the reported bug).
-                //  (2) release the fit-lock so any overflow can scroll, and
-                //  (3) nudge the focused field into the visible area.
+                // (2) Keyboard open → top-align the step (CSS) instead of centring
+                //     it in 100vh: the layout viewport doesn't shrink on iOS, so a
+                //     centred field lands in the lower half BEHIND the keyboard.
+                //     flex-start lifts the label+field into the area above it.
                 document.documentElement.classList.toggle('fmr-solo-kbd-open', kbdOpen);
-                if (kbdOpen) {
+                // (3) Toggle the fit-lock ONLY on the open/close transition, never
+                //     on every tick. We deliberately do NOT scrollIntoView the
+                //     focused field: a programmatic scroll here fights iOS' own
+                //     focus-scroll, renders as an ultra-slow crawl, and — via the
+                //     visualViewport `scroll` event it triggers — re-enters this
+                //     handler in a loop whose drifting offsetTop shrinks `overlap`
+                //     and drags the lifted nav back DOWN behind the keyboard (the
+                //     "slow scroll that hides OK" report). flex-start + the
+                //     browser's native focus-scroll place the field on their own.
+                if (kbdOpen && !kbdWas) {
                     document.documentElement.classList.remove('fmr-solo-locked');
-                    const ae = document.activeElement;
-                    if (ae && current && current.contains(ae) && ae.scrollIntoView) {
-                        try { ae.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (e) { /* noop */ }
-                    }
-                } else {
+                } else if (!kbdOpen && kbdWas) {
                     lockScrollToFit(current);
                 }
+                kbdWas = kbdOpen;
             };
             vv.addEventListener('resize', adjust);
             vv.addEventListener('scroll', adjust);
