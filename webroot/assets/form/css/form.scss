@@ -317,6 +317,42 @@
         padding: 0;
     }
 
+    // Leading/trailing icons (email, tel, url, …) emit Bootstrap-3 input-group
+    // markup: <span class="input-group-addon"><i class="fa"></i></span> + a
+    // <span> wrapping the field. Bootstrap 5 (the v2 bundle) lays the .input-group
+    // out as a flex row but does NOT style .input-group-addon (it expects
+    // .input-group-text), so the icon rendered unsized, top-aligned and gapless.
+    // Restore a clean v1-like addon: a boxed icon, sized to and vertically
+    // centred with the field, with horizontal spacing. Scoped via :has so plain
+    // button input-groups (.input-group-btn) keep their own layout.
+    .input-group:has(> .input-group-addon) {
+        flex-wrap: nowrap;
+        gap: 0.4rem;
+        align-items: stretch;
+    }
+    .input-group > .input-group-addon {
+        display: inline-flex;
+        align-items: center;          // vertically centre the glyph (was top)
+        justify-content: center;
+        align-self: stretch;          // match the field's height (was a bare glyph)
+        flex: 0 0 auto;
+        padding: 0 0.85rem;
+        border: 1.5px solid var(--bs-border-color, #dee2e6);
+        border-radius: 0.5rem;
+        background: var(--bs-tertiary-bg, #f1f3f5);
+        color: var(--bs-secondary-color, #6c757d);
+        font-size: 1.15rem;           // size up to roughly match the input text
+        line-height: 1;
+        i.fa { width: 1em; text-align: center; }
+    }
+    // The field is wrapped in a bare <span>; make it fill the remaining width.
+    .input-group > span:not(.input-group-addon) {
+        display: flex;
+        flex: 1 1 auto;
+        min-width: 0;
+        > .form-control { width: 100%; }
+    }
+
     // Range / range_ticks / visual_analog_scale: labels + slider on one row
     // (v1's pattern: left label, slider, right label). Without this flex
     // container the slider's natural `width: 100%` pushes the right label
