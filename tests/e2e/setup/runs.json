@@ -3,6 +3,9 @@
     "v1": { "run": "e2e-aw-v1" },
     "v2": { "run": "e2e-aw-v2" }
   },
+  "all_widgets_req": {
+    "v2": { "run": "e2e-aw-req-v2", "study": "e2e_all_widgets_req_v2" }
+  },
   "pwa_high": {
     "v1": { "run": "e2e-pwa-h-v1" },
     "v2": { "run": "e2e-pwa-h-v2" }
