@@ -1064,6 +1064,43 @@ class RunController extends Controller {
     }
 
     /**
+     * bot_check (Altcha): mint a fresh, session-bound proof-of-work challenge.
+     *
+     * URL: GET /{runName}/form-bot-challenge
+     *
+     * The <altcha-widget challenge="…/form-bot-challenge"> fetches this lazily
+     * when it mounts (NOT at form render), so the challenge is fresh when the
+     * participant reaches the bot_check — sidestepping the form_v2 "render every
+     * page at once" staleness bug. The challenge is bound to the current
+     * participant (user_code folded into the signed `data`); the same session
+     * cookie is present here as at submit time, so BotCheckChallenge::subject()
+     * resolves identically. Everything is computed on this server — no third
+     * party, no PII leaves the box.
+     */
+    public function formBotChallengeAction() {
+        $this->run = $this->getRun();
+        // Resolve the participant so the challenge binds to THIS session. If
+        // there is no session yet, subject() returns '' and the challenge binds
+        // to the empty subject (verify() then also reads '' — still consistent).
+        $this->user = $this->loginUser();
+        // Optional per-item difficulty (prefix bytes). mint() clamps to [1,3] and
+        // the HMAC signature pins it, so a tampered value can't weaken the gate.
+        $difficulty = isset($_GET['difficulty']) && is_numeric($_GET['difficulty'])
+            ? (int) $_GET['difficulty'] : null;
+        $challenge = BotCheckChallenge::mint($difficulty);
+        if ($challenge === null) {
+            // Server can't sign (no crypto key). Tell the widget so it can skip;
+            // verify() fails open in this misconfiguration so participants aren't
+            // locked out.
+            $this->sendJsonResponse(array('error' => 'bot_check_unavailable'), 503);
+            return;
+        }
+        // Discourage caching/proxy storage of a one-shot challenge.
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        $this->sendJsonResponse($challenge);
+    }
+
+    /**
      * form_v2 Phase 4: deferred fill for r(...)-wrapped `value` expressions.
      *
      * URL: POST /{runName}/form-fill

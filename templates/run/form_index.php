@@ -63,6 +63,11 @@
         <?php endif; ?>
         <script>
             window.formr = <?php echo !empty($jsConfig) ? json_encode($jsConfig) : '{}'; ?>;
+            // bot_check (Altcha): same-origin URL of the self-hosted memory-hard
+            // Argon2id Web Worker, copied next to the form bundle by webpack.
+            // Resolved against the active build/dev-build dir so it always matches
+            // the loaded bundle. No third-party / CDN — fully self-hosted.
+            window.formr.altchaWorkerUrl = <?php echo json_encode(asset_url($formBundleDir . '/js/altcha/argon2id.js')); ?>;
             <?php if ($vapidPublicKey): ?>
             window.vapidPublicKey = <?php echo json_encode($vapidPublicKey); ?>;
             <?php endif; ?>

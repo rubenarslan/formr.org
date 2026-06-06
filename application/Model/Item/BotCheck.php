@@ -5,13 +5,21 @@
  *
  * A gating item in the mould of AddToHomeScreen_Item / PushNotification_Item:
  * a hidden input carries a value the participant can't type, JavaScript fills
- * it, and the server validates it in validateInput(). Here the value is a
- * proof-of-work token minted + verified entirely on this server
- * (BotCheckChallenge) — no third-party captcha, no external request, no PII.
+ * it, and the server validates it in validateInput(). The value is an Altcha
+ * (https://altcha.org, MIT, self-hosted) proof-of-work token, minted + verified
+ * entirely on this server (BotCheckChallenge) with the memory-hard Argon2id
+ * algorithm — no third-party captcha, no external request, no PII. This is
+ * Altcha's free self-hosted PoW, NOT the Sentinel SaaS.
  *
- * Spreadsheet usage:  type = `bot_check`  (optionally `bot_check 18` to set the
- * PoW difficulty in leading-zero bits). Mark the item required (the default) so
- * a failed/missing token blocks the page submit.
+ * The widget renders an <altcha-widget> whose challenge is fetched lazily from
+ * /{run}/form-bot-challenge when it mounts (the JS layer fills in the
+ * challengeurl from the form's data-run-url). Fetching on mount keeps the
+ * challenge fresh in form_v2 (which renders every page into one document at
+ * load), so it can't go stale before a participant reaches a later page.
+ *
+ * Spreadsheet usage:  type = `bot_check`  (optionally `bot_check 2` to set the
+ * PoW prefix-byte difficulty, 1..3). Mark the item required (the default) so a
+ * failed/missing token blocks the page submit.
  *
  * Customisable text — repurpose it as a consent / "I'm answering myself"
  * affirmation gate:
@@ -58,62 +66,60 @@ class BotCheck_Item extends Item {
     }
 
     protected function render_input() {
-        $challenge = BotCheckChallenge::mint($this->chosenDifficulty());
-
-        // Customisable copy via choices (all optional): 1 = box affirmation,
-        // 2 = verified confirmation, 3 = in-progress text. Falls back to the
-        // human-verification defaults.
+        // Author-customisable copy via choices (all optional): 1 = widget label,
+        // 2 = verified-state text, 3 = verifying-state text. These map to Altcha's
+        // i18n `strings` (label / verified / verifying). Falls back to Altcha's
+        // own English defaults when a choice is empty.
         $choiceVals = array_values($this->choices);
-        $label = (isset($choiceVals[0]) && $choiceVals[0] !== '') ? $choiceVals[0] : 'Verify you are human';
-        $verifiedText = (isset($choiceVals[1]) && $choiceVals[1] !== '') ? $choiceVals[1] : '';
-        $verifyingText = (isset($choiceVals[2]) && $choiceVals[2] !== '') ? $choiceVals[2] : '';
-        $stateAttrs = '';
-        if ($verifiedText !== '') {
-            $stateAttrs .= sprintf(' data-verified-text="%s"', htmlspecialchars($verifiedText, ENT_QUOTES));
-        }
-        if ($verifyingText !== '') {
-            $stateAttrs .= sprintf(' data-verifying-text="%s"', htmlspecialchars($verifyingText, ENT_QUOTES));
-        }
+        $strings = array();
+        if (isset($choiceVals[0]) && $choiceVals[0] !== '') $strings['label'] = (string) $choiceVals[0];
+        if (isset($choiceVals[1]) && $choiceVals[1] !== '') $strings['verified'] = (string) $choiceVals[1];
+        if (isset($choiceVals[2]) && $choiceVals[2] !== '') $strings['verifying'] = (string) $choiceVals[2];
 
-        // Challenge data for the widget. When the server can't sign (no crypto
-        // key) we still render a plain confirm box; verify() then fails open.
-        $data = '';
-        if ($challenge !== null) {
-            $data = sprintf(
-                ' data-iat="%d" data-salt="%s" data-diff="%d" data-sig="%s"',
-                (int) $challenge['iat'],
-                htmlspecialchars($challenge['salt'], ENT_QUOTES),
-                (int) $challenge['diff'],
-                htmlspecialchars($challenge['sig'], ENT_QUOTES)
-            );
-        }
-
-        $hidden = sprintf(
-            '<input type="hidden" name="%s" id="%s" value="" />',
-            htmlspecialchars($this->name, ENT_QUOTES),
-            htmlspecialchars($this->name, ENT_QUOTES)
+        // The widget creates its OWN hidden input named after the item and POSTs
+        // the base64 payload there; we don't render one. It fetches the challenge
+        // lazily from /{run}/form-bot-challenge — the JS layer (initBotCheck)
+        // resolves the absolute challengeurl from the form's data-run-url at init
+        // and registers the Argon2id worker. We emit a relative marker so the
+        // widget stays inert until JS wires it (no eager network call).
+        $cfg = array(
+            'hideLogo' => true,
+            'hideFooter' => true,
+            'humanInteractionSignature' => false, // no pointer/scroll telemetry collection
         );
+        if (!empty($strings)) {
+            $cfg['strings'] = $strings;
+        }
 
-        // Turnstile-style control: a div (role=checkbox) the widget drives
-        // through unverified → verifying → verified. The real gate is the signed
-        // PoW token written into the hidden input, not the click itself.
-        $template = '<div class="fmr-botcheck" data-fmr-botcheck%s%s>'
-            . '%s'
-            . '<div class="fmr-botcheck-box" role="checkbox" aria-checked="false" tabindex="0">'
-            . '<span class="fmr-botcheck-indicator" aria-hidden="true"></span>'
-            . '<span class="fmr-botcheck-label">%s</span>'
-            . '</div>'
-            . '<div class="fmr-botcheck-status" aria-live="polite"></div>'
-            . '</div>';
+        $name = htmlspecialchars($this->name, ENT_QUOTES);
+        $config = htmlspecialchars(json_encode($cfg, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), ENT_QUOTES);
+        // Per-item difficulty (prefix bytes 1..3) from `bot_check N`. The endpoint
+        // clamps it and the signature pins it, so a tampered query can't weaken
+        // the gate below the configured minimum.
+        $diff = $this->chosenDifficulty();
+        $diffAttr = ($diff !== null) ? sprintf(' data-difficulty="%d"', (int) $diff) : '';
 
-        return sprintf($template, $data, $stateAttrs, $hidden, htmlspecialchars($label, ENT_QUOTES));
+        // data-fmr-botcheck flags the wrapper for initBotCheck(); data-challenge-path
+        // is the run-relative endpoint the JS turns into an absolute challengeurl.
+        return sprintf(
+            '<div class="fmr-botcheck" data-fmr-botcheck data-challenge-path="form-bot-challenge"%s>'
+            . '<altcha-widget name="%s" auto="off" configuration=\'%s\'></altcha-widget>'
+            . '</div>',
+            $diffAttr,
+            $name,
+            $config
+        );
     }
 
     public function validateInput($reply) {
-        $this->reply = $reply;
+        // Store a compact marker, not the (large) base64 token. The token only
+        // needs to verify here; persisting it adds no value and would bloat the
+        // result column.
         if (BotCheckChallenge::verify($reply)) {
-            return 'passed';
+            $this->reply = 'verified';
+            return 'verified';
         }
+        $this->reply = $reply;
         // The save loop (UnitSession::updateSurveyStudyRecord) detects a failed
         // item by `$item->error` being set — NOT by the return value. Without
         // this the invalid/empty token is silently accepted. Setting it both

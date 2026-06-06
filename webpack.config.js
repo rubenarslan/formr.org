@@ -172,6 +172,18 @@ module.exports = (env, argv) => {
                         to: path.resolve(__dirname, outputDir + '/assets/img/'),
                         info: { minimized: false },
                     },
+                    // Altcha (bot_check) memory-hard Argon2id Web Worker. Shipped
+                    // as a self-contained classic worker (inline WASM, no network)
+                    // and loaded by webroot/assets/form/js/items/bot-check.js as a
+                    // same-origin Worker. Copied verbatim rather than bundled
+                    // because the target is es5 and worker-chunk publicPath
+                    // resolution across build/ vs dev-build/ is fragile; a fixed
+                    // path next to the form bundle is robust and self-hosted.
+                    {
+                        from: path.resolve(__dirname, 'node_modules/altcha/dist/workers/argon2id.js'),
+                        to: path.resolve(__dirname, outputDir + '/js/altcha/argon2id.js'),
+                        info: { minimized: true },
+                    },
                 ],
             }),
         ],

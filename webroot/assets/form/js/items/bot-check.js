@@ -1,111 +1,71 @@
-// bot_check item — local-only "are you human" proof-of-work widget.
+// bot_check item — self-hosted, GDPR-clean "are you human" proof-of-work,
+// backed by Altcha (https://altcha.org, MIT) with the memory-hard Argon2id
+// algorithm.
 //
 // Pairs with application/Model/Item/BotCheck.php + Services/BotCheckChallenge.php.
-// No third party and no network call: the server mints a signed PoW challenge
-// at render time, this widget solves it in-browser on a *trusted* click, and
-// writes a token the server verifies. A Cloudflare-style box, but everything
-// stays on the formr server (GDPR-clean). See those files for the protocol.
+// No third party and no CDN: the server mints a signed Altcha challenge bound to
+// the participant's session, the <altcha-widget> solves it in-browser using a
+// self-hosted Argon2id Web Worker (inline WASM, shipped next to this bundle),
+// and the server verifies the solution at form submit. Everything stays on the
+// formr server. See those files for the protocol + threat model.
+//
+// The challenge is fetched LAZILY from /{run}/form-bot-challenge when the widget
+// mounts — not embedded at render time — so it's always fresh when the
+// participant reaches the check (form_v2 renders every page into one document at
+// load, which would otherwise let an embedded challenge go stale).
 
-function leadingZeroBits(bytes) {
-    let bits = 0;
-    for (let i = 0; i < bytes.length; i++) {
-        const b = bytes[i];
-        if (b === 0) { bits += 8; continue; }
-        let mask = 0x80;
-        while (mask && (b & mask) === 0) { bits++; mask >>= 1; }
-        break;
-    }
-    return bits;
+// Side-effect import: registers the <altcha-widget> custom element and creates
+// the global window.$altcha (AltchaGlobal: { algorithms, defaults, i18n, ... }).
+import 'altcha';
+
+let workerRegistered = false;
+
+// Register the memory-hard Argon2id worker once. PBKDF2/SHA-* are bundled into
+// the widget, but Argon2id is modular and must be provided as a Worker factory.
+// We load the self-hosted copy (webpack copies it to js/altcha/argon2id.js next
+// to the form bundle; the template exposes its URL via window.formr.altchaWorkerUrl).
+function registerArgon2id() {
+    if (workerRegistered) return;
+    const g = window.$altcha;
+    if (!g || !g.algorithms || typeof g.algorithms.set !== 'function') return;
+    const workerUrl = (window.formr && window.formr.altchaWorkerUrl) || '';
+    if (!workerUrl) return; // server fell back to SHA-256 challenges; bundled, no worker needed
+    g.algorithms.set('ARGON2ID', () => new Worker(workerUrl));
+    workerRegistered = true;
 }
 
-// Find a nonce so SHA-256(salt + nonce) has >= diff leading zero bits. Digests
-// run in parallel batches via SubtleCrypto so the UI never blocks; each batch
-// awaits, yielding to the event loop.
-async function solvePow(salt, diff) {
-    if (!(window.crypto && window.crypto.subtle)) throw new Error('no-subtle');
-    const enc = new TextEncoder();
-    const BATCH = 512;
-    for (let base = 0; base < 8000000; base += BATCH) {
-        const jobs = [];
-        for (let i = 0; i < BATCH; i++) {
-            const n = base + i;
-            jobs.push(crypto.subtle.digest('SHA-256', enc.encode(salt + n)).then((buf) => [n, new Uint8Array(buf)]));
-        }
-        const results = await Promise.all(jobs);
-        for (const [n, bytes] of results) {
-            if (leadingZeroBits(bytes) >= diff) return String(n);
-        }
-    }
-    throw new Error('pow-giveup');
+// Build the absolute challenge URL from the form's data-run-url (set by
+// FormRenderer) + the item's run-relative data-challenge-path, mirroring how
+// main.js derives renderPageUrl. Optional per-item difficulty rides as a query
+// param (the server clamps + signs it, so it can't weaken the gate).
+function challengeUrlFor(widget) {
+    const form = widget.closest('form.fmr-form-v2');
+    const runUrl = (form && form.getAttribute('data-run-url')) || (window.formr && window.formr.runUrl) || '';
+    const path = widget.getAttribute('data-challenge-path') || 'form-bot-challenge';
+    let url = (runUrl || '').replace(/\/?$/, '/') + path;
+    const diff = widget.getAttribute('data-difficulty');
+    if (diff) url += (url.indexOf('?') === -1 ? '?' : '&') + 'difficulty=' + encodeURIComponent(diff);
+    return url;
 }
 
 export function initBotCheck(root) {
-    root.querySelectorAll('.fmr-botcheck[data-fmr-botcheck]').forEach((widget) => {
-        if (widget.dataset.fmrBcInit === '1') return;
-        widget.dataset.fmrBcInit = '1';
+    const wrappers = root.querySelectorAll('.fmr-botcheck[data-fmr-botcheck]');
+    if (!wrappers.length) return;
 
-        const hidden = widget.querySelector('input[type=hidden]');
-        const box = widget.querySelector('.fmr-botcheck-box');
-        const status = widget.querySelector('.fmr-botcheck-status');
-        if (!hidden || !box) return;
+    registerArgon2id();
 
-        const iat = widget.dataset.iat;
-        const salt = widget.dataset.salt;
-        const diff = parseInt(widget.dataset.diff || '0', 10);
-        const sig = widget.dataset.sig;
-        // Author-customisable copy (BotCheck_Item choices) — defaults keep the
-        // human-verification wording; set them to repurpose as a consent /
-        // affirmation gate.
-        const VERIFYING = widget.dataset.verifyingText || 'Verifying…';
-        const VERIFIED = widget.dataset.verifiedText || 'Verified';
-        // No server challenge (server couldn't sign) → plain confirm box; the
-        // server's verify() fails open in that misconfiguration.
-        const hasChallenge = !!(iat && salt && diff && sig);
+    wrappers.forEach((wrapper) => {
+        if (wrapper.dataset.fmrBcInit === '1') return;
+        wrapper.dataset.fmrBcInit = '1';
 
-        let solving = false;
-        let solved = false;
-        const setState = (s, msg) => {
-            widget.dataset.state = s;
-            box.setAttribute('aria-checked', s === 'verified' ? 'true' : 'false');
-            if (status) status.textContent = msg || '';
-        };
-        setState('idle', '');
+        const altcha = wrapper.querySelector('altcha-widget');
+        if (!altcha) return;
 
-        const finish = () => {
-            solved = true;
-            solving = false;
-            setState('verified', VERIFIED);
-            hidden.dispatchEvent(new Event('input', { bubbles: true }));
-            hidden.dispatchEvent(new Event('change', { bubbles: true }));
-        };
-
-        const start = async (ev) => {
-            // Require a genuine (trusted) interaction — a page-script .click()
-            // carries isTrusted=false and is ignored, so JS automation that
-            // never really interacts can't trip the solve.
-            if (ev && ev.isTrusted === false) return;
-            if (solving || solved) return;
-            solving = true;
-            const t0 = performance.now();
-            setState('verifying', VERIFYING);
-
-            if (!hasChallenge) { hidden.value = 'ok'; finish(); return; }
-            try {
-                const nonce = await solvePow(salt, diff);
-                hidden.value = JSON.stringify({
-                    iat: Number(iat), salt, diff, sig, nonce,
-                    el: Math.round(performance.now() - t0),
-                });
-                finish();
-            } catch (e) {
-                solving = false;
-                setState('error', 'Could not verify — tap to try again');
-            }
-        };
-
-        box.addEventListener('click', start);
-        box.addEventListener('keydown', (e) => {
-            if (e.key === ' ' || e.key === 'Enter' || e.key === 'Spacebar') { e.preventDefault(); start(e); }
-        });
+        // Set the challenge URL last so the element doesn't fetch before the
+        // worker is registered. auto="off" already keeps it inert until the
+        // participant clicks the checkbox, but setting challenge here also
+        // guarantees no eager network call on initial (multi-page) render.
+        const url = challengeUrlFor(wrapper);
+        if (url) altcha.setAttribute('challenge', url);
     });
 }
