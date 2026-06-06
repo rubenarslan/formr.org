@@ -68,6 +68,10 @@
             // Resolved against the active build/dev-build dir so it always matches
             // the loaded bundle. No third-party / CDN — fully self-hosted.
             window.formr.altchaWorkerUrl = <?php echo json_encode(asset_url($formBundleDir . '/js/altcha/argon2id.js')); ?>;
+            // bot_check (Altcha): same-origin URL of the self-hosted altcha widget
+            // standalone build, injected as a <script type=module> by bot-check.js
+            // (not bundled — see webpack.config.js / bot-check.js).
+            window.formr.altchaScriptUrl = <?php echo json_encode(asset_url($formBundleDir . '/js/altcha/altcha.min.js')); ?>;
             <?php if ($vapidPublicKey): ?>
             window.vapidPublicKey = <?php echo json_encode($vapidPublicKey); ?>;
             <?php endif; ?>

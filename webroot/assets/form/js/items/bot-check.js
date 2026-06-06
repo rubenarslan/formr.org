@@ -14,14 +14,35 @@
 // participant reaches the check (form_v2 renders every page into one document at
 // load, which would otherwise let an embedded challenge go stale).
 
-// Side-effect import: registers the <altcha-widget> custom element and creates
-// the global window.$altcha (AltchaGlobal: { algorithms, defaults, i18n, ... }).
-// Use the `external` (browser-standalone) build, NOT the package main entry —
-// altcha's main ESM build references `require` (Node/SSR-oriented) and throws
-// "require is not defined" once webpack bundles it for the browser. The external
-// build self-`customElements.define`s the widget and sets window.$altcha, with
-// no require().
-import 'altcha/external';
+// Altcha is loaded as a SELF-HOSTED standalone module script, NOT webpack-
+// bundled. altcha's browser build is ESM whose plugin loader uses a dynamic
+// require() webpack can't resolve ("require is not defined" at bundle init), and
+// webpack noParse is invalid on ESM — so we ship altcha's prebuilt dist/external
+// bundle verbatim (webpack copies it to js/altcha/altcha.min.js; the template
+// exposes its URL via window.formr.altchaScriptUrl) and inject it as a
+// <script type="module"> on demand, only when a bot_check is present. It
+// self-`customElements.define`s <altcha-widget> and sets window.$altcha.
+let altchaLoading = null;
+function loadAltcha() {
+    if (window.$altcha) return Promise.resolve();
+    if (altchaLoading) return altchaLoading;
+    const url = (window.formr && window.formr.altchaScriptUrl) || '';
+    altchaLoading = new Promise((resolve) => {
+        if (url) {
+            const s = document.createElement('script');
+            s.type = 'module';
+            s.src = url;
+            s.onerror = () => resolve();   // network/load failure → resolve; verify just won't arm
+            document.head.appendChild(s);
+        }
+        // the module script sets window.$altcha when it executes; poll until ready.
+        const t0 = Date.now();
+        const iv = setInterval(() => {
+            if (window.$altcha || Date.now() - t0 > 10000) { clearInterval(iv); resolve(); }
+        }, 40);
+    });
+    return altchaLoading;
+}
 
 let workerRegistered = false;
 
@@ -57,8 +78,6 @@ export function initBotCheck(root) {
     const wrappers = root.querySelectorAll('.fmr-botcheck[data-fmr-botcheck]');
     if (!wrappers.length) return;
 
-    registerArgon2id();
-
     wrappers.forEach((wrapper) => {
         if (wrapper.dataset.fmrBcInit === '1') return;
         wrapper.dataset.fmrBcInit = '1';
@@ -66,11 +85,16 @@ export function initBotCheck(root) {
         const altcha = wrapper.querySelector('altcha-widget');
         if (!altcha) return;
 
-        // Set the challenge URL last so the element doesn't fetch before the
-        // worker is registered. auto="off" already keeps it inert until the
-        // participant clicks the checkbox, but setting challenge here also
-        // guarantees no eager network call on initial (multi-page) render.
+        // Set the challenge URL now; the element reads it once it upgrades (when
+        // the standalone script defines it). auto="off" keeps it inert until the
+        // participant clicks, so there's no eager fetch on initial (multi-page)
+        // render.
         const url = challengeUrlFor(wrapper);
         if (url) altcha.setAttribute('challenge', url);
     });
+
+    // Load the standalone altcha build (registers the widget + window.$altcha),
+    // then register the memory-hard Argon2id worker so the widget can solve when
+    // the participant clicks. The widget upgrades in place once the script runs.
+    loadAltcha().then(registerArgon2id);
 }

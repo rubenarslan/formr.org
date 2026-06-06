@@ -28,14 +28,6 @@ module.exports = (env, argv) => {
             extensions: ['.js'],
         },
         module: {
-            // Altcha's browser build (dist/external) is a self-contained, already-
-            // bundled module whose internal plugin loader calls `require(name)`
-            // dynamically. Webpack can't statically resolve that and leaves a bare
-            // `require`, which throws "require is not defined" in the browser. The
-            // file has no real imports of its own, so tell webpack to include it
-            // VERBATIM (no parse/transform); its own machinery (customElements
-            // .define + window.$altcha) then runs as the vendor authored it.
-            noParse: /[\\/]node_modules[\\/]altcha[\\/]dist[\\/]external[\\/]/,
             rules: [
                 {
                     test: require.resolve('jquery'),
@@ -190,6 +182,16 @@ module.exports = (env, argv) => {
                     {
                         from: path.resolve(__dirname, 'node_modules/altcha/dist/workers/argon2id.js'),
                         to: path.resolve(__dirname, outputDir + '/js/altcha/argon2id.js'),
+                        info: { minimized: true },
+                    },
+                    // Altcha widget — shipped as its prebuilt standalone module
+                    // (dist/external) and loaded via a <script type=module> by
+                    // bot-check.js, NOT webpack-bundled: its ESM build's plugin
+                    // loader uses a dynamic require() webpack can't resolve. Self-
+                    // hosted next to the form bundle; no CDN, no third party.
+                    {
+                        from: path.resolve(__dirname, 'node_modules/altcha/dist/external/altcha.min.js'),
+                        to: path.resolve(__dirname, outputDir + '/js/altcha/altcha.min.js'),
                         info: { minimized: true },
                     },
                 ],
