@@ -37,7 +37,7 @@ export function initSolo(opts) {
 
     const progressBar = root.querySelector('[data-fmr-progress-bar]');
     const progressLabel = root.querySelector('[data-fmr-progress-label]');
-    let navEl = null, backBtn = null, okBtn = null, hintEl = null;
+    let navEl = null, backBtn = null, okBtn = null, hintEl = null, helpBtn = null;
     let loadingEl = null;
 
 
@@ -329,14 +329,26 @@ export function initSolo(opts) {
             + '<span class="fmr-solo-hint" aria-hidden="true"></span>'
             + '<button type="button" class="btn btn-primary fmr-solo-ok">OK <i class="fa fa-check" aria-hidden="true"></i></button>'
             + '</div>'
+            + '<div class="fmr-solo-left">'
             + '<button type="button" class="fmr-solo-back" aria-label="Go to previous question">'
-            + '<i class="fa fa-arrow-up" aria-hidden="true"></i> Back</button>';
+            + '<i class="fa fa-arrow-up" aria-hidden="true"></i> Back</button>'
+            + '<button type="button" class="fmr-solo-help" aria-label="Show contact and privacy links" aria-expanded="false">'
+            + '<i class="fa fa-question" aria-hidden="true"></i></button>'
+            + '</div>';
         root.appendChild(navEl);
         backBtn = navEl.querySelector('.fmr-solo-back');
         okBtn = navEl.querySelector('.fmr-solo-ok');
         hintEl = navEl.querySelector('.fmr-solo-hint');
+        helpBtn = navEl.querySelector('.fmr-solo-help');
         backBtn.addEventListener('click', (e) => { e.preventDefault(); onBack(); });
         okBtn.addEventListener('click', (e) => { e.preventDefault(); onContinue(true); });
+        // The run footer (contact / privacy / ToS / settings) is hidden by
+        // default in solo; the ? toggles it so it doesn't clutter every screen.
+        helpBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const open = document.documentElement.classList.toggle('fmr-solo-footer-open');
+            helpBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
 
         // Mobile: when the soft keyboard opens, the layout viewport doesn't
         // shrink on iOS, so a `bottom:0` bar ends up behind the keyboard. Lift

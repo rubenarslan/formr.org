@@ -267,8 +267,15 @@
         pointer-events: none;     // let the gradient's transparent top pass clicks through
         > * { pointer-events: auto; }
     }
+    // Back + the ? (footer toggle) sit together on the visual left. DOM has the
+    // OK group first (for tab order); `order:-1` pulls this group to the left.
+    .fmr-solo-left {
+        order: -1;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
     .fmr-solo-back {
-        order: -1;            // DOM has OK first (for tab order); keep Back on the visual left
         display: inline-flex;
         align-items: center;
         gap: 0.4rem;
@@ -281,6 +288,23 @@
         cursor: pointer;
         transition: background 0.12s ease, color 0.12s ease;
         &:hover { background: var(--bs-tertiary-bg, #f1f3f5); color: var(--bs-body-color, #212529); }
+    }
+    // The ? footer-reveal toggle — a small circular icon button next to Back.
+    .fmr-solo-help {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.1rem;
+        height: 2.1rem;
+        border: 1px solid var(--bs-border-color, #dee2e6);
+        background: var(--bs-body-bg, #fff);
+        color: var(--bs-secondary-color, #6c757d);
+        border-radius: 50%;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: background 0.12s ease, color 0.12s ease;
+        &:hover { background: var(--bs-tertiary-bg, #f1f3f5); color: var(--bs-body-color, #212529); }
+        &[aria-expanded="true"] { border-color: var(--bs-primary, #0d6efd); color: var(--bs-primary, #0d6efd); }
     }
     .fmr-solo-advance { display: inline-flex; align-items: center; gap: 0.85rem; }
     .fmr-solo-hint {
@@ -331,8 +355,10 @@
 // sibling of the form inside .container-fluid, so it sits OUTSIDE the
 // [data-layout="solo"] form and can't be scoped from within. In normal flow
 // under a 100svh step it forces a permanent ~24px over-scroll on every step and
-// peeks at the bottom as a stray, poorly-laid-out "page". Pin it just above the
-// Back/OK bar (out of flow) so each step fills exactly one viewport.
+// peeks at the bottom as a stray, poorly-laid-out "page". So: HIDDEN by default
+// (solo is a focused app view), revealed only when the participant taps the ?
+// toggle in the nav (controller adds `html.fmr-solo-footer-open`). When shown,
+// it's pinned just above the Back/OK bar (out of flow) so it never reflows steps.
 body:has(.fmr-form-v2[data-layout="solo"]) .container-fluid > p {
     position: fixed;
     left: 0;
@@ -342,12 +368,20 @@ body:has(.fmr-form-v2[data-layout="solo"]) .container-fluid > p {
     bottom: calc(5.25rem + env(safe-area-inset-bottom));
     z-index: 80;
     margin: 0;
-    padding: 0 1rem;
+    padding: 0.6rem 1rem;
     text-align: center;
     font-size: 0.72rem;
     line-height: 1.35;
     color: var(--bs-secondary-color, #6c757d);
     pointer-events: none;
+    display: none;            // revealed by the ? toggle (.fmr-solo-footer-open)
+}
+html.fmr-solo-footer-open body:has(.fmr-form-v2[data-layout="solo"]) .container-fluid > p {
+    display: block;
+    // a faint card so the revealed links read as an intentional panel
+    background: var(--bs-body-bg, #fff);
+    border-top: 1px solid var(--bs-border-color, #dee2e6);
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
 }
 body:has(.fmr-form-v2[data-layout="solo"]) .container-fluid > p a { pointer-events: auto; }
 
