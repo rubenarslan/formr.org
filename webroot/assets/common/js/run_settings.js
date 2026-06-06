@@ -60,7 +60,7 @@ import { ajaxErrorHandling, bootstrap_alert } from './main.js';
                 method: 'POST'
             }).done(function (data) {
                 if (data !== '')
-                    $(data).insertAfter($("#app_heading"));
+                    $(data).prependTo(form.closest('.tab-pane'));
                 $(elm).prop("disabled", true);
             }).fail(function (e, x, settings, exception) {
                 ajaxErrorHandling(e, x, settings, exception);

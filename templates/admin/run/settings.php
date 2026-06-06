@@ -26,6 +26,8 @@
                                 <li><a href="#privacy" data-toggle="tab" aria-expanded="false">Privacy</a></li>
                                 <li><a href="#css" data-toggle="tab" aria-expanded="false">CSS</a></li>
                                 <li><a href="#js" data-toggle="tab" aria-expanded="false">JS</a></li>
+                                <li><a href="#r-functions" data-toggle="tab" aria-expanded="false">R Functions</a></li>
+                                <li><a href="#secrets" data-toggle="tab" aria-expanded="false">R Secrets</a></li>
                                 <li><a href="#manifest" data-toggle="tab" aria-expanded="false">App</a></li>
                                 <li><a href="#service_message" data-toggle="tab" aria-expanded="false">Service message</a></li>
                                 <li><a href="#reminder" data-toggle="tab" aria-expanded="false">Reminder</a></li>
@@ -115,7 +117,7 @@
                                                 <div class="form-group">
                                                     <label for="description">Description</label>
                                                     <p>Will be shown at the top of every page of the study. Optional.</p>
-                                                    <textarea data-editor="markdown" placeholder="Description" name="description" id="description" rows="20" cols="80" class="big_ace_editor form-control"><?= h($run->description); ?></textarea>
+                                                    <textarea data-editor="markdown" placeholder="Description" name="description" id="description" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->description); ?></textarea>
                                                 </div>
                                             </div>
                                         </div>
@@ -124,7 +126,7 @@
                                                 <div class="form-group">
                                                     <p>Your Imprint should contain information about who is responsible for the study, and how they can be contacted. It should also link to your privacy policy and in some cases to the settings page, where users can unsubscribe from emails and log out.</p>
                                                     <label title="Will be shown on every page of the run, good for contact info" for="footer_text">Imprint/Footer text</label>
-                                                    <textarea data-editor="markdown" placeholder="Footer text" name="footer_text" id="footer_text" rows="20" cols="80" class="big_ace_editor form-control"><?= h($run->footer_text); ?></textarea>
+                                                    <textarea data-editor="markdown" placeholder="Footer text" name="footer_text" id="footer_text" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->footer_text); ?></textarea>
                                                 </div>
                                             </div>
                                         </div>
@@ -133,7 +135,7 @@
                                                 <div class="form-group">
                                                     <label title="This will be the description of your study shown on the public page" for="public_blurb">Public blurb</label>
                                                     <p>This will be the description of your study shown on the <a href="<?php echo site_url("/public/studies"); ?>" target="_blank">public page</a>. Optional.</p>
-                                                    <textarea data-editor="markdown" placeholder="Blurb" name="public_blurb" id="public_blurb" rows="20" cols="80" class="big_ace_editor form-control"><?= h($run->public_blurb); ?></textarea>
+                                                    <textarea data-editor="markdown" placeholder="Blurb" name="public_blurb" id="public_blurb" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->public_blurb); ?></textarea>
                                                 </div>
                                             </div>
                                         </div>
@@ -193,7 +195,7 @@
                                         <div class="row">
                                             <div class="col-md-12">
                                                 <div class="form-group">
-                                                    <textarea data-editor="css" placeholder="Enter your custom CSS here" name="custom_css" rows="20" cols="80" class="big_ace_editor form-control"><?= h($run->getCustomCSS()); ?></textarea>
+                                                    <textarea data-editor="css" placeholder="Enter your custom CSS here" name="custom_css" rows="40" cols="80" class="big_ace_editor form-control"><?= h($run->getCustomCSS()); ?></textarea>
                                                 </div>
                                             </div>
                                         </div>
@@ -212,11 +214,94 @@
                                         <div class="row">
                                             <div class="col-md-12">
                                                 <div class="form-group">
-                                                    <textarea data-editor="javascript" placeholder="Enter your custom JS here" name="custom_js" rows="20" cols="80" class="big_ace_editor form-control"><?= h($run->getCustomJS()); ?></textarea>
+                                                    <textarea data-editor="javascript" placeholder="Enter your custom JS here" name="custom_js" rows="40" cols="80" class="big_ace_editor form-control"><?= h($run->getCustomJS()); ?></textarea>
                                                 </div>
                                             </div>
                                         </div>
                                     </form>
+                                </div>
+                                <!-- /.tab-pane -->
+                                <div class="tab-pane" id="r-functions">
+                                    <form enctype="multipart/form-data" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
+                                        <p class="pull-right">
+                                            <button type="button" class="btn btn-primary btn-save-test-r-code">Save &amp; Test R Syntax</button>
+                                        </p>
+                                        <h4 class="lead"><i class="fa fa-cog"></i> R Functions</h4>
+                                        <p>
+                                            Define custom R functions and global variables here. They are injected before every R evaluation
+                                            in this run (showif, value, feedback, <code>relative_to</code>, branch conditions,
+                                            external URLs, email body, etc.) so you can call them by name. Use standard R syntax &mdash;
+                                            named functions, library calls, or global options.
+                                            To access run data (survey results, <code>survey_unit_sessions</code>, etc.), pass them
+                                            as arguments &mdash; functions cannot directly see variables defined in inline R code.
+                                        </p>
+                                        <div id="r-code-parse-result"></div>
+                                        <div class="row">
+                                            <div class="col-md-12">
+                                                <div class="form-group">
+                                                    <textarea data-editor="r" placeholder="# Custom R functions &mdash; callable by name in showif, value, feedback, etc.
+my_score <- function(data) {
+    mean(data, na.rm = TRUE)
+}" name="custom_r" rows="40" cols="80" class="big_ace_editor form-control"><?= h($run->getCustomRFunctions()); ?></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                                <!-- /.tab-pane -->
+                                <div class="tab-pane" id="secrets">
+                                    <div id="secrets-alerts"></div>
+                                    <h4 class="lead"><i class="fa fa-lock"></i> Secrets</h4>
+                                    <p>
+                                        Define sensitive values (API keys, tokens, passwords) here. They are <strong>stored encrypted</strong>
+                                        in the database and <strong>automatically hidden</strong> from all logs, debug output, error messages,
+                                        run exports, and API responses. Changes are saved immediately.
+                                    </p>
+                                    <p>
+                                        In your R code (showif, value, label, body, subject, condition, etc.), access a secret as
+                                        <code>.formr$secret_&lt;name&gt;</code> &mdash; for example, a secret named
+                                        <code>api_key</code> is available as <code>.formr$secret_api_key</code>.
+                                        Secrets are <strong>only sent to the R environment</strong> when your code literally contains
+                                        that <code>.formr$secret_&lt;name&gt;</code> reference — unused secrets stay in the database
+                                        and are never transmitted to OpenCPU. References constructed dynamically at runtime
+                                        (e.g. <code>get(paste0(".formr$secret_", var))</code>) won't trigger injection;
+                                        always use the literal <code>.formr$secret_&lt;name&gt;</code> form.
+                                    </p>
+                                    <p class="text-muted small">
+                                        <i class="fa fa-info-circle"></i> This is <strong>not</strong> where to put your formr v1 API secret.
+                                        The formr API uses OAuth2 access tokens generated automatically via
+                                        <code>formr_api_authenticate()</code> &mdash; no manual secret entry needed.
+                                    </p>
+                                    <div id="secrets-save-indicator" class="text-muted" style="visibility: hidden; height: 22px; margin-bottom: 10px;"><i class="fa fa-spinner fa-spin"></i> Saving...</div>
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <table class="table table-striped" id="secrets-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Name</th>
+                                                        <th>Value</th>
+                                                        <th></th>
+                                                    </tr>
+                                                </thead>
+                                                    <tbody id="secrets-tbody">
+                                                    <?php foreach ($run->getSecrets() as $name => $value): ?>
+                                                    <tr>
+                                                        <td><code>secret_<?= h($name) ?></code></td>
+                                                        <td><input type="hidden" class="secret-name-hidden" value="<?= h($name) ?>"><div class="secret-value-wrap"><input type="text" class="form-control input-sm secret-value secret-masked" value="<?= h($value) ?>"><button type="button" class="secret-toggle" data-toggle="tooltip" title="Toggle visibility"><i class="fa fa-eye"></i></button></div></td>
+                                                        <td><button type="button" class="btn btn-danger btn-xs delete-secret" data-toggle="tooltip" title="Delete secret"><i class="fa fa-trash"></i></button></td>
+                                                    </tr>
+                                                    <?php endforeach; ?>
+                                                </tbody>
+                                                <tfoot>
+                                                    <tr>
+                                                        <td><input type="text" id="new-secret-name" class="form-control input-sm" placeholder="e.g. api_key"></td>
+                                                        <td><input type="text" id="new-secret-value" class="form-control input-sm" placeholder="Secret value"></td>
+                                                        <td><button type="button" id="add-secret-btn" class="btn btn-primary btn-xs"><i class="fa fa-plus"></i></button></td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </div>
                                 </div>
                                 <!-- /.tab-pane -->
                                 <div class="tab-pane" id="manifest">
@@ -443,6 +528,272 @@ qplot(survey_name$created) # plot entries by startdate</code></pre></li>
     <!-- /.content -->
 </div>
 
+<style>
+.secret-value-wrap {
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+.secret-value-wrap .secret-value {
+    flex: 1;
+    padding-right: 30px;
+}
+.secret-value-wrap .secret-toggle {
+    position: absolute;
+    right: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #999;
+    padding: 4px 6px;
+}
+.secret-value-wrap .secret-toggle:hover {
+    color: #333;
+}
+.secret-masked {
+    -webkit-text-security: disc;
+}
+#secrets-table td {
+    vertical-align: middle;
+}
+#secrets-table tfoot td {
+    border-top: 2px solid #ddd;
+}
+#secrets-table tfoot td:first-child {
+    width: 35%;
+}
+#secrets-table tfoot td:nth-child(2) {
+    width: 50%;
+}
+#secrets-table tfoot td:last-child {
+    width: 15%;
+}
+</style>
+<script>
+(function() {
+    var tbody = document.getElementById('secrets-tbody');
+    var saveUrl = '<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>';
+    var saveIndicator = document.getElementById('secrets-save-indicator');
+    var alertsContainer = document.getElementById('secrets-alerts');
+
+    jQuery('[data-toggle="tooltip"]').tooltip();
+
+    function collectSecrets() {
+        var secrets = {};
+        var rows = tbody.querySelectorAll('tr');
+        rows.forEach(function(row) {
+            var nameInput = row.querySelector('.secret-name-hidden');
+            var valueInput = row.querySelector('.secret-value');
+            if (nameInput && valueInput) {
+                var name = nameInput.value.trim();
+                if (name) {
+                    secrets[name] = valueInput.value;
+                }
+            }
+        });
+        return secrets;
+    }
+
+    function hasName(name) {
+        var rows = tbody.querySelectorAll('tr');
+        var found = false;
+        rows.forEach(function(row) {
+            var input = row.querySelector('.secret-name-hidden');
+            if (input && input.value.trim() === name) {
+                found = true;
+            }
+        });
+        return found;
+    }
+
+    function saveSecrets() {
+        var secrets = collectSecrets();
+        saveIndicator.style.visibility = 'visible';
+
+        var formData = new FormData();
+        formData.append('secrets_json', JSON.stringify(secrets));
+
+        fetch(saveUrl, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function(r) { return r.text(); })
+            .then(function(html) {
+                saveIndicator.innerHTML = '<i class="fa fa-check"></i> Saved';
+                if (html.indexOf('alert-danger') !== -1) {
+                    alertsContainer.innerHTML = html;
+                }
+                setTimeout(function() {
+                    saveIndicator.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
+                    saveIndicator.style.visibility = 'hidden';
+                }, 1200);
+            })
+            .catch(function() {
+                saveIndicator.style.visibility = 'hidden';
+                alertsContainer.innerHTML = '<div class="alert alert-danger">Failed to save secrets.</div>';
+            });
+    }
+
+    // Toggle secret visibility via eye button
+    tbody.addEventListener('click', function(e) {
+        var btn = e.target.closest('.secret-toggle');
+        if (btn) {
+            var wrap = btn.closest('.secret-value-wrap');
+            if (!wrap) return;
+            var input = wrap.querySelector('.secret-value');
+            if (!input) return;
+            input.classList.toggle('secret-masked');
+            btn.querySelector('i').className = input.classList.contains('secret-masked') ? 'fa fa-eye' : 'fa fa-eye-slash';
+            return;
+        }
+
+        // Delete secret row + auto-save
+        var del = e.target.closest('.delete-secret');
+        if (del) {
+            jQuery(del).tooltip('destroy');
+            del.closest('tr').remove();
+            saveSecrets();
+        }
+    });
+
+    // Auto-save on value change (blur)
+    tbody.addEventListener('blur', function(e) {
+        var input = e.target.closest('.secret-value');
+        if (input) {
+            saveSecrets();
+        }
+    }, true);
+
+    // Enter key in name/value fields triggers add
+    document.getElementById('new-secret-name').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); document.getElementById('add-secret-btn').click(); }
+    });
+    document.getElementById('new-secret-value').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); document.getElementById('add-secret-btn').click(); }
+    });
+
+    // Add new secret + auto-save
+    document.getElementById('add-secret-btn').addEventListener('click', function() {
+        var nameInput = document.getElementById('new-secret-name');
+        var valueInput = document.getElementById('new-secret-value');
+        var name = nameInput.value.trim();
+        var value = valueInput.value.trim();
+
+        if (!name) { alert('Please enter a secret name.'); return; }
+        if (!value) { alert('Please enter a secret value.'); return; }
+        if (hasName(name)) {
+            alert('A secret with this name already exists.');
+            return;
+        }
+
+        var safeName = name.replace(/[<>&"']/g, '');
+        var safeValue = value.replace(/[<>&"']/g, '');
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td><code>secret_' + safeName + '</code></td>' +
+            '<td><input type="hidden" class="secret-name-hidden" value="' + safeName + '"><div class="secret-value-wrap"><input type="text" class="form-control input-sm secret-value secret-masked" value="' + safeValue + '"><button type="button" class="secret-toggle" data-toggle="tooltip" title="Toggle visibility"><i class="fa fa-eye"></i></button></div></td>' +
+            '<td><button type="button" class="btn btn-danger btn-xs delete-secret" data-toggle="tooltip" title="Delete secret"><i class="fa fa-trash"></i></button></td>';
+        tbody.appendChild(tr);
+        jQuery(tr).find('[data-toggle="tooltip"]').tooltip();
+
+        nameInput.value = '';
+        valueInput.value = '';
+        nameInput.focus();
+        saveSecrets();
+    });
+})();
+
+// --- Save & test R Syntax ---
+(function() {
+    var rForm = document.querySelector('#r-functions form');
+    var resultEl = document.getElementById('r-code-parse-result');
+    var validateUrl = '<?php echo admin_run_url($run->name, 'ajax_validate_r_code'); ?>';
+    if (!rForm || !resultEl) return;
+
+    var busy = false;
+    var lastCode = '';
+    var lastError = '';
+
+    function escapeHtml(text) {
+        var d = document.createElement('div');
+        d.appendChild(document.createTextNode(text));
+        return d.innerHTML;
+    }
+
+    rForm.querySelector('.btn-save-test-r-code').addEventListener('click', async function() {
+        if (busy) return;
+        busy = true;
+        jQuery(rForm).trigger('ajax_submission');
+        var textarea = rForm.querySelector('textarea[name="custom_r"]');
+        if (!textarea) { busy = false; return; }
+        var code = textarea.value;
+
+        resultEl.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving…';
+
+        try {
+            var saveRes = await fetch(rForm.action, {
+                method: 'POST',
+                body: new FormData(rForm),
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!saveRes.ok) {
+                busy = false;
+                resultEl.innerHTML = '<span class="text-warning"><i class="fa fa-warning"></i> Save failed</span>';
+                return;
+            }
+
+            var saveHtml = await saveRes.text();
+            if (saveHtml) {
+                var pane = rForm.closest('.tab-pane');
+                if (pane) {
+                    var tmp = document.createElement('div');
+                    tmp.innerHTML = saveHtml;
+                    while (tmp.firstChild) {
+                        pane.insertBefore(tmp.firstChild, pane.firstChild);
+                    }
+                }
+            }
+
+            if (code.trim() === '') {
+                busy = false;
+                resultEl.innerHTML = '';
+                return;
+            }
+
+            resultEl.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Checking syntax…';
+            var fd = new FormData();
+            fd.append('r_code', code);
+            var checkRes = await fetch(validateUrl, {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            var data = await checkRes.json();
+            busy = false;
+
+            if (data.valid === true) {
+                resultEl.innerHTML = '<span class="text-success"><i class="fa fa-check"></i> R syntax is valid</span>';
+            } else if (data.valid === false) {
+                lastCode = code;
+                lastError = data.message;
+                resultEl.innerHTML = '<pre class="text-danger" style="white-space: pre-wrap; margin: 8px 0">'
+                    + escapeHtml(data.message)
+                    + '</pre>'
+                    + '<div style="margin: 6px 0"><p class="pull-right"><button type="button" class="btn btn-sm btn-default" title="Copy code + error for LLM"><i class="fa fa-clipboard"></i> Copy for LLM</button></p></div>';
+                var copyBtn = resultEl.querySelector('button');
+                if (copyBtn) {
+                    copyBtn.addEventListener('click', function() {
+                        var text = 'TASK: Debug this R code syntax error.\n\nCODE:\n' + lastCode + '\n\nERROR:\n' + lastError;
+                        navigator.clipboard.writeText(text);
+                    });
+                }
+            } else {
+                resultEl.innerHTML = '<span class="text-warning"><i class="fa fa-warning"></i> ' + (data.message || 'Could not validate') + '</span>';
+            }
+        } catch (e) {
+            busy = false;
+            resultEl.innerHTML = '<span class="text-warning"><i class="fa fa-warning"></i> Save or syntax check failed</span>';
+        }
+    });
+})();
+</script>
 <?php
 Template::loadChild('admin/run/run_modals', array('reminders' => array()));
 Template::loadChild('admin/footer');

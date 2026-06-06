@@ -542,11 +542,11 @@ OVERVIEW_BODY
             alert('OpenCPU is probably down or inaccessible. Please retry in a few minutes.', 'alert-danger');
             return false;
         } elseif ($ocpu->hasError()) {
-            $this->errors['log'] = $this->getLogMessage('error_opencpu_r', 'OpenCPU R error. Fix code.' . $ocpu->getError());
+            $this->errors['log'] = $this->getLogMessage('error_opencpu_r', 'OpenCPU R error. Fix code.' . opencpu_redact_secrets($ocpu->getError()));
             notify_user_error(opencpu_debug($ocpu), 'There was a computational error.');
 
             // notify study admin about OpenCPU R error in rendering
-            $message = 'OpenCPU R error during rendering in ' . $this->type . ' at position ' . $this->position . ': ' . $ocpu->getError();
+            $message = 'OpenCPU R error during rendering in ' . $this->type . ' at position ' . $this->position . ': ' . opencpu_redact_secrets($ocpu->getError());
             notify_study_admin($unitSession, $message, 'error');
             return false;
         } elseif ($admin) {

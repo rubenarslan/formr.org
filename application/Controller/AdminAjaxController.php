@@ -567,6 +567,22 @@ class AdminAjaxController {
         return $this->response->setContent($content);
     }
 
+    private function ajaxValidateRCode() {
+        if (!Request::isAjaxRequest()) {
+            formr_error(406, 'Not Acceptable');
+        }
+
+        $code = $this->request->getParam('r_code');
+        if ($code === null) {
+            return $this->response->setJsonContent([
+                'valid' => false,
+                'message' => 'No R code provided.',
+            ]);
+        }
+
+        return $this->response->setJsonContent(opencpu_validate_r_code($code));
+    }
+
     private function ajaxTestUnit() {
         if (!Request::isAjaxRequest()) {
             formr_error(406, 'Not Acceptable');

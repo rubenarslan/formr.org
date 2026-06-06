@@ -164,6 +164,10 @@ class EmailQueue extends Queue {
             ['id' => $email_id, 'status_code' => $status_code]
         );
         
+        if ($result_log !== null && mb_strlen($result_log, '8bit') > 60000) {
+            $result_log = mb_strcut($result_log, 0, 60000);
+        }
+
         if($session_id) {
             $this->db->exec(
                 'UPDATE `survey_unit_sessions` SET `result` = :result, `result_log` = :resultlog WHERE `id` = :session_id',
