@@ -26,8 +26,10 @@ off that attribute.
 | Form/autosave/sync endpoints | `application/Controller/RunController.php` |
 | Per-response write path | `application/Model/UnitSession.php` |
 
-`SurveyStudy.layout` (066) and `SurveyStudy.option_keys` (067) gate the solo
-behaviours; `survey_unit_sessions.layout` (068) records the mode per response.
+`SurveyStudy.layout` (066) gates the solo behaviours; `survey_unit_sessions.layout`
+(068) records the mode per response. (The `option_keys`/A·B·C letter-badge
+feature, patch 067, was **removed** — solo is a mobile/app view where keyboard
+shortcuts are irrelevant; the `option_keys` column is left dormant in the DB.)
 
 ## Solo (paged) layout — the step controller
 
@@ -62,8 +64,8 @@ Key behaviours:
   showif reveal/hide changes the step total, which would otherwise jump the bar
   backward (the spec's "don't misrepresent length"). The "N of M" label still
   reflects current known totals. Default mode is page-based, already monotonic.
-- **Letter badges** (A·B·C, also keyboard shortcuts) on plain card choices,
-  per-study via `option_keys` (067) → `data-option-keys`.
+- **Card choices**: plain mc / mc_multiple render as big tap-target cards with
+  the native control shown (no letter badges — removed; see above).
 
 ### Solo bug-fix pass (the "single-page-widgets" report)
 

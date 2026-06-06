@@ -31,11 +31,6 @@ export function initSolo(opts) {
     let submittingPage = false;  // guards against double page-submit at a boundary
     let maxPct = 0;              // progress bar is monotonic — see updateProgress
 
-    // Letter-key badges (A·B·C…) are a per-study toggle (SurveyStudy.option_keys
-    // → data-option-keys). When off, options render as a plain card list and the
-    // A/B/C keyboard shortcuts are disabled. Default on for pre-patch-067 forms.
-    const optionKeys = (root.dataset.optionKeys || 'on') !== 'off';
-
     const reduceMotion = window.matchMedia
         && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const LEAVE_MS = 150;
@@ -45,16 +40,6 @@ export function initSolo(opts) {
     let navEl = null, backBtn = null, okBtn = null, hintEl = null;
     let loadingEl = null;
 
-    // A "card choice" is a plain vertical mc / mc_multiple list (the option-card
-    // skin in _solo.scss). Matrix / rotated / hide-label / square / button-group
-    // layouts are excluded — they have their own geometry and no letter badges.
-    function isCardChoice(el) {
-        return !!el && el.matches('.item-mc, .item-mc_multiple')
-            && !el.matches('.square, .hide_label, .rotate_label45, .rotate_label30, .rotate_label90, .mc_heading');
-    }
-    function cardOptionLabels(el) {
-        return isCardChoice(el) ? Array.from(el.querySelectorAll('.mc-table > label')) : [];
-    }
 
     // --- step discovery ------------------------------------------------------
     function directGroups(pageEl) {
@@ -445,16 +430,6 @@ export function initSolo(opts) {
         const t = e.target;
         const inScope = t === document.body || (root.contains && root.contains(t));
         if (!inScope || !current) return;
-
-        // Letter shortcuts (A, B, C …) select the matching option on card-style
-        // choice steps — Typeform's signature. Single-choice then auto-advances
-        // (via the change handler); multi-select toggles and waits for OK.
-        if (optionKeys && /^[a-z]$/i.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey
-            && current && !isEditableTarget(t)) {
-            const labels = cardOptionLabels(current);
-            const idx = e.key.toUpperCase().charCodeAt(0) - 65;
-            if (labels[idx]) { e.preventDefault(); labels[idx].click(); return; }
-        }
 
         // Enter advances: single-line inputs, choice steps, and statement
         // screens alike. Textareas keep Enter = newline (Ctrl/Cmd+Enter

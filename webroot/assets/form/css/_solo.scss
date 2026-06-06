@@ -202,14 +202,11 @@
     // --- option lists as cards (plain mc / mc_multiple radio+checkbox) ----
     // Skip matrix / rotated / hide-label / square / button-group layouts:
     // those carry their own geometry. Cards turn vertical choice lists into
-    // big tap targets with a letter badge (A·B·C…, also the keyboard shortcut
-    // — see controller.js) and a clear selected state.
+    // big tap targets with the native control shown and a clear selected state.
     $mc: '.fmr-solo-current.item-mc:not(.square):not(.hide_label):not(.rotate_label45):not(.rotate_label30):not(.rotate_label90):not(.mc_heading)';
     $mcm: '.fmr-solo-current.item-mc_multiple:not(.square)';
 
-    // Base card (always on in solo) — big tap target + selected highlight, with
-    // the native control shown. The letter-badge layer below (opt-in) hides the
-    // native control and swaps in an A·B·C tile.
+    // Big tap target + selected highlight, native control shown.
     #{$mc} .mc-table > label,
     #{$mcm} .mc-table > label {
         display: flex;
@@ -233,53 +230,6 @@
             border-color: var(--bs-primary, #0d6efd);
             background: var(--bs-primary-bg-subtle, #e7f1ff);
             box-shadow: inset 0 0 0 1px var(--bs-primary, #0d6efd);
-        }
-    }
-
-    // Letter badges (A·B·C…) — opt-in via SurveyStudy.option_keys. Replaces the
-    // native control with a letter tile that doubles as the keyboard shortcut.
-    &[data-option-keys="on"] {
-        #{$mc} .mc-table,
-        #{$mcm} .mc-table { counter-reset: fmropt; }
-
-        #{$mc} .mc-table > label,
-        #{$mcm} .mc-table > label {
-            counter-increment: fmropt;
-
-            &::before {
-                content: counter(fmropt, upper-alpha);
-                flex: 0 0 auto;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 1.9rem;
-                height: 1.9rem;
-                border: 1.5px solid var(--bs-border-color, #ced4da);
-                border-radius: 0.4rem;
-                background: var(--bs-body-bg, #fff);
-                color: var(--bs-secondary-color, #6c757d);
-                font-size: 0.9rem;
-                font-weight: 600;
-                transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease, color 0.12s ease;
-            }
-            // Hide the native control but keep it focusable / submittable / valid.
-            input[type=radio], input[type=checkbox] {
-                position: absolute;
-                opacity: 0;
-                width: 1px; height: 1px;
-                margin: 0;
-                pointer-events: none;
-            }
-            &:hover::before { border-color: var(--bs-primary, #0d6efd); color: var(--bs-primary, #0d6efd); }
-            &:has(input:focus-visible)::before {
-                box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.35);
-                border-color: var(--bs-primary, #0d6efd);
-            }
-            &:has(input:checked)::before {
-                background: var(--bs-primary, #0d6efd);
-                border-color: var(--bs-primary, #0d6efd);
-                color: #fff;
-            }
         }
     }
 

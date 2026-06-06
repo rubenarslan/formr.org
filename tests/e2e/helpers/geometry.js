@@ -24,9 +24,8 @@ const { expect, bsSafeEvaluate } = require('./test');
 
 // Interactive controls a participant must be able to see and tap on a solo
 // step. Radios/checkboxes are reached via their wrapping `.mc-table > label`
-// card (and option_keys shrinks the raw input to 1px, so measuring the input
-// directly would be a false positive); `.item-check .checkbox` covers the
-// lone-checkbox `check` item. `.ts-control` is tom-select's visible proxy.
+// card; `.item-check .checkbox` covers the lone-checkbox `check` item.
+// `.ts-control` is tom-select's visible proxy.
 const CTRL_SEL =
     'input:not([type=hidden]):not([type=radio]):not([type=checkbox]),'
     + 'textarea,select,.mc-table > label,.btn[data-for],.ts-control,.item-check .checkbox';

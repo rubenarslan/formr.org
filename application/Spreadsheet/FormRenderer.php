@@ -432,15 +432,13 @@ class FormRenderer extends SpreadsheetRenderer {
         $offlineMode = !empty($this->study->offline_mode) ? 'on' : 'off';
         $allowPrevious = !empty($this->study->allow_previous) ? 'on' : 'off';
         $layout = in_array($this->study->layout, ['default', 'solo'], true) ? $this->study->layout : 'default';
-        // Solo letter-key badges (patch 067). Default on; only consulted in solo.
-        $optionKeys = !isset($this->study->option_keys) || !empty($this->study->option_keys) ? 'on' : 'off';
         // `form-horizontal` is v1's class for the selectors in
         // webroot/assets/common/css/custom_item_classes.css (mc_width*,
         // rotate_label*, mc_vertical, mc_block, rating_button_label_width*,
         // …) — the admin-choosable layout modifiers. Keep it on the v2 form
         // so those classes keep working without a parallel scss port.
         $html = sprintf(
-            '<form class="fmr-form-v2 form-horizontal" method="post" data-submit-url="%s" data-rcall-url="%s" data-fill-url="%s" data-sync-url="%s" data-save-url="%s" data-run-url="%s" data-offline-mode="%s" data-allow-previous="%s" data-layout="%s" data-option-keys="%s" novalidate>',
+            '<form class="fmr-form-v2 form-horizontal" method="post" data-submit-url="%s" data-rcall-url="%s" data-fill-url="%s" data-sync-url="%s" data-save-url="%s" data-run-url="%s" data-offline-mode="%s" data-allow-previous="%s" data-layout="%s" novalidate>',
             htmlspecialchars($submitUrl, ENT_QUOTES),
             htmlspecialchars($rcallUrl, ENT_QUOTES),
             htmlspecialchars($fillUrl, ENT_QUOTES),
@@ -449,8 +447,7 @@ class FormRenderer extends SpreadsheetRenderer {
             htmlspecialchars($runUrl, ENT_QUOTES),
             $offlineMode,
             $allowPrevious,
-            $layout,
-            $optionKeys
+            $layout
         );
         $html .= sprintf(
             '<input type="hidden" name="session_id" value="%s">',
