@@ -8,7 +8,7 @@
 // Both modes drive the SAME study (1602, run e2e-aw-v2): `layout` is a per-study
 // column, so we toggle it in the DB around each test and restore 'solo' after.
 
-const { test, expect } = require('./helpers/test');
+const { test, expect, RUNNING_ON_BS } = require('./helpers/test');
 const { freshParticipant } = require('./helpers/participant');
 const v2 = require('./helpers/v2Form');
 const v2c = require('./helpers/v2Complete');
@@ -132,7 +132,20 @@ async function driveDefault(page) {
         const res = await v2.submitV2(page, { timeout: 12000 });
         await page.waitForTimeout(400);
         if (res.blockedByClient) {
-            return { completed: false, pages: p, blocked: true, errors: await v2.errorMessages(page) };
+            // No-arg evaluate (BS-safe): list visible required groups left unanswered.
+            const unanswered = await page.evaluate(function () {
+                const root = document.querySelector('form.fmr-form-v2 section.fmr-page:not([hidden])') || document;
+                const out = [];
+                root.querySelectorAll('.form-group.required').forEach(function (g) {
+                    if (g.hasAttribute('data-fmr-hidden') || g.classList.contains('hidden') || g.offsetParent === null) return;
+                    const t = (g.className.match(/item-([a-z_0-9]+)/) || [null, '?'])[1];
+                    const answered = !!g.querySelector('input:checked, input[type=hidden][value]:not([value=""])')
+                        || Array.prototype.some.call(g.querySelectorAll('input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=file]),textarea,select'), function (e) { return !e.readOnly && String(e.value || '').trim() !== ''; });
+                    if (!answered) out.push(t);
+                });
+                return out;
+            }).catch(function () { return ['(diag failed)']; });
+            return { completed: false, pages: p, blocked: true, errors: await v2.errorMessages(page), unanswered };
         }
         if (res.body && res.body.status === 'errors') {
             const errNames = Object.keys(res.body.errors || {});
@@ -161,7 +174,9 @@ async function driveDefault(page) {
 
 test.describe('v2 survey completes end-to-end', () => {
     test('solo layout: walk every item to the end', async ({ page, baseURL }) => {
-        test.setTimeout(300000); // long walk: ~55 steps + memory-hard bot_check solve
+        // ~55 single-item steps + a memory-hard bot_check solve; on a real device
+        // (BrowserStack) each step pays network latency, so allow much longer.
+        test.setTimeout(RUNNING_ON_BS ? 720000 : 300000);
         setLayout('solo');
         await freshParticipant(page, RUN, { baseURL });
         await v2.waitForBundle(page);
@@ -171,6 +186,7 @@ test.describe('v2 survey completes end-to-end', () => {
     });
 
     test('non-solo (default) layout: walk every page to the end', async ({ page, baseURL }) => {
+        test.setTimeout(RUNNING_ON_BS ? 300000 : 120000);
         setLayout('default');
         await freshParticipant(page, RUN, { baseURL });
         await v2.waitForBundle(page);
