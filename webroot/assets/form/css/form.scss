@@ -774,64 +774,62 @@
         margin-bottom: 1rem;
     }
 
-    // bot_check item — local-only "are you human" widget (Cloudflare-style box,
-    // self-hosted PoW; see items/bot-check.js). States via [data-state].
+    // bot_check item — local-only "are you human" widget, self-hosted Altcha
+    // PoW (<altcha-widget>; see items/bot-check.js). Altcha renders into LIGHT
+    // DOM, so we restyle it from here to match formr's clean inline pill rather
+    // than its stock full-width captcha card. Two layers: (1) map Altcha's own
+    // `--altcha-*` design tokens onto Bootstrap-5 theme vars + the hand-rolled
+    // pill geometry; (2) flatten `.altcha-main` from a column card into a single
+    // centred row with hover/focus affordance. Higher selector specificity
+    // (`.fmr-botcheck altcha-widget …`) beats Altcha's injected `.altcha-*`.
     .fmr-botcheck {
-        .fmr-botcheck-box {
-            display: inline-flex;
+        altcha-widget {
+            display: inline-block;
+            // shape + palette → match the old .fmr-botcheck-box / Bootstrap theme
+            --altcha-max-width: 22rem;
+            --altcha-border-width: 1.5px;
+            --altcha-border-radius: 0.5rem;
+            --altcha-border-color: var(--bs-border-color, #dee2e6);
+            --altcha-color-base: var(--bs-body-bg, #fff);
+            --altcha-color-base-content: var(--bs-body-color, #212529);
+            --altcha-color-primary: var(--bs-primary, #0d6efd);
+            --altcha-color-success: var(--bs-success, #198754);
+            --altcha-color-error: var(--bs-danger, #dc3545);
+            --altcha-color-neutral: var(--bs-border-color, #ced4da);
+            --altcha-padding: 0.65rem 1rem;
+            // checkbox → 1.4rem rounded square, like the old .fmr-botcheck-indicator
+            --altcha-checkbox-size: 1.4rem;
+            --altcha-checkbox-border-width: 1.5px;
+            --altcha-checkbox-border-radius: 0.3rem;
+            --altcha-checkbox-border-color: var(--bs-border-color, #ced4da);
+            --altcha-spinner-color: var(--bs-primary, #0d6efd);
+        }
+        // (2) collapse the stock column card into a slim single-row pill
+        altcha-widget .altcha-main {
+            flex-direction: row;
             align-items: center;
-            gap: 0.75rem;
             min-width: 16rem;
-            padding: 0.65rem 1rem;
-            border: 1.5px solid var(--bs-border-color, #dee2e6);
-            border-radius: 0.5rem;
-            background: var(--bs-body-bg, #fff);
             cursor: pointer;
             user-select: none;
             transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
-            &:hover { border-color: var(--bs-primary, #0d6efd); }
-            &:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.35); border-color: var(--bs-primary, #0d6efd); }
         }
-        .fmr-botcheck-indicator {
-            flex: 0 0 auto;
-            position: relative;
-            width: 1.4rem;
-            height: 1.4rem;
-            border: 1.5px solid var(--bs-border-color, #ced4da);
-            border-radius: 0.3rem;
-            background: #fff;
+        altcha-widget .altcha-main:hover { border-color: var(--bs-primary, #0d6efd); }
+        // ring the whole pill on focus (suppress the lone-checkbox outline)
+        altcha-widget .altcha-checkbox input:focus-visible { outline: none; }
+        altcha-widget .altcha-main:focus-within {
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.35);
+            border-color: var(--bs-primary, #0d6efd);
         }
-        .fmr-botcheck-label { font-size: 1rem; line-height: 1.3; }
-        .fmr-botcheck-status { margin-top: 0.4rem; min-height: 1.1em; font-size: 0.85rem; color: var(--bs-secondary-color, #6c757d); }
-
-        &[data-state="verifying"] {
-            .fmr-botcheck-box { border-color: var(--bs-primary, #0d6efd); }
-            .fmr-botcheck-indicator {
-                border-radius: 50%;
-                border-color: rgba(0, 0, 0, 0.15);
-                border-top-color: var(--bs-primary, #0d6efd);
-                animation: fmr-spin 0.7s linear infinite;
-            }
-        }
-        &[data-state="verified"] {
-            .fmr-botcheck-box { border-color: var(--bs-success, #198754); background: rgba(25, 135, 84, 0.06); cursor: default; }
-            .fmr-botcheck-indicator { border-color: var(--bs-success, #198754); background: var(--bs-success, #198754); }
-            .fmr-botcheck-indicator::after {
-                content: '';
-                position: absolute;
-                left: 0.46rem; top: 0.2rem;
-                width: 0.35rem; height: 0.7rem;
-                border: solid #fff; border-width: 0 2px 2px 0;
-                transform: rotate(45deg);
-            }
-            .fmr-botcheck-status { color: var(--bs-success, #198754); }
-        }
-        &[data-state="error"] {
-            .fmr-botcheck-box { border-color: var(--bs-danger, #dc3545); }
-            .fmr-botcheck-status { color: var(--bs-danger, #dc3545); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-            &[data-state="verifying"] .fmr-botcheck-indicator { animation-duration: 1.4s; }
+        altcha-widget .altcha-checkbox-wrap { font-size: 1rem; line-height: 1.3; }
+        // verified: tint the pill green to echo the hand-rolled "passed" state.
+        // box-shadow:none clears the (still-focused) checkbox's blue focus ring so
+        // the settled state reads as purely green rather than blue-over-green.
+        altcha-widget.altcha-verified .altcha-main,
+        altcha-widget [data-state="verified"] .altcha-main {
+            border-color: var(--bs-success, #198754);
+            background: rgba(25, 135, 84, 0.06);
+            box-shadow: none;
+            cursor: default;
         }
     }
 

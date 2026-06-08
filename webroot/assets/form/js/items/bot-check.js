@@ -22,6 +22,14 @@
 // exposes its URL via window.formr.altchaScriptUrl) and inject it as a
 // <script type="module"> on demand, only when a bot_check is present. It
 // self-`customElements.define`s <altcha-widget> and sets window.$altcha.
+//
+// The external build ships its stylesheet SEPARATELY and (unlike altcha's
+// default build) does NOT inject styles at runtime — so we bundle altcha's CSS
+// here and webpack extracts it into form.bundle.css. Without it the widget
+// renders with no border/padding/background; form.scss only *themes* it by
+// overriding the --altcha-* custom properties this stylesheet consumes.
+import 'altcha/altcha.css';
+
 let altchaLoading = null;
 function loadAltcha() {
     if (window.$altcha) return Promise.resolve();

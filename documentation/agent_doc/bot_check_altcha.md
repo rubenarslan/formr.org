@@ -112,6 +112,29 @@ loads them at runtime, self-hosted (no CDN, no third party):
 `dev-build/` dir so they always match the loaded bundle. (CopyPlugin entries:
 `webpack.config.js`.)
 
+### 5b. Styling — the external build ships CSS *separately*
+
+Gotcha that cost us a "broken layout": the **external** build
+(`dist/external/altcha.min.js`) does **not** inject its own stylesheet at
+runtime (the default build does). Its CSS lives in
+`node_modules/altcha/dist/external/altcha.css` (exposed as `altcha/altcha.css`)
+and you must load it yourself, or `<altcha-widget>` renders with **no
+border/padding/background** — the consuming rules
+(`.altcha-main { border; padding; border-radius; background; max-width }`) are
+simply absent, so it looks like an unstyled checkbox + label. We bundle it via a
+plain `import 'altcha/altcha.css';` at the top of `items/bot-check.js` (webpack's
+`MiniCssExtractPlugin` extracts it into `form.bundle.css`). The modern CSS in it
+(`oklch()`, `light-dark()`, `@layer`) survives the production minifier intact.
+
+On top of that base layer, `form.scss` **themes** the widget to match formr's
+clean inline pill (the look the prior hand-rolled `.fmr-botcheck-box` had):
+Altcha renders into **light DOM**, so `.fmr-botcheck altcha-widget …` selectors
+reach inside it. Two moves: (1) override Altcha's `--altcha-*` design tokens
+(border/radius/colors/checkbox-size) onto Bootstrap-5 theme vars + the pill
+geometry; (2) flatten `.altcha-main` from its stock column card into a single
+centred row with hover/`:focus-within` ring and a green `[data-state="verified"]`
+tint. Higher selector specificity beats Altcha's own `.altcha-*` rules.
+
 ## 6. Algorithm + difficulty knobs
 
 PBKDF2/SHA-* are bundled into the widget; **Argon2id is modular** and provided as
