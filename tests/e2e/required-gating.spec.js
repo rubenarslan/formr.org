@@ -47,6 +47,13 @@ function sweepFn(required) {
     for (const g of groups) {
         const t = typeOf(g);
         if (DISPLAY.includes(t)) continue;
+        // Skip showif-conditional items. v2 renders a showif item even when its
+        // showif is (currently/constant) false and lets the client (Alpine)
+        // hide+disable it — so a `showif=FALSE` required item is correctly hidden
+        // and isn't part of this UNCONDITIONAL required-gating sweep. (Before v2
+        // owned showif client-side these were server-pruned and never reached the
+        // DOM; now they do, Alpine-hidden.)
+        if (g.hasAttribute('x-showif') || g.hasAttribute('data-showif') || g.hasAttribute('data-fmr-hidden')) continue;
         document.querySelectorAll('.fmr-solo-current').forEach((x) => x.classList.remove('fmr-solo-current'));
         g.classList.add('fmr-solo-current');
         g.classList.remove('hidden');

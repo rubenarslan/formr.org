@@ -69,6 +69,7 @@ function initSelectOrAdd(root) {
                 items,
                 create: !lockedToChoices,
                 persist: false,
+                openOnFocus: true, // focusing the control opens the dropdown (single AND multiple)
                 maxItems: multiple ? (maxItems > 0 ? maxItems : null) : 1,
                 plugins: multiple ? ['remove_button'] : [],
                 maxOptions: 500,

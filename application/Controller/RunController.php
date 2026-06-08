@@ -752,6 +752,28 @@ class RunController extends Controller {
             return;
         }
 
+        // Mark client-hidden conditional items as resolved-hidden so they stop
+        // blocking completion. v2 showifs are evaluated client-side (Alpine); the
+        // server can't resolve a showif whose dependency is unanswered (e.g. an
+        // item behind a random group, or a `block` guard once its inputs are
+        // satisfied) and would otherwise leave it hidden=NULL = "not answered"
+        // forever — so the survey could never finish ("block recurs on the last
+        // page", "can't finish"). The client reports its CURRENT showif visibility
+        // in `_item_views[hidden]` (ids whose wrapper carries data-fmr-hidden);
+        // record exactly those as hidden. (Using current visibility, NOT inverting
+        // `_item_views[shown]`: that stamp fires once an item flashes into view at
+        // load before Alpine hides it, so a shown-then-hidden item looks shown.)
+        // Answered items are already `saved` and skipped by the helper, and a
+        // shown-but-unanswered required item is never in this set, so genuine
+        // required gaps still block — correctly.
+        $hiddenIds = array();
+        if (isset($itemViews['hidden']) && is_array($itemViews['hidden'])) {
+            $hiddenIds = array_map('intval', array_keys($itemViews['hidden']));
+        }
+        if ($hiddenIds) {
+            $this->markClientHiddenItems((int) $unitSession->id, (int) $submittedPage, $hiddenIds);
+        }
+
         // For a multi-page form, if more pages remain, tell the client to show the
         // next one locally (no reload). If this was the last page, redirect back
         // to the run URL so Run::exec can advance to the next unit.
@@ -869,6 +891,31 @@ class RunController extends Controller {
             ->where('session_id = :sid AND page > :p AND saved IS NULL AND (hidden IS NULL OR hidden = 0)')
             ->bindParams(array('sid' => (int) $unitSessionId, 'p' => (int) $submittedPage))
             ->fetchColumn();
+    }
+
+    /**
+     * Record the client's showif visibility decision for a just-submitted page.
+     * `$hiddenIds` are the item ids the client currently HIDES (their wrapper
+     * carries data-fmr-hidden); set hidden=1 for them so they no longer count as
+     * unanswered (not_answered) and the form can complete. Scoped to the page and
+     * to unsaved items, so it can never overwrite a real answer.
+     */
+    private function markClientHiddenItems($unitSessionId, $page, array $hiddenIds) {
+        $hiddenIds = array_values(array_unique(array_filter(array_map('intval', $hiddenIds))));
+        if (!$hiddenIds) {
+            return;
+        }
+        $stmt = DB::getInstance()->prepare(
+            'UPDATE `survey_items_display`
+             SET `hidden` = 1
+             WHERE `session_id` = :sid
+               AND `page` = :p
+               AND `saved` IS NULL
+               AND `item_id` IN (' . implode(',', $hiddenIds) . ')'
+        );
+        $stmt->bindValue(':sid', (int) $unitSessionId, PDO::PARAM_INT);
+        $stmt->bindValue(':p', (int) $page, PDO::PARAM_INT);
+        $stmt->execute();
     }
 
     /**

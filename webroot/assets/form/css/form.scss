@@ -465,33 +465,49 @@
     // which is what tilted the circle upward). WebKit draws the line as the
     // input's gradient background showing through a transparent runnable-track;
     // Firefox draws it on ::-moz-range-track and centres the thumb itself.
-    $vas-h: 1.6rem;
+    // $vas-hit is the finger-sized HIT zone (input height = track-tap area;
+    // thumb width = drag-grab area). $vas-mark-w / $vas-mark-h keep the VISIBLE
+    // pencil mark thin + centred independent of the hit zone: the thumb box is
+    // transparent and finger-wide, and the dark mark is painted by a centred
+    // background-gradient on the thumb. This lifts the tap target to the
+    // iOS/WCAG ~44px minimum without (a) showing a thumb before touch (the
+    // :not(.vas-touched) rule below still hides it) or (b) thickening the mark.
+    $vas-hit: 2.75rem;     // ~44px tappable height + drag-grab width
+    $vas-mark-w: 4px;      // visible pencil-mark width (unchanged look)
+    $vas-mark-h: 1.6rem;   // visible pencil-mark height (unchanged look)
     .vas-controls input[type="range"].vas-display {
         -webkit-appearance: none;
         appearance: none;
-        height: $vas-h;
+        height: $vas-hit;
         cursor: pointer;
+        // Centre line of the scale (the 3px rule the participant marks on).
         background: linear-gradient(var(--bs-border-color, #ced4da), var(--bs-border-color, #ced4da)) center / 100% 3px no-repeat;
 
-        &::-webkit-slider-runnable-track { height: $vas-h; background: transparent; border: 0; }
+        &::-webkit-slider-runnable-track { height: $vas-hit; background: transparent; border: 0; }
         &::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 4px;
-            height: $vas-h;
-            margin-top: 0;                 // thumb height == track height → centred
-            border-radius: 1px;
-            background: var(--bs-body-color, #212529);
+            width: $vas-hit;              // finger-wide drag-grab zone…
+            height: $vas-hit;
+            margin-top: 0;               // thumb height == track height → centred
+            background: transparent;     // …but invisible: only the centred mark shows
+            background-image: linear-gradient(var(--bs-body-color, #212529), var(--bs-body-color, #212529));
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: $vas-mark-w $vas-mark-h;
             border: 0;
             box-shadow: none;
             cursor: pointer;
         }
         &::-moz-range-track { height: 3px; border-radius: 2px; background: var(--bs-border-color, #ced4da); }
         &::-moz-range-thumb {
-            width: 4px;
-            height: $vas-h;
-            border-radius: 1px;
-            background: var(--bs-body-color, #212529);
+            width: $vas-hit;             // finger-wide drag-grab zone…
+            height: $vas-hit;
+            background: transparent;     // …invisible box
+            background-image: linear-gradient(var(--bs-body-color, #212529), var(--bs-body-color, #212529));
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: $vas-mark-w $vas-mark-h;
             border: 0;
             cursor: pointer;
         }

@@ -230,6 +230,14 @@ function initForm() {
                 return;
             }
 
+            // Skip disabled inputs FIRST: a showif that hides an item disables its
+            // inputs (Alpine applyVisibility), and a checkbox/radio left checked
+            // before it was hidden must NOT post stale state. The per-type branches
+            // below (checkbox/radio) return early on `!checked` but never checked
+            // `disabled`, so a checked-then-hidden box would otherwise post `[""]`
+            // and trip the server's required-but-empty validation.
+            if (inp.disabled) return;
+
             // Name with `[]` suffix is an array field (mc_multiple, select_multiple,
             // geopoint display, etc.). Strip the suffix for the key. Everything
             // else is scalar, last-value-wins — same as PHP's $_POST parsing.
@@ -248,8 +256,22 @@ function initForm() {
                 if (!inp.checked) return;
                 value = inp.value;
             } else if (inp.type === 'file') {
-                // Phase 2 territory — needs multipart/FormData. Skipped on the JSON path.
-                return;
+                // A file WITH a selection rides the multipart/FormData path (bytes
+                // can't go in JSON) — skip it here.
+                if (inp.files && inp.files.length > 0) return;
+                // A disabled (showif-hidden) file input is never submitted.
+                if (inp.disabled) return;
+                // An EMPTY OPTIONAL file/image/audio/video input must still post ''
+                // so the server marks survey_items_display.saved for it; otherwise
+                // it stays `saved IS NULL`, counts as not_answered, and the v2 form
+                // can never reach studyCompleted() (v1 got this for free from the
+                // browser's empty $_FILES entry). Required-but-empty file items are
+                // blocked client-side before we ever get here.
+                if (inp.closest('.form-group') && inp.closest('.form-group').classList.contains('optional')) {
+                    value = '';
+                } else {
+                    return;
+                }
             } else if (inp.disabled) {
                 return;
             } else if (inp.tagName === 'SELECT' && inp.multiple) {
@@ -269,6 +291,19 @@ function initForm() {
                 data[name] = value; // last-wins
             }
         });
+        // Report which items the client currently HIDES via showif. Alpine sets
+        // `data-fmr-hidden` on a hidden wrapper; the server marks these items
+        // hidden so a conditionally-hidden required item doesn't count toward
+        // completion. We send CURRENT visibility rather than inverting
+        // `_item_views[shown]` (that stamp fires once an item flashes into view at
+        // load, before Alpine hides it — so a shown-then-hidden item looks shown).
+        const hidden = {};
+        pageEl.querySelectorAll('[data-fmr-hidden]').forEach((el) => {
+            const v = el.querySelector('.item_shown');
+            const m = v && v.name && v.name.match(/\[(\d+)\]/);
+            if (m) hidden[m[1]] = 1;
+        });
+        itemViews.hidden = hidden;
         return { data, item_views: itemViews };
     };
 

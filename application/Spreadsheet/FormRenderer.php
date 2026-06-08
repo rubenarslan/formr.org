@@ -39,6 +39,25 @@ class FormRenderer extends SpreadsheetRenderer {
      *      OpenCPU call yet — those resolve when the participant submits
      *      the prior page and the client POSTs `/form-render-page`.
      */
+    /**
+     * In form_v2 a showif with a transpiled js_showif (and not routed through
+     * the server r-call path) is evaluated reactively client-side by Alpine. So
+     * when the server-side initial evaluation returns NA (dependency not yet
+     * answered), the item must NOT be pruned to hidden=1 / dropped — keep it
+     * rendered (initially .hidden) so picking the dependency reveals it instantly
+     * without a server round-trip. (This was the "gods/kittens showif shows up
+     * too late" bug.)
+     */
+    protected function naShowifIsClientResolvable($item) {
+        if (!$item) {
+            return false;
+        }
+        if (!empty($item->parent_attributes['data-fmr-r-call'])) {
+            return false; // server-resolved showif, not a JS expression
+        }
+        return !empty($item->js_showif);
+    }
+
     public function processItems() {
         $items = $this->getAllUnansweredItems();
         if (!$items) {
@@ -285,7 +304,12 @@ class FormRenderer extends SpreadsheetRenderer {
             `survey_items_display`.answered')
             ->from('survey_items')
             ->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-            ->where('(survey_items.study_id = :study_id) AND (survey_items.deleted IS NULL) AND (survey_items_display.saved IS null) AND (survey_items_display.hidden IS NULL OR survey_items_display.hidden = 0)')
+            // mc_heading is the disabled header row of an mc matrix (constant
+            // hidden value=1, save_in_results_table=false). v2 doesn't render
+            // matrices as a unit, so it would otherwise surface as a blank,
+            // `required` step that can never be answered and blocks completion.
+            // Exclude it from the v2 pipeline entirely (v1 unaffected).
+            ->where('(survey_items.study_id = :study_id) AND (survey_items.deleted IS NULL) AND (survey_items.type != \'mc_heading\') AND (survey_items_display.saved IS null) AND (survey_items_display.hidden IS NULL OR survey_items_display.hidden = 0)')
             ->order('`survey_items_display`.`display_order`', 'asc')
             ->order('survey_items.`order`', 'asc')
             ->order('survey_items.id', 'asc')
@@ -300,7 +324,22 @@ class FormRenderer extends SpreadsheetRenderer {
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $item = $itemFactory->make($row);
             if (!$item) continue;
-            $this->unanswered[$item->name] = $item;
+            // Display-only items that render but can NEVER be "answered" must be
+            // rendered (kept in $out) yet NEVER counted toward completion — else
+            // they keep not_answered > 0 forever and the form can't finish:
+            //   - `block`: a client-side guard (a required checkbox that can't be
+            //     ticked + a JS showif). Its showif can't be trusted server-side
+            //     (//js_only items aren't sent to OpenCPU; arithmetic showifs are
+            //     mis-evaluated on character answers), and the client gate already
+            //     bars a submit while a block is active — "block recurs / can't
+            //     finish".
+            //   - `blank`: a placeholder that renders only a <div> of text, with
+            //     no input to post, so it never gets a `saved` row.
+            // (note / note_iframe / mc_heading don't need this: note-likes post a
+            // hidden value=1 and mc_heading is filtered out of the query above.)
+            if (!in_array($item->type, array('block', 'blank'), true)) {
+                $this->unanswered[$item->name] = $item;
+            }
             $out[$item->name] = $item;
         }
         return $out;

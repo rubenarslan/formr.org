@@ -199,6 +199,37 @@
         > .controls { margin: 0; min-height: 0; }
     }
 
+    // `submit` step: its own button is the big centred call-to-action (the footer
+    // OK is hidden in updateNav). Centre it and size it like a primary action so
+    // the page never reads as "blank with a tiny button".
+    .fmr-page > .form-group.fmr-solo-current.item-submit {
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+
+        .fmr-solo-bigsubmit,
+        button, input[type="submit"] {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            min-width: 12rem;
+            padding: 1rem 2.75rem;
+            font-size: 1.3rem;
+            font-weight: 600;
+            border: 0;
+            border-radius: 0.7rem;
+            background: var(--bs-primary, #2196F3);
+            color: #fff;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+            transition: background 0.12s ease, transform 0.05s ease;
+
+            &:hover { background: #1c7ed6; }
+            &:active { transform: translateY(1px); }
+        }
+    }
+
     // --- option lists as cards (plain mc / mc_multiple radio+checkbox) ----
     // Skip matrix / rotated / hide-label / square / button-group layouts:
     // those carry their own geometry. Cards turn vertical choice lists into

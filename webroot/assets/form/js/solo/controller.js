@@ -19,7 +19,11 @@
 
 // Item types that render no participant-visible UI (pure hidden inputs filled
 // server-side). They must never become their own blank screen.
-const HIDDEN_TYPES = ['hidden', 'get', 'random', 'referrer', 'ip', 'browser', 'calculate', 'server'];
+// `mc_heading` is the disabled header row of an mc matrix (constant hidden
+// value, save_in_results_table=false). It's filtered out of the v2 pipeline
+// server-side (FormRenderer::getAllUnansweredItems); listed here too so a
+// legacy/already-rendered session never seats it as its own blank step.
+const HIDDEN_TYPES = ['hidden', 'get', 'random', 'referrer', 'ip', 'browser', 'calculate', 'server', 'mc_heading'];
 
 export function initSolo(opts) {
     const { root, pages, getCurrentIndex, showPage, submitPage, validate, allowPrevious } = opts;
@@ -74,6 +78,28 @@ export function initSolo(opts) {
     }
     function isLastPage() { return getCurrentIndex() >= pages.length - 1; }
     function isTerminal(el) { return !nextStep(el) && isLastPage(); }
+    function isSubmitStep(el) { return !!el && el.classList.contains('item-submit'); }
+
+    // A `submit` item is a page boundary. In solo it would otherwise be a blank
+    // screen whose only affordance is the footer OK. Instead, turn its own
+    // button into the big centred call-to-action and hide the footer OK (below,
+    // in updateNav). The button is `type=submit`, so prevent the native form
+    // POST and route through the controller's onContinue (validate → submitPage).
+    function wireSubmitStep(el) {
+        if (!isSubmitStep(el)) return;
+        const btn = el.querySelector('button, input[type=submit]');
+        if (!btn) return;
+        btn.classList.add('fmr-solo-bigsubmit');
+        const txt = (btn.textContent || btn.value || '').trim();
+        if (!txt) {
+            const label = isTerminal(el) ? 'Submit' : 'Continue';
+            if (btn.tagName === 'BUTTON') btn.textContent = label; else btn.value = label;
+        }
+        if (!btn.dataset.fmrSoloWired) {
+            btn.dataset.fmrSoloWired = '1';
+            btn.addEventListener('click', (e) => { e.preventDefault(); onContinue(true); });
+        }
+    }
 
     // --- input classification ------------------------------------------------
     // Auto-advance on commit for single-choice radio groups, single <select>
@@ -129,6 +155,17 @@ export function initSolo(opts) {
     // keyboard for a focus() that runs inside the user-gesture task. Otherwise
     // (initial seat, auto-advance) focus is deferred as before.
     function focusFirst(el, sync) {
+        // select_or_add (one OR multiple) is a tom-select. Its dropdown opens via
+        // tom-select's own `focus` handler, bound to the `.ts-control` (focus_node)
+        // — NOT to the sr-only original `<input.select2add>` the generic selector
+        // below would match first (which is why the multiple variant never opened
+        // on seat). Focus the live instance so onFocus fires (openOnFocus → the
+        // dropdown opens) for both modes. instance.focus() scrolls itself.
+        const tsInput = el.querySelector('input.select2add');
+        if (tsInput && tsInput.tomselect) {
+            try { tsInput.tomselect.focus(); } catch (e) { /* noop */ }
+            return;
+        }
         const f = el.querySelector(
             'input:not([type=hidden]):not([disabled]):not([type=radio]):not([type=checkbox]), textarea:not([disabled])'
         ) || el.querySelector('input[type=radio]:not([disabled]), input[type=checkbox]:not([disabled])');
@@ -187,6 +224,7 @@ export function initSolo(opts) {
             void el.offsetWidth;   // restart the animation
             el.classList.add(dir === 'back' ? 'fmr-solo-enter-down' : 'fmr-solo-enter-up');
         }
+        wireSubmitStep(el);
         updateNav();
         updateProgress();
         lockScrollToFit(el);
@@ -419,7 +457,10 @@ export function initSolo(opts) {
         // Keep it on the terminal step (explicit Submit) and on an already-
         // answered step reached via Back, so the participant can move on
         // without having to re-pick the same option.
-        const hideOk = isRadioChoice(current) && !terminal && !hasSelection(current);
+        // Hide the footer OK on single-choice steps (picking advances) and on a
+        // `submit` step (its own big button IS the action — see wireSubmitStep).
+        const hideOk = isSubmitStep(current)
+            || (isRadioChoice(current) && !terminal && !hasSelection(current));
         okBtn.style.display = hideOk ? 'none' : '';
         okBtn.innerHTML = terminal
             ? 'Submit <i class="fa fa-paper-plane" aria-hidden="true"></i>'
