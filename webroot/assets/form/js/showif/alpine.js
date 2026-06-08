@@ -124,12 +124,21 @@ export function registerXShowif(Alpine) {
         try {
             getValue = evaluateLater(safe);
         } catch {
-            applyVisibility(true);
-            return;
+            return; // unparseable: leave the server's render decision in place
         }
         effect(() => {
             getValue((result) => {
-                const visible = (result === undefined) ? true : !!result;
+                // `undefined` = the expression couldn't be evaluated — it references
+                // a name the client doesn't know (a server-only run var like
+                // `ran_group`, which the SERVER already resolved when it rendered).
+                // Match v1 (survey.js defaults _hide=true): do NOT force-show. Keep
+                // the server's decision — NA items are server-rendered `.hidden` by
+                // default, server-shown items render without it — so an unknowable
+                // showif preserves the current state instead of flashing visible
+                // (which on slow iOS Safari blocked the page before Alpine ran).
+                const visible = (result === undefined)
+                    ? !el.classList.contains('hidden')
+                    : !!result;
                 applyVisibility(visible);
             });
         });

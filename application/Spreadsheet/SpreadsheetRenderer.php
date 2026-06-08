@@ -443,6 +443,13 @@ class SpreadsheetRenderer {
                     // to 0/1 above — so they still hide/show correctly.
                     if ($this->naShowifIsClientResolvable($item)) {
                         $hidden = null;
+                        // ...but render it HIDDEN by default (CSS .hidden + disabled
+                        // input). v1's client defaults an unevaluable showif to
+                        // hidden (survey.js _hide=true); v2 must too, so an NA item
+                        // doesn't flash visible / block before Alpine evaluates it
+                        // (the iOS-Safari "page can't be submitted" symptom). Alpine
+                        // reveals it the instant its showif is true.
+                        $item->hideByDefaultPendingClient();
                     } else {
                         $hidden = $definitelyShownItems > 0 ? null : 1;
                     }

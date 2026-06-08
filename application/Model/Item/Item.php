@@ -509,6 +509,24 @@ class Item {
         }
     }
 
+    /**
+     * Render the item visually hidden (CSS `.hidden` + disabled input) by DEFAULT
+     * WITHOUT marking it server-side hidden (`$this->hidden` stays as-is, normally
+     * null). form_v2 uses this for an NA showif (the dependency isn't answered yet,
+     * or it references a server-only var): the item is hidden until the client
+     * (Alpine x-showif) reveals it if the showif evaluates true — matching v1,
+     * where an unevaluable showif defaults to hidden (survey.js `_hide = true`).
+     * Keeping `$this->hidden` null leaves it in the unanswered set so the client
+     * owns its visibility; the disabled input keeps it out of the POST until then.
+     */
+    public function hideByDefaultPendingClient() {
+        if (!in_array('hidden', $this->classes_wrapper, true)) {
+            $this->classes_wrapper[] = 'hidden';
+        }
+        $this->data_showif = true;
+        $this->input_attributes['disabled'] = true;
+    }
+
     public function alwaysInvalid() {
         $this->error = _('There were problems with openCPU.');
         if (!isset($this->input_attributes['class'])) {
