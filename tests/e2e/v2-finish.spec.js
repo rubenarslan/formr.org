@@ -122,52 +122,51 @@ async function driveDefault(page) {
     for (let p = 0; p < 12; p++) {
         if (await formGone(page)) return { completed: true, pages: p };
         const scope = 'form.fmr-form-v2 section.fmr-page:not([hidden])';
-        // Two passes: the first answers what's visible; picking a choice can
-        // REVEAL a conditional required item via Alpine (async), so a second pass
-        // after a tick fills those (in solo each item is its own step, so reveals
-        // are caught naturally — here every item is on screen at once).
+        const before = await v2.visiblePageNum(page).catch(() => null);
+        // Two passes: the first answers what's visible; picking a choice can REVEAL
+        // a conditional required item via Alpine (async), so a second pass after a
+        // tick fills those (in solo each item is its own step, so reveals are caught
+        // naturally — here every item is on screen at once).
         await fillScope(page, scope);
         await page.waitForTimeout(350);
         await fillScope(page, scope);
-        const res = await v2.submitV2(page, { timeout: 12000 });
-        await page.waitForTimeout(400);
-        if (res.blockedByClient) {
-            // No-arg evaluate (BS-safe): list visible required groups left unanswered.
-            const unanswered = await page.evaluate(function () {
-                const root = document.querySelector('form.fmr-form-v2 section.fmr-page:not([hidden])') || document;
-                const out = [];
-                root.querySelectorAll('.form-group.required').forEach(function (g) {
-                    if (g.hasAttribute('data-fmr-hidden') || g.classList.contains('hidden') || g.offsetParent === null) return;
-                    const t = (g.className.match(/item-([a-z_0-9]+)/) || [null, '?'])[1];
-                    const answered = !!g.querySelector('input:checked, input[type=hidden][value]:not([value=""])')
-                        || Array.prototype.some.call(g.querySelectorAll('input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=file]),textarea,select'), function (e) { return !e.readOnly && String(e.value || '').trim() !== ''; });
-                    if (!answered) out.push(t);
-                });
-                return out;
-            }).catch(function () { return ['(diag failed)']; });
-            return { completed: false, pages: p, blocked: true, errors: await v2.errorMessages(page), unanswered };
-        }
-        if (res.body && res.body.status === 'errors') {
-            const errNames = Object.keys(res.body.errors || {});
-            const diag = await page.evaluate(function (names) {
-                return names.map(function (n) {
-                    const inp = document.querySelector('[name="' + n + '"],[name="' + n + '[]"]');
-                    const g = inp && inp.closest('.form-group');
-                    const fields = g ? Array.from(g.querySelectorAll('input,select,textarea')) : [];
-                    return {
-                        name: n,
-                        dataHidden: g ? g.hasAttribute('data-fmr-hidden') : null,
-                        hiddenClass: g ? g.classList.contains('hidden') : null,
-                        fields: fields.filter(function (e) { return e.name && e.name.indexOf('_item_views') !== 0; })
-                            .map(function (e) { return { type: e.type, val: e.value, checked: e.checked, disabled: e.disabled }; }),
-                    };
-                });
-            }, errNames).catch(function () { return null; });
-            return { completed: false, pages: p, serverErrors: res.body.errors, diag };
-        }
-        if (res.body && res.body.redirect) {
-            await page.waitForTimeout(800); // client navigates to the next unit
-        }
+        const res = await v2.submitV2(page, { timeout: RUNNING_ON_BS ? 60000 : 12000 });
+        // Detect advancement by the visible page CHANGING (or navigating away), NOT
+        // by submitV2's blockedByClient flag: under the BS service worker the
+        // form-page-submit POST is intercepted, so waitForResponse never fires and
+        // submitV2 falsely reports "blocked" even though the submit succeeded and
+        // the next page is already showing. (Solo never hit this — it detects
+        // advancement by the step changing.)
+        await page.waitForTimeout(RUNNING_ON_BS ? 2500 : 1200);
+        if (await formGone(page)) return { completed: true, pages: p }; // last page redirected to the next unit
+        const after = await v2.visiblePageNum(page).catch(() => null);
+        if (after !== before) continue; // advanced to the next page
+
+        // Looks unchanged — but a final-page redirect can still be navigating.
+        // Give it one more beat and re-check before declaring a real failure.
+        await page.waitForTimeout(RUNNING_ON_BS ? 2000 : 1000);
+        if (await formGone(page)) return { completed: true, pages: p };
+
+        // Genuinely stuck → a server-validation error or a real client gate.
+        const serverErrors = (res.body && res.body.status === 'errors') ? res.body.errors : null;
+        const diag = await page.evaluate(function () {
+            const form = document.querySelector('form.fmr-form-v2');
+            const alp = form && form._x_dataStack && form._x_dataStack[0];
+            const sections = Array.prototype.map.call(document.querySelectorAll('form.fmr-form-v2 section.fmr-page'), function (s) {
+                return { page: s.getAttribute('data-fmr-page'), hidden: s.hasAttribute('hidden') };
+            });
+            const root = document.querySelector('form.fmr-form-v2 section.fmr-page:not([hidden])') || document;
+            const unanswered = [];
+            root.querySelectorAll('.form-group.required').forEach(function (g) {
+                if (g.hasAttribute('data-fmr-hidden') || g.classList.contains('hidden') || g.offsetParent === null) return;
+                const t = (g.className.match(/item-([a-z_0-9]+)/) || [null, '?'])[1];
+                const answered = !!g.querySelector('input:checked, input[type=hidden][value]:not([value=""])')
+                    || Array.prototype.some.call(g.querySelectorAll('input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=file]),textarea,select'), function (e) { return !e.readOnly && String(e.value || '').trim() !== ''; });
+                if (!answered) unanswered.push({ t: t, page: g.closest('section.fmr-page') ? g.closest('section.fmr-page').getAttribute('data-fmr-page') : null });
+            });
+            return { sections: sections, alpine: alp ? 'yes' : 'no', unanswered: unanswered };
+        }).catch(function (e) { return { error: String(e && e.message || e) }; });
+        return { completed: false, pages: p, serverErrors, errors: await v2.errorMessages(page), diag };
     }
     return { completed: await formGone(page), pages: 12 };
 }
