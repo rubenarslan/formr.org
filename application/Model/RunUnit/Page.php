@@ -10,7 +10,7 @@ class Page extends RunUnit {
      * An array of unit's exportable attributes
      * @var array
      */
-    public $export_attribs = array('type', 'description', 'position', 'special', 'body');
+    public $export_attribs = array('type', 'description', 'position', 'special', 'body', 'title');
 
     public function __construct(Run $run, array $props = []) {
         parent::__construct($run, $props);
