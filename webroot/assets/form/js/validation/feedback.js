@@ -70,7 +70,16 @@ export function applyErrors(pageEl, errors) {
             banner.setAttribute('role', 'alert');
             pageEl.insertBefore(banner, pageEl.firstChild);
         }
-        banner.innerHTML = unplaced.map((e) => `<div><strong>${e.name}:</strong> ${e.msg}</div>`).join('');
+        // Build rows with textContent (matching the inline path above) — no
+        // HTML interpretation of server messages, so a future unescaped
+        // message can't become a participant-input XSS vector here.
+        banner.replaceChildren(...unplaced.map((e) => {
+            const row = document.createElement('div');
+            const strong = document.createElement('strong');
+            strong.textContent = `${e.name}:`;
+            row.append(strong, ` ${e.msg}`);
+            return row;
+        }));
     }
 
     pageEl.reportValidity();

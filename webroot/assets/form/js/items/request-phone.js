@@ -69,10 +69,13 @@ function ensureCopyControl(wrapper, url) {
             btn.innerHTML = '<i class="fa fa-check"></i> Copied';
             setTimeout(() => { btn.innerHTML = '<i class="fa fa-copy"></i> Copy link to phone'; }, 2000);
         } catch (e) {
-            // Fallback: reveal the link so the participant can copy it manually.
-            const a = document.createElement('a');
-            a.href = url; a.textContent = url; a.className = 'request-phone-link';
-            row.appendChild(a);
+            // Fallback: reveal the link so the participant can copy it
+            // manually (once — repeated failures must not stack links).
+            if (!row.querySelector('.request-phone-link')) {
+                const a = document.createElement('a');
+                a.href = url; a.textContent = url; a.className = 'request-phone-link';
+                row.appendChild(a);
+            }
         }
     });
     row.appendChild(btn);

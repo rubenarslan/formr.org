@@ -48,6 +48,12 @@ function loadAltcha() {
         const iv = setInterval(() => {
             if (window.$altcha || Date.now() - t0 > 10000) { clearInterval(iv); resolve(); }
         }, 40);
+    }).then(() => {
+        // Transient load failure must not be terminal: drop the cached
+        // promise so a later init attempt — e.g. the participant retrying
+        // the page — injects the script afresh instead of resolving
+        // instantly with no widget.
+        if (!window.$altcha) altchaLoading = null;
     });
     return altchaLoading;
 }

@@ -145,6 +145,18 @@
         display: none !important;
     }
 
+    // Page-change a11y focus lands on the page's first heading via a
+    // temporary tabindex="-1" (see showPage in main.js). Programmatic focus
+    // shouldn't paint a focus ring around the heading — keyboard users get
+    // their ring back the moment they Tab onward.
+    h1[tabindex='-1']:focus,
+    h2[tabindex='-1']:focus,
+    h3[tabindex='-1']:focus,
+    h4[tabindex='-1']:focus,
+    .fmr-page-title[tabindex='-1']:focus {
+        outline: none;
+    }
+
     // --- Progress strip (sticky, compact — matches v1's top-of-viewport feel) ---
     .fmr-progress {
         position: sticky;
@@ -881,6 +893,12 @@
         altcha-widget .altcha-main:hover { border-color: var(--bs-primary, #0d6efd); }
         // ring the whole pill on focus (suppress the lone-checkbox outline)
         altcha-widget .altcha-checkbox input:focus-visible { outline: none; }
+        // The checkmark svg is absolutely positioned OVER the checkbox input
+        // (altcha.css ships no pointer-events rule). Clicks on it still bubble
+        // to the widget's wrapper handler, so humans never noticed — but the
+        // input itself must be hittable for native a11y + strict automation
+        // (Playwright refuses to click an input whose point the svg intercepts).
+        altcha-widget .altcha-checkbox svg { pointer-events: none; }
         altcha-widget .altcha-main:focus-within {
             box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.35);
             border-color: var(--bs-primary, #0d6efd);

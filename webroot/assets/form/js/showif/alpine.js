@@ -79,7 +79,18 @@ export function registerFmrForm(Alpine) {
                     );
                     v = Array.from(boxes).map((b) => coerce(b.value));
                 } else {
-                    v = inp.checked ? coerce(inp.value) : null;
+                    // Check_Item emits a hidden "0" partner sharing the name
+                    // ($_POST scalar-last-wins). Server/R sees "0" when
+                    // unchecked — mirror that instead of null, so a showif
+                    // like `mycheck == 0` agrees between client and server.
+                    if (inp.checked) {
+                        v = coerce(inp.value);
+                    } else {
+                        const partner = this.$root.querySelector(
+                            `input[type=hidden][name="${CSS.escape(raw)}"]`
+                        );
+                        v = partner ? coerce(partner.value) : null;
+                    }
                 }
             } else if (inp.type === 'radio') {
                 const checked = this.$root.querySelector(

@@ -86,7 +86,13 @@ function wireRecorder(container, fileInput, cfg) {
         blobUrl = URL.createObjectURL(blob);
 
         try {
-            const ext = mimeType.startsWith('video/') ? '.webm' : (mimeType.includes('mp4') ? '.m4a' : '.webm');
+            // iOS Safari's MediaRecorder emits video/mp4 (no webm support) —
+            // the extension must match or server-side MIME/extension checks
+            // and embed playback break.
+            const isMp4 = mimeType.includes('mp4') || mimeType.includes('aac') || mimeType.includes('m4a');
+            const ext = mimeType.startsWith('video/')
+                ? (isMp4 ? '.mp4' : '.webm')
+                : (isMp4 ? '.m4a' : '.webm');
             const dt = new DataTransfer();
             dt.items.add(new File([blob], `recording${ext}`, { type: mimeType }));
             fileInput.files = dt.files;
@@ -96,14 +102,19 @@ function wireRecorder(container, fileInput, cfg) {
         }
 
         if (cfg.kind === 'audio') {
+            // One short-lived AudioContext per decode, always closed — iOS
+            // caps concurrent contexts at ~4-6 and never GCs unclosed ones.
+            let ctx = null;
             try {
                 const AudioCtor = window.AudioContext || window.webkitAudioContext;
-                const ctx = new AudioCtor();
+                ctx = new AudioCtor();
                 const buf = await blob.arrayBuffer();
                 const decoded = await ctx.decodeAudioData(buf);
                 lengthEl.textContent = ` ${formatDuration(decoded.duration)}`;
             } catch {
                 lengthEl.textContent = '';
+            } finally {
+                if (ctx) { try { await ctx.close(); } catch { /* already closed */ } }
             }
         } else if (previewEl) {
             previewEl.src = blobUrl;
@@ -135,11 +146,30 @@ function wireRecorder(container, fileInput, cfg) {
             return;
         }
         chunks = [];
-        mediaRecorder = new MediaRecorder(stream, { mimeType });
+        try {
+            mediaRecorder = new MediaRecorder(stream, { mimeType });
+        } catch (err) {
+            // Ctor can throw (e.g. mimeType raced a device change) — release
+            // the just-acquired stream or the mic indicator stays on.
+            teardownStream();
+            console.warn('fmr-recorder: MediaRecorder unavailable', err);
+            alert('Recording could not be started on this device.');
+            return;
+        }
         mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
         mediaRecorder.onstop = onStop;
         mediaRecorder.start();
         recordBtn.querySelector('i').className = 'fa fa-stop';
+    });
+
+    // Page navigation while recording: finalize what we have (onStop attaches
+    // the partial recording) so the mic/camera isn't left hot on a page the
+    // participant has moved away from.
+    document.addEventListener('fmr:pagechange', () => {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            recordBtn.querySelector('i').className = `fa fa-${cfg.kind === 'video' ? 'video-camera' : 'microphone'}`;
+        }
     });
 
     playBtn.addEventListener('click', () => {

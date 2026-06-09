@@ -58,9 +58,13 @@ export function initRequestCookie(root) {
             });
         }
         // Poll for consent granted in another tab / via the footer dialog.
+        // Give up after 30 minutes — don't tick forever on an abandoned tab.
+        const t0 = Date.now();
         const poll = setInterval(() => {
             if (hasFunctionalConsent()) {
                 markAnswered(wrapper);
+                clearInterval(poll);
+            } else if (Date.now() - t0 > 30 * 60 * 1000) {
                 clearInterval(poll);
             }
         }, 1000);

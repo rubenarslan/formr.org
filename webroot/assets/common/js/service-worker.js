@@ -447,7 +447,9 @@ self.addEventListener('fetch', (event) => {
   // do schedule the IDB clear in waitUntil so the SW stays alive for it.
   try {
     const u = new URL(event.request.url);
-    if (event.request.mode === 'navigate' && /\/[^/]+\/logout\/?$/.test(u.pathname)) {
+    // Path is /<run>/logout on path-routed deploys, bare /logout on
+    // subdomain-routed ones — match both.
+    if (event.request.mode === 'navigate' && /(?:^|\/)logout\/?$/.test(u.pathname)) {
       event.waitUntil((async () => {
         try {
           const db = await fmrOpenIDB();
@@ -581,24 +583,6 @@ self.addEventListener('message', (event) => {
       })()
     );
   }
-});
-
-// `pushsubscriptionchange` fires when the browser invalidates the existing
-// push subscription — most commonly when the user uninstalls the PWA or
-// revokes notification permission. Take the chance to wipe the offline
-// queue (those answers were tied to the participant's relationship with
-// this run, which is now ending) and the cached subscription endpoint.
-// Best-effort: if IDB is unavailable we silently move on.
-self.addEventListener('pushsubscriptionchange', (event) => {
-  event.waitUntil((async () => {
-    try {
-      const db = await fmrOpenIDB();
-      await fmrQueueWipe(db);
-      try { db.close(); } catch {}
-    } catch (err) {
-      console.warn('SW pushsubscriptionchange: queue wipe failed', err);
-    }
-  })());
 });
 
 // Handle incoming push events
@@ -762,6 +746,11 @@ self.addEventListener('notificationclick', (event) => {
  * need to thread a participant code through the SW; if the cookie has
  * since evicted, the save fails 401 and the page-side
  * initializePushNotifications recovers on next launch.
+ *
+ * Deliberately does NOT touch the offline answer queue: browsers fire
+ * this event for routine, benign rotations (Chrome does so on browser
+ * updates), and not-yet-synced answers must survive those. Queue wipes
+ * happen only on the explicit logout paths.
  */
 self.addEventListener('pushsubscriptionchange', (event) => {
   event.waitUntil((async () => {

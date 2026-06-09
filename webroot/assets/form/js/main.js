@@ -168,8 +168,14 @@ function initForm() {
     };
 
     const showPage = (i) => {
+        const changed = (i !== currentIndex);
         pages.forEach((p, idx) => { p.hidden = (idx !== i); });
         currentIndex = i;
+        // Let per-item widgets react to leaving a page (e.g. recorders stop
+        // a live recording so the mic isn't left hot on an unseen page).
+        if (changed) {
+            document.dispatchEvent(new CustomEvent('fmr:pagechange', { detail: { index: i } }));
+        }
         // In solo, the step controller owns progress (per-item, not per-page)
         // and focus; it re-seats stepping via onPageShown below.
         if (!isSolo) {
@@ -207,10 +213,15 @@ function initForm() {
         }
     };
 
-    // Answered-timing: stamp on first value change per item.
+    // Answered-timing: stamp on first value change per item. Suppressed while
+    // resolveAndSubstitutePage writes server-computed deferred-fill values —
+    // those dispatch input/change for Alpine/showif sync but are not
+    // participant answers and must not fake an answered timestamp.
+    let programmaticFill = false;
     root.querySelectorAll('input[name], select[name], textarea[name]').forEach((inp) => {
         if (inp.name && inp.name.startsWith('_item_views')) return;
         inp.addEventListener('change', () => {
+            if (programmaticFill) return;
             const wrapper = inp.closest('.item');
             if (!wrapper) return;
             const ans = wrapper.querySelector('.item_answered');
@@ -358,8 +369,21 @@ function initForm() {
     };
     const hideQueueBanner = () => { if (queueBanner) queueBanner.hidden = true; };
 
+    // Single-flight: the drain is triggered by `online`, by initial load, and
+    // by the SW's Background Sync — two interleaved drains would double-fire
+    // the banner and the final-page redirect (server UUID dedup makes the
+    // POSTs themselves harmless).
+    let drainInFlight = false;
     const drainQueue = async () => {
-        if (!syncUrl) return;
+        if (!syncUrl || drainInFlight) return;
+        drainInFlight = true;
+        try {
+            await drainQueueInner();
+        } finally {
+            drainInFlight = false;
+        }
+    };
+    const drainQueueInner = async () => {
         let entries;
         try { entries = await queueGetAll(); } catch (e) { return; }
         if (!entries || !entries.length) { hideQueueBanner(); return; }
@@ -475,8 +499,13 @@ function initForm() {
             if (!target) return;
             if (target.value && target.value !== '') return; // user already edited
             target.value = val == null ? '' : String(val);
-            target.dispatchEvent(new Event('input', { bubbles: true }));
-            target.dispatchEvent(new Event('change', { bubbles: true }));
+            programmaticFill = true;
+            try {
+                target.dispatchEvent(new Event('input', { bubbles: true }));
+                target.dispatchEvent(new Event('change', { bubbles: true }));
+            } finally {
+                programmaticFill = false;
+            }
         });
         // Substitute labels: replace the .control-label inner content. v1
         // emits HTML there (knit2html result), so innerHTML is correct.
@@ -672,7 +701,13 @@ function initForm() {
             const nextIdx = currentIndex + 1;
             if (nextIdx < pages.length) {
                 showPage(nextIdx);
-                try { history.pushState(null, '', `?page=${nextIdx + 1}`); } catch (e) { /* noop */ }
+                // ?page= carries the server page number (data-fmr-page), not the
+                // array index — on resumed sessions only unanswered pages render,
+                // so indices and page numbers diverge.
+                const nextPageNum = Number(pages[nextIdx].dataset.fmrPage);
+                if (nextPageNum) {
+                    try { history.pushState(null, '', `?page=${nextPageNum}`); } catch (e) { /* noop */ }
+                }
             }
             return;
         }
@@ -684,7 +719,13 @@ function initForm() {
             return;
         }
         const body = await res.json().catch(() => null);
-        if (!body) return;
+        if (!body) {
+            // 200 with an unparseable body (proxy mangling, dev-mode xdebug
+            // noise) — don't leave the pill stuck on "Saving…" forever.
+            savePill.classList.remove('is-visible');
+            console.error('page-submit: unparseable response body');
+            return;
+        }
         if (body.status === 'errors' && body.errors) {
             savePill.classList.remove('is-visible');
             applyErrors(page, body.errors);
@@ -708,7 +749,7 @@ function initForm() {
                 // need filling against the just-persisted answer state.
                 await resolveAndSubstitutePage(body.next_page);
                 showPage(nextIdx);
-                try { history.pushState(null, '', `?page=${nextIdx + 1}`); } catch (e) { /* noop */ }
+                try { history.pushState(null, '', `?page=${body.next_page}`); } catch (e) { /* noop */ }
                 return;
             }
         }
@@ -1549,7 +1590,13 @@ function initForm() {
     root.querySelectorAll('[data-fmr-prev]').forEach((btn) => {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
-            if (currentIndex > 0) showPage(currentIndex - 1);
+            if (currentIndex > 0) {
+                showPage(currentIndex - 1);
+                const prevPageNum = Number(pages[currentIndex].dataset.fmrPage);
+                if (prevPageNum) {
+                    try { history.pushState(null, '', `?page=${prevPageNum}`); } catch (err) { /* noop */ }
+                }
+            }
         });
     });
 
@@ -1636,7 +1683,6 @@ function initForm() {
                 if (!callId) return;
                 // Skip duplicate: same answers → same visibility, no need to re-POST.
                 if (rcallLastArgs.get(el) === answersKey) return;
-                rcallLastArgs.set(el, answersKey);
                 const seq = (rcallSeqs.get(el) || 0) + 1;
                 rcallSeqs.set(el, seq);
                 fetch(rcallUrl, {
@@ -1647,8 +1693,11 @@ function initForm() {
                 }).then((r) => (r.ok ? r.json() : null))
                   .then((data) => {
                       if (!data || rcallSeqs.get(el) !== seq) return; // stale
+                      // Record the dedup key only on success — a failed POST
+                      // must stay re-triggerable for the same answer state.
+                      rcallLastArgs.set(el, answersKey);
                       if (typeof data.result === 'boolean') applyRCallResult(el, data.result);
-                  }).catch(() => { /* leave visibility as-is on failure */ });
+                  }).catch(() => { /* leave visibility as-is on failure; no dedup record */ });
             });
         };
 
@@ -1737,7 +1786,8 @@ function initForm() {
         if (!a) return;
         let url;
         try { url = new URL(a.href, window.location.href); } catch { return; }
-        if (!/\/[^/]+\/logout\/?$/.test(url.pathname)) return;
+        // /<run>/logout on path-routed deploys, bare /logout on subdomain ones.
+        if (!/(?:^|\/)logout\/?$/.test(url.pathname)) return;
         wipeQueue().catch(() => {});
     });
 

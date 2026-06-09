@@ -118,7 +118,7 @@
 
                 <?php if ($run->header_image_path): ?>
                     <header class="fmr-form-v2-header">
-                        <img src="<?php echo $run->header_image_path; ?>" alt="<?php echo htmlspecialchars($run->name); ?> header image">
+                        <img src="<?php echo htmlspecialchars($run->header_image_path); ?>" alt="<?php echo htmlspecialchars($run->name); ?> header image">
                     </header>
                 <?php endif; ?>
 
