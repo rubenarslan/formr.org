@@ -983,10 +983,21 @@ class RunController extends Controller {
             return;
         }
 
+        $this->run = $this->getRun();
+        $this->user = $this->loginUser();
+
+        $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
+        if (!$runSession->id) {
+            $this->sendJsonResponse(array('error' => 'No active run session'), 403);
+            return;
+        }
+
         // Dedup pre-check: if we've already persisted this uuid, short-circuit
         // so retries are safe and cheap. The uuid is unique-indexed so a true
         // race ends in a constraint error on INSERT below rather than a
         // double-apply — the apply is still best-effort idempotent per item.
+        // Deliberately AFTER the session gates so an unauthenticated request
+        // can't probe the ledger as a uuid-existence oracle.
         $existing = DB::getInstance()
             ->select('id')
             ->from('survey_form_submissions')
@@ -995,15 +1006,6 @@ class RunController extends Controller {
             ->fetch();
         if ($existing) {
             $this->sendJsonResponse(array('status' => 'ok', 'already_applied' => true));
-            return;
-        }
-
-        $this->run = $this->getRun();
-        $this->user = $this->loginUser();
-
-        $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
-        if (!$runSession->id) {
-            $this->sendJsonResponse(array('error' => 'No active run session'), 403);
             return;
         }
         $unitSession = $runSession->getCurrentUnitSession();
@@ -1067,6 +1069,18 @@ class RunController extends Controller {
             if ((int) $e->errorInfo[1] !== 1062) {
                 throw $e;
             }
+        }
+
+        // Same hidden-item resolution as formPageSubmitAction: the queued page
+        // may contain client-side showif-hidden items, which would otherwise
+        // stay hidden=NULL = "not answered" and block studyCompleted() forever
+        // once the queue drains.
+        $hiddenIds = array();
+        if (isset($itemViews['hidden']) && is_array($itemViews['hidden'])) {
+            $hiddenIds = array_map('intval', array_keys($itemViews['hidden']));
+        }
+        if ($hiddenIds) {
+            $this->markClientHiddenItems((int) $unitSession->id, (int) $submittedPage, $hiddenIds);
         }
 
         $nextPage = (int) $this->findNextRenderablePage($unitSession->id, $submittedPage);
@@ -1694,8 +1708,28 @@ class RunController extends Controller {
             // Cache write is best-effort — log and move on.
             formr_log('r-call cache write failed: ' . $e->getMessage());
         }
+        self::evictStaleRCallResults();
 
         return array('ok' => true, 'result' => $result);
+    }
+
+    /**
+     * Bounded write-time eviction for the r-call result cache. The max TTL is
+     * 5 minutes, so anything older than a day is dead weight; without this the
+     * table grows one row per (call, session, answer-state) forever. Rides the
+     * idx_created index and is LIMITed so it never stalls the request; called
+     * from the cache-write path, which is already OpenCPU-expensive. The FK on
+     * unit_session_id (patch 064) handles deleted sessions; this handles age.
+     */
+    private static function evictStaleRCallResults() {
+        try {
+            DB::getInstance()->exec(
+                'DELETE FROM `survey_r_call_results` '
+                . 'WHERE created_at < NOW() - INTERVAL 1 DAY LIMIT 500'
+            );
+        } catch (PDOException $e) {
+            formr_log('r-call cache eviction failed: ' . $e->getMessage());
+        }
     }
 
     /**

@@ -7,6 +7,7 @@ class UnitSession extends Model {
     public $run_unit_id; // survey_run_units.id — Track A: disambiguates same-unit-at-multiple-positions
     public $iteration; // 1-based count of attempts at THIS run_unit_id by THIS run_session
     public $study_iteration; // per-study sequence (wide-table-equivalent "Nth participant to start this study"); allocated via survey_studies.last_iteration
+    public $layout; // paradata: the study layout mode ('default'/'solo') this response was collected under (patch 068)
     public $run_session_id;
     public $created;
     public $expires;

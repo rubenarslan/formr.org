@@ -19,7 +19,11 @@ CREATE TABLE IF NOT EXISTS `survey_r_calls` (
     PRIMARY KEY (`id`),
     KEY `study_slot` (`study_id`, `slot`),
     KEY `item_id` (`item_id`),
-    UNIQUE KEY `study_expr_hash_slot` (`study_id`, `expr_hash`, `slot`),
+    -- item_id is part of the key: /form-render-page resolves a page's calls
+    -- by joining survey_items_display on r.item_id, so two items sharing an
+    -- identical expression need one row EACH — deduping across items left the
+    -- non-last-written item's deferred value/label unresolvable on its page.
+    UNIQUE KEY `study_expr_hash_slot` (`study_id`, `expr_hash`, `slot`, `item_id`),
     CONSTRAINT `fk_survey_r_calls_study` FOREIGN KEY (`study_id`)
         REFERENCES `survey_studies` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

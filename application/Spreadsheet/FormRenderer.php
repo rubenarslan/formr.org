@@ -461,10 +461,16 @@ class FormRenderer extends SpreadsheetRenderer {
         return $out;
     }
 
+    /** @var array<int, int>|null memoized item_id => page (queried by both processItems and groupByPage per render) */
+    protected $pageMapCache = null;
+
     /**
      * @return array<int, int> item_id => page
      */
     protected function fetchPageMap() {
+        if ($this->pageMapCache !== null) {
+            return $this->pageMapCache;
+        }
         $rows = $this->db->select('item_id, page')
             ->from('survey_items_display')
             ->where('session_id = :session_id')
@@ -476,6 +482,7 @@ class FormRenderer extends SpreadsheetRenderer {
                 $map[(int) $row['item_id']] = (int) $row['page'];
             }
         }
+        $this->pageMapCache = $map;
         return $map;
     }
 

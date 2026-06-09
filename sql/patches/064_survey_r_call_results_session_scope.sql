@@ -21,10 +21,27 @@
 -- an optimization, not load-bearing data, and a cold cache fills in on
 -- the next render.
 
+-- Guards (IF [NOT] EXISTS) make this safe on hosts where the pre-rebase
+-- phantom patch 054 already applied the same change: those re-run cleanly
+-- instead of dying mid-file on a duplicate column. The MODIFY normalizes
+-- the column to INT(10) UNSIGNED — the type of survey_unit_sessions.id —
+-- so the cascade FK below is addable (054/early-064 used BIGINT).
+
 TRUNCATE TABLE `survey_r_call_results`;
 
 ALTER TABLE `survey_r_call_results`
-    ADD COLUMN `unit_session_id` BIGINT UNSIGNED NOT NULL DEFAULT 0
-        AFTER `call_id`,
-    DROP INDEX `uq_call_args`,
-    ADD UNIQUE KEY `uq_call_session_args` (`call_id`, `unit_session_id`, `args_hash`);
+    ADD COLUMN IF NOT EXISTS `unit_session_id` INT(10) UNSIGNED NOT NULL DEFAULT 0
+        AFTER `call_id`;
+
+ALTER TABLE `survey_r_call_results`
+    MODIFY `unit_session_id` INT(10) UNSIGNED NOT NULL DEFAULT 0;
+
+ALTER TABLE `survey_r_call_results`
+    DROP INDEX IF EXISTS `uq_call_args`,
+    ADD UNIQUE KEY IF NOT EXISTS `uq_call_session_args` (`call_id`, `unit_session_id`, `args_hash`);
+
+-- Cache rows die with their unit session — this is also the eviction path
+-- for ended/deleted sessions (cron handles age-based eviction of live ones).
+ALTER TABLE `survey_r_call_results`
+    ADD CONSTRAINT `fk_r_call_results_unit_session` FOREIGN KEY IF NOT EXISTS (`unit_session_id`)
+        REFERENCES `survey_unit_sessions` (`id`) ON DELETE CASCADE;

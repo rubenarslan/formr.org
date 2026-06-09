@@ -14,4 +14,4 @@ CREATE TABLE IF NOT EXISTS `survey_form_submissions` (
     KEY `unit_session_id` (`unit_session_id`),
     CONSTRAINT `fk_sfs_unit_session` FOREIGN KEY (`unit_session_id`)
         REFERENCES `survey_unit_sessions` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

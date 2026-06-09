@@ -98,8 +98,10 @@ class RAllowlistExtractor {
     }
 
     /**
-     * Upsert an (study_id, slot, expr) record into survey_r_calls. Returns the
-     * id. Dedups by (study_id, slot, expr_hash).
+     * Upsert an (study_id, slot, expr, item) record into survey_r_calls.
+     * Returns the id. Dedups by (study_id, expr_hash, slot, item_id) — one
+     * row PER ITEM even when expressions are identical, because
+     * /form-render-page resolves a page's calls via r.item_id.
      */
     public static function record(DB $db, $studyId, $slot, $innerExpr, $itemId = null) {
         $hash = hash('sha256', $innerExpr);
@@ -111,7 +113,6 @@ class RAllowlistExtractor {
             VALUES (:study_id, :slot, :item_id, :expr, :expr_hash)
             ON DUPLICATE KEY UPDATE
                 id = LAST_INSERT_ID(id),
-                item_id = VALUES(item_id),
                 modified = CURRENT_TIMESTAMP
         ");
         $stmt->bindValue(':study_id', (int) $studyId, PDO::PARAM_INT);
