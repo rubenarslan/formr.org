@@ -24,7 +24,11 @@ const db = require('./helpers/db');
 const RUN = () => runName('bot_check', 'v2');
 const STUDY = 'e2e_bot_check';
 const WIDGET = 'altcha-widget';
-const BOX = 'altcha-widget input[type=checkbox]';
+// The wrapper, not the inner input: altcha's checkmark svg overlays the input
+// and (pre-CSS-fix bundles) intercepts the click point — Playwright's strict
+// actionability check then refuses the input. The widget handles bubbled
+// wrapper clicks, which is also the path a human pointer takes.
+const BOX = 'altcha-widget .altcha-checkbox';
 
 function resultsTable() {
     const rows = db.dbQuery(`SELECT id FROM survey_studies WHERE name = '${STUDY}' ORDER BY id DESC LIMIT 1`);

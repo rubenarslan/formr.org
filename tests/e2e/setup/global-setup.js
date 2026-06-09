@@ -1,8 +1,8 @@
 // Playwright globalSetup: log into the dev admin once and save the cookie
 // jar so per-test test-code minting (helpers/participant.js) doesn't have to
-// re-login. The runs created by Phase 1 (`runbook.md`) are NOT public, so
-// every participant request needs `?code=<test_code>` and that code is
-// minted via the admin endpoint `/admin/run/<name>/create_new_test_code`.
+// re-login. The e2e_* runs (`runbook.md`) are publicly accessible
+// (run.public = 2), but specs still mint `?code=<test_code>` sessions via
+// `/admin/run/<name>/create_new_test_code` for isolated, resettable state.
 //
 // Also bootstraps PWA_TEST_CODE for the pwa-manifest + pwa-recovery suites
 // so a fresh checkout doesn't skip them. Discovers (or mints, if absent) a

@@ -185,7 +185,12 @@ test.describe('v2 survey completes end-to-end', () => {
     });
 
     test('non-solo (default) layout: walk every page to the end', async ({ page, baseURL }) => {
-        test.setTimeout(RUNNING_ON_BS ? 300000 : 120000);
+        // Headroom over the ~20s happy path: when an item gate fails (as the
+        // svg-intercepted bot_check click once did), each loop round burns the
+        // 12s submit timeout — 120s expired mid-loop before driveDefault's
+        // stuck-diagnostics could fire, leaving an opaque timeout instead of
+        // the helpful {unanswered, serverErrors} dump.
+        test.setTimeout(300000);
         setLayout('default');
         await freshParticipant(page, RUN, { baseURL });
         await v2.waitForBundle(page);

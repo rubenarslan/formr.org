@@ -19,6 +19,14 @@ const db = require('./helpers/db');
 
 const RUN = () => runName('all_widgets', 'v2');
 
+// This suite asserts DEFAULT-layout behaviour, but other suites toggle the
+// shared all_widgets study's layout and v2-finish deliberately leaves it on
+// 'solo' (the user's preferred manual-fixture state). Pin it ourselves so
+// execution order can't break us. workers:1 makes this race-free.
+const STUDY_ID = 1602; // all_widgets — bound to e2e-aw-v2 via survey_units.form_study_id
+test.beforeAll(() => db.dbExecRaw(`UPDATE survey_studies SET layout='default' WHERE id=${STUDY_ID}`));
+test.afterAll(() => db.dbExecRaw(`UPDATE survey_studies SET layout='solo' WHERE id=${STUDY_ID}`));
+
 test.describe('form_v2 spec: a11y group semantics', () => {
 
     test('radio sets get role=radiogroup + aria-labelledby the stem; text is not grouped', async ({ page, baseURL }) => {

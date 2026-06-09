@@ -147,7 +147,11 @@ async function solveBotCheckIfPresent(page, scopeSelector) {
     if (!present) return false;
 
     await page.waitForFunction(() => !!customElements.get('altcha-widget') && !!window.$altcha, null, { timeout: 15000 }).catch(() => {});
-    const box = page.locator(`${scopeSelector} altcha-widget input[type=checkbox]`).first();
+    // Click the wrapper, not the input: altcha's checkmark svg is positioned
+    // over the input and (pre-CSS-fix bundles) intercepts the click point,
+    // which makes Playwright's strict actionability check refuse the input.
+    // The widget handles bubbled wrapper clicks — same path a human takes.
+    const box = page.locator(`${scopeSelector} altcha-widget .altcha-checkbox`).first();
     if (!(await box.count())) return false;
     await box.click().catch(() => {});
     await page.waitForFunction(

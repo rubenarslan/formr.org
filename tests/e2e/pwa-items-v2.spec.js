@@ -99,15 +99,21 @@ test.describe('PWA items v2 — install stack', () => {
 const AW_RUN = 'e2e-aw-v2';
 
 test.describe('PWA items v2 — cookie + phone', () => {
-    // FIXME: cookieconsent does not initialise in the v2 headless probe — at load
-    // #cc-main is never created and <html> has no show--consent, and clicking the
-    // button doesn't open the preferences modal (no show--preferences), with NO
-    // thrown error. The import + run() config + showPreferences export are all
-    // bundled (verified) and the singleton specifier matches, so the failure is a
-    // runtime init quirk that needs interactive Chrome DevTools to pin down (the
-    // Playwright MCP browser was unavailable this session). The cookie item's
-    // init fix (856e9265) is therefore NOT yet confirmed working end-to-end.
-    test.fixme('request_cookie: vanilla-cookieconsent initialised + button opens preferences', async ({ page, baseURL }) => {
+    // ROOT CAUSE of the old fixme ("cookieconsent does not initialise in the
+    // headless probe, no error"): vanilla-cookieconsent defaults
+    // `hideFromBots: true`, and its bot check is a UA regex OR
+    // `navigator.webdriver` — true in every Playwright browser. run() then
+    // silently no-ops: no #cc-main, no show--consent, nothing to click. Real
+    // participants are unaffected (verified interactively end-to-end
+    // 2026-06-09: modal opens, accepting writes the cookie, hidden input
+    // becomes consent_given). Mask webdriver before any page script runs so
+    // the consent stack initialises under automation. NB the same suppression
+    // applies on BrowserStack devices: a *required* request_cookie can never
+    // be satisfied in an automated run without this mask.
+    test('request_cookie: vanilla-cookieconsent initialised + button opens preferences', async ({ page, baseURL }) => {
+        await page.addInitScript(() => {
+            Object.defineProperty(Object.getPrototypeOf(navigator), 'webdriver', { get: () => false });
+        });
         await freshParticipant(page, AW_RUN, { baseURL });
         await expect(page.locator(v2.FORM_SELECTOR).first()).toBeVisible({ timeout: 20000 });
         await v2.waitForBundle(page);
