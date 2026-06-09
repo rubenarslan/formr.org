@@ -273,8 +273,7 @@
     .form-group.form-row.item-note,
     .form-group.form-row.item-block,
     .form-group.form-row.item-note_iframe,
-    .form-group.form-row.form-message,
-    .form-group.form-row.item-submit {
+    .form-group.form-row.form-message {
         > .control-label {
             flex: 1 1 auto;
             max-width: none;
@@ -282,6 +281,28 @@
             padding-top: 0;
         }
         > .controls { display: none; }
+    }
+
+    // `submit` item: the page's advance control rendered as a big centred button
+    // (no separate OK). Its label column is empty, so hide it and centre the
+    // button. Solo gets its own (larger) sizing in _solo.scss via .fmr-solo-bigsubmit.
+    .form-group.form-row.item-submit {
+        justify-content: center;
+        text-align: center;
+        > .control-label { display: none; }
+        > .controls {
+            flex: 0 0 auto;
+            display: flex;
+            justify-content: center;
+        }
+        button[type="submit"], input[type="submit"] {
+            min-width: 12rem;
+            padding: 0.85rem 2.5rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+            border-radius: 0.6rem;
+        }
+        .white_cover { display: none; }
     }
 
     // Constrain inputs to v1's ~300px range on wide layouts; range/file stays full.
@@ -472,8 +493,13 @@
     // background-gradient on the thumb. This lifts the tap target to the
     // iOS/WCAG ~44px minimum without (a) showing a thumb before touch (the
     // :not(.vas-touched) rule below still hides it) or (b) thickening the mark.
-    $vas-hit: 2.75rem;     // ~44px tappable height + drag-grab width
-    $vas-mark-w: 4px;      // visible pencil-mark width (unchanged look)
+    $vas-hit: 2.75rem;     // ~44px tappable HEIGHT (track tap area). MUST NOT be
+                           // used for thumb WIDTH: a native range thumb's centre
+                           // only travels [thumbW/2 .. trackW-thumbW/2], so a wide
+                           // thumb insets min/max by thumbW/2 and the extremes
+                           // (0/100) become unreachable. The 44px target comes
+                           // from the input height + full-width clickable track.
+    $vas-mark-w: 4px;      // visible pencil-mark width AND thumb width (no dead zone)
     $vas-mark-h: 1.6rem;   // visible pencil-mark height (unchanged look)
     .vas-controls input[type="range"].vas-display {
         -webkit-appearance: none;
@@ -487,7 +513,7 @@
         &::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: $vas-hit;              // finger-wide drag-grab zone…
+            width: $vas-mark-w;          // narrow → value travels full track (0..100 reachable)
             height: $vas-hit;
             margin-top: 0;               // thumb height == track height → centred
             background: transparent;     // …but invisible: only the centred mark shows
@@ -501,7 +527,7 @@
         }
         &::-moz-range-track { height: 3px; border-radius: 2px; background: var(--bs-border-color, #ced4da); }
         &::-moz-range-thumb {
-            width: $vas-hit;             // finger-wide drag-grab zone…
+            width: $vas-mark-w;          // narrow → value travels full track (0..100 reachable)
             height: $vas-hit;
             background: transparent;     // …invisible box
             background-image: linear-gradient(var(--bs-body-color, #212529), var(--bs-body-color, #212529));
@@ -653,6 +679,30 @@
             .btn_value { display: none; }
         }
     }
+
+    // rating_button modifier variants. custom_item_classes.css (bundled BEFORE
+    // form.scss) sizes these, but the generic `.btn-group .btn` skin above —
+    // same specificity, later source order — clobbers its padding/border/
+    // background/border-radius. Re-assert the v1 geometry here, scoped to the
+    // modifier class so it lands after the generic skin and wins. The fixed
+    // width/height/margin from custom_item_classes.css already survive.
+    .analogue_rating_scale .btn-group {
+        gap: 0;                                  // bars touch → continuous strip
+        > .btn {
+            padding: 0;
+            border-width: 0;
+            border-radius: 0;
+            background: #ddd;                    // v1 analog bar
+            overflow: hidden;
+            &:hover { background: #cfcfcf; }
+            &.btn-checked { background: #999; border: 1px solid #000; color: transparent; }
+            .btn_label { display: none; }        // analog strip shows no labels
+        }
+    }
+    .square, .square100, .square80, .square70, .square60 {
+        .btn-group > .btn { padding: 0; border-radius: 4px; }
+    }
+    .blank_button .btn-group > .btn .btn_label { visibility: hidden; }
 
     // Button-group validation state: outline the whole group when the parent
     // form-group is is-invalid (set by the `invalid` handler in main.js).

@@ -267,8 +267,12 @@
     // Single checkbox (check): make the toggle comfortably tappable.
     .fmr-solo-current.item-check .checkbox input[type=checkbox] { width: 1.4rem; height: 1.4rem; }
 
-    // Button-group + square items: scale up the existing tap targets.
-    .fmr-solo-current .btn-group .btn { font-size: 1.1rem; padding: 0.7rem 1.25rem; }
+    // Button-group + square items: scale up the existing tap targets. Exclude
+    // the fixed-geometry variants (analogue strip + square tiles) — inflating
+    // their padding would burst the small fixed-size boxes (see form.scss).
+    .fmr-solo-current:not(.analogue_rating_scale):not(.square):not(.square100):not(.square80):not(.square70):not(.square60) .btn-group .btn {
+        font-size: 1.1rem; padding: 0.7rem 1.25rem;
+    }
     .fmr-solo-current.square .controls > label,
     .fmr-solo-current.square .mc-table > label { min-width: 5.5rem; min-height: 5.5rem; font-size: 1.05rem; }
 

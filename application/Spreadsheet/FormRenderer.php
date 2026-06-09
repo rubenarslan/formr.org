@@ -155,16 +155,15 @@ class FormRenderer extends SpreadsheetRenderer {
             $item->label_parsed = '';
         }
 
-        // Step 4: hide submit-type items (v2 supplies its own nav).
-        foreach ($items as $name => $item) {
-            if ($item && $item->type === 'submit') {
-                $this->db->update('survey_items_display', ['hidden' => 1], [
-                    'session_id' => $this->unitSession->id,
-                    'item_id' => $item->id,
-                ]);
-                unset($items[$name]);
-            }
-        }
+        // Step 4: submit-type items are page boundaries AND the page's advance
+        // control. Keep them in $items so they flow into toRender → render() as
+        // their own big centred button (the goal: "submit = a big button, no
+        // separate OK"); the solo controller upgrades them to .fmr-solo-bigsubmit
+        // and non-solo wires their data-fmr-next to submitPage(). They are kept
+        // OUT of the completion count in getAllUnansweredItems() (like block/blank)
+        // and excluded from "answered" by getStudyProgress()'s SQL, so rendering
+        // them can't block studyCompleted(). (Previously they were marked hidden
+        // and stripped here, which left the big-button JS/CSS dead code.)
 
         // Step 4b: attach choices to ALL items (no OpenCPU). Step 5's
         // first-page-only label/choice pass would otherwise leave later-page
@@ -337,7 +336,12 @@ class FormRenderer extends SpreadsheetRenderer {
             //     no input to post, so it never gets a `saved` row.
             // (note / note_iframe / mc_heading don't need this: note-likes post a
             // hidden value=1 and mc_heading is filtered out of the query above.)
-            if (!in_array($item->type, array('block', 'blank'), true)) {
+            //   - `submit`: renders as the page's big advance button (Step 4 above)
+            //     but posts no `saved` row (save_in_results_table=false) and is
+            //     excluded from "answered" by getStudyProgress()'s SQL — counting
+            //     it would keep not_answered > 0 forever and the form could never
+            //     finish.
+            if (!in_array($item->type, array('block', 'blank', 'submit'), true)) {
                 $this->unanswered[$item->name] = $item;
             }
             $out[$item->name] = $item;
@@ -379,6 +383,7 @@ class FormRenderer extends SpreadsheetRenderer {
         $html .= $this->renderV2Header();
 
         $i = 0;
+        $isSolo = (($this->study->layout ?? 'default') === 'solo');
         foreach ($itemsByPage as $pageNum => $pageItems) {
             $i++;
             $isLast = ($i === $pageCount);
@@ -389,6 +394,13 @@ class FormRenderer extends SpreadsheetRenderer {
                 $isFirst ? '' : ' hidden'
             );
 
+            // A submit item on this page IS the page's advance control, so the
+            // auto page-nav Next/Submit button below is suppressed (no duplicate).
+            $pageHasSubmit = false;
+            foreach ($pageItems as $item) {
+                if (isset($item->type) && $item->type === 'submit') { $pageHasSubmit = true; break; }
+            }
+
             foreach ($pageItems as $item) {
                 if (!empty($this->validationErrors[$item->name])) {
                     $item->error = $this->validationErrors[$item->name];
@@ -396,14 +408,23 @@ class FormRenderer extends SpreadsheetRenderer {
                 if (!empty($this->validatedItems[$item->name])) {
                     $item->value_validated = $this->validatedItems[$item->name]->value_validated;
                 }
-                // Skip any submit-type items the v1 renderer might emit; v2 draws its own nav.
-                if (isset($item->type) && $item->type === 'submit') {
-                    continue;
+                // A submit item renders as the page's big centred button. In
+                // non-solo, tag it data-fmr-next so main.js routes its click
+                // through submitPage() (preventDefault'd → no native POST); in
+                // solo the solo controller's wireSubmitStep() owns the click, so
+                // we DON'T add data-fmr-next there (avoids a double-bound submit).
+                if (isset($item->type) && $item->type === 'submit' && !$isSolo) {
+                    $item->input_attributes['data-fmr-next'] = '1';
                 }
                 $html .= $item->render();
             }
 
-            $html .= $this->renderPageNav(!$isFirst, $isLast);
+            // Suppress the auto Next/Submit only in non-solo, where the submit
+            // item's own (data-fmr-next) button replaces it. In solo the auto-nav
+            // button is CSS-hidden anyway and the solo controller drives advance
+            // via the .fmr-solo-bigsubmit / footer OK — keep it so the page still
+            // carries a [data-fmr-next] hook.
+            $html .= $this->renderPageNav(!$isFirst, $isLast, $pageHasSubmit && !$isSolo);
             $html .= '</section>';
         }
 
@@ -554,14 +575,22 @@ class FormRenderer extends SpreadsheetRenderer {
              . '</div>';
     }
 
-    protected function renderPageNav($showPrev, $isLast) {
-        $nextLabel = $isLast ? 'Submit' : 'Next';
-        $nextIcon = $isLast ? 'fa-check' : 'fa-arrow-right';
+    protected function renderPageNav($showPrev, $isLast, $hasSubmit = false) {
         // Previous button is opt-in per form (SurveyStudy.allow_previous).
         $allowPrev = $showPrev && !empty($this->study->allow_previous);
         $left = $allowPrev
             ? '<button type="button" class="btn btn-outline-secondary" data-fmr-prev><i class="fa fa-arrow-left"></i> Previous</button>'
             : '';
+        // When the page already carries a submit item, that item's own button is
+        // the (big, centred) advance control — emit no duplicate Next/Submit. Keep
+        // a Previous button if the form opted in; otherwise render no nav row.
+        if ($hasSubmit) {
+            return $left === ''
+                ? ''
+                : '<div class="fmr-page-nav"><div class="fmr-page-nav__left">' . $left . '</div></div>';
+        }
+        $nextLabel = $isLast ? 'Submit' : 'Next';
+        $nextIcon = $isLast ? 'fa-check' : 'fa-arrow-right';
         return sprintf(
             '<div class="fmr-page-nav"><div class="fmr-page-nav__left">%s</div>'
             . '<div class="fmr-page-nav__right">'

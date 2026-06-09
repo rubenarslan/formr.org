@@ -149,6 +149,11 @@ export function validatePageAndShowFeedback(pageEl) {
         : Array.from(pageEl.querySelectorAll('.form-group'));
     const unanswered = scope.filter((g) => g.classList.contains('required')
         && !g.classList.contains('hidden') && g.offsetParent !== null
+        // A submit item carries `required` (it's not "optional") but is a button,
+        // not an answerable field — it can never be "answered", so excluding it
+        // here mirrors the server's required check (UnitSession excludes 'submit')
+        // and stops the page's own big submit button from blocking itself.
+        && !g.classList.contains('item-submit')
         && !nativeGroups.has(g) && !isAnswered(g));
 
     if (offenders.length === 0 && unanswered.length === 0) return true;

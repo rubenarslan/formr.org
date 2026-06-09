@@ -19,6 +19,13 @@ import 'tom-select/dist/css/tom-select.bootstrap5.min.css';
 // -scoped, which is why FormRenderer adds `form-horizontal` to the v2 form.
 import '../../common/css/custom_item_classes.css';
 import '../css/form.scss';
+// Initialize vanilla-cookieconsent exactly as v1's participant bundle does
+// (site/js/main.js): its module body calls run({...}) to configure + start the
+// consent singleton (cookie `formrcookieconsent`, necessary + functionality
+// categories). Without this the request_cookie item's showPreferences() call has
+// no singleton to open. Shows the consent bar once until consent is given (parity
+// with v1); no-op afterwards.
+import '../../common/js/cookieconsent.js';
 
 import Alpine from 'alpinejs';
 import TomSelect from 'tom-select';
@@ -768,13 +775,22 @@ function initForm() {
         saveInFlight = true;
         lastSaveAt = Date.now();
         try {
-            await fetch(saveUrl, {
+            const res = await fetch(saveUrl, {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 body: JSON.stringify({ data: payload.data, item_views: payload.item_views }),
                 keepalive: true,
             });
+            // Surface a transient "Saved" pill on a real persist (the server
+            // returns {status:'noop'} — still 200 — when nothing was written, so
+            // gate on status==='saved' to avoid claiming a save that didn't happen).
+            // Failures stay silent: the explicit page-submit + offline queue are
+            // the durable path.
+            if (res && res.ok) {
+                const body = await res.json().catch(() => null);
+                if (body && body.status === 'saved') setSaveState('saved', 'Saved');
+            }
         } catch (e) { /* best-effort; explicit submit + offline queue are the net */ }
         finally { saveInFlight = false; }
     };

@@ -4,7 +4,11 @@
 // hidden `<input>`, a `<button.request-cookie>`, and a `.status-message`.
 // When the participant has already granted functional consent, we mark the
 // item answered; otherwise the click opens the consent dialog via the
-// global `showPreferences()` exposed by vanilla-cookieconsent.
+// `showPreferences()` module export from vanilla-cookieconsent. It is NOT a
+// global — it operates on the consent singleton that `common/js/cookieconsent.js`
+// (imported by the form bundle entry, main.js) configured with run(). Webpack
+// dedupes the lib so this import shares that same singleton.
+import { showPreferences } from 'vanilla-cookieconsent';
 
 const FUNCTIONAL_COOKIE_NAME = 'formrcookieconsent';
 
@@ -49,7 +53,8 @@ export function initRequestCookie(root) {
         if (btn) {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
-                if (typeof window.showPreferences === 'function') window.showPreferences();
+                try { showPreferences(); }
+                catch (err) { console.warn('cookieconsent showPreferences failed', err); }
             });
         }
         // Poll for consent granted in another tab / via the footer dialog.
