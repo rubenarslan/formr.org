@@ -824,6 +824,21 @@
         margin-bottom: 1rem;
     }
 
+    // request_phone item — desktop "continue on your phone" QR + copy link
+    // (items/request-phone.js). The PHP renders an empty .qr-code-container;
+    // the QR svg is injected client-side.
+    .request-phone-wrapper {
+        text-align: center;
+        .qr-code-container {
+            display: inline-block;
+            margin: 0.5rem auto;
+            svg { display: block; max-width: 240px; height: auto; }
+        }
+        .request-phone-copy { margin: 0.5rem 0; }
+        .request-phone-link { display: inline-block; margin-top: 0.4rem; word-break: break-all; font-size: 0.85rem; }
+        .status-message { margin-top: 0.4rem; color: var(--bs-secondary-color, #6c757d); }
+    }
+
     // bot_check item — local-only "are you human" widget, self-hosted Altcha
     // PoW (<altcha-widget>; see items/bot-check.js). Altcha renders into LIGHT
     // DOM, so we restyle it from here to match formr's clean inline pill rather

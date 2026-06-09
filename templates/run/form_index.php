@@ -76,6 +76,18 @@
             window.vapidPublicKey = <?php echo json_encode($vapidPublicKey); ?>;
             <?php endif; ?>
             <?php
+            // Resumable participant URL (run URL + ?code=) for the request_phone
+            // item's QR / hand-off link: lets the participant continue the SAME
+            // session on their phone, where the server's mobile UA-sniff
+            // auto-answers the item (is_phone). v2 has no _formr_code input (v1's
+            // QR source), so expose the code here, on the study origin.
+            $fmrResumeCode = ($run instanceof Run && isset($run_session) && $run_session instanceof RunSession) ? $run_session->session : null;
+            if ($run instanceof Run) {
+                $fmrResumeUrl = run_url($run->name, null, $fmrResumeCode ? array('code' => $fmrResumeCode) : array());
+                echo 'window.formr.runResumeUrl = ' . json_encode($fmrResumeUrl) . ";\n";
+            }
+            ?>
+            <?php
             // Expose the current unit-session expiry so the v2 expiry-notifier
             // can show a "Page expired" modal when the wall clock crosses it.
             // Mirrors templates/public/head.php's logic for the v1 path.

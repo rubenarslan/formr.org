@@ -872,7 +872,14 @@ function initForm() {
     // whole run path; registering at /assets/common/js/service-worker.js
     // directly would scope to that dir and miss the form POSTs.
     const registerFormSW = async () => {
-        if (!('serviceWorker' in navigator) || !syncUrl) return;
+        // The SW backs TWO independent features: offline-sync (needs syncUrl) and
+        // web push (needs a VAPID key). Register it when EITHER is in play —
+        // gating only on syncUrl meant a push-enabled study with offline_mode='off'
+        // never registered the SW, so `navigator.serviceWorker.ready` in the push
+        // code hung and push silently broke. (FMR_REGISTER_SYNC_URL is still only
+        // posted when there's a syncUrl to register.)
+        if (!('serviceWorker' in navigator)) return;
+        if (!syncUrl && !window.vapidPublicKey) return;
         try {
             const runUrlObj = new URL(runUrl || window.location.href);
             const siteOrigin = window.location.origin;
@@ -882,7 +889,7 @@ function initForm() {
             const existing = await navigator.serviceWorker.getRegistration(scope);
             const reg = existing || await navigator.serviceWorker.register(swPath, { scope });
             const sw = reg.active || reg.waiting || reg.installing || navigator.serviceWorker.controller;
-            if (sw) sw.postMessage({ type: 'FMR_REGISTER_SYNC_URL', url: syncUrl });
+            if (sw && syncUrl) sw.postMessage({ type: 'FMR_REGISTER_SYNC_URL', url: syncUrl });
         } catch (e) {
             console.warn('form-v2 SW registration failed', e);
         }
@@ -959,11 +966,17 @@ function initForm() {
         if (addToHomeInstance) return; // already initialized
         if (root.querySelectorAll('.add-to-homescreen-wrapper').length === 0) return;
 
-        // 1. <pwa-install> component
-        if (!pwaInstallEl) {
+        // A PWA can only be installed when the run has a manifest. Without one the
+        // <pwa-install> component falls back to probing /manifest.json at the
+        // origin root (→ 404), so only create it when a manifest link is present.
+        // (The AddToHomeScreen modal below still offers iOS "Add to Home Screen"
+        // guidance, which doesn't need a manifest.)
+        const manifestLink = document.querySelector('link[rel="manifest"]');
+
+        // 1. <pwa-install> component (native beforeinstallprompt path)
+        if (!pwaInstallEl && manifestLink) {
             pwaInstallEl = document.createElement('pwa-install');
-            const manifestLink = document.querySelector('link[rel="manifest"]');
-            if (manifestLink) pwaInstallEl.setAttribute('manifest-url', manifestLink.href);
+            pwaInstallEl.setAttribute('manifest-url', manifestLink.href);
             pwaInstallEl.setAttribute('use-local-storage', 'true');
             try { pwaInstallEl.hideDialog(); } catch (e) {}
             document.body.appendChild(pwaInstallEl);
@@ -998,7 +1011,6 @@ function initForm() {
         // 2. AddToHomeScreen modal — read manifest for app name + icon
         let appName = document.title;
         let appIconUrl = '/apple-touch-icon.png';
-        const manifestLink = document.querySelector('link[rel="manifest"]');
         if (manifestLink) {
             try {
                 const res = await fetch(manifestLink.href);
@@ -1019,7 +1031,15 @@ function initForm() {
             const inDevBuild = (window.formr?.bundle === 'dev-build')
                 || /assets\/dev-build\//.test(document.querySelector('script[src*="form.bundle.js"]')?.src || '');
             const assetUrl = inDevBuild ? '/assets/dev-build/assets/img/' : '/assets/build/assets/img/';
-            addToHomeInstance = AddToHomeScreen({
+            // add-to-homescreen is a prebuilt IIFE that exports nothing and only
+            // assigns the factory to window.AddToHomeScreen — the webpack default
+            // import binding is undefined (calling it threw "is not a function").
+            // Use the global, like v1's PWAInstaller does. (Thrown → caught below,
+            // leaving addToHomeInstance null so the native <pwa-install> path still
+            // works and only the iOS modal fallback degrades.)
+            const adhsFactory = window.AddToHomeScreen;
+            if (typeof adhsFactory !== 'function') throw new Error('AddToHomeScreen global unavailable');
+            addToHomeInstance = adhsFactory({
                 appName,
                 appIconUrl,
                 maxModalDisplayCount: -1,
