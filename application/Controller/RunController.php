@@ -1786,9 +1786,18 @@ class RunController extends Controller {
         if (is_bool($v)) return $v ? 'TRUE' : 'FALSE';
         if (is_int($v) || is_float($v)) return (string) $v;
         if (is_array($v)) {
-            if (empty($v)) return 'c()';
-            $parts = array_map(array(__CLASS__, 'formatRValue'), array_values($v));
-            return 'c(' . implode(', ', $parts) . ')';
+            // The survey data.frame stores multi-selects as ", "-joined strings
+            // (McMultiple/SelectMultiple::getReply), and the overlay assigns
+            // into a single data.frame row — a length-N c(...) errors with
+            // "replacement has N rows, data has 1", and c() (NULL) would
+            // delete the column. Mirror the stored shape instead.
+            $vals = array();
+            foreach (array_values($v) as $part) {
+                if ($part === null || $part === '') continue;
+                $vals[] = (string) $part;
+            }
+            if (empty($vals)) return 'NA';
+            return self::formatRValue(implode(', ', $vals));
         }
         if (is_numeric($v)) return (string) $v;
         // String: R double-quoted, escape backslash and double-quote.

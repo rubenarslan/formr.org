@@ -37,12 +37,14 @@ export function applyErrors(pageEl, errors) {
     pageEl.querySelectorAll('.fmr-invalid-feedback').forEach((el) => el.remove());
 
     const unplaced = [];
+    let firstErrorEl = null;
     Object.entries(errors).forEach(([name, msg]) => {
         const el = findErrorTarget(pageEl, name);
         if (!el) {
             unplaced.push({ name, msg: String(msg) });
             return;
         }
+        if (!firstErrorEl) firstErrorEl = el;
         el.setCustomValidity(String(msg));
         el.dataset.fmrServerValidity = '1';
         el.classList.add('is-invalid');
@@ -82,7 +84,13 @@ export function applyErrors(pageEl, errors) {
         }));
     }
 
-    pageEl.reportValidity();
+    // No reportValidity() here: the inline .fmr-invalid-feedback rows already
+    // carry the messages, and the browser's native focus-first-invalid can
+    // land on a 0×0 control (tom-select's hidden input, button-group radios)
+    // and yank the scroll position to the wrong end of a long page.
+    if (firstErrorEl) {
+        try { firstErrorEl.focus({ preventScroll: true }); } catch { /* non-focusable target */ }
+    }
 }
 
 // Has a required group been "answered"? Many item types own their value in an

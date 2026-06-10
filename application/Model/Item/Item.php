@@ -113,6 +113,10 @@ class Item {
     protected $append = null;
     protected $type_options_array = array();
     protected $hasChoices = false;
+    // Choices may be provided (e.g. to override a button label) but are not
+    // required — exempts the item from both directions of the choices
+    // validation. Used by the PWA prompt items.
+    protected $choicesOptional = false;
     protected $classes_controls = array('controls');
     protected $classes_wrapper = array('form-group', 'form-row');
     protected $classes_input = array();
@@ -344,9 +348,9 @@ class Item {
     }
 
     public function validate() {
-        if (!$this->hasChoices && ($this->choice_list !== null || count($this->choices))) {
+        if (!$this->hasChoices && !$this->choicesOptional && ($this->choice_list !== null || count($this->choices))) {
             $this->val_errors[] = "'{$this->name}' You defined choices for this item, even though this type doesn't have choices.";
-        } elseif ($this->hasChoices && ($this->choice_list === null && count($this->choices) === 0) && $this->type !== "select_or_add_multiple") {
+        } elseif ($this->hasChoices && !$this->choicesOptional && ($this->choice_list === null && count($this->choices) === 0) && $this->type !== "select_or_add_multiple") {
             $this->val_errors[] = "'{$this->name}' You forgot to define choices for this item.";
         } elseif ($this->hasChoices && count(array_unique($this->choices)) < count($this->choices)) {
             $dups = implode(", ", array_diff_assoc($this->choices, array_unique($this->choices)));

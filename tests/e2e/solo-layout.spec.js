@@ -69,6 +69,14 @@ async function setStudyLayout(browser, study, value) {
 
 test.describe('solo-layout: default mode (regression)', () => {
 
+    // Self-sufficient: v2-finish.spec.js deliberately leaves the shared
+    // fixture at layout='solo' ("as the user expects"), so a suite run that
+    // follows one — or any consecutive full-suite run — would otherwise start
+    // this test in the wrong mode.
+    test.beforeAll(async ({ browser }) => {
+        await setStudyLayout(browser, STUDY, 'default');
+    });
+
     test('default-layout study emits data-layout="default"', async ({ page, baseURL }) => {
         await freshParticipant(page, RUN(), { baseURL });
         await expect(page.locator(v2.FORM_SELECTOR).first()).toBeVisible({ timeout: 20000 });

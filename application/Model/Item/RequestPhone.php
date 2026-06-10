@@ -4,6 +4,7 @@ class RequestPhone_Item extends Item {
     public $type = 'request_phone';
     public $no_user_input_required = false;
     public $hasChoices = false;
+    public $choicesOptional = true;
     public $mysql_field = 'VARCHAR(20) DEFAULT NULL';
     protected $classes_input = array('btn', 'btn-primary', 'request-phone');
 

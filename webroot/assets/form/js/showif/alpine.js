@@ -121,14 +121,28 @@ export function registerXShowif(Alpine) {
         const safe = `(function(){try{return (${rewritten})}catch(e){return undefined}})()`;
 
         const applyVisibility = (visible) => {
+            const changed = el.classList.contains('hidden') === !!visible;
             el.classList.toggle('hidden', !visible);
             el.toggleAttribute('data-fmr-hidden', !visible);
             el.style.display = visible ? '' : 'none';
-            el.querySelectorAll('input, select, textarea').forEach((inp) => {
+            // `button` included: PWA prompt items (add_to_home_screen,
+            // push_notification) put name+disabled on a <button> — leaving it
+            // out meant a showif-revealed install button stayed disabled
+            // forever (server hides pending-client items WITH disabled).
+            el.querySelectorAll('input, select, textarea, button').forEach((inp) => {
                 if (inp.name && !inp.name.startsWith('_item_views')) {
                     inp.disabled = !visible;
                 }
             });
+            // Tell layout chrome (the solo step controller) that the step set
+            // changed — it may need to re-seat off a now-hidden current step
+            // and refresh its progress count.
+            if (changed) {
+                el.dispatchEvent(new CustomEvent('fmr:showif-toggled', {
+                    bubbles: true,
+                    detail: { visible: !!visible },
+                }));
+            }
         };
 
         let getValue;

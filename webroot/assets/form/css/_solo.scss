@@ -297,6 +297,11 @@
         justify-content: space-between;
         gap: 1rem;
         padding: 0.85rem 1.25rem;
+        // Align Back/OK with the centred 720px step column on wide screens
+        // (they used to pin to the viewport edges); the gradient backdrop
+        // stays full-bleed because the padding, not the box, does the work.
+        padding-left: max(1.25rem, calc((100% - 720px) / 2));
+        padding-right: max(1.25rem, calc((100% - 720px) / 2));
         padding-bottom: calc(0.85rem + env(safe-area-inset-bottom));
         background: linear-gradient(to top, var(--bs-body-bg, #fff) 65%, rgba(255, 255, 255, 0));
         pointer-events: none;     // let the gradient's transparent top pass clicks through

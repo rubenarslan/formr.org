@@ -49,6 +49,7 @@ import { initButtonGroups } from './items/button-groups.js';
 import { initBotCheck } from './items/bot-check.js';
 import { initGeopoint } from './items/geopoint.js';
 import { initTomSelects } from './items/tom-select.js';
+import { initChooseWeekdays } from './items/choose-weekdays.js';
 import { initRequestCookie } from './items/request-cookie.js';
 import { initRequestPhone } from './items/request-phone.js';
 import { initAdminPreview } from './items/admin-preview.js';
@@ -1734,6 +1735,7 @@ function initForm() {
     initMediaRecorders(root);
     window.fmrInitMediaRecorders = () => initMediaRecorders(root);
     initTomSelects(root);
+    initChooseWeekdays(root);
 
 
     // Initial page from ?page=N. The query-string `page` refers to the

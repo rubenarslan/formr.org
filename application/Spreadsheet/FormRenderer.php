@@ -176,10 +176,34 @@ class FormRenderer extends SpreadsheetRenderer {
         $byPage = $this->splitByPageFromMap($items, $firstPage, $pageMap);
         $firstPageItems = $byPage['first'];
 
-        if ($firstPageItems) {
-            $firstPageItems = $this->processDynamicValuesAndShowIfs($firstPageItems);
+        // Visibility is evaluated for ALL pages in the one initial OpenCPU
+        // batch, not just the first page. Values/labels stay page-scoped
+        // (deferred to /form-render-page), but a later-page showif over a
+        // run variable (`ran_group == 1`) is server-only: Alpine evaluates
+        // `undefined` and preserves whatever the server rendered, so without
+        // a server decision BOTH branches of a randomized split stayed
+        // visible. Later-page items enter the batch with their values
+        // already blanked (Step 2), so they only contribute si.* entries.
+        $laterShowifItems = [];
+        foreach ($byPage['later'] as $name => $item) {
+            if ($item && $item->getShowIf()) {
+                $laterShowifItems[$name] = $item;
+            }
+        }
+        $evalItems = array_merge($firstPageItems, $laterShowifItems);
+        if ($evalItems) {
+            $evalInputKeys = array_keys($evalItems);
+            $evalItems = $this->processDynamicValuesAndShowIfs($evalItems);
+            $firstPageItems = array_intersect_key($evalItems, $byPage['first']);
             if ($firstPageItems) {
                 $firstPageItems = $this->processDynamicLabelsAndChoices($firstPageItems);
+            }
+            // Items the batch dropped (definite-FALSE showif, or computed +
+            // immediately saved) must not be resurrected by the merge below.
+            foreach ($evalInputKeys as $name) {
+                if (!isset($evalItems[$name])) {
+                    unset($items[$name]);
+                }
             }
         }
 

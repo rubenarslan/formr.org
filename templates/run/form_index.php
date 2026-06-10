@@ -51,6 +51,11 @@
                 <link rel="apple-touch-icon" sizes="152x152" href="<?php echo $pwaIconBaseUrl . 'apple-touch-icon-152x152.png'; ?>">
                 <link rel="apple-touch-icon" sizes="167x167" href="<?php echo $pwaIconBaseUrl . 'apple-touch-icon-167x167.png'; ?>">
                 <link rel="apple-touch-icon" sizes="192x192" href="<?php echo $pwaIconBaseUrl . 'apple-touch-icon-192x192.png'; ?>">
+            <?php else: ?>
+                <?php // No custom icon set uploaded — fall back to the same
+                      // default icon the manifest uses, so iOS "Add to Home
+                      // Screen" gets an app icon instead of a page snapshot. ?>
+                <link rel="apple-touch-icon" href="<?php echo asset_url('pwa/icon.png', false); ?>">
             <?php endif; ?>
             <meta name="mobile-web-app-capable" content="yes">
             <meta name="apple-mobile-web-app-capable" content="yes">

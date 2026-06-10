@@ -385,9 +385,14 @@ class SpreadsheetRenderer {
             if ($showif) {
                 $siname = "si.{$name}";
                 $showif = str_replace("\n", "\n\t", $showif);
-                $code[$siname] = "{$siname} = (function(){
+                // tryCatch: a single erroring showif (object not found, if(NA)
+                // inside author code, …) must degrade to NA — the normal
+                // unresolved-visibility path — not fail the whole batch, which
+                // marked every item invalid and showed raw R error banners to
+                // the participant.
+                $code[$siname] = "{$siname} = tryCatch((function(){
 	{$showif}
-})()";
+})(), error = function(.e) NA)";
             }
 
             // 2. Check item's value
@@ -397,11 +402,16 @@ class SpreadsheetRenderer {
 {$val}
 })()";
                 if ($showif) {
-                    $code[$name] = "if({$siname}) {
+                    // if(NA) is an R error, so gate on a definite truthy result:
+                    // an unresolved showif skips the value (same as FALSE).
+                    $code[$name] = "if (isTRUE(as.logical(({$siname})[1]))) {
 	" . $code[$name] . "
 }";
                 }
                 // If item is to be shown (rendered), return evaluated dynamic value, else keep dynamic value as string
+                $code[$name] = "tryCatch({
+" . $code[$name] . "
+}, error = function(.e) NA)";
             }
         }
 

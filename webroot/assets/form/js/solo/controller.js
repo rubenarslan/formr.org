@@ -502,6 +502,28 @@ export function initSolo(opts) {
         clearTimeout(advanceTimer);
         advanceTimer = setTimeout(onContinue, 450);
     });
+
+    // A showif toggle changes the step set: refresh the chrome, and when the
+    // SEATED step just went hidden (e.g. a server-rendered `block` guard whose
+    // condition the participant fixed via Back), re-seat on the nearest
+    // navigable neighbour — forward first — instead of leaving an invisible
+    // current step that needs a blind OK to escape.
+    root.addEventListener('fmr:showif-toggled', (e) => {
+        updateNav();
+        updateProgress();
+        if (!current || transitioning) return;
+        if (e.target !== current || isNavigable(current)) return;
+        const groups = directGroups(pages[getCurrentIndex()]);
+        const i = groups.indexOf(current);
+        let target = null;
+        for (let j = i + 1; j < groups.length; j++) {
+            if (isNavigable(groups[j])) { target = groups[j]; break; }
+        }
+        for (let j = i - 1; !target && j >= 0; j--) {
+            if (isNavigable(groups[j])) { target = groups[j]; break; }
+        }
+        if (target) goTo(target, 'forward');
+    });
     // --- keyboard ------------------------------------------------------------
     // True when the target is a control that consumes the keystroke itself
     // (free text, dropdowns, tom-select) — we must not hijack those.
