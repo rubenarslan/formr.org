@@ -79,7 +79,8 @@ class Email extends RunUnit {
         }
 
         if (!knitting_needed($this->body)) {
-            $this->body_parsed = $parsedown->text($this->body);
+            try { $this->body_parsed = $parsedown->text($this->body); }
+            catch (\Throwable $e) { formr_log_exception($e, 'PARSEDOWN.TEXT'); $this->body_parsed = $this->body; }
         }
 
         $this->db->insert_update('survey_emails', array(

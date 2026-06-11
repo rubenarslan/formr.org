@@ -614,7 +614,7 @@ class SurveyStudy extends Model
             if (!knitting_needed($item->label) && !$item->label_parsed) {
                 try {
                     $markdown = $reader->parsedown->text($item->label);
-                } catch (Exception $e) {
+                } catch (\Throwable $e) {
                     formr_log_exception($e, 'PARSEDOWN.TEXT');
                     $markdown = $item->label;
                 }
@@ -693,7 +693,12 @@ class SurveyStudy extends Model
 
             if (isset($choice['list_name']) && isset($choice['name']) && isset($choice['label'])) {
                 if (!knitting_needed($choice['label']) && empty($choice['label_parsed'])) { // if the parsed label is constant
-                    $markdown = $reader->parsedown->text($choice['label']); // transform upon insertion into db instead of at runtime
+                    try {
+                        $markdown = $reader->parsedown->text($choice['label']);
+                    } catch (\Throwable $e) {
+                        formr_log_exception($e, 'PARSEDOWN.TEXT');
+                        $markdown = $choice['label'];
+                    }
                     $choice['label_parsed'] = $markdown;
                     if (mb_substr_count($markdown, "</p>") === 1 and preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)) {
                         $choice['label_parsed'] = $matches[1];

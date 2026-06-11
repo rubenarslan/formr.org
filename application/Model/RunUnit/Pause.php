@@ -53,7 +53,8 @@ class Pause extends RunUnit {
         $parsedown->setBreaksEnabled(true);
 
         if (!knitting_needed($this->body) && !empty($this->body)) {
-            $this->body_parsed = $parsedown->text($this->body); // transform upon insertion into db instead of at runtime
+            try { $this->body_parsed = $parsedown->text($this->body); }
+            catch (\Throwable $e) { formr_log_exception($e, 'PARSEDOWN.TEXT'); $this->body_parsed = $this->body; }
         }
 
         $this->db->insert_update('survey_pauses', array(
