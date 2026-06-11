@@ -2,6 +2,11 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v1.1.2] - 11.06.2026
+
+### Fixes
+- **Security (stored XSS, participant → admin):** participant-submitted answers were echoed unescaped in the admin **Survey Results** (`show_results`) and **Detailed Results** (`show_itemdisplay`) tables, which run on `admin_domain`. A participant could store `<img src=x onerror=…>` in an open-text answer — or in the User-Agent/Referer captured by a Server/Referrer/Browser item — and execute script in the researcher's authenticated admin session, crossing the admin/study subdomain security boundary. (No CSP was in place to mitigate.) Answer cells are now rendered through a new `Item::getEscapedResult()` that HTML-escapes by default; `File`/`Audio`/`Video`/`Image` override it to pass their server-generated embed markup through (the `src` is a `crypto_token()` asset path, never participant text), so media previews still render. Result-table meta columns (timestamps, session codes) are now escaped in their `<abbr>`/`data-` attributes as well. Regression-tested in `tests/ItemEscapedResultTest.php`. Spreadsheet exports (CSV/XLSX/JSON) and the admin-authored item-definition table are unaffected.
+
 ## [v1.1.1] - 11.06.2026
 
 ### Fixes
