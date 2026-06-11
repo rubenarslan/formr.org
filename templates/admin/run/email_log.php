@@ -33,15 +33,18 @@
                                 <tbody>
                                     <?php foreach ($emails as $email): ?>
                                     <tr>
-                                        <td><?= $email['from_name'] ?> <br><small><?= $email['from'] ?></small></td>
-                                        <td><?= $email['to']?> <br><small> at run position <?= $email['position_in_run'] ?></small></td>
-                                        <td><?= $email['subject'] ?></td>
+                                        <td><?= h($email['from_name']) ?> <br><small><?= h($email['from']) ?></small></td>
+                                        <td><?= h($email['to']) ?> <br><small> at run position <?= (int) $email['position_in_run'] ?></small></td>
+                                        <td><?= h($email['subject']) ?></td>
                                         <td>
-                                            <?php 
+                                            <?php
                                             $label_class = "label-default";
                                             $icon = 'fa-check-circle';
-                                            $text = $email['result'];
-                                            $resultlog = $email['result_log'];
+                                            // result/result_log can carry participant-influenced text — e.g.
+                                            // a failed-validation recipient ("…not valid: <raw recipient>")
+                                            // or a knitted subject/body — so escape before echoing into HTML.
+                                            $text = h($email['result']);
+                                            $resultlog = h($email['result_log']);
                                             if($email['status'] < 0) {
                                                 $label_class = "label-danger";
                                                 $icon = 'fa-times-circle';
@@ -56,8 +59,8 @@
                                             ?>
                                         </td>
                                         <td>
-                                            q. <abbr title="<?= $email['created']?>"> <?= timetostr(strtotime($email['created'])) ?></abbr><br>
-                                            s. <abbr title="<?= $email['sent']?>"> <?= $email['sent'] ? timetostr(strtotime($email['sent'])) : null ?></abbr>
+                                            q. <abbr title="<?= h($email['created']) ?>"> <?= timetostr(strtotime($email['created'])) ?></abbr><br>
+                                            s. <abbr title="<?= h($email['sent']) ?>"> <?= $email['sent'] ? timetostr(strtotime($email['sent'])) : null ?></abbr>
                                         </td>
                                     </tr>
                                     <?php endforeach; ?>

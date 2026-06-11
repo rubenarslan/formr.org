@@ -140,7 +140,7 @@
                                                 ?>
 
                                                 <small class="label <?=$label_class?> hastooltip" title="<?php echo h($user['result_log']); ?>">
-                                                    <?php echo $user['result']; ?>
+                                                    <?php echo h($user['result']); ?>
                                                 </small>
                                                 <?php if(!empty( $user['expires'])) { ?>
                                                     <small class="label label-info hastooltip" title="<?php echo $user['expires']; ?>">
