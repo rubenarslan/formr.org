@@ -73,4 +73,6 @@ playwright-browserstack-sdk.config.temp.json
 tests/e2e/playwright-browserstack-sdk.config.js
 sql/patches/atlas.sum
 tests/e2e/setup/*-state.json
+# Generated CSP-sweep / e2e run artifacts (reports, screenshots)
+tests/e2e/artifacts/
 .claude/scheduled_tasks.lock
