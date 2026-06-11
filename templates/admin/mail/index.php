@@ -40,7 +40,7 @@ Template::loadChild('admin/header');
                                     ?>
                                     <li>
                                         <a href="<?php echo admin_url('mail', array('account_id' => $account['id'])); ?>" style="display: inline-block"><i class="fa fa-envelope"></i><small class="label <?=$label?>"><?=$text?></small> <?= $account['from'] ?></a>
-                                        <a href="<?php echo admin_url('mail/delete', array('account_id' => $account['id'])); ?>" class="pull-right" style="display: inline-block" onclick="return confirm('Are you sure you want to delete this account?')"><i class="fa fa-trash text-red"></i></a>
+                                        <a href="<?php echo admin_url('mail/delete', array('account_id' => $account['id'])); ?>" class="pull-right" style="display: inline-block" data-confirm="Are you sure you want to delete this account?"><i class="fa fa-trash text-red"></i></a>
                                     </li>
                                 <?php endforeach; ?>
                             </ul>

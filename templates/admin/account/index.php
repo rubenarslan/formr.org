@@ -293,7 +293,7 @@ remotes::install_github("rubenarslan/formr")</code></pre>
                             <?php endif; ?>
                             <p> &nbsp; </p>
                         </div>
-                        <script>
+                        <script nonce="<?= h($cspNonce ?? '') ?>">
                         (function () {
                             var $panel = jQuery('#api-credentials-panel');
                             if (!$panel.length) { return; }

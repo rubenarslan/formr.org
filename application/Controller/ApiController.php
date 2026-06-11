@@ -129,6 +129,39 @@ class ApiController extends Controller
         $this->respond($data['statusCode'], $data['statusText'], $data['response']);
     }
 
+    /**
+     * Collector for browser CSP violation reports (report-uri target).
+     * Unauthenticated by design — browsers POST these with no session.
+     * Reached directly by the router (method_exists gate), so it never goes
+     * through authenticate(). Logs to csp.log and returns 204; no DB, no body,
+     * no reflection of input — abuse-safe.
+     */
+    public function cspReportAction()
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            http_response_code(405);
+            exit;
+        }
+        $raw = file_get_contents('php://input');
+        if (strlen($raw) <= 16384) {
+            $report = json_decode($raw, true);
+            if (is_array($report)) {
+                // CSP Level 2 wraps the payload in 'csp-report'; the newer
+                // Reporting API (report-to) uses a flat body with camelCase keys.
+                $r = isset($report['csp-report']) ? $report['csp-report'] : $report;
+                formr_csp_log(array(
+                    'document-uri'       => $r['document-uri']       ?? null,
+                    'violated-directive' => $r['violated-directive'] ?? ($r['effectiveDirective'] ?? null),
+                    'blocked-uri'        => $r['blocked-uri']        ?? ($r['blockedURL'] ?? null),
+                    'source-file'        => $r['source-file']        ?? null,
+                    'line-number'        => $r['line-number']        ?? null,
+                ));
+            }
+        }
+        http_response_code(204);
+        exit;
+    }
+
     public function oauthAction($action = null)
     {
         if (!$this->isValidAction('oauth', $action)) {

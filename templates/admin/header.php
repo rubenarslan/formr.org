@@ -11,7 +11,7 @@
             print_stylesheets($files, $id);
         }
         ?>
-        <script>
+        <script nonce="<?= h($cspNonce ?? '') ?>">
             window.formr = <?php echo !empty($jsConfig) ? json_encode($jsConfig) : '{}' ?>;
         </script>
         <?php

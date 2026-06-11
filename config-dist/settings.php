@@ -104,6 +104,11 @@ $settings['display_errors_when_live'] = 0;
 $settings['display_errors'] = 0;
 $settings['error_to_stderr'] = 0;
 
+// Content-Security-Policy for the admin area: 'off' | 'report-only' | 'enforce'.
+// 'report-only' observes + reports violations without blocking. Flip to
+// 'enforce' only after a clean violation sweep. See application/Csp.php.
+$settings['csp_mode'] = 'report-only';
+
 // how many emails can be maximally sent to one email address during certain time periods
 $settings['email_thresholds'] = [
 	'in_last_1m' => 1,

@@ -19,6 +19,16 @@ function formr_log($msg, $type = '')
     error_log($msg . "\n", 3, get_log_file('errors.log'));
 }
 
+/**
+ * Append a CSP violation report (assoc array of the interesting fields) to a
+ * dedicated csp.log, one JSON object per line. Used by the Report-Only sweep.
+ */
+function formr_csp_log($report)
+{
+    $line = date('Y-m-d H:i:s') . ' ' . json_encode($report) . "\n";
+    error_log($line, 3, get_log_file('csp.log'));
+}
+
 function formr_log_exception(Throwable $e, $prefix = '', $debug_data = null)
 {
     // Accept Throwable (not just Exception) so PHP Errors — type errors,
