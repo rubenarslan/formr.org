@@ -9,6 +9,9 @@ class Check_Item extends McMultiple_Item {
     public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
     public $choice_list = NULL;
     protected $hasChoices = false;
+    // Single checkbox: its stem label uses for="item{id}_1", which already
+    // associates the control — no group role needed (would be a group of one).
+    protected $group_role = null;
 
     protected function setMoreOptions() {
         parent::setMoreOptions();

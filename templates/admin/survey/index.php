@@ -160,7 +160,7 @@
                                     <td colspan="2">
                                         <label>Custom Paging</label>
                                         <span class="help-block">
-                                            <i class="fa fa-info-circle"></i> 
+                                            <i class="fa fa-info-circle"></i>
                                             By enabling custom dynamic paging, your survey items will be "grouped" in pages depending on how your <i>Submit Items</i> are defined in the items sheet. That is, each page ends at a defined submit button.
                                             Enabling this option nullifies the above "<i><b>Items Per Page</b></i>" setting, which means the number of items on a page will be determined by where <i>Submit Items</i> are placed in your <a href="<?php echo site_url('documentation#sample_survey_sheet'); ?>">items sheet</a>.
                                             <strong class="text-red">You can't change this settings once you select this option.</strong>
@@ -170,6 +170,54 @@
                                         </div>
                                     </td>
                                 </tr>
+                                <?php if ($study->rendering_mode === 'v2'): ?>
+                                <tr><td colspan="2"><h4>Form_v2 settings</h4></td></tr>
+                                <tr>
+                                    <td>
+                                        <label>Offline queue</label>
+                                        <span class="help-block">
+                                            <i class="fa fa-info-circle"></i>
+                                            When enabled, a failed page submission is stored in the participant's browser (IndexedDB) and replayed when connectivity returns. Disable for studies collecting sensitive data that must not persist locally — submissions will then fail hard when offline.
+                                        </span>
+                                        <div class="checkbox">
+                                            <label> <input type="checkbox" name="offline_mode" value="1" <?php if ($study->offline_mode) echo 'checked="checked"'; ?>> <strong>Enable offline queue</strong> </label>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <label>Allow "Previous" button</label>
+                                        <span class="help-block">
+                                            <i class="fa fa-info-circle"></i>
+                                            When enabled, participants can navigate backwards between the form's pages. Off by default — enable only if your study design tolerates re-ordering and back-navigation.
+                                        </span>
+                                        <div class="checkbox">
+                                            <label> <input type="checkbox" name="allow_previous" value="1" <?php if ($study->allow_previous) echo 'checked="checked"'; ?>> <strong>Show "Previous" button</strong> </label>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2">
+                                        <label>Layout</label>
+                                        <span class="help-block">
+                                            <i class="fa fa-info-circle"></i>
+                                            <strong>Default</strong> renders all items on an authored page together (classic survey grid). <strong>Solo</strong> presents one item per screen with auto-scroll on answer — a livelier, Typeform-style cadence that works best on mobile. Authored page boundaries still determine submission units; only the visual rhythm changes.
+                                        </span>
+                                        <select name="layout" class="form-control" style="max-width: 22em;">
+                                            <option value="default" <?php if ($study->layout !== 'solo') echo 'selected'; ?>>Default — multiple items per page</option>
+                                            <option value="solo" <?php if ($study->layout === 'solo') echo 'selected'; ?>>Solo — one item per screen</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2">
+                                        <label>Compatibility scan</label>
+                                        <span class="help-block">
+                                            <i class="fa fa-info-circle"></i>
+                                            Classifies every <code>showif</code> and <code>value</code> expression in this survey as empty / <code>r(...)</code>-wrapped / JS-OK / needs-<code>r()</code>-wrap. Run this before rolling out to participants to see which expressions the client-side evaluator can't handle.
+                                        </span>
+                                        <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>" class="btn btn-default"><i class="fa fa-search"></i> Run v2 compatibility scan</a>
+                                    </td>
+                                </tr>
+                                <?php endif; ?>
 
                             </table>
 

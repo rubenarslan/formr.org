@@ -103,6 +103,16 @@ class File_Item extends Item {
             8 => 'A PHP extension stopped the file upload.',
         );
         
+        // An empty optional file/image/audio/video item submits a scalar ''
+        // (or null) rather than the $_FILES dict — no file was chosen. Mirror
+        // v1's UPLOAD_ERR_NO_FILE handling: treat as a (valid) non-answer so the
+        // page can complete; a required-but-empty file is barred client-side and,
+        // if it ever reaches here, parent::validateInput raises the missing error.
+        if (!is_array($reply)) {
+            $this->reply = parent::validateInput(($reply === '' || $reply === null) ? null : $reply);
+            return $this->reply;
+        }
+
         if ($reply['error'] === 0) { // verify maximum length and no errors
             if (filesize($reply['tmp_name']) < $this->max_size) {
                 $finfo = new finfo(FILEINFO_MIME_TYPE);

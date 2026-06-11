@@ -1,0 +1,93 @@
+// PWA low-friction (push-in-non-phone-browser) flow, v2.
+// See pwa-high-v1.spec.js for the fixture caveat.
+
+const { test, expect } = require('./helpers/test');
+const { runName, participantPath } = require('./helpers/runs');
+const { freshParticipant } = require('./helpers/participant');
+const v2 = require('./helpers/v2Form');
+const pwa = require('./helpers/pwa');
+const { fillAllVisible } = require('./helpers/widgets');
+
+const SUITE = 'pwa_low';
+const VARIANT = 'v2';
+const RUN = () => runName(SUITE, VARIANT);
+
+test.describe('PWA low-friction v2', () => {
+    test('manifest endpoint returns valid PWA manifest', async ({ request }) => {
+        await pwa.assertManifest(request, participantPath(SUITE, VARIANT));
+    });
+
+    test('v2 form + PWA head wiring', async ({ page, baseURL }) => {
+        const run = RUN();
+        await freshParticipant(page, run, { baseURL });
+        expect(page.url(), 'page should be on the participant URL, not about:blank').toContain(`/${run}/`);
+
+        await expect(page.locator(v2.FORM_SELECTOR).first()).toBeVisible({ timeout: 20000 });
+        await v2.waitForBundle(page);
+        await pwa.assertHeadWiring(page, { runPath: participantPath(SUITE, VARIANT), expectVapid: false });
+        expect(await page.locator('script[src*="form.bundle.js"]').count()).toBeGreaterThan(0);
+        const f = v2.form(page);
+        expect(await f.getAttribute('data-sync-url')).toMatch(/\/form-sync\/?$/);
+    });
+
+    test('add_to_home_screen / push_notification items present (skipped if fixture lacks them)', async ({ page, baseURL }) => {
+        const run = RUN();
+        await freshParticipant(page, run, { baseURL });
+        expect(page.url()).toContain(`/${run}/`);
+
+        await expect(page.locator(v2.FORM_SELECTOR).first()).toBeVisible({ timeout: 20000 });
+        await v2.waitForBundle(page);
+        const a2hs = await page.locator('.item-add_to_home_screen').count();
+        const push = await page.locator('.item-push_notification').count();
+        test.skip(a2hs + push === 0, 'fixture has no PWA items; re-run runbook with the low-friction sheet to enable');
+        expect(a2hs + push).toBeGreaterThan(0);
+    });
+
+    test('service worker activates [BS-only]', async ({ page, baseURL }, info) => {
+        test.skip(pwa.isLocal(info), 'local-chromium blocks SWs');
+        await page.goto(`${baseURL}${participantPath(SUITE, VARIANT)}`, { waitUntil: 'commit', timeout: 60000 });
+        const state = await pwa.swActivated(page);
+        if (state !== 'activated') console.error('SW failed; diag:', JSON.stringify(await pwa.swDiagnostics(page)));
+        expect(state).toBe('activated');
+    });
+
+    test('offline submit queues and drains on reconnect [BS-only]', async ({ page, baseURL }, info) => {
+        test.skip(pwa.isLocal(info), 'local-chromium blocks SWs (offline-queue ride-along)');
+        // ctx.setOffline goes through CDP; the BS-Selenium bridge for iOS
+        // Safari doesn't implement it, so the offline state never takes
+        // effect on iPhone — fetch hits the network, no queue entry ever
+        // forms. Pixel 8 does implement setOffline. Skip on iOS until BS
+        // exposes a network-condition primitive there.
+        const projName = (info.project && info.project.name) || '';
+        test.skip(/iPhone|iPad|iPod|safari|webkit/i.test(projName),
+            'BS-Selenium iOS bridge does not implement CDP setOffline; queue never engages. Tracked in plan_form_v2 §8 P1.');
+
+        const run = RUN();
+        await freshParticipant(page, run, { baseURL });
+        expect(page.url(), 'page should be on the participant URL, not about:blank').toContain(`/${run}/`);
+
+        await v2.waitForBundle(page);
+        await fillAllVisible(page, page.locator('section.fmr-page:not([hidden])'));
+        // setOffline lives on the context — page-fixture exposes it via page.context().
+        const ctx = page.context();
+        await ctx.setOffline(true);
+        // Programmatic in-page click — Playwright's locator.click on the BS
+        // bridge can pipeline several CDP calls that occasionally timeout
+        // mid-actionability under offline mode. el.click() bubbles the
+        // event through the bundle's submit handler the same way.
+        await page.evaluate(() => {
+            const btn = document.querySelector('form.fmr-form-v2 section.fmr-page:not([hidden]) [data-fmr-next]');
+            if (btn) btn.click();
+        });
+        // The banner class is `.fmr-queue-banner` (warning on enqueue,
+        // success on drain). v2's main.js#showQueueBanner is the only
+        // thing that touches it; it inserts before root.firstChild.
+        await expect(page.locator('.fmr-queue-banner').first())
+            .toBeVisible({ timeout: 8000 });
+        await ctx.setOffline(false);
+        await page.waitForResponse(
+            (resp) => /\/form-sync\/?$/.test(new URL(resp.url()).pathname) && resp.status() === 200,
+            { timeout: 12000 },
+        );
+    });
+});

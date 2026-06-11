@@ -6,6 +6,8 @@ class UnitSession extends Model {
     public $unit_id; // survey_units.id
     public $run_unit_id; // survey_run_units.id — Track A: disambiguates same-unit-at-multiple-positions
     public $iteration; // 1-based count of attempts at THIS run_unit_id by THIS run_session
+    public $study_iteration; // per-study sequence (wide-table-equivalent "Nth participant to start this study"); allocated via survey_studies.last_iteration
+    public $layout; // paradata: the study layout mode ('default'/'solo') this response was collected under (patch 068)
     public $run_session_id;
     public $created;
     public $expires;
@@ -241,7 +243,7 @@ class UnitSession extends Model {
     public function expire() {
         $unit = $this->runUnit;
 
-        if ($unit->type === 'Survey') {
+        if ($unit->type === 'Survey' && Config::get('form_v2_dual_write_results', true)) {
             $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `expired` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
 			$params = ['session_id' => $this->id, 'study_id' => $unit->surveyStudy->id];
 			try {
@@ -280,7 +282,7 @@ class UnitSession extends Model {
         $unit = $this->runUnit;
 
         if ($unit->type == "Survey" || $unit->type == "External") {
-            if ($unit->type == "Survey") {
+            if ($unit->type == "Survey" && Config::get('form_v2_dual_write_results', true)) {
                 $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
                 $params = array('session_id' => $this->id, 'study_id' => $unit->surveyStudy->id);
                 $this->db->exec($query, $params);
@@ -441,6 +443,31 @@ class UnitSession extends Model {
     }
 
     /**
+     * Atomically allocate the next per-study iteration value.
+     *
+     * Uses MySQL's LAST_INSERT_ID(value) trick: the UPDATE locks the
+     * survey_studies row, writes value + 1 into last_iteration, and
+     * stashes the new value in LAST_INSERT_ID(). A subsequent SELECT
+     * LAST_INSERT_ID() in the same connection returns it. Concurrent
+     * allocations serialize on the row lock without explicit BEGIN /
+     * COMMIT bookkeeping; counter gaps from rolled-back inserts are
+     * tolerated (same semantic as AUTO_INCREMENT).
+     *
+     * @param int $studyId
+     * @return int the new iteration value
+     */
+    public function allocateStudyIteration($studyId) {
+        $this->db->exec(
+            'UPDATE `survey_studies` SET `last_iteration` = LAST_INSERT_ID(`last_iteration` + 1) WHERE `id` = :study_id',
+            ['study_id' => (int) $studyId]
+        );
+        // DB::query() returns fetchAll() rows for SELECTs (not a PDOStatement),
+        // so index into the result array directly.
+        $rows = $this->db->query('SELECT LAST_INSERT_ID() AS iter');
+        return isset($rows[0]['iter']) ? (int) $rows[0]['iter'] : 0;
+    }
+
+    /**
      * Create a study record entry for this session. This is called only when
      * operating on a Survey unit
      *
@@ -450,28 +477,72 @@ class UnitSession extends Model {
     public function createSurveyStudyRecord() {
         /** @var SurveyStudy $study */
         $study = $this->runUnit->surveyStudy;
-		
+
 		if (!$this->db->entry_exists($this->table, ['id' => $this->id])) {
 			formr_error(404, 'Unit Session Not Found. Please contact study author');
 		}
 
-        if (!$study->results_table || !$this->db->table_exists($study->results_table)) {
+        $dualWrite = (bool) Config::get('form_v2_dual_write_results', true);
+
+        if ($dualWrite && (!$study->results_table || !$this->db->table_exists($study->results_table))) {
             alert('A results table for this survey could not be found', 'alert-danger');
             throw new Exception("Results table '{$study->results_table}' not found!");
         }
 
-        $entry = array(
-            'session_id' => $this->id,
-            'study_id' => $study->id,
+        // Allocate per-study iteration on first visit. Atomic single-
+        // statement increment via LAST_INSERT_ID(); concurrent allocations
+        // serialize on the survey_studies row lock. Idempotent: if
+        // study_iteration is already set on this session row, skip the
+        // bump so re-renders of an in-progress survey don't burn counter
+        // values.
+        $alreadyAllocated = (int) $this->db->findValue(
+            'survey_unit_sessions',
+            ['id' => $this->id],
+            'study_iteration'
         );
-        if (!$this->db->entry_exists($study->results_table, $entry)) {
-            $entry['created'] = mysql_now();
-            $this->db->insert($study->results_table, $entry);
 
+        $sessionStarted = false;
+        if (!$alreadyAllocated) {
+            $iteration = $this->allocateStudyIteration($study->id);
+            // Stamp the layout mode this response is collected under (paradata
+            // for measurement equivalence; patch 068). Captured at first render
+            // so a later flip of the study's layout doesn't rewrite history.
+            $this->db->update('survey_unit_sessions',
+                ['study_iteration' => $iteration, 'layout' => $study->layout],
+                ['id' => $this->id]);
+            $this->study_iteration = $iteration;
+            $sessionStarted = true;
+        } else {
+            $iteration = $alreadyAllocated;
+            $this->study_iteration = $iteration;
+        }
+
+        if ($dualWrite) {
+            $entry = array(
+                'session_id' => $this->id,
+                'study_id' => $study->id,
+            );
+            if (!$this->db->entry_exists($study->results_table, $entry)) {
+                $entry['created'] = mysql_now();
+                // Pass the allocated value so wide.iteration stays aligned
+                // with survey_unit_sessions.study_iteration. The wide
+                // table's AUTO_INCREMENT bumps its internal counter to
+                // our value if higher, leaving subsequent inserts
+                // consistent.
+                $entry['iteration'] = $iteration;
+                $this->db->insert($study->results_table, $entry);
+
+                if ($sessionStarted) {
+                    $this->result = 'survey_started';
+                    $this->logResult();
+                }
+            } else {
+                $this->db->update($study->results_table, array('modified' => mysql_now()), $entry);
+            }
+        } elseif ($sessionStarted) {
+            // No wide row to gate on, but still log the lifecycle event.
             $this->result = 'survey_started';
             $this->logResult();
-        } else {
-            $this->db->update($study->results_table, array('modified' => mysql_now()), $entry);
         }
 
         if (!$this->hasOrderedStudyItems()) {
@@ -518,7 +589,7 @@ class UnitSession extends Model {
      * @return boolean Returns TRUE if all data was successfully validated and saved or FALSE otherwise
      * @throws Exception
      */
-    public function updateSurveyStudyRecord($posted, $validate = true) {
+    public function updateSurveyStudyRecord($posted, $validate = true, $quiet = false) {
         /** @var SurveyStudy $study */
         $study = $this->runUnit->surveyStudy;
 
@@ -664,8 +735,10 @@ class UnitSession extends Model {
                 }
 
             } //endforeach
-            // Update results table in one query
-            if ($update_data) {
+            // Update results table in one query (gated on dual-write).
+            // Long-form (survey_items_display) is always written above —
+            // it's the source of truth.
+            if ($update_data && Config::get('form_v2_dual_write_results', true)) {
                 $update_where = array(
                     'study_id' => $study->id,
                     'session_id' => $this->id,
@@ -677,11 +750,17 @@ class UnitSession extends Model {
             return true;
         } catch (Exception $e) {
             $this->db->rollBack();
-            notify_user_error($e, 'An error occurred while trying to save your survey data. Please notify the author of this survey with this date and time');
             formr_log_exception($e, __CLASS__);
-            // Notify study admin about failure to save posted survey data
-            $message = 'Failed to save posted survey data: ' . $e->getMessage();
-            notify_study_admin($this, $message, 'error');
+            // $quiet (best-effort autosave): swallow without surfacing a user
+            // error or emailing the study admin — a partial/rate-limited save
+            // that loses a race is harmless (the explicit page-submit is the
+            // durable path), and spamming the admin on every such miss is not.
+            if (!$quiet) {
+                notify_user_error($e, 'An error occurred while trying to save your survey data. Please notify the author of this survey with this date and time');
+                // Notify study admin about failure to save posted survey data
+                $message = 'Failed to save posted survey data: ' . $e->getMessage();
+                notify_study_admin($this, $message, 'error');
+            }
             return false;
         }
         

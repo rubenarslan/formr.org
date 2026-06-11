@@ -12,6 +12,7 @@ class Mc_Item extends Item {
     public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
     protected $hasChoices = true;
     protected $label_first = "";
+    protected $group_role = 'radiogroup';
 
     public function validateInput($reply) {
         if (!($this->optional && $reply == '') && !empty($this->choices) && // check
@@ -34,12 +35,15 @@ class Mc_Item extends Item {
     }
 
     protected function render_label() {
-        $template = '<label class="%{class}">%{error} %{text} </label>';
+        // id on the group stem so the .controls role="radiogroup"/"group" wrapper
+        // (render_inner) can aria-labelledby it — announces the stem on entry.
+        $template = '<label class="%{class}" id="item%{id}-label">%{error} %{text} </label>';
 
         return Template::replace($template, array(
                     'class' => implode(' ', $this->classes_label),
                     'error' => $this->render_error_tip(),
                     'text' => $this->label_parsed,
+                    'id' => $this->id,
         ));
     }
 

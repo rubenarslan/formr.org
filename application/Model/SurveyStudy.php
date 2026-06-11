@@ -28,6 +28,11 @@ class SurveyStudy extends Model
     public $unlinked = 0;
     public $hide_results = 0;
     public $use_paging = 0;
+    public $rendering_mode = 'v1';
+    public $offline_mode = 1;
+    public $allow_previous = 0;
+    public $layout = 'default';
+    public $last_iteration = 0; // per-study counter for survey_unit_sessions.study_iteration; patch 065
 
     public $created = null;
     public $modified = null;
@@ -257,7 +262,12 @@ class SurveyStudy extends Model
                 }
                 unset($item->choices);
             }
-            $reader->addSurveyItem((array) $item);
+            // Strip export-only / unrecognised fields (e.g. showif_js,
+            // label_parsed is allowed, item_order is allowed) so a full JSON
+            // survey export imports cleanly — addSurveyItem rejects unknown
+            // columns.
+            $row = array_intersect_key((array) $item, array_flip($reader->getAllowedColumns()));
+            $reader->addSurveyItem($row);
         }
 
         if ($study->saveUploadedItemsFromReader($reader)) {
@@ -355,6 +365,10 @@ class SurveyStudy extends Model
             'unlinked' => $this->unlinked,
             'hide_results' => $this->hide_results,
             'use_paging' => $this->use_paging,
+            'rendering_mode' => $this->rendering_mode,
+            'offline_mode' => $this->offline_mode,
+            'allow_previous' => $this->allow_previous,
+            'layout' => $this->layout,
             'created' => $this->created,
             'modified' => $this->modified,
         ];
@@ -474,11 +488,20 @@ class SurveyStudy extends Model
 
             $actually_deleted = array_diff(array_keys($deleted), array_keys($added));
             if ($deleted && $actually_deleted) {
-                // some items were just re-typed, they only have to be deleted from the wide format table which has inflexible types
+                // (items merely re-typed appear in both $deleted and $added by
+                // name, so they're excluded here — they only need the wide-table
+                // column rebuild in alterResultsTable below.)
+                //
+                // Soft-delete (patch 069): flip removed / renamed-away items to a
+                // `deleted` marker instead of DELETE. Keeping the survey_items row
+                // means its CASCADE-linked survey_items_display answers survive, so
+                // the long-format participant data is preserved and stays in
+                // exports (marked deleted). Re-adding the same name later revives
+                // the row (addItems clears the marker), restoring its old answers.
                 $toDelete = implode(',', array_map(array($this->db, 'quote'), $actually_deleted));
                 $studyId = (int) $this->id;
-                $delQ = "DELETE FROM survey_items WHERE `name` IN ($toDelete) AND study_id = $studyId";
-                $this->db->query($delQ);
+                $softDelQ = "UPDATE survey_items SET `deleted` = NOW() WHERE `name` IN ($toDelete) AND study_id = $studyId AND `deleted` IS NULL";
+                $this->db->query($softDelQ);
             }
 
             // we start fresh if it's a new creation, no results table exist or it is completely empty
@@ -544,11 +567,22 @@ class SurveyStudy extends Model
             // study_id is not among the user_defined columns
         ];
 
-        // Prepare SQL statement for adding items
-        $UPDATES = implode(', ', get_duplicate_update_string($definedColumns));
+        // Prepare SQL statement for adding items.
+        //
+        // `showif_js` (patch 063) caches the v1 regex transpile of `showif`
+        // so per-request renders skip the work and admin tooling can reason
+        // about the produced JS (compat scanner, future hardened parser).
+        // The Item property holding the transpile is `js_showif` (legacy
+        // name); the column is `showif_js`. Bound separately below the
+        // generic loop because the property/column names differ.
+        $UPDATES = implode(', ', get_duplicate_update_string(array_merge($definedColumns, ['showif_js'])));
+        // Re-uploading a name that was soft-deleted (patch 069) revives it: clear
+        // the marker on upsert so an item that reappears in the sheet is live
+        // again, and its preserved survey_items_display answers re-enter the form.
+        $UPDATES .= ', `deleted` = NULL';
         $addStmt = $this->db->prepare(
-            "INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `block_order`,`item_order`, `order`) 
-			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :value, :block_order, :item_order, :order) 
+            "INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, showif_js, value, `block_order`,`item_order`, `order`)
+			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :showif_js, :value, :block_order, :item_order, :order)
 			ON DUPLICATE KEY UPDATE $UPDATES"
         );
         $addStmt->bindParam(":study_id", $this->id);
@@ -593,6 +627,8 @@ class SurveyStudy extends Model
             foreach ($definedColumns as $param) {
                 $addStmt->bindValue(":$param", $item->$param);
             }
+            // js_showif → showif_js column (see addItems comment block).
+            $addStmt->bindValue(":showif_js", $item->js_showif);
 
             $result_field = $item->getResultField();
             $ret['new_items'][$item->name] = $result_field;
@@ -748,15 +784,24 @@ class SurveyStudy extends Model
         return false;
     }
 
-    public function getItems($columns = null, $whereIn = null)
+    public function getItems($columns = null, $whereIn = null, $includeDeleted = false)
     {
         if ($columns === null) {
-            $columns = "id, study_id, type, choice_list, type_options, name, label, label_parsed, optional, class, showif, value, block_order,item_order";
+            // showif_js (patch 063) is the cached transpile of `showif`. Item.php
+            // uses it to skip per-request regex work when populated.
+            // `deleted` (patch 069) is the soft-delete marker.
+            $columns = "id, study_id, type, choice_list, type_options, name, label, label_parsed, optional, class, showif, showif_js, value, block_order,item_order, deleted";
         }
 
         $select = $this->db->select($columns);
         $select->from('survey_items');
         $select->where(array('study_id' => $this->id));
+        // Soft-deleted items (patch 069) don't render and aren't editable, so
+        // they're excluded by default. Results/export callers pass
+        // $includeDeleted = true to keep the preserved data recoverable.
+        if (!$includeDeleted) {
+            $select->where('`deleted` IS NULL');
+        }
         if ($whereIn) {
             $select->whereIn($whereIn['field'], $whereIn['values']);
         }
@@ -769,6 +814,9 @@ class SurveyStudy extends Model
         $get_items = $this->db->select('type, type_options, choice_list, name, label, optional, class, showif, value, block_order, item_order')
             ->from('survey_items')
             ->where(array('study_id' => $this->id))
+            // soft-deleted items (patch 069) stay out of the editable sheet, so a
+            // download→re-upload round-trip doesn't silently revive them.
+            ->where('`deleted` IS NULL')
             ->order("`survey_items`.order")
             ->statement();
 
@@ -784,6 +832,23 @@ class SurveyStudy extends Model
 
     public function getResults($items = null, $filter = null, array $paginate = null, $runId = null, $rstmt = false)
     {
+        // form_v2 studies pivot survey_items_display into the wide
+        // shape at read time. Wide-table dual-write stays on so the
+        // pivot can be validated against the byte-identical wide row;
+        // see pivotedResultsStatement() for the column-sourcing
+        // contract.
+        if ($this->rendering_mode === 'v2') {
+            $stmt = $this->pivotedResultsStatement($items, $filter, $paginate, $runId);
+            if ($rstmt === true) {
+                return $stmt;
+            }
+            $results = array();
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[] = $row;
+            }
+            return $results;
+        }
+
         if ($this->resultsTableExists()) {
             ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
 
@@ -879,6 +944,219 @@ class SurveyStudy extends Model
     }
 
     /**
+     * Pivot survey_items_display rows into the per-study wide shape.
+     *
+     * Used for rendering_mode='v2' studies as a step toward retiring the
+     * dual-write to the per-study results table. Output column shape
+     * mirrors the wide read in getResults(): session, session_id,
+     * iteration, created, modified, ended, expired, then one column per
+     * scorable item.
+     *
+     * Sourcing per column:
+     *   session, session_id, ended, expired -> survey_unit_sessions / survey_run_sessions
+     *   created -> MIN(survey_items_display.created)
+     *   modified -> MAX(survey_items_display.saved)
+     *   iteration -> survey_unit_sessions.study_iteration (patch 065).
+     *     Pre-patch sessions are backfilled from the wide table by
+     *     bin/backfill_study_iteration.php. ROW_NUMBER() fallback is
+     *     used only when the column is unexpectedly NULL (e.g. backfill
+     *     hasn't run yet for a study currently being read) so the
+     *     export still produces a sensible value — that value won't
+     *     match historical wide iteration byte-for-byte.
+     *   answer columns -> MAX(CASE WHEN item_id = X THEN answer END)
+     *
+     * All answer values come back as TEXT — type coercion is the
+     * researcher's responsibility via the formr R package or downstream
+     * tooling.
+     */
+    private function pivotedResultsStatement($items = null, $filter = null, array $paginate = null, $runId = null)
+    {
+        ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
+
+        // Resolve scorable items via the same ItemFactory check
+        // getItemsInResultsTable uses, so the column set matches the
+        // wide table's by construction. Don't cross-reference the wide
+        // table — that's the point of this path.
+        $rows = $this->getItems();
+        $itemFactory = new ItemFactory(array());
+        $scorableById = array();
+        foreach ($rows as $row) {
+            $it = $itemFactory->make($row);
+            if ($it && $it->isStoredInResultsTable()) {
+                $scorableById[(int) $row['id']] = $it->name;
+            }
+        }
+        if ($items) {
+            $allowed = array_flip($items);
+            $scorableById = array_filter($scorableById, function ($name) use ($allowed) {
+                return isset($allowed[$name]);
+            });
+        }
+
+        // Unlinked guard (mirrors getResults)
+        $count = $this->getResultCount();
+        $get_all = true;
+        if ($this->unlinked && $count['real_users'] <= 10) {
+            if ($count['real_users'] > 0) {
+                alert("<strong>You cannot see the real results yet.</strong> It will only be possible after 10 real users have registered.", 'alert-warning');
+            }
+            $get_all = false;
+        }
+
+        // Saved filters operate against the wide table's named columns
+        // in WHERE-clause form. Translating them to HAVING against the
+        // pivot is a separate slice; refuse for now and surface a notice.
+        if (!empty($filter['results'])) {
+            alert('Saved results filters are not yet supported for form_v2 studies in the long-form export path.', 'alert-warning');
+            $empty = $this->db->prepare('SELECT NULL WHERE 1 = 0');
+            $empty->execute();
+            return $empty;
+        }
+
+        list($sql, $bindings) = self::buildPivotSql(
+            $this->id,
+            $scorableById,
+            $this->unlinked,
+            $get_all,
+            $filter,
+            $paginate,
+            $runId
+        );
+
+        $stmt = $this->db->prepare($sql);
+        foreach ($bindings as $k => $v) {
+            $stmt->bindValue($k, $v);
+        }
+        $stmt->execute();
+        return $stmt;
+    }
+
+    /**
+     * Build the pivot SQL and named-placeholder bindings.
+     *
+     * Pure function: no DB access, no $this. Extracted so the SQL shape
+     * can be unit-tested without standing up a MariaDB fixture.
+     *
+     * @param int    $studyId           SurveyStudy::id
+     * @param array  $scorableById      [item_id => item_name] for scorable items
+     * @param bool   $unlinked          $study->unlinked
+     * @param bool   $getAll            False when unlinked guard restricts to test
+     *                                   sessions only
+     * @param array|null $filter        ['session' => ..., 'results' => ...]
+     * @param array|null $paginate      ['offset', 'limit', 'order', 'order_by']
+     * @param int|null $runId
+     * @return array{0: string, 1: array<string, mixed>}
+     */
+    public static function buildPivotSql(
+        $studyId,
+        array $scorableById,
+        $unlinked,
+        $getAll,
+        $filter,
+        array $paginate = null,
+        $runId = null
+    ) {
+        $pivotCols = array();
+        foreach ($scorableById as $id => $name) {
+            // Item names are validated as identifiers at upload time
+            // (createResultsTable would have failed otherwise). Backtick
+            // any stray backticks defensively.
+            $safeName = str_replace('`', '``', $name);
+            $pivotCols[] = sprintf(
+                "MAX(CASE WHEN `sid`.`item_id` = %d THEN `sid`.`answer` END) AS `%s`",
+                (int) $id,
+                $safeName
+            );
+        }
+
+        // Iteration: survey_unit_sessions.study_iteration is the long-
+        // form source of truth (patch 065). COALESCE to ROW_NUMBER()
+        // covers any session row whose study_iteration is NULL — pre-
+        // 065 sessions whose backfill hasn't run yet, or non-Survey
+        // unit_sessions that somehow ended up here. The ROW_NUMBER()
+        // fallback is a 1..N sequence per result set, not byte-equal
+        // to a historical wide.iteration; the backfill closes that
+        // gap once it's run.
+        $iterationExpr = "COALESCE(`us`.`study_iteration`, ROW_NUMBER() OVER (ORDER BY `us`.`id` ASC))";
+
+        if ($unlinked) {
+            $selectParts = $pivotCols;
+        } else {
+            $selectParts = array_merge(array(
+                "`rs`.`session` AS `session`",
+                "`us`.`id` AS `session_id`",
+                "$iterationExpr AS `iteration`",
+                "MIN(`sid`.`created`) AS `created`",
+                "MAX(`sid`.`saved`) AS `modified`",
+                "`us`.`ended` AS `ended`",
+                "`us`.`expired` AS `expired`",
+            ), $pivotCols);
+        }
+
+        $select = implode(",\n            ", $selectParts);
+        $bindings = array(':study_id' => (int) $studyId);
+        $wheres = array('`i`.`study_id` = :study_id');
+
+        $sql = "SELECT $select
+        FROM `survey_items_display` `sid`
+        INNER JOIN `survey_items` `i` ON `i`.`id` = `sid`.`item_id`
+        INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `sid`.`session_id`
+        LEFT JOIN `survey_run_sessions` `rs` ON `rs`.`id` = `us`.`run_session_id`";
+
+        if (!$getAll) {
+            $wheres[] = '`rs`.`testing` = 1';
+        }
+        if ($runId !== null) {
+            $wheres[] = '`rs`.`run_id` = :run_id';
+            $bindings[':run_id'] = (int) $runId;
+        }
+        if (!empty($filter['session'])) {
+            $session = $filter['session'];
+            if (strlen($session) == 64) {
+                $wheres[] = '`rs`.`session` = :session_eq';
+                $bindings[':session_eq'] = $session;
+            } else {
+                $wheres[] = '`rs`.`session` LIKE :session_like';
+                $bindings[':session_like'] = $session . '%';
+            }
+        }
+
+        $sql .= "\n        WHERE " . implode(' AND ', $wheres);
+        // GROUP BY the wide-row identity (one row per unit-session).
+        // study_iteration is functionally dependent on us.id (PK), but
+        // ONLY_FULL_GROUP_BY can't always prove that across the LEFT
+        // JOIN, so list it explicitly.
+        $groupCols = array('`us`.`id`', '`us`.`study_iteration`', '`rs`.`session`', '`us`.`ended`', '`us`.`expired`');
+        $sql .= "\n        GROUP BY " . implode(', ', $groupCols);
+
+        if ($unlinked) {
+            $sql .= "\n        ORDER BY RAND()";
+        } elseif ($paginate && isset($paginate['offset'])) {
+            $order = isset($paginate['order']) && strtolower($paginate['order']) === 'desc' ? 'DESC' : 'ASC';
+            $allowedOrderCols = array(
+                'session_id' => '`us`.`id`',
+                'iteration' => '`us`.`id`',
+                'created' => 'MIN(`sid`.`created`)',
+                'modified' => 'MAX(`sid`.`saved`)',
+                'ended' => '`us`.`ended`',
+                'session' => '`rs`.`session`',
+            );
+            $orderByKey = isset($paginate['order_by']) ? $paginate['order_by'] : 'session_id';
+            if (strpos($orderByKey, '.') !== false) {
+                $orderByKey = substr($orderByKey, strrpos($orderByKey, '.') + 1);
+            }
+            $orderExpr = isset($allowedOrderCols[$orderByKey]) ? $allowedOrderCols[$orderByKey] : '`us`.`id`';
+            $sql .= sprintf("\n        ORDER BY %s %s", $orderExpr, $order);
+        }
+
+        if ($paginate && isset($paginate['offset'])) {
+            $sql .= sprintf("\n        LIMIT %d OFFSET %d", (int) $paginate['limit'], (int) $paginate['offset']);
+        }
+
+        return array($sql, $bindings);
+    }
+
+    /**
      * Get Results from the item display table
      *
      * @param array $items An array of item names that are required in the survey
@@ -903,6 +1181,7 @@ class SurveyStudy extends Model
 		`survey_items_display`.`session_id` as `unit_session_id`,
 		`survey_items_display`.`item_id`,
 		`survey_items`.`name` as `item_name`,
+		`survey_items`.`deleted` as `item_deleted`,
 		`survey_items_display`.`answer`,
 		`survey_items_display`.`created`,
 		`survey_items_display`.`saved`,
@@ -1340,7 +1619,8 @@ class SurveyStudy extends Model
 				`survey_items`.`item_order`,
 				`survey_items`.`block_order`')
             ->from('survey_items')
-            ->where("`survey_items`.`study_id` = :study_id")
+            // soft-deleted items (patch 069) get no new survey_items_display rows
+            ->where("`survey_items`.`study_id` = :study_id AND `survey_items`.`deleted` IS NULL")
             ->order("`survey_items`.order")
             ->bindParams(array('`study_id`' => $this->id))
             ->statement();

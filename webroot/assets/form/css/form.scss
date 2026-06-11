@@ -1,0 +1,980 @@
+// form_v2 participant styles.
+// Loaded via webpack entry 'form'. The bundle is only served by the v2 form
+// view, so rules that live outside `.fmr-form-v2` won't leak to admin pages.
+//
+// Visual target: feature parity with v1's horizontal/label-left layout
+// (w/participant-facing rhythm), but authored with BS5 tokens scoped under
+// the v2 wrapper. See plan_form_v2.md §4 for rationale.
+
+// -----------------------------------------------------------------------------
+// Page-level rules — apply outside the form wrapper (monkey bar, debug alerts,
+// rendered-alerts container, etc.). Safe to be unscoped because the bundle
+// never loads on an admin page.
+// -----------------------------------------------------------------------------
+
+.js .js_hidden,
+.no_js .js_shown {
+    display: none !important;
+}
+
+.hidden {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+.hidden_debug_message {
+    display: none !important;
+}
+
+// Admin preview-mode debug toolbar ("monkey bar"). Ported from v1's
+// webroot/assets/site/css/style.css but flattened — v1's BS3 modals + jQuery
+// tooltips don't run under the v2 bundle, so the scissors/trash buttons are
+// shown-but-inert. They still link out for admins who want to reach them.
+.fmr-form-v2-page {
+    .monkey_bar {
+        position: fixed;
+        bottom: 1rem;
+        right: 1rem;
+        z-index: 999;
+        background: #fff;
+        border: 1px solid var(--bs-border-color, #dee2e6);
+        border-radius: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        font-size: 0.875rem;
+
+        form { background: transparent; margin: 0; }
+
+        .text-center { margin-bottom: 0.35rem; text-align: center; }
+
+        .label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25em 0.6em;
+            border-radius: 0.25rem;
+            background: var(--bs-secondary, #6c757d);
+            color: #fff;
+            font-size: 0.8em;
+            text-decoration: none;
+        }
+
+        .input-group {
+            display: inline-flex;
+            align-items: stretch;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+        }
+
+        .input-group-btn {
+            display: inline-flex;
+            gap: 0.25rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.25rem 0.5rem;
+            border: 1px solid var(--bs-border-color, #dee2e6);
+            background: #fff;
+            color: inherit;
+            border-radius: 0.25rem;
+            line-height: 1;
+            cursor: pointer;
+            font-size: 0.95rem;
+            text-decoration: none;
+
+            i.fa { width: 0.9em; text-align: center; }
+
+            &:hover:not(:disabled):not(.disabled) {
+                background: var(--bs-tertiary-bg, #f1f3f5);
+            }
+            &:disabled,
+            &.disabled {
+                opacity: 0.55;
+                pointer-events: none;
+            }
+        }
+
+        // Position select (v1 ships a base64 arrow; keep that by letting the
+        // browser default do its thing in v2 and skip the appearance:none
+        // override — we don't ship the png inline.)
+        .position_monkey {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            border: 1px solid var(--bs-border-color, #dee2e6);
+            max-width: 14rem;
+        }
+
+        @media (max-width: 640px) {
+            left: 0.5rem;
+            right: 0.5rem;
+            bottom: 0.5rem;
+            .input-group { flex-wrap: wrap; }
+        }
+    }
+
+    // Page-level alerts container (render-alerts wraps server-flashed messages
+    // above the form; debug alerts are hidden by default via .hidden above,
+    // actual .alert messages keep their BS5 look via imported bootstrap CSS).
+    .alerts-container,
+    .render-alerts {
+        .alert {
+            margin: 0.5rem 0;
+            border-radius: 0.375rem;
+            font-size: 0.95rem;
+        }
+    }
+
+    // Modals from the monkey bar — the bundle doesn't run BS's modal JS so
+    // just hide them (they only open via data-toggle="modal" with BS3 JS).
+    .modal.fade:not(.show) { display: none !important; }
+}
+
+// -----------------------------------------------------------------------------
+// Form-scoped rules.
+// -----------------------------------------------------------------------------
+
+.fmr-form-v2 {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 1.5rem 2rem;
+
+    [data-fmr-page][hidden] {
+        display: none !important;
+    }
+
+    // Page-change a11y focus lands on the page's first heading via a
+    // temporary tabindex="-1" (see showPage in main.js). Programmatic focus
+    // shouldn't paint a focus ring around the heading — keyboard users get
+    // their ring back the moment they Tab onward.
+    h1[tabindex='-1']:focus,
+    h2[tabindex='-1']:focus,
+    h3[tabindex='-1']:focus,
+    h4[tabindex='-1']:focus,
+    .fmr-page-title[tabindex='-1']:focus {
+        outline: none;
+    }
+
+    // --- Progress strip (sticky, compact — matches v1's top-of-viewport feel) ---
+    .fmr-progress {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: var(--bs-body-bg, #fff);
+        padding: 0.5rem 0 0.75rem;
+        margin-bottom: 1.25rem;
+        border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+
+        &-track {
+            height: 6px;
+            background: rgba(0, 0, 0, 0.06);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        &-bar {
+            height: 100%;
+            width: 0%;
+            background: var(--bs-success, #28a745);
+            transition: width 0.25s ease;
+        }
+
+        &-label {
+            display: block;
+            margin-top: 0.25rem;
+            font-size: 0.8rem;
+            color: var(--bs-secondary-color, #6c757d);
+            text-align: right;
+        }
+    }
+
+    // --- Page nav (previous / next buttons) ---
+    // Sticky to the bottom of the viewport so Next/Submit is reachable without
+    // scrolling to the end of a long scrolling-mode page (spec: "sticky Next").
+    .fmr-page-nav {
+        position: sticky;
+        bottom: 0;
+        z-index: 50;
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-top: 2rem;
+        padding: 1.25rem 0 calc(0.85rem + env(safe-area-inset-bottom));
+        border-top: 1px solid var(--bs-border-color, #dee2e6);
+        background: linear-gradient(to top, var(--bs-body-bg, #fff) 70%, rgba(255, 255, 255, 0));
+
+        &__left,
+        &__right {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            min-width: 7rem;
+        }
+    }
+
+    // --- BS3 -> BS5 compat for markup produced by Item::render() ---
+    // Items emit BS3 classes (form-group, help-block, has-error, control-label,
+    // label-danger, input-group-btn, controls/controls-inner). Rather than fork
+    // Item rendering we map them to BS5-ish visuals here.
+
+    // Single column, label ABOVE input (spec: persistent top-aligned labels;
+    // never label-left/right-aligned, which wraps long sentence stems badly).
+    // The label-input gap (0.4rem) is deliberately tighter than the gap between
+    // items (the 1rem padding + border-top) so proximity reads correctly.
+    .form-group.form-row {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.4rem;
+        margin: 0;
+        padding: 1rem 0 1.1rem;
+        border-top: 1px solid rgba(0, 0, 0, 0.06);
+
+        &:first-child { border-top: 0; }
+
+        > .control-label {
+            flex: none;
+            max-width: none;
+            text-align: left;
+            padding-top: 0;
+            margin: 0;
+            font-weight: 600;
+            line-height: 1.4;
+
+            h1, h2, h3, h4, h5, h6 {
+                margin: 0 0 0.15rem;
+                font-weight: 300;
+                line-height: 1.1;
+                color: var(--bs-tertiary-color, #9da2ab);
+            }
+            h3 { font-size: 1.75rem; }
+            h4 { font-size: 1.5rem; }
+
+            p {
+                margin: 0.25rem 0;
+                color: var(--bs-body-color, #212529);
+                font-weight: 400;
+                font-size: 0.95rem;
+            }
+
+            code {
+                padding: 0.1em 0.3em;
+                background: rgba(0, 0, 0, 0.06);
+                border-radius: 0.2rem;
+                font-size: 0.9em;
+            }
+
+            a {
+                color: var(--bs-primary, #0d6efd);
+            }
+        }
+
+        > .controls {
+            flex: none;
+            width: 100%;
+            min-width: 0;
+        }
+    }
+
+    // Items that don't have a meaningful input side (note / block / heading /
+    // iframe-rmd): span the full width and left-align the label block.
+    .form-group.form-row.item-note,
+    .form-group.form-row.item-block,
+    .form-group.form-row.item-note_iframe,
+    .form-group.form-row.form-message {
+        > .control-label {
+            flex: 1 1 auto;
+            max-width: none;
+            text-align: left;
+            padding-top: 0;
+        }
+        > .controls { display: none; }
+    }
+
+    // `submit` item: the page's advance control rendered as a big centred button
+    // (no separate OK). Its label column is empty, so hide it and centre the
+    // button. Solo gets its own (larger) sizing in _solo.scss via .fmr-solo-bigsubmit.
+    .form-group.form-row.item-submit {
+        justify-content: center;
+        text-align: center;
+        > .control-label { display: none; }
+        > .controls {
+            flex: 0 0 auto;
+            display: flex;
+            justify-content: center;
+        }
+        button[type="submit"], input[type="submit"] {
+            min-width: 12rem;
+            padding: 0.85rem 2.5rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+            border-radius: 0.6rem;
+        }
+        .white_cover { display: none; }
+    }
+
+    // Constrain inputs to v1's ~300px range on wide layouts; range/file stays full.
+    .form-control {
+        max-width: 360px;
+    }
+    // Some item types got explicit narrower caps in v1.
+    .item-email .form-control,
+    .item-date .form-control,
+    .item-cc .form-control,
+    .item-month .form-control,
+    .item-datetime .form-control,
+    .item-datetime-local .form-control,
+    .item-week .form-control,
+    .item-yearmonth .form-control,
+    .item-tel .form-control,
+    .item-url .form-control,
+    .item-color .form-control,
+    .item-geopoint .form-control {
+        max-width: 280px;
+    }
+    textarea.form-control {
+        max-width: 560px;
+    }
+    input[type=range] {
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: none;
+    }
+    input[type=color] {
+        height: 2rem;
+        width: 3rem;
+        padding: 0;
+    }
+
+    // Leading/trailing icons (email, tel, url, …) emit Bootstrap-3 input-group
+    // markup: <span class="input-group-addon"><i class="fa"></i></span> + a
+    // <span> wrapping the field. Bootstrap 5 (the v2 bundle) lays the .input-group
+    // out as a flex row but does NOT style .input-group-addon (it expects
+    // .input-group-text), so the icon rendered unsized, top-aligned and gapless.
+    // Restore a clean v1-like addon: the icon box and the field butt together
+    // into ONE pill — no gap, a single rectangular divider line between them, and
+    // matching outer radii (icon's outer corner == field's outer corner). Scoped
+    // via :has so plain button input-groups (.input-group-btn) keep their own
+    // layout.
+    $addon-radius: 0.5rem;
+    .input-group:has(> .input-group-addon) {
+        flex-wrap: nowrap;
+        align-items: stretch;         // icon box matches the field's height
+    }
+    .input-group > .input-group-addon {
+        display: inline-flex;
+        align-items: center;          // vertically centre the glyph (was top)
+        justify-content: center;
+        align-self: stretch;
+        flex: 0 0 auto;
+        padding: 0 0.85rem;
+        border: 1px solid var(--bs-border-color, #dee2e6);   // match the field's 1px
+        border-radius: 0;             // outer corner rounded by position rules below
+        background: var(--bs-tertiary-bg, #f1f3f5);
+        color: var(--bs-secondary-color, #6c757d);
+        font-size: 1.15rem;           // size up to roughly match the input text
+        line-height: 1;
+        i.fa { width: 1em; text-align: center; }
+    }
+    // Leading icon: round its LEFT corners, butt flush on the right. Drop the
+    // right border so the field's (squared) left border is the single divider.
+    .input-group > .input-group-addon:first-child {
+        border-radius: $addon-radius 0 0 $addon-radius;
+        border-right: 0;
+    }
+    // Trailing icon: mirror image.
+    .input-group > .input-group-addon:last-child {
+        border-radius: 0 $addon-radius $addon-radius 0;
+        border-left: 0;
+    }
+    // The field is wrapped in a bare <span>; make it fill the remaining width.
+    .input-group > span:not(.input-group-addon) {
+        display: flex;
+        flex: 1 1 auto;
+        min-width: 0;
+        > .form-control { width: 100%; }
+    }
+    // Field meeting a leading icon: square the shared (left) corner, keep the
+    // outer (right) corner rounded at the SAME radius so the pill reads as one.
+    .input-group > .input-group-addon:first-child + span:not(.input-group-addon) > .form-control {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+        border-top-right-radius: $addon-radius;
+        border-bottom-right-radius: $addon-radius;
+    }
+    // Field meeting a trailing icon: mirror image.
+    .input-group > span:not(.input-group-addon):has(+ .input-group-addon:last-child) > .form-control {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+        border-top-left-radius: $addon-radius;
+        border-bottom-left-radius: $addon-radius;
+    }
+
+    // Geopoint: same pill treatment, but the trailing element is a real BUTTON
+    // (.geolocator fetches the location), so style it as a pushable, blue action
+    // rather than a passive grey icon box. The readonly field rounds its left,
+    // the button rounds its right, they butt flush with the button's blue left
+    // border as the single divider. The button is hidden until geopoint.js
+    // confirms navigator.geolocation; `:not(.hidden)` keeps the field a full pill
+    // (all corners rounded) when there's no button to show.
+    .item-geopoint .input-group {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: stretch;
+        max-width: 320px;             // field + button share this width…
+    }
+    .item-geopoint .input-group > span:not(.input-group-btn) {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+    .item-geopoint .form-control { max-width: none; }   // …so let the field fill it
+    .item-geopoint .input-group > span:has(+ .input-group-btn:not(.hidden)) > .form-control {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+        border-right: 0;              // the button's blue left border is the divider
+    }
+    .input-group-btn .btn.geolocator {
+        align-self: stretch;
+        flex: 0 0 auto;
+        padding: 0 0.95rem;
+        border: 1px solid var(--bs-primary, #0d6efd);
+        border-radius: 0 $addon-radius $addon-radius 0;
+        background: var(--bs-primary, #0d6efd);
+        color: #fff;
+        font-size: 1.15rem;
+        line-height: 1;
+        cursor: pointer;
+        // a raised inner "lip" reads as pushable; it flattens on press.
+        box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18);
+        transition: background 0.12s ease, box-shadow 0.1s ease, transform 0.05s ease;
+
+        &:hover:not(:disabled) { background: #0b5ed7; border-color: #0b5ed7; }
+        &:active:not(:disabled) {
+            transform: translateY(1px);
+            box-shadow: inset 0 0 0 rgba(0, 0, 0, 0);
+        }
+        &.is-locating, &:disabled { opacity: 0.7; cursor: default; transform: none; }
+        i.fa { width: 1em; text-align: center; }
+    }
+
+    // Range / range_ticks / visual_analog_scale: labels + slider on one row
+    // (v1's pattern: left label, slider, right label). Without this flex
+    // container the slider's natural `width: 100%` pushes the right label
+    // onto the next line.
+    .item-range .controls-inner,
+    .item-range_ticks .controls-inner,
+    .item-visual_analog_scale .controls-inner {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: nowrap;
+        width: 100%;
+
+        > label {
+            flex: 0 0 auto;
+            margin: 0;
+            white-space: nowrap;
+        }
+    }
+
+    // Visual analog scale: NO visible default. A native range always paints a
+    // thumb at the midpoint, which reads as pre-answered. The v1 hide rule
+    // (custom_item_classes.css `::-webkit-slider-thumb{visibility:hidden}`,
+    // imported by the form bundle) is INERT on a native control — WebKit/Blink
+    // ignore ::-*-thumb styling unless the input is `appearance:none` (verified
+    // live: thumb computed `visibility:visible` while the input was
+    // `appearance:auto`). So take the VAS display to appearance:none, draw a
+    // plain track + custom thumb, and hide the thumb until the participant moves
+    // it (the wrapper gains `.vas-touched`) — now the hide actually applies.
+    // Scoped to .vas-display so ordinary Range / range_ticks sliders are
+    // untouched.
+    // The thumb is a thick vertical "pencil mark", not a circle — closer to the
+    // paper VAS the participant is used to. Centring is exact: the thumb height
+    // equals the track height so margin-top is 0 (no fragile fractional offset,
+    // which is what tilted the circle upward). WebKit draws the line as the
+    // input's gradient background showing through a transparent runnable-track;
+    // Firefox draws it on ::-moz-range-track and centres the thumb itself.
+    // $vas-hit is the finger-sized HIT zone (input height = track-tap area;
+    // thumb width = drag-grab area). $vas-mark-w / $vas-mark-h keep the VISIBLE
+    // pencil mark thin + centred independent of the hit zone: the thumb box is
+    // transparent and finger-wide, and the dark mark is painted by a centred
+    // background-gradient on the thumb. This lifts the tap target to the
+    // iOS/WCAG ~44px minimum without (a) showing a thumb before touch (the
+    // :not(.vas-touched) rule below still hides it) or (b) thickening the mark.
+    $vas-hit: 2.75rem;     // ~44px tappable HEIGHT (track tap area). MUST NOT be
+                           // used for thumb WIDTH: a native range thumb's centre
+                           // only travels [thumbW/2 .. trackW-thumbW/2], so a wide
+                           // thumb insets min/max by thumbW/2 and the extremes
+                           // (0/100) become unreachable. The 44px target comes
+                           // from the input height + full-width clickable track.
+    $vas-mark-w: 4px;      // visible pencil-mark width AND thumb width (no dead zone)
+    $vas-mark-h: 1.6rem;   // visible pencil-mark height (unchanged look)
+    .vas-controls input[type="range"].vas-display {
+        -webkit-appearance: none;
+        appearance: none;
+        height: $vas-hit;
+        cursor: pointer;
+        // Centre line of the scale (the 3px rule the participant marks on).
+        background: linear-gradient(var(--bs-border-color, #ced4da), var(--bs-border-color, #ced4da)) center / 100% 3px no-repeat;
+
+        &::-webkit-slider-runnable-track { height: $vas-hit; background: transparent; border: 0; }
+        &::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: $vas-mark-w;          // narrow → value travels full track (0..100 reachable)
+            height: $vas-hit;
+            margin-top: 0;               // thumb height == track height → centred
+            background: transparent;     // …but invisible: only the centred mark shows
+            background-image: linear-gradient(var(--bs-body-color, #212529), var(--bs-body-color, #212529));
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: $vas-mark-w $vas-mark-h;
+            border: 0;
+            box-shadow: none;
+            cursor: pointer;
+        }
+        &::-moz-range-track { height: 3px; border-radius: 2px; background: var(--bs-border-color, #ced4da); }
+        &::-moz-range-thumb {
+            width: $vas-mark-w;          // narrow → value travels full track (0..100 reachable)
+            height: $vas-hit;
+            background: transparent;     // …invisible box
+            background-image: linear-gradient(var(--bs-body-color, #212529), var(--bs-body-color, #212529));
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: $vas-mark-w $vas-mark-h;
+            border: 0;
+            cursor: pointer;
+        }
+    }
+    // Hidden until touched — effective now the control is appearance:none.
+    .vas-controls:not(.vas-touched) input[type="range"].vas-display {
+        &::-webkit-slider-thumb { visibility: hidden; }
+        &::-moz-range-thumb { visibility: hidden; }
+    }
+
+    // Rating/check button poles (v1 emits `.keep-label` spans either side of
+    // the .btn-group). Flex the controls-inner so left-label + buttons +
+    // right-label stay on one row instead of the right label wrapping below.
+    .item-rating_button .controls-inner,
+    .item-mc_button .controls-inner,
+    .item-check_button .controls-inner,
+    .item-mc_multiple_button .controls-inner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+
+        > label.keep-label {
+            flex: 0 0 auto;
+            margin: 0;
+        }
+        > .btn-group {
+            flex: 0 1 auto;
+        }
+        > .js_hidden {
+            // Keep display:none via .js_hidden; just make sure it doesn't
+            // take a flex slot and push subsequent items around.
+            flex-basis: 0;
+        }
+    }
+
+    .help-block {
+        color: var(--bs-secondary-color, #6c757d);
+        font-size: 0.875em;
+        margin-top: 0.25rem;
+    }
+
+    .has-error {
+        label, .control-label { color: var(--bs-danger, #dc3545); }
+        input:not([type=radio]):not([type=checkbox]), textarea, select {
+            border-color: var(--bs-danger, #dc3545);
+        }
+    }
+
+    // BS3 label-{context} → BS5 text-bg-{context}
+    .label {
+        display: inline-block;
+        padding: 0.15em 0.5em;
+        font-size: 0.75em;
+        font-weight: 500;
+        border-radius: 0.25rem;
+        color: #fff;
+    }
+    .label-danger  { background: var(--bs-danger, #dc3545); }
+    .label-info    { background: var(--bs-info, #0dcaf0); }
+    .label-success { background: var(--bs-success, #198754); }
+    .label-warning { background: var(--bs-warning, #ffc107); color: #000; }
+    .label-default { background: var(--bs-secondary, #6c757d); }
+
+    .controls {
+        max-width: 100%;
+    }
+    .controls-inner {
+        position: relative;
+    }
+
+    // Radio/checkbox groups — v1 renders them as <label><input>text</label>
+    // under .controls; give them decent spacing. Keep the gap small so an
+    // item's `mc_width*` class (from custom_item_classes.css) actually fits
+    // as many options per row as the admin requested.
+    .controls > label,
+    .controls-inner > label,
+    .mc-table > label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        margin-right: 0.5rem;
+        margin-bottom: 0.25rem;
+        font-weight: normal;
+        cursor: pointer;
+
+        input[type=radio], input[type=checkbox] {
+            margin: 0 0.2rem 0 0;
+        }
+    }
+
+    // When mc_heading's rotate_label45 fires, the first row of options needs
+    // headroom so the -25px margin-top from custom_item_classes doesn't push
+    // the labels above their container and out of the form. Match v1's
+    // visual spacing.
+    .form-group.form-row.item-mc_heading {
+        padding-top: 3rem;
+    }
+
+    // Stack radio/check lists vertically when the item opts in.
+    .mc_vertical .controls > label,
+    .mc_vertical .mc-table > label {
+        display: flex;
+        margin-right: 0;
+    }
+
+    // Input groups
+    .input-group-btn {
+        display: flex;
+        align-items: stretch;
+
+        .btn {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+        &.hidden { display: none; }
+    }
+
+    // Button-group items (mc_button, mc_multiple_button, check_button, rating_button).
+    .btn-group {
+        display: inline-flex;
+        gap: 0.25rem;
+        flex-wrap: wrap;
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--bs-border-color, #dee2e6);
+            background: var(--bs-body-bg, #fff);
+            color: inherit;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1.4;
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+            &:hover { background: var(--bs-tertiary-bg, #f8f9fa); }
+
+            &.btn-checked {
+                background: var(--bs-primary-bg-subtle, #cfe2ff);
+                border-color: var(--bs-primary, #0d6efd);
+                color: var(--bs-primary-text-emphasis, #0a58ca);
+            }
+            .btn_value { display: none; }
+        }
+    }
+
+    // rating_button modifier variants. custom_item_classes.css (bundled BEFORE
+    // form.scss) sizes these, but the generic `.btn-group .btn` skin above —
+    // same specificity, later source order — clobbers its padding/border/
+    // background/border-radius. Re-assert the v1 geometry here, scoped to the
+    // modifier class so it lands after the generic skin and wins. The fixed
+    // width/height/margin from custom_item_classes.css already survive.
+    .analogue_rating_scale .btn-group {
+        gap: 0;                                  // bars touch → continuous strip
+        > .btn {
+            padding: 0;
+            border-width: 0;
+            border-radius: 0;
+            background: #ddd;                    // v1 analog bar
+            overflow: hidden;
+            &:hover { background: #cfcfcf; }
+            &.btn-checked { background: #999; border: 1px solid #000; color: transparent; }
+            .btn_label { display: none; }        // analog strip shows no labels
+        }
+    }
+    .square, .square100, .square80, .square70, .square60 {
+        .btn-group > .btn { padding: 0; border-radius: 4px; }
+    }
+    .blank_button .btn-group > .btn .btn_label { visibility: hidden; }
+
+    // Button-group validation state: outline the whole group when the parent
+    // form-group is is-invalid (set by the `invalid` handler in main.js).
+    .form-group.is-invalid .btn-group {
+        outline: 2px solid var(--bs-danger, #dc3545);
+        outline-offset: 2px;
+        border-radius: 0.375rem;
+    }
+
+    // Square / rating_button tiles.
+    .square, .square80, .blank_button {
+        .controls > label,
+        .controls-inner > label,
+        .mc-table > label {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-width: 4.5rem;
+            min-height: 4.5rem;
+            padding: 0.5rem;
+            margin-right: 0.5rem;
+            border: 1px solid var(--bs-border-color, #dee2e6);
+            border-radius: 0.375rem;
+            background: var(--bs-body-bg, #fff);
+            cursor: pointer;
+            text-align: center;
+
+            input[type=radio], input[type=checkbox] {
+                position: absolute;
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            &:hover { background: var(--bs-tertiary-bg, #f8f9fa); }
+
+            &.selected,
+            &:has(input:checked) {
+                background: var(--bs-primary-bg-subtle, #cfe2ff);
+                border-color: var(--bs-primary, #0d6efd);
+                color: var(--bs-primary-text-emphasis, #0a58ca);
+            }
+        }
+    }
+
+    // Item wrapper (outer container; .form-group owns the row layout above).
+    .item { padding: 0; }
+
+    // Hidden item tag (the small badge `<span class="badge hastooltip">item_name</span>`
+    // inside `.hidden_debug_message`) — never shown by default; its class wrapper
+    // is always .hidden. We already hide .hidden page-wide above.
+
+    // Invalid-state styling is driven by the server's error response
+    // (`applyErrors` in main.js adds `.is-invalid` + an `.invalid-feedback`
+    // sibling) and by the button-group `invalid` handler. We deliberately
+    // DON'T style the native `:invalid` pseudo on page load — required-but-
+    // empty inputs match `:invalid` immediately, which would paint every
+    // unfilled text input / radio group red before the participant has even
+    // had a chance to interact. v1 behaves the same: server-authoritative.
+    .is-invalid {
+        border-color: var(--bs-danger, #dc3545) !important;
+    }
+    .invalid-feedback.fmr-invalid-feedback {
+        color: var(--bs-danger, #dc3545);
+        font-size: 0.875em;
+        display: block;
+    }
+    .fmr-error-banner {
+        margin-bottom: 1rem;
+    }
+
+    // Deferred-fill placeholder / error states (Phase 4).
+    .fmr-fill-pending {
+        position: relative;
+        opacity: 0.7;
+        &::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: 0;
+            width: 1rem;
+            height: 1rem;
+            margin-top: -0.5rem;
+            border: 2px solid rgba(0, 0, 0, 0.15);
+            border-top-color: var(--bs-primary, #0d6efd);
+            border-radius: 50%;
+            animation: fmr-spin 0.6s linear infinite;
+        }
+    }
+    .fmr-fill-error .controls {
+        color: var(--bs-danger, #dc3545);
+    }
+    .fmr-fill-feedback {
+        color: var(--bs-danger, #dc3545);
+        font-size: 0.875em;
+        margin-top: 0.25rem;
+    }
+
+    // Unverified-type notice: soft warning (FormRenderer::renderUnverifiedTypesNotice).
+    .fmr-unverified-types {
+        margin-bottom: 1rem;
+        padding: 0.75rem 1rem;
+        background: rgba(255, 193, 7, 0.15);
+        border: 1px solid rgba(255, 193, 7, 0.35);
+        border-radius: 0.375rem;
+        color: #664d03;
+        font-size: 0.925rem;
+
+        code {
+            background: rgba(0, 0, 0, 0.08);
+            padding: 0.1em 0.35em;
+            border-radius: 0.2rem;
+            font-size: 0.9em;
+        }
+    }
+
+    // Queue banner (Phase 5). Already uses BS5 alert variants; tighten spacing.
+    .fmr-queue-banner {
+        margin-bottom: 1rem;
+    }
+
+    // request_phone item — desktop "continue on your phone" QR + copy link
+    // (items/request-phone.js). The PHP renders an empty .qr-code-container;
+    // the QR svg is injected client-side.
+    .request-phone-wrapper {
+        text-align: center;
+        .qr-code-container {
+            display: inline-block;
+            margin: 0.5rem auto;
+            svg { display: block; max-width: 240px; height: auto; }
+        }
+        .request-phone-copy { margin: 0.5rem 0; }
+        .request-phone-link { display: inline-block; margin-top: 0.4rem; word-break: break-all; font-size: 0.85rem; }
+        .status-message { margin-top: 0.4rem; color: var(--bs-secondary-color, #6c757d); }
+    }
+
+    // bot_check item — local-only "are you human" widget, self-hosted Altcha
+    // PoW (<altcha-widget>; see items/bot-check.js). Altcha renders into LIGHT
+    // DOM, so we restyle it from here to match formr's clean inline pill rather
+    // than its stock full-width captcha card. Two layers: (1) map Altcha's own
+    // `--altcha-*` design tokens onto Bootstrap-5 theme vars + the hand-rolled
+    // pill geometry; (2) flatten `.altcha-main` from a column card into a single
+    // centred row with hover/focus affordance. Higher selector specificity
+    // (`.fmr-botcheck altcha-widget …`) beats Altcha's injected `.altcha-*`.
+    .fmr-botcheck {
+        altcha-widget {
+            display: inline-block;
+            // shape + palette → match the old .fmr-botcheck-box / Bootstrap theme
+            --altcha-max-width: 22rem;
+            --altcha-border-width: 1.5px;
+            --altcha-border-radius: 0.5rem;
+            --altcha-border-color: var(--bs-border-color, #dee2e6);
+            --altcha-color-base: var(--bs-body-bg, #fff);
+            --altcha-color-base-content: var(--bs-body-color, #212529);
+            --altcha-color-primary: var(--bs-primary, #0d6efd);
+            --altcha-color-success: var(--bs-success, #198754);
+            --altcha-color-error: var(--bs-danger, #dc3545);
+            --altcha-color-neutral: var(--bs-border-color, #ced4da);
+            --altcha-padding: 0.65rem 1rem;
+            // checkbox → 1.4rem rounded square, like the old .fmr-botcheck-indicator
+            --altcha-checkbox-size: 1.4rem;
+            --altcha-checkbox-border-width: 1.5px;
+            --altcha-checkbox-border-radius: 0.3rem;
+            --altcha-checkbox-border-color: var(--bs-border-color, #ced4da);
+            --altcha-spinner-color: var(--bs-primary, #0d6efd);
+        }
+        // (2) collapse the stock column card into a slim single-row pill
+        altcha-widget .altcha-main {
+            flex-direction: row;
+            align-items: center;
+            min-width: 16rem;
+            cursor: pointer;
+            user-select: none;
+            transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+        }
+        altcha-widget .altcha-main:hover { border-color: var(--bs-primary, #0d6efd); }
+        // ring the whole pill on focus (suppress the lone-checkbox outline)
+        altcha-widget .altcha-checkbox input:focus-visible { outline: none; }
+        // The checkmark svg is absolutely positioned OVER the checkbox input
+        // (altcha.css ships no pointer-events rule). Clicks on it still bubble
+        // to the widget's wrapper handler, so humans never noticed — but the
+        // input itself must be hittable for native a11y + strict automation
+        // (Playwright refuses to click an input whose point the svg intercepts).
+        altcha-widget .altcha-checkbox svg { pointer-events: none; }
+        altcha-widget .altcha-main:focus-within {
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.35);
+            border-color: var(--bs-primary, #0d6efd);
+        }
+        altcha-widget .altcha-checkbox-wrap { font-size: 1rem; line-height: 1.3; }
+        // verified: tint the pill green to echo the hand-rolled "passed" state.
+        // box-shadow:none clears the (still-focused) checkbox's blue focus ring so
+        // the settled state reads as purely green rather than blue-over-green.
+        altcha-widget.altcha-verified .altcha-main,
+        altcha-widget [data-state="verified"] .altcha-main {
+            border-color: var(--bs-success, #198754);
+            background: rgba(25, 135, 84, 0.06);
+            box-shadow: none;
+            cursor: default;
+        }
+    }
+
+    // Hide v1 submit buttons emitted by Item::render — v2 supplies its own nav.
+    button[name="submit"]:not([data-fmr-next]):not([data-fmr-prev]),
+    input[type=submit]:not([data-fmr-next]) {
+        display: none;
+    }
+}
+
+@keyframes fmr-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+// Expiry-notifier modal — overlay shown when the unit-session expires while
+// the participant is still on the page. Bare hand-built dialog (no Bootstrap
+// JS dep); fixed-position so it sits above the form regardless of scroll.
+.fmr-expiry-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    .fmr-expiry-modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+    }
+
+    .fmr-expiry-modal-dialog {
+        position: relative;
+        background: #fff;
+        border-radius: 6px;
+        padding: 1.5rem 2rem;
+        max-width: 420px;
+        width: calc(100% - 2rem);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        text-align: center;
+    }
+
+    .fmr-expiry-modal-title {
+        margin-top: 0;
+        margin-bottom: 0.75rem;
+    }
+
+    .fmr-expiry-modal-body {
+        margin-bottom: 1.25rem;
+    }
+
+    .fmr-expiry-modal-reload {
+        min-width: 8rem;
+    }
+}
+
+// v2 polish slices — each scopes itself under .fmr-form-v2 so they
+// don't leak to admin / v1.
+@import 'modern';
+@import 'validation-soft';
+@import 'floating-next';
+@import 'save-indicator';
+@import 'completion';
+@import 'solo';

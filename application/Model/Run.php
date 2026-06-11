@@ -1237,6 +1237,7 @@ class Run extends Model
             'run_session' => $runSession,
             'run_content' => $run_content,
             'redirect' => array_val($output, 'redirect'),
+            'use_form_v2' => !empty($output['use_form_v2']),
             'run' => $this,
         );
     }
@@ -1624,11 +1625,16 @@ class Run extends Model
             $pwa_icon_base_path_for_manifest = '/' . trim($run_pwa_icon_path_val, '/') . '/';
         }
 
-        // Replace placeholders
+        // Replace placeholders. The protocol_handlers scheme suffix must be
+        // ASCII letters only ("web+" schemes reject digits/dashes — Chrome
+        // drops the whole entry with a manifest warning otherwise), so run
+        // names like "e2e-pwa-l-v2" are squeezed to their letters.
+        $protocol_suffix = strtolower(preg_replace('/[^a-zA-Z]/', '', $this->name));
         $manifest_string = str_replace(
-            array('{APP_NAME}', '{DESCRIPTION}', '{SCOPE}', '{ID}', '{START_URL}', '{PWA_ICON_BASE_PATH}'),
+            array('{APP_NAME}', '{APP_PROTOCOL_SUFFIX}', '{DESCRIPTION}', '{SCOPE}', '{ID}', '{START_URL}', '{PWA_ICON_BASE_PATH}'),
             array(
                 $this->name,
+                $protocol_suffix,
                 $this->description ?: '',
                 run_url($this->name),
                 run_url($this->name),

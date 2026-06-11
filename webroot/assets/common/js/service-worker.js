@@ -1,7 +1,3 @@
-// Bumped to v7 alongside the time-bound handling-reload fix in
-// PWAInstaller.js. Without a sw_version bump installed PWAs would keep
-// serving the old frontend.bundle.js out of the SW cache and the fix
-// wouldn't reach participants.
 const sw_version = 'v7';
 const CACHE_NAME = 'formr-' + sw_version + '-' + self.location.hostname + self.location.pathname.split('/').slice(0, -1).join('-');
 
@@ -208,12 +204,13 @@ self.addEventListener('install', (event) => {
       console.log('SW: Caching assets:', assetsToCache);
       return await safeAddAll(cache, assetsToCache);
     } catch (error) {
-      console.error('Install failed:', error);
-      // Wait on the beacon so it actually goes out before the SW
-      // transitions to redundant — once the install handler rejects,
-      // the SW has roughly no time to make outbound requests.
+      // Pre-caching is best-effort: a missing PWA manifest (studies not
+      // configured for install) or an offline install shouldn't discard
+      // the SW. v2 forms need the SW registered for Background Sync even
+      // when the study is NOT installable. Swallow and continue, but
+      // beacon the failure so the maintainer still gets a signal.
+      console.warn('SW: pre-cache skipped', error);
       await beaconLifecycleFailure('install', error);
-      throw error;
     }
   };
   event.waitUntil(pre_cache());
@@ -271,13 +268,200 @@ self.addEventListener('activate', event => {
   console.log('SW: Activation complete');
 });
 
-/* 
+/* -------------------------------------------------------------------------
+ * form_v2: Background Sync drain hook
+ *
+ * The SW used to be GET-caching + push only; v2 extends it with a drain
+ * handler for the IndexedDB queue the page-JS populates when a POST to
+ * /form-page-submit fails (see webroot/assets/form/js/main.js). When the
+ * participant closes the tab offline, the page-level `online`-event drain
+ * can't run — so the page asks the SW to register a `form-v2-drain` sync
+ * tag, and here we respond to the sync event by walking the same IDB store
+ * (`formrQueue`, object store `queue`) and POSTing each entry to the
+ * captured sync URL.
+ *
+ * iOS Safari doesn't implement Background Sync; that path falls back to
+ * the page's own `online` listener + initial-load drain. Everything here
+ * is best-effort.
+ * ---------------------------------------------------------------------- */
+
+const FMR_QUEUE_DB = 'formrQueue';
+const FMR_QUEUE_STORE = 'queue';
+const FMR_SYNC_TAG = 'form-v2-drain';
+// The page stashes its sync URL here so the SW knows where to POST entries
+// on a background wake-up. Lives only for the SW's current execution
+// context — browsers terminate idle SWs (Chromium ~30s) and a Background
+// Sync event later spins up a fresh SW with no controlling clients to
+// repost the URL. fmrResolveSyncUrl below derives a fallback from
+// self.registration.scope, which IS stable across SW restarts.
+let fmrSyncUrl = null;
+
+// Derive the form-sync URL from the SW registration scope. Path-based
+// deploys register the SW with scope=/<runName>/, so scope+form-sync gives
+// /<runName>/form-sync (matches run_url($run, 'form-sync') server-side).
+// Subdomain deploys use scope=/ so we get /form-sync, which the browser
+// resolves against the participant subdomain it loaded the SW from.
+function fmrResolveSyncUrl() {
+  if (fmrSyncUrl) return fmrSyncUrl;
+  try {
+    const scope = self.registration && self.registration.scope;
+    if (!scope) return null;
+    return scope.replace(/\/+$/, '') + '/form-sync';
+  } catch (e) {
+    return null;
+  }
+}
+
+function fmrOpenIDB() {
+  return new Promise((resolve, reject) => {
+    const req = self.indexedDB.open(FMR_QUEUE_DB, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(FMR_QUEUE_STORE)) {
+        const store = db.createObjectStore(FMR_QUEUE_STORE, { keyPath: 'uuid' });
+        store.createIndex('client_ts', 'client_ts');
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function fmrQueueGetAll(db) {
+  return new Promise((resolve) => {
+    const tx = db.transaction(FMR_QUEUE_STORE, 'readonly');
+    const store = tx.objectStore(FMR_QUEUE_STORE);
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => resolve([]);
+  });
+}
+
+function fmrQueueDelete(db, uuid) {
+  return new Promise((resolve) => {
+    const tx = db.transaction(FMR_QUEUE_STORE, 'readwrite');
+    tx.objectStore(FMR_QUEUE_STORE).delete(uuid);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => resolve();
+    tx.onabort = () => resolve();
+  });
+}
+
+// Wipe every queued entry. Used on logout / account deletion / push-
+// subscription revocation so plaintext answers don't outlive the
+// participant's relationship with the run.
+function fmrQueueWipe(db) {
+  return new Promise((resolve) => {
+    const tx = db.transaction(FMR_QUEUE_STORE, 'readwrite');
+    tx.objectStore(FMR_QUEUE_STORE).clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => resolve();
+    tx.onabort = () => resolve();
+  });
+}
+
+function fmrBuildSyncFormData(entry) {
+  const fd = new FormData();
+  fd.append('uuid', entry.uuid);
+  fd.append('page', String(entry.page));
+  if (entry.unit_session_id != null) fd.append('unit_session_id', String(entry.unit_session_id));
+  if (entry.client_ts) fd.append('client_ts', entry.client_ts);
+  const data = entry.data || {};
+  Object.keys(data).forEach((k) => {
+    const v = data[k];
+    if (Array.isArray(v)) {
+      v.forEach((vv) => fd.append(`data[${k}][]`, vv == null ? '' : String(vv)));
+    } else if (v != null) {
+      fd.append(`data[${k}]`, String(v));
+    }
+  });
+  const views = entry.item_views || {};
+  Object.keys(views).forEach((bucket) => {
+    const m = views[bucket] || {};
+    Object.keys(m).forEach((id) => fd.append(`item_views[${bucket}][${id}]`, String(m[id])));
+  });
+  const files = entry.files || {};
+  Object.keys(files).forEach((name) => {
+    const f = files[name];
+    if (f) fd.append(`files[${name}]`, f, f.name || name);
+  });
+  return fd;
+}
+
+async function fmrDrainBackground() {
+  const syncUrl = fmrResolveSyncUrl();
+  if (!syncUrl) return;
+  let db;
+  try { db = await fmrOpenIDB(); } catch (e) { return; }
+  const entries = await fmrQueueGetAll(db);
+  entries.sort((a, b) => (a.client_ts || '').localeCompare(b.client_ts || ''));
+  for (const entry of entries) {
+    const hasFiles = entry.files && Object.keys(entry.files).length > 0;
+    let res;
+    try {
+      res = await fetch(syncUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: hasFiles
+          ? { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+          : { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: hasFiles ? fmrBuildSyncFormData(entry) : JSON.stringify(entry),
+      });
+    } catch (e) {
+      // Still offline; fail the sync so the browser retries later.
+      throw e;
+    }
+    const body = await res.json().catch(() => null);
+    if (res.ok || (body && body.already_applied)) {
+      await fmrQueueDelete(db, entry.uuid);
+      continue;
+    }
+    if (body && body.drop_entry) {
+      await fmrQueueDelete(db, entry.uuid);
+      continue;
+    }
+    // 4xx rejection — don't keep retrying. Leave entry; page-JS will
+    // surface the error banner when the user reopens.
+    return;
+  }
+}
+
+self.addEventListener('sync', (event) => {
+  if (event.tag !== FMR_SYNC_TAG) return;
+  event.waitUntil(fmrDrainBackground());
+});
+
+/*
  * Fetch event listener to cache assets
  */
 self.addEventListener('fetch', (event) => {
   // Only handle GET requests
   if (event.request.method !== 'GET') {
     return;
+  }
+
+  // Wipe the offline queue when the participant navigates to /<run>/logout.
+  // The server destroys their session on that endpoint, so any queued
+  // entries belong to a relationship that no longer exists. We don't
+  // intercept the response — let the navigation proceed normally — but we
+  // do schedule the IDB clear in waitUntil so the SW stays alive for it.
+  try {
+    const u = new URL(event.request.url);
+    // Path is /<run>/logout on path-routed deploys, bare /logout on
+    // subdomain-routed ones — match both.
+    if (event.request.mode === 'navigate' && /(?:^|\/)logout\/?$/.test(u.pathname)) {
+      event.waitUntil((async () => {
+        try {
+          const db = await fmrOpenIDB();
+          await fmrQueueWipe(db);
+          try { db.close(); } catch {}
+        } catch (err) {
+          console.warn('SW logout-wipe: queue wipe failed', err);
+        }
+      })());
+    }
+  } catch {
+    // URL parse failed — ignore and fall through
   }
 
   // Only handle valid URLs (which now must include /assets/)
@@ -325,6 +509,51 @@ self.addEventListener('fetch', (event) => {
 
 // Add message event listener to handle asset caching
 self.addEventListener('message', (event) => {
+  // form_v2: stash the sync URL so sync events know where to POST. The
+  // URL is origin-specific (participant subdomain), so we can't derive it
+  // server-side at SW install time.
+  if (event.data && event.data.type === 'FMR_REGISTER_SYNC_URL' && typeof event.data.url === 'string') {
+    fmrSyncUrl = event.data.url;
+    return;
+  }
+  // form_v2: wipe the offline-queue IDB. Triggered from the page on
+  // logout (so plaintext answers don't outlive the participant's
+  // session) and as a safety net from the pushsubscriptionchange
+  // handler below. Wait the wipe before posting back so the page can
+  // confirm before navigating away.
+  if (event.data && event.data.type === 'FMR_WIPE_QUEUE') {
+    (async () => {
+      try {
+        const db = await fmrOpenIDB();
+        await fmrQueueWipe(db);
+        try { db.close(); } catch {}
+        event.ports[0]?.postMessage({ ok: true });
+      } catch (err) {
+        event.ports[0]?.postMessage({ error: String(err && err.message || err) });
+      }
+    })();
+    return;
+  }
+  // Test diagnostic: dump cache state via reply port. The page-side
+  // `caches.keys()` is partitioned away from the SW's caches under iOS
+  // Safari + automation, so the e2e cache test asks the SW directly.
+  if (event.data && event.data.type === 'FMR_DUMP_CACHES') {
+    (async () => {
+      try {
+        const keys = await caches.keys();
+        const entries = {};
+        for (const name of keys) {
+          const c = await caches.open(name);
+          const reqs = await c.keys();
+          entries[name] = reqs.length;
+        }
+        event.ports[0]?.postMessage({ keys, entries, cacheName: CACHE_NAME });
+      } catch (err) {
+        event.ports[0]?.postMessage({ error: String(err && err.message || err) });
+      }
+    })();
+    return;
+  }
   // Handle CACHE_ASSETS message
   if (event.data.type === 'CACHE_ASSETS') {
     // Filter and deduplicate assets
@@ -517,6 +746,11 @@ self.addEventListener('notificationclick', (event) => {
  * need to thread a participant code through the SW; if the cookie has
  * since evicted, the save fails 401 and the page-side
  * initializePushNotifications recovers on next launch.
+ *
+ * Deliberately does NOT touch the offline answer queue: browsers fire
+ * this event for routine, benign rotations (Chrome does so on browser
+ * updates), and not-yet-synced answers must survive those. Queue wipes
+ * happen only on the explicit logout paths.
  */
 self.addEventListener('pushsubscriptionchange', (event) => {
   event.waitUntil((async () => {

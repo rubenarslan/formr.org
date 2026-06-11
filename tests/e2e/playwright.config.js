@@ -33,10 +33,7 @@ const RUNNING_ON_BS = process.env.BROWSERSTACK_AUTOMATION === 'true';
 
 module.exports = defineConfig({
     testDir: '.',
-    // No globalSetup on this branch — the PWA-persistence specs target a
-    // public dev run and a pre-existing test session code, no admin
-    // login / test-code minting needed. Cherry-pick form_v2's
-    // setup/global-setup.js if a future spec here needs admin auth.
+    globalSetup: require.resolve('./setup/global-setup.js'),
     timeout: 120 * 1000,
     expect: { timeout: 15 * 1000 },
     // BS sessions occasionally drop the websocket bridge or the device
@@ -73,7 +70,21 @@ module.exports = defineConfig({
     projects: [
         {
             name: 'local-chromium',
-            use: { browserName: 'chromium' },
+            // Under BS, the SDK monkey-patches one project per platform in
+            // browserstack.yml and uses this base project's `use` block as the
+            // template. iOS Safari works without further wiring because BS
+            // overrides browserName to webkit. Android Chrome on real devices
+            // requires `channel: 'chrome'` so Playwright hands the session off
+            // to the device's stock Chrome rather than trying to launch a
+            // bundled chromium binary that isn't there — without it BS returns
+            // `browserType.connect: Malformed endpoint`. We set channel only
+            // under BS so plain `npm run test:e2e` keeps using the bundled
+            // chromium and doesn't need a system Chrome install.
+            // See https://www.browserstack.com/docs/automate/playwright/playwright-android/nodejs.
+            use: {
+                browserName: 'chromium',
+                ...(RUNNING_ON_BS ? { channel: 'chrome' } : {}),
+            },
         },
     ],
 });

@@ -290,6 +290,37 @@ $settings['disabled_features'] = array(
     // SURVEY.controller_method_name
 );
 
+// Enable the form_v2 rendering engine (Phase 0+).
+// When true, admins can add the "Form" RunUnit type to a run. Existing Form
+// units continue to load and run regardless of this flag; only the "add Form"
+// affordance in the admin run editor is gated by it.
+$settings['form_v2_enabled'] = false;
+
+// Per-study wide-table dual-write for survey responses.
+// Historically formr writes every answer twice: once into the long-form
+// survey_items_display table, once into a per-study wide table named
+// survey_NN. This flag controls only the wide write — the long path is
+// always taken (it's the source of truth for form_v2's pivoted export
+// and the v1 API's /api/v1/runs/{name}/results endpoint).
+//
+// Leave on (default) until you've verified that downstream consumers
+// you care about have been migrated off the wide path. As of patch 065
+// the still-wide-dependent readers are:
+//   - UnitSession::getRunData (OpenCPU R overlay — tail(survey, 1))
+//   - SurveyStudy::getResultCount (admin survey page "begun/finished")
+//   - SurveyStudy::getAverageTimeItTakes
+//   - AdminRunController::backup (per-run TSV)
+// Form_v2 exports (admin CSV/XLSX) pivot from the long table regardless
+// and are not affected by this flag.
+$settings['form_v2_dual_write_results'] = true;
+
+// form_v2 offline-queue per-file blob cap (megabytes). Pages with file
+// uploads above this size are NOT queued offline — the participant gets a
+// "submission too large to queue offline" error and is asked to retry once
+// online. Default 10MB matches what the bundle hardcoded historically.
+// Raise for studies that routinely collect long-form audio/video.
+$settings['form_v2_offline_blob_max_mb'] = 10;
+
 // Brand
 $settings['brand'] = '<span>f</span>orm<span>{`r}</span>';
 $settings['brand_long'] = '<b>formr</b> survey framework';

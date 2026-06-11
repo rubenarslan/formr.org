@@ -19,13 +19,14 @@
 // verification of the captured-icon launch stays manual — see the
 // commit-message notes on that limitation.
 
-const { test, expect } = require('./helpers/test');
+const { test, expect, RUNNING_ON_BS } = require('./helpers/test');
+const { getPwaTestCode } = require('./helpers/pwa-test-code');
 
 // See pwa-manifest.spec.js for the e2e-pwa-h-v1 fixture rationale.
 // In short: we need a run whose bare URL renders the public/head
 // template (so vapidPublicKey is set and pwa-register.js loads).
 const RUN = process.env.PWA_TEST_RUN || 'e2e-pwa-h-v1';
-const CODE = process.env.PWA_TEST_CODE;
+const CODE = getPwaTestCode();
 
 // Override matchMedia so pwa-register.js sees `display-mode: standalone`
 // regardless of the actual browser context. We also flip
@@ -55,9 +56,20 @@ const STANDALONE_INIT = `
 `;
 
 test.describe('PWA recovery flows', () => {
-    test.skip(!CODE, 'PWA_TEST_CODE env var not set; skipping recovery suite');
+    test.skip(!CODE, 'PWA_TEST_CODE not bootstrapped; global-setup could not mint a code on this run.');
+
+    // Note for BS runs: helpers/test.js shares a single context across every
+    // test in the worker (BS iOS allows only ONE context per device session).
+    // That makes `context.clearCookies()` in this file unreliable — stale
+    // cookies from prior tests keep the server on the auto-enrollment branch
+    // instead of the cookie-self-heal / recovery-banner branches we want to
+    // observe. addInitScript also persists across tests in the worker,
+    // muddying the standalone-emulation gate. Tests that hinge on a clean
+    // jar are skipped under BS; local-Chromium with fresh-context-per-test
+    // verifies them.
 
     test('cookie self-heal redirects bare URL to ?code= when cookie identifies a participant in this run', async ({ page, context, baseURL }) => {
+        test.skip(RUNNING_ON_BS, 'BS shares one context per worker; the seeded cookie collides with prior tests.');
         // Establish the cookie via a tokenized visit first.
         await page.goto(`${baseURL}/${RUN}/?code=${CODE}`, { waitUntil: 'commit', timeout: 60000 });
 
@@ -75,6 +87,7 @@ test.describe('PWA recovery flows', () => {
     });
 
     test('recovery banner appears in standalone-emulated bare URL with no recoverable cookie', async ({ page, context, baseURL }) => {
+        test.skip(RUNNING_ON_BS, 'BS shares one context per worker; clearCookies() leaves session-recovery cookies.');
         await context.clearCookies();
         await page.addInitScript(STANDALONE_INIT);
 
@@ -126,6 +139,7 @@ test.describe('PWA recovery flows', () => {
     });
 
     test('recovery banner submission redirects with ?code=', async ({ page, context, baseURL }) => {
+        test.skip(RUNNING_ON_BS, 'BS shares one context per worker; recovery banner does not reliably reappear.');
         await context.clearCookies();
         await page.addInitScript(STANDALONE_INIT);
         await page.goto(`${baseURL}/${RUN}/`, { waitUntil: 'load', timeout: 60000 });

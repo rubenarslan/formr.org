@@ -274,8 +274,9 @@ class SpreadsheetRenderer {
 				`survey_items_display`.answered')
                 ->from('survey_items')
                 ->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-                ->where('(survey_items.study_id = :study_id) AND 
-				     (survey_items_display.saved IS null) AND 
+                ->where('(survey_items.study_id = :study_id) AND
+				     (survey_items.deleted IS NULL) AND
+				     (survey_items_display.saved IS null) AND
 				     (survey_items_display.hidden IS NULL OR survey_items_display.hidden = 0)')
                 ->order('`survey_items_display`.`display_order`', 'asc')
                 ->order('survey_items.`order`', 'asc') // only needed for transfer
@@ -352,6 +353,22 @@ class SpreadsheetRenderer {
      * @param Item[] $items
      * @return array
      */
+    /**
+     * Whether an item whose server-side showif evaluated to NA (its dependency
+     * isn't answered yet) can be resolved client-side at render time. v1 has no
+     * client evaluator, so the default is false — the historic
+     * $definitelyShownItems heuristic still decides. form_v2 overrides this for
+     * items carrying a transpiled js_showif so they're always rendered (initially
+     * .hidden) and revealed reactively by the Alpine x-showif directive, instead
+     * of being pruned to hidden=1 and dropped for good.
+     *
+     * @param Item $item
+     * @return bool
+     */
+    protected function naShowifIsClientResolvable($item) {
+        return false;
+    }
+
     protected function processDynamicValuesAndShowIfs(&$items) {
         // In this loop we gather all show-ifs and dynamic-values that need processing and all values.
         $code = array();
@@ -368,9 +385,14 @@ class SpreadsheetRenderer {
             if ($showif) {
                 $siname = "si.{$name}";
                 $showif = str_replace("\n", "\n\t", $showif);
-                $code[$siname] = "{$siname} = (function(){
+                // tryCatch: a single erroring showif (object not found, if(NA)
+                // inside author code, …) must degrade to NA — the normal
+                // unresolved-visibility path — not fail the whole batch, which
+                // marked every item invalid and showed raw R error banners to
+                // the participant.
+                $code[$siname] = "{$siname} = tryCatch((function(){
 	{$showif}
-})()";
+})(), error = function(.e) NA)";
             }
 
             // 2. Check item's value
@@ -380,11 +402,16 @@ class SpreadsheetRenderer {
 {$val}
 })()";
                 if ($showif) {
-                    $code[$name] = "if({$siname}) {
+                    // if(NA) is an R error, so gate on a definite truthy result:
+                    // an unresolved showif skips the value (same as FALSE).
+                    $code[$name] = "if (isTRUE(as.logical(({$siname})[1]))) {
 	" . $code[$name] . "
 }";
                 }
                 // If item is to be shown (rendered), return evaluated dynamic value, else keep dynamic value as string
+                $code[$name] = "tryCatch({
+" . $code[$name] . "
+}, error = function(.e) NA)";
             }
         }
 
@@ -413,9 +440,29 @@ class SpreadsheetRenderer {
                 $isVisible = $item->setVisibility(array_val($results, $siname));
                 // three possible states: 1 = hidden, 0 = shown, null = depends on JS on the page, render anyway
                 if ($isVisible === null) {
-                    // we only render it, if there are some items before it on which its display could depend
-                    // otherwise it's hidden for good
-                    $hidden = $definitelyShownItems > 0 ? null : 1;
+                    // NA — the showif's dependency isn't answered yet (or the
+                    // server can't resolve it). v1 prunes it to hidden=1 unless
+                    // some items precede it. form_v2 overrides naShowifIsClient-
+                    // Resolvable() so an item with a transpiled js_showif is always
+                    // rendered (hidden=null) and revealed reactively by Alpine —
+                    // fixing "gods/kittens showif shows up too late" (the item was
+                    // pruned and only reappeared after a server round-trip) and
+                    // keeping conditional/block guards in the DOM so the client owns
+                    // their visibility. Server-only-variable showifs (e.g. a random
+                    // `ran_group == 1`) are NOT NA here — the server resolves them
+                    // to 0/1 above — so they still hide/show correctly.
+                    if ($this->naShowifIsClientResolvable($item)) {
+                        $hidden = null;
+                        // ...but render it HIDDEN by default (CSS .hidden + disabled
+                        // input). v1's client defaults an unevaluable showif to
+                        // hidden (survey.js _hide=true); v2 must too, so an NA item
+                        // doesn't flash visible / block before Alpine evaluates it
+                        // (the iOS-Safari "page can't be submitted" symptom). Alpine
+                        // reveals it the instant its showif is true.
+                        $item->hideByDefaultPendingClient();
+                    } else {
+                        $hidden = $definitelyShownItems > 0 ? null : 1;
+                    }
                 } else {
                     $hidden = (int) !$isVisible;
                 }
@@ -567,6 +614,7 @@ class SpreadsheetRenderer {
                 ->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
                 ->where('survey_items_display.session_id IS NOT NULL')
                 ->where('survey_items.study_id = :study_id')
+                ->where('survey_items.deleted IS NULL')   // soft-deleted items don't count toward progress (patch 069)
                 ->where("survey_items.type NOT IN ('submit')")
                 ->where("`survey_items_display`.saved IS NOT NULL")
                 ->bindParams(array('session_id' => $this->unitSession->id, 'study_id' => $study->id))

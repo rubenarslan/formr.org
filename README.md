@@ -19,6 +19,8 @@ Surveys are simple or complicated forms and surveys used to gather information i
 
 There is a wide variety of items to choose from: text and number inputs, Likert scales, sliders, geolocation, date pickers, dropdowns and many more. They are geared towards power users, so instead of dragging and dropping elements till your fingers bleed, you upload item spreadsheets that can easily be re-used, combined and shared. The format is loosely based on the [XLSform standard](https://xlsform.org/).
 
+A new "Form" RunUnit (form_v2) renders the same spreadsheets as a single-page AJAX form with reactive `showif`, an offline queue, and PWA support — opt in per-study via `rendering_mode='v2'`. See [`documentation/form_v2.md`](documentation/form_v2.md) for the admin-facing guide and [`plan_form_v2.md`](plan_form_v2.md) for the engineering plan.
+
 ## Runs
 #### control your study like a boombox
 Runs enable you to link surveys and chain them together. Using a number of boombox-themed control elements to control the participant's way through your study, you can design studies of limitless complexity. You can

@@ -22,7 +22,12 @@ class ItemFactory {
             if (isset($this->choice_lists[$item['choice_list']])) { // if this choice_list exists
                 $item['choices'] = $this->choice_lists[$item['choice_list']]; // take it
                 $this->used_choice_lists[] = $item['choice_list']; // check it as used
-            } else {
+            } elseif ($item['choice_list'] !== '*') {
+                // '*' is the wildcard sentinel for items that supply their own
+                // choices (e.g. timezone → timezone_identifiers_list()). It
+                // legitimately has no entry in the choices sheet, so don't treat
+                // it as a missing list — this is what lets a JSON survey export
+                // (which stores choice_list="*") round-trip back in.
                 $item['val_errors'] = array(__("Choice list %s does not exist, but is specified for item %s", $item['choice_list'], $item['name']));
             }
         }
@@ -71,6 +76,14 @@ class Item {
     public $class = null;
     public $showif = null;
     public $js_showif = null;
+    // Cached v1 transpile of `showif`, populated at import time and persisted
+    // in the survey_items.showif_js column (patch 063). When set, the regex
+    // transpile in setMoreOptions is skipped — both for performance (~12 regex
+    // passes saved per item per request) and so admin tooling can reason about
+    // a stable transpile output. Property name differs from the legacy
+    // js_showif on purpose: db column = property name, legacy field stays for
+    // backwards compat.
+    public $showif_js = null;
     public $value = null; // syntax for sticky value
     public $value_validated = null;
     public $order = null;
@@ -100,6 +113,10 @@ class Item {
     protected $append = null;
     protected $type_options_array = array();
     protected $hasChoices = false;
+    // Choices may be provided (e.g. to override a button label) but are not
+    // required — exempts the item from both directions of the choices
+    // validation. Used by the PWA prompt items.
+    protected $choicesOptional = false;
     protected $classes_controls = array('controls');
     protected $classes_wrapper = array('form-group', 'form-row');
     protected $classes_input = array();
@@ -107,6 +124,15 @@ class Item {
     protected $presetValues = array();
     protected $probably_render = null;
     protected $js_hidden = false;
+    // a11y: when an item is a group of related controls sharing one stem
+    // (radio / checkbox sets), choice subclasses set this to 'radiogroup' or
+    // 'group'. render_inner() then puts the role + aria-labelledby (pointing at
+    // the stem label's id) on the .controls wrapper so a screen reader announces
+    // the group stem on entry. Literal <fieldset>/<legend> would fight the
+    // BS3-derived flex/grid CSS and the button-group/showif JS that target the
+    // current .control-label/.controls structure, so we use ARIA grouping
+    // instead — same SR outcome, no layout/JS breakage.
+    protected $group_role = null;
 
     /**
      * Minimized attributes
@@ -219,6 +245,18 @@ class Item {
         }
 
         if ($this->showif) {
+            // Prefer the import-time cached transpile (survey_items.showif_js,
+            // patch 063) when present — saves the dozen-or-so regex passes
+            // below, and gives admin tooling a stable output to introspect.
+            // Falls back to live transpile when the column is null (legacy
+            // items pre-patch).
+            if ($this->showif_js !== null && $this->showif_js !== '') {
+                $this->js_showif = $this->showif_js;
+                if (strstr($this->showif, "//js_only") !== false) {
+                    $this->setVisibility(array(null));
+                }
+                return;
+            }
             // primitive R to JS translation
             $this->js_showif = preg_replace("/current\(\s*(\w+)\s*\)/", "$1", $this->showif); // remove current function
             $this->js_showif = preg_replace("/tail\(\s*(\w+)\s*, 1\)/", "$1", $this->js_showif); // remove current function, JS evaluation is always in session			
@@ -310,9 +348,9 @@ class Item {
     }
 
     public function validate() {
-        if (!$this->hasChoices && ($this->choice_list !== null || count($this->choices))) {
+        if (!$this->hasChoices && !$this->choicesOptional && ($this->choice_list !== null || count($this->choices))) {
             $this->val_errors[] = "'{$this->name}' You defined choices for this item, even though this type doesn't have choices.";
-        } elseif ($this->hasChoices && ($this->choice_list === null && count($this->choices) === 0) && $this->type !== "select_or_add_multiple") {
+        } elseif ($this->hasChoices && !$this->choicesOptional && ($this->choice_list === null && count($this->choices) === 0) && $this->type !== "select_or_add_multiple") {
             $this->val_errors[] = "'{$this->name}' You forgot to define choices for this item.";
         } elseif ($this->hasChoices && count(array_unique($this->choices)) < count($this->choices)) {
             $dups = implode(", ", array_diff_assoc($this->choices, array_unique($this->choices)));
@@ -353,7 +391,7 @@ class Item {
     }
 
     protected function render_label() {
-        $template = '<label class="%{class}" for="item%{id}">%{error} %{text} </label>';
+        $template = '<label class="%{class}" id="item%{id}-label" for="item%{id}">%{error} %{text} </label>';
 
         return Template::replace($template, array(
                     'class' => implode(' ', $this->classes_label),
@@ -384,7 +422,7 @@ class Item {
     protected function render_inner() {
         $template = $this->render_label();
         $template .= '
-			<div class="%{classes_controls}">
+			<div class="%{classes_controls}" %{group_attrs}>
 				<div class="controls-inner">
 					%{input_group_open}
 						%{prepended} %{input} %{appended}
@@ -394,8 +432,13 @@ class Item {
 		';
 
         $inputgroup = isset($this->prepend) || isset($this->append);
+        // a11y group semantics for radio/checkbox sets (see $group_role).
+        $group_attrs = $this->group_role
+            ? sprintf('role="%s" aria-labelledby="item%d-label"', $this->group_role, (int) $this->id)
+            : '';
         return Template::replace($template, array(
                     'classes_controls' => implode(' ', $this->classes_controls),
+                    'group_attrs' => $group_attrs,
                     'input_group_open' => $inputgroup ? '<div class="input-group">' : '',
                     'input_group_close' => $inputgroup ? '</div>' : '',
                     'prepended' => $this->render_prepended(),
@@ -468,6 +511,24 @@ class Item {
             $this->input_attributes['disabled'] = true; ## so it isn't submitted or validated
             $this->hidden = true; ## so it isn't submitted or validated
         }
+    }
+
+    /**
+     * Render the item visually hidden (CSS `.hidden` + disabled input) by DEFAULT
+     * WITHOUT marking it server-side hidden (`$this->hidden` stays as-is, normally
+     * null). form_v2 uses this for an NA showif (the dependency isn't answered yet,
+     * or it references a server-only var): the item is hidden until the client
+     * (Alpine x-showif) reveals it if the showif evaluates true — matching v1,
+     * where an unevaluable showif defaults to hidden (survey.js `_hide = true`).
+     * Keeping `$this->hidden` null leaves it in the unanswered set so the client
+     * owns its visibility; the disabled input keeps it out of the POST until then.
+     */
+    public function hideByDefaultPendingClient() {
+        if (!in_array('hidden', $this->classes_wrapper, true)) {
+            $this->classes_wrapper[] = 'hidden';
+        }
+        $this->data_showif = true;
+        $this->input_attributes['disabled'] = true;
     }
 
     public function alwaysInvalid() {

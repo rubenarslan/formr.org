@@ -1,0 +1,68 @@
+// Save indicator — the small pill that tells the participant
+// their answers landed. Surfaces existing /form-page-submit +
+// /form-sync state; doesn't change any flow. aria-live="polite"
+// so screen readers get a calm announcement.
+//
+// States are driven from JS via the `data-state` attribute:
+//   data-state="saving"  — POST in flight ("Saving…")
+//   data-state="saved"   — 200 ok, no errors ("Saved")
+//   data-state="offline" — queue captured the request ("Saved offline")
+//   data-state="synced"  — drain succeeded ("Synced")
+
+.fmr-form-v2 .fmr-save-pill {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 200;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(40, 167, 69, 0.95);
+    color: #fff;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 180ms ease-out, transform 180ms ease-out, background 180ms ease-out;
+    pointer-events: none;
+
+    &.is-visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    &[data-state="saving"] {
+        background: rgba(108, 117, 125, 0.95);
+    }
+    &[data-state="saved"],
+    &[data-state="synced"] {
+        background: rgba(40, 167, 69, 0.95);
+    }
+    &[data-state="offline"] {
+        background: rgba(255, 153, 0, 0.95);
+    }
+
+    .fmr-save-pill-icon::before {
+        font-family: 'Font Awesome 6 Free', 'Font Awesome 5 Free', sans-serif;
+        font-weight: 900;
+        margin-right: 0.1rem;
+    }
+    &[data-state="saving"] .fmr-save-pill-icon::before { content: '\f110'; /* fa-spinner */ animation: fmrSavePillSpin 0.8s linear infinite; display: inline-block; }
+    &[data-state="saved"] .fmr-save-pill-icon::before,
+    &[data-state="synced"] .fmr-save-pill-icon::before { content: '\f00c'; /* fa-check */ }
+    &[data-state="offline"] .fmr-save-pill-icon::before { content: '\f1eb'; /* fa-wifi */ }
+
+    @media (prefers-reduced-motion: reduce) {
+        transition: opacity 80ms linear;
+        transform: none;
+        &.is-visible { transform: none; }
+        .fmr-save-pill-icon::before { animation: none !important; }
+    }
+}
+
+@keyframes fmrSavePillSpin {
+    to { transform: rotate(360deg); }
+}

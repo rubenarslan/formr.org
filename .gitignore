@@ -59,7 +59,9 @@ repomix-output-formr.xml
 
 playwright-report/
 test-results/
+tests/e2e/artifacts/
 tests/e2e/setup/admin-state.json
+tests/e2e/setup/pwa-test-code.txt
 
 # Run exports and other prod artefacts that get dropped into tests/e2e/
 # for ad-hoc analysis (admin Run-export JSONs, sanitised DB dumps, etc.).

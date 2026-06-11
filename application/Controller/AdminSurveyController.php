@@ -60,6 +60,30 @@ class AdminSurveyController extends AdminController {
             
             
             if ($this->validateUploadedFile($file)) {
+                // JSON survey export → import via createFromData (the same path
+                // run-structure imports use). Only reached for new surveys; the
+                // edit/re-upload path stays spreadsheet-only.
+                if (strtolower(pathinfo($file['name'], PATHINFO_EXTENSION)) === 'json') {
+                    $data = json_decode(file_get_contents($file['tmp_name']));
+                    if (!is_object($data) || empty($data->name) || empty($data->items)) {
+                        alert('<strong>Error:</strong> That is not a valid survey JSON export (it must have "name" and "items").', 'alert-danger');
+                        delete_tmp_file($file);
+                        return $this->request->redirect('admin/survey');
+                    }
+                    if (SurveyStudy::createFromData($data, array('user_id' => $this->user->id))) {
+                        alert('<strong>Success!</strong> New survey created from JSON!', 'alert-success');
+                        $created = SurveyStudy::loadByUserAndName($this->user, $data->name);
+                        $redirect = ($created && $created->valid)
+                            ? admin_study_url($created->name, 'show_item_table')
+                            : 'admin/survey';
+                    } else {
+                        alert('<strong>Bugger!</strong> The survey JSON could not be imported. See the messages above.', 'alert-danger');
+                        $redirect = 'admin/survey';
+                    }
+                    delete_tmp_file($file);
+                    return $this->request->redirect($redirect);
+                }
+
                 $study = new SurveyStudy(null);
                 if ($study->createFromFile($file)) {
                     // upload items
@@ -93,13 +117,19 @@ class AdminSurveyController extends AdminController {
             return false;
         }
 
-        // Define the list of allowed extensions
+        // Define the list of allowed extensions. A .json survey export is
+        // accepted only when adding a NEW survey (createFromData); the edit /
+        // re-upload-items path runs the spreadsheet reader, which can't parse it.
         $allowedExtensions = array('xls', 'xlsx', 'ods', 'xml', 'txt', 'csv');
+        if (!$editing) {
+            $allowedExtensions[] = 'json';
+        }
         // Get the file extension
         $fileExtension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         // Check if the extension is in the allowed list
         if(!in_array($fileExtension, $allowedExtensions)){
-            alert("<strong>Error:</strong> The format must be one of .xls, .xlsx, .ods, .xml, .txt, or .csv.", 'alert-danger');
+            $formats = $editing ? '.xls, .xlsx, .ods, .xml, .txt, or .csv' : '.xls, .xlsx, .ods, .xml, .txt, .csv, or .json';
+            alert("<strong>Error:</strong> The format must be one of {$formats}.", 'alert-danger');
             return false;
         }
         
@@ -542,10 +572,18 @@ class AdminSurveyController extends AdminController {
             'expire_invitation_after', 'expire_invitation_grace',
             'enable_instant_validation', 'hide_results', 'use_paging',
             'unlinked', 'google_file_id',
+            // form_v2 per-study flags. Without these in the allowlist the
+            // array_intersect_key below would strip them before the v2
+            // handling block runs and the saves would silently rewrite
+            // the columns to their false/null defaults.
+            'offline_mode', 'allow_previous', 'layout',
         ];
         $settings = array_intersect_key($settings, array_flip($allowed));
-        array_walk($settings, function (&$value, $key) {
-            if ($key !== 'google_file_id') {
+        // String-typed columns must opt out of the int cast — google_file_id
+        // is a Drive ID; layout is an ENUM('default','solo').
+        $stringCols = ['google_file_id', 'layout'];
+        array_walk($settings, function (&$value, $key) use ($stringCols) {
+            if (!in_array($key, $stringCols, true)) {
                 $value = (int) $value;
             }
         });
@@ -568,6 +606,18 @@ class AdminSurveyController extends AdminController {
         $settings['hide_results'] = (int) (isset($settings['hide_results']) && $settings['hide_results'] === 1);
         $settings['use_paging'] = (int) (isset($settings['use_paging']) && $settings['use_paging'] === 1);
         $settings['unlinked'] = (int) (isset($settings['unlinked']) && $settings['unlinked'] === 1);
+        // form_v2 per-study flags — accept only when the study is on the v2
+        // pipeline, so checkboxes on a v1 study can't silently mutate data the
+        // v1 renderer doesn't read. offline_mode defaults to 1 (opt-out),
+        // allow_previous defaults to 0 (opt-in).
+        if ($this->study->rendering_mode === 'v2') {
+            $settings['offline_mode'] = (int) (isset($settings['offline_mode']) && $settings['offline_mode'] === 1);
+            $settings['allow_previous'] = (int) (isset($settings['allow_previous']) && $settings['allow_previous'] === 1);
+            $layoutInput = $settings['layout'] ?? 'default';
+            $settings['layout'] = in_array($layoutInput, ['default', 'solo'], true) ? $layoutInput : 'default';
+        } else {
+            unset($settings['offline_mode'], $settings['allow_previous'], $settings['layout']);
+        }
 
         // user can't revert unlinking
         if ($settings['unlinked'] < $this->study->unlinked) {
@@ -599,6 +649,25 @@ class AdminSurveyController extends AdminController {
         $this->study->update($settings);
 
         alert('Survey settings updated', 'alert-success', true);
+    }
+
+    /**
+     * form_v2 compatibility scan: classify each showif/value expression on the
+     * current study as empty / r-wrapped / JS-OK / needs-r()-wrap. Rendered on
+     * the survey settings page (survey/index) via the "Run v2 compatibility
+     * scan" button — surfaced only for v2 studies. Reuses FormV2CompatScanner
+     * so the admin view and the CLI (bin/form_v2_compat_scan.php) agree.
+     */
+    private function formV2CompatScanAction() {
+        if (!$this->study || !$this->study->valid) {
+            formr_error(404, 'Not Found', 'Study not found');
+        }
+        $report = FormV2CompatScanner::scan($this->study->id);
+        $this->setView('survey/form_v2_compat_scan', [
+            'study' => $this->study,
+            'report' => $report,
+        ]);
+        return $this->sendResponse();
     }
 
     private function setStudy($name) {

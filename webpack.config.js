@@ -1,6 +1,7 @@
 const path = require('path');
 const webpack = require('webpack');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = (env, argv) => {
     const isWatchMode = argv.watch || false;
@@ -14,6 +15,7 @@ module.exports = (env, argv) => {
             material: './webroot/assets/site/js/material.js',
             frontend: './webroot/assets/site/js/main.js',
             admin: './webroot/assets/admin/js/main.js',
+            form: './webroot/assets/form/js/main.js',
         },
         output: {
             filename: 'js/[name].bundle.js',
@@ -61,9 +63,37 @@ module.exports = (env, argv) => {
                       }
                     }
                   },
+                // CSS pipeline. Default is style-loader (CSS injected at
+                // runtime via <style> tags from the JS bundle). The form
+                // bundle gets MiniCssExtractPlugin instead so the CSS lands
+                // in a separate file and form_index.php can <link> it in
+                // <head>, killing the flash-of-unstyled-content on iOS
+                // Safari that style-loader caused. Other bundles keep
+                // style-loader so their currently-working flow doesn't
+                // change.
                 {
                     test: /\.css$/,
-                    use: ['style-loader', 'css-loader'],
+                    oneOf: [
+                        {
+                            issuer: /[\\/]webroot[\\/]assets[\\/]form[\\/]/,
+                            use: [MiniCssExtractPlugin.loader, 'css-loader'],
+                        },
+                        {
+                            use: ['style-loader', 'css-loader'],
+                        },
+                    ],
+                },
+                {
+                    test: /\.s[ac]ss$/,
+                    oneOf: [
+                        {
+                            issuer: /[\\/]webroot[\\/]assets[\\/]form[\\/]/,
+                            use: [MiniCssExtractPlugin.loader, 'css-loader', 'sass-loader'],
+                        },
+                        {
+                            use: ['style-loader', 'css-loader', 'sass-loader'],
+                        },
+                    ],
                 },
                 {
                     test: /add-to-homescreen.*\.css$/,
@@ -94,6 +124,13 @@ module.exports = (env, argv) => {
             ],
         },
         plugins: [
+            // CSS extraction for the form bundle (see CSS rule above).
+            // filename uses [name] which becomes 'form' from the entry key,
+            // landing the file at css/form.bundle.css next to the JS.
+            new MiniCssExtractPlugin({
+                filename: 'css/[name].bundle.css',
+            }),
+
             // Jquery and Bootstrap
             new webpack.ProvidePlugin({
                 $: 'jquery',
@@ -134,6 +171,28 @@ module.exports = (env, argv) => {
                         from: path.resolve(__dirname, 'node_modules/add-to-homescreen/dist/assets/img/'),
                         to: path.resolve(__dirname, outputDir + '/assets/img/'),
                         info: { minimized: false },
+                    },
+                    // Altcha (bot_check) memory-hard Argon2id Web Worker. Shipped
+                    // as a self-contained classic worker (inline WASM, no network)
+                    // and loaded by webroot/assets/form/js/items/bot-check.js as a
+                    // same-origin Worker. Copied verbatim rather than bundled
+                    // because the target is es5 and worker-chunk publicPath
+                    // resolution across build/ vs dev-build/ is fragile; a fixed
+                    // path next to the form bundle is robust and self-hosted.
+                    {
+                        from: path.resolve(__dirname, 'node_modules/altcha/dist/workers/argon2id.js'),
+                        to: path.resolve(__dirname, outputDir + '/js/altcha/argon2id.js'),
+                        info: { minimized: true },
+                    },
+                    // Altcha widget — shipped as its prebuilt standalone module
+                    // (dist/external) and loaded via a <script type=module> by
+                    // bot-check.js, NOT webpack-bundled: its ESM build's plugin
+                    // loader uses a dynamic require() webpack can't resolve. Self-
+                    // hosted next to the form bundle; no CDN, no third party.
+                    {
+                        from: path.resolve(__dirname, 'node_modules/altcha/dist/external/altcha.min.js'),
+                        to: path.resolve(__dirname, outputDir + '/js/altcha/altcha.min.js'),
+                        info: { minimized: true },
                     },
                 ],
             }),
