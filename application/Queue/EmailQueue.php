@@ -164,6 +164,8 @@ class EmailQueue extends Queue {
             ['id' => $email_id, 'status_code' => $status_code]
         );
         
+        $result_log = truncate_result_log($result_log);
+
         if($session_id) {
             $this->db->exec(
                 'UPDATE `survey_unit_sessions` SET `result` = :result, `result_log` = :resultlog WHERE `id` = :session_id',

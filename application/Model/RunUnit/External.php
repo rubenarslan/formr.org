@@ -15,7 +15,7 @@ class External extends RunUnit {
      * An array of unit's exportable attributes
      * @var array
      */
-    public $export_attribs = array('type', 'description', 'position', 'special', 'address', 'api_end');
+    public $export_attribs = array('type', 'description', 'position', 'special', 'address', 'api_end', 'expire_after');
 
     public function __construct(Run $run, array $props = []) {
         parent::__construct($run, $props);

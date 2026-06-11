@@ -685,14 +685,15 @@ class AdminRunController extends AdminController
 
     private function createRunUnitAction()
     {
-        $redirect = $this->request->redirect ? admin_run_url($this->run->name, $this->request->redirect) : admin_run_url($this->run->name);
+        $redirectTarget = $this->request->redirect ? str_replace(':::', '#', $this->request->redirect) : '';
+        $redirect = $redirectTarget ? admin_run_url($this->run->name, $redirectTarget) : admin_run_url($this->run->name);
         $unit = $this->createRunUnit();
         if ($unit->valid) {
             alert('Run unit created', 'alert-success');
         } else {
             alert('An unexpected error occured. Unit could not be created', 'alert-danger');
         }
-        $this->request->redirect(str_replace(':::', '#', $redirect));
+        $this->request->redirect($redirect);
     }
 
     private function deleteRunUnitAction()
@@ -701,7 +702,8 @@ class AdminRunController extends AdminController
         if (!$id) {
             throw new Exception('Missing Parameter');
         }
-        $redirect = $this->request->redirect ? admin_run_url($this->run->name, $this->request->redirect) : admin_run_url($this->run->name);
+        $redirectTarget = $this->request->redirect ? str_replace(':::', '#', $this->request->redirect) : '';
+        $redirect = $redirectTarget ? admin_run_url($this->run->name, $redirectTarget) : admin_run_url($this->run->name);
         $unit = $this->createRunUnit($id);
         if ($unit->valid) {
             $unit->run_unit_id = $id;
@@ -710,7 +712,7 @@ class AdminRunController extends AdminController
         } else {
             alert('An unexpected error occured. Unit could not be deleted', 'alert-danger');
         }
-        $this->request->redirect(str_replace(':::', '#', $redirect));
+        $this->request->redirect($redirect);
     }
 
     private function panicAction()

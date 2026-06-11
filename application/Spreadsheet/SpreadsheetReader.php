@@ -559,6 +559,13 @@ class SpreadsheetReader
         $choiceNames = array();
         $inheritedListNames = array();
 
+        // Iterate only up to the last column of interest. The end column must be
+        // computed once, outside the row loop: getHighestDataColumn() scans the
+        // worksheet's entire cell index on every call, so calling it per row made
+        // reading large/bloated sheets quadratic (observed as 360s timeouts in
+        // PhpSpreadsheet's Cells::getHighestRowAndColumn on upload_items).
+        $endColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(max(array_keys($columns)));
+
         foreach ($worksheet->getRowIterator(1, $rowCount) as $row) {
             /* @var $row \PhpOffice\PhpSpreadsheet\Worksheet\Row */
             $rowNumber = $row->getRowIndex();
@@ -570,7 +577,7 @@ class SpreadsheetReader
                 break;
 
             $data[$rowNumber] = array();
-            $cellIterator = $row->getCellIterator('A', $worksheet->getHighestDataColumn());
+            $cellIterator = $row->getCellIterator('A', $endColumn);
             $cellIterator->setIterateOnlyExistingCells(false);
             foreach ($cellIterator as $cell) {
                 /* @var $cell \PhpOffice\PhpSpreadsheet\Cell\Cell */
@@ -714,6 +721,13 @@ class SpreadsheetReader
 
         $data = $skippedRows = $emptyRows = $variableNames = array();
 
+        // Iterate only up to the last column of interest (≤ the 30-column cap),
+        // computed once outside the row loop: getHighestDataColumn() scans the
+        // worksheet's entire cell index on every call, so calling it per row made
+        // reading large/bloated sheets quadratic (observed as 360s timeouts in
+        // PhpSpreadsheet's Cells::getHighestRowAndColumn on upload_items).
+        $endColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($columns ? max(array_keys($columns)) : 1);
+
         foreach ($worksheet->getRowIterator(1, $rowCount) as $row) {
             /* @var $row \PhpOffice\PhpSpreadsheet\Worksheet\Row */
             $rowNumber = $row->getRowIndex();
@@ -725,7 +739,7 @@ class SpreadsheetReader
                 break;
 
             $data[$rowNumber] = array();
-            $cellIterator = $row->getCellIterator('A', $worksheet->getHighestDataColumn());
+            $cellIterator = $row->getCellIterator('A', $endColumn);
             $cellIterator->setIterateOnlyExistingCells(false);
 
             foreach ($cellIterator as $cell) {

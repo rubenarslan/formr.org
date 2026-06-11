@@ -82,19 +82,46 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Spreadsheet import: the four PWA prompt items (`add_to_home_screen`, `push_notification`, `request_cookie`, `request_phone`) treat choices as optional (`Item::$choicesOptional`) — they only ever used choices as a button-label override, but validation hard-required (or hard-rejected, for `request_phone`) them, so fixture sheets without choices imported as item-less husk studies.
 
 ### Schema
-- SQL Patch 057: adds `rendering_mode` ENUM('v1','v2') NOT NULL DEFAULT 'v1' column to `survey_studies`.
-- SQL Patch 058: adds `form_study_id` INT UNSIGNED NULL column to `survey_units` so Form units can reference a SurveyStudy without sharing its id.
-- SQL Patch 059: adds `survey_r_calls` table — per-study allowlist of server-evaluated R expressions, UNIQUE on `(study_id, expr_hash, slot, item_id)` (one row per item even for identical expressions — `/form-render-page` joins on `item_id`), id recovered via `LAST_INSERT_ID(id)` on duplicate.
-- SQL Patch 060: adds `survey_form_submissions` table — offline-queue dedupe ledger (`uuid` unique, FK CASCADE to `unit_session_id`, `client_ts`, `applied_at`).
-- SQL Patch 061: adds `offline_mode` TINYINT(1) (default 1) and `allow_previous` TINYINT(1) (default 0) columns to `survey_studies` — per-study opt-out/opt-in flags for v2 behaviours.
-- SQL Patch 062: adds `survey_r_call_results` table — OpenCPU result cache with `created_at` index. Rows expire at read time (30s showif / 5min value) plus a bounded write-time eviction of rows older than a day.
-- SQL Patch 063: adds `survey_items.showif_js` — admin-authored JS override for the transpiled showif.
-- SQL Patch 064: scopes `survey_r_call_results` to the unit session — adds `unit_session_id` (INT(10) UNSIGNED, FK CASCADE to `survey_unit_sessions`) to the cache key so participants never see each other's cached values; truncates the cache. Guarded (`IF [NOT] EXISTS`) so hosts that applied the pre-rebase phantom patch 054 re-run cleanly.
-- SQL Patch 065: adds `survey_unit_sessions.study_iteration` (per-study participant sequence; allocated via `survey_studies.last_iteration` counter). One-time backfill via `bin/backfill_study_iteration.php` — must be run manually after the migration.
-- SQL Patch 066: adds `survey_studies.layout` ENUM('default','solo') — per-study v2 layout mode.
-- SQL Patch 067: adds `survey_studies.option_keys` — **dormant**: the solo letter-key badges feature was removed end-to-end before release; the column ships unread (kept because branch-tracking hosts already applied it).
-- SQL Patch 068: adds `survey_unit_sessions.layout` — paradata stamp of the layout mode each response was collected under.
-- SQL Patch 069: adds `survey_items.deleted` — soft-delete for items removed on spreadsheet re-upload (revived if a later upload restores the name; both renderers filter `deleted IS NULL`).
+- SQL Patch 060: adds `rendering_mode` ENUM('v1','v2') NOT NULL DEFAULT 'v1' column to `survey_studies`.
+- SQL Patch 061: adds `form_study_id` INT UNSIGNED NULL column to `survey_units` so Form units can reference a SurveyStudy without sharing its id.
+- SQL Patch 062: adds `survey_r_calls` table — per-study allowlist of server-evaluated R expressions, UNIQUE on `(study_id, expr_hash, slot, item_id)` (one row per item even for identical expressions — `/form-render-page` joins on `item_id`), id recovered via `LAST_INSERT_ID(id)` on duplicate.
+- SQL Patch 063: adds `survey_form_submissions` table — offline-queue dedupe ledger (`uuid` unique, FK CASCADE to `unit_session_id`, `client_ts`, `applied_at`).
+- SQL Patch 064: adds `offline_mode` TINYINT(1) (default 1) and `allow_previous` TINYINT(1) (default 0) columns to `survey_studies` — per-study opt-out/opt-in flags for v2 behaviours.
+- SQL Patch 065: adds `survey_r_call_results` table — OpenCPU result cache with `created_at` index. Rows expire at read time (30s showif / 5min value) plus a bounded write-time eviction of rows older than a day.
+- SQL Patch 066: adds `survey_items.showif_js` — admin-authored JS override for the transpiled showif.
+- SQL Patch 067: scopes `survey_r_call_results` to the unit session — adds `unit_session_id` (INT(10) UNSIGNED, FK CASCADE to `survey_unit_sessions`) to the cache key so participants never see each other's cached values; truncates the cache. Guarded (`IF [NOT] EXISTS`) so hosts that applied the pre-rebase phantom patch 054 re-run cleanly.
+- SQL Patch 068: adds `survey_unit_sessions.study_iteration` (per-study participant sequence; allocated via `survey_studies.last_iteration` counter). One-time backfill via `bin/backfill_study_iteration.php` — must be run manually after the migration.
+- SQL Patch 069: adds `survey_studies.layout` ENUM('default','solo') — per-study v2 layout mode.
+- SQL Patch 070: adds `survey_studies.option_keys` — **dormant**: the solo letter-key badges feature was removed end-to-end before release; the column ships unread (kept because branch-tracking hosts already applied it).
+- SQL Patch 071: adds `survey_unit_sessions.layout` — paradata stamp of the layout mode each response was collected under.
+- SQL Patch 072: adds `survey_items.deleted` — soft-delete for items removed on spreadsheet re-upload (revived if a later upload restores the name; both renderers filter `deleted IS NULL`).
+
+## [v1.1.0] - 11.06.2026
+
+### Added
+- **Run-level custom R functions** (`custom_r`, settings → "R Functions" tab). Stored like `custom_css`/`custom_js`, injected after `library(formr)` into every OpenCPU evaluation and knit context (showif, value, feedback, `relative_to`, branch conditions, external URLs, email bodies, overview scripts) via a single `eval(parse(text = …))` statement, so syntax errors surface as clear runtime errors and Rmd chunks can't be broken by the injected code. Exposed through the v1 API (`custom_r` read/update) and run export/import.
+- **Run-level secrets** (settings → "R Secrets" tab). Encrypted at rest via Halite (`survey_run_secrets`), available in R as `.formr$secret_<name>`, and injected **only** when that literal reference appears in the unit's R code or the run's custom R functions. The admin UI is write-only: a stored value is never sent back to the browser — it can only be replaced or deleted. Names are restricted to `[A-Za-z0-9_]` server- and client-side. Run export carries secret *names* only; import recreates them as empty placeholders to be re-entered.
+- **Secret redaction** in OpenCPU debug output, error notifications, result logs, and `opencpu.log`. Secret values of 6+ characters are replaced with `[SECRET REDACTED]`. Best-effort by design: transformed occurrences (e.g. JSON-escaped non-ASCII) can evade a literal match, and the OpenCPU session itself still receives the plaintext — the deployment-level denypaths on `/console`/`/source` remain the wire-level guard.
+- **R syntax validation** for custom R code ("Save & Test R Syntax"): runs `base::parse()` on OpenCPU (parse only — nothing is executed) and reports errors inline, with a "Copy for LLM" export of code + error.
+- **"Open in R Fiddle" links in the OpenCPU debugger.** The R Markdown / R Code panels now link to an in-browser webR fiddle (default `https://fiddle.rforms.org/`, configurable/disableable via `$settings['r_fiddle_url']`). The (secret-redacted) code travels in the URL fragment, which browsers never transmit to the fiddle host.
+- **Optional `api_internal_url` setting** for R→formr API calls from OpenCPU. When set (e.g. `http://formr_app/api` on the shared Docker network), `opencpu_prepare_api_access` injects it as `.formr$host` instead of the public `api_base_url()`, so `formr_api_*()` calls skip DNS, TLS, and the reverse proxy (~30% faster per call in benchmarks). Empty (the default) keeps the previous behaviour. The internal hostname must resolve to a vhost that serves the API; the bearer token travels as plaintext HTTP on this URL, so only enable it on a trusted single-host Docker network.
+
+### Fixes
+- Run settings page: the special-unit links (service message, reminder, overview script) redirect back to the right settings tab again. `site_url()` appends a trailing slash to fragment-free URIs, so building the URL before converting `:::` to `#` produced `…settings#service_message/` — a fragment no tab matches. The `:::` → `#` conversion now happens before the URL is built (`createRunUnitAction` / `deleteRunUnitAction`).
+- `api_base_url()` no longer appends `/api` when a dedicated `api_domain` (different from `admin_domain`) is configured (#695). A dedicated API host serves the API at its root — its vhost rewrites `/` to `route=api/…` — so the docs page, the account-page R snippets, and the OpenCPU bridge previously pointed clients at a doubled `api/api/…` path. The `/api` suffix remains for the admin-domain fallback.
+- Run settings page: the "Settings saved" response alert now appears in the tab whose form was saved, replacing the previous alert instead of stacking. It used to be inserted after `#app_heading` — which lives in the manifest tab — so saving from any other tab gave no visible feedback.
+- `RunHelper::nextInRun()` fatal on boolean: `getCurrentUnitSession()` returns `false` when no active unit-session row exists; the guard now checks falsy (not just null) so the friendly "No unit session found" alert renders instead of a 500.
+- `SpreadsheetReader` quadratic import time on bloated `.xlsx` files: `getHighestDataColumn()` was called once per row inside both sheet-reading loops, scanning the entire cell index each time. Now computed once per sheet, bounded to the rightmost allowlisted column. Synthetic 1500×60 whitespace-bloated sheet: 161 s → 9 s; output digest unchanged.
+- Run export JSON was missing `condition` from `SkipForward` and several attributes from `External`, `Page`, and `SkipBackward`.
+
+### Changes
+- Run settings page layout homogenized to match the newer admin credential page: consistent `row`/`col` grid, `h4.lead` section headings, equal-height markdown editors, empty-state hints for service messages/reminders/overview scripts, a clearer "Delete Reminder" button, and the Test Run link opens in a new tab. Removes the five duplicated `id="run_settings"` form ids (the save handlers are class-based).
+- `survey_unit_sessions.result_log` widened to MEDIUMTEXT; `truncate_result_log()` caps writes at the same 16 MiB limit (byte-safe for UTF-8) in the unit-session and email-queue paths.
+
+### Schema
+- `057_custom_r_path.sql` — `survey_runs.custom_r_path`.
+- `058_result_log_mediumtext.sql` — `result_log` TEXT → MEDIUMTEXT.
+- `059_create_run_secrets.sql` — `survey_run_secrets` (unique per run+name, FK cascade on run delete).
 
 ## [v1.0.0] - 16.05.2026
 

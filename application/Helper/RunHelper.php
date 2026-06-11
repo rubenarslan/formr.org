@@ -77,7 +77,9 @@ class RunHelper {
 
     public function nextInRun() {
         $us = $this->runSession->getCurrentUnitSession();
-        if ($us === null) {
+        // getCurrentUnitSession() returns false (not null) when no active
+        // unit session row exists, e.g. after the session ended
+        if (!$us) {
             $this->message = 'No unit session found';
             return false;
         } else if($us->end('moved') && $this->runSession->moveOn()) {

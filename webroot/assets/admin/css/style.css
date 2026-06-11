@@ -327,3 +327,41 @@ body.skin-black .content-wrapper {
 .api-credentials-list td:first-child {
     word-break: break-word;
 }
+
+/* Secrets management (extracted from settings.php inline styles) */
+.secret-value-wrap {
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+.secret-value-wrap .secret-value {
+    flex: 1;
+    padding-right: 30px;
+}
+.secret-value-wrap .secret-toggle {
+    position: absolute;
+    right: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #999;
+    padding: 4px 6px;
+}
+.secret-value-wrap .secret-toggle:hover {
+    color: #333;
+}
+#secrets-table td {
+    vertical-align: middle;
+}
+#secrets-table tfoot td {
+    border-top: 2px solid #ddd;
+}
+#secrets-table tfoot td:first-child {
+    width: 35%;
+}
+#secrets-table tfoot td:nth-child(2) {
+    width: 50%;
+}
+#secrets-table tfoot td:last-child {
+    width: 15%;
+}

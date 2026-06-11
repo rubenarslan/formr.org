@@ -44,6 +44,25 @@ $settings['alternative_opencpu_instance'] = array(
 	'r_lib_path' => '/usr/local/lib/R/site-library'
 );
 
+// Internal URL for R→formr API calls from OpenCPU (Docker bridge network).
+// When set, `.formr$host` uses this instead of the public `api_base_url()`,
+// avoiding DNS, TLS, and reverse-proxy overhead on every `formr_api_*()` call.
+// Example: 'http://formr_app/api' (same Docker network as opencpu).
+// Leave empty to fall back to `api_base_url()` (current behaviour).
+// Requirements: the hostname must reach an Apache vhost that serves the API
+// (admin/API vhost, NOT the study vhost — an unmatched Host header falls
+// through to the *first* vhost, so make the routing explicit with a
+// ServerAlias for the internal hostname rather than relying on vhost order).
+// The OAuth bearer token travels as plaintext HTTP on this URL: only set it
+// on a trusted single-host Docker network. On multi-host/overlay networks,
+// encrypt the network or leave this empty.
+$settings['api_internal_url'] = '';
+
+// In-browser R fiddle (webR) that the OpenCPU debugger links to.
+// Code is passed in the URL fragment, which browsers never send to the
+// server. Set to '' to disable the links.
+$settings['r_fiddle_url'] = 'https://fiddle.rforms.org/';
+
 // email SMTP and queueing configuration for emails sent by the formr app itself
 // for example for email confirmation and password reset
 $settings['email'] = array(

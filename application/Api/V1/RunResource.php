@@ -13,7 +13,7 @@ class RunResource extends BaseResource
     private static $updatableFields = [
         'title', 'description', 'footer_text', 'public_blurb',
         'privacy', 'tos', 'header_image_path', 'custom_css',
-        'custom_js', 'cron_active',
+        'custom_js', 'custom_r', 'cron_active',
         'use_material_design', 'expiresOn',
         'expire_cookie_value', 'expire_cookie_unit',
         'public', 'locked',
@@ -207,6 +207,7 @@ class RunResource extends BaseResource
             'expire_cookie_unit' => $run->expire_cookie_unit,
             'custom_css' => $run->getCustomCSS(),
             'custom_js' => $run->getCustomJS(),
+            'custom_r' => $run->getCustomRFunctions(),
             'manifest_json' => $run->getManifestJSON(),
         ];
 
