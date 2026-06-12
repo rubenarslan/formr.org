@@ -12,16 +12,16 @@
 
 module.exports = [
     // account / global
-    { path: '/admin', needs: null },
+    // NB: trailing slash on the dashboard is load-bearing — the admin session
+    // cookie is scoped to Path=/admin/ and is not sent for a bare /admin.
+    { path: '/admin/', needs: null },
     { path: '/admin/account', needs: null },
     { path: '/admin/account/manage_two_factor', needs: null },
     { path: '/admin/osf', needs: null },
-    { path: '/admin/account/', needs: null },
     { path: '/admin/account/login', needs: null },
     { path: '/admin/account/register', needs: null },
     { path: '/admin/account/reset-password', needs: null },
     { path: '/admin/account/two-factor', needs: null },
-    { path: '/admin/account/manage-two-factor', needs: null },
     { path: '/admin/account/setup-two-factor', needs: null },
 
     // run — list + create form (no name needed)
@@ -68,9 +68,6 @@ module.exports = [
     { path: '/admin/advanced/timing', needs: null },
     { path: '/admin/advanced/test-opencpu', needs: null },
     { path: '/admin/advanced/test-opencpu-speed', needs: null },
-    { path: '/admin/advanced/user-management', needs: null },
-    { path: '/admin/advanced/active-users', needs: null },
-    { path: '/admin/advanced/runs-management', needs: null },
     { path: '/admin/advanced/content-settings', needs: null },
     { path: '/admin/advanced/user-details', needs: null },
 ];

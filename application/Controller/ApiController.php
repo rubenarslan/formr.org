@@ -146,16 +146,7 @@ class ApiController extends Controller
         if (strlen($raw) <= 16384) {
             $report = json_decode($raw, true);
             if (is_array($report)) {
-                // CSP Level 2 wraps the payload in 'csp-report'; the newer
-                // Reporting API (report-to) uses a flat body with camelCase keys.
-                $r = isset($report['csp-report']) ? $report['csp-report'] : $report;
-                formr_csp_log(array(
-                    'document-uri'       => $r['document-uri']       ?? null,
-                    'violated-directive' => $r['violated-directive'] ?? ($r['effectiveDirective'] ?? null),
-                    'blocked-uri'        => $r['blocked-uri']        ?? ($r['blockedURL'] ?? null),
-                    'source-file'        => $r['source-file']        ?? null,
-                    'line-number'        => $r['line-number']        ?? null,
-                ));
+                formr_csp_log(Csp::extractReportFields($report));
             }
         }
         http_response_code(204);

@@ -18,7 +18,10 @@ where output escaping is missed. Phase 1 is **admin only** (study/api deferred).
   (default `report-only` in `config-dist/settings.php`). `report-only` emits
   `Content-Security-Policy-Report-Only` (observe, don't block).
 - **Reports** — `report-uri /api/csp-report` → `ApiController::cspReportAction()`
-  (unauthenticated, POST-only, 16 KB cap) logs to `csp.log` via `formr_csp_log()`.
+  (unauthenticated, POST-only, 16 KB cap) normalizes CSP-L2 / Reporting-API
+  shapes via `Csp::extractReportFields()` and logs to `csp.log` via
+  `formr_csp_log()` (rotates once at 20 MB → `csp.log.1`, so unauthenticated
+  spam can't fill the disk; on `error_to_stderr` hosts it goes to docker logs).
 
 ## The policy (`Csp::buildPolicy`)
 
@@ -38,14 +41,24 @@ slip past enforcement (see the post-mortem below). Reserve inline + `nonce` for
 *unavoidable* server-data injection (a one-line `window.formr = {…}` config).
 
 Current state:
-- **External `'self'` files** (no nonce): `admin/js/admin-ui.js` (the delegated
-  `[data-confirm]` handler that replaced the two inline `onclick="confirm()"`),
+- **External `'self'` files** (no nonce): `admin/js/admin-ui.js` (delegated
+  `[data-confirm]` confirm + `preventDefault` for bare-`#` anchors — loaded
+  from `admin/header.php`, **not the footer**, so the confirm guard is active
+  before any GET-executing delete link can be clicked),
   `admin/js/account-api-credentials.js` (the API-credentials panel behaviour),
   `admin/js/user_management.js` (superadmin reset-2FA). Server values reach them
   via `data-` attributes (`data-api-host`, `data-sa-ajax-url`, …).
 - **Inline + nonce** (server-config only): the `window.formr = {…}` blocks in
   `admin/header.php` and `account/parts/header.php`.
+- **No `javascript:` URLs**: CSP blocks `href="javascript:…"` navigations as
+  script-src violations even for `void(0)`. JS-handled buttons use `href="#"`;
+  `admin-ui.js` suppresses the default jump-to-top centrally.
 - `public/head.php` inline scripts are **study-domain** → Phase 2, not yet nonced.
+
+**Trailing slash gotcha:** the admin session cookie is scoped to
+`Path=/admin/`, so a bare `/admin` URL is never authenticated (cookie not
+sent). Always generate admin links via `admin_url()`/`site_url()` (they append
+the slash); `redirect_to('admin')` is the bug class (fixed in the OSF flow).
 
 ### Post-mortem: why an inline script was missed
 

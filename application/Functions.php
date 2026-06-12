@@ -22,11 +22,19 @@ function formr_log($msg, $type = '')
 /**
  * Append a CSP violation report (assoc array of the interesting fields) to a
  * dedicated csp.log, one JSON object per line. Used by the Report-Only sweep.
+ *
+ * The report endpoint is unauthenticated (browsers POST with no session), so
+ * growth must be bounded: past 20 MB the log rotates once to csp.log.1
+ * (overwritten on the next rotation), capping total disk at ~40 MB.
  */
 function formr_csp_log($report)
 {
+    $file = get_log_file('csp.log');
+    if (is_file($file) && filesize($file) > 20 * 1024 * 1024) {
+        @rename($file, $file . '.1');
+    }
     $line = date('Y-m-d H:i:s') . ' ' . json_encode($report) . "\n";
-    error_log($line, 3, get_log_file('csp.log'));
+    error_log($line, 3, $file);
 }
 
 function formr_log_exception(Throwable $e, $prefix = '', $debug_data = null)

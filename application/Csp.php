@@ -80,4 +80,31 @@ class Csp {
         );
         return implode('; ', $directives);
     }
+
+    /**
+     * Normalize a decoded violation report into the fields we log. Accepts
+     * the CSP Level 2 shape ({"csp-report": {kebab-case keys}}), the
+     * Reporting API shape ({"type": "csp-violation", "body": {camelCase
+     * keys}}), and a flat body in either casing. Unknown fields are dropped;
+     * missing fields come back null.
+     *
+     * @param array $report decoded JSON request body
+     * @return array
+     */
+    public static function extractReportFields($report) {
+        if (isset($report['csp-report']) && is_array($report['csp-report'])) {
+            $r = $report['csp-report'];
+        } elseif (isset($report['body']) && is_array($report['body'])) {
+            $r = $report['body'];
+        } else {
+            $r = $report;
+        }
+        return array(
+            'document-uri'       => $r['document-uri']       ?? ($r['documentURL'] ?? null),
+            'violated-directive' => $r['violated-directive'] ?? ($r['effectiveDirective'] ?? null),
+            'blocked-uri'        => $r['blocked-uri']        ?? ($r['blockedURL'] ?? null),
+            'source-file'        => $r['source-file']        ?? ($r['sourceFile'] ?? null),
+            'line-number'        => $r['line-number']        ?? ($r['lineNumber'] ?? null),
+        );
+    }
 }
