@@ -631,6 +631,25 @@ class Item {
     }
 
     /**
+     * Render a stored result value for safe display inside the admin
+     * results tables (show_results / show_itemdisplay), which echo cells
+     * as raw HTML.
+     *
+     * Escaped by default: the overwhelming majority of item types store
+     * free participant text (open-ended answers), and Server/Referrer/
+     * Browser items store the User-Agent / Referer request headers, which
+     * are fully attacker-controlled. Without escaping, a participant can
+     * store `<img src=x onerror=…>` and run script in the admin's session
+     * on admin_domain when results are viewed — crossing the admin/study
+     * security boundary. Item types whose stored value is trusted,
+     * self-generated HTML (the File/Audio/Video/Image embed markup)
+     * override this to pass their markup through unescaped.
+     */
+    public function getEscapedResult($reply) {
+        return h($reply);
+    }
+
+    /**
      * Returns a space-delimited string with items of the $options array. If a key
      * of $options array happens to be one of those listed in `Helper::$_minimizedAttributes`
      *

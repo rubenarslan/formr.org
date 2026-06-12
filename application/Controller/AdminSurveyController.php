@@ -303,6 +303,7 @@ class AdminSurveyController extends AdminController {
         $this->setView('survey/show_itemdisplay', array(
             'resultCount' => $this->study->getResultCount(),
             'results' => $totalCount ? $this->study->getResultsByItemsPerSession(null, $filter, $paginate) : array(),
+            'resultItems' => $this->study->getItemsWithChoices(),
             'pagination' => $pagination,
             'study_name' => $this->study->name,
             //'session' => $session,
@@ -347,6 +348,7 @@ class AdminSurveyController extends AdminController {
         $this->setView('survey/show_results', array(
             'resultCount' => $count,
             'results' => $totalCount <= 0 ? array() : $this->study->getResults(null, $filter, $paginate),
+            'resultItems' => $this->study->getItemsWithChoices(),
             'pagination' => $pagination,
             'study_name' => $this->study->name,
             'session' => $this->request->str('session'),
