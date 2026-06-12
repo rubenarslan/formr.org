@@ -17,7 +17,7 @@
                     <div class="box-header with-border">
                         <h3 class="box-title" style="display: block">
                             Edit Run 
-                            <a href="javascript:void(0);" class="btn btn-danger btn-panic pull-right" id="btn-panic" title="Don't panic! Click this button for an explanation.">I am panicking :-(</a>
+                            <a href="#" class="btn btn-danger btn-panic pull-right" id="btn-panic" title="Don't panic! Click this button for an explanation.">I am panicking :-(</a>
                         </h3>
                     </div>
                     <div class="box-body">

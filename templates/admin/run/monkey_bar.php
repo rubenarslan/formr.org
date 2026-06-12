@@ -51,10 +51,10 @@
                         <?php endforeach; ?>
                     </select>
                     <span class="input-group-btn link-ajax-modal">
-                        <a class="btn hastooltip refresh_on_success <?= $disable_class; ?>" data-toggle="modal" data-target="#confirm-snip" href="javascript:void(0);" data-href="<?php echo monkeybar_url($run->name, 'ajax_snip_unit_session', array('run_session_id' => $run_session->id, 'session' => $user->user_code)); ?>" title="Remove the current data at this position, start over.">
+                        <a class="btn hastooltip refresh_on_success <?= $disable_class; ?>" data-toggle="modal" data-target="#confirm-snip" href="#" data-href="<?php echo monkeybar_url($run->name, 'ajax_snip_unit_session', array('run_session_id' => $run_session->id, 'session' => $user->user_code)); ?>" title="Remove the current data at this position, start over.">
                             <i class="fa fa-scissors"></i>
                         </a>
-                        <a class="btn hastooltip refresh_on_success <?= $disable_class; ?>" data-toggle="modal" data-target="#confirm-delete" href="javascript:void(0);" data-href="<?php echo monkeybar_url($run->name, 'ajax_delete_user', array('run_session_id' => $run_session->id, 'session' => $user->user_code)); ?>" data-location="<?= site_url() ?>" title="Delete this user and all their data (you will have to confirm)">
+                        <a class="btn hastooltip refresh_on_success <?= $disable_class; ?>" data-toggle="modal" data-target="#confirm-delete" href="#" data-href="<?php echo monkeybar_url($run->name, 'ajax_delete_user', array('run_session_id' => $run_session->id, 'session' => $user->user_code)); ?>" data-location="<?= site_url() ?>" title="Delete this user and all their data (you will have to confirm)">
                             <i class="fa fa-trash-o"></i>
                         </a>
                     </span>
@@ -71,7 +71,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-default cancel" data-dismiss="modal">Cancel</button>
-                        <a href="javascript:void(0);" class="btn btn-danger danger" data-dismiss="modal">Delete everything</a>
+                        <a href="#" class="btn btn-danger danger" data-dismiss="modal">Delete everything</a>
                     </div>
                 </div>
             </div>
@@ -87,7 +87,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-default cancel" data-dismiss="modal">Cancel</button>
-                        <a href="javascript:void(0);" class="btn btn-danger danger" data-dismiss="modal">Snip</a>
+                        <a href="#" class="btn btn-danger danger" data-dismiss="modal">Snip</a>
                     </div>
                 </div>
             </div>

@@ -31,6 +31,5 @@
 				</div>
 			</div>
 		</script>
-        <script src="<?= asset_url('admin/js/admin-ui.js') ?>"></script>
     </body>
 </html>
