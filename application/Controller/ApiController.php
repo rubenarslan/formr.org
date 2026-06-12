@@ -270,14 +270,16 @@ class ApiController extends Controller
             } else {
                 $error = !empty($logged['error']) ? $logged['error'] : 'Access token could not be obtained';
                 alert('OSF API Error: ' . $error, 'alert-danger');
-                redirect_to('admin');
+                // admin_url() keeps the trailing slash — the admin session
+                // cookie is scoped to Path=/admin/ and is not sent for /admin
+                redirect_to(admin_url());
             }
         }
 
         // Case 3: User is oauth2-ing. Handle case when user cancels authorization
         if ($error = $this->request->getParam('error')) {
             alert('Access was denied at OSF-Formr with error code: ' . $error, 'alert-danger');
-            redirect_to('admin');
+            redirect_to(admin_url());
         }
 
         redirect_to('index');
