@@ -29,9 +29,33 @@ where output escaping is missed. Phase 1 is **admin only** (study/api deferred).
 OpenCPU / OSF / R-fiddle / Google Sheets / social share. `object-src 'none'`,
 `base-uri 'self'`, `frame-ancestors 'self'`.
 
-The 3 admin inline scripts (`admin/header.php`, `account/parts/header.php`,
-`account/index.php`) carry the nonce. The 2 `onclick="confirm()"` handlers were
-replaced by a nonce'd delegated `[data-confirm]` handler in `admin/footer.php`.
+### Inline scripts: prefer an external file over a nonce
+
+**Behaviour belongs in an external `'self'` file, not a nonce'd inline block.**
+External scripts need no nonce and — crucially — don't depend on every template
+correctly threading `$cspNonce`, which is the fragility that lets inline scripts
+slip past enforcement (see the post-mortem below). Reserve inline + `nonce` for
+*unavoidable* server-data injection (a one-line `window.formr = {…}` config).
+
+Current state:
+- **External `'self'` files** (no nonce): `admin/js/admin-ui.js` (the delegated
+  `[data-confirm]` handler that replaced the two inline `onclick="confirm()"`),
+  `admin/js/account-api-credentials.js` (the API-credentials panel behaviour),
+  `admin/js/user_management.js` (superadmin reset-2FA). Server values reach them
+  via `data-` attributes (`data-api-host`, `data-sa-ajax-url`, …).
+- **Inline + nonce** (server-config only): the `window.formr = {…}` blocks in
+  `admin/header.php` and `account/parts/header.php`.
+- `public/head.php` inline scripts are **study-domain** → Phase 2, not yet nonced.
+
+### Post-mortem: why an inline script was missed
+
+The static inventory grepped the literal `<script>` (with the closing `>`),
+which matches only **attribute-less** opening tags. `user_management.php` used
+`<script type="text/javascript">` — an attribute → skipped. It surfaced only via
+the dynamic crawl (run as superadmin). Lessons: grep `<script` as a **prefix**
+(then filter `src=` and non-JS `type=` like `text/formr`), scan **recursively**,
+and trust the **dynamic crawl** over a static grep for completeness. Better still,
+keep behaviour in files so there's no inline tag to miss.
 
 ## dev vs prod: `'unsafe-eval'` is deliberately omitted
 
@@ -54,6 +78,14 @@ Or the full orchestration (enumerate routes → merge manifest → crawl → tri
 synthesize) via the Workflow tool with
 `tests/e2e/csp-sweep.workflow.mjs`. Last run: **49 admin pages, 0 real
 violations.**
+
+**Superadmin coverage caveat:** the crawler authenticates as the test admin
+(`survey_users.admin = 2`), so `/admin/advanced/*` superadmin pages return 403
+and aren't CSP-tested with real content. To cover them, temporarily elevate the
+account (`UPDATE survey_users SET admin=100 WHERE id=…`), crawl, then revert to
+the original level. Doing this is how the `user_management.php` inline script was
+caught — always restore the level afterward (`getSessionUser()` re-reads it from
+the DB each request, so the revert is immediate).
 
 ## Flipping to enforce
 

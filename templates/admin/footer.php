@@ -31,18 +31,6 @@
 				</div>
 			</div>
 		</script>
-        <script nonce="<?= h($cspNonce ?? '') ?>">
-            // Delegated confirm for [data-confirm] elements. Replaces inline
-            // onclick="return confirm(...)" handlers, which a nonce-based CSP
-            // (script-src without 'unsafe-inline') blocks. Vanilla + delegated
-            // so it is independent of jQuery load order.
-            document.addEventListener('click', function (e) {
-                var el = e.target.closest && e.target.closest('[data-confirm]');
-                if (el && !window.confirm(el.getAttribute('data-confirm'))) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                }
-            }, false);
-        </script>
+        <script src="<?= asset_url('admin/js/admin-ui.js') ?>"></script>
     </body>
 </html>
