@@ -62,14 +62,31 @@
                                     <?php
                                     // printing table rows
                                     $last_sess = null;
+                                    // id => Item map so the participant-supplied `answer`
+                                    // cell is escaped via Item::getEscapedResult (media items
+                                    // override to pass their trusted embed markup through),
+                                    // protecting the admin origin from stored XSS.
+                                    $resultItems = $resultItems ?? array();
+                                    $itemsById = array();
+                                    foreach ($resultItems as $it) {
+                                        $itemsById[$it->id] = $it;
+                                    }
                                     foreach ($results as $row):
-                                        $row['created'] = '<abbr title="' . $row['created'] . '">' . timetostr(strtotime((string)$row['created'])) . '</abbr>';
-                                        $row['shown'] = '<abbr title="' . $row['shown'] . ' relative: ' . $row['shown_relative'] . '">' . timetostr(strtotime((string)$row['shown'])) . '</abbr> ';
+                                        $row['created'] = '<abbr title="' . h($row['created']) . '">' . timetostr(strtotime((string)$row['created'])) . '</abbr>';
+                                        $row['shown'] = '<abbr title="' . h($row['shown'] . ' relative: ' . $row['shown_relative']) . '">' . timetostr(strtotime((string)$row['shown'])) . '</abbr> ';
 
                                         if ($row['hidden'] === 1) {
                                             $row['shown'] .= "<small><em>not shown</em></small>";
                                         } elseif ($row['hidden'] === null) {
                                             $row['shown'] .= $row['shown'] . "<small><em>not yet</em></small>";
+                                        }
+
+                                        // escape participant answer via its item (media items pass through)
+                                        $item_id = $row['item_id'] ?? null;
+                                        if ($item_id !== null && isset($itemsById[$item_id])) {
+                                            $row['answer'] = $itemsById[$item_id]->getEscapedResult($row['answer']);
+                                        } else {
+                                            $row['answer'] = h($row['answer']);
                                         }
 
                                         // truncate session code
@@ -78,10 +95,10 @@
                                                 $animal_end = 10;
                                             }
                                             $short_session = substr($row['session'], 0, $animal_end);
-                                            $row['session'] = '<small><abbr class="abbreviated_session" title="Click to show the full session" data-full-session="' . $row['session'] . '">' . $short_session . '…</abbr></small>';
+                                            $row['session'] = '<small><abbr class="abbreviated_session" title="Click to show the full session" data-full-session="' . h($row['session']) . '">' . h($short_session) . '…</abbr></small>';
                                         }
-                                        $row['saved'] = '<abbr title="' . $row['saved'] . '">' . timetostr(strtotime((string)$row['saved'])) . '</abbr>';
-                                        $row['answered'] = '<abbr title="' . $row['answered'] . ' relative: ' . $row['answered_relative'] . '">' . timetostr(strtotime((string)$row['answered'])) . '</abbr>';
+                                        $row['saved'] = '<abbr title="' . h($row['saved']) . '">' . timetostr(strtotime((string)$row['saved'])) . '</abbr>';
+                                        $row['answered'] = '<abbr title="' . h($row['answered'] . ' relative: ' . $row['answered_relative']) . '">' . timetostr(strtotime((string)$row['answered'])) . '</abbr>';
                                         unset($row['shown_relative'], $row['answered_relative'], $row['item_id'], $row['display_order'], $row['hidden']);
 
                                         // open row

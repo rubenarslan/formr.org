@@ -55,13 +55,20 @@
                         <table class="table table-hover">
                             <?php
                             $print_header = true;
-                            
+                            // Map of column name => Item, so each participant answer is
+                            // escaped via Item::getEscapedResult (media items override to
+                            // pass their trusted embed markup through). Defends the admin
+                            // origin against stored XSS in open-text / header-derived answers.
+                            $resultItems = $resultItems ?? array();
+                            // Columns the template intentionally renders as server-built HTML.
+                            $htmlMetaCols = array('created' => 1, 'ended' => 1, 'modified' => 1, 'expired' => 1);
+
                             foreach ($results as $row) {
                                 unset($row['study_id']);
                                 if ($print_header) {
                                     echo '<thead><tr>';
                                     foreach ($row as $field => $value) {
-                                        echo '<th>' . $field . '</th>';
+                                        echo '<th>' . h($field) . '</th>';
                                     }
                                     echo '</tr></thead>';
                                     echo '<tbody>';
@@ -69,14 +76,20 @@
                                 }
 
                                 if (isset($row['created'])):
-                                    $row['created'] = '<abbr title="' . $row['created'] . '">' . timetostr(strtotime((string)$row['created'])) . '</abbr>';
-                                    $row['ended'] = '<abbr title="' . $row['ended'] . '">' . timetostr(strtotime((string)$row['ended'])) . '</abbr>';
-                                    $row['modified'] = '<abbr title="' . $row['modified'] . '">' . timetostr(strtotime((string)$row['modified'])) . '</abbr>';
-                                    $row['expired'] = '<abbr title="' . $row['expired'] . '">' . timetostr(strtotime((string)$row['expired'])) . '</abbr>';
+                                    $row['created'] = '<abbr title="' . h($row['created']) . '">' . timetostr(strtotime((string)$row['created'])) . '</abbr>';
+                                    $row['ended'] = '<abbr title="' . h($row['ended']) . '">' . timetostr(strtotime((string)$row['ended'])) . '</abbr>';
+                                    $row['modified'] = '<abbr title="' . h($row['modified']) . '">' . timetostr(strtotime((string)$row['modified'])) . '</abbr>';
+                                    $row['expired'] = '<abbr title="' . h($row['expired']) . '">' . timetostr(strtotime((string)$row['expired'])) . '</abbr>';
                                 endif;
                                 echo '<tr>';
-                                foreach ($row as $cell) {
-                                    echo '<td>' . $cell . '</td>';
+                                foreach ($row as $field => $cell) {
+                                    if (isset($resultItems[$field])) {
+                                        echo '<td>' . $resultItems[$field]->getEscapedResult($cell) . '</td>';
+                                    } elseif (isset($htmlMetaCols[$field])) {
+                                        echo '<td>' . $cell . '</td>';
+                                    } else {
+                                        echo '<td>' . h($cell) . '</td>';
+                                    }
                                 }
                                 echo '</tr>';
                             }

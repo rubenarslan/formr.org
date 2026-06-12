@@ -2,6 +2,11 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.26.3] - 12.06.2026
+
+### Fixes
+- **Security (stored XSS, participant → admin) — backport of the v1.2.0 escaping fix to the 0.26.x line** (for instances that cannot take the breaking v1.0.0 release). Participant-submitted answers were echoed unescaped in the admin **Survey Results** (`show_results`) and **Detailed Results** (`show_itemdisplay`) tables, and in the **email log** and **user-session status** cells (`run/user_overview`, `run/user_detail`, `advanced/user_detail`), all on `admin_domain`. A participant could store `<img src=x onerror=…>` in an open-text answer — or in the User-Agent/Referer captured by a Server/Referrer/Browser item — and run script in a researcher's authenticated admin session, crossing the admin/study subdomain security boundary. Answer cells now render through a new `Item::getEscapedResult()` that HTML-escapes by default; `File`/`Audio`/`Video`/`Image` override it to pass their server-generated embed markup through (the `src` is a `crypto_token()` asset path, never participant text). `result_log`/`result` and email-log fields are `h()`-escaped at every render site. Regression-tested in `tests/ItemEscapedResultTest.php`. This release contains **only** the escaping fix — the nonce-based admin CSP that ships in v1.2.0 is intentionally not backported.
+
 ## [v0.26.2] - 13.05.2026
 ### Fixes
 - `composer test` now passes `--exclude-group integration` (matches the bootstrap docstring + CI intent); new `composer test:integration` script runs only that group. Unit lane is green again (was 12 errors + 2 failures from MariaDB-only SQL hitting the SQLite :memory: bootstrap).

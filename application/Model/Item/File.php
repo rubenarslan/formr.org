@@ -148,6 +148,19 @@ class File_Item extends Item {
     }
 
     /**
+     * File/Audio/Video/Image store the <a>/<audio>/<video>/<img> embed
+     * markup that validateInput() builds via __($this->embed_html, …).
+     * The interpolated src is a server-generated asset_url() over a
+     * crypto_token() filename — never participant-supplied text — so the
+     * stored markup is trusted and must pass through unescaped for the
+     * player/preview to render. (Escaping here would show literal tag
+     * source instead.) Overrides Item::getEscapedResult, which escapes.
+     */
+    public function getEscapedResult($reply) {
+        return $reply;
+    }
+
+    /**
      * Get information about the uploaded file from a validated reply
      * @return array|null Array containing file info or null if no file was uploaded
      */
