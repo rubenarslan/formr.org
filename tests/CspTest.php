@@ -37,14 +37,17 @@ class CspTest extends PHPUnit\Framework\TestCase {
         self::configProp('computed', array());
     }
 
-    public function testModeDefaultsToReportOnlyWhenUnset() {
+    public function testModeDefaultsToEnforceWhenUnset() {
+        // default-block: an absent setting enforces (fail closed)
         $this->setCspMode(null);
-        $this->assertSame('report-only', Csp::mode());
+        $this->assertSame('enforce', Csp::mode());
         $this->assertTrue(Csp::isEnabled());
+        $this->assertSame('Content-Security-Policy', Csp::headerName());
     }
 
     public function testModeCoercesInvalidValuesToReportOnly() {
-        // a typo like 'enforced' must not silently disable the policy
+        // a typo like 'enforced' must neither block hard nor silently disable —
+        // it lands on report-only (observe, don't break the admin UI)
         $this->setCspMode('enforced');
         $this->assertSame('report-only', Csp::mode());
         $this->assertSame('Content-Security-Policy-Report-Only', Csp::headerName());

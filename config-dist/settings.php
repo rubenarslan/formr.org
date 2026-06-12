@@ -105,9 +105,11 @@ $settings['display_errors'] = 0;
 $settings['error_to_stderr'] = 0;
 
 // Content-Security-Policy for the admin area: 'off' | 'report-only' | 'enforce'.
-// 'report-only' observes + reports violations without blocking. Flip to
-// 'enforce' only after a clean violation sweep. See application/Csp.php.
-$settings['csp_mode'] = 'report-only';
+// Default 'enforce' (blocks violating scripts). If the admin UI misbehaves on
+// your instance (e.g. a browser-side call to a non-default OpenCPU origin),
+// set this to 'report-only' to observe + report without blocking, fix the
+// policy in application/Csp.php, then switch back. 'off' disables it entirely.
+$settings['csp_mode'] = 'enforce';
 
 // how many emails can be maximally sent to one email address during certain time periods
 $settings['email_thresholds'] = [

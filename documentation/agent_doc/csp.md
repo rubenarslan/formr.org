@@ -15,8 +15,12 @@ where output escaping is missed. Phase 1 is **admin only** (study/api deferred).
   emits the policy, gated to `Site::inAdminArea()` + `text/html` (JSON / file /
   AJAX responses are skipped). Built by `application/Csp.php`.
 - **Mode** — `$settings['csp_mode']` = `off` | `report-only` | `enforce`
-  (default `report-only` in `config-dist/settings.php`). `report-only` emits
-  `Content-Security-Policy-Report-Only` (observe, don't block).
+  (default **`enforce`** in `config-dist/settings.php`, i.e. block by default;
+  `Csp::mode()` also falls back to `enforce` when the key is wholly absent).
+  `enforce` emits `Content-Security-Policy`; `report-only` emits
+  `Content-Security-Policy-Report-Only` (observe, don't block) and is the
+  escape hatch if enforce breaks the admin UI on an instance. An unrecognized
+  value coerces to `report-only`.
 - **Reports** — `report-uri /api/csp-report` → `ApiController::cspReportAction()`
   (unauthenticated, POST-only, 16 KB cap) normalizes CSP-L2 / Reporting-API
   shapes via `Csp::extractReportFields()` and logs to `csp.log` via
@@ -100,15 +104,25 @@ the original level. Doing this is how the `user_management.php` inline script wa
 caught — always restore the level afterward (`getSessionUser()` re-reads it from
 the DB each request, so the revert is immediate).
 
-## Flipping to enforce
+## Enforce is the default; toggling back to report-only
 
-When a crawl is clean, set in the **live** config
+As of v1.2.0 the shipped default is `enforce` — a fresh instance, or an existing
+one whose `config/settings.php` predates the `csp_mode` key, blocks on the admin
+area immediately after update. The rollout is therefore "narrow first": deploy
+v1.2.0 to one small live instance, watch it, then broaden.
+
+If enforce breaks the admin UI on an instance (most likely cause: a browser-side
+call to a **non-default OpenCPU origin** — `Csp::CONNECT_SRC`/`FRAME_SRC`
+allowlist `public.opencpu.org`, so an instance whose admin UI reaches its own
+OpenCPU domain from the browser will be blocked), toggle that instance back
+without a redeploy. In the **live** config
 (`/home/admin/formr-docker/formr_app/config/settings.php`, not `formr_source/`):
 
 ```php
-$settings['csp_mode'] = 'enforce';
+$settings['csp_mode'] = 'report-only';   // observe + report, don't block
 ```
 
-`docker compose restart formr_app`. `Csp::headerName()` then emits
-`Content-Security-Policy`. Keep `report-uri` so post-enforce regressions stay
-observable. Rollback = one-line revert to `'report-only'`.
+`docker compose restart formr_app`. Inspect `csp.log` (or `docker logs
+formr_app` on `error_to_stderr` hosts), add the missing origin to the relevant
+directive in `application/Csp.php`, then switch the instance back to `enforce`.
+`report-uri` stays on in both modes so regressions remain observable.

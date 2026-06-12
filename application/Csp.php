@@ -31,7 +31,11 @@ class Csp {
      * @return string one of 'off' | 'report-only' | 'enforce'
      */
     public static function mode() {
-        $mode = Config::get('csp_mode', 'report-only');
+        // Default-block: an absent setting enforces. To not block, set
+        // csp_mode explicitly to 'report-only' or 'off'. An unrecognized
+        // value coerces to 'report-only' (gentle on a typo — observe, don't
+        // break the admin UI, and don't silently disable either).
+        $mode = Config::get('csp_mode', 'enforce');
         return in_array($mode, array('off', 'report-only', 'enforce'), true) ? $mode : 'report-only';
     }
 
