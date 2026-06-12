@@ -157,7 +157,7 @@
                                                         <a class='btn hastooltip link-ajax' href='<?= site_url("admin/run/{$user['run_name']}/ajax_toggle_testing?toggle_on=" . ($user['testing'] ? 0 : 1) . "&amp;run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])) ?>' 
                                                            title='Toggle testing status'><i class='fa <?= ($user['testing'] ? 'fa-stethoscope' : 'fa-heartbeat') ?>'></i></a>
 
-                                                        <a class="btn hastooltip remind-run-session" href="javascript:void(0)" data-href="<?php echo admin_run_url($user['run_name'], "ajax_remind?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Remind this user" data-session="<?php echo h($user['session']); ?>"><i class='fa fa-bullhorn'></i></a>
+                                                        <a class="btn hastooltip remind-run-session" href="#" data-href="<?php echo admin_run_url($user['run_name'], "ajax_remind?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Remind this user" data-session="<?php echo h($user['session']); ?>"><i class='fa fa-bullhorn'></i></a>
                                                         <button type="submit" class="btn hastooltip" title="Send this user to that position"><i class="fa fa-hand-o-right"></i></button>
                                                     </span>
                                                     <input type="hidden" name="session" value="<?php echo $user['session']; ?>" />
@@ -170,7 +170,7 @@
                                                         <?php endforeach; ?>
                                                     </select>
                                                     <span class='input-group-btn link-ajax-modal'>
-                                                        <a class="btn hastooltip delete-run-session" href="javascript:void(0)" data-href="<?php echo admin_run_url($user['run_name'], "ajax_delete_user?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Delete this user and all their data (you'll have to confirm)" data-session="<?php echo h($user['session']); ?>"><i class='fa fa-trash-o'></i></a>
+                                                        <a class="btn hastooltip delete-run-session" href="#" data-href="<?php echo admin_run_url($user['run_name'], "ajax_delete_user?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Delete this user and all their data (you'll have to confirm)" data-session="<?php echo h($user['session']); ?>"><i class='fa fa-trash-o'></i></a>
                                                         <a class="btn hastooltip" href="<?php echo admin_run_url($user['run_name'], "user_detail?session=" . urlencode(substr($user['session'], 0, 15))); ?>" title="Go to user detail"><i class="fa fa-list"></i></a>
                                                     </span>
                                                 </span>
@@ -186,8 +186,8 @@
                                 <span class="input-group">
                                     <span class="input-group-btn">
                                         <a class="btn hastooltip ba" data-action="toggleTest" title="Toggle testing status for selected users"><i class="fa fa-heartbeat"></i></a>
-                                        <a class="btn hastooltip ba" data-action="sendReminder" href="javascript:void(0)" title="Remind selected users"><i class='fa fa-bullhorn'></i></a>
-                                        <a class="btn hastooltip ba" data-action="deleteSessions" href="javascript:void(0)" title="Delete selected users and all their data (you'll have to confirm)"><i class='fa fa-trash-o'></i></a>
+                                        <a class="btn hastooltip ba" data-action="sendReminder" href="#" title="Remind selected users"><i class='fa fa-bullhorn'></i></a>
+                                        <a class="btn hastooltip ba" data-action="deleteSessions" href="#" title="Delete selected users and all their data (you'll have to confirm)"><i class='fa fa-trash-o'></i></a>
                                         <a class="btn hastooltip ba" data-action="positionSessions" title="Send users to selected position"><i class="fa fa-hand-o-right"></i></a>
                                     </span>
                                     <select name="ba_new_position" class="form-control position_monkey">

@@ -129,6 +129,30 @@ class ApiController extends Controller
         $this->respond($data['statusCode'], $data['statusText'], $data['response']);
     }
 
+    /**
+     * Collector for browser CSP violation reports (report-uri target).
+     * Unauthenticated by design — browsers POST these with no session.
+     * Reached directly by the router (method_exists gate), so it never goes
+     * through authenticate(). Logs to csp.log and returns 204; no DB, no body,
+     * no reflection of input — abuse-safe.
+     */
+    public function cspReportAction()
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            http_response_code(405);
+            exit;
+        }
+        $raw = file_get_contents('php://input');
+        if (strlen($raw) <= 16384) {
+            $report = json_decode($raw, true);
+            if (is_array($report)) {
+                formr_csp_log(Csp::extractReportFields($report));
+            }
+        }
+        http_response_code(204);
+        exit;
+    }
+
     public function oauthAction($action = null)
     {
         if (!$this->isValidAction('oauth', $action)) {
@@ -237,14 +261,16 @@ class ApiController extends Controller
             } else {
                 $error = !empty($logged['error']) ? $logged['error'] : 'Access token could not be obtained';
                 alert('OSF API Error: ' . $error, 'alert-danger');
-                redirect_to('admin');
+                // admin_url() keeps the trailing slash — the admin session
+                // cookie is scoped to Path=/admin/ and is not sent for /admin
+                redirect_to(admin_url());
             }
         }
 
         // Case 3: User is oauth2-ing. Handle case when user cancels authorization
         if ($error = $this->request->getParam('error')) {
             alert('Access was denied at OSF-Formr with error code: ' . $error, 'alert-danger');
-            redirect_to('admin');
+            redirect_to(admin_url());
         }
 
         redirect_to('index');

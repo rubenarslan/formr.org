@@ -3,7 +3,7 @@ $default_email = Config::get('default_admin_email');
 $has_default_email= $default_email !== null && $default_email['host'] !== null;
 ?>
 
-<div class="content-wrapper">
+<div class="content-wrapper" id="user-management-page" data-sa-ajax-url="<?= h(site_url('admin/advanced/ajax_admin')) ?>">
     <!-- Content Header (Page header) -->
     <section class="content-header">
         <h1>User Management <small>Superadmin</small></h1>
@@ -179,40 +179,6 @@ formr_api_authenticate(host = "<?= api_base_url() ?>")</code></pre>
 </div>
 </script>
 
-<script type="text/javascript">
-    var saAjaxUrl = <?php echo json_encode(site_url('admin/advanced/ajax_admin')); ?>;
-    
-    $(document).ready(function() {
-        // Existing code...
-        
-        $('.reset-2fa-btn').click(function() {
-            var userId = $(this).data('user');
-            var userEmail = $(this).data('email');
-            
-            var template = $('#tpl-reset-2fa').html();
-            template = template.replace(/%{user}/g, userEmail);
-            
-            var $modal = $(template);
-            $modal.modal('show');
-            
-            $modal.find('.reset-2fa-confirm').click(function() {
-                var adminCode = $modal.find('input[name="admin_2fa_code"]').val();
-                
-                $.post(saAjaxUrl, {
-                    reset_2fa: true,
-                    user_id: userId,
-                    user_email: userEmail,
-                    admin_2fa_code: adminCode
-                }, function(response) {
-                    if (response.success) {
-                        window.location.reload();
-                    } else {
-                        alert(response.message || 'Failed to reset 2FA');
-                    }
-                });
-            });
-        });
-    });
-</script>
+<script src="<?= asset_url('admin/js/user_management.js') ?>"></script>
 
 <?php Template::loadChild('admin/footer'); ?>

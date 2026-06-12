@@ -11,7 +11,7 @@
             print_stylesheets($files, $id);
         }
         ?>
-        <script>
+        <script nonce="<?= h($cspNonce ?? '') ?>">
             window.formr = <?php echo !empty($jsConfig) ? json_encode($jsConfig) : '{}' ?>;
         </script>
         <?php
@@ -19,6 +19,10 @@
             print_scripts($files, $id);
         }
         ?>
+        <?php /* loaded in the head, not the footer: the delegated [data-confirm]
+                 guard must be active before any delete link can be clicked
+                 (several deletes execute on plain GET) */ ?>
+        <script src="<?= asset_url('admin/js/admin-ui.js') ?>"></script>
 
         <?php
         if (!isset($runs) || !isset($studies)) {
