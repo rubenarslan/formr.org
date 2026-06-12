@@ -879,18 +879,15 @@ class Run extends Model
         $parsedown->setBreaksEnabled(true);
         $successes = array();
         if (isset($posted['description'])) {
-            try { $posted['description_parsed'] = $parsedown->text($posted['description']); }
-            catch (\Throwable $e) { formr_log_exception($e, 'PARSEDOWN.TEXT'); $posted['description_parsed'] = $posted['description']; }
+            $posted['description_parsed'] = parsedown_text_safe($parsedown, $posted['description'], 'the run description');
             $this->run_settings[] = 'description_parsed';
         }
         if (isset($posted['public_blurb'])) {
-            try { $posted['public_blurb_parsed'] = $parsedown->text($posted['public_blurb']); }
-            catch (\Throwable $e) { formr_log_exception($e, 'PARSEDOWN.TEXT'); $posted['public_blurb_parsed'] = $posted['public_blurb']; }
+            $posted['public_blurb_parsed'] = parsedown_text_safe($parsedown, $posted['public_blurb'], 'the public blurb');
             $this->run_settings[] = 'public_blurb_parsed';
         }
         if (isset($posted['footer_text'])) {
-            try { $posted['footer_text_parsed'] = $parsedown->text($posted['footer_text']); }
-            catch (\Throwable $e) { formr_log_exception($e, 'PARSEDOWN.TEXT'); $posted['footer_text_parsed'] = $posted['footer_text']; }
+            $posted['footer_text_parsed'] = parsedown_text_safe($parsedown, $posted['footer_text'], 'the footer text');
             $this->run_settings[] = 'footer_text_parsed';
         }
         if (isset($posted['expiresOn'])) {
@@ -925,13 +922,11 @@ class Run extends Model
             $this->db->update('survey_runs', array('public' => 0), array('id' => $this->id));
         }
         if (isset($posted['privacy'])) {
-            try { $posted['privacy_parsed'] = $parsedown->text($posted['privacy']); }
-            catch (\Throwable $e) { formr_log_exception($e, 'PARSEDOWN.TEXT'); $posted['privacy_parsed'] = $posted['privacy']; }
+            $posted['privacy_parsed'] = parsedown_text_safe($parsedown, $posted['privacy'], 'the privacy policy');
             $this->run_settings[] = 'privacy_parsed';
         }
         if (isset($posted['tos'])) {
-            try { $posted['tos_parsed'] = $parsedown->text($posted['tos']); }
-            catch (\Throwable $e) { formr_log_exception($e, 'PARSEDOWN.TEXT'); $posted['tos_parsed'] = $posted['tos']; }
+            $posted['tos_parsed'] = parsedown_text_safe($parsedown, $posted['tos'], 'the terms of service');
             $this->run_settings[] = 'tos_parsed';
         }
 

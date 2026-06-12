@@ -28,9 +28,9 @@ class Page extends RunUnit {
         parent::create($options);
 
         $parsedown = new ParsedownExtra();
-        $this->body_parsed = $parsedown
-                ->setBreaksEnabled(true)
-                ->text($this->body); // transform upon insertion into db instead of at runtime
+        $parsedown->setBreaksEnabled(true);
+        // transform upon insertion into db instead of at runtime
+        $this->body_parsed = parsedown_text_safe($parsedown, $this->body, 'the page body');
 
         $this->db->insert_update('survey_pages', array(
             'id' => $this->id,

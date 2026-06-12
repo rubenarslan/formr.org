@@ -612,12 +612,7 @@ class SurveyStudy extends Model
 
             // if the parsed label is constant or exists
             if (!knitting_needed($item->label) && !$item->label_parsed) {
-                try {
-                    $markdown = $reader->parsedown->text($item->label);
-                } catch (\Throwable $e) {
-                    formr_log_exception($e, 'PARSEDOWN.TEXT');
-                    $markdown = $item->label;
-                }
+                $markdown = parsedown_text_safe($reader->parsedown, $item->label, "the label of item '{$item->name}'");
                 $item->label_parsed = $markdown;
                 if (mb_substr_count($markdown, "</p>") === 1 and preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)) {
                     $item->label_parsed = $matches[1];
@@ -693,12 +688,7 @@ class SurveyStudy extends Model
 
             if (isset($choice['list_name']) && isset($choice['name']) && isset($choice['label'])) {
                 if (!knitting_needed($choice['label']) && empty($choice['label_parsed'])) { // if the parsed label is constant
-                    try {
-                        $markdown = $reader->parsedown->text($choice['label']);
-                    } catch (\Throwable $e) {
-                        formr_log_exception($e, 'PARSEDOWN.TEXT');
-                        $markdown = $choice['label'];
-                    }
+                    $markdown = parsedown_text_safe($reader->parsedown, $choice['label'], "the label of choice '{$choice['list_name']}/{$choice['name']}'");
                     $choice['label_parsed'] = $markdown;
                     if (mb_substr_count($markdown, "</p>") === 1 and preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)) {
                         $choice['label_parsed'] = $matches[1];

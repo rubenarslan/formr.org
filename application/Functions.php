@@ -19,6 +19,24 @@ function formr_log($msg, $type = '')
     error_log($msg . "\n", 3, get_log_file('errors.log'));
 }
 
+/**
+ * Append a CSP violation report (assoc array of the interesting fields) to a
+ * dedicated csp.log, one JSON object per line. Used by the Report-Only sweep.
+ *
+ * The report endpoint is unauthenticated (browsers POST with no session), so
+ * growth must be bounded: past 20 MB the log rotates once to csp.log.1
+ * (overwritten on the next rotation), capping total disk at ~40 MB.
+ */
+function formr_csp_log($report)
+{
+    $file = get_log_file('csp.log');
+    if (is_file($file) && filesize($file) > 20 * 1024 * 1024) {
+        @rename($file, $file . '.1');
+    }
+    $line = date('Y-m-d H:i:s') . ' ' . json_encode($report) . "\n";
+    error_log($line, 3, $file);
+}
+
 function formr_log_exception(Throwable $e, $prefix = '', $debug_data = null)
 {
     // Accept Throwable (not just Exception) so PHP Errors — type errors,
@@ -47,6 +65,30 @@ function alert($msg, $class = 'alert-warning', $dismissable = true)
         $site = Site::getInstance();
     }
     $site->alert($msg, $class, $dismissable);
+}
+
+/**
+ * Parse Markdown to HTML, falling back to the raw text when Parsedown throws.
+ *
+ * ParsedownExtra's block-HTML handling (processTagRoutine) feeds author
+ * markup through DOMDocument without null checks, so malformed HTML (e.g.
+ * a bare <head> tag) fatals with a PHP Error, not an Exception — still
+ * unfixed as of parsedown 1.8.0 / parsedown-extra 0.9.0. On failure the
+ * raw text is returned so the content survives, the error is logged, and
+ * the author is shown a warning naming $source so they can fix the markup.
+ */
+function parsedown_text_safe(Parsedown $parsedown, $text, $source = '')
+{
+    try {
+        return $parsedown->text($text);
+    } catch (\Throwable $e) {
+        formr_log_exception($e, 'PARSEDOWN.TEXT' . ($source !== '' ? " ($source)" : ''));
+        $where = $source !== '' ? ' in ' . htmlspecialchars($source) : '';
+        alert("The text{$where} could not be formatted because the Markdown parser "
+            . "cannot process its markup (this usually means malformed HTML, e.g. a stray "
+            . "or unclosed tag). It was saved as-is, without formatting.", 'alert-warning');
+        return $text;
+    }
 }
 
 function notify_user_error($error, $public_message = '')
