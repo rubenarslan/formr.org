@@ -998,7 +998,7 @@
             "choice_list": null,
             "type_options": null,
             "name": "iframenote",
-            "label": "You can even include interactive R graphics, but only if you use the item type `note_iframe`.\n\n```{r}\nlibrary(rbokeh)\np <- figure() %>%\n  ly_points(Sepal.Length, Sepal.Width, data = iris,\n    color = Species, glyph = Species,\n    hover = list(Sepal.Length, Sepal.Width))\np\n```",
+            "label": "You can even include interactive R graphics, but only if you use the item type `note_iframe`.\n\n```{r}\nlibrary(plotly)\nplot_ly(iris, x = ~Sepal.Length, y = ~Sepal.Width,\n        color = ~Species, type = \"scatter\", mode = \"markers\")\n```",
             "label_parsed": null,
             "optional": 1,
             "class": "",
