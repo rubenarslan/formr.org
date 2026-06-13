@@ -84,6 +84,19 @@ module.exports = defineConfig({
             use: {
                 browserName: 'chromium',
                 ...(RUNNING_ON_BS ? { channel: 'chrome' } : {}),
+                // Local headless Chromium has no camera/mic, so getUserMedia
+                // can't return a stream and the record_audio/record_video item
+                // tests can't exercise the recorder. These flags supply a fake
+                // media device and auto-accept the permission prompt. NOT under
+                // BS — real devices have real media and a real permission flow.
+                ...(RUNNING_ON_BS ? {} : {
+                    launchOptions: {
+                        args: [
+                            '--use-fake-device-for-media-stream',
+                            '--use-fake-ui-for-media-stream',
+                        ],
+                    },
+                }),
             },
         },
     ],
