@@ -136,6 +136,22 @@
 // Form-scoped rules.
 // -----------------------------------------------------------------------------
 
+// The run footer (contact / privacy / ToS / settings) is a bare <p> the run
+// wrapper emits as a sibling of the form, so by default it spans the full
+// .container-fluid width while the form is a centered 960px column — leaving
+// the footer jutting out to the left at desktop widths. Constrain it to the
+// same column + content inset as .fmr-form-v2 below. border-box because this
+// <p> lives outside the form's scoped Bootstrap, so the global box-sizing
+// reset doesn't reach it. Solo handles its own footer via the ? toggle
+// (_solo.scss), so this is scoped to non-solo layouts only.
+body:has(.fmr-form-v2:not([data-layout="solo"])) .container-fluid > p {
+    max-width: 960px;
+    margin: 0 auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    box-sizing: border-box;
+}
+
 .fmr-form-v2 {
     max-width: 960px;
     margin: 0 auto;
