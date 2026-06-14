@@ -6,6 +6,18 @@
 // validation, a thin top progress bar and a fixed Back / OK nav footer. Scoped
 // under .fmr-form-v2[data-layout="solo"] so the default layout is byte-identical
 // to pre-patch behaviour.
+//
+// Tier-2 auto-fit: `--fmr-solo-fit` is a per-step scalar (1 = full size, smaller
+// = shrunk) that js/solo/controller.js lowers — re-measuring after each step —
+// until the seated step fits one screen, never below the JS floor (~0.8). Every
+// space-consuming size below multiplies its base by this scalar through `fit()`,
+// which keeps a hard CSS floor so text stays readable and tap targets stay
+// ≥44px even if JS over-shrinks. With the var unset (default 1) sizes are
+// byte-identical to before.
+
+@function fit($base, $floor) {
+    @return max(#{$floor}, calc(#{$base} * var(--fmr-solo-fit, 1)));
+}
 
 .fmr-form-v2[data-layout="solo"] {
     max-width: none;
@@ -55,6 +67,7 @@
     .fmr-page > .form-group { display: none; }
 
     .fmr-page > .form-group.fmr-solo-current {
+        --fmr-solo-fit: 1;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -62,8 +75,11 @@
         @supports (min-height: 100svh) { min-height: 100svh; }
         max-width: 720px;
         margin: 0 auto;
-        // top: clear the progress bar; bottom: clear the fixed nav footer.
-        padding: 5.5rem 1.25rem 8rem;
+        // top: clear the progress bar; bottom: clear the fixed nav footer. Both
+        // shrink with the fit scalar but keep floors that still clear the fixed
+        // chrome (progress bar above, nav footer below) so content can't slide
+        // under it on a heavily-shrunk step.
+        padding: fit(5.5rem, 3.5rem) 1.25rem fit(8rem, 5.5rem);
         box-sizing: border-box;
     }
     // form-row items are flex-row (label left, 260px). Force a single
@@ -86,10 +102,10 @@
     .fmr-solo-current {
         > .control-label,
         > label.control-label {
-            font-size: clamp(1.35rem, 1.05rem + 1.3vw, 1.9rem);
+            font-size: clamp(1.1rem, calc((1.05rem + 1.3vw) * var(--fmr-solo-fit, 1)), 1.9rem);
             font-weight: 600;
             line-height: 1.3;
-            margin-bottom: 1.5rem;
+            margin-bottom: fit(1.5rem, 0.6rem);
             text-align: left;
         }
         .control-label h1, .control-label h2, .control-label h3,
@@ -113,21 +129,21 @@
         select.form-control {
             max-width: 100%;
             width: 100%;
-            font-size: 1.2rem;
-            padding: 0.85rem 1rem;
-            min-height: 3.25rem;
+            font-size: fit(1.2rem, 1rem);
+            padding: fit(0.85rem, 0.5rem) 1rem;
+            min-height: fit(3.25rem, 2.75rem);
             border-width: 1.5px;
         }
-        textarea.form-control { min-height: 7rem; }
+        textarea.form-control { min-height: fit(7rem, 4rem); }
         input[type=range] { width: 100%; max-width: 100%; }
 
         // tom-select (select_one / select_or_add): make the visible control
         // fill the column and match the input scale.
         .ts-wrapper { width: 100%; max-width: 100%; }
         .ts-control {
-            min-height: 3.25rem;
-            font-size: 1.2rem;
-            padding: 0.6rem 0.9rem;
+            min-height: fit(3.25rem, 2.75rem);
+            font-size: fit(1.2rem, 1rem);
+            padding: fit(0.6rem, 0.4rem) 0.9rem;
         }
 
         .help-block { font-size: 0.95rem; margin-top: 0.5rem; }
@@ -186,12 +202,12 @@
 
         > .control-label {
             margin: 0;
-            padding: 1.4rem 1.6rem;
+            padding: fit(1.4rem, 0.9rem) 1.6rem;
             background: var(--bs-danger-bg-subtle, #f8d7da);
             color: var(--bs-danger-text-emphasis, #842029);
             border: 1px solid var(--bs-danger-border-subtle, #f1aeb5);
             border-radius: 0.85rem;
-            font-size: clamp(1.2rem, 1rem + 0.9vw, 1.6rem);
+            font-size: clamp(1rem, calc((1rem + 0.9vw) * var(--fmr-solo-fit, 1)), 1.6rem);
             font-weight: 600;
             line-height: 1.4;
         }
@@ -214,8 +230,8 @@
             justify-content: center;
             gap: 0.5rem;
             min-width: 12rem;
-            padding: 1rem 2.75rem;
-            font-size: 1.3rem;
+            padding: fit(1rem, 0.7rem) 2.75rem;
+            font-size: fit(1.3rem, 1.05rem);
             font-weight: 600;
             border: 0;
             border-radius: 0.7rem;
@@ -244,9 +260,9 @@
         align-items: center;
         gap: 0.75rem;
         width: 100%;
-        margin: 0 0 0.65rem;
-        padding: 0.85rem 1rem;
-        font-size: 1.1rem;
+        margin: 0 0 fit(0.65rem, 0.3rem);
+        padding: fit(0.85rem, 0.5rem) 1rem;
+        font-size: fit(1.1rem, 0.95rem);
         line-height: 1.35;
         border: 1.5px solid var(--bs-border-color, #dee2e6);
         border-radius: 0.65rem;

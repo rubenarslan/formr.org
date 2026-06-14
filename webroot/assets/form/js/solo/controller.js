@@ -227,7 +227,7 @@ export function initSolo(opts) {
         wireSubmitStep(el);
         updateNav();
         updateProgress();
-        lockScrollToFit(el);
+        refit(el);
         // OK/Back no longer blur the field on tap (pointerdown keepFocus), so when
         // we advance to a step with no text field to receive the keyboard, close it
         // ourselves. A sync hand-off (sync=true) is a text→text move — keep focus
@@ -272,15 +272,61 @@ export function initSolo(opts) {
         const fits = !el || (top + el.offsetHeight) <= usable + 2;
         document.documentElement.classList.toggle('fmr-solo-locked', fits);
     }
+
+    // Tier-2 auto-fit. Lower the seated step's `--fmr-solo-fit` scalar (the CSS
+    // in _solo.scss multiplies its sizes by it) just enough that the step fits
+    // the visible viewport, never below FIT_FLOOR. We re-measure after each
+    // decrement rather than computing a closed-form ratio: the CSS floors make
+    // the height shrink non-linearly, so iteration is the only accurate way.
+    // The loop is synchronous, so the first painted frame already shows the
+    // settled size (no visible re-shrink). If even FIT_FLOOR overflows we stop
+    // and lockScrollToFit (below) re-enables scrolling as the fallback.
+    const FIT_FLOOR = 0.8;   // ~readability/tap-target floor; CSS fit() floors back this up per element
+    const FIT_STEP = 0.04;
+
+    // Pixels by which the step exceeds the room available to it (visible
+    // viewport minus in-flow chrome stacked above). offsetTop/offsetHeight
+    // ignore the entrance transform, so this is stable mid-animation.
+    function stepOverflow(el) {
+        const usable = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+        let top = 0;
+        for (let n = el; n; n = n.offsetParent) top += n.offsetTop;
+        return (top + el.offsetHeight) - usable;
+    }
+
+    function fitToViewport(el) {
+        if (!el) return;
+        // Don't re-fit while the participant is typing in this step: on Android
+        // the soft keyboard fires a window 'resize' that would otherwise reset to
+        // full size and re-shrink the field mid-entry. The seat-time fit ran
+        // before focus, so the step is already sized. (Initial seat is safe — its
+        // refit runs before focusFirst, so activeElement isn't yet inside `el`.)
+        const ae = document.activeElement;
+        if (ae && el.contains(ae) && /^(input|textarea|select)$/i.test(ae.tagName)) return;
+        el.style.setProperty('--fmr-solo-fit', '1');   // reset, then measure at full size
+        if (stepOverflow(el) <= 2) return;             // fits — leave it full-size
+        let f = 1;
+        while (f > FIT_FLOOR && stepOverflow(el) > 2) {
+            f = Math.max(FIT_FLOOR, +(f - FIT_STEP).toFixed(2));
+            el.style.setProperty('--fmr-solo-fit', String(f));
+        }
+    }
+
+    // Fit first (may shrink the step), then decide whether to lock body scroll.
+    function refit(el) {
+        fitToViewport(el);
+        lockScrollToFit(el);
+    }
+
     // The seat-time measurement misses content that grows *after* seating —
     // late-loading note images / OpenCPU feedback plots, font reflow, a showif
-    // reveal. Re-run the fit check whenever the current step's rendered size
-    // changes. ResizeObserver tracks content-box size, not transforms, so the
-    // entrance animation never triggers it.
+    // reveal. Re-fit whenever the current step's rendered size changes.
+    // ResizeObserver tracks content-box size, not transforms, so the entrance
+    // animation never triggers it.
     if (window.ResizeObserver) {
-        new ResizeObserver(() => { if (current) lockScrollToFit(current); }).observe(root);
+        new ResizeObserver(() => { if (current) refit(current); }).observe(root);
     }
-    window.addEventListener('resize', () => lockScrollToFit(current));
+    window.addEventListener('resize', () => refit(current));
 
     // Animate the current step out (when it's actually on screen) before
     // seating the next, so navigation reads as a directional slide.
