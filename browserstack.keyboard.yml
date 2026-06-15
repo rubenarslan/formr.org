@@ -1,0 +1,50 @@
+# Dedicated browserstack-node-sdk config for the solo keyboard-reservation
+# screenshots (solo-keyboard-reserve.spec.js). Kept SEPARATE from the main
+# browserstack.yml so adding a wide device spread here doesn't multiply the
+# whole e2e suite across every device.
+#
+# Run with: npm run test:bs:keyboard
+#   (sets BROWSERSTACK_CONFIG_FILE=browserstack.keyboard.yml and greps the spec)
+#
+# iOS Safari only: the BS Android Chrome browser-context path is parked on the
+# SDK `Malformed endpoint` issue (see browserstack.yml). The spread below varies
+# screen size — small iPhone SE → large Pro Max → iPad tablet — which is what the
+# textarea screenshots are meant to show. The iPad is deliberately included: it
+# exercises the keyboard reservation on a tablet (where a hardware keyboard, were
+# one attached, would make the reserve wasted — a known limitation, see the
+# feature notes).
+#
+# See browserstack.yml for the shared conventions (browserName: safari, empty
+# userName/accessKey → env, testReporting: false).
+
+userName: ''
+accessKey: ''
+
+projectName: formr v2 solo keyboard reservation
+buildName: solo keyboard reservation
+buildIdentifier: '#${DATE_TIME}'
+
+# workers:1 in playwright.config.js keeps these sequential, so the shared
+# `layout='solo'` DB toggle in the spec's beforeAll/afterAll can't race across
+# devices.
+platforms:
+  - browserName: safari
+    osVersion: 15
+    deviceName: iPhone SE 2022
+  - browserName: safari
+    osVersion: 16
+    deviceName: iPhone 14
+  - browserName: safari
+    osVersion: 17
+    deviceName: iPhone 15 Pro Max
+  - browserName: safari
+    osVersion: 16
+    deviceName: iPad Pro 12.9 2022
+
+parallelsPerPlatform: 1
+
+browserstackLocal: false
+debug: false
+networkLogs: false
+consoleLogs: errors
+testReporting: false
