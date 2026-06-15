@@ -57,17 +57,24 @@ async function freshParticipant(arg, runName, { acceptCookies = true, baseURL } 
 }
 
 async function acceptCookieConsent(page) {
-    // vanilla-cookieconsent renders #cc-main; the action buttons have
-    // `data-cc="accept-all"` / `data-cc="accept-necessary"`. Either is fine
-    // — accept-necessary keeps it minimal. The dialog only appears once per
-    // context, so a missing dialog after an early dismissal is normal.
-    const necessary = page.locator('[data-cc="accept-necessary"]').first();
+    // formr's vanilla-cookieconsent renders #cc-main with `.cm__btn` buttons
+    // carrying `data-role`: "all" (accept all), "necessary" (necessary-only /
+    // "Do not allow"), "show" (manage). NOTE: this previously matched
+    // `data-cc="accept-necessary"` — which the markup never emits — so the
+    // banner was never dismissed and could overlay the form (especially on slow
+    // real devices where it appears after the 2s window). Click necessary-only
+    // (minimal consent), falling back to accept-all. Generous timeout: on
+    // BrowserStack the banner can take several seconds to render.
+    // Scope to `.cm__btn` (the consent banner) — `[data-role]` also matches the
+    // hidden `.pm__btn` preferences-modal buttons, and .first() can pick an
+    // invisible one (the click then times out).
+    const btn = page.locator('#cc-main .cm__btn[data-role="necessary"], #cc-main .cm__btn[data-role="all"]').first();
     try {
-        await necessary.waitFor({ state: 'visible', timeout: 2000 });
-        await necessary.click();
-        await necessary.waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {});
+        await btn.waitFor({ state: 'visible', timeout: 8000 });
+        await btn.click();
+        await btn.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
     } catch {
-        // Dialog not shown — already dismissed or not applicable to this page.
+        // Banner didn't appear in the window — already dismissed or not shown here.
     }
 }
 
