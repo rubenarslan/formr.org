@@ -19,7 +19,7 @@
         "test:e2e:widgets": "playwright test --config tests/e2e/playwright.config.js --project=local-chromium all-widgets",
         "test:e2e:pwa": "playwright test --config tests/e2e/playwright.config.js --project=local-chromium pwa-",
         "test:bs": "bash -c 'set -a && [ -f ../.env.dev ] && . ../.env.dev; set +a; exec browserstack-node-sdk playwright test --config tests/e2e/playwright.config.js \"$@\"' --",
-        "test:bs:keyboard": "bash -c 'set -a && [ -f ../.env.dev ] && . ../.env.dev; set +a; export BROWSERSTACK_CONFIG_FILE=browserstack.keyboard.yml; bash tests/e2e/setup/solo-layout.sh solo; browserstack-node-sdk playwright test --config tests/e2e/playwright.config.js solo-keyboard-reserve \"$@\"; rc=$?; bash tests/e2e/setup/solo-layout.sh default; exit $rc' --"
+        "test:bs:keyboard": "bash -c 'set -a && [ -f ../.env.dev ] && . ../.env.dev; set +a; export BROWSERSTACK_CONFIG_FILE=browserstack.keyboard.yml; exec browserstack-node-sdk playwright test --config tests/e2e/playwright.config.js solo-keyboard-reserve \"$@\"' --"
     },
     "devDependencies": {
         "@babel/core": "^7.28.5",

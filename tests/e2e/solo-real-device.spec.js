@@ -22,7 +22,6 @@ const { test, expect, bsSafeEvaluate, clearBrowserState } = require('./helpers/t
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const v2 = require('./helpers/v2Form');
-const db = require('./helpers/db');
 const geo = require('./helpers/geometry');
 const { walkSolo, currentStep, advanceFn } = require('./helpers/solo');
 
@@ -30,26 +29,11 @@ const { walkSolo, currentStep, advanceFn } = require('./helpers/solo');
 // artifact you can actually open — not just a green DOM assertion. Gitignored.
 const SHOT_DIR = path.resolve(__dirname, 'artifacts', 'solo-ios');
 
-const RUN = () => runName('all_widgets', 'v2');
-const STUDY_ID = () => {
-    const rows = db.dbQuery(
-        "SELECT su.form_study_id AS id FROM survey_units su " +
-        "JOIN survey_run_units sru ON sru.unit_id = su.id " +
-        "JOIN survey_runs r ON r.id = sru.run_id " +
-        "WHERE r.name = 'e2e-aw-v2' AND su.type = 'Form' LIMIT 1",
-    );
-    return rows[0] && rows[0].id;
-};
-
-function setLayout(value) {
-    const id = STUDY_ID();
-    if (!id) throw new Error('could not resolve e2e-aw-v2 form study id');
-    db.dbExecRaw(`UPDATE survey_studies SET layout = '${value}' WHERE id = ${parseInt(id, 10)};`);
-}
+// Dedicated solo fixture (tests/e2e/setup/create-solo-fixture.sh) — the test no
+// longer flips layout via the DB, which breaks under the BrowserStack SDK.
+const RUN = () => runName('all_widgets_solo', 'v2');
 
 test.describe('solo layout: all item types on a real device', () => {
-    test.beforeAll(() => setLayout('solo'));
-    test.afterAll(() => setLayout('default'));
     test.beforeEach(async ({ page }) => clearBrowserState(page));
 
     test('solo renders with a seated step and Back/OK nav', async ({ page, baseURL }) => {

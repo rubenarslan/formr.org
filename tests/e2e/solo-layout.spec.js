@@ -14,7 +14,6 @@
 // and resets in `afterAll`. Safe because playwright.config.js pins
 // `workers: 1`, so nothing else races against the toggle.
 
-const path = require('node:path');
 const { test, expect } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
@@ -32,53 +31,16 @@ const { walkSolo } = require('./helpers/solo');
 // reflected the same way it is on a device.
 const SHORT = { width: 375, height: 667 };
 
-const RUN = () => runName('all_widgets', 'v2');
-// The `e2e-aw-v2` run's Form unit binds to a study named `all_widgets`
-// via survey_units.form_study_id — not `e2e_all_widgets_v2`. Toggling
-// `layout` on `all_widgets` is what actually flows through to the rendered
-// page. (Verified by inspecting survey_units.form_study_id → survey_studies.id.)
-const STUDY = 'all_widgets';
-const ADMIN_URL = process.env.FORMR_DEV_URL || 'https://formr.researchmixtape.com';
-const ADMIN_STATE = path.resolve(__dirname, 'setup/admin-state.json');
-
-// Walk through the survey-settings admin UI to set the study's layout
-// column. Uses the persistent admin storageState. Returns true on
-// success; throws on failure so beforeAll/afterAll surface the issue.
-async function setStudyLayout(browser, study, value) {
-    const ctx = await browser.newContext({
-        storageState: ADMIN_STATE,
-        ignoreHTTPSErrors: true,
-    });
-    const page = await ctx.newPage();
-    try {
-        await page.goto(`${ADMIN_URL}/admin/survey/${study}/`, { waitUntil: 'domcontentloaded' });
-        const sel = page.locator('select[name="layout"]');
-        await expect(sel).toBeVisible({ timeout: 15000 });
-        if ((await sel.inputValue()) === value) return; // already there
-        await sel.selectOption(value);
-        await Promise.all([
-            page.waitForLoadState('domcontentloaded'),
-            page.getByRole('button', { name: /save settings/i }).click(),
-        ]);
-        await page.goto(`${ADMIN_URL}/admin/survey/${study}/`, { waitUntil: 'domcontentloaded' });
-        expect(await page.locator('select[name="layout"]').inputValue()).toBe(value);
-    } finally {
-        await ctx.close().catch(() => {});
-    }
-}
+// Two static fixtures instead of toggling `layout` at runtime (which breaks
+// under the BS SDK and forced a shared mutable fixture): the default run and the
+// dedicated solo run (tests/e2e/setup/create-solo-fixture.sh).
+const RUN_DEFAULT = () => runName('all_widgets', 'v2');
+const RUN = () => runName('all_widgets_solo', 'v2');
 
 test.describe('solo-layout: default mode (regression)', () => {
 
-    // Self-sufficient: v2-finish.spec.js deliberately leaves the shared
-    // fixture at layout='solo' ("as the user expects"), so a suite run that
-    // follows one — or any consecutive full-suite run — would otherwise start
-    // this test in the wrong mode.
-    test.beforeAll(async ({ browser }) => {
-        await setStudyLayout(browser, STUDY, 'default');
-    });
-
     test('default-layout study emits data-layout="default"', async ({ page, baseURL }) => {
-        await freshParticipant(page, RUN(), { baseURL });
+        await freshParticipant(page, RUN_DEFAULT(), { baseURL });
         await expect(page.locator(v2.FORM_SELECTOR).first()).toBeVisible({ timeout: 20000 });
         expect(await v2.form(page).getAttribute('data-layout')).toBe('default');
     });
@@ -86,14 +48,6 @@ test.describe('solo-layout: default mode (regression)', () => {
 });
 
 test.describe('solo-layout: solo mode', () => {
-
-    test.beforeAll(async ({ browser }) => {
-        await setStudyLayout(browser, STUDY, 'solo');
-    });
-
-    test.afterAll(async ({ browser }) => {
-        await setStudyLayout(browser, STUDY, 'default');
-    });
 
     test('emits data-layout="solo"', async ({ page, baseURL }) => {
         await freshParticipant(page, RUN(), { baseURL });

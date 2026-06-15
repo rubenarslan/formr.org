@@ -161,6 +161,25 @@ sessions with the participant subdomain DELETE shortcut documented in the
 top-level CLAUDE.md "form_v2 development notes" section, **not** by
 deleting the run itself.
 
+## Fixture: all_widgets_solo (`e2e-aw-solo-v2`)
+
+The solo-layout specs (`solo-layout`, `solo-real-device`, `solo-keyboard-reserve`,
+`v2-finish`'s solo test) used to flip `survey_studies.layout` to `solo` in the DB
+around each test. That breaks under the BrowserStack SDK (it wraps the Node
+process and severs `execFileSync`'s stdin pipe to mariadb). So solo is now its
+own **static** fixture — a layout='solo' clone of `e2e-aw-v2` — and the tests
+never mutate the DB.
+
+Create it once (after the `all_widgets` v2 fixture exists), idempotent:
+
+```bash
+bash tests/e2e/setup/create-solo-fixture.sh
+```
+
+That clones the `e2e-aw-v2` run → `e2e-aw-solo-v2` (study `e2e_all_widgets_solo_v2`,
+`layout='solo'`) at the DB level (host-side, NOT in a test). It's already in
+`runs.json` as `all_widgets_solo.v2`. Re-run is a no-op if it exists.
+
 ## Fixture: bot_check (`e2e-botcheck-v2`)
 
 For `bot-check-v2.spec.js` — the local-only proof-of-work "are you human"

@@ -21,27 +21,12 @@ const { test, expect, bsSafeEvaluate, clearBrowserState } = require('./helpers/t
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const v2 = require('./helpers/v2Form');
-const db = require('./helpers/db');
 const { currentStep, advanceFn } = require('./helpers/solo');
 
 const SHOT_DIR = path.resolve(__dirname, 'artifacts', 'solo-keyboard-reserve');
-const RUN = () => runName('all_widgets', 'v2');
-
-const STUDY_ID = () => {
-    const rows = db.dbQuery(
-        "SELECT su.form_study_id AS id FROM survey_units su " +
-        "JOIN survey_run_units sru ON sru.unit_id = su.id " +
-        "JOIN survey_runs r ON r.id = sru.run_id " +
-        "WHERE r.name = 'e2e-aw-v2' AND su.type = 'Form' LIMIT 1",
-    );
-    return rows[0] && rows[0].id;
-};
-
-function setLayout(value) {
-    const id = STUDY_ID();
-    if (!id) throw new Error('could not resolve e2e-aw-v2 form study id');
-    db.dbExecRaw(`UPDATE survey_studies SET layout = '${value}' WHERE id = ${parseInt(id, 10)};`);
-}
+// Dedicated solo fixture (created once via tests/e2e/setup/create-solo-fixture.sh)
+// — so the test never mutates the DB to flip layout, which breaks under the BS SDK.
+const RUN = () => runName('all_widgets_solo', 'v2');
 
 // Reach the textarea step WITHOUT focusing anything (advanceFn sets .value
 // programmatically — no focus — then clicks OK), so the idle screenshot shows
@@ -57,21 +42,7 @@ async function seatTextarea(page) {
     return null;
 }
 
-// Best-effort: the BrowserStack SDK wraps the Node process (mock-process.js)
-// and breaks execFileSync's stdin pipe to the mariadb client (ERROR 2026
-// TLS/SSL broken pipe), so the in-test DB toggle can fail under `test:bs`.
-// `test:bs:keyboard` therefore sets layout='solo' on the host BEFORE the run
-// (and resets after); this hook is just a convenience for the local lane.
-function setLayoutSafe(value) {
-    try { setLayout(value); } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn(`[kbd-reserve] setLayout('${value}') skipped (set on host for BS): ${e.message}`);
-    }
-}
-
 test.describe('solo layout: keyboard reservation on the textarea step', () => {
-    test.beforeAll(() => setLayoutSafe('solo'));
-    test.afterAll(() => setLayoutSafe('default'));
     test.beforeEach(async ({ page }) => clearBrowserState(page));
 
     test('textarea step reserves keyboard room and stays above the keyboard (with screenshots)', async ({ page, baseURL }, testInfo) => {

@@ -5,23 +5,18 @@
 // including the ones widgets.js skips (geopoint, select_or_add_*, the give-100
 // block pair, the altcha bot_check, empty optional file/image/audio/video).
 //
-// Both modes drive the SAME study (1602, run e2e-aw-v2): `layout` is a per-study
-// column, so we toggle it in the DB around each test and restore 'solo' after.
+// Each layout has its OWN static fixture run (no DB layout-toggling, which
+// breaks under the BS SDK): the default run, and the dedicated solo run
+// (tests/e2e/setup/create-solo-fixture.sh).
 
 const { test, expect, RUNNING_ON_BS } = require('./helpers/test');
+const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const v2 = require('./helpers/v2Form');
 const v2c = require('./helpers/v2Complete');
-const db = require('./helpers/db');
 
-const RUN = 'e2e-aw-v2';
-const STUDY_ID = 1602;
-
-function setLayout(layout) {
-    db.dbExecRaw(`UPDATE survey_studies SET layout='${layout}' WHERE id=${STUDY_ID}`);
-}
-
-test.afterAll(() => setLayout('solo')); // leave the fixture as the user expects
+const RUN_SOLO = () => runName('all_widgets_solo', 'v2');
+const RUN_DEFAULT = () => runName('all_widgets', 'v2');
 
 // A stable signature of the current solo step so we can tell "advanced" from
 // "stuck" and avoid double-advancing an auto-advancing (radio/select) step.
@@ -176,8 +171,7 @@ test.describe('v2 survey completes end-to-end', () => {
         // ~55 single-item steps + a memory-hard bot_check solve; on a real device
         // (BrowserStack) each step pays network latency, so allow much longer.
         test.setTimeout(RUNNING_ON_BS ? 720000 : 300000);
-        setLayout('solo');
-        await freshParticipant(page, RUN, { baseURL });
+        await freshParticipant(page, RUN_SOLO(), { baseURL });
         await v2.waitForBundle(page);
         const r = await driveSolo(page);
         console.log('SOLO result', JSON.stringify(r));
@@ -191,8 +185,7 @@ test.describe('v2 survey completes end-to-end', () => {
         // stuck-diagnostics could fire, leaving an opaque timeout instead of
         // the helpful {unanswered, serverErrors} dump.
         test.setTimeout(300000);
-        setLayout('default');
-        await freshParticipant(page, RUN, { baseURL });
+        await freshParticipant(page, RUN_DEFAULT(), { baseURL });
         await v2.waitForBundle(page);
         const r = await driveDefault(page);
         console.log('DEFAULT result', JSON.stringify(r));
