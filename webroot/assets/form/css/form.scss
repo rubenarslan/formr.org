@@ -805,16 +805,19 @@ body:has(.fmr-form-v2:not([data-layout="solo"])) .container-fluid > p {
     // Deferred-fill placeholder / error states (Phase 4).
     .fmr-fill-pending {
         position: relative;
-        opacity: 0.7;
+        opacity: 0.55;
         &::after {
             content: '';
             position: absolute;
+            // Centre the spinner on the item (in solo that's the screen). Centre
+            // via negative margins, NOT transform: the fmr-spin keyframes animate
+            // `transform`, which would override a centring translate.
             top: 50%;
-            right: 0;
-            width: 1rem;
-            height: 1rem;
-            margin-top: -0.5rem;
-            border: 2px solid rgba(0, 0, 0, 0.15);
+            left: 50%;
+            width: 2.5rem;
+            height: 2.5rem;
+            margin: -1.25rem 0 0 -1.25rem;
+            border: 3px solid rgba(0, 0, 0, 0.15);
             border-top-color: var(--bs-primary, #0d6efd);
             border-radius: 50%;
             animation: fmr-spin 0.6s linear infinite;
