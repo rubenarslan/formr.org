@@ -78,6 +78,9 @@ test.describe('solo layout: keyboard reservation on the textarea step', () => {
                 fit: cs.getPropertyValue('--fmr-solo-fit').trim(),
                 innerH: window.innerHeight,
                 vvH: Math.round(vv.height),
+                // Diagnostic: did this render hit an OpenCPU outage? (Not a showif
+                // bug — surfaces when OpenCPU is down/restarting, e.g. under load.)
+                openCpuError: /problem evaluating showifs|computational error/i.test(document.body.innerText || ''),
             };
         });
 
@@ -115,7 +118,7 @@ test.describe('solo layout: keyboard reservation on the textarea step', () => {
         const delta = before.vvH - after.vvH;
         // eslint-disable-next-line no-console
         console.log(`[kbd-reserve][${device}] coarse=${before.coarsePointer} reserve=${before.reserve}px `
-            + `min-h=${before.minHeight}/${before.innerH} fit=${before.fit} | on focus: vvΔ=${delta} `
+            + `min-h=${before.minHeight}/${before.innerH} fit=${before.fit} openCpuError=${before.openCpuError} | on focus: vvΔ=${delta} `
             + `actualKbd≈${after.keyboardPx}px taBottom=${after.taBottom} vvH=${after.vvH} above=${after.aboveKeyboard}`);
         testInfo.annotations.push({
             type: 'kbd-reserve',
