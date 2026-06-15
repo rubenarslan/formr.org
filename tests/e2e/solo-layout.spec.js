@@ -14,6 +14,7 @@
 // and resets in `afterAll`. Safe because playwright.config.js pins
 // `workers: 1`, so nothing else races against the toggle.
 
+const path = require('node:path');
 const { test, expect } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
@@ -36,6 +37,13 @@ const SHORT = { width: 375, height: 667 };
 // dedicated solo run (tests/e2e/setup/create-solo-fixture.sh).
 const RUN_DEFAULT = () => runName('all_widgets', 'v2');
 const RUN = () => runName('all_widgets_solo', 'v2');
+
+// For the `admin round-trip` test ONLY — it exercises the admin layout-dropdown
+// UI itself (flip + reload + flip back). The participant specs use the two
+// static fixtures and never toggle.
+const STUDY = 'all_widgets';
+const ADMIN_URL = process.env.FORMR_DEV_URL || 'https://formr.researchmixtape.com';
+const ADMIN_STATE = path.resolve(__dirname, 'setup/admin-state.json');
 
 test.describe('solo-layout: default mode (regression)', () => {
 
@@ -211,7 +219,7 @@ test.describe('solo-layout: solo mode', () => {
             "SELECT us.layout AS layout FROM survey_unit_sessions us " +
             "JOIN survey_run_sessions rs ON rs.id = us.run_session_id " +
             "JOIN survey_runs r ON r.id = rs.run_id " +
-            "WHERE r.name = 'e2e-aw-v2' ORDER BY us.id DESC LIMIT 1",
+            "WHERE r.name = '" + RUN() + "' ORDER BY us.id DESC LIMIT 1",
         );
         expect(rows[0] && rows[0].layout, 'solo response must record layout=solo').toBe('solo');
     });
@@ -420,6 +428,13 @@ test.describe('solo-layout: admin round-trip', () => {
             await page.goto(`${ADMIN_URL}/admin/survey/${STUDY}/`, { waitUntil: 'domcontentloaded' });
             expect(await page.locator('select[name="layout"]').inputValue()).toBe('default');
         } finally {
+            // Best-effort reset so a mid-test failure can't leave all_widgets in
+            // 'solo' and break the default-mode regression test in the same run.
+            try {
+                await page.locator('select[name="layout"]').selectOption('default');
+                await page.getByRole('button', { name: /save settings/i }).click();
+                await page.waitForLoadState('domcontentloaded');
+            } catch (e) { /* best effort */ }
             await ctx.close().catch(() => {});
         }
     });
