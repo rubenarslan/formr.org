@@ -6,6 +6,9 @@
   "all_widgets_solo": {
     "v2": { "run": "e2e-aw-solo-v2", "study": "e2e_all_widgets_solo_v2" }
   },
+  "text_solo": {
+    "v2": { "run": "e2e-text-solo-v2", "study": "e2e_text_solo_v2" }
+  },
   "all_widgets_req": {
     "v2": { "run": "e2e-aw-req-v2", "study": "e2e_all_widgets_req_v2" }
   },

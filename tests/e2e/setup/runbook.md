@@ -180,6 +180,23 @@ That clones the `e2e-aw-v2` run → `e2e-aw-solo-v2` (study `e2e_all_widgets_sol
 `layout='solo'`) at the DB level (host-side, NOT in a test). It's already in
 `runs.json` as `all_widgets_solo.v2`. Re-run is a no-op if it exists.
 
+## Fixture: text_solo (`e2e-text-solo-v2`)
+
+A tiny **TEXT-ONLY** solo v2 study for BrowserStack device/screenshot tests.
+`all_widgets` is OpenCPU-heavy (feedback plots, plotly `note_iframe`, R
+values/showifs); rendering it repeatedly on a resource-limited dev box can crash
+OpenCPU mid-run and the device shots then show "problem evaluating showifs"
+banners. `text_solo` has only plain text inputs (`abode`/`yourstory`/`your_email`/
+`teeth` + a submit) — zero OpenCPU calls, ~0.7s renders. Used by
+`solo-keyboard-reserve.spec.js`. Create once (idempotent):
+
+```bash
+bash tests/e2e/setup/create-text-fixture.sh
+```
+
+Clones `e2e-aw-v2` then trims the items to the text set. In `runs.json` as
+`text_solo.v2`.
+
 ## Fixture: bot_check (`e2e-botcheck-v2`)
 
 For `bot-check-v2.spec.js` — the local-only proof-of-work "are you human"

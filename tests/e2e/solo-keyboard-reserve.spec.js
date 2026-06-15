@@ -24,9 +24,10 @@ const v2 = require('./helpers/v2Form');
 const { currentStep, advanceFn } = require('./helpers/solo');
 
 const SHOT_DIR = path.resolve(__dirname, 'artifacts', 'solo-keyboard-reserve');
-// Dedicated solo fixture (created once via tests/e2e/setup/create-solo-fixture.sh)
-// — so the test never mutates the DB to flip layout, which breaks under the BS SDK.
-const RUN = () => runName('all_widgets_solo', 'v2');
+// Tiny TEXT-ONLY solo fixture (tests/e2e/setup/create-text-fixture.sh): a static
+// study (no DB layout-toggling) that makes ZERO OpenCPU calls, so BS device runs
+// don't render the plot-heavy all_widgets and aren't flaked by OpenCPU load.
+const RUN = () => runName('text_solo', 'v2');
 
 // Reach the textarea step WITHOUT focusing anything (advanceFn sets .value
 // programmatically — no focus — then clicks OK), so the idle screenshot shows
