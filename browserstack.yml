@@ -59,6 +59,19 @@ platforms:
   - browserName: safari
     osVersion: 17
     deviceName: iPhone 15 Pro Max
+  # Android Chrome, re-added now that SDK 1.56.3 fixes the browser-context
+  # transport (see the note above). browserName: chrome + the conditional
+  # channel: 'chrome' in playwright.config.js hands the session to the device's
+  # stock Chrome. NOTE: specs that call the db.js helpers DURING the test
+  # (setLayout, backdate*, etc.) still fail on BS — the SDK wraps the Node
+  # process and breaks execFileSync's stdin pipe to mariadb (ERROR 2026 TLS/SSL
+  # broken pipe). Those specs need the host-side toggle pattern (see
+  # tests/e2e/setup/solo-layout.sh) or a BS-safe db helper before they're green
+  # on either platform. The no-DB specs (bs-smoke, pwa-*, the render smokes) run
+  # fine.
+  - browserName: chrome
+    osVersion: 14
+    deviceName: Google Pixel 8
 
 parallelsPerPlatform: 1
 
