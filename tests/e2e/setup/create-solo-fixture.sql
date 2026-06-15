@@ -28,6 +28,18 @@ UPDATE t SET id = @new_study, name = 'e2e_all_widgets_solo_v2', layout = 'solo',
 INSERT INTO survey_studies SELECT * FROM t;
 DROP TEMPORARY TABLE t;
 
+-- 1c. DEDICATED results table. survey_studies.results_table was copied verbatim
+-- in 1b, so the clone would otherwise SHARE the source study's results table —
+-- and createSurveyStudyRecord writes the per-study `study_iteration` into that
+-- table's UNIQUE `iteration` column, so two studies sharing it collide the moment
+-- their counters overlap ("Duplicate entry for key 'iteration'", blank form).
+-- Give the clone its own table and reset its counter.
+SET @src_rt := (SELECT results_table FROM survey_studies WHERE id = @src_study);
+SET @new_rt := CONCAT('s', @new_study, '_all_widgets_solo');
+SET @ddl    := CONCAT('CREATE TABLE `', @new_rt, '` LIKE `', @src_rt, '`');
+PREPARE st FROM @ddl; EXECUTE st; DEALLOCATE PREPARE st;
+UPDATE survey_studies SET results_table = @new_rt, last_iteration = 0 WHERE id = @new_study;
+
 -- 2. items
 CREATE TEMPORARY TABLE t AS SELECT * FROM survey_items WHERE study_id = @src_study;
 UPDATE t SET id = 0, study_id = @new_study;
