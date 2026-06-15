@@ -68,11 +68,15 @@
 
     .fmr-page > .form-group.fmr-solo-current {
         --fmr-solo-fit: 1;
+        // Soft-keyboard reservation (px), set by controller.js on text-entry steps
+        // on touch devices. Shortening the step's min-height by it makes the content
+        // sit in the area that stays visible above the keyboard. 0 = no reservation.
+        --fmr-kbd-reserve: 0px;
         display: flex;
         flex-direction: column;
         justify-content: center;
-        min-height: 100vh;
-        @supports (min-height: 100svh) { min-height: 100svh; }
+        min-height: calc(100vh - var(--fmr-kbd-reserve, 0px));
+        @supports (min-height: 100svh) { min-height: calc(100svh - var(--fmr-kbd-reserve, 0px)); }
         max-width: 720px;
         margin: 0 auto;
         // top: clear the progress bar; bottom: clear the fixed nav footer. Both

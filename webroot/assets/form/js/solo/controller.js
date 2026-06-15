@@ -284,11 +284,45 @@ export function initSolo(opts) {
     const FIT_FLOOR = 0.8;   // ~readability/tap-target floor; CSS fit() floors back this up per element
     const FIT_STEP = 0.04;
 
-    // Pixels by which the step exceeds the room available to it (visible
-    // viewport minus in-flow chrome stacked above). offsetTop/offsetHeight
-    // ignore the entrance transform, so this is stable mid-animation.
+    // Soft-keyboard reservation (text-entry steps on touch devices only). On such
+    // a step we fit against the screen height MINUS a keyboard-height guess, set
+    // at seat time (before focus), so the question + field are already sized for
+    // the room that remains once the keyboard slides up — no shrink-on-focus. The
+    // matching `--fmr-kbd-reserve` shortens the step's min-height (CSS) so the
+    // content sits in that upper area. Non-text steps and desktop are untouched.
+    const KBD_RESERVE_FRACTION = 0.40;  // soft keyboards are ~35–50% of portrait screen height
+    const KBD_RESERVE_MAX = 360;        // …but don't reserve absurd amounts on large screens
+    function isTouch() {
+        return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    }
+    // True when the step's primary control raises a typing keyboard: <textarea>,
+    // a tom-select typeable input, or a text-like <input>. Excludes radio/checkbox/
+    // range/file/color/date-time (native pickers, no typing keyboard) and readonly.
+    function stepHasTextEntry(el) {
+        if (el.querySelector('textarea, .ts-wrapper')) return true;
+        const TEXTY = ['text', 'email', 'url', 'tel', 'number', 'search', 'password'];
+        return [...el.querySelectorAll('input')].some((i) => {
+            const t = (i.getAttribute('type') || 'text').toLowerCase();
+            return TEXTY.indexOf(t) !== -1 && !i.disabled && !i.readOnly && i.offsetParent !== null;
+        });
+    }
+    function keyboardReserveFor(el) {
+        if (!isTouch() || !stepHasTextEntry(el)) return 0;
+        return Math.min(Math.round(window.innerHeight * KBD_RESERVE_FRACTION), KBD_RESERVE_MAX);
+    }
+
+    // Pixels by which the step exceeds the room available to it. For a text-entry
+    // step (reserve > 0) the budget is the layout viewport (window.innerHeight —
+    // stable under the iOS soft keyboard, so the guess isn't double-counted against
+    // an already-shrunk viewport) minus the keyboard guess. Other steps use the
+    // live visual viewport. Plus in-flow chrome stacked above the step.
+    // offsetTop/offsetHeight ignore the entrance transform, so this is stable
+    // mid-animation.
     function stepOverflow(el) {
-        const usable = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+        const reserve = parseFloat(el.style.getPropertyValue('--fmr-kbd-reserve')) || 0;
+        const usable = reserve > 0
+            ? window.innerHeight - reserve
+            : (window.visualViewport && window.visualViewport.height) || window.innerHeight;
         let top = 0;
         for (let n = el; n; n = n.offsetParent) top += n.offsetTop;
         return (top + el.offsetHeight) - usable;
@@ -303,6 +337,9 @@ export function initSolo(opts) {
         // refit runs before focusFirst, so activeElement isn't yet inside `el`.)
         const ae = document.activeElement;
         if (ae && el.contains(ae) && /^(input|textarea|select)$/i.test(ae.tagName)) return;
+        // Reserve keyboard room for text-entry steps (shortens min-height via the
+        // CSS var and trims the fit budget in stepOverflow); 0 otherwise.
+        el.style.setProperty('--fmr-kbd-reserve', keyboardReserveFor(el) + 'px');
         el.style.setProperty('--fmr-solo-fit', '1');   // reset, then measure at full size
         if (stepOverflow(el) <= 2) return;             // fits — leave it full-size
         let f = 1;
