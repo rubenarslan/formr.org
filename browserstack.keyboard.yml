@@ -40,6 +40,12 @@ platforms:
   - browserName: safari
     osVersion: 16
     deviceName: iPad Pro 12.9 2022
+  # Android Chrome — works on SDK 1.56.3 (the 1.53.2 "Malformed endpoint" at
+  # browserType.connect is gone). Confirmed: this Pixel ran the real
+  # browser-context test and captured screenshots. See browserstack.yml note.
+  - browserName: chrome
+    osVersion: 14
+    deviceName: Google Pixel 8
 
 parallelsPerPlatform: 1
 

@@ -46,8 +46,15 @@ buildIdentifier: '#${DATE_TIME}'
 #       Android Chrome (or pin DOWN to 1.56.1 if upstream doesn't fix
 #       1.58/1.59), or
 #   (b) BS support resolves the malformed endpoint issue at SDK level.
-# Until then the Android offline-queue smoke stays on local-Chromium
-# + manual / live-session real-device verification.
+# UPDATE 2026-06-15: path (b) landed. Bumping browserstack-node-sdk
+# 1.53.2 -> 1.56.3 fixes the `Malformed endpoint`: a Google Pixel 8
+# (Android 14, browserName: chrome) ran a real browser-context test
+# (solo-keyboard-reserve.spec.js, via browserstack.keyboard.yml) cleanly
+# and captured screenshots. @playwright/test stays pinned at 1.57.
+# Android can now be re-added below — left iOS-only here for now because
+# the FULL suite hasn't been validated on Android (do that on its own run
+# before widening the main matrix). The keyboard config already includes
+# the Pixel as the proof.
 platforms:
   - browserName: safari
     osVersion: 17
