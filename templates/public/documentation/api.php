@@ -30,15 +30,27 @@
     <code class="php"><?= h($api_base) ?></code>
 </p>
 
+<div class="alert alert-info">
+    <b>API credentials are not the same as a study's &ldquo;R&nbsp;Secrets&rdquo;.</b>
+    To let someone read a run's data from outside formr &mdash; without giving them your
+    account login &mdash; you create an <b>API credential</b> on your account page
+    (<a href="<?= admin_url('account') ?>#api">Account &rarr; API&nbsp;Credentials</a>), as in
+    step&nbsp;1 below. A key you add under a run's <b>Settings &rarr; R&nbsp;Secrets</b> tab is a
+    different thing: it is a value (e.g. an external service's key) that <i>your own R code</i>
+    can read while the study runs, reached as <code>.formr$secret_&lt;name&gt;</code>. R&nbsp;Secrets
+    never grant anyone access to the formr API. If you created one (e.g. <code>secret_TestAPI</code>)
+    in order to share data, that is the wrong place &mdash; delete it and follow step&nbsp;1 instead.
+</div>
+
 <h4>1. Get API credentials</h4>
 
 <p>
     API access requires <b>admin level 2</b> on your account. If you only have admin level 1 (the default for new accounts),
-    open <code>admin/account#api</code> and follow the support-email prompt to request access.
+    open the <a href="<?= admin_url('account') ?>#api">API&nbsp;Credentials</a> tab on your account page and follow the support-email prompt to request access.
 </p>
 
 <p>
-    Once your level is set, open <b>Account &rarr; API Credentials</b> (the API tab on your account page).
+    Once your level is set, open <b><a href="<?= admin_url('account') ?>#api">Account &rarr; API Credentials</a></b> (the API tab on your account page).
     You can hold multiple credentials side by side &mdash; each one with its own scope set and run allowlist.
     A common pattern is one narrow read-only credential for a dashboard, plus a separate broader credential for a cron job. Deleting
     one credential does not affect the others.
@@ -83,6 +95,39 @@
     any service still using it will start getting 401 on the next call).
 </p>
 
+<h5>Recipe: give a collaborator read-only access to one run's data</h5>
+
+<p>
+    A common case: you want a colleague to download one study's responses, but they must
+    not see your other runs, change anything, or get your account login. Create a credential
+    shaped exactly for that:
+</p>
+
+<ol>
+    <li>Label it for the person or purpose, e.g. <code>colleague-datadownload</code>.</li>
+    <li>
+        Tick only <code>data:read</code> (add <code>run:read</code> if they also need the run's
+        metadata, and <code>file:read</code> for participant-uploaded files). Leave every
+        <code>:write</code> scope unticked &mdash; the token then 403s on any attempt to change something.
+    </li>
+    <li>
+        In the run picker, select <b>only</b> that one run. This is the allowlist: the credential
+        403s on every other run, and on any survey that isn't a unit of the selected run.
+    </li>
+    <li>
+        Create it, then send your collaborator three things: the <code>client_id</code>, the
+        one-time <code>client_secret</code>, and the API base URL (<code><?= h($api_base) ?></code>).
+        That is all they need &mdash; no formr account, no password.
+    </li>
+</ol>
+
+<p>
+    They fetch the responses with <code>GET /v1/runs/{name}/results</code> (scope
+    <code>data:read</code>), or the equivalent helper in the formr R package. When the project
+    ends, click <b>Delete</b> on the credential and their access is revoked immediately &mdash;
+    your other runs were never reachable through it.
+</p>
+
 <h4>2. Mint an access token</h4>
 
 <p>
@@ -115,7 +160,7 @@ grant_type=client_credentials&amp;client_id={client-id}&amp;client_secret={clien
 <p>
     The <code>scope</code> field echoes the scopes you picked when generating the credential.
     If the field is empty (<code>""</code>), the credential was created with no scopes selected and every API call will 403 &mdash;
-    rotate it at <code>admin/account#api</code> and pick at least one scope.
+    rotate it on the <a href="<?= admin_url('account') ?>#api">API&nbsp;Credentials</a> tab and pick at least one scope.
 </p>
 
 <p>Error response (invalid client):</p>
@@ -191,7 +236,7 @@ HTTP/1.1 403 Forbidden
 </pre>
 
 <p>
-    All four fix paths route through the same place: open <code>admin/account#api</code>, find the credential row in
+    All four fix paths route through the same place: open the <a href="<?= admin_url('account') ?>#api">API&nbsp;Credentials</a> tab, find the credential row in
     the table, click <b>Rotate</b>, adjust the scope tickboxes or the run picker, and confirm. The
     <code>client_id</code> stays the same; only the <code>client_secret</code> changes. (Or create a fresh credential with the
     right shape and delete the old one once your callers have migrated.)
