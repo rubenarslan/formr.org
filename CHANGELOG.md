@@ -2,6 +2,17 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v1.3.0] - unreleased
+
+### Added
+- **API capability surface on `/v1/user/me`.** The user-profile endpoint now also returns `admin` (the caller's admin level), `scopes` (the OAuth scopes granted to the calling token, from the same source `ApiBase::checkScope()` validates against), and `allowed_runs` (the token's run allowlist as `{id, name}`, or `null` when the credential is unrestricted). This lets API clients (e.g. the formr MCP server) explain up front what a token can and cannot do, instead of surfacing limits only as 403s. Read-only; no extra queries beyond one id→name lookup for the run allowlist (`application/Api/V1/UserResource.php`).
+
+### Fixes
+- **API documentation: `admin/account#api` rendered as plain text, not a link** (user-reported). The four prose references on the API docs page (`documentation/#api`) are now working links to the account page, and deep-linking to `/admin/account#api` now activates the **API Credentials** tab — Bootstrap 3 does not open a tab from the URL hash on its own, so `account-api-credentials.js` now does it (and runs even for users without API access, who still see the tab).
+
+### Changes
+- **Expanded the API documentation** to address a recurring point of confusion. Added an up-front callout that **API credentials are not the same as a study's R-Secrets** — R-Secrets (run *Settings → R Secrets*) are values your own R code reads as `.formr$secret_<name>` and never grant anyone API access — and a step-by-step recipe for creating a **read-only, single-run** credential (`data:read` + run allowlist) to give a collaborator data-download access without sharing an account login.
+
 ## [v1.2.0] - 12.06.2026
 
 ### Added
