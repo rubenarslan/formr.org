@@ -975,8 +975,15 @@ function determine_session_context()
     $study_name = null;
     $is_admin = false;
 
-    // Determine if we're on admin path
-    if ($first_segment === 'admin') {
+    // Token-gated survey preview render (SurveyTestController). Lives on the
+    // admin host but OUTSIDE /admin/, so it inherits neither the admin CSP
+    // (Site::inAdminArea() is false) nor the /admin/-scoped admin cookies.
+    // Give it its own cookie path so its throwaway test session cannot collide
+    // with the admin session at /admin/.
+    if ($first_segment === 'survey-test') {
+        $session_path = '/survey-test/';
+        $session_context = 'survey_test';
+    } elseif ($first_segment === 'admin') {
         if (strpos($current_domain, $admin_domain) !== false) {
             $session_path = '/admin/';
             $session_context = 'admin';

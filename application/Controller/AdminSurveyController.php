@@ -205,15 +205,14 @@ class AdminSurveyController extends AdminController {
     }
 
     private function accessAction() {
-        Session::set('test_study_data', array(
-            'study_id' => $this->study->id,
-            'study_name' => $this->study->name,
-            'unit_id' => $this->study->id,
-            'data' => $this->study->getItems('id, name, type'),
-        ));
-
-        alert("<strong>Go ahead.</strong> You can test the study " . $this->study->name . " now.", 'alert-info');
-        $this->request->redirect(admin_study_url($this->study->name, 'test_run'));
+        // The survey test render lives OUTSIDE /admin/ (SurveyTestController),
+        // so it escapes the admin CSP (which would break live showif's
+        // new Function()) and is never sent the /admin/-scoped admin cookies.
+        // Hand the survey identity off via a short-lived signed token in the
+        // URL instead of the admin Session — the /survey-test/ path can't read
+        // that session (different cookie path).
+        $token = SurveyTestController::mintToken($this->study->name, $this->user->id);
+        $this->request->redirect(site_url('survey-test/' . $token));
     }
 
     private function testRunAction() {

@@ -24,6 +24,7 @@ $settings['routes'] = array(
     'admin/account'  => 'AdminAccountController',
     'public'         => 'PublicController',
 	'api'            => 'ApiController',
+	'survey-test'    => 'SurveyTestController',
 	'run'            => 'RunController'
 );
 
