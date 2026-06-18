@@ -215,36 +215,6 @@ class AdminSurveyController extends AdminController {
         $this->request->redirect(site_url('survey-test/' . $token));
     }
 
-    private function testRunAction() {
-        // Create a test run instance using the TEST_RUN constant
-        $testRun = new Run(Run::TEST_RUN);
-
-        // Execute the test run. This internally calls testStudy() using session data.
-        $run_vars = $testRun->exec($this->user);
-        if (!$run_vars) {
-            formr_error(500, 'Invalid Execution', 'The execution generated no output');
-        }
-        
-        // Set the body CSS class
-        $run_vars['bodyClass'] = 'fmr-run';
-        
-        // If a redirect is specified in run_vars, perform it
-        if (!empty($run_vars['redirect'])) {
-            return $this->request->redirect(admin_study_url($this->study->name, 'test_run'));
-        }
-        
-        // Populate CSS and JS assets from config:
-        $assets = Config::get('assets.frontend');
-        $run_vars['js'] = [ array_val($assets, 'js', []) ];
-        
-        // Replace old URL with the admin URL in run_content
-        $run_vars['run_content'] = str_replace(run_url(Run::TEST_RUN), admin_study_url($this->study->name, 'test_run'), $run_vars['run_content']);
-        
-        // Set the view with the run_vars
-        $this->setView('run/index', $run_vars, false);
-        return $this->sendResponse();
-    }
-
     private function showItemTableAction() {
         $vars = array(
             'google_id' => $this->study->getGoogleFileId(),
