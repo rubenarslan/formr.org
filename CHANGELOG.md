@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changes
 - **Expanded the API documentation** to address a recurring point of confusion. Added an up-front callout that **API credentials are not the same as a study's R-Secrets** — R-Secrets (run *Settings → R Secrets*) are values your own R code reads as `.formr$secret_<name>` and never grant anyone API access — and a step-by-step recipe for creating a **read-only, single-run** credential (`data:read` + run allowlist) to give a collaborator data-download access without sharing an account login. Also clarified that **R code running inside formr needs no credential at all**: when called in an OpenCPU context (showif, value/label, condition, page/email body, External unit, overview script), `formr_api_authenticate()` with no arguments auto-fills a short-lived (180s), owner- and run-scoped token, so `formr_store_keys()` is only for driving the API from outside formr.
+- **Embedded the full API documentation in the account API Credentials tab** (`admin/account#api`), in a collapsible panel below the create/rotate UI, so credential authors have the how-to (auth flow, scopes, the read-only single-run recipe, R usage) right where they manage credentials. Rendered from the same `public/documentation/api` template as `/documentation/#api` — single source — via Bootstrap collapse, so it stays within the admin enforce-CSP (no inline script).
 
 ## [v1.2.0] - 12.06.2026
 

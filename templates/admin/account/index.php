@@ -292,6 +292,28 @@ remotes::install_github("rubenarslan/formr")</code></pre>
                                 You do not have API access. To request API credentials, write to this instance's administrator at <?= $support_email_link ?>.
                             </div>
                             <?php endif; ?>
+
+                            <?php /* Full API documentation, embedded as a single source from
+                                     templates/public/documentation/api.php (also at /documentation/#api),
+                                     so credential authors see the how-to right beside the create/rotate
+                                     UI. Bootstrap collapse — no inline JS (admin enforce-CSP safe). */ ?>
+                            <div class="panel-group" id="api-docs-accordion" style="margin-top: 25px;">
+                                <div class="panel panel-primary">
+                                    <div class="panel-heading">
+                                        <h4 class="panel-title" style="font-size: 16px;">
+                                            <a data-toggle="collapse" data-parent="#api-docs-accordion" href="#api-docs-body" aria-expanded="false">
+                                                <i class="fa fa-book"></i> &nbsp;How to use the formr API — full documentation &amp; examples
+                                            </a>
+                                        </h4>
+                                    </div>
+                                    <div id="api-docs-body" class="panel-collapse collapse">
+                                        <div class="panel-body">
+                                            <?php Template::loadChild('public/documentation/api'); ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <p> &nbsp; </p>
                         </div>
                         <script src="<?= asset_url('admin/js/account-api-credentials.js') ?>"></script>
