@@ -44,6 +44,13 @@
 
 <h4>1. Get API credentials</h4>
 
+<p class="text-muted">
+    <i>This section covers calling the API from <b>outside</b> formr. If you only want to use the
+    API from R code running <b>inside</b> your own study (showif, value, label, condition, page or
+    email body, overview script, External unit), you don't need a credential at all &mdash; see
+    &ldquo;Using the formr API in R&rdquo; below.</i>
+</p>
+
 <p>
     API access requires <b>admin level 2</b> on your account. If you only have admin level 1 (the default for new accounts),
     open the <a href="<?= admin_url('account') ?>#api">API&nbsp;Credentials</a> tab on your account page and follow the support-email prompt to request access.
@@ -270,6 +277,20 @@ curl -s <?= h($api_base) ?>/v1/runs/my-diary \
     <a href="https://rubenarslan.github.io/formr/articles/getting-started.html" target="_blank" rel="noopener">Getting Started</a>
     vignette.
 </p>
+
+<div class="alert alert-success">
+    <b>Calling the API from inside your own study? You need no credential at all.</b>
+    When your R code runs on this server via OpenCPU &mdash; a <code>showif</code>, an item
+    <code>value</code> or <code>label</code>, a branch <code>condition</code>, a page or email body,
+    an <code>External</code> unit URL, or an overview script &mdash; formr <b>auto-fills</b> the
+    credentials for you. Just call <code>formr_api_authenticate()</code> <b>with no arguments</b>
+    (formr injects the host and a token the moment your code contains that call), then use the
+    <code>formr_api_*()</code> helpers as normal. The injected token is owner-scoped, restricted to
+    the current run, carries <code>user:read session:read session:write run:read data:read</code>,
+    and expires after 180&nbsp;seconds &mdash; enough for one OpenCPU call, with no long-lived secret
+    left in your study code. The <code>formr_store_keys()</code> step below is only for driving the
+    API from <i>outside</i> formr (your laptop, a dashboard, a cron job).
+</div>
 
 <pre>
 <code class="r">
