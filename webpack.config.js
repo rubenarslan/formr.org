@@ -11,6 +11,13 @@ module.exports = (env, argv) => {
     return {
         target: ['web', 'es5'],
         mode: isWatchMode ? 'development' : 'production',
+        // Dev (watch) mode defaults to devtool:'eval', which wraps every module
+        // in eval() — blocked by the admin enforce-mode CSP (script-src has no
+        // 'unsafe-eval'; see application/Csp.php). Use a non-eval source map so
+        // dev-build/ bundles comply with the same CSP as prod build/ (which is
+        // devtool:false). Keeps CSP enforcement exercised in dev. Prod stays
+        // eval-free and unmapped.
+        devtool: isWatchMode ? 'cheap-module-source-map' : false,
         entry: {
             material: './webroot/assets/site/js/material.js',
             frontend: './webroot/assets/site/js/main.js',
