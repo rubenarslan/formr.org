@@ -220,3 +220,26 @@ import the solver widget).
 
 Backend mint/verify is unit-tested separately by `bin/bot_check_smoke.php`
 (run: `docker exec formr_app php /var/www/formr/bin/bot_check_smoke.php`).
+
+## Fixture: crosspage_showif (`e2e-crosspage-v1` + `e2e-crosspage-v2`)
+
+For `crosspage-showif.spec.js` — proves a showif that references a
+**previous-page** answer **and** a current-page answer reveals its item live in
+v2 but not v1. Needs BOTH a v1 and a v2 run of the same little 2-page survey.
+
+Survey source: `tests/e2e/setup/e2e_crosspage_showif.csv` (page 1: `cp_a`;
+page 2: `cp_b` + `cp_followup` with showif `cp_a == 1 && cp_b == 3`).
+
+1. Upload the CSV **twice** at `/admin/survey/` → "Add a new survey" (upload
+   field, not the Google-sheet box). Rename the two studies to
+   `e2e_crosspage_showif` (for v1) and `e2e_crosspage_showif_v2` (for v2).
+2. Create run **`e2e-crosspage-v1`**: **Add Survey** → `e2e_crosspage_showif`,
+   then **Add Stop**.
+3. Create run **`e2e-crosspage-v2`**: **Add Form (form_v2, beta)** →
+   `e2e_crosspage_showif_v2` (this flips that study to `rendering_mode='v2'`),
+   then **Add Stop**.
+4. Make both runs reachable for a fresh participant the same way the other
+   fixtures are (public / link-accessible), and verify
+   `e2e_crosspage_showif_v2.rendering_mode = 'v2'` (see §2a).
+
+In `runs.json` as `crosspage_showif.v1` / `.v2`.

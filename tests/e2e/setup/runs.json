@@ -22,5 +22,9 @@
   },
   "bot_check": {
     "v2": { "run": "e2e-botcheck-v2", "study": "e2e_bot_check" }
+  },
+  "crosspage_showif": {
+    "v1": { "run": "e2e-crosspage-v1", "study": "e2e_crosspage_showif" },
+    "v2": { "run": "e2e-crosspage-v2", "study": "e2e_crosspage_showif_v2" }
   }
 }
