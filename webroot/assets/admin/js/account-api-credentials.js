@@ -2,6 +2,17 @@
 // script (no CSP nonce needed). Server values come from data- attributes
 // on #api-credentials-panel; the IIFE no-ops when that element is absent.
 (function () {
+    // Deep-link support: /admin/account#api (linked from the API docs) should
+    // open the matching account tab, not merely scroll to it. Bootstrap 3 tabs
+    // don't activate from the URL hash on their own. Runs regardless of the API
+    // panel below — users without API access still have the (info-only) tab.
+    jQuery(function () {
+        var hash = window.location.hash;
+        if (hash && /^#[\w-]+$/.test(hash)) {
+            jQuery('.nav-tabs a[href="' + hash + '"]').first().tab('show');
+        }
+    });
+
     var $panel = jQuery('#api-credentials-panel');
     if (!$panel.length) { return; }
     var endpoint = $panel.data('endpoint');
