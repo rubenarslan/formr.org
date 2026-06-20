@@ -9,6 +9,15 @@
     if (!root) { return; }
     var saAjaxUrl = root.getAttribute('data-sa-ajax-url');
 
+    // The .api-btn / .del-btn / .verify-email-btn / .add-email-btn actions on
+    // this page are bound in the admin bundle (common/js/run_users.js), which
+    // reads the endpoint from a GLOBAL `saAjaxUrl`. That global used to be set
+    // by the inline <script> that lived here; externalizing this file for CSP
+    // dropped it, so those four superadmin actions threw "saAjaxUrl is not
+    // defined" on click and silently did nothing (only Reset 2FA, handled
+    // below from the local var, was migrated). Re-expose it for run_users.js.
+    window.saAjaxUrl = saAjaxUrl;
+
     jQuery(function ($) {
         $('.reset-2fa-btn').click(function () {
             var userId = $(this).data('user');
