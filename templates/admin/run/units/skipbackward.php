@@ -12,6 +12,8 @@
 
 </div>
 
+<p><small class="text-muted"><strong>Advanced:</strong> if your R code returns a position number instead of TRUE/FALSE, the participant jumps straight to that position (the "skip backward to" field above is then ignored). If that position doesn't exist, they continue to the next unit after this skip.</small></p>
+
 <p class="btn-group">
     <a class="btn btn-default unit_save" href="ajax_save_run_unit?type=SkipBackward">Save</a>
     <a class="btn btn-default unit_test" href="ajax_test_unit?type=SkipBackward">Test</a>

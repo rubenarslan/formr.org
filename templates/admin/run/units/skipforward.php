@@ -11,6 +11,8 @@
         <input type="number" class="form-control" style="width:70px" name="if_true" max="32000" min="<?= ($position + 2) ?>" step="1" value="<?= h($ifTrue) ?>">
     </label><br /><br/> 
     
+    <p><small class="text-muted"><strong>Advanced:</strong> if your R code returns a position number instead of TRUE/FALSE, the participant jumps straight to that position (the "skip forward to" field above is then ignored). If that position doesn't exist, they continue to the next unit after this skip.</small></p>
+
     <?php if (!$jump || !$goOn): ?>
     <b style="display: block; margin-bottom: 7px;">How should participant skip?</b>
     <strong>Skip &nbsp; </strong>

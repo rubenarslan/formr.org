@@ -257,6 +257,13 @@
                 <p>
                     In this scenario, the participant takes part in the short survey first. We obtain the geolocation, which can be used to retrieve the local weather using API calls to weather information services in the Skip Backward at position 30. The weather gets checked once each day (pause at 20) and if there ever is a thunderstorm in the area, the participant is invited via email (40) to take a survey (50) detailing their experience of the thunderstorm. This way, the participants only get invited when necessary, we don't have to ask them to report weather events on a daily basis and risk driving them away.
                 </p>
+                <h4>Advanced: <small>computed jumps (return a position number)</small></h4>
+                <p>
+                    Instead of a TRUE/FALSE condition, your R code can return a <strong>position number</strong> — the participant then jumps straight to that position, ignoring the "skip backward to" field. This lets a single unit send different participants to different positions: e.g. <code>c(30, 50, 70)[screener$arm]</code> routes arm 1 to 30, arm 2 to 50, arm 3 to 70. The same works in a Skip Forward.
+                </p>
+                <p>
+                    <small class="text-muted">If the returned position has no unit, the participant continues to the next unit after the skip — they are never stranded. Position numbers are literal; re-check your code after large reorders.</small>
+                </p>
             </div>
         </div>
     </div>
@@ -367,6 +374,13 @@
                 </h5>
                 <p>
                     Starting at 10, participants would complete a survey on optimism. If they indicated that they are pessimists, they fill out a different survey than if they are optimists. Both groups receive the same feedback at the end. It is important to note that we have to let the optimists jump over the survey tailored to pessimists at position 40, so that they do not have to take both surveys.
+                </p>
+                <h4>Advanced: <small>computed jumps (return a position number)</small></h4>
+                <p>
+                    Instead of a TRUE/FALSE condition, your R code can return a <strong>position number</strong> — the participant then jumps straight to that position, ignoring the "skip forward to" field. This lets a single unit send different participants to different arms: e.g. <code>c(30, 50, 70)[screener$arm]</code> routes arm 1 to 30, arm 2 to 50, arm 3 to 70. The same works in a Skip Backward.
+                </p>
+                <p>
+                    <small class="text-muted">If the returned position has no unit, the participant continues to the next unit after the skip — they are never stranded. Position numbers are literal; re-check your code after large reorders.</small>
                 </p>
             </div>
         </div>

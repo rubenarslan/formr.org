@@ -2,6 +2,11 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Computed jumps in `SkipForward` / `SkipBackward`** — R conditions in skip units may now return a **position number** instead of TRUE/FALSE. When a numeric value is returned, the participant is sent directly to that absolute run position (the "skip to" field is ignored). This lets a single skip unit route to multiple arms — e.g. `c(30, 50, 70)[screener$arm]` — replacing a stack of conditional skips. If the returned position has no unit, the participant continues to the next unit after the skip (never stranded) and the study admin is notified. **Behaviour-change note:** previously, a numeric return from a SkipForward/SkipBackward condition was coerced to boolean via `(bool)$eval` (nonzero → jump to `if_true`; `0` → continue). It now jumps to the returned position instead. Studies whose conditions accidentally return integers (e.g. `survey$consent` = 0/1) will be affected; run the audit described in `documentation/agent_doc/REFACTOR_QUEUE_PLAN.md` before upgrading if in doubt. **Caveat:** position numbers in R code are literal — they are not rebased on import-with-offset or unit renumbering.
+
 ## [v1.1.1] - 11.06.2026
 
 ### Fixes
