@@ -24,7 +24,10 @@
                             </ul>
                         </div>
                         <div class="form-group">
-                            <input name="run_name" type="text" class="form-control" placeholder="Name (a to Z, 0 to 9 and -)" pattern="^[a-zA-Z][a-zA-Z0-9-]*$">
+                            <?php /* hyphen MUST be escaped as \- : browsers compile the pattern attribute
+                                     with the RegExp 'v' flag, under which a bare '-' in a character class
+                                     is "Invalid character class" and disables validation (console error). */ ?>
+                            <input name="run_name" type="text" class="form-control" placeholder="Name (a to Z, 0 to 9 and -)" pattern="^[a-zA-Z][a-zA-Z0-9\-]*$">
                         </div>
                     </div>
                     <div class="clear clearfix"></div>

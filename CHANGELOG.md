@@ -2,10 +2,11 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [v1.3.1] - 20.06.2026
+## [v1.3.1] - 21.06.2026
 
 ### Fixes
 - **Superadmin User Management: the row actions (Manage API Access, Delete User, Verify Email, Add Default Email Account) silently did nothing** — a regression from the v1.2.0 admin-CSP externalization. Those four buttons are bound in the admin bundle (`webroot/assets/common/js/run_users.js`), which reads the AJAX endpoint from a **global** `saAjaxUrl`. That global used to be defined by the page's inline `<script>`; when the page's behaviour was externalized to `webroot/assets/admin/js/user_management.js` for CSP, only the Reset 2FA handler (which reads the endpoint into a *local* var) was carried across, so `saAjaxUrl` was left undefined and every one of those clicks threw `ReferenceError: saAjaxUrl is not defined` and aborted before opening its modal / sending the request. (Reset 2FA was unaffected, which is why it kept working.) Fixed by re-exposing the endpoint as `window.saAjaxUrl` in `user_management.js`, read from the page's existing `data-sa-ajax-url` attribute — no inline script, so the admin CSP stays strict. The v1.2.0 CSP violation crawler could not catch this: it only GET-renders pages (it never clicks, so a click-handler `ReferenceError` never fires) and it runs as a non-superadmin (the page 403s and is skipped). A dedicated interaction-level guard was added in `tests/e2e/user-management-actions.spec.js`.
+- **`/admin/run/add_run`: the run-name field's HTML `pattern` was rejected by the browser, silently disabling its client-side validation** (console: `Invalid regular expression: /^[a-zA-Z][a-zA-Z0-9-]*$/v: Invalid character class`). Browsers now compile the `pattern` attribute with the RegExp **`v`** flag, under which a bare `-` in a character class must be escaped. Changed the attribute to `^[a-zA-Z][a-zA-Z0-9\-]*$` (`templates/admin/run/add_run.php`) — valid under both `v` and `u`, accepting/rejecting exactly the same names. Server-side run-name validation (`AdminRunController`, PCRE) was never affected; this only restores the in-browser hint.
 
 ## [v1.3.0] - 18.06.2026
 
