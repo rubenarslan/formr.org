@@ -45,6 +45,13 @@ class Template {
     }
 
     public static function get_replace($template, $params = array(), $vars = array()) {
+        // Issue #608: every outbound email should identify the instance it came
+        // from. Inject a default `instance` for email templates so individual
+        // call sites don't each have to (an explicit `instance` still wins).
+        if (is_string($template) && strpos($template, 'email/') === 0
+            && !isset($params['instance']) && function_exists('formr_instance_label')) {
+            $params['instance'] = formr_instance_label();
+        }
         $text = self::get($template, $vars);
         return self::replace($text, $params);
     }

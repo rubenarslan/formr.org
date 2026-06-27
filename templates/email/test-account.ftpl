@@ -2,5 +2,8 @@ Dear User,
 
 Your account has been successfully set up on %{site_url}
 
+Instance: %{instance}
+
 Best regards,
+
 formr robots
