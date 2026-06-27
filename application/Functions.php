@@ -2568,6 +2568,31 @@ function formr_search_highlight($search, $subject)
     return str_replace($search, '<span class="search-highlight">' . $search . '</span>', $subject);
 }
 
+/**
+ * Absolute base URL of the admin site, resolved from the `admin_domain` config
+ * rather than the request (issue #608). Safe in CLI/cron context, where
+ * WEBROOT/site_url() have no SERVER_NAME and collapse to a bare scheme.
+ */
+function formr_admin_base_url() {
+    $admin_domain = Config::get('admin_domain');
+    if (!empty($admin_domain)) {
+        $scheme = strpos($admin_domain, '://') === false ? 'https://' : '';
+        return $scheme . rtrim($admin_domain, '/');
+    }
+    return rtrim(site_url(), '/');
+}
+
+/**
+ * Human label identifying this formr instance for emails and logs (issue #608):
+ * the configured sender name plus the admin URL, e.g. "Formr (https://formr.example.com)".
+ * Every outbound .ftpl email should state which instance it came from.
+ */
+function formr_instance_label() {
+    $email = Config::get('email');
+    $name = (is_array($email) && !empty($email['from_name'])) ? $email['from_name'] : 'formr';
+    return $name . ' (' . formr_admin_base_url() . ')';
+}
+
 function notify_study_admin(UnitSession $unitSession, string $message, string $type = 'error') {
     try {
         Notification::getInstance()->notifyStudyAdmin($unitSession, $message, $type);

@@ -35,6 +35,43 @@ class AdminAdvancedController extends AdminController {
         return $this->sendResponse();
     }
 
+    /**
+     * Issue #608: instance-wide compute/runtime usage — per study admin and
+     * per run — so superadmins can spot resource-hungry studies. Per-user
+     * (own-runs) view lives at admin/compute.
+     */
+    public function computeUsageAction() {
+        // Superadmin-only setting of a per-user monthly compute limit (issue #608).
+        // Blank clears the override (user inherits the global default); a number is
+        // seconds (0 = unlimited). Users cannot change their own limit, so this lives
+        // here behind the superadmin gate. Plain PRG form post — no inline JS (CSP).
+        if (Request::isHTTPPostRequest() && $this->request->getParam('set_compute_limit_user_id')) {
+            $uid = (int) $this->request->getParam('set_compute_limit_user_id');
+            $raw = trim((string) $this->request->getParam('compute_limit_monthly'));
+            if ($raw === '') {
+                $value = null;
+            } elseif (is_numeric($raw) && (float) $raw >= 0) {
+                $value = (float) $raw;
+            } else {
+                alert('Compute limit must be blank (inherit default) or a non-negative number of seconds.', 'alert-danger');
+                $this->request->redirect('admin/advanced/compute_usage');
+                return;
+            }
+            $this->fdb->update('survey_users', array('compute_limit_monthly' => $value), array('id' => $uid));
+            alert('Monthly compute limit updated for user #' . $uid . '.', 'alert-success');
+            $this->request->redirect('admin/advanced/compute_usage');
+            return;
+        }
+
+        $this->setView('advanced/compute_usage', array(
+            'totals' => ComputeUsageHelper::totalsForInstance(),
+            'users' => ComputeUsageHelper::usageByUser(),
+            'runs' => ComputeUsageHelper::topRuns(50),
+            'monthly_default' => ComputeUsageHelper::monthlyDefault(),
+        ));
+        return $this->sendResponse();
+    }
+
     public function ajaxAdminAction() {
         if (!Request::isAjaxRequest()) {
             return $this->request->redirect('/');

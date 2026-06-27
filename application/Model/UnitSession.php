@@ -17,6 +17,7 @@ class UnitSession extends Model {
     public $state; // ENUM (PENDING, RUNNING, WAITING_USER, WAITING_TIMER, ENDED, EXPIRED, SUPERSEDED)
     public $state_log; // JSON, structured sibling of result_log
     public $idempotency_key;
+    public $execution_time; // issue #608: cumulative wall-clock seconds spent in execute(), incl. OpenCPU
     public $meta;
     public $queueable = 1;
     /**
@@ -165,29 +166,67 @@ class UnitSession extends Model {
     }
 
     public function execute() {
-        $this->execResults = [];
-        // Check if session has expired by getting relevant unit data
-        if ($this->isExpired()) {
-            $this->execResults['expired'] = true;
-            $this->execResults['move_on'] = true;
-            return $this->execResults;
-        }
-		
-		if (!empty($this->execResults['end_session'])) {
-			$this->execResults['move_on'] = true;
-			return $this->execResults;
-		}
-
-        if (($output = $this->runUnit->getUnitSessionOutput($this))) {
-            $this->logOutput($output);
-            unset($output['log']);
-            
-            foreach ($output as $key => $value) {
-                $this->execResults[$key] = $value;
+        // issue #608: time the whole execute() — including the expiration
+        // check (which can itself hit OpenCPU for Pause/Branch relative_to)
+        // and getUnitSessionOutput (knitting, skip logic, External R, etc.).
+        // hrtime is monotonic; the finally clause records on every return path.
+        $started = hrtime(true);
+        try {
+            $this->execResults = [];
+            // Check if session has expired by getting relevant unit data
+            if ($this->isExpired()) {
+                $this->execResults['expired'] = true;
+                $this->execResults['move_on'] = true;
+                return $this->execResults;
             }
-        }
 
-        return $this->execResults;
+            if (!empty($this->execResults['end_session'])) {
+                $this->execResults['move_on'] = true;
+                return $this->execResults;
+            }
+
+            if (($output = $this->runUnit->getUnitSessionOutput($this))) {
+                $this->logOutput($output);
+                unset($output['log']);
+
+                foreach ($output as $key => $value) {
+                    $this->execResults[$key] = $value;
+                }
+            }
+
+            return $this->execResults;
+        } finally {
+            $this->addExecutionTime((hrtime(true) - $started) / 1e9);
+        }
+    }
+
+    /**
+     * Accumulate wall-clock seconds spent executing this unit session
+     * (issue #608). Units that execute repeatedly (surveys, pauses) add
+     * up over their lifetime. Uses an in-place increment so concurrent or
+     * sequential passes never lose time to a read-modify-write race, and
+     * intentionally has no `ended IS NULL` guard so the final pass that
+     * ends the session still counts.
+     *
+     * @param float $seconds elapsed wall-clock seconds for one pass
+     */
+    protected function addExecutionTime(float $seconds) {
+        if (empty($this->id) || $seconds <= 0) {
+            return;
+        }
+        try {
+            $this->db->exec(
+                "UPDATE `survey_unit_sessions`
+                 SET `execution_time` = COALESCE(`execution_time`, 0) + :delta
+                 WHERE `id` = :id LIMIT 1",
+                ['delta' => round($seconds, 3), 'id' => $this->id]
+            );
+        } catch (Exception $e) {
+            // Timing is best-effort instrumentation; never let it break
+            // a participant's run because the column is missing or the
+            // write failed.
+            formr_log_exception($e, 'addExecutionTime');
+        }
     }
 
     protected function isExpired() {

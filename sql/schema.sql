@@ -130,7 +130,8 @@ CREATE TABLE `survey_users` (
   `referrer_code` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `2fa_code` varchar(255) DEFAULT '',
   `backup_codes` varchar(255) DEFAULT '',
-  
+  `compute_limit_monthly` decimal(12,3) unsigned DEFAULT NULL COMMENT 'Monthly compute budget in seconds (issue #608). NULL=inherit global default; 0=unlimited; superadmin-set only',
+
   PRIMARY KEY (`id`),
   UNIQUE KEY `user_code_UNIQUE` (`user_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -161,6 +162,7 @@ CREATE TABLE `survey_runs` (
   `api_secret_hash` varchar(255) CHARACTER SET latin1 COLLATE latin1_bin DEFAULT NULL,
   `cron_active` tinyint(1) DEFAULT '0',
   `public` tinyint(4) DEFAULT '0',
+  `compute_closed_from` tinyint(4) DEFAULT NULL COMMENT 'Prior public level if auto-closed by the monthly compute limiter (issue #608); NULL=not compute-closed',
   `locked` tinyint(1) DEFAULT '0',
   `reminder_email` int(10) unsigned DEFAULT NULL,
   `service_message` int(10) unsigned DEFAULT NULL,
@@ -242,6 +244,7 @@ CREATE TABLE `survey_unit_sessions` (
   `result_log` text COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `ended` datetime DEFAULT NULL,
   `expired` datetime DEFAULT NULL,
+  `execution_time` decimal(12,3) unsigned DEFAULT NULL COMMENT 'Cumulative wall-clock seconds in UnitSession::execute(), incl. OpenCPU (issue #608)',
   PRIMARY KEY (`id`),
   KEY `session_uq` (`created`,`run_session_id`,`unit_id`),
   KEY `fk_survey_sessions_survey_units1_idx` (`unit_id`),

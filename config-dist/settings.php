@@ -328,6 +328,16 @@ $settings['run_session'] = array(
 // To allow users to keep study data indefinitely, set this to INF
 $settings['keep_study_data_for_months_maximum'] = 84;
 
+// Issue #608: instance-wide default monthly compute budget per study admin,
+// in SECONDS of unit-session execution time (incl. OpenCPU/R) summed across
+// all their runs in the current calendar month. 0 = unlimited (the default,
+// so nothing is limited out of the box). When a user exceeds their effective
+// limit, ComputeLimitCron sets their public runs non-public until usage drops
+// back under the limit (typically when the month rolls over). A superadmin
+// can override this per user via survey_users.compute_limit_monthly; users
+// cannot change their own limit.
+$settings['compute_limit_monthly_default'] = 0;
+
 // Notification settings for sending notifications to study administrators about issues with their study in minutes
 $settings['notification'] = array(
     'default_throttle_minutes' => 10,

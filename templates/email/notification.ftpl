@@ -3,6 +3,7 @@
         <p style='margin: 0;'>%{message}</p>
     </div>
     <div style='margin-top: 20px; font-size: 12px; color: #666;'>
+        <p>Instance: %{instance} </p>
         <p>Run: %{run_name} </p>
         <p>RunUnit: %{run_unit} </p>
         <p>Session: %{session} </p>
