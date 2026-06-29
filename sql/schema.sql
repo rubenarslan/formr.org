@@ -249,6 +249,7 @@ CREATE TABLE `survey_unit_sessions` (
   KEY `session_uq` (`created`,`run_session_id`,`unit_id`),
   KEY `fk_survey_sessions_survey_units1_idx` (`unit_id`),
   KEY `fk_survey_unit_sessions_survey_run_sessions1_idx` (`run_session_id`),
+  KEY `idx_uxec_compute` (`run_session_id`,`execution_time`,`created`),
   KEY `ended` (`ended`),
   KEY `queued_expires` (`queued`,`expires`),
   KEY `results` (`created`,`result`,`run_session_id`),
