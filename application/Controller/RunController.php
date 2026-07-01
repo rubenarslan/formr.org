@@ -1530,15 +1530,21 @@ class RunController extends Controller {
                 $markdown = $overlayChunk . $markdown;
             }
 
-            $session = opencpu_knitdisplay($markdown, $opencpu_vars, true, $study->name);
+            // Knit to Markdown via OpenCPU (knitr only — no pandoc), then convert
+            // Markdown → HTML PHP-side with ParsedownExtra, configured exactly like
+            // the static-label path (SurveyStudy::addItems), so a dynamic label
+            // renders identically to a static one and we skip pandoc's per-render
+            // subprocess cost. The raw STRING_DELIMITER passes through knitr
+            // untouched, so we split on it before Parsedown-ing each label.
+            $session = opencpu_knitdisplay($markdown, $opencpu_vars, true, $study->name, 'markdown');
             if ($session && !$session->hasError()) {
-                $parsed = $session->getJSONObject();
-                if (is_string($parsed)) {
-                    $parts = explode(OpenCPU::STRING_DELIMITER_PARSED, $parsed);
-                    $parts = array_map('remove_tag_wrapper', $parts);
+                $knitted = $session->getJSONObject();
+                if (is_string($knitted)) {
+                    $parts = explode(OpenCPU::STRING_DELIMITER, $knitted);
+                    $parsedown = (new ParsedownExtra())->setBreaksEnabled(true)->setUrlsLinked(true);
                     foreach ($orderedCallIds as $idx => $cid) {
                         if (!isset($parts[$idx])) continue;
-                        $html = (string) $parts[$idx];
+                        $html = parsedown_text_safe($parsedown, trim($parts[$idx]), 'dynamic label');
                         $results[$cid] = $html;
                         try {
                             $stmt = DB::getInstance()->prepare(
