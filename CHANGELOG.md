@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changes
 - **Compute-usage dashboards are index-only now** (issue #608, user-reported slowness on a large instance). The per-run/per-user/instance aggregates over `survey_unit_sessions.execution_time` previously read every joined row and tested `execution_time IS NOT NULL` afterwards (`Using where` — a whole-table scan with random row IO to find the measured fraction). A covering index `idx_uxec_compute (run_session_id, execution_time, created)` makes all five dashboard queries `Using index` (no row fetches; the instance-wide total becomes an index scan instead of a table scan). Big established instances should `./db_atlas_apply.sh apply` (patch 062) to pick it up. If the instance-wide superadmin view is still heavy at extreme scale, the next step would be precomputed per-run roll-up counters (O(runs) instead of O(unit-sessions)) — not done here.
+- **The per-user "Compute" link moved off the main admin nav into the account view** (issue #608). It now sits in the profile box on `/admin/account` alongside Surveys / Runs / Email Accounts, showing the account's total compute and linking to `/admin/compute`; surfaced only to admins (who can open the dashboard). The superadmin instance-wide view stays under Advanced → Compute Usage.
 
 ### Schema
 - `sql/patches/062_unit_session_execution_time_index.sql` — adds covering index `idx_uxec_compute (run_session_id, execution_time, created)` on `survey_unit_sessions` so the compute-usage dashboards aggregate index-only.

@@ -83,7 +83,6 @@
                                     </ul>
                                 </li>
                                 <li><a href="<?php echo admin_url('mail'); ?>"><i class="fa fa-envelope"></i> <span>Mail Accounts</span></a></li>
-                                <li><a href="<?php echo admin_url('compute'); ?>"><i class="fa fa-clock-o"></i> <span>Compute</span></a></li>
                                 <?php if ($user->isSuperAdmin()): ?>
                                 <li class="dropdown">
                                     <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-cogs"></i> Advanced <span class="caret"></span></a>
