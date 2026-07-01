@@ -82,6 +82,7 @@ class Notification {
         $formattedMessage = Template::get_replace('email/notification.ftpl', [
             'typeColor' => $typeColor,
             'message' => $message,
+            'instance' => formr_instance_label(),
             'run_name' => $unitSession->runSession->getRun()->name,
             'run_unit' => $unitSession->runUnit->position . '. ' . $unitSession->runUnit->type,
             'session' => $unitSession->runSession->session,
@@ -135,6 +136,14 @@ class Notification {
     protected function canBeSent(UnitSession $unitSession, string $errorCode): bool
     {
         if (!$unitSession || !$unitSession->runSession || !$unitSession->runSession->getRun()) {
+            return false;
+        }
+        // Issue #608: don't email study admins about errors that occur in
+        // test sessions. Admins routinely break R code while building a run
+        // (previewing, the survey-test harness, toggled-testing sessions);
+        // those are expected and would otherwise bury real participant-facing
+        // errors in noise.
+        if ($unitSession->runSession->isTesting()) {
             return false;
         }
         $owner = $unitSession->runSession->getRun()->getOwner();

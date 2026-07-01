@@ -147,6 +147,12 @@ class AdminAccountController extends Controller {
         $vars['survey_count'] = $this->fdb->count('survey_studies', ['user_id' => $this->user->id]);
         $vars['run_count'] = $this->fdb->count('survey_runs', ['user_id' => $this->user->id]);
         $vars['mail_count'] = $this->fdb->count('survey_email_accounts', ['user_id' => $this->user->id, 'deleted' => 0]);
+        // Compute usage is surfaced on the account view now (moved off the main
+        // nav, issue #608). Only admins can open the compute dashboard, so only
+        // compute/show the total for them. Cheap after the covering index.
+        $vars['compute_total'] = $this->user->isAdmin()
+            ? ComputeUsageHelper::formatDuration(ComputeUsageHelper::totalsForUser($this->user->id)['total_time'] ?? 0)
+            : null;
 
         $this->setView('admin/account/index', $vars);
         return $this->sendResponse();

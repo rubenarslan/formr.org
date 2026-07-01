@@ -1,0 +1,19 @@
+Dear %{user},
+
+This is an automated message about your formr studies.
+
+Your studies have used %{used} of compute time in %{month}, which has reached your monthly limit of %{limit}. Compute time is the processing time your runs spend executing — rendering pages, evaluating R/OpenCPU code, branches, and so on.
+
+To keep within the limit, the following studies have been set to non-public, so they are not accepting new activity for now:
+%{runs}
+
+No data has been deleted, and your study contents and settings are untouched. Your studies will be made public again automatically once your usage is back under the limit — normally at the start of next month, when the monthly counter resets. If you need a higher limit before then, please contact the site administrators.
+
+You can review your compute usage here:
+%{compute_url}
+
+Instance: %{instance}
+Time: %{time}
+
+Best in Binary,
+formr robots

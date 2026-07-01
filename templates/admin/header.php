@@ -93,8 +93,9 @@
                                        <li><a href="<?php echo site_url('admin/advanced/active_users'); ?>"><i class="fa fa-users fa-fw"></i> Active Admins</a></li>
                                        <li><a href="<?php echo site_url('admin/advanced/info'); ?>"><i class="fa fa-list fa-fw"></i> PHP Info</a></li>
                                        <li><a href="<?php echo site_url('admin/advanced/runs_management'); ?>"><i class="fa fa-list fa-fw"></i> Manage Runs</a></li>
+                                       <li><a href="<?php echo site_url('admin/advanced/compute_usage'); ?>"><i class="fa fa-clock-o fa-fw"></i> Compute Usage</a></li>
                                        <li><a href="<?php echo site_url('admin/advanced/cron_log'); ?>"><i class="fa fa-list fa-fw"></i> Cron Log</a></li>
-                                        
+
                                     </ul>
                                 </li>
                                 <?php endif; ?>

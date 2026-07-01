@@ -161,7 +161,10 @@ class RunExpiresOnCron extends Cron {
             $userName,
             $run['expiresOn'],
             $timeUntilExpiry,
-            admin_url()
+            // CLI/cron context: admin_url() collapses to a host-less
+            // "https:///admin/" here (no SERVER_NAME), so resolve the admin
+            // URL from the admin_domain config instead (issue #608).
+            formr_admin_base_url() . '/admin'
         );
 
         if ($success) {

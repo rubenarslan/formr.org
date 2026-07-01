@@ -42,6 +42,11 @@
                             <li class="list-group-item">
                                 <b>Email Accounts</b> <a class="pull-right" href="<?= admin_url('mail'); ?>"><?= $mail_count ?></a>
                             </li>
+                            <?php if ($compute_total !== null): ?>
+                            <li class="list-group-item">
+                                <b>Compute usage</b> <a class="pull-right" href="<?= admin_url('compute'); ?>"><i class="fa fa-clock-o"></i> <?= h($compute_total) ?></a>
+                            </li>
+                            <?php endif; ?>
                         </ul>
 
                     </div>

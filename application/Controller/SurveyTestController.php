@@ -30,12 +30,22 @@ class SurveyTestController extends Controller {
         return Crypto::encrypt(array($studyName, (int) $userId, time() + (int) $ttl), self::TOKEN_GLUE);
     }
 
-    public function indexAction($token = null) {
+    public function indexAction($token = null, $page = null) {
         $parsed = $this->verifyToken($token);
         if ($parsed === null) {
             return; // verifyToken already emitted the error page
         }
         list($studyName, $userId) = $parsed;
+
+        // Paged surveys (use_paging) navigate by a URL page segment:
+        // /survey-test/<token>/<page>. Mirror RunController — surface that
+        // segment as the pageNo request global so PagedSpreadsheetRenderer
+        // renders the page instead of redirecting to add it. Without this the
+        // renderer always redirects (no pageNo present), and the redirect below
+        // bounces back here page-less, looping forever.
+        if ($page !== null && (int) $page > 0) {
+            Request::setGlobals('pageNo', (int) $page);
+        }
 
         $user = new User($userId);
         if (!$user->id) {
@@ -49,20 +59,48 @@ class SurveyTestController extends Controller {
         // Seed the test data the TEST_RUN exec reads (mirror of
         // AdminSurveyController::accessAction), in THIS request's own session
         // (cookie path /survey-test/, see determine_session_context()).
-        Session::set('test_study_data', array(
-            'study_id' => $study->id,
-            'study_name' => $study->name,
-            'unit_id' => $study->id,
-            'data' => $study->getItems('id, name, type'),
-        ));
+        //
+        // Seed ONLY when there is no live test session for THIS study yet.
+        // Run::testStudy() persists the created unit_session_id back into this
+        // same array so later requests (the "Next" POSTs, which all hit this
+        // one action) can resume and advance it. Re-seeding unconditionally
+        // would drop unit_session_id every request, so every "Next" would spawn
+        // a fresh unit session stuck on page 1 — and, when execute() answers a
+        // unit-session creation with a PRG redirect, loop forever. A token for
+        // a different study (or after the test finished and testStudy() cleared
+        // the data) re-seeds as expected.
+        $existing = Session::get('test_study_data');
+        if (!is_array($existing) || (int) array_val($existing, 'study_id') !== (int) $study->id) {
+            Session::set('test_study_data', array(
+                'study_id' => $study->id,
+                'study_name' => $study->name,
+                'unit_id' => $study->id,
+                'data' => $study->getItems('id, name, type'),
+            ));
+        }
 
         $testRun = new Run(Run::TEST_RUN);
         $run_vars = $testRun->exec($user);
         if (!$run_vars) {
             return formr_error(500, 'Invalid Execution', 'The execution generated no output');
         }
+        // Where TEST_RUN URLs are rewritten to: the token preview path. Both
+        // run_url(TEST_RUN) and this end in a slash, so a page segment appended
+        // by the run engine (run_url(TEST_RUN, N) = …/run/formr-test-run/N/)
+        // maps cleanly to …/survey-test/<token>/N/.
+        $surveyTestUrl = site_url('survey-test/' . $token);
+
         if (!empty($run_vars['redirect'])) {
-            return $this->request->redirect(site_url('survey-test/' . $token));
+            // Translate the run engine's redirect — a TEST_RUN run_url that, for
+            // paged surveys, carries the next page as a path segment — into the
+            // matching /survey-test/ URL so the page survives the PRG hop. The
+            // old code dropped the page (always redirected to the bare token
+            // URL), which is why paged-survey previews looped endlessly.
+            $target = str_replace(run_url(Run::TEST_RUN), $surveyTestUrl, $run_vars['redirect']);
+            if ($target === $run_vars['redirect']) {
+                $target = $surveyTestUrl; // not a TEST_RUN url (defensive)
+            }
+            return $this->request->redirect($target);
         }
 
         $run_vars['bodyClass'] = 'fmr-run';
@@ -71,7 +109,7 @@ class SurveyTestController extends Controller {
         // Point the form / continue links at this preview URL, not the raw
         // TEST_RUN run URL, so multi-page tests stay on /survey-test/.
         $run_vars['run_content'] = str_replace(
-            run_url(Run::TEST_RUN), site_url('survey-test/' . $token), $run_vars['run_content']
+            run_url(Run::TEST_RUN), $surveyTestUrl, $run_vars['run_content']
         );
 
         $this->setView('run/index', $run_vars);

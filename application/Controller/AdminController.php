@@ -18,6 +18,19 @@ class AdminController extends Controller {
         return $this->sendResponse();
     }
 
+    /**
+     * Issue #608: per-run compute/runtime usage for the logged-in study
+     * admin (their own runs only). Superadmins get an instance-wide view at
+     * admin/advanced/compute_usage.
+     */
+    public function computeAction() {
+        $this->setView('compute', array(
+            'totals' => ComputeUsageHelper::totalsForUser($this->user->id),
+            'runs' => ComputeUsageHelper::runUsageForUser($this->user->id),
+        ));
+        return $this->sendResponse();
+    }
+
     public function osfAction() {
         if (!($token = OSF::getUserAccessToken($this->user))) {
             $this->request->redirect('api/osf/login');
