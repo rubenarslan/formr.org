@@ -314,7 +314,17 @@ class RunSession extends Model {
                 // We are in the first unit of the run
                 return $this->moveOn(true);
             } elseif (!$currentUnitSession) {
-                // We maybe all previous unit sessions have ended so move on
+                // We maybe all previous unit sessions have ended so move on.
+                // D1 fix (v0.26.4): count this hop toward MAX_EXECUTION_COUNT.
+                // This branch fires when the stored position has NO live
+                // session — normally a one-off recovery, but when positions
+                // desync (or createUnitSession fails silently) it used to
+                // recurse via moveOn()->execute() WITHOUT touching
+                // executionCount, letting a run session march across an
+                // unbounded number of positions in one request with no rows
+                // and no spam() backstop (the run 12 zero-row leap shape).
+                $this->executionCount++;
+                $this->debug('No live session at position ' . $this->position . ' — recovery moveOn', true);
                 return $this->moveOn();
             } else {
                 // Currently active unit session. Should most likely be a survey or pause

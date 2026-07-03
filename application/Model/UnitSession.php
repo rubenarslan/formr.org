@@ -165,6 +165,14 @@ class UnitSession extends Model {
             $this->db->commit();
         } catch (Exception $e) {
             $this->db->rollBack();
+            // D1 fix (v0.26.4): never swallow this silently. A failed INSERT
+            // here leaves the run-session with an already-advanced position
+            // and NO session row — the raw material for silent multi-position
+            // skips (the run 12 "111→151, zero intermediate rows" leap). The
+            // load() below then resolves by (run_session_id, unit_id), which
+            // for reused units is cross-placement. Keep the legacy recovery
+            // behaviour but make every occurrence visible in the logs.
+            formr_log_exception($e, __CLASS__ . '::create unit_id=' . ($this->runUnit->id ?? '?') . ' run_unit_id=' . var_export($run_unit_id, true) . ' run_session_id=' . ($this->runSession->id ?? '?'));
         }
 
         return $this->load();
@@ -177,7 +185,27 @@ class UnitSession extends Model {
         } else {
             $run_session_id = $this->runSession ? $this->runSession->id : $this->run_session_id;
             $unit_id = $this->runUnit ? $this->runUnit->id : $this->unit_id;
-            $vars = $this->db->findRow('survey_unit_sessions', ['run_session_id' => $run_session_id, 'unit_id' => $unit_id], $columns);
+            // D1 fix (v0.26.4): this fallback used to pick an ARBITRARY row
+            // (findRow, no ORDER BY) — for a unit reused at several positions
+            // that could resolve a session belonging to a different placement.
+            // Prefer the current position's placement when it resolves; fall
+            // back to the legacy unit_id match (pre-047 rows have
+            // run_unit_id NULL). Newest row wins either way.
+            $run_unit_id = ($this->runSession && $this->runSession->position !== null)
+                ? $this->runSession->getRunUnitIdAtPosition($this->runSession->position)
+                : null;
+            $query = $this->db->select($columns)
+                    ->from('survey_unit_sessions')
+                    ->where('run_session_id = :run_session_id')
+                    ->order('id', 'desc')
+                    ->limit(1);
+            if ($run_unit_id !== null) {
+                $query->where('(run_unit_id = :run_unit_id OR (run_unit_id IS NULL AND unit_id = :unit_id))')
+                      ->bindParams(['run_unit_id' => $run_unit_id]);
+            } else {
+                $query->where('unit_id = :unit_id');
+            }
+            $vars = $query->bindParams(['run_session_id' => $run_session_id, 'unit_id' => $unit_id])->fetch();
         }
         
         if (!empty($vars['unit_id']) && !$this->runUnit) {
@@ -827,9 +855,23 @@ class UnitSession extends Model {
 					LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 				";
             } elseif ($results_table == 'survey_unit_sessions') {
+                // D1 fix (v0.26.4): the old join fanned out on unit_id — for a
+                // unit reused at N positions every unit-session row came back
+                // N times, in undefined order, with N different `position`
+                // values. R code anchored on this data (Pause relative_to,
+                // Branch conditions reading survey_unit_sessions$created /
+                // $position) then computed from an arbitrary duplicate — the
+                // wrong-gate-date generator behind run 12's off-rule
+                // pause_ended. Pin each row to its own placement via
+                // run_unit_id (written since 047); legacy NULL rows keep the
+                // old unit_id fan-out (their placement is unrecorded).
+                // Caveat: rows whose run_unit_id points at a since-deleted
+                // survey_run_units row drop out of the R data (previously
+                // they surfaced with a surviving sibling's position — wrong).
                 $joins = "LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 				LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
-				LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
+				LEFT JOIN `survey_run_units` ON (`survey_run_units`.id = `survey_unit_sessions`.run_unit_id
+					OR (`survey_unit_sessions`.run_unit_id IS NULL AND `survey_run_units`.unit_id = `survey_unit_sessions`.unit_id))
 				LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
 				";
                 $where .= " AND `survey_runs`.id = :run_id";
