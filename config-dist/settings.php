@@ -321,6 +321,16 @@ $settings['form_v2_enabled'] = false;
 // and are not affected by this flag.
 $settings['form_v2_dual_write_results'] = true;
 
+// Reader-migration escape hatch (temporary; remove after one release).
+// When true (default), the remaining wide-table readers — the OpenCPU R
+// overlay (UnitSession::getRunData), admin result counts / average-time,
+// getResults for v1 studies (and with it the per-run backup TSV) — read
+// from the long format (survey_items_display + survey_unit_sessions)
+// for ALL studies. Set to false to fall back to the legacy wide reads
+// if a discrepancy is found in the field. Once this has baked, the
+// wide dual-write itself can be turned off.
+$settings['form_v2_long_reads'] = true;
+
 // form_v2 offline-queue per-file blob cap (megabytes). Pages with file
 // uploads above this size are NOT queued offline — the participant gets a
 // "submission too large to queue offline" error and is asked to retry once

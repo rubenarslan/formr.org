@@ -582,7 +582,32 @@ class UnitSession extends Model {
                 // our value if higher, leaving subsequent inserts
                 // consistent.
                 $entry['iteration'] = $iteration;
-                $this->db->insert($study->results_table, $entry);
+                try {
+                    $this->db->insert($study->results_table, $entry);
+                } catch (Exception $e) {
+                    if (strpos($e->getMessage(), "for key 'iteration'") === false) {
+                        throw $e;
+                    }
+                    // survey_studies.last_iteration lags the wide table:
+                    // rows were seeded outside the allocator (e.g.
+                    // bin/import-results.php inserts via AUTO_INCREMENT and
+                    // never bumps the counter), so our allocated value
+                    // collides. Self-heal: resync the counter to the wide
+                    // max, re-allocate, restamp the session, retry once.
+                    $this->db->exec(
+                        "UPDATE `survey_studies`
+                         SET `last_iteration` = GREATEST(`last_iteration`, (SELECT COALESCE(MAX(`iteration`), 0) FROM `{$study->results_table}`))
+                         WHERE `id` = :id",
+                        array('id' => $study->id)
+                    );
+                    $iteration = $this->allocateStudyIteration($study->id);
+                    $this->db->update('survey_unit_sessions',
+                        array('study_iteration' => $iteration),
+                        array('id' => $this->id));
+                    $this->study_iteration = $iteration;
+                    $entry['iteration'] = $iteration;
+                    $this->db->insert($study->results_table, $entry);
+                }
 
                 if ($sessionStarted) {
                     $this->result = 'survey_started';
@@ -848,6 +873,24 @@ class UnitSession extends Model {
             }
 
             $results_table = $results_tables[$survey_name];
+
+            // Real studies (numeric id, per-study wide table) read from the
+            // long format (survey_items_display) since the reader-migration
+            // slice — this is what the R overlay evaluates against, and it
+            // must not depend on the wide dual-write. The special pseudo-
+            // tables (survey_unit_sessions/run_sessions/users, externals)
+            // keep the legacy path below. form_v2_long_reads is a temporary
+            // escape hatch back to wide reads.
+            if (is_numeric($study_id)
+                    && !in_array($results_table, get_db_non_session_tables())
+                    && Config::get('form_v2_long_reads', true)) {
+                $datasets['datasets'][$survey_name] = $this->getSurveyDataLong(
+                    (int) $study_id,
+                    isset($matches_variable_names[$survey_name]) ? $matches_variable_names[$survey_name] : array()
+                );
+                continue;
+            }
+
             $variables = [];
             if (empty($matches_variable_names[$survey_name])) {
                 $variables[] = "NULL AS formr_dummy";
@@ -973,6 +1016,92 @@ class UnitSession extends Model {
 
         Cache::set($cache_key, $datasets);
         return $datasets;
+    }
+
+    /**
+     * Long-format replacement for getRunData's per-study wide read: pivot
+     * survey_items_display into the same column-arrays shape the R overlay
+     * expects. Column sourcing mirrors SurveyStudy::buildPivotSql —
+     * created = MIN(sid.created), modified = MAX(sid.saved), ended = us.ended,
+     * iteration = us.study_iteration (ROW_NUMBER fallback pre-backfill),
+     * answers = MAX(CASE) keyed by item NAME (name, not id, so a soft-deleted-
+     * then-recreated item under the same name keeps contributing its old
+     * sessions' answers, like the single wide column did).
+     *
+     * Row set = unit sessions that have display rows for this study (display
+     * rows and the wide row are created by the same createSurveyStudyRecord
+     * call, so the row counts match the wide table's) — one row per session,
+     * ordered by unit-session id ASC (the wide table's PK order, which
+     * tail(survey, 1) depends on).
+     *
+     * @param int $studyId
+     * @param string[] $names referenced variable names (meta + item names)
+     * @return array<string, array> column-arrays: [var => [v1, v2, ...]]
+     */
+    protected function getSurveyDataLong($studyId, array $names) {
+        $selectParts = array();
+        foreach ($names as $name) {
+            switch ($name) {
+                case 'created':
+                    $selectParts[$name] = 'MIN(`sid`.`created`) AS `created`';
+                    break;
+                case 'modified':
+                    $selectParts[$name] = 'MAX(`sid`.`saved`) AS `modified`';
+                    break;
+                case 'ended':
+                    $selectParts[$name] = '`us`.`ended` AS `ended`';
+                    break;
+                case 'iteration':
+                    $selectParts[$name] = 'COALESCE(`us`.`study_iteration`, ROW_NUMBER() OVER (ORDER BY `us`.`id` ASC)) AS `iteration`';
+                    break;
+                default:
+                    // Item names are validated as identifiers at upload;
+                    // escape defensively anyway.
+                    $safe = str_replace('`', '``', $name);
+                    $quoted = str_replace("'", "''", $name);
+                    $selectParts[$name] = "MAX(CASE WHEN `i`.`name` = '{$quoted}' THEN `sid`.`answer` END) AS `{$safe}`";
+            }
+        }
+        if (!$selectParts) {
+            // Only the survey name was referenced (e.g. nrow(diary) > 3) —
+            // the row COUNT still matters, so emit one dummy row per session
+            // exactly like the wide read's "NULL AS formr_dummy".
+            $selectParts[] = 'NULL AS `formr_dummy`';
+        }
+
+        $runSession = $this->runSession;
+        $testingScope = ($runSession->id === null || $runSession->isTestingStudy());
+        $where = $testingScope
+            ? '`sid`.`session_id` = :session_id'
+            : '`us`.`run_session_id` = :run_session_id';
+
+        $sql = 'SELECT ' . implode(', ', $selectParts) . '
+            FROM `survey_items_display` `sid`
+            INNER JOIN `survey_items` `i` ON `i`.`id` = `sid`.`item_id` AND `i`.`study_id` = :study_id
+            INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `sid`.`session_id`
+            WHERE ' . $where . '
+            GROUP BY `us`.`id`, `us`.`ended`, `us`.`study_iteration`
+            ORDER BY `us`.`id` ASC';
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindValue(':study_id', (int) $studyId, PDO::PARAM_INT);
+        if ($testingScope) {
+            $stmt->bindValue(':session_id', $this->id);
+        } else {
+            $stmt->bindValue(':run_session_id', $runSession->id);
+        }
+        $stmt->execute();
+
+        $columns = array();
+        while ($res = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            foreach ($res as $var => $val) {
+                if (!isset($columns[$var])) {
+                    $columns[$var] = array();
+                }
+                $columns[$var][] = $val;
+            }
+        }
+        return $columns;
     }
 
     protected function getRunDataNeeded($q, $token_add = null) {

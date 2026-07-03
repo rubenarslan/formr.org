@@ -827,12 +827,13 @@ class SurveyStudy extends Model
 
     public function getResults($items = null, $filter = null, array $paginate = null, $runId = null, $rstmt = false)
     {
-        // form_v2 studies pivot survey_items_display into the wide
-        // shape at read time. Wide-table dual-write stays on so the
-        // pivot can be validated against the byte-identical wide row;
-        // see pivotedResultsStatement() for the column-sourcing
-        // contract.
-        if ($this->rendering_mode === 'v2') {
+        // Long-format is the source of truth: pivot survey_items_display
+        // into the wide shape at read time — for ALL studies since the
+        // reader-migration slice (form_v2_long_reads), not just v2. The
+        // wide dual-write stays on for now so the pivot can be validated
+        // against the byte-identical wide row; the config flag is a
+        // temporary escape hatch back to wide reads for one release.
+        if ($this->rendering_mode === 'v2' || Config::get('form_v2_long_reads', true)) {
             $stmt = $this->pivotedResultsStatement($items, $filter, $paginate, $runId);
             if ($rstmt === true) {
                 return $stmt;
@@ -998,11 +999,12 @@ class SurveyStudy extends Model
             $get_all = false;
         }
 
-        // Saved filters operate against the wide table's named columns
-        // in WHERE-clause form. Translating them to HAVING against the
-        // pivot is a separate slice; refuse for now and surface a notice.
-        if (!empty($filter['results'])) {
-            alert('Saved results filters are not yet supported for form_v2 studies in the long-form export path.', 'alert-warning');
+        // The canonical results filters (complete / incomplete, the only ones
+        // getResultsFilter defines) are translated to long-format semantics
+        // inside buildPivotSql. Anything else is unknown wide-column SQL we
+        // can't translate; refuse loudly rather than return wrong rows.
+        if (!empty($filter['results']) && !in_array($filter['results'], array('all', 'complete', 'incomplete'), true)) {
+            alert('This saved results filter is not supported by the long-form results path.', 'alert-warning');
             $empty = $this->db->prepare('SELECT NULL WHERE 1 = 0');
             $empty->execute();
             return $empty;
@@ -1116,6 +1118,20 @@ class SurveyStudy extends Model
             }
         }
 
+        // Canonical results filters, translated from the wide-column SQL in
+        // getResultsFilter to long-format semantics:
+        //   complete   — wide `ended IS NOT NULL`      → us.ended (plain WHERE)
+        //   incomplete — wide `(created <> modified OR modified IS NULL) AND
+        //                ended IS NULL`; modified is the last answer write, so
+        //                the long equivalent needs aggregates (MAX(saved)) and
+        //                lands in HAVING.
+        $having = '';
+        if (!empty($filter['results']) && $filter['results'] === 'complete') {
+            $wheres[] = '`us`.`ended` IS NOT NULL';
+        } elseif (!empty($filter['results']) && $filter['results'] === 'incomplete') {
+            $having = "\n        HAVING (MIN(`sid`.`created`) <> MAX(`sid`.`saved`) OR MAX(`sid`.`saved`) IS NULL) AND `us`.`ended` IS NULL";
+        }
+
         $sql .= "\n        WHERE " . implode(' AND ', $wheres);
         // GROUP BY the wide-row identity (one row per unit-session).
         // study_iteration is functionally dependent on us.id (PK), but
@@ -1123,6 +1139,7 @@ class SurveyStudy extends Model
         // JOIN, so list it explicitly.
         $groupCols = array('`us`.`id`', '`us`.`study_iteration`', '`rs`.`session`', '`us`.`ended`', '`us`.`expired`');
         $sql .= "\n        GROUP BY " . implode(', ', $groupCols);
+        $sql .= $having;
 
         if ($unlinked) {
             $sql .= "\n        ORDER BY RAND()";
@@ -1405,6 +1422,11 @@ class SurveyStudy extends Model
         }
 
         $count = array('finished' => 0, 'begun' => 0, 'testers' => 0, 'real_users' => 0);
+
+        if ($this->rendering_mode === 'v2' || Config::get('form_v2_long_reads', true)) {
+            return $this->getResultCountLong($run_id, $filter, $count);
+        }
+
         if ($this->resultsTableExists()) {
             $results_table = $this->results_table;
             $select = $this->db->select(array(
@@ -1440,8 +1462,99 @@ class SurveyStudy extends Model
         return $count;
     }
 
+    /**
+     * Long-format result counts. A session "has begun" this study when it has
+     * survey_items_display rows for it — those are written by the same
+     * createSurveyStudyRecord call that used to create the wide row, so the
+     * row set matches the wide count's. ended comes from
+     * survey_unit_sessions (end() stamps both in the same pass).
+     */
+    private function getResultCountLong($run_id, $filter, array $count)
+    {
+        $wheres = array();
+        $bindings = array(':study_id' => (int) $this->id);
+        if ($run_id) {
+            $wheres[] = '`rs`.`run_id` = :run_id';
+            $bindings[':run_id'] = (int) $run_id;
+        }
+        if (!empty($filter['session'])) {
+            $session = $filter['session'];
+            if (strlen($session) == 64) {
+                $wheres[] = '`rs`.`session` = :session_eq';
+                $bindings[':session_eq'] = $session;
+            } else {
+                $wheres[] = '`rs`.`session` LIKE :session_like';
+                $bindings[':session_like'] = $session . '%';
+            }
+        }
+        // Canonical results filters, long semantics (see buildPivotSql).
+        if (!empty($filter['results']) && $filter['results'] === 'complete') {
+            $wheres[] = '`us`.`ended` IS NOT NULL';
+        } elseif (!empty($filter['results']) && $filter['results'] === 'incomplete') {
+            $wheres[] = '(`t`.`first_created` <> `t`.`last_saved` OR `t`.`last_saved` IS NULL) AND `us`.`ended` IS NULL';
+        }
+
+        $sql = 'SELECT
+            SUM(`rs`.`testing` IS NOT NULL AND `rs`.`testing` = 0 AND `us`.`ended` IS NULL) AS `begun`,
+            SUM(`rs`.`testing` IS NOT NULL AND `rs`.`testing` = 0 AND `us`.`ended` IS NOT NULL) AS `finished`,
+            SUM(`rs`.`testing` IS NULL OR `rs`.`testing` = 1) AS `testers`,
+            SUM(`rs`.`testing` IS NOT NULL AND `rs`.`testing` = 0) AS `real_users`
+        FROM (
+            SELECT `sid`.`session_id`, MIN(`sid`.`created`) AS `first_created`, MAX(`sid`.`saved`) AS `last_saved`
+            FROM `survey_items_display` `sid`
+            INNER JOIN `survey_items` `i` ON `i`.`id` = `sid`.`item_id`
+            WHERE `i`.`study_id` = :study_id
+            GROUP BY `sid`.`session_id`
+        ) `t`
+        INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `t`.`session_id`
+        LEFT JOIN `survey_run_sessions` `rs` ON `rs`.`id` = `us`.`run_session_id`';
+        if ($wheres) {
+            $sql .= "\n        WHERE " . implode(' AND ', $wheres);
+        }
+
+        $stmt = $this->db->prepare($sql);
+        foreach ($bindings as $k => $v) {
+            $stmt->bindValue($k, $v);
+        }
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (is_array($row)) {
+            // SUM over an empty set is NULL — keep the zero defaults then.
+            foreach ($count as $k => $zero) {
+                $count[$k] = $row[$k] !== null ? $row[$k] : 0;
+            }
+        }
+        return $count;
+    }
+
     public function getAverageTimeItTakes()
     {
+        if ($this->rendering_mode === 'v2' || Config::get('form_v2_long_reads', true)) {
+            // Long-format median. Preserves the wide read's quirks exactly:
+            // (ended - created) is MySQL's numeric DATETIME subtraction (NOT
+            // seconds), unfinished sessions contribute NULL `took` rows to
+            // the median window, and the /60 pretends the result is seconds.
+            // Fixing the math is a separate (behaviour-changing) decision.
+            $studyIdInt = (int) $this->id;
+            $get = "SELECT AVG(middle_values) AS 'median' FROM (
+			  SELECT took AS 'middle_values' FROM
+				(
+				  SELECT @row:=@row+1 as `row`, (`us`.`ended` - `us`.`created`) AS took
+			      FROM `survey_unit_sessions` `us`, (SELECT @row:=0) AS r
+				  WHERE `us`.`id` IN (SELECT DISTINCT `sid`.`session_id` FROM `survey_items_display` `sid` INNER JOIN `survey_items` `i` ON `i`.`id` = `sid`.`item_id` WHERE `i`.`study_id` = {$studyIdInt})
+				  ORDER BY took
+				) AS t1,
+				(
+				  SELECT COUNT(*) as 'count'
+			      FROM `survey_unit_sessions` `us`
+				  WHERE `us`.`id` IN (SELECT DISTINCT `sid`.`session_id` FROM `survey_items_display` `sid` INNER JOIN `survey_items` `i` ON `i`.`id` = `sid`.`item_id` WHERE `i`.`study_id` = {$studyIdInt})
+				) AS t2
+				WHERE t1.row >= t2.count/2 and t1.row <= ((t2.count/2) +1)) AS t3;";
+            $get = $this->db->query($get, true);
+            $time = $get->fetch(PDO::FETCH_NUM);
+            return round($time[0] / 60, 3); # seconds to minutes
+        }
+
         if ($this->resultsTableExists()) {
             $get = "SELECT AVG(middle_values) AS 'median' FROM (
 			  SELECT took AS 'middle_values' FROM
