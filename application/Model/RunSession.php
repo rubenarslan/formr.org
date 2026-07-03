@@ -191,7 +191,12 @@ class RunSession extends Model {
             return $this;
         }
 
-        $this->currentUnitSession = $unitSession->create($setAsCurrent);
+        $created = $unitSession->create($setAsCurrent);
+        // A failed create() returns an invalid object (id null). Do not
+        // install it as the current session — execute()'s recovery branch
+        // detects the missing step and re-creates it at the current
+        // position instead of silently executing a bogus row.
+        $this->currentUnitSession = ($created && $created->id) ? $created : null;
         return $this;
     }
 
@@ -304,16 +309,30 @@ class RunSession extends Model {
                 // We are in the first unit of the run
                 return $this->moveOn(true);
             } elseif (!$currentUnitSession) {
-                // We maybe all previous unit sessions have ended so move on.
-                // D1 fix (v0.26.4): count this hop toward MAX_EXECUTION_COUNT.
-                // This branch fires when the stored position has NO live
-                // session — normally a one-off recovery, but when positions
-                // desync (or createUnitSession fails silently) it used to
-                // recurse via moveOn()->execute() WITHOUT touching
-                // executionCount, letting a run session march across an
-                // unbounded number of positions in one request with no rows
-                // and no spam() backstop (the run 12 zero-row leap shape).
+                // No live session at the stored position. Count the hop so
+                // a stuck recovery can't recurse unboundedly — but fail the
+                // REQUEST when the bound trips, never the participant:
+                // spam() would end the run session irreversibly for what is
+                // an engine-side fault.
                 $this->executionCount++;
+                if ($this->executionCount >= self::MAX_EXECUTION_COUNT) {
+                    formr_log("Run session {$this->id}: recovery loop at position {$this->position} exceeded MAX_EXECUTION_COUNT; aborting request without ending the run session.");
+                    alert(__('Temporary problem executing this study. Please try again in a moment.'), 'alert-warning');
+                    return ['body' => ''];
+                }
+                // Distinguish "the step here ran and finished" (advance)
+                // from "the step was never instantiated" (repair): a
+                // moveOn() persists the position BEFORE createUnitSession,
+                // so a failed create leaves zero rows for this placement —
+                // pre-fix this branch then skipped the position entirely.
+                if (!$this->placementHasAnyUnitSession() && ($unit_id = $this->getUnitIdAtPosition($this->position))) {
+                    $this->debug('No session ever created at position ' . $this->position . ' — repairing', true);
+                    $runUnit = RunUnitFactory::make($this->run, ['id' => $unit_id]);
+                    if ($runUnit && $runUnit->valid) {
+                        $this->createUnitSession($runUnit);
+                        return $this->execute();
+                    }
+                }
                 $this->debug('No live session at position ' . $this->position . ' — recovery moveOn', true);
                 return $this->moveOn();
             } else {
@@ -448,6 +467,32 @@ class RunSession extends Model {
             $this->positionedRunUnitIds[$position] = ($id === false) ? null : $id;
         }
         return $this->positionedRunUnitIds[$position];
+    }
+
+    /**
+     * TRUE if ANY unit-session row — alive, ended, expired or superseded —
+     * exists for the current position's placement, i.e. the step was at
+     * least instantiated once. Used by execute()'s recovery branch to
+     * distinguish "finished here, advance" from "never created, repair".
+     * Legacy rows (run_unit_id NULL, pre-047) count via unit_id.
+     */
+    protected function placementHasAnyUnitSession() {
+        $unit_id = $this->getUnitIdAtPosition($this->position);
+        if (!$unit_id || !$this->id) {
+            return false;
+        }
+        $run_unit_id = $this->getRunUnitIdAtPosition($this->position);
+        $query = $this->db->select('survey_unit_sessions.id')
+                ->from('survey_unit_sessions')
+                ->where('run_session_id = :run_session_id')
+                ->where('unit_id = :unit_id')
+                ->limit(1);
+        if ($run_unit_id !== null) {
+            $query->where('(run_unit_id = :run_unit_id OR run_unit_id IS NULL)')
+                  ->bindParams(['run_unit_id' => $run_unit_id]);
+        }
+        $row = $query->bindParams(['run_session_id' => $this->id, 'unit_id' => $unit_id])->fetch();
+        return (bool) $row;
     }
 
     public function forceTo($position) {

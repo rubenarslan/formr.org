@@ -30,8 +30,10 @@ class RunSessionReusedUnitTest extends \PHPUnit\Framework\TestCase
     private const RUN_ID = 1;
     private const RUN_SESSION_ID = 555;
     private const UNIT_ID = 10;          // the shared survey_units row
+    private const OTHER_UNIT_ID = 11;    // a different unit downstream
     private const RUN_UNIT_EARLY = 100;  // placement at position 50
     private const RUN_UNIT_LATE = 101;   // placement at position 200
+    private const RUN_UNIT_OTHER = 102;  // OTHER_UNIT's placement at position 300
 
     protected function setUp(): void
     {
@@ -50,10 +52,11 @@ class RunSessionReusedUnitTest extends \PHPUnit\Framework\TestCase
             ended TEXT, expired TEXT, state TEXT, state_log TEXT,
             idempotency_key TEXT)');
 
-        $this->db->exec("INSERT INTO survey_units (id, type) VALUES (" . self::UNIT_ID . ", 'Pause')");
+        $this->db->exec("INSERT INTO survey_units (id, type) VALUES (" . self::UNIT_ID . ", 'Pause'), (" . self::OTHER_UNIT_ID . ", 'Pause')");
         $this->db->exec("INSERT INTO survey_run_units (id, run_id, unit_id, position) VALUES
             (" . self::RUN_UNIT_EARLY . ", " . self::RUN_ID . ", " . self::UNIT_ID . ", 50),
-            (" . self::RUN_UNIT_LATE . ", " . self::RUN_ID . ", " . self::UNIT_ID . ", 200)");
+            (" . self::RUN_UNIT_LATE . ", " . self::RUN_ID . ", " . self::UNIT_ID . ", 200),
+            (" . self::RUN_UNIT_OTHER . ", " . self::RUN_ID . ", " . self::OTHER_UNIT_ID . ", 300)");
         $this->db->exec("INSERT INTO survey_run_sessions (id) VALUES (" . self::RUN_SESSION_ID . ")");
     }
 
@@ -64,6 +67,10 @@ class RunSessionReusedUnitTest extends \PHPUnit\Framework\TestCase
 
     private function dropTables(): void
     {
+        // Exhaust the DB singleton's retained lastStatement cursor —
+        // an unfinalized cursor blocks SQLite DDL ("table is locked").
+        $this->db->execute('SELECT 1');
+        $this->db->exec('DROP TRIGGER IF EXISTS fail_current_ptr');
         foreach (['survey_units', 'survey_run_units', 'survey_pauses', 'survey_run_sessions', 'survey_unit_sessions'] as $t) {
             $this->db->exec("DROP TABLE IF EXISTS $t");
         }
@@ -182,5 +189,60 @@ class RunSessionReusedUnitTest extends \PHPUnit\Framework\TestCase
         $us = (new UnitSession($rs, $pause))->load();
         $this->assertEquals(2000, $us->id, 'load() fallback must pick the current placement\'s row');
         $this->assertEquals(self::RUN_UNIT_EARLY, $us->run_unit_id);
+    }
+
+    /**
+     * Sampler scenario (RunUnit::getSampleSessions/grabRandomSession):
+     * the run session sits at a position hosting a DIFFERENT unit. load()
+     * for the sampled unit must return that unit's own (newest) session —
+     * never the current position's unit's session, and never nothing.
+     * Pins the review finding against the first v0.26.4 iteration, whose
+     * placement arm carried no unit_id constraint.
+     */
+    public function testLoadFallbackForSamplersPastTheUnit(): void
+    {
+        $this->insertUnitSession(1000, self::RUN_UNIT_EARLY, 0);   // sampled unit's session
+        $this->db->exec("INSERT INTO survey_unit_sessions
+            (id, unit_id, run_unit_id, iteration, run_session_id, created, queued)
+            VALUES (2000, " . self::OTHER_UNIT_ID . ", " . self::RUN_UNIT_OTHER . ", 1, " . self::RUN_SESSION_ID . ", '2026-07-01 11:00:00', 0)");
+
+        $rs = $this->makeRunSession(300); // current position hosts OTHER_UNIT
+        $pause = (new ReflectionClass(Pause::class))->newInstanceWithoutConstructor();
+        $pause->boot();
+        $pause->id = self::UNIT_ID;
+
+        $us = (new UnitSession($rs, $pause))->load();
+        $this->assertEquals(1000, $us->id, 'sampler must get the sampled unit\'s session, not the current position\'s');
+        $this->assertEquals(self::UNIT_ID, (int) $us->unit_id);
+    }
+
+    /**
+     * A create() that fails AFTER its INSERT (here: the current-session
+     * pointer update hits a missing table) must roll back and return an
+     * INVALID object with a null id — not keep the rolled-back phantom
+     * auto-increment id or hydrate an arbitrary prior row.
+     */
+    public function testCreateFailureReturnsInvalidWithoutPhantomId(): void
+    {
+        $rs = $this->makeRunSession(50);
+        $pause = (new ReflectionClass(Pause::class))->newInstanceWithoutConstructor();
+        $pause->boot();
+        $pause->id = self::UNIT_ID;
+
+        // Fault injection: the current-session pointer UPDATE (which runs
+        // AFTER the INSERT assigned $this->id) aborts. SQLite-lane only,
+        // like the rest of this file's schema. The SELECT 1 fully consumes
+        // the DB singleton's retained lastStatement cursor, which otherwise
+        // blocks SQLite DDL with "database table is locked".
+        $this->db->execute('SELECT 1');
+        $this->db->exec("CREATE TRIGGER fail_current_ptr BEFORE UPDATE ON survey_run_sessions
+            BEGIN SELECT RAISE(ABORT, 'injected failure'); END");
+
+        $us = (new UnitSession($rs, $pause))->create(true);
+        $this->assertNull($us->id, 'rolled-back create must not keep a phantom id');
+        $this->assertFalse($us->valid);
+        $this->db->execute('SELECT 1'); // flush the aborted statement cursor
+        $count = $this->db->count('survey_unit_sessions', ['run_session_id' => self::RUN_SESSION_ID], 'id');
+        $this->assertEquals(0, (int) $count, 'the rolled-back INSERT must not persist');
     }
 }
