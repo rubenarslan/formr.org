@@ -59,6 +59,7 @@
                                         <label>Items Per Page</label>
                                         <span class="help-block">
                                             <i class="fa fa-info-circle"></i> Do you want a certain number of items on each page? We prefer specifying pages manually (by adding submit buttons items when we want a pagebreaks) because this gives us greater manual control
+                                            <?php if ($study->rendering_mode === 'v2'): ?><br><strong class="text-muted">v1 engine only — form_v2 ignores this setting (pages come from submit items).</strong><?php endif; ?>
                                         </span>
                                         <span class="col-md-6 nlp" style="padding-left: 0px;">
                                             <input type="number" class="form-control" name="maximum_number_displayed" value="<?= h($study->maximum_number_displayed) ?>" min="0" />
@@ -70,6 +71,7 @@
                                         <label>Enable Instant Validation</label>
                                         <span class="help-block">
                                             <i class="fa fa-info-circle"></i> Instant validation means that users will be alerted if their survey input is invalid right after entering their information. Otherwise, validation messages will only be shown once the user tries to submit.
+                                            <?php if ($study->rendering_mode === 'v2'): ?><br><strong class="text-muted">v1 engine only — form_v2 always validates on page advance (native browser validation).</strong><?php endif; ?>
                                         </span>
                                         <div class="checkbox">
                                             <label> <input type="checkbox" name="enable_instant_validation" value="1" <?php if ($study->enable_instant_validation) echo 'checked="checked"'; ?>> <strong>Enable</strong> </label>
@@ -164,6 +166,7 @@
                                             By enabling custom dynamic paging, your survey items will be "grouped" in pages depending on how your <i>Submit Items</i> are defined in the items sheet. That is, each page ends at a defined submit button.
                                             Enabling this option nullifies the above "<i><b>Items Per Page</b></i>" setting, which means the number of items on a page will be determined by where <i>Submit Items</i> are placed in your <a href="<?php echo site_url('documentation#sample_survey_sheet'); ?>">items sheet</a>.
                                             <strong class="text-red">You can't change this settings once you select this option.</strong>
+                                            <?php if ($study->rendering_mode === 'v2'): ?><br><strong class="text-muted">v1 engine only — form_v2 always pages at submit items.</strong><?php endif; ?>
                                         </span>
                                         <div class="checkbox">
                                             <label> <input type="checkbox" name="use_paging" value="1" <?php if ($study->use_paging) echo 'checked="checked"'; ?>> <strong>Enable Paging</strong> </label>
@@ -209,6 +212,20 @@
                                 </tr>
                                 <tr>
                                     <td colspan="2">
+                                        <label>Participant language</label>
+                                        <span class="help-block">
+                                            <i class="fa fa-info-circle"></i>
+                                            BCP 47 tag (e.g. <code>en</code>, <code>de</code>, <code>de-AT</code>). Sets the page's <code>lang</code>/<code>dir</code> attributes and localizes the engine's own strings (buttons, save indicator, offline banners, validation fallbacks). Your item labels are shown as authored. English and German ship built-in; other tags fall back to English strings but still set the correct <code>lang</code> attribute.
+                                        </span>
+                                        <input type="text" class="form-control" name="language" value="<?= h($study->language) ?>" list="fmr-language-suggestions" style="max-width: 10em;" maxlength="35" pattern="[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*">
+                                        <datalist id="fmr-language-suggestions">
+                                            <option value="en">English</option>
+                                            <option value="de">Deutsch</option>
+                                        </datalist>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2">
                                         <label>Compatibility scan</label>
                                         <span class="help-block">
                                             <i class="fa fa-info-circle"></i>
@@ -231,6 +248,44 @@
                             <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Save Settings</button>
                         </div>
                     </form>
+
+                    <?php
+                    // Rendering engine switcher. Own <form> (POST to
+                    // switch_rendering_mode) — must not nest inside the
+                    // settings form above. The readiness counts come from the
+                    // same scanner as the full report page.
+                    $fmrScanFlagged = null;
+                    if ($study->rendering_mode !== 'v2' && class_exists('FormV2CompatScanner')) {
+                        try {
+                            $fmrScanReport = FormV2CompatScanner::scan($study->id);
+                            $fmrScanFlagged = count($fmrScanReport['flagged'] ?? []);
+                        } catch (Exception $e) { $fmrScanFlagged = null; }
+                    }
+                    ?>
+                    <div class="box box-solid">
+                        <div class="box-header"><h3 class="box-title"><i class="fa fa-wpforms"></i> Rendering engine</h3></div>
+                        <div class="box-body">
+                            <?php if ($study->rendering_mode === 'v2'): ?>
+                                <p>This study renders on the <strong>form_v2</strong> engine (single-document form, client-side showifs, offline queue, autosave).</p>
+                                <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" onsubmit="return confirm('Switch this study back to the classic v1 engine? Form units fall through to the v1 pipeline; you can switch back at any time.');" style="display:inline">
+                                    <input type="hidden" name="target" value="v1">
+                                    <button type="submit" class="btn btn-default"><i class="fa fa-history"></i> Switch back to v1</button>
+                                </form>
+                            <?php else: ?>
+                                <p>This study renders on the <strong>classic v1</strong> engine. form_v2 adds per-page AJAX submission, reactive client-side showifs, offline queueing, autosave, and the solo layout.</p>
+                                <?php if ($fmrScanFlagged === 0): ?>
+                                    <p class="text-success"><i class="fa fa-check"></i> Compatibility scan: all <code>showif</code>/<code>value</code> expressions look v2-ready.</p>
+                                <?php elseif ($fmrScanFlagged > 0): ?>
+                                    <p class="text-warning"><i class="fa fa-exclamation-triangle"></i> Compatibility scan: <strong><?= (int) $fmrScanFlagged ?></strong> expression(s) need attention (e.g. an <code>r(...)</code> wrap) — <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>">see the full report</a> before upgrading.</p>
+                                <?php endif; ?>
+                                <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" onsubmit="return confirm('Upgrade this study to the form_v2 engine? Run units using it as a classic Survey are converted to Form units; participants currently mid-form finish on the old engine, new sessions get v2. You can switch back at any time.');" style="display:inline">
+                                    <input type="hidden" name="target" value="v2">
+                                    <button type="submit" class="btn btn-primary"><i class="fa fa-rocket"></i> Upgrade to form_v2</button>
+                                </form>
+                                <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>" class="btn btn-default"><i class="fa fa-search"></i> Full compatibility report</a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="clear clearfix"></div>

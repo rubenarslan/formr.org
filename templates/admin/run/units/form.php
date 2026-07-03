@@ -3,8 +3,11 @@
 <div class="alert alert-info" role="alert" style="margin-bottom: 1em;">
     <i class="fa fa-wpforms"></i>
     <strong>form_v2 (beta):</strong>
-    This unit renders with the new form engine. Phase 0 delegates to the legacy renderer,
-    so behaviour is identical to a Survey for now. See <code>plan_form_v2.md</code>.
+    This unit renders with the new form engine — single-document form with per-page
+    AJAX submission, reactive client-side <code>showif</code>s, autosave, offline
+    queueing, and the optional solo layout. Per-study options (offline queue,
+    Previous button, layout, participant language) live on the survey's settings
+    page. See the form_v2 guide (<code>documentation/form_v2.md</code> in the formr repository).
 </div>
 
 <?php if ($studies): ?>

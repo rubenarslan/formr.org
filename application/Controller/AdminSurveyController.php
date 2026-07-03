@@ -547,12 +547,13 @@ class AdminSurveyController extends AdminController {
             // array_intersect_key below would strip them before the v2
             // handling block runs and the saves would silently rewrite
             // the columns to their false/null defaults.
-            'offline_mode', 'allow_previous', 'layout',
+            'offline_mode', 'allow_previous', 'layout', 'language',
         ];
         $settings = array_intersect_key($settings, array_flip($allowed));
         // String-typed columns must opt out of the int cast — google_file_id
-        // is a Drive ID; layout is an ENUM('default','solo').
-        $stringCols = ['google_file_id', 'layout'];
+        // is a Drive ID; layout is an ENUM('default','solo'); language is a
+        // BCP 47 tag.
+        $stringCols = ['google_file_id', 'layout', 'language'];
         array_walk($settings, function (&$value, $key) use ($stringCols) {
             if (!in_array($key, $stringCols, true)) {
                 $value = (int) $value;
@@ -586,8 +587,13 @@ class AdminSurveyController extends AdminController {
             $settings['allow_previous'] = (int) (isset($settings['allow_previous']) && $settings['allow_previous'] === 1);
             $layoutInput = $settings['layout'] ?? 'default';
             $settings['layout'] = in_array($layoutInput, ['default', 'solo'], true) ? $layoutInput : 'default';
+            // BCP 47-ish shape gate (patch 077); anything odd falls back to
+            // English rather than erroring — the column only picks a string
+            // table + lang/dir attributes.
+            $langInput = trim((string) ($settings['language'] ?? 'en'));
+            $settings['language'] = preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', $langInput) ? $langInput : 'en';
         } else {
-            unset($settings['offline_mode'], $settings['allow_previous'], $settings['layout']);
+            unset($settings['offline_mode'], $settings['allow_previous'], $settings['layout'], $settings['language']);
         }
 
         // user can't revert unlinking
@@ -623,11 +629,71 @@ class AdminSurveyController extends AdminController {
     }
 
     /**
+     * Switch a study between the v1 and v2 rendering engines.
+     *
+     * The rendering_mode column alone is only half an upgrade: plain Survey
+     * units never consult it — only Form units branch. So:
+     *
+     *   v1 → v2: set rendering_mode='v2' AND re-point every run unit that
+     *     references this study as a plain Survey (survey_run_units.unit_id ==
+     *     study id, the v1 shared-PK convention) at a freshly created Form
+     *     unit (type='Form', form_study_id). In-flight unit sessions keep
+     *     their old unit id and finish on the v1 engine — no mid-session
+     *     engine swap; new sessions get the Form.
+     *
+     *   v2 → v1: set rendering_mode='v1' only. Form::getUnitSessionOutput
+     *     falls through to the v1 pipeline for non-v2 studies, so no unit
+     *     rewrite is needed (and none is attempted — reversible by flipping
+     *     back).
+     */
+    private function switchRenderingModeAction() {
+        if (!Request::isHTTPPostRequest()) {
+            formr_error(405, 'Method Not Allowed');
+        }
+        $target = isset($_POST['target']) ? (string) $_POST['target'] : '';
+        if (!in_array($target, ['v1', 'v2'], true)) {
+            formr_error(400, 'Bad Request', 'target must be v1 or v2');
+        }
+        $db = DB::getInstance();
+
+        if ($target === 'v2' && $this->study->rendering_mode !== 'v2') {
+            $this->study->update(['rendering_mode' => 'v2']);
+
+            // Convert plain-Survey links. The twin survey_units row exists for
+            // every v1-born study (shared PK); Form-born studies have no run
+            // units pointing at the study id, so this loop is a no-op there.
+            $runUnits = $db->query(
+                'SELECT ru.id, ru.run_id, ru.description FROM survey_run_units ru
+                 INNER JOIN survey_units u ON u.id = ru.unit_id
+                 WHERE ru.unit_id = ' . (int) $this->study->id . " AND u.type = 'Survey'"
+            );
+            $converted = 0;
+            foreach ($runUnits as $ru) {
+                $db->insert('survey_units', ['type' => 'Form', 'form_study_id' => (int) $this->study->id, 'created' => mysql_now(), 'modified' => mysql_now()]);
+                $formUnitId = (int) $db->lastInsertId();
+                $db->update('survey_run_units', ['unit_id' => $formUnitId], ['id' => (int) $ru['id']]);
+                $converted++;
+            }
+            $note = $converted
+                ? " $converted run unit(s) now use a Form unit; participants mid-form finish on the old engine, new sessions get v2."
+                : '';
+            alert('Study switched to the form_v2 engine.' . $note . ' Run the compatibility scan to check showif/value expressions.', 'alert-success');
+        } elseif ($target === 'v1' && $this->study->rendering_mode === 'v2') {
+            $this->study->update(['rendering_mode' => 'v1']);
+            alert('Study switched back to the v1 engine (Form units fall through to the classic pipeline).', 'alert-success');
+        } else {
+            alert('Study is already on the requested engine.', 'alert-info');
+        }
+        $this->request->redirect(admin_study_url($this->study->name));
+    }
+
+    /**
      * form_v2 compatibility scan: classify each showif/value expression on the
      * current study as empty / r-wrapped / JS-OK / needs-r()-wrap. Rendered on
      * the survey settings page (survey/index) via the "Run v2 compatibility
-     * scan" button — surfaced only for v2 studies. Reuses FormV2CompatScanner
-     * so the admin view and the CLI (bin/form_v2_compat_scan.php) agree.
+     * scan" button — reachable for BOTH engines so authors can check
+     * readiness BEFORE upgrading. Reuses FormV2CompatScanner so the admin
+     * view and the CLI (bin/form_v2_compat_scan.php) agree.
      */
     private function formV2CompatScanAction() {
         if (!$this->study || !$this->study->valid) {
