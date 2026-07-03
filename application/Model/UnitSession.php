@@ -282,7 +282,10 @@ class UnitSession extends Model {
     public function expire() {
         $unit = $this->runUnit;
 
-        if ($unit->type === 'Survey' && Config::get('form_v2_dual_write_results', true)) {
+        // 'Form' too: v2 Form units dual-write the same wide results table via
+        // createSurveyStudyRecord, so their rows need the expired stamp as well —
+        // gating on 'Survey' alone left every Form row expired=NULL forever.
+        if (in_array($unit->type, ['Survey', 'Form'], true) && Config::get('form_v2_dual_write_results', true)) {
             $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `expired` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
 			$params = ['session_id' => $this->id, 'study_id' => $unit->surveyStudy->id];
 			try {
@@ -320,8 +323,13 @@ class UnitSession extends Model {
     public function end($reason = null) {
         $unit = $this->runUnit;
 
-        if ($unit->type == "Survey" || $unit->type == "External") {
-            if ($unit->type == "Survey" && Config::get('form_v2_dual_write_results', true)) {
+        if ($unit->type == "Survey" || $unit->type == "Form" || $unit->type == "External") {
+            // 'Form' included on both levels: v2 Forms dual-write the wide table
+            // (see expire()) and end like a Survey. They also record
+            // 'survey_ended' — not a Form-specific value — so downstream
+            // analyses filtering result='survey_ended' keep counting
+            // completions across a v1→v2 study upgrade.
+            if (($unit->type == "Survey" || $unit->type == "Form") && Config::get('form_v2_dual_write_results', true)) {
                 $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
                 $params = array('session_id' => $this->id, 'study_id' => $unit->surveyStudy->id);
                 $this->db->exec($query, $params);
@@ -334,7 +342,7 @@ class UnitSession extends Model {
             if ($reason !== null) {
                 $this->result = $reason;
             } else {
-                $this->result = $unit->type == "Survey" ? "survey_ended" : "external_ended";
+                $this->result = $unit->type == "External" ? "external_ended" : "survey_ended";
             }
         } else {
             if ($reason !== null) {

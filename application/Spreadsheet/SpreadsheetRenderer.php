@@ -40,6 +40,12 @@ class SpreadsheetRenderer {
     protected $unanswered = [];
     protected $toRender = [];
     protected $validatedItems = [];
+    /**
+     * Whether getRenderedStudyItems honours SurveyStudy.maximum_number_displayed.
+     * True for v1 (per-request cap = items per page); FormRenderer sets false
+     * because its toRender spans the whole document (see the loop comment).
+     */
+    protected $applyMaxDisplayedCap = true;
     protected $progressCounts = [
         'progress' => 0,
         'already_answered' => 0,
@@ -582,7 +588,11 @@ class SpreadsheetRenderer {
 
         try {
             foreach ($this->toRender as &$item) {
-                if ($study->maximum_number_displayed && $study->maximum_number_displayed === $itemsDisplayed) {
+                // The items-per-page cap is a v1 concept: v1 re-renders per
+                // request, so breaking here caps one page. FormRenderer's
+                // toRender spans the whole document — the cap would truncate
+                // the form and strand the participant — so v2 opts out.
+                if ($this->applyMaxDisplayedCap && $study->maximum_number_displayed && $study->maximum_number_displayed === $itemsDisplayed) {
                     break;
                 } else if ($item->isRendered()) {
                     // if it's rendered, we send it along here or update display count

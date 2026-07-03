@@ -15,6 +15,13 @@
 class FormRenderer extends SpreadsheetRenderer {
 
     /**
+     * v1's items-per-page cap must not apply: toRender spans ALL pages here,
+     * so the inherited per-request break would truncate the whole document
+     * and strand the participant after the last in-DOM page.
+     */
+    protected $applyMaxDisplayedCap = false;
+
+    /**
      * Page-scoped processing for form_v2 (post-PWA-port redesign).
      *
      * Architectural rules (see plan_form_v2.md §3 / §5):

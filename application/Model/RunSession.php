@@ -545,7 +545,9 @@ class RunSession extends Model {
     public function endCurrentUnitSession($reason = null) {
         if ($this->getCurrentUnitSession()) {
             $type = $this->currentUnitSession->runUnit->type;
-            if ($type == 'Survey' || $type == 'External') {
+            // Form = v2 Survey: an in-progress Form cut short is expired
+            // (participant never finished), not ended-as-completed.
+            if ($type == 'Survey' || $type == 'Form' || $type == 'External') {
                 $this->currentUnitSession->expire();
             } else {
                 $this->currentUnitSession->end($reason);

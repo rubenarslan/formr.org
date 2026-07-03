@@ -681,8 +681,10 @@ class RunController extends Controller {
         $isMultipart = stripos($contentType, 'multipart/form-data') === 0;
 
         $submittedPage = 1;
+        $claimedUnitSessionId = 0;
         if ($isMultipart) {
             $submittedPage = isset($_POST['page']) ? (int) $_POST['page'] : 1;
+            $claimedUnitSessionId = isset($_POST['unit_session_id']) ? (int) $_POST['unit_session_id'] : 0;
             $data = (isset($_POST['data']) && is_array($_POST['data'])) ? $_POST['data'] : array();
             $itemViews = (isset($_POST['item_views']) && is_array($_POST['item_views'])) ? $_POST['item_views'] : array();
             // Merge $_FILES[*] entries into $data so File_Item::validateInput
@@ -710,6 +712,7 @@ class RunController extends Controller {
                 return;
             }
             $submittedPage = isset($payload['page']) ? (int) $payload['page'] : 1;
+            $claimedUnitSessionId = isset($payload['unit_session_id']) ? (int) $payload['unit_session_id'] : 0;
             $data = (isset($payload['data']) && is_array($payload['data'])) ? $payload['data'] : array();
             $itemViews = (isset($payload['item_views']) && is_array($payload['item_views'])) ? $payload['item_views'] : array();
         }
@@ -733,6 +736,20 @@ class RunController extends Controller {
         // Form extends Survey — accept both, but only v2-rendered studies should reach this endpoint.
         if (!($runUnit instanceof Survey)) {
             $this->sendJsonResponse(array('error' => 'Current unit is not a survey/form'), 409);
+            return;
+        }
+
+        // Bind the submit to the unit session the page was rendered for (the
+        // form ships its unit-session id in a hidden field). Without this gate
+        // a stale tab from an earlier iteration of a repeated Form (diary runs)
+        // posts into *today's* unit session — same study, same item names,
+        // silent cross-session corruption. Mirrors formSyncAction's
+        // claimedUnitSessionId gate; 0 (older clients) is accepted leniently.
+        if ($claimedUnitSessionId > 0 && $claimedUnitSessionId !== (int) $unitSession->id) {
+            $this->sendJsonResponse(array(
+                'error' => 'This form was rendered for a different session (continued elsewhere or a new entry started). Reload to continue.',
+                'stale_session' => true,
+            ), 409);
             return;
         }
 
@@ -821,6 +838,7 @@ class RunController extends Controller {
         }
         $data = (isset($payload['data']) && is_array($payload['data'])) ? $payload['data'] : array();
         $itemViews = (isset($payload['item_views']) && is_array($payload['item_views'])) ? $payload['item_views'] : array();
+        $claimedUnitSessionId = isset($payload['unit_session_id']) ? (int) $payload['unit_session_id'] : 0;
 
         // Keep only actually-answered fields. The client's collectPayload also
         // emits the empty hidden placeholder of each mc/mc_multiple item
@@ -857,6 +875,18 @@ class RunController extends Controller {
         }
         if (!($unitSession->runUnit instanceof Survey)) {
             $this->sendJsonResponse(array('error' => 'Current unit is not a survey/form'), 409);
+            return;
+        }
+
+        // Same stale-tab gate as formPageSubmitAction: an autosave from a page
+        // rendered for an earlier unit session (repeated Form / diary) must not
+        // bleed into the current one. Autosave is best-effort, so the client
+        // treats the 409 as non-fatal.
+        if ($claimedUnitSessionId > 0 && $claimedUnitSessionId !== (int) $unitSession->id) {
+            $this->sendJsonResponse(array(
+                'error' => 'Autosave targets a different unit session',
+                'stale_session' => true,
+            ), 409);
             return;
         }
 
@@ -905,13 +935,23 @@ class RunController extends Controller {
         if (!$hiddenIds) {
             return;
         }
+        // Only showif-bearing items are legitimately client-hideable: the whole
+        // reason this endpoint trusts the client is that v2 showifs resolve in
+        // the browser. An item with no showif can never be hidden by Alpine, so
+        // a claim on one is a forged payload trying to skip a required item —
+        // the JOIN makes such claims a silent no-op while honest claims still
+        // land. Soft-deleted items are excluded for the same reason: they don't
+        // render, so no honest client can be hiding them.
         $stmt = DB::getInstance()->prepare(
-            'UPDATE `survey_items_display`
-             SET `hidden` = 1
-             WHERE `session_id` = :sid
-               AND `page` = :p
-               AND `saved` IS NULL
-               AND `item_id` IN (' . implode(',', $hiddenIds) . ')'
+            'UPDATE `survey_items_display` `d`
+               JOIN `survey_items` `i` ON `i`.`id` = `d`.`item_id`
+             SET `d`.`hidden` = 1
+             WHERE `d`.`session_id` = :sid
+               AND `d`.`page` = :p
+               AND `d`.`saved` IS NULL
+               AND `i`.`showif` IS NOT NULL AND TRIM(`i`.`showif`) != \'\'
+               AND `i`.`deleted` IS NULL
+               AND `d`.`item_id` IN (' . implode(',', $hiddenIds) . ')'
         );
         $stmt->bindValue(':sid', (int) $unitSessionId, PDO::PARAM_INT);
         $stmt->bindValue(':p', (int) $page, PDO::PARAM_INT);
