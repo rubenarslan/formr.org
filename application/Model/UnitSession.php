@@ -67,16 +67,18 @@ class UnitSession extends Model {
 
     public function create($new_current_unit = true) {
         // only one can be current unit session at all times
+        // Track A: resolve run_unit_id (the per-position survey_run_units.id)
+        // and iteration (1-based count of prior unit-sessions for this
+        // (run_session, run_unit) pair). Both NULL-safe so paths that
+        // can't compute them (no run_session, no current position)
+        // simply skip the column. See REFACTOR_QUEUE_PLAN.md A2.
+        // (Initialized before the try so the catch can log them even when
+        // beginTransaction itself throws.)
+        $run_unit_id = null;
+        $iteration   = 1;
         try {
             $this->db->beginTransaction();
 
-            // Track A: resolve run_unit_id (the per-position survey_run_units.id)
-            // and iteration (1-based count of prior unit-sessions for this
-            // (run_session, run_unit) pair). Both NULL-safe so paths that
-            // can't compute them (no run_session, no current position)
-            // simply skip the column. See REFACTOR_QUEUE_PLAN.md A2.
-            $run_unit_id = null;
-            $iteration   = 1;
             if ($this->runSession && $this->runSession->id > 0) {
                 $position    = $this->runSession->position;
                 $run_unit_id = $this->runSession->getRunUnitIdAtPosition($position);
@@ -165,14 +167,24 @@ class UnitSession extends Model {
             $this->db->commit();
         } catch (Exception $e) {
             $this->db->rollBack();
-            // D1 fix (v0.26.4): never swallow this silently. A failed INSERT
-            // here leaves the run-session with an already-advanced position
-            // and NO session row — the raw material for silent multi-position
-            // skips (the run 12 "111→151, zero intermediate rows" leap). The
-            // load() below then resolves by (run_session_id, unit_id), which
-            // for reused units is cross-placement. Keep the legacy recovery
-            // behaviour but make every occurrence visible in the logs.
-            formr_log_exception($e, __CLASS__ . '::create unit_id=' . ($this->runUnit->id ?? '?') . ' run_unit_id=' . var_export($run_unit_id, true) . ' run_session_id=' . ($this->runSession->id ?? '?'));
+            // Never swallow this silently: a failed INSERT leaves the
+            // run-session with an already-advanced position and NO session
+            // row (the raw material for silent position skips).
+            formr_log_exception($e, __METHOD__, [
+                'unit_id'        => $this->runUnit->id ?? null,
+                'run_unit_id'    => $run_unit_id,
+                'run_session_id' => $this->runSession->id ?? null,
+            ]);
+            // The rolled-back INSERT may have assigned $this->id an id that
+            // no longer exists; loading by it (or via the no-id fallback)
+            // used to hand the caller an arbitrary prior row or a phantom
+            // that createUnitSession installed as "current". Return the
+            // invalid object instead — createUnitSession treats a missing
+            // id as "creation failed" and execute()'s recovery branch
+            // re-creates the step at the current position.
+            $this->id = null;
+            $this->valid = false;
+            return $this;
         }
 
         return $this->load();
@@ -188,22 +200,28 @@ class UnitSession extends Model {
             // D1 fix (v0.26.4): this fallback used to pick an ARBITRARY row
             // (findRow, no ORDER BY) — for a unit reused at several positions
             // that could resolve a session belonging to a different placement.
-            // Prefer the current position's placement when it resolves; fall
-            // back to the legacy unit_id match (pre-047 rows have
-            // run_unit_id NULL). Newest row wins either way.
-            $run_unit_id = ($this->runSession && $this->runSession->position !== null)
-                ? $this->runSession->getRunUnitIdAtPosition($this->runSession->position)
-                : null;
+            // The row must ALWAYS belong to this unit (unit_id constraint —
+            // the sampler callers in RunUnit::getSampleSessions/
+            // grabRandomSession load a unit the run session has often moved
+            // PAST, so the current position may host a different unit
+            // entirely). The placement preference applies only when the
+            // current position actually hosts this unit (the create()
+            // failure-recovery case); legacy rows with run_unit_id NULL
+            // keep matching. Newest row wins either way.
+            $run_unit_id = null;
+            if ($this->runSession && $this->runSession->position !== null
+                    && $this->runSession->getUnitIdAtPosition($this->runSession->position) == $unit_id) {
+                $run_unit_id = $this->runSession->getRunUnitIdAtPosition($this->runSession->position);
+            }
             $query = $this->db->select($columns)
                     ->from('survey_unit_sessions')
                     ->where('run_session_id = :run_session_id')
+                    ->where('unit_id = :unit_id')
                     ->order('id', 'desc')
                     ->limit(1);
             if ($run_unit_id !== null) {
-                $query->where('(run_unit_id = :run_unit_id OR (run_unit_id IS NULL AND unit_id = :unit_id))')
+                $query->where('(run_unit_id = :run_unit_id OR run_unit_id IS NULL)')
                       ->bindParams(['run_unit_id' => $run_unit_id]);
-            } else {
-                $query->where('unit_id = :unit_id');
             }
             $vars = $query->bindParams(['run_session_id' => $run_session_id, 'unit_id' => $unit_id])->fetch();
         }
@@ -822,7 +840,7 @@ class UnitSession extends Model {
                 if ($results_table === "survey_unit_sessions") {
                     if (($key = array_search('position', $matches_variable_names[$survey_name])) !== false) {
                         unset($matches_variable_names[$survey_name][$key]);
-                        $variables[] = '`survey_run_units`.`position`';
+                        $variables[] = 'COALESCE(`sru_own`.`position`, `sru_fallback`.`position`) AS `position`';
                     }
                     if (($key = array_search('type', $matches_variable_names[$survey_name])) !== false) {
                         unset($matches_variable_names[$survey_name][$key]);
@@ -858,21 +876,21 @@ class UnitSession extends Model {
                 // D1 fix (v0.26.4): the old join fanned out on unit_id — for a
                 // unit reused at N positions every unit-session row came back
                 // N times, in undefined order, with N different `position`
-                // values. R code anchored on this data (Pause relative_to,
-                // Branch conditions reading survey_unit_sessions$created /
-                // $position) then computed from an arbitrary duplicate — the
-                // wrong-gate-date generator behind run 12's off-rule
-                // pause_ended. Pin each row to its own placement via
-                // run_unit_id (written since 047); legacy NULL rows keep the
-                // old unit_id fan-out (their placement is unrecorded).
-                // Caveat: rows whose run_unit_id points at a since-deleted
-                // survey_run_units row drop out of the R data (previously
-                // they surfaced with a surviving sibling's position — wrong).
+                // values, and R code anchored on this data (Pause relative_to,
+                // Branch conditions) computed from an arbitrary duplicate.
+                // Two-alias form: `sru_own` pins post-047 rows to their own
+                // placement (indexed PK lookup); `sru_fallback` fires only
+                // when that misses — legacy NULL rows AND rows whose
+                // placement was since deleted keep the old unit_id match, so
+                // no row silently drops out of the R data. Both arms are
+                // index-served (no OR in a single ON clause).
                 $joins = "LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 				LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
-				LEFT JOIN `survey_run_units` ON (`survey_run_units`.id = `survey_unit_sessions`.run_unit_id
-					OR (`survey_unit_sessions`.run_unit_id IS NULL AND `survey_run_units`.unit_id = `survey_unit_sessions`.unit_id))
-				LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
+				LEFT JOIN `survey_run_units` AS `sru_own` ON `sru_own`.id = `survey_unit_sessions`.run_unit_id
+				LEFT JOIN `survey_run_units` AS `sru_fallback` ON `sru_own`.id IS NULL
+					AND `sru_fallback`.unit_id = `survey_unit_sessions`.unit_id
+					AND `sru_fallback`.run_id = `survey_run_sessions`.run_id
+				LEFT JOIN `survey_runs` ON `survey_runs`.id = COALESCE(`sru_own`.run_id, `sru_fallback`.run_id)
 				";
                 $where .= " AND `survey_runs`.id = :run_id";
             } elseif ($results_table == 'survey_run_sessions') {
@@ -911,10 +929,24 @@ class UnitSession extends Model {
             if (in_array('formr_last_action_date', $needed['variables']) || in_array('formr_last_action_time', $needed['variables'])) {
                 $datasets['.formr$last_action_date'] = "NA";
                 $datasets['.formr$last_action_time'] = "NA";
+                // D1 fix (v0.26.4): scope to THIS session's placement — the
+                // old unit_id-only match with LIMIT 1 and no ORDER BY
+                // returned an arbitrary un-ended session among all
+                // placements/iterations of a reused unit. Prefer this
+                // session's own run_unit_id; legacy sessions (NULL) fall
+                // back to unit_id, newest first.
+                $placement_where = $this->run_unit_id !== null
+                    ? "(`survey_unit_sessions`.`run_unit_id` = :run_unit_id OR (`survey_unit_sessions`.`run_unit_id` IS NULL AND `unit_id` = :unit_id))"
+                    : "`unit_id` = :unit_id";
+                $placement_params = array('run_session_id' => $runSession->id, 'unit_id' => $this->runUnit->id);
+                if ($this->run_unit_id !== null) {
+                    $placement_params['run_unit_id'] = $this->run_unit_id;
+                }
                 $last_action = $this->db->execute(
-                        "SELECT `survey_unit_sessions`.`created` FROM `survey_unit_sessions` 
+                        "SELECT `survey_unit_sessions`.`created` FROM `survey_unit_sessions`
 					LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-					WHERE `survey_run_sessions`.id  = :run_session_id AND `unit_id` = :unit_id AND `survey_unit_sessions`.`ended` IS NULL LIMIT 1", array('run_session_id' => $runSession->id, 'unit_id' => $this->runUnit->id), true
+					WHERE `survey_run_sessions`.id  = :run_session_id AND {$placement_where} AND `survey_unit_sessions`.`ended` IS NULL
+					ORDER BY `survey_unit_sessions`.`id` DESC LIMIT 1", $placement_params, true
                 );
                 if ($last_action !== false) {
                     $last_action_time = strtotime($last_action);
