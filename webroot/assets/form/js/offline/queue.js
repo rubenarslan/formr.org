@@ -55,6 +55,29 @@ export async function wipeQueue() {
     await db.clear(STORE);
 }
 
+// Wipe only the entries belonging to one run. The queue DB is origin-wide, so
+// on path-routed deploys (study.example.com/<run>/) logging out of run B must
+// not destroy run A's still-undrained answers. `runPathPrefix` is the run's
+// path with trailing slash (e.g. "/mystudy/"); entries are matched on their
+// sync_url pathname. Legacy entries without sync_url can't be attributed to a
+// run — they're wiped too, keeping the pre-scoping security posture (plaintext
+// answers must not outlive a logout that might be theirs).
+export async function wipeQueueForRun(runPathPrefix) {
+    const db = await getDb();
+    const entries = (await db.getAll(STORE)) || [];
+    for (const entry of entries) {
+        let belongs = true;
+        if (entry.sync_url) {
+            try {
+                belongs = new URL(entry.sync_url, self.location.href).pathname.indexOf(runPathPrefix) === 0;
+            } catch (e) { belongs = true; }
+        }
+        if (belongs) {
+            await db.delete(STORE, entry.uuid);
+        }
+    }
+}
+
 // Build a FormData representation of a queued entry that has `files`. Keys
 // mirror form-page-submit's multipart branch (see `RunController::formSyncAction`).
 // Pulled out of drainQueue so the multipart shape lives in one place — also

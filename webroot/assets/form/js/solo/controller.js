@@ -560,7 +560,12 @@ export function initSolo(opts) {
         const cur = steps(pages[getCurrentIndex()]);
         const within = Math.max(0, cur.indexOf(current));
         const globalIdx = before + within;
-        const pct = total > 0 ? Math.round(((globalIdx + 1) / total) * 100) : 0;
+        // Interpolate within the study's [from, to] progress window
+        // (add_percentage_points / displayed_percentage_maximum) — same
+        // cross-survey stitching as the default layout and v1.
+        const from = Number(root.dataset.fmrProgressFrom) || 0;
+        const to = Number(root.dataset.fmrProgressTo) || 100;
+        const pct = total > 0 ? Math.round(from + ((globalIdx + 1) / total) * (to - from)) : from;
         // Honest progress: showif can reveal/hide steps, which changes `total`
         // and would otherwise let the bar jump BACKWARD as new steps appear —
         // the misrepresentation the spec warns against. Clamp the bar so it only

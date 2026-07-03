@@ -333,6 +333,22 @@ body:has(.fmr-form-v2:not([data-layout="solo"])) .container-fluid > p {
         .white_cover { display: none; }
     }
 
+    // Timed-submit fuse (Submit_Item type_options, items/auto-submit.js).
+    // Width animates 100% → 0 via a JS-set transition matching data-timeout.
+    .submit_fuse_box {
+        width: 90%;
+        height: 6px;
+        margin: 0.4rem auto 0;
+        background: rgba(0, 0, 0, 0.08);
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    .submit_fuse {
+        width: 100%;
+        height: 100%;
+        background-color: #5bc0de;
+    }
+
     // Constrain inputs to v1's ~300px range on wide layouts; range/file stays full.
     .form-control {
         max-width: 360px;

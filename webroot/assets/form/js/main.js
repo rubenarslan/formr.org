@@ -43,7 +43,7 @@ import '@khmyznikov/pwa-install';
 
 import { mysqlDatetime } from './lib/time.js';
 import { genUuid } from './lib/uuid.js';
-import { queueAdd, queueGetAll, queueDelete, wipeQueue, buildSyncFormData, isTransientFailure } from './offline/queue.js';
+import { queueAdd, queueGetAll, queueDelete, wipeQueueForRun, buildSyncFormData, isTransientFailure } from './offline/queue.js';
 import { initMediaRecorders } from './items/recorders.js';
 import { initButtonGroups } from './items/button-groups.js';
 import { initBotCheck } from './items/bot-check.js';
@@ -54,6 +54,7 @@ import { initRequestCookie } from './items/request-cookie.js';
 import { initRequestPhone } from './items/request-phone.js';
 import { initAdminPreview } from './items/admin-preview.js';
 import { initExpiryNotifier } from './items/expiry-notifier.js';
+import { initAutoSubmit } from './items/auto-submit.js';
 import {
     clearCustomValidity,
     findErrorTarget,
@@ -181,7 +182,13 @@ function initForm() {
         // and focus; it re-seats stepping via onPageShown below.
         if (!isSolo) {
             if (progressBar) {
-                const pct = Math.round(((i + 1) / pages.length) * 100);
+                // Interpolate within the study's [from, to] window
+                // (add_percentage_points / displayed_percentage_maximum) so
+                // runs stitching several surveys into one 0–100 bar keep
+                // their coordinated ranges — parity with v1's stretch math.
+                const from = Number(root.dataset.fmrProgressFrom) || 0;
+                const to = Number(root.dataset.fmrProgressTo) || 100;
+                const pct = Math.round(from + ((i + 1) / pages.length) * (to - from));
                 progressBar.style.width = pct + '%';
                 progressBar.setAttribute('aria-valuenow', String(pct));
             }
@@ -341,6 +348,7 @@ function initForm() {
     // .allow_previous). Default to on/off respectively when the attribute is
     // missing (safe for pre-patch-051 forms: unchanged v2 behaviour).
     const offlineModeEnabled = (root.dataset.offlineMode || 'on') !== 'off';
+    const allowPrevious = (root.dataset.allowPrevious || 'off') !== 'off';
     // When offline mode is off, don't expose the sync URL to the queue path —
     // submissions fail hard as if the endpoint didn't exist.
     const syncUrl = offlineModeEnabled ? root.dataset.syncUrl : '';
@@ -348,6 +356,11 @@ function initForm() {
     // given (rate-limited) so a mid-page breakoff still yields partial data,
     // independent of the explicit page-submit. Best-effort; see persist block.
     const saveUrl = root.dataset.saveUrl || '';
+    // The unit session this page was rendered for. Rides along on every write
+    // (page-submit, autosave, queue entry) so the server can reject writes from
+    // a stale tab into a newer unit session (repeated Forms / diary runs).
+    const sessionInput = root.querySelector('input[name="session_id"]');
+    const unitSessionId = sessionInput ? Number(sessionInput.value) : null;
 
     // --- Offline queue (Phase 5) ---
     // IDB plumbing + multipart serialization + isTransientFailure live in
@@ -392,18 +405,25 @@ function initForm() {
         showQueueBanner(`Syncing ${entries.length} queued submission${entries.length === 1 ? '' : 's'}…`, 'warning');
         for (const entry of entries) {
             const hasFiles = entry.files && Object.keys(entry.files).length > 0;
+            // Post each entry to the run it was queued under. The queue DB is
+            // origin-wide; before entries carried sync_url, a drain running on
+            // run B posted run A's answers to run B's endpoint, which replied
+            // drop_entry and the answers were deleted forever. Legacy entries
+            // without sync_url fall back to this form's endpoint (old behaviour).
+            const entrySyncUrl = entry.sync_url || syncUrl;
+            const isOwnRun = !entry.sync_url || entry.sync_url === syncUrl;
             let res;
             try {
                 if (hasFiles) {
                     // Multipart drain — mirrors the submitPage multipart path.
-                    res = await fetch(syncUrl, {
+                    res = await fetch(entrySyncUrl, {
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
                         body: buildSyncFormData(entry),
                     });
                 } else {
-                    res = await fetch(syncUrl, {
+                    res = await fetch(entrySyncUrl, {
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -420,8 +440,10 @@ function initForm() {
                 await queueDelete(entry.uuid);
                 // If the drain applied the final page of the form, the server
                 // returns a redirect so Run::exec can advance. Take it once
-                // the queue is empty so the participant lands on the next unit.
-                if (body && body.redirect) {
+                // the queue is empty so the participant lands on the next unit
+                // — but only for entries of THIS run; another run's redirect
+                // would hijack the participant out of the form they're on.
+                if (body && body.redirect && isOwnRun) {
                     const remaining = await queueGetAll();
                     if (!remaining.length) {
                         window.location.href = body.redirect;
@@ -573,7 +595,7 @@ function initForm() {
         }
         setSaveState('saving', 'Saving…', 0);
         const pageNum = Number(page.dataset.fmrPage) || (currentIndex + 1);
-        const payload = Object.assign({ page: pageNum }, collectPayload(page));
+        const payload = Object.assign({ page: pageNum, unit_session_id: unitSessionId }, collectPayload(page));
 
         // If this page has a file input with a selected file, switch to
         // FormData/multipart. File bytes can't ride in JSON, and the server
@@ -588,6 +610,7 @@ function initForm() {
             if (useMultipart) {
                 const fd = new FormData();
                 fd.append('page', String(pageNum));
+                if (unitSessionId != null) fd.append('unit_session_id', String(unitSessionId));
                 const appendVal = (prefix, key, val) => {
                     if (Array.isArray(val)) {
                         val.forEach((v) => fd.append(`${prefix}[${key}][]`, v == null ? '' : String(v)));
@@ -658,13 +681,15 @@ function initForm() {
             // participant has since advanced to a different Form unit
             // (otherwise this page's answers would be silently written
             // into whatever Form unit is currently active — same FK shape,
-            // wrong record).
-            const sessionInput = root.querySelector('input[name="session_id"]');
-            const unitSessionId = sessionInput ? Number(sessionInput.value) : null;
+            // wrong record). sync_url scopes the entry to THIS run: the
+            // queue DB is origin-wide, so on path-routed deploys a drain
+            // running on another run's page must post the entry to the run
+            // it belongs to, not its own sync endpoint.
             const entry = {
                 uuid: genUuid(),
                 page: pageNum,
                 unit_session_id: unitSessionId,
+                sync_url: syncUrl,
                 data: Object.assign({}, payload.data),
                 item_views: payload.item_views,
                 // MySQL DATETIME rejects ISO-8601 with ".sssZ" — same gotcha as
@@ -716,15 +741,40 @@ function initForm() {
             console.error('page-submit HTTP', res.status);
             // Drop the saving pill — error UI takes over.
             savePill.classList.remove('is-visible');
+            const errBody = await res.json().catch(() => null);
+            if (errBody && errBody.stale_session) {
+                // This page was rendered for an earlier unit session (form
+                // continued elsewhere / a new diary entry started). Reload so
+                // the server re-renders the current state.
+                window.alert('This form was continued elsewhere or a new entry has started. The page will reload to catch up.');
+                window.location.reload();
+                return;
+            }
+            if (res.status === 403) {
+                // Run session gone — most likely the login session expired.
+                window.alert('Your session has expired. The page will reload so you can continue.');
+                window.location.reload();
+                return;
+            }
             window.alert('Sorry, something went wrong. Please try again.');
             return;
         }
+        // A 200 that was redirected to a login/consent page (session expiry on
+        // deployments where auth redirects instead of 403ing) parses as null
+        // below — both cases mean "this tab's session is no longer valid".
         const body = await res.json().catch(() => null);
         if (!body) {
-            // 200 with an unparseable body (proxy mangling, dev-mode xdebug
-            // noise) — don't leave the pill stuck on "Saving…" forever.
             savePill.classList.remove('is-visible');
-            console.error('page-submit: unparseable response body');
+            console.error('page-submit: unparseable response body', res.redirected ? `(redirected to ${res.url})` : '');
+            if (res.redirected) {
+                window.alert('Your session has expired. The page will reload so you can continue.');
+                window.location.reload();
+                return;
+            }
+            // 200 with an unparseable body (proxy mangling, dev-mode xdebug
+            // noise) — tell the participant rather than leaving a dead Next
+            // button with the pill stuck on "Saving…".
+            window.alert('Sorry, the answer could not be saved. Please reload the page and try again.');
             return;
         }
         if (body.status === 'errors' && body.errors) {
@@ -821,7 +871,7 @@ function initForm() {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                body: JSON.stringify({ data: payload.data, item_views: payload.item_views }),
+                body: JSON.stringify({ data: payload.data, item_views: payload.item_views, unit_session_id: unitSessionId }),
                 keepalive: true,
             });
             // Surface a transient "Saved" pill on a real persist (the server
@@ -865,7 +915,7 @@ function initForm() {
             if (!payload.data || Object.keys(payload.data).length === 0) return;
             savePending = false;
             updateUnloadGuard();
-            const body = JSON.stringify({ data: payload.data, item_views: payload.item_views });
+            const body = JSON.stringify({ data: payload.data, item_views: payload.item_views, unit_session_id: unitSessionId });
             try {
                 if (navigator.sendBeacon) {
                     navigator.sendBeacon(saveUrl, new Blob([body], { type: 'application/json' }));
@@ -893,7 +943,7 @@ function initForm() {
             showPage,
             submitPage,
             validate: validatePageAndShowFeedback,
-            allowPrevious: (root.dataset.allowPrevious || 'off') !== 'off',
+            allowPrevious,
         });
     }
 
@@ -1629,6 +1679,12 @@ function initForm() {
             if (raw.startsWith('_item_views')) return;
             const isArr = raw.endsWith('[]');
             const key = isArr ? raw.slice(0, -2) : raw;
+            // Disabled FIRST — a showif-hidden item disables its inputs but a
+            // checkbox/radio may still be checked; the checkbox/radio branches
+            // below return early on !checked and would otherwise ship that
+            // retracted answer to the server-side R overlay (collectPayload and
+            // collectAllAnswers already order it this way).
+            if (inp.disabled) return;
             let v;
             if (inp.type === 'checkbox') {
                 if (!inp.checked) return;
@@ -1636,8 +1692,6 @@ function initForm() {
             } else if (inp.type === 'radio') {
                 if (!inp.checked) return;
                 v = inp.value;
-            } else if (inp.disabled) {
-                return;
             } else {
                 v = inp.value;
             }
@@ -1765,13 +1819,28 @@ function initForm() {
 
     window.addEventListener('popstate', () => {
         const p = Number(new URLSearchParams(window.location.search).get('page'));
-        showPage(indexForPageParam(p));
+        const targetIdx = indexForPageParam(p);
+        // Browser Back must not bypass the per-study allow_previous flag: all
+        // pages stay mounted in the DOM, so without this gate popstate lets a
+        // participant revisit and edit already-submitted pages the Previous
+        // button deliberately doesn't offer. Re-assert the current page in
+        // history and stay put.
+        if (!allowPrevious && targetIdx < currentIndex) {
+            const currentPageNum = Number(pages[currentIndex] && pages[currentIndex].dataset.fmrPage);
+            if (currentPageNum) {
+                try { history.pushState(null, '', `?page=${currentPageNum}`); } catch (e) { /* noop */ }
+            }
+            return;
+        }
+        showPage(targetIdx);
     });
 
     // RequestCookie + RequestPhone + admin "monkey bar" preview live in items/* modules.
     initRequestCookie(root);
     initRequestPhone(root);
     initAdminPreview({ root, getCurrentPage: () => pages[currentIndex] });
+    // Timed / all-answered auto-submit (Submit_Item type_options) — v1 parity.
+    initAutoSubmit({ root, pages, getCurrentIndex: () => currentIndex, submitPage });
     // Show "Page expired" modal when the unit-session expiry passes — same
     // behaviour as v1's ExpiryNotifier, vanilla port.
     initExpiryNotifier();
@@ -1790,7 +1859,10 @@ function initForm() {
         try { url = new URL(a.href, window.location.href); } catch { return; }
         // /<run>/logout on path-routed deploys, bare /logout on subdomain ones.
         if (!/(?:^|\/)logout\/?$/.test(url.pathname)) return;
-        wipeQueue().catch(() => {});
+        // Scope the wipe to the run being logged out: the queue DB is origin-
+        // wide, and another run's undrained answers must survive this logout.
+        const runPathPrefix = url.pathname.replace(/logout\/?$/, '');
+        wipeQueueForRun(runPathPrefix).catch(() => {});
     });
 
     // Test hook: exercise the real bundled page validator deterministically

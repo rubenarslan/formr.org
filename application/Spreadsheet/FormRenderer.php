@@ -530,13 +530,25 @@ class FormRenderer extends SpreadsheetRenderer {
         $offlineMode = !empty($this->study->offline_mode) ? 'on' : 'off';
         $allowPrevious = !empty($this->study->allow_previous) ? 'on' : 'off';
         $layout = in_array($this->study->layout, ['default', 'solo'], true) ? $this->study->layout : 'default';
+        // v1's cross-survey progress stitching (SpreadsheetRenderer::render):
+        // this survey's progress is displayed inside the window
+        // [add_percentage_points, displayed_percentage_maximum] so runs
+        // chaining several surveys can hand each a share of one 0–100 bar.
+        // The client interpolates page progress within this window.
+        $progressFrom = (int) ($this->study->add_percentage_points ?? 0);
+        $progressTo = (int) ($this->study->displayed_percentage_maximum ?? 100);
+        if ($progressTo <= 0) {
+            $progressTo = 100;
+        }
+        $progressFrom = max(0, min($progressFrom, 100));
+        $progressTo = max($progressFrom, min($progressTo, 100));
         // `form-horizontal` is v1's class for the selectors in
         // webroot/assets/common/css/custom_item_classes.css (mc_width*,
         // rotate_label*, mc_vertical, mc_block, rating_button_label_width*,
         // …) — the admin-choosable layout modifiers. Keep it on the v2 form
         // so those classes keep working without a parallel scss port.
         $html = sprintf(
-            '<form class="fmr-form-v2 form-horizontal" method="post" data-submit-url="%s" data-rcall-url="%s" data-fill-url="%s" data-sync-url="%s" data-save-url="%s" data-run-url="%s" data-offline-mode="%s" data-allow-previous="%s" data-layout="%s" novalidate>',
+            '<form class="fmr-form-v2 form-horizontal" method="post" data-submit-url="%s" data-rcall-url="%s" data-fill-url="%s" data-sync-url="%s" data-save-url="%s" data-run-url="%s" data-offline-mode="%s" data-allow-previous="%s" data-layout="%s" data-fmr-progress-from="%d" data-fmr-progress-to="%d" novalidate>',
             htmlspecialchars($submitUrl, ENT_QUOTES),
             htmlspecialchars($rcallUrl, ENT_QUOTES),
             htmlspecialchars($fillUrl, ENT_QUOTES),
@@ -545,7 +557,9 @@ class FormRenderer extends SpreadsheetRenderer {
             htmlspecialchars($runUrl, ENT_QUOTES),
             $offlineMode,
             $allowPrevious,
-            $layout
+            $layout,
+            $progressFrom,
+            $progressTo
         );
         $html .= sprintf(
             '<input type="hidden" name="session_id" value="%s">',

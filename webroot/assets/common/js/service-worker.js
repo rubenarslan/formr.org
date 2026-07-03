@@ -360,6 +360,24 @@ function fmrQueueWipe(db) {
   });
 }
 
+// Wipe only one run's entries (matched on sync_url pathname prefix). The
+// queue DB is origin-wide: on path-routed deploys, logging out of run B
+// must not destroy run A's still-undrained answers. Entries without a
+// sync_url (legacy) can't be attributed — wipe them too, keeping the
+// pre-scoping security posture.
+async function fmrQueueWipeForRun(db, runPathPrefix) {
+  const entries = await fmrQueueGetAll(db);
+  for (const entry of entries) {
+    let belongs = true;
+    if (entry.sync_url) {
+      try {
+        belongs = new URL(entry.sync_url, self.location.href).pathname.indexOf(runPathPrefix) === 0;
+      } catch (e) { belongs = true; }
+    }
+    if (belongs) await fmrQueueDelete(db, entry.uuid);
+  }
+}
+
 function fmrBuildSyncFormData(entry) {
   const fd = new FormData();
   fd.append('uuid', entry.uuid);
@@ -397,9 +415,14 @@ async function fmrDrainBackground() {
   entries.sort((a, b) => (a.client_ts || '').localeCompare(b.client_ts || ''));
   for (const entry of entries) {
     const hasFiles = entry.files && Object.keys(entry.files).length > 0;
+    // Post each entry to the run it was queued under (entry.sync_url; the
+    // queue DB is origin-wide, so on path-routed deploys this SW may hold
+    // entries for several runs). Legacy entries without sync_url fall back
+    // to this SW's scope-derived endpoint — the old behaviour.
+    const entrySyncUrl = entry.sync_url || syncUrl;
     let res;
     try {
-      res = await fetch(syncUrl, {
+      res = await fetch(entrySyncUrl, {
         method: 'POST',
         credentials: 'same-origin',
         headers: hasFiles
@@ -450,10 +473,13 @@ self.addEventListener('fetch', (event) => {
     // Path is /<run>/logout on path-routed deploys, bare /logout on
     // subdomain-routed ones — match both.
     if (event.request.mode === 'navigate' && /(?:^|\/)logout\/?$/.test(u.pathname)) {
+      // Scope the wipe to the run being logged out; other runs' undrained
+      // answers in the shared origin-wide DB must survive.
+      const runPathPrefix = u.pathname.replace(/logout\/?$/, '');
       event.waitUntil((async () => {
         try {
           const db = await fmrOpenIDB();
-          await fmrQueueWipe(db);
+          await fmrQueueWipeForRun(db, runPathPrefix);
           try { db.close(); } catch {}
         } catch (err) {
           console.warn('SW logout-wipe: queue wipe failed', err);
@@ -525,7 +551,13 @@ self.addEventListener('message', (event) => {
     (async () => {
       try {
         const db = await fmrOpenIDB();
-        await fmrQueueWipe(db);
+        // Optional runPathPrefix scopes the wipe to one run's entries;
+        // without it the whole queue goes (account deletion, SW unregister).
+        if (typeof event.data.runPathPrefix === 'string' && event.data.runPathPrefix) {
+          await fmrQueueWipeForRun(db, event.data.runPathPrefix);
+        } else {
+          await fmrQueueWipe(db);
+        }
         try { db.close(); } catch {}
         event.ports[0]?.postMessage({ ok: true });
       } catch (err) {

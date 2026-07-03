@@ -107,12 +107,42 @@ export function registerFmrForm(Alpine) {
     }));
 }
 
+// Strip `//` and `/* */` comments WITHOUT touching string literals. The old
+// blind regexes turned `q1 == "http://x"` into a SyntaxError (everything after
+// `//` vanished), which silently downgraded the showif to the static server
+// decision. Single-pass scanner: inside ' " ` we only honour backslash
+// escapes; outside we drop comment spans.
+export function stripComments(src) {
+    let out = '';
+    let quote = null;
+    for (let i = 0; i < src.length; i++) {
+        const c = src[i];
+        if (quote) {
+            out += c;
+            if (c === '\\' && i + 1 < src.length) { out += src[++i]; continue; }
+            if (c === quote) quote = null;
+            continue;
+        }
+        if (c === "'" || c === '"' || c === '`') { quote = c; out += c; continue; }
+        if (c === '/' && src[i + 1] === '/') {
+            while (i < src.length && src[i] !== '\n') i++;
+            out += '\n';
+            continue;
+        }
+        if (c === '/' && src[i + 1] === '*') {
+            i += 2;
+            while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i++;
+            i++; // skip the '/' (loop increment skips the '*')
+            continue;
+        }
+        out += c;
+    }
+    return out;
+}
+
 export function registerXShowif(Alpine) {
     Alpine.directive('showif', (el, { expression }, { evaluateLater, effect }) => {
-        const cleaned = (expression || '')
-            .replace(/\/\*[\s\S]*?\*\//g, '')
-            .replace(/\/\/.*$/gm, '')
-            .trim();
+        const cleaned = stripComments(expression || '').trim();
         if (!cleaned) return;
         const rewritten = cleaned.replace(
             /\(\s*typeof\(\s*([A-Za-z0-9_'"]+)\s*\)\s*===\s*['"]undefined['"]\s*\)/g,
