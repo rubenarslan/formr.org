@@ -2,6 +2,15 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.26.4] - 03.07.2026
+
+### Fixes
+- **Runs that slot the same survey at multiple positions no longer misroute participants past the intervening units** (reported after a 0.26.3 upgrade: a participant finishing the survey's *first* occurrence was advanced to the unit after its *last* occurrence, skipping every unit in between). Two run-engine lookups still matched unit-sessions by `unit_id` — the unit *definition* — even though v0.26.0 (Track A, D1) added `survey_unit_sessions.run_unit_id` (the per-run-per-position `survey_run_units.id`) precisely to disambiguate this run shape:
+  - `RunSession::getCurrentUnitSession()` could adopt a session created at a *different* position of the same survey as the "current" one, letting the run-session `position` and the participant's actual session drift apart invisibly; the drift only surfaced when the next `moveOn()` advanced from the wrong (last-occurrence) position.
+  - `UnitSession::create()`'s supersede flip (`queued = -9`, `state = SUPERSEDED`) hit still-queued sessions of the same survey at *other* positions, zombifying a participant's active earlier-occurrence session whenever a cron cascade created a later-occurrence session.
+
+  Both now key on `run_unit_id` when the current position resolves to one, with an explicit fallback to the old `unit_id` match for legacy rows whose `run_unit_id` is NULL (pre-047 sessions; the 048 backfill intentionally leaves multi-position rows NULL). Runs that never reuse a unit are unaffected.
+
 ## [v0.26.3] - 12.06.2026
 
 ### Fixes
