@@ -111,12 +111,43 @@ class UnitSession extends Model {
                 // Track A also writes state='SUPERSEDED' alongside queued=-9
                 // for the same rows so analysts and admin tooling can read
                 // the named state instead of decoding the queued magic value.
-                $this->db->update('survey_unit_sessions', ['queued' => UnitSessionQueue::QUEUED_SUPERCEDED, 'state' => UnitSessionQueue::STATE_SUPERSEDED], [
-                    'run_session_id' => $this->runSession->id,
-                    'unit_id'        => $this->runUnit->id,
-                    'id <>'          => $this->id,
-                    'queued >'       => 0,
-                ]);
+                //
+                // D1 fix (v0.26.4): "THIS unit" must mean this *placement*
+                // (survey_run_units.id), not this unit definition. Keyed on
+                // unit_id, a run that slots the same survey at multiple
+                // positions superseded the participant's still-active
+                // session at an EARLIER position whenever a cascade created
+                // a session for a LATER occurrence — zombifying it
+                // (queued=-9, invisible to the daemon and to
+                // getCurrentUnitSession) and collapsing the run forward.
+                // Supersede by run_unit_id when known; legacy rows with
+                // run_unit_id IS NULL (pre-047) keep the unit_id match.
+                if ($run_unit_id !== null) {
+                    $this->db->exec(
+                        "UPDATE `survey_unit_sessions`
+                            SET `queued` = :queued_superseded, `state` = :state_superseded
+                          WHERE `run_session_id` = :run_session_id
+                            AND `id` != :id
+                            AND `queued` > 0
+                            AND (`run_unit_id` = :run_unit_id
+                                 OR (`run_unit_id` IS NULL AND `unit_id` = :unit_id))",
+                        [
+                            'queued_superseded' => UnitSessionQueue::QUEUED_SUPERCEDED,
+                            'state_superseded'  => UnitSessionQueue::STATE_SUPERSEDED,
+                            'run_session_id'    => $this->runSession->id,
+                            'id'                => $this->id,
+                            'run_unit_id'       => $run_unit_id,
+                            'unit_id'           => $this->runUnit->id,
+                        ]
+                    );
+                } else {
+                    $this->db->update('survey_unit_sessions', ['queued' => UnitSessionQueue::QUEUED_SUPERCEDED, 'state' => UnitSessionQueue::STATE_SUPERSEDED], [
+                        'run_session_id' => $this->runSession->id,
+                        'unit_id'        => $this->runUnit->id,
+                        'id <>'          => $this->id,
+                        'queued >'       => 0,
+                    ]);
+                }
             }
 
             $this->db->commit();
