@@ -513,6 +513,7 @@ class RunSession extends Model {
             `survey_unit_sessions`.expires,
 			`survey_unit_sessions`.ended,
             `survey_unit_sessions`.expired,
+            `survey_unit_sessions`.queued,
 			`survey_units`.type')
                 ->from('survey_unit_sessions')
                 ->leftJoin('survey_units', 'survey_unit_sessions.unit_id = survey_units.id')

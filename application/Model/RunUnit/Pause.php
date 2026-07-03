@@ -116,10 +116,32 @@ class Pause extends RunUnit {
             'queued' => UnitSessionQueue::QUEUED_TO_END,
         ];
       
-        if ($unitSession->expires && ($timestamp = strtotime($unitSession->expires)) > time()) {
-            // Pause has not expired, no need to fetch new data about it
-            $data['expires'] = $timestamp;
-            return $data;
+        if ($unitSession->expires && ($timestamp = strtotime($unitSession->expires))) {
+            if ($timestamp > time()) {
+                // Pause has not expired, no need to fetch new data about it
+                $data['expires'] = $timestamp;
+                return $data;
+            }
+            // Fix (v0.26.4): the stored deadline has PASSED and it was a
+            // concrete gate (QUEUED_TO_END) — not a re-check timer
+            // (QUEUED_TO_EXECUTE, the +10min retry used after an OpenCPU
+            // failure or a relative_to === false wait). End the pause at
+            // the stored deadline instead of re-evaluating. The daemon's
+            // END-q path already does exactly this; pre-fix, a WEB request
+            // landing after the deadline (daemon down or lagging, e.g.
+            // during an upgrade) re-ran relative_to, and a now-relative
+            // rule like "Sys.time() + weeks(4)" then re-armed the pause by
+            // its full horizon on every post-due page load instead of
+            // ending it.
+            // Deliberately NOT setting $data['expired']: executeUnitSession
+            // checks `expired` before `end_session`, and expire() would
+            // record result='expired' — the daemon's END-q records
+            // end()/'pause_ended', which this path mirrors.
+            if ((int) $unitSession->queued === UnitSessionQueue::QUEUED_TO_END) {
+                $data['expires'] = $timestamp;
+                $data['end_session'] = true;
+                return $data;
+            }
         }
 
         // if a relative_to has been defined by user or automatically, we need to retrieve its value
