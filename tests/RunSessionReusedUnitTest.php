@@ -161,4 +161,26 @@ class RunSessionReusedUnitTest extends \PHPUnit\Framework\TestCase
         $this->assertEquals(2, (int) $early['queued'], 'sibling placement\'s active session must NOT be superseded');
         $this->assertEquals(UnitSessionQueue::QUEUED_SUPERCEDED, (int) $late['queued'], 'same placement\'s stale session must be superseded');
     }
+
+    /**
+     * UnitSession::load() without an id (the recovery path after a failed
+     * create() INSERT) must resolve the row belonging to the CURRENT
+     * position's placement — not an arbitrary row of the same unit_id.
+     * The wrong-placement row is inserted first (lowest id) because the
+     * pre-fix findRow had no ORDER BY and returned scan order.
+     */
+    public function testLoadFallbackResolvesOwnPlacement(): void
+    {
+        $this->insertUnitSession(1000, self::RUN_UNIT_LATE, 0);   // pos-200 placement, scan-order first
+        $this->insertUnitSession(2000, self::RUN_UNIT_EARLY, 0);  // pos-50 placement
+
+        $rs = $this->makeRunSession(50);
+        $pause = (new ReflectionClass(Pause::class))->newInstanceWithoutConstructor();
+        $pause->boot();
+        $pause->id = self::UNIT_ID;
+
+        $us = (new UnitSession($rs, $pause))->load();
+        $this->assertEquals(2000, $us->id, 'load() fallback must pick the current placement\'s row');
+        $this->assertEquals(self::RUN_UNIT_EARLY, $us->run_unit_id);
+    }
 }
