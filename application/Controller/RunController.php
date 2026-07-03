@@ -726,6 +726,11 @@ class RunController extends Controller {
             return;
         }
 
+        if (!$this->formWriteRateAllowed((int) $runSession->id)) {
+            $this->sendJsonResponse(array('error' => 'Rate limit exceeded'), 429);
+            return;
+        }
+
         $unitSession = $runSession->getCurrentUnitSession();
         if (!$unitSession || !$unitSession->runUnit) {
             $this->sendJsonResponse(array('error' => 'No current unit session'), 409);
@@ -866,6 +871,10 @@ class RunController extends Controller {
         $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
         if (!$runSession->id) {
             $this->sendJsonResponse(array('error' => 'No active run session'), 403);
+            return;
+        }
+        if (!$this->formWriteRateAllowed((int) $runSession->id)) {
+            $this->sendJsonResponse(array('error' => 'Rate limit exceeded'), 429);
             return;
         }
         $unitSession = $runSession->getCurrentUnitSession();
@@ -1032,6 +1041,13 @@ class RunController extends Controller {
             return;
         }
 
+        if (!$this->formWriteRateAllowed((int) $runSession->id)) {
+            // 429 without drop_entry: the client's drain treats it as a
+            // validation-ish stop and retries later, which is what we want.
+            $this->sendJsonResponse(array('error' => 'Rate limit exceeded'), 429);
+            return;
+        }
+
         // Dedup pre-check: if we've already persisted this uuid, short-circuit
         // so retries are safe and cheap. The uuid is unique-indexed so a true
         // race ends in a constraint error on INSERT below rather than a
@@ -1161,7 +1177,7 @@ class RunController extends Controller {
             $this->sendJsonResponse(array('error' => $out['error']), $out['status']);
             return;
         }
-        $this->sendJsonResponse(array('result' => self::rResultToBool($out['result'])));
+        $this->sendJsonResponse(array('result' => RCallService::rResultToBool($out['result'])));
     }
 
     /**
@@ -1229,7 +1245,7 @@ class RunController extends Controller {
             $this->sendJsonResponse(array('error' => $out['error']), $out['status']);
             return;
         }
-        $this->sendJsonResponse(array('value' => self::rResultToScalarString($out['result'])));
+        $this->sendJsonResponse(array('value' => RCallService::rResultToScalarString($out['result'])));
     }
 
     /**
@@ -1299,72 +1315,28 @@ class RunController extends Controller {
             return;
         }
 
-        // Per-session rate limit (shares the bucket with /form-r-call so a
-        // hostile client can't bypass by alternating endpoints).
-        $rateKey = 'form_v2_rcall_rate_' . (int) $runSession->id;
-        $now = time();
-        $bucket = Session::get($rateKey, null);
-        if (!is_array($bucket) || !isset($bucket['window_start']) || ($now - (int) $bucket['window_start']) >= 60) {
-            $bucket = array('window_start' => $now, 'count' => 0);
-        }
-        $bucket['count'] = (int) $bucket['count'] + 1;
-        Session::set($rateKey, $bucket);
-        if ($bucket['count'] > 30) {
+        // Shares the r-call bucket so a hostile client can't multiply its
+        // budget by alternating endpoints.
+        if (!$this->rcallRateAllowed((int) $runSession->id)) {
             $this->sendJsonResponse(array('error' => 'Rate limit exceeded'), 429);
             return;
         }
 
-        // Allowlisted r-calls for items on the requested page. The JOIN to
-        // survey_items_display ensures we only resolve calls for items
-        // actually scheduled on that page in this unit-session — a hostile
-        // client passing a different page number can't resolve calls for
-        // items not on that page (or not in their session at all).
-        // Raw SQL — DB::select()/from() don't support `AS` aliases (quoteCol
-        // wraps "table AS x" in one set of backticks → "`table AS x`" which
-        // doesn't exist), and DB::join() only takes (table, condition);
-        // earlier `->join(..., 'INNER')` got parsed as a second condition
-        // and threw "Unable to get join condition clauses". Both stayed
-        // latent until first-page label deferral made every initial render
-        // hit this query with non-empty results.
-        $stmt = DB::getInstance()->prepare(
-            'SELECT r.id, r.slot, r.expr, r.item_id, i.name AS item_name'
-            . ' FROM survey_r_calls r'
-            . ' INNER JOIN survey_items_display d ON d.item_id = r.item_id'
-            . ' INNER JOIN survey_items i ON i.id = r.item_id'
-            . ' WHERE r.study_id = :study_id'
-            . ' AND r.slot IN ("value", "label")'
-            . ' AND d.session_id = :session_id'
-            . ' AND d.page = :page'
-        );
-        $stmt->bindValue(':study_id', (int) $study->id, PDO::PARAM_INT);
-        $stmt->bindValue(':session_id', (int) $unitSession->id, PDO::PARAM_INT);
-        $stmt->bindValue(':page', (int) $pageNum, PDO::PARAM_INT);
-        $stmt->execute();
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        if (!$rows) {
+        // The service scopes calls to items actually scheduled on that page
+        // in THIS unit-session and applies the allowlist revocation check.
+        $service = new RCallService($unitSession, $study);
+        $calls = $service->callsForPage($pageNum);
+        if (empty($calls['value']) && empty($calls['label'])) {
             $this->sendJsonResponse(array('values' => array(), 'labels' => array()));
             return;
         }
 
-        $valueCalls = array();
-        $labelCalls = array();
-        foreach ($rows as $row) {
-            $callId = (int) $row['id'];
-            $entry = array('item_id' => (int) $row['item_id'], 'expr' => (string) $row['expr']);
-            if ($row['slot'] === 'value') {
-                $valueCalls[$callId] = $entry;
-            } elseif ($row['slot'] === 'label') {
-                $labelCalls[$callId] = $entry;
-            }
-        }
-
-        $values = $this->batchResolveValues($valueCalls, $answers, $unitSession, $study);
-        $labels = $this->batchResolveLabels($labelCalls, $answers, $unitSession, $study);
+        $values = $service->resolveExpressions($calls['value'], $answers, RCallService::ttlForSlot('value'));
+        $labels = $service->resolveLabels($calls['label'], $answers, RCallService::ttlForSlot('label'));
 
         $valuesOut = array();
         foreach ($values as $callId => $val) {
-            $valuesOut[(string) $callId] = self::rResultToScalarString($val);
+            $valuesOut[(string) $callId] = RCallService::rResultToScalarString($val);
         }
         $labelsOut = array();
         foreach ($labels as $callId => $html) {
@@ -1372,251 +1344,6 @@ class RunController extends Controller {
         }
 
         $this->sendJsonResponse(array('values' => $valuesOut, 'labels' => $labelsOut));
-    }
-
-    /**
-     * Batched value resolution: one OpenCPU call evaluates every requested
-     * call_id's expression against the participant's data + the optional
-     * answer overlay. Cache hits short-circuit; misses are evaluated and
-     * stored. Returns map [call_id => result].
-     */
-    protected function batchResolveValues(array $valueCalls, array $answers, $unitSession, $study) {
-        if (empty($valueCalls)) return array();
-
-        $normalized = self::normalizeAnswersForHash($answers);
-        $argsHash = hash('sha256', json_encode($normalized, JSON_UNESCAPED_UNICODE));
-        $usid = (int) $unitSession->id; // cache scope (patch 064 — see evaluateAllowlistedRCall)
-        $now = time();
-        $ttl = 300; // value cache TTL (matches single-call /form-fill path)
-        $results = array();
-        $misses = array();
-
-        // Pull cached rows in one query: same (unit_session_id, args_hash) for
-        // every call_id in the batch.
-        $callIds = array_keys($valueCalls);
-        if ($callIds) {
-            $placeholders = implode(',', array_fill(0, count($callIds), '?'));
-            $stmt = DB::getInstance()->prepare(
-                "SELECT call_id, result_json, UNIX_TIMESTAMP(created_at) AS ts
-                 FROM survey_r_call_results
-                 WHERE call_id IN ($placeholders) AND unit_session_id = ? AND args_hash = ?"
-            );
-            $i = 1;
-            foreach ($callIds as $cid) {
-                $stmt->bindValue($i++, (int) $cid, PDO::PARAM_INT);
-            }
-            $stmt->bindValue($i++, $usid, PDO::PARAM_INT);
-            $stmt->bindValue($i, $argsHash);
-            $stmt->execute();
-            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                if (($now - (int) $row['ts']) >= $ttl) continue;
-                $decoded = json_decode((string) $row['result_json'], true);
-                if (is_array($decoded) && array_key_exists('result', $decoded)) {
-                    $results[(int) $row['call_id']] = $decoded['result'];
-                }
-            }
-        }
-
-        foreach ($valueCalls as $callId => $entry) {
-            if (!array_key_exists($callId, $results)) {
-                $misses[$callId] = $entry;
-            }
-        }
-
-        if (!empty($misses)) {
-            $survey_name = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $study->name);
-            if ($survey_name === '') {
-                // Bad study name: bail; return what we have from cache.
-                return $results;
-            }
-            $overlayR = self::formatROverlay($answers);
-            // Build one R script that returns a named list keyed by call_id.
-            $listEntries = array();
-            foreach ($misses as $callId => $entry) {
-                // Sanitize the key to a valid R identifier (call_id is int so
-                // backtick-quoting is enough). Expr is admin-authored R from
-                // the allowlist — already trusted.
-                $listEntries[] = sprintf(
-                    "`%d` = tryCatch({ %s }, error = function(e) NA)",
-                    (int) $callId,
-                    (string) $entry['expr']
-                );
-            }
-            $code = "(function() {\n"
-                  . "  .fmr.overlay <- {$overlayR}\n"
-                  . "  .fmr.row <- tail({$survey_name}, 1)\n"
-                  . "  for (.n in names(.fmr.overlay)) .fmr.row[[.n]] <- .fmr.overlay[[.n]]\n"
-                  . "  with(.fmr.row, list(\n"
-                  . "    " . implode(",\n    ", $listEntries) . "\n"
-                  . "  ))\n"
-                  . "})()\n";
-            $variables = $unitSession->getRunData($code, $survey_name);
-            $session = opencpu_evaluate($code, $variables, 'json', null, true);
-            if ($session && !$session->hasError()) {
-                $batched = $session->getJSONObject();
-                if (is_array($batched)) {
-                    foreach ($batched as $key => $val) {
-                        $cid = (int) $key;
-                        if (!isset($misses[$cid])) continue;
-                        // R length-1 vector unwrap (matches single-call path).
-                        if (is_array($val) && count($val) === 1 && array_keys($val) === array(0)) {
-                            $val = $val[0];
-                        }
-                        $results[$cid] = $val;
-                        // Cache write.
-                        try {
-                            $stmt = DB::getInstance()->prepare(
-                                'REPLACE INTO `survey_r_call_results` (call_id, unit_session_id, args_hash, result_json) '
-                                . 'VALUES (:cid, :usid, :hash, :res)'
-                            );
-                            $stmt->bindValue(':cid', $cid);
-                            $stmt->bindValue(':usid', $usid);
-                            $stmt->bindValue(':hash', $argsHash);
-                            $stmt->bindValue(':res', json_encode(array('result' => $val), JSON_UNESCAPED_UNICODE));
-                            $stmt->execute();
-                        } catch (PDOException $e) {
-                            formr_log('value batch cache write failed: ' . $e->getMessage());
-                        }
-                    }
-                }
-            } else {
-                formr_log('batchResolveValues OpenCPU error: ' . (string) opencpu_last_error());
-                // Misses stay missing — client substitutes empty / leaves placeholder.
-            }
-        }
-        return $results;
-    }
-
-    /**
-     * Batched label resolution: knit each label's R-Markdown via OpenCPU,
-     * delimiting them v1-style (opencpu_multistring_parse). Returns map
-     * [call_id => html].
-     */
-    protected function batchResolveLabels(array $labelCalls, array $answers, $unitSession, $study) {
-        if (empty($labelCalls)) return array();
-
-        $normalized = self::normalizeAnswersForHash($answers);
-        $argsHash = hash('sha256', json_encode($normalized, JSON_UNESCAPED_UNICODE));
-        $usid = (int) $unitSession->id; // cache scope (patch 064 — see evaluateAllowlistedRCall)
-        $now = time();
-        $ttl = 300; // label cache TTL — labels rarely change per-keystroke; longer is fine
-        $results = array();
-        $misses = array();
-
-        $callIds = array_keys($labelCalls);
-        if ($callIds) {
-            $placeholders = implode(',', array_fill(0, count($callIds), '?'));
-            $stmt = DB::getInstance()->prepare(
-                "SELECT call_id, result_json, UNIX_TIMESTAMP(created_at) AS ts
-                 FROM survey_r_call_results
-                 WHERE call_id IN ($placeholders) AND unit_session_id = ? AND args_hash = ?"
-            );
-            $i = 1;
-            foreach ($callIds as $cid) {
-                $stmt->bindValue($i++, (int) $cid, PDO::PARAM_INT);
-            }
-            $stmt->bindValue($i++, $usid, PDO::PARAM_INT);
-            $stmt->bindValue($i, $argsHash);
-            $stmt->execute();
-            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                if (($now - (int) $row['ts']) >= $ttl) continue;
-                $decoded = json_decode((string) $row['result_json'], true);
-                if (is_array($decoded) && array_key_exists('result', $decoded)) {
-                    $results[(int) $row['call_id']] = $decoded['result'];
-                }
-            }
-        }
-
-        foreach ($labelCalls as $callId => $entry) {
-            if (!array_key_exists($callId, $results)) {
-                $misses[$callId] = $entry;
-            }
-        }
-
-        if (!empty($misses)) {
-            // Concatenate label sources with the formr knit delimiter, knit,
-            // then split. Same strategy as opencpu_multistring_parse, but we
-            // also emit the answer overlay so labels see the latest state.
-            $survey_name = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $study->name);
-            if ($survey_name === '') return $results;
-
-            // Order matters — we map results back by index → call_id.
-            $orderedCallIds = array_keys($misses);
-            $sources = array();
-            foreach ($orderedCallIds as $cid) {
-                $sources[] = (string) $misses[$cid]['expr'];
-            }
-            $markdown = implode(OpenCPU::STRING_DELIMITER, $sources);
-
-            // Apply the answer overlay onto tail(survey, 1) so inline R chunks
-            // see the latest values. getRunData() returns a structured array
-            // for opencpu_define_vars — we can't `.=` a string onto it (that
-            // coerces to "Array" and the warning HTML breaks our JSON).
-            // Instead, prepend a hidden knitr chunk to the markdown that
-            // overlays the latest answers; matches batchResolveValues' shape.
-            $opencpu_vars = $unitSession->getRunData($markdown, $study->name);
-            if (!empty($answers)) {
-                $overlayR = self::formatROverlay($answers);
-                $overlayChunk = "```{r overlay,echo=FALSE,results='hide',message=FALSE,warning=FALSE}\n"
-                              . ".fmr.overlay <- {$overlayR}\n"
-                              . "if (exists('{$survey_name}') && nrow({$survey_name}) > 0) {\n"
-                              . "  for (.n in names(.fmr.overlay)) {\n"
-                              . "    if (.n %in% names({$survey_name})) {\n"
-                              . "      {$survey_name}[nrow({$survey_name}), .n] <- .fmr.overlay[[.n]]\n"
-                              . "    }\n"
-                              . "  }\n"
-                              . "}\n"
-                              . "```\n";
-                $markdown = $overlayChunk . $markdown;
-            }
-
-            // Knit to Markdown via OpenCPU (knitr only — no pandoc), then convert
-            // Markdown → HTML PHP-side with ParsedownExtra, configured exactly like
-            // the static-label path (SurveyStudy::addItems), so a dynamic label
-            // renders identically to a static one and we skip pandoc's per-render
-            // subprocess cost. The raw STRING_DELIMITER passes through knitr
-            // untouched, so we split on it before Parsedown-ing each label.
-            $session = opencpu_knitdisplay($markdown, $opencpu_vars, true, $study->name, 'markdown');
-            if ($session && !$session->hasError()) {
-                $knitted = $session->getJSONObject();
-                if (is_string($knitted)) {
-                    $parts = explode(OpenCPU::STRING_DELIMITER, $knitted);
-                    $parsedown = (new ParsedownExtra())->setBreaksEnabled(true)->setUrlsLinked(true);
-                    foreach ($orderedCallIds as $idx => $cid) {
-                        if (!isset($parts[$idx])) continue;
-                        // Match the static-label pipeline (SurveyStudy::addItems): after
-                        // Parsedown, strip a single wrapping <p> so a dynamic label renders
-                        // inline like a static one (otherwise it gains block <p> margins).
-                        // Log-only on failure — batchResolveLabels runs during PARTICIPANT
-                        // form rendering, so parsedown_text_safe()'s author-facing alert()
-                        // must not be enqueued on the participant's session.
-                        try {
-                            $html = remove_tag_wrapper($parsedown->text(trim($parts[$idx])));
-                        } catch (\Throwable $e) {
-                            formr_log_exception($e, 'PARSEDOWN.TEXT (dynamic label)');
-                            $html = trim($parts[$idx]);
-                        }
-                        $results[$cid] = $html;
-                        try {
-                            $stmt = DB::getInstance()->prepare(
-                                'REPLACE INTO `survey_r_call_results` (call_id, unit_session_id, args_hash, result_json) '
-                                . 'VALUES (:cid, :usid, :hash, :res)'
-                            );
-                            $stmt->bindValue(':cid', $cid);
-                            $stmt->bindValue(':usid', $usid);
-                            $stmt->bindValue(':hash', $argsHash);
-                            $stmt->bindValue(':res', json_encode(array('result' => $html), JSON_UNESCAPED_UNICODE));
-                            $stmt->execute();
-                        } catch (PDOException $e) {
-                            formr_log('label batch cache write failed: ' . $e->getMessage());
-                        }
-                    }
-                }
-            } else {
-                formr_log('batchResolveLabels OpenCPU error: ' . (string) opencpu_last_error());
-            }
-        }
-        return $results;
     }
 
     /**
@@ -1656,221 +1383,41 @@ class RunController extends Controller {
             return array('ok' => false, 'status' => 409, 'error' => 'No study on current unit');
         }
 
-        $row = DB::getInstance()
-            ->select('id, study_id, slot, expr')
-            ->from('survey_r_calls')
-            ->where('id = :id')
-            ->bindParams(array('id' => $callId))
-            ->fetch();
-        if (!$row || (int) $row['study_id'] !== (int) $study->id) {
-            return array('ok' => false, 'status' => 404, 'error' => 'Unknown call_id for this study');
-        }
-        if ((string) $row['slot'] !== (string) $expectedSlot) {
-            return array('ok' => false, 'status' => 400, 'error' => 'call_id slot mismatch');
-        }
-
-        $expr = (string) $row['expr'];
-
-        // Per-session token-bucket rate limit. Reactive showif r-calls are
-        // already debounced (300ms) and seq-guarded client-side, but a
-        // malicious or buggy client could loop. 30 calls / 60s is enough
-        // headroom for a participant typing naturally into a long form and
-        // triggering every debounce window without being punitive. Bucket
-        // state lives in the participant's PHP session so it survives
-        // across requests but not across logouts/device changes — fine
-        // because the limit is cheap to recover from.
-        $rateKey = 'form_v2_rcall_rate_' . (int) $runSession->id;
-        $now = time();
-        $window = 60;
-        $maxCalls = 30;
-        $bucket = Session::get($rateKey, null);
-        if (!is_array($bucket) || !isset($bucket['window_start']) || ($now - (int) $bucket['window_start']) >= $window) {
-            $bucket = array('window_start' => $now, 'count' => 0);
-        }
-        $bucket['count'] = (int) $bucket['count'] + 1;
-        Session::set($rateKey, $bucket);
-        if ($bucket['count'] > $maxCalls) {
+        // Reactive r-calls are debounced (300ms) and seq-guarded client-side,
+        // but a malicious or buggy client could loop. DB-keyed bucket (patch
+        // 076) — the old $_SESSION bucket reset with every session-cookie
+        // rotation.
+        if (!$this->rcallRateAllowed((int) $runSession->id)) {
             return array('ok' => false, 'status' => 429, 'error' => 'Rate limit exceeded');
         }
 
-        // Result cache lookup (patch 062). Keyed on (call_id, sha256 of a
-        // normalized JSON encoding of the answers). TTL differs by slot:
-        // showif is reactive and wants short-lived cache (30s) so an admin's
-        // quick edit flows through; value is one-shot on page load and
-        // benefits from a longer 5-minute TTL. Cache hits skip OpenCPU
-        // entirely — big win on identical reactive-showif hammering.
-        $ttl = ($expectedSlot === 'value') ? 300 : 30;
-        $normalized = self::normalizeAnswersForHash($answers);
-        $argsHash = hash('sha256', json_encode($normalized, JSON_UNESCAPED_UNICODE));
-        // Cache key includes unit_session_id (patch 064). Without it, two
-        // participants with colliding overlays (e.g. empty overlay at page
-        // load, or identical multiple-choice answers) would share cache rows
-        // even though the underlying R expression evaluates against the
-        // participant's persisted survey row via tail(name, 1).
-        $usid = (int) $unitSession->id;
-        $cachedRow = DB::getInstance()
-            ->select('result_json, UNIX_TIMESTAMP(created_at) AS ts')
-            ->from('survey_r_call_results')
-            ->where('call_id = :cid AND unit_session_id = :usid AND args_hash = :hash')
-            ->bindParams(array('cid' => (int) $callId, 'usid' => $usid, 'hash' => $argsHash))
-            ->fetch();
-        if ($cachedRow && ($now - (int) $cachedRow['ts']) < $ttl) {
-            $decoded = json_decode((string) $cachedRow['result_json'], true);
-            if (is_array($decoded) && array_key_exists('result', $decoded)) {
-                return array('ok' => true, 'result' => $decoded['result']);
-            }
-        }
-
-        $overlayR = self::formatROverlay($answers);
-        $survey_name = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $study->name);
-        if ($survey_name === '') {
-            return array('ok' => false, 'status' => 500, 'error' => 'Bad study name');
-        }
-
-        $code = "(function() {\n"
-              . "  .fmr.overlay <- {$overlayR}\n"
-              . "  .fmr.row <- tail({$survey_name}, 1)\n"
-              . "  for (.n in names(.fmr.overlay)) .fmr.row[[.n]] <- .fmr.overlay[[.n]]\n"
-              . "  with(.fmr.row, {\n"
-              . "    tryCatch({ {$expr} }, error = function(e) NA)\n"
-              . "  })\n"
-              . "})()\n";
-
-        $variables = $unitSession->getRunData($code, $survey_name);
-        $session = opencpu_evaluate($code, $variables, 'json', null, true);
-        if (!$session || $session->hasError()) {
-            return array('ok' => false, 'status' => 502, 'error' => 'Evaluation failed');
-        }
-
-        $result = $session->getJSONObject();
-        // R returns length-1 vectors as single-element arrays; unwrap.
-        if (is_array($result) && count($result) === 1 && array_keys($result) === array(0)) {
-            $result = $result[0];
-        }
-
-        // Populate cache on successful evaluation. REPLACE so a stale row
-        // for the same (call_id, unit_session_id, args_hash) gets bumped
-        // to the current timestamp.
-        try {
-            $stmt = DB::getInstance()->prepare(
-                'REPLACE INTO `survey_r_call_results` (call_id, unit_session_id, args_hash, result_json) '
-                . 'VALUES (:cid, :usid, :hash, :res)'
-            );
-            $stmt->bindValue(':cid', (int) $callId);
-            $stmt->bindValue(':usid', $usid);
-            $stmt->bindValue(':hash', $argsHash);
-            $stmt->bindValue(':res', json_encode(array('result' => $result), JSON_UNESCAPED_UNICODE));
-            $stmt->execute();
-        } catch (PDOException $e) {
-            // Cache write is best-effort — log and move on.
-            formr_log('r-call cache write failed: ' . $e->getMessage());
-        }
-        self::evictStaleRCallResults();
-
-        return array('ok' => true, 'result' => $result);
+        $service = new RCallService($unitSession, $study);
+        return $service->evaluateSingle((int) $callId, $expectedSlot, $answers);
     }
 
     /**
-     * Bounded write-time eviction for the r-call result cache. The max TTL is
-     * 5 minutes, so anything older than a day is dead weight; without this the
-     * table grows one row per (call, session, answer-state) forever. Rides the
-     * idx_created index and is LIMITed so it never stalls the request; called
-     * from the cache-write path, which is already OpenCPU-expensive. The FK on
-     * unit_session_id (patch 064) handles deleted sessions; this handles age.
+     * Shared r-call/fill/render-page budget: one bucket per run session so a
+     * hostile client can't multiply its budget by alternating endpoints.
+     * 30/min default is generous for a participant typing through every
+     * debounce window of a long form; override via
+     * $settings['form_v2_rate_limits']['rcall_per_min'].
      */
-    private static function evictStaleRCallResults() {
-        try {
-            DB::getInstance()->exec(
-                'DELETE FROM `survey_r_call_results` '
-                . 'WHERE created_at < NOW() - INTERVAL 1 DAY LIMIT 500'
-            );
-        } catch (PDOException $e) {
-            formr_log('r-call cache eviction failed: ' . $e->getMessage());
-        }
+    private function rcallRateAllowed($runSessionId) {
+        $limits = Config::get('form_v2_rate_limits', array());
+        $max = isset($limits['rcall_per_min']) ? (int) $limits['rcall_per_min'] : 30;
+        return FixedWindowRateLimiter::allow('rcall:' . (int) $runSessionId, $max, 60);
     }
 
     /**
-     * Normalize answers for cache-key hashing: sort keys, coerce to a stable
-     * JSON shape so e.g. {a:1,b:2} and {b:2,a:1} hash identically. Arrays are
-     * left as-is (order matters for list-typed answers).
-     *
-     * @param array<string, mixed> $answers
-     * @return array<string, mixed>
+     * Budget for the v2 write endpoints (form-page-submit, form-save,
+     * form-sync). Wide headroom — autosave is client-throttled to 1/20s and a
+     * fast participant submits well under a page a second — but it stops a
+     * scripted client from hammering DB writes indefinitely.
      */
-    protected static function normalizeAnswersForHash(array $answers) {
-        ksort($answers);
-        return $answers;
-    }
-
-    /**
-     * Stringify an R scalar for the client. Empty string for NA / null / empty
-     * arrays (deferred fill should leave the field blank if the expression
-     * couldn't produce a value, rather than emitting "NA" or "null" literally).
-     */
-    protected static function rResultToScalarString($result) {
-        if ($result === null) return '';
-        if (is_bool($result)) return $result ? 'TRUE' : 'FALSE';
-        if (is_int($result) || is_float($result)) {
-            if (is_float($result) && is_nan($result)) return '';
-            return (string) $result;
-        }
-        if (is_array($result)) {
-            if (empty($result)) return '';
-            // Flatten to first scalar; Phase 4 fills target a single input.
-            return self::rResultToScalarString(reset($result));
-        }
-        return (string) $result;
-    }
-
-    /**
-     * Build an R `list(name = value, ...)` literal from a PHP associative array,
-     * with keys restricted to valid R/formr item names (letters, digits,
-     * underscore, leading letter) and values coerced to R scalars / vectors.
-     */
-    protected static function formatROverlay(array $answers) {
-        $parts = array();
-        foreach ($answers as $key => $val) {
-            if (!is_string($key) || !preg_match('/^[A-Za-z][A-Za-z0-9_]*$/', $key)) {
-                continue;
-            }
-            $parts[] = $key . ' = ' . self::formatRValue($val);
-        }
-        return 'list(' . implode(', ', $parts) . ')';
-    }
-
-    protected static function formatRValue($v) {
-        if ($v === null || $v === '') return 'NA';
-        if (is_bool($v)) return $v ? 'TRUE' : 'FALSE';
-        if (is_int($v) || is_float($v)) return (string) $v;
-        if (is_array($v)) {
-            // The survey data.frame stores multi-selects as ", "-joined strings
-            // (McMultiple/SelectMultiple::getReply), and the overlay assigns
-            // into a single data.frame row — a length-N c(...) errors with
-            // "replacement has N rows, data has 1", and c() (NULL) would
-            // delete the column. Mirror the stored shape instead.
-            $vals = array();
-            foreach (array_values($v) as $part) {
-                if ($part === null || $part === '') continue;
-                $vals[] = (string) $part;
-            }
-            if (empty($vals)) return 'NA';
-            return self::formatRValue(implode(', ', $vals));
-        }
-        if (is_numeric($v)) return (string) $v;
-        // String: R double-quoted, escape backslash and double-quote.
-        $s = str_replace(array('\\', '"'), array('\\\\', '\"'), (string) $v);
-        return '"' . $s . '"';
-    }
-
-    protected static function rResultToBool($result) {
-        if (is_bool($result)) return $result;
-        if (is_int($result) || is_float($result)) return ((float) $result) != 0.0;
-        if (is_string($result)) {
-            $l = strtolower(trim($result));
-            if ($l === 'true' || $l === 't' || $l === '1') return true;
-            return false;
-        }
-        return (bool) $result;
+    private function formWriteRateAllowed($runSessionId) {
+        $limits = Config::get('form_v2_rate_limits', array());
+        $max = isset($limits['write_per_min']) ? (int) $limits['write_per_min'] : 90;
+        return FixedWindowRateLimiter::allow('formwrite:' . (int) $runSessionId, $max, 60);
     }
 
     /**
@@ -1889,6 +1436,15 @@ class RunController extends Controller {
     {
         if (!Request::isHTTPPostRequest()) {
             http_response_code(405);
+            return;
+        }
+        // Unauthenticated endpoint — rate limit per IP so it can't be used to
+        // flood formr_log / disk. Fail-open like the other buckets.
+        $limits = Config::get('form_v2_rate_limits', array());
+        $beaconMax = isset($limits['beacon_per_min']) ? (int) $limits['beacon_per_min'] : 10;
+        $ip = isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : 'unknown';
+        if (!FixedWindowRateLimiter::allow('beacon:' . $ip, $beaconMax, 60)) {
+            http_response_code(429);
             return;
         }
         $raw = file_get_contents('php://input');

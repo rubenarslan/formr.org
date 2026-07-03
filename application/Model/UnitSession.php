@@ -210,9 +210,14 @@ class UnitSession extends Model {
      * intentionally has no `ended IS NULL` guard so the final pass that
      * ends the session still counts.
      *
+     * Public because RCallService meters the form_v2 reactive-R endpoints
+     * (form-r-call / form-fill / form-render-page) into the same column —
+     * participant-driven OpenCPU load must count against the owner's
+     * compute budget like unit execution does.
+     *
      * @param float $seconds elapsed wall-clock seconds for one pass
      */
-    protected function addExecutionTime(float $seconds) {
+    public function addExecutionTime(float $seconds) {
         if (empty($this->id) || $seconds <= 0) {
             return;
         }

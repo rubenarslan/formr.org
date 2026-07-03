@@ -328,6 +328,28 @@ $settings['form_v2_dual_write_results'] = true;
 // Raise for studies that routinely collect long-form audio/video.
 $settings['form_v2_offline_blob_max_mb'] = 10;
 
+// form_v2 endpoint rate limits, per fixed 60s window (FixedWindowRateLimiter,
+// patch 076; buckets keyed by run session, beacon by IP; fail-open when the
+// table is missing so a misapplied patch never locks participants out).
+//   rcall_per_min  — /form-r-call + /form-fill + /form-render-page (shared
+//                    bucket; these trigger OpenCPU work)
+//   write_per_min  — /form-page-submit + /form-save + /form-sync (DB writes)
+//   beacon_per_min — /pwa-beacon (unauthenticated logging endpoint)
+$settings['form_v2_rate_limits'] = array(
+    'rcall_per_min' => 30,
+    'write_per_min' => 90,
+    'beacon_per_min' => 10,
+);
+
+// Per-slot TTLs (seconds) for the survey_r_call_results cache. showif is
+// reactive (short, so admin edits flow through); value/label resolve once
+// per page show and tolerate longer.
+$settings['form_v2_rcall_ttl'] = array(
+    'showif' => 30,
+    'value' => 300,
+    'label' => 300,
+);
+
 // Brand
 $settings['brand'] = '<span>f</span>orm<span>{`r}</span>';
 $settings['brand_long'] = '<b>formr</b> survey framework';
