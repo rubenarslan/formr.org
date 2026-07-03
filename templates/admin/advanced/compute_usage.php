@@ -46,7 +46,7 @@
                         <span class="pull-right text-muted">instance default limit: <?= h(ComputeUsageHelper::formatLimit($monthly_default)) ?> / month</span>
                     </div>
                     <div class="box-body table-responsive">
-                        <p class="text-muted">A user's <strong>monthly limit</strong> is their compute budget across all their runs. When this month's usage reaches it, their public runs are set non-public until usage drops back under the limit (e.g. next month). Leave the field blank to inherit the instance default; enter seconds, or <code>0</code> for unlimited. Users cannot change their own limit.</p>
+                        <p class="text-muted">A user's <strong>monthly limit</strong> is their compute budget across all their runs. When this month's usage reaches it, their public runs are set non-public and their automatic actions (cron) are switched off. Compute-closed runs are <strong>not</strong> reopened automatically — the owner must republish them (and re-enable cron) in the run settings once usage is addressed. Leave the field blank to inherit the instance default; enter seconds, or <code>0</code> for unlimited. Users cannot change their own limit.</p>
                         <?php if (!empty($users)): ?>
                             <table class="table table-striped">
                                 <thead>
@@ -62,8 +62,7 @@
                                 </thead>
                                 <tbody>
                                     <?php foreach ($users as $u): ?>
-                                    <?php $over = $monthly_default || $u['compute_limit_monthly'] !== null;
-                                          $eff = ComputeUsageHelper::effectiveLimit($u['compute_limit_monthly']);
+                                    <?php $eff = ComputeUsageHelper::effectiveLimit($u['compute_limit_monthly']);
                                           $tripped = $eff > 0 && (float)$u['month_time'] >= $eff; ?>
                                     <tr<?= $tripped ? ' class="danger"' : '' ?>>
                                         <td><?= h($u['email']) ?></td>
