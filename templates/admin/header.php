@@ -21,8 +21,10 @@
         ?>
         <?php /* loaded in the head, not the footer: the delegated [data-confirm]
                  guard must be active before any delete link can be clicked
-                 (several deletes execute on plain GET) */ ?>
-        <script src="<?= asset_url('admin/js/admin-ui.js') ?>"></script>
+                 (several deletes execute on plain GET). defer keeps it from
+                 blocking the parser while still running before DOMContentLoaded,
+                 i.e. before the page is interactive and any link is clickable. */ ?>
+        <script defer src="<?= asset_url('admin/js/admin-ui.js') ?>"></script>
 
         <?php
         if (!isset($runs) || !isset($studies)) {

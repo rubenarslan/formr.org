@@ -99,7 +99,10 @@
                 return;
             }
             var existingLabels = $panel.find('.api-credentials-list tbody tr').map(function () {
-                return jQuery(this).data('label');
+                // String(): jQuery.data() coerces a numeric-/boolean-looking label
+                // (e.g. "2024", "1", "true") to a Number/Boolean, and the .toLowerCase()
+                // dedup check below would then throw and block creating any credential.
+                return String(jQuery(this).data('label'));
             }).get();
             if (existingLabels.some(function (l) { return l.toLowerCase() === label.toLowerCase(); })) {
                 alert('You already have a credential with the label "' + label + '". Each label must be unique within your account.');

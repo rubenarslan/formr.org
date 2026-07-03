@@ -1544,7 +1544,18 @@ class RunController extends Controller {
                     $parsedown = (new ParsedownExtra())->setBreaksEnabled(true)->setUrlsLinked(true);
                     foreach ($orderedCallIds as $idx => $cid) {
                         if (!isset($parts[$idx])) continue;
-                        $html = parsedown_text_safe($parsedown, trim($parts[$idx]), 'dynamic label');
+                        // Match the static-label pipeline (SurveyStudy::addItems): after
+                        // Parsedown, strip a single wrapping <p> so a dynamic label renders
+                        // inline like a static one (otherwise it gains block <p> margins).
+                        // Log-only on failure — batchResolveLabels runs during PARTICIPANT
+                        // form rendering, so parsedown_text_safe()'s author-facing alert()
+                        // must not be enqueued on the participant's session.
+                        try {
+                            $html = remove_tag_wrapper($parsedown->text(trim($parts[$idx])));
+                        } catch (\Throwable $e) {
+                            formr_log_exception($e, 'PARSEDOWN.TEXT (dynamic label)');
+                            $html = trim($parts[$idx]);
+                        }
                         $results[$cid] = $html;
                         try {
                             $stmt = DB::getInstance()->prepare(

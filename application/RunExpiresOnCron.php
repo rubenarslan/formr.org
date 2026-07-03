@@ -163,8 +163,10 @@ class RunExpiresOnCron extends Cron {
             $timeUntilExpiry,
             // CLI/cron context: admin_url() collapses to a host-less
             // "https:///admin/" here (no SERVER_NAME), so resolve the admin
-            // URL from the admin_domain config instead (issue #608).
-            formr_admin_base_url() . '/admin'
+            // URL from the admin_domain config instead (issue #608). Keep the
+            // trailing slash — the admin session cookie is scoped Path=/admin/,
+            // so a bare /admin isn't sent and bounces a logged-in owner to login.
+            formr_admin_base_url() . '/admin/'
         );
 
         if ($success) {
