@@ -440,7 +440,12 @@ class RunSession extends Model {
             return null;
         }
         if (!array_key_exists($position, $this->positionedRunUnitIds)) {
-            $this->positionedRunUnitIds[$position] = $this->db->findValue('survey_run_units', ['run_id' => $this->run->id, 'position' => $position], 'id');
+            // findValue → fetchColumn() returns FALSE on a miss; coerce to
+            // null so the documented contract holds and `!== null` guards
+            // (here and in UnitSession::create) treat a miss as "unmapped"
+            // rather than binding false/0 as a real id.
+            $id = $this->db->findValue('survey_run_units', ['run_id' => $this->run->id, 'position' => $position], 'id');
+            $this->positionedRunUnitIds[$position] = ($id === false) ? null : $id;
         }
         return $this->positionedRunUnitIds[$position];
     }
@@ -498,6 +503,8 @@ class RunSession extends Model {
         }
 
         $this->debug("Getting current unit session at {$this->position} [0]", true);
+        $unit_id = $this->getUnitIdAtPosition($this->position);
+        $run_unit_id = $this->getRunUnitIdAtPosition($this->position);
         $query = $this->db->select('
 			`survey_unit_sessions`.unit_id,
 			`survey_unit_sessions`.id,
@@ -510,7 +517,6 @@ class RunSession extends Model {
                 ->from('survey_unit_sessions')
                 ->leftJoin('survey_units', 'survey_unit_sessions.unit_id = survey_units.id')
                 ->where('survey_unit_sessions.run_session_id = :run_session_id')
-                ->where('survey_unit_sessions.unit_id = :unit_id')
                 ->where('survey_unit_sessions.ended IS NULL AND survey_unit_sessions.expired IS NULL') //so we know when to runToNextUnit
                 // Exclude superseded siblings (queued=-9 set by
                 // UnitSession::create()'s same-unit_id supersede). Pre-fix
@@ -521,9 +527,26 @@ class RunSession extends Model {
                 // "done" but didn't carry an `ended`/`expired` timestamp.
                 // See tests/e2e/EXPIRY_AUDIT.md §11.
                 ->where('survey_unit_sessions.queued != ' . UnitSessionQueue::QUEUED_SUPERCEDED)
-                ->bindParams(array('run_session_id' => $this->id, 'unit_id' => $this->getUnitIdAtPosition($this->position)))
                 ->order('survey_unit_sessions`.id', 'desc')
                 ->limit(1);
+
+        // D1 fix (v0.26.4): when the same unit is slotted at multiple
+        // positions, matching by unit_id alone lets a session created at
+        // a *different* position be adopted as "current" — position and
+        // session silently drift apart until the next moveOn advances
+        // from the wrong (usually the last same-unit) position. Prefer
+        // run_unit_id (the per-run-per-position survey_run_units.id,
+        // written on every session since patch 047). Legacy rows where
+        // run_unit_id IS NULL (pre-047; the 048 backfill intentionally
+        // leaves multi-position rows NULL) keep matching by unit_id.
+        if ($run_unit_id !== null) {
+            $query->where('(survey_unit_sessions.run_unit_id = :run_unit_id OR
+                (survey_unit_sessions.run_unit_id IS NULL AND survey_unit_sessions.unit_id = :unit_id))')
+                  ->bindParams(array('run_unit_id' => $run_unit_id));
+        } else {
+            $query->where('survey_unit_sessions.unit_id = :unit_id');
+        }
+        $query->bindParams(array('run_session_id' => $this->id, 'unit_id' => $unit_id));
 
         $row = $query->fetch();
 
