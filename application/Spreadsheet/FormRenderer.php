@@ -628,10 +628,12 @@ class FormRenderer extends SpreadsheetRenderer {
     }
 
     protected function renderPageNav($showPrev, $isLast, $hasSubmit = false) {
+        $lang = !empty($this->study->language) ? $this->study->language : 'en';
         // Previous button is opt-in per form (SurveyStudy.allow_previous).
         $allowPrev = $showPrev && !empty($this->study->allow_previous);
         $left = $allowPrev
-            ? '<button type="button" class="btn btn-outline-secondary" data-fmr-prev><i class="fa fa-arrow-left"></i> Previous</button>'
+            ? '<button type="button" class="btn btn-outline-secondary" data-fmr-prev><i class="fa fa-arrow-left"></i> '
+                . htmlspecialchars(FormStrings::get($lang, 'nav.previous'), ENT_QUOTES) . '</button>'
             : '';
         // When the page already carries a submit item, that item's own button is
         // the (big, centred) advance control — emit no duplicate Next/Submit. Keep
@@ -641,7 +643,7 @@ class FormRenderer extends SpreadsheetRenderer {
                 ? ''
                 : '<div class="fmr-page-nav"><div class="fmr-page-nav__left">' . $left . '</div></div>';
         }
-        $nextLabel = $isLast ? 'Submit' : 'Next';
+        $nextLabel = FormStrings::get($lang, $isLast ? 'nav.submit' : 'nav.next');
         $nextIcon = $isLast ? 'fa-check' : 'fa-arrow-right';
         return sprintf(
             '<div class="fmr-page-nav"><div class="fmr-page-nav__left">%s</div>'

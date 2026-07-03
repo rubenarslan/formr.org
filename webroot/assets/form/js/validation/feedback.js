@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n.js';
 // Native Constraint Validation feedback rendering for v2.
 //
 // v1 used webshim to surface consistent inline messages. v2 has neither
@@ -125,7 +126,7 @@ function requiredMsg(g) {
     if (g.classList.contains('item-visual_analog_scale')) return 'Please choose a point on the scale to continue.';
     if (g.classList.contains('item-geopoint')) return 'Please provide your location to continue.';
     if (g.matches('.item-file, .item-image, .item-audio, .item-video')) return 'Please add a file to continue.';
-    return "We'll need this to continue.";
+    return t('validation.required', "We'll need this to continue.");
 }
 
 // Returns true if the page is valid and submit may proceed; false if we
@@ -220,7 +221,7 @@ export function validatePageAndShowFeedback(pageEl) {
                 fb.className = 'invalid-feedback fmr-btn-feedback d-block';
                 // Prefer the browser's contextual message (e.g. for malformed
                 // input formats); fall back to friendlier copy.
-                fb.textContent = el.validationMessage || 'Please pick an option to continue.';
+                fb.textContent = el.validationMessage || t('validation.pick_option', 'Please pick an option to continue.');
                 btnGroup.insertAdjacentElement('afterend', fb);
             }
             wrapper.classList.add('is-invalid');
@@ -231,7 +232,7 @@ export function validatePageAndShowFeedback(pageEl) {
         el.classList.add('is-invalid');
         const fb = document.createElement('div');
         fb.className = 'invalid-feedback fmr-invalid-feedback d-block';
-        fb.textContent = el.validationMessage || "We'll need this to continue.";
+        fb.textContent = el.validationMessage || t('validation.required', "We'll need this to continue.");
         const anchor = el.closest('.controls, .form-group') || el.parentElement;
         if (anchor && anchor.parentElement) {
             anchor.parentElement.insertBefore(fb, anchor.nextSibling);

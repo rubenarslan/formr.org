@@ -1238,6 +1238,7 @@ class Run extends Model
             'run_content' => $run_content,
             'redirect' => array_val($output, 'redirect'),
             'use_form_v2' => !empty($output['use_form_v2']),
+            'form_language' => array_val($output, 'form_language'),
             'run' => $this,
         );
     }

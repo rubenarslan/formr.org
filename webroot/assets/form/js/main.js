@@ -55,6 +55,7 @@ import { initRequestPhone } from './items/request-phone.js';
 import { initAdminPreview } from './items/admin-preview.js';
 import { initExpiryNotifier } from './items/expiry-notifier.js';
 import { initAutoSubmit } from './items/auto-submit.js';
+import { t } from './lib/i18n.js';
 import {
     clearCustomValidity,
     findErrorTarget,
@@ -193,7 +194,7 @@ function initForm() {
                 progressBar.setAttribute('aria-valuenow', String(pct));
             }
             if (progressLabel) {
-                progressLabel.textContent = `Page ${i + 1} of ${pages.length}`;
+                progressLabel.textContent = t('progress.page_of', 'Page %cur of %total', { cur: i + 1, total: pages.length });
             }
         }
         const p = pages[i];
@@ -402,7 +403,7 @@ function initForm() {
         try { entries = await queueGetAll(); } catch (e) { return; }
         if (!entries || !entries.length) { hideQueueBanner(); return; }
         entries.sort((a, b) => (a.client_ts || '').localeCompare(b.client_ts || ''));
-        showQueueBanner(`Syncing ${entries.length} queued submission${entries.length === 1 ? '' : 's'}…`, 'warning');
+        showQueueBanner(t('queue.syncing', 'Syncing %n queued submission(s)…', { n: entries.length }), 'warning');
         for (const entry of entries) {
             const hasFiles = entry.files && Object.keys(entry.files).length > 0;
             // Post each entry to the run it was queued under. The queue DB is
@@ -432,7 +433,7 @@ function initForm() {
                 }
             } catch (e) {
                 // Still offline / transient. Leave entries in place; next `online` retries.
-                showQueueBanner('Offline — submissions will sync automatically when you reconnect.', 'warning');
+                showQueueBanner(t('queue.offline_wait', 'Offline — submissions will sync automatically when you reconnect.'), 'warning');
                 return;
             }
             const body = await res.json().catch(() => null);
@@ -458,13 +459,13 @@ function initForm() {
                 continue;
             }
             // 4xx / validation failure. Stop draining; the user needs to see the error.
-            showQueueBanner('A queued submission was rejected. Please review the page.', 'danger');
+            showQueueBanner(t('queue.rejected', 'A queued submission was rejected. Please review the page.'), 'danger');
             return;
         }
         const remaining = await queueGetAll();
         if (!remaining.length) {
-            setSaveState('synced', 'Synced', 2500);
-            showQueueBanner('All queued submissions have been sent.', 'success');
+            setSaveState('synced', t('save.synced', 'Synced'), 2500);
+            showQueueBanner(t('queue.all_sent', 'All queued submissions have been sent.'), 'success');
             setTimeout(hideQueueBanner, 3000);
         }
     };
@@ -593,7 +594,7 @@ function initForm() {
         if (!validatePageAndShowFeedback(page)) {
             return;
         }
-        setSaveState('saving', 'Saving…', 0);
+        setSaveState('saving', t('save.saving', 'Saving…'), 0);
         const pageNum = Number(page.dataset.fmrPage) || (currentIndex + 1);
         const payload = Object.assign({ page: pageNum, unit_session_id: unitSessionId }, collectPayload(page));
 
@@ -671,8 +672,8 @@ function initForm() {
             if (!syncUrl || oversizedFile) {
                 console.error('page-submit offline (offline queue disabled or file too large)', netErr || (res && res.status));
                 const msg = oversizedFile
-                    ? `Submission too large to queue offline (${(oversizedFile.files[0].size / 1024 / 1024).toFixed(1)} MB, limit ${QUEUE_FILE_SIZE_CAP_MB} MB). Please retry when you're back online.`
-                    : 'Your submission could not be sent. Please check your connection and try again.';
+                    ? t('error.too_large', "Submission too large to queue offline (%mb MB, limit %limit MB). Please retry when you're back online.", { mb: (oversizedFile.files[0].size / 1024 / 1024).toFixed(1), limit: QUEUE_FILE_SIZE_CAP_MB })
+                    : t('error.send_failed', 'Your submission could not be sent. Please check your connection and try again.');
                 window.alert(msg);
                 return;
             }
@@ -711,15 +712,15 @@ function initForm() {
             }
             try { await queueAdd(entry); } catch (e) {
                 console.error('enqueue failed', e);
-                window.alert('Your submission could not be queued locally. Please check your connection and try again.');
+                window.alert(t('error.queue_failed', 'Your submission could not be queued locally. Please check your connection and try again.'));
                 return;
             }
             // Ask the SW to wake us up on next connectivity change. No-op on
             // browsers without Background Sync — page-JS online event still
             // catches it there.
             registerBackgroundSync();
-            setSaveState('offline', 'Saved offline', 2500);
-            showQueueBanner('You\'re offline. This submission is queued and will be sent when you reconnect.', 'warning');
+            setSaveState('offline', t('save.offline', 'Saved offline'), 2500);
+            showQueueBanner(t('queue.queued_offline', "You're offline. This submission is queued and will be sent when you reconnect."), 'warning');
             // Advance locally so the participant can continue — next drain
             // applies in order server-side. If this was the last page, leave
             // them on it; we don't know the run's next unit until a successful
@@ -746,17 +747,17 @@ function initForm() {
                 // This page was rendered for an earlier unit session (form
                 // continued elsewhere / a new diary entry started). Reload so
                 // the server re-renders the current state.
-                window.alert('This form was continued elsewhere or a new entry has started. The page will reload to catch up.');
+                window.alert(t('error.stale_session', 'This form was continued elsewhere or a new entry has started. The page will reload to catch up.'));
                 window.location.reload();
                 return;
             }
             if (res.status === 403) {
                 // Run session gone — most likely the login session expired.
-                window.alert('Your session has expired. The page will reload so you can continue.');
+                window.alert(t('error.session_expired', 'Your session has expired. The page will reload so you can continue.'));
                 window.location.reload();
                 return;
             }
-            window.alert('Sorry, something went wrong. Please try again.');
+            window.alert(t('error.generic', 'Sorry, something went wrong. Please try again.'));
             return;
         }
         // A 200 that was redirected to a login/consent page (session expiry on
@@ -767,14 +768,14 @@ function initForm() {
             savePill.classList.remove('is-visible');
             console.error('page-submit: unparseable response body', res.redirected ? `(redirected to ${res.url})` : '');
             if (res.redirected) {
-                window.alert('Your session has expired. The page will reload so you can continue.');
+                window.alert(t('error.session_expired', 'Your session has expired. The page will reload so you can continue.'));
                 window.location.reload();
                 return;
             }
             // 200 with an unparseable body (proxy mangling, dev-mode xdebug
             // noise) — tell the participant rather than leaving a dead Next
             // button with the pill stuck on "Saving…".
-            window.alert('Sorry, the answer could not be saved. Please reload the page and try again.');
+            window.alert(t('error.save_failed', 'Sorry, the answer could not be saved. Please reload the page and try again.'));
             return;
         }
         if (body.status === 'errors' && body.errors) {
@@ -785,12 +786,12 @@ function initForm() {
         if (body.redirect) {
             // Last page just landed — pause briefly so the participant sees
             // the completion beat instead of an abrupt jump to the end-page.
-            showCompletion('Thanks — sending you to the next step…');
+            showCompletion(t('completion.next_step', 'Thanks — sending you to the next step…'));
             setTimeout(() => { window.location.href = body.redirect; }, 600);
             return;
         }
         if (typeof body.next_page === 'number') {
-            setSaveState('saved', 'Saved');
+            setSaveState('saved', t('save.saved', 'Saved'));
             const nextIdx = pages.findIndex((p) => Number(p.dataset.fmrPage) === body.next_page);
             if (nextIdx !== -1) {
                 // Resolve the next page's dynamic labels + values via the
@@ -805,7 +806,7 @@ function initForm() {
             }
         }
         if (body.move_on || body.end_session) {
-            showCompletion('Thanks — sending you to the next step…');
+            showCompletion(t('completion.next_step', 'Thanks — sending you to the next step…'));
             setTimeout(() => {
                 window.location.href = runUrl || window.location.pathname;
             }, 600);
@@ -881,7 +882,7 @@ function initForm() {
             // the durable path.
             if (res && res.ok) {
                 const body = await res.json().catch(() => null);
-                if (body && body.status === 'saved') setSaveState('saved', 'Saved');
+                if (body && body.status === 'saved') setSaveState('saved', t('save.saved', 'Saved'));
             }
         } catch (e) { /* best-effort; explicit submit + offline queue are the net */ }
         finally { saveInFlight = false; }

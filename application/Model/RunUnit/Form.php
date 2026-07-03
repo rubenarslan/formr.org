@@ -121,6 +121,11 @@ class Form extends Survey {
             return [
                 'content' => $renderer->render(),
                 'use_form_v2' => true,
+                // Participant-page language (patch 077): threads up the same
+                // fixed-shape-dict chain as use_form_v2 (RunSession::
+                // executeUnitSession → Run::exec → RunController) so
+                // form_index.php can set <html lang/dir> + window.fmrStrings.
+                'form_language' => !empty($study->language) ? $study->language : 'en',
             ];
         } catch (Exception $e) {
             formr_log_exception($e, __CLASS__ . '-' . $e->getCode());

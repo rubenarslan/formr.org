@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n.js';
 // Typeform-style "solo" step controller for form_v2 (layout=solo).
 //
 // Replaces the original patch-066 CSS-scroll-snap skin, which broke down on
@@ -92,7 +93,7 @@ export function initSolo(opts) {
         btn.classList.add('fmr-solo-bigsubmit');
         const txt = (btn.textContent || btn.value || '').trim();
         if (!txt) {
-            const label = isTerminal(el) ? 'Submit' : 'Continue';
+            const label = isTerminal(el) ? t('nav.submit', 'Submit') : t('nav.continue', 'Continue');
             if (btn.tagName === 'BUTTON') btn.textContent = label; else btn.value = label;
         }
         if (!btn.dataset.fmrSoloWired) {
@@ -140,13 +141,13 @@ export function initSolo(opts) {
         // instruction, so the "Choose all that apply" hint (triggered by that
         // hidden checkbox) is wrong. Suppress it.
         if (el.classList.contains('item-block')) return '';
-        if (el.querySelector('textarea')) return 'Ctrl + Enter to continue';
+        if (el.querySelector('textarea')) return t('solo.hint_textarea', 'Ctrl + Enter to continue');
         if (el.querySelector('input[type=checkbox]') || el.querySelector('select[multiple]')) {
-            return 'Choose all that apply, then OK';
+            return t('solo.hint_multi', 'Choose all that apply, then OK');
         }
         if (autoAdvances(el)) return '';
         if (el.querySelector('input:not([type=hidden]):not([type=radio]):not([type=checkbox]), select')) {
-            return 'press Enter ↵';
+            return t('solo.hint_enter', 'press Enter ↵');
         }
         return '';
     }
@@ -458,11 +459,11 @@ export function initSolo(opts) {
         navEl.innerHTML =
             '<div class="fmr-solo-advance">'
             + '<span class="fmr-solo-hint" aria-hidden="true"></span>'
-            + '<button type="button" class="btn btn-primary fmr-solo-ok">OK <i class="fa fa-check" aria-hidden="true"></i></button>'
+            + '<button type="button" class="btn btn-primary fmr-solo-ok">' + t('nav.ok', 'OK') + ' <i class="fa fa-check" aria-hidden="true"></i></button>'
             + '</div>'
             + '<div class="fmr-solo-left">'
             + '<button type="button" class="fmr-solo-back" aria-label="Go to previous question">'
-            + '<i class="fa fa-arrow-up" aria-hidden="true"></i> Back</button>'
+            + '<i class="fa fa-arrow-up" aria-hidden="true"></i> ' + t('nav.back', 'Back') + '</button>'
             + '<button type="button" class="fmr-solo-help" aria-label="Show contact and privacy links" aria-expanded="false">'
             + '<i class="fa fa-question" aria-hidden="true"></i></button>'
             + '</div>';
@@ -546,8 +547,8 @@ export function initSolo(opts) {
             || (isRadioChoice(current) && !terminal && !hasSelection(current));
         okBtn.style.display = hideOk ? 'none' : '';
         okBtn.innerHTML = terminal
-            ? 'Submit <i class="fa fa-paper-plane" aria-hidden="true"></i>'
-            : 'OK <i class="fa fa-check" aria-hidden="true"></i>';
+            ? t('nav.submit', 'Submit') + ' <i class="fa fa-paper-plane" aria-hidden="true"></i>'
+            : t('nav.ok', 'OK') + ' <i class="fa fa-check" aria-hidden="true"></i>';
         hintEl.textContent = hintFor(current);
     }
     function updateProgress() {
@@ -576,7 +577,7 @@ export function initSolo(opts) {
             progressBar.style.width = maxPct + '%';
             progressBar.setAttribute('aria-valuenow', String(maxPct));
         }
-        if (progressLabel) progressLabel.textContent = total > 0 ? (globalIdx + 1) + ' of ' + total : '';
+        if (progressLabel) progressLabel.textContent = total > 0 ? t('progress.of', '%cur of %total', { cur: globalIdx + 1, total: total }) : '';
     }
 
     // --- input wiring --------------------------------------------------------

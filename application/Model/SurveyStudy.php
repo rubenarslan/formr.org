@@ -32,6 +32,7 @@ class SurveyStudy extends Model
     public $offline_mode = 1;
     public $allow_previous = 0;
     public $layout = 'default';
+    public $language = 'en'; // BCP 47; drives v2 engine-chrome i18n (patch 077)
     public $last_iteration = 0; // per-study counter for survey_unit_sessions.study_iteration; patch 065
 
     public $created = null;
@@ -369,6 +370,7 @@ class SurveyStudy extends Model
             'offline_mode' => $this->offline_mode,
             'allow_previous' => $this->allow_previous,
             'layout' => $this->layout,
+            'language' => $this->language,
             'created' => $this->created,
             'modified' => $this->modified,
         ];
