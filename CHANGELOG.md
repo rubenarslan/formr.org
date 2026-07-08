@@ -4,6 +4,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [v1.3.2] - 01.07.2026
 
+### Fixes
+- **Backport of the 0.26.4 run-engine fixes and the 0.27.0 duplicate-row forever-fix** (this 1.x line diverged at v0.26.2 and never received them; Track A / patches 047–048 were already shared):
+  - **Reused-unit misrouting:** `RunSession::getCurrentUnitSession()` and `UnitSession::create()`'s supersede now key on `run_unit_id`, not `unit_id` — a run that slots the same survey at multiple positions no longer advances a participant past the intervening units, nor zombifies their still-active earlier-occurrence session. `getRunData`'s `survey_unit_sessions` join is pinned per-placement (no N× fan-out for reused units).
+  - **Overdue Pause no longer re-evaluates its R deadline on a web request** — a now-relative rule (e.g. "first Monday of next month") no longer re-arms itself a month forward when the daemon is lagging.
+  - **A failed unit-session INSERT no longer corrupts the run's flow**, and the "no live session at this position" recovery hop is bounded.
+  - **Duplicate rows are now prevented structurally:** patch 063 promotes `idx_run_unit_iter` to UNIQUE and `create()` adopts the winner's row on the duplicate-key error (idempotent create). `bin/heal_duplicate_pause_sessions.php` (+ `Services/DuplicatePauseHealer`) remediates existing duplicates; `bin/backfill_run_unit_id_active.php` backfills in-flight legacy sessions.
+
+### Schema
+- Patch 063: `idx_run_unit_iter` KEY → UNIQUE on `survey_unit_sessions (run_session_id, run_unit_id, iteration)`. **Precondition:** heal duplicate tuples to zero first (the `ALTER` fails loudly otherwise).
+
 ### Changes
 - **Compute-usage dashboards are index-only now** (issue #608, user-reported slowness on a large instance). The per-run/per-user/instance aggregates over `survey_unit_sessions.execution_time` previously read every joined row and tested `execution_time IS NOT NULL` afterwards (`Using where` — a whole-table scan with random row IO to find the measured fraction). A covering index `idx_uxec_compute (run_session_id, execution_time, created)` makes all five dashboard queries `Using index` (no row fetches; the instance-wide total becomes an index scan instead of a table scan). Big established instances should `./db_atlas_apply.sh apply` (patch 062) to pick it up. If the instance-wide superadmin view is still heavy at extreme scale, the next step would be precomputed per-run roll-up counters (O(runs) instead of O(unit-sessions)) — not done here.
 - **The per-user "Compute" link moved off the main admin nav into the account view** (issue #608). It now sits in the profile box on `/admin/account` alongside Surveys / Runs / Email Accounts, showing the account's total compute and linking to `/admin/compute`; surfaced only to admins (who can open the dashboard). The superadmin instance-wide view stays under Advanced → Compute Usage.
