@@ -155,6 +155,35 @@ class UnitSession extends Model {
             $this->db->commit();
         } catch (Exception $e) {
             $this->db->rollBack();
+
+            // v0.27.0 (L2): the UNIQUE (run_session_id, run_unit_id,
+            // iteration) key (patch 049) rejected this INSERT because a
+            // CONCURRENT create() already committed the same placement +
+            // iteration — the race that used to leave two rows ("repeated
+            // pause"). Adopt the winner's row instead of failing: idempotent
+            // create. The re-read of the exact tuple is the guard — a 23000
+            // from anything else finds no winner and falls through to the
+            // generic recovery path below. (After rollBack the connection is
+            // in autocommit, so this SELECT sees the winner's committed row.)
+            if ($e->getCode() === '23000' && $run_unit_id !== null
+                && $this->runSession && $this->runSession->id > 0) {
+                $winner = $this->db->findValue('survey_unit_sessions', [
+                    'run_session_id' => $this->runSession->id,
+                    'run_unit_id'    => $run_unit_id,
+                    'iteration'      => $iteration,
+                ], 'id');
+                if ($winner) {
+                    $this->id = (int) $winner;
+                    if ($new_current_unit) {
+                        $this->runSession->currentUnitSession = $this;
+                        $this->db->update('survey_run_sessions',
+                            ['current_unit_session_id' => $this->id],
+                            ['id' => $this->runSession->id]);
+                    }
+                    return $this->load();
+                }
+            }
+
             // Never swallow this silently: a failed INSERT leaves the
             // run-session with an already-advanced position and NO session
             // row (the raw material for silent position skips).

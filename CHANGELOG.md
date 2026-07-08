@@ -2,6 +2,20 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.27.0] - 08.07.2026
+
+### Fixes
+- **Duplicate unit-session rows ("repeated pause") are now prevented structurally, and existing ones can be healed.** A run reaching the same placement could end up with two `survey_unit_sessions` rows for one participant — one re-arming its deadline (a monthly-gate Pause recomputing "first Monday of next month" a month later, stranding the participant). Root cause: `UnitSession::create()` derives `iteration` as `MAX(iteration)+1` read-then-INSERT (non-atomic), and patch 047's `idx_run_unit_iter` was a plain KEY, so two concurrent creates for the same placement both insert the same tuple. Closed at two layers:
+  - **Structural (forever):** patch 049 promotes `idx_run_unit_iter` to UNIQUE; the engine now rejects the second insert, and `create()` catches the duplicate-key error and **adopts** the winner's row (idempotent create) instead of failing. This closes the concurrent-race class; the sequential mis-route/recovery class stays closed by the v0.26.4 engine fixes.
+  - **Remediation:** `bin/heal_duplicate_pause_sessions.php` (default dry-run; `--apply`) keeps the canonical sibling, supersedes provably-inert live duplicates (nulling their `iteration` to free the tuple), repoints the run session's current pointer to an unambiguous target, and holds cascaded / side-effect-bearing clusters for manual review with evidence from `survey_email_log` / `push_logs` / `survey_items_display` / `shuffle`. Decision logic is in the unit-tested `Services/DuplicatePauseHealer`. Wait is covered (it extends Pause); `--all-units` widens the sweep.
+
+### Added
+- `bin/heal_duplicate_pause_sessions.php`, `application/Services/DuplicatePauseHealer.php`, `tests/DuplicatePauseHealerTest.php` (9 cases).
+- `bin/test_track_a_unique_unit_session_smoke.php` — live-MariaDB smoke that fires two concurrent `create()`s and asserts exactly one row survives with the loser adopting it.
+
+### Schema
+- Patch 049: `idx_run_unit_iter` KEY → UNIQUE on `survey_unit_sessions (run_session_id, run_unit_id, iteration)`. **Precondition:** no duplicate tuples may exist — the `ALTER` fails loudly otherwise. The docker `update_formr.sh` runs the healer + a blocking-tuple gate automatically before applying this migration.
+
 ## [v0.26.4] - 03.07.2026
 
 ### Fixes
