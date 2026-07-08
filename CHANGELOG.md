@@ -2,7 +2,7 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [v1.3.2] - 01.07.2026
+## [v1.4.0] - 08.07.2026
 
 ### Fixes
 - **Backport of the 0.26.4 run-engine fixes and the 0.27.0 duplicate-row forever-fix** (this 1.x line diverged at v0.26.2 and never received them; Track A / patches 047–048 were already shared):
