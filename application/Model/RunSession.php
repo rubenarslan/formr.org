@@ -277,7 +277,10 @@ class RunSession extends Model {
                 return $this->executeTest();
             }
             // Get the initial position if this run session hasn't executed before
-            if ($this->position === null && !($position = $this->run->getFirstPosition())) {
+            // Audit F12 (2026-07): null-check, not truthiness — a first
+            // unit at position 0 must start the run, not read as "study
+            // not defined". getFirstPosition returns null on an empty run.
+            if ($this->position === null && ($position = $this->run->getFirstPosition()) === null) {
                 alert('This study has not been defined.', 'alert-danger');
                 return false;
             }
@@ -400,7 +403,11 @@ class RunSession extends Model {
             }
         }
 
-        if ($this->position && ($unit_id = $this->getUnitIdAtPosition($this->position))) {
+        // Audit F12 (2026-07): compare against null, not truthiness — a
+        // real unit at position 0 (reachable on legacy prod rows before
+        // reorder validation) must not be read as "no next unit / end of
+        // run". getNextPosition returns null at the genuine end.
+        if ($this->position !== null && ($unit_id = $this->getUnitIdAtPosition($this->position))) {
             $runUnit = RunUnitFactory::make($this->run, ['id' => $unit_id]);
             $this->createUnitSession($runUnit);
             return $execute ? $this->execute() : null;
@@ -632,7 +639,13 @@ class RunSession extends Model {
                 alert(__('<strong>Error.</strong> Could not create unit session for unit %s at pos. %s.', $unit_id, $position), 'alert-danger');
             }
         } else {
+            // Audit F9 (2026-07): a dangling jump target reaching here
+            // (direct/admin caller) is a structural fault — surface it to
+            // the admin, not just a participant-facing alert.
             alert('<strong>Error.</strong> You tried to jump to a non-existing run position or forgot to specify one entirely.', 'alert-danger');
+            if ($this->currentUnitSession) {
+                notify_study_admin($this->currentUnitSession, 'Jump to non-existing run position ' . h($position) . '. Fix the run structure.', 'error');
+            }
         }
 
         return false;

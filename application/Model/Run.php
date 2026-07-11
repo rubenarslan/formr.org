@@ -549,16 +549,46 @@ class Run extends Model
 
     public function reorder($positions)
     {
+        // Audit F10/F12 (2026-07): validate before writing. Position 0
+        // bricks a run for new participants (getFirstPosition truthiness),
+        // and duplicate positions make traversal non-deterministic (two
+        // unordered LIMIT-1 lookups can disagree). Reject the whole batch
+        // atomically rather than persist a broken structure. Patch 064
+        // adds a UNIQUE(run_id, position) backstop; this keeps the error
+        // user-facing instead of a raw 23000.
+        $seen = [];
+        foreach ($positions as $run_unit_id => $pos) {
+            $pos = (int) $pos;
+            if ($pos < 1) {
+                $this->errors[] = "Position must be a positive number (unit {$run_unit_id} got {$pos}).";
+                return false;
+            }
+            if (isset($seen[$pos])) {
+                $this->errors[] = "Two units share position {$pos}; positions must be unique.";
+                return false;
+            }
+            $seen[$pos] = true;
+        }
+
         $run_unit_id = null;
         $pos = null;
         $update = "UPDATE `survey_run_units` SET position = :position WHERE run_id = :run_id AND id = :run_unit_id";
-        $reorder = $this->db->prepare($update);
-        $reorder->bindParam(':run_id', $this->id);
-        $reorder->bindParam(':run_unit_id', $run_unit_id);
-        $reorder->bindParam(':position', $pos);
+        $this->db->beginTransaction();
+        try {
+            $reorder = $this->db->prepare($update);
+            $reorder->bindParam(':run_id', $this->id);
+            $reorder->bindParam(':run_unit_id', $run_unit_id);
+            $reorder->bindParam(':position', $pos);
 
-        foreach ($positions as $run_unit_id => $pos) {
-            $reorder->execute();
+            foreach ($positions as $run_unit_id => $pos) {
+                $pos = (int) $pos;
+                $reorder->execute();
+            }
+            $this->db->commit();
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            $this->errors[] = 'Re-ordering failed: ' . $e->getMessage();
+            return false;
         }
         return true;
     }

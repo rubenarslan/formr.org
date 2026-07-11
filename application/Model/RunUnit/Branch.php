@@ -149,6 +149,20 @@ class Branch extends RunUnit {
         
         if ($result && ($this->automatically_jump || !$unitSession->isExecutedByCron())) {
             // if condition is true and we're set to jump automatically, or if the user reacted
+            // Audit F9 (2026-07): validate the jump target BEFORE ending
+            // this branch. A dangling if_true (target unit deleted/
+            // renumbered) otherwise ended the branch and then failed the
+            // jump, so the next request fell through sequentially into
+            // the exact arm the branch was meant to skip — silently, with
+            // no admin signal. Halt and notify instead; the participant
+            // waits until the admin fixes the target.
+            if ($this->if_true === null || !$unitSession->runSession->getUnitIdAtPosition($this->if_true)) {
+                notify_study_admin($unitSession, 'Branch unit: jump target (if_true = ' . h($this->if_true) . ') does not exist in the run. Fix the branch.', 'error');
+                $data['log'] = $this->getLogMessage('error_opencpu_r', 'Branch jump target position ' . h($this->if_true) . ' does not exist. Fix the branch structure.');
+                $data['wait_opencpu'] = true;
+                $this->outputData = $data;
+                return $data;
+            }
             $data['log'] = $this->getLogMessage('skip_true');
             $data['end_session'] = true;
             $data['run_to'] = $this->if_true;

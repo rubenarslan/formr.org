@@ -340,13 +340,14 @@ class AdminAjaxController {
 
         $run = $this->controller->run;
         $positions = $this->request->arr('position');
-        if ($positions) {
-            $unit = $run->reorder($positions);
+        if ($positions && $run->reorder($positions)) {
             $content = '';
         } else {
             $this->response->setStatusCode(500, 'Bad Request');
             $msg = '<strong>Sorry.</strong> Re-ordering run units failed.';
-            $msg .= !empty($unit) ? implode("\n", $unit->errors) : '';
+            // Audit F10/F12 (2026-07): surface the validation reason
+            // (non-positive/duplicate position) instead of a bare 500.
+            $msg .= !empty($run->errors) ? ' ' . implode("\n", $run->errors) : '';
             alert($msg, 'alert-danger');
             $content = $this->site->renderAlerts();
         }
