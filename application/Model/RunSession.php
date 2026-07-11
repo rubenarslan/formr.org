@@ -222,8 +222,7 @@ class RunSession extends Model {
          * requests will simply send an empty body so the browser can
          * refresh.
          */
-        $lock_name   = 'run_session_' . ($this->id !== null ? $this->id
-                                                            : substr(sha1($this->session), 0, 40));
+        $lock_name   = $this->lockName();
         // Use different timeouts for queue vs user requests
         $lock_timeout = formr_in_console() 
             ? Config::get('run_session.lock_timeout.queue', 0.1)  // Queue requests
@@ -370,6 +369,15 @@ class RunSession extends Model {
             return null;
         }
 
+        // Audit F2 (2026-07): `ended` is terminal. The ended branch of
+        // execute() re-dispatches the last unit session for display
+        // (Endpage re-render); without this guard a completed Survey's
+        // move_on result made an ended run session advance, create new
+        // unit sessions, and send messages on every reload.
+        if ($this->ended) {
+            return ['body' => ''];
+        }
+
         if (!$starting) {
             $this->currentUnitSession = null;
             $this->position = $this->run->getNextPosition($this->position);
@@ -506,16 +514,39 @@ class RunSession extends Model {
     }
 
     public function forceTo($position) {
-        // If there a unit for current position, then end the unit's session before moving
-        if (($unitSession = $this->getCurrentUnitSession())) {
-			$unitSession->end();
-            $unitSession->result = 'manual_admin_push';
-            $unitSession->logResult();
+        // Audit F3 (2026-07): admin moves must hold the same lock as
+        // execute(); unlocked they raced a daemon cascade mid-flight,
+        // duplicating live unit sessions and clobbering position. GET_LOCK
+        // is reference-counted per connection, so runTo()'s nested
+        // execute() re-acquiring it is safe. Reviving an ended session is
+        // the admin's explicit intent here, hence $revive = true.
+        $lock_name = $this->lockName();
+        if (!$this->acquireLock($lock_name, Config::get('run_session.lock_timeout.user', 10.0))) {
+            alert('Could not move the session: another process is currently executing it. Try again.', 'alert-danger');
+            return false;
         }
-        return $this->runTo($position);
+        try {
+            $this->reloadFromDb();
+            // If there a unit for current position, then end the unit's session before moving
+            if (($unitSession = $this->getCurrentUnitSession())) {
+                $unitSession->end();
+                $unitSession->result = 'manual_admin_push';
+                $unitSession->logResult();
+            }
+            return $this->runTo($position, null, false, true);
+        } finally {
+            $this->releaseLock($lock_name);
+        }
     }
 
-    public function runTo($position, $unit_id = null, $execute = false) {
+    public function runTo($position, $unit_id = null, $execute = false, $revive = false) {
+        // Audit F2 (2026-07): Branch/Skip jumps land here; they must not
+        // resurrect an ended run session. Only an explicit admin move
+        // (forceTo) passes $revive.
+        if ($this->ended && !$revive) {
+            return ['body' => ''];
+        }
+
         if ($unit_id === null) {
             $unit_id = $this->getUnitIdAtPosition($position);
         }
@@ -525,16 +556,18 @@ class RunSession extends Model {
             $unit = RunUnitFactory::make($this->run, ['id' => $unit_id]);
             if ($unit->valid) {
                 $this->createUnitSession($unit);
-                //$this->db->update('survey_run_sessions', ['position' => $position], ['id' => $this->id]);
-				$this->db->exec(
-					"UPDATE `survey_run_sessions` SET  `ended` = NULL, `position` = :position WHERE `id` = :id",
-					[
-						'id' => $this->id,
-						'position' => $position
-					]
-				);
-				
-				$this->ended = null;
+                if ($revive) {
+                    $this->db->exec(
+                        "UPDATE `survey_run_sessions` SET `ended` = NULL, `position` = :position WHERE `id` = :id",
+                        ['id' => $this->id, 'position' => $position]
+                    );
+                    $this->ended = null;
+                } else {
+                    $this->db->exec(
+                        "UPDATE `survey_run_sessions` SET `position` = :position WHERE `id` = :id",
+                        ['id' => $this->id, 'position' => $position]
+                    );
+                }
 				$exec = ['body' => null];
 				if (formr_in_console() || $execute) {
 					$exec = $this->execute();
@@ -596,8 +629,15 @@ class RunSession extends Model {
         // run_unit_id IS NULL (pre-047; the 048 backfill intentionally
         // leaves multi-position rows NULL) keep matching by unit_id.
         if ($run_unit_id !== null) {
-            $query->where('(survey_unit_sessions.run_unit_id = :run_unit_id OR
-                (survey_unit_sessions.run_unit_id IS NULL AND survey_unit_sessions.unit_id = :unit_id))')
+            // Audit F1 (2026-07): the run_unit_id arm must ALSO match on
+            // unit_id. Reminder emails (Run::getReminderSession) used to
+            // insert sessions stamped with the participant's current
+            // placement's run_unit_id but a different unit_id; without
+            // the unit_id constraint this query adopted the newer
+            // reminder row as "current" and the participant skipped
+            // their live unit. Healthy rows always satisfy both.
+            $query->where('survey_unit_sessions.unit_id = :unit_id')
+                  ->where('(survey_unit_sessions.run_unit_id = :run_unit_id OR survey_unit_sessions.run_unit_id IS NULL)')
                   ->bindParams(array('run_unit_id' => $run_unit_id));
         } else {
             $query->where('survey_unit_sessions.unit_id = :unit_id');
@@ -610,7 +650,14 @@ class RunSession extends Model {
             $u = $row;
             $u['id'] = $u['unit_id'];
             $unit = RunUnitFactory::make($this->run, $u);
-            $this->currentUnitSession = new UnitSession($this, $unit, $row);
+            // Audit 2026-07 (hydration): the UnitSession constructor
+            // allowlists $options to id/load (ed56a95f), so passing $row
+            // produced an object with ONLY `id` set — every stored-state
+            // guard (Pause/Survey/External expires, created, queued,
+            // result) evaluated against null on the web path, silently
+            // disabling deadline enforcement and the 80e89dcb overdue fix.
+            // Load through the trusted PK path instead.
+            $this->currentUnitSession = new UnitSession($this, $unit, ['id' => $row['id'], 'load' => true]);
             return $this->currentUnitSession;
         } else {
             return false;
@@ -1056,10 +1103,17 @@ class RunSession extends Model {
      * @param int    $timeout Seconds to wait
      * @return bool           TRUE = lock acquired
      */
+    protected function lockName() {
+        return 'run_session_' . ($this->id !== null ? $this->id
+                                                    : substr(sha1($this->session), 0, 40));
+    }
+
     protected function acquireLock($name, $timeout = 1) {
         $stmt = $this->db->prepare('SELECT GET_LOCK(:name, :timeout) AS l');
         $stmt->bindValue('name',    $name);
-        $stmt->bindValue('timeout', $timeout, PDO::PARAM_INT);
+        // Audit (2026-07): bind as string — PDO::PARAM_INT truncated the
+        // queue's configured 0.1 s timeout to 0. GET_LOCK accepts decimals.
+        $stmt->bindValue('timeout', (string) $timeout);
         $stmt->execute();
         return (int)$stmt->fetchColumn() === 1;
     }

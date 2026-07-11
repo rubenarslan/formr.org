@@ -81,7 +81,17 @@ class UnitSession extends Model {
 
             if ($this->runSession && $this->runSession->id > 0) {
                 $position    = $this->runSession->position;
-                $run_unit_id = $this->runSession->getRunUnitIdAtPosition($position);
+                // Audit F1 (2026-07): only stamp the placement when the
+                // unit being created IS the unit hosted at the current
+                // position. Side-channel creators (admin reminder emails
+                // via Run::getReminderSession) otherwise inherit the
+                // participant's current run_unit_id and their never-ended
+                // row hijacks getCurrentUnitSession. Off-position sessions
+                // keep run_unit_id NULL (the UNIQUE key permits NULLs).
+                // Mirrors the guard 34378a8e added to load()'s fallback.
+                if ($this->runSession->getUnitIdAtPosition($position) == $this->runUnit->id) {
+                    $run_unit_id = $this->runSession->getRunUnitIdAtPosition($position);
+                }
                 if ($run_unit_id !== null) {
                     // COALESCE(MAX,0)+1 — read inside the open TX, just before
                     // INSERT, so concurrent inserts in another connection
@@ -665,6 +675,17 @@ class UnitSession extends Model {
      * @throws Exception
      */
     public function updateSurveyStudyRecord($posted, $validate = true) {
+        // Audit F2 (2026-07): never write answers into a terminal unit
+        // session. The ended-run-session branch of RunSession::execute()
+        // re-dispatches the last unit session for display; a back-button
+        // re-POST then reached this method and mutated submitted data
+        // (the item/result UPDATEs below are scoped by session_id only,
+        // with no `ended IS NULL` clause). Requires the hydrated-load
+        // fix in getCurrentUnitSession — a skeletal object reads null.
+        if ($this->ended !== null || $this->expired !== null) {
+            return false;
+        }
+
         /** @var SurveyStudy $study */
         $study = $this->runUnit->surveyStudy;
 
