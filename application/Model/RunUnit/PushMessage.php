@@ -174,6 +174,13 @@ class PushMessage extends RunUnit {
                 // in PENDING. All four exits below get the same fix.
                 $output['end_session'] = true;
                 $output['move_on'] = true;
+                // Audit F14 (2026-07): resolve the claim row. Only
+                // sendPushMessage's logPushSuccess/Failure updated it, so
+                // these early returns left push_logs stuck at 'queued'
+                // forever — the "extremely common" no_subscription case
+                // buried genuine daemon-kill losses in indistinguishable
+                // stuck rows. Now the claim carries the real outcome.
+                $this->resolveClaim($idempotency_key, 'no_subscription');
                 return $output;
             }
 
@@ -183,6 +190,7 @@ class PushMessage extends RunUnit {
                 $output['log']['result'] = 'message_parse_failed';
                 $output['end_session'] = true;
                 $output['move_on'] = true;
+                $this->resolveClaim($idempotency_key, 'message_parse_failed');
                 return $output;
             }
 
@@ -191,6 +199,7 @@ class PushMessage extends RunUnit {
                 $output['log']['result'] = 'title_parse_failed';
                 $output['end_session'] = true;
                 $output['move_on'] = true;
+                $this->resolveClaim($idempotency_key, 'title_parse_failed');
                 return $output;
             }
 
@@ -232,9 +241,28 @@ class PushMessage extends RunUnit {
             $output['log']['result_log'] = $e->getMessage();
             $output['end_session'] = true;
             $output['move_on'] = true;
+            // Audit F14: resolve the claim even when the throw happened
+            // after the claim INSERT but before sendPushMessage updated it.
+            $this->resolveClaim($idempotency_key, 'error');
         }
 
         return $output;
+    }
+
+    /**
+     * Audit F14 (2026-07): move a push_logs claim row off 'queued' to a
+     * terminal status on the branches that never reach
+     * PushNotificationService::logPushSuccess/logPushFailure. Keeps the
+     * push audit trail meaningful so genuinely-lost sends (daemon killed
+     * mid-send, claim stuck at 'queued') are distinguishable from the
+     * routine no-subscription/parse-fail exits.
+     */
+    protected function resolveClaim($idempotency_key, $status) {
+        $this->db->exec(
+            "UPDATE `push_logs` SET `status` = :status
+             WHERE `idempotency_key` = :k AND `status` = 'queued' LIMIT 1",
+            ['status' => $status, 'k' => $idempotency_key]
+        );
     }
 
     protected function getMessage(UnitSession $unitsession) {

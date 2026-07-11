@@ -750,25 +750,41 @@ class RunSession extends Model {
         // Track A A8: raw-UPDATE bypass for "External returned from redirect,
         // mark ended". Column set mirrors what UnitSession::end() writes so the
         // row reads cleanly in admin tooling and analysis exports.
+        //
+        // Audit F20 (2026-07): scope to the ONE most-recent live External
+        // (the row this api_end callback is for), not every live External
+        // on the run session. Pre-fix a delayed callback for one External
+        // ended the participant's current, unrelated External too. Resolve
+        // the target id first, then UPDATE by id.
+        $target = $this->db->execute(
+            "SELECT us.id FROM `survey_unit_sessions` us
+             JOIN `survey_units` u ON u.id = us.unit_id
+             WHERE us.run_session_id = :id AND u.type = 'External'
+               AND us.ended IS NULL AND us.expired IS NULL
+             ORDER BY us.id DESC LIMIT 1",
+            ['id' => $this->id], true
+        );
+        if (!$target) {
+            return false;
+        }
+
         $query = "UPDATE `survey_unit_sessions`
-			LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
-			SET `survey_unit_sessions`.`ended`       = NOW(),
-			    `survey_unit_sessions`.`result`      = 'external_ended',
-			    `survey_unit_sessions`.`queued`      = 0,
-			    `survey_unit_sessions`.`state`       = :state,
-			    `survey_unit_sessions`.`state_log`   = :state_log
-			WHERE `survey_unit_sessions`.run_session_id = :id AND `survey_units`.type = 'External' AND  `survey_unit_sessions`.ended IS NULL AND `survey_unit_sessions`.expired IS NULL;";
+			SET `ended`     = NOW(),
+			    `result`    = 'external_ended',
+			    `queued`    = 0,
+			    `state`     = :state,
+			    `state_log` = :state_log
+			WHERE `id` = :us_id AND `ended` IS NULL AND `expired` IS NULL LIMIT 1";
 
         $updated = $this->db->exec($query, [
-            'id'        => $this->id,
+            'us_id'     => $target,
             'state'     => UnitSessionQueue::STATE_ENDED,
             'state_log' => UnitSession::buildStateLog('external_ended', [
                 'unit_type' => 'External',
                 'via'       => 'endLastExternal',
             ]),
         ]);
-        $success = $updated !== false;
-        return $success;
+        return $updated !== false && $updated > 0;
     }
 
     public function end() {

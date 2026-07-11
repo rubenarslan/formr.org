@@ -114,4 +114,31 @@ fwrite(STDERR, sprintf(
     "sweep: %d candidates — %d re-executed, %d terminal-stamped, %d skipped%s\n",
     count($rows), $executed, $stamped, $skipped, $dry ? ' (dry-run, nothing written)' : ''
 ));
+
+// Audit F14 (2026-07): reconcile push_logs claim rows genuinely stuck at
+// 'queued' — the daemon-killed-mid-send case that no code path can
+// resolve in-band (the send outcome is unknown). Mark them 'unknown'
+// after a generous grace so operators can distinguish real loss from the
+// routine no-subscription/parse-fail exits (which now self-resolve). The
+// unit sessions themselves are handled by the sweep above.
+try {
+    $stuck = (int) $db->execute(
+        "SELECT COUNT(*) FROM `push_logs`
+         WHERE `status` = 'queued' AND `created` < NOW() - INTERVAL 6 HOUR",
+        [], true
+    );
+    if ($stuck > 0) {
+        fwrite(STDERR, "sweep: reconciling {$stuck} push_logs claim(s) stuck >6h -> 'unknown'" . ($dry ? ' [dry-run]' : '') . "\n");
+        if (!$dry) {
+            $db->exec(
+                "UPDATE `push_logs` SET `status` = 'unknown'
+                 WHERE `status` = 'queued' AND `created` < NOW() - INTERVAL 6 HOUR"
+            );
+        }
+    }
+} catch (Exception $e) {
+    // push_logs absent on pre-044 instances — non-fatal.
+    fwrite(STDERR, "sweep: push_logs reconciliation skipped (" . $e->getMessage() . ")\n");
+}
+
 exit(0);

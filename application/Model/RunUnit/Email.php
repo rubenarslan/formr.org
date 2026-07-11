@@ -301,6 +301,36 @@ class Email extends RunUnit {
     }
 
     protected function sendNow(EmailAccount $acc, string $subject, string $body, UnitSession $unitSession) {
+        // Audit F21 (2026-07): claim before sending, mirroring queueNow,
+        // so a crash between $mail->Send() and the audit write cannot
+        // permit a duplicate send on retry. The claim row IS the log row
+        // (idempotency_key = "email:{unit_session}:{email_id}", the same
+        // UNIQUE key queueNow uses). affected = 1 → fresh claim, we own
+        // the send; affected = 0 → a prior attempt already claimed it,
+        // so treat as sent and do NOT re-send.
+        $idempotency_key = "email:{$unitSession->id}:{$this->id}";
+        $claimed = $this->db->exec(
+            "INSERT INTO `survey_email_log`
+                (`subject`, `status`, `session_id`, `email_id`, `message`, `recipient`, `created`, `account_id`, `idempotency_key`)
+             VALUES
+                (:subject, 0, :session_id, :email_id, :message, :recipient, :created, :account_id, :idempotency_key)
+             ON DUPLICATE KEY UPDATE `id` = `id`",
+            [
+                'subject'         => $subject,
+                'session_id'      => $unitSession->id,
+                'email_id'        => $this->id,
+                'message'         => $body,
+                'recipient'       => $this->recipient,
+                'created'         => mysql_datetime(),
+                'account_id'      => (int) $this->account_id,
+                'idempotency_key' => $idempotency_key,
+            ]
+        );
+        if ($claimed === 0) {
+            $this->mail_sent = true;
+            return true;
+        }
+
         $mail = $acc->makeMailer();
 
 //		if($this->html)
@@ -309,7 +339,7 @@ class Email extends RunUnit {
         $mail->AddAddress($this->recipient);
         $mail->Subject = $subject;
         $mail->Body = $body;
-        
+
         foreach ($this->images as $image_id => $image) {
             $local_image = APPLICATION_ROOT . 'tmp/' . uniqid() . $image_id;
             copy($image, $local_image);
@@ -321,11 +351,21 @@ class Email extends RunUnit {
                 alert("Could not embed image with id '{$image_id}'", 'alert-danger');
             }
         }
-        
+
         if ($mail->Send()) {
             $this->mail_sent = true;
-            $this->logMail($unitSession); 
+            // Mark the claim row sent for the audit trail.
+            $this->db->exec(
+                "UPDATE `survey_email_log` SET `status` = 1 WHERE `idempotency_key` = :k LIMIT 1",
+                ['k' => $idempotency_key]
+            );
         } else {
+            // Release the claim so a later retry can send (the failure
+            // was delivery, not a duplicate). Only drop OUR unsent claim.
+            $this->db->exec(
+                "DELETE FROM `survey_email_log` WHERE `idempotency_key` = :k AND `status` = 0 LIMIT 1",
+                ['k' => $idempotency_key]
+            );
             alert('Email with the subject "' . h($mail->Subject) . '" was not sent to ' . h($this->recipient) . ':<br>' . $mail->ErrorInfo, 'alert-danger');
         }
 
