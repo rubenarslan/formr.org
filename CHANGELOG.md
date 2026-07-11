@@ -2,6 +2,16 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v1.5.0] - in progress
+
+### Fixes
+- **Run-engine audit hardening, round 1** (see `documentation/agent_doc/run_engine_audit_2026-07.md` for the full audit: 23 confirmed findings; this round closes the critical and the worst highs. `formr-docker/diagnose_run_engine.sh` checks whether an instance was already affected):
+  - **Web requests see stored unit-session state again (audit addendum).** `RunSession::getCurrentUnitSession()` handed out `UnitSession` objects hydrated with only their `id` (constructor allowlist, `ed56a95f`), so every interactive request evaluated deadline guards against `null` — silently disabling web-side Pause/Survey/External expiry, the queue-`expires` refresh, and the v1.4.0 overdue-Pause fix on its primary target path. The current session now loads through the trusted PK path.
+  - **Reminder emails can no longer hijack a participant's run (audit F1, critical).** `UnitSession::create()` stamps `run_unit_id` only when the created unit actually is the unit hosted at the current position (off-position sessions keep it NULL), and `getCurrentUnitSession()`'s placement arm additionally requires the `unit_id` to match — so existing impostor rows on affected instances are also neutralized. Previously, sending a reminder inserted a never-ended Email session carrying the participant's current placement, which the next request adopted as "current" and moved on from, skipping the participant past unfinished work.
+  - **Ended run sessions are terminal now (audit F2).** `moveOn()` and Branch/Skip `runTo()` no longer advance or create unit sessions on an ended run session, `runTo()` no longer silently resurrects one (`ended = NULL` now requires the explicit admin-revive flag that only `forceTo()` passes), and `updateSurveyStudyRecord()` refuses to write answers into an ended/expired unit session — a back-button re-POST after completion previously kept mutating submitted results indefinitely.
+  - **Admin "send to position" holds the run-session lock (audit F3, partial).** `forceTo()` now acquires the same named lock as `execute()` and re-reads state under it, instead of racing a daemon cascade with lost-update full-row writes. The remaining lock-free movers (`positionSessions`, API advance) are follow-ups.
+  - **`GET_LOCK` timeouts honor fractions:** the queue's configured 0.1 s lock timeout was truncated to 0 by an integer bind.
+
 ## [v1.4.0] - 08.07.2026
 
 ### Fixes
