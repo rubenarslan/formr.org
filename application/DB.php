@@ -85,11 +85,21 @@ class DB {
             PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES '.$options['charset'],
         ));
 
-        $dt = new DateTime();
-        $offset = $dt->format("P");
-
-        $this->PDO->exec("SET time_zone='$offset';");
         $this->PDO->exec("SET SESSION sql_mode='STRICT_ALL_TABLES';");
+        $this->syncSessionTimezone();
+    }
+
+    /**
+     * Set the MySQL session time_zone to PHP's CURRENT offset. Audit F16
+     * (2026-07): the offset was pinned once at connect time, so a
+     * long-lived daemon connection kept the pre-DST offset (e.g. +02:00)
+     * after a transition while PHP's time()/strtotime moved to +01:00 —
+     * a one-hour skew between NOW()-based comparisons and PHP-computed
+     * deadlines. Daemons call this each tick so the offset tracks DST.
+     */
+    public function syncSessionTimezone() {
+        $offset = (new DateTime())->format('P');
+        $this->PDO->exec("SET time_zone='$offset';");
     }
 
     /**

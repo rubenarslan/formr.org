@@ -323,6 +323,9 @@ class EmailQueue extends Queue {
                 // loop until terminated but with taking some nap
                 $sleeps = 0;
                 while (!$this->out && $this->rested()) {
+                    // Audit F16 (2026-07): keep this long-lived connection's
+                    // session time_zone tracking DST (see DB::syncSessionTimezone).
+                    DB::getInstance()->syncSessionTimezone();
                     if ($this->processQueue($account_id) === false) {
                         // if there is nothing to process in the queue sleep for sometime
                         $this->dbg("Sleeping because nothing was found in queue");

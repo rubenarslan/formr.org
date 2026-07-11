@@ -72,6 +72,12 @@ class UnitSessionQueue extends Queue {
                 // loop until terminated but with taking some nap
                 $sleeps = 0;
                 while (!$this->out && $this->rested()) {
+                    // Audit F16 (2026-07): re-sync the session time_zone to
+                    // PHP's current offset each pass so this long-lived
+                    // connection tracks a DST transition instead of
+                    // comparing NOW() at a stale offset against
+                    // PHP-computed deadlines.
+                    DB::getInstance()->syncSessionTimezone();
                     if ($this->processQueue() === false) {
                         // if there is nothing to process in the queue sleep for sometime
 //                        $this->dbg("Sleeping because nothing was found in queue");
