@@ -354,10 +354,18 @@ class UnitSession extends Model {
         $this->execResults = array_merge($this->execResults, $expirationData);
             
         if ($this->runUnit instanceof Pause || $this->runUnit instanceof Branch) {
-            $expiration_extension = Config::get('unit_session.queue_expiration_extension', '+10 minutes');
             if ($expirationData['check_failed'] === true || $expirationData['expire_relatively'] === false) {
-                // check again in x minutes something went wrong with ocpu evaluation
-                $expirationData['expires'] = mysql_datetime(strtotime($expiration_extension));
+                // Audit F19 (2026-07): a permanently-broken relative_to /
+                // condition re-armed every 10 minutes FOREVER — hammering
+                // OpenCPU and emailing the admin on every cycle. Escalate
+                // the backoff by how long this session has been failing,
+                // so a transient OpenCPU blip still recovers fast but a
+                // genuinely broken run degrades to a few retries per day
+                // (and a few admin emails per day) instead of ~144. The
+                // row is never abandoned: an admin fix is picked up at the
+                // next retry, and the F6 sweep still sees it.
+                $extension = $this->recheckBackoffExpression();
+                $expirationData['expires'] = mysql_datetime(strtotime($extension));
                 $expirationData['queued'] = UnitSessionQueue::QUEUED_TO_EXECUTE;
             }
         }
@@ -390,6 +398,25 @@ class UnitSession extends Model {
         }
     }
     
+    /**
+     * Audit F19 (2026-07): escalating backoff for the Pause/Branch
+     * re-check loop, keyed on how long this unit session has been alive
+     * (a proxy for attempts, since each retry is ~one interval apart).
+     * Configurable via unit_session.queue_expiration_extension (the fast
+     * tier) and unit_session.recheck_backoff_* .
+     */
+    protected function recheckBackoffExpression() {
+        $fast = Config::get('unit_session.queue_expiration_extension', '+10 minutes');
+        $ageSeconds = $this->created ? max(0, time() - strtotime($this->created)) : 0;
+        if ($ageSeconds < 3600) {                 // < 1h alive: fast recovery
+            return $fast;
+        }
+        if ($ageSeconds < 86400) {                // < 1d alive: hourly
+            return Config::get('unit_session.recheck_backoff_mid', '+1 hour');
+        }
+        return Config::get('unit_session.recheck_backoff_max', '+6 hours'); // capped
+    }
+
     protected function logOutput ($output) {
         if (!empty($output['log'])) {
             $this->assignProperties($output['log']);

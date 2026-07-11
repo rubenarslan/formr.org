@@ -42,11 +42,19 @@ class RunSession extends Model {
     protected $positionedRunUnitIds = [];
     /** Maximum number of recursions to happen during a run session execution; */
     const MAX_EXECUTION_COUNT = 10;
+    // Audit F11 (2026-07): a single position visited more than this many
+    // times in one request is a genuine loop (spam). The absolute ceiling
+    // caps a legitimate monotonic forward cascade (daemon-outage catch-up)
+    // without ending the run session.
+    const MAX_POSITION_REVISITS = 5;
+    const MAX_CASCADE_COUNT = 200;
     /**
      * Current number of execution counts while recursive
      * @var int
      */
     protected $executionCount = 0;
+    /** Audit F11: per-position visit tally within a single request. */
+    protected $visitedPositions = [];
 
     /**
      * A RunSession should always be initiated with a Run and a User
@@ -269,8 +277,28 @@ class RunSession extends Model {
                 return redirect_to(run_url($this->run->name, 'logout', ['prev' => $this->session]));
             }
             
+            // Audit F11 (2026-07): distinguish a pathological loop from a
+            // legitimate long forward cascade. A misconfigured run
+            // (SkipBackward cycle) revisits the SAME position over and
+            // over — that is spam and must end. A daemon-outage catch-up
+            // advances monotonically through many DISTINCT positions in
+            // one request — that is not spam; ending the run session
+            // irreversibly ejected participants whose only fault was
+            // missing a few diary cycles. Track per-position visits: a
+            // position seen too many times => loop => spam(); otherwise
+            // just halt THIS request at an absolute ceiling and let the
+            // next request continue from the advanced position.
+            if ($this->position !== null) {
+                $this->visitedPositions[$this->position] = ($this->visitedPositions[$this->position] ?? 0) + 1;
+            }
             if ($this->executionCount > self::MAX_EXECUTION_COUNT) {
-                return $this->spam();
+                if ($this->maxPositionRevisits() > self::MAX_POSITION_REVISITS) {
+                    return $this->spam();
+                }
+                if ($this->executionCount > self::MAX_CASCADE_COUNT) {
+                    formr_log("Run session {$this->id}: forward cascade hit MAX_CASCADE_COUNT at position {$this->position} (likely daemon-outage catch-up); halting request without ending the run session.");
+                    return ['body' => ''];
+                }
             }
 
             if ($this->run->isStudyTest()) {
@@ -799,6 +827,10 @@ class RunSession extends Model {
         return false;
     }
     
+    protected function maxPositionRevisits() {
+        return $this->visitedPositions ? max($this->visitedPositions) : 0;
+    }
+
     public function spam() {
         $this->debug('SPAM');
         $this->endCurrentUnitSession('spam_' . $this->executionCount);
