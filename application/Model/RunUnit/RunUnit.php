@@ -186,8 +186,37 @@ class RunUnit extends Model {
         if ($special !== null) {
             return $this->db->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special));
         } else {
+            // Audit F22/F7 (2026-07): terminate live unit sessions at this
+            // placement BEFORE unlinking it. This base (placement-scoped)
+            // removeFromRun is used by Survey/Email/PushMessage — deleting
+            // the survey_run_units row left their in-flight sessions open
+            // (ended/expired NULL) with a now-dangling run_unit_id (no FK),
+            // stranding participants and littering every audit. run_unit_id
+            // still resolves here because the delete happens after.
+            $this->endLiveSessionsAtPlacement();
             return $this->db->delete('survey_run_units', array('id' => $this->run_unit_id));
         }
+    }
+
+    /**
+     * Expire live (ended IS NULL AND expired IS NULL) unit sessions bound
+     * to THIS placement (survey_run_units.id) and dequeue them. Used when
+     * a unit is unlinked from a run so participants aren't stranded on a
+     * placement that no longer exists. Audit F22/F7 (2026-07).
+     */
+    protected function endLiveSessionsAtPlacement() {
+        if (!$this->run_unit_id) {
+            return 0;
+        }
+        return $this->db->exec(
+            "UPDATE `survey_unit_sessions`
+             SET `expired` = NOW(), `queued` = 0,
+                 `result` = COALESCE(`result`, 'unit_removed_from_run'),
+                 `state` = :state
+             WHERE `run_unit_id` = :run_unit_id
+               AND `ended` IS NULL AND `expired` IS NULL",
+            ['run_unit_id' => $this->run_unit_id, 'state' => UnitSessionQueue::STATE_EXPIRED]
+        );
     }
 
     public function getExportUnit() {

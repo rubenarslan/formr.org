@@ -1517,9 +1517,29 @@ class Run extends Model
         $this->db->beginTransaction();
 
         try {
+            // Audit F8/F7 (2026-07): terminate in-flight participant unit
+            // sessions for THIS run before wiping the structure. The wipe
+            // below re-creates survey_run_units with new ids, so every
+            // live session's run_unit_id would otherwise dangle and the
+            // participant would resume spliced onto whatever unit now
+            // occupies their stored position. Expiring them (in the same
+            // transaction) gives a clean terminal state; on their next
+            // request the recovery branch advances them from their numeric
+            // position through the NEW structure instead.
+            $this->db->exec(
+                "UPDATE `survey_unit_sessions` us
+                 JOIN `survey_run_units` ru ON ru.id = us.run_unit_id
+                 SET us.`expired` = NOW(), us.`queued` = 0,
+                     us.`result` = COALESCE(us.`result`, 'run_structure_replaced'),
+                     us.`state` = :state
+                 WHERE ru.run_id = :run_id
+                   AND us.`ended` IS NULL AND us.`expired` IS NULL",
+                ['run_id' => $this->id, 'state' => UnitSessionQueue::STATE_EXPIRED]
+            );
+
             // 1. Wipe the existing structure for this run.
             // We delete the links in 'run_units'. This effectively "empties" the run structure.
-            // Note: This does not delete the actual Unit definitions (surveys) or data, 
+            // Note: This does not delete the actual Unit definitions (surveys) or data,
             // it just unlinks them from this specific Run.
             $delete = $this->db->prepare("DELETE FROM survey_run_units WHERE run_id = :run_id");
             $delete->bindParam(':run_id', $this->id);
