@@ -368,6 +368,19 @@ class UnitSession extends Model {
             $this->execResults['end_session'] = true;
             return false; // ended NOT expired
         } elseif ($expirationData['expires'] < time()) {
+            // Audit F23 (2026-07): a timer-based unit that reaches its
+            // deadline should END (pause_ended/wait_ended), not EXPIRE
+            // (result='expired'). expire() is for Survey/External access
+            // windows. Routing an elapsed Pause/Wait deadline that
+            // arrived via the recompute path (rather than the overdue
+            // QUEUED_TO_END branch, which already returns end_session)
+            // through expire() gave the same terminal event two different
+            // labels depending on which path fired, contradicting the
+            // documented per-type state machine and analysis exports.
+            if ($this->runUnit instanceof Pause || $this->runUnit instanceof Wait) {
+                $this->execResults['end_session'] = true;
+                return false; // ended NOT expired
+            }
             return true;
         } elseif ($expirationData['queued']) {
             $this->execResults['queue'] = [
@@ -723,6 +736,20 @@ class UnitSession extends Model {
 
         /** @var SurveyStudy $study */
         $study = $this->runUnit->surveyStudy;
+
+        // Audit F13 (2026-07): bind the POST to the unit session it was
+        // rendered for. The form carries a hidden session_id
+        // (SpreadsheetRenderer); in a looping/diary run a back-button
+        // resubmit of iteration N's still-open form would otherwise be
+        // written into iteration N+1's freshly-created session (item
+        // names match, validation passes) — silently duplicating old
+        // answers into the new iteration. A mismatch means the form is
+        // stale; reject the write. (Legacy forms without the hidden
+        // field, or non-numeric values, skip the check.)
+        if (isset($posted['session_id']) && is_numeric($posted['session_id'])
+                && (int) $posted['session_id'] !== (int) $this->id) {
+            return false;
+        }
 
         // remove variables user is not allowed to overwrite (they should not be sent to user in the first place if not used in request)
         unset($posted['id'], $posted['session'], $posted['session_id'], $posted['study_id'], $posted['created'], $posted['modified'], $posted['ended']);
