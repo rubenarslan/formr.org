@@ -21,16 +21,22 @@
  * both by design (see executeUnitSession's F5 guard).
  *
  * Usage: php bin/sweep_stalled_unit_sessions.php [--dry-run] [--limit=N]
- *        [--min-age-minutes=N]
+ *        [--min-age-minutes=N] [--reexec-max-days=N]
  * Scheduled hourly via config/formr_crontab. Safe to re-run; bounded by
  * --limit (default 500) per invocation.
+ *
+ * Re-execution is bounded to sessions parked within --reexec-max-days
+ * (default 7): recent crash residue is resumed, but an ancient stuck
+ * current session is terminal-stamped instead of re-executed, so the
+ * sweep never fires a weeks-stale push/email as a side effect.
  */
 require_once dirname(__FILE__) . '/../setup.php';
 
-$opts = getopt('', ['dry-run', 'limit::', 'min-age-minutes::']);
+$opts = getopt('', ['dry-run', 'limit::', 'min-age-minutes::', 'reexec-max-days::']);
 $dry = isset($opts['dry-run']);
 $limit = isset($opts['limit']) ? max(1, (int) $opts['limit']) : 500;
 $minAge = isset($opts['min-age-minutes']) ? max(1, (int) $opts['min-age-minutes']) : 30;
+$reexecMaxDays = isset($opts['reexec-max-days']) ? max(0, (int) $opts['reexec-max-days']) : 7;
 
 $lock = fopen(APPLICATION_ROOT . 'tmp/sweep_stalled_unit_sessions.lock', 'c');
 if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
@@ -42,7 +48,7 @@ $db = DB::getInstance();
 $types = "'Pause','Wait','Shuffle','SkipForward','SkipBackward','Email','PushMessage'";
 
 $rows = $db->execute("
-    SELECT us.id, us.run_session_id, us.result, rs.session, r.id AS run_id, r.name AS run_name, u.type
+    SELECT us.id, us.run_session_id, us.result, us.created, rs.session, r.id AS run_id, r.name AS run_name, u.type
     FROM survey_unit_sessions us
     JOIN survey_units u ON u.id = us.unit_id
     JOIN survey_run_sessions rs ON rs.id = us.run_session_id
@@ -81,7 +87,9 @@ foreach ($rows as $row) {
     $runSession->user->cron = true;
 
     $current = $runSession->getCurrentUnitSession();
-    if ($current && (int) $current->id === (int) $row['id']) {
+    $recentEnough = $reexecMaxDays === 0
+        || (strtotime($row['created']) >= strtotime("-{$reexecMaxDays} days"));
+    if ($current && (int) $current->id === (int) $row['id'] && $recentEnough) {
         $executed++;
         fwrite(STDERR, "sweep: re-execute run_session {$row['run_session_id']} ({$row['run_name']}, {$row['type']}#{$row['id']})" . ($dry ? ' [dry-run]' : '') . "\n");
         if (!$dry) {
