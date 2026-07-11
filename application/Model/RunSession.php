@@ -440,6 +440,16 @@ class RunSession extends Model {
         if (isset($result['redirect'])) {
             // move on in the run before redirecting to external service (except for surveys)
             if ($this->currentUnitSession->runUnit->type !== 'Survey') {
+                // Audit F5 (2026-07): a cron cascade cannot follow a
+                // redirect. Advancing anyway (without executing) parked
+                // the successor at PENDING/queued=0 — invisible to the
+                // daemon — while the participant never saw the external
+                // address. Stop the cascade instead: the External stays
+                // current, the participant is redirected on their next
+                // visit, and expire_after still bounds abandonment.
+                if (formr_in_console()) {
+                    return ['body' => ''];
+                }
                 $this->moveOn(false, false);
             }
             return $result;
