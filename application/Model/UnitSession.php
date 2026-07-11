@@ -761,9 +761,6 @@ class UnitSession extends Model {
             return false;
         }
 
-        /** @var SurveyStudy $study */
-        $study = $this->runUnit->surveyStudy;
-
         // Audit F13 (2026-07): bind the POST to the unit session it was
         // rendered for. The form carries a hidden session_id
         // (SpreadsheetRenderer); in a looping/diary run a back-button
@@ -772,11 +769,15 @@ class UnitSession extends Model {
         // names match, validation passes) — silently duplicating old
         // answers into the new iteration. A mismatch means the form is
         // stale; reject the write. (Legacy forms without the hidden
-        // field, or non-numeric values, skip the check.)
+        // field, or non-numeric values, skip the check.) Checked before
+        // touching surveyStudy so a stale POST is cheap to reject.
         if (isset($posted['session_id']) && is_numeric($posted['session_id'])
                 && (int) $posted['session_id'] !== (int) $this->id) {
             return false;
         }
+
+        /** @var SurveyStudy $study */
+        $study = $this->runUnit->surveyStudy;
 
         // remove variables user is not allowed to overwrite (they should not be sent to user in the first place if not used in request)
         unset($posted['id'], $posted['session'], $posted['session_id'], $posted['study_id'], $posted['created'], $posted['modified'], $posted['ended']);
