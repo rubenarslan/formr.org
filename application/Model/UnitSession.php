@@ -390,8 +390,33 @@ class UnitSession extends Model {
      *
      * @return boolean
      */
-    protected function isQueuable() {
-        return !empty($this->execResults['queue']) && $this->runSession->getRun()->cron_active;
+    /**
+     * Audit F4 (2026-07): re-derive the expiry verdict from CURRENT state
+     * before the daemon acts on a stored queue deadline. The queue's
+     * `expires` is a snapshot from when the row was (re)armed; sliding
+     * Survey windows (last_active + Z) move with participant activity the
+     * daemon never saw. Returns:
+     *   'end'      — deadline genuinely passed (or unit says end_session);
+     *                proceed with endCurrentUnitSession()
+     *   'requeued' — fresh deadline lies in the future; queue row re-armed
+     *   'dequeued' — no deadline applies anymore ("never expires" config);
+     *                stale queue row dropped
+     */
+    public function revalidateQueueVerdict() {
+        $this->execResults = [];
+        $isExpired = $this->isExpired();
+        if ($isExpired || !empty($this->execResults['expired']) || !empty($this->execResults['end_session'])) {
+            return 'end';
+        }
+        if (!empty($this->execResults['queue'])) {
+            // Write directly (not via queue()'s path) so a run toggled
+            // cron-inactive mid-flight still gets its row re-armed instead
+            // of the daemon hot-looping on the unchanged stale deadline.
+            UnitSessionQueue::addItem($this, $this->runUnit, $this->execResults['queue']);
+            return 'requeued';
+        }
+        UnitSessionQueue::removeItem($this->id);
+        return 'dequeued';
     }
 
     public function expire() {
@@ -499,7 +524,17 @@ class UnitSession extends Model {
     }
 
     public function queue($output = null) {
-        if ($this->isQueuable()) {
+        if (!empty($this->execResults['queue'])) {
+            // Audit F15 (2026-07): persist the deadline even when the run
+            // is not cron-active (the old isQueuable() gate). The daemon
+            // ignores these rows either way (pickup filters
+            // cron_active = 1 twice), but the web path's overdue guard
+            // (Pause, 80e89dcb) needs the stored expires + QUEUED_TO_END
+            // to end an overdue deadline instead of re-evaluating
+            // relative_to — the forever-slide otherwise survived on
+            // cron-inactive runs. If the author later enables cron,
+            // already-armed deadlines start being enforced, which is the
+            // expected semantic.
             UnitSessionQueue::addItem($this, $this->runUnit, $this->execResults['queue']);
         }
     }

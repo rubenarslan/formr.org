@@ -292,6 +292,20 @@ class RunSession extends Model {
             // If there is a referenceUnitSession then it is sent by the queue
             if ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id == $currentUnitSession->id && !$executeReferenceUnit) {
                 $this->debug("END-q");
+                // Audit F4 (2026-07): never end on the stored deadline
+                // alone — revalidate against current state first. A
+                // sliding-window Survey whose participant kept working
+                // gets its queue row re-armed at the fresh deadline
+                // instead of being expired mid-edit; a config that now
+                // says "never expires" gets dequeued. Pause keeps its
+                // end-at-stored-deadline semantic (80e89dcb) because its
+                // expiration data returns end_session for an overdue
+                // QUEUED_TO_END gate without re-evaluating relative_to.
+                $verdict = $currentUnitSession->revalidateQueueVerdict();
+                if ($verdict !== 'end') {
+                    $this->debug("END-q deferred ({$verdict})");
+                    return ['body' => ''];
+                }
                 if($this->endCurrentUnitSession()) {
                     return $this->moveOn();
                 }
