@@ -205,6 +205,34 @@ states enforced only where someone remembered a WHERE clause. Priorities:
    cap the +10min re-arm loop; reconnect-or-set `time_zone` per daemon
    tick.
 
+## Fixes applied (v1.5.0, release/1.5.0)
+
+All 23 confirmed findings plus the two hand-verified addenda were fixed on
+`release/1.5.0` (branched from `release/1.4.0`), committed in reviewable
+clusters, each gated on `composer test` (194 tests green) and PHP lint.
+The prod-severity reassessment (three-instance diagnostic; two instances
+had no complaints despite 11–14 signatures) reordered the work: the daemon
+deadline revalidation (F4) went first as the only ongoing user-facing
+harm, then the lock/terminal-state/structure fixes, then the litter-and-
+edge-case tail. Mapping:
+
+- **F4/F15** deadline revalidation + cron-inactive persistence — `RunSession::execute()` END-q → `UnitSession::revalidateQueueVerdict()`, `queue()`.
+- **F1** reminder hijack — `UnitSession::create()` placement guard, `getCurrentUnitSession()` unit_id match, `Run::sendReminder()`.
+- **F2** ended-terminal — `moveOn()`/`runTo($revive)`/`updateSurveyStudyRecord()` guards.
+- **F3** locked movers — `forceTo()`, `forceMoveOn()`.
+- **F5/F6** External-park + recovery sweep — `executeUnitSession()`, `bin/sweep_stalled_unit_sessions.php`.
+- **F7/F8/F22** structure mutation — `Run::reorder()`, `RunUnit::removeFromRun()`, `Run::replaceUnits()`, patch 064.
+- **F9/F12** flow control — `Branch` target validation, position-0 null-checks.
+- **F13** POST binding, **F23** terminal label, **F17/F18** Shuffle, **F14/F20/F21** messaging, **F11/F19** loop bounds, **F16** DST — as detailed in `CHANGELOG.md`.
+- **Addenda:** hydration (`getCurrentUnitSession` PK load), `GET_LOCK` string bind.
+
+Existing prod damage is remediated (not code) by
+`formr-docker/rescue_run_engine.sh` (dry-run by default). Not done in
+code: a hard FK from `survey_unit_sessions.run_unit_id` (kept nullable by
+Track A design) and a full UTC storage migration (F16 is handled by
+per-tick offset re-sync instead). E2E reproduction on the dev instance
+(F1/F2/F7/F13) remains a good next verification step.
+
 ## Provenance
 
 Workflow `wf_ffd55829-9c2`, 4 attempts (3 spend-limit interruptions),
