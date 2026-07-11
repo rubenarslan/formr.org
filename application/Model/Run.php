@@ -771,6 +771,27 @@ class Run extends Model
         return $runSession->currentUnitSession;
     }
 
+    /**
+     * Create, execute AND terminate a reminder email session. Audit F1b
+     * (2026-07): callers used to execute() the session and leave it
+     * un-ended forever — those live off-position rows were the raw
+     * material of the F1 placement hijack and litter every stalled-
+     * session audit. end(null) preserves the execute() result
+     * ('email_queued'/'email_sent'); the email queue's post-send result
+     * update is a raw UPDATE by id and still lands after end().
+     *
+     * @return UnitSession|false the ended session, or false if execute() failed
+     */
+    public function sendReminder($reminder_id, $session, $run_session_id)
+    {
+        $emailSession = $this->getReminderSession($reminder_id, $session, $run_session_id);
+        $result = $emailSession->execute();
+        if ($emailSession->id) {
+            $emailSession->end();
+        }
+        return $result === false ? false : $emailSession;
+    }
+
     public function getCustomCSS()
     {
         if ($this->custom_css_path != null) {

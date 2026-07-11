@@ -65,8 +65,7 @@ class RunHelper {
     }
 
     public function remind() {
-        $emailSession = $this->run->getReminderSession($this->request->reminder_id, $this->request->session, $this->request->run_session_id);
-        if ($emailSession->execute() === false) {
+        if ($this->run->sendReminder($this->request->reminder_id, $this->request->session, $this->request->run_session_id) === false) {
             $this->errors[] = 'Something went wrong with the reminder. in run ' . $this->run->name;
             return false;
         }
@@ -82,7 +81,9 @@ class RunHelper {
         if (!$us) {
             $this->message = 'No unit session found';
             return false;
-        } else if($us->end('moved') && $this->runSession->moveOn()) {
+        } else if ($this->runSession->forceMoveOn('moved')) {
+            // Audit F3 (2026-07): end + moveOn now run under the
+            // run-session lock instead of racing a daemon cascade.
             $this->message = 'Move done';
             return true;
         } else {

@@ -553,6 +553,36 @@ class RunSession extends Model {
         }
     }
 
+    /**
+     * Admin/API "advance to the next unit": end the current unit session
+     * and moveOn, under the run-session lock. Audit F3 (2026-07): both
+     * callers ran lock-free, and the AJAX variant ended the current unit
+     * WITHOUT advancing — leaving cron-only participants with nothing
+     * current and nothing queued, permanently stalled.
+     */
+    public function forceMoveOn($reason = 'moved') {
+        if ($this->ended) {
+            alert('This run session has ended; revive it by sending it to a position instead.', 'alert-danger');
+            return false;
+        }
+        $lock_name = $this->lockName();
+        if (!$this->acquireLock($lock_name, Config::get('run_session.lock_timeout.user', 10.0))) {
+            alert('Could not advance the session: another process is currently executing it. Try again.', 'alert-danger');
+            return false;
+        }
+        try {
+            $this->reloadFromDb();
+            $unitSession = $this->getCurrentUnitSession();
+            if (!$unitSession) {
+                return false;
+            }
+            $unitSession->end($reason);
+            return (bool) $this->moveOn();
+        } finally {
+            $this->releaseLock($lock_name);
+        }
+    }
+
     public function runTo($position, $unit_id = null, $execute = false, $revive = false) {
         // Audit F2 (2026-07): Branch/Skip jumps land here; they must not
         // resurrect an ended run session. Only an explicit admin move
