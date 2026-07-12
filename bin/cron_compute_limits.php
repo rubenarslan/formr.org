@@ -17,5 +17,10 @@ $params['lockfile'] = APPLICATION_ROOT . 'computeLimitsCron.lock';
 $cron = new ComputeLimitCron($fdb, $site, $user, $cronConfig, $params);
 $cron->execute();
 
+// Keep the display rollup fresh even on hosts that don't run the dedicated
+// 10-minute refresh cron (audit §6.2). Enforcement above reads live, so this
+// only affects the compute-usage dashboards / admin lists.
+RunMetrics::refresh();
+
 unset($site, $fdb, $user, $params, $cronConfig);
 exit(0);

@@ -66,23 +66,11 @@ class ComputeUsageHelper {
 
     /**
      * Per-user compute across the whole instance (superadmin view).
+     * Served from the maintained per-run rollup (audit SQ-16) instead of
+     * re-scanning the full unit-session history on every dashboard view.
      */
     public static function usageByUser(): array {
-        return self::fetchAll("
-            SELECT u.id, u.email, u.compute_limit_monthly,
-                   COUNT(DISTINCT r.id) AS n_runs,
-                   COUNT(us.id) AS n_sessions,
-                   ROUND(SUM(us.execution_time), 1) AS total_time,
-                   ROUND(SUM(CASE WHEN us.created >= :month_start
-                                  THEN us.execution_time ELSE 0 END), 1) AS month_time
-            FROM survey_users u
-            JOIN survey_runs r ON r.user_id = u.id
-            JOIN survey_run_sessions rs ON rs.run_id = r.id
-            JOIN survey_unit_sessions us ON us.run_session_id = rs.id
-            WHERE us.execution_time IS NOT NULL
-            GROUP BY u.id, u.email, u.compute_limit_monthly
-            ORDER BY total_time DESC
-        ", array(':month_start' => self::monthStart()));
+        return RunMetrics::usageByUser();
     }
 
     /**
@@ -108,37 +96,18 @@ class ComputeUsageHelper {
 
     /**
      * Heaviest runs across the whole instance (superadmin view).
+     * Served from the per-run rollup (audit SQ-17).
      */
     public static function topRuns(int $limit = 50): array {
-        $limit = max(1, min(500, $limit));
-        return self::fetchAll("
-            SELECT r.id AS run_id, r.name AS run_name, u.email AS owner_email,
-                   COUNT(us.id) AS n_sessions,
-                   ROUND(SUM(us.execution_time), 1) AS total_time,
-                   ROUND(AVG(us.execution_time), 3) AS avg_time
-            FROM survey_runs r
-            JOIN survey_users u ON u.id = r.user_id
-            JOIN survey_run_sessions rs ON rs.run_id = r.id
-            JOIN survey_unit_sessions us ON us.run_session_id = rs.id
-            WHERE us.execution_time IS NOT NULL
-            GROUP BY r.id, r.name, u.email
-            ORDER BY total_time DESC
-            LIMIT {$limit}
-        ");
+        return RunMetrics::topRuns($limit);
     }
 
     /**
      * Instance-wide headline totals (superadmin view).
+     * Served from the per-run rollup (audit SQ-18).
      */
     public static function totalsForInstance(): array {
-        return self::fetchRow("
-            SELECT ROUND(SUM(us.execution_time), 1) AS total_time,
-                   ROUND(SUM(CASE WHEN us.created >= :month_start
-                                  THEN us.execution_time ELSE 0 END), 1) AS month_time,
-                   COUNT(us.id) AS n_sessions
-            FROM survey_unit_sessions us
-            WHERE us.execution_time IS NOT NULL
-        ", array(':month_start' => self::monthStart()));
+        return RunMetrics::totalsForInstance();
     }
 
     /**

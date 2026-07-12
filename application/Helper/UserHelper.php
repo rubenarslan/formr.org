@@ -41,8 +41,10 @@ class UserHelper {
         $pagination = new Pagination($count, 200, true);
         $limits = $pagination->getLimits();
 
+        // per-run session count + last activity come from the maintained rollup
+        // (audit SQ-21) instead of a live GROUP BY over survey_run_sessions
         $itemsQuery = "
-            SELECT 
+            SELECT
                 `survey_users`.id,
                 `survey_users`.created,
                 `survey_users`.modified,
@@ -52,13 +54,12 @@ class UserHelper {
                 `survey_runs`.name AS run_name,
                 `survey_runs`.cron_active,
                 `survey_runs`.public,
-                COUNT(`survey_run_sessions`.id) AS number_of_users_in_run,
-                MAX(`survey_run_sessions`.last_access) AS last_edit
+                COALESCE(`m`.n_run_sessions, 0) AS number_of_users_in_run,
+                `m`.last_access AS last_edit
             FROM `survey_users`
             LEFT JOIN `survey_runs` ON `survey_runs`.user_id = `survey_users`.id
-            LEFT JOIN `survey_run_sessions` ON `survey_runs`.id = `survey_run_sessions`.run_id
+            LEFT JOIN `survey_run_metrics` `m` ON `m`.run_id = `survey_runs`.id
             WHERE `survey_users`.admin > 0
-            GROUP BY `survey_runs`.id
             ORDER BY `survey_users`.id ASC, last_edit DESC LIMIT $limits
         ";
         
