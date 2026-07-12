@@ -853,24 +853,18 @@ class UnitSession extends Model {
             return false;
         }
 
-        $survey_items_display = $this->db->prepare(
-                "UPDATE `survey_items_display` SET 
-				created = COALESCE(created,NOW()),
-				answer = :answer, 
-				saved = :saved,
-				shown = :shown,
-				shown_relative = :shown_relative,
-				answered = :answered,
-				answered_relative = :answered_relative,
-				displaycount = COALESCE(displaycount,1),
-				hidden = :hidden
-			WHERE item_id = :item_id AND session_id = :session_id"); # fixme: displaycount starts at 2
-        $survey_items_display->bindParam(":session_id", $this->id);
+        // Collect the per-item display writes and flush them in one batched
+        // UPDATE after the loop instead of a round trip per posted item on the
+        // hottest write path in the app (audit SQ-40). Keyed by item_id; the
+        // per-column CASE below preserves exactly the old per-row semantics
+        // (update-only, never insert). displaycount starts at 2 — fixme kept.
+        $saved = mysql_now();
+        $displayRows = array();
 
         try {
             $this->db->beginTransaction();
 
-            // update item_display table for each posted item using prepared statement
+            // accumulate the item_display write for each posted item
             foreach ($posted as $name => $value) {
                 if (!isset($items[$name])) {
                     continue;
@@ -906,21 +900,43 @@ class UnitSession extends Model {
 					$answer = json_encode($answer);
 				}
 
-                $survey_items_display->bindValue(":item_id", $item->id);
-                $survey_items_display->bindValue(":answer", $answer);
-                $survey_items_display->bindValue(":hidden", $item->skip_validation ? (int) $item->hidden : 0); // an item that was answered has to have been shown
-                $survey_items_display->bindValue(":saved", mysql_now());
-                $survey_items_display->bindParam(":shown", $shown);
-                $survey_items_display->bindParam(":shown_relative", $shown_relative);
-                $survey_items_display->bindParam(":answered", $answered);
-                $survey_items_display->bindParam(":answered_relative", $answered_relative);
-                $item_answered = $survey_items_display->execute();
-
-                if (!$item_answered) {
-                    throw new Exception("Survey item '$name' could not be saved with value '$value' in table '{$study->results_table}'");
-                }
-
+                $displayRows[(int) $item->id] = array(
+                    'answer' => $answer,
+                    'shown' => $shown,
+                    'shown_relative' => $shown_relative,
+                    'answered' => $answered,
+                    'answered_relative' => $answered_relative,
+                    'hidden' => $item->skip_validation ? (int) $item->hidden : 0, // answered => must have been shown
+                );
             } //endforeach
+
+            // One batched UPDATE for every posted item's display row. A CASE per
+            // column keyed on item_id reproduces the per-row values; created and
+            // displaycount keep their COALESCE-preserve semantics; the IN list
+            // scopes to existing rows only (never inserts), matching the old
+            // per-item UPDATEs exactly.
+            if ($displayRows) {
+                $valueCols = array('answer', 'shown', 'shown_relative', 'answered', 'answered_relative', 'hidden');
+                $setParts = array();
+                $params = array('session_id' => $this->id, 'saved' => $saved);
+                foreach ($valueCols as $col) {
+                    $case = "`{$col}` = CASE item_id";
+                    $i = 0;
+                    foreach ($displayRows as $itemId => $vals) {
+                        $ph = "{$col}_{$i}";
+                        $case .= " WHEN {$itemId} THEN :{$ph}";
+                        $params[$ph] = $vals[$col];
+                        $i++;
+                    }
+                    $setParts[] = $case . " END";
+                }
+                $inList = implode(',', array_keys($displayRows));
+                $sql = "UPDATE `survey_items_display` SET "
+                    . implode(', ', $setParts)
+                    . ", saved = :saved, created = COALESCE(created, NOW()), displaycount = COALESCE(displaycount, 1)"
+                    . " WHERE session_id = :session_id AND item_id IN ({$inList})";
+                $this->db->exec($sql, $params);
+            }
             // Update results table in one query
             if ($update_data) {
                 $update_where = array(
