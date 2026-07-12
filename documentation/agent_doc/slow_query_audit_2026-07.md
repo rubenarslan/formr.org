@@ -8,6 +8,33 @@ backing DB — real production-shaped data, not synthetic fixtures).
 **No code changes were applied by this audit — every remediation is
 a suggestion for a human to review and apply separately.**
 
+## 0. Implementation status (v1.6.0, 2026-07-12)
+
+Implemented on `release/1.6.0` — see `CHANGELOG.md` [v1.6.0] and
+`sql/patches/065`–`067`:
+
+- **Indexes added** (patch 065) + **housekeeping** (patch 066) +
+  **user-overview index** (patch 067): SQ-04/05/07/08/09/14/15/24/32/35/38,
+  SCH-01/02/05/06. Applied + `EXPLAIN`-reverified on the dev DB.
+- **Correctness fixes:** SQ-06, SQ-13.
+- **Query rewrites:** SQ-01, SQ-02, SQ-03, SQ-11, SQ-12, SQ-22, SQ-23.
+- **Removed/abolished:** SQ-10 (median display), SQ-19/SQ-20 (RAND()
+  sampling → recent-first), SQ-25, R-11, `bin/queue-migration.php`.
+- **Safety caps:** SQ-39, SQ-43 (bulk-action selection cap), SQ-45
+  (`whereIn` cap).
+
+**Deliberately deferred** (documented, not implemented): the **rollup
+table** for the repeated unbounded historical aggregates (SQ-16/17/18
+`ComputeUsageHelper`, plus the SQ-03/SQ-13/SQ-21 read-side — §6.2) and
+the **per-item write batching** on the hottest participant paths
+(SQ-40/41/42) and other N+1/round-trip findings (SQ-28/29/30/31/33/40–51),
+`DB::__construct` prepare cost (SQ-44). **Not changed by design:** SQ-36
+(`getResults` RAND() is anti-linkage row shuffling for anonymised
+studies, not sampling — a deterministic order would let row position
+re-identify participants). `needs-data` findings whose only fix was an
+index (SQ-35/SQ-38) shipped in 065; SQ-37's `run_id`-column denormalisation
+is deferred with the rollup work.
+
 ## 1. Executive summary
 
 393 queries were read across 10 shards; 73 were flagged as
