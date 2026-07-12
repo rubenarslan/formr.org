@@ -23,17 +23,45 @@ Implemented on `release/1.6.0` — see `CHANGELOG.md` [v1.6.0] and
 - **Safety caps:** SQ-39, SQ-43 (bulk-action selection cap), SQ-45
   (`whereIn` cap).
 
-**Deliberately deferred** (documented, not implemented): the **rollup
-table** for the repeated unbounded historical aggregates (SQ-16/17/18
-`ComputeUsageHelper`, plus the SQ-03/SQ-13/SQ-21 read-side — §6.2) and
-the **per-item write batching** on the hottest participant paths
-(SQ-40/41/42) and other N+1/round-trip findings (SQ-28/29/30/31/33/40–51),
-`DB::__construct` prepare cost (SQ-44). **Not changed by design:** SQ-36
-(`getResults` RAND() is anti-linkage row shuffling for anonymised
-studies, not sampling — a deterministic order would let row position
-re-identify participants). `needs-data` findings whose only fix was an
-index (SQ-35/SQ-38) shipped in 065; SQ-37's `run_id`-column denormalisation
-is deferred with the rollup work.
+**Second pass — previously-deferred work, now implemented:**
+
+- **Rollup table** (patch 068, `survey_run_metrics` + `RunMetrics` +
+  `bin/cron_refresh_metrics.php`): the historical-aggregate reads
+  SQ-16/17/18 (`ComputeUsageHelper`) and SQ-13/SQ-21 (admin lists) now
+  read the maintained per-run rollup (§6.2). Verified hash-identical to
+  the old live queries. `ComputeLimitCron` enforcement (SQ-03) keeps
+  reading live by design, so a stale rollup never mis-enforces a quota;
+  its own query already got the derived-table rewrite in the first pass.
+- **Per-item write batching** SQ-40 (`updateSurveyStudyRecord`),
+  SQ-41/42 (`SpreadsheetRenderer` hidden + displaycount) — one batched
+  statement per page instead of one round trip per item. Verified
+  end-to-end with a live participant submission.
+- **N+1 tail:** SQ-30 (`listClientsForUser` → one IN query) and SQ-33
+  (`runsManagementAction` → one CASE UPDATE).
+
+**Intentionally NOT changed** (with reasons):
+
+- **SQ-36** — `getResults` `RAND()` is anti-linkage row shuffling for
+  anonymised/unlinked studies, not sampling; a deterministic order would
+  let row position re-identify participants.
+- **SQ-46** (`getRunDataNeeded` DESCRIBE-per-study) — 1–5 studies per
+  request, a cheap metadata lookup on the delicate participant R-eval
+  path; batching adds risk for negligible gain.
+- **SQ-47** (`addItems`/`addChoices` per-row INSERT) — admin one-shot
+  survey upload, "negligible at typical sheet sizes"; per-item variable
+  column sets make a multi-row rewrite risky against survey-definition
+  integrity for little benefit.
+- **SQ-28/29/31/32/51** — low, indexed, or fine at current volume
+  (each individual query is index-served); revisit only if the relevant
+  table/usage grows.
+- **SQ-44** (emulated-prepares vs per-request statement cache) — a real
+  architecture tradeoff, not a clear win; deferred to a deliberate
+  decision. **SQ-48** (connection-setup round trips) — only worth doing
+  alongside connection pooling. **SQ-49/50** — one-shot migration /
+  admin bulk-import scripts, not request-path.
+- **SQ-37** — the `run_id`-denormalisation-on-`survey_email_log` fix is
+  left with the (empty-in-dev) email-log tables; its index need is
+  already covered by patch 065's `survey_email_log` indexes.
 
 ## 1. Executive summary
 

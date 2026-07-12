@@ -7,15 +7,21 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 Slow / inefficient MariaDB query audit and remediation (see
 `documentation/agent_doc/slow_query_audit_2026-07.md` — 54 verified
 findings from a live-`EXPLAIN` pass over every DB call site). This
-release implements the index, correctness, rewrite, cleanup, and
-safety findings; the rollup-table and per-item write-batching findings
-remain documented follow-ups.
+release implements every actionable finding: the index, correctness,
+rewrite, cleanup, and safety findings, plus the two larger deferred
+items (a maintained per-run rollup for the historical aggregates, and
+per-item write batching on the hottest participant paths). The
+remaining tail is low/fine-at-current-volume or a by-design no-op
+(SQ-28/29/31/32/44/46/47/48/49/50/51 — see the audit doc §0).
 
 ### Fixes
 - **User-detail pagination count matched to the displayed rows (SQ-06).** `RunHelper::getUserDetailTable`'s count query omitted the run scope its sibling items query applies and joined `survey_run_units` on `unit_id` alone, so a unit reused across runs fanned the count out — pagination totals could disagree with the table. Both queries now share one run-scoped `WHERE`/join.
 - **Run-management list shows every run again (SQ-13).** `getRunsManagementTablePdoStatement` grouped by the nullable joined `survey_run_sessions.run_id`, collapsing all zero-session runs into a single `NULL`-keyed row; `GROUP BY survey_runs.id` restores one row per run.
 
 ### Changes
+- **Per-run metrics rollup for historical-aggregate reads (SQ-13/16/17/18/21).** The compute-usage dashboards (`ComputeUsageHelper`) and the admin run-list / active-users tables each re-aggregated the full `survey_run_sessions`/`survey_unit_sessions` history (~94k/120k rows) per view. A new `survey_run_metrics` rollup (patch 068), maintained by `RunMetrics::refresh()` (a 10-minute cron plus a fallback at the end of the hourly compute-limit cron), now backs those reads in `O(runs)`. Verified hash-identical to the old live queries; enforcement (`ComputeLimitCron`) still reads live, so rollup staleness never affects a quota decision. The active-users list additionally stops collapsing run-less admins into one row.
+- **Per-item write batching on the hottest participant paths (SQ-40/41/42).** Survey answer submission (`UnitSession::updateSurveyStudyRecord`) and page render (`SpreadsheetRenderer` show-if `hidden` flags + `displaycount` bumps) issued one UPDATE per item; each is now a single batched statement per page (multi-column CASE / IN-list), preserving exact semantics. A ~45-item page drops from ~45 sequential round trips to one per loop. Verified end-to-end against a real participant submission.
+- **Batched OAuth allowlist + runs-management save (SQ-30/33).** `listClientsForUser` fetches all clients' run allowlists in one query; the runs-management form saves via one CASE UPDATE instead of one per run.
 - **Hot admin/export/cron queries rewritten (SQ-01/02/03/11/12/14/22/23).** User-overview table + export sort by `last_access DESC` (served by a new index) with the admin-session pin moved to PHP, instead of an unindexable `session != code` expression sort + `%substring%` search; the long-form results export orders on `(session, unit_session_id, display_order)` — identical row order, far smaller filesort. `ComputeLimitCron::candidateUsers` pushes the month bound into a derived table so the hourly cron scans this month's unit-sessions, not all history (result set verified byte-identical). `getResultCount` now actually caches its unscoped result (admin survey pages stopped re-scanning 2–3×/load). Push-message log paginates with a real `COUNT`+`LIMIT`. `markSubscriptionExpired` resolves the handful of `push_notification` item ids first and ranges `survey_items_display` instead of leading-wildcard-scanning 114k rows per expired subscription. The superadmin user-detail browser's unfiltered view is index-ordered (newest first) with `result_log` bounded and prefix session search.
 - **`ORDER BY RAND()` removed from Test-dialog session sampling (SQ-19/20)** in favour of most-recent-first — the old form materialised and sorted the whole matching set before `LIMIT`.
 - **Bulk admin actions are bounded (SQ-39/43).** `positionSessions`/`sendReminder` reject selections above `max_bulk_session_actions` (config, default 500) instead of turning one request into thousands of sequential queries + locks; `DB_Select::whereIn()` throws above 5,000 values.
@@ -28,6 +34,7 @@ remain documented follow-ups.
 - **Patch 065:** missing-index batch (SQ-04/05/07/08/09/14/15/24/32/35/38) — `survey_unit_sessions` gains `run_unit_id`-leading, current-lookup, and `(run_session_id, created, id)` composites; `survey_run_sessions`/`push_logs` gain `(run_id, created)`; `survey_email_log` gains `status` and `(recipient, status, created)`; `survey_notifications` gains `(run_id, recipient_id, type)`; the oauth token tables gain `client_id`/`user_id`.
 - **Patch 066:** housekeeping (SCH-01/02/05/06) — drop 25 redundant indexes (~5.7 MB; 22 duplicate/left-prefix + 3 superseded by 065's composites, every FK keeps covering coverage), add a real `PRIMARY KEY` to `oauth_scopes`, drop the low-cardinality standalone `survey_run_sessions.position` index, migrate `osf`/`survey_run_settings` to InnoDB.
 - **Patch 067:** `survey_run_sessions (run_id, last_access)` for the rewritten user-overview ordering (SQ-02/12).
+- **Patch 068:** new `survey_run_metrics` per-run rollup table (seeded at migration) backing the compute-usage dashboards and admin lists (SQ-13/16/17/18/21).
 
 ## [v1.5.0] - 11.07.2026
 
