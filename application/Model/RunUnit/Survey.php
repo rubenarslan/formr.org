@@ -99,7 +99,6 @@ class Survey extends RunUnit {
                     'studies' => Site::getCurrentUser()->getStudies('id DESC', null, 'id, name'),
                     'prepend' => $prepend,
                     'resultCount' => $this->id ? $this->getUnitSessionsCount() : null,
-                    'time' => $this->surveyStudy ? $this->surveyStudy->getAverageTimeItTakes() : null,
                     'surveyResultCount' => $this->surveyStudy ? $this->surveyStudy->getResultCount() : null,
                     'expirationSettings' => $expiration_settings,
         ));

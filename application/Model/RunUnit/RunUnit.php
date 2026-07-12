@@ -295,12 +295,14 @@ OVERVIEW_BODY
      * @return \UnitSession[]
      */
     protected function getSampleSessions() {
-        // Select a maximum of 20 random sessions that are on or have passed this unit
+        // Select a maximum of 20 recent sessions that are on or have passed
+        // this unit (was ORDER BY RAND(), which materialized+sorted the whole
+        // matching set before LIMIT could drop anything)
         $results = [];
         $rs = [];
         $rows = $this->db->select('session, id, position')
                         ->from('survey_run_sessions')
-                        ->order('position', 'desc')->order('RAND')
+                        ->order('position', 'desc')->order('id', 'desc')
                         ->where(array('run_id' => $this->run->id, 'position >=' => $this->position))
                         ->limit(20)->fetchAll();
         
@@ -324,10 +326,11 @@ OVERVIEW_BODY
      * @return UnitSession|null
      */
     protected function grabRandomSession() {
-        // Select a random run session that has past this unit's position
+        // Select the most recent run session that has past this unit's
+        // position (was ORDER BY RAND(), see getSampleSessions)
         $row = $this->db->select('session, id, position')
                     ->from('survey_run_sessions')
-                    ->order('position', 'desc')->order('RAND')
+                    ->order('position', 'desc')->order('id', 'desc')
                     ->where(['run_id' => $this->run->id, 'position >=' => $this->position])
                     ->limit(1)
                     ->fetch();

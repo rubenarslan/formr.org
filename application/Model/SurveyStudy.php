@@ -1029,35 +1029,6 @@ class SurveyStudy extends Model
      * @param array $sessions If specified, only results of that particular session will be returned
      * @return array
      */
-    public function getResultsByItemAndSession($items = array(), $sessions = null)
-    {
-        $select = $this->db->select('
-		`survey_run_sessions`.session,
-		`survey_items`.name,
-		`survey_items_display`.answer');
-
-        $select->from('survey_items_display')
-            ->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
-            ->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
-            ->leftJoin('survey_items', 'survey_items_display.item_id = survey_items.id')
-            ->where('survey_items.study_id = :study_id')
-            ->order('survey_run_sessions.session')
-            ->order('survey_run_sessions.created')
-            ->order('survey_unit_sessions.created')
-            ->order('survey_items_display.display_order')
-            ->bindParams(array('study_id' => $this->id));
-
-        if (!empty($items)) {
-            $select->whereIn('survey_items.name', $items);
-        }
-
-        if (!empty($sessions)) {
-            $select->whereIn('survey_items.name', $sessions);
-        }
-
-        return $select->fetchAll();
-    }
-
     protected function hasData()
     {
         $this->result_count = $this->getResultCount();
@@ -1167,36 +1138,6 @@ class SurveyStudy extends Model
         }
 
         return $count;
-    }
-
-    public function getAverageTimeItTakes()
-    {
-        if ($this->resultsTableExists()) {
-            $get = "SELECT AVG(middle_values) AS 'median' FROM (
-			  SELECT took AS 'middle_values' FROM
-				(
-				  SELECT @row:=@row+1 as `row`, (x.ended - x.created) AS took
-			      FROM `{$this->results_table}` AS x, (SELECT @row:=0) AS r
-				  WHERE 1
-				  -- put some where clause here
-				  ORDER BY took
-				) AS t1,
-				(
-				  SELECT COUNT(*) as 'count'
-			      FROM `{$this->results_table}` x
-				  WHERE 1
-				  -- put same where clause here
-				) AS t2
-				-- the following condition will return 1 record for odd number sets, or 2 records for even number sets.
-				WHERE t1.row >= t2.count/2 and t1.row <= ((t2.count/2) +1)) AS t3;";
-
-            $get = $this->db->query($get, true);
-            $time = $get->fetch(PDO::FETCH_NUM);
-            $time = round($time[0] / 60, 3); # seconds to minutes
-
-            return $time;
-        }
-        return '';
     }
 
     public function delete()

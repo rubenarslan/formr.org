@@ -155,20 +155,6 @@ class Run extends Model
         }
     }
 
-    public function getCronDues()
-    {
-        $sessions = $this->db->select('session')
-            ->from('survey_run_sessions')
-            ->where(array('run_id' => $this->id))
-            ->order('RAND')
-            ->statement();
-        $dues = array();
-        while ($run_session = $sessions->fetch(PDO::FETCH_ASSOC)) {
-            $dues[] = $run_session['session'];
-        }
-        return $dues;
-    }
-
     /**
      * Checks if a run name is an exact match or prefix of a reserved word.
      *
