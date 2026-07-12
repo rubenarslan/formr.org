@@ -707,6 +707,12 @@ class DB_Select {
     }
 
     public function whereIn($field, array $values) {
+        // safety rail: an IN() list this size is almost certainly a caller
+        // feeding an unbounded prior SELECT into SQL text (audit SQ-45) —
+        // fail loudly instead of shipping a megabyte statement
+        if (count($values) > 5000) {
+            throw new InvalidArgumentException('whereIn() called with ' . count($values) . ' values (max 5000); bound the input or batch the query');
+        }
         $field = $this->parseColName($field);
         $values = array_map(array($this->PDO, 'quote'), $values);
         $this->where[] = "{$field} IN (" . implode(',', $values) . ")";

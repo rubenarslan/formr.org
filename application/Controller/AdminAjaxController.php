@@ -621,6 +621,15 @@ class AdminAjaxController {
             return $this->response->setContent('Missing Parameters');
         }
 
+        // positionSessions/sendReminder do several queries + locks per session
+        // inside this one request — an unbounded selection turns into
+        // thousands of sequential round trips (audit SQ-39/SQ-43)
+        $maxBulk = (int) Config::get('max_bulk_session_actions', 500);
+        if (count($sessions) > $maxBulk) {
+            $this->response->setStatusCode(422, 'Unprocessable Entity');
+            return $this->response->setContent("Bulk actions are limited to {$maxBulk} sessions per request; you selected " . count($sessions) . ". Please narrow your selection.");
+        }
+
         if ($action === 'toggleTest') {
             $count = RunSession::toggleTestingStatus($sessions, $this->controller->run->id);
             alert("{$count} selected session(s) were successfully modified", 'alert-success');
