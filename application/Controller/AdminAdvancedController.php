@@ -330,7 +330,7 @@ class AdminAdvancedController extends AdminController {
 
         if ($this->request->session) {
             $session = str_replace("…", "", $this->request->session);
-            $queryparams['session'] = "%" . $session . "%";
+            $queryparams['session'] = $session . "%";
             $querystring['session'] = $session;
         }
 
@@ -391,8 +391,12 @@ class AdminAdvancedController extends AdminController {
 
         if(count($query) > 0 ) {
             $where = "WHERE " . implode(' AND ', $query);
+            $order = "`survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC";
         } else {
+            // unfiltered browse: newest unit sessions first — index-ordered
+            // (PRIMARY, backwards) instead of filesorting the whole table
             $where = "";
+            $order = "`survey_unit_sessions`.id DESC";
         }
 
         $itemsQuery = "SELECT 
@@ -408,14 +412,14 @@ class AdminAdvancedController extends AdminController {
                 `survey_unit_sessions`.expires,
                 `survey_unit_sessions`.`queued`,
                 `survey_unit_sessions`.result,
-                `survey_unit_sessions`.result_log
+                LEFT(`survey_unit_sessions`.result_log, 1000) AS result_log
             FROM `survey_unit_sessions`
             LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
             LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
             LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
             LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
             {$where}
-            ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC LIMIT 1000
+            ORDER BY {$order} LIMIT 1000
         ";
 
         return array(

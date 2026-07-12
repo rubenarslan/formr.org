@@ -914,9 +914,12 @@ class SurveyStudy extends Model
             ->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
             ->leftJoin('survey_items', 'survey_items_display.item_id = survey_items.id')
             ->where('survey_items.study_id = :study_id')
+            // session is unique per run and session_id (the unit session) is
+            // monotonic with unit-session creation, so this sorts identically
+            // to the old (session, srs.created, sus.created, display_order)
+            // chain with a much smaller filesort tuple
             ->order('survey_run_sessions.session')
-            ->order('survey_run_sessions.created')
-            ->order('survey_unit_sessions.created')
+            ->order('survey_items_display.session_id')
             ->order('survey_items_display.display_order')
             ->bindParams(array('study_id' => $this->id));
 
@@ -1120,8 +1123,9 @@ class SurveyStudy extends Model
 
     public function getResultCount($run_id = null, $filter = array())
     {
-        // If there is no filter and results have been saved in a previous operation then that
-        if ($this->result_count !== null && !$filter) {
+        // Serve the unscoped count from cache (admin pages request it several
+        // times per action); scoped/filtered variants always hit the DB
+        if ($this->result_count !== null && !$filter && !$run_id) {
             return $this->result_count;
         }
 
@@ -1156,6 +1160,10 @@ class SurveyStudy extends Model
             }
 
             $count = $select->fetch();
+        }
+
+        if (!$filter && !$run_id) {
+            $this->result_count = $count;
         }
 
         return $count;

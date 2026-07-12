@@ -159,7 +159,6 @@ class RunHelper {
 
         $pagination = new Pagination($count, 200, true);
         $limits = $pagination->getLimits();
-        $queryParams['admin_code'] = $adminCode;
 
         $itemsQuery = 
             "SELECT
@@ -183,12 +182,27 @@ class RunHelper {
             LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
             LEFT JOIN `survey_unit_sessions` us ON  `survey_run_sessions`.current_unit_session_id = `us`.id
             WHERE {$where}
-            ORDER BY `survey_run_sessions`.session != :admin_code, `survey_run_sessions`.last_access DESC
+            ORDER BY `survey_run_sessions`.last_access DESC
             LIMIT $limits
         ";
 
+        $data = $this->db->execute($itemsQuery, $queryParams);
+        // pin the admin's own test session on top of the page instead of the
+        // unindexable ORDER BY (session != :admin_code) expression sort
+        if ($adminCode && $data) {
+            $pinned = $rest = array();
+            foreach ($data as $row) {
+                if ($row['session'] === $adminCode) {
+                    $pinned[] = $row;
+                } else {
+                    $rest[] = $row;
+                }
+            }
+            $data = array_merge($pinned, $rest);
+        }
+
         return array(
-            'data' => $this->db->execute($itemsQuery, $queryParams),
+            'data' => $data,
             'pagination' => $pagination,
         );
     }
@@ -210,8 +224,9 @@ class RunHelper {
             LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
             LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
             LEFT JOIN `survey_unit_sessions` us ON  `survey_run_sessions`.current_unit_session_id = `us`.id
-            WHERE `survey_run_sessions`.run_id = :run_id ORDER BY `survey_run_sessions`.session != :admin_code,`survey_run_sessions`.last_access DESC
+            WHERE `survey_run_sessions`.run_id = :run_id ORDER BY `survey_run_sessions`.last_access DESC
         ";
+        unset($queryParams['admin_code']);
         $stmt = $this->db->prepare($query);
         $stmt->execute($queryParams);
 
@@ -368,7 +383,11 @@ class RunHelper {
     }
 
     public function getPushMessageLogTable($params) {
-        $sql = "SELECT 
+        $count = $this->db->count('push_logs', array('run_id' => $params['run_id']));
+        $pagination = new Pagination($count, 50, true);
+        $limits = $pagination->getLimits();
+
+        $sql = "SELECT
                     pl.*,
                     sru.position as position_in_run,
                     pm.message as template_message,
@@ -376,19 +395,19 @@ class RunHelper {
                     pm.priority,
                     rs.session as `session`
                 FROM push_logs pl
-                LEFT JOIN survey_unit_sessions sus ON pl.unit_session_id = sus.id 
+                LEFT JOIN survey_unit_sessions sus ON pl.unit_session_id = sus.id
                 LEFT JOIN survey_run_sessions rs ON rs.id = sus.run_session_id
                 LEFT JOIN survey_run_units sru ON sus.unit_id = sru.unit_id AND sru.run_id = pl.run_id
                 LEFT JOIN push_messages pm ON sus.unit_id = pm.id
-                WHERE pl.run_id = :run_id 
-                ORDER BY pl.created DESC";
-                
+                WHERE pl.run_id = :run_id
+                ORDER BY pl.created DESC LIMIT {$limits}";
+
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
-        
+
         return array(
             'data' => $stmt->fetchAll(PDO::FETCH_ASSOC),
-            'pagination' => new Pagination($stmt->rowCount(), 50)
+            'pagination' => $pagination
         );
     }
 

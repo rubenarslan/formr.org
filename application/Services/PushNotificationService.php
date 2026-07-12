@@ -181,11 +181,22 @@ class PushNotificationService
         // the endpoint URL itself because json_encode escapes slashes
         // (`\/`) but JSON.stringify doesn't, so stored shapes vary.
         try {
+            // Resolve the (few) push_notification item ids first so the big
+            // survey_items_display table is ranged via id_idx(item_id) instead
+            // of full-scanned for the leading-wildcard LIKE.
+            $itemRows = $this->db->execute(
+                "SELECT id FROM survey_items WHERE type = 'push_notification'"
+            );
+            if (!$itemRows) {
+                return;
+            }
+            $itemIdList = implode(',', array_map(function ($r) {
+                return (int) $r['id'];
+            }, $itemRows));
             $rows = $this->db->execute(
                 "SELECT sid.id, sid.answer
                  FROM survey_items_display sid
-                 JOIN survey_items si ON si.id = sid.item_id
-                 WHERE si.type = 'push_notification'
+                 WHERE sid.item_id IN ($itemIdList)
                    AND sid.answer LIKE '%\"endpoint\"%'"
             );
             $matches = [];

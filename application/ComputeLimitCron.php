@@ -51,17 +51,24 @@ class ComputeLimitCron extends Cron {
      * previously compute-closed (so a removed/raised override still reopens).
      */
     private function candidateUsers(bool $defaultFinite, string $monthStart): array {
+        // The per-run month aggregate drives from us.created (indexed) so the
+        // hourly cron scans this month's unit sessions, not the full history;
+        // the run counters then join users×runs only (no session fan-out).
         $stmt = $this->db->prepare("
             SELECT u.id, u.email, u.first_name, u.last_name, u.compute_limit_monthly,
-                   COALESCE(SUM(CASE WHEN us.created >= :month_start
-                                     THEN us.execution_time END), 0) AS month_used,
+                   COALESCE(SUM(m.month_used), 0) AS month_used,
                    COUNT(DISTINCT CASE WHEN r.public > 0 THEN r.id END) AS open_runs,
                    COUNT(DISTINCT CASE WHEN r.compute_closed_from IS NOT NULL
                                        THEN r.id END) AS closed_runs
             FROM survey_users u
             JOIN survey_runs r ON r.user_id = u.id
-            LEFT JOIN survey_run_sessions rs ON rs.run_id = r.id
-            LEFT JOIN survey_unit_sessions us ON us.run_session_id = rs.id
+            LEFT JOIN (
+                SELECT rs.run_id, SUM(us.execution_time) AS month_used
+                FROM survey_unit_sessions us
+                JOIN survey_run_sessions rs ON rs.id = us.run_session_id
+                WHERE us.created >= :month_start AND us.execution_time IS NOT NULL
+                GROUP BY rs.run_id
+            ) m ON m.run_id = r.id
             WHERE :default_finite = 1
                OR u.compute_limit_monthly IS NOT NULL
                OR EXISTS (SELECT 1 FROM survey_runs rc
