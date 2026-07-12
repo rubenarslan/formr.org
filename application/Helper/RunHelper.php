@@ -229,19 +229,18 @@ class RunHelper {
         }
         unset($queryParams['position_operator']);
 
+        $query[] = ' `survey_run_units`.run_id = :run_id2 ';
+        $queryParams['run_id2'] = $queryParams['run_id'];
         $where = implode(' AND ', $query);
-        $count_query = "SELECT COUNT(`survey_unit_sessions`.id) AS count FROM `survey_unit_sessions` 
+
+        $count_query = "SELECT COUNT(`survey_unit_sessions`.id) AS count FROM `survey_unit_sessions`
 			LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-			LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.`unit_id` = `survey_run_units`.`unit_id`
+			LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.`unit_id` = `survey_run_units`.`unit_id` AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
             WHERE {$where}
         ";
         $count = $this->db->execute($count_query, $queryParams, true);
         $pagination = new Pagination($count, 200, true);
         $limits = $pagination->getLimits();
-
-        $query[] = ' `survey_runs`.id = :run_id2 ';
-        $queryParams['run_id2'] = $queryParams['run_id'];
-        $where = implode(' AND ', $query);
 
         $itemsQuery = "SELECT 
                 `survey_run_sessions`.session,
@@ -260,7 +259,7 @@ class RunHelper {
             FROM `survey_unit_sessions`
             LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
             LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
-            LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
+            LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
             LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
             WHERE {$where}
             ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC LIMIT {$limits}
@@ -353,8 +352,8 @@ class RunHelper {
             SELECT survey_runs.id AS run_id, name, survey_runs.user_id, cron_active, cron_fork, locked, count(survey_run_sessions.id) AS sessions, survey_users.email
 			FROM survey_runs 
 			LEFT JOIN survey_users ON survey_users.id = survey_runs.user_id 
-			LEFT JOIN survey_run_sessions ON survey_run_sessions.run_id = survey_runs.id 
-			GROUP BY survey_run_sessions.run_id
+			LEFT JOIN survey_run_sessions ON survey_run_sessions.run_id = survey_runs.id
+			GROUP BY survey_runs.id
             ORDER BY survey_runs.name ASC LIMIT $limits
         ";
         
