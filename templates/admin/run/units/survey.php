@@ -17,7 +17,7 @@
         <?php if ($survey && $survey->id): ?>
             <p>
                 <?= (int) $resultCount['finished'] ?> complete results,
-                <?= (int) $resultCount['begun'] ?> begun
+                <?= (int) $resultCount['begun'] ?> begun<?php if (!empty($geomMeanMinutes)): ?> <abbr class="hastooltip" title="Geometric mean of completion time (typical duration; robust to outliers)">(~ <?= $geomMeanMinutes ?>m typical)</abbr><?php endif; ?>
             </p>
             <?php if (!empty($expirationSettings)): ?>
                 <p class="text-muted">
