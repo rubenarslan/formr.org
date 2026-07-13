@@ -14,15 +14,40 @@
  */
 class RunMetrics {
 
-    /** Recompute every run's rollup row. Returns affected row count. */
+    /**
+     * Full ground-truth recompute of both rollups (run + study) — the nightly
+     * reconciliation / drift-correction pass and the migration seed. This is the
+     * only place that scans history; write-time hooks (survey start/complete)
+     * keep study response counts fresh between runs. Config-gated: an instance
+     * that does not watch compute can set `metrics_reconcile_enabled=false` to
+     * skip the scan entirely (its write-hooked study counts still self-maintain;
+     * only the run/compute rollup goes stale). No-op returns -1.
+     */
+    public static function reconcile(): int {
+        if (!Config::get('metrics_reconcile_enabled', true)) {
+            return -1;
+        }
+        $affected = self::reconcileRunMetrics();
+        StudyMetrics::reconcileAll();
+        return $affected;
+    }
+
+    /** @deprecated use reconcile(); retained so existing cron callers keep working. */
     public static function refresh(): int {
+        return self::reconcile();
+    }
+
+    /** Recompute every run's rollup row (session counts, compute sums, log counts). */
+    private static function reconcileRunMetrics(): int {
         $db = DB::getInstance();
         $sql = "
             INSERT INTO `survey_run_metrics`
-              (run_id, n_run_sessions, last_access, n_exec_sessions,
-               total_execution_time, month_execution_time, month_key, max_execution_time, last_activity)
+              (run_id, n_run_sessions, last_access, n_unit_sessions, n_push_logs, n_email_logs,
+               n_exec_sessions, total_execution_time, month_execution_time, month_key,
+               max_execution_time, last_activity)
             SELECT r.id,
                    COALESCE(rs.n_run_sessions, 0), rs.last_access,
+                   COALESCE(ua.n_unit_sessions, 0), COALESCE(pl.n_push_logs, 0), COALESCE(el.n_email_logs, 0),
                    COALESCE(us.n_exec_sessions, 0), COALESCE(us.total_time, 0),
                    COALESCE(us.month_time, 0), DATE_FORMAT(NOW(), '%Y-%m'),
                    us.max_time, us.last_activity
@@ -32,21 +57,37 @@ class RunMetrics {
                 FROM `survey_run_sessions` GROUP BY run_id
             ) rs ON rs.run_id = r.id
             LEFT JOIN (
-                SELECT rs2.run_id,
-                       COUNT(us2.id) AS n_exec_sessions,
-                       SUM(us2.execution_time) AS total_time,
-                       SUM(CASE WHEN us2.created >= DATE_FORMAT(NOW(), '%Y-%m-01')
-                                THEN us2.execution_time ELSE 0 END) AS month_time,
-                       MAX(us2.execution_time) AS max_time,
-                       MAX(us2.created) AS last_activity
-                FROM `survey_unit_sessions` us2
-                JOIN `survey_run_sessions` rs2 ON rs2.id = us2.run_session_id
-                WHERE us2.execution_time IS NOT NULL
+                SELECT rs2.run_id, COUNT(*) AS n_unit_sessions
+                FROM `survey_unit_sessions` us2 JOIN `survey_run_sessions` rs2 ON rs2.id = us2.run_session_id
                 GROUP BY rs2.run_id
+            ) ua ON ua.run_id = r.id
+            LEFT JOIN (
+                SELECT run_id, COUNT(*) AS n_push_logs FROM `push_logs` GROUP BY run_id
+            ) pl ON pl.run_id = r.id
+            LEFT JOIN (
+                SELECT rs3.run_id, COUNT(*) AS n_email_logs
+                FROM `survey_email_log` el3 JOIN `survey_unit_sessions` us3 ON us3.id = el3.session_id
+                JOIN `survey_run_sessions` rs3 ON rs3.id = us3.run_session_id
+                GROUP BY rs3.run_id
+            ) el ON el.run_id = r.id
+            LEFT JOIN (
+                SELECT rs4.run_id,
+                       COUNT(us4.id) AS n_exec_sessions,
+                       SUM(us4.execution_time) AS total_time,
+                       SUM(CASE WHEN us4.created >= DATE_FORMAT(NOW(), '%Y-%m-01')
+                                THEN us4.execution_time ELSE 0 END) AS month_time,
+                       MAX(us4.execution_time) AS max_time,
+                       MAX(us4.created) AS last_activity
+                FROM `survey_unit_sessions` us4
+                JOIN `survey_run_sessions` rs4 ON rs4.id = us4.run_session_id
+                WHERE us4.execution_time IS NOT NULL
+                GROUP BY rs4.run_id
             ) us ON us.run_id = r.id
             ON DUPLICATE KEY UPDATE
                 n_run_sessions = VALUES(n_run_sessions), last_access = VALUES(last_access),
-                n_exec_sessions = VALUES(n_exec_sessions), total_execution_time = VALUES(total_execution_time),
+                n_unit_sessions = VALUES(n_unit_sessions), n_push_logs = VALUES(n_push_logs),
+                n_email_logs = VALUES(n_email_logs), n_exec_sessions = VALUES(n_exec_sessions),
+                total_execution_time = VALUES(total_execution_time),
                 month_execution_time = VALUES(month_execution_time), month_key = VALUES(month_key),
                 max_execution_time = VALUES(max_execution_time), last_activity = VALUES(last_activity)
         ";
