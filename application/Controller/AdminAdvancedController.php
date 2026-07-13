@@ -63,6 +63,11 @@ class AdminAdvancedController extends AdminController {
             return;
         }
 
+        // The compute dashboards read the reconcile-maintained run rollup; on a
+        // superadmin view, freshen it if stale so recent compute (and any
+        // resulting over-limit closures) show up now, not at the nightly pass.
+        RunMetrics::reconcileIfStale();
+
         $this->setView('advanced/compute_usage', array(
             'totals' => ComputeUsageHelper::totalsForInstance(),
             'users' => ComputeUsageHelper::usageByUser(),

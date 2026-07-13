@@ -37,6 +37,29 @@ class RunMetrics {
         return self::reconcile();
     }
 
+    /**
+     * Freshen the run rollup on demand when it is older than $maxAgeSeconds —
+     * for the superadmin compute-usage dashboard, which must reflect recent
+     * compute (e.g. right after a heavy run) rather than wait for the nightly
+     * reconcile. Rarely-viewed tab, so one scan per view-burst is acceptable;
+     * the TTL dedupes rapid refreshes. Returns -1 (gate off), 0 (already fresh),
+     * or the reconciled row count. Reconciles run metrics only (what the
+     * dashboard reads) — study counts are kept fresh by their write hooks.
+     */
+    public static function reconcileIfStale(int $maxAgeSeconds = 30): int {
+        if (!Config::get('metrics_reconcile_enabled', true)) {
+            return -1;
+        }
+        $fresh = DB::getInstance()->execute(
+            "SELECT MAX(updated_at) >= (NOW() - INTERVAL :ttl SECOND) FROM survey_run_metrics",
+            ['ttl' => max(0, $maxAgeSeconds)], true
+        );
+        if ($fresh) {
+            return 0;
+        }
+        return self::reconcileRunMetrics();
+    }
+
     /** Recompute every run's rollup row (session counts, compute sums, log counts). */
     private static function reconcileRunMetrics(): int {
         $db = DB::getInstance();
