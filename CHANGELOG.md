@@ -16,6 +16,15 @@ never scan history; the only full scan is the nightly pass. See
 `documentation/agent_doc/write_time_metrics_plan.md`.
 
 ### Added
+- **Compute-limit enforcement now fully pauses a run** (issue #608). Closing a
+  run for exceeding the monthly compute limit set `public=0` but left cron
+  running, so in-flight sessions kept consuming compute. It now also pauses
+  `cron_active` (remembering the prior value in `survey_runs.compute_closed_cron_active`,
+  patch 070) and the reopen path restores both.
+- **Enforcement is visible in the admin UI.** The compute-usage tab shows an
+  "N runs paused" badge per over-limit user; the runs-management table gains a
+  Public column (lock/key/link/globe icon per level) and a "compute-paused"
+  badge for auto-paused runs.
 - **Geometric-mean survey completion time** — the "typical duration" line
   removed with the median hack in v1.6.0 (SQ-10) returns to the survey-unit
   dialog as `exp(mean(ln seconds))`, read O(1) from the study rollup. Unlike a
@@ -37,11 +46,17 @@ never scan history; the only full scan is the nightly pass. See
 - **Nightly reconcile (03:23) replaces the 30-minute refresh.** `RunMetrics::refresh()`
   → `reconcile()` (idempotent full recompute + drift correction), config-gated;
   the hourly compute-limit-cron refresh fallback is removed.
+- **The compute-usage dashboard reconciles on view when stale**
+  (`RunMetrics::reconcileIfStale`, TTL-gated), so recent compute and any
+  resulting over-limit closures show immediately rather than waiting for the
+  nightly pass — a rarely-viewed superadmin tab, so one scan per view-burst.
 
 ### Schema
 - **Patch 069:** new `survey_study_metrics` (per-study response counts +
   `sum_log_duration`/`n_durations` geometric-mean accumulator); `n_unit_sessions`/
   `n_push_logs`/`n_email_logs` on `survey_run_metrics`. Seeded by the first reconcile.
+- **Patch 070:** `survey_runs.compute_closed_cron_active` — remembers a run's
+  prior `cron_active` when the compute limiter pauses it (issue #608).
 
 ## [v1.6.0] - 12.07.2026
 
