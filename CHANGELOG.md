@@ -7,6 +7,42 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixes
 - **"Test Survey" no longer refuses the submit when the preview outlives its 15-minute token** (user-reported as "submission doesn't work for tested surveys"). The preview token minted by the admin "Test Survey" button expires after 15 minutes to bound how long a leaked link can start new previews — but the expiry check rejected *every* request, including the "Next"/"Finish" POST of a test already underway, so filling a survey for longer than 15 minutes ended in a 410 "Link expired" that silently discarded that page's answers (the pre-1.3.0 admin-session preview never expired mid-test). An expired-but-authentic token now *continues* a test that is already in flight in the same browser session (the `/survey-test/` session's `test_study_data` proves it started while the token was valid) and is still refused otherwise; finishing the test re-arms the refusal, so the replay window for leaked links is unchanged. Regression spec `tests/e2e/survey-test-token-expiry.spec.js` (red on the pre-fix controller); verified live end-to-end — answers POSTed after expiry are saved and the test finishes, while the same expired token in a fresh browser still gets 410.
 
+## [Unreleased] — feature/write-time-metrics (v1.7.0)
+
+Write-time metrics accounting — replaces v1.6.0's timer-driven rollup
+refresh (a full scan every 30 min) with counters maintained in the same
+transaction as the work, plus one nightly ground-truth reconcile. Reads
+never scan history; the only full scan is the nightly pass. See
+`documentation/agent_doc/write_time_metrics_plan.md`.
+
+### Added
+- **Geometric-mean survey completion time** — the "typical duration" line
+  removed with the median hack in v1.6.0 (SQ-10) returns to the survey-unit
+  dialog as `exp(mean(ln seconds))`, read O(1) from the study rollup. Unlike a
+  median it is incrementally maintainable (a running Σln + count), it is a
+  better central tendency for right-skewed durations, and it uses
+  `TIMESTAMPDIFF(SECOND, …)` — fixing the old raw datetime-subtraction bug too.
+- **`metrics_reconcile_enabled`** config flag (default true): an instance that
+  doesn't watch compute can disable the nightly reconcile scan; the write-hooked
+  study counts still self-maintain.
+
+### Changes
+- **`getResultCount` (SQ-11) reads a write-time study rollup** (`survey_study_metrics`),
+  maintained by hooks at survey start/complete — `begun/finished/testers/real_users`
+  are fresh without any scan. Scoped/filtered variants stay live; a study with no
+  rollup row yet falls back to a live count.
+- **Compute-usage dashboards, run/user lists, and the SQ-06/14/37 pagination
+  counts** read the reconcile-maintained run rollup. `ComputeLimitCron`
+  enforcement continues to read live, so rollup staleness never affects a quota.
+- **Nightly reconcile (03:23) replaces the 30-minute refresh.** `RunMetrics::refresh()`
+  → `reconcile()` (idempotent full recompute + drift correction), config-gated;
+  the hourly compute-limit-cron refresh fallback is removed.
+
+### Schema
+- **Patch 069:** new `survey_study_metrics` (per-study response counts +
+  `sum_log_duration`/`n_durations` geometric-mean accumulator); `n_unit_sessions`/
+  `n_push_logs`/`n_email_logs` on `survey_run_metrics`. Seeded by the first reconcile.
+
 ## [v1.6.0] - 12.07.2026
 
 Slow / inefficient MariaDB query audit and remediation (see
