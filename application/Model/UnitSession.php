@@ -504,7 +504,24 @@ class UnitSession extends Model {
             if ($unit->type == "Survey") {
                 $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
                 $params = array('session_id' => $this->id, 'study_id' => $unit->surveyStudy->id);
-                $this->db->exec($query, $params);
+                $ended_now = $this->db->exec($query, $params);
+
+                // Write-time hook: this UPDATE flips ended NULL→now exactly once
+                // (the `ended IS null` guard), so a non-zero row count is a real
+                // completion. Feed the study rollup (counts + geometric-mean
+                // duration, audit SQ-10/SQ-11). Best-effort.
+                if ($ended_now) {
+                    try {
+                        $rt = str_replace('`', '', $unit->surveyStudy->results_table);
+                        $seconds = (int) $this->db->execute(
+                            "SELECT TIMESTAMPDIFF(SECOND, `created`, `ended`) FROM `{$rt}` WHERE session_id = :sid AND study_id = :stid",
+                            array('sid' => $this->id, 'stid' => $unit->surveyStudy->id), true
+                        );
+                        StudyMetrics::onSurveyComplete((int) $unit->surveyStudy->id, $this->runSession->testing ?? null, $seconds);
+                    } catch (Exception $e) {
+                        formr_log_exception($e, 'StudyMetrics::onSurveyComplete');
+                    }
+                }
             }
             // Honour an explicit reason from the caller (e.g. the queue's
             // run-session-ended branch passes 'ended_by_queue_rse').
@@ -701,6 +718,14 @@ class UnitSession extends Model {
 
             $this->result = 'survey_started';
             $this->logResult();
+
+            // Write-time hook: keep the study response counts fresh (audit
+            // SQ-11). Best-effort — never let metrics accounting break a run.
+            try {
+                StudyMetrics::onSurveyStart((int) $study->id, $this->runSession->testing ?? null);
+            } catch (Exception $e) {
+                formr_log_exception($e, 'StudyMetrics::onSurveyStart');
+            }
         } else {
             $this->db->update($study->results_table, array('modified' => mysql_now()), $entry);
         }

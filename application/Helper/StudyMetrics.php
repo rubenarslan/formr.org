@@ -38,15 +38,17 @@ class StudyMetrics {
     public static function onSurveyComplete(int $studyId, $testing, int $seconds): void {
         $real = self::isReal($testing) ? 1 : 0;
         $slog = log(max($seconds, 1));
+        // VALUES(col) in the UPDATE clause avoids re-binding a named param twice
+        // (DB uses non-emulated prepares, which forbid duplicate placeholders).
         $db = DB::getInstance();
         $db->exec(
             "INSERT INTO `survey_study_metrics` (study_id, finished, begun, n_durations, sum_log_duration)
              VALUES (:sid, :fin, 0, 1, :slog)
              ON DUPLICATE KEY UPDATE
-                finished = finished + :fin,
-                begun = GREATEST(CAST(begun AS SIGNED) - :fin, 0),
-                n_durations = n_durations + 1,
-                sum_log_duration = sum_log_duration + :slog",
+                finished = finished + VALUES(finished),
+                begun = GREATEST(CAST(begun AS SIGNED) - VALUES(finished), 0),
+                n_durations = n_durations + VALUES(n_durations),
+                sum_log_duration = sum_log_duration + VALUES(sum_log_duration)",
             ['sid' => $studyId, 'fin' => $real, 'slog' => $slog]
         );
     }
@@ -55,7 +57,9 @@ class StudyMetrics {
     private static function bump(int $studyId, array $deltas): void {
         $cols = array_keys($deltas);
         $insertVals = implode(', ', array_map(fn($c) => ':' . $c, $cols));
-        $updates = implode(', ', array_map(fn($c) => "`$c` = `$c` + :$c", $cols));
+        // VALUES(col) in the UPDATE clause — a named param can't appear twice
+        // under non-emulated prepares.
+        $updates = implode(', ', array_map(fn($c) => "`$c` = `$c` + VALUES(`$c`)", $cols));
         $params = ['sid' => $studyId] + $deltas;
         DB::getInstance()->exec(
             "INSERT INTO `survey_study_metrics` (study_id, " . implode(', ', $cols) . ")
