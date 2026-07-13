@@ -10,9 +10,8 @@
 # Cleanup orphaned files at 03:15 o'clock
 15 3 * * * php /var/www/formr/bin/cron_cleanup_orphaned_files.php 1>&2
 
-# Refresh the per-run metrics rollup (slow-query audit 2026-07 §6.2) that backs
-# the compute-usage dashboards and admin run/user lists. Display-only, so a
-# half-hourly cadence is plenty; the hourly compute-limit cron also refreshes
-# it. Runs at :07/:37 — odd minutes, off the round marks where unit scheduling
-# and the other crons cluster, so the aggregation scan doesn't contend.
-7,37 * * * * php /var/www/formr/bin/cron_refresh_metrics.php 1>&2
+# Nightly reconciliation of the metrics rollups (write-time metrics accounting).
+# Write hooks keep study response counts fresh between runs; this is the only
+# full history scan, off-peak at 03:23. No-ops when metrics_reconcile_enabled
+# is false (an instance that doesn't watch compute).
+23 3 * * * php /var/www/formr/bin/cron_reconcile_metrics.php 1>&2
