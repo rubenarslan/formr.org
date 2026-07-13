@@ -85,10 +85,14 @@ class ComputeLimitCron extends Cron {
     private function closeUserRuns(array $row, float $used, float $limit): void {
         // Capture the names BEFORE the update so the email can name the studies.
         $names = $this->runNames("SELECT name FROM survey_runs WHERE user_id = :uid AND public > 0", $row['id']);
-        // Record each open run's level, then close it. Left-to-right assignment
-        // means public is read into compute_closed_from before it is zeroed.
+        // Record each open run's prior public level AND cron_active, then close
+        // it: public=0 (no new enrolment) and cron_active=0 (in-flight sessions
+        // stop accruing compute). Left-to-right SET assignment reads the prior
+        // values into the remembered columns before they are zeroed.
         $affected = $this->db->exec(
-            "UPDATE survey_runs SET compute_closed_from = public, public = 0
+            "UPDATE survey_runs
+                SET compute_closed_from = public, compute_closed_cron_active = cron_active,
+                    public = 0, cron_active = 0
              WHERE user_id = :uid AND public > 0",
             ['uid' => $row['id']]
         );
@@ -103,8 +107,14 @@ class ComputeLimitCron extends Cron {
 
     private function reopenUserRuns(array $row): void {
         $names = $this->runNames("SELECT name FROM survey_runs WHERE user_id = :uid AND compute_closed_from IS NOT NULL", $row['id']);
+        // Restore both public and cron_active to their pre-close values. COALESCE
+        // guards runs closed before compute_closed_cron_active existed (leave
+        // cron_active as-is for those).
         $affected = $this->db->exec(
-            "UPDATE survey_runs SET public = compute_closed_from, compute_closed_from = NULL
+            "UPDATE survey_runs
+                SET public = compute_closed_from,
+                    cron_active = COALESCE(compute_closed_cron_active, cron_active),
+                    compute_closed_from = NULL, compute_closed_cron_active = NULL
              WHERE user_id = :uid AND compute_closed_from IS NOT NULL",
             ['uid' => $row['id']]
         );
