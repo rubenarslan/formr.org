@@ -35,7 +35,7 @@ class SurveyTestController extends Controller {
         if ($parsed === null) {
             return; // verifyToken already emitted the error page
         }
-        list($studyName, $userId) = $parsed;
+        list($studyName, $userId, $expired) = $parsed;
 
         // Paged surveys (use_paging) navigate by a URL page segment:
         // /survey-test/<token>/<page>. Mirror RunController — surface that
@@ -56,6 +56,18 @@ class SurveyTestController extends Controller {
             return formr_error(404, 'Not found', 'This survey preview is no longer available.');
         }
 
+        // An expired token may only CONTINUE a test that is already in
+        // flight in this browser's /survey-test/ session — never start a
+        // new one. TOKEN_TTL bounds how long a (possibly leaked) link can
+        // mint fresh previews, but filling out a survey legitimately takes
+        // longer than any sane TTL: without this carve-out, the first
+        // "Next"/"Finish" POST after the 15-minute mark got the 410 below
+        // and silently discarded that page's answers (the pre-1.3.0
+        // admin-session preview never expired mid-test).
+        if ($expired && !$this->hasLiveTestSession($study)) {
+            return formr_error(410, 'Link expired', 'This survey preview link has expired. Open the survey again and click "Test Survey".');
+        }
+
         // Seed the test data the TEST_RUN exec reads (mirror of
         // AdminSurveyController::accessAction), in THIS request's own session
         // (cookie path /survey-test/, see determine_session_context()).
@@ -69,8 +81,7 @@ class SurveyTestController extends Controller {
         // unit-session creation with a PRG redirect, loop forever. A token for
         // a different study (or after the test finished and testStudy() cleared
         // the data) re-seeds as expected.
-        $existing = Session::get('test_study_data');
-        if (!is_array($existing) || (int) array_val($existing, 'study_id') !== (int) $study->id) {
+        if (!$this->hasLiveTestSession($study)) {
             Session::set('test_study_data', array(
                 'study_id' => $study->id,
                 'study_name' => $study->name,
@@ -117,8 +128,21 @@ class SurveyTestController extends Controller {
     }
 
     /**
-     * Decrypt + validate the preview token. Emits a 403/410 error page and
-     * returns null on a bad or expired token; otherwise array($name, $userId).
+     * Is a test of $study already in flight in THIS request's session?
+     * Run::testStudy() keeps the live test (incl. its unit_session_id)
+     * under 'test_study_data' and deletes it when the test finishes.
+     */
+    private function hasLiveTestSession($study) {
+        $existing = Session::get('test_study_data');
+        return is_array($existing) && (int) array_val($existing, 'study_id') === (int) $study->id;
+    }
+
+    /**
+     * Decrypt + validate the preview token. Emits a 403 error page and
+     * returns null on a forged or malformed token; otherwise
+     * array($name, $userId, $expired). Expiry is deliberately NOT fatal
+     * here — indexAction still honours an expired-but-authentic token when
+     * it merely continues a test session that is already in flight.
      */
     private function verifyToken($token) {
         $plain = $token ? Crypto::decrypt($token) : null;
@@ -132,10 +156,6 @@ class SurveyTestController extends Controller {
             return null;
         }
         list($studyName, $userId, $expires) = $parts;
-        if ((int) $expires < time()) {
-            formr_error(410, 'Link expired', 'This survey preview link has expired. Open the survey again and click "Test Survey".');
-            return null;
-        }
-        return array($studyName, (int) $userId);
+        return array($studyName, (int) $userId, (int) $expires < time());
     }
 }

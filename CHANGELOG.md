@@ -2,6 +2,11 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Fixes
+- **"Test Survey" no longer refuses the submit when the preview outlives its 15-minute token** (user-reported as "submission doesn't work for tested surveys"). The preview token minted by the admin "Test Survey" button expires after 15 minutes to bound how long a leaked link can start new previews — but the expiry check rejected *every* request, including the "Next"/"Finish" POST of a test already underway, so filling a survey for longer than 15 minutes ended in a 410 "Link expired" that silently discarded that page's answers (the pre-1.3.0 admin-session preview never expired mid-test). An expired-but-authentic token now *continues* a test that is already in flight in the same browser session (the `/survey-test/` session's `test_study_data` proves it started while the token was valid) and is still refused otherwise; finishing the test re-arms the refusal, so the replay window for leaked links is unchanged. Regression spec `tests/e2e/survey-test-token-expiry.spec.js` (red on the pre-fix controller); verified live end-to-end — answers POSTed after expiry are saved and the test finishes, while the same expired token in a fresh browser still gets 410.
+
 ## [v1.6.0] - 12.07.2026
 
 Slow / inefficient MariaDB query audit and remediation (see
@@ -76,7 +81,6 @@ remaining tail is low/fine-at-current-volume or a by-design no-op
 
 ### Schema
 - `sql/patches/062_unit_session_execution_time_index.sql` — adds covering index `idx_uxec_compute (run_session_id, execution_time, created)` on `survey_unit_sessions` so the compute-usage dashboards aggregate index-only.
-
 
 ## [v1.3.1] - 21.06.2026
 
