@@ -99,6 +99,23 @@ class RunMetrics {
         return date('Y-m');
     }
 
+    /**
+     * Read a single reconcile-maintained count column for a run (SQ-06/14/37
+     * pagination), or null when the run has no rollup row yet — caller falls
+     * back to a live COUNT. Reconcile-fresh (nightly); tolerant of day-staleness.
+     */
+    public static function count(int $runId, string $col): ?int {
+        $allowed = ['n_run_sessions', 'n_unit_sessions', 'n_push_logs', 'n_email_logs'];
+        if (!in_array($col, $allowed, true)) {
+            throw new InvalidArgumentException("RunMetrics::count unknown column {$col}");
+        }
+        $val = DB::getInstance()->execute(
+            "SELECT `{$col}` FROM `survey_run_metrics` WHERE run_id = :rid",
+            ['rid' => $runId], true
+        );
+        return $val === false || $val === null ? null : (int) $val;
+    }
+
     /** Per-user compute across the instance (SQ-16 usageByUser). */
     public static function usageByUser(): array {
         $stmt = DB::getInstance()->prepare("

@@ -65,13 +65,20 @@ class StudyMetrics {
         );
     }
 
-    /** Read: begun/finished/testers/real_users for a study (0s if no row yet). */
-    public static function counts(int $studyId): array {
+    /**
+     * Read: begun/finished/testers/real_users for a study, or null when the
+     * study has no rollup row yet (caller falls back to a live count — cheap,
+     * since a study with no row has never been reconciled or started).
+     */
+    public static function counts(int $studyId): ?array {
         $row = DB::getInstance()->execute(
             "SELECT begun, finished, testers, real_users FROM `survey_study_metrics` WHERE study_id = :sid",
             ['sid' => $studyId], false, true
         );
-        return $row ?: ['begun' => 0, 'finished' => 0, 'testers' => 0, 'real_users' => 0];
+        if (!$row) {
+            return null;
+        }
+        return array_map('intval', $row);
     }
 
     /** Read: geometric-mean completion duration in seconds, or null if none. */

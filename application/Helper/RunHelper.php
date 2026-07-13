@@ -248,12 +248,20 @@ class RunHelper {
         $queryParams['run_id2'] = $queryParams['run_id'];
         $where = implode(' AND ', $query);
 
-        $count_query = "SELECT COUNT(`survey_unit_sessions`.id) AS count FROM `survey_unit_sessions`
-			LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-			LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.`unit_id` = `survey_run_units`.`unit_id` AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
-            WHERE {$where}
-        ";
-        $count = $this->db->execute($count_query, $queryParams, true);
+        // Unfiltered pagination count comes from the reconcile-maintained rollup
+        // (audit SQ-06); a session/position filter needs the live filtered count.
+        $count = null;
+        if (empty($queryParams['session']) && empty($queryParams['position'])) {
+            $count = RunMetrics::count((int) $queryParams['run_id'], 'n_unit_sessions');
+        }
+        if ($count === null) {
+            $count_query = "SELECT COUNT(`survey_unit_sessions`.id) AS count FROM `survey_unit_sessions`
+                LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+                LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.`unit_id` = `survey_run_units`.`unit_id` AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
+                WHERE {$where}
+            ";
+            $count = $this->db->execute($count_query, $queryParams, true);
+        }
         $pagination = new Pagination($count, 200, true);
         $limits = $pagination->getLimits();
 
@@ -313,14 +321,18 @@ class RunHelper {
     }
 
     public function getEmailLogTable($queryParams) {
-        $count_query = "
-            SELECT COUNT(`survey_email_log`.id) AS count
-            FROM `survey_email_log`
-            LEFT JOIN `survey_unit_sessions` ON `survey_unit_sessions`.id = `survey_email_log`.session_id 
-            LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
-            WHERE `survey_run_sessions`.run_id = :run_id
-        ";
-        $count = $this->db->execute($count_query, $queryParams, true);
+        // reconcile-maintained per-run email-log count (audit SQ-37), live fallback
+        $count = RunMetrics::count((int) $queryParams['run_id'], 'n_email_logs');
+        if ($count === null) {
+            $count_query = "
+                SELECT COUNT(`survey_email_log`.id) AS count
+                FROM `survey_email_log`
+                LEFT JOIN `survey_unit_sessions` ON `survey_unit_sessions`.id = `survey_email_log`.session_id
+                LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
+                WHERE `survey_run_sessions`.run_id = :run_id
+            ";
+            $count = $this->db->execute($count_query, $queryParams, true);
+        }
         $pagination = new Pagination($count, 75, true);
         $limits = $pagination->getLimits();
 
@@ -384,7 +396,11 @@ class RunHelper {
     }
 
     public function getPushMessageLogTable($params) {
-        $count = $this->db->count('push_logs', array('run_id' => $params['run_id']));
+        // reconcile-maintained per-run push-log count (audit SQ-14), live fallback
+        $count = RunMetrics::count((int) $params['run_id'], 'n_push_logs');
+        if ($count === null) {
+            $count = $this->db->count('push_logs', array('run_id' => $params['run_id']));
+        }
         $pagination = new Pagination($count, 50, true);
         $limits = $pagination->getLimits();
 

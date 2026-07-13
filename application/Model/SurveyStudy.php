@@ -1094,10 +1094,19 @@ class SurveyStudy extends Model
 
     public function getResultCount($run_id = null, $filter = array())
     {
-        // Serve the unscoped count from cache (admin pages request it several
-        // times per action); scoped/filtered variants always hit the DB
-        if ($this->result_count !== null && !$filter && !$run_id) {
-            return $this->result_count;
+        // Unscoped count comes from the write-time study rollup (audit SQ-11):
+        // fresh via the survey start/complete hooks, O(1) read. Per-object cache
+        // dedupes repeat calls; scoped/filtered variants always hit the DB live.
+        if (!$filter && !$run_id) {
+            if ($this->result_count !== null) {
+                return $this->result_count;
+            }
+            if ($this->id && ($rollup = StudyMetrics::counts((int) $this->id)) !== null) {
+                $this->result_count = $rollup;
+                return $rollup;
+            }
+            // no rollup row yet (brand-new study) — fall through to the live
+            // query below, which is cheap for a study with little/no data
         }
 
         $count = array('finished' => 0, 'begun' => 0, 'testers' => 0, 'real_users' => 0);
@@ -1138,6 +1147,21 @@ class SurveyStudy extends Model
         }
 
         return $count;
+    }
+
+    /**
+     * Geometric-mean completion duration in minutes, or null if no completions
+     * (audit SQ-10 replacement). Read O(1) from the write-time study rollup:
+     * EXP(mean(ln seconds)) — maintainable incrementally where a median is not,
+     * and a better central tendency for right-skewed completion times.
+     */
+    public function getGeometricMeanDurationMinutes()
+    {
+        if (!$this->id) {
+            return null;
+        }
+        $seconds = StudyMetrics::geometricMeanSeconds((int) $this->id);
+        return $seconds === null ? null : round($seconds / 60, 1);
     }
 
     public function delete()
