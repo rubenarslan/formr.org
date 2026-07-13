@@ -378,7 +378,9 @@ class RunHelper {
         // session count comes from the maintained per-run rollup (audit SQ-13)
         // instead of a live GROUP BY over the whole survey_run_sessions table
         $itemsQuery = "
-            SELECT survey_runs.id AS run_id, name, survey_runs.user_id, cron_active, cron_fork, locked, COALESCE(m.n_run_sessions, 0) AS sessions, survey_users.email
+            SELECT survey_runs.id AS run_id, name, survey_runs.user_id, cron_active, cron_fork, locked,
+                   survey_runs.public, survey_runs.compute_closed_from,
+                   COALESCE(m.n_run_sessions, 0) AS sessions, survey_users.email
 			FROM survey_runs
 			LEFT JOIN survey_users ON survey_users.id = survey_runs.user_id
 			LEFT JOIN survey_run_metrics m ON m.run_id = survey_runs.id

@@ -66,7 +66,7 @@
                                           $eff = ComputeUsageHelper::effectiveLimit($u['compute_limit_monthly']);
                                           $tripped = $eff > 0 && (float)$u['month_time'] >= $eff; ?>
                                     <tr<?= $tripped ? ' class="danger"' : '' ?>>
-                                        <td><?= h($u['email']) ?></td>
+                                        <td><?= h($u['email']) ?><?php if (!empty($u['paused_runs'])): ?> <span class="label label-danger hastooltip" title="Runs auto-paused by the monthly compute limiter (non-public + cron paused) until usage drops back under the limit"><i class="fa fa-pause"></i> <?= (int)$u['paused_runs'] ?> run<?= (int)$u['paused_runs'] === 1 ? '' : 's' ?> paused</span><?php endif; ?></td>
                                         <td class="text-right"><?= number_format((int)$u['n_runs']) ?></td>
                                         <td class="text-right"><?= number_format((int)$u['n_sessions']) ?></td>
                                         <td class="text-right"><?= h(ComputeUsageHelper::formatDuration($u['month_time'])) ?></td>
