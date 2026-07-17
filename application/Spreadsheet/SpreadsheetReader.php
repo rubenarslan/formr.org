@@ -771,6 +771,18 @@ class SpreadsheetReader
                         $this->errors[] = __("Row %s: Variable name '%s' already appeared in row %s", $rowNumber, $cellValue, $existingRow);
                     }
                 } elseif ($colName == 'type') {
+                    // A separate `type_options` column carries exactly what used to be
+                    // written after the first space of the `type` cell. Fold it back in
+                    // before splitting, so both spellings go through the one parser below
+                    // and a named choice list is recognised either way.
+                    if ($cellValue !== '' && ($optionsColumn = array_search('type_options', $columns, true)) !== false) {
+                        $optionsCoordinate = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($optionsColumn) . $rowNumber;
+                        $optionsValue = trim(hardTrueFalse(Normalizer::normalize((string) $worksheet->getCell($optionsCoordinate)->getValue(), Normalizer::FORM_C)));
+                        if ($optionsValue !== '') {
+                            $cellValue .= ' ' . $optionsValue;
+                        }
+                    }
+
                     if (mb_strpos($cellValue, ' ') !== false) {
                         $typeOptions = explode(' ', trim(preg_replace('/\s+/', ' ', $cellValue))); // get real type and options
                         $type = $typeOptions[0];
@@ -797,9 +809,10 @@ class SpreadsheetReader
                             }
                             unset($typeOptions[1]);
                         }
-                        if (!isset($data[$rowNumber]['type_options']) || trim((string) $data[$rowNumber]['type_options']) === '') {
-                            $data[$rowNumber]['type_options'] = implode(' ', $typeOptions);
-                        }
+                        // Unconditional: any `type_options` column value is already merged
+                        // into $cellValue above, so what is left here is authoritative even
+                        // when that column sits to the left of `type` and was read first.
+                        $data[$rowNumber]['type_options'] = implode(' ', $typeOptions);
                         $cellValue = $type;
                     }
 
