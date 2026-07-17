@@ -535,20 +535,17 @@ class Run extends Model
 
     public function reorder($positions)
     {
-        // Audit F10/F12 (2026-07): validate before writing. Position 0
-        // bricks a run for new participants (getFirstPosition truthiness),
-        // and duplicate positions make traversal non-deterministic (two
-        // unordered LIMIT-1 lookups can disagree). Reject the whole batch
-        // atomically rather than persist a broken structure. Patch 064
-        // adds a UNIQUE(run_id, position) backstop; this keeps the error
-        // user-facing instead of a raw 23000.
+        // Audit F10/F12 (2026-07): validate before writing. Duplicate positions
+        // make traversal non-deterministic (two unordered LIMIT-1 lookups can
+        // disagree) and patch 064's UNIQUE(run_id, position) would reject them
+        // with a raw 23000 — surface a clear message instead. Any single
+        // integer position is otherwise legal: 0 is a valid slot (a unit there
+        // must start the run, not brick it — the null-checks elsewhere in the
+        // engine handle that) and negative positions are occasionally used, so
+        // only duplicates within the batch are rejected.
         $seen = [];
         foreach ($positions as $run_unit_id => $pos) {
             $pos = (int) $pos;
-            if ($pos < 1) {
-                $this->errors[] = "Position must be a positive number (unit {$run_unit_id} got {$pos}).";
-                return false;
-            }
             if (isset($seen[$pos])) {
                 $this->errors[] = "Two units share position {$pos}; positions must be unique.";
                 return false;
@@ -556,20 +553,61 @@ class Run extends Model
             $seen[$pos] = true;
         }
 
-        $run_unit_id = null;
-        $pos = null;
-        $update = "UPDATE `survey_run_units` SET position = :position WHERE run_id = :run_id AND id = :run_unit_id";
+        // Two-phase apply so a permutation that transiently reuses a live
+        // position (a swap, a rotation) doesn't trip the UNIQUE key. InnoDB
+        // checks UNIQUE per row *within* a statement (no deferred constraints),
+        // and for a cyclic permutation no row order — and no single CASE
+        // UPDATE — avoids a transient duplicate. So park every affected row in
+        // a band strictly above every position currently in the run AND every
+        // requested target (guaranteeing the parked values collide with
+        // neither the not-yet-moved rows in phase 1 nor the finals in phase 2),
+        // then write the finals. Two batched UPDATEs, one transaction.
+        if (!$positions) {
+            return true;
+        }
+        $ids = array_map('intval', array_keys($positions));
+        $targets = array_map('intval', array_values($positions));
+        $currentMax = (int) $this->db->execute(
+            "SELECT COALESCE(MAX(position), 0) FROM survey_run_units WHERE run_id = :rid",
+            ['rid' => $this->id], true
+        );
+        $base = max(max($targets), $currentMax) + 1;
+
         $this->db->beginTransaction();
         try {
-            $reorder = $this->db->prepare($update);
-            $reorder->bindParam(':run_id', $this->id);
-            $reorder->bindParam(':run_unit_id', $run_unit_id);
-            $reorder->bindParam(':position', $pos);
-
-            foreach ($positions as $run_unit_id => $pos) {
-                $pos = (int) $pos;
-                $reorder->execute();
+            // Phase 1: park each affected row at base, base+1, … (all distinct,
+            // all above every real/target position). Keyed by id via a CASE so
+            // it is a single statement.
+            $parkCases = '';
+            $rank = 0;
+            $parkParams = ['rid' => $this->id];
+            foreach ($ids as $i => $ruid) {
+                $parkCases .= " WHEN :pid{$i} THEN :ppos{$i}";
+                $parkParams["pid{$i}"] = $ruid;
+                $parkParams["ppos{$i}"] = $base + $rank;
+                $rank++;
             }
+            $idList = implode(',', $ids); // $ids is already int-cast
+            $this->db->exec(
+                "UPDATE `survey_run_units` SET position = CASE id{$parkCases} END
+                 WHERE run_id = :rid AND id IN ({$idList})",
+                $parkParams
+            );
+
+            // Phase 2: write the requested final positions.
+            $finalCases = '';
+            $finalParams = ['rid' => $this->id];
+            foreach ($ids as $i => $ruid) {
+                $finalCases .= " WHEN :fid{$i} THEN :fpos{$i}";
+                $finalParams["fid{$i}"] = $ruid;
+                $finalParams["fpos{$i}"] = $targets[$i];
+            }
+            $this->db->exec(
+                "UPDATE `survey_run_units` SET position = CASE id{$finalCases} END
+                 WHERE run_id = :rid AND id IN ({$idList})",
+                $finalParams
+            );
+
             $this->db->commit();
         } catch (Exception $e) {
             $this->db->rollBack();
