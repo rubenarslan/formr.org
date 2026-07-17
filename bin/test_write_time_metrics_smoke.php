@@ -100,5 +100,31 @@ try {
     $failures++;
 }
 
+try {
+    // ── D: destructive gates read live, never the rollup ─────────────────────
+    // A stale/partial survey_study_metrics row must NOT be able to talk
+    // hasData()/hasRealData()/deleteResults() into skipping a backup or
+    // recreating a results table that still holds data. Poison the rollup to
+    // zeros, assert the gates still see the real rows, then reconcile back.
+    echo "\n== D: destructive gates use live counts ==\n";
+    $db->exec("UPDATE survey_study_metrics
+               SET begun=0, finished=0, testers=0, real_users=0
+               WHERE study_id = :sid", ['sid' => $sid]);
+    $study = new SurveyStudy($sid);
+    $display = $study->getResultCount();
+    eqf((int) $display['real_users'], 0, 'display path serves the (poisoned) rollup');
+    $fresh = new SurveyStudy($sid); // no cache carry-over from the display call
+    $liveCount = $fresh->getResultCountLive();
+    eqf((int) $liveCount['real_users'], (int) $live['real_users'], 'getResultCountLive matches ground truth');
+    $hasData = new ReflectionMethod('SurveyStudy', 'hasData');
+    $hasData->setAccessible(true);
+    ok($hasData->invoke(new SurveyStudy($sid)) === true, 'hasData() gate sees live data despite zeroed rollup');
+    RunMetrics::reconcile(); // heal the poisoned row back to ground truth
+    eqf(StudyMetrics::counts($sid), $base, 'reconcile restores rollup after gate test');
+} catch (Throwable $e) {
+    fwrite(STDERR, "D ERROR: " . $e->getMessage() . "\n");
+    $failures++;
+}
+
 echo "\n" . ($failures === 0 ? "\e[32mALL PASSED\e[0m\n" : "\e[31m{$failures} FAILURE(S)\e[0m\n");
 exit($failures === 0 ? 0 : 1);
