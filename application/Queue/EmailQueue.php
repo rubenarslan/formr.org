@@ -18,11 +18,66 @@ use PHPMailer\PHPMailer\PHPMailer;
 class EmailQueue extends Queue {
     const STATUS_QUEUED = 0;
     const STATUS_SENT = 1;
+    // Inline (Email::sendNow) in-flight claim. Deliberately NOT 0: the daemon
+    // polls `status = 0` (getEmailAccountsStatement/getEmailsStatement below),
+    // and a claim it can see during the inline SMTP window gets sent a second
+    // time (review 2026-07, F21 follow-up). See claimSyncSend().
+    const STATUS_SENDING = 2;
     const STATUS_INVALID_ATTACHMENT = -5;
     const STATUS_INVALID_SENDER = -5;
     const STATUS_INVALID_RECIPIENT = -4;
     const STATUS_INVALID_SUBJECT = -3;
     const STATUS_FAILED_TO_SEND = -2;
+
+    /**
+     * Claim an INLINE (non-queued) send before touching SMTP — the audit row
+     * doubles as the idempotency claim (UNIQUE idempotency_key), inserted at
+     * STATUS_SENDING so the daemon's status=0 poll can never pick it up
+     * mid-send and double-deliver.
+     *
+     * @param array $fields subject, session_id, email_id, message, recipient,
+     *                      account_id, idempotency_key
+     * @return string 'own'     — fresh claim, or an orphaned in-flight /
+     *                            previously-failed row: the caller owns the
+     *                            send (flip to STATUS_SENT on success, delete
+     *                            the STATUS_SENDING row on failure)
+     *                'handled' — the row is already STATUS_SENT, or
+     *                            STATUS_QUEUED (the daemon owns it): the
+     *                            caller must NOT send inline
+     */
+    public static function claimSyncSend(array $fields): string {
+        $db = DB::getInstance();
+        $affected = $db->exec(
+            "INSERT INTO `survey_email_log`
+                (`subject`, `status`, `session_id`, `email_id`, `message`, `recipient`, `created`, `account_id`, `idempotency_key`)
+             VALUES
+                (:subject, " . self::STATUS_SENDING . ", :session_id, :email_id, :message, :recipient, :created, :account_id, :idempotency_key)
+             ON DUPLICATE KEY UPDATE `id` = `id`",
+            [
+                'subject'         => $fields['subject'],
+                'session_id'      => $fields['session_id'],
+                'email_id'        => $fields['email_id'],
+                'message'         => $fields['message'],
+                'recipient'       => $fields['recipient'],
+                'created'         => mysql_datetime(),
+                'account_id'      => (int) $fields['account_id'],
+                'idempotency_key' => $fields['idempotency_key'],
+            ]
+        );
+        if ($affected === 1) {
+            return 'own'; // fresh claim
+        }
+        // A row with this idempotency_key already exists — decide by its state.
+        $status = $db->findValue('survey_email_log', ['idempotency_key' => $fields['idempotency_key']], 'status');
+        if ($status !== false && $status !== null
+            && in_array((int) $status, [self::STATUS_SENT, self::STATUS_QUEUED], true)) {
+            return 'handled';
+        }
+        // Orphaned STATUS_SENDING claim (crash between claim and Send) or a
+        // failed prior attempt: adopt it and deliver — favour delivery over a
+        // silent drop.
+        return 'own';
+    }
 
 
     /**

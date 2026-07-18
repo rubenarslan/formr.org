@@ -305,28 +305,22 @@ class Email extends RunUnit {
         // so a crash between $mail->Send() and the audit write cannot
         // permit a duplicate send on retry. The claim row IS the log row
         // (idempotency_key = "email:{unit_session}:{email_id}", the same
-        // UNIQUE key queueNow uses). affected = 1 → fresh claim, we own
-        // the send; affected = 0 → a prior attempt already claimed it,
-        // so treat as sent and do NOT re-send.
+        // UNIQUE key queueNow uses). Claimed at STATUS_SENDING — NOT 0 —
+        // because the mail daemon polls status=0 and would otherwise pick
+        // the claim up during the SMTP window and send the same email a
+        // second time (use_queue=false host with the daemon running).
+        // 'handled' = the row is already SENT, or QUEUED (daemon owns it).
         $idempotency_key = "email:{$unitSession->id}:{$this->id}";
-        $claimed = $this->db->exec(
-            "INSERT INTO `survey_email_log`
-                (`subject`, `status`, `session_id`, `email_id`, `message`, `recipient`, `created`, `account_id`, `idempotency_key`)
-             VALUES
-                (:subject, 0, :session_id, :email_id, :message, :recipient, :created, :account_id, :idempotency_key)
-             ON DUPLICATE KEY UPDATE `id` = `id`",
-            [
-                'subject'         => $subject,
-                'session_id'      => $unitSession->id,
-                'email_id'        => $this->id,
-                'message'         => $body,
-                'recipient'       => $this->recipient,
-                'created'         => mysql_datetime(),
-                'account_id'      => (int) $this->account_id,
-                'idempotency_key' => $idempotency_key,
-            ]
-        );
-        if ($claimed === 0) {
+        $claim = EmailQueue::claimSyncSend([
+            'subject'         => $subject,
+            'session_id'      => $unitSession->id,
+            'email_id'        => $this->id,
+            'message'         => $body,
+            'recipient'       => $this->recipient,
+            'account_id'      => (int) $this->account_id,
+            'idempotency_key' => $idempotency_key,
+        ]);
+        if ($claim === 'handled') {
             $this->mail_sent = true;
             return true;
         }
@@ -354,16 +348,18 @@ class Email extends RunUnit {
 
         if ($mail->Send()) {
             $this->mail_sent = true;
-            // Mark the claim row sent for the audit trail.
+            // Mark the claim row sent for the audit trail (sent stamp
+            // mirrors the daemon's logResult).
             $this->db->exec(
-                "UPDATE `survey_email_log` SET `status` = 1 WHERE `idempotency_key` = :k LIMIT 1",
+                "UPDATE `survey_email_log` SET `status` = " . EmailQueue::STATUS_SENT . ", `sent` = NOW()
+                 WHERE `idempotency_key` = :k LIMIT 1",
                 ['k' => $idempotency_key]
             );
         } else {
             // Release the claim so a later retry can send (the failure
-            // was delivery, not a duplicate). Only drop OUR unsent claim.
+            // was delivery, not a duplicate). Only drop OUR in-flight claim.
             $this->db->exec(
-                "DELETE FROM `survey_email_log` WHERE `idempotency_key` = :k AND `status` = 0 LIMIT 1",
+                "DELETE FROM `survey_email_log` WHERE `idempotency_key` = :k AND `status` = " . EmailQueue::STATUS_SENDING . " LIMIT 1",
                 ['k' => $idempotency_key]
             );
             alert('Email with the subject "' . h($mail->Subject) . '" was not sent to ' . h($this->recipient) . ':<br>' . $mail->ErrorInfo, 'alert-danger');
