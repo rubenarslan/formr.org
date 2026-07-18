@@ -124,8 +124,16 @@ class RunMetrics {
 
     /**
      * Read a single reconcile-maintained count column for a run (SQ-06/14/37
-     * pagination), or null when the run has no rollup row yet — caller falls
+     * pagination), or null when there is no usable rollup value — caller falls
      * back to a live COUNT. Reconcile-fresh (nightly); tolerant of day-staleness.
+     *
+     * A value of 0 is treated like a missing row: patch 068 seeded a rollup
+     * row for every existing run and patch 069 added these columns DEFAULT 0
+     * with no backfill, so 0 is indistinguishable from "never reconciled" —
+     * served as-is it blanked every admin email/push/user-detail table until
+     * the first nightly pass (forever with metrics_reconcile_enabled=false).
+     * The fallback live COUNT is cheap when the run is genuinely empty, and
+     * correct-at-pre-rollup-cost when the zero is stale.
      */
     public static function count(int $runId, string $col): ?int {
         $allowed = ['n_run_sessions', 'n_unit_sessions', 'n_push_logs', 'n_email_logs'];
@@ -136,7 +144,7 @@ class RunMetrics {
             "SELECT `{$col}` FROM `survey_run_metrics` WHERE run_id = :rid",
             ['rid' => $runId], true
         );
-        return $val === false || $val === null ? null : (int) $val;
+        return $val === false || $val === null || (int) $val === 0 ? null : (int) $val;
     }
 
     /** Per-user compute across the instance (SQ-16 usageByUser). */
