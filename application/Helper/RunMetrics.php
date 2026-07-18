@@ -157,7 +157,8 @@ class RunMetrics {
                    ROUND(SUM(CASE WHEN m.month_key = :month_key
                                   THEN m.month_execution_time ELSE 0 END), 1) AS month_time,
                    (SELECT COUNT(*) FROM survey_runs r2
-                     WHERE r2.user_id = u.id AND r2.compute_closed_from IS NOT NULL) AS paused_runs
+                     WHERE r2.user_id = u.id AND r2.compute_closed_from IS NOT NULL
+                       AND r2.public = 0 AND r2.cron_active = 0) AS paused_runs
             FROM survey_users u
             JOIN survey_runs r ON r.user_id = u.id
             JOIN survey_run_metrics m ON m.run_id = r.id AND m.n_exec_sessions > 0

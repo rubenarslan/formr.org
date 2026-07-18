@@ -21,11 +21,23 @@ never scan history; the only full scan is the nightly pass. See
 `documentation/agent_doc/write_time_metrics_plan.md`.
 
 ### Added
-- **Compute-limit enforcement now fully pauses a run** (issue #608). Closing a
-  run for exceeding the monthly compute limit set `public=0` but left cron
-  running, so in-flight sessions kept consuming compute. It now also pauses
-  `cron_active` (remembering the prior value in `survey_runs.compute_closed_cron_active`,
-  patch 070) and the reopen path restores both.
+- **Compute-limit enforcement now fully pauses a run — as a hard stop** (issue
+  #608; hard-stop semantics ported from `feature/form_v2` commit `65a80b44`).
+  Closing a run for exceeding the monthly compute limit set `public=0` but left
+  cron running, so in-flight sessions kept consuming compute — and the close
+  never reached non-public runs whose daemon was still on (`public=0,
+  cron_active=1`), which burn compute the limiter could not stop (the daemon
+  pickup never checks `public`). The close now targets every still-ACTIVE run
+  (`public > 0 OR cron_active = 1`) and sets `public = 0 AND cron_active = 0`,
+  recording the prior state in `compute_closed_from` /
+  `compute_closed_cron_active` (patch 070) as a COALESCE-protected audit trail
+  that re-closes never clobber. Compute-closed runs are **not reopened
+  automatically**: crossing the limit is a hard stop the owner clears
+  deliberately (republish + re-enable cron in the run settings); the
+  `reopenUserRuns` path and the `compute-limit-restored` email are gone, and
+  the "compute-paused" badge/count only shows while a marked run is still fully
+  closed. Regression smoke `bin/test_compute_limit_smoke.php` (red pre-port:
+  the cron-only run stayed running and under-limit passes auto-reopened runs).
 - **Enforcement is visible in the admin UI.** The compute-usage tab shows an
   "N runs paused" badge per over-limit user; the runs-management table gains a
   Public column (lock/key/link/globe icon per level) and a "compute-paused"

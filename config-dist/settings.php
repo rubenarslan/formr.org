@@ -332,10 +332,11 @@ $settings['keep_study_data_for_months_maximum'] = 84;
 // in SECONDS of unit-session execution time (incl. OpenCPU/R) summed across
 // all their runs in the current calendar month. 0 = unlimited (the default,
 // so nothing is limited out of the box). When a user exceeds their effective
-// limit, ComputeLimitCron sets their public runs non-public until usage drops
-// back under the limit (typically when the month rolls over). A superadmin
-// can override this per user via survey_users.compute_limit_monthly; users
-// cannot change their own limit.
+// limit, ComputeLimitCron sets their active runs non-public and disables their
+// automatic actions (cron_active = 0). Compute-closed runs are NOT reopened
+// automatically — the owner must republish them (and re-enable cron) once usage
+// is addressed. A superadmin can override this per user via
+// survey_users.compute_limit_monthly; users cannot change their own limit.
 $settings['compute_limit_monthly_default'] = 0;
 
 // Notification settings for sending notifications to study administrators about issues with their study in minutes

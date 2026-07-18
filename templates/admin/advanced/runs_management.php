@@ -43,11 +43,15 @@
                                         );
                                         ?>
                                         <?php while ($row = $pdoStatement->fetch(PDO::FETCH_ASSOC)): ?>
-                                            <?php $paused = $row['compute_closed_from'] !== null;
+                                            <?php // hard stop: badge only while the run is still fully closed — the
+                                                  // marker is a permanent audit trail, but once the owner republishes
+                                                  // or re-enables cron the run is no longer compute-paused
+                                                  $paused = $row['compute_closed_from'] !== null
+                                                      && (int) $row['public'] === 0 && (int) $row['cron_active'] === 0;
                                                   $pi = $publicIcons[(int) $row['public']] ?? $publicIcons[0]; ?>
                                             <tr<?= $paused ? ' class="warning"' : '' ?>>
                                                 <td><?= $row['run_id'] ?></td>
-                                                <td><?= $row['name'] ?><?php if ($paused): ?> <span class="label label-warning hastooltip" title="Auto-paused by the monthly compute limiter (non-public + cron off); reopens when usage drops back under the limit"><i class="fa fa-pause"></i> compute-paused</span><?php endif; ?></td>
+                                                <td><?= $row['name'] ?><?php if ($paused): ?> <span class="label label-warning hastooltip" title="Auto-paused by the monthly compute limiter (non-public + cron off); NOT reopened automatically — the owner must republish and re-enable cron"><i class="fa fa-pause"></i> compute-paused</span><?php endif; ?></td>
                                                 <td><?= $row['email'] ?></td>
                                                 <td class="text-right"><?= $row['sessions'] ?></td>
                                                 <td class="text-center"><i class="fa <?= $pi[0] ?> <?= $pi[1] ?> hastooltip" title="<?= h($pi[2]) ?>"></i></td>

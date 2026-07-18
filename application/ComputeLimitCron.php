@@ -8,12 +8,20 @@
  * 0 = unlimited; >0 = a budget in seconds. Usage = SUM(execution_time) over all the
  * user's unit sessions in the current calendar month.
  *
- * Over limit  -> set every still-public run of that user to public=0, remembering the
- *                prior level in survey_runs.compute_closed_from, and email them once.
- * Under limit -> restore any run we previously compute-closed (public = compute_closed_from)
- *                and email them once. This is what reopens runs when the month rolls over.
+ * Over limit -> for every still-ACTIVE run of that user (public > 0, or non-public
+ *               but with automatic actions still enabled, cron_active = 1), set
+ *               public = 0 AND cron_active = 0 (stop the run daemon from executing
+ *               its unit sessions — the source of the compute we're throttling),
+ *               remember the prior public/cron state in compute_closed_from /
+ *               compute_closed_cron_active, and email them once. A non-public run
+ *               whose daemon is still running keeps spending compute, so it is
+ *               closed too (the daemon pickup never checks `public`).
  *
- * Runs the owner closed by hand (compute_closed_from IS NULL) are never touched.
+ * Compute-closed runs are NEVER auto-reopened (hard stop, not a bouncing gate;
+ * ported from form_v2 65a80b44). Crossing the limit is a stop the owner must clear
+ * deliberately: republish the study and re-enable cron in the run settings once
+ * usage is addressed (or a higher limit is arranged). The compute_closed_* columns
+ * are retained purely as an audit trail of the state the run had when auto-closed.
  */
 class ComputeLimitCron extends Cron {
     protected $name = 'Formr.ComputeLimitCron';
@@ -29,12 +37,10 @@ class ComputeLimitCron extends Cron {
                 $limit = ($override !== null) ? (float) $override : $default;
                 $used = (float) $row['month_used'];
 
-                if ($limit > 0 && $used >= $limit) {
-                    if ((int) $row['open_runs'] > 0) {
-                        $this->closeUserRuns($row, $used, $limit);
-                    }
-                } elseif ((int) $row['closed_runs'] > 0) {
-                    $this->reopenUserRuns($row);
+                // Over budget with runs still active -> close them. Under budget is a
+                // no-op: compute-closed runs stay closed until the owner reopens them.
+                if ($limit > 0 && $used >= $limit && (int) $row['active_runs'] > 0) {
+                    $this->closeUserRuns($row, $used, $limit);
                 }
             }
         } finally {
@@ -46,20 +52,20 @@ class ComputeLimitCron extends Cron {
     }
 
     /**
-     * Owners who could be affected this run: when the global default is finite,
-     * every run owner; otherwise only those with a per-user override or a run we
-     * previously compute-closed (so a removed/raised override still reopens).
+     * Owners who could be closed this run: when the global default is finite,
+     * every run owner; otherwise only those with a per-user override. (Under-limit
+     * users are a no-op — nothing is reopened — so the previous "has a
+     * compute-closed run" candidacy clause is gone.)
      */
     private function candidateUsers(bool $defaultFinite, string $monthStart): array {
         // The per-run month aggregate drives from us.created (indexed) so the
         // hourly cron scans this month's unit sessions, not the full history;
-        // the run counters then join users×runs only (no session fan-out).
+        // the run counter then joins users×runs only (no session fan-out).
         $stmt = $this->db->prepare("
             SELECT u.id, u.email, u.first_name, u.last_name, u.compute_limit_monthly,
                    COALESCE(SUM(m.month_used), 0) AS month_used,
-                   COUNT(DISTINCT CASE WHEN r.public > 0 THEN r.id END) AS open_runs,
-                   COUNT(DISTINCT CASE WHEN r.compute_closed_from IS NOT NULL
-                                       THEN r.id END) AS closed_runs
+                   COUNT(DISTINCT CASE WHEN r.public > 0 OR r.cron_active = 1
+                                       THEN r.id END) AS active_runs
             FROM survey_users u
             JOIN survey_runs r ON r.user_id = u.id
             LEFT JOIN (
@@ -71,8 +77,6 @@ class ComputeLimitCron extends Cron {
             ) m ON m.run_id = r.id
             WHERE :default_finite = 1
                OR u.compute_limit_monthly IS NOT NULL
-               OR EXISTS (SELECT 1 FROM survey_runs rc
-                          WHERE rc.user_id = u.id AND rc.compute_closed_from IS NOT NULL)
             GROUP BY u.id, u.email, u.first_name, u.last_name, u.compute_limit_monthly
         ");
         $stmt->execute([
@@ -83,17 +87,24 @@ class ComputeLimitCron extends Cron {
     }
 
     private function closeUserRuns(array $row, float $used, float $limit): void {
-        // Capture the names BEFORE the update so the email can name the studies.
-        $names = $this->runNames("SELECT name FROM survey_runs WHERE user_id = :uid AND public > 0", $row['id']);
-        // Record each open run's prior public level AND cron_active, then close
-        // it: public=0 (no new enrolment) and cron_active=0 (in-flight sessions
-        // stop accruing compute). Left-to-right SET assignment reads the prior
-        // values into the remembered columns before they are zeroed.
+        // "Active" = still accepting participants (public > 0) OR still running the
+        // daemon (cron_active = 1); a non-public run whose cron is on keeps spending
+        // compute, so it is closed too. Capture names BEFORE the update for the email.
+        $activeWhere = "user_id = :uid AND (public > 0 OR cron_active = 1)";
+        $names = $this->runNames("SELECT name FROM survey_runs WHERE {$activeWhere}", $row['id']);
+        // Record each run's prior public/cron state, then close it AND disable its
+        // automatic actions so the run daemon stops executing its unit sessions —
+        // where the compute is spent. Left-to-right SET assignment reads the prior
+        // values before they are zeroed; the COALESCEs keep the ORIGINAL audit
+        // markers if a partially-reopened run (owner re-enabled only cron) is
+        // re-closed. Fully-closed runs don't match, so they are never re-stamped.
+        // Not auto-reopened: the owner must republish (and re-enable cron) by hand.
         $affected = $this->db->exec(
             "UPDATE survey_runs
-                SET compute_closed_from = public, compute_closed_cron_active = cron_active,
+                SET compute_closed_from = COALESCE(compute_closed_from, public),
+                    compute_closed_cron_active = COALESCE(compute_closed_cron_active, cron_active),
                     public = 0, cron_active = 0
-             WHERE user_id = :uid AND public > 0",
+             WHERE {$activeWhere}",
             ['uid' => $row['id']]
         );
         if (!$affected) {
@@ -103,28 +114,6 @@ class ComputeLimitCron extends Cron {
             . "({$row['email']}); used " . round($used) . "s of " . round($limit) . "s", 'CRON_INFO');
         $this->notify($row, 'email/compute-limit-reached.ftpl',
             'formr: studies paused — monthly compute limit reached', $used, $limit, $names);
-    }
-
-    private function reopenUserRuns(array $row): void {
-        $names = $this->runNames("SELECT name FROM survey_runs WHERE user_id = :uid AND compute_closed_from IS NOT NULL", $row['id']);
-        // Restore both public and cron_active to their pre-close values. COALESCE
-        // guards runs closed before compute_closed_cron_active existed (leave
-        // cron_active as-is for those).
-        $affected = $this->db->exec(
-            "UPDATE survey_runs
-                SET public = compute_closed_from,
-                    cron_active = COALESCE(compute_closed_cron_active, cron_active),
-                    compute_closed_from = NULL, compute_closed_cron_active = NULL
-             WHERE user_id = :uid AND compute_closed_from IS NOT NULL",
-            ['uid' => $row['id']]
-        );
-        if (!$affected) {
-            return;
-        }
-        formr_log("ComputeLimitCron: reopened {$affected} run(s) for user {$row['id']} "
-            . "({$row['email']}) — back under monthly compute limit", 'CRON_INFO');
-        $this->notify($row, 'email/compute-limit-restored.ftpl',
-            'formr: studies reopened — compute usage back under limit', 0, 0, $names);
     }
 
     /** Names of the runs matched by $query (bound :uid), for the notification email. */
