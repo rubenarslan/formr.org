@@ -321,7 +321,13 @@ $settings['run_session'] = array(
     'lock_timeout' => array(
         'queue' => 0.1,  // Queue should fail fast (0.1 seconds)
         'user' => 10.0   // Users can wait longer (10 seconds)
-    )
+    ),
+    // Maximum automated units executed back-to-back in ONE request. Exceeding
+    // it halts the request WITHOUT ending the run session (a misconfigured
+    // skip cycle stays cheap per request; a genuine catch-up continues on the
+    // next request). If your design legitimately chains more automated units,
+    // raise this.
+    'max_execution_count' => 10,
 );
 
 // How long to keep study data, i.e. what is the maxmimum expiry that can be set in a run

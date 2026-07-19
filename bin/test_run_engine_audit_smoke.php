@@ -84,10 +84,13 @@ try {
     $pU1 = mkUnit($db, $ids, 'Pause'); $pU2 = mkUnit($db, $ids, 'Pause');
     $pRU1 = mkPlacement($db, $ids, $pU1, 10); $pRU2 = mkPlacement($db, $ids, $pU2, 20);
     ok($run->reorder([$pRU1 => 30, $pRU2 => 30]) === false, 'reorder rejects duplicate positions');
-    ok($run->reorder([$pRU1 => 0, $pRU2 => 40]) === false, 'reorder rejects position 0');
-    ok($run->reorder([$pRU1 => -5, $pRU2 => 40]) === false, 'reorder rejects negative position');
-    $stillPos = (int) $db->execute('SELECT position FROM survey_run_units WHERE id=:i', ['i' => $pRU1], true);
-    eq($stillPos, 10, 'rejected reorder wrote nothing (position unchanged)');
+    // Review 2026-07 item 2 (45a9411e): 0 and negative positions are VALID —
+    // legacy runs use 0 and negatives were historically allowed; only
+    // duplicates within a batch are rejected.
+    ok($run->reorder([$pRU1 => 0, $pRU2 => 40]) === true, 'reorder accepts position 0');
+    eq((int) $db->execute('SELECT position FROM survey_run_units WHERE id=:i', ['i' => $pRU1], true), 0, 'position 0 persisted');
+    ok($run->reorder([$pRU1 => -5, $pRU2 => 40]) === true, 'reorder accepts negative positions');
+    eq((int) $db->execute('SELECT position FROM survey_run_units WHERE id=:i', ['i' => $pRU1], true), -5, 'negative position persisted');
     ok($run->reorder([$pRU1 => 15, $pRU2 => 25]) === true, 'reorder accepts distinct positive positions');
     eq((int) $db->execute('SELECT position FROM survey_run_units WHERE id=:i', ['i' => $pRU1], true), 15, 'valid reorder persisted');
 

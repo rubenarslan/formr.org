@@ -40,21 +40,20 @@ class RunSession extends Model {
     protected $positionedUnitIds = [];
     /** @var array Cache for survey_run_units.id keyed by position */
     protected $positionedRunUnitIds = [];
-    /** Maximum number of recursions to happen during a run session execution; */
+    /** Default automated-unit ceiling per request; override via the
+     * run_session.max_execution_count config. Exceeding it HALTS the request
+     * (empty body, formr_log) without ending the run session — a misconfigured
+     * skip cycle stays cheap and bounded per request, and no participant is
+     * ever ejected irreversibly (review 2026-07, item 10: the earlier
+     * per-position revisit + 200-execution two-tier design made the loop
+     * verdict unreachable for cycles spanning >40 positions, letting them
+     * burn ~200 executions per daemon poll forever). */
     const MAX_EXECUTION_COUNT = 10;
-    // Audit F11 (2026-07): a single position visited more than this many
-    // times in one request is a genuine loop (spam). The absolute ceiling
-    // caps a legitimate monotonic forward cascade (daemon-outage catch-up)
-    // without ending the run session.
-    const MAX_POSITION_REVISITS = 5;
-    const MAX_CASCADE_COUNT = 200;
     /**
      * Current number of execution counts while recursive
      * @var int
      */
     protected $executionCount = 0;
-    /** Audit F11: per-position visit tally within a single request. */
-    protected $visitedPositions = [];
 
     /**
      * A RunSession should always be initiated with a Run and a User
@@ -277,28 +276,17 @@ class RunSession extends Model {
                 return redirect_to(run_url($this->run->name, 'logout', ['prev' => $this->session]));
             }
             
-            // Audit F11 (2026-07): distinguish a pathological loop from a
-            // legitimate long forward cascade. A misconfigured run
-            // (SkipBackward cycle) revisits the SAME position over and
-            // over — that is spam and must end. A daemon-outage catch-up
-            // advances monotonically through many DISTINCT positions in
-            // one request — that is not spam; ending the run session
-            // irreversibly ejected participants whose only fault was
-            // missing a few diary cycles. Track per-position visits: a
-            // position seen too many times => loop => spam(); otherwise
-            // just halt THIS request at an absolute ceiling and let the
-            // next request continue from the advanced position.
-            if ($this->position !== null) {
-                $this->visitedPositions[$this->position] = ($this->visitedPositions[$this->position] ?? 0) + 1;
-            }
-            if ($this->executionCount > self::MAX_EXECUTION_COUNT) {
-                if ($this->maxPositionRevisits() > self::MAX_POSITION_REVISITS) {
-                    return $this->spam();
-                }
-                if ($this->executionCount > self::MAX_CASCADE_COUNT) {
-                    formr_log("Run session {$this->id}: forward cascade hit MAX_CASCADE_COUNT at position {$this->position} (likely daemon-outage catch-up); halting request without ending the run session.");
-                    return ['body' => ''];
-                }
+            // Execution ceiling (review 2026-07, item 10): more than
+            // max_execution_count automated units in ONE request is either a
+            // misconfigured skip cycle or an unusually long catch-up cascade.
+            // Either way: HALT this request without ending the run session —
+            // a loop stays cheap and bounded per request (and is visible in
+            // the error log), a genuine catch-up simply continues from the
+            // advanced position on the next request. Nothing is ended
+            // irreversibly (the old spam() ejection is gone).
+            if ($this->executionCount > $this->maxExecutionCount()) {
+                formr_log("Run session {$this->id}: exceeded run_session.max_execution_count ({$this->maxExecutionCount()}) at position {$this->position}; halting request without ending the run session. If this recurs, the run structure likely contains an automated-unit loop.");
+                return ['body' => ''];
             }
 
             if ($this->run->isStudyTest()) {
@@ -369,8 +357,8 @@ class RunSession extends Model {
                 // spam() would end the run session irreversibly for what is
                 // an engine-side fault.
                 $this->executionCount++;
-                if ($this->executionCount >= self::MAX_EXECUTION_COUNT) {
-                    formr_log("Run session {$this->id}: recovery loop at position {$this->position} exceeded MAX_EXECUTION_COUNT; aborting request without ending the run session.");
+                if ($this->executionCount >= $this->maxExecutionCount()) {
+                    formr_log("Run session {$this->id}: recovery loop at position {$this->position} exceeded run_session.max_execution_count; aborting request without ending the run session.");
                     alert(__('Temporary problem executing this study. Please try again in a moment.'), 'alert-warning');
                     return ['body' => ''];
                 }
@@ -827,17 +815,9 @@ class RunSession extends Model {
         return false;
     }
     
-    protected function maxPositionRevisits() {
-        return $this->visitedPositions ? max($this->visitedPositions) : 0;
-    }
-
-    public function spam() {
-        $this->debug('SPAM');
-        $this->endCurrentUnitSession('spam_' . $this->executionCount);
-        $this->end();
-
-        alert('This session is spamming us. Please fix your run definition', 'alert-danger');
-        return ['body' => 'FORMR_SPAM'];
+    /** Automated-unit ceiling per request (see MAX_EXECUTION_COUNT). */
+    protected function maxExecutionCount(): int {
+        return (int) Config::get('run_session.max_execution_count', self::MAX_EXECUTION_COUNT);
     }
 
     public function setTestingStatus($status = 0) {
