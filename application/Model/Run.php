@@ -1198,9 +1198,24 @@ class Run extends Model
         return $this->name === self::TEST_RUN;
     }
 
+    /**
+     * Which study this TEST_RUN instance previews. Set by
+     * SurveyTestController (the only TEST_RUN driver) from the identity the
+     * preview token carries, so the session slot below is keyed PER STUDY —
+     * two previews in two tabs no longer clobber each other's in-flight
+     * test state (review 2026-07, item 17).
+     */
+    public $test_study_id = null;
+
+    /** Per-study session key for the in-flight preview state. */
+    private function testStudyKey()
+    {
+        return 'test_study_data_' . (int) $this->test_study_id;
+    }
+
     private function testStudy()
     {
-        if (!($data = Session::get('test_study_data'))) {
+        if (!($data = Session::get($this->testStudyKey()))) {
             formr_error(404, 'Not Found', 'Nothing to Test-Drive');
         }
 
@@ -1213,7 +1228,7 @@ class Run extends Model
         if (!isset($data['unit_session_id'])) {
             $runSession->createUnitSession($runUnit);
             $data['unit_session_id'] = $runSession->currentUnitSession->id;
-            Session::set('test_study_data', $data);
+            Session::set($this->testStudyKey(), $data);
         } else {
             $unitSession = new UnitSession($runSession, $runUnit, ['id' => $data['unit_session_id'], 'load' => true]);
             $runSession->currentUnitSession = $unitSession;
@@ -1229,7 +1244,7 @@ class Run extends Model
 					<a href='" . admin_study_url($data['study_name']) . "'>Back to the admin control panel.</a>"
             ];
 
-            Session::delete('test_study_data');
+            Session::delete($this->testStudyKey());
         }
 
         return compact("output", "runSession");
