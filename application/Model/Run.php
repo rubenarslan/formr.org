@@ -838,11 +838,24 @@ class Run extends Model
      */
     public function sendReminder($reminder_id, $session, $run_session_id)
     {
-        $emailSession = $this->getReminderSession($reminder_id, $session, $run_session_id);
-        $result = $emailSession->execute();
-        if ($emailSession->id) {
-            $emailSession->end();
+        // Review 2026-07 (item 9): fail SOFT on any session-creation failure.
+        // A stale/deleted reminder id makes RunUnitFactory::make throw
+        // (RuntimeException: no unit type), and a DB error / non-adoptable
+        // UNIQUE collision makes createUnitSession install NULL — either way
+        // ->execute() then fataled, 500ing the single-reminder button and
+        // aborting whole bulk-reminder requests on the first bad session.
+        // Callers already alert on false and bulk loops continue.
+        try {
+            $emailSession = $this->getReminderSession($reminder_id, $session, $run_session_id);
+        } catch (Throwable $e) {
+            formr_log_exception($e, __METHOD__, ['reminder_id' => $reminder_id, 'run_session_id' => $run_session_id]);
+            return false;
         }
+        if (!$emailSession || !$emailSession->id) {
+            return false;
+        }
+        $result = $emailSession->execute();
+        $emailSession->end();
         return $result === false ? false : $emailSession;
     }
 
