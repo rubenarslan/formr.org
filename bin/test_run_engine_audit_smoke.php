@@ -10,8 +10,8 @@
  *
  * Covers: patch 064 (UNIQUE run_id,position), F10/F12 (reorder validation),
  * F1 (reminder-hijack placement guard + current-session resolution),
- * F2 (ended-terminal write guard), F13 (POST↔session binding), F17/F18
- * (Shuffle idempotency + stability), F20 (endLastExternal newest-only),
+ * F2 (ended-terminal write guard), F13 (POST↔session binding), F17
+ * (Shuffle idempotency; F18 stability reverted by design), F20 (endLastExternal newest-only),
  * F4 (queue-deadline revalidation).
  *
  * Usage:  docker exec formr_app php bin/test_run_engine_audit_smoke.php
@@ -158,10 +158,14 @@ try {
     // idempotent: re-running getUnitSessionOutput on the SAME session must not throw and keep the group
     $shuffle->getUnitSessionOutput($shUS1);
     eq((int) $db->execute('SELECT `group` FROM shuffle WHERE session_id=:i', ['i' => $shUS1->id], true), $g1, 'F17: re-run keeps same group, no dup-key crash');
-    // stability: a SECOND unit session (SkipBackward revisit) reuses the group
+    // Review 2026-07 item 12: F18's cross-visit stability was REVERTED per
+    // the maintainer — each revisit (new unit session) re-randomizes by
+    // design; keep the Shuffle out of the loop for constant groups. Assert
+    // only that a second visit draws independently and in range.
     $shUS2 = new UnitSession($shSess, $shuffle); $shUS2->create(); $ids['unit_sessions'][] = $shUS2->id;
     $shuffle->getUnitSessionOutput($shUS2);
-    eq((int) $db->execute('SELECT `group` FROM shuffle WHERE session_id=:i', ['i' => $shUS2->id], true), $g1, 'F18: revisit reuses the participant group');
+    $g2 = (int) $db->execute('SELECT `group` FROM shuffle WHERE session_id=:i', ['i' => $shUS2->id], true);
+    ok($g2 >= 1 && $g2 <= 4, 'revisit drew its own valid group (re-randomizes by design)');
 
     // ── F20: endLastExternal ends only the newest live External ──────────
     echo "\n== F20: endLastExternal newest-only ==\n";
