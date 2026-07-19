@@ -1563,15 +1563,24 @@ class Run extends Model
             // transaction) gives a clean terminal state; on their next
             // request the recovery branch advances them from their numeric
             // position through the NEW structure instead.
+            // Scope by the RUN, not the placement (review 2026-07, item 13):
+            // when the whole structure is wiped, EVERY live session of this
+            // run's participants dangles — including legacy rows whose
+            // run_unit_id is NULL (pre-047, and the 048 backfill's
+            // intentional NULLs), which the old INNER JOIN on run_unit_id
+            // could never match and therefore left live to resume spliced
+            // onto the new structure. The ru arm keeps covering stray
+            // stamped rows without a run session.
             $this->db->exec(
                 "UPDATE `survey_unit_sessions` us
-                 JOIN `survey_run_units` ru ON ru.id = us.run_unit_id
+                 LEFT JOIN `survey_run_sessions` rs ON rs.id = us.run_session_id
+                 LEFT JOIN `survey_run_units` ru ON ru.id = us.run_unit_id
                  SET us.`expired` = NOW(), us.`queued` = 0,
                      us.`result` = COALESCE(us.`result`, 'run_structure_replaced'),
                      us.`state` = :state
-                 WHERE ru.run_id = :run_id
+                 WHERE (rs.run_id = :run_id OR ru.run_id = :run_id2)
                    AND us.`ended` IS NULL AND us.`expired` IS NULL",
-                ['run_id' => $this->id, 'state' => UnitSessionQueue::STATE_EXPIRED]
+                ['run_id' => $this->id, 'run_id2' => $this->id, 'state' => UnitSessionQueue::STATE_EXPIRED]
             );
 
             // 1. Wipe the existing structure for this run.

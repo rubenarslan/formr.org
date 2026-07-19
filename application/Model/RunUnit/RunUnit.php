@@ -208,14 +208,26 @@ class RunUnit extends Model {
         if (!$this->run_unit_id) {
             return 0;
         }
+        // Legacy arm (review 2026-07, item 13): pre-047 rows and the 048
+        // backfill's intentional NULLs carry run_unit_id NULL, which the
+        // equality above can never match — they'd survive the unlink live
+        // and resume spliced. Match them by unit within this run (the same
+        // D1 fallback convention used across the engine).
         return $this->db->exec(
-            "UPDATE `survey_unit_sessions`
-             SET `expired` = NOW(), `queued` = 0,
-                 `result` = COALESCE(`result`, 'unit_removed_from_run'),
-                 `state` = :state
-             WHERE `run_unit_id` = :run_unit_id
-               AND `ended` IS NULL AND `expired` IS NULL",
-            ['run_unit_id' => $this->run_unit_id, 'state' => UnitSessionQueue::STATE_EXPIRED]
+            "UPDATE `survey_unit_sessions` us
+             LEFT JOIN `survey_run_sessions` rs ON rs.id = us.run_session_id
+             SET us.`expired` = NOW(), us.`queued` = 0,
+                 us.`result` = COALESCE(us.`result`, 'unit_removed_from_run'),
+                 us.`state` = :state
+             WHERE us.`ended` IS NULL AND us.`expired` IS NULL
+               AND (us.`run_unit_id` = :run_unit_id
+                    OR (us.`run_unit_id` IS NULL AND us.`unit_id` = :unit_id AND rs.run_id = :run_id))",
+            [
+                'run_unit_id' => $this->run_unit_id,
+                'unit_id'     => $this->id,
+                'run_id'      => $this->run ? $this->run->id : 0, // no run context -> legacy arm matches nothing
+                'state'       => UnitSessionQueue::STATE_EXPIRED,
+            ]
         );
     }
 
