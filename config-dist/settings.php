@@ -272,8 +272,18 @@ $settings['encryption_key_file'] = null;
 // Before using this, make sure xsendfile is installed and configured correctly with apache
 $settings['use_xsendfile'] = true;
 
-// Reserved run names which users are not allowed to use
-$settings['reserved_run_names'] = array('api', 'test', 'delegate');
+// Reserved run names which users are not allowed to use. Must cover every
+// top-level router slug (setup.php routes): in path-based (non-subdomain)
+// deployments the router matches the first URL segment against the route
+// table BEFORE falling through to "treat it as a run name" — a run claiming
+// a slug like `survey-test` would be unreachable (participants get the
+// preview controller's 403 instead of the study). isReservedName() blocks
+// the name and its `name-*` prefixes, case-insensitively.
+$settings['reserved_run_names'] = array(
+    'api', 'test', 'delegate',
+    'admin', 'run', 'public', 'survey-test',
+    'formr-test-run', // Run::TEST_RUN, the internal preview pseudo-run
+);
 
 // Flag indicating whether formr is in maintenance mode
 // If this is set to true, then users will see a maintenance message and cron jobs will not run
