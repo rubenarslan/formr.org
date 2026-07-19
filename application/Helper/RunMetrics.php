@@ -5,12 +5,22 @@
  * full survey_run_sessions / survey_unit_sessions history on every dashboard or
  * admin-list view (slow-query audit 2026-07 §6.2 — SQ-13/16/17/18/21).
  *
- * Backs read-only display only. ComputeLimitCron enforcement keeps reading live,
- * so bounded staleness here never affects a quota/close decision. refresh() is a
- * single INSERT..SELECT..ON DUPLICATE KEY UPDATE over all runs (O(one scan) per
- * refresh instead of O(one scan) per page view); the FK cascade drops rows for
- * deleted runs. Reads LEFT JOIN the rollup, so a run created since the last
- * refresh simply reads as 0 until the next pass.
+ * Ownership split (review 2026-07, item 7):
+ *  - month_execution_time / month_key are WRITE-TIME-OWNED: bumped by
+ *    addMonthExecution() from UnitSession::addExecutionTime on every execute()
+ *    pass, so "this month's compute" attributes to the month the work HAPPENED
+ *    (a lifetime-cumulative execution_time filtered by us.created attributed a
+ *    long-lived session's entire burn to its creation month — recurring
+ *    recheck-loop compute escaped every later month's budget). History cannot
+ *    reproduce this split, so the reconcile PRESERVES the bucket within the
+ *    current month and only zeroes it at month rollover. ComputeLimitCron
+ *    enforcement reads this bucket — fresh by construction (written in the
+ *    same breath as the underlying data), unlike the reconcile-owned columns.
+ *  - Everything else is RECONCILE-OWNED: recomputable from history, refreshed
+ *    nightly, display-only; bounded staleness never affects a quota decision.
+ * The FK cascade drops rows for deleted runs. Reads LEFT JOIN the rollup, so a
+ * run created since the last refresh simply reads as 0 until the next pass
+ * (or until its first addMonthExecution upsert creates the row).
  */
 class RunMetrics {
 
@@ -60,7 +70,12 @@ class RunMetrics {
         return self::reconcileRunMetrics();
     }
 
-    /** Recompute every run's rollup row (session counts, compute sums, log counts). */
+    /** Recompute every run's reconcile-owned rollup columns (session counts,
+     * lifetime compute sums, log counts). The month bucket is write-time-owned
+     * (addMonthExecution): the reconcile PRESERVES it while month_key is
+     * current and only zeroes it at month rollover — history cannot reproduce
+     * the executed-this-month split, so recomputing it here would clobber the
+     * only correct copy with a created-date approximation. */
     private static function reconcileRunMetrics(): int {
         $db = DB::getInstance();
         $sql = "
@@ -72,7 +87,7 @@ class RunMetrics {
                    COALESCE(rs.n_run_sessions, 0), rs.last_access,
                    COALESCE(ua.n_unit_sessions, 0), COALESCE(pl.n_push_logs, 0), COALESCE(el.n_email_logs, 0),
                    COALESCE(us.n_exec_sessions, 0), COALESCE(us.total_time, 0),
-                   COALESCE(us.month_time, 0), DATE_FORMAT(NOW(), '%Y-%m'),
+                   0, DATE_FORMAT(NOW(), '%Y-%m'),
                    us.max_time, us.last_activity
             FROM `survey_runs` r
             LEFT JOIN (
@@ -97,8 +112,6 @@ class RunMetrics {
                 SELECT rs4.run_id,
                        COUNT(us4.id) AS n_exec_sessions,
                        SUM(us4.execution_time) AS total_time,
-                       SUM(CASE WHEN us4.created >= DATE_FORMAT(NOW(), '%Y-%m-01')
-                                THEN us4.execution_time ELSE 0 END) AS month_time,
                        MAX(us4.execution_time) AS max_time,
                        MAX(us4.created) AS last_activity
                 FROM `survey_unit_sessions` us4
@@ -111,15 +124,45 @@ class RunMetrics {
                 n_unit_sessions = VALUES(n_unit_sessions), n_push_logs = VALUES(n_push_logs),
                 n_email_logs = VALUES(n_email_logs), n_exec_sessions = VALUES(n_exec_sessions),
                 total_execution_time = VALUES(total_execution_time),
-                month_execution_time = VALUES(month_execution_time), month_key = VALUES(month_key),
+                -- month bucket is write-time-owned: keep it while the month is
+                -- current, zero it at rollover (compare BEFORE month_key is
+                -- restamped on the next line — assignments run left to right)
+                month_execution_time = CASE WHEN month_key = VALUES(month_key)
+                                            THEN month_execution_time ELSE 0 END,
+                month_key = VALUES(month_key),
                 max_execution_time = VALUES(max_execution_time), last_activity = VALUES(last_activity)
         ";
         return $db->exec($sql);
     }
 
     /** Current-month key ('YYYY-MM'); month_execution_time is only valid for this. */
-    protected static function monthKey(): string {
+    public static function monthKey(): string {
         return date('Y-m');
+    }
+
+    /**
+     * Write-time month-bucket bump (review 2026-07, item 7): attribute
+     * $seconds of execution to THIS month on the run's rollup row, creating
+     * the row if the reconcile hasn't seen the run yet. Same-month bumps
+     * accumulate; the first bump of a new month resets the bucket (assignment
+     * order matters: the bucket CASE reads month_key before it is restamped).
+     * Called from UnitSession::addExecutionTime on every measured pass — keep
+     * it a single cheap upsert.
+     */
+    public static function addMonthExecution(int $runId, float $seconds): void {
+        if ($runId <= 0 || $seconds <= 0) {
+            return;
+        }
+        DB::getInstance()->exec(
+            "INSERT INTO `survey_run_metrics` (run_id, month_execution_time, month_key)
+             VALUES (:rid, :delta, :ym)
+             ON DUPLICATE KEY UPDATE
+                month_execution_time = CASE WHEN month_key = VALUES(month_key)
+                                            THEN month_execution_time + VALUES(month_execution_time)
+                                            ELSE VALUES(month_execution_time) END,
+                month_key = VALUES(month_key)",
+            ['rid' => $runId, 'delta' => round($seconds, 3), 'ym' => self::monthKey()]
+        );
     }
 
     /**

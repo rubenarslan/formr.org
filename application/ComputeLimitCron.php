@@ -5,8 +5,11 @@
  *
  * Effective limit for a study admin (run owner) = survey_users.compute_limit_monthly
  * when set, else the instance-wide `compute_limit_monthly_default` config. In both,
- * 0 = unlimited; >0 = a budget in seconds. Usage = SUM(execution_time) over all the
- * user's unit sessions in the current calendar month.
+ * 0 = unlimited; >0 = a budget in seconds. Usage = the write-time month bucket
+ * (survey_run_metrics.month_execution_time, maintained by RunMetrics::
+ * addMonthExecution on every measured execute() pass) summed over the user's
+ * runs — i.e. compute is charged to the month it HAPPENED, not the month the
+ * session was created.
  *
  * Over limit -> for every still-ACTIVE run of that user (public > 0, or non-public
  *               but with automatic actions still enabled, cron_active = 1), set
@@ -30,9 +33,8 @@ class ComputeLimitCron extends Cron {
     protected function process(): void {
         try {
             $default = (float) Config::get('compute_limit_monthly_default', 0);
-            $monthStart = date('Y-m-01 00:00:00');
 
-            foreach ($this->candidateUsers($default > 0, $monthStart) as $row) {
+            foreach ($this->candidateUsers($default > 0, RunMetrics::monthKey()) as $row) {
                 $override = $row['compute_limit_monthly'];
                 $limit = ($override !== null) ? (float) $override : $default;
                 $used = (float) $row['month_used'];
@@ -57,30 +59,28 @@ class ComputeLimitCron extends Cron {
      * users are a no-op — nothing is reopened — so the previous "has a
      * compute-closed run" candidacy clause is gone.)
      */
-    private function candidateUsers(bool $defaultFinite, string $monthStart): array {
-        // The per-run month aggregate drives from us.created (indexed) so the
-        // hourly cron scans this month's unit sessions, not the full history;
-        // the run counter then joins users×runs only (no session fan-out).
+    private function candidateUsers(bool $defaultFinite, string $monthKey): array {
+        // This-month usage comes from the WRITE-TIME month bucket on the run
+        // rollup (RunMetrics::addMonthExecution — review 2026-07, item 7):
+        // fresh by construction, O(runs) to read, and it charges the month the
+        // work HAPPENED. The previous us.created-windowed scan attributed a
+        // long-lived session's whole lifetime to its creation month, so
+        // recheck loops and old Pauses escaped every later month's budget.
         $stmt = $this->db->prepare("
             SELECT u.id, u.email, u.first_name, u.last_name, u.compute_limit_monthly,
-                   COALESCE(SUM(m.month_used), 0) AS month_used,
+                   COALESCE(SUM(CASE WHEN m.month_key = :month_key
+                                     THEN m.month_execution_time END), 0) AS month_used,
                    COUNT(DISTINCT CASE WHEN r.public > 0 OR r.cron_active = 1
                                        THEN r.id END) AS active_runs
             FROM survey_users u
             JOIN survey_runs r ON r.user_id = u.id
-            LEFT JOIN (
-                SELECT rs.run_id, SUM(us.execution_time) AS month_used
-                FROM survey_unit_sessions us
-                JOIN survey_run_sessions rs ON rs.id = us.run_session_id
-                WHERE us.created >= :month_start AND us.execution_time IS NOT NULL
-                GROUP BY rs.run_id
-            ) m ON m.run_id = r.id
+            LEFT JOIN survey_run_metrics m ON m.run_id = r.id
             WHERE :default_finite = 1
                OR u.compute_limit_monthly IS NOT NULL
             GROUP BY u.id, u.email, u.first_name, u.last_name, u.compute_limit_monthly
         ");
         $stmt->execute([
-            ':month_start' => $monthStart,
+            ':month_key' => $monthKey,
             ':default_finite' => $defaultFinite ? 1 : 0,
         ]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

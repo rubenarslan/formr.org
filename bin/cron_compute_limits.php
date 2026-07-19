@@ -18,9 +18,11 @@ $params['lockfile'] = APPLICATION_ROOT . 'computeLimitsCron.lock';
 $cron = new ComputeLimitCron($fdb, $site, $user, $cronConfig, $params);
 $cron->execute();
 
-// The metrics rollup is reconciled by its own nightly cron
-// (cron_reconcile_metrics.php); enforcement above reads live, so it does not
-// depend on the rollup at all.
+// The metrics rollup's reconcile-owned columns are refreshed by their own
+// nightly cron (cron_reconcile_metrics.php). Enforcement above reads the
+// WRITE-TIME month bucket (survey_run_metrics.month_execution_time, bumped on
+// every measured execute() pass), which is fresh by construction — it does not
+// depend on the nightly reconcile.
 
 unset($site, $fdb, $user, $params, $cronConfig);
 exit(0);

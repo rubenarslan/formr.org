@@ -5,6 +5,10 @@
  * 65a80b44 from feature/form_v2; review 2026-07 item 6/8).
  *
  * Asserts:
+ *  0. the write-time month bucket (RunMetrics::addMonthExecution, review item
+ *     7): accumulate within the month, reset at rollover, survive reconcile —
+ *     and enforcement charges the month the work HAPPENED, so a session
+ *     created last month still trips this month's budget;
  *  A. close reaches every still-ACTIVE run: public > 0 OR cron_active = 1 —
  *     a non-public run whose daemon is still on burns compute and must be
  *     paused too (the daemon pickup never checks `public`);
@@ -33,12 +37,11 @@ function ok($cond, string $label): void {
 $overlimit = $db->execute("
     SELECT COUNT(*) FROM (
         SELECT u.id, u.compute_limit_monthly AS lim,
-               COALESCE(SUM(CASE WHEN us.created >= DATE_FORMAT(NOW(), '%Y-%m-01')
-                                 THEN us.execution_time END), 0) AS used
+               COALESCE(SUM(CASE WHEN m.month_key = DATE_FORMAT(NOW(), '%Y-%m')
+                                 THEN m.month_execution_time END), 0) AS used
         FROM survey_users u
         JOIN survey_runs r ON r.user_id = u.id
-        LEFT JOIN survey_run_sessions rs ON rs.run_id = r.id
-        LEFT JOIN survey_unit_sessions us ON us.run_session_id = rs.id
+        LEFT JOIN survey_run_metrics m ON m.run_id = r.id
         WHERE u.compute_limit_monthly IS NOT NULL AND u.compute_limit_monthly > 0
         GROUP BY u.id, u.compute_limit_monthly HAVING used >= lim
     ) t", array(), true);
@@ -76,15 +79,38 @@ try {
     $runB = $mk('zzcpB', 1, 1);
     $runC = $mk('zzcpC', 0, 0, 2, 1);
 
-    // this-month compute on run A: 999s against a 1s budget
+    // a session CREATED LAST MONTH (the old us.created-windowed usage query
+    // would ignore it entirely) whose compute accrues THIS month via the
+    // production write-time path
     $unit_id = (int) $db->execute("SELECT MIN(id) FROM survey_units", array(), true);
-    $db->exec("INSERT INTO survey_run_sessions (run_id, session, created) VALUES (:r, :s, NOW())",
+    $db->exec("INSERT INTO survey_run_sessions (run_id, session, created) VALUES (:r, :s, DATE_SUB(NOW(), INTERVAL 40 DAY))",
         ['r' => $runA, 's' => bin2hex(random_bytes(24))]);
     $rs_id = (int) $db->lastInsertId();
-    $db->exec("INSERT INTO survey_unit_sessions (unit_id, run_session_id, created, execution_time) VALUES (:u, :rs, NOW(), 999)",
+    $db->exec("INSERT INTO survey_unit_sessions (unit_id, run_session_id, created, execution_time) VALUES (:u, :rs, DATE_SUB(NOW(), INTERVAL 40 DAY), 999)",
         ['u' => $unit_id, 'rs' => $rs_id]);
 
-    echo "== A/B: over-limit close reaches every still-active run ==\n";
+    echo "== 0: write-time month bucket arithmetic ==\n";
+    $bucket = function () use ($db, $runA) {
+        return $db->execute("SELECT month_execution_time, month_key FROM survey_run_metrics WHERE run_id = :r",
+            ['r' => $runA], false, true);
+    };
+    RunMetrics::addMonthExecution($runA, 1.5);
+    $b = $bucket();
+    ok((float) $b['month_execution_time'] === 1.5 && $b['month_key'] === RunMetrics::monthKey(),
+        "first bump creates the row and the bucket (1.5, current month)");
+    RunMetrics::addMonthExecution($runA, 0.5);
+    ok((float) $bucket()['month_execution_time'] === 2.0, "same-month bump accumulates (2.0)");
+    $db->exec("UPDATE survey_run_metrics SET month_key = '2000-01' WHERE run_id = :r", ['r' => $runA]);
+    RunMetrics::addMonthExecution($runA, 999);
+    $b = $bucket();
+    ok((float) $b['month_execution_time'] === 999.0 && $b['month_key'] === RunMetrics::monthKey(),
+        "stale-month bump resets the bucket and restamps the key");
+    RunMetrics::reconcile();
+    $b = $bucket();
+    ok((float) $b['month_execution_time'] === 999.0,
+        "nightly reconcile PRESERVES the write-time bucket (does not clobber with history)");
+
+    echo "\n== A/B: over-limit close reaches every still-active run ==\n";
     $mkCron()->execute();
     $a = $runState($runA); $b = $runState($runB); $c = $runState($runC);
     ok((int) $a['cron_active'] === 0, "run A (public=0, cron on): cron paused");

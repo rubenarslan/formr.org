@@ -12,11 +12,6 @@
  */
 class ComputeUsageHelper {
 
-    /** Start of the current calendar month, for "this month" aggregates. */
-    protected static function monthStart(): string {
-        return date('Y-m-01 00:00:00');
-    }
-
     protected static function fetchAll(string $query, array $binds = array()): array {
         $stmt = DB::getInstance()->prepare($query);
         $stmt->execute($binds);
@@ -52,16 +47,24 @@ class ComputeUsageHelper {
      * Headline totals for a single study admin: all-time and current month.
      */
     public static function totalsForUser(int $userId): array {
+        // month_time reads the write-time month bucket (review 2026-07, item
+        // 7) so the dashboard agrees with enforcement and charges compute to
+        // the month it happened; total/n_sessions stay live (lifetime values
+        // are recomputable and this per-user scan is index-served).
         return self::fetchRow("
             SELECT ROUND(SUM(us.execution_time), 1) AS total_time,
-                   ROUND(SUM(CASE WHEN us.created >= :month_start
-                                  THEN us.execution_time ELSE 0 END), 1) AS month_time,
+                   (SELECT ROUND(COALESCE(SUM(CASE WHEN m.month_key = :month_key
+                                                   THEN m.month_execution_time END), 0), 1)
+                      FROM survey_run_metrics m
+                      JOIN survey_runs r2 ON r2.id = m.run_id
+                     WHERE r2.user_id = :user_id2) AS month_time,
                    COUNT(us.id) AS n_sessions
             FROM survey_runs r
             JOIN survey_run_sessions rs ON rs.run_id = r.id
             JOIN survey_unit_sessions us ON us.run_session_id = rs.id
             WHERE r.user_id = :user_id AND us.execution_time IS NOT NULL
-        ", array(':user_id' => $userId, ':month_start' => self::monthStart()));
+        ", array(':user_id' => $userId, ':user_id2' => $userId,
+                 ':month_key' => RunMetrics::monthKey()));
     }
 
     /**

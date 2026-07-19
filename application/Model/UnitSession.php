@@ -328,7 +328,11 @@ class UnitSession extends Model {
      * @param float $seconds elapsed wall-clock seconds for one pass
      */
     protected function addExecutionTime(float $seconds) {
-        if (empty($this->id) || $seconds <= 0) {
+        $delta = round($seconds, 3);
+        // Skip sub-millisecond passes entirely: the stored value is rounded to
+        // 3 decimals, so they would write +0.000 — one pointless UPDATE per
+        // daemon tick on the hottest table (review 2026-07).
+        if (empty($this->id) || $delta <= 0) {
             return;
         }
         try {
@@ -336,8 +340,15 @@ class UnitSession extends Model {
                 "UPDATE `survey_unit_sessions`
                  SET `execution_time` = COALESCE(`execution_time`, 0) + :delta
                  WHERE `id` = :id LIMIT 1",
-                ['delta' => round($seconds, 3), 'id' => $this->id]
+                ['delta' => $delta, 'id' => $this->id]
             );
+            // Write-time month attribution (review 2026-07, item 7): charge
+            // the run's rollup bucket for the month the work HAPPENED. The
+            // lifetime execution_time above can't be split by month after the
+            // fact, and attributing by us.created let long-lived sessions
+            // (recheck loops, old Pauses) escape every later month's budget.
+            $run_id = (int) ($this->runSession->run_id ?? ($this->runSession->run->id ?? 0));
+            RunMetrics::addMonthExecution($run_id, $delta);
         } catch (Exception $e) {
             // Timing is best-effort instrumentation; never let it break
             // a participant's run because the column is missing or the
