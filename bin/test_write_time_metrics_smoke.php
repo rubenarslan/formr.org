@@ -51,8 +51,10 @@ try {
     if (!$study) { fwrite(STDERR, "No study with completions to check.\n"); exit(2); }
     $sid = (int) $study['study_id'];
     $rt = str_replace('`', '', $study['results_table']);
-    $rollup = $db->execute("SELECT begun, finished, testers, real_users, n_durations,
+    $rollup = $db->execute("SELECT finished, testers, real_users, n_durations,
         ROUND(sum_log_duration, 4) sld FROM survey_study_metrics WHERE study_id = :s", ['s' => $sid], false, true);
+    // begun is derived (real_users - finished), no longer stored
+    $rollup['begun'] = max((int) $rollup['real_users'] - (int) $rollup['finished'], 0);
     $live = $db->execute("
         SELECT SUM(rs.testing IS NOT NULL AND rs.testing=0 AND rt.ended IS NULL) begun,
                SUM(rs.testing IS NOT NULL AND rs.testing=0 AND rt.ended IS NOT NULL) finished,
@@ -108,7 +110,7 @@ try {
     // zeros, assert the gates still see the real rows, then reconcile back.
     echo "\n== D: destructive gates use live counts ==\n";
     $db->exec("UPDATE survey_study_metrics
-               SET begun=0, finished=0, testers=0, real_users=0
+               SET finished=0, testers=0, real_users=0
                WHERE study_id = :sid", ['sid' => $sid]);
     $study = new SurveyStudy($sid);
     $display = $study->getResultCount();

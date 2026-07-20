@@ -534,7 +534,6 @@ CREATE TABLE `survey_studies` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `survey_study_metrics` (
   `study_id` int(10) unsigned NOT NULL,
-  `begun` int(10) unsigned NOT NULL DEFAULT 0,
   `finished` int(10) unsigned NOT NULL DEFAULT 0,
   `testers` int(10) unsigned NOT NULL DEFAULT 0,
   `real_users` int(10) unsigned NOT NULL DEFAULT 0,

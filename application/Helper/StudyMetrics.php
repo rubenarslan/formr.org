@@ -13,7 +13,8 @@
  *
  * "real" vs "tester" follows getResultCount exactly: a session is a real user
  * iff its run-session testing flag is non-null AND 0; anything else (null or 1)
- * is a tester. begun/finished partition real users by completion.
+ * is a tester. begun (real_users - finished, derived — not stored)
+ * and finished partition real users by completion.
  */
 class StudyMetrics {
 
@@ -29,8 +30,11 @@ class StudyMetrics {
         // author can't forget the wrapper (review 2026-07 cleanup).
         try {
             $real = self::isReal($testing) ? 1 : 0;
+            // `begun` is not stored — it is real_users - finished, derived in
+            // counts() (review 2026-07 cleanup #4). Only the independent
+            // counters are bumped here.
             self::bump($studyId, [
-                'begun' => $real, 'real_users' => $real, 'testers' => $real ? 0 : 1,
+                'real_users' => $real, 'testers' => $real ? 0 : 1,
             ]);
         } catch (Throwable $e) {
             formr_log_exception($e, 'StudyMetrics::onSurveyStart');
@@ -67,12 +71,14 @@ class StudyMetrics {
             $slog = log(max($seconds, 1));
             // VALUES(col) in the UPDATE clause avoids re-binding a named param
             // twice (DB uses non-emulated prepares, which forbid duplicates).
+            // `begun` is derived (real_users - finished), so a completion only
+            // increments `finished` — no clamped decrement to keep in step
+            // (review 2026-07 cleanup #4).
             DB::getInstance()->exec(
-                "INSERT INTO `survey_study_metrics` (study_id, finished, begun, n_durations, sum_log_duration)
-                 VALUES (:sid, :fin, 0, 1, :slog)
+                "INSERT INTO `survey_study_metrics` (study_id, finished, n_durations, sum_log_duration)
+                 VALUES (:sid, :fin, 1, :slog)
                  ON DUPLICATE KEY UPDATE
                     finished = finished + VALUES(finished),
-                    begun = GREATEST(CAST(begun AS SIGNED) - VALUES(finished), 0),
                     n_durations = n_durations + VALUES(n_durations),
                     sum_log_duration = sum_log_duration + VALUES(sum_log_duration)",
                 ['sid' => $studyId, 'fin' => $real, 'slog' => $slog]
@@ -105,13 +111,18 @@ class StudyMetrics {
      */
     public static function counts(int $studyId): ?array {
         $row = DB::getInstance()->execute(
-            "SELECT begun, finished, testers, real_users FROM `survey_study_metrics` WHERE study_id = :sid",
+            "SELECT finished, testers, real_users FROM `survey_study_metrics` WHERE study_id = :sid",
             ['sid' => $studyId], false, true
         );
         if (!$row) {
             return null;
         }
-        return array_map('intval', $row);
+        $row = array_map('intval', $row);
+        // begun = real users who started but have not finished; derived, not
+        // stored (review 2026-07 cleanup #4). max(…,0) floors any transient
+        // inconsistency between the write hooks.
+        $row['begun'] = max($row['real_users'] - $row['finished'], 0);
+        return $row;
     }
 
     /** Read: geometric-mean completion duration in seconds, or null if none. */
@@ -145,9 +156,9 @@ class StudyMetrics {
         }
         // identifier, not user input: study results tables are app-created (s<N>_…)
         $rt = str_replace('`', '', $resultsTable);
+        // begun is derived (real_users - finished) — not aggregated or stored.
         $agg = $db->execute("
             SELECT
-              SUM(rs.testing IS NOT NULL AND rs.testing = 0 AND rt.ended IS NULL)     AS begun,
               SUM(rs.testing IS NOT NULL AND rs.testing = 0 AND rt.ended IS NOT NULL)  AS finished,
               SUM(rs.testing IS NULL OR rs.testing = 1)                               AS testers,
               SUM(rs.testing IS NOT NULL AND rs.testing = 0)                          AS real_users,
@@ -160,15 +171,15 @@ class StudyMetrics {
         ", [], false, true);
         $db->exec(
             "INSERT INTO `survey_study_metrics`
-               (study_id, begun, finished, testers, real_users, sum_log_duration, n_durations)
-             VALUES (:sid, :begun, :finished, :testers, :real_users, :slog, :ndur)
+               (study_id, finished, testers, real_users, sum_log_duration, n_durations)
+             VALUES (:sid, :finished, :testers, :real_users, :slog, :ndur)
              ON DUPLICATE KEY UPDATE
-               begun = VALUES(begun), finished = VALUES(finished), testers = VALUES(testers),
+               finished = VALUES(finished), testers = VALUES(testers),
                real_users = VALUES(real_users), sum_log_duration = VALUES(sum_log_duration),
                n_durations = VALUES(n_durations)",
             [
                 'sid' => $studyId,
-                'begun' => (int) ($agg['begun'] ?? 0), 'finished' => (int) ($agg['finished'] ?? 0),
+                'finished' => (int) ($agg['finished'] ?? 0),
                 'testers' => (int) ($agg['testers'] ?? 0), 'real_users' => (int) ($agg['real_users'] ?? 0),
                 'slog' => (float) ($agg['sum_log_duration'] ?? 0), 'ndur' => (int) ($agg['n_durations'] ?? 0),
             ]

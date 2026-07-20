@@ -14,7 +14,6 @@
 -- sub-second/degenerate completion floors to LN(1)=0 rather than being dropped.
 CREATE TABLE IF NOT EXISTS `survey_study_metrics` (
   `study_id` INT(10) UNSIGNED NOT NULL,
-  `begun` INT(10) UNSIGNED NOT NULL DEFAULT 0,
   `finished` INT(10) UNSIGNED NOT NULL DEFAULT 0,
   `testers` INT(10) UNSIGNED NOT NULL DEFAULT 0,
   `real_users` INT(10) UNSIGNED NOT NULL DEFAULT 0,
