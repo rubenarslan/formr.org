@@ -148,16 +148,33 @@ class File_Item extends Item {
     }
 
     /**
-     * File/Audio/Video/Image store the <a>/<audio>/<video>/<img> embed
-     * markup that validateInput() builds via __($this->embed_html, …).
-     * The interpolated src is a server-generated asset_url() over a
-     * crypto_token() filename — never participant-supplied text — so the
-     * stored markup is trusted and must pass through unescaped for the
-     * player/preview to render. (Escaping here would show literal tag
-     * source instead.) Overrides Item::getEscapedResult, which escapes.
+     * File/Audio/Video/Image store the embed markup validateInput() builds
+     * via sprintf($this->embed_html, asset_url('tmp/user_uploaded_files/…')).
+     * That markup is server-generated (the src is an asset_url() over a
+     * crypto_token() filename, never participant text), so it must render
+     * unescaped for the player/preview — escaping would show tag source.
+     *
+     * BUT the admin results view dispatches by the item's CURRENT type, so a
+     * column holding data written under a different type (a restored backup
+     * after a text→file retype; an import) would otherwise be passed through
+     * raw here — turning a participant's stored `<img onerror=…>` into script
+     * on the admin origin (review 2026-07, item 19). So prove the value IS
+     * this item's own embed shape before trusting it: reconstruct an anchored
+     * pattern from $this->embed_html (each subclass's template drives its own
+     * check), where the %s slot is a URL into our upload dir carrying no HTML
+     * metacharacters. A full-string match of that fixed template has no room
+     * for an event handler or extra attribute, so nothing that matches can
+     * carry script; anything else falls back to h() (base behaviour).
      */
     public function getEscapedResult($reply) {
-        return $reply;
+        if ($reply === null) {
+            return null;
+        }
+        // %s -> an upload URL: any non-metachar prefix, our upload path, a
+        // crypto_token()+ext filename ([A-Za-z0-9_~-] plus '.').
+        $urlSlot = '[^"\'<>\s]*tmp/user_uploaded_files/[\w.~-]+';
+        $pattern = '#^' . str_replace('%s', $urlSlot, preg_quote($this->embed_html, '#')) . '$#';
+        return preg_match($pattern, (string) $reply) ? $reply : h($reply);
     }
 
     /**
