@@ -12,22 +12,11 @@
  */
 class ComputeUsageHelper {
 
-    protected static function fetchAll(string $query, array $binds = array()): array {
-        $stmt = DB::getInstance()->prepare($query);
-        $stmt->execute($binds);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    protected static function fetchRow(string $query, array $binds = array()): array {
-        $rows = self::fetchAll($query, $binds);
-        return $rows ? $rows[0] : array();
-    }
-
     /**
      * Per-run compute for a single study admin (their own runs only).
      */
     public static function runUsageForUser(int $userId): array {
-        return self::fetchAll("
+        return DB::getInstance()->execute("
             SELECT r.id AS run_id, r.name AS run_name,
                    COUNT(us.id) AS n_sessions,
                    ROUND(SUM(us.execution_time), 1) AS total_time,
@@ -51,7 +40,7 @@ class ComputeUsageHelper {
         // 7) so the dashboard agrees with enforcement and charges compute to
         // the month it happened; total/n_sessions stay live (lifetime values
         // are recomputable and this per-user scan is index-served).
-        return self::fetchRow("
+        $row = DB::getInstance()->execute("
             SELECT ROUND(SUM(us.execution_time), 1) AS total_time,
                    (SELECT ROUND(COALESCE(SUM(CASE WHEN m.month_key = :month_key
                                                    THEN m.month_execution_time END), 0), 1)
@@ -64,7 +53,8 @@ class ComputeUsageHelper {
             JOIN survey_unit_sessions us ON us.run_session_id = rs.id
             WHERE r.user_id = :user_id AND us.execution_time IS NOT NULL
         ", array(':user_id' => $userId, ':user_id2' => $userId,
-                 ':month_key' => RunMetrics::monthKey()));
+                 ':month_key' => RunMetrics::monthKey()), false, true);
+        return $row ?: array(); // [] on no row (fetch returns false)
     }
 
     /**

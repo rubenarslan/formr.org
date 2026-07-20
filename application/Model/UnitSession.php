@@ -520,18 +520,12 @@ class UnitSession extends Model {
                 // Write-time hook: this UPDATE flips ended NULL→now exactly once
                 // (the `ended IS null` guard), so a non-zero row count is a real
                 // completion. Feed the study rollup (counts + geometric-mean
-                // duration, audit SQ-10/SQ-11). Best-effort.
+                // duration, audit SQ-10/SQ-11). Self-guarded — best-effort.
                 if ($ended_now) {
-                    try {
-                        $rt = str_replace('`', '', $unit->surveyStudy->results_table);
-                        $seconds = (int) $this->db->execute(
-                            "SELECT TIMESTAMPDIFF(SECOND, `created`, `ended`) FROM `{$rt}` WHERE session_id = :sid AND study_id = :stid",
-                            array('sid' => $this->id, 'stid' => $unit->surveyStudy->id), true
-                        );
-                        StudyMetrics::onSurveyComplete((int) $unit->surveyStudy->id, $this->runSession->testing ?? null, $seconds);
-                    } catch (Exception $e) {
-                        formr_log_exception($e, 'StudyMetrics::onSurveyComplete');
-                    }
+                    StudyMetrics::recordCompletion(
+                        (int) $unit->surveyStudy->id, $this->runSession->testing ?? null,
+                        $unit->surveyStudy->results_table, (int) $this->id
+                    );
                 }
             }
             // Honour an explicit reason from the caller (e.g. the queue's
@@ -731,12 +725,8 @@ class UnitSession extends Model {
             $this->logResult();
 
             // Write-time hook: keep the study response counts fresh (audit
-            // SQ-11). Best-effort — never let metrics accounting break a run.
-            try {
-                StudyMetrics::onSurveyStart((int) $study->id, $this->runSession->testing ?? null);
-            } catch (Exception $e) {
-                formr_log_exception($e, 'StudyMetrics::onSurveyStart');
-            }
+            // SQ-11). Self-guarded — never let metrics accounting break a run.
+            StudyMetrics::onSurveyStart((int) $study->id, $this->runSession->testing ?? null);
         } else {
             $this->db->update($study->results_table, array('modified' => mysql_now()), $entry);
         }
@@ -946,32 +936,16 @@ class UnitSession extends Model {
                 );
             } //endforeach
 
-            // One batched UPDATE for every posted item's display row. A CASE per
-            // column keyed on item_id reproduces the per-row values; created and
-            // displaycount keep their COALESCE-preserve semantics; the IN list
-            // scopes to existing rows only (never inserts), matching the old
-            // per-item UPDATEs exactly.
+            // One batched UPDATE for every posted item's display row: a CASE per
+            // column keyed on item_id reproduces the per-row values; `saved` is
+            // one shared stamp; created/displaycount keep their COALESCE-preserve
+            // semantics; the IN list scopes to existing rows only (never inserts),
+            // matching the old per-item UPDATEs exactly.
             if ($displayRows) {
-                $valueCols = array('answer', 'shown', 'shown_relative', 'answered', 'answered_relative', 'hidden');
-                $setParts = array();
-                $params = array('session_id' => $this->id, 'saved' => $saved);
-                foreach ($valueCols as $col) {
-                    $case = "`{$col}` = CASE item_id";
-                    $i = 0;
-                    foreach ($displayRows as $itemId => $vals) {
-                        $ph = "{$col}_{$i}";
-                        $case .= " WHEN {$itemId} THEN :{$ph}";
-                        $params[$ph] = $vals[$col];
-                        $i++;
-                    }
-                    $setParts[] = $case . " END";
-                }
-                $inList = implode(',', array_keys($displayRows));
-                $sql = "UPDATE `survey_items_display` SET "
-                    . implode(', ', $setParts)
-                    . ", saved = :saved, created = COALESCE(created, NOW()), displaycount = COALESCE(displaycount, 1)"
-                    . " WHERE session_id = :session_id AND item_id IN ({$inList})";
-                $this->db->exec($sql, $params);
+                $this->db->batchUpdateByKey('survey_items_display', 'item_id', $displayRows,
+                    array('saved' => $saved),
+                    array('session_id' => $this->id),
+                    array('created = COALESCE(created, NOW())', 'displaycount = COALESCE(displaycount, 1)'));
             }
             // Update results table in one query
             if ($update_data) {

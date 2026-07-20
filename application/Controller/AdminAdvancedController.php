@@ -249,25 +249,15 @@ class AdminAdvancedController extends AdminController {
         if (Request::isHTTPPostRequest()) {
             // process post request and redirect. One batched CASE UPDATE keyed
             // on run id instead of a round trip per submitted run (audit SQ-33).
-            $cases = array('cron_active' => '', 'cron_fork' => '', 'locked' => '');
-            $ids = array();
+            $rows = array();
             foreach ($this->request->arr('runs') as $id => $data) {
-                $id = (int) $id;
-                $ids[] = $id;
-                $cases['cron_active'] .= " WHEN {$id} THEN " . (int) isset($data['cron_active']);
-                $cases['cron_fork']   .= " WHEN {$id} THEN " . (int) isset($data['cron_fork']);
-                $cases['locked']      .= " WHEN {$id} THEN " . (int) isset($data['locked']);
-            }
-            if ($ids) {
-                $inList = implode(',', $ids);
-                $this->fdb->exec(
-                    "UPDATE survey_runs SET
-                        cron_active = CASE id{$cases['cron_active']} END,
-                        cron_fork   = CASE id{$cases['cron_fork']} END,
-                        locked      = CASE id{$cases['locked']} END
-                     WHERE id IN ({$inList})"
+                $rows[(int) $id] = array(
+                    'cron_active' => (int) isset($data['cron_active']),
+                    'cron_fork'   => (int) isset($data['cron_fork']),
+                    'locked'      => (int) isset($data['locked']),
                 );
             }
+            $this->fdb->batchUpdateByKey('survey_runs', 'id', $rows);
             alert('Changes saved', 'alert-success');
             $qs = $this->request->page ? '/?page=' . $this->request->page : null;
             $this->request->redirect('admin/advanced/runs-management' . $qs);

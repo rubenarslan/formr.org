@@ -445,22 +445,13 @@ class SpreadsheetRenderer {
             }
 
             if ($visibilityUpdates) {
-                $cases = '';
-                $params = array('session_id' => $this->unitSession->id);
-                $ids = array();
-                $i = 0;
+                // one batched hidden-update; null stays SQL NULL (3-state kept)
+                $rows = array();
                 foreach ($visibilityUpdates as $itemId => $hidden) {
-                    $cases .= " WHEN {$itemId} THEN :h{$i}";
-                    $params["h{$i}"] = $hidden; // null stays SQL NULL (three-state preserved)
-                    $ids[] = $itemId;
-                    $i++;
+                    $rows[(int) $itemId] = array('hidden' => $hidden);
                 }
-                $inList = implode(',', $ids);
-                $this->db->exec(
-                    "UPDATE `survey_items_display` SET hidden = CASE item_id {$cases} END
-                     WHERE session_id = :session_id AND item_id IN ({$inList})",
-                    $params
-                );
+                $this->db->batchUpdateByKey('survey_items_display', 'item_id', $rows,
+                    array(), array('session_id' => $this->unitSession->id));
             }
 
             // @TODO remove items from unanswerd if this is successfull

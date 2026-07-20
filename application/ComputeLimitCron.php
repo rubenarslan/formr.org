@@ -28,15 +28,15 @@
  */
 class ComputeLimitCron extends Cron {
     protected $name = 'Formr.ComputeLimitCron';
-    protected $mailer = null;
 
     protected function process(): void {
         try {
             $default = (float) Config::get('compute_limit_monthly_default', 0);
 
             foreach ($this->candidateUsers($default > 0, RunMetrics::monthKey()) as $row) {
-                $override = $row['compute_limit_monthly'];
-                $limit = ($override !== null) ? (float) $override : $default;
+                // Shared override-vs-default rule (review 2026-07 cleanup: was an
+                // inline copy that diverged on '' handling from the dashboard).
+                $limit = ComputeUsageHelper::effectiveLimit($row['compute_limit_monthly']);
                 $used = (float) $row['month_used'];
 
                 // Over budget with runs still active -> close them. Under budget is a
@@ -46,10 +46,7 @@ class ComputeLimitCron extends Cron {
                 }
             }
         } finally {
-            if ($this->mailer !== null) {
-                $this->mailer->getSMTPInstance()->quit(true);
-                $this->mailer->getSMTPInstance()->close();
-            }
+            $this->closeMailer(); // shared keep-alive mailer teardown (Cron base)
         }
     }
 
@@ -121,17 +118,6 @@ class ComputeLimitCron extends Cron {
         $stmt = $this->db->prepare($query);
         $stmt->execute([':uid' => $uid]);
         return $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
-    }
-
-    private function getMailer() {
-        if ($this->mailer === null) {
-            $this->mailer = $this->site->makeAdminMailer();
-            $this->mailer->SMTPKeepAlive = true;
-        }
-        $this->mailer->clearAddresses();
-        $this->mailer->clearAttachments();
-        $this->mailer->clearAllRecipients();
-        return $this->mailer;
     }
 
     private function notify(array $row, string $template, string $subject, float $used, float $limit, array $names = []): void {

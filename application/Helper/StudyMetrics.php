@@ -24,33 +24,62 @@ class StudyMetrics {
 
     /** Write hook: a participant just started this study (first results row). */
     public static function onSurveyStart(int $studyId, $testing): void {
-        $real = self::isReal($testing) ? 1 : 0;
-        self::bump($studyId, [
-            'begun' => $real, 'real_users' => $real, 'testers' => $real ? 0 : 1,
-        ]);
+        // Self-guarded: metrics accounting is best-effort and must never break
+        // a participant's run — callers are plain one-liners so a future hook
+        // author can't forget the wrapper (review 2026-07 cleanup).
+        try {
+            $real = self::isReal($testing) ? 1 : 0;
+            self::bump($studyId, [
+                'begun' => $real, 'real_users' => $real, 'testers' => $real ? 0 : 1,
+            ]);
+        } catch (Throwable $e) {
+            formr_log_exception($e, 'StudyMetrics::onSurveyStart');
+        }
     }
 
     /**
-     * Write hook: a participant just completed this study (ended stamped).
-     * Duration (all completions, testers included) feeds the geometric mean as
-     * LN(GREATEST(seconds, 1)) — no exclusion; sub-second/degenerate floors to 0.
+     * Write hook from UnitSession::end(): a participant just completed this
+     * study. Owns the duration measurement (one indexed lookup on the results
+     * table) so the caller stays a guard-free one-liner. Self-guarded.
+     */
+    public static function recordCompletion(int $studyId, $testing, string $resultsTable, int $sessionId): void {
+        try {
+            $rt = str_replace('`', '', $resultsTable);
+            $seconds = (int) DB::getInstance()->execute(
+                "SELECT TIMESTAMPDIFF(SECOND, `created`, `ended`) FROM `{$rt}`
+                 WHERE session_id = :sid AND study_id = :stid",
+                ['sid' => $sessionId, 'stid' => $studyId], true
+            );
+            self::onSurveyComplete($studyId, $testing, $seconds);
+        } catch (Throwable $e) {
+            formr_log_exception($e, 'StudyMetrics::recordCompletion');
+        }
+    }
+
+    /**
+     * Record one completion of $seconds. Duration (all completions, testers
+     * included) feeds the geometric mean as LN(GREATEST(seconds, 1)) — no
+     * exclusion; sub-second/degenerate floors to 0. Self-guarded.
      */
     public static function onSurveyComplete(int $studyId, $testing, int $seconds): void {
-        $real = self::isReal($testing) ? 1 : 0;
-        $slog = log(max($seconds, 1));
-        // VALUES(col) in the UPDATE clause avoids re-binding a named param twice
-        // (DB uses non-emulated prepares, which forbid duplicate placeholders).
-        $db = DB::getInstance();
-        $db->exec(
-            "INSERT INTO `survey_study_metrics` (study_id, finished, begun, n_durations, sum_log_duration)
-             VALUES (:sid, :fin, 0, 1, :slog)
-             ON DUPLICATE KEY UPDATE
-                finished = finished + VALUES(finished),
-                begun = GREATEST(CAST(begun AS SIGNED) - VALUES(finished), 0),
-                n_durations = n_durations + VALUES(n_durations),
-                sum_log_duration = sum_log_duration + VALUES(sum_log_duration)",
-            ['sid' => $studyId, 'fin' => $real, 'slog' => $slog]
-        );
+        try {
+            $real = self::isReal($testing) ? 1 : 0;
+            $slog = log(max($seconds, 1));
+            // VALUES(col) in the UPDATE clause avoids re-binding a named param
+            // twice (DB uses non-emulated prepares, which forbid duplicates).
+            DB::getInstance()->exec(
+                "INSERT INTO `survey_study_metrics` (study_id, finished, begun, n_durations, sum_log_duration)
+                 VALUES (:sid, :fin, 0, 1, :slog)
+                 ON DUPLICATE KEY UPDATE
+                    finished = finished + VALUES(finished),
+                    begun = GREATEST(CAST(begun AS SIGNED) - VALUES(finished), 0),
+                    n_durations = n_durations + VALUES(n_durations),
+                    sum_log_duration = sum_log_duration + VALUES(sum_log_duration)",
+                ['sid' => $studyId, 'fin' => $real, 'slog' => $slog]
+            );
+        } catch (Throwable $e) {
+            formr_log_exception($e, 'StudyMetrics::onSurveyComplete');
+        }
     }
 
     /** Additive upsert of a set of count columns for one study. */

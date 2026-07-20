@@ -42,11 +42,6 @@ class RunMetrics {
         return $affected;
     }
 
-    /** @deprecated use reconcile(); retained so existing cron callers keep working. */
-    public static function refresh(): int {
-        return self::reconcile();
-    }
-
     /** Recompute every run's reconcile-owned rollup columns (session counts,
      * lifetime compute sums, log counts). The month bucket is write-time-owned
      * (addMonthExecution): the reconcile PRESERVES it while month_key is
