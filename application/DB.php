@@ -97,9 +97,20 @@ class DB {
      * a one-hour skew between NOW()-based comparisons and PHP-computed
      * deadlines. Daemons call this each tick so the offset tracks DST.
      */
+    /** Last time_zone offset pushed to this connection, to skip no-op SETs. */
+    protected $appliedTimezoneOffset = null;
+
     public function syncSessionTimezone() {
+        // The PHP-side offset only moves at DST transitions, but the daemons
+        // call this every tick — so only issue SET time_zone when the offset
+        // actually changed (review 2026-07 cleanup: was ~86k redundant SETs
+        // per day per long-lived worker).
         $offset = (new DateTime())->format('P');
+        if ($offset === $this->appliedTimezoneOffset) {
+            return;
+        }
         $this->PDO->exec("SET time_zone='$offset';");
+        $this->appliedTimezoneOffset = $offset;
     }
 
     /**
@@ -143,6 +154,67 @@ class DB {
             return $sth->rowCount();
         }
         return $this->PDO->exec($query);
+    }
+
+    /**
+     * One batched multi-row UPDATE: sets each column per row via
+     * `col = CASE keyColumn WHEN <key> THEN :bound … END`, scoped by a
+     * `keyColumn IN (…)` list — one statement instead of a round trip per row
+     * (review 2026-07 cleanup; consolidates the runs-management save, the
+     * survey-item display flush, and the show-if visibility flush).
+     *
+     * @param string $table
+     * @param string $keyColumn  integer row key (PK/FK); values are int-cast
+     *                           for the CASE/IN list.
+     * @param array  $rows       [keyValue => [col => value, …], …]; every row
+     *                           MUST carry the same columns. NULL values bind
+     *                           as SQL NULL (three-state preserved).
+     * @param array  $constantSet [col => value] set to one bound value across
+     *                           all matched rows (e.g. a shared `saved` stamp).
+     * @param array  $whereEq    [col => value] extra bound equality filters
+     *                           ANDed into the WHERE (e.g. session scoping).
+     * @param array  $rawSet     raw SQL SET fragments appended verbatim (e.g.
+     *                           'created = COALESCE(created, NOW())') — never
+     *                           interpolate caller/participant input here.
+     * @return int|false affected rows
+     */
+    public function batchUpdateByKey($table, $keyColumn, array $rows,
+                                     array $constantSet = array(), array $whereEq = array(), array $rawSet = array()) {
+        if (!$rows) {
+            return 0;
+        }
+        $keys = array_map('intval', array_keys($rows));
+        $columns = array_keys(reset($rows));
+        $params = array();
+        $setParts = array();
+        foreach ($columns as $col) {
+            $case = "`{$col}` = CASE `{$keyColumn}`";
+            $i = 0;
+            foreach ($rows as $key => $vals) {
+                $ph = "v_{$col}_{$i}";
+                $case .= " WHEN " . (int) $key . " THEN :{$ph}";
+                $params[$ph] = $vals[$col];
+                $i++;
+            }
+            $setParts[] = $case . " END";
+        }
+        foreach ($constantSet as $col => $value) {
+            $ph = "c_{$col}";
+            $setParts[] = "`{$col}` = :{$ph}";
+            $params[$ph] = $value;
+        }
+        foreach ($rawSet as $frag) {
+            $setParts[] = $frag;
+        }
+        $where = array("`{$keyColumn}` IN (" . implode(',', $keys) . ")");
+        foreach ($whereEq as $col => $value) {
+            $ph = "w_{$col}";
+            $where[] = "`{$col}` = :{$ph}";
+            $params[$ph] = $value;
+        }
+        $sql = "UPDATE `{$table}` SET " . implode(', ', $setParts)
+             . " WHERE " . implode(' AND ', $where);
+        return $this->exec($sql, $params);
     }
 
     /**

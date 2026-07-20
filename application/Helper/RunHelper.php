@@ -160,7 +160,7 @@ class RunHelper {
         $pagination = new Pagination($count, 200, true);
         $limits = $pagination->getLimits();
 
-        $itemsQuery = 
+        $selectAndJoins =
             "SELECT
                 `survey_run_sessions`.id AS run_session_id,
                 `survey_run_sessions`.session,
@@ -172,7 +172,6 @@ class RunHelper {
                 `survey_run_sessions`.current_unit_session_id,
                 `survey_runs`.name AS run_name,
                 `survey_units`.type AS unit_type,
-                `survey_run_sessions`.last_access,
                 `us`.result,
                 `us`.result_log,
                 `us`.expires
@@ -181,22 +180,41 @@ class RunHelper {
             LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
             LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
             LEFT JOIN `survey_unit_sessions` us ON  `survey_run_sessions`.current_unit_session_id = `us`.id
-            WHERE {$where}
+            ";
+
+        $itemsQuery = $selectAndJoins . " WHERE {$where}
             ORDER BY `survey_run_sessions`.last_access DESC
             LIMIT $limits
         ";
 
         $data = $this->db->execute($itemsQuery, $queryParams);
-        // pin the admin's own test session on top of the page instead of the
-        // unindexable ORDER BY (session != :admin_code) expression sort
-        if ($adminCode && $data) {
+
+        // Pin the admin's own test session to row 1 of page 1 (the "find my
+        // test session" workflow). The old query did this with an unindexable
+        // `ORDER BY session != :admin_code` expression sort over the whole run;
+        // the main query now sorts by the indexed last_access DESC and stops at
+        // LIMIT, so the admin row may not be in the fetched page at all. Restore
+        // the global pin with one cheap indexed point-lookup on the first,
+        // unfiltered page: move it up if already present, else prepend it.
+        $firstPage = strpos((string) $limits, '0,') === 0;
+        $unfiltered = empty($queryParams['session']) && empty($queryParams['sessions'])
+            && empty($queryParams['position']);
+        if ($adminCode && $firstPage && $unfiltered) {
+            $data = $data ?: array();
+            $present = false;
             $pinned = $rest = array();
             foreach ($data as $row) {
-                if ($row['session'] === $adminCode) {
-                    $pinned[] = $row;
-                } else {
-                    $rest[] = $row;
-                }
+                if ($row['session'] === $adminCode) { $pinned[] = $row; $present = true; }
+                else { $rest[] = $row; }
+            }
+            if (!$present) {
+                $adminRow = $this->db->execute(
+                    $selectAndJoins . " WHERE `survey_run_sessions`.run_id = :run_id
+                        AND `survey_run_sessions`.session = :admin_code LIMIT 1",
+                    array('run_id' => $queryParams['run_id'], 'admin_code' => $adminCode),
+                    false, true
+                );
+                if ($adminRow) { $pinned[] = $adminRow; }
             }
             $data = array_merge($pinned, $rest);
         }
@@ -248,12 +266,20 @@ class RunHelper {
         $queryParams['run_id2'] = $queryParams['run_id'];
         $where = implode(' AND ', $query);
 
-        $count_query = "SELECT COUNT(`survey_unit_sessions`.id) AS count FROM `survey_unit_sessions`
-			LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-			LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.`unit_id` = `survey_run_units`.`unit_id` AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
-            WHERE {$where}
-        ";
-        $count = $this->db->execute($count_query, $queryParams, true);
+        // Unfiltered pagination count comes from the reconcile-maintained rollup
+        // (audit SQ-06); a session/position filter needs the live filtered count.
+        $count = null;
+        if (empty($queryParams['session']) && empty($queryParams['position'])) {
+            $count = RunMetrics::count((int) $queryParams['run_id'], 'n_unit_sessions');
+        }
+        if ($count === null) {
+            $count_query = "SELECT COUNT(`survey_unit_sessions`.id) AS count FROM `survey_unit_sessions`
+                LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+                LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.`unit_id` = `survey_run_units`.`unit_id` AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
+                WHERE {$where}
+            ";
+            $count = $this->db->execute($count_query, $queryParams, true);
+        }
         $pagination = new Pagination($count, 200, true);
         $limits = $pagination->getLimits();
 
@@ -313,14 +339,18 @@ class RunHelper {
     }
 
     public function getEmailLogTable($queryParams) {
-        $count_query = "
-            SELECT COUNT(`survey_email_log`.id) AS count
-            FROM `survey_email_log`
-            LEFT JOIN `survey_unit_sessions` ON `survey_unit_sessions`.id = `survey_email_log`.session_id 
-            LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
-            WHERE `survey_run_sessions`.run_id = :run_id
-        ";
-        $count = $this->db->execute($count_query, $queryParams, true);
+        // reconcile-maintained per-run email-log count (audit SQ-37), live fallback
+        $count = RunMetrics::count((int) $queryParams['run_id'], 'n_email_logs');
+        if ($count === null) {
+            $count_query = "
+                SELECT COUNT(`survey_email_log`.id) AS count
+                FROM `survey_email_log`
+                LEFT JOIN `survey_unit_sessions` ON `survey_unit_sessions`.id = `survey_email_log`.session_id
+                LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
+                WHERE `survey_run_sessions`.run_id = :run_id
+            ";
+            $count = $this->db->execute($count_query, $queryParams, true);
+        }
         $pagination = new Pagination($count, 75, true);
         $limits = $pagination->getLimits();
 
@@ -366,7 +396,9 @@ class RunHelper {
         // session count comes from the maintained per-run rollup (audit SQ-13)
         // instead of a live GROUP BY over the whole survey_run_sessions table
         $itemsQuery = "
-            SELECT survey_runs.id AS run_id, name, survey_runs.user_id, cron_active, cron_fork, locked, COALESCE(m.n_run_sessions, 0) AS sessions, survey_users.email
+            SELECT survey_runs.id AS run_id, name, survey_runs.user_id, cron_active, cron_fork, locked,
+                   survey_runs.public, survey_runs.compute_closed_from,
+                   COALESCE(m.n_run_sessions, 0) AS sessions, survey_users.email
 			FROM survey_runs
 			LEFT JOIN survey_users ON survey_users.id = survey_runs.user_id
 			LEFT JOIN survey_run_metrics m ON m.run_id = survey_runs.id
@@ -384,7 +416,11 @@ class RunHelper {
     }
 
     public function getPushMessageLogTable($params) {
-        $count = $this->db->count('push_logs', array('run_id' => $params['run_id']));
+        // reconcile-maintained per-run push-log count (audit SQ-14), live fallback
+        $count = RunMetrics::count((int) $params['run_id'], 'n_push_logs');
+        if ($count === null) {
+            $count = $this->db->count('push_logs', array('run_id' => $params['run_id']));
+        }
         $pagination = new Pagination($count, 50, true);
         $limits = $pagination->getLimits();
 

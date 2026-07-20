@@ -81,29 +81,20 @@ class Shuffle extends RunUnit {
     }
     
     public function getUnitSessionOutput(UnitSession $unitSession) {
-        // Audit F18 (2026-07): a participant's random group must be STABLE
-        // for a given Shuffle unit across the whole run. Each SkipBackward
-        // revisit creates a fresh unit-session, and the old code drew a
-        // NEW random group each time — so a downstream `shuffle$group`
-        // condition silently changed the participant's assignment on every
-        // loop. Reuse the group already drawn for THIS participant + THIS
-        // shuffle unit if one exists; only randomise on the first visit.
-        $prior = $this->db->execute(
-            "SELECT sh.`group`
-             FROM `shuffle` sh
-             JOIN `survey_unit_sessions` us ON us.id = sh.session_id
-             WHERE sh.unit_id = :unit_id AND us.run_session_id = :run_session_id
-             ORDER BY sh.created ASC LIMIT 1",
-            ['unit_id' => $this->id, 'run_session_id' => $unitSession->runSession->id],
-            true
-        );
-        $group = ($prior !== null && $prior !== false) ? (int) $prior : $this->selectRandomGroup();
+        // BY DESIGN each visit draws a fresh random group: every revisit
+        // (SkipBackward loop) is a new unit session and re-randomizes —
+        // designs wanting a constant experimental group keep the Shuffle
+        // OUT of the loop. (Review 2026-07, item 12: audit F18 briefly made
+        // the first-ever draw sticky per participant + unit; that was a
+        // mistake and is reverted per the maintainer.)
+        $group = $this->selectRandomGroup();
 
         // Audit F17 (2026-07): idempotent write. The shuffle PK is
         // session_id, so a re-execution of the SAME unit-session (crash
         // between this INSERT and end()) hit an uncaught duplicate-key
         // error and stranded the participant on every retry. ON DUPLICATE
-        // KEY UPDATE keeps the drawn group and lets the retry proceed.
+        // KEY UPDATE keeps the originally drawn group; report the STORED
+        // value so a retry logs what actually stands, not the losing draw.
         $this->db->exec(
             "INSERT INTO `shuffle` (`session_id`, `unit_id`, `group`, `created`)
              VALUES (:session_id, :unit_id, :group, :created)
@@ -115,6 +106,7 @@ class Shuffle extends RunUnit {
                 'created'    => mysql_now(),
             ]
         );
+        $group = (int) $this->db->findValue('shuffle', ['session_id' => $unitSession->id], 'group');
 
         return [
             'log' => $this->getLogMessage('group_' . $group),

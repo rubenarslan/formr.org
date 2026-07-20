@@ -32,11 +32,12 @@
  */
 require_once dirname(__FILE__) . '/../setup.php';
 
-$opts = getopt('', ['dry-run', 'limit::', 'min-age-minutes::', 'reexec-max-days::']);
+$opts = getopt('', ['dry-run', 'limit::', 'min-age-minutes::', 'reexec-max-days::', 'run-id::']);
 $dry = isset($opts['dry-run']);
 $limit = isset($opts['limit']) ? max(1, (int) $opts['limit']) : 500;
 $minAge = isset($opts['min-age-minutes']) ? max(1, (int) $opts['min-age-minutes']) : 30;
 $reexecMaxDays = isset($opts['reexec-max-days']) ? max(0, (int) $opts['reexec-max-days']) : 7;
+$runFilter = isset($opts['run-id']) ? (int) $opts['run-id'] : 0; // 0 = all runs
 
 $lock = fopen(APPLICATION_ROOT . 'tmp/sweep_stalled_unit_sessions.lock', 'c');
 if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
@@ -47,8 +48,10 @@ if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
 $db = DB::getInstance();
 $types = "'Pause','Wait','Shuffle','SkipForward','SkipBackward','Email','PushMessage'";
 
+$runWhere = $runFilter > 0 ? " AND r.id = " . $runFilter : "";
 $rows = $db->execute("
-    SELECT us.id, us.run_session_id, us.result, us.created, rs.session, r.id AS run_id, r.name AS run_name, u.type
+    SELECT us.id, us.run_session_id, us.result, us.created, rs.session,
+           rs.current_unit_session_id, r.id AS run_id, r.name AS run_name, u.type
     FROM survey_unit_sessions us
     JOIN survey_units u ON u.id = us.unit_id
     JOIN survey_run_sessions rs ON rs.id = us.run_session_id
@@ -57,7 +60,7 @@ $rows = $db->execute("
       AND u.type IN ({$types})
       AND us.created < NOW() - INTERVAL :min_age MINUTE
       AND rs.ended IS NULL
-      AND r.cron_active = 1
+      AND r.cron_active = 1{$runWhere}
     ORDER BY us.id ASC
     LIMIT {$limit}", ['min_age' => $minAge]);
 
@@ -67,7 +70,7 @@ if (!$rows) {
 }
 
 $runs = [];
-$executed = $stamped = $skipped = 0;
+$executed = $stamped = $skipped = $pointerProtected = 0;
 
 foreach ($rows as $row) {
     if (!isset($runs[$row['run_id']])) {
@@ -95,6 +98,16 @@ foreach ($rows as $row) {
         if (!$dry) {
             $runSession->execute();
         }
+    } elseif ((int) $row['current_unit_session_id'] === (int) $row['id']) {
+        // Review 2026-07 (item 18a): the run session's POINTER designates this
+        // row as current even though the position-derived lookup disagrees —
+        // legacy position drift (pre-D1 adoption). Terminal-stamping the
+        // participant's real current session would make the recovery branch
+        // advance them from the drifted position, skipping un-elapsed gates.
+        // Leave it and report: this needs heal_duplicate_pause_sessions-style
+        // repair, not sweeping.
+        $pointerProtected++;
+        fwrite(STDERR, "sweep: POINTER-PROTECTED run_session {$row['run_session_id']} ({$row['run_name']}, {$row['type']}#{$row['id']}): current_unit_session_id designates this row but the position lookup disagrees — position drift, needs repair (not stamped)\n");
     } else {
         $stamped++;
         if (!$dry) {
@@ -119,8 +132,8 @@ foreach ($rows as $row) {
 }
 
 fwrite(STDERR, sprintf(
-    "sweep: %d candidates — %d re-executed, %d terminal-stamped, %d skipped%s\n",
-    count($rows), $executed, $stamped, $skipped, $dry ? ' (dry-run, nothing written)' : ''
+    "sweep: %d candidates — %d re-executed, %d terminal-stamped, %d pointer-protected, %d skipped%s\n",
+    count($rows), $executed, $stamped, $pointerProtected, $skipped, $dry ? ' (dry-run, nothing written)' : ''
 ));
 
 // Audit F14 (2026-07): reconcile push_logs claim rows genuinely stuck at

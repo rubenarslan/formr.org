@@ -328,7 +328,11 @@ class UnitSession extends Model {
      * @param float $seconds elapsed wall-clock seconds for one pass
      */
     protected function addExecutionTime(float $seconds) {
-        if (empty($this->id) || $seconds <= 0) {
+        $delta = round($seconds, 3);
+        // Skip sub-millisecond passes entirely: the stored value is rounded to
+        // 3 decimals, so they would write +0.000 — one pointless UPDATE per
+        // daemon tick on the hottest table (review 2026-07).
+        if (empty($this->id) || $delta <= 0) {
             return;
         }
         try {
@@ -336,8 +340,15 @@ class UnitSession extends Model {
                 "UPDATE `survey_unit_sessions`
                  SET `execution_time` = COALESCE(`execution_time`, 0) + :delta
                  WHERE `id` = :id LIMIT 1",
-                ['delta' => round($seconds, 3), 'id' => $this->id]
+                ['delta' => $delta, 'id' => $this->id]
             );
+            // Write-time month attribution (review 2026-07, item 7): charge
+            // the run's rollup bucket for the month the work HAPPENED. The
+            // lifetime execution_time above can't be split by month after the
+            // fact, and attributing by us.created let long-lived sessions
+            // (recheck loops, old Pauses) escape every later month's budget.
+            $run_id = (int) ($this->runSession->run_id ?? ($this->runSession->run->id ?? 0));
+            RunMetrics::addMonthExecution($run_id, $delta);
         } catch (Exception $e) {
             // Timing is best-effort instrumentation; never let it break
             // a participant's run because the column is missing or the
@@ -504,7 +515,18 @@ class UnitSession extends Model {
             if ($unit->type == "Survey") {
                 $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
                 $params = array('session_id' => $this->id, 'study_id' => $unit->surveyStudy->id);
-                $this->db->exec($query, $params);
+                $ended_now = $this->db->exec($query, $params);
+
+                // Write-time hook: this UPDATE flips ended NULL→now exactly once
+                // (the `ended IS null` guard), so a non-zero row count is a real
+                // completion. Feed the study rollup (counts + geometric-mean
+                // duration, audit SQ-10/SQ-11). Self-guarded — best-effort.
+                if ($ended_now) {
+                    StudyMetrics::recordCompletion(
+                        (int) $unit->surveyStudy->id, $this->runSession->testing ?? null,
+                        $unit->surveyStudy->results_table, (int) $this->id
+                    );
+                }
             }
             // Honour an explicit reason from the caller (e.g. the queue's
             // run-session-ended branch passes 'ended_by_queue_rse').
@@ -701,6 +723,10 @@ class UnitSession extends Model {
 
             $this->result = 'survey_started';
             $this->logResult();
+
+            // Write-time hook: keep the study response counts fresh (audit
+            // SQ-11). Self-guarded — never let metrics accounting break a run.
+            StudyMetrics::onSurveyStart((int) $study->id, $this->runSession->testing ?? null);
         } else {
             $this->db->update($study->results_table, array('modified' => mysql_now()), $entry);
         }
@@ -910,32 +936,16 @@ class UnitSession extends Model {
                 );
             } //endforeach
 
-            // One batched UPDATE for every posted item's display row. A CASE per
-            // column keyed on item_id reproduces the per-row values; created and
-            // displaycount keep their COALESCE-preserve semantics; the IN list
-            // scopes to existing rows only (never inserts), matching the old
-            // per-item UPDATEs exactly.
+            // One batched UPDATE for every posted item's display row: a CASE per
+            // column keyed on item_id reproduces the per-row values; `saved` is
+            // one shared stamp; created/displaycount keep their COALESCE-preserve
+            // semantics; the IN list scopes to existing rows only (never inserts),
+            // matching the old per-item UPDATEs exactly.
             if ($displayRows) {
-                $valueCols = array('answer', 'shown', 'shown_relative', 'answered', 'answered_relative', 'hidden');
-                $setParts = array();
-                $params = array('session_id' => $this->id, 'saved' => $saved);
-                foreach ($valueCols as $col) {
-                    $case = "`{$col}` = CASE item_id";
-                    $i = 0;
-                    foreach ($displayRows as $itemId => $vals) {
-                        $ph = "{$col}_{$i}";
-                        $case .= " WHEN {$itemId} THEN :{$ph}";
-                        $params[$ph] = $vals[$col];
-                        $i++;
-                    }
-                    $setParts[] = $case . " END";
-                }
-                $inList = implode(',', array_keys($displayRows));
-                $sql = "UPDATE `survey_items_display` SET "
-                    . implode(', ', $setParts)
-                    . ", saved = :saved, created = COALESCE(created, NOW()), displaycount = COALESCE(displaycount, 1)"
-                    . " WHERE session_id = :session_id AND item_id IN ({$inList})";
-                $this->db->exec($sql, $params);
+                $this->db->batchUpdateByKey('survey_items_display', 'item_id', $displayRows,
+                    array('saved' => $saved),
+                    array('session_id' => $this->id),
+                    array('created = COALESCE(created, NOW())', 'displaycount = COALESCE(displaycount, 1)'));
             }
             // Update results table in one query
             if ($update_data) {

@@ -5,26 +5,61 @@
  * full survey_run_sessions / survey_unit_sessions history on every dashboard or
  * admin-list view (slow-query audit 2026-07 §6.2 — SQ-13/16/17/18/21).
  *
- * Backs read-only display only. ComputeLimitCron enforcement keeps reading live,
- * so bounded staleness here never affects a quota/close decision. refresh() is a
- * single INSERT..SELECT..ON DUPLICATE KEY UPDATE over all runs (O(one scan) per
- * refresh instead of O(one scan) per page view); the FK cascade drops rows for
- * deleted runs. Reads LEFT JOIN the rollup, so a run created since the last
- * refresh simply reads as 0 until the next pass.
+ * Ownership split (review 2026-07, item 7):
+ *  - month_execution_time / month_key are WRITE-TIME-OWNED: bumped by
+ *    addMonthExecution() from UnitSession::addExecutionTime on every execute()
+ *    pass, so "this month's compute" attributes to the month the work HAPPENED
+ *    (a lifetime-cumulative execution_time filtered by us.created attributed a
+ *    long-lived session's entire burn to its creation month — recurring
+ *    recheck-loop compute escaped every later month's budget). History cannot
+ *    reproduce this split, so the reconcile PRESERVES the bucket within the
+ *    current month and only zeroes it at month rollover. ComputeLimitCron
+ *    enforcement reads this bucket — fresh by construction (written in the
+ *    same breath as the underlying data), unlike the reconcile-owned columns.
+ *  - Everything else is RECONCILE-OWNED: recomputable from history, refreshed
+ *    nightly, display-only; bounded staleness never affects a quota decision.
+ * The FK cascade drops rows for deleted runs. Reads LEFT JOIN the rollup, so a
+ * run created since the last refresh simply reads as 0 until the next pass
+ * (or until its first addMonthExecution upsert creates the row).
  */
 class RunMetrics {
 
-    /** Recompute every run's rollup row. Returns affected row count. */
-    public static function refresh(): int {
+    /**
+     * Full ground-truth recompute of both rollups (run + study) — the nightly
+     * reconciliation / drift-correction pass and the migration seed. This is the
+     * only place that scans history; write-time hooks (survey start/complete)
+     * keep study response counts fresh between runs. Config-gated: an instance
+     * that does not watch compute can set `metrics_reconcile_enabled=false` to
+     * skip the scan entirely (its write-hooked study counts still self-maintain;
+     * only the run/compute rollup goes stale). No-op returns -1.
+     */
+    public static function reconcile(): int {
+        if (!Config::get('metrics_reconcile_enabled', true)) {
+            return -1;
+        }
+        $affected = self::reconcileRunMetrics();
+        StudyMetrics::reconcileAll();
+        return $affected;
+    }
+
+    /** Recompute every run's reconcile-owned rollup columns (session counts,
+     * lifetime compute sums, log counts). The month bucket is write-time-owned
+     * (addMonthExecution): the reconcile PRESERVES it while month_key is
+     * current and only zeroes it at month rollover — history cannot reproduce
+     * the executed-this-month split, so recomputing it here would clobber the
+     * only correct copy with a created-date approximation. */
+    private static function reconcileRunMetrics(): int {
         $db = DB::getInstance();
         $sql = "
             INSERT INTO `survey_run_metrics`
-              (run_id, n_run_sessions, last_access, n_exec_sessions,
-               total_execution_time, month_execution_time, month_key, max_execution_time, last_activity)
+              (run_id, n_run_sessions, last_access, n_unit_sessions, n_push_logs, n_email_logs,
+               n_exec_sessions, total_execution_time, month_execution_time, month_key,
+               max_execution_time, last_activity)
             SELECT r.id,
                    COALESCE(rs.n_run_sessions, 0), rs.last_access,
+                   COALESCE(ua.n_unit_sessions, 0), COALESCE(pl.n_push_logs, 0), COALESCE(el.n_email_logs, 0),
                    COALESCE(us.n_exec_sessions, 0), COALESCE(us.total_time, 0),
-                   COALESCE(us.month_time, 0), DATE_FORMAT(NOW(), '%Y-%m'),
+                   0, DATE_FORMAT(NOW(), '%Y-%m'),
                    us.max_time, us.last_activity
             FROM `survey_runs` r
             LEFT JOIN (
@@ -32,30 +67,107 @@ class RunMetrics {
                 FROM `survey_run_sessions` GROUP BY run_id
             ) rs ON rs.run_id = r.id
             LEFT JOIN (
-                SELECT rs2.run_id,
-                       COUNT(us2.id) AS n_exec_sessions,
-                       SUM(us2.execution_time) AS total_time,
-                       SUM(CASE WHEN us2.created >= DATE_FORMAT(NOW(), '%Y-%m-01')
-                                THEN us2.execution_time ELSE 0 END) AS month_time,
-                       MAX(us2.execution_time) AS max_time,
-                       MAX(us2.created) AS last_activity
+                -- Matches RunHelper::getUserDetailTable's items query exactly
+                -- (review 2026-07, item 20): it inner-joins survey_run_units on
+                -- (unit_id, run_id), so this count must too — excluding sessions
+                -- of special/removed units and fanning out multi-position units
+                -- — or the page count disagrees with the rows shown. This is
+                -- the displayed row count, not a distinct-session figure.
+                SELECT rs2.run_id, COUNT(*) AS n_unit_sessions
                 FROM `survey_unit_sessions` us2
                 JOIN `survey_run_sessions` rs2 ON rs2.id = us2.run_session_id
-                WHERE us2.execution_time IS NOT NULL
+                JOIN `survey_run_units` sru2 ON sru2.unit_id = us2.unit_id AND sru2.run_id = rs2.run_id
                 GROUP BY rs2.run_id
+            ) ua ON ua.run_id = r.id
+            LEFT JOIN (
+                SELECT run_id, COUNT(*) AS n_push_logs FROM `push_logs` GROUP BY run_id
+            ) pl ON pl.run_id = r.id
+            LEFT JOIN (
+                SELECT rs3.run_id, COUNT(*) AS n_email_logs
+                FROM `survey_email_log` el3 JOIN `survey_unit_sessions` us3 ON us3.id = el3.session_id
+                JOIN `survey_run_sessions` rs3 ON rs3.id = us3.run_session_id
+                GROUP BY rs3.run_id
+            ) el ON el.run_id = r.id
+            LEFT JOIN (
+                SELECT rs4.run_id,
+                       COUNT(us4.id) AS n_exec_sessions,
+                       SUM(us4.execution_time) AS total_time,
+                       MAX(us4.execution_time) AS max_time,
+                       MAX(us4.created) AS last_activity
+                FROM `survey_unit_sessions` us4
+                JOIN `survey_run_sessions` rs4 ON rs4.id = us4.run_session_id
+                WHERE us4.execution_time IS NOT NULL
+                GROUP BY rs4.run_id
             ) us ON us.run_id = r.id
             ON DUPLICATE KEY UPDATE
                 n_run_sessions = VALUES(n_run_sessions), last_access = VALUES(last_access),
-                n_exec_sessions = VALUES(n_exec_sessions), total_execution_time = VALUES(total_execution_time),
-                month_execution_time = VALUES(month_execution_time), month_key = VALUES(month_key),
+                n_unit_sessions = VALUES(n_unit_sessions), n_push_logs = VALUES(n_push_logs),
+                n_email_logs = VALUES(n_email_logs), n_exec_sessions = VALUES(n_exec_sessions),
+                total_execution_time = VALUES(total_execution_time),
+                -- month bucket is write-time-owned: keep it while the month is
+                -- current, zero it at rollover (compare BEFORE month_key is
+                -- restamped on the next line — assignments run left to right)
+                month_execution_time = CASE WHEN month_key = VALUES(month_key)
+                                            THEN month_execution_time ELSE 0 END,
+                month_key = VALUES(month_key),
                 max_execution_time = VALUES(max_execution_time), last_activity = VALUES(last_activity)
         ";
         return $db->exec($sql);
     }
 
     /** Current-month key ('YYYY-MM'); month_execution_time is only valid for this. */
-    protected static function monthKey(): string {
+    public static function monthKey(): string {
         return date('Y-m');
+    }
+
+    /**
+     * Write-time month-bucket bump (review 2026-07, item 7): attribute
+     * $seconds of execution to THIS month on the run's rollup row, creating
+     * the row if the reconcile hasn't seen the run yet. Same-month bumps
+     * accumulate; the first bump of a new month resets the bucket (assignment
+     * order matters: the bucket CASE reads month_key before it is restamped).
+     * Called from UnitSession::addExecutionTime on every measured pass — keep
+     * it a single cheap upsert.
+     */
+    public static function addMonthExecution(int $runId, float $seconds): void {
+        if ($runId <= 0 || $seconds <= 0) {
+            return;
+        }
+        DB::getInstance()->exec(
+            "INSERT INTO `survey_run_metrics` (run_id, month_execution_time, month_key)
+             VALUES (:rid, :delta, :ym)
+             ON DUPLICATE KEY UPDATE
+                month_execution_time = CASE WHEN month_key = VALUES(month_key)
+                                            THEN month_execution_time + VALUES(month_execution_time)
+                                            ELSE VALUES(month_execution_time) END,
+                month_key = VALUES(month_key)",
+            ['rid' => $runId, 'delta' => round($seconds, 3), 'ym' => self::monthKey()]
+        );
+    }
+
+    /**
+     * Read a single reconcile-maintained count column for a run (SQ-06/14/37
+     * pagination), or null when there is no usable rollup value — caller falls
+     * back to a live COUNT. Reconcile-fresh (nightly); tolerant of day-staleness.
+     *
+     * A value of 0 is treated like a missing row: patch 068 seeded a rollup
+     * row for every existing run and patch 069 added these columns DEFAULT 0
+     * with no backfill, so 0 is indistinguishable from "never reconciled" —
+     * served as-is it blanked every admin email/push/user-detail table until
+     * the first nightly pass (forever with metrics_reconcile_enabled=false).
+     * The fallback live COUNT is cheap when the run is genuinely empty, and
+     * correct-at-pre-rollup-cost when the zero is stale.
+     */
+    public static function count(int $runId, string $col): ?int {
+        $allowed = ['n_run_sessions', 'n_unit_sessions', 'n_push_logs', 'n_email_logs'];
+        if (!in_array($col, $allowed, true)) {
+            throw new InvalidArgumentException("RunMetrics::count unknown column {$col}");
+        }
+        $val = DB::getInstance()->execute(
+            "SELECT `{$col}` FROM `survey_run_metrics` WHERE run_id = :rid",
+            ['rid' => $runId], true
+        );
+        return $val === false || $val === null || (int) $val === 0 ? null : (int) $val;
     }
 
     /** Per-user compute across the instance (SQ-16 usageByUser). */
@@ -66,7 +178,10 @@ class RunMetrics {
                    SUM(m.n_exec_sessions) AS n_sessions,
                    ROUND(SUM(m.total_execution_time), 1) AS total_time,
                    ROUND(SUM(CASE WHEN m.month_key = :month_key
-                                  THEN m.month_execution_time ELSE 0 END), 1) AS month_time
+                                  THEN m.month_execution_time ELSE 0 END), 1) AS month_time,
+                   (SELECT COUNT(*) FROM survey_runs r2
+                     WHERE r2.user_id = u.id AND r2.compute_closed_from IS NOT NULL
+                       AND r2.public = 0 AND r2.cron_active = 0) AS paused_runs
             FROM survey_users u
             JOIN survey_runs r ON r.user_id = u.id
             JOIN survey_run_metrics m ON m.run_id = r.id AND m.n_exec_sessions > 0

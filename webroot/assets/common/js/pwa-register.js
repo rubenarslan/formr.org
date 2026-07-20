@@ -62,7 +62,12 @@ if ('serviceWorker' in navigator && window.vapidPublicKey) {
                 // interpolate user input into this string; the only
                 // dynamic value is the configured codePattern, which
                 // originates from settings.php and is escaped here.
-                const escAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+                // Full attribute-context escape (review 2026-07 cleanup #2:
+                // was missing < > — harmless for a double-quoted attribute but
+                // inconsistent and fragile if the markup context ever shifts).
+                const escAttr = (s) => String(s)
+                    .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 const form = document.createElement('form');
                 form.id = 'fmr-pwa-recovery-banner';
                 form.method = 'get';

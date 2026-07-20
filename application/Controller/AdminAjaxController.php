@@ -346,7 +346,7 @@ class AdminAjaxController {
             $this->response->setStatusCode(500, 'Bad Request');
             $msg = '<strong>Sorry.</strong> Re-ordering run units failed.';
             // Audit F10/F12 (2026-07): surface the validation reason
-            // (non-positive/duplicate position) instead of a bare 500.
+            // (duplicate position) instead of a bare 500.
             $msg .= !empty($run->errors) ? ' ' . implode("\n", $run->errors) : '';
             alert($msg, 'alert-danger');
             $content = $this->site->renderAlerts();

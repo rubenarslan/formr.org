@@ -1031,7 +1031,11 @@ class SurveyStudy extends Model
      */
     protected function hasData()
     {
-        $this->result_count = $this->getResultCount();
+        // Destructive gate (results-table recreate on re-upload): must read the
+        // results table itself, never the write-time rollup — a stale/partial
+        // survey_study_metrics row reading 0 here would DROP real data with no
+        // backup. The rollup is for display only (getResultCount).
+        $this->result_count = $this->getResultCountLive();
         if (($this->result_count["real_users"] + $this->result_count['testers']) > 0) {
             return true;
         } else {
@@ -1041,7 +1045,9 @@ class SurveyStudy extends Model
 
     protected function hasRealData()
     {
-        $this->result_count = $this->getResultCount();
+        // Destructive gate (backup requirement, column-deletion confirmation):
+        // live count only, same rationale as hasData().
+        $this->result_count = $this->getResultCountLive();
         if ($this->result_count["real_users"] > 1) {
             return true;
         } else {
@@ -1051,7 +1057,10 @@ class SurveyStudy extends Model
 
     public function deleteResults($run_id = null)
     {
-        $this->result_count = $this->getResultCount($run_id);
+        // Destructive gate: the "nothing to delete" short-circuit and the
+        // backup-size message must reflect the actual table contents, not the
+        // rollup (which can be stale or unseeded right after patch 069).
+        $this->result_count = $this->getResultCountLive($run_id);
 
         if (array_sum($this->result_count) === 0) {
             return true;
@@ -1066,6 +1075,15 @@ class SurveyStudy extends Model
 
             // Delete unit sessions/long format results
             $delete_item_disp = $this->db->delete('survey_unit_sessions', array('unit_id' => $this->id));
+
+            // Reset the write-time rollup so display counts don't keep
+            // reporting the deleted rows (and later hooks don't increment on a
+            // stale base). Best-effort: the row re-seeds via hooks/reconcile.
+            try {
+                $this->db->delete('survey_study_metrics', array('study_id' => $this->id));
+            } catch (Exception $e) {
+                formr_log_exception($e, 'deleteResults StudyMetrics reset');
+            }
             return $delete && $delete_item_disp;
         } else {
             $this->errors[] = __("Backup of %s result rows failed. Deletion cancelled.", array_sum($this->result_count));
@@ -1075,7 +1093,9 @@ class SurveyStudy extends Model
 
     public function backupResults($itemNames = null)
     {
-        $this->result_count = $this->getResultCount();
+        // hasRealData() recomputes $this->result_count live; no separate
+        // (rollup-backed) pre-count here — the backup decision and the row
+        // count in the message must both come from the table itself.
         if ($this->hasRealData()) {
             $this->messages[] = __("<strong>Backed up.</strong> The old results were backed up in a file (%s results)", array_sum($this->result_count));
 
@@ -1094,12 +1114,38 @@ class SurveyStudy extends Model
 
     public function getResultCount($run_id = null, $filter = array())
     {
-        // Serve the unscoped count from cache (admin pages request it several
-        // times per action); scoped/filtered variants always hit the DB
-        if ($this->result_count !== null && !$filter && !$run_id) {
-            return $this->result_count;
+        // Unscoped count comes from the write-time study rollup (audit SQ-11):
+        // fresh via the survey start/complete hooks, O(1) read. Per-object cache
+        // dedupes repeat calls; scoped/filtered variants always hit the DB live.
+        // DISPLAY ONLY: bounded staleness is acceptable here. Anything that
+        // gates deletion or other destructive changes must use
+        // getResultCountLive() instead.
+        if (!$filter && !$run_id) {
+            if ($this->result_count !== null) {
+                return $this->result_count;
+            }
+            if ($this->id && ($rollup = StudyMetrics::counts((int) $this->id)) !== null) {
+                $this->result_count = $rollup;
+                return $rollup;
+            }
+            // no rollup row yet (brand-new study) — fall through to the live
+            // query below, which is cheap for a study with little/no data
         }
 
+        return $this->getResultCountLive($run_id, $filter);
+    }
+
+    /**
+     * Ground-truth result count straight from the results table, bypassing the
+     * survey_study_metrics rollup AND the per-object cache. Required by every
+     * destructive gate (hasData/hasRealData/deleteResults/backupResults): the
+     * rollup can be unseeded (fresh patch 069), partial (first hook fires
+     * before the first reconcile) or drifted (imports, testing toggles), and a
+     * false zero here means dropping participant data without a backup.
+     * Refreshes the cache so subsequent display reads see the live value.
+     */
+    public function getResultCountLive($run_id = null, $filter = array())
+    {
         $count = array('finished' => 0, 'begun' => 0, 'testers' => 0, 'real_users' => 0);
         if ($this->resultsTableExists()) {
             $results_table = $this->results_table;
@@ -1138,6 +1184,21 @@ class SurveyStudy extends Model
         }
 
         return $count;
+    }
+
+    /**
+     * Geometric-mean completion duration in minutes, or null if no completions
+     * (audit SQ-10 replacement). Read O(1) from the write-time study rollup:
+     * EXP(mean(ln seconds)) — maintainable incrementally where a median is not,
+     * and a better central tendency for right-skewed completion times.
+     */
+    public function getGeometricMeanDurationMinutes()
+    {
+        if (!$this->id) {
+            return null;
+        }
+        $seconds = StudyMetrics::geometricMeanSeconds((int) $this->id);
+        return $seconds === null ? null : round($seconds / 60, 1);
     }
 
     public function delete()

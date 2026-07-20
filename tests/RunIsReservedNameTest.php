@@ -59,6 +59,23 @@ class RunIsReservedNameTest extends TestCase
         $this->assertTrue(Run::isReservedName('Api-foo'));
     }
 
+    public function testDistDefaultReservesEveryTopLevelRouteSlug()
+    {
+        // In path-based (non-subdomain) deployments any first URL segment
+        // that matches a router slug never reaches RunController — so a run
+        // claiming such a name is silently unreachable (review 2026-07,
+        // item 15: the new /survey-test/ route made a run named
+        // "survey-test" serve every participant a 403 "invalid preview
+        // link"). The SHIPPED default must reserve every top-level slug in
+        // setup.php's route table, plus the internal TEST_RUN name.
+        $settings = [];
+        include APPLICATION_ROOT . 'config-dist/settings.php';
+        $reserved = $settings['reserved_run_names'];
+        foreach (['api', 'test', 'delegate', 'admin', 'run', 'public', 'survey-test', 'formr-test-run'] as $slug) {
+            $this->assertContains($slug, $reserved, "dist default must reserve route slug '{$slug}'");
+        }
+    }
+
     public function testNoReservedConfigReturnsFalse()
     {
         $this->setReserved([]);

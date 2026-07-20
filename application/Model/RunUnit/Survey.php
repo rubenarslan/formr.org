@@ -100,6 +100,7 @@ class Survey extends RunUnit {
                     'prepend' => $prepend,
                     'resultCount' => $this->id ? $this->getUnitSessionsCount() : null,
                     'surveyResultCount' => $this->surveyStudy ? $this->surveyStudy->getResultCount() : null,
+                    'geomMeanMinutes' => $this->surveyStudy ? $this->surveyStudy->getGeometricMeanDurationMinutes() : null,
                     'expirationSettings' => $expiration_settings,
         ));
 

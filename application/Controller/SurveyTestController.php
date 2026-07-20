@@ -82,7 +82,7 @@ class SurveyTestController extends Controller {
         // a different study (or after the test finished and testStudy() cleared
         // the data) re-seeds as expected.
         if (!$this->hasLiveTestSession($study)) {
-            Session::set('test_study_data', array(
+            Session::set('test_study_data_' . (int) $study->id, array(
                 'study_id' => $study->id,
                 'study_name' => $study->name,
                 'unit_id' => $study->id,
@@ -91,6 +91,10 @@ class SurveyTestController extends Controller {
         }
 
         $testRun = new Run(Run::TEST_RUN);
+        // The token carries the study identity — key the exec's session slot
+        // by it, so previews of different studies in different tabs each keep
+        // their own in-flight state (review 2026-07, item 17).
+        $testRun->test_study_id = (int) $study->id;
         $run_vars = $testRun->exec($user);
         if (!$run_vars) {
             return formr_error(500, 'Invalid Execution', 'The execution generated no output');
@@ -130,10 +134,11 @@ class SurveyTestController extends Controller {
     /**
      * Is a test of $study already in flight in THIS request's session?
      * Run::testStudy() keeps the live test (incl. its unit_session_id)
-     * under 'test_study_data' and deletes it when the test finishes.
+     * under the per-study 'test_study_data_<id>' slot and deletes it when
+     * the test finishes.
      */
     private function hasLiveTestSession($study) {
-        $existing = Session::get('test_study_data');
+        $existing = Session::get('test_study_data_' . (int) $study->id);
         return is_array($existing) && (int) array_val($existing, 'study_id') === (int) $study->id;
     }
 

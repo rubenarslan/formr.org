@@ -1,9 +1,36 @@
 # Write-time metrics accounting — design & implementation plan
 
-Status: **proposed** (2026-07-13). Targets a follow-up release (v1.7.0).
+Status: **IMPLEMENTED** on `feature/write-time-metrics` (v1.7.0).
 Supersedes the timer-driven `survey_run_metrics` rollup shipped in v1.6.0
 (`RunMetrics::refresh()` every 30 min) — see
 [`slow_query_audit_2026-07.md`](slow_query_audit_2026-07.md) §6.
+
+## Implementation notes & decisions taken
+
+Built per this plan with the maintainer's sign-off (2026-07-13). Files:
+`sql/patches/069_write_time_metrics.sql`, `application/Helper/StudyMetrics.php`,
+extended `RunMetrics` (reconcile + count reads), hooks in
+`application/Model/UnitSession.php`, reads in `SurveyStudy`/`RunHelper`, revived
+duration in `RunUnit/Survey` + template, `bin/cron_reconcile_metrics.php`,
+`bin/test_write_time_metrics_smoke.php`.
+
+Decisions:
+- **Scope:** all at once — study metrics + `getResultCount` + geometric-mean
+  duration + the SQ-06/14/37 run count columns.
+- **Hook surface refined to two hooks (survey start + complete only).** Compute
+  sums, session counts, `last_access`, and the SQ-06/14/37 counts are **all
+  reconcile-only** — the plan's execute-delta and session-create hooks were
+  dropped. Rationale: per the "optional nightly" decision, compute-watching is
+  the reconcile-maintained concern, and this keeps the hottest paths
+  (per-execute, per-session-create) hook-free — the maintainer's top priority.
+  Only the researcher-facing response counts (which need freshness) are hooked.
+- **`last_access` reconcile-only** (accepted day-staleness on the active-users
+  "last edit"). **Destructive paths** (testing toggle, deletes) lean on
+  reconcile. **No duration exclusion** — every completion contributes
+  `LN(GREATEST(seconds, 1))`. **Reconcile nightly (03:23) and optional**
+  (`metrics_reconcile_enabled`, default true). **Enforcement stays live.**
+- Reads that depend on reconcile-only columns (SQ-06/14/37) keep a **live
+  fallback** when a run has no rollup row yet.
 
 ## Context — why this exists
 

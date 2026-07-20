@@ -1,7 +1,8 @@
 #!/usr/bin/php
 <?php
-// Issue #608: enforce per-user monthly compute limits — close runs that put a
-// study admin over their budget, reopen them when usage drops back under it.
+// Issue #608: enforce per-user monthly compute limits — close (public = 0,
+// cron_active = 0) the runs of any study admin over their budget. Compute-closed
+// runs are not reopened automatically; the owner republishes them by hand.
 // Schedule alongside the other crons (see config/formr_crontab); hourly is a
 // good cadence (limit overshoot is bounded by the interval).
 require_once dirname(__FILE__) . '/../setup.php';
@@ -17,10 +18,11 @@ $params['lockfile'] = APPLICATION_ROOT . 'computeLimitsCron.lock';
 $cron = new ComputeLimitCron($fdb, $site, $user, $cronConfig, $params);
 $cron->execute();
 
-// Keep the display rollup fresh even on hosts that don't run the dedicated
-// 10-minute refresh cron (audit §6.2). Enforcement above reads live, so this
-// only affects the compute-usage dashboards / admin lists.
-RunMetrics::refresh();
+// The metrics rollup's reconcile-owned columns are refreshed by their own
+// nightly cron (cron_reconcile_metrics.php). Enforcement above reads the
+// WRITE-TIME month bucket (survey_run_metrics.month_execution_time, bumped on
+// every measured execute() pass), which is fresh by construction — it does not
+// depend on the nightly reconcile.
 
 unset($site, $fdb, $user, $params, $cronConfig);
 exit(0);

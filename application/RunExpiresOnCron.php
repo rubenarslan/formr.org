@@ -2,37 +2,12 @@
 
 class RunExpiresOnCron extends Cron {
     protected $name = 'Formr.RunExpiresOnCron';
-    protected $mailer = null;
-
     protected function process(): void {
         try {
             $this->processRuns();
         } finally {
-            // Clean up SMTP connection
-            if ($this->mailer !== null) {
-                $this->mailer->getSMTPInstance()->quit(true);
-                $this->mailer->getSMTPInstance()->close();
-            }
+            $this->closeMailer(); // shared keep-alive mailer teardown (Cron base)
         }
-    }
-    /*
-     * getMailer()
-     * 
-     * Get the mailer instance. If a mailer has been created, it will reuse it. Will also clear previous emails.
-     * 
-     * @return Mailer
-     */
-    private function getMailer() {
-        if ($this->mailer === null) {
-            $this->mailer = $this->site->makeAdminMailer();
-            $this->mailer->SMTPKeepAlive = true; // Keep the SMTP connection alive between sends
-        }
-        // Clear any previous recipients and attachments
-        $this->mailer->clearAddresses();
-        $this->mailer->clearAttachments();
-        $this->mailer->clearAllRecipients();
-        
-        return $this->mailer;
     }
 
     /**

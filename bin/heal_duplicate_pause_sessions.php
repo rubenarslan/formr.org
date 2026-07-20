@@ -301,33 +301,72 @@ if ($reviews) {
 }
 
 // --- Apply ---------------------------------------------------------------
+// Review 2026-07 (item 18b): the plan above is a SNAPSHOT — on a large
+// instance minutes can pass before this apply phase, and the live engine
+// (daemon/web) may end or advance a planned cluster meanwhile. So apply per
+// run session, holding the SAME GET_LOCK the engine holds around execute()
+// (RunSession::lockName), and guard every write on the planned precondition:
+// the supersede keeps its `queued > 0` guard, and the repoint only fires
+// while the pointer still sits on one of the cluster's superseded rows —
+// if the engine moved on, repointing would rewind position onto a completed
+// step and re-fire downstream sends, the exact corruption being healed.
 if ($apply && ($plan_supersede || $plan_repoint)) {
-    $db->beginTransaction();
-    try {
-        foreach ($plan_supersede as $s) {
-            // Also NULL iteration: the row is kept for audit (queued=-9,
-            // SUPERSEDED) but its (run_session_id, run_unit_id, iteration)
-            // tuple is freed so the UNIQUE key in patch 063 can be added.
-            // MySQL UNIQUE permits multiple NULLs; MAX(iteration) ignores
-            // NULL, so create()'s next-iteration count is unaffected.
-            $db->exec("UPDATE `survey_unit_sessions`
-                       SET `queued` = :sup, `state` = :st, `iteration` = NULL
-                       WHERE `id` = :id AND `queued` > 0",
-                ['sup' => $SUP, 'st' => UnitSessionQueue::STATE_SUPERSEDED, 'id' => $s['id']]);
+    $byRs = [];
+    foreach ($plan_supersede as $s) { $byRs[$s['rsid']]['supersede'][] = $s; }
+    foreach ($plan_repoint as $r)   { $byRs[$r['rsid']]['repoint'] = $r; }
+
+    $applied_sup = $applied_rep = $skipped_rep = $locked_out = 0;
+    foreach ($byRs as $rsid => $work) {
+        $lockName = 'run_session_' . $rsid;
+        $gotLock = (int) $db->execute("SELECT GET_LOCK(:n, 5)", ['n' => $lockName], true) === 1;
+        if (!$gotLock) {
+            $locked_out++;
+            echo "SKIPPED run_session {$rsid}: engine holds its lock — re-run the healer later.\n";
+            continue;
         }
-        foreach ($plan_repoint as $r) {
-            $db->exec("UPDATE `survey_run_sessions` SET `current_unit_session_id` = :cid, `position` = :pos
-                       WHERE `id` = :rsid",
-                ['cid' => $r['cid'], 'pos' => $r['pos'], 'rsid' => $r['rsid']]);
+        try {
+            $db->beginTransaction();
+            $supIds = [];
+            foreach ($work['supersede'] ?? [] as $s) {
+                // Also NULL iteration: the row is kept for audit (queued=-9,
+                // SUPERSEDED) but its (run_session_id, run_unit_id, iteration)
+                // tuple is freed so the UNIQUE key in patch 063 can be added.
+                // MySQL UNIQUE permits multiple NULLs; MAX(iteration) ignores
+                // NULL, so create()'s next-iteration count is unaffected.
+                $n = $db->exec("UPDATE `survey_unit_sessions`
+                           SET `queued` = :sup, `state` = :st, `iteration` = NULL
+                           WHERE `id` = :id AND `queued` > 0",
+                    ['sup' => $SUP, 'st' => UnitSessionQueue::STATE_SUPERSEDED, 'id' => $s['id']]);
+                $applied_sup += (int) $n;
+                $supIds[] = (int) $s['id'];
+            }
+            if (isset($work['repoint'])) {
+                $r = $work['repoint'];
+                // repoint only while the pointer still rests on a superseded
+                // row of this cluster (the plan's premise)
+                $inList = $supIds ? implode(',', $supIds) : '0';
+                $n = $db->exec("UPDATE `survey_run_sessions`
+                           SET `current_unit_session_id` = :cid, `position` = :pos
+                           WHERE `id` = :rsid AND `current_unit_session_id` IN ({$inList})",
+                    ['cid' => $r['cid'], 'pos' => $r['pos'], 'rsid' => $r['rsid']]);
+                if ((int) $n === 1) {
+                    $applied_rep++;
+                } else {
+                    $skipped_rep++;
+                    echo "SKIPPED repoint for run_session {$rsid}: state changed since the plan (pointer no longer on a superseded row) — nothing rewound.\n";
+                }
+            }
+            $db->commit();
+        } catch (Exception $e) {
+            $db->rollBack();
+            echo "ERROR on run_session {$rsid} — rolled back this cluster: " . $e->getMessage() . "\n";
+        } finally {
+            $db->execute("SELECT RELEASE_LOCK(:n)", ['n' => $lockName], true);
         }
-        $db->commit();
-        echo "APPLIED: superseded " . count($plan_supersede) . " row(s), repointed "
-           . count($plan_repoint) . " run session(s).\n\n";
-    } catch (Exception $e) {
-        $db->rollBack();
-        echo "ERROR — rolled back, nothing changed: " . $e->getMessage() . "\n";
-        exit(1);
     }
+    echo "APPLIED: superseded {$applied_sup} row(s), repointed {$applied_rep} run session(s)"
+       . ($skipped_rep ? ", {$skipped_rep} repoint(s) skipped (state changed)" : "")
+       . ($locked_out ? ", {$locked_out} cluster(s) locked by the engine (re-run later)" : "") . ".\n\n";
 } elseif (!$apply && ($plan_supersede || $plan_repoint)) {
     echo "Dry-run: pass --apply to perform the above.\n\n";
 }

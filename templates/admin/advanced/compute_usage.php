@@ -8,35 +8,7 @@
     <section class="content">
         <?php Template::loadChild('public/alerts'); ?>
 
-        <div class="row">
-            <div class="col-md-4 col-sm-6">
-                <div class="info-box">
-                    <span class="info-box-icon bg-aqua"><i class="fa fa-clock-o"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Total compute</span>
-                        <span class="info-box-number"><?= h(ComputeUsageHelper::formatDuration($totals['total_time'] ?? 0)) ?></span>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 col-sm-6">
-                <div class="info-box">
-                    <span class="info-box-icon bg-green"><i class="fa fa-calendar"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">This month</span>
-                        <span class="info-box-number"><?= h(ComputeUsageHelper::formatDuration($totals['month_time'] ?? 0)) ?></span>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 col-sm-6">
-                <div class="info-box">
-                    <span class="info-box-icon bg-yellow"><i class="fa fa-tasks"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Unit sessions measured</span>
-                        <span class="info-box-number"><?= number_format((int)($totals['n_sessions'] ?? 0)) ?></span>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <?php Template::loadChild('admin/parts/compute_totals'); ?>
 
         <div class="row">
             <div class="col-md-12">
@@ -46,7 +18,7 @@
                         <span class="pull-right text-muted">instance default limit: <?= h(ComputeUsageHelper::formatLimit($monthly_default)) ?> / month</span>
                     </div>
                     <div class="box-body table-responsive">
-                        <p class="text-muted">A user's <strong>monthly limit</strong> is their compute budget across all their runs. When this month's usage reaches it, their public runs are set non-public until usage drops back under the limit (e.g. next month). Leave the field blank to inherit the instance default; enter seconds, or <code>0</code> for unlimited. Users cannot change their own limit.</p>
+                        <p class="text-muted">This-month figures are maintained live (write-time); lifetime totals and session counts refresh with the nightly reconcile. A user's <strong>monthly limit</strong> is their compute budget across all their runs. When this month's usage reaches it, their active runs are set non-public and their automatic actions (cron) are switched off. Compute-closed runs are <strong>not</strong> reopened automatically — the owner must republish them (and re-enable cron) in the run settings once usage is addressed. Leave the field blank to inherit the instance default; enter seconds, or <code>0</code> for unlimited. Users cannot change their own limit.</p>
                         <?php if (!empty($users)): ?>
                             <table class="table table-striped">
                                 <thead>
@@ -66,7 +38,7 @@
                                           $eff = ComputeUsageHelper::effectiveLimit($u['compute_limit_monthly']);
                                           $tripped = $eff > 0 && (float)$u['month_time'] >= $eff; ?>
                                     <tr<?= $tripped ? ' class="danger"' : '' ?>>
-                                        <td><?= h($u['email']) ?></td>
+                                        <td><?= h($u['email']) ?><?php if (!empty($u['paused_runs'])): ?> <span class="label label-danger hastooltip" title="Runs auto-paused by the monthly compute limiter (non-public + cron paused) until usage drops back under the limit"><i class="fa fa-pause"></i> <?= (int)$u['paused_runs'] ?> run<?= (int)$u['paused_runs'] === 1 ? '' : 's' ?> paused</span><?php endif; ?></td>
                                         <td class="text-right"><?= number_format((int)$u['n_runs']) ?></td>
                                         <td class="text-right"><?= number_format((int)$u['n_sessions']) ?></td>
                                         <td class="text-right"><?= h(ComputeUsageHelper::formatDuration($u['month_time'])) ?></td>

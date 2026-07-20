@@ -272,8 +272,18 @@ $settings['encryption_key_file'] = null;
 // Before using this, make sure xsendfile is installed and configured correctly with apache
 $settings['use_xsendfile'] = true;
 
-// Reserved run names which users are not allowed to use
-$settings['reserved_run_names'] = array('api', 'test', 'delegate');
+// Reserved run names which users are not allowed to use. Must cover every
+// top-level router slug (setup.php routes): in path-based (non-subdomain)
+// deployments the router matches the first URL segment against the route
+// table BEFORE falling through to "treat it as a run name" — a run claiming
+// a slug like `survey-test` would be unreachable (participants get the
+// preview controller's 403 instead of the study). isReservedName() blocks
+// the name and its `name-*` prefixes, case-insensitively.
+$settings['reserved_run_names'] = array(
+    'api', 'test', 'delegate',
+    'admin', 'run', 'public', 'survey-test',
+    'formr-test-run', // Run::TEST_RUN, the internal preview pseudo-run
+);
 
 // Flag indicating whether formr is in maintenance mode
 // If this is set to true, then users will see a maintenance message and cron jobs will not run
@@ -321,7 +331,13 @@ $settings['run_session'] = array(
     'lock_timeout' => array(
         'queue' => 0.1,  // Queue should fail fast (0.1 seconds)
         'user' => 10.0   // Users can wait longer (10 seconds)
-    )
+    ),
+    // Maximum automated units executed back-to-back in ONE request. Exceeding
+    // it halts the request WITHOUT ending the run session (a misconfigured
+    // skip cycle stays cheap per request; a genuine catch-up continues on the
+    // next request). If your design legitimately chains more automated units,
+    // raise this.
+    'max_execution_count' => 10,
 );
 
 // How long to keep study data, i.e. what is the maxmimum expiry that can be set in a run
@@ -332,10 +348,11 @@ $settings['keep_study_data_for_months_maximum'] = 84;
 // in SECONDS of unit-session execution time (incl. OpenCPU/R) summed across
 // all their runs in the current calendar month. 0 = unlimited (the default,
 // so nothing is limited out of the box). When a user exceeds their effective
-// limit, ComputeLimitCron sets their public runs non-public until usage drops
-// back under the limit (typically when the month rolls over). A superadmin
-// can override this per user via survey_users.compute_limit_monthly; users
-// cannot change their own limit.
+// limit, ComputeLimitCron sets their active runs non-public and disables their
+// automatic actions (cron_active = 0). Compute-closed runs are NOT reopened
+// automatically — the owner must republish them (and re-enable cron) once usage
+// is addressed. A superadmin can override this per user via
+// survey_users.compute_limit_monthly; users cannot change their own limit.
 $settings['compute_limit_monthly_default'] = 0;
 
 // Notification settings for sending notifications to study administrators about issues with their study in minutes

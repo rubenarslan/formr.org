@@ -10,8 +10,8 @@
  *
  * Covers: patch 064 (UNIQUE run_id,position), F10/F12 (reorder validation),
  * F1 (reminder-hijack placement guard + current-session resolution),
- * F2 (ended-terminal write guard), F13 (POST↔session binding), F17/F18
- * (Shuffle idempotency + stability), F20 (endLastExternal newest-only),
+ * F2 (ended-terminal write guard), F13 (POST↔session binding), F17
+ * (Shuffle idempotency; F18 stability reverted by design), F20 (endLastExternal newest-only),
  * F4 (queue-deadline revalidation).
  *
  * Usage:  docker exec formr_app php bin/test_run_engine_audit_smoke.php
@@ -84,10 +84,13 @@ try {
     $pU1 = mkUnit($db, $ids, 'Pause'); $pU2 = mkUnit($db, $ids, 'Pause');
     $pRU1 = mkPlacement($db, $ids, $pU1, 10); $pRU2 = mkPlacement($db, $ids, $pU2, 20);
     ok($run->reorder([$pRU1 => 30, $pRU2 => 30]) === false, 'reorder rejects duplicate positions');
-    ok($run->reorder([$pRU1 => 0, $pRU2 => 40]) === false, 'reorder rejects position 0');
-    ok($run->reorder([$pRU1 => -5, $pRU2 => 40]) === false, 'reorder rejects negative position');
-    $stillPos = (int) $db->execute('SELECT position FROM survey_run_units WHERE id=:i', ['i' => $pRU1], true);
-    eq($stillPos, 10, 'rejected reorder wrote nothing (position unchanged)');
+    // Review 2026-07 item 2 (45a9411e): 0 and negative positions are VALID —
+    // legacy runs use 0 and negatives were historically allowed; only
+    // duplicates within a batch are rejected.
+    ok($run->reorder([$pRU1 => 0, $pRU2 => 40]) === true, 'reorder accepts position 0');
+    eq((int) $db->execute('SELECT position FROM survey_run_units WHERE id=:i', ['i' => $pRU1], true), 0, 'position 0 persisted');
+    ok($run->reorder([$pRU1 => -5, $pRU2 => 40]) === true, 'reorder accepts negative positions');
+    eq((int) $db->execute('SELECT position FROM survey_run_units WHERE id=:i', ['i' => $pRU1], true), -5, 'negative position persisted');
     ok($run->reorder([$pRU1 => 15, $pRU2 => 25]) === true, 'reorder accepts distinct positive positions');
     eq((int) $db->execute('SELECT position FROM survey_run_units WHERE id=:i', ['i' => $pRU1], true), 15, 'valid reorder persisted');
 
@@ -155,10 +158,14 @@ try {
     // idempotent: re-running getUnitSessionOutput on the SAME session must not throw and keep the group
     $shuffle->getUnitSessionOutput($shUS1);
     eq((int) $db->execute('SELECT `group` FROM shuffle WHERE session_id=:i', ['i' => $shUS1->id], true), $g1, 'F17: re-run keeps same group, no dup-key crash');
-    // stability: a SECOND unit session (SkipBackward revisit) reuses the group
+    // Review 2026-07 item 12: F18's cross-visit stability was REVERTED per
+    // the maintainer — each revisit (new unit session) re-randomizes by
+    // design; keep the Shuffle out of the loop for constant groups. Assert
+    // only that a second visit draws independently and in range.
     $shUS2 = new UnitSession($shSess, $shuffle); $shUS2->create(); $ids['unit_sessions'][] = $shUS2->id;
     $shuffle->getUnitSessionOutput($shUS2);
-    eq((int) $db->execute('SELECT `group` FROM shuffle WHERE session_id=:i', ['i' => $shUS2->id], true), $g1, 'F18: revisit reuses the participant group');
+    $g2 = (int) $db->execute('SELECT `group` FROM shuffle WHERE session_id=:i', ['i' => $shUS2->id], true);
+    ok($g2 >= 1 && $g2 <= 4, 'revisit drew its own valid group (re-randomizes by design)');
 
     // ── F20: endLastExternal ends only the newest live External ──────────
     echo "\n== F20: endLastExternal newest-only ==\n";
