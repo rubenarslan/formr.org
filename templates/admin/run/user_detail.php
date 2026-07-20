@@ -43,7 +43,7 @@
                                 <label class="sr-only">Name</label>
                                 <div class="input-group" style="width: 350px;">
                                     <div class="input-group-addon">SEARCH <i class="fa fa-user"></i></div>
-                                    <input name="session" value="<?= h(array_val($_GET, 'session')) ?>" type="text" class="form-control" placeholder="Session code">
+                                    <input name="session" value="<?= h(array_val($_GET, 'session')) ?>" type="text" class="form-control" placeholder="Session code (starts with…)" title="Matches session codes that start with what you type (not a substring).">
                                 </div>
 
                                 <label class="sr-only" title="This refers to the user's current position!">Position</label>

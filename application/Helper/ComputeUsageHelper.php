@@ -124,9 +124,14 @@ class ComputeUsageHelper {
         if ($seconds < 60) {
             return rtrim(rtrim(number_format($seconds, 1), '0'), '.') . 's';
         }
-        $h = (int) floor($seconds / 3600);
-        $m = (int) floor(($seconds % 3600) / 60);
-        $s = (int) floor($seconds % 60);
+        // Work in whole seconds: applying % directly to the float input
+        // (compute values are ROUND(…, 1)) emits an 8.1+ "float to int loses
+        // precision" deprecation on every render (review 2026-07, item 21c).
+        // floor() already discards the fraction, so output is identical.
+        $whole = (int) floor($seconds);
+        $h = intdiv($whole, 3600);
+        $m = intdiv($whole % 3600, 60);
+        $s = $whole % 60;
         if ($h > 0) {
             return sprintf('%dh %02dm', $h, $m);
         }
