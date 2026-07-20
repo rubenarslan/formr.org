@@ -72,8 +72,16 @@ class RunMetrics {
                 FROM `survey_run_sessions` GROUP BY run_id
             ) rs ON rs.run_id = r.id
             LEFT JOIN (
+                -- Matches RunHelper::getUserDetailTable's items query exactly
+                -- (review 2026-07, item 20): it inner-joins survey_run_units on
+                -- (unit_id, run_id), so this count must too — excluding sessions
+                -- of special/removed units and fanning out multi-position units
+                -- — or the page count disagrees with the rows shown. This is
+                -- the displayed row count, not a distinct-session figure.
                 SELECT rs2.run_id, COUNT(*) AS n_unit_sessions
-                FROM `survey_unit_sessions` us2 JOIN `survey_run_sessions` rs2 ON rs2.id = us2.run_session_id
+                FROM `survey_unit_sessions` us2
+                JOIN `survey_run_sessions` rs2 ON rs2.id = us2.run_session_id
+                JOIN `survey_run_units` sru2 ON sru2.unit_id = us2.unit_id AND sru2.run_id = rs2.run_id
                 GROUP BY rs2.run_id
             ) ua ON ua.run_id = r.id
             LEFT JOIN (
