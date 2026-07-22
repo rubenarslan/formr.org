@@ -21,6 +21,32 @@ abstract class Cron {
     protected $logfile;
     protected $lockfile;
     protected $start_datastamp;
+    /** Shared keep-alive admin mailer for crons that email (lazy). */
+    protected $mailer = null;
+
+    /**
+     * Reusable keep-alive admin mailer, cleared of any prior recipients /
+     * attachments on each call. Shared by the crons that email (review 2026-07
+     * cleanup: was duplicated verbatim in ComputeLimitCron / RunExpiresOnCron).
+     */
+    protected function getMailer() {
+        if ($this->mailer === null) {
+            $this->mailer = $this->site->makeAdminMailer();
+            $this->mailer->SMTPKeepAlive = true; // keep the SMTP connection alive between sends
+        }
+        $this->mailer->clearAddresses();
+        $this->mailer->clearAttachments();
+        $this->mailer->clearAllRecipients();
+        return $this->mailer;
+    }
+
+    /** Tear down the shared mailer's SMTP connection (call in process()'s finally). */
+    protected function closeMailer() {
+        if ($this->mailer !== null) {
+            $this->mailer->getSMTPInstance()->quit(true);
+            $this->mailer->getSMTPInstance()->close();
+        }
+    }
 
     public function __construct(DB $db, Site $site, User $user, $config, $params) {
         $this->db = $db;

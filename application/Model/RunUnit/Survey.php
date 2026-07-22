@@ -99,8 +99,8 @@ class Survey extends RunUnit {
                     'studies' => Site::getCurrentUser()->getStudies('id DESC', null, 'id, name'),
                     'prepend' => $prepend,
                     'resultCount' => $this->id ? $this->getUnitSessionsCount() : null,
-                    'time' => $this->surveyStudy ? $this->surveyStudy->getAverageTimeItTakes() : null,
                     'surveyResultCount' => $this->surveyStudy ? $this->surveyStudy->getResultCount() : null,
+                    'geomMeanMinutes' => $this->surveyStudy ? $this->surveyStudy->getGeometricMeanDurationMinutes() : null,
                     'expirationSettings' => $expiration_settings,
         ));
 

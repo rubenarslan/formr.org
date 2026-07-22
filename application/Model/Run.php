@@ -155,20 +155,6 @@ class Run extends Model
         }
     }
 
-    public function getCronDues()
-    {
-        $sessions = $this->db->select('session')
-            ->from('survey_run_sessions')
-            ->where(array('run_id' => $this->id))
-            ->order('RAND')
-            ->statement();
-        $dues = array();
-        while ($run_session = $sessions->fetch(PDO::FETCH_ASSOC)) {
-            $dues[] = $run_session['session'];
-        }
-        return $dues;
-    }
-
     /**
      * Checks if a run name is an exact match or prefix of a reserved word.
      *
@@ -549,16 +535,84 @@ class Run extends Model
 
     public function reorder($positions)
     {
-        $run_unit_id = null;
-        $pos = null;
-        $update = "UPDATE `survey_run_units` SET position = :position WHERE run_id = :run_id AND id = :run_unit_id";
-        $reorder = $this->db->prepare($update);
-        $reorder->bindParam(':run_id', $this->id);
-        $reorder->bindParam(':run_unit_id', $run_unit_id);
-        $reorder->bindParam(':position', $pos);
-
+        // Audit F10/F12 (2026-07): validate before writing. Duplicate positions
+        // make traversal non-deterministic (two unordered LIMIT-1 lookups can
+        // disagree) and patch 064's UNIQUE(run_id, position) would reject them
+        // with a raw 23000 — surface a clear message instead. Any single
+        // integer position is otherwise legal: 0 is a valid slot (a unit there
+        // must start the run, not brick it — the null-checks elsewhere in the
+        // engine handle that) and negative positions are occasionally used, so
+        // only duplicates within the batch are rejected.
+        $seen = [];
         foreach ($positions as $run_unit_id => $pos) {
-            $reorder->execute();
+            $pos = (int) $pos;
+            if (isset($seen[$pos])) {
+                $this->errors[] = "Two units share position {$pos}; positions must be unique.";
+                return false;
+            }
+            $seen[$pos] = true;
+        }
+
+        // Two-phase apply so a permutation that transiently reuses a live
+        // position (a swap, a rotation) doesn't trip the UNIQUE key. InnoDB
+        // checks UNIQUE per row *within* a statement (no deferred constraints),
+        // and for a cyclic permutation no row order — and no single CASE
+        // UPDATE — avoids a transient duplicate. So park every affected row in
+        // a band strictly above every position currently in the run AND every
+        // requested target (guaranteeing the parked values collide with
+        // neither the not-yet-moved rows in phase 1 nor the finals in phase 2),
+        // then write the finals. Two batched UPDATEs, one transaction.
+        if (!$positions) {
+            return true;
+        }
+        $ids = array_map('intval', array_keys($positions));
+        $targets = array_map('intval', array_values($positions));
+        $currentMax = (int) $this->db->execute(
+            "SELECT COALESCE(MAX(position), 0) FROM survey_run_units WHERE run_id = :rid",
+            ['rid' => $this->id], true
+        );
+        $base = max(max($targets), $currentMax) + 1;
+
+        $this->db->beginTransaction();
+        try {
+            // Phase 1: park each affected row at base, base+1, … (all distinct,
+            // all above every real/target position). Keyed by id via a CASE so
+            // it is a single statement.
+            $parkCases = '';
+            $rank = 0;
+            $parkParams = ['rid' => $this->id];
+            foreach ($ids as $i => $ruid) {
+                $parkCases .= " WHEN :pid{$i} THEN :ppos{$i}";
+                $parkParams["pid{$i}"] = $ruid;
+                $parkParams["ppos{$i}"] = $base + $rank;
+                $rank++;
+            }
+            $idList = implode(',', $ids); // $ids is already int-cast
+            $this->db->exec(
+                "UPDATE `survey_run_units` SET position = CASE id{$parkCases} END
+                 WHERE run_id = :rid AND id IN ({$idList})",
+                $parkParams
+            );
+
+            // Phase 2: write the requested final positions.
+            $finalCases = '';
+            $finalParams = ['rid' => $this->id];
+            foreach ($ids as $i => $ruid) {
+                $finalCases .= " WHEN :fid{$i} THEN :fpos{$i}";
+                $finalParams["fid{$i}"] = $ruid;
+                $finalParams["fpos{$i}"] = $targets[$i];
+            }
+            $this->db->exec(
+                "UPDATE `survey_run_units` SET position = CASE id{$finalCases} END
+                 WHERE run_id = :rid AND id IN ({$idList})",
+                $finalParams
+            );
+
+            $this->db->commit();
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            $this->errors[] = 'Re-ordering failed: ' . $e->getMessage();
+            return false;
         }
         return true;
     }
@@ -769,6 +823,40 @@ class Run extends Model
         $runSession->createUnitSession($runUnit, false);
 
         return $runSession->currentUnitSession;
+    }
+
+    /**
+     * Create, execute AND terminate a reminder email session. Audit F1b
+     * (2026-07): callers used to execute() the session and leave it
+     * un-ended forever — those live off-position rows were the raw
+     * material of the F1 placement hijack and litter every stalled-
+     * session audit. end(null) preserves the execute() result
+     * ('email_queued'/'email_sent'); the email queue's post-send result
+     * update is a raw UPDATE by id and still lands after end().
+     *
+     * @return UnitSession|false the ended session, or false if execute() failed
+     */
+    public function sendReminder($reminder_id, $session, $run_session_id)
+    {
+        // Review 2026-07 (item 9): fail SOFT on any session-creation failure.
+        // A stale/deleted reminder id makes RunUnitFactory::make throw
+        // (RuntimeException: no unit type), and a DB error / non-adoptable
+        // UNIQUE collision makes createUnitSession install NULL — either way
+        // ->execute() then fataled, 500ing the single-reminder button and
+        // aborting whole bulk-reminder requests on the first bad session.
+        // Callers already alert on false and bulk loops continue.
+        try {
+            $emailSession = $this->getReminderSession($reminder_id, $session, $run_session_id);
+        } catch (Throwable $e) {
+            formr_log_exception($e, __METHOD__, ['reminder_id' => $reminder_id, 'run_session_id' => $run_session_id]);
+            return false;
+        }
+        if (!$emailSession || !$emailSession->id) {
+            return false;
+        }
+        $result = $emailSession->execute();
+        $emailSession->end();
+        return $result === false ? false : $emailSession;
     }
 
     public function getCustomCSS()
@@ -1110,9 +1198,24 @@ class Run extends Model
         return $this->name === self::TEST_RUN;
     }
 
+    /**
+     * Which study this TEST_RUN instance previews. Set by
+     * SurveyTestController (the only TEST_RUN driver) from the identity the
+     * preview token carries, so the session slot below is keyed PER STUDY —
+     * two previews in two tabs no longer clobber each other's in-flight
+     * test state (review 2026-07, item 17).
+     */
+    public $test_study_id = null;
+
+    /** Per-study session key for the in-flight preview state. */
+    private function testStudyKey()
+    {
+        return 'test_study_data_' . (int) $this->test_study_id;
+    }
+
     private function testStudy()
     {
-        if (!($data = Session::get('test_study_data'))) {
+        if (!($data = Session::get($this->testStudyKey()))) {
             formr_error(404, 'Not Found', 'Nothing to Test-Drive');
         }
 
@@ -1125,7 +1228,7 @@ class Run extends Model
         if (!isset($data['unit_session_id'])) {
             $runSession->createUnitSession($runUnit);
             $data['unit_session_id'] = $runSession->currentUnitSession->id;
-            Session::set('test_study_data', $data);
+            Session::set($this->testStudyKey(), $data);
         } else {
             $unitSession = new UnitSession($runSession, $runUnit, ['id' => $data['unit_session_id'], 'load' => true]);
             $runSession->currentUnitSession = $unitSession;
@@ -1141,7 +1244,7 @@ class Run extends Model
 					<a href='" . admin_study_url($data['study_name']) . "'>Back to the admin control panel.</a>"
             ];
 
-            Session::delete('test_study_data');
+            Session::delete($this->testStudyKey());
         }
 
         return compact("output", "runSession");
@@ -1468,9 +1571,38 @@ class Run extends Model
         $this->db->beginTransaction();
 
         try {
+            // Audit F8/F7 (2026-07): terminate in-flight participant unit
+            // sessions for THIS run before wiping the structure. The wipe
+            // below re-creates survey_run_units with new ids, so every
+            // live session's run_unit_id would otherwise dangle and the
+            // participant would resume spliced onto whatever unit now
+            // occupies their stored position. Expiring them (in the same
+            // transaction) gives a clean terminal state; on their next
+            // request the recovery branch advances them from their numeric
+            // position through the NEW structure instead.
+            // Scope by the RUN, not the placement (review 2026-07, item 13):
+            // when the whole structure is wiped, EVERY live session of this
+            // run's participants dangles — including legacy rows whose
+            // run_unit_id is NULL (pre-047, and the 048 backfill's
+            // intentional NULLs), which the old INNER JOIN on run_unit_id
+            // could never match and therefore left live to resume spliced
+            // onto the new structure. The ru arm keeps covering stray
+            // stamped rows without a run session.
+            $this->db->exec(
+                "UPDATE `survey_unit_sessions` us
+                 LEFT JOIN `survey_run_sessions` rs ON rs.id = us.run_session_id
+                 LEFT JOIN `survey_run_units` ru ON ru.id = us.run_unit_id
+                 SET us.`expired` = NOW(), us.`queued` = 0,
+                     us.`result` = COALESCE(us.`result`, 'run_structure_replaced'),
+                     us.`state` = :state
+                 WHERE (rs.run_id = :run_id OR ru.run_id = :run_id2)
+                   AND us.`ended` IS NULL AND us.`expired` IS NULL",
+                ['run_id' => $this->id, 'run_id2' => $this->id, 'state' => UnitSessionQueue::STATE_EXPIRED]
+            );
+
             // 1. Wipe the existing structure for this run.
             // We delete the links in 'run_units'. This effectively "empties" the run structure.
-            // Note: This does not delete the actual Unit definitions (surveys) or data, 
+            // Note: This does not delete the actual Unit definitions (surveys) or data,
             // it just unlinks them from this specific Run.
             $delete = $this->db->prepare("DELETE FROM survey_run_units WHERE run_id = :run_id");
             $delete->bindParam(':run_id', $this->id);

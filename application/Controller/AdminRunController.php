@@ -97,7 +97,7 @@ class AdminRunController extends AdminController
 
         if ($this->request->session) {
             $session = str_replace("…", "", $this->request->session);
-            $queryparams['session'] = "%" . $session . "%";
+            $queryparams['session'] = $session . "%";
             $querystring['session'] = $session;
         }
 
@@ -138,7 +138,7 @@ class AdminRunController extends AdminController
     private function exportUserOverviewAction()
     {
         $helper = new RunHelper($this->run, $this->fdb, $this->request);
-        $queryParams = array('run_id' => $this->run->id, 'admin_code' => $this->user->user_code);
+        $queryParams = array('run_id' => $this->run->id);
         $exportStmt = $helper->getUserOverviewExportPdoStatement($queryParams);
         $SPR = new SpreadsheetReader();
         $download_successfull = $SPR->exportInRequestedFormat($exportStmt, $this->run->name . '_user_overview', $this->request->str('format'));
@@ -162,7 +162,7 @@ class AdminRunController extends AdminController
 
         if ($this->request->session) {
             $session = str_replace("…", "", $this->request->session);
-            $queryparams['session'] = "%" . $session . "%";
+            $queryparams['session'] = $session . "%";
             $querystring['session'] = $session;
         }
 

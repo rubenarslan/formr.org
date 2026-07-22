@@ -129,13 +129,27 @@ class OAuthHelper
             ':internal' => self::INTERNAL_LABEL,
         ]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Fetch every client's run allowlist in one query instead of one per
+        // client (audit SQ-30), then group in PHP.
+        $allowlists = [];
+        if ($rows) {
+            $clientIds = array_column($rows, 'client_id');
+            $placeholders = implode(',', array_fill(0, count($clientIds), '?'));
+            $allow = $db->prepare("SELECT client_id, run_id FROM oauth_client_runs WHERE client_id IN ($placeholders)");
+            $allow->execute($clientIds);
+            foreach ($allow->fetchAll(PDO::FETCH_ASSOC) as $ar) {
+                $allowlists[$ar['client_id']][] = (int) $ar['run_id'];
+            }
+        }
+
         $clients = [];
         foreach ($rows as $row) {
             $clients[] = [
                 'client_id' => $row['client_id'],
                 'label' => $row['label'],
                 'scopes' => $this->parseScopeString($row['scope'] ?? ''),
-                'run_ids' => $this->getRunAllowlist($row['client_id']),
+                'run_ids' => $allowlists[$row['client_id']] ?? [],
             ];
         }
         return $clients;

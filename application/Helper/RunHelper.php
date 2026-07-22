@@ -65,8 +65,7 @@ class RunHelper {
     }
 
     public function remind() {
-        $emailSession = $this->run->getReminderSession($this->request->reminder_id, $this->request->session, $this->request->run_session_id);
-        if ($emailSession->execute() === false) {
+        if ($this->run->sendReminder($this->request->reminder_id, $this->request->session, $this->request->run_session_id) === false) {
             $this->errors[] = 'Something went wrong with the reminder. in run ' . $this->run->name;
             return false;
         }
@@ -82,7 +81,9 @@ class RunHelper {
         if (!$us) {
             $this->message = 'No unit session found';
             return false;
-        } else if($us->end('moved') && $this->runSession->moveOn()) {
+        } else if ($this->runSession->forceMoveOn('moved')) {
+            // Audit F3 (2026-07): end + moveOn now run under the
+            // run-session lock instead of racing a daemon cascade.
             $this->message = 'Move done';
             return true;
         } else {
@@ -158,9 +159,8 @@ class RunHelper {
 
         $pagination = new Pagination($count, 200, true);
         $limits = $pagination->getLimits();
-        $queryParams['admin_code'] = $adminCode;
 
-        $itemsQuery = 
+        $selectAndJoins =
             "SELECT
                 `survey_run_sessions`.id AS run_session_id,
                 `survey_run_sessions`.session,
@@ -172,7 +172,6 @@ class RunHelper {
                 `survey_run_sessions`.current_unit_session_id,
                 `survey_runs`.name AS run_name,
                 `survey_units`.type AS unit_type,
-                `survey_run_sessions`.last_access,
                 `us`.result,
                 `us`.result_log,
                 `us`.expires
@@ -181,13 +180,47 @@ class RunHelper {
             LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
             LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
             LEFT JOIN `survey_unit_sessions` us ON  `survey_run_sessions`.current_unit_session_id = `us`.id
-            WHERE {$where}
-            ORDER BY `survey_run_sessions`.session != :admin_code, `survey_run_sessions`.last_access DESC
+            ";
+
+        $itemsQuery = $selectAndJoins . " WHERE {$where}
+            ORDER BY `survey_run_sessions`.last_access DESC
             LIMIT $limits
         ";
 
+        $data = $this->db->execute($itemsQuery, $queryParams);
+
+        // Pin the admin's own test session to row 1 of page 1 (the "find my
+        // test session" workflow). The old query did this with an unindexable
+        // `ORDER BY session != :admin_code` expression sort over the whole run;
+        // the main query now sorts by the indexed last_access DESC and stops at
+        // LIMIT, so the admin row may not be in the fetched page at all. Restore
+        // the global pin with one cheap indexed point-lookup on the first,
+        // unfiltered page: move it up if already present, else prepend it.
+        $firstPage = strpos((string) $limits, '0,') === 0;
+        $unfiltered = empty($queryParams['session']) && empty($queryParams['sessions'])
+            && empty($queryParams['position']);
+        if ($adminCode && $firstPage && $unfiltered) {
+            $data = $data ?: array();
+            $present = false;
+            $pinned = $rest = array();
+            foreach ($data as $row) {
+                if ($row['session'] === $adminCode) { $pinned[] = $row; $present = true; }
+                else { $rest[] = $row; }
+            }
+            if (!$present) {
+                $adminRow = $this->db->execute(
+                    $selectAndJoins . " WHERE `survey_run_sessions`.run_id = :run_id
+                        AND `survey_run_sessions`.session = :admin_code LIMIT 1",
+                    array('run_id' => $queryParams['run_id'], 'admin_code' => $adminCode),
+                    false, true
+                );
+                if ($adminRow) { $pinned[] = $adminRow; }
+            }
+            $data = array_merge($pinned, $rest);
+        }
+
         return array(
-            'data' => $this->db->execute($itemsQuery, $queryParams),
+            'data' => $data,
             'pagination' => $pagination,
         );
     }
@@ -209,8 +242,9 @@ class RunHelper {
             LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
             LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
             LEFT JOIN `survey_unit_sessions` us ON  `survey_run_sessions`.current_unit_session_id = `us`.id
-            WHERE `survey_run_sessions`.run_id = :run_id ORDER BY `survey_run_sessions`.session != :admin_code,`survey_run_sessions`.last_access DESC
+            WHERE `survey_run_sessions`.run_id = :run_id ORDER BY `survey_run_sessions`.last_access DESC
         ";
+        unset($queryParams['admin_code']);
         $stmt = $this->db->prepare($query);
         $stmt->execute($queryParams);
 
@@ -228,19 +262,26 @@ class RunHelper {
         }
         unset($queryParams['position_operator']);
 
-        $where = implode(' AND ', $query);
-        $count_query = "SELECT COUNT(`survey_unit_sessions`.id) AS count FROM `survey_unit_sessions` 
-			LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-			LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.`unit_id` = `survey_run_units`.`unit_id`
-            WHERE {$where}
-        ";
-        $count = $this->db->execute($count_query, $queryParams, true);
-        $pagination = new Pagination($count, 200, true);
-        $limits = $pagination->getLimits();
-
-        $query[] = ' `survey_runs`.id = :run_id2 ';
+        $query[] = ' `survey_run_units`.run_id = :run_id2 ';
         $queryParams['run_id2'] = $queryParams['run_id'];
         $where = implode(' AND ', $query);
+
+        // Unfiltered pagination count comes from the reconcile-maintained rollup
+        // (audit SQ-06); a session/position filter needs the live filtered count.
+        $count = null;
+        if (empty($queryParams['session']) && empty($queryParams['position'])) {
+            $count = RunMetrics::count((int) $queryParams['run_id'], 'n_unit_sessions');
+        }
+        if ($count === null) {
+            $count_query = "SELECT COUNT(`survey_unit_sessions`.id) AS count FROM `survey_unit_sessions`
+                LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+                LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.`unit_id` = `survey_run_units`.`unit_id` AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
+                WHERE {$where}
+            ";
+            $count = $this->db->execute($count_query, $queryParams, true);
+        }
+        $pagination = new Pagination($count, 200, true);
+        $limits = $pagination->getLimits();
 
         $itemsQuery = "SELECT 
                 `survey_run_sessions`.session,
@@ -259,7 +300,7 @@ class RunHelper {
             FROM `survey_unit_sessions`
             LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
             LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
-            LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
+            LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
             LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
             WHERE {$where}
             ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC LIMIT {$limits}
@@ -298,14 +339,18 @@ class RunHelper {
     }
 
     public function getEmailLogTable($queryParams) {
-        $count_query = "
-            SELECT COUNT(`survey_email_log`.id) AS count
-            FROM `survey_email_log`
-            LEFT JOIN `survey_unit_sessions` ON `survey_unit_sessions`.id = `survey_email_log`.session_id 
-            LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
-            WHERE `survey_run_sessions`.run_id = :run_id
-        ";
-        $count = $this->db->execute($count_query, $queryParams, true);
+        // reconcile-maintained per-run email-log count (audit SQ-37), live fallback
+        $count = RunMetrics::count((int) $queryParams['run_id'], 'n_email_logs');
+        if ($count === null) {
+            $count_query = "
+                SELECT COUNT(`survey_email_log`.id) AS count
+                FROM `survey_email_log`
+                LEFT JOIN `survey_unit_sessions` ON `survey_unit_sessions`.id = `survey_email_log`.session_id
+                LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
+                WHERE `survey_run_sessions`.run_id = :run_id
+            ";
+            $count = $this->db->execute($count_query, $queryParams, true);
+        }
         $pagination = new Pagination($count, 75, true);
         $limits = $pagination->getLimits();
 
@@ -348,12 +393,15 @@ class RunHelper {
         $pagination = new Pagination($count, 100, true);
         $limits = $pagination->getLimits();
 
+        // session count comes from the maintained per-run rollup (audit SQ-13)
+        // instead of a live GROUP BY over the whole survey_run_sessions table
         $itemsQuery = "
-            SELECT survey_runs.id AS run_id, name, survey_runs.user_id, cron_active, cron_fork, locked, count(survey_run_sessions.id) AS sessions, survey_users.email
-			FROM survey_runs 
-			LEFT JOIN survey_users ON survey_users.id = survey_runs.user_id 
-			LEFT JOIN survey_run_sessions ON survey_run_sessions.run_id = survey_runs.id 
-			GROUP BY survey_run_sessions.run_id
+            SELECT survey_runs.id AS run_id, name, survey_runs.user_id, cron_active, cron_fork, locked,
+                   survey_runs.public, survey_runs.compute_closed_from,
+                   COALESCE(m.n_run_sessions, 0) AS sessions, survey_users.email
+			FROM survey_runs
+			LEFT JOIN survey_users ON survey_users.id = survey_runs.user_id
+			LEFT JOIN survey_run_metrics m ON m.run_id = survey_runs.id
             ORDER BY survey_runs.name ASC LIMIT $limits
         ";
         
@@ -368,7 +416,15 @@ class RunHelper {
     }
 
     public function getPushMessageLogTable($params) {
-        $sql = "SELECT 
+        // reconcile-maintained per-run push-log count (audit SQ-14), live fallback
+        $count = RunMetrics::count((int) $params['run_id'], 'n_push_logs');
+        if ($count === null) {
+            $count = $this->db->count('push_logs', array('run_id' => $params['run_id']));
+        }
+        $pagination = new Pagination($count, 50, true);
+        $limits = $pagination->getLimits();
+
+        $sql = "SELECT
                     pl.*,
                     sru.position as position_in_run,
                     pm.message as template_message,
@@ -376,19 +432,19 @@ class RunHelper {
                     pm.priority,
                     rs.session as `session`
                 FROM push_logs pl
-                LEFT JOIN survey_unit_sessions sus ON pl.unit_session_id = sus.id 
+                LEFT JOIN survey_unit_sessions sus ON pl.unit_session_id = sus.id
                 LEFT JOIN survey_run_sessions rs ON rs.id = sus.run_session_id
                 LEFT JOIN survey_run_units sru ON sus.unit_id = sru.unit_id AND sru.run_id = pl.run_id
                 LEFT JOIN push_messages pm ON sus.unit_id = pm.id
-                WHERE pl.run_id = :run_id 
-                ORDER BY pl.created DESC";
-                
+                WHERE pl.run_id = :run_id
+                ORDER BY pl.created DESC LIMIT {$limits}";
+
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
-        
+
         return array(
             'data' => $stmt->fetchAll(PDO::FETCH_ASSOC),
-            'pagination' => new Pagination($stmt->rowCount(), 50)
+            'pagination' => $pagination
         );
     }
 

@@ -127,8 +127,7 @@ class AdminAjaxController {
         $run = $this->controller->run;
         
         // find the last email unit
-        $emailSession = $run->getReminderSession($this->request->getParam('reminder'), $this->request->getParam('session'), $this->request->getParam('run_session_id'));
-        if ($emailSession->execute() === false) {
+        if ($run->sendReminder($this->request->getParam('reminder'), $this->request->getParam('session'), $this->request->getParam('run_session_id')) === false) {
             alert('<strong>Something went wrong with the reminder.</strong> Run: ' . $run->name, 'alert-danger');
         } else {
             alert('Reminder sent!', 'alert-success');
@@ -189,7 +188,11 @@ class AdminAjaxController {
 
         $run_session = new RunSession($this->request->getParam('session'), $run);
 
-        if (!$run_session->endCurrentUnitSession()) {
+        // Audit F3 (2026-07): this used to endCurrentUnitSession() and
+        // never advance — a cron-only participant was left with nothing
+        // current and nothing queued, permanently stalled. forceMoveOn
+        // ends + moves on under the run-session lock.
+        if (!$run_session->forceMoveOn('moved')) {
             alert('<strong>Something went wrong with the unpause.</strong> in run ' . $run->name, 'alert-danger');
             $this->response->setStatusCode(500, 'Bad Request');
         }
@@ -337,13 +340,14 @@ class AdminAjaxController {
 
         $run = $this->controller->run;
         $positions = $this->request->arr('position');
-        if ($positions) {
-            $unit = $run->reorder($positions);
+        if ($positions && $run->reorder($positions)) {
             $content = '';
         } else {
             $this->response->setStatusCode(500, 'Bad Request');
             $msg = '<strong>Sorry.</strong> Re-ordering run units failed.';
-            $msg .= !empty($unit) ? implode("\n", $unit->errors) : '';
+            // Audit F10/F12 (2026-07): surface the validation reason
+            // (duplicate position) instead of a bare 500.
+            $msg .= !empty($run->errors) ? ' ' . implode("\n", $run->errors) : '';
             alert($msg, 'alert-danger');
             $content = $this->site->renderAlerts();
         }
@@ -617,6 +621,15 @@ class AdminAjaxController {
             return $this->response->setContent('Missing Parameters');
         }
 
+        // positionSessions/sendReminder do several queries + locks per session
+        // inside this one request — an unbounded selection turns into
+        // thousands of sequential round trips (audit SQ-39/SQ-43)
+        $maxBulk = (int) Config::get('max_bulk_session_actions', 500);
+        if (count($sessions) > $maxBulk) {
+            $this->response->setStatusCode(422, 'Unprocessable Entity');
+            return $this->response->setContent("Bulk actions are limited to {$maxBulk} sessions per request; you selected " . count($sessions) . ". Please narrow your selection.");
+        }
+
         if ($action === 'toggleTest') {
             $count = RunSession::toggleTestingStatus($sessions, $this->controller->run->id);
             alert("{$count} selected session(s) were successfully modified", 'alert-success');
@@ -624,16 +637,17 @@ class AdminAjaxController {
         } elseif ($action === 'sendReminder') {
             $run = $this->controller->run;
             $count = 0;
+            $lastSession = null;
             foreach ($sessions as $sess) {
-                $emailSession = $run->getReminderSession($this->request->int('reminder'), $sess, null);
-                if ($emailSession->execute() !== false) {
+                $emailSession = $run->sendReminder($this->request->int('reminder'), $sess, null);
+                if ($emailSession !== false) {
                     $count++;
+                    $lastSession = $emailSession;
                 }
-                //$email->end();
             }
 
-            if ($count) {
-                alert("{$count} session(s) have been sent the reminder '{$emailSession->runUnit->getSubject($emailSession)}'", 'alert-success');
+            if ($count && $lastSession) {
+                alert("{$count} session(s) have been sent the reminder '{$lastSession->runUnit->getSubject($lastSession)}'", 'alert-success');
                 $res['success'] = true;
             } else {
                 $res['error'] = $this->site->renderAlerts();

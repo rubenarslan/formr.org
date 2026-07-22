@@ -138,12 +138,17 @@ class Notification {
         if (!$unitSession || !$unitSession->runSession || !$unitSession->runSession->getRun()) {
             return false;
         }
-        // Issue #608: don't email study admins about errors that occur in
-        // test sessions. Admins routinely break R code while building a run
-        // (previewing, the survey-test harness, toggled-testing sessions);
-        // those are expected and would otherwise bury real participant-facing
-        // errors in noise.
-        if ($unitSession->runSession->isTesting()) {
+        // Issue #608: don't email study admins about errors in test sessions
+        // WHILE THEY ARE LOOKING AT THEM. Admins routinely break R code while
+        // building a run interactively (previewing, the survey-test harness) —
+        // there the on-screen alert already tells them, and email would bury
+        // real participant-facing errors in noise. But in console/cron context
+        // (review 2026-07, item 11) email is the ONLY channel: a researcher
+        // piloting their run as a testing session before launch must hear
+        // about the daemon hitting their broken relative_to at night, or the
+        // study launches with the fault undiscovered. The per-run throttle
+        // below bounds the volume either way.
+        if ($unitSession->runSession->isTesting() && !formr_in_console()) {
             return false;
         }
         $owner = $unitSession->runSession->getRun()->getOwner();

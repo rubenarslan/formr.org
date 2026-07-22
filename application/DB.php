@@ -85,11 +85,32 @@ class DB {
             PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES '.$options['charset'],
         ));
 
-        $dt = new DateTime();
-        $offset = $dt->format("P");
-
-        $this->PDO->exec("SET time_zone='$offset';");
         $this->PDO->exec("SET SESSION sql_mode='STRICT_ALL_TABLES';");
+        $this->syncSessionTimezone();
+    }
+
+    /**
+     * Set the MySQL session time_zone to PHP's CURRENT offset. Audit F16
+     * (2026-07): the offset was pinned once at connect time, so a
+     * long-lived daemon connection kept the pre-DST offset (e.g. +02:00)
+     * after a transition while PHP's time()/strtotime moved to +01:00 —
+     * a one-hour skew between NOW()-based comparisons and PHP-computed
+     * deadlines. Daemons call this each tick so the offset tracks DST.
+     */
+    /** Last time_zone offset pushed to this connection, to skip no-op SETs. */
+    protected $appliedTimezoneOffset = null;
+
+    public function syncSessionTimezone() {
+        // The PHP-side offset only moves at DST transitions, but the daemons
+        // call this every tick — so only issue SET time_zone when the offset
+        // actually changed (review 2026-07 cleanup: was ~86k redundant SETs
+        // per day per long-lived worker).
+        $offset = (new DateTime())->format('P');
+        if ($offset === $this->appliedTimezoneOffset) {
+            return;
+        }
+        $this->PDO->exec("SET time_zone='$offset';");
+        $this->appliedTimezoneOffset = $offset;
     }
 
     /**
@@ -133,6 +154,67 @@ class DB {
             return $sth->rowCount();
         }
         return $this->PDO->exec($query);
+    }
+
+    /**
+     * One batched multi-row UPDATE: sets each column per row via
+     * `col = CASE keyColumn WHEN <key> THEN :bound … END`, scoped by a
+     * `keyColumn IN (…)` list — one statement instead of a round trip per row
+     * (review 2026-07 cleanup; consolidates the runs-management save, the
+     * survey-item display flush, and the show-if visibility flush).
+     *
+     * @param string $table
+     * @param string $keyColumn  integer row key (PK/FK); values are int-cast
+     *                           for the CASE/IN list.
+     * @param array  $rows       [keyValue => [col => value, …], …]; every row
+     *                           MUST carry the same columns. NULL values bind
+     *                           as SQL NULL (three-state preserved).
+     * @param array  $constantSet [col => value] set to one bound value across
+     *                           all matched rows (e.g. a shared `saved` stamp).
+     * @param array  $whereEq    [col => value] extra bound equality filters
+     *                           ANDed into the WHERE (e.g. session scoping).
+     * @param array  $rawSet     raw SQL SET fragments appended verbatim (e.g.
+     *                           'created = COALESCE(created, NOW())') — never
+     *                           interpolate caller/participant input here.
+     * @return int|false affected rows
+     */
+    public function batchUpdateByKey($table, $keyColumn, array $rows,
+                                     array $constantSet = array(), array $whereEq = array(), array $rawSet = array()) {
+        if (!$rows) {
+            return 0;
+        }
+        $keys = array_map('intval', array_keys($rows));
+        $columns = array_keys(reset($rows));
+        $params = array();
+        $setParts = array();
+        foreach ($columns as $col) {
+            $case = "`{$col}` = CASE `{$keyColumn}`";
+            $i = 0;
+            foreach ($rows as $key => $vals) {
+                $ph = "v_{$col}_{$i}";
+                $case .= " WHEN " . (int) $key . " THEN :{$ph}";
+                $params[$ph] = $vals[$col];
+                $i++;
+            }
+            $setParts[] = $case . " END";
+        }
+        foreach ($constantSet as $col => $value) {
+            $ph = "c_{$col}";
+            $setParts[] = "`{$col}` = :{$ph}";
+            $params[$ph] = $value;
+        }
+        foreach ($rawSet as $frag) {
+            $setParts[] = $frag;
+        }
+        $where = array("`{$keyColumn}` IN (" . implode(',', $keys) . ")");
+        foreach ($whereEq as $col => $value) {
+            $ph = "w_{$col}";
+            $where[] = "`{$col}` = :{$ph}";
+            $params[$ph] = $value;
+        }
+        $sql = "UPDATE `{$table}` SET " . implode(', ', $setParts)
+             . " WHERE " . implode(' AND ', $where);
+        return $this->exec($sql, $params);
     }
 
     /**
@@ -697,6 +779,12 @@ class DB_Select {
     }
 
     public function whereIn($field, array $values) {
+        // safety rail: an IN() list this size is almost certainly a caller
+        // feeding an unbounded prior SELECT into SQL text (audit SQ-45) —
+        // fail loudly instead of shipping a megabyte statement
+        if (count($values) > 5000) {
+            throw new InvalidArgumentException('whereIn() called with ' . count($values) . ' values (max 5000); bound the input or batch the query');
+        }
         $field = $this->parseColName($field);
         $values = array_map(array($this->PDO, 'quote'), $values);
         $this->where[] = "{$field} IN (" . implode(',', $values) . ")";

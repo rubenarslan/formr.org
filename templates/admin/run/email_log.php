@@ -54,6 +54,10 @@
                                             } else if ($email['status'] == 1) {
                                                 $label_class = "label-success";
                                                 $icon = 'fa-check-circle';
+                                            } else if ($email['status'] == 2) {
+                                                // EmailQueue::STATUS_SENDING — inline send in flight
+                                                $label_class = "label-info";
+                                                $icon = 'fa-paper-plane';
                                             }
                                             echo "<small class='label $label_class hastooltip' title='$resultlog'><i class='fa $icon'></i> $text</small>";
                                             ?>

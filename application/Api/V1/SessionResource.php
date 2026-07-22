@@ -280,7 +280,14 @@ class SessionResource extends BaseResource
                 if ($runSession->endLastExternal()) {
                     return $this->response(200, 'External unit ended successfully');
                 }
-                return $this->error(400, 'Could not end external unit (maybe none active?)');
+                // Idempotent no-op (review 2026-07, item 16): external
+                // services retry callbacks and deliver late — a repeat
+                // end_external after the unit already ended must not read
+                // as failure to third-party retry/alert handlers (pre-F20
+                // this always answered 200). endLastExternal()'s false
+                // stays the honest internal signal; the response body says
+                // what actually happened.
+                return $this->response(200, 'No active external unit to end — nothing to do');
 
             case 'toggle_testing':
                 $status = !empty($body['testing']) ? 1 : 0;

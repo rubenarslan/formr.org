@@ -49,7 +49,7 @@
                                 <span class="sessions-search-switch" data-active="<?php echo !empty($_GET['sessions']) ? 'multiple' : 'single'; ?>"><i class="fa fa-retweet"></i></span>
                                 <div class="input-group single <?php if (!empty($_GET['sessions'])) echo 'hidden'; ?>">
                                     <div class="input-group-addon">SEARCH <i class="fa fa-user"></i></div>
-                                    <input name="session" value="<?= h(array_val($_GET, 'session')) ?>" type="text" class="form-control" placeholder="Session code"  style="width: 250px;">
+                                    <input name="session" value="<?= h(array_val($_GET, 'session')) ?>" type="text" class="form-control" placeholder="Session code (starts with…)" title="Matches session codes that start with what you type (not a substring)." style="width: 250px;">
                                 </div>
                                 <div class="input-group multiple <?php if (empty($_GET['sessions'])) echo 'hidden'; ?>">
                                     <div class="input-group-addon">SEARCH <i class="fa fa-users"></i></div>

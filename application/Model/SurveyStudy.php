@@ -1212,9 +1212,12 @@ class SurveyStudy extends Model
             ->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
             ->leftJoin('survey_items', 'survey_items_display.item_id = survey_items.id')
             ->where('survey_items.study_id = :study_id')
+            // session is unique per run and session_id (the unit session) is
+            // monotonic with unit-session creation, so this sorts identically
+            // to the old (session, srs.created, sus.created, display_order)
+            // chain with a much smaller filesort tuple
             ->order('survey_run_sessions.session')
-            ->order('survey_run_sessions.created')
-            ->order('survey_unit_sessions.created')
+            ->order('survey_items_display.session_id')
             ->order('survey_items_display.display_order')
             ->bindParams(array('study_id' => $this->id));
 
@@ -1324,38 +1327,13 @@ class SurveyStudy extends Model
      * @param array $sessions If specified, only results of that particular session will be returned
      * @return array
      */
-    public function getResultsByItemAndSession($items = array(), $sessions = null)
-    {
-        $select = $this->db->select('
-		`survey_run_sessions`.session,
-		`survey_items`.name,
-		`survey_items_display`.answer');
-
-        $select->from('survey_items_display')
-            ->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
-            ->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
-            ->leftJoin('survey_items', 'survey_items_display.item_id = survey_items.id')
-            ->where('survey_items.study_id = :study_id')
-            ->order('survey_run_sessions.session')
-            ->order('survey_run_sessions.created')
-            ->order('survey_unit_sessions.created')
-            ->order('survey_items_display.display_order')
-            ->bindParams(array('study_id' => $this->id));
-
-        if (!empty($items)) {
-            $select->whereIn('survey_items.name', $items);
-        }
-
-        if (!empty($sessions)) {
-            $select->whereIn('survey_items.name', $sessions);
-        }
-
-        return $select->fetchAll();
-    }
-
     protected function hasData()
     {
-        $this->result_count = $this->getResultCount();
+        // Destructive gate (results-table recreate on re-upload): must read the
+        // results table itself, never the write-time rollup — a stale/partial
+        // survey_study_metrics row reading 0 here would DROP real data with no
+        // backup. The rollup is for display only (getResultCount).
+        $this->result_count = $this->getResultCountLive();
         if (($this->result_count["real_users"] + $this->result_count['testers']) > 0) {
             return true;
         } else {
@@ -1365,7 +1343,9 @@ class SurveyStudy extends Model
 
     protected function hasRealData()
     {
-        $this->result_count = $this->getResultCount();
+        // Destructive gate (backup requirement, column-deletion confirmation):
+        // live count only, same rationale as hasData().
+        $this->result_count = $this->getResultCountLive();
         if ($this->result_count["real_users"] > 1) {
             return true;
         } else {
@@ -1375,7 +1355,10 @@ class SurveyStudy extends Model
 
     public function deleteResults($run_id = null)
     {
-        $this->result_count = $this->getResultCount($run_id);
+        // Destructive gate: the "nothing to delete" short-circuit and the
+        // backup-size message must reflect the actual table contents, not the
+        // rollup (which can be stale or unseeded right after patch 069).
+        $this->result_count = $this->getResultCountLive($run_id);
 
         if (array_sum($this->result_count) === 0) {
             return true;
@@ -1390,6 +1373,15 @@ class SurveyStudy extends Model
 
             // Delete unit sessions/long format results
             $delete_item_disp = $this->db->delete('survey_unit_sessions', array('unit_id' => $this->id));
+
+            // Reset the write-time rollup so display counts don't keep
+            // reporting the deleted rows (and later hooks don't increment on a
+            // stale base). Best-effort: the row re-seeds via hooks/reconcile.
+            try {
+                $this->db->delete('survey_study_metrics', array('study_id' => $this->id));
+            } catch (Exception $e) {
+                formr_log_exception($e, 'deleteResults StudyMetrics reset');
+            }
             return $delete && $delete_item_disp;
         } else {
             $this->errors[] = __("Backup of %s result rows failed. Deletion cancelled.", array_sum($this->result_count));
@@ -1399,7 +1391,9 @@ class SurveyStudy extends Model
 
     public function backupResults($itemNames = null)
     {
-        $this->result_count = $this->getResultCount();
+        // hasRealData() recomputes $this->result_count live; no separate
+        // (rollup-backed) pre-count here — the backup decision and the row
+        // count in the message must both come from the table itself.
         if ($this->hasRealData()) {
             $this->messages[] = __("<strong>Backed up.</strong> The old results were backed up in a file (%s results)", array_sum($this->result_count));
 
@@ -1418,11 +1412,38 @@ class SurveyStudy extends Model
 
     public function getResultCount($run_id = null, $filter = array())
     {
-        // If there is no filter and results have been saved in a previous operation then that
-        if ($this->result_count !== null && !$filter) {
-            return $this->result_count;
+        // Unscoped count comes from the write-time study rollup (audit SQ-11):
+        // fresh via the survey start/complete hooks, O(1) read. Per-object cache
+        // dedupes repeat calls; scoped/filtered variants always hit the DB live.
+        // DISPLAY ONLY: bounded staleness is acceptable here. Anything that
+        // gates deletion or other destructive changes must use
+        // getResultCountLive() instead.
+        if (!$filter && !$run_id) {
+            if ($this->result_count !== null) {
+                return $this->result_count;
+            }
+            if ($this->id && ($rollup = StudyMetrics::counts((int) $this->id)) !== null) {
+                $this->result_count = $rollup;
+                return $rollup;
+            }
+            // no rollup row yet (brand-new study) — fall through to the live
+            // query below, which is cheap for a study with little/no data
         }
 
+        return $this->getResultCountLive($run_id, $filter);
+    }
+
+    /**
+     * Ground-truth result count straight from the results table, bypassing the
+     * survey_study_metrics rollup AND the per-object cache. Required by every
+     * destructive gate (hasData/hasRealData/deleteResults/backupResults): the
+     * rollup can be unseeded (fresh patch 069), partial (first hook fires
+     * before the first reconcile) or drifted (imports, testing toggles), and a
+     * false zero here means dropping participant data without a backup.
+     * Refreshes the cache so subsequent display reads see the live value.
+     */
+    public function getResultCountLive($run_id = null, $filter = array())
+    {
         $count = array('finished' => 0, 'begun' => 0, 'testers' => 0, 'real_users' => 0);
 
         if ($this->rendering_mode === 'v2' || Config::get('form_v2_long_reads', true)) {
@@ -1459,6 +1480,10 @@ class SurveyStudy extends Model
             }
 
             $count = $select->fetch();
+        }
+
+        if (!$filter && !$run_id) {
+            $this->result_count = $count;
         }
 
         return $count;
@@ -1529,60 +1554,19 @@ class SurveyStudy extends Model
         return $count;
     }
 
-    public function getAverageTimeItTakes()
+    /**
+     * Geometric-mean completion duration in minutes, or null if no completions
+     * (audit SQ-10 replacement). Read O(1) from the write-time study rollup:
+     * EXP(mean(ln seconds)) — maintainable incrementally where a median is not,
+     * and a better central tendency for right-skewed completion times.
+     */
+    public function getGeometricMeanDurationMinutes()
     {
-        if ($this->rendering_mode === 'v2' || Config::get('form_v2_long_reads', true)) {
-            // Long-format median. Preserves the wide read's quirks exactly:
-            // (ended - created) is MySQL's numeric DATETIME subtraction (NOT
-            // seconds), unfinished sessions contribute NULL `took` rows to
-            // the median window, and the /60 pretends the result is seconds.
-            // Fixing the math is a separate (behaviour-changing) decision.
-            $studyIdInt = (int) $this->id;
-            $get = "SELECT AVG(middle_values) AS 'median' FROM (
-			  SELECT took AS 'middle_values' FROM
-				(
-				  SELECT @row:=@row+1 as `row`, (`us`.`ended` - `us`.`created`) AS took
-			      FROM `survey_unit_sessions` `us`, (SELECT @row:=0) AS r
-				  WHERE `us`.`id` IN (SELECT DISTINCT `sid`.`session_id` FROM `survey_items_display` `sid` INNER JOIN `survey_items` `i` ON `i`.`id` = `sid`.`item_id` WHERE `i`.`study_id` = {$studyIdInt})
-				  ORDER BY took
-				) AS t1,
-				(
-				  SELECT COUNT(*) as 'count'
-			      FROM `survey_unit_sessions` `us`
-				  WHERE `us`.`id` IN (SELECT DISTINCT `sid`.`session_id` FROM `survey_items_display` `sid` INNER JOIN `survey_items` `i` ON `i`.`id` = `sid`.`item_id` WHERE `i`.`study_id` = {$studyIdInt})
-				) AS t2
-				WHERE t1.row >= t2.count/2 and t1.row <= ((t2.count/2) +1)) AS t3;";
-            $get = $this->db->query($get, true);
-            $time = $get->fetch(PDO::FETCH_NUM);
-            return round($time[0] / 60, 3); # seconds to minutes
+        if (!$this->id) {
+            return null;
         }
-
-        if ($this->resultsTableExists()) {
-            $get = "SELECT AVG(middle_values) AS 'median' FROM (
-			  SELECT took AS 'middle_values' FROM
-				(
-				  SELECT @row:=@row+1 as `row`, (x.ended - x.created) AS took
-			      FROM `{$this->results_table}` AS x, (SELECT @row:=0) AS r
-				  WHERE 1
-				  -- put some where clause here
-				  ORDER BY took
-				) AS t1,
-				(
-				  SELECT COUNT(*) as 'count'
-			      FROM `{$this->results_table}` x
-				  WHERE 1
-				  -- put same where clause here
-				) AS t2
-				-- the following condition will return 1 record for odd number sets, or 2 records for even number sets.
-				WHERE t1.row >= t2.count/2 and t1.row <= ((t2.count/2) +1)) AS t3;";
-
-            $get = $this->db->query($get, true);
-            $time = $get->fetch(PDO::FETCH_NUM);
-            $time = round($time[0] / 60, 3); # seconds to minutes
-
-            return $time;
-        }
-        return '';
+        $seconds = StudyMetrics::geometricMeanSeconds((int) $this->id);
+        return $seconds === null ? null : round($seconds / 60, 1);
     }
 
     public function delete()

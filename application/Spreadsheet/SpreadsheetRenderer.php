@@ -434,10 +434,9 @@ class SpreadsheetRenderer {
         } else {
             print_hidden_opencpu_debug_message($ocpu_session, "OpenCPU debugger for dynamic values and showifs.");
             $results = $ocpu_session->getJSONObject();
-            $updateVisibility = $this->db->prepare("UPDATE `survey_items_display` SET hidden = :hidden WHERE item_id = :item_id AND session_id = :session_id");
-            $updateVisibility->bindValue(":session_id", $this->unitSession->id);
 
             $save = array();
+            $visibilityUpdates = array(); // item_id => hidden (int|null), flushed in one UPDATE below
 
             $definitelyShownItems = 0;
             foreach ($items as $item_name => &$item) {
@@ -472,9 +471,9 @@ class SpreadsheetRenderer {
                 } else {
                     $hidden = (int) !$isVisible;
                 }
-                $updateVisibility->bindValue(":item_id", $item->id);
-                $updateVisibility->bindValue(":hidden", $hidden);
-                $updateVisibility->execute();
+                // one batched hidden-update after the loop instead of a round
+                // trip per item on the hottest render path (audit SQ-41)
+                $visibilityUpdates[(int) $item->id] = $hidden;
 
                 if ($hidden === 1) { // gone for good
                     unset($item->parent_attributes['data-show']);
@@ -497,7 +496,17 @@ class SpreadsheetRenderer {
                 }
                 $definitelyShownItems++; // track whether there are any items certain to be shown
             }
-            
+
+            if ($visibilityUpdates) {
+                // one batched hidden-update; null stays SQL NULL (3-state kept)
+                $rows = array();
+                foreach ($visibilityUpdates as $itemId => $hidden) {
+                    $rows[(int) $itemId] = array('hidden' => $hidden);
+                }
+                $this->db->batchUpdateByKey('survey_items_display', 'item_id', $rows,
+                    array(), array('session_id' => $this->unitSession->id));
+            }
+
             // @TODO remove items from unanswerd if this is successfull
             if ($this->unitSession->updateSurveyStudyRecord($save, false)) {
                 $this->answered($save);
@@ -575,16 +584,10 @@ class SpreadsheetRenderer {
 
         $this->db->beginTransaction();
 
-        $view_query = "
-			UPDATE `survey_items_display`
-			SET displaycount = COALESCE(displaycount,0) + 1, created = COALESCE(created, NOW())
-			WHERE item_id = :item_id AND session_id = :session_id";
-        $view_update = $this->db->prepare($view_query);
-        $view_update->bindValue(":session_id", $this->unitSession->id);
-
         $itemsDisplayed = 0;
 
         $renderedItems = array();
+        $renderedItemIds = array();
 
         try {
             foreach ($this->toRender as &$item) {
@@ -595,9 +598,9 @@ class SpreadsheetRenderer {
                 if ($this->applyMaxDisplayedCap && $study->maximum_number_displayed && $study->maximum_number_displayed === $itemsDisplayed) {
                     break;
                 } else if ($item->isRendered()) {
-                    // if it's rendered, we send it along here or update display count
-                    $view_update->bindParam(":item_id", $item->id);
-                    $view_update->execute();
+                    // collect the display-count bump; one batched UPDATE below
+                    // instead of a round trip per rendered item (audit SQ-42)
+                    $renderedItemIds[] = (int) $item->id;
 
                     if (!$item->hidden) {
                         $itemsDisplayed++;
@@ -605,6 +608,16 @@ class SpreadsheetRenderer {
 
                     $renderedItems[] = $item;
                 }
+            }
+
+            if ($renderedItemIds) {
+                $in = implode(',', $renderedItemIds);
+                $this->db->exec(
+                    "UPDATE `survey_items_display`
+                     SET displaycount = COALESCE(displaycount,0) + 1, created = COALESCE(created, NOW())
+                     WHERE session_id = :session_id AND item_id IN ($in)",
+                    array('session_id' => $this->unitSession->id)
+                );
             }
 
             $this->db->commit();

@@ -69,19 +69,31 @@ class UnitSession extends Model {
 
     public function create($new_current_unit = true) {
         // only one can be current unit session at all times
+        // Track A: resolve run_unit_id (the per-position survey_run_units.id)
+        // and iteration (1-based count of prior unit-sessions for this
+        // (run_session, run_unit) pair). Both NULL-safe so paths that
+        // can't compute them (no run_session, no current position)
+        // simply skip the column. See REFACTOR_QUEUE_PLAN.md A2.
+        // (Initialized before the try so the catch can log them even when
+        // beginTransaction itself throws.)
+        $run_unit_id = null;
+        $iteration   = 1;
         try {
             $this->db->beginTransaction();
 
-            // Track A: resolve run_unit_id (the per-position survey_run_units.id)
-            // and iteration (1-based count of prior unit-sessions for this
-            // (run_session, run_unit) pair). Both NULL-safe so paths that
-            // can't compute them (no run_session, no current position)
-            // simply skip the column. See REFACTOR_QUEUE_PLAN.md A2.
-            $run_unit_id = null;
-            $iteration   = 1;
             if ($this->runSession && $this->runSession->id > 0) {
                 $position    = $this->runSession->position;
-                $run_unit_id = $this->runSession->getRunUnitIdAtPosition($position);
+                // Audit F1 (2026-07): only stamp the placement when the
+                // unit being created IS the unit hosted at the current
+                // position. Side-channel creators (admin reminder emails
+                // via Run::getReminderSession) otherwise inherit the
+                // participant's current run_unit_id and their never-ended
+                // row hijacks getCurrentUnitSession. Off-position sessions
+                // keep run_unit_id NULL (the UNIQUE key permits NULLs).
+                // Mirrors the guard 34378a8e added to load()'s fallback.
+                if ($this->runSession->getUnitIdAtPosition($position) == $this->runUnit->id) {
+                    $run_unit_id = $this->runSession->getRunUnitIdAtPosition($position);
+                }
                 if ($run_unit_id !== null) {
                     // COALESCE(MAX,0)+1 — read inside the open TX, just before
                     // INSERT, so concurrent inserts in another connection
@@ -125,17 +137,96 @@ class UnitSession extends Model {
                 // Track A also writes state='SUPERSEDED' alongside queued=-9
                 // for the same rows so analysts and admin tooling can read
                 // the named state instead of decoding the queued magic value.
-                $this->db->update('survey_unit_sessions', ['queued' => UnitSessionQueue::QUEUED_SUPERCEDED, 'state' => UnitSessionQueue::STATE_SUPERSEDED], [
-                    'run_session_id' => $this->runSession->id,
-                    'unit_id'        => $this->runUnit->id,
-                    'id <>'          => $this->id,
-                    'queued >'       => 0,
-                ]);
+                //
+                // D1 fix (v0.26.4): "THIS unit" must mean this *placement*
+                // (survey_run_units.id), not this unit definition. Keyed on
+                // unit_id, a run that slots the same survey at multiple
+                // positions superseded the participant's still-active
+                // session at an EARLIER position whenever a cascade created
+                // a session for a LATER occurrence — zombifying it
+                // (queued=-9, invisible to the daemon and to
+                // getCurrentUnitSession) and collapsing the run forward.
+                // Supersede by run_unit_id when known; legacy rows with
+                // run_unit_id IS NULL (pre-047) keep the unit_id match.
+                if ($run_unit_id !== null) {
+                    $this->db->exec(
+                        "UPDATE `survey_unit_sessions`
+                            SET `queued` = :queued_superseded, `state` = :state_superseded
+                          WHERE `run_session_id` = :run_session_id
+                            AND `id` != :id
+                            AND `queued` > 0
+                            AND (`run_unit_id` = :run_unit_id
+                                 OR (`run_unit_id` IS NULL AND `unit_id` = :unit_id))",
+                        [
+                            'queued_superseded' => UnitSessionQueue::QUEUED_SUPERCEDED,
+                            'state_superseded'  => UnitSessionQueue::STATE_SUPERSEDED,
+                            'run_session_id'    => $this->runSession->id,
+                            'id'                => $this->id,
+                            'run_unit_id'       => $run_unit_id,
+                            'unit_id'           => $this->runUnit->id,
+                        ]
+                    );
+                } else {
+                    $this->db->update('survey_unit_sessions', ['queued' => UnitSessionQueue::QUEUED_SUPERCEDED, 'state' => UnitSessionQueue::STATE_SUPERSEDED], [
+                        'run_session_id' => $this->runSession->id,
+                        'unit_id'        => $this->runUnit->id,
+                        'id <>'          => $this->id,
+                        'queued >'       => 0,
+                    ]);
+                }
             }
 
             $this->db->commit();
         } catch (Exception $e) {
             $this->db->rollBack();
+
+            // Dedup L2 (backport of the 0.27.0 forever-fix; patch 063 on this
+            // line): the UNIQUE (run_session_id, run_unit_id, iteration) key
+            // rejected this INSERT because a CONCURRENT create() already
+            // committed the same placement + iteration — the race that used to
+            // leave two rows ("repeated pause"). Adopt the winner's row instead
+            // of failing: idempotent create. The re-read of the exact tuple is
+            // the guard — a 23000 from anything else finds no winner and falls
+            // through to the generic recovery path below. (After rollBack the
+            // connection is in autocommit, so this SELECT sees the committed
+            // winner row.)
+            if ($e->getCode() === '23000' && $run_unit_id !== null
+                && $this->runSession && $this->runSession->id > 0) {
+                $winner = $this->db->findValue('survey_unit_sessions', [
+                    'run_session_id' => $this->runSession->id,
+                    'run_unit_id'    => $run_unit_id,
+                    'iteration'      => $iteration,
+                ], 'id');
+                if ($winner) {
+                    $this->id = (int) $winner;
+                    if ($new_current_unit) {
+                        $this->runSession->currentUnitSession = $this;
+                        $this->db->update('survey_run_sessions',
+                            ['current_unit_session_id' => $this->id],
+                            ['id' => $this->runSession->id]);
+                    }
+                    return $this->load();
+                }
+            }
+
+            // Never swallow this silently: a failed INSERT leaves the
+            // run-session with an already-advanced position and NO session
+            // row (the raw material for silent position skips).
+            formr_log_exception($e, __METHOD__, [
+                'unit_id'        => $this->runUnit->id ?? null,
+                'run_unit_id'    => $run_unit_id,
+                'run_session_id' => $this->runSession->id ?? null,
+            ]);
+            // The rolled-back INSERT may have assigned $this->id an id that
+            // no longer exists; loading by it (or via the no-id fallback)
+            // used to hand the caller an arbitrary prior row or a phantom
+            // that createUnitSession installed as "current". Return the
+            // invalid object instead — createUnitSession treats a missing
+            // id as "creation failed" and execute()'s recovery branch
+            // re-creates the step at the current position.
+            $this->id = null;
+            $this->valid = false;
+            return $this;
         }
 
         return $this->load();
@@ -148,7 +239,33 @@ class UnitSession extends Model {
         } else {
             $run_session_id = $this->runSession ? $this->runSession->id : $this->run_session_id;
             $unit_id = $this->runUnit ? $this->runUnit->id : $this->unit_id;
-            $vars = $this->db->findRow('survey_unit_sessions', ['run_session_id' => $run_session_id, 'unit_id' => $unit_id], $columns);
+            // D1 fix (v0.26.4): this fallback used to pick an ARBITRARY row
+            // (findRow, no ORDER BY) — for a unit reused at several positions
+            // that could resolve a session belonging to a different placement.
+            // The row must ALWAYS belong to this unit (unit_id constraint —
+            // the sampler callers in RunUnit::getSampleSessions/
+            // grabRandomSession load a unit the run session has often moved
+            // PAST, so the current position may host a different unit
+            // entirely). The placement preference applies only when the
+            // current position actually hosts this unit (the create()
+            // failure-recovery case); legacy rows with run_unit_id NULL
+            // keep matching. Newest row wins either way.
+            $run_unit_id = null;
+            if ($this->runSession && $this->runSession->position !== null
+                    && $this->runSession->getUnitIdAtPosition($this->runSession->position) == $unit_id) {
+                $run_unit_id = $this->runSession->getRunUnitIdAtPosition($this->runSession->position);
+            }
+            $query = $this->db->select($columns)
+                    ->from('survey_unit_sessions')
+                    ->where('run_session_id = :run_session_id')
+                    ->where('unit_id = :unit_id')
+                    ->order('id', 'desc')
+                    ->limit(1);
+            if ($run_unit_id !== null) {
+                $query->where('(run_unit_id = :run_unit_id OR run_unit_id IS NULL)')
+                      ->bindParams(['run_unit_id' => $run_unit_id]);
+            }
+            $vars = $query->bindParams(['run_session_id' => $run_session_id, 'unit_id' => $unit_id])->fetch();
         }
         
         if (!empty($vars['unit_id']) && !$this->runUnit) {
@@ -218,7 +335,11 @@ class UnitSession extends Model {
      * @param float $seconds elapsed wall-clock seconds for one pass
      */
     public function addExecutionTime(float $seconds) {
-        if (empty($this->id) || $seconds <= 0) {
+        $delta = round($seconds, 3);
+        // Skip sub-millisecond passes entirely: the stored value is rounded to
+        // 3 decimals, so they would write +0.000 — one pointless UPDATE per
+        // daemon tick on the hottest table (review 2026-07).
+        if (empty($this->id) || $delta <= 0) {
             return;
         }
         try {
@@ -226,8 +347,15 @@ class UnitSession extends Model {
                 "UPDATE `survey_unit_sessions`
                  SET `execution_time` = COALESCE(`execution_time`, 0) + :delta
                  WHERE `id` = :id LIMIT 1",
-                ['delta' => round($seconds, 3), 'id' => $this->id]
+                ['delta' => $delta, 'id' => $this->id]
             );
+            // Write-time month attribution (review 2026-07, item 7): charge
+            // the run's rollup bucket for the month the work HAPPENED. The
+            // lifetime execution_time above can't be split by month after the
+            // fact, and attributing by us.created let long-lived sessions
+            // (recheck loops, old Pauses) escape every later month's budget.
+            $run_id = (int) ($this->runSession->run_id ?? ($this->runSession->run->id ?? 0));
+            RunMetrics::addMonthExecution($run_id, $delta);
         } catch (Exception $e) {
             // Timing is best-effort instrumentation; never let it break
             // a participant's run because the column is missing or the
@@ -244,10 +372,18 @@ class UnitSession extends Model {
         $this->execResults = array_merge($this->execResults, $expirationData);
             
         if ($this->runUnit instanceof Pause || $this->runUnit instanceof Branch) {
-            $expiration_extension = Config::get('unit_session.queue_expiration_extension', '+10 minutes');
             if ($expirationData['check_failed'] === true || $expirationData['expire_relatively'] === false) {
-                // check again in x minutes something went wrong with ocpu evaluation
-                $expirationData['expires'] = mysql_datetime(strtotime($expiration_extension));
+                // Audit F19 (2026-07): a permanently-broken relative_to /
+                // condition re-armed every 10 minutes FOREVER — hammering
+                // OpenCPU and emailing the admin on every cycle. Escalate
+                // the backoff by how long this session has been failing,
+                // so a transient OpenCPU blip still recovers fast but a
+                // genuinely broken run degrades to a few retries per day
+                // (and a few admin emails per day) instead of ~144. The
+                // row is never abandoned: an admin fix is picked up at the
+                // next retry, and the F6 sweep still sees it.
+                $extension = $this->recheckBackoffExpression();
+                $expirationData['expires'] = mysql_datetime(strtotime($extension));
                 $expirationData['queued'] = UnitSessionQueue::QUEUED_TO_EXECUTE;
             }
         }
@@ -258,6 +394,19 @@ class UnitSession extends Model {
             $this->execResults['end_session'] = true;
             return false; // ended NOT expired
         } elseif ($expirationData['expires'] < time()) {
+            // Audit F23 (2026-07): a timer-based unit that reaches its
+            // deadline should END (pause_ended/wait_ended), not EXPIRE
+            // (result='expired'). expire() is for Survey/External access
+            // windows. Routing an elapsed Pause/Wait deadline that
+            // arrived via the recompute path (rather than the overdue
+            // QUEUED_TO_END branch, which already returns end_session)
+            // through expire() gave the same terminal event two different
+            // labels depending on which path fired, contradicting the
+            // documented per-type state machine and analysis exports.
+            if ($this->runUnit instanceof Pause || $this->runUnit instanceof Wait) {
+                $this->execResults['end_session'] = true;
+                return false; // ended NOT expired
+            }
             return true;
         } elseif ($expirationData['queued']) {
             $this->execResults['queue'] = [
@@ -267,6 +416,25 @@ class UnitSession extends Model {
         }
     }
     
+    /**
+     * Audit F19 (2026-07): escalating backoff for the Pause/Branch
+     * re-check loop, keyed on how long this unit session has been alive
+     * (a proxy for attempts, since each retry is ~one interval apart).
+     * Configurable via unit_session.queue_expiration_extension (the fast
+     * tier) and unit_session.recheck_backoff_* .
+     */
+    protected function recheckBackoffExpression() {
+        $fast = Config::get('unit_session.queue_expiration_extension', '+10 minutes');
+        $ageSeconds = $this->created ? max(0, time() - strtotime($this->created)) : 0;
+        if ($ageSeconds < 3600) {                 // < 1h alive: fast recovery
+            return $fast;
+        }
+        if ($ageSeconds < 86400) {                // < 1d alive: hourly
+            return Config::get('unit_session.recheck_backoff_mid', '+1 hour');
+        }
+        return Config::get('unit_session.recheck_backoff_max', '+6 hours'); // capped
+    }
+
     protected function logOutput ($output) {
         if (!empty($output['log'])) {
             $this->assignProperties($output['log']);
@@ -280,8 +448,33 @@ class UnitSession extends Model {
      *
      * @return boolean
      */
-    protected function isQueuable() {
-        return !empty($this->execResults['queue']) && $this->runSession->getRun()->cron_active;
+    /**
+     * Audit F4 (2026-07): re-derive the expiry verdict from CURRENT state
+     * before the daemon acts on a stored queue deadline. The queue's
+     * `expires` is a snapshot from when the row was (re)armed; sliding
+     * Survey windows (last_active + Z) move with participant activity the
+     * daemon never saw. Returns:
+     *   'end'      — deadline genuinely passed (or unit says end_session);
+     *                proceed with endCurrentUnitSession()
+     *   'requeued' — fresh deadline lies in the future; queue row re-armed
+     *   'dequeued' — no deadline applies anymore ("never expires" config);
+     *                stale queue row dropped
+     */
+    public function revalidateQueueVerdict() {
+        $this->execResults = [];
+        $isExpired = $this->isExpired();
+        if ($isExpired || !empty($this->execResults['expired']) || !empty($this->execResults['end_session'])) {
+            return 'end';
+        }
+        if (!empty($this->execResults['queue'])) {
+            // Write directly (not via queue()'s path) so a run toggled
+            // cron-inactive mid-flight still gets its row re-armed instead
+            // of the daemon hot-looping on the unchanged stale deadline.
+            UnitSessionQueue::addItem($this, $this->runUnit, $this->execResults['queue']);
+            return 'requeued';
+        }
+        UnitSessionQueue::removeItem($this->id);
+        return 'dequeued';
     }
 
     public function expire() {
@@ -337,7 +530,18 @@ class UnitSession extends Model {
             if (($unit->type == "Survey" || $unit->type == "Form") && Config::get('form_v2_dual_write_results', true)) {
                 $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
                 $params = array('session_id' => $this->id, 'study_id' => $unit->surveyStudy->id);
-                $this->db->exec($query, $params);
+                $ended_now = $this->db->exec($query, $params);
+
+                // Write-time hook: this UPDATE flips ended NULL→now exactly once
+                // (the `ended IS null` guard), so a non-zero row count is a real
+                // completion. Feed the study rollup (counts + geometric-mean
+                // duration, audit SQ-10/SQ-11). Self-guarded — best-effort.
+                if ($ended_now) {
+                    StudyMetrics::recordCompletion(
+                        (int) $unit->surveyStudy->id, $this->runSession->testing ?? null,
+                        $unit->surveyStudy->results_table, (int) $this->id
+                    );
+                }
             }
             // Honour an explicit reason from the caller (e.g. the queue's
             // run-session-ended branch passes 'ended_by_queue_rse').
@@ -397,7 +601,17 @@ class UnitSession extends Model {
     }
 
     public function queue($output = null) {
-        if ($this->isQueuable()) {
+        if (!empty($this->execResults['queue'])) {
+            // Audit F15 (2026-07): persist the deadline even when the run
+            // is not cron-active (the old isQueuable() gate). The daemon
+            // ignores these rows either way (pickup filters
+            // cron_active = 1 twice), but the web path's overdue guard
+            // (Pause, 80e89dcb) needs the stored expires + QUEUED_TO_END
+            // to end an overdue deadline instead of re-evaluating
+            // relative_to — the forever-slide otherwise survived on
+            // cron-inactive runs. If the author later enables cron,
+            // already-armed deadlines start being enforced, which is the
+            // expected semantic.
             UnitSessionQueue::addItem($this, $this->runUnit, $this->execResults['queue']);
         }
     }
@@ -612,6 +826,11 @@ class UnitSession extends Model {
                 if ($sessionStarted) {
                     $this->result = 'survey_started';
                     $this->logResult();
+                    // Write-time hook (audit SQ-11): form_v2's dual-write path
+                    // creates a wide row, so real survey starts also arrive via
+                    // this branch — count them here too, not only in the
+                    // no-wide-row elseif below. Self-guarded.
+                    StudyMetrics::onSurveyStart((int) $study->id, $this->runSession->testing ?? null);
                 }
             } else {
                 $this->db->update($study->results_table, array('modified' => mysql_now()), $entry);
@@ -620,6 +839,12 @@ class UnitSession extends Model {
             // No wide row to gate on, but still log the lifecycle event.
             $this->result = 'survey_started';
             $this->logResult();
+
+            // Write-time hook: keep the study response counts fresh (audit
+            // SQ-11). Self-guarded — never let metrics accounting break a run.
+            StudyMetrics::onSurveyStart((int) $study->id, $this->runSession->testing ?? null);
+        } else {
+            $this->db->update($study->results_table, array('modified' => mysql_now()), $entry);
         }
 
         if (!$this->hasOrderedStudyItems()) {
@@ -667,6 +892,32 @@ class UnitSession extends Model {
      * @throws Exception
      */
     public function updateSurveyStudyRecord($posted, $validate = true, $quiet = false) {
+        // Audit F2 (2026-07): never write answers into a terminal unit
+        // session. The ended-run-session branch of RunSession::execute()
+        // re-dispatches the last unit session for display; a back-button
+        // re-POST then reached this method and mutated submitted data
+        // (the item/result UPDATEs below are scoped by session_id only,
+        // with no `ended IS NULL` clause). Requires the hydrated-load
+        // fix in getCurrentUnitSession — a skeletal object reads null.
+        if ($this->ended !== null || $this->expired !== null) {
+            return false;
+        }
+
+        // Audit F13 (2026-07): bind the POST to the unit session it was
+        // rendered for. The form carries a hidden session_id
+        // (SpreadsheetRenderer); in a looping/diary run a back-button
+        // resubmit of iteration N's still-open form would otherwise be
+        // written into iteration N+1's freshly-created session (item
+        // names match, validation passes) — silently duplicating old
+        // answers into the new iteration. A mismatch means the form is
+        // stale; reject the write. (Legacy forms without the hidden
+        // field, or non-numeric values, skip the check.) Checked before
+        // touching surveyStudy so a stale POST is cheap to reject.
+        if (isset($posted['session_id']) && is_numeric($posted['session_id'])
+                && (int) $posted['session_id'] !== (int) $this->id) {
+            return false;
+        }
+
         /** @var SurveyStudy $study */
         $study = $this->runUnit->surveyStudy;
 
@@ -744,24 +995,18 @@ class UnitSession extends Model {
             return false;
         }
 
-        $survey_items_display = $this->db->prepare(
-                "UPDATE `survey_items_display` SET 
-				created = COALESCE(created,NOW()),
-				answer = :answer, 
-				saved = :saved,
-				shown = :shown,
-				shown_relative = :shown_relative,
-				answered = :answered,
-				answered_relative = :answered_relative,
-				displaycount = COALESCE(displaycount,1),
-				hidden = :hidden
-			WHERE item_id = :item_id AND session_id = :session_id"); # fixme: displaycount starts at 2
-        $survey_items_display->bindParam(":session_id", $this->id);
+        // Collect the per-item display writes and flush them in one batched
+        // UPDATE after the loop instead of a round trip per posted item on the
+        // hottest write path in the app (audit SQ-40). Keyed by item_id; the
+        // per-column CASE below preserves exactly the old per-row semantics
+        // (update-only, never insert). displaycount starts at 2 — fixme kept.
+        $saved = mysql_now();
+        $displayRows = array();
 
         try {
             $this->db->beginTransaction();
 
-            // update item_display table for each posted item using prepared statement
+            // accumulate the item_display write for each posted item
             foreach ($posted as $name => $value) {
                 if (!isset($items[$name])) {
                     continue;
@@ -797,24 +1042,28 @@ class UnitSession extends Model {
 					$answer = json_encode($answer);
 				}
 
-                $survey_items_display->bindValue(":item_id", $item->id);
-                $survey_items_display->bindValue(":answer", $answer);
-                $survey_items_display->bindValue(":hidden", $item->skip_validation ? (int) $item->hidden : 0); // an item that was answered has to have been shown
-                $survey_items_display->bindValue(":saved", mysql_now());
-                $survey_items_display->bindParam(":shown", $shown);
-                $survey_items_display->bindParam(":shown_relative", $shown_relative);
-                $survey_items_display->bindParam(":answered", $answered);
-                $survey_items_display->bindParam(":answered_relative", $answered_relative);
-                $item_answered = $survey_items_display->execute();
-
-                if (!$item_answered) {
-                    throw new Exception("Survey item '$name' could not be saved with value '$value' in table '{$study->results_table}'");
-                }
-
+                $displayRows[(int) $item->id] = array(
+                    'answer' => $answer,
+                    'shown' => $shown,
+                    'shown_relative' => $shown_relative,
+                    'answered' => $answered,
+                    'answered_relative' => $answered_relative,
+                    'hidden' => $item->skip_validation ? (int) $item->hidden : 0, // answered => must have been shown
+                );
             } //endforeach
-            // Update results table in one query (gated on dual-write).
-            // Long-form (survey_items_display) is always written above —
-            // it's the source of truth.
+            // One batched UPDATE for every posted item's display row: a CASE per
+            // column keyed on item_id reproduces the per-row values; `saved` is
+            // one shared stamp; created/displaycount keep their COALESCE-preserve
+            // semantics; the IN list scopes to existing rows only (never inserts),
+            // matching the old per-item UPDATEs exactly.
+            if ($displayRows) {
+                $this->db->batchUpdateByKey('survey_items_display', 'item_id', $displayRows,
+                    array('saved' => $saved),
+                    array('session_id' => $this->id),
+                    array('created = COALESCE(created, NOW())', 'displaycount = COALESCE(displaycount, 1)'));
+            }
+            // Update results table in one query (gated on form_v2 dual-write).
+            // Long-form (survey_items_display) is written above — source of truth.
             if ($update_data && Config::get('form_v2_dual_write_results', true)) {
                 $update_where = array(
                     'study_id' => $study->id,
@@ -898,7 +1147,7 @@ class UnitSession extends Model {
                 if ($results_table === "survey_unit_sessions") {
                     if (($key = array_search('position', $matches_variable_names[$survey_name])) !== false) {
                         unset($matches_variable_names[$survey_name][$key]);
-                        $variables[] = '`survey_run_units`.`position`';
+                        $variables[] = 'COALESCE(`sru_own`.`position`, `sru_fallback`.`position`) AS `position`';
                     }
                     if (($key = array_search('type', $matches_variable_names[$survey_name])) !== false) {
                         unset($matches_variable_names[$survey_name][$key]);
@@ -931,10 +1180,24 @@ class UnitSession extends Model {
 					LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 				";
             } elseif ($results_table == 'survey_unit_sessions') {
+                // D1 fix (v0.26.4): the old join fanned out on unit_id — for a
+                // unit reused at N positions every unit-session row came back
+                // N times, in undefined order, with N different `position`
+                // values, and R code anchored on this data (Pause relative_to,
+                // Branch conditions) computed from an arbitrary duplicate.
+                // Two-alias form: `sru_own` pins post-047 rows to their own
+                // placement (indexed PK lookup); `sru_fallback` fires only
+                // when that misses — legacy NULL rows AND rows whose
+                // placement was since deleted keep the old unit_id match, so
+                // no row silently drops out of the R data. Both arms are
+                // index-served (no OR in a single ON clause).
                 $joins = "LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 				LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
-				LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
-				LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
+				LEFT JOIN `survey_run_units` AS `sru_own` ON `sru_own`.id = `survey_unit_sessions`.run_unit_id
+				LEFT JOIN `survey_run_units` AS `sru_fallback` ON `sru_own`.id IS NULL
+					AND `sru_fallback`.unit_id = `survey_unit_sessions`.unit_id
+					AND `sru_fallback`.run_id = `survey_run_sessions`.run_id
+				LEFT JOIN `survey_runs` ON `survey_runs`.id = COALESCE(`sru_own`.run_id, `sru_fallback`.run_id)
 				";
                 $where .= " AND `survey_runs`.id = :run_id";
             } elseif ($results_table == 'survey_run_sessions') {
@@ -973,10 +1236,24 @@ class UnitSession extends Model {
             if (in_array('formr_last_action_date', $needed['variables']) || in_array('formr_last_action_time', $needed['variables'])) {
                 $datasets['.formr$last_action_date'] = "NA";
                 $datasets['.formr$last_action_time'] = "NA";
+                // D1 fix (v0.26.4): scope to THIS session's placement — the
+                // old unit_id-only match with LIMIT 1 and no ORDER BY
+                // returned an arbitrary un-ended session among all
+                // placements/iterations of a reused unit. Prefer this
+                // session's own run_unit_id; legacy sessions (NULL) fall
+                // back to unit_id, newest first.
+                $placement_where = $this->run_unit_id !== null
+                    ? "(`survey_unit_sessions`.`run_unit_id` = :run_unit_id OR (`survey_unit_sessions`.`run_unit_id` IS NULL AND `unit_id` = :unit_id))"
+                    : "`unit_id` = :unit_id";
+                $placement_params = array('run_session_id' => $runSession->id, 'unit_id' => $this->runUnit->id);
+                if ($this->run_unit_id !== null) {
+                    $placement_params['run_unit_id'] = $this->run_unit_id;
+                }
                 $last_action = $this->db->execute(
-                        "SELECT `survey_unit_sessions`.`created` FROM `survey_unit_sessions` 
+                        "SELECT `survey_unit_sessions`.`created` FROM `survey_unit_sessions`
 					LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-					WHERE `survey_run_sessions`.id  = :run_session_id AND `unit_id` = :unit_id AND `survey_unit_sessions`.`ended` IS NULL LIMIT 1", array('run_session_id' => $runSession->id, 'unit_id' => $this->runUnit->id), true
+					WHERE `survey_run_sessions`.id  = :run_session_id AND {$placement_where} AND `survey_unit_sessions`.`ended` IS NULL
+					ORDER BY `survey_unit_sessions`.`id` DESC LIMIT 1", $placement_params, true
                 );
                 if ($last_action !== false) {
                     $last_action_time = strtotime($last_action);

@@ -40,7 +40,14 @@ class RunSession extends Model {
     protected $positionedUnitIds = [];
     /** @var array Cache for survey_run_units.id keyed by position */
     protected $positionedRunUnitIds = [];
-    /** Maximum number of recursions to happen during a run session execution; */
+    /** Default automated-unit ceiling per request; override via the
+     * run_session.max_execution_count config. Exceeding it HALTS the request
+     * (empty body, formr_log) without ending the run session — a misconfigured
+     * skip cycle stays cheap and bounded per request, and no participant is
+     * ever ejected irreversibly (review 2026-07, item 10: the earlier
+     * per-position revisit + 200-execution two-tier design made the loop
+     * verdict unreachable for cycles spanning >40 positions, letting them
+     * burn ~200 executions per daemon poll forever). */
     const MAX_EXECUTION_COUNT = 10;
     /**
      * Current number of execution counts while recursive
@@ -201,7 +208,12 @@ class RunSession extends Model {
             return $this;
         }
 
-        $this->currentUnitSession = $unitSession->create($setAsCurrent);
+        $created = $unitSession->create($setAsCurrent);
+        // A failed create() returns an invalid object (id null). Do not
+        // install it as the current session — execute()'s recovery branch
+        // detects the missing step and re-creates it at the current
+        // position instead of silently executing a bogus row.
+        $this->currentUnitSession = ($created && $created->id) ? $created : null;
         return $this;
     }
 
@@ -217,8 +229,7 @@ class RunSession extends Model {
          * requests will simply send an empty body so the browser can
          * refresh.
          */
-        $lock_name   = 'run_session_' . ($this->id !== null ? $this->id
-                                                            : substr(sha1($this->session), 0, 40));
+        $lock_name   = $this->lockName();
         // Use different timeouts for queue vs user requests
         $lock_timeout = formr_in_console() 
             ? Config::get('run_session.lock_timeout.queue', 0.1)  // Queue requests
@@ -265,15 +276,27 @@ class RunSession extends Model {
                 return redirect_to(run_url($this->run->name, 'logout', ['prev' => $this->session]));
             }
             
-            if ($this->executionCount > self::MAX_EXECUTION_COUNT) {
-                return $this->spam();
+            // Execution ceiling (review 2026-07, item 10): more than
+            // max_execution_count automated units in ONE request is either a
+            // misconfigured skip cycle or an unusually long catch-up cascade.
+            // Either way: HALT this request without ending the run session —
+            // a loop stays cheap and bounded per request (and is visible in
+            // the error log), a genuine catch-up simply continues from the
+            // advanced position on the next request. Nothing is ended
+            // irreversibly (the old spam() ejection is gone).
+            if ($this->executionCount > $this->maxExecutionCount()) {
+                formr_log("Run session {$this->id}: exceeded run_session.max_execution_count ({$this->maxExecutionCount()}) at position {$this->position}; halting request without ending the run session. If this recurs, the run structure likely contains an automated-unit loop.");
+                return ['body' => ''];
             }
 
             if ($this->run->isStudyTest()) {
                 return $this->executeTest();
             }
             // Get the initial position if this run session hasn't executed before
-            if ($this->position === null && !($position = $this->run->getFirstPosition())) {
+            // Audit F12 (2026-07): null-check, not truthiness — a first
+            // unit at position 0 must start the run, not read as "study
+            // not defined". getFirstPosition returns null on an empty run.
+            if ($this->position === null && ($position = $this->run->getFirstPosition()) === null) {
                 alert('This study has not been defined.', 'alert-danger');
                 return false;
             }
@@ -288,6 +311,20 @@ class RunSession extends Model {
             // If there is a referenceUnitSession then it is sent by the queue
             if ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id == $currentUnitSession->id && !$executeReferenceUnit) {
                 $this->debug("END-q");
+                // Audit F4 (2026-07): never end on the stored deadline
+                // alone — revalidate against current state first. A
+                // sliding-window Survey whose participant kept working
+                // gets its queue row re-armed at the fresh deadline
+                // instead of being expired mid-edit; a config that now
+                // says "never expires" gets dequeued. Pause keeps its
+                // end-at-stored-deadline semantic (80e89dcb) because its
+                // expiration data returns end_session for an overdue
+                // QUEUED_TO_END gate without re-evaluating relative_to.
+                $verdict = $currentUnitSession->revalidateQueueVerdict();
+                if ($verdict !== 'end') {
+                    $this->debug("END-q deferred ({$verdict})");
+                    return ['body' => ''];
+                }
                 if($this->endCurrentUnitSession()) {
                     return $this->moveOn();
                 }
@@ -314,7 +351,31 @@ class RunSession extends Model {
                 // We are in the first unit of the run
                 return $this->moveOn(true);
             } elseif (!$currentUnitSession) {
-                // We maybe all previous unit sessions have ended so move on
+                // No live session at the stored position. Count the hop so
+                // a stuck recovery can't recurse unboundedly — but fail the
+                // REQUEST when the bound trips, never the participant:
+                // spam() would end the run session irreversibly for what is
+                // an engine-side fault.
+                $this->executionCount++;
+                if ($this->executionCount >= $this->maxExecutionCount()) {
+                    formr_log("Run session {$this->id}: recovery loop at position {$this->position} exceeded run_session.max_execution_count; aborting request without ending the run session.");
+                    alert(__('Temporary problem executing this study. Please try again in a moment.'), 'alert-warning');
+                    return ['body' => ''];
+                }
+                // Distinguish "the step here ran and finished" (advance)
+                // from "the step was never instantiated" (repair): a
+                // moveOn() persists the position BEFORE createUnitSession,
+                // so a failed create leaves zero rows for this placement —
+                // pre-fix this branch then skipped the position entirely.
+                if (!$this->placementHasAnyUnitSession() && ($unit_id = $this->getUnitIdAtPosition($this->position))) {
+                    $this->debug('No session ever created at position ' . $this->position . ' — repairing', true);
+                    $runUnit = RunUnitFactory::make($this->run, ['id' => $unit_id]);
+                    if ($runUnit && $runUnit->valid) {
+                        $this->createUnitSession($runUnit);
+                        return $this->execute();
+                    }
+                }
+                $this->debug('No live session at position ' . $this->position . ' — recovery moveOn', true);
                 return $this->moveOn();
             } else {
                 // Currently active unit session. Should most likely be a survey or pause
@@ -341,6 +402,15 @@ class RunSession extends Model {
             return null;
         }
 
+        // Audit F2 (2026-07): `ended` is terminal. The ended branch of
+        // execute() re-dispatches the last unit session for display
+        // (Endpage re-render); without this guard a completed Survey's
+        // move_on result made an ended run session advance, create new
+        // unit sessions, and send messages on every reload.
+        if ($this->ended) {
+            return ['body' => ''];
+        }
+
         if (!$starting) {
             $this->currentUnitSession = null;
             $this->position = $this->run->getNextPosition($this->position);
@@ -349,7 +419,11 @@ class RunSession extends Model {
             }
         }
 
-        if ($this->position && ($unit_id = $this->getUnitIdAtPosition($this->position))) {
+        // Audit F12 (2026-07): compare against null, not truthiness — a
+        // real unit at position 0 (reachable on legacy prod rows before
+        // reorder validation) must not be read as "no next unit / end of
+        // run". getNextPosition returns null at the genuine end.
+        if ($this->position !== null && ($unit_id = $this->getUnitIdAtPosition($this->position))) {
             $runUnit = RunUnitFactory::make($this->run, ['id' => $unit_id]);
             $this->createUnitSession($runUnit);
             return $execute ? $this->execute() : null;
@@ -389,6 +463,16 @@ class RunSession extends Model {
         if (isset($result['redirect'])) {
             // move on in the run before redirecting to external service (except for surveys)
             if ($this->currentUnitSession->runUnit->type !== 'Survey') {
+                // Audit F5 (2026-07): a cron cascade cannot follow a
+                // redirect. Advancing anyway (without executing) parked
+                // the successor at PENDING/queued=0 — invisible to the
+                // daemon — while the participant never saw the external
+                // address. Stop the cascade instead: the External stays
+                // current, the participant is redirected on their next
+                // visit, and expire_after still bounds abandonment.
+                if (formr_in_console()) {
+                    return ['body' => ''];
+                }
                 $this->moveOn(false, false);
             }
             return $result;
@@ -447,22 +531,106 @@ class RunSession extends Model {
             return null;
         }
         if (!array_key_exists($position, $this->positionedRunUnitIds)) {
-            $this->positionedRunUnitIds[$position] = $this->db->findValue('survey_run_units', ['run_id' => $this->run->id, 'position' => $position], 'id');
+            // findValue → fetchColumn() returns FALSE on a miss; coerce to
+            // null so the documented contract holds and `!== null` guards
+            // (here and in UnitSession::create) treat a miss as "unmapped"
+            // rather than binding false/0 as a real id.
+            $id = $this->db->findValue('survey_run_units', ['run_id' => $this->run->id, 'position' => $position], 'id');
+            $this->positionedRunUnitIds[$position] = ($id === false) ? null : $id;
         }
         return $this->positionedRunUnitIds[$position];
     }
 
-    public function forceTo($position) {
-        // If there a unit for current position, then end the unit's session before moving
-        if (($unitSession = $this->getCurrentUnitSession())) {
-			$unitSession->end();
-            $unitSession->result = 'manual_admin_push';
-            $unitSession->logResult();
+    /**
+     * TRUE if ANY unit-session row — alive, ended, expired or superseded —
+     * exists for the current position's placement, i.e. the step was at
+     * least instantiated once. Used by execute()'s recovery branch to
+     * distinguish "finished here, advance" from "never created, repair".
+     * Legacy rows (run_unit_id NULL, pre-047) count via unit_id.
+     */
+    protected function placementHasAnyUnitSession() {
+        $unit_id = $this->getUnitIdAtPosition($this->position);
+        if (!$unit_id || !$this->id) {
+            return false;
         }
-        return $this->runTo($position);
+        $run_unit_id = $this->getRunUnitIdAtPosition($this->position);
+        $query = $this->db->select('survey_unit_sessions.id')
+                ->from('survey_unit_sessions')
+                ->where('run_session_id = :run_session_id')
+                ->where('unit_id = :unit_id')
+                ->limit(1);
+        if ($run_unit_id !== null) {
+            $query->where('(run_unit_id = :run_unit_id OR run_unit_id IS NULL)')
+                  ->bindParams(['run_unit_id' => $run_unit_id]);
+        }
+        $row = $query->bindParams(['run_session_id' => $this->id, 'unit_id' => $unit_id])->fetch();
+        return (bool) $row;
     }
 
-    public function runTo($position, $unit_id = null, $execute = false) {
+    public function forceTo($position) {
+        // Audit F3 (2026-07): admin moves must hold the same lock as
+        // execute(); unlocked they raced a daemon cascade mid-flight,
+        // duplicating live unit sessions and clobbering position. GET_LOCK
+        // is reference-counted per connection, so runTo()'s nested
+        // execute() re-acquiring it is safe. Reviving an ended session is
+        // the admin's explicit intent here, hence $revive = true.
+        $lock_name = $this->lockName();
+        if (!$this->acquireLock($lock_name, Config::get('run_session.lock_timeout.user', 10.0))) {
+            alert('Could not move the session: another process is currently executing it. Try again.', 'alert-danger');
+            return false;
+        }
+        try {
+            $this->reloadFromDb();
+            // If there a unit for current position, then end the unit's session before moving
+            if (($unitSession = $this->getCurrentUnitSession())) {
+                $unitSession->end();
+                $unitSession->result = 'manual_admin_push';
+                $unitSession->logResult();
+            }
+            return $this->runTo($position, null, false, true);
+        } finally {
+            $this->releaseLock($lock_name);
+        }
+    }
+
+    /**
+     * Admin/API "advance to the next unit": end the current unit session
+     * and moveOn, under the run-session lock. Audit F3 (2026-07): both
+     * callers ran lock-free, and the AJAX variant ended the current unit
+     * WITHOUT advancing — leaving cron-only participants with nothing
+     * current and nothing queued, permanently stalled.
+     */
+    public function forceMoveOn($reason = 'moved') {
+        if ($this->ended) {
+            alert('This run session has ended; revive it by sending it to a position instead.', 'alert-danger');
+            return false;
+        }
+        $lock_name = $this->lockName();
+        if (!$this->acquireLock($lock_name, Config::get('run_session.lock_timeout.user', 10.0))) {
+            alert('Could not advance the session: another process is currently executing it. Try again.', 'alert-danger');
+            return false;
+        }
+        try {
+            $this->reloadFromDb();
+            $unitSession = $this->getCurrentUnitSession();
+            if (!$unitSession) {
+                return false;
+            }
+            $unitSession->end($reason);
+            return (bool) $this->moveOn();
+        } finally {
+            $this->releaseLock($lock_name);
+        }
+    }
+
+    public function runTo($position, $unit_id = null, $execute = false, $revive = false) {
+        // Audit F2 (2026-07): Branch/Skip jumps land here; they must not
+        // resurrect an ended run session. Only an explicit admin move
+        // (forceTo) passes $revive.
+        if ($this->ended && !$revive) {
+            return ['body' => ''];
+        }
+
         if ($unit_id === null) {
             $unit_id = $this->getUnitIdAtPosition($position);
         }
@@ -472,16 +640,18 @@ class RunSession extends Model {
             $unit = RunUnitFactory::make($this->run, ['id' => $unit_id]);
             if ($unit->valid) {
                 $this->createUnitSession($unit);
-                //$this->db->update('survey_run_sessions', ['position' => $position], ['id' => $this->id]);
-				$this->db->exec(
-					"UPDATE `survey_run_sessions` SET  `ended` = NULL, `position` = :position WHERE `id` = :id",
-					[
-						'id' => $this->id,
-						'position' => $position
-					]
-				);
-				
-				$this->ended = null;
+                if ($revive) {
+                    $this->db->exec(
+                        "UPDATE `survey_run_sessions` SET `ended` = NULL, `position` = :position WHERE `id` = :id",
+                        ['id' => $this->id, 'position' => $position]
+                    );
+                    $this->ended = null;
+                } else {
+                    $this->db->exec(
+                        "UPDATE `survey_run_sessions` SET `position` = :position WHERE `id` = :id",
+                        ['id' => $this->id, 'position' => $position]
+                    );
+                }
 				$exec = ['body' => null];
 				if (formr_in_console() || $execute) {
 					$exec = $this->execute();
@@ -492,7 +662,13 @@ class RunSession extends Model {
                 alert(__('<strong>Error.</strong> Could not create unit session for unit %s at pos. %s.', $unit_id, $position), 'alert-danger');
             }
         } else {
+            // Audit F9 (2026-07): a dangling jump target reaching here
+            // (direct/admin caller) is a structural fault — surface it to
+            // the admin, not just a participant-facing alert.
             alert('<strong>Error.</strong> You tried to jump to a non-existing run position or forgot to specify one entirely.', 'alert-danger');
+            if ($this->currentUnitSession) {
+                notify_study_admin($this->currentUnitSession, 'Jump to non-existing run position ' . h($position) . '. Fix the run structure.', 'error');
+            }
         }
 
         return false;
@@ -505,6 +681,8 @@ class RunSession extends Model {
         }
 
         $this->debug("Getting current unit session at {$this->position} [0]", true);
+        $unit_id = $this->getUnitIdAtPosition($this->position);
+        $run_unit_id = $this->getRunUnitIdAtPosition($this->position);
         $query = $this->db->select('
 			`survey_unit_sessions`.unit_id,
 			`survey_unit_sessions`.id,
@@ -513,11 +691,11 @@ class RunSession extends Model {
             `survey_unit_sessions`.expires,
 			`survey_unit_sessions`.ended,
             `survey_unit_sessions`.expired,
+            `survey_unit_sessions`.queued,
 			`survey_units`.type')
                 ->from('survey_unit_sessions')
                 ->leftJoin('survey_units', 'survey_unit_sessions.unit_id = survey_units.id')
                 ->where('survey_unit_sessions.run_session_id = :run_session_id')
-                ->where('survey_unit_sessions.unit_id = :unit_id')
                 ->where('survey_unit_sessions.ended IS NULL AND survey_unit_sessions.expired IS NULL') //so we know when to runToNextUnit
                 // Exclude superseded siblings (queued=-9 set by
                 // UnitSession::create()'s same-unit_id supersede). Pre-fix
@@ -528,9 +706,33 @@ class RunSession extends Model {
                 // "done" but didn't carry an `ended`/`expired` timestamp.
                 // See tests/e2e/EXPIRY_AUDIT.md §11.
                 ->where('survey_unit_sessions.queued != ' . UnitSessionQueue::QUEUED_SUPERCEDED)
-                ->bindParams(array('run_session_id' => $this->id, 'unit_id' => $this->getUnitIdAtPosition($this->position)))
                 ->order('survey_unit_sessions`.id', 'desc')
                 ->limit(1);
+
+        // D1 fix (v0.26.4): when the same unit is slotted at multiple
+        // positions, matching by unit_id alone lets a session created at
+        // a *different* position be adopted as "current" — position and
+        // session silently drift apart until the next moveOn advances
+        // from the wrong (usually the last same-unit) position. Prefer
+        // run_unit_id (the per-run-per-position survey_run_units.id,
+        // written on every session since patch 047). Legacy rows where
+        // run_unit_id IS NULL (pre-047; the 048 backfill intentionally
+        // leaves multi-position rows NULL) keep matching by unit_id.
+        if ($run_unit_id !== null) {
+            // Audit F1 (2026-07): the run_unit_id arm must ALSO match on
+            // unit_id. Reminder emails (Run::getReminderSession) used to
+            // insert sessions stamped with the participant's current
+            // placement's run_unit_id but a different unit_id; without
+            // the unit_id constraint this query adopted the newer
+            // reminder row as "current" and the participant skipped
+            // their live unit. Healthy rows always satisfy both.
+            $query->where('survey_unit_sessions.unit_id = :unit_id')
+                  ->where('(survey_unit_sessions.run_unit_id = :run_unit_id OR survey_unit_sessions.run_unit_id IS NULL)')
+                  ->bindParams(array('run_unit_id' => $run_unit_id));
+        } else {
+            $query->where('survey_unit_sessions.unit_id = :unit_id');
+        }
+        $query->bindParams(array('run_session_id' => $this->id, 'unit_id' => $unit_id));
 
         $row = $query->fetch();
 
@@ -538,7 +740,14 @@ class RunSession extends Model {
             $u = $row;
             $u['id'] = $u['unit_id'];
             $unit = RunUnitFactory::make($this->run, $u);
-            $this->currentUnitSession = new UnitSession($this, $unit, $row);
+            // Audit 2026-07 (hydration): the UnitSession constructor
+            // allowlists $options to id/load (ed56a95f), so passing $row
+            // produced an object with ONLY `id` set — every stored-state
+            // guard (Pause/Survey/External expires, created, queued,
+            // result) evaluated against null on the web path, silently
+            // disabling deadline enforcement and the 80e89dcb overdue fix.
+            // Load through the trusted PK path instead.
+            $this->currentUnitSession = new UnitSession($this, $unit, ['id' => $row['id'], 'load' => true]);
             return $this->currentUnitSession;
         } else {
             return false;
@@ -566,25 +775,41 @@ class RunSession extends Model {
         // Track A A8: raw-UPDATE bypass for "External returned from redirect,
         // mark ended". Column set mirrors what UnitSession::end() writes so the
         // row reads cleanly in admin tooling and analysis exports.
+        //
+        // Audit F20 (2026-07): scope to the ONE most-recent live External
+        // (the row this api_end callback is for), not every live External
+        // on the run session. Pre-fix a delayed callback for one External
+        // ended the participant's current, unrelated External too. Resolve
+        // the target id first, then UPDATE by id.
+        $target = $this->db->execute(
+            "SELECT us.id FROM `survey_unit_sessions` us
+             JOIN `survey_units` u ON u.id = us.unit_id
+             WHERE us.run_session_id = :id AND u.type = 'External'
+               AND us.ended IS NULL AND us.expired IS NULL
+             ORDER BY us.id DESC LIMIT 1",
+            ['id' => $this->id], true
+        );
+        if (!$target) {
+            return false;
+        }
+
         $query = "UPDATE `survey_unit_sessions`
-			LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
-			SET `survey_unit_sessions`.`ended`       = NOW(),
-			    `survey_unit_sessions`.`result`      = 'external_ended',
-			    `survey_unit_sessions`.`queued`      = 0,
-			    `survey_unit_sessions`.`state`       = :state,
-			    `survey_unit_sessions`.`state_log`   = :state_log
-			WHERE `survey_unit_sessions`.run_session_id = :id AND `survey_units`.type = 'External' AND  `survey_unit_sessions`.ended IS NULL AND `survey_unit_sessions`.expired IS NULL;";
+			SET `ended`     = NOW(),
+			    `result`    = 'external_ended',
+			    `queued`    = 0,
+			    `state`     = :state,
+			    `state_log` = :state_log
+			WHERE `id` = :us_id AND `ended` IS NULL AND `expired` IS NULL LIMIT 1";
 
         $updated = $this->db->exec($query, [
-            'id'        => $this->id,
+            'us_id'     => $target,
             'state'     => UnitSessionQueue::STATE_ENDED,
             'state_log' => UnitSession::buildStateLog('external_ended', [
                 'unit_type' => 'External',
                 'via'       => 'endLastExternal',
             ]),
         ]);
-        $success = $updated !== false;
-        return $success;
+        return $updated !== false && $updated > 0;
     }
 
     public function end() {
@@ -599,13 +824,9 @@ class RunSession extends Model {
         return false;
     }
     
-    public function spam() {
-        $this->debug('SPAM');
-        $this->endCurrentUnitSession('spam_' . $this->executionCount);
-        $this->end();
-
-        alert('This session is spamming us. Please fix your run definition', 'alert-danger');
-        return ['body' => 'FORMR_SPAM'];
+    /** Automated-unit ceiling per request (see MAX_EXECUTION_COUNT). */
+    protected function maxExecutionCount(): int {
+        return (int) Config::get('run_session.max_execution_count', self::MAX_EXECUTION_COUNT);
     }
 
     public function setTestingStatus($status = 0) {
@@ -986,10 +1207,17 @@ class RunSession extends Model {
      * @param int    $timeout Seconds to wait
      * @return bool           TRUE = lock acquired
      */
+    protected function lockName() {
+        return 'run_session_' . ($this->id !== null ? $this->id
+                                                    : substr(sha1($this->session), 0, 40));
+    }
+
     protected function acquireLock($name, $timeout = 1) {
         $stmt = $this->db->prepare('SELECT GET_LOCK(:name, :timeout) AS l');
         $stmt->bindValue('name',    $name);
-        $stmt->bindValue('timeout', $timeout, PDO::PARAM_INT);
+        // Audit (2026-07): bind as string — PDO::PARAM_INT truncated the
+        // queue's configured 0.1 s timeout to 0. GET_LOCK accepts decimals.
+        $stmt->bindValue('timeout', (string) $timeout);
         $stmt->execute();
         return (int)$stmt->fetchColumn() === 1;
     }
