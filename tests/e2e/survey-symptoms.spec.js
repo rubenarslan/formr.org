@@ -90,9 +90,12 @@ test.describe.serial('Symptom A / B / D reproductions', () => {
         const s = dbState(usId);
         expect(s.ended, 'Survey should remain unended after position-mismatch queue tick').toBeNull();
         expect(s.expired, 'Survey should remain unexpired').toBeNull();
-        // Run-session was ended by the dangling-end path:
+        // Run-session is NOT ended. Since the expiry rework (EXPIRY_PLAN "Fix 1"),
+        // a stale queue reference — whose unit-session is no longer the active one —
+        // is dropped and the tick stops WITHOUT ending the run-session. The old
+        // moveOn()->end() path here is exactly what orphaned mid-survey participants.
         const rs = dbQuery(`SELECT ended FROM survey_run_sessions WHERE id = ${f.run_session_id}`);
-        expect(rs[0].ended, 'run-session should be ended by the dangling-end path').not.toBeNull();
+        expect(rs[0].ended, 'run-session NOT ended — stale ref dropped, not cascaded').toBeNull();
     });
 
     test('B1 (Symptom B): end() on never-visited Survey leaves ended=NOW with no results row', async ({ baseURL }) => {
