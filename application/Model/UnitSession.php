@@ -843,9 +843,12 @@ class UnitSession extends Model {
             // Write-time hook: keep the study response counts fresh (audit
             // SQ-11). Self-guarded — never let metrics accounting break a run.
             StudyMetrics::onSurveyStart((int) $study->id, $this->runSession->testing ?? null);
-        } else {
-            $this->db->update($study->results_table, array('modified' => mysql_now()), $entry);
         }
+        // No trailing else: $entry is built only inside the `if ($dualWrite)` arm
+        // above, so with dual-write off (form_v2_dual_write_results=false) there is
+        // no wide row and no $entry — the !dualWrite && !sessionStarted case is a
+        // no-op. (A prior `else` bumped $study->results_table with an undefined
+        // $entry here → TypeError on the array $where arg in long-only mode.)
 
         if (!$this->hasOrderedStudyItems()) {
             // get the definition of the order

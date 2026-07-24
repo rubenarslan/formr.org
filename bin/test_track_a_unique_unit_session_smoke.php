@@ -87,7 +87,10 @@ try {
          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'survey_unit_sessions'
            AND INDEX_NAME = 'idx_run_unit_iter' LIMIT 1", [], true);
     if ($nonUnique === false || (int) $nonUnique !== 0) {
-        fwrite(STDERR, "idx_run_unit_iter is NOT unique — apply sql/patches/063_unique_run_unit_iter.sql first.\n");
+        fwrite(STDERR, "idx_run_unit_iter is NOT unique. It ships UNIQUE in sql/schema.sql for fresh installs; "
+            . "to promote an already-provisioned DB, run:\n"
+            . "  ALTER TABLE survey_unit_sessions DROP KEY idx_run_unit_iter, "
+            . "ADD UNIQUE KEY idx_run_unit_iter (run_session_id, run_unit_id, iteration);\n");
         teardown($db, $artefacts); exit(3);
     }
     assert_eq((int) $nonUnique, 0, 'idx_run_unit_iter NON_UNIQUE');

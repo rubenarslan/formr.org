@@ -90,12 +90,14 @@ test.describe.serial('Symptom A / B / D reproductions', () => {
         const s = dbState(usId);
         expect(s.ended, 'Survey should remain unended after position-mismatch queue tick').toBeNull();
         expect(s.expired, 'Survey should remain unexpired').toBeNull();
-        // Run-session is NOT ended. Since the expiry rework (EXPIRY_PLAN "Fix 1"),
-        // a stale queue reference — whose unit-session is no longer the active one —
-        // is dropped and the tick stops WITHOUT ending the run-session. The old
-        // moveOn()->end() path here is exactly what orphaned mid-survey participants.
+        // Run-session is NOT ended: with no live unit-session at the forced position,
+        // the position-mismatch tick recovers without a dangling-end. Pre-rework the
+        // equivalent path ran moveOn()->end(), spuriously ending the run-session — the
+        // change that stopped orphaning mid-survey participants on engine-side faults.
+        // (NB: this assertion is all-negative; it verifies the run-session is not
+        // spuriously ended, not that the tick did positive repair work.)
         const rs = dbQuery(`SELECT ended FROM survey_run_sessions WHERE id = ${f.run_session_id}`);
-        expect(rs[0].ended, 'run-session NOT ended — stale ref dropped, not cascaded').toBeNull();
+        expect(rs[0].ended, 'run-session not spuriously ended by the position-mismatch tick').toBeNull();
     });
 
     test('B1 (Symptom B): end() on never-visited Survey leaves ended=NOW with no results row', async ({ baseURL }) => {
