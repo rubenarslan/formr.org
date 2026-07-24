@@ -44,6 +44,25 @@ Six runs and one JSON file:
 2. **Dismiss the cookie-consent dialog first.** vanilla-cookieconsent obscures the form. Click `[data-cc="accept-necessary"]`.
 3. Fill `email` + `password` from `.env.dev`. Submit.
 4. Confirm landing on `/admin/run/`.
+5. **The login account must have NO monthly compute limit.** It owns every
+   fixture *and* generates all the compute a suite run burns, so a
+   `survey_users.compute_limit_monthly > 0` lets `ComputeLimitCron` (hourly)
+   close *all* its fixtures mid-suite (`public=0, cron_active=0`) once usage
+   crosses the budget — the whole suite then fails with 20 s "form never
+   rendered" timeouts that look like unrelated frontend bugs. Keep it unlimited:
+   ```bash
+   docker exec -i formr_db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE" \
+     -e "UPDATE survey_users SET compute_limit_monthly=NULL WHERE email=\"robot@researchmixtapes.com\";"'
+   ```
+   If it *already* closed the fixtures, reopen them from the audit columns (exact
+   prior state is preserved there):
+   ```bash
+   docker exec -i formr_db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE" \
+     -e "UPDATE survey_runs SET public=compute_closed_from, cron_active=compute_closed_cron_active, \
+         compute_closed_from=NULL, compute_closed_cron_active=NULL WHERE compute_closed_from IS NOT NULL;"'
+   ```
+   The compute-limit tests (`test_compute_limit_smoke`, `e2e-compute-limit`) use
+   their own scoped users, so unlimiting the driver account doesn't weaken them.
 
 ## 1. Import the three studies, twice each (six SurveyStudy rows)
 
