@@ -493,6 +493,7 @@ class Email extends RunUnit {
         if (!$unitSession->runSession->canReceiveMails()) {
             $data['log'] = $this->getLogMessage('email_skipped_user_disabled', "User {$unitSession->runSession->session} disabled receiving emails at this time");
             $data['content'] = "<p>User <code>{$unitSession->runSession->session}</code> disabled receiving emails at this time </p>";
+            $data['queue'] = $this->retryBackoffQueue();
             return $data;
         }
 
@@ -505,9 +506,42 @@ class Email extends RunUnit {
         } else {
             $data['log'] = array_val($this->errors, 'log', $this->getLogMessage('error_email'));
             $data['content'] = $err;
+            $data['queue'] = $this->retryBackoffQueue();
         }
-  
+
         return $data;
+    }
+
+    /**
+     * Re-arm a soft failure with a delay instead of leaving the row hot
+     * (v1.7.1).
+     *
+     * A failed send returns neither `end_session` nor `move_on` — correct:
+     * the participant must not be advanced past an email that never went
+     * out. But it also left `queued`/`expires` untouched, and the daemon's
+     * pickup poll selects on `expires <= NOW()`, so the row was re-selected
+     * on the very next pass (~15 s) and every pass after that, forever. A
+     * rate-limited recipient (thresholds are per address, instance-wide:
+     * 1/min, 10/day, 60/week — an ESM design or a shared lab address
+     * reaches them legitimately), an SMTP outage, or a missing recipient
+     * therefore produced a hot loop that re-knitted the body through
+     * OpenCPU and re-fired notify_study_admin on every tick, burning
+     * metered compute and mailing the owner until someone noticed.
+     *
+     * The delay reuses the Pause/Branch recheck knob so there is a single
+     * dial for "how fast does the engine retry a soft failure", and it
+     * happens to line up with the admin-notification throttle, which then
+     * bounds the error mail to roughly one per retry rather than one per
+     * poll. Retrying (rather than giving up) is deliberate: a rate-limit
+     * window drains and an SMTP outage ends, and the alternative — moving
+     * on — silently drops a study's email.
+     */
+    protected function retryBackoffQueue() {
+        $extension = Config::get('unit_session.queue_expiration_extension', '+10 minutes');
+        return [
+            'expires' => mysql_datetime(strtotime($extension)),
+            'queued' => UnitSessionQueue::QUEUED_TO_EXECUTE,
+        ];
     }
 
 }
