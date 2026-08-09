@@ -491,9 +491,15 @@ class Email extends RunUnit {
 
         // Check if user is enabled to receive emails
         if (!$unitSession->runSession->canReceiveMails()) {
+            // Deliberately NOT re-armed: result='email_skipped_user_disabled'
+            // is a terminal result in the idempotency guard at the top of this
+            // method, so a re-armed row would just end + move_on on its next
+            // pass — a resend never happens, and re-arming only delays that
+            // advance by the backoff interval. A disabled recipient is a skip,
+            // not a soft failure. (Only the genuine send-failure branch below
+            // re-arms.)
             $data['log'] = $this->getLogMessage('email_skipped_user_disabled', "User {$unitSession->runSession->session} disabled receiving emails at this time");
             $data['content'] = "<p>User <code>{$unitSession->runSession->session}</code> disabled receiving emails at this time </p>";
-            $data['queue'] = $this->retryBackoffQueue();
             return $data;
         }
 
@@ -513,14 +519,14 @@ class Email extends RunUnit {
     }
 
     /**
-     * Re-arm a soft failure with a delay instead of leaving the row hot
-     * (v1.7.1).
+     * Re-arm a genuine send failure with a delay instead of leaving the
+     * row hot (v1.7.1).
      *
      * A failed send returns neither `end_session` nor `move_on` — correct:
      * the participant must not be advanced past an email that never went
      * out. But it also left `queued`/`expires` untouched, and the daemon's
      * pickup poll selects on `expires <= NOW()`, so the row was re-selected
-     * on the very next pass (~15 s) and every pass after that, forever. A
+     * on the very next pass (~15 s) and every pass after that. A
      * rate-limited recipient (thresholds are per address, instance-wide:
      * 1/min, 10/day, 60/week — an ESM design or a shared lab address
      * reaches them legitimately), an SMTP outage, or a missing recipient
@@ -528,13 +534,19 @@ class Email extends RunUnit {
      * OpenCPU and re-fired notify_study_admin on every tick, burning
      * metered compute and mailing the owner until someone noticed.
      *
-     * The delay reuses the Pause/Branch recheck knob so there is a single
-     * dial for "how fast does the engine retry a soft failure", and it
-     * happens to line up with the admin-notification throttle, which then
-     * bounds the error mail to roughly one per retry rather than one per
-     * poll. Retrying (rather than giving up) is deliberate: a rate-limit
-     * window drains and an SMTP outage ends, and the alternative — moving
-     * on — silently drops a study's email.
+     * The +10 min re-arm turns that ~15 s hot loop into ~144 attempts/day,
+     * a ~40x reduction, and lines up with the admin-notification throttle
+     * so the error mail collapses to roughly one per retry. Retrying rather
+     * than giving up is deliberate: a rate-limit window drains and an
+     * outage ends, whereas moving on would silently drop a study's email.
+     *
+     * KNOWN LIMITATION (tracked for feature/form_v2): this is a FLAT tier,
+     * not the escalating/capped backoff Pause/Branch rechecks get from
+     * UnitSession::recheckBackoffExpression(). A permanently-broken email
+     * therefore retries ~144x/day indefinitely rather than degrading to a
+     * few per day. Sharing that mechanism is blocked on the same schema
+     * work as the reverted F19 streak rework; +10 min flat is the safe
+     * interim (strictly better than the hot loop it replaces).
      */
     protected function retryBackoffQueue() {
         $extension = Config::get('unit_session.queue_expiration_extension', '+10 minutes');
