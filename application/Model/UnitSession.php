@@ -384,7 +384,32 @@ class UnitSession extends Model {
         if (empty($expirationData['expires'])) {
             return false;
         } elseif(!empty($expirationData['end_session'])) {
+            // Upstream PR #702 (Tim Seidel), companion to F23 below. Pause's
+            // recompute path assigns end_session and expired the same value
+            // (Pause.php:272) and the array_merge above copied BOTH into
+            // execResults. Reaching this branch means the wait is over and the
+            // session should END — which is what the daemon's END-q path
+            // already records, as pause_ended/wait_ended. Drop the merged
+            // `expired`, or execute() returns it and executeUnitSession(),
+            // which tests `expired` before `end_session`, calls expire() and
+            // stamps a perfectly normal elapse as result='expired'. Same
+            // branch taken either way (move_on); only the audit trail differs
+            // — and it differs in a way that matters twice over: `result`
+            // alone then can't distinguish a healthy elapse from a
+            // miscomputed deadline, and an expire()d row leaves `ended` NULL,
+            // which is what fed the wrong `seconds_stayed` in the user-detail
+            // export (PR #703, fixed in RunHelper).
+            //
+            // Unset here rather than at the Pause.php assignment: Wait's own
+            // getUnitSessionOutput() branches on $expiration['expired'] to
+            // tell "participant came back in time" from "wait elapsed", so
+            // the flag is load-bearing in the expirationData — it is only the
+            // copy that leaks into execResults that is wrong.
+            //
+            // Scoped to Pause/Wait by construction: Survey and External never
+            // set end_session, and Branch never sets expired.
             $this->execResults['end_session'] = true;
+            unset($this->execResults['expired']);
             return false; // ended NOT expired
         } elseif ($expirationData['expires'] < time()) {
             // Audit F23 (2026-07): a timer-based unit that reaches its
@@ -1034,6 +1059,27 @@ class UnitSession extends Model {
                 }
             }
 
+            // Upstream PR #702 (Tim Seidel): every data frame handed to R must
+            // come back in a deterministic chronological order. Without an
+            // ORDER BY the optimizer is free to return rows grouped by unit
+            // (it drives from `survey_run_units` and does a per-unit ref
+            // lookup), so `tail(survey_unit_sessions$created, 1)` is not "the
+            // most recent unit session" but "the newest session of whichever
+            // unit sorts last" — an anchor that lags by minutes on a looping
+            // ESM run and by days on a long diary. `created` is the semantic
+            // key (it is what tail() is being asked for); `id` breaks ties,
+            // which are real because a cascade creates several unit sessions
+            // inside the same second. The sort set is one participant's
+            // history, not the table, so the cost is ~0.2 ms at 2.4k rows.
+            //
+            // v1.7.0 no longer routes its OWN Pause/Wait anchor through here
+            // (Pause.php:150 short-circuits the default relative_to to
+            // $unitSession->created), so this is not the Wait-expiry fix it
+            // was upstream — it is what makes study-authored tail()/head()
+            // idioms in relative_to, Branch conditions, item values/showifs
+            // and email bodies mean what their authors think they mean.
+            $order = ' ORDER BY `survey_unit_sessions`.`created`, `survey_unit_sessions`.`id`';
+
             if (!in_array($results_table, get_db_non_session_tables())) {
                 $joins = "
 					LEFT JOIN `survey_unit_sessions` ON `$results_table`.session_id = `survey_unit_sessions`.id
@@ -1062,13 +1108,17 @@ class UnitSession extends Model {
                 $where .= " AND `survey_runs`.id = :run_id";
             } elseif ($results_table == 'survey_run_sessions') {
                 $joins = "";
+                // No survey_unit_sessions in scope to order by (and both of
+                // these resolve to a single row for the current participant).
+                $order = '';
             } elseif ($results_table == 'survey_users') {
                 $joins = "LEFT JOIN `survey_run_sessions` ON `survey_users`.id = `survey_run_sessions`.user_id";
+                $order = '';
             }
 
             $select .= " FROM `$results_table` ";
 
-            $q = $select . $joins . $where . ";";
+            $q = $select . $joins . $where . $order . ";";
 
             $get_results = $this->db->prepare($q);
             if (($runSession->id === null || $runSession->isTestingStudy()) && !in_array($results_table, get_db_non_session_tables())) {
