@@ -70,6 +70,36 @@ class PauseElapsedNotExpiredTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
+     * The path the first cut of the fix missed (code review, 2026-08-09):
+     * a text-only Pause, or one whose boolean relative_to yields true,
+     * hands back end_session AND expired but NO `expires` (Pause.php's
+     * $conditions was empty). isExpired() returns at the empty-`expires`
+     * guard, which sat BEFORE the original unset — so the leak survived on
+     * this path. The unset now runs before that guard.
+     */
+    public function testElapsedPauseWithoutExpiresDoesNotLeakExpired(): void
+    {
+        $pause = (new ReflectionClass(ElapseProbePause::class))->newInstanceWithoutConstructor();
+        $pause->boot();
+        $pause->canned = [
+            'check_failed' => false,
+            'expire_relatively' => true,
+            'expired' => true,
+            'end_session' => true,
+            // no 'expires' key — the defining feature of this path
+            'queued' => UnitSessionQueue::QUEUED_TO_END,
+        ];
+
+        list($expired, $execResults) = $this->runIsExpired($pause);
+
+        $this->assertFalse($expired, 'a no-deadline Pause elapse ends, it does not expire');
+        $this->assertTrue(
+            empty($execResults['expired']),
+            'the expired flag must not leak even when the payload carries no `expires`'
+        );
+    }
+
+    /**
      * Guard against over-correcting: a Survey access window that really
      * did expire has no end_session, and must still expire.
      */

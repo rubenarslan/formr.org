@@ -378,42 +378,34 @@ class UnitSession extends Model {
                 $extension = $this->recheckBackoffExpression();
                 $expirationData['expires'] = mysql_datetime(strtotime($extension));
                 $expirationData['queued'] = UnitSessionQueue::QUEUED_TO_EXECUTE;
-            } elseif ($this->state_log) {
-                // The recheck succeeded — end the failure streak so the next
-                // failure starts again at the fast tier (v1.7.1).
-                $this->clearRecheckFailureMarker();
             }
+        }
+
+        // Upstream PR #702 (Tim Seidel), companion to F23 below. A Pause/Wait
+        // elapse assigns end_session and expired the SAME value (Pause.php:272),
+        // and the array_merge above copied BOTH into execResults. The expired
+        // copy must never reach executeUnitSession(), which tests `expired`
+        // before `end_session` and would call expire() — stamping a normal
+        // elapse as result='expired' with `ended` left NULL (which also fed the
+        // wrong `seconds_stayed` in the user-detail export, PR #703).
+        //
+        // Strip the leaked copy whenever end_session is present, BEFORE the
+        // return branches below. end_session is only ever set by Pause/Wait
+        // (Survey and External never set it; Branch never sets expired), so
+        // this is correct on every path — including the text-only / boolean-
+        // true Pause that carries no `expires` and returns at the empty-expires
+        // guard, which the original merge-point fix (scoped to the end_session
+        // branch) did not reach. The flag stays in $expirationData: Wait's
+        // getUnitSessionOutput() branches on it to tell "came back in time"
+        // from "elapsed" — only the execResults copy is wrong.
+        if (!empty($expirationData['end_session'])) {
+            unset($this->execResults['expired']);
         }
 
         if (empty($expirationData['expires'])) {
             return false;
         } elseif(!empty($expirationData['end_session'])) {
-            // Upstream PR #702 (Tim Seidel), companion to F23 below. Pause's
-            // recompute path assigns end_session and expired the same value
-            // (Pause.php:272) and the array_merge above copied BOTH into
-            // execResults. Reaching this branch means the wait is over and the
-            // session should END — which is what the daemon's END-q path
-            // already records, as pause_ended/wait_ended. Drop the merged
-            // `expired`, or execute() returns it and executeUnitSession(),
-            // which tests `expired` before `end_session`, calls expire() and
-            // stamps a perfectly normal elapse as result='expired'. Same
-            // branch taken either way (move_on); only the audit trail differs
-            // — and it differs in a way that matters twice over: `result`
-            // alone then can't distinguish a healthy elapse from a
-            // miscomputed deadline, and an expire()d row leaves `ended` NULL,
-            // which is what fed the wrong `seconds_stayed` in the user-detail
-            // export (PR #703, fixed in RunHelper).
-            //
-            // Unset here rather than at the Pause.php assignment: Wait's own
-            // getUnitSessionOutput() branches on $expiration['expired'] to
-            // tell "participant came back in time" from "wait elapsed", so
-            // the flag is load-bearing in the expirationData — it is only the
-            // copy that leaks into execResults that is wrong.
-            //
-            // Scoped to Pause/Wait by construction: Survey and External never
-            // set end_session, and Branch never sets expired.
             $this->execResults['end_session'] = true;
-            unset($this->execResults['expired']);
             return false; // ended NOT expired
         } elseif ($expirationData['expires'] < time()) {
             // Audit F23 (2026-07): a timer-based unit that reaches its
@@ -438,79 +430,34 @@ class UnitSession extends Model {
         }
     }
     
-    /** state_log marker for an in-progress Pause/Branch recheck failure streak. */
-    const RECHECK_FAILING_REASON = 'recheck_failing';
-
     /**
      * Audit F19 (2026-07): escalating backoff for the Pause/Branch
-     * re-check loop. Configurable via
-     * unit_session.queue_expiration_extension (the fast tier) and
-     * unit_session.recheck_backoff_* .
+     * re-check loop, keyed on how long this unit session has been alive
+     * (a proxy for attempts, since each retry is ~one interval apart).
+     * Configurable via unit_session.queue_expiration_extension (the fast
+     * tier) and unit_session.recheck_backoff_* .
      *
-     * v1.7.1: keyed on the length of the CURRENT failure streak, not on
-     * how long the unit session has been alive. Session age is a bad proxy
-     * for "how broken is this": a longitudinal Pause that has legitimately
-     * been parked for days and then hits its first transient OpenCPU blip
-     * was instantly demoted to the 6-hour tier, so a timed prompt could be
-     * delivered six hours late because of one bad minute — and nothing
-     * reset it, so the demotion outlived the fault. The streak starts at
-     * the first failure and is cleared by the first success (see
-     * clearRecheckFailureMarker), which restores the intent: fast recovery
-     * from transients, real backoff only for something that keeps failing.
+     * NOTE (v1.7.1): a streak-keyed rework was attempted and reverted —
+     * the streak marker was stored in `state_log`, which logResult()
+     * overwrites on every failing pass (it runs via logOutput() at the
+     * top of isExpired(), before this reads it), so the streak reset
+     * every pass and the backoff never escalated. A correct version needs
+     * the streak start in a field logResult() does not own (a new column),
+     * which is a migration and out of scope for a patch release. Tracked
+     * for feature/form_v2 with an integration test that drives the real
+     * daemon pass rather than injecting the marker by reflection. Until
+     * then this stays age-keyed, which at least escalates.
      */
     protected function recheckBackoffExpression() {
         $fast = Config::get('unit_session.queue_expiration_extension', '+10 minutes');
-        $failingSeconds = max(0, time() - $this->recheckFailingSince());
-        if ($failingSeconds < 3600) {             // < 1h failing: fast recovery
+        $ageSeconds = $this->created ? max(0, time() - strtotime($this->created)) : 0;
+        if ($ageSeconds < 3600) {                 // < 1h alive: fast recovery
             return $fast;
         }
-        if ($failingSeconds < 86400) {            // < 1d failing: hourly
+        if ($ageSeconds < 86400) {                // < 1d alive: hourly
             return Config::get('unit_session.recheck_backoff_mid', '+1 hour');
         }
         return Config::get('unit_session.recheck_backoff_max', '+6 hours'); // capped
-    }
-
-    /**
-     * When did the current recheck failure streak start? Stamps now on the
-     * first failure and returns that on every subsequent one.
-     *
-     * The streak start lives in `state_log` rather than a new column: it is
-     * transient bookkeeping about a state the row is already in, a patch
-     * release should not migrate schema, and the marker is self-clearing —
-     * any normal transition (end/expire/logResult) overwrites state_log
-     * anyway, so a stale marker cannot outlive the session.
-     */
-    protected function recheckFailingSince() {
-        $decoded = $this->state_log ? json_decode($this->state_log, true) : null;
-        if (is_array($decoded)
-                && array_val($decoded, 'reason') === self::RECHECK_FAILING_REASON
-                && ($since = array_val(array_val($decoded, 'ctx', []), 'since'))
-                && ($ts = strtotime($since))) {
-            return $ts;
-        }
-
-        $now = time();
-        $log = self::buildStateLog(self::RECHECK_FAILING_REASON, [
-            'since' => date(DATE_ATOM, $now),
-            'unit_type' => $this->runUnit ? $this->runUnit->type : null,
-        ]);
-        if ($this->id) {
-            $this->db->update('survey_unit_sessions', ['state_log' => $log], ['id' => $this->id]);
-        }
-        $this->state_log = $log;
-        return $now;
-    }
-
-    /** Drop the streak marker once a recheck succeeds. No-op otherwise. */
-    protected function clearRecheckFailureMarker() {
-        $decoded = $this->state_log ? json_decode($this->state_log, true) : null;
-        if (!is_array($decoded) || array_val($decoded, 'reason') !== self::RECHECK_FAILING_REASON) {
-            return;
-        }
-        if ($this->id) {
-            $this->db->update('survey_unit_sessions', ['state_log' => null], ['id' => $this->id]);
-        }
-        $this->state_log = null;
     }
 
     protected function logOutput ($output) {
