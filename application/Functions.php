@@ -2323,10 +2323,32 @@ function google_get_sheet_id($link)
 {
     $matches = array();
     preg_match('/spreadsheets\/d\/(.*)\/edit/', $link, $matches);
-    if (!empty($matches[1])) {
+    if (!empty($matches[1]) && google_is_valid_sheet_id($matches[1])) {
         return $matches[1];
     }
     return null;
+}
+
+/**
+ * A Google Drive file id is base64url — letters, digits, `-` and `_`.
+ *
+ * Validated at this choke point (v1.7.1) because the id is interpolated
+ * into a *filesystem* path by google_download_survey_sheet()
+ * ("googledownload-{$id}.xlsx" under survey_upload_dir), so `../` inside
+ * an id is a write-outside-the-upload-dir primitive — and the greedy
+ * `(.*)` above will happily hand one back. Both callers already treat a
+ * null id as "not a usable sheet link", so a malformed id degrades to
+ * the existing error path rather than a new failure mode. Host-level
+ * SSRF was never reachable here (the id lands in the path segment of a
+ * fixed docs.google.com URL), but the file write was, and it is reached
+ * from the admin settings form as well as from run-bundle import.
+ *
+ * @param string $id
+ * @return bool
+ */
+function google_is_valid_sheet_id($id)
+{
+    return (bool) preg_match('/^[A-Za-z0-9_-]{5,128}$/', (string) $id);
 }
 
 /**

@@ -225,12 +225,27 @@ class SurveyStudy extends Model
             // through this object. The follow-up save() resolves UPDATE vs
             // INSERT by entry_exists($table, ['id' => $this->id]), so a
             // smuggled id pointed UPDATE at any pre-existing row.
+            // `google_file_id` is on the list (v1.7.1) although 987cfba8
+            // deliberately left it off: getSettings() EXPORTS it, so
+            // excluding it here silently unlinked every survey in an
+            // imported run bundle from its Google Sheet, with no notice —
+            // a round-trip that quietly loses data is worse than the
+            // narrow risk of honouring it. That risk is not mass
+            // assignment (the id/user_id/results_table class stays out);
+            // it is that the value reaches google_download_survey_sheet(),
+            // which interpolates it into a destination FILENAME. That is
+            // now guarded at the shared choke point in
+            // google_get_sheet_id() instead of by omission here, which
+            // also covers the admin settings form — that path has allowed
+            // google_file_id through all along (AdminSurveyController:515),
+            // so omitting it here never actually closed the hazard.
             $allowed_settings = [
                 'maximum_number_displayed', 'displayed_percentage_maximum',
                 'add_percentage_points', 'expire_after',
                 'expire_invitation_after', 'expire_invitation_grace',
                 'enable_instant_validation',
                 'unlinked', 'hide_results', 'use_paging',
+                'google_file_id',
             ];
             $raw_settings = isset($data->settings) ? (array) $data->settings : [];
             $filtered = array_intersect_key($raw_settings, array_flip($allowed_settings));
