@@ -1126,9 +1126,38 @@ class Run extends Model
     {
         ini_set('memory_limit', Config::get('memory_limit.run_get_data'));
 
-        $collect = $this->db->prepare("SELECT 
+        // D1 fan-out fix (v1.7.1). The old run_units join was
+        //     LEFT JOIN `survey_run_units` ON `survey_studies`.id = `survey_run_units`.unit_id
+        // — keyed on the STUDY id (which equals the unit id only for legacy v1
+        // Survey units, where the unit shares the study's primary key) and with
+        // NO run_id predicate. So this export duplicated EVERY item-display row
+        // once per placement of that study anywhere in the database: a survey
+        // slotted twice in this run doubled the whole xlsx/csv, and the same
+        // survey reused in someone else's run added another copy on top, with
+        // `unit_position` differing between the copies. Rows were never dropped,
+        // only multiplied — but a duplicated row set is indistinguishable from
+        // real repeated measurements to whoever analyses the export.
+        // Two-alias form (see RunHelper::PLACEMENT_JOIN, the canonical wording):
+        // `sru_own` pins the row to the placement its own unit session ran at
+        // (survey_unit_sessions.run_unit_id, patch 047 — indexed PK lookup, at
+        // most one row, and correct for v2 Form units too, whose unit id does
+        // NOT equal their study id); `sru_fallback` fires only when that misses
+        // — rows predating 047, plus the multi-position rows the 048 backfill
+        // intentionally left NULL — and keeps the legacy study-id match, now
+        // scoped to this run so foreign runs can no longer contribute copies.
+        // Unlike UnitSession::getRunData()'s two-alias join, the fallback arm
+        // pins to ONE placement (lowest id) rather than matching them all: for
+        // a legacy row the true placement is unknowable, and duplicating every
+        // item-display row of the export N times IS the bug being fixed, so a
+        // best-effort unit_position on a single row beats N wrong rows. Without
+        // the pick the fix would only help sessions created after 047 (26% of
+        // the unit sessions on this instance's oldest run still have a NULL
+        // run_unit_id). survey_run_units holds a few hundred rows instance-wide
+        // and the subquery is served by (run_id) + (unit_id), so the cost is
+        // negligible next to the item-display scan this export already does.
+        $collect = $this->db->prepare("SELECT
 			`survey_studies`.name AS survey_name,
-			`survey_run_units`.position AS unit_position,
+			COALESCE(`sru_own`.`position`, `sru_fallback`.`position`) AS unit_position,
 			`survey_unit_sessions`.id AS unit_session_id,
 			`survey_run_sessions`.session AS session,
 			`survey_items`.type,
@@ -1151,8 +1180,14 @@ class Run extends Model
 			LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
 			LEFT JOIN `survey_items` ON `survey_items_display`.item_id = `survey_items`.id
 			LEFT JOIN `survey_studies` ON `survey_items`.study_id = `survey_studies`.id
-			LEFT JOIN `survey_run_units` ON `survey_studies`.id = `survey_run_units`.unit_id
-			WHERE `survey_run_sessions`.run_id = :id 
+			LEFT JOIN `survey_run_units` AS `sru_own` ON `sru_own`.id = `survey_unit_sessions`.run_unit_id
+			LEFT JOIN `survey_run_units` AS `sru_fallback` ON `sru_own`.id IS NULL
+				AND `sru_fallback`.id = (
+					SELECT MIN(`ru_pick`.id) FROM `survey_run_units` AS `ru_pick`
+					WHERE `ru_pick`.unit_id = `survey_studies`.id
+					  AND `ru_pick`.run_id = `survey_run_sessions`.run_id
+				)
+			WHERE `survey_run_sessions`.run_id = :id
 			AND `survey_studies`.unlinked = 0");
         $collect->bindValue(":id", $this->id);
         $collect->execute();
@@ -1169,11 +1204,43 @@ class Run extends Model
 
     public function getRandomGroups()
     {
-        $g_users = $this->db->prepare("SELECT 
+        // D1 fan-out fix (v1.7.1). The old run_units join was
+        //     LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
+        // — keyed on the unit DEFINITION and, uniquely among the D1 sites, with
+        // NO run_id predicate at all. Two defects fell out of that: (a) a
+        // Shuffle slotted at N positions in THIS run multiplied every shuffle
+        // unit-session row by N (N different `position` values, group counts
+        // N-fold inflated in the randomisation admin page and its CSV export);
+        // (b) with no run_id constraint, a unit reused in ANOTHER run matched
+        // that run's placement too, so `run_name` and `position` could be read
+        // off a foreign run entirely — the participant rows stayed correct
+        // (they are scoped by survey_run_sessions.run_id) but the columns
+        // describing WHERE in the flow they happened did not.
+        // Two-alias form (see RunHelper::PLACEMENT_JOIN, the canonical wording):
+        // `sru_own` pins the row to its OWN placement via
+        // survey_unit_sessions.run_unit_id (patch 047 — indexed PK lookup, at
+        // most one row); `sru_fallback` fires only when that misses — rows
+        // predating 047, plus the multi-position rows the 048 backfill
+        // intentionally left NULL — and keeps the legacy unit_id match, now
+        // correctly scoped to this participant's run (the pick is keyed on
+        // survey_run_sessions.run_id, which is what closes defect (b)).
+        // Unlike UnitSession::getRunData()'s two-alias join, the fallback arm
+        // here pins to ONE placement (lowest id) rather than matching them all.
+        // For a legacy row the true placement is unknowable, and this feeds a
+        // row-per-randomisation admin table and CSV: listing the assignment N
+        // times under N positions IS the bug being fixed, so a best-effort
+        // position on a single row beats N wrong rows. Without the pick the fix
+        // would only help sessions created after 047 (26% of the unit sessions
+        // on this instance's oldest run still have a NULL run_unit_id).
+        // survey_run_units holds a few hundred rows instance-wide and the
+        // subquery is served by (run_id) + (unit_id), so the cost is negligible.
+        // The survey_runs join follows whichever arm matched, so `run_name` is
+        // always the run the session actually belongs to.
+        $g_users = $this->db->prepare("SELECT
 			`survey_run_sessions`.session,
 			`survey_unit_sessions`.id AS session_id,
 			`survey_runs`.name AS run_name,
-			`survey_run_units`.position,
+			COALESCE(`sru_own`.`position`, `sru_fallback`.`position`) AS position,
 			`survey_units`.type AS unit_type,
 			`survey_unit_sessions`.created,
 			`survey_unit_sessions`.ended,
@@ -1183,8 +1250,14 @@ class Run extends Model
 		LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 		LEFT JOIN `survey_users` ON `survey_users`.id = `survey_run_sessions`.user_id
 		LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
-		LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
-		LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
+		LEFT JOIN `survey_run_units` AS `sru_own` ON `sru_own`.id = `survey_unit_sessions`.run_unit_id
+		LEFT JOIN `survey_run_units` AS `sru_fallback` ON `sru_own`.id IS NULL
+			AND `sru_fallback`.id = (
+				SELECT MIN(`ru_pick`.id) FROM `survey_run_units` AS `ru_pick`
+				WHERE `ru_pick`.unit_id = `survey_unit_sessions`.unit_id
+				  AND `ru_pick`.run_id = `survey_run_sessions`.run_id
+			)
+		LEFT JOIN `survey_runs` ON `survey_runs`.id = COALESCE(`sru_own`.run_id, `sru_fallback`.run_id)
 		WHERE `survey_run_sessions`.run_id = :run_id AND `survey_units`.type = 'Shuffle'
 		ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC;");
 

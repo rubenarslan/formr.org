@@ -251,6 +251,53 @@ class RunHelper {
         return $stmt;
     }
 
+    /**
+     * D1 fan-out fix (v1.7.1) — shared placement join for every query that
+     * pairs a unit session with its run placement.
+     *
+     * Joining `survey_run_units` on `unit_id` alone multiplies each unit
+     * session by the number of positions that unit occupies in the run,
+     * with a different `position` on each copy: the admin tables showed
+     * one visit as two or three, the export duplicated rows, and the
+     * pagination count had to be deliberately made wrong in the same way
+     * to keep the page count matching (see RunMetrics::reconcileRunMetrics).
+     *
+     * `survey_unit_sessions.run_unit_id` (patch 047) pins a session to the
+     * placement it actually ran at, so `sru_own` is an indexed PK lookup
+     * that resolves it exactly. `sru_fallback` fires only when that misses
+     * — rows predating 047, and the multi-position rows the 048 backfill
+     * intentionally left NULL — and keeps the legacy unit_id match so no
+     * row silently drops out of an admin view.
+     *
+     * Unlike UnitSession::getRunData()'s two-alias join, the fallback arm
+     * here pins to ONE placement (lowest id) instead of matching them all.
+     * For a legacy row the placement is genuinely unknowable, and these are
+     * row-per-session views: listing the session three times under three
+     * positions is the bug being fixed, so a best-effort position on a
+     * single row beats N wrong rows. It matters in practice — 26% of the
+     * unit sessions on the dev instance's oldest run still have a NULL
+     * run_unit_id, and without this the fix would only help sessions
+     * created after patch 047. `survey_run_units` holds a few hundred rows
+     * instance-wide and the subquery is served by (run_id) + (unit_id), so
+     * the cost is negligible.
+     *
+     * Callers must read placement columns through the COALESCE constants
+     * below, in SELECT *and* WHERE, or the arms disagree.
+     */
+    private const PLACEMENT_JOIN = "
+            LEFT JOIN `survey_run_units` AS `sru_own`
+                ON `sru_own`.id = `survey_unit_sessions`.run_unit_id
+            LEFT JOIN `survey_run_units` AS `sru_fallback`
+                ON `sru_own`.id IS NULL
+                AND `sru_fallback`.id = (
+                    SELECT MIN(`ru_pick`.id) FROM `survey_run_units` AS `ru_pick`
+                    WHERE `ru_pick`.unit_id = `survey_unit_sessions`.unit_id
+                      AND `ru_pick`.run_id = `survey_run_sessions`.run_id
+                )";
+    private const PLACEMENT_POSITION = "COALESCE(`sru_own`.`position`, `sru_fallback`.`position`)";
+    private const PLACEMENT_DESCRIPTION = "COALESCE(`sru_own`.`description`, `sru_fallback`.`description`)";
+    private const PLACEMENT_RUN_ID = "COALESCE(`sru_own`.`run_id`, `sru_fallback`.`run_id`)";
+
     public function getUserDetailTable($queryParams, $page = null) {
         $query = array(' `survey_run_sessions`.run_id = :run_id ');
         if (!empty($queryParams['session'])) {
@@ -258,11 +305,14 @@ class RunHelper {
         }
 
         if (!empty($queryParams['position'])) {
-            $query[] = " `survey_run_units`.position {$queryParams['position_operator']} :position ";
+            $query[] = ' ' . self::PLACEMENT_POSITION . " {$queryParams['position_operator']} :position ";
         }
         unset($queryParams['position_operator']);
 
-        $query[] = ' `survey_run_units`.run_id = :run_id2 ';
+        // Requiring the resolved placement to belong to this run keeps the
+        // pre-existing inner-join semantic (sessions of special/removed
+        // units stay excluded) now that the join itself is a LEFT JOIN pair.
+        $query[] = ' ' . self::PLACEMENT_RUN_ID . ' = :run_id2 ';
         $queryParams['run_id2'] = $queryParams['run_id'];
         $where = implode(' AND ', $query);
 
@@ -274,8 +324,8 @@ class RunHelper {
         }
         if ($count === null) {
             $count_query = "SELECT COUNT(`survey_unit_sessions`.id) AS count FROM `survey_unit_sessions`
-                LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-                LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.`unit_id` = `survey_run_units`.`unit_id` AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
+                LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id"
+                . self::PLACEMENT_JOIN . "
                 WHERE {$where}
             ";
             $count = $this->db->execute($count_query, $queryParams, true);
@@ -283,12 +333,12 @@ class RunHelper {
         $pagination = new Pagination($count, 200, true);
         $limits = $pagination->getLimits();
 
-        $itemsQuery = "SELECT 
+        $itemsQuery = "SELECT
                 `survey_run_sessions`.session,
                 `survey_unit_sessions`.id AS session_id,
                 `survey_runs`.name AS run_name,
-                `survey_run_units`.position,
-                `survey_run_units`.description,
+                " . self::PLACEMENT_POSITION . " AS position,
+                " . self::PLACEMENT_DESCRIPTION . " AS description,
                 `survey_units`.type AS unit_type,
                 `survey_unit_sessions`.created,
                 `survey_unit_sessions`.ended,
@@ -299,9 +349,9 @@ class RunHelper {
                 `survey_unit_sessions`.result_log
             FROM `survey_unit_sessions`
             LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-            LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
-            LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
-            LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
+            LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id"
+            . self::PLACEMENT_JOIN . "
+            LEFT JOIN `survey_runs` ON `survey_runs`.id = " . self::PLACEMENT_RUN_ID . "
             WHERE {$where}
             ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC LIMIT {$limits}
         ";
@@ -316,9 +366,9 @@ class RunHelper {
         $query = "
             SELECT
                 `survey_unit_sessions`.id AS session_id,
-                `survey_run_units`.position,
+                " . self::PLACEMENT_POSITION . " AS position,
 			    `survey_units`.type AS unit_type,
-			    `survey_run_units`.description,
+			    " . self::PLACEMENT_DESCRIPTION . " AS description,
 			    `survey_run_sessions`.session,
 			    `survey_unit_sessions`.created AS entered,
 			    -- Upstream PR #703 (Tim Seidel): fall back to `expired` before
@@ -359,8 +409,11 @@ class RunHelper {
 			FROM `survey_unit_sessions`
 			LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 			LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
-			LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
-			LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
+			-- This one had no run_id predicate on the placement join at all,
+			-- so a unit shared with another run pulled that run's rows in
+			-- alongside the duplicates (D1 fan-out).
+			" . self::PLACEMENT_JOIN . "
+			LEFT JOIN `survey_runs` ON `survey_runs`.id = " . self::PLACEMENT_RUN_ID . "
 			WHERE `survey_runs`.id = :run_id AND `survey_run_sessions`.run_id = :run_id2
 			ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC;
         ";
@@ -458,7 +511,7 @@ class RunHelper {
 
         $sql = "SELECT
                     pl.*,
-                    sru.position as position_in_run,
+                    COALESCE(sru_own.position, sru_fallback.position) as position_in_run,
                     pm.message as template_message,
                     pm.topic,
                     pm.priority,
@@ -466,7 +519,17 @@ class RunHelper {
                 FROM push_logs pl
                 LEFT JOIN survey_unit_sessions sus ON pl.unit_session_id = sus.id
                 LEFT JOIN survey_run_sessions rs ON rs.id = sus.run_session_id
-                LEFT JOIN survey_run_units sru ON sus.unit_id = sru.unit_id AND sru.run_id = pl.run_id
+                -- D1 fan-out: matching the placement by unit_id alone
+                -- duplicated every push-log row for a unit slotted at
+                -- several positions. Same two-alias resolution as
+                -- self::PLACEMENT_JOIN, spelled out here because this query
+                -- uses its own table aliases.
+                LEFT JOIN survey_run_units sru_own ON sru_own.id = sus.run_unit_id
+                LEFT JOIN survey_run_units sru_fallback ON sru_own.id IS NULL
+                    AND sru_fallback.id = (
+                        SELECT MIN(ru_pick.id) FROM survey_run_units ru_pick
+                        WHERE ru_pick.unit_id = sus.unit_id AND ru_pick.run_id = pl.run_id
+                    )
                 LEFT JOIN push_messages pm ON sus.unit_id = pm.id
                 WHERE pl.run_id = :run_id
                 ORDER BY pl.created DESC LIMIT {$limits}";

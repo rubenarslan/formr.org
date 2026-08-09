@@ -67,16 +67,29 @@ class RunMetrics {
                 FROM `survey_run_sessions` GROUP BY run_id
             ) rs ON rs.run_id = r.id
             LEFT JOIN (
-                -- Matches RunHelper::getUserDetailTable's items query exactly
-                -- (review 2026-07, item 20): it inner-joins survey_run_units on
-                -- (unit_id, run_id), so this count must too — excluding sessions
-                -- of special/removed units and fanning out multi-position units
-                -- — or the page count disagrees with the rows shown. This is
-                -- the displayed row count, not a distinct-session figure.
+                -- Must match RunHelper::getUserDetailTable's items query
+                -- exactly (review 2026-07, item 20) or the page count
+                -- disagrees with the rows shown: sessions of special/removed
+                -- units are excluded from both. This is the displayed row
+                -- count, not a distinct-session figure.
+                --
+                -- v1.7.1: that query no longer fans multi-position units out
+                -- (D1 fan-out), so neither does this — the two-alias
+                -- placement resolution below is RunHelper::PLACEMENT_JOIN
+                -- with this query's aliases. Both sides shrink together, so
+                -- the page count keeps matching; instances upgrading pick
+                -- the new value up at the next nightly reconcile, and until
+                -- then an over-count only shows a short trailing page.
                 SELECT rs2.run_id, COUNT(*) AS n_unit_sessions
                 FROM `survey_unit_sessions` us2
                 JOIN `survey_run_sessions` rs2 ON rs2.id = us2.run_session_id
-                JOIN `survey_run_units` sru2 ON sru2.unit_id = us2.unit_id AND sru2.run_id = rs2.run_id
+                LEFT JOIN `survey_run_units` sru_own ON sru_own.id = us2.run_unit_id
+                LEFT JOIN `survey_run_units` sru_fallback ON sru_own.id IS NULL
+                    AND sru_fallback.id = (
+                        SELECT MIN(ru_pick.id) FROM `survey_run_units` ru_pick
+                        WHERE ru_pick.unit_id = us2.unit_id AND ru_pick.run_id = rs2.run_id
+                    )
+                WHERE COALESCE(sru_own.run_id, sru_fallback.run_id) = rs2.run_id
                 GROUP BY rs2.run_id
             ) ua ON ua.run_id = r.id
             LEFT JOIN (
