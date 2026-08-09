@@ -378,6 +378,10 @@ class UnitSession extends Model {
                 $extension = $this->recheckBackoffExpression();
                 $expirationData['expires'] = mysql_datetime(strtotime($extension));
                 $expirationData['queued'] = UnitSessionQueue::QUEUED_TO_EXECUTE;
+            } elseif ($this->state_log) {
+                // The recheck succeeded — end the failure streak so the next
+                // failure starts again at the fast tier (v1.7.1).
+                $this->clearRecheckFailureMarker();
             }
         }
 
@@ -434,23 +438,79 @@ class UnitSession extends Model {
         }
     }
     
+    /** state_log marker for an in-progress Pause/Branch recheck failure streak. */
+    const RECHECK_FAILING_REASON = 'recheck_failing';
+
     /**
      * Audit F19 (2026-07): escalating backoff for the Pause/Branch
-     * re-check loop, keyed on how long this unit session has been alive
-     * (a proxy for attempts, since each retry is ~one interval apart).
-     * Configurable via unit_session.queue_expiration_extension (the fast
-     * tier) and unit_session.recheck_backoff_* .
+     * re-check loop. Configurable via
+     * unit_session.queue_expiration_extension (the fast tier) and
+     * unit_session.recheck_backoff_* .
+     *
+     * v1.7.1: keyed on the length of the CURRENT failure streak, not on
+     * how long the unit session has been alive. Session age is a bad proxy
+     * for "how broken is this": a longitudinal Pause that has legitimately
+     * been parked for days and then hits its first transient OpenCPU blip
+     * was instantly demoted to the 6-hour tier, so a timed prompt could be
+     * delivered six hours late because of one bad minute — and nothing
+     * reset it, so the demotion outlived the fault. The streak starts at
+     * the first failure and is cleared by the first success (see
+     * clearRecheckFailureMarker), which restores the intent: fast recovery
+     * from transients, real backoff only for something that keeps failing.
      */
     protected function recheckBackoffExpression() {
         $fast = Config::get('unit_session.queue_expiration_extension', '+10 minutes');
-        $ageSeconds = $this->created ? max(0, time() - strtotime($this->created)) : 0;
-        if ($ageSeconds < 3600) {                 // < 1h alive: fast recovery
+        $failingSeconds = max(0, time() - $this->recheckFailingSince());
+        if ($failingSeconds < 3600) {             // < 1h failing: fast recovery
             return $fast;
         }
-        if ($ageSeconds < 86400) {                // < 1d alive: hourly
+        if ($failingSeconds < 86400) {            // < 1d failing: hourly
             return Config::get('unit_session.recheck_backoff_mid', '+1 hour');
         }
         return Config::get('unit_session.recheck_backoff_max', '+6 hours'); // capped
+    }
+
+    /**
+     * When did the current recheck failure streak start? Stamps now on the
+     * first failure and returns that on every subsequent one.
+     *
+     * The streak start lives in `state_log` rather than a new column: it is
+     * transient bookkeeping about a state the row is already in, a patch
+     * release should not migrate schema, and the marker is self-clearing —
+     * any normal transition (end/expire/logResult) overwrites state_log
+     * anyway, so a stale marker cannot outlive the session.
+     */
+    protected function recheckFailingSince() {
+        $decoded = $this->state_log ? json_decode($this->state_log, true) : null;
+        if (is_array($decoded)
+                && array_val($decoded, 'reason') === self::RECHECK_FAILING_REASON
+                && ($since = array_val(array_val($decoded, 'ctx', []), 'since'))
+                && ($ts = strtotime($since))) {
+            return $ts;
+        }
+
+        $now = time();
+        $log = self::buildStateLog(self::RECHECK_FAILING_REASON, [
+            'since' => date(DATE_ATOM, $now),
+            'unit_type' => $this->runUnit ? $this->runUnit->type : null,
+        ]);
+        if ($this->id) {
+            $this->db->update('survey_unit_sessions', ['state_log' => $log], ['id' => $this->id]);
+        }
+        $this->state_log = $log;
+        return $now;
+    }
+
+    /** Drop the streak marker once a recheck succeeds. No-op otherwise. */
+    protected function clearRecheckFailureMarker() {
+        $decoded = $this->state_log ? json_decode($this->state_log, true) : null;
+        if (!is_array($decoded) || array_val($decoded, 'reason') !== self::RECHECK_FAILING_REASON) {
+            return;
+        }
+        if ($this->id) {
+            $this->db->update('survey_unit_sessions', ['state_log' => null], ['id' => $this->id]);
+        }
+        $this->state_log = null;
     }
 
     protected function logOutput ($output) {
