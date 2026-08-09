@@ -4,6 +4,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+- Run user-detail CSV export now carries `expires`, `queued`, `result` and `result_log`, reaching parity with the admin web view (which renders `expires` — bolded while `queued > 0` — and `result` with `result_log` as its tooltip). Without them a stalled or prematurely expired unit session could not be diagnosed from the export at all: the deadline a Pause/Wait actually computed lives only in `expires`, so the export could show a Wait ending ten minutes early with no way to tell whether the deadline or the expiry was at fault. New columns are appended after the existing ones, so positional parsers of the old 9-column format keep working.
+
 ### Fixes
 - Run user-detail CSV export: `seconds_stayed` was wrong for every unit session that **expired** rather than ended. `RunHelper::getUserDetailExportPdoStatement()` computed `IF(ended > 0, ended - created, NOW() - created)`, and an expired session has `ended` NULL — so the column reported "time since the participant entered this unit, as of the moment you clicked export" instead of a duration. The number therefore grew on every re-export and contradicted the raw timestamps shown in the admin web view (which selects `created`/`ended`/`expired` unmodified). Affected Survey inactivity expiry and elapsed Pause/Wait units; observed as an ESM run reporting 424 s for a Wait that actually lasted 1 s. Now falls back to `expired` before `NOW()`, so `NOW()` applies only to sessions still genuinely open.
 
