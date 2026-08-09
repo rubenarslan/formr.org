@@ -271,6 +271,25 @@ class RunHelper {
         );
     }
 
+    /**
+     * PDO statement backing the CSV export of a run's unit-session history.
+     *
+     * `seconds_stayed` must fall back to `expired` before `NOW()`: a unit
+     * session that expired (Survey inactivity expiry, elapsed Pause/Wait)
+     * has `ended` NULL, and the previous `IF(ended > 0, …, NOW() - created)`
+     * therefore reported "time since the unit was entered, as of the moment
+     * of export" instead of a duration. That number grew on every re-export
+     * and disagreed with the raw timestamps rendered by the web view
+     * (getUserDetailTable() below, which selects created/ended/expired
+     * unmodified). `NOW()` now applies only to sessions still genuinely open.
+     *
+     * The export also carries `expires` / `queued` / `result` / `result_log`
+     * so it reaches parity with the web view (templates/admin/run/user_detail.php
+     * renders `expires`, bolded while `queued > 0`, and `result` with
+     * `result_log` as its tooltip). Without them a stalled or prematurely
+     * expired unit session cannot be diagnosed from the export alone — the
+     * deadline a Pause/Wait actually computed lives only in `expires`.
+     */
     public function getUserDetailExportPdoStatement($queryParams) {
         $query = "
             SELECT
@@ -280,9 +299,19 @@ class RunHelper {
 			    `survey_run_units`.description,
 			    `survey_run_sessions`.session,
 			    `survey_unit_sessions`.created AS entered,
-			    IF (`survey_unit_sessions`.ended > 0, UNIX_TIMESTAMP(`survey_unit_sessions`.ended)-UNIX_TIMESTAMP(`survey_unit_sessions`.created), UNIX_TIMESTAMP(NOW())-UNIX_TIMESTAMP(`survey_unit_sessions`.created)) AS 'seconds_stayed',
+			    UNIX_TIMESTAMP(
+			        CASE
+			            WHEN `survey_unit_sessions`.ended   > 0 THEN `survey_unit_sessions`.ended
+			            WHEN `survey_unit_sessions`.expired > 0 THEN `survey_unit_sessions`.expired
+			            ELSE NOW()
+			        END
+			    ) - UNIX_TIMESTAMP(`survey_unit_sessions`.created) AS 'seconds_stayed',
 				`survey_unit_sessions`.ended AS 'left',
-			    `survey_unit_sessions`.expired
+			    `survey_unit_sessions`.expired,
+			    `survey_unit_sessions`.expires,
+			    `survey_unit_sessions`.queued,
+			    `survey_unit_sessions`.result,
+			    `survey_unit_sessions`.result_log
 			FROM `survey_unit_sessions`
 			LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 			LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
