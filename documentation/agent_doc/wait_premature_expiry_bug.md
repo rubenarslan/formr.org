@@ -1,10 +1,69 @@
 # BUG: Wait unit records a participant's early return as `expired`
 
-**Status:** open, not reproduced locally. Investigation handoff.
+**Status: RESOLVED** — reproduced locally on v1.1.1 and fixed on
+`fix/wait-premature-expiry`. **Sections 1–10 below are the original
+handoff and are preserved for provenance, but several of their
+conclusions are wrong.** Read this header first.
 **First observed:** 2026-08-09, production run `esm` on
 `formr-admin.uni-muenster.de`.
-**Filed by:** prior investigation session (see "What is already ruled
-out" before repeating work).
+**Filed by:** prior investigation session.
+
+## Root cause (2026-08-09)
+
+Two defects compound; neither is sufficient alone.
+
+1. **Hydration regression.** `RunSession::getCurrentUnitSession()`
+   passed a full DB row to `new UnitSession()`, but the constructor's
+   `$options` allowlist (`ed56a95f`, 2026-05-04, shipped in v1.0.0 —
+   so present in v1.1.1 *and* v1.4.0) keeps only `id`/`load`, and the
+   row carries no `load` key, so `load()` never ran. Every participant
+   web request at a parked Wait therefore ran with `created = NULL`
+   and `expires = NULL`, defeating both fast paths in
+   `Pause::getUnitSessionExpirationData()` (`:120`, `:128`) and forcing
+   the wait anchor through OpenCPU's
+   `tail(survey_unit_sessions$created, 1)`.
+2. **Unordered run-data frame.** The query behind that data frame
+   (`UnitSession::getRunData()`) had **no `ORDER BY`**. The optimizer
+   drives from `survey_run_units` and does a per-unit ref lookup, so
+   rows come back grouped by unit: `tail(...,1)` returns the newest
+   session of *whichever unit sorts last*, not the most recent session.
+   Measured staleness: 72 s on a real local ESM session, two days at
+   2.4k rows, two weeks at 20k rows.
+
+When that stale anchor is older than `wait_minutes`, the Wait reports
+`expired` the instant the participant returns. `UnitSession::execute()`
+then short-circuits (`:176`) without ever calling
+`Wait::getUnitSessionOutput()`, and `RunSession::executeUnitSession()`
+tests `expired` first (`:370`) → `expire()` → `move_on`. Because
+`expire()` never writes `expires`, the column keeps the correct value
+the parking pass wrote — which is why the deadline *looked* correct.
+
+**Fixes:** pass `['id', 'load' => true]` in `getCurrentUnitSession()`;
+add `ORDER BY survey_unit_sessions.created, survey_unit_sessions.id`
+to the run-data query. Regression harness:
+`bin/test_wait_tail_anchor_probe.php` (exit code 0/1).
+
+## Corrections to the sections below
+
+- **§1 / §4 "the computed deadline is correct in every observed case"
+  is unsound.** `expire()` never writes `expires`, so that column
+  records the earlier *parking* pass, not the exit that classified the
+  row. The exit-time deadline is not persisted anywhere.
+- **§6 #4 ("`relative_to` resolving to a stale anchor — disproved") was
+  the actual cause.** The old probe saw the `Pause.php:128` fast path
+  taken only because it hydrates with `load => true`, which the real
+  web path did not.
+- **§6 #2 is void** for the same reason as §1.
+- **§7's "sharpest structural lead" (the Wait three-way branch) is a
+  dead end** — that branch is never reached on the failing path.
+- **§8 H1, H2, H5 are not needed.** H3 stays excluded for row 1763062
+  by the §7 numerical-trap argument, which survives. H4 is a real
+  latent fail-open, still unfixed, tracked separately.
+- **§2's version caveat resolves:** v1.1.1 contains the bug; the
+  v1.4.0 source was never needed.
+- **§5's non-reproduction is explained:** the local control session ran
+  only 7 minutes, so a 10-minute Wait's anchor could not yet be stale
+  enough to misfire.
 
 ---
 

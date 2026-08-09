@@ -751,6 +751,22 @@ class UnitSession extends Model {
                 }
             }
 
+            // Every data frame handed to R must come back in a deterministic
+            // chronological order. Without an ORDER BY the optimizer is free
+            // to return rows grouped by unit_id (it drives from
+            // survey_run_units and does a per-unit ref lookup), so
+            // tail(survey_unit_sessions$created, 1) is not "the most recent
+            // unit session" but "the newest session of whichever unit sorts
+            // last". On a looping ESM run that anchor lags by minutes; on a
+            // multi-week diary it measured two weeks stale at 20k rows. That
+            // is what made Wait/Pause units with wait_minutes report expired
+            // the moment a participant returned. `created` is the semantic
+            // key (it is what tail() is asked for); `id` breaks ties, which
+            // are real because a cascade creates several unit sessions inside
+            // the same second. Cost is ~0.2 ms at 2.4k rows — the sort set is
+            // one participant's history, not the table.
+            $order = ' ORDER BY `survey_unit_sessions`.`created`, `survey_unit_sessions`.`id`';
+
             if (!in_array($results_table, get_db_non_session_tables())) {
                 $joins = "
 					LEFT JOIN `survey_unit_sessions` ON `$results_table`.session_id = `survey_unit_sessions`.id
@@ -765,13 +781,16 @@ class UnitSession extends Model {
                 $where .= " AND `survey_runs`.id = :run_id";
             } elseif ($results_table == 'survey_run_sessions') {
                 $joins = "";
+                // No survey_unit_sessions in scope to order by.
+                $order = '';
             } elseif ($results_table == 'survey_users') {
                 $joins = "LEFT JOIN `survey_run_sessions` ON `survey_users`.id = `survey_run_sessions`.user_id";
+                $order = '';
             }
 
             $select .= " FROM `$results_table` ";
 
-            $q = $select . $joins . $where . ";";
+            $q = $select . $joins . $where . $order . ";";
 
             $get_results = $this->db->prepare($q);
             if (($runSession->id === null || $runSession->isTestingStudy()) && !in_array($results_table, get_db_non_session_tables())) {

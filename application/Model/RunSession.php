@@ -531,7 +531,27 @@ class RunSession extends Model {
             $u = $row;
             $u['id'] = $u['unit_id'];
             $unit = RunUnitFactory::make($this->run, $u);
-            $this->currentUnitSession = new UnitSession($this, $unit, $row);
+            // Pass the PK and let load() hydrate from the DB rather than
+            // handing $row straight to the constructor. UnitSession's
+            // $options allowlist (ed56a95f) keeps only 'id'/'load', so a
+            // full row arrived with `created` and `expires` silently
+            // dropped and load() never ran — every participant web request
+            // at a parked Pause/Wait then ran with created = NULL and
+            // expires = NULL. That defeated both fast paths in
+            // Pause::getUnitSessionExpirationData() (the stored-expires
+            // early return at :120 and the local anchor at :128), pushing
+            // the wait anchor onto OpenCPU's
+            // tail(survey_unit_sessions$created, 1) — which resolves
+            // against an unordered data frame and can return a session
+            // minutes or days old. A stale anchor older than wait_minutes
+            // makes the Wait report expired the instant the participant
+            // returns, so it takes move_on instead of run_to = body. See
+            // documentation/agent_doc/wait_premature_expiry_bug.md and
+            // bin/test_wait_tail_anchor_probe.php.
+            $this->currentUnitSession = new UnitSession($this, $unit, [
+                'id' => $row['id'],
+                'load' => true,
+            ]);
             return $this->currentUnitSession;
         } else {
             return false;
