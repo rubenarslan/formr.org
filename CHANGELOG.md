@@ -2,6 +2,11 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Fixes
+- Run user-detail CSV export: `seconds_stayed` was wrong for every unit session that **expired** rather than ended. `RunHelper::getUserDetailExportPdoStatement()` computed `IF(ended > 0, ended - created, NOW() - created)`, and an expired session has `ended` NULL — so the column reported "time since the participant entered this unit, as of the moment you clicked export" instead of a duration. The number therefore grew on every re-export and contradicted the raw timestamps shown in the admin web view (which selects `created`/`ended`/`expired` unmodified). Affected Survey inactivity expiry and elapsed Pause/Wait units; observed as an ESM run reporting 424 s for a Wait that actually lasted 1 s. Now falls back to `expired` before `NOW()`, so `NOW()` applies only to sessions still genuinely open.
+
 ## [v1.1.1] - 11.06.2026
 
 ### Fixes
