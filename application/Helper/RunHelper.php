@@ -321,9 +321,41 @@ class RunHelper {
 			    `survey_run_units`.description,
 			    `survey_run_sessions`.session,
 			    `survey_unit_sessions`.created AS entered,
-			    IF (`survey_unit_sessions`.ended > 0, UNIX_TIMESTAMP(`survey_unit_sessions`.ended)-UNIX_TIMESTAMP(`survey_unit_sessions`.created), UNIX_TIMESTAMP(NOW())-UNIX_TIMESTAMP(`survey_unit_sessions`.created)) AS 'seconds_stayed',
+			    -- Upstream PR #703 (Tim Seidel): fall back to `expired` before
+			    -- NOW(). A unit session that EXPIRED rather than ended has
+			    -- `ended` NULL, so every expired row took the NOW() branch and
+			    -- the column reported 'time since the participant entered this
+			    -- unit, as of the moment Export was clicked' instead of a
+			    -- duration — a number that grows on every re-export of the same
+			    -- session and contradicts the web view, which renders the raw
+			    -- timestamps. It hit exactly the rows an export gets pulled to
+			    -- investigate: Survey inactivity expiry and elapsed Pause/Wait.
+			    -- NOW() now applies only to sessions still genuinely open,
+			    -- where 'elapsed so far' is the intended meaning. Rows with
+			    -- `ended` set are unaffected.
+			    UNIX_TIMESTAMP(
+			        CASE
+			            WHEN `survey_unit_sessions`.ended   > 0 THEN `survey_unit_sessions`.ended
+			            WHEN `survey_unit_sessions`.expired > 0 THEN `survey_unit_sessions`.expired
+			            ELSE NOW()
+			        END
+			    ) - UNIX_TIMESTAMP(`survey_unit_sessions`.created) AS 'seconds_stayed',
 				`survey_unit_sessions`.ended AS 'left',
-			    `survey_unit_sessions`.expired
+			    `survey_unit_sessions`.expired,
+			    -- The export carried only created/ended/expired while
+			    -- templates/admin/run/user_detail.php additionally renders
+			    -- `expires` (bolded while queued > 0) and `result` with
+			    -- `result_log` as its tooltip. That gap made this class of bug
+			    -- undiagnosable from an export alone: a Pause/Wait's computed
+			    -- deadline lives only in `expires`, so an export showing a
+			    -- 10-minute Wait that ended after 1 second gives no way to tell
+			    -- a miscomputed deadline from a correct one being ignored.
+			    -- Appended AFTER the existing nine columns so positional
+			    -- parsers of the old format keep working.
+			    `survey_unit_sessions`.expires,
+			    `survey_unit_sessions`.queued,
+			    `survey_unit_sessions`.result,
+			    `survey_unit_sessions`.result_log
 			FROM `survey_unit_sessions`
 			LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 			LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
