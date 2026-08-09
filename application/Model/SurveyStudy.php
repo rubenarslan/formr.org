@@ -249,6 +249,20 @@ class SurveyStudy extends Model
             ];
             $raw_settings = isset($data->settings) ? (array) $data->settings : [];
             $filtered = array_intersect_key($raw_settings, array_flip($allowed_settings));
+            // Validate google_file_id at the WRITE boundary, not only on the
+            // download path (google_get_sheet_id). This value is
+            // attacker-controlled on the import path — a shared run-bundle's
+            // settings.google_file_id — and admin templates render it
+            // unescaped inside an href via google_get_sheet_link() (raw string
+            // interpolation). Storing a crafted value would be stored XSS on
+            // the admin origin, the exact boundary the study-subdomain split
+            // exists to protect. Drop anything that isn't a real Drive file id
+            // (base64url) so a bad bundle imports without the link rather than
+            // with a payload. The templates are also being escaped (defence in
+            // depth), but the value should never reach the DB malformed.
+            if (isset($filtered['google_file_id']) && !google_is_valid_sheet_id($filtered['google_file_id'])) {
+                unset($filtered['google_file_id']);
+            }
             $data->settings = array_merge([
                 'maximum_number_displayed' => 0,
                 'displayed_percentage_maximum' => 100,
