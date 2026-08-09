@@ -209,7 +209,23 @@ class UnitSession extends Model {
         if (empty($expirationData['expires'])) {
             return false;
         } elseif(!empty($expirationData['end_session'])) {
+            // Pause/Wait assign end_session and expired the same value
+            // (Pause.php:250), and the array_merge above copied BOTH into
+            // execResults. Reaching this branch means the wait is over and
+            // the unit session should END — which is what the daemon's
+            // END-q path already records, as 'wait_ended'. Drop the merged
+            // `expired` flag, or RunSession::executeUnitSession() — which
+            // tests `expired` before `end_session` (:370) — calls expire()
+            // instead of end() and stamps a perfectly normal elapse as
+            // result='expired'. The branch taken is identical either way
+            // (move_on); only the recorded result differs, which is why
+            // this was invisible until the exports gained `result`.
+            //
+            // Scoped to Pause/Wait by construction: Survey and External
+            // never set end_session, and Branch never sets expired, so no
+            // other unit type can reach here with `expired` in play.
             $this->execResults['end_session'] = true;
+            unset($this->execResults['expired']);
             return false; // ended NOT expired
         } elseif ($expirationData['expires'] < time()) {
             return true;

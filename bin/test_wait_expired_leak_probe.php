@@ -70,8 +70,8 @@ $probe_rs = [];
  * @param mixed $expires value to pre-store in survey_unit_sessions.expires
  * @param bool  $cron    drive as the queue daemon rather than a web request
  */
-function scenario(string $label, int $run_id, int $unit_id, int $age, $expires, bool $cron, $blank = false) {
-    global $db, $run, $probe_rs;
+function scenario(string $label, int $run_id, int $unit_id, int $age, $expires, bool $cron, $blank = false, string $expect = null) {
+    global $db, $run, $probe_rs, $failures;
 
     // survey_run_sessions has UNIQUE KEY run_user (user_id, run_id), so
     // each scenario needs its own throwaway participant.
@@ -140,12 +140,19 @@ function scenario(string $label, int $run_id, int $unit_id, int $age, $expires, 
         var_export(peek($runUnit, 'relative_to_result'), true),
         var_export($res['check_failed'] ?? null, true),
         isset($res['expires']) ? var_export(mysql_datetime($res['expires']), true) : 'unset');
+    if ($expect !== null) {
+        $ok = ($after['result'] === $expect);
+        if (!$ok) { $failures++; }
+        printf("    %s expected result=%s\n", $ok ? "\e[32mPASS\e[0m" : "\e[31mFAIL\e[0m", var_export($expect, true));
+    }
     printf("    DB result=%-12s expires %s -> %s\n\n",
         var_export($after['result'], true),
         var_export($expires_before, true), var_export($after['expires'], true));
 
     return $after['result'];
 }
+
+$failures = 0;
 
 $wm   = (float) $db->findValue('survey_pauses', ['id' => $unit_id], 'wait_minutes');
 $secs = (int) ($wm * 60);
@@ -155,11 +162,14 @@ echo "== Wait unit {$unit_id}, wait_minutes = {$wm} (= {$secs}s) ==\n\n";
 // as the CORRECT value the parking pass would have written.
 $correct_expires = static fn(int $age) => mysql_datetime(time() - $age + $secs);
 
-scenario('G elapsed, correct stored expires, web',  $run_id, $unit_id, $secs + 30, $correct_expires($secs + 30), false);
-scenario('H elapsed, correct stored expires, cron', $run_id, $unit_id, $secs + 30, $correct_expires($secs + 30), true);
-scenario('I elapsed, no stored expires, web',       $run_id, $unit_id, $secs + 30, null, false);
+// A genuine elapse ends the unit session; it is not an expiry. The daemon's
+// END-q path has always recorded 'wait_ended' — these web-driven paths must
+// agree with it rather than stamping 'expired'.
+scenario('G elapsed, correct stored expires, web',  $run_id, $unit_id, $secs + 30, $correct_expires($secs + 30), false, false, 'wait_ended');
+scenario('H elapsed, correct stored expires, cron', $run_id, $unit_id, $secs + 30, $correct_expires($secs + 30), true,  false, 'wait_ended');
+scenario('I elapsed, no stored expires, web',       $run_id, $unit_id, $secs + 30, null, false, false, 'wait_ended');
 // Control: not elapsed, participant returns early. Should take run_to.
-scenario('J not elapsed, participant returns, web', $run_id, $unit_id, 5, $correct_expires(5), false);
+scenario('J not elapsed, participant returns, web', $run_id, $unit_id, 5, $correct_expires(5), false, false, 'wait_ended');
 
 // Fail-open: survey_pauses row did not load, so $conditions ends up empty
 // and Pause.php:247 declares the wait over. Note this path sets NO
@@ -180,3 +190,5 @@ foreach ($probe_rs as [$rs_id, $user_id]) {
     $db->exec('DELETE FROM survey_users WHERE id = :id', ['id' => $user_id]);
 }
 echo "(cleaned up " . count($probe_rs) . " probe run sessions)\n";
+echo $failures === 0 ? "\e[32mALL ASSERTED SCENARIOS PASS\e[0m\n" : "\e[31m{$failures} SCENARIO(S) FAILED\e[0m\n";
+exit($failures === 0 ? 0 : 1);
