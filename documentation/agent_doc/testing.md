@@ -5,6 +5,12 @@ This document is a companion to the `## Commands` section in
 tests run where, what's deferred, and what would be needed to close
 each gap.
 
+> **See also `regression_prevention_plan.md`** (post-v1.7.1): the
+> agreed six-layer plan for why the v1.7.0 hardening bugs escaped
+> these lanes and what to build, in order. The live-MariaDB CI lane
+> designed below is its Layer 4 — with two corrections (seed with the
+> fixture-clean smoke subset only; some smokes can never be hermetic).
+
 ## Two lanes
 
 | Lane | Script | What runs | Database |
