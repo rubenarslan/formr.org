@@ -844,6 +844,29 @@ class UnitSession extends Model {
                 }
             }
 
+            // Upstream PR #702 (Tim Seidel): every data frame handed to R must
+            // come back in a deterministic chronological order. Without an
+            // ORDER BY the optimizer is free to return rows grouped by unit
+            // (e.g. driving the join through `survey_run_units` or the 049
+            // UNIQUE `idx_run_unit_iter` and doing per-unit ref lookups), so
+            // `tail(survey, 1)` is not "the most recent row" but "the newest
+            // row of whichever unit sorts last". On this line that poisons
+            // BOTH consumers of the frame: the engine's own default Pause/Wait
+            // anchor `tail(survey_unit_sessions$created, 1)` — including its
+            // shortcut_without_opencpu() fast path, which takes end() of this
+            // very column — and every study-authored tail()/head()/last()
+            // idiom, plus the implicit with(tail(survey, 1), ...) /
+            // attach(tail(survey, 1)) that showifs, dynamic values and
+            // inline `r var` display use to mean "the current session".
+            // `created` is the semantic key (it is what tail() is being asked
+            // for); `id` breaks ties, which are real because a cascade creates
+            // several unit sessions inside the same second. The sort set is
+            // one participant's history, not the table, so a filesort is fine
+            // (mainline additionally has idx_run_session_created_id, patch
+            // 078 — intentionally NOT backported to keep 0.x patch numbers
+            // from colliding with upstream's).
+            $order = ' ORDER BY `survey_unit_sessions`.`created`, `survey_unit_sessions`.`id`';
+
             if (!in_array($results_table, get_db_non_session_tables())) {
                 $joins = "
 					LEFT JOIN `survey_unit_sessions` ON `$results_table`.session_id = `survey_unit_sessions`.id
@@ -872,13 +895,17 @@ class UnitSession extends Model {
                 $where .= " AND `survey_runs`.id = :run_id";
             } elseif ($results_table == 'survey_run_sessions') {
                 $joins = "";
+                // No survey_unit_sessions in scope to order by (and both of
+                // these resolve to a single row for the current participant).
+                $order = '';
             } elseif ($results_table == 'survey_users') {
                 $joins = "LEFT JOIN `survey_run_sessions` ON `survey_users`.id = `survey_run_sessions`.user_id";
+                $order = '';
             }
 
             $select .= " FROM `$results_table` ";
 
-            $q = $select . $joins . $where . ";";
+            $q = $select . $joins . $where . $order . ";";
 
             $get_results = $this->db->prepare($q);
             if (($runSession->id === null || $runSession->isTestingStudy()) && !in_array($results_table, get_db_non_session_tables())) {
