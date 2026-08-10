@@ -2,6 +2,11 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.27.1] - 10.08.2026
+
+### Fixes
+- **R data frames are now handed to OpenCPU in chronological order (`ORDER BY created, id`).** `UnitSession::getRunData()` built its queries with no ORDER BY, so row order was whatever the optimizer returned — and the index layout this line got with patches 047/049 (`idx_run_unit_iter`, made UNIQUE in v0.27.0) lets it return rows grouped by unit/placement instead of by time. Everything that means "the current session" on the R side is defined as *the last row of the frame*: showifs run inside `with(tail(survey, 1), …)`, inline `r var` display attaches `tail(survey, 1)`, the engine's default Pause/Wait anchor is `tail(survey_unit_sessions$created, 1)` (including its no-OpenCPU fast path, which takes `end()` of the same unordered column), and study code uses `last()`/`tail()` throughout. When an older row sorted last, showifs evaluated against a *previous* session's answers (follow-up items shown pre-answer and unresponsive to clicks, or removed from the page entirely), inline displays like `r reward_counter` and `last(survey$var)` showed a stale beep's value, and Pause/Wait deadlines could anchor on a stale session. Reported on a v0.27.0 ESM study; symptoms are erratic because they depend on the chosen query plan. Ports fix (1) of upstream PR #702 by @timseidel (mainline commit 29e7ae25). The mainline companion index (`idx_run_session_created_id`, patch 078) is intentionally not backported — the sort set is one participant's history, and burning a 0.x patch number would collide with upstream numbering.
+
 ## [v0.27.0] - 08.07.2026
 
 ### Fixes
