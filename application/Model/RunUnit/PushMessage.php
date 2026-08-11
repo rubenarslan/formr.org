@@ -187,6 +187,24 @@ class PushMessage extends RunUnit {
             // Parse message with run data
             $message = $this->getMessage($unitSession);
             if (!$message) {
+                // v1.8.0: these two branches are terminal — the claim is
+                // resolved and the run advances, so the participant never gets
+                // this prompt and no retry is possible. That is defensible for
+                // genuinely broken content but NOT for a transient OpenCPU
+                // blip, which produces exactly the same falsy parse result.
+                // Making it visible is the safe half of the fix: previously
+                // the prompt vanished in silence.
+                //
+                // The unsafe half — retrying — is deliberately not done here.
+                // Push delivery is not freely retryable: iOS terminates a
+                // subscription after ~3 pushes it considers silent, so a retry
+                // loop on a permanently-broken message would cost the
+                // participant their subscription entirely, which is worse than
+                // the dropped prompt. Doing it properly needs a bounded,
+                // persisted attempt budget (like survey_email_log.tries, patch
+                // 071) plus a transient-vs-permanent signal from the parse
+                // step. Tracked for the queue-hardening follow-up.
+                notify_study_admin($unitSession, 'Push unit: message could not be parsed (OpenCPU may have failed); the participant will not receive this notification and the run moves on.', 'error');
                 $output['log']['result'] = 'message_parse_failed';
                 $output['end_session'] = true;
                 $output['move_on'] = true;
@@ -196,6 +214,7 @@ class PushMessage extends RunUnit {
 
             $title = $this->getTitle($unitSession);
             if (!$title) {
+                notify_study_admin($unitSession, 'Push unit: title could not be parsed (OpenCPU may have failed); the participant will not receive this notification and the run moves on.', 'error');
                 $output['log']['result'] = 'title_parse_failed';
                 $output['end_session'] = true;
                 $output['move_on'] = true;
