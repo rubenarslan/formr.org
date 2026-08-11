@@ -144,9 +144,22 @@ class External extends RunUnit {
             $result = opencpu_evaluate($this->address, $opencpu_vars);
 
             if ($result === null) {
-                $error = (string) opencpu_last_error(); 
+                $error = (string) opencpu_last_error();
                 $data['log'] = $this->getLogMessage('error_opencpu', "OpenCPU error. Fix R code. \n\n" . $error);
                 $data['wait_opencpu'] = true; // don't go anywhere, wait for the error to be fixed!
+                // v1.8.0: re-arm so the row is retried. wait_opencpu alone left
+                // it inert at queued=0 — and this unit type is the one case the
+                // stalled-session sweep deliberately skips (its docblock
+                // reasons that an External waits for a callback or for the
+                // participant's browser, which is true of api_end and address
+                // externals but NOT of one whose R address failed to evaluate:
+                // that waits for neither). So the participant parked here
+                // forever unless the run set expire_after, and the R
+                // side-effect — an SMS, an API call — silently never happened.
+                $data['queue'] = [
+                    'expires' => mysql_datetime(strtotime(Config::get('unit_session.queue_expiration_extension', '+10 minutes'))),
+                    'queued' => UnitSessionQueue::QUEUED_TO_EXECUTE,
+                ];
 
                 notify_study_admin($unitSession, 'External unit: OpenCPU error in R address evaluation. ' . $error, 'error');
                 return $data;

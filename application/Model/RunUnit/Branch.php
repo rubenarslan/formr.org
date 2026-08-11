@@ -126,6 +126,16 @@ class Branch extends RunUnit {
             notify_study_admin($unitSession, 'Branch unit: OpenCPU error evaluating condition. ' . $error, 'error');
             $data['log'] = $this->getLogMessage('error_opencpu_r', "OpenCPU error. Fix R code \n\n" . $error);
             $data['wait_opencpu'] = true;
+            // v1.8.0: also flag check_failed so UnitSession::isExpired()'s F19
+            // backoff re-arms this row (queued=QUEUED_TO_EXECUTE at an
+            // escalating deadline). Pause sets check_failed on the identical
+            // OpenCPU failure; Branch did not — so a Branch that was already
+            // queued kept its past `expires` and the daemon re-picked it on
+            // EVERY pass (~5,760 OpenCPU evaluations a day for one stuck
+            // participant), while a Branch sitting at queued=0 was invisible
+            // to the daemon entirely and waited for a web visit that a
+            // cron-driven diary loop never produces.
+            $data['check_failed'] = true;
             return $data;
         }
         if (is_array($eval)) {
@@ -160,6 +170,12 @@ class Branch extends RunUnit {
                 notify_study_admin($unitSession, 'Branch unit: jump target (if_true = ' . h($this->if_true) . ') does not exist in the run. Fix the branch.', 'error');
                 $data['log'] = $this->getLogMessage('error_opencpu_r', 'Branch jump target position ' . h($this->if_true) . ' does not exist. Fix the branch structure.');
                 $data['wait_opencpu'] = true;
+                // v1.8.0: same reason as the OpenCPU-error path above — flag
+                // check_failed so the F19 backoff re-arms the row instead of
+                // leaving it to be re-picked every daemon pass (or, at
+                // queued=0, never again). The admin fix is then picked up at
+                // the next retry.
+                $data['check_failed'] = true;
                 $this->outputData = $data;
                 return $data;
             }
