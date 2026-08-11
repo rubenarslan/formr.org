@@ -99,6 +99,36 @@ patch file unless separately reconciling. Atlas migration numbers
 are coordinated with upstream — use the next sequential number
 visible in `sql/patches/`.
 
+**Author every patch drift-tolerant.** Deployed instances are not all in
+the same state: a fix is often hand-applied to a production host before
+the release that ships it as a patch, and a host's Atlas ledger can end up
+behind its schema (see formr-docker's `db_atlas_reconcile.sh`). A patch
+that assumes a pristine starting schema then dies mid-file on the first
+object that is already there — and because DDL auto-commits, it leaves the
+host half-migrated. MariaDB accepts a guard on every form these patches
+use, so write them that way:
+
+```sql
+ALTER TABLE `t` ADD COLUMN IF NOT EXISTS `c` INT NOT NULL DEFAULT 0;
+ALTER TABLE `t` ADD INDEX IF NOT EXISTS `idx_c` (`c`);
+ALTER TABLE `t` ADD UNIQUE KEY IF NOT EXISTS `uq_c` (`c`);
+ALTER TABLE `t` ADD PRIMARY KEY IF NOT EXISTS (`id`);
+ALTER TABLE `t` DROP INDEX IF EXISTS `old_idx`;
+ALTER TABLE `t` DROP COLUMN IF EXISTS `old_col`;
+ALTER TABLE `t` DROP FOREIGN KEY IF EXISTS `fk_old`;
+ALTER TABLE `t` ADD CONSTRAINT `fk_new` FOREIGN KEY IF NOT EXISTS (`pid`) REFERENCES `p` (`id`);
+CREATE TABLE IF NOT EXISTS `t2` ( ... );
+```
+
+Note the FK guard goes after `FOREIGN KEY`, not after `CONSTRAINT`.
+`ALTER TABLE ... ENGINE=` and `MODIFY COLUMN` are already no-ops when the
+target state matches. A guard cannot save an `ALTER` whose *table* is
+missing, so anything a patch alters must have been created by an earlier
+patch — not only by `schema.sql`, which is how patch 066's
+`survey_resource_survey_sizes` line broke every instance predating that
+table. DML has no equivalent guard: prefer `INSERT ... ON DUPLICATE KEY
+UPDATE` over a bare `INSERT` so a re-run cannot double-write.
+
 ### CLI entry points
 
 - `bin/cron.php`, `bin/cron_run_expiry.php`,
