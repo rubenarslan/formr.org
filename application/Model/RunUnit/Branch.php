@@ -79,6 +79,7 @@ class Branch extends RunUnit {
 					<tr>
 						<th>Code (Position)</th>
 						<th>Test</th>
+						<th>Routes to</th>
 					</tr>
 					%{rows}
 				</thead>
@@ -89,6 +90,7 @@ class Branch extends RunUnit {
 			<tr>
 				<td style="word-wrap:break-word;max-width:150px"><small>%{session} (%{position})</small></td>
 				<td>%{result}</td>
+				<td><small>%{routing}</small></td>
 			<tr>
 		';
 
@@ -108,12 +110,46 @@ class Branch extends RunUnit {
                 'session' => $unitSession->runSession->session,
                 'position' => $unitSession->runSession->position,
                 'result' => stringBool($eval),
+                'routing' => $this->describeRouting($eval, $unitSession),
             ));
         }
 
         $output .= Template::replace($test_tpl, array('rows' => $rows));
 
         return $output;
+    }
+
+    /**
+     * Human-readable destination for a single evaluated result, mirroring the
+     * routing in getUnitSessionExpirationData() so the Test view shows where a
+     * participant would actually go (not just the raw R value).
+     */
+    protected function describeRouting($eval, UnitSession $unitSession) {
+        if (is_array($eval)) {
+            $eval = array_shift($eval);
+        }
+        if (!is_bool($eval) && is_numeric($eval)) {
+            $target = (int) round((float) $eval);
+            return $unitSession->runSession->getUnitIdAtPosition($target)
+                ? "jump to position $target"
+                : "continue (position $target has no unit)";
+        }
+        if ($eval === true) {
+            return 'jump to position ' . $this->if_true;
+        }
+        if ($eval === false) {
+            return 'continue';
+        }
+        // Non-boolean, non-numeric: mirror the legacy coercion path, including
+        // the future/past timestamp handling in getUnitSessionExpirationData().
+        if ($eval && ($time = strtotime($eval)) && $time > time()) {
+            $result = false;
+        } elseif ($eval && ($time = strtotime($eval)) && $time <= time()) {
+            $result = true;
+        } else {
+            $result = (bool) $eval;
+        }
+        return ($result ? 'jump to position ' . $this->if_true : 'continue') . ' (coerced)';
     }
 
     public function getUnitSessionExpirationData(UnitSession $unitSession) {
@@ -129,18 +165,44 @@ class Branch extends RunUnit {
             // v1.8.0: also flag check_failed so UnitSession::isExpired()'s F19
             // backoff re-arms this row (queued=QUEUED_TO_EXECUTE at an
             // escalating deadline). Pause sets check_failed on the identical
-            // OpenCPU failure; Branch did not — so a Branch that was already
-            // queued kept its past `expires` and the daemon re-picked it on
-            // EVERY pass (~5,760 OpenCPU evaluations a day for one stuck
-            // participant), while a Branch sitting at queued=0 was invisible
-            // to the daemon entirely and waited for a web visit that a
-            // cron-driven diary loop never produces.
+            // OpenCPU failure; this class did not — so a skip unit that was
+            // already queued kept its past `expires` and the daemon re-picked
+            // it on EVERY pass: ~5,760 OpenCPU evaluations a day, and an admin
+            // error mail every throttle window, for one stuck participant.
+            //
+            // Reaches SkipForward/SkipBackward, which extend this class and
+            // inherit this method — 'Branch' is an internal base class and
+            // never a survey_units.type value. Rows parked at queued=0 are a
+            // separate concern already covered by the stalled-session sweep,
+            // which lists both concrete skip types.
             $data['check_failed'] = true;
             return $data;
         }
         if (is_array($eval)) {
             $eval = array_shift($eval);
             $data['log'] = $this->getLogMessage('opencpu_result_warn', "Your R code is returning more than one result. Please fix your code, so it returns only true/false");
+        }
+
+        // Numeric return → treat as absolute run position (computed jump).
+        // Unlike the boolean path below, a computed jump is unconditional by
+        // design: it ignores automatically_jump/automatically_go_on and the
+        // cron gate (there is no "wait for user" semantics for a computed
+        // destination), so it routes immediately whether executed live or by
+        // cron. The explicit is_bool() guard keeps real booleans out of here.
+        if (!is_bool($eval) && is_numeric($eval)) {
+            $target = (int) round((float) $eval);
+            if ($unitSession->runSession->getUnitIdAtPosition($target)) {
+                $data['log'] = $this->getLogMessage('skip_to', "Computed jump to position $target.");
+                $data['end_session'] = true;
+                $data['run_to'] = $target;
+            } else {
+                $reason = "Skip unit: computed position $target has no unit; continuing after the skip.";
+                notify_study_admin($unitSession, $reason, 'error');
+                $data['log'] = $this->getLogMessage('skip_to_invalid', $reason);
+                $data['end_session'] = $data['move_on'] = true;
+            }
+            $this->outputData = $data;
+            return $data;
         }
 
         if($eval === true || $eval === false) {
