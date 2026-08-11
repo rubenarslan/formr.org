@@ -107,6 +107,37 @@ class EmailCronOnlyTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
+     * v1.8.0: a participant who has switched emails off (or snoozed them)
+     * is a terminal SKIP — the unit session must end AND the run must
+     * advance. Pre-fix the branch returned log+content only, so
+     * executeUnitSession() returned that content as the page body before
+     * reaching its fall-through moveOn(): the row stayed at queued=0,
+     * invisible to the daemon pickup, and a cron cascade stopped dead
+     * until the stalled-session sweep healed it (~30-100 min where that
+     * job is scheduled, never where it isn't).
+     *
+     * `content` must stay absent: executeUnitSession() tests move_on
+     * before content, so a content key is both unreachable and a trap for
+     * whoever next edits this branch.
+     */
+    public function testDisabledRecipientEndsSessionAndAdvancesRun(): void
+    {
+        [$email, $us] = $this->buildEmailAndUnitSession(false, false);
+        $us->runSession->no_email = 0; // participant opted out of emails
+
+        $output = $email->getUnitSessionOutput($us);
+
+        $this->assertSame('email_skipped_user_disabled', $output['log']['result'] ?? null,
+            'the skip reason must still be logged');
+        $this->assertTrue($output['end_session'] ?? false,
+            'a disabled recipient must end the unit session');
+        $this->assertTrue($output['move_on'] ?? false,
+            'must advance the run — otherwise the row parks at queued=0, invisible to the daemon');
+        $this->assertArrayNotHasKey('content', $output,
+            'content short-circuits executeUnitSession before its move_on branch');
+    }
+
+    /**
      * cron_only=false + web request — gate must NOT skip. Sanity-check
      * that the gate keys on cron_only and not on user->cron alone.
      */

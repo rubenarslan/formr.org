@@ -491,15 +491,28 @@ class Email extends RunUnit {
 
         // Check if user is enabled to receive emails
         if (!$unitSession->runSession->canReceiveMails()) {
-            // Deliberately NOT re-armed: result='email_skipped_user_disabled'
-            // is a terminal result in the idempotency guard at the top of this
-            // method, so a re-armed row would just end + move_on on its next
-            // pass — a resend never happens, and re-arming only delays that
-            // advance by the backoff interval. A disabled recipient is a skip,
-            // not a soft failure. (Only the genuine send-failure branch below
-            // re-arms.)
+            // A disabled recipient is a terminal SKIP: end the unit session and
+            // advance, exactly as the cron_only skip above does.
+            //
+            // v1.8.0: this branch used to return log+content only. That halted
+            // the run — executeUnitSession() returns the content as the page
+            // body BEFORE reaching its fall-through moveOn(), leaving the row
+            // at queued=0, which the daemon pickup cannot see. On the web path
+            // the participant got a dead-end page; on a CRON cascade nothing
+            // rescheduled it at all, so every snoozed / no_email participant
+            // parked on their Email unit until bin/sweep_stalled_unit_sessions
+            // healed it (~30-100 min where that job is scheduled — hourly via
+            // ofelia in the docker stack — and never on installs driven by
+            // config/formr_crontab, which does not schedule the sweep).
+            //
+            // The cron_only sibling avoids this only because it sets NO
+            // `content`, so it falls through to the final moveOn(). Setting
+            // move_on explicitly is clearer than relying on that, and matches
+            // the send-success branch below. The `content` string is dropped
+            // deliberately: it was participant-facing debug text, and with
+            // move_on set it is unreachable anyway (move_on is tested first).
             $data['log'] = $this->getLogMessage('email_skipped_user_disabled', "User {$unitSession->runSession->session} disabled receiving emails at this time");
-            $data['content'] = "<p>User <code>{$unitSession->runSession->session}</code> disabled receiving emails at this time </p>";
+            $data['end_session'] = $data['move_on'] = true;
             return $data;
         }
 

@@ -112,7 +112,15 @@ class ApiV0 extends ApiBase {
 
         if (!empty($request->run->session)) {
             $session_code = $request->run->session;
-            $run_session = new RunSession($session_code, null);
+            // v1.8.0: pass the $run validated above. RunSession's constructor
+            // types this parameter as `Run $run` (non-nullable), so `null`
+            // raised a TypeError on EVERY call — swallowed by ApiController's
+            // Throwable catch into a JSON 500, which made this legacy
+            // end-external callback 100% broken rather than visibly broken. An
+            // external service using the v0 endpoint could never end an
+            // api_end External: the participant stayed parked on it until
+            // expire_after, or forever where that is unset.
+            $run_session = new RunSession($session_code, $run);
 
             if ($run_session->id) {
                 $run_session->endLastExternal();
