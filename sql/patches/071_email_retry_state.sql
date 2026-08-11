@@ -1,5 +1,18 @@
 -- v1.8.0 — retry state for the email queue.
 --
+-- NUMBERING WARNING (read before merging feature/form_v2 into this line):
+-- 071 is the next free number on the RELEASE line (…069_write_time_metrics,
+-- 070_compute_close_cron), but feature/form_v2 already ships a DIFFERENT
+-- 071 (071_unit_session_layout.sql) and continues to 085. Atlas keys pending
+-- work by version number and records applied versions in its ledger, so a
+-- host that applied one branch's 071 will silently treat the other's as done
+-- — here that means `tries`/`last_attempt` never get created and EmailQueue
+-- fatals on "Unknown column 'tries'" at the first delivery failure.
+-- Precedent for the fix direction is commit 8d60ae4e on feature/form_v2
+-- ("reconcile form_v2 sql/patches numbering after the 1.7.0 merge"): the
+-- release line owns the numbers and form_v2 renumbers to follow. Whoever
+-- merges form_v2 next must renumber its 071–085 above this one and re-hash.
+--
 -- Before this, a delivery failure was terminal after two immediate SMTP
 -- attempts: EmailQueue::sendEmail() retried once in-process and then wrote
 -- STATUS_FAILED_TO_SEND (-2), which the pickup poll (status = 0) never
