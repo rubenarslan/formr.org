@@ -125,8 +125,27 @@ class EmailQueue extends Queue {
      *
      * @return PDOStatement
      */
+    /**
+     * SQL fragment selecting rows this pass may attempt: never-tried rows,
+     * plus previously-failed rows still inside their retry budget (v1.8.0).
+     *
+     * `status = -2` used to be terminal by accident — sendEmail() wrote it
+     * after two immediate attempts and the poll only ever selected
+     * status = 0, so nothing looked at the row again. It now means "failed,
+     * possibly retryable", bounded by queue_item_tries and spaced by
+     * queue_item_ttl; givingUp() stamps the genuinely-finished ones.
+     */
+    protected function pickupWhere() {
+        $retryAfter = (int) max(60, $this->itemTtl / max(1, $this->itemTries));
+        return '(`survey_email_log`.`status` = ' . self::STATUS_QUEUED
+            . ' OR (`survey_email_log`.`status` = ' . self::STATUS_FAILED_TO_SEND
+            . ' AND `survey_email_log`.`tries` < ' . (int) $this->itemTries
+            . ' AND (`survey_email_log`.`last_attempt` IS NULL'
+            . ' OR `survey_email_log`.`last_attempt` < NOW() - INTERVAL ' . $retryAfter . ' SECOND)))';
+    }
+
     protected function getEmailAccountsStatement($account_id) {
-        $WHERE = 'WHERE `survey_email_log`.`status` = 0 AND `survey_email_accounts`.status = 1';
+        $WHERE = 'WHERE ' . $this->pickupWhere() . ' AND `survey_email_accounts`.status = 1';
         if ($account_id) {
             $WHERE .= ' AND account_id = ' . (int) $account_id . ' ';
         }
@@ -147,7 +166,9 @@ class EmailQueue extends Queue {
      * @return PDOStatement
      */
     protected function getEmailsStatement($account_id) {
-        $query = 'SELECT id,  `session_id`, subject, message, recipient, created, meta FROM survey_email_log WHERE `survey_email_log`.`status` = 0 AND account_id = ' . (int) $account_id;
+        $query = 'SELECT id, `session_id`, subject, message, recipient, created, meta, tries'
+            . ' FROM survey_email_log WHERE ' . $this->pickupWhere()
+            . ' AND account_id = ' . (int) $account_id;
         return $this->db->rquery($query);
     }
 
@@ -213,9 +234,68 @@ class EmailQueue extends Queue {
         }
     }
 
+    /**
+     * Record one delivery attempt (v1.8.0). Called before each SMTP try so
+     * the budget is spent even if the process dies mid-send — the
+     * alternative (counting on success/failure) lets a row that crashes the
+     * daemon retry forever.
+     */
+    protected function countAttempt($email_id) {
+        $this->db->exec(
+            'UPDATE `survey_email_log` SET `tries` = `tries` + 1, `last_attempt` = NOW() WHERE `id` = :id',
+            ['id' => $email_id]
+        );
+    }
+
+    /**
+     * Has this row exhausted its retry budget or outlived its TTL? (v1.8.0)
+     */
+    protected function isGivingUp(array $email) {
+        $tries = (int) array_val($email, 'tries', 0) + 1; // including the attempt just made
+        if ($tries >= (int) $this->itemTries) {
+            return true;
+        }
+        $created = array_val($email, 'created');
+        return $created && (time() - strtotime($created)) > (int) $this->itemTtl;
+    }
+
+    /**
+     * Terminal delivery failure — make giving up a visible, deliberate act
+     * (v1.8.0).
+     *
+     * Previously the row simply stopped being selected: the only trace was a
+     * dbg() line in the daemon log, while the unit session had already
+     * reported `email_queued` and advanced the run. A study lost an email
+     * with no signal anywhere an admin looks.
+     *
+     * The signal goes on the unit session's result/result_log rather than
+     * through notify_study_admin(), which requires a live UnitSession and so
+     * a RunSession and Run — an object graph the queue does not have and
+     * cannot cheaply build (its non-nullable constructors would throw, which
+     * is precisely how the v0 API endpoint came to be permanently broken).
+     * result/result_log is where an admin investigating a missing email
+     * already looks: the user-detail table renders both, and v1.7.1 added
+     * them to its CSV export. Emailing the owner is a sensible follow-up
+     * once the queue can resolve a run session cheaply.
+     */
+    protected function giveUp(array $email, $error) {
+        $recipient = array_val($email, 'recipient', '(unknown recipient)');
+        $note = 'Gave up after ' . (int) $this->itemTries . ' delivery attempts to ' . $recipient
+            . '. The participant never received this email. Last error: ' . $error;
+
+        if (($session_id = (int) array_val($email, 'session_id', 0))) {
+            $this->db->exec(
+                'UPDATE `survey_unit_sessions` SET `result` = :result, `result_log` = :resultlog WHERE `id` = :id',
+                ['id' => $session_id, 'result' => 'email_gave_up', 'resultlog' => truncate_result_log($note)]
+            );
+        }
+        formr_log('EmailQueue: ' . $note . ' (email_log id ' . array_val($email, 'id') . ')');
+        $this->dbg('Gave up: ' . $note);
+    }
+
     protected function logResult($session_id, $email_id, $status_code, $result, $result_log = null) {
         $this->db->exec(
-            'UPDATE `survey_email_log` SET `status` = :status_code, `sent` = NOW() WHERE `id` = :id', 
+            'UPDATE `survey_email_log` SET `status` = :status_code, `sent` = NOW() WHERE `id` = :id',
             ['id' => $email_id, 'status_code' => $status_code]
         );
         
@@ -246,6 +326,14 @@ class EmailQueue extends Queue {
         if (!filter_var($email['recipient'], FILTER_VALIDATE_EMAIL)) {
             $this->logResult($email['session_id'], $email['id'], self::STATUS_INVALID_RECIPIENT, "error_email_invalid_recipient");
             return false;
+        }
+
+        // v1.8.0: spend one try per QUEUE PASS (not per in-process attempt —
+        // the $first_try recursion below is one logical try). Counted before
+        // the send, so a row that kills the daemon mid-delivery still burns
+        // its budget instead of being retried forever.
+        if ($first_try) {
+            $this->countAttempt($email['id']);
         }
         
         if (!$email['subject']) {
@@ -313,6 +401,14 @@ class EmailQueue extends Queue {
                 return $this->sendEmail($mailer, $email, $account, false);
             } else {
                 $sent = false;
+                // v1.8.0: both in-process attempts failed. The row keeps
+                // STATUS_FAILED_TO_SEND, which is no longer terminal — the
+                // pickup poll re-selects it while `tries` is under budget and
+                // `last_attempt` has aged out. Only when the budget (or the
+                // TTL) is spent do we stop, and then we say so.
+                if ($this->isGivingUp($email)) {
+                    $this->giveUp($email, (string) $mailer->ErrorInfo);
+                }
             }
         }
 

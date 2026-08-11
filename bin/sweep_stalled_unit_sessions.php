@@ -46,15 +46,10 @@ if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
 }
 
 $db = DB::getInstance();
-// v1.8.0: 'Branch' added. A Branch created mid-cascade sits at queued=0
-// until something executes it; it was in neither the daemon's pickup
-// (which needs queued >= 1) nor this sweep, so a cascade halted at a
-// Branch — by the max_execution_count ceiling, or by a daemon killed
-// mid-flight — stranded the participant until a web visit. In a
-// cron-driven diary loop that visit never comes, because the next email
-// or push is itself behind the Branch. Branches are ubiquitous in those
-// loops, which made this the widest remaining hole in the recovery net.
-$types = "'Pause','Wait','Shuffle','SkipForward','SkipBackward','Email','PushMessage','Branch'";
+// Branch is deliberately absent: it is an internal base class
+// (SkipForward/SkipBackward extend it), never a `survey_units.type` value,
+// so listing it would match nothing. Its two concrete subclasses are here.
+$types = "'Pause','Wait','Shuffle','SkipForward','SkipBackward','Email','PushMessage'";
 
 $runWhere = $runFilter > 0 ? " AND r.id = " . $runFilter : "";
 $rows = $db->execute("
