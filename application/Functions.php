@@ -1539,8 +1539,47 @@ function opencpu_validate_r_code(string $code): array {
  * @param bool $return_session Should OpenCPU_Session object be returned
  * @return string|OpenCPU_Session|null Returns null if an error occured so check the return value using the equivalence operator (===)
  */
+/**
+ * Is this R code effectively empty — nothing but whitespace and comments?
+ *
+ * Comments are stripped line by line. That can only ever make the string
+ * look emptier, and any working expression leaves non-comment characters
+ * behind (`x <- 1 # note` becomes `x <- 1`, and even a bare `"#"` becomes
+ * `"`), so it cannot misclassify real code as empty. Deliberately not a
+ * parser: the only decision it drives is "don't bother OpenCPU".
+ */
+function opencpu_code_is_empty($code)
+{
+    $stripped = preg_replace('/#.*$/m', '', (string) $code);
+    return trim((string) $stripped) === '';
+}
+
 function opencpu_evaluate($code, $variables = null, $return_format = 'json', $context = null, $return_session = false)
 {
+    $GLOBALS['opencpu_local_error'] = null;
+
+    // An empty expression must never reach OpenCPU. The request body below
+    // wraps the author's code in a closure that opens with
+    // `library(formr)`, so when $code contributes no expression the
+    // closure's value is that call's own return value — and R's library()
+    // returns the names of the attached packages. Evaluation therefore
+    // "succeeded" with the string "formr" rather than failing.
+    //
+    // That is not cosmetic. strtotime('formr') is false, so a Pause/Wait
+    // anchor fell through to its check_failed path, but Branch/Skip
+    // coerces its result with (bool) — and (bool) 'formr' is TRUE, so an
+    // empty skip condition silently jumped every time, with no error
+    // recorded anywhere. Returning null instead routes every caller
+    // through the "could not evaluate" handling it already has.
+    //
+    // Not applied when a session is requested: that path feeds
+    // opencpu_debug(), which expects a session object, and it serves the
+    // admin "Test" button rather than participant-facing evaluation.
+    if ($return_session !== true && opencpu_code_is_empty($code)) {
+        $GLOBALS['opencpu_local_error'] = 'The R expression is empty — it contains only whitespace or comments, so there is nothing to evaluate.';
+        return null;
+    }
+
     if ($return_session !== true && ($result = shortcut_without_opencpu($code, $variables)) !== null) {
         return current($result);
     }
@@ -2179,6 +2218,14 @@ function opencpu_session(OpenCPU_Session $session = null)
 function opencpu_last_error()
 {
     global $opencpu_session;
+    // A pre-flight failure (see opencpu_evaluate) never opens a session, so
+    // it has nowhere else to report from — and without this the caller
+    // would either see nothing or, worse, the error from some earlier
+    // call still sitting in the global. opencpu_evaluate clears it on
+    // every invocation, so it cannot outlive the call it describes.
+    if (!empty($GLOBALS['opencpu_local_error'])) {
+        return $GLOBALS['opencpu_local_error'];
+    }
     if ($opencpu_session !== null) {
         return opencpu_redact_secrets($opencpu_session->getError());
     }
