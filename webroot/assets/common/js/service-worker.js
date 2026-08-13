@@ -1,8 +1,11 @@
-// Bumped to v7 alongside the time-bound handling-reload fix in
-// PWAInstaller.js. Without a sw_version bump installed PWAs would keep
-// serving the old frontend.bundle.js out of the SW cache and the fix
-// wouldn't reach participants.
-const sw_version = 'v7';
+// Bump sw_version whenever a change must reach already-installed PWAs:
+// without it they keep serving the old bundle out of the SW cache.
+// v7 — time-bound handling-reload fix in PWAInstaller.js.
+// v8 — stop precaching manifest.start_url (see the install handler): the
+//      old worker fetched the participant's own run URL, with their
+//      session code and credentials, on every install. Bumping also
+//      evicts the v7 cache still holding that response.
+const sw_version = 'v8';
 const CACHE_NAME = 'formr-' + sw_version + '-' + self.location.hostname + self.location.pathname.split('/').slice(0, -1).join('-');
 
 console.log("SW loaded", CACHE_NAME);
@@ -203,7 +206,30 @@ self.addEventListener('install', (event) => {
   const pre_cache = async () => {
     try {
       const manifest = await fetchManifest();
-      const assetsToCache = [...new Set([manifest.start_url, ...manifest.icons.map(icon => icon.src)])];
+      // v1.8.0: precache ICONS ONLY — never manifest.start_url.
+      //
+      // start_url is not a static asset: RunController::personalizeManifest
+      // sets it to the participant's own run URL WITH their session code
+      // (run_url($run) . '?code=' . $code). safeAddAll fetches every entry
+      // with credentials:'same-origin', so precaching it fired an
+      // authenticated GET on the participant's run — i.e.
+      // RunController::indexAction -> RunSession::execute() in a WEB
+      // context (isCron() is purely $user->cron, which only the queue sets).
+      // Every service-worker install therefore silently advanced the
+      // participant's run: a parked Wait saw !isExecutedByCron(), took its
+      // "participant came back early" branch and jumped to `body`. Reported
+      // from the field as a Wait after a PushMessage ending by itself — a
+      // push wakes the SW, skipWaiting() installs the new one, and the
+      // install fetch lands within a second of the push. It also stamped
+      // activity, created unit sessions and rendered surveys unbidden; Wait
+      // was merely where it became visible.
+      //
+      // Nothing is lost by dropping it: the fetch handler only serves URLs
+      // passing isValidUrl() (paths containing /assets/ or /manifest), and
+      // the run URL matches neither — so the cached entry could never be
+      // read. It was write-only. Navigations go to the network exactly as
+      // they did before.
+      const assetsToCache = [...new Set(manifest.icons.map(icon => icon.src))];
       const cache = await caches.open(CACHE_NAME);
       console.log('SW: Caching assets:', assetsToCache);
       return await safeAddAll(cache, assetsToCache);
