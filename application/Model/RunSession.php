@@ -446,7 +446,16 @@ class RunSession extends Model {
             $this->currentUnitSession->expire();
         } elseif (!empty($result['end_session'])) {
             $this->debug("END");
-            $this->currentUnitSession->end();
+            // v1.8.0: let a unit name the terminal result for this pass.
+            // end() otherwise derives it from the unit TYPE alone, which
+            // flattens distinct outcomes of the same type into one label —
+            // a Wait that elapsed and a Wait a participant returned to early
+            // both recorded 'wait_ended', so the results table could not tell
+            // a healthy timeout from a premature advance. end() has honoured
+            // an explicit $reason since the queue's 'ended_by_queue_rse'
+            // work; this just gives the units the same lever. Units that set
+            // no end_reason are unaffected.
+            $this->currentUnitSession->end(array_val($result, 'end_reason', null));
         } elseif (isset($result['queue'])) {
             $this->debug('QUEUE');
             $this->currentUnitSession->queue();

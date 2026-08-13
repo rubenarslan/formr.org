@@ -56,6 +56,22 @@ class Wait extends Pause {
             $output['end_session'] = true;
             $output['run_to'] = $this->body;
             $output['log'] = $this->getLogMessage('wait_ended_by_user');
+            // v1.8.0: carry the reason into end(), which otherwise hardcodes
+            // result='wait_ended' for this unit type and overwrites what the
+            // log just recorded — so BOTH exits from this method read
+            // 'wait_ended' in the results table, and a participant who came
+            // back early became indistinguishable from a wait that simply
+            // elapsed.
+            //
+            // The collapse arrived in v1.7.1: dropping the leaked `expired`
+            // flag correctly routed an elapsed Wait through end() instead of
+            // expire(), so the elapsed case stopped recording 'expired' and
+            // started recording 'wait_ended' — the label this branch had
+            // always produced. Reported from the field as "the participant
+            // came back early condition fires by itself"; the tell that it
+            // really is this branch is that the run jumps to `body` instead
+            // of advancing to the next position.
+            $output['end_reason'] = 'wait_ended_by_user';
         } elseif ($expiration['expired'] === true) {
             $output['end_session'] = true;
             $output['move_on'] = true;
