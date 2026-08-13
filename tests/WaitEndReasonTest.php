@@ -70,6 +70,29 @@ class WaitEndReasonTest extends \PHPUnit\Framework\TestCase
             "the elapsed case keeps end()'s type-derived 'wait_ended'");
     }
 
+    /**
+     * The request shape is logged into result_log, which admin templates
+     * render without auto-escaping — and Sec-Fetch-* are request headers,
+     * so a crafted client controls them. Only the token characters the
+     * spec allows may survive.
+     */
+    public function testFetchTokenIsSanitisedBeforeReachingResultLog(): void
+    {
+        $wait = $this->makeWait([]);
+        $m = new ReflectionMethod(Wait::class, 'sanitizeFetchToken');
+        $m->setAccessible(true);
+
+        $this->assertSame('document', $m->invoke($wait, 'document'));
+        $this->assertSame('no-cors', $m->invoke($wait, 'no-cors'));
+
+        $payload = $m->invoke($wait, 'document"><script>alert(1)</script>');
+        foreach (['<', '>', '"', '(', ')', '1'] as $forbidden) {
+            $this->assertStringNotContainsString($forbidden, $payload,
+                'result_log is an unescaped admin sink; header text must not survive verbatim');
+        }
+        $this->assertLessThanOrEqual(20, strlen($payload), 'bounded length');
+    }
+
     /** A daemon tick on an un-elapsed wait must leave it parked. */
     public function testCronTickOnUnelapsedWaitParks(): void
     {
