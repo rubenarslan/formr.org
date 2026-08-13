@@ -192,8 +192,27 @@ class External extends RunUnit {
             } else {
                 $data['log'] = $this->getLogMessage('external_wait_for_api');
             }
+        } else {
+            // v1.8.0: the daemon is only ever here because the OpenCPU-error
+            // branch above armed QUEUED_TO_EXECUTE on a previous pass — and
+            // the address has now evaluated. Nothing downstream clears that
+            // arming: executeUnitSession() returns at its formr_in_console()
+            // guard before it touches the queue, so the row would keep its
+            // past-due `expires` and be re-executed on EVERY daemon pass,
+            // re-firing whatever the address does (an SMS, an API POST) for
+            // as long as the participant sits on this unit. Hand the queue
+            // this unit's ordinary expiry verdict instead: expire_after
+            // re-arms QUEUED_TO_END so abandonment stays bounded, and no
+            // expire_after dequeues the row (addItem() removes on an empty
+            // `expires`). Either way the participant still gets the redirect
+            // on their next visit — a cron cascade deliberately does not
+            // follow one (Audit F5).
+            $data['queue'] = [
+                'expires' => array_val($expired, 'expires', null),
+                'queued' => array_val($expired, 'queued', UnitSessionQueue::QUEUED_NOT),
+            ];
         }
-        
+
         return $data;
     }
 }
