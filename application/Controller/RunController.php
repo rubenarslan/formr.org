@@ -47,6 +47,30 @@ class RunController extends Controller {
         // OR if cookie is expired then logout
         $this->user = $this->loginUser();
 
+        // Force a fresh session when the URL carries ?_new_session=1. This
+        // lets a *static* link / QR code (which cannot embed a per-rater session
+        // code) start a clean traversal on every visit: e.g. an external
+        // rating run scanned by many people, or one person rating several
+        // targets in turn. We mint a new random code and 302 to its
+        // ?code= form, dropping _new_session and keeping any other params
+        // (so a target like ?rated=P1 survives to the survey's get items).
+        // Access is still governed by Run::exec()'s public>=2 gate on the
+        // redirected request, so this grants no capability a plain
+        // no-cookie visit doesn't already have. Runs before the cookie
+        // self-heal below so a fresh code wins over resuming the cookie's
+        // session; the redirect consumes the trigger exactly once.
+        if ($pageNo === null && Request::isHTTPGetRequest()
+                && $this->run->valid
+                && !empty($_GET['_new_session'])) {
+            $params = array('code' => crypto_token(48));
+            foreach ($_GET as $k => $v) {
+                if (in_array($k, array('route', 'run_name', 'code', '_new_session'), true)) continue;
+                $params[$k] = $v;
+            }
+            $this->request->redirect(run_url($this->run->name) . '?' . http_build_query($params));
+            return;
+        }
+
         // Migration self-heal for existing PWA installs that captured a
         // pre-tokenization start_url. If the request has no ?code= query
         // but the cookie identifies a participant who already has a
