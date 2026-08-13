@@ -3,6 +3,16 @@
 class SpreadsheetReader
 {
 
+    /**
+     * Upper bound on rows read from a survey/choices sheet. A stray styled cell
+     * (e.g. at the Excel max row 1048576) inflates getHighestDataRow(), and the
+     * row iterator with setIterateOnlyExistingCells(false) then materializes a
+     * Cell object per row/column until PHP runs out of memory — a fatal error
+     * that no try/catch can recover. We refuse the upload above this ceiling
+     * instead. Real survey/choices sheets are far smaller than this.
+     */
+    const MAX_DATA_ROWS = 50000;
+
     private $choices_columns = array('list_name', 'name', 'label');
     private $survey_columns = array('name', 'type', 'type_options', 'choice_list', 'label', 'optional', 'class', 'showif', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14', 'value', 'order', 'block_order', 'item_order');
     private $internal_columns = array('choice_list', 'type_options', 'label_parsed');
@@ -496,8 +506,21 @@ class SpreadsheetReader
                 $this->readChoicesSheet($choicesSheet);
             }
 
-            $this->readSurveySheet($surveySheet);
-        } catch (\PhpOffice\PhpSpreadsheet\Exception $e) {
+            // Short-circuit if the choices sheet already failed. The survey loop's
+            // "if ($this->errors)" guard cannot distinguish errors it raises itself
+            // from ones carried over from the choices sheet, so it would re-wrap and
+            // re-throw the choices error on the very first cell — yielding duplicate,
+            // misattributed messages ("Error in cell B2 (Survey Sheet): <choices
+            // error>"). A failed choices sheet also makes the survey sheet (which
+            // references those choice lists) unreadable anyway.
+            if (!$this->errors) {
+                $this->readSurveySheet($surveySheet);
+            }
+        } catch (\Throwable $e) {
+            // Widened from PhpSpreadsheet\Exception to \Throwable so TypeErrors
+            // and other reader internals surface as a graceful error rather than
+            // a 500. Note: a PHP memory-exhaustion fatal is NOT a Throwable and
+            // cannot be caught here — the row cap in read*Sheet() guards that.
             $this->errors[] = "An error occured reading your excel file. Please check your file or report to admin";
             $this->errors[] = $e->getMessage();
             formr_log_exception($e, __CLASS__, $filepath);
@@ -513,6 +536,11 @@ class SpreadsheetReader
         $lastListName = null;
         $colCount = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($worksheet->getHighestDataColumn());
         $rowCount = $worksheet->getHighestDataRow();
+
+        if ($rowCount > self::MAX_DATA_ROWS) {
+            $this->errors[] = __('The choices worksheet "%s" reports %s rows, which exceeds the maximum of %s. This is usually caused by a stray (often empty but styled) cell far down the sheet. Please delete the empty rows below your data and re-upload.', $worksheet->getTitle(), number_format($rowCount), number_format(self::MAX_DATA_ROWS));
+            return false;
+        }
 
         for ($i = 1; $i <= $colCount; $i++) {
             $cellCoordinate = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i) . '1';
@@ -674,6 +702,11 @@ class SpreadsheetReader
         $skippedColumns = $columns = array();
         $colCount = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($worksheet->getHighestDataColumn());
         $rowCount = $worksheet->getHighestDataRow();
+
+        if ($rowCount > self::MAX_DATA_ROWS) {
+            $this->errors[] = __('The survey worksheet "%s" reports %s rows, which exceeds the maximum of %s. This is usually caused by a stray (often empty but styled) cell far down the sheet. Please delete the empty rows below your data and re-upload.', $worksheet->getTitle(), number_format($rowCount), number_format(self::MAX_DATA_ROWS));
+            return false;
+        }
 
         if ($colCount > 30) {
             $this->warnings[] = __('Only the first 30 columns out of %d were read.', $colCount);
