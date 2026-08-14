@@ -212,10 +212,25 @@ class PushMessage extends RunUnit {
                 return $output;
             }
 
+            // v1.8.0: an ABSENT title is not a failure. The admin field is
+            // labelled "Optional title for message categorization", and
+            // getTitle() returns the raw topic when no knitting is needed —
+            // so an author who left it blank produced a falsy value here and
+            // the guard below dropped their notification entirely and
+            // advanced the run, while emailing them that OpenCPU may have
+            // failed. PushNotificationService already carries a
+            // `$options['title'] ?? 'Notification'` fallback; this guard was
+            // the only thing making it unreachable. Same for a title that
+            // legitimately knits to "" or "0".
+            //
+            // A title that was SUPPOSED to be knitted and came back null is
+            // still a genuine parse failure, so the two cases are separated
+            // rather than merged.
             $title = $this->getTitle($unitSession);
-            if (!$title) {
+            if (!$title && knitting_needed($this->topic)) {
                 notify_study_admin($unitSession, 'Push unit: title could not be parsed (OpenCPU may have failed); the participant will not receive this notification and the run moves on.', 'error');
                 $output['log']['result'] = 'title_parse_failed';
+                $output['log']['result_log'] = 'The title R code returned nothing. Push not sent; the run moved on.';
                 $output['end_session'] = true;
                 $output['move_on'] = true;
                 $this->resolveClaim($idempotency_key, 'title_parse_failed');
