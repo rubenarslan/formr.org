@@ -11,7 +11,7 @@
         <input type="number" class="form-control" style="width:70px" name="if_true" max="32000" min="<?= ($position + 2) ?>" step="1" value="<?= h($ifTrue) ?>">
     </label><br /><br/> 
     
-    <p><small class="text-muted"><strong>Advanced:</strong> if your R code returns a position number of <strong>2 or higher</strong> instead of TRUE/FALSE, the participant jumps straight to that position (the "skip forward to" field above is then ignored). If that position doesn't exist, they continue to the next unit after this skip. <strong>0 and 1 are always read as FALSE and TRUE</strong>, never as positions — so a condition like <code>screener$consent</code> on a 1/0 coded item keeps working the way it always has.</small></p>
+    <p><small class="text-muted"><strong>Advanced:</strong> if your R code returns a position number of <strong>2 or higher</strong> instead of TRUE/FALSE, the participant jumps straight to that position. Consult the documentation for more details.</small></p>
 
     <?php if (!$jump || !$goOn): ?>
     <b style="display: block; margin-bottom: 7px;">How should participant skip?</b>
