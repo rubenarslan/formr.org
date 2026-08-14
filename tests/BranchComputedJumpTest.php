@@ -105,6 +105,28 @@ class BranchComputedJumpTest extends \PHPUnit\Framework\TestCase
         $this->assertStringContainsString('nested list', $m->invoke($branch, [[30, 40]], $this->makeUnitSession()));
     }
 
+    /**
+     * The live path must survive a nested list too, not just the Test view.
+     * `strtotime(array)` is a PHP 8 TypeError — an Error, not an Exception, so
+     * nothing in the request or the daemon catches it: 500 for the
+     * participant, crash-loop for the run daemon, and an untouched row.
+     */
+    public function testNestedListDoesNotFatalTheLivePath(): void
+    {
+        $eval = [[30, 40]];
+        array_shift($eval);
+
+        $this->assertNull($this->target([[30, 40]]),
+            'a nested list is not a jump target');
+
+        $branch = $this->makeBranch();
+        $m = new ReflectionMethod(Branch::class, 'joinNotes');
+        $m->setAccessible(true);
+        $note = $m->invoke($branch, ['first note'], 'nested list');
+        $this->assertSame('first note nested list', $note,
+            'the halt path must carry the earlier notes, not drop them');
+    }
+
     /** A RunSession whose position→unit map is primed, so nothing hits the DB. */
     private function makeUnitSession(): UnitSession
     {

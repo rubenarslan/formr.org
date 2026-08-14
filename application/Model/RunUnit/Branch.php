@@ -252,6 +252,30 @@ class Branch extends RunUnit {
             $notes[] = "Your R code is returning more than one result. Please fix your code, so it returns only true/false.";
         }
 
+        if (is_array($eval)) {
+            // A NESTED list: the shift above unwrapped one level and found
+            // another. Everything below assumes a scalar — `strtotime($eval)`
+            // in particular takes a string, and handing it an array is a PHP 8
+            // TypeError. That is an Error, not an Exception, so neither
+            // RunSession::execute()'s finally (lock release only) nor
+            // UnitSessionQueue::run()'s catch(Exception) contains it: the
+            // participant gets a 500 and a queued row crash-loops the run
+            // daemon. It also threw before isExpired() could call logOutput(),
+            // so the row kept result/result_log/state_log NULL and recorded
+            // nothing at all. describeRouting() gained this guard in fc4f5ebb
+            // and the live path did not — exactly the preview/behaviour drift
+            // computedJumpTarget() was extracted to prevent. Treat it as the
+            // author error it is: halt, notify, and back off like any other
+            // unevaluable condition.
+            $reason = 'Skip unit: your R code returned a nested list. Return a single TRUE/FALSE or a position number.';
+            notify_study_admin($unitSession, $reason, 'error');
+            $data['log'] = $this->getLogMessage('error_opencpu_r', $this->joinNotes($notes, $reason));
+            $data['wait_opencpu'] = true;
+            $data['check_failed'] = true;
+            $this->outputData = $data;
+            return $data;
+        }
+
         // Numeric return ≥ MIN_COMPUTED_JUMP_POSITION → treat as an absolute
         // run position (computed jump). 0 and 1 keep their boolean reading
         // and fall through below; see MIN_COMPUTED_JUMP_POSITION.
@@ -310,7 +334,7 @@ class Branch extends RunUnit {
             // waits until the admin fixes the target.
             if ($this->if_true === null || !$unitSession->runSession->getUnitIdAtPosition($this->if_true)) {
                 notify_study_admin($unitSession, 'Branch unit: jump target (if_true = ' . h($this->if_true) . ') does not exist in the run. Fix the branch.', 'error');
-                $data['log'] = $this->getLogMessage('error_opencpu_r', 'Branch jump target position ' . h($this->if_true) . ' does not exist. Fix the branch structure.');
+                $data['log'] = $this->getLogMessage('error_opencpu_r', $this->joinNotes($notes, 'Branch jump target position ' . h($this->if_true) . ' does not exist. Fix the branch structure.'));
                 $data['wait_opencpu'] = true;
                 // v1.8.0: same reason as the OpenCPU-error path above — flag
                 // check_failed so the F19 backoff re-arms the row instead of
