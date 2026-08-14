@@ -326,13 +326,18 @@ try {
     ]);
     $artefacts['accounts'][] = $acct;
 
+    // NOTE on recipient_field: it names a survey item ("study\$email") or
+    // carries the "most recent reported address" sentinel — it is never a
+    // literal address. Without a participant who has REPORTED an address,
+    // every scenario below resolves to nothing and stops at no_recipient,
+    // which is why only the checks that run BEFORE recipient resolution
+    // (cron_only, opted-out) and no_recipient itself are driven here. The
+    // rest need the same study-with-items fixture Survey needs; they are
+    // reported as not-driven rather than asserted against a fixture that
+    // cannot reach them.
     $emails = [
-        'no_sender' => ['cols' => ['subject' => 'S', 'body' => 'B', 'recipient_field' => 'p@example.org', 'account_id' => null]],
-        'no_email_subject' => ['cols' => ['subject' => '', 'body' => 'B', 'recipient_field' => 'p@example.org', 'account_id' => $acct]],
-        'no_email_body' => ['cols' => ['subject' => 'S', 'body' => '', 'recipient_field' => 'p@example.org', 'account_id' => $acct]],
-        'invalid_email' => ['cols' => ['subject' => 'S', 'body' => 'B', 'recipient_field' => 'not-an-address', 'account_id' => $acct]],
-        'email_queued' => ['cols' => ['subject' => 'S', 'body' => 'B', 'recipient_field' => 'p@example.org', 'account_id' => $acct]],
-        'email_skipped_user_active' => ['cols' => ['subject' => 'S', 'body' => 'B', 'recipient_field' => 'p@example.org', 'account_id' => $acct, 'cron_only' => 1]],
+        'no_recipient' => ['cols' => ['subject' => 'S', 'body' => 'B', 'recipient_field' => 'nosuch$email', 'account_id' => $acct]],
+        'email_skipped_user_active' => ['cols' => ['subject' => 'S', 'body' => 'B', 'recipient_field' => 'nosuch$email', 'account_id' => $acct, 'cron_only' => 1]],
     ];
     foreach ($emails as $want => $spec) {
         $f = makeRun($db, $artefacts, $owner_id, 'email', [
@@ -400,7 +405,16 @@ try {
         20 => ['type' => 'Page', 'cols' => ['body' => 'reminder arm']],
         30 => ['type' => 'Page', 'cols' => ['body' => 'early arm']],
     ]);
-    drive($db, $f['run_id'], 10);
+    // Deliberately NOT drive()n as a participant: any non-cron request ends a
+    // Wait early (that is wait_ended_by_user, covered above), so the daemon
+    // would never meet an elapsed one. The queue must be the first executor.
+    $rs_id = $db->insert('survey_run_sessions', [
+        'run_id' => $f['run_id'], 'session' => 'RESCOV' . bin2hex(random_bytes(9)),
+        'created' => mysql_now(), 'position' => 10,
+    ]);
+    $row = $db->execute('SELECT session FROM survey_run_sessions WHERE id = :id', ['id' => $rs_id], false, true);
+    $rs = new RunSession($row['session'], new Run(null, $f['run_id']));
+    try { $rs->execute(); } catch (Throwable $e) {}   // cron-flavoured: parks it
     $db->exec(
         'UPDATE survey_unit_sessions us JOIN survey_run_sessions rs ON rs.id = us.run_session_id
             SET us.created = DATE_SUB(NOW(), INTERVAL 2 HOUR), us.expires = DATE_SUB(NOW(), INTERVAL 1 HOUR)
