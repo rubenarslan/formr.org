@@ -314,3 +314,48 @@ version.
    rather than *lost*, and this is the cheapest way to recover them.
 6. **Pause**, **External** and **Page** unit-level items.
 7. Delete `Privacy`.
+
+## Result coverage harness
+
+`tests/fixtures/result_catalogue.php` inventories every value that can land
+in `survey_unit_sessions.result` — 49 reachable plus 8 declared unreachable
+or dead. Two consumers keep it honest:
+
+- `tests/ResultCatalogueTest.php` (unit lane, no DB) scans the source and
+  fails if the code grows a result the catalogue doesn't list, or if an
+  entry no longer appears in the code.
+- `bin/test_result_coverage_smoke.php` (live MariaDB) builds fixture runs,
+  drives real `RunSession::execute()` traversals, and reads the resulting
+  rows back — never the return value of `execute()`, since the whole defect
+  class here is a result the code computes and the row never receives.
+
+It also asserts the *negative*: `manual_admin_push` is driven deliberately
+via `forceTo()` and the run fails if it ever persists, because the
+catalogue declares it unreachable. That turns each unreachability claim in
+this document into something a future change trips over.
+
+Current state: **17/49 driven**, 0 unreachable results unexpectedly
+persisted. Covered end to end: all four skip outcomes plus its OpenCPU
+error, `group_N`, both Pause outcomes, `wait_ended_by_user`, all five
+External outcomes plus its OpenCPU error, `ended`, and `moved`.
+
+Not yet driven, and why:
+
+- **Survey** (4) needs a real `survey_studies` row with items and a results
+  table; the fixture builder only creates unit definitions.
+- **Email** (11) and **PushMessage** (5) need an email account and a push
+  subscription respectively, and the `smtp` ones need a mail-daemon pass.
+- **`expired`, `wait_ended`, `waiting_deprecated`, `ended_by_queue_rse`,
+  `swept_stale`** need a real queue/sweep pass rather than a direct
+  `execute()`.
+- **`external_ended`, `run_structure_replaced`, `unit_removed_from_run`**
+  are admin/callback paths with no scenario yet.
+
+One trap worth recording for anyone extending it: `Model::boot()` sets
+`cron = Site::runningInConsole()`, so **every** `execute()` driven from a
+CLI script reports `isExecutedByCron() === true`. Wait's early-return,
+External's `api_end` branch and Endpage's render are all gated on
+`!isExecutedByCron()`, so without `asParticipant()` the harness silently
+exercises the cron arm of every unit and reports the web-side results as
+unreachable. `UnitSessionQueue::processQueue` does the same thing in
+reverse, and for the same reason.
