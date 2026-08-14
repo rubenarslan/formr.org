@@ -162,6 +162,19 @@ class Branch extends RunUnit {
     }
 
     /**
+     * Fold the interpretation notes and an optional terminal message into one
+     * result_log string. Returns null when there is nothing to say, so a
+     * clean TRUE/FALSE condition records no log at all, as before.
+     */
+    protected function joinNotes(array $notes, $message = null) {
+        if ($message !== null) {
+            $notes[] = $message;
+        }
+
+        return $notes ? implode(' ', $notes) : null;
+    }
+
+    /**
      * Human-readable destination for a single evaluated result, mirroring the
      * routing in getUnitSessionExpirationData() so the Test view shows where a
      * participant would actually go (not just the raw R value).
@@ -226,9 +239,17 @@ class Branch extends RunUnit {
             $data['check_failed'] = true;
             return $data;
         }
+        // Notes about how the raw R value had to be interpreted. Collected
+        // rather than written straight into $data['log'], because every
+        // terminal branch below assigns $data['log'] wholesale — so the
+        // "more than one result" warning that used to be set here never
+        // reached result_log at all. They ride along on the terminal message
+        // instead, which is the row an admin actually reads.
+        $notes = [];
+
         if (is_array($eval)) {
             $eval = array_shift($eval);
-            $data['log'] = $this->getLogMessage('opencpu_result_warn', "Your R code is returning more than one result. Please fix your code, so it returns only true/false");
+            $notes[] = "Your R code is returning more than one result. Please fix your code, so it returns only true/false.";
         }
 
         // Numeric return ≥ MIN_COMPUTED_JUMP_POSITION → treat as an absolute
@@ -242,13 +263,13 @@ class Branch extends RunUnit {
         // cron.
         if (($target = $this->computedJumpTarget($eval)) !== null) {
             if ($unitSession->runSession->getUnitIdAtPosition($target)) {
-                $data['log'] = $this->getLogMessage('skip_to', "Computed jump to position $target.");
+                $data['log'] = $this->getLogMessage('skip_to', $this->joinNotes($notes, "Computed jump to position $target."));
                 $data['end_session'] = true;
                 $data['run_to'] = $target;
             } else {
                 $reason = "Skip unit: computed position $target has no unit; continuing after the skip.";
                 notify_study_admin($unitSession, $reason, 'error');
-                $data['log'] = $this->getLogMessage('skip_to_invalid', $reason);
+                $data['log'] = $this->getLogMessage('skip_to_invalid', $this->joinNotes($notes, $reason));
                 $data['end_session'] = $data['move_on'] = true;
             }
             $this->outputData = $data;
@@ -270,10 +291,11 @@ class Branch extends RunUnit {
                 // Says which of the two readings applied, because a numeric
                 // condition is exactly where an author can be surprised now
                 // that larger numbers ARE jump targets.
-                $data['log'] = $this->getLogMessage('opencpu_result_warn', "Your R code returned the number " . (0 + $eval) . ", which is read as "
-                    . ($result ? 'TRUE' : 'FALSE') . ". Only " . self::MIN_COMPUTED_JUMP_POSITION . " and above are treated as jump targets — 0 and 1 always mean FALSE/TRUE. Please return TRUE/FALSE explicitly.");
+                $notes[] = "Your R code returned the number " . (0 + $eval) . ", which is read as "
+                    . ($result ? 'TRUE' : 'FALSE') . ". Only " . self::MIN_COMPUTED_JUMP_POSITION
+                    . " and above are treated as jump targets — 0 and 1 always mean FALSE/TRUE. Please return TRUE/FALSE explicitly.";
             } else {
-                $data['log'] = $this->getLogMessage('opencpu_result_warn', "Your R code is not returning true/false. Please fix your code soon");
+                $notes[] = "Your R code is not returning true/false. Please fix your code soon.";
             }
         }
         
@@ -299,15 +321,15 @@ class Branch extends RunUnit {
                 $this->outputData = $data;
                 return $data;
             }
-            $data['log'] = $this->getLogMessage('skip_true');
+            $data['log'] = $this->getLogMessage('skip_true', $this->joinNotes($notes));
             $data['end_session'] = true;
             $data['run_to'] = $this->if_true;
         } elseif (!$result && ($this->automatically_go_on || !$unitSession->isExecutedByCron())) {
              // the condition is false and it goes on
-            $data['log'] = $this->getLogMessage('skip_false');
+            $data['log'] = $this->getLogMessage('skip_false', $this->joinNotes($notes));
             $data['end_session'] = $data['move_on'] = true;
         } else {
-            $data['log'] = $this->getLogMessage('waiting_deprecated', 'formr is phasing out support for delayed skipbackwards/forwards. Please switch to a different approach soon');
+            $data['log'] = $this->getLogMessage('waiting_deprecated', $this->joinNotes($notes, 'formr is phasing out support for delayed skipbackwards/forwards. Please switch to a different approach soon'));
             $data['check_failed'] = true;
         }
         
