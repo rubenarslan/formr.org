@@ -36,7 +36,7 @@ $KEEP = in_array('--keep', $argv, true);
 $db = DB::getInstance();
 $observed = [];   // result => how it was produced
 $notes = [];      // result => why it could not be driven here
-$artefacts = ['runs' => []];
+$artefacts = ['runs' => [], 'accounts' => []];
 
 function say(string $s): void { echo $s . "\n"; }
 function ok(string $s): void { echo "  \e[32mOK\e[0m   {$s}\n"; }
@@ -104,6 +104,10 @@ function makeRun(DB $db, array &$artefacts, int $owner_id, string $label, array 
             $db->insert_update('survey_externals', ['id' => $unit_id] + ($spec['cols'] ?? []));
         } elseif ($type === 'Shuffle') {
             $db->insert_update('survey_shuffles', ['id' => $unit_id] + ($spec['cols'] ?? []));
+        } elseif ($type === 'Email') {
+            $db->insert_update('survey_emails', ['id' => $unit_id] + ($spec['cols'] ?? []));
+        } elseif ($type === 'PushMessage') {
+            $db->insert_update('push_messages', ['id' => $unit_id] + ($spec['cols'] ?? []));
         } elseif ($type === 'Page') {
             $db->insert_update('survey_pages', ['id' => $unit_id] + ($spec['cols'] ?? []));
         }
@@ -174,6 +178,20 @@ function reexecute(DB $db, int $run_id) {
         return ['rs' => $rs, 'error' => get_class($e) . ': ' . $e->getMessage()];
     }
     return ['rs' => $rs, 'error' => null];
+}
+
+/**
+ * One real daemon pass. The cron-side results (expired, wait_ended,
+ * ended_by_queue_rse, swept_stale, waiting_deprecated) are reachable only
+ * through the queue: it sets `user->cron = true` and drives execute() with
+ * executeReferenceUnit, which is a different arm of the state machine from
+ * anything a direct execute() reaches. Shelling out to the real worker
+ * rather than reimplementing the poll is the point — a harness that
+ * simulated the daemon would stop testing the daemon.
+ */
+function runQueueOnce(): void {
+    $bin = dirname(__FILE__) . '/queue.php';
+    exec('php ' . escapeshellarg($bin) . ' -t UnitSession --once 2>&1', $out, $rc);
 }
 
 try {
@@ -292,6 +310,106 @@ try {
     in_array('ended', $seen, true) ? ok('ended')
         : bad('ended not produced; saw: ' . (implode(', ', $seen) ?: '(none)'));
 
+    // ---- Email ------------------------------------------------------
+    // Each scenario is its own run: an Email is terminal, so one traversal
+    // yields one outcome. The account is created per-scenario so `no_sender`
+    // can be produced by its absence.
+    say("\n-- Email --");
+    $acct = $db->insert('survey_email_accounts', [
+        'user_id' => $owner_id, 'created' => mysql_now(), 'modified' => mysql_now(),
+        'from' => 'rescov@example.org', 'from_name' => 'rescov',
+        'host' => 'smtp.invalid', 'port' => 587, 'tls' => 1,
+        'username' => 'rescov', 'password' => Crypto::encrypt('nope'), 'status' => 1,
+    ]);
+    $artefacts['accounts'][] = $acct;
+
+    $emails = [
+        'no_sender' => ['cols' => ['subject' => 'S', 'body' => 'B', 'recipient_field' => 'p@example.org', 'account_id' => null]],
+        'no_email_subject' => ['cols' => ['subject' => '', 'body' => 'B', 'recipient_field' => 'p@example.org', 'account_id' => $acct]],
+        'no_email_body' => ['cols' => ['subject' => 'S', 'body' => '', 'recipient_field' => 'p@example.org', 'account_id' => $acct]],
+        'invalid_email' => ['cols' => ['subject' => 'S', 'body' => 'B', 'recipient_field' => 'not-an-address', 'account_id' => $acct]],
+        'email_queued' => ['cols' => ['subject' => 'S', 'body' => 'B', 'recipient_field' => 'p@example.org', 'account_id' => $acct]],
+        'email_skipped_user_active' => ['cols' => ['subject' => 'S', 'body' => 'B', 'recipient_field' => 'p@example.org', 'account_id' => $acct, 'cron_only' => 1]],
+    ];
+    foreach ($emails as $want => $spec) {
+        $f = makeRun($db, $artefacts, $owner_id, 'email', [
+            10 => ['type' => 'Email', 'cols' => $spec['cols']],
+            20 => ['type' => 'Page', 'cols' => ['body' => 'done']],
+        ]);
+        drive($db, $f['run_id'], 10);
+        $seen = harvest($db, $f['run_id'], "Email: {$want}", $observed);
+        in_array($want, $seen, true) ? ok($want)
+            : bad("{$want} not produced; saw: " . (implode(', ', $seen) ?: '(none)'));
+    }
+
+    // A participant who has switched emails off.
+    $f = makeRun($db, $artefacts, $owner_id, 'emailoff', [
+        10 => ['type' => 'Email', 'cols' => ['subject' => 'S', 'body' => 'B', 'recipient_field' => 'p@example.org', 'account_id' => $acct]],
+        20 => ['type' => 'Page', 'cols' => ['body' => 'done']],
+    ]);
+    $rs_id = $db->insert('survey_run_sessions', [
+        'run_id' => $f['run_id'], 'session' => 'RESCOV' . bin2hex(random_bytes(9)),
+        'created' => mysql_now(), 'position' => 10, 'no_email' => 0,
+    ]);
+    $row = $db->execute('SELECT session FROM survey_run_sessions WHERE id = :id', ['id' => $rs_id], false, true);
+    $rs = new RunSession($row['session'], new Run(null, $f['run_id']));
+    asParticipant($rs);
+    try { $rs->execute(); } catch (Throwable $e) {}
+    $seen = harvest($db, $f['run_id'], 'Email: participant opted out', $observed);
+    in_array('email_skipped_user_disabled', $seen, true) ? ok('email_skipped_user_disabled')
+        : bad('email_skipped_user_disabled not produced; saw: ' . (implode(', ', $seen) ?: '(none)'));
+
+    // The mail-daemon lane. smtp.invalid cannot connect, so this produces the
+    // failure results honestly; email_sent needs a reachable SMTP host and is
+    // reported as not-driven rather than faked.
+    say("\n-- Email (mail daemon) --");
+    exec('php ' . escapeshellarg(dirname(__FILE__) . '/queue.php') . ' -t Email --once 2>&1', $mailOut, $mailRc);
+    foreach ($artefacts['runs'] as $run_id) {
+        harvest($db, $run_id, 'mail daemon pass', $observed);
+    }
+    foreach (['error_email_not_sent', 'error_email_invalid_recipient', 'error_email_invalid_subject'] as $want) {
+        isset($observed[$want]) ? ok($want) : skip("{$want}: not produced by this daemon pass");
+    }
+
+    // ---- PushMessage ------------------------------------------------
+    say("\n-- PushMessage --");
+    $pushes = [
+        'no_subscription'      => ['message' => 'hello', 'topic' => 'T'],
+        'message_parse_failed' => ['message' => '', 'topic' => 'T'],
+    ];
+    foreach ($pushes as $want => $cols) {
+        $f = makeRun($db, $artefacts, $owner_id, 'push', [
+            10 => ['type' => 'PushMessage', 'cols' => $cols],
+            20 => ['type' => 'Page', 'cols' => ['body' => 'done']],
+        ]);
+        drive($db, $f['run_id'], 10);
+        $seen = harvest($db, $f['run_id'], "PushMessage: {$want}", $observed);
+        in_array($want, $seen, true) ? ok($want)
+            : bad("{$want} not produced; saw: " . (implode(', ', $seen) ?: '(none)'));
+    }
+
+    // ---- Queue lane -------------------------------------------------
+    // expired / wait_ended / ended_by_queue_rse reach the row only through a
+    // real daemon pass, which drives a different arm than execute() does.
+    say("\n-- Daemon pass --");
+    $f = makeRun($db, $artefacts, $owner_id, 'waitcron', [
+        10 => ['type' => 'Wait', 'cols' => ['wait_minutes' => 1, 'body' => 30]],
+        20 => ['type' => 'Page', 'cols' => ['body' => 'reminder arm']],
+        30 => ['type' => 'Page', 'cols' => ['body' => 'early arm']],
+    ]);
+    drive($db, $f['run_id'], 10);
+    $db->exec(
+        'UPDATE survey_unit_sessions us JOIN survey_run_sessions rs ON rs.id = us.run_session_id
+            SET us.created = DATE_SUB(NOW(), INTERVAL 2 HOUR), us.expires = DATE_SUB(NOW(), INTERVAL 1 HOUR)
+          WHERE rs.run_id = :run_id',
+        ['run_id' => $f['run_id']]
+    );
+    $db->exec('UPDATE survey_runs SET cron_active = 1 WHERE id = :id', ['id' => $f['run_id']]);
+    runQueueOnce();
+    $seen = harvest($db, $f['run_id'], 'daemon pass on an elapsed Wait', $observed);
+    in_array('wait_ended', $seen, true) ? ok('wait_ended')
+        : bad('wait_ended not produced; saw: ' . (implode(', ', $seen) ?: '(none)'));
+
     // ---- Engine-level -----------------------------------------------
     say("\n-- Engine --");
     $f = makeRun($db, $artefacts, $owner_id, 'moved', [
@@ -361,6 +479,9 @@ try {
     exit($unexpected > 0 ? 1 : 0);
 } finally {
     if (!$KEEP) {
+        foreach ($artefacts['accounts'] ?? [] as $acct_id) {
+            try { $db->exec('DELETE FROM survey_email_accounts WHERE id = :id', ['id' => $acct_id]); } catch (Throwable $e) {}
+        }
         foreach ($artefacts['runs'] as $run_id) {
             try {
                 $db->exec('DELETE FROM survey_run_sessions WHERE run_id = :id', ['id' => $run_id]);
