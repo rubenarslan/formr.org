@@ -579,7 +579,6 @@ CREATE TABLE `survey_unit_sessions` (
   `ended` datetime DEFAULT NULL,
   `expired` datetime DEFAULT NULL,
   `state` enum('PENDING','RUNNING','WAITING_USER','WAITING_TIMER','ENDED','EXPIRED','SUPERSEDED') DEFAULT NULL,
-  `state_log` longtext DEFAULT NULL CHECK (`state_log` is null or json_valid(`state_log`)),
   `idempotency_key` varchar(128) DEFAULT NULL,
   `execution_time` decimal(12,3) unsigned DEFAULT NULL COMMENT 'Cumulative wall-clock seconds in UnitSession::execute(), incl. OpenCPU (issue #608)',
   PRIMARY KEY (`id`),

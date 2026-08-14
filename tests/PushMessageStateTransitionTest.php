@@ -23,7 +23,7 @@
  * Fix: every terminating return in `getUnitSessionOutput` includes
  * `end_session => true` so the standard cascade dispatcher calls
  * `end()`, which dual-writes `state = 'ENDED'`, `ended = NOW()`, and
- * the structured `state_log` JSON.
+ * the `state` column.
  *
  * This test pins the corrected return shapes. Email already does this
  * (`['end_session' => true, 'move_on' => true]`); Push now follows the

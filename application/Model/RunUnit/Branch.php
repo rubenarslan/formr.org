@@ -261,7 +261,7 @@ class Branch extends RunUnit {
             // UnitSessionQueue::run()'s catch(Exception) contains it: the
             // participant gets a 500 and a queued row crash-loops the run
             // daemon. It also threw before isExpired() could call logOutput(),
-            // so the row kept result/result_log/state_log NULL and recorded
+            // so the row kept result and result_log NULL and recorded
             // nothing at all. describeRouting() gained this guard in fc4f5ebb
             // and the live path did not — exactly the preview/behaviour drift
             // computedJumpTarget() was extracted to prevent. Treat it as the

@@ -118,16 +118,11 @@ foreach ($rows as $row) {
                 "UPDATE `survey_unit_sessions`
                  SET `expired` = NOW(),
                      `result` = COALESCE(`result`, 'swept_stale'),
-                     `state` = :state,
-                     `state_log` = COALESCE(`state_log`, :state_log)
+                     `state` = :state
                  WHERE `id` = :id AND `ended` IS NULL AND `expired` IS NULL LIMIT 1",
                 [
                     'id' => $row['id'],
                     'state' => UnitSessionQueue::STATE_EXPIRED,
-                    'state_log' => UnitSession::buildStateLog('swept_stale', [
-                        'unit_type' => $row['type'],
-                        'msg' => 'stalled non-current session terminal-stamped by sweep_stalled_unit_sessions',
-                    ]),
                 ]
             );
         }

@@ -49,7 +49,7 @@ class RunSessionReusedUnitTest extends \PHPUnit\Framework\TestCase
             unit_id INTEGER, run_unit_id INTEGER, iteration INTEGER,
             run_session_id INTEGER, created TEXT, expires TEXT,
             queued INTEGER DEFAULT 0, result TEXT, result_log TEXT,
-            ended TEXT, expired TEXT, state TEXT, state_log TEXT,
+            ended TEXT, expired TEXT, state TEXT,
             idempotency_key TEXT)');
 
         $this->db->exec("INSERT INTO survey_units (id, type) VALUES (" . self::UNIT_ID . ", 'Pause'), (" . self::OTHER_UNIT_ID . ", 'Pause')");

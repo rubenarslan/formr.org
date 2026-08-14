@@ -16,7 +16,7 @@
  * 'wait_ended' — the label the early-return branch had always produced.
  * Field reports of "the participant came back early condition fires by
  * itself" could then no longer be told apart from healthy timeouts without
- * reading state_log or noticing that the run jumped to `body` instead of
+ * noticing that the run jumped to `body` instead of
  * advancing one position.
  */
 class WaitEndReasonTest extends \PHPUnit\Framework\TestCase

@@ -1,0 +1,39 @@
+-- v1.8.0 — drop survey_unit_sessions.state_log.
+--
+-- Added by 047 as a structured JSON sibling of result_log (Track A A6/D5).
+-- Removed because it never acquired a reader and never carried anything the
+-- row did not already hold:
+--
+--   * `reason` was derived from `result` — buildStateLog($this->result, …) —
+--     so it was a literal copy of an already machine-readable column;
+--   * `ctx.unit_type` is derivable from the unit;
+--   * `ctx.msg` was a copy of `result_log`;
+--   * `at` was rewritten wholesale on every pass, so it meant "when the last
+--     write happened", which created/ended/expired already cover.
+--
+-- Readers, as of this patch: no admin template selected it (grep of
+-- templates/ returns nothing), the v1 API projected `state` but not
+-- `state_log` — despite UnitSessionResource's own docblock telling clients to
+-- debug via state_log — and UnitSession::load() hydrated a property that was
+-- never read. The only consumer in the tree was bin/test_track_a_smoke.php,
+-- asserting the write it had just made.
+--
+-- It also cost more than nothing. Being a third thing to keep in sync, it
+-- drifted: giveUp() wrote `result` without it, the supersede UPDATE and
+-- UnitSessionQueue::addItem() wrote `state` without it, so rows routinely
+-- contradicted themselves. And the reverted streak-marker rework (see
+-- UnitSession::recheckBackoffExpression) stored its marker here, in a column
+-- logResult() overwrites wholesale every pass — the field's existence led
+-- that work into a place that structurally cannot hold state across passes.
+--
+-- `state` (the ENUM) is kept: it has real readers (the v1 API, the admin
+-- queue table via UnitSessionQueue::queueLabelForRow).
+--
+-- The effort goes into `result` / `result_log` instead, which this release
+-- makes a matched pair — see UnitSession::resolveEndResult().
+--
+-- Irreversible: the JSON is dropped, not archived. That is deliberate. Every
+-- field in it is reconstructable from result, result_log, the unit type and
+-- the row's own timestamps, so there is nothing to migrate out.
+ALTER TABLE `survey_unit_sessions`
+    DROP COLUMN `state_log`;

@@ -397,9 +397,11 @@ worse than stopping.
 ## Track A code surface (v0.26.0)
 
 - `application/Model/UnitSession.php` — the unit-session model.
-  Track A's `state` ENUM dual-write, `run_unit_id`, `iteration`,
-  `state_log` JSON, and `idempotency_key` columns flow through here
-  (see `create`, `end`, `expire`, `logResult`, `buildStateLog`).
+  Track A's `state` ENUM dual-write, `run_unit_id`, `iteration`
+  and `idempotency_key` columns flow through here (see `create`,
+  `end`, `expire`, `logResult`, `resolveEndResult`). `result` and
+  `result_log` are a matched pair — every writer sets both. The
+  `state_log` JSON column was dropped in v1.8.0 (patch 073).
 - `application/Model/RunSession.php` — orchestrates `execute()`,
   `moveOn`, cascade dispatch, run-session lock,
   `getRunUnitIdAtPosition` helper.
