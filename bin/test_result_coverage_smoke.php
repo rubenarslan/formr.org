@@ -320,6 +320,9 @@ try {
         'from' => 'rescov@example.org', 'from_name' => 'rescov',
         'host' => 'smtp.invalid', 'port' => 587, 'tls' => 1,
         'username' => 'rescov', 'password' => Crypto::encrypt('nope'), 'status' => 1,
+        // auth_key has no DB default; EmailAccount decrypts it, so it must be
+        // a real ciphertext rather than an empty string.
+        'auth_key' => Crypto::encrypt('rescov-key'),
     ]);
     $artefacts['accounts'][] = $acct;
 
