@@ -259,10 +259,13 @@
                 </p>
                 <h4>Advanced: <small>computed jumps (return a position number)</small></h4>
                 <p>
-                    Instead of a TRUE/FALSE condition, your R code can return a <strong>position number</strong> — the participant then jumps straight to that position, ignoring the "skip backward to" field. This lets a single unit send different participants to different positions: e.g. <code>c(30, 50, 70)[screener$arm]</code> routes arm 1 to 30, arm 2 to 50, arm 3 to 70. The same works in a Skip Forward.
+                    Instead of a TRUE/FALSE condition, your R code can return a <strong>position number of 2 or higher</strong> — the participant then jumps straight to that position, ignoring the "skip backward to" field. This lets a single unit send different participants to different positions: e.g. <code>c(30, 50, 70)[screener$arm]</code> routes arm 1 to 30, arm 2 to 50, arm 3 to 70. The same works in a Skip Forward.
                 </p>
                 <p>
-                    <small class="text-muted">If the returned position has no unit, the participant continues to the next unit after the skip — they are never stranded. Position numbers are literal; re-check your code after large reorders.</small>
+                    <strong>0 and 1 always mean FALSE and TRUE</strong>, never positions 0 and 1. R gives us no way to tell <code>TRUE</code> apart from <code>1</code> by the time the value reaches formr, and conditions returning 1/0 are everywhere — <code>screener$consent</code> on a 1/0 coded item, <code>sum(x)</code>, <code>nrow(df)</code>. Reading those as jump targets would silently reverse the routing of skips written before computed jumps existed, so they keep their old meaning. In practice nothing is lost: runs are numbered in tens, so position 1 is virtually never a real destination.
+                </p>
+                <p>
+                    <small class="text-muted">If the returned position has no unit, the participant continues to the next unit after the skip — they are never stranded. Position numbers are literal; re-check your code after large reorders. The <em>Routes to</em> column in the unit's Test view shows the destination formr would actually pick for each participant.</small>
                 </p>
             </div>
         </div>
@@ -377,10 +380,13 @@
                 </p>
                 <h4>Advanced: <small>computed jumps (return a position number)</small></h4>
                 <p>
-                    Instead of a TRUE/FALSE condition, your R code can return a <strong>position number</strong> — the participant then jumps straight to that position, ignoring the "skip forward to" field. This lets a single unit send different participants to different arms: e.g. <code>c(30, 50, 70)[screener$arm]</code> routes arm 1 to 30, arm 2 to 50, arm 3 to 70. The same works in a Skip Backward.
+                    Instead of a TRUE/FALSE condition, your R code can return a <strong>position number of 2 or higher</strong> — the participant then jumps straight to that position, ignoring the "skip forward to" field. This lets a single unit send different participants to different arms: e.g. <code>c(30, 50, 70)[screener$arm]</code> routes arm 1 to 30, arm 2 to 50, arm 3 to 70. The same works in a Skip Backward.
                 </p>
                 <p>
-                    <small class="text-muted">If the returned position has no unit, the participant continues to the next unit after the skip — they are never stranded. Position numbers are literal; re-check your code after large reorders.</small>
+                    <strong>0 and 1 always mean FALSE and TRUE</strong>, never positions 0 and 1. R gives us no way to tell <code>TRUE</code> apart from <code>1</code> by the time the value reaches formr, and conditions returning 1/0 are everywhere — <code>screener$consent</code> on a 1/0 coded item, <code>sum(x)</code>, <code>nrow(df)</code>. Reading those as jump targets would silently reverse the routing of skips written before computed jumps existed, so they keep their old meaning. In practice nothing is lost: runs are numbered in tens, so position 1 is virtually never a real destination.
+                </p>
+                <p>
+                    <small class="text-muted">If the returned position has no unit, the participant continues to the next unit after the skip — they are never stranded. Position numbers are literal; re-check your code after large reorders. The <em>Routes to</em> column in the unit's Test view shows the destination formr would actually pick for each participant.</small>
                 </p>
             </div>
         </div>

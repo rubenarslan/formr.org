@@ -9,7 +9,29 @@ class Branch extends RunUnit {
     
     public $type = 'Branch';
     public $icon = 'fa-code-fork fa-flip-vertical';
-    
+
+    /**
+     * Lowest run position a computed jump may target (v1.8.0).
+     *
+     * 0 and 1 are reserved for the boolean reading of a condition, so a
+     * computed jump to position 0 or 1 is deliberately not expressible. R
+     * has no distinct boolean-vs-integer signal that survives the round
+     * trip — OpenCPU returns JSON, so `TRUE`, `1L` and `1` all reach PHP as
+     * the same value — and the conditions people actually write return 1/0
+     * constantly: `screener$consent` on a 1/0 coded item, `sum(x)`,
+     * `nrow(df)`, `as.numeric(...)`. Reading those as positions silently
+     * reverses the routing of every skip that predates computed jumps, and
+     * the failure is quiet: on a run numbered 10/20/30 there is no unit at
+     * position 1, so the "target does not exist" arm continues past the
+     * skip — the exact branch the skip existed to avoid.
+     *
+     * Nothing is lost by the reservation. A run's first unit is virtually
+     * never at position 1 (the admin UI numbers in tens), and any run that
+     * does have one can be reached by renumbering. Agreed with @timseidel
+     * before release; see CHANGELOG v1.8.0.
+     */
+    const MIN_COMPUTED_JUMP_POSITION = 2;
+
     protected $outputData;
 
     public function __construct(Run $run, array $props = []) {
@@ -120,6 +142,26 @@ class Branch extends RunUnit {
     }
 
     /**
+     * Does this evaluated condition ask for a computed jump, and to where?
+     *
+     * Returns the target position, or null when the value should be read as
+     * a boolean instead. The single place that decides — both
+     * getUnitSessionExpirationData() (the real routing) and describeRouting()
+     * (the admin Test view's "Routes to" column) call it, so the preview
+     * cannot drift from the behaviour it claims to preview.
+     *
+     * See MIN_COMPUTED_JUMP_POSITION for why 0 and 1 are not jump targets.
+     */
+    protected function computedJumpTarget($eval) {
+        if (is_bool($eval) || !is_numeric($eval)) {
+            return null;
+        }
+        $target = (int) round((float) $eval);
+
+        return $target >= self::MIN_COMPUTED_JUMP_POSITION ? $target : null;
+    }
+
+    /**
      * Human-readable destination for a single evaluated result, mirroring the
      * routing in getUnitSessionExpirationData() so the Test view shows where a
      * participant would actually go (not just the raw R value).
@@ -128,8 +170,14 @@ class Branch extends RunUnit {
         if (is_array($eval)) {
             $eval = array_shift($eval);
         }
-        if (!is_bool($eval) && is_numeric($eval)) {
-            $target = (int) round((float) $eval);
+        if (is_array($eval)) {
+            // A nested list: array_shift() unwrapped one level and found
+            // another. Say so rather than falling through to strtotime(),
+            // which takes a string and would TypeError out of ajax_test_unit,
+            // fataling the whole Test view over one participant's result.
+            return 'cannot route (R returned a nested list)';
+        }
+        if (($target = $this->computedJumpTarget($eval)) !== null) {
             return $unitSession->runSession->getUnitIdAtPosition($target)
                 ? "jump to position $target"
                 : "continue (position $target has no unit)";
@@ -183,14 +231,16 @@ class Branch extends RunUnit {
             $data['log'] = $this->getLogMessage('opencpu_result_warn', "Your R code is returning more than one result. Please fix your code, so it returns only true/false");
         }
 
-        // Numeric return → treat as absolute run position (computed jump).
+        // Numeric return ≥ MIN_COMPUTED_JUMP_POSITION → treat as an absolute
+        // run position (computed jump). 0 and 1 keep their boolean reading
+        // and fall through below; see MIN_COMPUTED_JUMP_POSITION.
+        //
         // Unlike the boolean path below, a computed jump is unconditional by
         // design: it ignores automatically_jump/automatically_go_on and the
         // cron gate (there is no "wait for user" semantics for a computed
         // destination), so it routes immediately whether executed live or by
-        // cron. The explicit is_bool() guard keeps real booleans out of here.
-        if (!is_bool($eval) && is_numeric($eval)) {
-            $target = (int) round((float) $eval);
+        // cron.
+        if (($target = $this->computedJumpTarget($eval)) !== null) {
             if ($unitSession->runSession->getUnitIdAtPosition($target)) {
                 $data['log'] = $this->getLogMessage('skip_to', "Computed jump to position $target.");
                 $data['end_session'] = true;
@@ -216,7 +266,15 @@ class Branch extends RunUnit {
             } else {
                 $result = (bool) $eval;
             }
-            $data['log'] = $this->getLogMessage('opencpu_result_warn', "Your R code is not returning true/false. Please fix your code soon");
+            if (is_numeric($eval)) {
+                // Says which of the two readings applied, because a numeric
+                // condition is exactly where an author can be surprised now
+                // that larger numbers ARE jump targets.
+                $data['log'] = $this->getLogMessage('opencpu_result_warn', "Your R code returned the number " . (0 + $eval) . ", which is read as "
+                    . ($result ? 'TRUE' : 'FALSE') . ". Only " . self::MIN_COMPUTED_JUMP_POSITION . " and above are treated as jump targets — 0 and 1 always mean FALSE/TRUE. Please return TRUE/FALSE explicitly.");
+            } else {
+                $data['log'] = $this->getLogMessage('opencpu_result_warn', "Your R code is not returning true/false. Please fix your code soon");
+            }
         }
         
         if ($result && ($this->automatically_jump || !$unitSession->isExecutedByCron())) {
