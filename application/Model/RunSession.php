@@ -797,17 +797,13 @@ class RunSession extends Model {
 			SET `ended`     = NOW(),
 			    `result`    = 'external_ended',
 			    `queued`    = 0,
-			    `state`     = :state,
-			    `state_log` = :state_log
+			    `result_log` = 'Ended by an external service callback (end-last-external).',
+			    `state`     = :state
 			WHERE `id` = :us_id AND `ended` IS NULL AND `expired` IS NULL LIMIT 1";
 
         $updated = $this->db->exec($query, [
             'us_id'     => $target,
             'state'     => UnitSessionQueue::STATE_ENDED,
-            'state_log' => UnitSession::buildStateLog('external_ended', [
-                'unit_type' => 'External',
-                'via'       => 'endLastExternal',
-            ]),
         ]);
         return $updated !== false && $updated > 0;
     }

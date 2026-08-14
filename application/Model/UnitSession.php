@@ -15,7 +15,12 @@ class UnitSession extends Model {
     public $ended;
     public $expired;
     public $state; // ENUM (PENDING, RUNNING, WAITING_USER, WAITING_TIMER, ENDED, EXPIRED, SUPERSEDED)
-    public $state_log; // JSON, structured sibling of result_log
+    /**
+     * The `result` this request's logResult() wrote, or null if this request
+     * logged nothing. NOT a column — load() hydrates `result`/`result_log`
+     * from an EARLIER pass, and end() must be able to tell the two apart.
+     */
+    protected $loggedResultThisPass = null;
     public $idempotency_key;
     public $execution_time; // issue #608: cumulative wall-clock seconds spent in execute(), incl. OpenCPU
     public $meta;
@@ -231,7 +236,7 @@ class UnitSession extends Model {
     }
 
     public function load() {
-        $columns = 'id, unit_id, run_unit_id, iteration, run_session_id, created, expires, queued, result, result_log, ended, expired, state, state_log, idempotency_key';
+        $columns = 'id, unit_id, run_unit_id, iteration, run_session_id, created, expires, queued, result, result_log, ended, expired, state, idempotency_key';
         if ($this->id !== null) {
             $vars = $this->db->findRow('survey_unit_sessions', ['id' => (int)$this->id], $columns);
         } else {
@@ -437,16 +442,20 @@ class UnitSession extends Model {
      * Configurable via unit_session.queue_expiration_extension (the fast
      * tier) and unit_session.recheck_backoff_* .
      *
-     * NOTE (v1.7.1): a streak-keyed rework was attempted and reverted —
-     * the streak marker was stored in `state_log`, which logResult()
-     * overwrites on every failing pass (it runs via logOutput() at the
-     * top of isExpired(), before this reads it), so the streak reset
-     * every pass and the backoff never escalated. A correct version needs
-     * the streak start in a field logResult() does not own (a new column),
-     * which is a migration and out of scope for a patch release. Tracked
-     * for feature/form_v2 with an integration test that drives the real
-     * daemon pass rather than injecting the marker by reflection. Until
-     * then this stays age-keyed, which at least escalates.
+     * NOTE: a streak-keyed rework was attempted in v1.7.1 and reverted. It
+     * stored the streak marker in `state_log`, which logResult() overwrote
+     * on every failing pass (it runs via logOutput() at the top of
+     * isExpired(), before this reads it), so the streak reset every pass and
+     * the backoff never escalated. v1.8.0 dropped `state_log` outright
+     * (patch 073) — it had no reader and duplicated the row — so that avenue
+     * is closed for good, which is the right outcome: a value that must
+     * survive across passes cannot live in a column every pass rewrites. A
+     * correct version needs its own column, holding the first-failure
+     * timestamp. That would also close the audit finding that a retrying
+     * unit loses the ORIGINAL error text (the actionable one) to the latest,
+     * with no record of when the failure started. Until then this stays
+     * age-keyed, which at least escalates. See
+     * documentation/agent_doc/LOG_STATE_AUDIT.md (M3).
      */
     protected function recheckBackoffExpression() {
         $fast = Config::get('unit_session.queue_expiration_extension', '+10 minutes');
@@ -520,20 +529,18 @@ class UnitSession extends Model {
         // exports get a self-documenting state value without having to
         // reason about the absence-of-`queued` semantics. The legacy
         // columns remain authoritative for queue pickup; the `state`
-        // column is additive. state_log captures the structured reason.
+        // column is additive.
         $expired = $this->db->exec(
             "UPDATE `survey_unit_sessions` SET
                 `expired` = NOW(),
                 `result` = 'expired',
                 `queued` = 0,
-                `state` = :state,
-                `state_log` = :state_log
+                `state` = :state
              WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
              [
                  'id'        => $this->id,
                  'unit_id'   => $unit->id,
                  'state'     => UnitSessionQueue::STATE_EXPIRED,
-                 'state_log' => self::buildStateLog('expired', ['unit_type' => $unit->type]),
              ]
         );
 
@@ -565,23 +572,20 @@ class UnitSession extends Model {
             // Pre-fix Survey/External hardcoded 'survey_ended'/'external_ended'
             // and dropped the caller's reason on the floor — masking audit
             // trail. See tests/e2e/EXPIRY_PLAN.md "Hygiene 5".
-            if ($reason !== null) {
-                $this->result = $reason;
-            } else {
-                $this->result = $unit->type == "Survey" ? "survey_ended" : "external_ended";
-            }
+            $this->resolveEndResult($reason, $unit->type == "Survey" ? "survey_ended" : "external_ended");
         } else {
-            if ($reason !== null) {
-                $this->result = $reason;
-            } else if ($unit->type == "Pause") {
-                $this->result = "pause_ended";
+            if ($unit->type == "Pause") {
+                $default = "pause_ended";
             } else if ($unit->type == "Wait") {
-                $this->result = "wait_ended";
+                $default = "wait_ended";
             } else if ($unit->type == "Endpage") {
-                $this->result = $this->isExecutedByCron() ? 'ended_by_queue' : 'ended';
+                $default = $this->isExecutedByCron() ? 'ended_by_queue' : 'ended';
             } else {
-                //$this->result = "ended_other";
+                // Email, PushMessage, Shuffle, Branch/Skip: no type default —
+                // whatever the unit's own log recorded stands.
+                $default = null;
             }
+            $this->resolveEndResult($reason, $default);
         }
 
         // Reset queued symmetrically with expire(). Pre-fix end() left
@@ -589,8 +593,7 @@ class UnitSession extends Model {
         // createUnitSession in the run-session would supersede to -9 —
         // making the audit trail ambiguous between "completed normally"
         // and "orphaned mid-flow". See "Hygiene 4" in EXPIRY_PLAN.md.
-        // Track A: also set state='ENDED' (dual-write) and state_log
-        // (structured sibling of the human-readable result_log).
+        // Track A: also set state='ENDED' (dual-write).
         $this->result_log = truncate_result_log($this->result_log);
         $ended = $this->db->exec(
                 "UPDATE `survey_unit_sessions` SET
@@ -598,8 +601,7 @@ class UnitSession extends Model {
                 `result` = :result,
                 `result_log` = :result_log,
                 `queued` = 0,
-                `state` = :state,
-                `state_log` = :state_log
+                `state` = :state
                 WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
                 [
                     'id'         => $this->id,
@@ -607,10 +609,6 @@ class UnitSession extends Model {
                     'result'     => $this->result,
                     'result_log' => $this->result_log,
                     'state'      => UnitSessionQueue::STATE_ENDED,
-                    'state_log'  => self::buildStateLog($this->result, [
-                        'unit_type' => $unit->type,
-                        'msg'       => $this->result_log,
-                    ]),
                 ]
         );
 
@@ -634,85 +632,82 @@ class UnitSession extends Model {
     }
 
     /**
-     * Persist `result` and `result_log` into the row. Track A also
-     * dual-writes a structured `state_log` JSON value of the form:
+     * Decide the terminal `result` for end(), and keep `result_log` matched
+     * to it.
      *
-     *   {
-     *     "reason": "<result string, e.g. survey_started, email_sent>",
-     *     "ctx":    { "unit_type": "Survey", "msg": "<result_log text>" },
-     *     "at":     "<ISO 8601 timestamp>"
-     *   }
+     * Precedence: an explicit caller reason, then whatever this pass's own
+     * log recorded, then the type default. The middle arm is the v1.8.0 fix:
+     * end() used to re-derive the result from the unit TYPE alone, so a
+     * Survey that logged `survey_completed`, an External that logged
+     * `external_r_call_no_redirect` and a Pause that logged
+     * `error_pause_relative_to` all had their own verdict replaced by
+     * `survey_ended` / `external_ended` / `pause_ended`. Distinct outcomes
+     * collapsed into one label — which is why an admin force-push was
+     * indistinguishable from a genuine survey completion. Wait's `end_reason`
+     * lever solved this for one unit; this generalises it, and units that
+     * record nothing keep the type default exactly as before.
      *
-     * Reason values mirror the `result` column. The "ctx" sub-object is
-     * a per-reason free bag: handlers add unit_type, the human-readable
-     * message, and any reason-specific extras. Consumers (analysis
-     * exports, admin tooling) prefer state_log for structured reads and
-     * fall back to result_log for legacy rows where state_log is NULL.
-     * See REFACTOR_QUEUE_PLAN.md A6 / D5.
+     * The log is cleared whenever the result being written did NOT come from
+     * this pass. `result_log` is hydrated by load() out of an earlier pass and
+     * end() re-writes it verbatim — that is how a Pause ended up reading
+     * `pause_ended` next to an OpenCPU traceback, and a skip `moved` next to
+     * an R error. A label describing one event beside text describing another
+     * is worse than no text: it sends whoever reads it after the wrong bug.
+     *
+     * @param string|null $reason  explicit caller reason, wins outright
+     * @param string|null $default type-derived fallback, null = leave as-is
+     */
+    protected function resolveEndResult($reason, $default) {
+        if ($reason !== null) {
+            $this->result = $reason;
+        } elseif ($this->loggedResultThisPass !== null) {
+            $this->result = $this->loggedResultThisPass;
+        } elseif ($default !== null) {
+            $this->result = $default;
+        }
+
+        if ($this->result !== $this->loggedResultThisPass) {
+            $this->result_log = null;
+        }
+    }
+
+    /**
+     * Persist `result` and `result_log` into the row.
+     *
+     * The two columns are a MATCHED PAIR: `result_log` must always describe
+     * the `result` written beside it. Every writer therefore sets both, and
+     * `end()` clears the log when it falls back to a type default rather than
+     * leaving an earlier pass's text under a new label.
+     *
+     * v1.8.0 dropped the `state_log` JSON sibling this method used to
+     * dual-write. It carried nothing the row did not already hold — `reason`
+     * was derived from `result`, `ctx.unit_type` from the unit, `ctx.msg` was
+     * a copy of `result_log` — and had no reader outside its own smoke test:
+     * no admin template selected it and the v1 API projected `state` but not
+     * `state_log`. It also actively misled the reverted streak-marker work,
+     * which stored its marker in a column this method overwrites wholesale
+     * every pass. `state` (the ENUM) is kept; it does have readers.
      */
     public function logResult() {
         $this->result_log = truncate_result_log($this->result_log);
+        // v1.8.0: remember what THIS pass recorded so end() can tell the
+        // unit's own verdict from a value hydrated by load() out of an
+        // earlier pass. See resolveEndResult().
+        $this->loggedResultThisPass = $this->result;
         $log = $this->db->exec(
                 "UPDATE `survey_unit_sessions` SET
                 `result` = :result,
-                `result_log` = :result_log,
-                `state_log` = :state_log
+                `result_log` = :result_log
                 WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
                 [
                     'id'         => $this->id,
                     'unit_id'    => $this->runUnit->id,
                     'result'     => $this->result,
                     'result_log' => $this->result_log,
-                    'state_log'  => self::buildStateLog($this->result, [
-                        'unit_type' => $this->runUnit->type ?? null,
-                        'msg'       => $this->result_log,
-                    ]),
                 ]
         );
 
         return $log;
-    }
-
-    /**
-     * Build the JSON value written into the `state_log` column. Returns
-     * a string so it can be passed straight into a PDO bind. Returns
-     * NULL when there's no useful reason to log (caller's UPDATE then
-     * sets state_log = NULL, preserving the legacy NULL semantics for
-     * rows the new code chooses to skip).
-     *
-     * Hardened against malformed UTF-8 in `result_log` text (which can
-     * arrive from OpenCPU error responses or external service callbacks
-     * containing raw bytes). Without JSON_INVALID_UTF8_SUBSTITUTE,
-     * json_encode would return false on a single bad byte and the
-     * caller's UPDATE would fail the JSON_VALID CHECK constraint on
-     * the column. The substitution writes U+FFFD in place of bad
-     * bytes; the overall message still round-trips, just lossily on
-     * the bad spans.
-     */
-    public static function buildStateLog($reason, array $ctx = []): ?string {
-        if ($reason === null || $reason === '') {
-            return null;
-        }
-        $ctx = array_filter($ctx, function ($v) {
-            return $v !== null && $v !== '';
-        });
-        $encoded = json_encode([
-            'reason' => (string) $reason,
-            'ctx'    => $ctx,
-            'at'     => date(DATE_ATOM),
-        ], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
-        // Last-ditch defence: if encoding still failed (e.g. recursive
-        // ctx structure), write a sentinel rather than `false` so the
-        // CHECK constraint passes and we lose only the offending row's
-        // detail, not the row itself.
-        if ($encoded === false) {
-            return json_encode([
-                'reason' => (string) $reason,
-                'ctx'    => ['encode_error' => json_last_error_msg()],
-                'at'     => date(DATE_ATOM),
-            ], JSON_UNESCAPED_SLASHES);
-        }
-        return $encoded;
     }
 
     protected function hasOrderedStudyItems() {

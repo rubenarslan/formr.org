@@ -11,7 +11,7 @@
  *     the consecutive pairs are the edges
  *   - drop-off analytics (how many people ended at unit X)
  *   - debugging stuck participants (look at the most recent unit_session,
- *     check `state` / `state_log` / `expired` / `ended`)
+ *     check `state` / `expired` / `ended`)
  *
  * Special units (OverviewScriptPage, ServiceMessagePage, ReminderEmail) live
  * outside the ordered run flow; their unit_sessions surface with `position = null`

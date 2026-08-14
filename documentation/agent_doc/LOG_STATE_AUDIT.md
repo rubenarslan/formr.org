@@ -42,14 +42,19 @@ written after the row ended vanishes with no signal. Two confirmed
 victims: `RunSession::forceTo()` (below) and a re-knit failure on an
 ended Endpage.
 
-**M5 — `state` / `state_log` drift away from `result`.**
-`logResult()` never writes `state`; `UnitSessionQueue::removeItem()` and
-the supersede UPDATE never write `state_log`; `stateForQueuedUnit()`
-derives `state` from the unit type alone. So rows routinely carry a
-`state` that contradicts their `result`. Compounding it: **`iteration`,
-`state` and `state_log` appear in no admin template at all** — a grep of
-`templates/admin/` for `state_log` returns nothing. Track A's structured
-record is written on every pass and read by nobody.
+**M5 — `state` drifts away from `result`.**
+`logResult()` never writes `state` and `stateForQueuedUnit()` derives it
+from the unit type alone, so rows routinely carry a `state` that
+contradicts their `result`. Compounding it, **`iteration` and `state`
+appear in no admin template at all**.
+
+*Resolved in part (v1.8.0):* the `state_log` JSON column is gone — patch
+073. It had 8 writers and no production reader, and every field in it
+duplicated the row (`reason` derived from `result`, `ctx.unit_type` from
+the unit, `ctx.msg` a copy of `result_log`, `at` rewritten each pass). It
+had also misled the reverted streak-marker work into storing cross-pass
+state in a column every pass overwrites. `state` (the ENUM) is kept — it
+has real readers — and the effort moved to `result` / `result_log`.
 
 ## Cross-cutting defects (not owned by any one unit)
 
@@ -293,11 +298,13 @@ version.
    published numbers. Fix X2 first so the Shuffle trap is disarmed.
 2. **`Email::test()`** (P/D) and **PushMessage empty title** (P) — both
    participant-affecting, both small and self-contained.
-3. **M2** — give `end()` a "keep what the unit's own log recorded, fall back
-   to the type default only when none was" rule. Wait's `end_reason` lever
-   becomes the general case instead of a per-unit workaround. Note Wait's
-   elapsed branch is unreachable, so the type default must stay as the
-   fallback, not be deleted.
+3. ~~**M2**~~ **Done (v1.8.0)** — `UnitSession::resolveEndResult()`:
+   explicit reason → this pass's own log → type default, and `result_log`
+   is cleared whenever the result did not come from this pass, so a label
+   and its text always describe the same event. Wait's `end_reason` lever
+   is now the general case. The type defaults stay as the fallback (Wait's
+   elapsed branch is unreachable and depends on one). Pinned by
+   `tests/EndResultPairingTest.php`.
 4. **M3** — make recovery non-destructive: fold prior failure text forward
    (the `joinNotes()` shape) rather than NULLing it, and keep a
    first-failure timestamp somewhere `logResult()` does not own. This is the
