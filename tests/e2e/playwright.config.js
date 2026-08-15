@@ -23,8 +23,19 @@
 const { defineConfig } = require('@playwright/test');
 const dotenv = require('dotenv');
 const path = require('node:path');
+const fs = require('node:fs');
 
-dotenv.config({ path: path.resolve(__dirname, '../../../.env.dev') });
+// ../../../.env.dev assumes the checkout sits inside formr-docker, which is
+// true for formr_source but not for a release worktree (/home/admin/formr_1.8.0
+// resolves to /home/admin/.env.dev — no file, dotenv reports "injected env (0)",
+// and the first spec dies on a missing password rather than on anything it
+// tests). Take the first candidate that exists, overridable for other hosts.
+const ENV_CANDIDATES = [
+    process.env.FORMR_ENV_FILE,
+    path.resolve(__dirname, '../../../.env.dev'),
+    '/home/admin/formr-docker/.env.dev',
+].filter(Boolean);
+dotenv.config({ path: ENV_CANDIDATES.find((p) => fs.existsSync(p)) || ENV_CANDIDATES[0] });
 
 // Detect "we're under the SDK runner" so the local-only SW-block hack
 // doesn't suppress SW behaviour on real devices, where SW is the whole
