@@ -36,7 +36,7 @@ $KEEP = in_array('--keep', $argv, true);
 $db = DB::getInstance();
 $observed = [];   // result => how it was produced
 $notes = [];      // result => why it could not be driven here
-$artefacts = ['runs' => [], 'accounts' => []];
+$artefacts = ['runs' => [], 'accounts' => [], 'studies' => []];
 
 function say(string $s): void { echo $s . "\n"; }
 function ok(string $s): void { echo "  \e[32mOK\e[0m   {$s}\n"; }
@@ -192,6 +192,61 @@ function reexecute(DB $db, int $run_id) {
 function runQueueOnce(): void {
     $bin = dirname(__FILE__) . '/queue.php';
     exec('php ' . escapeshellarg($bin) . ' -t UnitSession --once 2>&1', $out, $rc);
+}
+
+
+/**
+ * A study with an `email` item and a `push_notification` item, plus a
+ * unit-session row carrying a participant's answers to both.
+ *
+ * getRecipientEmail()'s "most recent reported address" arm reads
+ * survey_items_display.answer for items of type `email` (RunSession.php:976),
+ * and getSubscription() reads the same table for type `push_notification`.
+ * Both are plain SQL, so the fixture can be built without traversing a
+ * survey — which keeps these scenarios independent of the browser lane and
+ * of a live push service. Brave and headless Chromium both refuse to
+ * subscribe (no Google push service), so a real subscription is not
+ * something a test can earn; a well-formed synthetic one exercises exactly
+ * the code paths the catalogue is about.
+ */
+function makeContactAnswers(DB $db, array &$artefacts, int $run_id, int $rs_id, string $email, $subscription) {
+    $study_id = $db->insert('survey_studies', [
+        'name' => 'rescov_contact_' . bin2hex(random_bytes(3)),
+        'created' => mysql_now(), 'modified' => mysql_now(),
+    ]);
+    $artefacts['studies'][] = $study_id;
+
+    $unit_id = $db->insert('survey_units', ['type' => 'Survey', 'created' => mysql_now(), 'modified' => mysql_now()]);
+    $db->insert('survey_run_units', ['run_id' => $run_id, 'unit_id' => $unit_id, 'position' => 5]);
+
+    $us_id = $db->insert('survey_unit_sessions', [
+        'run_session_id' => $rs_id, 'unit_id' => $unit_id,
+        'created' => mysql_now(), 'ended' => mysql_now(), 'result' => 'survey_completed',
+    ]);
+
+    foreach ([['contact_email', 'email', $email], ['push_sub', 'push_notification', $subscription]] as $item) {
+        [$name, $type, $answer] = $item;
+        if ($answer === null) continue;
+        $item_id = $db->insert('survey_items', [
+            'study_id' => $study_id, 'type' => $type, 'name' => $name, 'label' => $name,
+        ]);
+        $db->insert('survey_items_display', [
+            'item_id' => $item_id, 'session_id' => $us_id,
+            'answer' => $answer, 'answered' => mysql_now(), 'created' => mysql_now(),
+        ]);
+    }
+    return $us_id;
+}
+
+/** A structurally valid subscription pointing at a host that cannot accept it. */
+function fakeSubscription(): string {
+    return json_encode([
+        'endpoint' => 'https://push.invalid/rescov/' . bin2hex(random_bytes(8)),
+        'keys' => [
+            'p256dh' => 'BNc' . str_repeat('A', 84),
+            'auth'   => 'c2VjcmV0c2VjcmV0c2U',
+        ],
+    ]);
 }
 
 try {
@@ -367,6 +422,51 @@ try {
     in_array('email_skipped_user_disabled', $seen, true) ? ok('email_skipped_user_disabled')
         : bad('email_skipped_user_disabled not produced; saw: ' . (implode(', ', $seen) ?: '(none)'));
 
+    // With a reported address, recipient resolution succeeds and the rest of
+    // the Email outcomes become reachable.
+    say("\n-- Email (with a reported address) --");
+    $withAddr = [
+        'email_queued'     => ['subject' => 'S', 'body' => 'B'],
+        'no_email_subject' => ['subject' => '', 'body' => 'B'],
+        'no_email_body'    => ['subject' => 'S', 'body' => ''],
+    ];
+    foreach ($withAddr as $want => $cols) {
+        $f = makeRun($db, $artefacts, $owner_id, 'emailaddr', [
+            10 => ['type' => 'Email', 'cols' => $cols + ['recipient_field' => null, 'account_id' => $acct]],
+            20 => ['type' => 'Page', 'cols' => ['body' => 'done']],
+        ]);
+        $rs_id = $db->insert('survey_run_sessions', [
+            'run_id' => $f['run_id'], 'session' => 'RESCOV' . bin2hex(random_bytes(9)),
+            'created' => mysql_now(), 'position' => 10,
+        ]);
+        makeContactAnswers($db, $artefacts, $f['run_id'], $rs_id, 'rescov@example.org', null);
+        $row = $db->execute('SELECT session FROM survey_run_sessions WHERE id = :id', ['id' => $rs_id], false, true);
+        $rs = new RunSession($row['session'], new Run(null, $f['run_id']));
+        asParticipant($rs);
+        try { $rs->execute(); } catch (Throwable $e) {}
+        $seen = harvest($db, $f['run_id'], "Email with address: {$want}", $observed);
+        in_array($want, $seen, true) ? ok($want)
+            : bad("{$want} not produced; saw: " . (implode(', ', $seen) ?: '(none)'));
+    }
+
+    // An address that resolves but is not deliverable.
+    $f = makeRun($db, $artefacts, $owner_id, 'emailbad', [
+        10 => ['type' => 'Email', 'cols' => ['subject' => 'S', 'body' => 'B', 'recipient_field' => null, 'account_id' => $acct]],
+        20 => ['type' => 'Page', 'cols' => ['body' => 'done']],
+    ]);
+    $rs_id = $db->insert('survey_run_sessions', [
+        'run_id' => $f['run_id'], 'session' => 'RESCOV' . bin2hex(random_bytes(9)),
+        'created' => mysql_now(), 'position' => 10,
+    ]);
+    makeContactAnswers($db, $artefacts, $f['run_id'], $rs_id, 'not-an-address', null);
+    $row = $db->execute('SELECT session FROM survey_run_sessions WHERE id = :id', ['id' => $rs_id], false, true);
+    $rs = new RunSession($row['session'], new Run(null, $f['run_id']));
+    asParticipant($rs);
+    try { $rs->execute(); } catch (Throwable $e) {}
+    $seen = harvest($db, $f['run_id'], 'Email: unusable reported address', $observed);
+    in_array('invalid_email', $seen, true) ? ok('invalid_email')
+        : bad('invalid_email not produced; saw: ' . (implode(', ', $seen) ?: '(none)'));
+
     // The mail-daemon lane. smtp.invalid cannot connect, so this produces the
     // failure results honestly; email_sent needs a reachable SMTP host and is
     // reported as not-driven rather than faked.
@@ -381,16 +481,37 @@ try {
 
     // ---- PushMessage ------------------------------------------------
     say("\n-- PushMessage --");
-    $pushes = [
-        'no_subscription'      => ['message' => 'hello', 'topic' => 'T'],
+    // no_subscription first: it is the one outcome that needs the participant
+    // NOT to have a subscription, and the check runs before everything else.
+    $f = makeRun($db, $artefacts, $owner_id, 'push', [
+        10 => ['type' => 'PushMessage', 'cols' => ['message' => 'hello', 'topic' => 'T']],
+        20 => ['type' => 'Page', 'cols' => ['body' => 'done']],
+    ]);
+    drive($db, $f['run_id'], 10);
+    $seen = harvest($db, $f['run_id'], 'PushMessage: participant never subscribed', $observed);
+    in_array('no_subscription', $seen, true) ? ok('no_subscription')
+        : bad('no_subscription not produced; saw: ' . (implode(', ', $seen) ?: '(none)'));
+
+    // The rest need a subscription to get past that gate.
+    $subbed = [
         'message_parse_failed' => ['message' => '', 'topic' => 'T'],
+        'title_parse_failed'   => ['message' => 'hello', 'topic' => '`r NULL`'],
+        'error'                => ['message' => 'hello', 'topic' => 'T'],
     ];
-    foreach ($pushes as $want => $cols) {
-        $f = makeRun($db, $artefacts, $owner_id, 'push', [
+    foreach ($subbed as $want => $cols) {
+        $f = makeRun($db, $artefacts, $owner_id, 'pushsub', [
             10 => ['type' => 'PushMessage', 'cols' => $cols],
             20 => ['type' => 'Page', 'cols' => ['body' => 'done']],
         ]);
-        drive($db, $f['run_id'], 10);
+        $rs_id = $db->insert('survey_run_sessions', [
+            'run_id' => $f['run_id'], 'session' => 'RESCOV' . bin2hex(random_bytes(9)),
+            'created' => mysql_now(), 'position' => 10,
+        ]);
+        makeContactAnswers($db, $artefacts, $f['run_id'], $rs_id, 'rescov@example.org', fakeSubscription());
+        $row = $db->execute('SELECT session FROM survey_run_sessions WHERE id = :id', ['id' => $rs_id], false, true);
+        $rs = new RunSession($row['session'], new Run(null, $f['run_id']));
+        asParticipant($rs);
+        try { $rs->execute(); } catch (Throwable $e) {}
         $seen = harvest($db, $f['run_id'], "PushMessage: {$want}", $observed);
         in_array($want, $seen, true) ? ok($want)
             : bad("{$want} not produced; saw: " . (implode(', ', $seen) ?: '(none)'));
@@ -496,6 +617,9 @@ try {
     exit($unexpected > 0 ? 1 : 0);
 } finally {
     if (!$KEEP) {
+        foreach ($artefacts['studies'] ?? [] as $sid) {
+            try { $db->exec('DELETE FROM survey_studies WHERE id = :id', ['id' => $sid]); } catch (Throwable $e) {}
+        }
         foreach ($artefacts['accounts'] ?? [] as $acct_id) {
             try { $db->exec('DELETE FROM survey_email_accounts WHERE id = :id', ['id' => $acct_id]); } catch (Throwable $e) {}
         }
