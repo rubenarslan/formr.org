@@ -309,10 +309,18 @@ version.
 
 ## Suggested order of work
 
-1. **X1 for Survey** — false completions are the only finding that reaches
-   published numbers. Fix X2 first so the Shuffle trap is disarmed.
-2. **`Email::test()`** (P/D) and **PushMessage empty title** (P) — both
-   participant-affecting, both small and self-contained.
+*This list is from the original audit; items 1–3 are done. See
+**Not tackled yet** at the end of this file for the current state of
+everything else.*
+
+1. ~~**X1 for Survey**~~ **Done (v1.8.0)** — `end()` takes `$completes`,
+   which `forceTo()`/`forceMoveOn()` set false, and the reason is passed
+   into `end()` so the label lands. X2 was fixed first, as this entry
+   required.
+2. ~~**`Email::test()`**, **PushMessage empty title**~~ **Done (v1.8.0)** —
+   test sends record against `session_id = null`, and the title guard is
+   now `!$title && knitting_needed($this->topic)`, so an ordinary empty
+   title falls through to the service's own 'Notification' default.
 3. ~~**M2**~~ **Done (v1.8.0)** — `UnitSession::resolveEndResult()`:
    explicit reason → this pass's own log → type default, and `result_log`
    is cleared whenever the result did not come from this pass, so a label
@@ -324,8 +332,8 @@ version.
    (the `joinNotes()` shape) rather than NULLing it, and keep a
    first-failure timestamp somewhere `logResult()` does not own. This is the
    column the reverted streak-marker rework needed.
-5. **M5 / admin visibility** — surface `iteration`, `state` and `state_log`
-   in the user-detail view. Several findings above are only *invisible*
+5. **M5 / admin visibility** — surface `iteration` and `state` in the
+   user-detail view (`state_log` is gone — patch 073). Several findings above are only *invisible*
    rather than *lost*, and this is the cheapest way to recover them.
 6. **Pause**, **External** and **Page** unit-level items.
 7. Delete `Privacy`.
@@ -546,15 +554,181 @@ run editor's Export button (`admin/run/<name>/export_run_structure`) into
   `formr-docker/formr_source`. `playwright.config.js` now finds `.env.dev`
   from either checkout (`FORMR_ENV_FILE` overrides).
 
-### Bugs found here and NOT fixed
+---
 
-- **PushMessage `error` writes no row at all.** A send against an unreachable
-  endpoint left only the fixture's rows. Suspected the same
-  `Error`-vs-`Exception` shape as the Branch `TypeError` fixed in `d6be93c6`:
-  `catch (Exception $e)` does not catch an `Error`. Worth checking before
-  release — if so, a push send failure loses its own record entirely, which
-  is this document's whole subject.
-- Everything in *Per-unit findings* above that is not marked fixed.
-  `forceTo()` manufacturing false Survey completions (X1) is the one that
-  reaches published numbers, and the admin-actions spec is where it gets
-  pinned.
+# Not tackled yet
+
+Everything below is known and deliberately left. Grouped by what it costs,
+not by where it lives, so the next person can pick by appetite. Items the
+v1.8.0 work closed are marked *fixed* in the sections above and are not
+repeated here.
+
+## 1. Defects found while testing, not fixed
+
+These three came out of building the browser lane. None is in the original
+audit, and each is reproducible.
+
+- **A structure PUT can silently lose a unit.** `rescov-replace` round-trips
+  correctly when read back immediately — the spec's own guard compares unit
+  counts and passes — yet its Endpage is gone by the time the next
+  participant enrols. Something after the transaction removes the
+  re-created `survey_run_units` row. `tests/e2e/result-coverage-structure.spec.js`
+  works around it by restoring both its fixtures from the checked-in
+  exports in `beforeAll`, which means the workaround also hides the symptom:
+  look at the fixture, not at the spec result. A run edit that drops a unit
+  is worth chasing on its own.
+- **The survey settings endpoint silently refuses a partial save.**
+  `AdminSurveyController::changeSettings()` validates
+  `$settings['displayed_percentage_maximum'] < 1` OUTSIDE its own `isset()`
+  guard — `&&` binds tighter than `||` — so an absent key reads as
+  `null < 1`, true, `$errors = true`, and the whole save returns false with
+  only an alert. The admin form posts every field, so the UI never sees it;
+  any caller that posts a subset (a script, a future API) gets a silent
+  no-op. Same shape in the two checks above it.
+- **`message_parse_failed` leaves no text on the row.** Its sibling
+  `title_parse_failed` writes a `result_log`; this branch reports only
+  through `notify_study_admin()`, where the 10-minute throttle can drop it
+  (X4). Both are terminal and advance the run, so the row is the only place
+  an admin could learn the participant was skipped.
+
+## 2. The five results the browser lane does not reach
+
+From the coverage table above, with what each needs:
+
+| Result | Needs |
+|---|---|
+| `error_email` | `email.use_queue = false`, instance-wide. The spec detects the mode and skips; verified by hand under a temporary flip |
+| `email_gave_up` | four failed attempts spaced by `max(60, ttl/tries)` — 20 minutes of blackholed SMTP at stock settings. Verified by hand with `queue_item_ttl` at 60s |
+| `swept_stale` | a live, unqueued, NULL-result row. Those exist in production (26 Survey, 28 PushMessage, 5 Pause on this instance) but come from executions interrupted at the PROCESS level: the cron cascade executes what it creates, and aborting the request does not help because PHP runs to completion after the client disconnects |
+| `ended_by_queue_rse` | a genuine race — the queue picking an item up between a session ending and the pass executing. `RunExpiresOnCron` does not end run sessions, so there is no non-racy way in |
+| `survey_ended` | narrowed by the X1 fix: the admin force-move now records `manual_admin_push`, so what remains is `end()` called with no reason on a Survey that logged nothing. No current scenario does that |
+
+## 3. Audit findings still open
+
+Ordered by what they cost. Full detail in *Per-unit findings* above.
+
+**Participant-affecting**
+
+- **An expired External still redirects on the web path.**
+  `getUnitSessionExpirationData()` sets `expired` but no `expires`, so
+  `isExpired()` returns false at its empty-`expires` guard; `expire()`
+  relabels the row and `isset($result['redirect'])` still fires. Narrow —
+  needs cron inactive, or a visit before the daemon's pass.
+- **SkipBackward loop re-entry permanently disables the failed-create
+  repair.** `placementHasAnyUnitSession()` filters on
+  `(run_session_id, unit_id, run_unit_id)` with no `iteration`, `ended` or
+  recency predicate, so from pass 2 onward it is always true: a failed
+  `create()` takes `moveOn()` instead of repairing, skipping the unit with
+  **no row written at all**. Its Test view is also inverted — the
+  `position >= $this->position` filter excludes exactly the participants
+  currently in the loop.
+- **A failed `run_to` jump on a Wait cannot be recorded** (M4): `end()`
+  freezes the row before `runTo()` runs, so a `body` naming a missing
+  position, or left blank, routes the participant elsewhere while the row
+  reads like a clean early jump.
+- **A re-knit failure on an ENDED Endpage is silently dropped** (M4). The
+  participant who bookmarked their feedback page sees an empty page forever
+  while the row still reads `result='ended'`, `result_log=NULL`.
+
+**Analysis / audit-trail integrity**
+
+- **M3 — recovery destroys the failure history.** `logResult()` writes
+  wholesale, so the *first* failure text (usually the actionable one) is
+  replaced by the last, and a successful retry writes `result_log = NULL`,
+  erasing the evidence that anything went wrong. There is nowhere to keep a
+  first-failure timestamp. This is the column the reverted streak-marker
+  rework needed, and it blocks the escalating email backoff below.
+- **M1 — log slots still overwrite** in `External` (`external_wait_for_api`
+  overwrites the redirect log, and **no branch records the destination URL**)
+  and in `Email` (the rate-limit warning goes to `$this->messages`, read only
+  on the success path).
+- **M5 — `state` drifts from `result`**, and `iteration` and `state` appear
+  in no admin template at all, so the drift is invisible even when it
+  matters.
+- **X3 — `opencpu_last_error()` reports the wrong error after a knit
+  failure.** Two independent mechanisms on one line: the
+  `$GLOBALS['opencpu_local_error']` flag is cleared only by
+  `opencpu_evaluate()`, so a stale message from an earlier Pause/Branch is
+  reported as the Page's failure; and when the knit throws, no session is
+  constructed, so the fallback reads the *previous* session, whose
+  `hasError()` consults the OpenCPU singleton's `curl_info` — which the
+  failed knit just overwrote.
+- **X4 — the second `notify_study_admin()` is always throttled away**
+  (10 minutes per run + recipient + type), so several losses above have no
+  channel at all. Any other `error` notification in that window suppresses
+  it too.
+- **Survey expiry records no reason.** The X/Y/Z matrix computes *which*
+  rule fired — never opened, hard cap, inactive — and discards it;
+  `expire()` writes no `result_log`, so a stale one from an earlier pass
+  survives next to `result='expired'`.
+- **Four failed-POST paths persist nothing**: rolled-back save, stale-form
+  POST, terminal-session POST, `post_max_size` exceeded. The participant's
+  answers are discarded with no row-level trace.
+- **Pause collapses five terminations into one unlabelled `pause_ended`**,
+  including "elapsed on time" vs "ended three days late because the daemon
+  was down"; and both its R-error results remain unreachable as persisted
+  values (overwritten by `pause_waiting` in the same request).
+- **Email's `giveUp()`** overwrites `result_log` wholesale, and at default
+  config can fire up to four times on one row, each time hardcoding "Gave up
+  after 4 delivery attempts" regardless of how many were made. A late
+  delivery then NULLs the give-up note. Opt-out and active snooze also share
+  one result although `no_email` holds the distinguishing timestamp.
+- **PushMessage's idempotency-collision path** — the daemon-killed-mid-send
+  case, i.e. exactly "we tried, can't tell if it landed" — ends the row with
+  `result` and `result_log` both NULL. `push_logs` says `queued`; the sweep
+  cannot repair it because its query needs `ended IS NULL`.
+- **Shuffle's `survey_shuffles.groups` is mutated in place with no
+  versioning**, so an author who changes 2 groups to 4 mid-study leaves
+  historic rows with no record of the cardinality they were drawn from.
+- **`Privacy` is dead code**: not in `SupportedUnits`, its template is gone,
+  and `survey_privacy` exists in no schema file. A legacy run containing one
+  throws for the participant and aborts `importUnits()` wholesale. Delete it,
+  or restore it properly with a patch, a template, a factory entry and a
+  decline-side log.
+
+## 4. Known gaps carried in the changelog
+
+Not audit findings, but open and related:
+
+- Queued emails whose sending account is later deactivated or deleted sit at
+  `status = 0` indefinitely — the pickup poll's `status = 1` join hides them,
+  so they never reach the give-up path either. Same root as the SMTP
+  coverage limitation above.
+- The email retry tier is flat (+10 minutes), not the escalating, capped
+  backoff Pause and skip units get. Sharing that needs the streak-keyed
+  rework, which needs a column `logResult()` does not overwrite (M3).
+- **The queue daemons have no per-item exception isolation.** One poison row
+  — a corrupt account `auth_key` failing `Crypto::decrypt`, say — throws out
+  of the whole loop, and the restart meets the same row again, halting
+  delivery for every account. The v1.8.0 VAPID fix removed one instance of
+  this shape; the general case stands.
+- Push retry and the transient-vs-permanent classification `PushMessage`
+  flattens into a single `error`.
+- **Any HTTP request advances a parked Wait, and the sources are not all
+  known.** Removing the service worker's `start_url` precache eliminated the
+  one confirmed unprompted source; a push click, tab restore, link prefetch
+  or uptime scanner would each do the same. The request-shape logging exists
+  to identify the next one from data.
+- `Wait::setDefaultRelativeTo()` is dead code — its guard depends on flags
+  set only by `parseRelativeTo()`, which runs after it.
+
+## 5. Test-suite work
+
+- **The expiry suite still provisions through PHP.**
+  `tests/e2e/survey-expiry-*.spec.js` and `double-expiry.spec.js` call
+  `bin/expiry_fixture.php`, which creates unit sessions directly — the
+  pattern the result-coverage lane moved away from. Converting it is the
+  obvious next tranche, and `expired` (above) is the piece that would
+  benefit immediately.
+- **Fixtures are not rebuildable in one command.** Each `rescov-*` run is
+  checked in as an export under `tests/e2e/fixtures/`, but restoring one
+  means the MCP recipe or the run editor's Import by hand. A small script
+  that PUTs every fixture through the v1 structure API would make the suite
+  self-provisioning — the credentials and the endpoint already exist.
+- **Twenty-eight `rescov-*` fixture runs live on the dev instance**, plus the
+  `rescov-nosender` second admin account and three OAuth clients. Delete them
+  when this work settles; the specs skip cleanly when a fixture is absent.
+- **Two specs are opt-in and one is mode-dependent**, so a bare `npx
+  playwright test result-coverage` under-reports: `RESCOV_PUSH=1` (delivers
+  a real notification), `RESCOV_OUTAGE=1` (stops OpenCPU / blackholes SMTP),
+  and `error_email` needs the instance in synchronous mode.
