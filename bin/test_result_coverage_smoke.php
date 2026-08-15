@@ -210,7 +210,14 @@ function runQueueOnce(): void {
  * the code paths the catalogue is about.
  */
 function makeContactAnswers(DB $db, array &$artefacts, int $run_id, int $rs_id, string $email, $subscription) {
-    $study_id = $db->insert('survey_studies', [
+    // survey_studies.id and survey_items_display.id are not auto_increment.
+    $nextId = function (string $table) use ($db): int {
+        $r = $db->execute("SELECT COALESCE(MAX(id), 0) + 1 AS n FROM `{$table}`", [], false, true);
+        return (int) $r['n'];
+    };
+    $study_id = $nextId('survey_studies');
+    $db->insert('survey_studies', [
+        'id' => $study_id,
         'name' => 'rescov_contact_' . bin2hex(random_bytes(3)),
         'created' => mysql_now(), 'modified' => mysql_now(),
     ]);
@@ -231,6 +238,7 @@ function makeContactAnswers(DB $db, array &$artefacts, int $run_id, int $rs_id, 
             'study_id' => $study_id, 'type' => $type, 'name' => $name, 'label' => $name,
         ]);
         $db->insert('survey_items_display', [
+            'id' => $nextId('survey_items_display'),
             'item_id' => $item_id, 'session_id' => $us_id,
             'answer' => $answer, 'answered' => mysql_now(), 'created' => mysql_now(),
         ]);
