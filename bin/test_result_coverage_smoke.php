@@ -81,38 +81,20 @@ function makeRun(DB $db, array &$artefacts, int $owner_id, string $label, array 
     ]);
     $artefacts['runs'][] = $run_id;
 
+    // Units are built through the model layer, not raw INSERTs. RunUnit::create()
+    // writes survey_units, calls addToRun() for survey_run_units, and lets each
+    // subclass populate its own detail table with the parsing the app does —
+    // Email's body_parsed, the survey_studies.id FK onto survey_units.id, the
+    // tables whose ids are not auto_increment. Hand-rolled INSERTs skipped all
+    // of that and produced fixtures the app could not actually read.
+    $run = new Run(null, $run_id);
     $made = [];
     foreach ($units as $position => $spec) {
-        // survey_units.type must be a RunUnitFactory::SupportedUnits value.
-        // 'Endpage' is not one: Page::find() re-stamps $type at runtime, so
-        // the stored type is 'Page'.
-        $type = $spec['type'];
-        $unit_id = $db->insert('survey_units', [
-            'type' => $type, 'created' => mysql_now(), 'modified' => mysql_now(),
-        ]);
-        $db->insert('survey_run_units', [
-            'run_id' => $run_id, 'unit_id' => $unit_id, 'position' => $position,
-        ]);
-        // Per-type detail rows. Only the columns each unit's constructor reads.
-        if ($type === 'Pause') {
-            $db->insert_update('survey_pauses', ['id' => $unit_id] + ($spec['cols'] ?? []));
-        } elseif ($type === 'Wait') {
-            $db->insert_update('survey_pauses', ['id' => $unit_id] + ($spec['cols'] ?? []));
-        } elseif (in_array($type, ['SkipForward', 'SkipBackward'], true)) {
-            $db->insert_update('survey_branches', ['id' => $unit_id] + ($spec['cols'] ?? []));
-        } elseif ($type === 'External') {
-            $db->insert_update('survey_externals', ['id' => $unit_id] + ($spec['cols'] ?? []));
-        } elseif ($type === 'Shuffle') {
-            $db->insert_update('survey_shuffles', ['id' => $unit_id] + ($spec['cols'] ?? []));
-        } elseif ($type === 'Email') {
-            $db->insert_update('survey_emails', ['id' => $unit_id] + ($spec['cols'] ?? []));
-        } elseif ($type === 'PushMessage') {
-            $db->insert_update('push_messages', ['id' => $unit_id] + ($spec['cols'] ?? []));
-        } elseif ($type === 'Page') {
-            $db->insert_update('survey_pages', ['id' => $unit_id] + ($spec['cols'] ?? []));
-        }
-        $made[$position] = $unit_id;
+        $unit = RunUnitFactory::make($run, ['type' => $spec['type'], 'position' => $position]);
+        $unit->create(($spec['cols'] ?? []) + ['position' => $position]);
+        $made[$position] = $unit->id;
     }
+
     return ['run_id' => $run_id, 'units' => $made];
 }
 
