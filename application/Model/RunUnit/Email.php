@@ -66,7 +66,16 @@ class Email extends RunUnit {
             if (isset($options['account_id']) && is_numeric($options['account_id'])) {
                $options['account_id'] = (int) $options['account_id'];
             }
-            $options['cron_only'] = (int)isset($options['cron_only']);
+            // `(int) isset(...)` read PRESENCE, not value. That works for the
+            // admin form, which posts the checkbox only when it is ticked, but
+            // it inverts every caller that sends the field explicitly: the v1
+            // API, a run import, the MCP. `cron_only: 0` became 1. And since
+            // cron_only is in $export_attribs, exporting a run and importing it
+            // back turned every Email in it cron-only — after which a
+            // participant who reached one in their browser was skipped with
+            // `email_skipped_user_active` instead of being mailed. Absence
+            // still means 0, so the form behaves exactly as before.
+            $options['cron_only'] = isset($options['cron_only']) ? (int) (bool) $options['cron_only'] : 0;
             $options['html'] = 1;
             $this->assignProperties($options);
         }

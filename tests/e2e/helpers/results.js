@@ -87,4 +87,44 @@ async function enrol(page, context, runName, base = 'https://study.researchmixta
     await page.waitForLoadState('networkidle');
 }
 
-module.exports = { sessionRows, sessionTrace, runExists, recordObserved, enrol, OBSERVED_PATH };
+/**
+ * Enrol a participant in a context of their own, and return it for closing.
+ *
+ * For specs that also act as the ADMIN. Those use
+ * `test.use({ storageState })`, which authenticates the whole context — so
+ * calling enrol() on that page clears the admin's cookies too, and every
+ * later admin request silently lands on the login page. It returns 200 with
+ * an HTML body, so the giveaway is not an error but an action that quietly
+ * did nothing: the row keeps the result it already had.
+ */
+async function enrolInOwnContext(browser, runName, base = 'https://study.researchmixtape.com') {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.goto(`${base}/${runName}/`);
+    await page.waitForLoadState('networkidle');
+    return { ctx, page };
+}
+
+/**
+ * Poll until the row at `position` reads `expected`.
+ *
+ * For results a daemon writes after the participant has moved on. The mail
+ * daemon runs continuously in the dev stack, so this is a wait, not a
+ * trigger — and it is why the result it overwrites (`email_queued`) has to
+ * be read the instant the traversal returns.
+ */
+async function waitForResult(runName, position, expected, timeoutMs = 60000) {
+    const deadline = Date.now() + timeoutMs;
+    let last = null;
+    for (;;) {
+        const row = sessionRows(runName).filter((r) => r.position === position).pop();
+        last = row ? row.result : null;
+        if (last === expected || Date.now() > deadline) return last;
+        await new Promise((r) => setTimeout(r, 2000));
+    }
+}
+
+module.exports = {
+    sessionRows, sessionTrace, runExists, recordObserved,
+    enrol, enrolInOwnContext, waitForResult, OBSERVED_PATH,
+};

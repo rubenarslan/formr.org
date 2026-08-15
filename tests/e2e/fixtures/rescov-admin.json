@@ -1,0 +1,105 @@
+{
+  "name": "rescov-admin",
+  "units": [
+    {
+      "type": "Survey",
+      "description": "rescov_pages: participant starts it and is then force-moved by an admin",
+      "position": 10,
+      "special": null,
+      "survey_data": {
+        "name": "rescov_pages",
+        "items": [
+          {
+            "type": "text",
+            "choice_list": null,
+            "type_options": null,
+            "name": "q1",
+            "label": "What is on page one?",
+            "label_parsed": "What is on page one?",
+            "optional": 0,
+            "class": null,
+            "showif": null,
+            "value": null,
+            "block_order": null,
+            "item_order": 1
+          },
+          {
+            "type": "submit",
+            "choice_list": null,
+            "type_options": null,
+            "name": "page1_done",
+            "label": "Go on to the next page!",
+            "label_parsed": "Go on to the next page!",
+            "optional": 0,
+            "class": null,
+            "showif": null,
+            "value": null,
+            "block_order": null,
+            "item_order": 2
+          },
+          {
+            "type": "text",
+            "choice_list": null,
+            "type_options": null,
+            "name": "q2",
+            "label": "What is on page two?",
+            "label_parsed": "What is on page two?",
+            "optional": 0,
+            "class": null,
+            "showif": null,
+            "value": null,
+            "block_order": null,
+            "item_order": 3
+          }
+        ],
+        "settings": {
+          "maximum_number_displayed": 0,
+          "displayed_percentage_maximum": 100,
+          "add_percentage_points": 0,
+          "enable_instant_validation": 0,
+          "expire_after": 0,
+          "google_file_id": null,
+          "unlinked": 0,
+          "expire_invitation_after": 0,
+          "expire_invitation_grace": 0,
+          "hide_results": 0,
+          "use_paging": 0
+        }
+      }
+    },
+    {
+      "type": "Pause",
+      "description": "a long park, so a force-moved participant has somewhere to land",
+      "position": 20,
+      "special": null,
+      "wait_until_time": null,
+      "wait_until_date": null,
+      "wait_minutes": 600,
+      "relative_to": null,
+      "body": "Parked."
+    },
+    {
+      "type": "Endpage",
+      "description": "ends the run session",
+      "position": 30,
+      "special": null,
+      "body": "Done.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-admin/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-admin/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-admin/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

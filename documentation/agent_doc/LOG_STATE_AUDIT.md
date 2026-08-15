@@ -355,33 +355,32 @@ php bin/result_coverage_report.php
 
 ### Where it stands
 
-**22 of 50 reachable entries, 0 of 8 unreachable ones persisted.**
+**36 of 51 reachable entries, 0 of 7 unreachable ones persisted.**
 
 | Spec | Results |
 |---|---|
 | `result-coverage-traversal` | `skip_false`, `skip_true`, `skip_to`, `skip_to_invalid`, `error_opencpu_r`, `group_N`, `pause_waiting`, `wait_ended_by_user`, `ended` |
 | `result-coverage-external` | `external_compute`, `external_r_call_no_redirect`, `external_redirect`, `external_r_redirect`, `external_wait_for_api`, `external_ended`, `error_opencpu` |
 | `result-coverage-survey` | `survey_started`, `survey_filling_out`, `survey_completed`, `error_survey` |
+| `result-coverage-email` | `no_recipient`, `no_email_subject`, `no_email_body`, `invalid_email`, `email_skipped_user_active`, `email_queued`, `email_sent`, `error_send_eligible` |
+| `result-coverage-push` | `no_subscription`, and behind `RESCOV_PUSH=1`: `sent`, `message_parse_failed`, `title_parse_failed` |
+| `result-coverage-admin` | `survey_ended`, `moved`, **and the negative**: `manual_admin_push` must stay absent |
 | `result-coverage-queue` | `pause_ended`, `wait_ended` |
 
-Still to write, and what each needs:
+The 15 that remain are not simply unwritten — each needs something a spec
+cannot arrange for itself:
 
-- **Email** (11) — an account and a recipient. `email-fixture` already
-  delivers (Survey 10 → Email 20 → Page 30, `recipient_field = NULL` so it
-  uses the most recent reported address; `survey_email_log` rows at status
-  1). The five `smtp` ones also need a mail-daemon pass.
-- **PushMessage** (5) — a real subscription. Headless Chromium has no push
-  service and Brave disables Google's by default
-  (`brave://settings/privacy`), both giving `AbortError: Registration failed
-  - push service error`. Enabling it in a real browser works, so this spec
-  needs a persistent profile or an explicit skip.
-- **admin actions** (4) — `moved`, `survey_ended`, `run_structure_replaced`,
-  `unit_removed_from_run`, all driven from the admin UI. This spec also owes
-  the **negative** assertions: drive `forceTo()` and assert
-  `manual_admin_push` does *not* persist. Until it exists, the report's "0 of
-  8 unreachable persisted" line is true but vacuous — nothing drives them.
-- **cron** (4) — `expired`, `waiting_deprecated`, `ended_by_queue_rse`,
-  `swept_stale`.
+| Result | What it needs |
+|---|---|
+| `error_email` | `email.use_queue = false`, an instance-wide config change |
+| `no_sender` | an owner with NO email account: `changeSettings` silently substitutes the first one whenever `account_id` is null |
+| `email_skipped_user_disabled` | an opt-out through the run's settings page, which only renders for a participant whose address formr knows — so this fixture needs a survey-collected address, not an R literal |
+| `error_opencpu_down` | OpenCPU actually unreachable (stopping `formr_r` mid-suite) |
+| `error` (Push) | a *broken* subscription; a healthy one cannot produce it, and this is the suspected write-no-row bug below |
+| `expired`, `waiting_deprecated`, `ended_by_queue_rse`, `swept_stale` | per-unit expiry settings and legacy flags the MCP does not expose, plus a sweep run |
+| `error_email_not_sent`, `error_email_invalid_recipient`, `error_email_invalid_subject`, `email_gave_up` | an SMTP relay that REFUSES. The dev relay accepts everything, including `@invalid.invalid`, so mail is recorded sent and bounces later — there is no rejection to observe. `email_gave_up` additionally needs the retry budget to run out, which is ~10 minutes per attempt |
+| `run_structure_replaced` | the v1 API's structure PUT, which needs OAuth client credentials; `.env.dev` carries only the admin login |
+| `unit_removed_from_run` | deleting a unit from under a live session — destructive to the fixture it needs, so it wants a run created and thrown away per test |
 
 ### What this lane established that the PHP one could not
 
@@ -404,6 +403,23 @@ Still to write, and what each needs:
   External spec covers it end to end: the participant is redirected out
   carrying `{{login_code}}`, the service posts back, the row becomes
   `external_ended`.
+
+- **`Email::changeSettings` read cron_only's PRESENCE, not its value.**
+  `(int) isset($options['cron_only'])` is correct for the admin form, which
+  posts the checkbox only when ticked, and wrong for every caller that sends
+  the field explicitly — the v1 API, a run import, the MCP. `cron_only: 0`
+  became 1. And `cron_only` is in `$export_attribs`, so **exporting a run and
+  importing it back turned every Email in it cron-only**, after which a
+  participant who reached one in a browser was skipped with
+  `email_skipped_user_active` instead of being mailed. Found because all seven
+  Email fixtures recorded that one result. Fixed in v1.8.0.
+- **`error_send_eligible` is reachable**, contrary to the audit's own claim
+  above. The reasoning ("written to `$this->messages`, read only on the
+  success path") describes the rate limiter's WARNING branch; its BLOCKING
+  branch writes `$this->errors['log']`, which the caller reads on failure.
+  The catalogue is corrected. Reaching it needs a prior *delivered* message,
+  because `getMessageCounts` counts `status = 1` rows only — a queued one does
+  not yet exist as far as the limiter is concerned.
 
 ### Building fixtures
 
@@ -454,6 +470,21 @@ run editor's Export button (`admin/run/<name>/export_run_structure`) into
   The previous Survey fixture had an optional `push_notification` item as all
   of page 2; headless Chromium collapsed the page and sometimes crashed
   outright. A survey fixture should exercise paging, not push support.
+- **The per-recipient rate limiter makes Email fixtures interfere.** Its
+  thresholds are instance-wide per address (1/minute by default), so fixtures
+  sharing one recipient block each other and the symptom reads as a bug in
+  the unit. Give each fixture its own address, and where a fixture is re-run
+  often, generate a fresh one per execution — `recipient_field` is R:
+  `paste0('rescov-queued-', as.integer(Sys.time()), '@invalid.invalid')`.
+- **`email_queued` is transient.** The mail daemon runs continuously in the
+  dev stack and overwrites the row with `email_sent` within ~15s, through an
+  UPDATE with no `ended IS NULL` guard. Read it the instant the traversal
+  returns, then poll for the daemon's value.
+- **A spec that is also an admin needs two contexts.** `test.use({
+  storageState })` authenticates the whole context, so enrolling a
+  participant on that page clears the admin's cookies. Every later admin POST
+  then lands on the login page, returns 200, and does nothing — the giveaway
+  is not an error but an action that quietly had no effect.
 - **`node_modules` in a release worktree is a symlink** into
   `formr-docker/formr_source`. `playwright.config.js` now finds `.env.dev`
   from either checkout (`FORMR_ENV_FILE` overrides).

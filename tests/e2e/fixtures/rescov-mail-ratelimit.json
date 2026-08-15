@@ -1,0 +1,50 @@
+{
+  "name": "rescov-mail-ratelimit",
+  "units": [
+    {
+      "type": "Email",
+      "description": "first send to this address, queues normally",
+      "position": 10,
+      "special": null,
+      "subject": "rescov coverage 1",
+      "account_id": 14,
+      "recipient_field": "'rescov-ratelimit@invalid.invalid'",
+      "body": "Body.",
+      "cron_only": 0
+    },
+    {
+      "type": "Email",
+      "description": "same address within the minute -> the limiter blocks it, error_send_eligible",
+      "position": 20,
+      "special": null,
+      "subject": "rescov coverage 2",
+      "account_id": 14,
+      "recipient_field": "'rescov-ratelimit@invalid.invalid'",
+      "body": "Body.",
+      "cron_only": 0
+    },
+    {
+      "type": "Endpage",
+      "description": "only reachable if both emails go out",
+      "position": 30,
+      "special": null,
+      "body": "Done.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-mail-ratelimit/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-mail-ratelimit/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-mail-ratelimit/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

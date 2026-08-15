@@ -66,12 +66,22 @@ return [
     'email_skipped_user_disabled' => ['unit' => 'Email', 'reach' => 'web', 'how' => 'participant opted out or snoozed'],
     'email_skipped_user_active'   => ['unit' => 'Email', 'reach' => 'web', 'how' => 'cron_only unit reached by a human request'],
     'no_recipient'        => ['unit' => 'Email',  'reach' => 'web',  'how' => 'recipient field resolved to nothing'],
-    'no_sender'           => ['unit' => 'Email',  'reach' => 'web',  'how' => 'no email account configured'],
+    // Needs an owner with NO email account at all: Email::changeSettings falls
+    // back to the first of Site::getCurrentUser()->getEmailAccounts() whenever
+    // account_id is null, so a fixture cannot produce this by leaving the
+    // account unset while the admin has one.
+    'no_sender'           => ['unit' => 'Email',  'reach' => 'web',  'how' => 'no email account configured on the owning account'],
     'no_email_subject'    => ['unit' => 'Email',  'reach' => 'web',  'how' => 'subject knit returned nothing'],
     'no_email_body'       => ['unit' => 'Email',  'reach' => 'web',  'how' => 'body knit returned nothing'],
     'invalid_email'       => ['unit' => 'Email',  'reach' => 'web',  'how' => 'recipient is not a valid address'],
-    'error_send_eligible' => ['unit' => 'Email',  'reach' => 'unreachable',
-                              'why'  => 'rate-limit warning written to $this->messages, read only on the success path'],
+    // Was declared unreachable, on the reasoning that the rate-limit text is
+    // written to $this->messages and read only on the success path. That is
+    // true of the WARNING branch (allowed, with a note); the BLOCKING branch
+    // writes $this->errors['log'], which the caller reads on failure. Caught
+    // by the browser lane in v1.8.0 — two Emails to one address, once the
+    // first has actually been delivered (the limiter counts status = 1 only).
+    'error_send_eligible' => ['unit' => 'Email',  'reach' => 'web',
+                              'how'  => 'per-recipient rate limit refused the send'],
 
     // ---- PushMessage ------------------------------------------------
     'sent'                => ['unit' => 'PushMessage', 'reach' => 'web', 'how' => 'push accepted by the push service'],
