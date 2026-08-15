@@ -61,7 +61,26 @@ class PushNotificationService
         if (!$row) {
             return null;
         }
-        
+
+        // A run that never generated a PWA manifest has vapid_private_key
+        // NULL, and Crypto::decrypt() types its argument as string — so this
+        // raised a TypeError, which is an Error and NOT an Exception. It
+        // therefore blew straight past the constructor's own "VAPID keys not
+        // found" guard three lines below, past PushMessage's catch (Exception),
+        // past RunSession::execute()'s finally and past
+        // UnitSessionQueue::run()'s catch (Exception): a 500 for the
+        // participant, a NULL result on the row (the send left no record of
+        // itself at all), and the same crash-loop shape in the run daemon that
+        // the Branch nested-list TypeError produced in v1.8.0.
+        //
+        // Adding a PushMessage to a run without generating its manifest is an
+        // ordinary authoring mistake, and this made it fatal. Returning null
+        // lets the existing guard do its job: a catchable Exception, an
+        // `error` result naming the cause, and a run that keeps moving.
+        if ($row['vapid_private_key'] === null || $row['vapid_private_key'] === '') {
+            return null;
+        }
+
         // Decrypt the private key
         return \Crypto::decrypt($row['vapid_private_key']);
     }

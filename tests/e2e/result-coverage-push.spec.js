@@ -39,9 +39,21 @@
 const { test, expect } = require('./helpers/test');
 const { dbQuery } = require('./helpers/db');
 const { ensureAdminState, STATE_PATH, sendToPosition } = require('./helpers/admin');
-const { sessionRows, sessionTrace, runExists, recordObserved, enrol } = require('./helpers/results');
+const { sessionRows, sessionTrace, runExists, recordObserved, enrol, enrolInOwnContext } = require('./helpers/results');
 
 const STUDY = 'https://study.researchmixtape.com';
+
+/**
+ * A structurally valid subscription pointing at a host that resolves nowhere.
+ * Stored through the participant's OWN endpoint
+ * (/<run>/ajax_save_push_subscription), which is how the browser saves a real
+ * one — no row is written by hand.
+ */
+const BROKEN_SUBSCRIPTION = JSON.stringify({
+    endpoint: 'https://fcm.invalid/fcm/send/rescov-unreachable',
+    expirationTime: null,
+    keys: { p256dh: 'BF7I2OK1fRTR4dN04' + 'A'.repeat(70), auth: 'cmVzY292LWJyb2tlbg' },
+});
 
 test('a participant who never subscribed records no_subscription', async ({ page, context }) => {
     test.skip(!runExists('rescov-pushnone'),
@@ -118,5 +130,76 @@ test.describe('result coverage — PushMessage with a real subscription', () => 
         expect(at(40).log).toMatch(/title/i);
 
         recordObserved(['sent', 'message_parse_failed', 'title_parse_failed']);
+    });
+});
+
+
+/**
+ * `error` — a push send that raises.
+ *
+ * This is the entry the audit listed as "PushMessage `error` writes no row at
+ * all", suspected to be the same Error-vs-Exception shape as the Branch
+ * TypeError. It was: PushNotificationService::getVapidPrivateKey() passed a
+ * NULL vapid_private_key straight into Crypto::decrypt(), which types its
+ * argument as string, so a run that never generated a PWA manifest raised a
+ * TypeError — an Error, not an Exception. It blew past the constructor's own
+ * "VAPID keys not found" guard, past PushMessage's catch (Exception), and past
+ * the queue's, leaving a 500 and a NULL result. Fixed in v1.8.0.
+ *
+ * The fixture is deliberately a run WITHOUT VAPID keys, because that is the
+ * ordinary authoring mistake — adding a PushMessage before generating the
+ * manifest — rather than a contrived failure.
+ *
+ * rescov-pusherr: 5 Survey (rescov_contact2, for the push item whose answer
+ * IS the subscription)  10 Pause  20 PushMessage  30 Endpage
+ */
+test.describe('result coverage — a push send that raises', () => {
+    test.use({ storageState: STATE_PATH });
+
+    test.beforeAll(async ({ browser }) => {
+        test.skip(!runExists('rescov-pusherr'), 'fixture run \'rescov-pusherr\' is missing');
+        await ensureAdminState(browser);
+    });
+
+    test('records error rather than crashing the request', async ({ page, browser }) => {
+        const p = await enrolInOwnContext(browser, 'rescov-pusherr');
+        // Complete the survey so its push item has been displayed —
+        // updateSubscription() writes into that item's row and returns false
+        // if there is none, which is why the fixture carries a survey at all.
+        await p.page.evaluate(() => {
+            const e = document.querySelector('[name="contact_email"]');
+            if (e) { e.value = 'rescov-pusherr@invalid.invalid'; e.dispatchEvent(new Event('change', { bubbles: true })); }
+        });
+        await Promise.all([
+            p.page.waitForNavigation({ waitUntil: 'networkidle' }).catch(() => {}),
+            p.page.evaluate(() => { const b = document.querySelector('button[type=submit], input[type=submit]'); if (b) b.click(); }),
+        ]);
+
+        const saved = await p.page.request.post(
+            `${STUDY}/rescov-pusherr/ajax_save_push_subscription`,
+            { form: { subscription: BROKEN_SUBSCRIPTION } }
+        );
+        expect(saved.status(), await saved.text()).toBe(200);
+        await p.ctx.close();
+
+        const code = dbQuery(`
+            SELECT rs.session AS session FROM survey_run_sessions rs
+              JOIN survey_runs r ON r.id = rs.run_id
+             WHERE r.name = 'rescov-pusherr' ORDER BY rs.id DESC LIMIT 1;
+        `)[0].session;
+
+        // Send them into the PushMessage. Before the fix this answered 500.
+        const res = await sendToPosition(page, 'rescov-pusherr', code, 20);
+        expect(res.status(), 'a failing push must not fatal the request').toBe(200);
+
+        const push = sessionRows('rescov-pusherr').filter((r) => r.position === 20).pop();
+        expect(push.result, 'the failure has to reach the row — that is this whole suite\'s subject')
+            .toBe('error');
+        expect(push.log).toMatch(/VAPID/i);
+
+        // And the run keeps moving rather than parking on a dead unit.
+        expect(sessionTrace('rescov-pusherr').map(([, r]) => r)).toContain('ended');
+
+        recordObserved(['error']);
     });
 });

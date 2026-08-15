@@ -355,7 +355,7 @@ php bin/result_coverage_report.php
 
 ### Where it stands
 
-**42 of 49 reachable entries, 0 of 9 unreachable ones persisted.**
+**43 of 49 reachable entries, 0 of 9 unreachable ones persisted.**
 
 | Spec | Results |
 |---|---|
