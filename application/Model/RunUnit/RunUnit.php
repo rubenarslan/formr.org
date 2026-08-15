@@ -408,6 +408,19 @@ OVERVIEW_BODY
         if ($special !== null) {
             return $this->db->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special));
         } else {
+            // v1.8.0: terminate live sessions here too, not only in
+            // removeFromRun(). The F22/F7 fix put that guard in the BASE
+            // removeFromRun — which Survey, Email and PushMessage use — but
+            // Page/Endpage, Pause, External, Branch/Skip and Shuffle all
+            // override it with `return $this->delete($special)` and so
+            // skipped it entirely. Deleting any of those six from a run with
+            // participants parked on them left their unit sessions open with
+            // a dangling run_unit_id: exactly the strand the fix was written
+            // to prevent, for two thirds of the unit types. It also made
+            // `unit_removed_from_run` unrecordable for them, which is how
+            // this was found — the browser lane deleted an Endpage and the
+            // parked row kept a NULL result.
+            $this->endLiveSessionsAtPlacement();
             $affected = $this->db->delete('survey_units', array('id' => $this->id));
             if ($affected) { // remove from all runs
                 $affected += $this->db->delete('survey_run_units', array('unit_id' => $this->id));

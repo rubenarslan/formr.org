@@ -159,18 +159,22 @@ test.describe('result coverage — structure changes under live sessions', () =>
     });
 
     test('deleting a unit expires the sessions parked at it as unit_removed_from_run', async ({ page, browser, playwright }) => {
-        // NOT YET WORKING. The delete goes through (both calls answer 200 and
-        // the unit is gone), but the parked row keeps its NULL result instead
-        // of being stamped. endLiveSessionsAtPlacement matches on
-        // `us.run_unit_id = :run_unit_id`, with a legacy arm that only fires
-        // when run_unit_id IS NULL — so either the id being deleted is not the
-        // one the row carries, or the two-step confirm (first call returns
-        // 'warn' and stores a session key, second passes confirm=yes) is not
-        // completing the way it does from the run editor. Left checked in with
-        // the evidence rather than deleted: the assertion is right, and
-        // whoever picks it up starts from a working delete rather than from
-        // scratch.
-        test.skip(true, 'the delete succeeds but the parked row is not stamped — see the comment');
+        // STILL SKIPPED, but it found a real bug on the way. The delete goes
+        // through and the parked row keeps its NULL result, because The delete
+        // went through but the parked row kept its NULL result, because the
+        // F22/F7 guard lived only in the BASE removeFromRun() — used by
+        // Survey, Email and PushMessage — while Page/Endpage, Pause,
+        // External, Branch/Skip and Shuffle all override it with
+        // `return $this->delete($special)` and skipped it. Fixed in v1.8.0 by
+        // moving the guard into delete() as well; this fixture deletes an
+        // Endpage, one of the six that were unprotected.
+        //
+        // That fix is shipped and is right on its own terms, but it does NOT
+        // yet make this assertion pass — something further in still leaves
+        // the row blank (next suspects: run_unit_id being null on the object
+        // findByRunUnitId builds, or a Page-specific delete()). Unverified
+        // fix, unfinished test, both said plainly.
+        test.skip(true, 'the guard is fixed but the row is still not stamped — see the comment');
         const created = await participantWithLiveNullRow(browser, DEL_RUN);
 
         // The run editor's delete button. It asks for confirmation the first
