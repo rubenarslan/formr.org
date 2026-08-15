@@ -355,7 +355,8 @@ php bin/result_coverage_report.php
 
 ### Where it stands
 
-**37 of 51 reachable entries, 0 of 7 unreachable ones persisted.**
+**38 of 49 reachable entries, 0 of 9 unreachable ones persisted.** (Two
+entries moved from reachable to unreachable — see the Email note below.)
 
 | Spec | Results |
 |---|---|
@@ -367,19 +368,19 @@ php bin/result_coverage_report.php
 | `result-coverage-admin` | `survey_ended`, `moved`, **and the negative**: `manual_admin_push` must stay absent |
 | `result-coverage-queue` | `pause_ended`, `wait_ended` |
 | `result-coverage-expiry-optout` | `email_skipped_user_disabled` (and a documented, skipped attempt at `expired`) |
+| `result-coverage-outage` | behind `RESCOV_OUTAGE=1`: `error_opencpu_down`, and `error_email` when the instance is in synchronous mode |
 
 The 15 that remain are not simply unwritten — each needs something a spec
 cannot arrange for itself:
 
 | Result | What it needs |
 |---|---|
-| `error_email` | `email.use_queue = false`, an instance-wide config change |
+| `error_email` | `email.use_queue = false`, an instance-wide config change. Verified by hand once (flip, traverse `rescov-mail-syncfail`, flip back: it records `error_email`; queueing restored, it records `email_queued`). The spec detects the mode from behaviour and skips unless someone has flipped it |
 | `no_sender` | an owner with NO email account: `changeSettings` silently substitutes the first one whenever `account_id` is null |
-| `error_opencpu_down` | OpenCPU actually unreachable (stopping `formr_r` mid-suite) |
+| `error_email_not_sent`, `email_gave_up` | an account that BREAKS AFTER being verified. The daemon only picks up rows whose account is `status = 1`; status 1 is reached solely through `EmailAccount::test()` — a successful send — and `changeSettings()` resets it to 0 on every save. So an account cannot be *configured* broken, only *become* broken (host moves, credentials rotate, outage), which no admin action reproduces on demand. Reaching these needs either a DB write or breaking name resolution to the real SMTP host from inside the container |
 | `error` (Push) | a *broken* subscription; a healthy one cannot produce it, and this is the suspected write-no-row bug below |
 | `expired` | a participant who answers an item and then goes quiet. `expire_after` is the INACTIVITY timer: setting it through the survey settings form works (the spec does), but a freshly opened Survey still gets `expires = NULL` and `queued = 0`, so no daemon pass considers it. The attempt is checked in, skipped, with the finding |
 | `waiting_deprecated`, `ended_by_queue_rse`, `swept_stale` | legacy flags the MCP does not expose, a run session that ends while another unit is still queued, and a sweep over a stalled row |
-| `error_email_not_sent`, `error_email_invalid_recipient`, `error_email_invalid_subject`, `email_gave_up` | an SMTP relay that REFUSES. The dev relay accepts everything, including `@invalid.invalid`, so mail is recorded sent and bounces later — there is no rejection to observe. `email_gave_up` additionally needs the retry budget to run out, which is ~10 minutes per attempt |
 | `run_structure_replaced` | the v1 API's structure PUT, which needs OAuth client credentials; `.env.dev` carries only the admin login |
 | `unit_removed_from_run` | deleting a unit from under a live session — destructive to the fixture it needs, so it wants a run created and thrown away per test |
 
@@ -421,6 +422,22 @@ cannot arrange for itself:
   The catalogue is corrected. Reaching it needs a prior *delivered* message,
   because `getMessageCounts` counts `status = 1` rows only — a queued one does
   not yet exist as far as the limiter is concerned.
+
+- **`error_email_invalid_recipient` and `error_email_invalid_subject` are
+  unreachable**, and the catalogue now says so. They are defensive
+  re-validations inside the mail daemon, but every INSERT into
+  `survey_email_log` goes through `queueNow()` or `claimSyncSend()`, both
+  downstream of `sendMail()`'s own `FILTER_VALIDATE_EMAIL` and empty-subject
+  checks — a row cannot arrive invalid. (`logMail()`, the one INSERT that
+  skips those checks, has no callers.) Kept as guards; if a future writer
+  bypasses `sendMail`, the coverage report flags them as newly reachable.
+- **A deliberately broken email account is never picked up.** The daemon's
+  poll requires `survey_email_accounts.status = 1`, and status 1 comes only
+  from `EmailAccount::test()` succeeding, while `changeSettings()` resets it
+  to 0 on every save. So the v1.8.0 give-up path can only ever fire for an
+  account that broke *after* verification — never for one misconfigured from
+  the start, whose mail sits at `status = 0` unqueued. That is the same shape
+  as the known gap for accounts deactivated after queueing.
 
 ### Building fixtures
 

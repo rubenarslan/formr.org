@@ -59,10 +59,26 @@ return [
     'email_queued'        => ['unit' => 'Email',  'reach' => 'web',  'how' => 'queued for the mail daemon'],
     'email_sent'          => ['unit' => 'Email',  'reach' => 'smtp', 'how' => 'mail daemon delivered it'],
     'error_email'         => ['unit' => 'Email',  'reach' => 'web',  'how' => 'synchronous send failed (use_queue=false)'],
-    'error_email_not_sent'        => ['unit' => 'Email', 'reach' => 'smtp', 'how' => 'SMTP rejected the message'],
-    'error_email_invalid_recipient' => ['unit' => 'Email', 'reach' => 'smtp', 'how' => 'recipient failed FILTER_VALIDATE_EMAIL in the daemon'],
-    'error_email_invalid_subject'   => ['unit' => 'Email', 'reach' => 'smtp', 'how' => 'empty subject at send time'],
-    'email_gave_up'       => ['unit' => 'Email',  'reach' => 'smtp', 'how' => 'retry budget or TTL exhausted'],
+    // Reachable in production, NOT on demand: the daemon only picks up rows
+    // whose account is `status = 1`, and status 1 is reached solely through
+    // EmailAccount::test() — a successful send — while changeSettings() resets
+    // it to 0 on every save. So an account cannot be *configured* broken; it
+    // can only *become* broken after being verified (host moves, credentials
+    // rotate, outage). No admin action reproduces that, which is why the
+    // v1.8.0 give-up path has no browser-lane coverage.
+    'error_email_not_sent'        => ['unit' => 'Email', 'reach' => 'smtp', 'how' => 'SMTP refused a message whose account was verified earlier'],
+    'email_gave_up'       => ['unit' => 'Email',  'reach' => 'smtp', 'how' => 'retry budget (4) or TTL (20min) exhausted after such a failure'],
+    // Defensive re-validation in the daemon that no current writer can reach:
+    // every INSERT into survey_email_log goes through queueNow() or
+    // claimSyncSend(), both downstream of sendMail()'s own FILTER_VALIDATE_EMAIL
+    // and empty-subject checks, so a row cannot arrive invalid. (logMail(), the
+    // one INSERT that skips those checks, has no callers.) Kept as a guard, not
+    // as an outcome — if a future writer bypasses sendMail, these fire and the
+    // coverage report flags them as newly reachable.
+    'error_email_invalid_recipient' => ['unit' => 'Email', 'reach' => 'unreachable',
+                              'why'  => 'the daemon re-checks a recipient that sendMail already validated before queueing'],
+    'error_email_invalid_subject'   => ['unit' => 'Email', 'reach' => 'unreachable',
+                              'why'  => 'the daemon re-checks a subject that sendMail already validated before queueing'],
     'email_skipped_user_disabled' => ['unit' => 'Email', 'reach' => 'web', 'how' => 'participant opted out or snoozed'],
     'email_skipped_user_active'   => ['unit' => 'Email', 'reach' => 'web', 'how' => 'cron_only unit reached by a human request'],
     'no_recipient'        => ['unit' => 'Email',  'reach' => 'web',  'how' => 'recipient field resolved to nothing'],
