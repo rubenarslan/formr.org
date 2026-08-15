@@ -39,6 +39,17 @@ const { dbQuery, dbExecRaw } = require('./helpers/db');
  *   get_run_structure_to_file / add_run_unit / update_run_structure_from_file
  *
  * The structure is checked in at tests/e2e/fixtures/rescov-fixture.json.
+ *
+ * KNOWN GAP: the fixture is single-page. `survey_data`'s `submit` items did
+ * not produce a page break — every item renders at once and `page_no` is
+ * NULL for all of them — so one submit completes the survey and
+ * survey_filling_out is never written. Setting `page_no` / `optional` by
+ * hand in the DB does NOT fix it: doing so produced an incoherent page
+ * (items from both pages, two others dropped), because pagination is
+ * derived from the survey definition at upload time rather than read from
+ * those columns at render time. The fix is a fixture whose DEFINITION
+ * paginates — an uploaded xlsx with real page breaks, or whatever
+ * survey_data shape makes the MCP emit them — not a DB edit.
  */
 const RUN = 'rescov-fixture';
 const STUDY = 'rescov_contact';
