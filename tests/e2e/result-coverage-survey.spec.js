@@ -24,50 +24,51 @@
  * tests/fixtures/result_catalogue.php.
  */
 const { test, expect } = require('./helpers/test');
-const { adminLogin, createRun, deleteRun, ADMIN_BASE } = require('./helpers/admin');
 const { dbQuery, dbExecRaw } = require('./helpers/db');
-const path = require('path');
 
-const RUN = 'rescovsurvey' + Date.now().toString(36);
-const STUDY = 'rescov_study_' + Date.now().toString(36);
-const SHEET = path.resolve(__dirname, '../../documentation/example_surveys/page1.xlsx');
+/**
+ * A shared fixture run: Survey at 10 (an `email` item, a `push_notification`
+ * item, two submit buttons so there are two pages), Endpage at 20.
+ *
+ * Built and maintained through the formr MCP rather than by driving the
+ * admin upload form in beforeAll — the form is not a thing this spec is
+ * trying to test, and reproducing it in Playwright made the fixture the
+ * most fragile part of the file. Recreate with:
+ *
+ *   create_run('rescov-fixture')
+ *   get_run_structure_to_file / add_run_unit / update_run_structure_from_file
+ *
+ * The structure is checked in at tests/e2e/fixtures/rescov-fixture.json.
+ */
+const RUN = 'rescov-fixture';
+const STUDY = 'rescov_contact';
 
-/** Distinct result values recorded for this run's unit sessions. */
+/**
+ * Distinct results for the NEWEST run session of this run. The fixture is
+ * shared and re-entered by every test, so scoping to the whole run would
+ * make each test see its predecessors' rows and pass for the wrong reason.
+ */
 function resultsFor(runName) {
     const rows = dbQuery(`
         SELECT DISTINCT us.result
           FROM survey_unit_sessions us
-          JOIN survey_run_sessions rs ON rs.id = us.run_session_id
-          JOIN survey_runs r ON r.id = rs.run_id
-         WHERE r.name = '${runName}' AND us.result IS NOT NULL;
+         WHERE us.run_session_id = (
+                   SELECT rs.id FROM survey_run_sessions rs
+                     JOIN survey_runs r ON r.id = rs.run_id
+                    WHERE r.name = '${runName}' ORDER BY rs.id DESC LIMIT 1)
+           AND us.result IS NOT NULL;
     `);
     return rows.map((r) => r.result);
 }
 
 test.describe('result coverage — Survey', () => {
-    test.beforeAll(async ({ browser }) => {
-        const page = await browser.newPage();
-        await adminLogin(page);
-
-        // A survey needs a real study: upload the smallest fixture that has
-        // more than one page, so survey_filling_out is reachable.
-        // The upload form is admin/survey/add_survey: `new_study` names the
-        // study, `uploaded` takes the spreadsheet, `add_study` submits.
-        await page.goto(ADMIN_BASE + '/admin/survey/add_survey');
-        await page.fill('input[name=new_study]', STUDY);
-        await page.setInputFiles('input[name=uploaded]', SHEET);
-        await page.click('[name=add_study]');
-        await page.waitForLoadState('networkidle');
-
-        await createRun(page, RUN);
-        await page.close();
-    });
-
-    test.afterAll(async ({ browser }) => {
-        const page = await browser.newPage();
-        await adminLogin(page);
-        await deleteRun(page, RUN).catch(() => {});
-        await page.close();
+    test.beforeAll(() => {
+        const run = dbQuery(`SELECT id, public FROM survey_runs WHERE name = '${RUN}' LIMIT 1;`);
+        test.skip(!run.length,
+            `fixture run '${RUN}' is missing — recreate it via the formr MCP from `
+            + `tests/e2e/fixtures/rescov-fixture.json`);
+        // Link-accessible, so a fresh context can enrol without a code.
+        dbExecRaw(`UPDATE survey_runs SET public = 2 WHERE name = '${RUN}';`);
     });
 
     test('a participant traversal records survey_started, survey_filling_out and survey_ended', async ({ page, context }) => {
@@ -79,6 +80,12 @@ test.describe('result coverage — Survey', () => {
 
         expect(resultsFor(RUN), 'first render must create the results row')
             .toContain('survey_started');
+
+        // Fill the email item before submitting: it is required, so an empty
+        // submit fails validation and never advances the page — and the
+        // reported address is what makes the Email unit's recipient_field
+        // (`rescov_contact$contact_email`) resolvable for the Email lane.
+        await page.fill('input[name=contact_email], input[type=email]', 'rescov@example.org');
 
         // Submit page 1 of 2 -> still filling out.
         await page.click('button[type=submit], input[type=submit]');
@@ -104,8 +111,8 @@ test.describe('result coverage — Survey', () => {
         // it and logs error_survey with the exception text. Renaming the table
         // is the least invasive way to produce a genuine failure — no code
         // path is stubbed, the exception is real.
-        const study = dbQuery(`SELECT results_table FROM survey_studies WHERE name = '${STUDY}' LIMIT 1;`);
-        test.skip(!study.length, 'study fixture not created');
+        const study = dbQuery(`SELECT results_table FROM survey_studies WHERE name = '${STUDY}' ORDER BY id DESC LIMIT 1;`);
+        test.skip(!study.length, `study '${STUDY}' is missing — see beforeAll`);
         const table = study[0].results_table;
 
         await context.clearCookies();
