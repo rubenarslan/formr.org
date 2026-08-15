@@ -361,25 +361,38 @@ unreachable. `UnitSessionQueue::processQueue` does the same thing in
 reverse, and for the same reason.
 
 
-### Fixture notes (learned the hard way)
+### Building fixtures
 
-- `survey_studies.id` is a **foreign key onto `survey_units.id`** — a study
-  *is* a unit, so the unit row must exist first and lend it its id.
-- `survey_studies.id` and `survey_items_display.id` are **not**
-  auto_increment; both need an explicit value.
-- An Email inserted by raw SQL needs `body_parsed`, not just `body`:
-  `getBody()` reads the parsed column, and `create()` is what normally fills
-  it, so an unparsed body reads as empty and yields `no_email_body`.
+**Build them through the app, not through SQL.** Units go through
+`RunUnitFactory::make($run, ['type', 'position'])->create($props)`, which
+writes `survey_units`, calls `addToRun()` for `survey_run_units`, and lets
+each subclass fill its own detail table with the parsing the app performs.
+Surveys and runs that a test needs to *share* are built with the formr MCP
+and referenced by name.
+
+An earlier version of the harness hand-rolled INSERTs, and every "schema
+gotcha" it appeared to discover was self-inflicted: `survey_studies.id` is a
+foreign key onto `survey_units.id`; `survey_studies.id` and
+`survey_items_display.id` are not auto_increment; an Email needs
+`body_parsed` and not just `body`. `create()` handles all three. A fixture
+built by SQL is a fixture the application never agreed to, and it tests a
+database state the app cannot actually produce.
+
+Still to convert: `makeContactAnswers()` fabricates a study, its items and
+an `survey_items_display` answer row directly. It should be an MCP-built
+survey with a real submission — which is the browser lane's job, since
+submitting is what produces the answer.
+
+### Two constraints that are real
+
 - Pagination in a survey comes from **item order** — an item, a `submit`,
-  then another item gives two pages. `page_no` is NULL either way and
-  editing it by hand does not paginate anything.
+  then another item gives two pages. `page_no` is NULL either way, and
+  editing it by hand produces an incoherent page rather than a second one.
 - Playwright tests that mutate shared state (the `error_survey` test renames
   a results table) **must be serial**. In parallel the symptom is a
   `fill()` timing out on an input a standalone browser finds perfectly
   visible.
 - A real push subscription cannot be earned in a test: headless Chromium has
-  no push service, and Brave disables Google's by default
+  no push service and Brave disables Google's by default
   (`brave://settings/privacy`), both yielding
-  `AbortError: Registration failed - push service error`. A well-formed
-  synthetic subscription row in `survey_items_display` exercises the same
-  code paths.
+  `AbortError: Registration failed - push service error`.
