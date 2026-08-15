@@ -69,6 +69,19 @@ abstract class ApiBase
         $this->db = $db;
         $this->request = $request;
         $this->tokenData = $token_data;
+
+        // No token at all: an action on ApiController::$unrestrictedActions,
+        // which by design carries no OAuth credentials. There is no user to
+        // hydrate and no grant to re-check, so return before the checks below
+        // rather than dereferencing a null token. Such an action must
+        // authorise on its own terms and must not read $this->user —
+        // end-last-external does both: it identifies the participant by their
+        // session code, which already grants control of that session (it is
+        // what a run URL's ?code= carries).
+        if ($token_data === null) {
+            return;
+        }
+
         // Retrieves the user associated with the access token
         $this->user = OAuthHelper::getInstance()->getUserByEmail($token_data['user_id']);
 

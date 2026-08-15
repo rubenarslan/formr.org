@@ -280,7 +280,17 @@ class ApiController extends Controller
     {
         try {
             $this->authenticate($action); // only proceed if authenticated, if not exit via response
-            $token_data = $this->oauthServer->getAccessTokenData(OAuth2\Request::createFromGlobals());
+            // authenticate() deliberately returns without building an OAuth
+            // server for $unrestrictedActions, so resolving token data
+            // unconditionally fataled with "Call to a member function
+            // getAccessTokenData() on null" — swallowed by the Throwable catch
+            // below into a JSON 500. That is every call to the one endpoint
+            // declared unrestricted (end-last-external), which is why v1.8.0's
+            // fix to the TypeError further down never showed: the request died
+            // here, before ApiV0 was ever constructed.
+            $token_data = $this->oauthServer
+                ? $this->oauthServer->getAccessTokenData(OAuth2\Request::createFromGlobals())
+                : null;
             $method = $this->getPrivateAction($action, '-', true);
 
             $api = new ApiV0($request, $this->fdb, $token_data);

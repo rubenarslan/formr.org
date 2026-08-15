@@ -4,8 +4,9 @@
  * CI guard for tests/fixtures/result_catalogue.php.
  *
  * The catalogue is the declared inventory of every value that can land in
- * `survey_unit_sessions.result`, and it drives the live coverage harness
- * (bin/test_result_coverage_smoke.php). An inventory nobody checks rots
+ * `survey_unit_sessions.result`, and it is the checklist the browser
+ * coverage lane works through (tests/e2e/result-coverage-*.spec.js, scored
+ * by bin/result_coverage_report.php). An inventory nobody checks rots
  * within a release, so this scans the source and fails when the two
  * disagree in either direction:
  *
@@ -76,8 +77,8 @@ class ResultCatalogueTest extends \PHPUnit\Framework\TestCase
         $this->assertSame([], array_values($missing),
             "These result values are written by the code but absent from "
             . "tests/fixtures/result_catalogue.php. Add them, with how they "
-            . "are reached, and extend bin/test_result_coverage_smoke.php if "
-            . "they are reachable: " . implode(', ', $missing));
+            . "are reached, and add a tests/e2e/result-coverage-*.spec.js "
+            . "scenario if they are reachable: " . implode(', ', $missing));
     }
 
     /**

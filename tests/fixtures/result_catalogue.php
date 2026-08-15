@@ -7,8 +7,10 @@
  *   - tests/ResultCatalogueTest.php — CI guard. Fails if the source grows a
  *     result literal that is not listed here, or if an entry here no longer
  *     appears in the source. Keeps this file honest without a DB.
- *   - bin/test_result_coverage_smoke.php — live-MariaDB harness that drives
- *     real executions and asserts each reachable value actually lands.
+ *   - tests/e2e/result-coverage-*.spec.js — the browser lane. Fixtures built
+ *     through the formr MCP, traversed as a participant, asserted on the row.
+ *     bin/result_coverage_report.php scores what those specs observed against
+ *     this file.
  *
  * `reach` values:
  *   web         — a participant request through RunSession::execute()

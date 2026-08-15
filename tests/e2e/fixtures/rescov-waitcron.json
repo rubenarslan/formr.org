@@ -1,0 +1,50 @@
+{
+  "name": "rescov-waitcron",
+  "units": [
+    {
+      "type": "Pause",
+      "description": "parks the participant so the Wait is entered BY CRON, never by a request",
+      "position": 10,
+      "special": null,
+      "wait_until_time": null,
+      "wait_until_date": null,
+      "wait_minutes": 1,
+      "relative_to": null,
+      "body": "One minute, then the daemon moves you into the Wait."
+    },
+    {
+      "type": "Wait",
+      "description": "entered by the cron cascade, elapses under the daemon -> wait_ended",
+      "position": 20,
+      "special": null,
+      "wait_until_time": null,
+      "wait_until_date": null,
+      "wait_minutes": 1,
+      "relative_to": null,
+      "body": 30
+    },
+    {
+      "type": "Endpage",
+      "description": "the Wait body target",
+      "position": 30,
+      "special": null,
+      "body": "Wait elapsed.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-waitcron/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-waitcron/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-waitcron/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

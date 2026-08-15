@@ -315,203 +315,158 @@ version.
 6. **Pause**, **External** and **Page** unit-level items.
 7. Delete `Privacy`.
 
-## Result coverage harness
 
-`tests/fixtures/result_catalogue.php` inventories every value that can land
-in `survey_unit_sessions.result` — 49 reachable plus 8 declared unreachable
-or dead. Two consumers keep it honest:
+## Result coverage: the browser lane
 
-- `tests/ResultCatalogueTest.php` (unit lane, no DB) scans the source and
-  fails if the code grows a result the catalogue doesn't list, or if an
-  entry no longer appears in the code.
-- `bin/test_result_coverage_smoke.php` (live MariaDB) builds fixture runs,
-  drives real `RunSession::execute()` traversals, and reads the resulting
-  rows back — never the return value of `execute()`, since the whole defect
-  class here is a result the code computes and the row never receives.
+**Tests drive formr the way admins and participants do.** Fixtures are built
+through the formr MCP — that is the admin API — and traversed in a browser.
+Nothing is driven from PHP, and nothing is fabricated with SQL.
 
-It also asserts the *negative*: `manual_admin_push` is driven deliberately
-via `forceTo()` and the run fails if it ever persists, because the
-catalogue declares it unreachable. That turns each unreachability claim in
-this document into something a future change trips over.
+The PHP harness that used to hold this coverage is gone. Its own shape was
+the argument against it: it had to call `asParticipant()` to force
+`cron = false`, because `Model::boot()` derives that flag from
+`Site::runningInConsole()`. Wait's early return, External's `api_end` branch
+and Endpage's render are all gated on `!isExecutedByCron()`, so a CLI harness
+silently exercises the *cron* arm of every unit unless it fakes the very
+thing it is meant to observe. A browser needs no such fake. It also carried
+`makeContactAnswers()` (a study, its items and an answer row, all INSERTed)
+and `fakeSubscription()` — each a compensation for not being in a browser.
 
-Current state: **30/50 driven** by the PHP lane plus 4 more by the browser
-lane, 0 unreachable results unexpectedly persisted. Covered end to end: all four skip outcomes plus its OpenCPU
-error, `group_N`, both Pause outcomes, `wait_ended_by_user`, all five
-External outcomes plus its OpenCPU error, `ended`, and `moved`.
+### The pieces
 
-Not yet driven, and why:
+| | |
+|---|---|
+| `tests/fixtures/result_catalogue.php` | Every value that can land in `survey_unit_sessions.result`: owning unit, how it is reached, and for the unreachable ones, why. The checklist. |
+| `tests/ResultCatalogueTest.php` | Unit lane, no DB. Fails if the source grows a result the catalogue lacks, or an entry goes stale. It already earned its keep: it caught `survey_completed` becoming reachable when `resolveEndResult()` changed `end()`. |
+| `tests/e2e/result-coverage-*.spec.js` | The lane. One file per family. |
+| `tests/e2e/helpers/results.js` | Shared reading side: `sessionRows`/`sessionTrace` (newest run session, with the position each row ran at), `enrol`, `recordObserved`. |
+| `tests/e2e/fixtures/rescov-*.json` | Every fixture run, exported through the admin's own **Export** route, so it can be rebuilt by **Import**. |
+| `bin/result_coverage_report.php` | Reconciles what the specs observed against the catalogue. |
 
-- **Survey** (4) needs a real `survey_studies` row with items and a results
-  table; the fixture builder only creates unit definitions.
-- **Email** (11) and **PushMessage** (5) need an email account and a push
-  subscription respectively, and the `smtp` ones need a mail-daemon pass.
-- **`expired`, `wait_ended`, `waiting_deprecated`, `ended_by_queue_rse`,
-  `swept_stale`** need a real queue/sweep pass rather than a direct
-  `execute()`.
-- **`external_ended`, `run_structure_replaced`, `unit_removed_from_run`**
-  are admin/callback paths with no scenario yet.
+Each spec is its own process, so no spec can hold a running total. They
+deposit what they produced (`recordObserved`) into
+`tests/e2e/.observed-results.json`, and the report reconciles the union
+against the catalogue. The count is derived, never maintained by hand:
 
-One trap worth recording for anyone extending it: `Model::boot()` sets
-`cron = Site::runningInConsole()`, so **every** `execute()` driven from a
-CLI script reports `isExecutedByCron() === true`. Wait's early-return,
-External's `api_end` branch and Endpage's render are all gated on
-`!isExecutedByCron()`, so without `asParticipant()` the harness silently
-exercises the cron arm of every unit and reports the web-side results as
-unreachable. `UnitSessionQueue::processQueue` does the same thing in
-reverse, and for the same reason.
+```
+npx playwright test --config tests/e2e/playwright.config.js result-coverage
+php bin/result_coverage_report.php
+```
 
+### Where it stands
 
-### Building fixtures
-
-**Build them through the app, not through SQL.** Units go through
-`RunUnitFactory::make($run, ['type', 'position'])->create($props)`, which
-writes `survey_units`, calls `addToRun()` for `survey_run_units`, and lets
-each subclass fill its own detail table with the parsing the app performs.
-Surveys and runs that a test needs to *share* are built with the formr MCP
-and referenced by name.
-
-An earlier version of the harness hand-rolled INSERTs, and every "schema
-gotcha" it appeared to discover was self-inflicted: `survey_studies.id` is a
-foreign key onto `survey_units.id`; `survey_studies.id` and
-`survey_items_display.id` are not auto_increment; an Email needs
-`body_parsed` and not just `body`. `create()` handles all three. A fixture
-built by SQL is a fixture the application never agreed to, and it tests a
-database state the app cannot actually produce.
-
-Still to convert: `makeContactAnswers()` fabricates a study, its items and
-an `survey_items_display` answer row directly. It should be an MCP-built
-survey with a real submission — which is the browser lane's job, since
-submitting is what produces the answer.
-
-### Two constraints that are real
-
-- Pagination in a survey comes from **item order** — an item, a `submit`,
-  then another item gives two pages. `page_no` is NULL either way, and
-  editing it by hand produces an incoherent page rather than a second one.
-- Playwright tests that mutate shared state (the `error_survey` test renames
-  a results table) **must be serial**. In parallel the symptom is a
-  `fill()` timing out on an input a standalone browser finds perfectly
-  visible.
-- A real push subscription cannot be earned in a test: headless Chromium has
-  no push service and Brave disables Google's by default
-  (`brave://settings/privacy`), both yielding
-  `AbortError: Registration failed - push service error`.
-
----
-
-# Handover: result-coverage testing
-
-## The decision
-
-**End-to-end means the browser.** Tests drive the app the way admins and
-participants do. The PHP harness that currently holds most of the coverage
-is to be retired, not maintained alongside — two lanes drift, and the PHP
-one drifts away from what users see.
-
-The clearest evidence is in the harness itself. It needs `asParticipant()`
-to force `cron = false`, because `Model::boot()` derives that flag from
-`Site::runningInConsole()`. Wait's early return, External's `api_end`
-branch and Endpage's render are all gated on `!isExecutedByCron()`, so a
-CLI harness silently exercises the *cron* arm of every unit unless it fakes
-the very thing it is meant to observe. A browser needs no such fake.
-
-## What to keep
-
-- **`tests/fixtures/result_catalogue.php`** — the inventory of all 50
-  results: owning unit, how it is reached, and for the unreachable ones,
-  why. Lane-agnostic and the spine of the whole effort.
-- **`tests/ResultCatalogueTest.php`** — CI guard, fast, no DB. Fails when
-  the code grows a result the catalogue lacks or an entry goes stale. It
-  already earned its place: it caught `survey_completed` becoming reachable
-  when `resolveEndResult()` changed `end()`.
-- **The negative assertions.** Driving `forceTo()` and asserting
-  `manual_admin_push` does *not* persist turns an unreachability claim into
-  something a future change trips over. Keep this pattern for every
-  `unreachable` entry.
-- **`tests/e2e/result-coverage-survey.spec.js`** — the pattern to copy.
-  Reads `survey_unit_sessions.result` out of the DB rather than inspecting
-  the page, because a green page proves nothing about the row.
-
-## What to retire
-
-`bin/test_result_coverage_smoke.php`, once its scenarios have specs. Along
-with it go the three compensations for not being in a browser:
-`asParticipant()`, `makeContactAnswers()` (fabricates a study, items and an
-`survey_items_display` answer row) and `fakeSubscription()`. Each existed
-only because the harness could not do what a browser does for free.
-
-## The specs to write
-
-Build runs through the **formr MCP** — that is the admin API — and traverse
-as a participant in the browser. Assert on the row.
+**22 of 50 reachable entries, 0 of 8 unreachable ones persisted.**
 
 | Spec | Results |
 |---|---|
-| participant traversal: skips | `skip_true`, `skip_false`, `skip_to`, `skip_to_invalid`, `error_opencpu_r` |
-| participant traversal: Shuffle | `group_N` |
-| participant traversal: Pause/Wait | `pause_waiting`, `wait_ended_by_user` |
-| participant traversal: External | all five outcomes + `error_opencpu` |
-| participant traversal: Page | `ended`, `error_opencpu_down` |
-| Survey (exists) | `survey_started`, `survey_filling_out`, `survey_completed`, `error_survey` |
-| Email, on the `email-fixture` shape | `email_queued`, `email_sent`, `no_email_subject`, `no_email_body`, `invalid_email`, `no_recipient`, `no_sender`, `email_skipped_user_*`, `error_email` |
-| Push, with a real subscription | `sent`, `error`, `no_subscription`, `message_parse_failed`, `title_parse_failed` |
-| admin actions | `moved`, `external_ended`, `run_structure_replaced`, `unit_removed_from_run`; assert `manual_admin_push` stays absent |
-| queue pass | `expired`, `pause_ended`, `wait_ended`, `waiting_deprecated`, `ended_by_queue_rse`, `swept_stale`, `email_gave_up`, `error_email_not_sent` |
+| `result-coverage-traversal` | `skip_false`, `skip_true`, `skip_to`, `skip_to_invalid`, `error_opencpu_r`, `group_N`, `pause_waiting`, `wait_ended_by_user`, `ended` |
+| `result-coverage-external` | `external_compute`, `external_r_call_no_redirect`, `external_redirect`, `external_r_redirect`, `external_wait_for_api`, `external_ended`, `error_opencpu` |
+| `result-coverage-survey` | `survey_started`, `survey_filling_out`, `survey_completed`, `error_survey` |
+| `result-coverage-queue` | `pause_ended`, `wait_ended` |
 
-The last row has no browser path — a participant never triggers those — but
-it needs no separate lane: `tests/e2e/helpers/queue.js` `runQueueOnce()`
-shells out to the real worker, so a spec sets the run up in the browser,
-triggers a genuine daemon pass, and asserts.
+Still to write, and what each needs:
 
-## Fixtures that already work
+- **Email** (11) — an account and a recipient. `email-fixture` already
+  delivers (Survey 10 → Email 20 → Page 30, `recipient_field = NULL` so it
+  uses the most recent reported address; `survey_email_log` rows at status
+  1). The five `smtp` ones also need a mail-daemon pass.
+- **PushMessage** (5) — a real subscription. Headless Chromium has no push
+  service and Brave disables Google's by default
+  (`brave://settings/privacy`), both giving `AbortError: Registration failed
+  - push service error`. Enabling it in a real browser works, so this spec
+  needs a persistent profile or an explicit skip.
+- **admin actions** (4) — `moved`, `survey_ended`, `run_structure_replaced`,
+  `unit_removed_from_run`, all driven from the admin UI. This spec also owes
+  the **negative** assertions: drive `forceTo()` and assert
+  `manual_admin_push` does *not* persist. Until it exists, the report's "0 of
+  8 unreachable persisted" line is true but vacuous — nothing drives them.
+- **cron** (4) — `expired`, `waiting_deprecated`, `ended_by_queue_rse`,
+  `swept_stale`.
 
-- **`email-fixture`** — Survey (10) → Email (20) → Page (30). The Email has
-  `recipient_field = NULL`, i.e. "most recent reported address", so the
-  address the participant submits upstream is what it sends to. Confirmed
-  delivering: `survey_email_log` carries rows at status 1. This is the
-  shape the Email spec should build on; no `smtp.invalid` stand-in and no
-  synthetic answer row are needed.
-- **`rescov-fixture`** — Survey (`rescov_contact2`) → Endpage. Page 1 is an
-  `email` item, page 2 a `push_notification` item (optional). `public = 2`
-  so a fresh context can enrol without a code. Used by the Survey spec.
+### What this lane established that the PHP one could not
 
-Both are shared and outlive a test run. Delete them when this work settles.
+- **`wait_ended` is unreachable through a participant's own visit.** Any
+  non-cron request on a parked Wait takes the early-return branch, so a Wait
+  a participant walks into ends as `wait_ended_by_user` on arrival. The
+  elapsed path needs the Wait to be entered *by the cron cascade* —
+  participant parked on a Pause, daemon ends it and advances them while they
+  are away — which is how a diary study reaches one. `rescov-waitcron` is
+  built that way (Pause → Wait → Endpage); the first attempt put the Wait
+  first and recorded `wait_ended_by_user`, which is not a flake but the
+  v1.8.0 finding reproducing itself.
+- **The `end-last-external` API callback was still 100% broken** after
+  v1.8.0 fixed the `TypeError` inside it. `ApiController::doAction()`
+  resolved token data unconditionally, but `authenticate()` deliberately
+  builds no OAuth server for `$unrestrictedActions` — so every call died on
+  `getAccessTokenData() on null`, one line before `ApiV0` was constructed,
+  and the Throwable catch turned it into a JSON 500. Fixed here, with
+  `ApiBase` now tolerating a null token for unrestricted actions. The
+  External spec covers it end to end: the participant is redirected out
+  carrying `{{login_code}}`, the service posts back, the row becomes
+  `external_ended`.
 
-## Traps, all paid for once already
+### Building fixtures
+
+**Through the app, never SQL.** A row written by INSERT is a state the
+application never agreed to. An earlier harness hand-rolled them and every
+"schema gotcha" it appeared to discover was self-inflicted:
+`survey_studies.id` is a foreign key onto `survey_units.id`;
+`survey_studies.id` and `survey_items_display.id` are not auto_increment; an
+Email needs `body_parsed` and not just `body`.
+
+The MCP recipe, and the whole of it:
+
+```
+create_run('rescov-skips')
+get_run_structure_to_file('rescov-skips')
+add_run_unit(...)                               # once per unit
+update_run_structure_from_file('rescov-skips')
+update_run_settings('rescov-skips', {public: 2})
+```
+
+`public: 2` is load-bearing — it is what lets a fresh browser context enrol
+without a code, which is what makes these plain participant traversals.
+
+`add_run_unit` with `survey_data` creates a Survey's study and items inline,
+so even a survey fixture needs no spreadsheet upload. **Give those items both
+`order` and `item_order`.** Without them formr renders the items in whatever
+sequence the query returns: `rescov-pages` first rendered correctly, then
+flipped to `q2, q1, submit` on a later run — two pages silently collapsed
+into one, and the spec failed on a missing input rather than on anything it
+was testing. Reading rows back to assert is fine; only writing them is not.
+
+Fixtures live on the dev instance and are shared. Export each one via the
+run editor's Export button (`admin/run/<name>/export_run_structure`) into
+`tests/e2e/fixtures/`, so a lost fixture can be rebuilt with Import.
+
+### Traps, all paid for once already
 
 - **Survey pagination comes from item order**: an item, a `submit`, then
-  another item gives two pages. `page_no` is NULL either way; editing it by
-  hand yields an incoherent page, not a second one.
+  another item gives two pages. `page_no` is NULL either way; editing that
+  column by hand yields an incoherent page, not a second one.
 - **Serialise specs that mutate shared state.** The `error_survey` test
-  renames a results table. Run in parallel it breaks a concurrent
-  traversal, and the symptom is a `fill()` timing out on an input a
-  standalone browser finds perfectly visible — which is very misleading.
-- **Push subscriptions**: headless Chromium has no push service, and Brave
-  disables Google's by default (`brave://settings/privacy` → "Use Google
-  services for push messaging"), both giving
-  `AbortError: Registration failed - push service error`. Enabling it in a
-  real browser works. Decide whether the Push spec uses a persistent
-  profile with a real subscription or is marked as needing one.
-- **Build fixtures through the app**, never SQL. Reading rows to assert is
-  correct; building them by INSERT produces a state the app never agreed to.
-- `npm install` in this worktree — `node_modules` is currently a symlink
-  into `formr-docker/formr_source`, which is fragile.
+  renames a results table. In parallel it breaks a concurrent traversal, and
+  the symptom is a `fill()` timing out on an input a standalone browser finds
+  perfectly visible.
+- **Never revisit a parked Wait in the browser** unless the point is
+  `wait_ended_by_user`.
+- **Don't put a widget the test environment can't render alone on a page.**
+  The previous Survey fixture had an optional `push_notification` item as all
+  of page 2; headless Chromium collapsed the page and sometimes crashed
+  outright. A survey fixture should exercise paging, not push support.
+- **`node_modules` in a release worktree is a symlink** into
+  `formr-docker/formr_source`. `playwright.config.js` now finds `.env.dev`
+  from either checkout (`FORMR_ENV_FILE` overrides).
 
-## Bugs found here and NOT fixed
+### Bugs found here and NOT fixed
 
-- **PushMessage `error` writes no row at all.** A send against an
-  unreachable endpoint left only the fixture's rows. Suspected the same
-  `Error`-vs-`Exception` shape as the Branch `TypeError` fixed in
-  `d6be93c6`: `catch (Exception $e)` does not catch an `Error`. Worth
-  checking before release — if so, a push send failure loses its record
-  entirely, which is this document's whole subject.
+- **PushMessage `error` writes no row at all.** A send against an unreachable
+  endpoint left only the fixture's rows. Suspected the same
+  `Error`-vs-`Exception` shape as the Branch `TypeError` fixed in `d6be93c6`:
+  `catch (Exception $e)` does not catch an `Error`. Worth checking before
+  release — if so, a push send failure loses its own record entirely, which
+  is this document's whole subject.
 - Everything in *Per-unit findings* above that is not marked fixed.
   `forceTo()` manufacturing false Survey completions (X1) is the one that
-  reaches published numbers.
-
-## Where coverage stood at handover
-
-30/50 in the PHP lane, 4 in the browser lane, 0 unreachable results
-unexpectedly persisted. Those numbers do not transfer: the browser lane
-starts from the Survey spec and grows as each family is converted. The
-catalogue, not the count, is the checklist.
+  reaches published numbers, and the admin-actions spec is where it gets
+  pinned.
