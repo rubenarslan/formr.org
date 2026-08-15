@@ -69,7 +69,24 @@ class External extends RunUnit {
     }
 
     public function removeFromRun($special = null) {
-        return $this->delete($special);
+        // v1.8.0: unlink the placement, do NOT delete the unit definition.
+        //
+        // This override used to be `return $this->delete($special)`, and
+        // delete() drops the survey_units row — which
+        // survey_unit_sessions.unit_id references ON DELETE CASCADE. So
+        // removing one of these units from a run silently deleted every
+        // participant's unit session for it: not a strand, an erasure of the
+        // history an admin was still looking at. Six of the nine unit types
+        // did this (Page/Endpage, Pause, External, Branch, SkipForward,
+        // SkipBackward, Shuffle); the three that use the base removeFromRun
+        // (Survey, Email, PushMessage) only ever unlinked, which is why the
+        // difference went unnoticed.
+        //
+        // The base ends live sessions at the placement first (audit F22/F7)
+        // and then deletes only the survey_run_units row. An orphaned unit
+        // definition is the price, and the admin UI already has a path for
+        // those ("Just delete orphan units", AdminAjaxController).
+        return parent::removeFromRun($special);
     }
 
     private function isR($address) {

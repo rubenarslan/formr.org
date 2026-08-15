@@ -159,22 +159,17 @@ test.describe('result coverage — structure changes under live sessions', () =>
     });
 
     test('deleting a unit expires the sessions parked at it as unit_removed_from_run', async ({ page, browser, playwright }) => {
-        // STILL SKIPPED, but it found a real bug on the way. The delete goes
-        // through and the parked row keeps its NULL result, because The delete
-        // went through but the parked row kept its NULL result, because the
-        // F22/F7 guard lived only in the BASE removeFromRun() — used by
-        // Survey, Email and PushMessage — while Page/Endpage, Pause,
-        // External, Branch/Skip and Shuffle all override it with
-        // `return $this->delete($special)` and skipped it. Fixed in v1.8.0 by
-        // moving the guard into delete() as well; this fixture deletes an
-        // Endpage, one of the six that were unprotected.
+        // This test found a data-loss bug rather than passing first time.
         //
-        // That fix is shipped and is right on its own terms, but it does NOT
-        // yet make this assertion pass — something further in still leaves
-        // the row blank (next suspects: run_unit_id being null on the object
-        // findByRunUnitId builds, or a Page-specific delete()). Unverified
-        // fix, unfinished test, both said plainly.
-        test.skip(true, 'the guard is fixed but the row is still not stamped — see the comment');
+        // Six of the nine unit types — Page/Endpage, Pause, External, Branch,
+        // SkipForward/SkipBackward and Shuffle — overrode removeFromRun()
+        // with `return $this->delete($special)`, and delete() drops the
+        // survey_units row, which survey_unit_sessions.unit_id references ON
+        // DELETE CASCADE. So "remove this unit from the run" silently deleted
+        // every participant's session for it. The row this test looks for was
+        // not blank; it was gone. Fixed in v1.8.0 by unlinking the placement
+        // instead, which is what the three types using the base
+        // removeFromRun (Survey, Email, PushMessage) always did.
         const created = await participantWithLiveNullRow(browser, DEL_RUN);
 
         // The run editor's delete button. It asks for confirmation the first

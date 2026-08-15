@@ -355,7 +355,7 @@ php bin/result_coverage_report.php
 
 ### Where it stands
 
-**41 of 49 reachable entries, 0 of 9 unreachable ones persisted.**
+**42 of 49 reachable entries, 0 of 9 unreachable ones persisted.**
 
 | Spec | Results |
 |---|---|
@@ -368,7 +368,7 @@ php bin/result_coverage_report.php
 | `result-coverage-queue` | `pause_ended`, `wait_ended` |
 | `result-coverage-expiry-optout` | `email_skipped_user_disabled` (and a documented, skipped attempt at `expired`) |
 | `result-coverage-cron` | `waiting_deprecated`, `expired` (and a documented, skipped attempt at `swept_stale`) |
-| `result-coverage-structure` | `run_structure_replaced` (and a documented, skipped attempt at `unit_removed_from_run`) |
+| `result-coverage-structure` | `run_structure_replaced`, `unit_removed_from_run` |
 | `result-coverage-outage` | behind `RESCOV_OUTAGE=1`: `error_opencpu_down`, and `error_email` when the instance is in synchronous mode |
 
 The 15 that remain are not simply unwritten — each needs something a spec
@@ -439,6 +439,20 @@ cannot arrange for itself:
   account that broke *after* verification — never for one misconfigured from
   the start, whose mail sits at `status = 0` unqueued. That is the same shape
   as the known gap for accounts deactivated after queueing.
+
+- **Removing a unit from a run DELETED participants' history**, for six of
+  the nine unit types. Page/Endpage, Pause, External, Branch,
+  SkipForward/SkipBackward and Shuffle each overrode `removeFromRun()` with
+  `return $this->delete($special)` — and `delete()` drops the `survey_units`
+  row, which `survey_unit_sessions.unit_id` references **ON DELETE CASCADE**.
+  So an admin tidying a run silently erased every unit session for that unit:
+  not the dangling-placement strand the F22/F7 audit fixed, but the loss of
+  the rows an admin might be reading. The three types that use the base
+  `removeFromRun()` (Survey, Email, PushMessage) only ever unlinked, which is
+  why the difference went unnoticed. Fixed in v1.8.0: the overrides delegate
+  to the base, which ends live sessions at the placement and then deletes only
+  the `survey_run_units` row. Found by this suite — the coverage test deleted
+  an Endpage and its parked row was not blank, it was *gone*.
 
 ### Building fixtures
 
