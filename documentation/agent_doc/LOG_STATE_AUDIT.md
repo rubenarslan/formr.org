@@ -334,8 +334,8 @@ via `forceTo()` and the run fails if it ever persists, because the
 catalogue declares it unreachable. That turns each unreachability claim in
 this document into something a future change trips over.
 
-Current state: **17/49 driven**, 0 unreachable results unexpectedly
-persisted. Covered end to end: all four skip outcomes plus its OpenCPU
+Current state: **30/50 driven** by the PHP lane plus 4 more by the browser
+lane, 0 unreachable results unexpectedly persisted. Covered end to end: all four skip outcomes plus its OpenCPU
 error, `group_N`, both Pause outcomes, `wait_ended_by_user`, all five
 External outcomes plus its OpenCPU error, `ended`, and `moved`.
 
@@ -359,3 +359,27 @@ External's `api_end` branch and Endpage's render are all gated on
 exercises the cron arm of every unit and reports the web-side results as
 unreachable. `UnitSessionQueue::processQueue` does the same thing in
 reverse, and for the same reason.
+
+
+### Fixture notes (learned the hard way)
+
+- `survey_studies.id` is a **foreign key onto `survey_units.id`** — a study
+  *is* a unit, so the unit row must exist first and lend it its id.
+- `survey_studies.id` and `survey_items_display.id` are **not**
+  auto_increment; both need an explicit value.
+- An Email inserted by raw SQL needs `body_parsed`, not just `body`:
+  `getBody()` reads the parsed column, and `create()` is what normally fills
+  it, so an unparsed body reads as empty and yields `no_email_body`.
+- Pagination in a survey comes from **item order** — an item, a `submit`,
+  then another item gives two pages. `page_no` is NULL either way and
+  editing it by hand does not paginate anything.
+- Playwright tests that mutate shared state (the `error_survey` test renames
+  a results table) **must be serial**. In parallel the symptom is a
+  `fill()` timing out on an input a standalone browser finds perfectly
+  visible.
+- A real push subscription cannot be earned in a test: headless Chromium has
+  no push service, and Brave disables Google's by default
+  (`brave://settings/privacy`), both yielding
+  `AbortError: Registration failed - push service error`. A well-formed
+  synthetic subscription row in `survey_items_display` exercises the same
+  code paths.
