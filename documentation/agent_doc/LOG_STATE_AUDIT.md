@@ -355,7 +355,7 @@ php bin/result_coverage_report.php
 
 ### Where it stands
 
-**36 of 51 reachable entries, 0 of 7 unreachable ones persisted.**
+**37 of 51 reachable entries, 0 of 7 unreachable ones persisted.**
 
 | Spec | Results |
 |---|---|
@@ -366,6 +366,7 @@ php bin/result_coverage_report.php
 | `result-coverage-push` | `no_subscription`, and behind `RESCOV_PUSH=1`: `sent`, `message_parse_failed`, `title_parse_failed` |
 | `result-coverage-admin` | `survey_ended`, `moved`, **and the negative**: `manual_admin_push` must stay absent |
 | `result-coverage-queue` | `pause_ended`, `wait_ended` |
+| `result-coverage-expiry-optout` | `email_skipped_user_disabled` (and a documented, skipped attempt at `expired`) |
 
 The 15 that remain are not simply unwritten — each needs something a spec
 cannot arrange for itself:
@@ -374,10 +375,10 @@ cannot arrange for itself:
 |---|---|
 | `error_email` | `email.use_queue = false`, an instance-wide config change |
 | `no_sender` | an owner with NO email account: `changeSettings` silently substitutes the first one whenever `account_id` is null |
-| `email_skipped_user_disabled` | an opt-out through the run's settings page, which only renders for a participant whose address formr knows — so this fixture needs a survey-collected address, not an R literal |
 | `error_opencpu_down` | OpenCPU actually unreachable (stopping `formr_r` mid-suite) |
 | `error` (Push) | a *broken* subscription; a healthy one cannot produce it, and this is the suspected write-no-row bug below |
-| `expired`, `waiting_deprecated`, `ended_by_queue_rse`, `swept_stale` | per-unit expiry settings and legacy flags the MCP does not expose, plus a sweep run |
+| `expired` | a participant who answers an item and then goes quiet. `expire_after` is the INACTIVITY timer: setting it through the survey settings form works (the spec does), but a freshly opened Survey still gets `expires = NULL` and `queued = 0`, so no daemon pass considers it. The attempt is checked in, skipped, with the finding |
+| `waiting_deprecated`, `ended_by_queue_rse`, `swept_stale` | legacy flags the MCP does not expose, a run session that ends while another unit is still queued, and a sweep over a stalled row |
 | `error_email_not_sent`, `error_email_invalid_recipient`, `error_email_invalid_subject`, `email_gave_up` | an SMTP relay that REFUSES. The dev relay accepts everything, including `@invalid.invalid`, so mail is recorded sent and bounces later — there is no rejection to observe. `email_gave_up` additionally needs the retry budget to run out, which is ~10 minutes per attempt |
 | `run_structure_replaced` | the v1 API's structure PUT, which needs OAuth client credentials; `.env.dev` carries only the admin login |
 | `unit_removed_from_run` | deleting a unit from under a live session — destructive to the fixture it needs, so it wants a run created and thrown away per test |
