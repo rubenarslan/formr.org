@@ -27,9 +27,17 @@ return [
     // ---- Survey -----------------------------------------------------
     'survey_started'      => ['unit' => 'Survey', 'reach' => 'web',  'how' => 'first render creates the results row'],
     'survey_filling_out'  => ['unit' => 'Survey', 'reach' => 'web',  'how' => 'page submitted, more pages remain'],
-    'survey_completed'    => ['unit' => 'Survey', 'reach' => 'unreachable',
-                              'why'  => 'logged, then end() overwrites with survey_ended before anything can read it'],
-    'survey_ended'        => ['unit' => 'Survey', 'reach' => 'web',  'how' => 'final page submitted -> end() type default'],
+    // v1.8.0 flipped these two. Before resolveEndResult(), end() re-derived
+    // the result from the unit TYPE, so survey_completed was written and
+    // immediately overwritten by survey_ended — it was unreachable. Now the
+    // unit's own verdict survives, so a genuine completion records
+    // survey_completed and survey_ended is only what end() falls back to when
+    // nothing was logged this pass (a forced advance, a queue-driven end).
+    // Analyses filtering on result='survey_ended' to count completions must
+    // be updated; that is the point of the change, since the two were
+    // previously indistinguishable.
+    'survey_completed'    => ['unit' => 'Survey', 'reach' => 'web',  'how' => 'final page submitted; the unit logs its own verdict'],
+    'survey_ended'        => ['unit' => 'Survey', 'reach' => 'admin', 'how' => "end() type default when the unit logged nothing this pass"],
     'error_survey'        => ['unit' => 'Survey', 'reach' => 'web',  'how' => 'exception in processStudy (e.g. missing results table)'],
     'expired'             => ['unit' => 'Survey', 'reach' => 'cron', 'how' => 'X+Y or Z deadline passes -> expire()'],
 

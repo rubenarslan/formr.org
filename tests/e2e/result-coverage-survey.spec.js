@@ -70,6 +70,12 @@ function resultsFor(runName) {
 }
 
 test.describe('result coverage — Survey', () => {
+    // MUST be serial. The error_survey test renames the study's results table
+    // out from under the run, which is global state: run in parallel it breaks
+    // the traversal test's page mid-flight, and the symptom is a fill() that
+    // times out on an input a standalone browser finds visible.
+    test.describe.configure({ mode: 'serial' });
+
     test.beforeAll(() => {
         const run = dbQuery(`SELECT id, public FROM survey_runs WHERE name = '${RUN}' LIMIT 1;`);
         test.skip(!run.length,
@@ -106,12 +112,13 @@ test.describe('result coverage — Survey', () => {
         await page.waitForLoadState('networkidle');
 
         const results = resultsFor(RUN);
-        expect(results, 'the completed survey ends via end()').toContain('survey_ended');
         expect(results,
-            'survey_completed is catalogued unreachable: the unit logs it and end() '
-            + 'overwrites it with survey_ended in the same request. If this ever '
-            + 'appears, update tests/fixtures/result_catalogue.php.')
-            .not.toContain('survey_completed');
+            'v1.8.0: resolveEndResult() keeps the unit\'s own verdict, so a genuine '
+            + 'completion records survey_completed. Before it, end() re-derived the '
+            + 'result from the unit type and this was survey_ended — which is why a '
+            + 'real completion and an admin force-push were indistinguishable.')
+            .toContain('survey_completed');
+        expect(results, 'the endpage ends the run session').toContain('ended');
     });
 
     test('a broken results table records error_survey', async ({ page, context }) => {
