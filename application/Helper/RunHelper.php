@@ -147,6 +147,13 @@ class RunHelper {
             $query[] = ' `survey_run_sessions`.session IN (' . implode( ',', $queryParams['sessions']) . ') ';
         }
 
+        // isset, not !empty: testing=0 ("real users only") is a valid filter.
+        // Backed by idx_run_testing_last_access (patch 074) so the guinea-pig
+        // view stays a range scan on a run with many real sessions.
+        if (isset($queryParams['testing'])) {
+            $query[] = ' `survey_run_sessions`.testing = :testing ';
+        }
+
         if (!empty($queryParams['position'])) {
             $query[] = " `survey_run_sessions`.position {$queryParams['position_operator']} :position ";
         }
@@ -198,7 +205,7 @@ class RunHelper {
         // unfiltered page: move it up if already present, else prepend it.
         $firstPage = strpos((string) $limits, '0,') === 0;
         $unfiltered = empty($queryParams['session']) && empty($queryParams['sessions'])
-            && empty($queryParams['position']);
+            && empty($queryParams['position']) && !isset($queryParams['testing']);
         if ($adminCode && $firstPage && $unfiltered) {
             $data = $data ?: array();
             $present = false;

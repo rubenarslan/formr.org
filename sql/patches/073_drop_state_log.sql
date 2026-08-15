@@ -35,5 +35,23 @@
 -- Irreversible: the JSON is dropped, not archived. That is deliberate. Every
 -- field in it is reconstructable from result, result_log, the unit type and
 -- the row's own timestamps, so there is nothing to migrate out.
+--
+-- IF EXISTS, because the column's presence depends on which of the two
+-- install paths a database came from, and this patch has to be correct on
+-- both:
+--
+--   * upgraded from <=1.7.x — 047 added state_log, so it is there and this
+--     drops it;
+--   * fresh install — sql/schema.sql is the baseline and the commit that
+--     added this patch also removed the column from it, so a new database
+--     never had one. That is the right end state for a fresh install (the
+--     alternative is creating a column in order to drop it), and it is also
+--     the state the migrations CI reproduces: it seeds schema.sql, baselines
+--     at the highest patch on the base branch, and replays only the patches
+--     the PR adds. Without the guard that replay failed with errno 1091.
+--
+-- General rule this cost us once: a patch may reconcile sql/schema.sql in the
+-- same commit, but then it must tolerate the object already being in the
+-- state it is trying to reach, because the CI will hand it exactly that.
 ALTER TABLE `survey_unit_sessions`
-    DROP COLUMN `state_log`;
+    DROP COLUMN IF EXISTS `state_log`;
