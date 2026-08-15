@@ -28,7 +28,8 @@ const OBSERVED_PATH = path.resolve(__dirname, '../.observed-results.json');
  */
 function sessionRows(runName) {
     return dbQuery(`
-        SELECT sru.position AS position,
+        SELECT us.id        AS id,
+               sru.position AS position,
                su.type      AS type,
                us.result    AS result,
                IFNULL(us.result_log, '') AS result_log
@@ -42,6 +43,7 @@ function sessionRows(runName) {
                          WHERE rs2.run_id = r.id)
          ORDER BY us.id;
     `).map((r) => ({
+        id: parseInt(r.id, 10),
         position: r.position === null ? null : parseInt(r.position, 10),
         type: r.type,
         result: r.result,

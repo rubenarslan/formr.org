@@ -3,7 +3,7 @@
   "units": [
     {
       "type": "Survey",
-      "description": "study rescov_expire, whose expire_after the spec sets to 1 minute",
+      "description": "two pages: the participant answers page 1 and then goes quiet",
       "position": 10,
       "special": null,
       "survey_data": {
@@ -14,8 +14,8 @@
             "choice_list": null,
             "type_options": null,
             "name": "q1",
-            "label": "Left unanswered on purpose",
-            "label_parsed": "Left unanswered on purpose",
+            "label": "Answer this, then go quiet",
+            "label_parsed": "Answer this, then go quiet",
             "optional": 0,
             "class": null,
             "showif": null,
@@ -27,15 +27,29 @@
             "type": "submit",
             "choice_list": null,
             "type_options": null,
-            "name": "done",
-            "label": "Done",
-            "label_parsed": "Done",
+            "name": "page1",
+            "label": "Continue",
+            "label_parsed": "Continue",
             "optional": 0,
             "class": null,
             "showif": null,
             "value": null,
             "block_order": null,
             "item_order": 2
+          },
+          {
+            "type": "text",
+            "choice_list": null,
+            "type_options": null,
+            "name": "q2",
+            "label": "Never answered",
+            "label_parsed": "Never answered",
+            "optional": 0,
+            "class": null,
+            "showif": null,
+            "value": null,
+            "block_order": null,
+            "item_order": 3
           }
         ],
         "settings": {

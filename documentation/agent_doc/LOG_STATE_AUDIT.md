@@ -355,8 +355,7 @@ php bin/result_coverage_report.php
 
 ### Where it stands
 
-**38 of 49 reachable entries, 0 of 9 unreachable ones persisted.** (Two
-entries moved from reachable to unreachable — see the Email note below.)
+**41 of 49 reachable entries, 0 of 9 unreachable ones persisted.**
 
 | Spec | Results |
 |---|---|
@@ -368,6 +367,8 @@ entries moved from reachable to unreachable — see the Email note below.)
 | `result-coverage-admin` | `survey_ended`, `moved`, **and the negative**: `manual_admin_push` must stay absent |
 | `result-coverage-queue` | `pause_ended`, `wait_ended` |
 | `result-coverage-expiry-optout` | `email_skipped_user_disabled` (and a documented, skipped attempt at `expired`) |
+| `result-coverage-cron` | `waiting_deprecated`, `expired` (and a documented, skipped attempt at `swept_stale`) |
+| `result-coverage-structure` | `run_structure_replaced` (and a documented, skipped attempt at `unit_removed_from_run`) |
 | `result-coverage-outage` | behind `RESCOV_OUTAGE=1`: `error_opencpu_down`, and `error_email` when the instance is in synchronous mode |
 
 The 15 that remain are not simply unwritten — each needs something a spec

@@ -1,0 +1,39 @@
+{
+  "name": "rescov-removeunit",
+  "units": [
+    {
+      "type": "Pause",
+      "description": "one minute; the daemon then creates the Endpage row below without executing it",
+      "position": 10,
+      "special": null,
+      "wait_until_time": null,
+      "wait_until_date": null,
+      "wait_minutes": 1,
+      "relative_to": null,
+      "body": "One minute."
+    },
+    {
+      "type": "Endpage",
+      "description": "deleted by the spec, then restored — its live NULL row is what gets stamped",
+      "position": 20,
+      "special": null,
+      "body": "Done.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-removeunit/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-removeunit/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-removeunit/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

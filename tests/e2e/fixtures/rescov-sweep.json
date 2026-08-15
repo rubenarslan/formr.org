@@ -1,0 +1,91 @@
+{
+  "name": "rescov-sweep",
+  "units": [
+    {
+      "type": "Pause",
+      "description": "relative_to sleeps 3s in R, giving a window to abort the request mid-execution",
+      "position": 10,
+      "special": null,
+      "wait_until_time": null,
+      "wait_until_date": null,
+      "wait_minutes": 60,
+      "relative_to": "{ Sys.sleep(3); Sys.time() }",
+      "body": "Parked."
+    },
+    {
+      "type": "Survey",
+      "description": "created by the cron cascade and left with a NULL result — what the sweep stamps",
+      "position": 20,
+      "special": null,
+      "survey_data": {
+        "name": "rescov_sweep",
+        "items": [
+          {
+            "type": "text",
+            "choice_list": null,
+            "type_options": null,
+            "name": "q1",
+            "label": "Never answered",
+            "label_parsed": "Never answered",
+            "optional": 0,
+            "class": null,
+            "showif": null,
+            "value": null,
+            "block_order": null,
+            "item_order": 1
+          },
+          {
+            "type": "submit",
+            "choice_list": null,
+            "type_options": null,
+            "name": "done",
+            "label": "Done",
+            "label_parsed": "Done",
+            "optional": 0,
+            "class": null,
+            "showif": null,
+            "value": null,
+            "block_order": null,
+            "item_order": 2
+          }
+        ],
+        "settings": {
+          "maximum_number_displayed": 0,
+          "displayed_percentage_maximum": 100,
+          "add_percentage_points": 0,
+          "enable_instant_validation": 0,
+          "expire_after": 0,
+          "google_file_id": null,
+          "unlinked": 0,
+          "expire_invitation_after": 0,
+          "expire_invitation_grace": 0,
+          "hide_results": 0,
+          "use_paging": 0
+        }
+      }
+    },
+    {
+      "type": "Endpage",
+      "description": "never reached",
+      "position": 30,
+      "special": null,
+      "body": "Done.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-sweep/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-sweep/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-sweep/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}
