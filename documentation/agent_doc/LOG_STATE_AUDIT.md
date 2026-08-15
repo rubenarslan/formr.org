@@ -355,7 +355,11 @@ php bin/result_coverage_report.php
 
 ### Where it stands
 
-**43 of 49 reachable entries, 0 of 9 unreachable ones persisted.**
+**45 of 49 reachable entries, 0 of 9 unreachable ones persisted.** The four
+left are `error_email` (needs the instance in synchronous mode),
+`email_gave_up` (needs 20 minutes of blackholed SMTP, verified by hand),
+`swept_stale` and `ended_by_queue_rse` (both need an interruption or a race
+that no participant or admin action produces).
 
 | Spec | Results |
 |---|---|
@@ -369,6 +373,8 @@ php bin/result_coverage_report.php
 | `result-coverage-expiry-optout` | `email_skipped_user_disabled` (and a documented, skipped attempt at `expired`) |
 | `result-coverage-cron` | `waiting_deprecated`, `expired` (and a documented, skipped attempt at `swept_stale`) |
 | `result-coverage-structure` | `run_structure_replaced`, `unit_removed_from_run` |
+| `result-coverage-nosender` | `no_sender` |
+| `result-coverage-smtp` | `error_email_not_sent` |
 | `result-coverage-outage` | behind `RESCOV_OUTAGE=1`: `error_opencpu_down`, and `error_email` when the instance is in synchronous mode |
 
 The 15 that remain are not simply unwritten — each needs something a spec
@@ -377,9 +383,8 @@ cannot arrange for itself:
 | Result | What it needs |
 |---|---|
 | `error_email` | `email.use_queue = false`, an instance-wide config change. Verified by hand once (flip, traverse `rescov-mail-syncfail`, flip back: it records `error_email`; queueing restored, it records `email_queued`). The spec detects the mode from behaviour and skips unless someone has flipped it |
-| `no_sender` | an owner with NO email account: `changeSettings` silently substitutes the first one whenever `account_id` is null |
-| `error_email_not_sent`, `email_gave_up` | an account that BREAKS AFTER being verified. The daemon only picks up rows whose account is `status = 1`; status 1 is reached solely through `EmailAccount::test()` — a successful send — and `changeSettings()` resets it to 0 on every save. So an account cannot be *configured* broken, only *become* broken (host moves, credentials rotate, outage), which no admin action reproduces on demand. Reaching these needs either a DB write or breaking name resolution to the real SMTP host from inside the container |
-| `error` (Push) | a *broken* subscription; a healthy one cannot produce it, and this is the suspected write-no-row bug below |
+| `email_gave_up` | four failed attempts, spaced by `max(60, queue_item_ttl / queue_item_tries)` — 20 minutes of blackholed SMTP at stock settings. Verified by hand with `queue_item_ttl` temporarily at 60s ("Gave up after 4 delivery attempts…"), config restored and diffed after. Not automated: too long to leave a shared instance unable to mail |
+| ~~`error_email_not_sent`~~ COVERED, and the mechanism is worth keeping: The daemon only picks up rows whose account is `status = 1`; status 1 is reached solely through `EmailAccount::test()` — a successful send — and `changeSettings()` resets it to 0 on every save. So an account cannot be *configured* broken, only *become* broken (host moves, credentials rotate, outage), which no admin action reproduces on demand. Reaching these needs either a DB write or breaking name resolution to the real SMTP host from inside the container |
 | `expired` | a participant who answers an item and then goes quiet. `expire_after` is the INACTIVITY timer: setting it through the survey settings form works (the spec does), but a freshly opened Survey still gets `expires = NULL` and `queued = 0`, so no daemon pass considers it. The attempt is checked in, skipped, with the finding |
 | `waiting_deprecated`, `ended_by_queue_rse`, `swept_stale` | legacy flags the MCP does not expose, a run session that ends while another unit is still queued, and a sweep over a stalled row |
 | `run_structure_replaced` | the v1 API's structure PUT, which needs OAuth client credentials; `.env.dev` carries only the admin login |
