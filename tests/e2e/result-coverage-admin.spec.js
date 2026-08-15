@@ -1,20 +1,23 @@
 /**
  * Result coverage — what an admin's own buttons write onto a participant's row.
  *
- * Also the home of this suite's NEGATIVE assertions. The catalogue declares
- * `manual_admin_push` unreachable, and the audit says why: `forceTo()` calls
- * `end()` (which stamps `ended = NOW()`) and only then assigns the label and
- * calls `logResult()`, whose `AND ended IS NULL` guard matches zero rows. An
- * unreachability claim nobody drives is a claim nobody checks, so this drives
- * the exact path and fails if the label ever appears.
+ * This file drove audit finding X1 before and after its fix, and the
+ * assertions changed direction as a result.
  *
- * That same path is finding X1: `end()` on a Survey also stamps
+ * BEFORE: `forceTo()` called `end()` — which stamps `ended = NOW()` — and only
+ * then assigned `manual_admin_push` and called `logResult()`, whose
+ * `AND ended IS NULL` guard matched zero rows. The label had never once
+ * existed in the database. Worse, `end()` on a Survey also stamps
  * `results_table.ended` and fires `StudyMetrics::recordCompletion()`, so an
- * admin "send to position" on someone parked mid-survey manufactures a row
- * that analysis counts as a completion. This spec pins the observable half —
- * a force-moved Survey records `survey_ended`, a genuine completion records
- * `survey_completed` (see result-coverage-survey.spec.js) — so the day X1 is
- * fixed, the fix has something to move.
+ * admin "send to position" on someone parked mid-survey manufactured a row
+ * that analysis counts as a completion — permanently, and in bulk through
+ * `positionSessions()`.
+ *
+ * AFTER (v1.8.0): the reason is passed INTO `end()`, so it lands; and `end()`
+ * takes a `$completes` flag that the two operator paths (`forceTo`,
+ * `forceMoveOn`) set false, so a forced advance no longer finishes anyone's
+ * survey. Both are asserted below — the label, and the results row staying
+ * unfinished, which is the half that reaches published numbers.
  *
  * Fixture (MCP-built, exported to tests/e2e/fixtures/rescov-admin.json):
  *   10 Survey `rescov_pages`   20 Pause 600min   30 Endpage
@@ -29,6 +32,7 @@ const { ensureAdminState, STATE_PATH, sendToPosition, nextInRun } = require('./h
 const { sessionRows, sessionTrace, runExists, recordObserved, enrolInOwnContext } = require('./helpers/results');
 
 const RUN = 'rescov-admin';
+const STUDY = 'rescov_pages';
 
 /** The code of the run session a participant just created. */
 function newestSession(runName) {
@@ -54,14 +58,18 @@ test.describe('result coverage — admin actions', () => {
     test.describe.configure({ mode: 'serial' });
     test.use({ storageState: STATE_PATH });
 
+    let resultsTable = null;
+
     test.beforeAll(async ({ browser }) => {
+        const st = dbQuery(`SELECT results_table FROM survey_studies WHERE name = '${STUDY}' ORDER BY id DESC LIMIT 1;`);
+        resultsTable = st.length ? st[0].results_table : null;
         test.skip(!runExists(RUN),
             `fixture run '${RUN}' is missing — rebuild it from `
             + `tests/e2e/fixtures/${RUN}.json via the run editor's Import button`);
         await ensureAdminState(browser);
     });
 
-    test('force-moving a participant mid-survey records survey_ended, never manual_admin_push', async ({ page, browser }) => {
+    test('force-moving a participant mid-survey records manual_admin_push, not a completion', async ({ page, browser }) => {
         // The participant needs their OWN context: `page` here is the admin's,
         // and clearing its cookies to enrol would log the admin out — after
         // which every admin POST lands on the login page, returns 200, and
@@ -77,20 +85,30 @@ test.describe('result coverage — admin actions', () => {
 
         const survey = sessionRows(RUN).find((r) => r.position === 10);
         expect(survey.result,
-            'end() falls back to the unit type default because the Survey logged '
-            + 'nothing on this pass — nobody submitted anything')
-            .toBe('survey_ended');
+            'v1.8.0 (audit X1): the operator\'s own label now lands. It used to '
+            + 'be assigned AFTER end() had set `ended`, so logResult()\'s '
+            + '`ended IS NULL` guard matched zero rows and manual_admin_push had '
+            + 'never once existed in the database — leaving a forced advance '
+            + 'indistinguishable from the unit\'s own ending.')
+            .toBe('manual_admin_push');
 
-        // The negative. forceTo() tries to write manual_admin_push AFTER end()
-        // has already set `ended`, so logResult()'s `ended IS NULL` guard
-        // matches no rows and the label has never existed in the database, for
-        // any unit type. If this starts failing, the audit finding is fixed —
-        // update tests/fixtures/result_catalogue.php in the same change.
-        expect(allResultsEver(RUN),
-            'X1: forceTo() calls end() first, so its own label can never land')
-            .not.toContain('manual_admin_push');
+        // The invariant that matters more than the label: a force-move must not
+        // be counted as a completion. end() stamps the results row's `ended`
+        // and fires StudyMetrics::recordCompletion(), and `ended IS NOT NULL`
+        // is how analysis counts finishers — so this used to inflate a study's
+        // completion count and fold a non-completion into its geometric-mean
+        // duration, permanently, in bulk via positionSessions().
+        const results = dbQuery(`
+            SELECT ended FROM \`${resultsTable}\`
+             WHERE session_id = ${survey.id} LIMIT 1;
+        `);
+        if (results.length) {
+            expect(results[0].ended,
+                'an admin force-move must leave the results row unfinished')
+                .toBeNull();
+        }
 
-        recordObserved(['survey_ended']);
+        recordObserved(['manual_admin_push']);
     });
 
     test('advancing a parked participant records moved', async ({ page, browser }) => {
@@ -110,8 +128,6 @@ test.describe('result coverage — admin actions', () => {
         expect(sessionRows(RUN).filter((r) => r.position === 20).pop().result,
             'an operator-forced advance is labelled as one, not as the unit\'s '
             + 'own outcome').toBe('moved');
-
-        expect(allResultsEver(RUN)).not.toContain('manual_admin_push');
 
         recordObserved(['moved']);
     });

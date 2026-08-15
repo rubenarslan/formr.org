@@ -547,11 +547,29 @@ class UnitSession extends Model {
         return $expired === 1;
     }
 
-    public function end($reason = null) {
+    /**
+     * @param string|null $reason  explicit terminal result, wins over the type default
+     * @param bool $completes      false when an OPERATOR ended this, not the participant
+     */
+    public function end($reason = null, $completes = true) {
         $unit = $this->runUnit;
 
         if ($unit->type == "Survey" || $unit->type == "External") {
-            if ($unit->type == "Survey") {
+            // Audit X1 (v1.8.0): an admin force-move is not a completion.
+            //
+            // The UPDATE below flips the results row's `ended` from NULL to
+            // now, and `ended IS NOT NULL` is the standard completion filter in
+            // analysis — so an admin using "send to position" on someone parked
+            // mid-survey manufactured a row indistinguishable from a real
+            // completion, and recordCompletion() folded its duration into the
+            // study's geometric mean. RunSession::positionSessions() does it in
+            // bulk. The rollup is an accumulator, so the skew was permanent and
+            // silent, and it reached published numbers.
+            //
+            // $completes is false for the two operator paths (forceTo,
+            // forceMoveOn). Everything else — participants finishing, the
+            // queue, expiry — is unaffected.
+            if ($unit->type == "Survey" && $completes) {
                 $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
                 $params = array('session_id' => $this->id, 'study_id' => $unit->surveyStudy->id);
                 $ended_now = $this->db->exec($query, $params);

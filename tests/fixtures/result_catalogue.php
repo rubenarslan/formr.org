@@ -39,7 +39,13 @@ return [
     // be updated; that is the point of the change, since the two were
     // previously indistinguishable.
     'survey_completed'    => ['unit' => 'Survey', 'reach' => 'web',  'how' => 'final page submitted; the unit logs its own verdict'],
-    'survey_ended'        => ['unit' => 'Survey', 'reach' => 'admin', 'how' => "end() type default when the unit logged nothing this pass"],
+    // v1.8.0 narrowed this further. The admin force-move used to land here —
+    // end() had no reason to honour — but forceTo() now passes
+    // 'manual_admin_push' (audit X1), so that path no longer produces it. What
+    // remains is end() called with NO reason on a Survey that logged nothing
+    // this pass. The browser lane has no scenario that does, so it shows as
+    // uncovered; that is accurate rather than a gap to paper over.
+    'survey_ended'        => ['unit' => 'Survey', 'reach' => 'admin', 'how' => "end() type default: no reason given and nothing logged this pass"],
     'error_survey'        => ['unit' => 'Survey', 'reach' => 'web',  'how' => 'exception in processStudy (e.g. missing results table)'],
     'expired'             => ['unit' => 'Survey', 'reach' => 'cron', 'how' => 'X+Y or Z deadline passes -> expire()'],
 
@@ -141,8 +147,12 @@ return [
     'swept_stale'         => ['unit' => '(engine)', 'reach' => 'cron',  'how' => 'stalled-session sweep, only on a row with a NULL result'],
     'run_structure_replaced' => ['unit' => '(engine)', 'reach' => 'admin', 'how' => 'structure replaced under live sessions; COALESCE, so only on a NULL result'],
     'unit_removed_from_run'  => ['unit' => '(engine)', 'reach' => 'admin', 'how' => 'unit deleted under live sessions; COALESCE, so only on a NULL result'],
-    'manual_admin_push'   => ['unit' => '(engine)', 'reach' => 'unreachable',
-                              'why'  => 'forceTo() calls end() first, so logResult()\'s `ended IS NULL` guard matches zero rows'],
+    // Was unreachable until v1.8.0: forceTo() assigned the label AFTER end()
+    // had set `ended`, so logResult()'s `ended IS NULL` guard matched zero
+    // rows. It is now passed as end()'s reason (audit X1), which also stops
+    // that path counting as a survey completion.
+    'manual_admin_push'   => ['unit' => '(engine)', 'reach' => 'admin',
+                              'how'  => 'forceTo() — the admin send-to-position button'],
 
     // ---- Dead code --------------------------------------------------
     'security_token_error' => ['unit' => 'Survey',  'reach' => 'dead',

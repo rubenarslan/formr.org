@@ -538,9 +538,24 @@ abstract class ApiBase
                 srs.session AS run_session,
                 COALESCE(sru_own.position, sru_fallback.position) AS position,
                 sus.unit_id,
-                sus.result AS `group`,
+                -- Audit X2 (v1.8.0): read the group from the `shuffle` table,
+                -- which is where Shuffle::getUnitSessionOutput() writes it and
+                -- what `shuffle$group` resolves to in R and in the admin's
+                -- randomisation page and its exports. This used to select
+                -- `sus.result`, a SECOND copy of the same fact in a different
+                -- value space (the string 'group_2' against the integer 2),
+                -- with nothing keeping the two in sync — and it was the copy
+                -- that gets overwritten: anything writing another reason into
+                -- `result` before the participant returns made the API report
+                -- a group of 'moved' or 'manual_admin_push' for someone whose
+                -- R still read 2. Formatting stays `group_N` so existing
+                -- clients see the value they always did; only the source of
+                -- truth changes. COALESCE keeps a legacy row whose shuffle
+                -- entry predates the table readable via its old result.
+                COALESCE(CONCAT('group_', sh.`group`), sus.result) AS `group`,
                 sus.created
             FROM survey_unit_sessions AS sus
+            LEFT JOIN `shuffle` AS sh ON sh.session_id = sus.id
             LEFT JOIN survey_run_sessions AS srs ON srs.id = sus.run_session_id
             LEFT JOIN survey_units AS u ON u.id = sus.unit_id
             LEFT JOIN survey_run_units AS sru_own ON sru_own.id = sus.run_unit_id

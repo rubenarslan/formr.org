@@ -58,7 +58,7 @@ has real readers — and the effort moved to `result` / `result_log`.
 
 ## Cross-cutting defects (not owned by any one unit)
 
-**X1 — `RunSession::forceTo()` can never record its reason.**
+**X1 — `RunSession::forceTo()` can never record its reason.** *(FIXED, v1.8.0)*
 `RunSession.php:587-591` calls `end()` (which sets `ended = NOW()`), then
 assigns `result = 'manual_admin_push'` and calls `logResult()`, whose
 `ended IS NULL` guard matches zero rows. The label has never existed in
@@ -74,20 +74,35 @@ geometric-mean duration. `RunSession::positionSessions()` does this in
 bulk. The rollup is an accumulator, so the skew is permanent, and
 `ended IS NOT NULL` is the standard completion filter in analysis.
 
-*The obvious fix is a trap.* `end('manual_admin_push')` makes the label
-land — and for a **Shuffle** that would replace `result='group_2'`,
-destroying the API's only copy of the group assignment (see X2). Fix X2
-first, or exempt units whose `result` is load-bearing.
+*The fix, and why X2 had to go first.* `end('manual_admin_push', false)`
+now carries both halves: the reason reaches `resolveEndResult()` so the
+label finally lands, and the new `$completes` flag stops the Survey arm
+stamping `results_table.ended` or calling `recordCompletion()`.
+`forceMoveOn()` passes it too — an operator advancing someone is not them
+finishing. This was only safe once X2 was fixed: passing a reason
+overwrites `result`, which for a Shuffle used to be the API's only copy of
+the group assignment. Pinned by `tests/e2e/result-coverage-admin.spec.js`
+(the label AND the results row staying unfinished) and
+`tests/e2e/result-coverage-shuffle-api.spec.js`.
 
-**X2 — the API and the admin read group assignment from different columns.**
+*Consequence for the catalogue:* `manual_admin_push` moves from
+`unreachable` to `admin`. A forced advance is now distinguishable from a
+unit's own ending, which is what the whole finding was about.
+
+**X2 — the API and the admin read group assignment from different columns.** *(FIXED, v1.8.0)*
 `ApiBase.php:528` selects `sus.result AS group`, so the v1 API returns the
 string `"group_2"`; the admin randomisation page and its CSV/XLSX export
 read the authoritative `shuffle`.`group`, an integer. Two value spaces,
 nothing keeping them in sync, and the API's source is the
 wholesale-overwrite column. Anything that writes a reason into `result`
 before the participant returns (`forceMoveOn('moved')`, reachable from the
-admin "next in run" button) makes the API report `group: "moved"` for a
+admin "next in run" button) made the API report `group: "moved"` for a
 participant whose R still reads `2`.
+
+*Fixed (v1.8.0):* the query reads `shuffle`.`group` and formats it as
+`group_N`, so the wire format clients already parse is unchanged and only
+the source of truth moved. A legacy row whose shuffle entry predates the
+table still falls back to its old `result` via COALESCE.
 
 **X3 — `opencpu_last_error()` reports the wrong error after a knit failure.**
 Two independent mechanisms on one line (`Page.php:137`): the
@@ -355,11 +370,15 @@ php bin/result_coverage_report.php
 
 ### Where it stands
 
-**45 of 49 reachable entries, 0 of 9 unreachable ones persisted.** The four
-left are `error_email` (needs the instance in synchronous mode),
-`email_gave_up` (needs 20 minutes of blackholed SMTP, verified by hand),
-`swept_stale` and `ended_by_queue_rse` (both need an interruption or a race
-that no participant or admin action produces).
+**45 of 50 reachable entries, 0 of 8 unreachable ones persisted.**
+(`manual_admin_push` moved from unreachable to reachable when X1 was fixed,
+which is why the denominators shifted.) The five left: `error_email` (needs
+the instance in synchronous mode), `email_gave_up` (needs 20 minutes of
+blackholed SMTP, verified by hand), `swept_stale` and `ended_by_queue_rse`
+(an interruption and a race that no participant or admin action produces),
+and `survey_ended`, which the X1 fix narrowed — the admin force-move now
+records `manual_admin_push`, so nothing in the suite reaches the bare type
+default any more.
 
 | Spec | Results |
 |---|---|

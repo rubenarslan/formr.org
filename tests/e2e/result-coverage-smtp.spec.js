@@ -25,7 +25,7 @@
  * v1.8.0 with `queue_item_ttl` temporarily at 60s ("Gave up after 4 delivery
  * attempts…"), and the config was restored and diffed afterwards.
  *
- * Fixture: rescov-mail-queued (Email on the verified account, with a fresh
+ * Fixture: rescov-mail-smtpfail (Email on the verified account, with a fresh
  * recipient per execution so the rate limiter never interferes).
  *
  * See documentation/agent_doc/LOG_STATE_AUDIT.md.
@@ -36,7 +36,11 @@ const { dbQuery } = require('./helpers/db');
 const { sessionRows, runExists, recordObserved, enrol, waitForResult } = require('./helpers/results');
 
 const DAEMON = 'formr_mail_daemon';
-const RUN = 'rescov-mail-queued';
+// Its OWN fixture, not the one the email spec uses for `email_sent`.
+// Sharing rescov-mail-queued meant this spec's blackhole could catch that
+// spec's in-flight message: `email_sent` quietly stopped being observed in
+// full-lane runs while both specs still passed.
+const RUN = 'rescov-mail-smtpfail';
 
 function docker(...args) {
     return execFileSync('docker', args, { encoding: 'utf8' }).trim();

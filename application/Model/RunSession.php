@@ -585,9 +585,22 @@ class RunSession extends Model {
             $this->reloadFromDb();
             // If there a unit for current position, then end the unit's session before moving
             if (($unitSession = $this->getCurrentUnitSession())) {
-                $unitSession->end();
-                $unitSession->result = 'manual_admin_push';
-                $unitSession->logResult();
+                // Audit X1 (v1.8.0). Two defects in these four lines:
+                //
+                // end() stamped the results row's `ended` and fired
+                // StudyMetrics::recordCompletion(), so force-moving someone
+                // parked mid-survey manufactured a completion — permanently,
+                // since the rollup accumulates. `$completes = false` says this
+                // was an operator, not the participant.
+                //
+                // And the label never landed: end() sets `ended = NOW()`, then
+                // logResult() carries `AND ended IS NULL`, so the UPDATE
+                // matched zero rows and every call site ignored the return
+                // value. 'manual_admin_push' had never once existed in the
+                // database, for any unit type. Passing it as end()'s reason
+                // puts it where it belongs, and resolveEndResult() gives it
+                // precedence over the type default.
+                $unitSession->end('manual_admin_push', false);
             }
             return $this->runTo($position, null, false, true);
         } finally {
@@ -618,7 +631,10 @@ class RunSession extends Model {
             if (!$unitSession) {
                 return false;
             }
-            $unitSession->end($reason);
+            // Audit X1: an operator advancing someone is not them finishing.
+            // Same reasoning as forceTo() — this path is reached from the admin
+            // "next in run" button and the v1 API's advance action.
+            $unitSession->end($reason, false);
             return (bool) $this->moveOn();
         } finally {
             $this->releaseLock($lock_name);
