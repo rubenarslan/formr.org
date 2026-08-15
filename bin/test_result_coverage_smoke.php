@@ -215,7 +215,11 @@ function makeContactAnswers(DB $db, array &$artefacts, int $run_id, int $rs_id, 
         $r = $db->execute("SELECT COALESCE(MAX(id), 0) + 1 AS n FROM `{$table}`", [], false, true);
         return (int) $r['n'];
     };
-    $study_id = $nextId('survey_studies');
+    // survey_studies.id is a FK onto survey_units.id — a study IS a unit, so
+    // the unit row has to exist first and lend it its id.
+    $unit_id = $db->insert('survey_units', ['type' => 'Survey', 'created' => mysql_now(), 'modified' => mysql_now()]);
+    $db->insert('survey_run_units', ['run_id' => $run_id, 'unit_id' => $unit_id, 'position' => 5]);
+    $study_id = $unit_id;
     $db->insert('survey_studies', [
         'id' => $study_id,
         'user_id' => $owner_id,
@@ -223,9 +227,6 @@ function makeContactAnswers(DB $db, array &$artefacts, int $run_id, int $rs_id, 
         'created' => mysql_now(), 'modified' => mysql_now(),
     ]);
     $artefacts['studies'][] = $study_id;
-
-    $unit_id = $db->insert('survey_units', ['type' => 'Survey', 'created' => mysql_now(), 'modified' => mysql_now()]);
-    $db->insert('survey_run_units', ['run_id' => $run_id, 'unit_id' => $unit_id, 'position' => 5]);
 
     $us_id = $db->insert('survey_unit_sessions', [
         'run_session_id' => $rs_id, 'unit_id' => $unit_id,
@@ -435,9 +436,9 @@ try {
     // the Email outcomes become reachable.
     say("\n-- Email (with a reported address) --");
     $withAddr = [
-        'email_queued'     => ['subject' => 'S', 'body' => 'B'],
-        'no_email_subject' => ['subject' => '', 'body' => 'B'],
-        'no_email_body'    => ['subject' => 'S', 'body' => ''],
+        'email_queued'     => ['subject' => 'S', 'body' => 'B', 'body_parsed' => '<p>B</p>'],
+        'no_email_subject' => ['subject' => '', 'body' => 'B', 'body_parsed' => '<p>B</p>'],
+        'no_email_body'    => ['subject' => 'S', 'body' => '', 'body_parsed' => ''],
     ];
     foreach ($withAddr as $want => $cols) {
         $f = makeRun($db, $artefacts, $owner_id, 'emailaddr', [
@@ -460,7 +461,7 @@ try {
 
     // An address that resolves but is not deliverable.
     $f = makeRun($db, $artefacts, $owner_id, 'emailbad', [
-        10 => ['type' => 'Email', 'cols' => ['subject' => 'S', 'body' => 'B', 'recipient_field' => null, 'account_id' => $acct]],
+        10 => ['type' => 'Email', 'cols' => ['subject' => 'S', 'body' => 'B', 'body_parsed' => '<p>B</p>', 'recipient_field' => null, 'account_id' => $acct]],
         20 => ['type' => 'Page', 'cols' => ['body' => 'done']],
     ]);
     $rs_id = $db->insert('survey_run_sessions', [
