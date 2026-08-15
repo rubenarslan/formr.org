@@ -209,7 +209,7 @@ function runQueueOnce(): void {
  * something a test can earn; a well-formed synthetic one exercises exactly
  * the code paths the catalogue is about.
  */
-function makeContactAnswers(DB $db, array &$artefacts, int $run_id, int $rs_id, string $email, $subscription) {
+function makeContactAnswers(DB $db, array &$artefacts, int $run_id, int $rs_id, string $email, $subscription, int $owner_id = 0) {
     // survey_studies.id and survey_items_display.id are not auto_increment.
     $nextId = function (string $table) use ($db): int {
         $r = $db->execute("SELECT COALESCE(MAX(id), 0) + 1 AS n FROM `{$table}`", [], false, true);
@@ -218,6 +218,7 @@ function makeContactAnswers(DB $db, array &$artefacts, int $run_id, int $rs_id, 
     $study_id = $nextId('survey_studies');
     $db->insert('survey_studies', [
         'id' => $study_id,
+        'user_id' => $owner_id,
         'name' => 'rescov_contact_' . bin2hex(random_bytes(3)),
         'created' => mysql_now(), 'modified' => mysql_now(),
     ]);
@@ -447,7 +448,7 @@ try {
             'run_id' => $f['run_id'], 'session' => 'RESCOV' . bin2hex(random_bytes(9)),
             'created' => mysql_now(), 'position' => 10,
         ]);
-        makeContactAnswers($db, $artefacts, $f['run_id'], $rs_id, 'rescov@example.org', null);
+        makeContactAnswers($db, $artefacts, $f['run_id'], $rs_id, 'rescov@example.org', null, $owner_id);
         $row = $db->execute('SELECT session FROM survey_run_sessions WHERE id = :id', ['id' => $rs_id], false, true);
         $rs = new RunSession($row['session'], new Run(null, $f['run_id']));
         asParticipant($rs);
@@ -466,7 +467,7 @@ try {
         'run_id' => $f['run_id'], 'session' => 'RESCOV' . bin2hex(random_bytes(9)),
         'created' => mysql_now(), 'position' => 10,
     ]);
-    makeContactAnswers($db, $artefacts, $f['run_id'], $rs_id, 'not-an-address', null);
+    makeContactAnswers($db, $artefacts, $f['run_id'], $rs_id, 'not-an-address', null, $owner_id);
     $row = $db->execute('SELECT session FROM survey_run_sessions WHERE id = :id', ['id' => $rs_id], false, true);
     $rs = new RunSession($row['session'], new Run(null, $f['run_id']));
     asParticipant($rs);
@@ -515,7 +516,7 @@ try {
             'run_id' => $f['run_id'], 'session' => 'RESCOV' . bin2hex(random_bytes(9)),
             'created' => mysql_now(), 'position' => 10,
         ]);
-        makeContactAnswers($db, $artefacts, $f['run_id'], $rs_id, 'rescov@example.org', fakeSubscription());
+        makeContactAnswers($db, $artefacts, $f['run_id'], $rs_id, 'rescov@example.org', fakeSubscription(), $owner_id);
         $row = $db->execute('SELECT session FROM survey_run_sessions WHERE id = :id', ['id' => $rs_id], false, true);
         $rs = new RunSession($row['session'], new Run(null, $f['run_id']));
         asParticipant($rs);
