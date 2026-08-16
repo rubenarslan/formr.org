@@ -2,7 +2,7 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [v1.8.0] - unreleased
+## [v1.8.0] - 16.08.2026
 
 Queue-hardening release. A three-angle audit of the RunUnit queue after v1.7.1 turned up eight defects; the seven verified against the code — and, where possible, against the live database — are fixed here. The common shape: a unit session reaches a state that neither the daemon pickup nor the recovery sweep can act on, so the participant silently stops progressing; or a delivery fails in a way nothing records. Plus one upstream feature.
 
