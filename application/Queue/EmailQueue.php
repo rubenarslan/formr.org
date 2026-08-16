@@ -283,6 +283,20 @@ class EmailQueue extends Queue {
         $note = 'Gave up after ' . (int) $this->itemTries . ' delivery attempts to ' . $recipient
             . '. The participant never received this email. Last error: ' . $error;
 
+        // Retire the row so giving up is actually terminal. Without this,
+        // a row that trips isGivingUp()'s TTL arm with `tries` still under
+        // budget stays selectable by pickupWhere() — it would be retried
+        // (and could DELIVER) after the unit session already recorded
+        // "The participant never received this email", and giveUp() would
+        // fire again on every remaining pass. `tries = 255` is the same
+        // "exhausted, do not retry" sentinel patch 072's backfill uses.
+        if (($email_id = (int) array_val($email, 'id', 0))) {
+            $this->db->exec(
+                'UPDATE `survey_email_log` SET `tries` = 255, `last_attempt` = NOW() WHERE `id` = :id',
+                ['id' => $email_id]
+            );
+        }
+
         if (($session_id = (int) array_val($email, 'session_id', 0))) {
             $this->db->exec(
                 'UPDATE `survey_unit_sessions` SET `result` = :result, `result_log` = :resultlog WHERE `id` = :id',

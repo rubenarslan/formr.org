@@ -168,6 +168,8 @@ CREATE TABLE `survey_email_log` (
   `message` text DEFAULT NULL,
   `meta` text DEFAULT NULL,
   `status` tinyint(1) DEFAULT NULL,
+  `tries` tinyint(3) unsigned NOT NULL DEFAULT 0,
+  `last_attempt` datetime DEFAULT NULL,
   `sent` datetime DEFAULT NULL,
   `idempotency_key` varchar(128) DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -177,6 +179,7 @@ CREATE TABLE `survey_email_log` (
   KEY `account_status` (`account_id`,`status`),
   KEY `idx_status` (`status`),
   KEY `idx_recipient_status_created` (`recipient`,`status`,`created`),
+  KEY `idx_status_retry` (`status`,`tries`,`last_attempt`),
   CONSTRAINT `fk_survey_email_log_survey_emails1` FOREIGN KEY (`email_id`) REFERENCES `survey_emails` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_email_log_survey_unit_sessions1` FOREIGN KEY (`session_id`) REFERENCES `survey_unit_sessions` (`id`) ON DELETE SET NULL ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -456,6 +459,7 @@ CREATE TABLE `survey_run_sessions` (
   KEY `fk_survey_run_sessions_survey_units1_idx` (`current_unit_session_id`),
   KEY `idx_run_created` (`run_id`,`created`),
   KEY `idx_run_last_access` (`run_id`,`last_access`),
+  KEY `idx_run_testing_last_access` (`run_id`,`testing`,`last_access`),
   CONSTRAINT `fk_survey_run_sessions_survey_runs1` FOREIGN KEY (`run_id`) REFERENCES `survey_runs` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_run_sessions_survey_users1` FOREIGN KEY (`user_id`) REFERENCES `survey_users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

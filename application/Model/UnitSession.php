@@ -685,6 +685,16 @@ class UnitSession extends Model {
         }
 
         if ($this->result !== $this->loggedResultThisPass) {
+            // The pairing rule discards a log that describes a different
+            // result — correct for the row, but that text can be the only
+            // record of WHY a participant was stuck (an OpenCPU traceback,
+            // an SMTP error) at the exact moment an operator or the queue
+            // force-ends the session (`manual_admin_push`, `moved`,
+            // `ended_by_queue_rse`). Park it in the application log before
+            // it goes, so the post-hoc investigation still has something.
+            if ((string) $this->result_log !== '') {
+                formr_log("UnitSession {$this->id}: result_log superseded by result '{$this->result}': {$this->result_log}", 'result_log_superseded');
+            }
             $this->result_log = null;
         }
     }

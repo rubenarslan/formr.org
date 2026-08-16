@@ -27,12 +27,17 @@
 -- failure and give up deliberately (with an admin notification) instead of
 -- by accident. `last_attempt` spaces those retries out and, together with
 -- `created` + the TTL, bounds how long a row stays retryable.
+-- IF NOT EXISTS guards: the same release folds these columns into
+-- sql/schema.sql (a fresh install is seeded from schema.sql and then
+-- baselined WITHOUT running the patches — see bin/check_schema_parity.sh),
+-- and the migrations CI replays new patches against that reconciled
+-- schema. Without the guards that replay fails with errno 1060.
 ALTER TABLE `survey_email_log`
-    ADD COLUMN `tries` tinyint(3) unsigned NOT NULL DEFAULT 0 AFTER `status`,
-    ADD COLUMN `last_attempt` datetime DEFAULT NULL AFTER `tries`;
+    ADD COLUMN IF NOT EXISTS `tries` tinyint(3) unsigned NOT NULL DEFAULT 0 AFTER `status`,
+    ADD COLUMN IF NOT EXISTS `last_attempt` datetime DEFAULT NULL AFTER `tries`;
 
 -- Serves the retry arm of the pickup poll:
 --   status = -2 AND tries < :max AND (last_attempt IS NULL OR last_attempt < :cutoff)
 -- Leading `status` keeps it usable for the plain status = 0 arm too.
 ALTER TABLE `survey_email_log`
-    ADD INDEX `idx_status_retry` (`status`, `tries`, `last_attempt`);
+    ADD INDEX IF NOT EXISTS `idx_status_retry` (`status`, `tries`, `last_attempt`);

@@ -173,10 +173,7 @@ class External extends RunUnit {
                 // that waits for neither). So the participant parked here
                 // forever unless the run set expire_after, and the R
                 // side-effect — an SMS, an API call — silently never happened.
-                $data['queue'] = [
-                    'expires' => mysql_datetime(strtotime(Config::get('unit_session.queue_expiration_extension', '+10 minutes'))),
-                    'queued' => UnitSessionQueue::QUEUED_TO_EXECUTE,
-                ];
+                $data['queue'] = $this->retryBackoffQueue();
 
                 notify_study_admin($unitSession, 'External unit: OpenCPU error in R address evaluation. ' . $error, 'error');
                 return $data;

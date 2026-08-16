@@ -118,6 +118,7 @@ try {
 
     $us1->result_log = 'unit test reason';
     $us1->end('test_pause_ended');
+    $row = $db->execute('SELECT state, ended FROM survey_unit_sessions WHERE id = :id', ['id' => $us1->id], false, true);
     assert_eq($row['state'], 'ENDED', 'state is ENDED after end()');
     assert_eq(!empty($row['ended']), true, 'ended timestamp is set');
 
@@ -144,6 +145,7 @@ try {
     assert_eq($row['state'], 'WAITING_USER', 'Survey goes to WAITING_USER');
 
     $us2->expire();
+    $row = $db->execute('SELECT state, expired FROM survey_unit_sessions WHERE id = :id', ['id' => $us2->id], false, true);
     assert_eq($row['state'], 'EXPIRED', 'state is EXPIRED after expire()');
     assert_eq(!empty($row['expired']), true, 'expired timestamp is set');
 
@@ -161,6 +163,7 @@ try {
     ]);
 
     $rs->endLastExternal();
+    $row = $db->execute('SELECT result, queued, state, ended FROM survey_unit_sessions WHERE id = :id', ['id' => $extUs], false, true);
     assert_eq($row['result'], 'external_ended', 'endLastExternal sets result');
     assert_eq((int) $row['queued'], 0, 'endLastExternal resets queued to 0');
     assert_eq($row['state'], 'ENDED', 'endLastExternal sets state to ENDED');

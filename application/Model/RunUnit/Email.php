@@ -579,42 +579,12 @@ class Email extends RunUnit {
         return $data;
     }
 
-    /**
-     * Re-arm a genuine send failure with a delay instead of leaving the
-     * row hot (v1.7.1).
-     *
-     * A failed send returns neither `end_session` nor `move_on` — correct:
-     * the participant must not be advanced past an email that never went
-     * out. But it also left `queued`/`expires` untouched, and the daemon's
-     * pickup poll selects on `expires <= NOW()`, so the row was re-selected
-     * on the very next pass (~15 s) and every pass after that. A
-     * rate-limited recipient (thresholds are per address, instance-wide:
-     * 1/min, 10/day, 60/week — an ESM design or a shared lab address
-     * reaches them legitimately), an SMTP outage, or a missing recipient
-     * therefore produced a hot loop that re-knitted the body through
-     * OpenCPU and re-fired notify_study_admin on every tick, burning
-     * metered compute and mailing the owner until someone noticed.
-     *
-     * The +10 min re-arm turns that ~15 s hot loop into ~144 attempts/day,
-     * a ~40x reduction, and lines up with the admin-notification throttle
-     * so the error mail collapses to roughly one per retry. Retrying rather
-     * than giving up is deliberate: a rate-limit window drains and an
-     * outage ends, whereas moving on would silently drop a study's email.
-     *
-     * KNOWN LIMITATION (tracked for feature/form_v2): this is a FLAT tier,
-     * not the escalating/capped backoff Pause/Branch rechecks get from
-     * UnitSession::recheckBackoffExpression(). A permanently-broken email
-     * therefore retries ~144x/day indefinitely rather than degrading to a
-     * few per day. Sharing that mechanism is blocked on the same schema
-     * work as the reverted F19 streak rework; +10 min flat is the safe
-     * interim (strictly better than the hot loop it replaces).
-     */
-    protected function retryBackoffQueue() {
-        $extension = Config::get('unit_session.queue_expiration_extension', '+10 minutes');
-        return [
-            'expires' => mysql_datetime(strtotime($extension)),
-            'queued' => UnitSessionQueue::QUEUED_TO_EXECUTE,
-        ];
-    }
-
+    // retryBackoffQueue() moved to RunUnit in v1.8.0 — External's failed
+    // R-address re-arm uses the identical flat tier, and keeping one copy
+    // means upgrading the backoff upgrades both unit types together.
+    // Email-specific context for the v1.7.1 rationale: a rate-limited
+    // recipient (thresholds are per address, instance-wide: 1/min, 10/day,
+    // 60/week — an ESM design or a shared lab address reaches them
+    // legitimately), an SMTP outage, or a missing recipient all used to
+    // produce the ~15 s hot loop the shared docblock describes.
 }
