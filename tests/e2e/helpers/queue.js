@@ -14,6 +14,16 @@
 // the fixture runs for exactly the duration of the pass and always
 // disable them again — the finally runs even when the pass errors, so
 // a crashed spec can't leave the spam tap open.
+//
+// PRECONDITION the toggle depends on: no stale queued sessions in the
+// fixture runs. The pickup has no per-run filter, so a backlog of
+// eternal sessions (broken-by-design fixtures) gets processed inline
+// by EVERY --once pass — slow specs, OpenCPU hammering, and the live
+// daemon joining in during the window (observed 2026-08-16: 213 admin
+// notifications in one 44-minute suite run). The 113-session backlog
+// was retired that day (result='fixture_retired'); if a coverage
+// session leaves new eternal sessions behind, retire them the same way
+// rather than widening this toggle.
 
 const { execFileSync } = require('node:child_process');
 const { dbExecRaw } = require('./db');
