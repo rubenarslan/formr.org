@@ -126,6 +126,12 @@ test.describe('Wiki spec compliance — survey expiry algorithm', () => {
         // the *timing*, which W2.a above isolates.
         const f = await setup({ x: 420, y: 0, z: 30, items: 1 });
         setUnitSessionCreated(f.unit_session_id, 425);                      // -7:05h
+        // Backdate `created` on every display row too: since v1.7.1's
+        // last-visit fix, a rendered-but-unsaved row (fresh created, NULL
+        // saved) counts as activity — the page the participant is looking
+        // at right now. Leaving provision-time `created` at NOW makes the
+        // "idle since -6:50" scenario incoherent and keeps the session alive.
+        setItemsDisplayCreated(f.unit_session_id, 425);                     // rendered at access
         setItemsDisplaySaved(f.unit_session_id, 410, f.item_ids[0]);        // last_active -6:50h ago
         const e = computeExpiry(f.unit_session_id);
 
@@ -161,7 +167,10 @@ test.describe('Wiki spec compliance — survey expiry algorithm', () => {
         setUnitSessionCreated(f.unit_session_id, 450);                      // -7:30h
         // first_submit at -6:50h (10min after invitation). last_active also
         // at -6:50h (no later activity — user idled). Single submit pin
-        // both timestamps to the same value.
+        // both timestamps to the same value. `created` backdated too —
+        // a provision-fresh render row would count as current activity
+        // since v1.7.1's last-visit fix (see W2.b).
+        setItemsDisplayCreated(f.unit_session_id, 450);                     // rendered at access
         setItemsDisplaySaved(f.unit_session_id, 410, f.item_ids[0]);        // -6:50h ago
         const e = computeExpiry(f.unit_session_id);
 
@@ -222,6 +231,7 @@ test.describe('Wiki spec compliance — survey expiry algorithm', () => {
     test('W5.b — accessed at 6:50 then idle, wiki & code: 7:20 (matches)', async () => {
         const f = await setup({ x: 0, y: 0, z: 30, items: 1 });
         setUnitSessionCreated(f.unit_session_id, 450);                      // -7:30h
+        setItemsDisplayCreated(f.unit_session_id, 450);                     // rendered at access (see W2.b)
         setItemsDisplaySaved(f.unit_session_id, 410, f.item_ids[0]);        // last_active -6:50h
         const e = computeExpiry(f.unit_session_id);
         expect(e.expired, 'last_active+Z = -6:50+30min = -6:20 → expired').toBe(true);

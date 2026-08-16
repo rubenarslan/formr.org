@@ -58,11 +58,22 @@ test('user compute dashboard renders (no PHP errors) and reflects measured runti
 });
 
 test('superadmin compute dashboard is refused to a non-superadmin', async ({ page }) => {
+    // The refusal path only exists for a sub-superadmin account. The seeded
+    // dev account's level is host state, not a constant — robot was level 2
+    // when this spec was written and was elevated to superadmin (100) on
+    // 2026-07-13 — so read it instead of assuming it.
+    const { dbQuery } = require('./helpers/db');
+    const email = process.env.FORMR_DEV_ADMIN_EMAIL;
+    const rows = email ? dbQuery(`SELECT admin FROM survey_users WHERE email = '${email.replace(/'/g, "''")}' LIMIT 1`) : [];
+    const level = rows[0] ? parseInt(rows[0].admin, 10) : null;
+    test.skip(level === null || level >= 100,
+        `seeded account is superadmin (admin=${level}) on this host — the refusal path needs a sub-superadmin login`);
+
     const resp = await page.goto(`${ADMIN_BASE}/admin/advanced/compute_usage`);
     const body = await page.locator('body').innerText();
 
-    // robot is admin level 2; header() must 403 (or at least never render the
-    // instance-wide superadmin view with its per-user limit editor).
+    // header() must 403 (or at least never render the instance-wide
+    // superadmin view with its per-user limit editor).
     const refused = resp.status() === 403
         || (!/whole instance/i.test(body) && !/Compute by user/i.test(body));
     expect(refused).toBeTruthy();

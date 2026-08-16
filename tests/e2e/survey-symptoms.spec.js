@@ -136,13 +136,15 @@ test.describe.serial('Symptom A / B / D reproductions', () => {
     });
 
     test('D1 (Pause skipped via relative_to → TRUE)', async ({ page, baseURL }) => {
-        // Pause's relative_to evaluates to PHP `true` → Pause.php:150-152 sets
-        // condition='1=1' and expire_relatively=true; the SQL test returns
-        // true → Pause.php:249 sets BOTH end_session=true AND expired=true.
-        // RunSession.executeUnitSession() at :311-316 checks expired first
-        // (elseif), so expire() wins. Pause is `expired` immediately, not
-        // `ended`. From the participant's POV the unit is bypassed either
-        // way — but the DB shape is `expired = NOW()`, not `ended = NOW()`.
+        // Pause's relative_to evaluates to PHP `true` → the recompute path
+        // sets BOTH end_session=true AND expired=true (one value for both,
+        // a name collision: "elapsed", not "session expired"). Since the
+        // v1.7.1/v1.8.0 line, isExpired() strips the leaked `expired` flag
+        // whenever end_session is present, so the dispatcher routes through
+        // end(): the row reads `ended = NOW()` with result='pause_ended' —
+        // a healthy elapse is no longer indistinguishable from a
+        // miscomputed deadline. From the participant's POV the unit is
+        // bypassed either way.
         const f = await provision({
             x: 0, y: 0, z: 0, items: 1,
             pause: { relative_to: 'TRUE' },
@@ -160,16 +162,17 @@ test.describe.serial('Symptom A / B / D reproductions', () => {
         const pause = sessions.find((r) => r.type === 'Pause');
         expect(survey, 'Survey unit-session should exist').toBeTruthy();
         expect(pause, 'Pause unit-session should exist (created on moveOn)').toBeTruthy();
-        expect(pause.expired, 'Pause should be expired immediately when relative_to=TRUE').not.toBeNull();
-        expect(pause.ended, 'Pause is expired (not ended) — dispatcher prefers expire()').toBeNull();
-        expect(pause.result).toBe('expired');
+        expect(pause.ended, 'Pause that elapsed on the spot is ended, not expired (v1.7.1 strip)').not.toBeNull();
+        expect(pause.expired, 'the leaked expired flag no longer reaches the dispatcher').toBeNull();
+        expect(pause.result).toBe('pause_ended');
     });
 
     test('D2 (Pause skipped via degenerate config — no fields set)', async ({ page, baseURL }) => {
         // Pause with neither wait_minutes nor relative_to nor wait_until_*.
-        // Pause.php:245-247 fallback: $conditions=[] → $result = true →
-        // line 249 sets both end_session and expired=true. Same dispatcher
-        // path as D1: expire() wins.
+        // The fallback evaluates true → end_session and expired set as one
+        // value, and the v1.7.1 strip routes through end() exactly like D1.
+        // (Observed once post-merge as `expired` — if this asserts flaky,
+        // that is a real dispatcher race worth chasing, not a spec bug.)
         const f = await provision({
             x: 0, y: 0, z: 0, items: 1,
             pause: {},
@@ -184,8 +187,9 @@ test.describe.serial('Symptom A / B / D reproductions', () => {
 
         const pause = unitSessionsFor(f.run_session_id).find((r) => r.type === 'Pause');
         expect(pause, 'Pause unit-session should exist').toBeTruthy();
-        expect(pause.expired, 'degenerate Pause should expire immediately').not.toBeNull();
-        expect(pause.ended).toBeNull();
+        expect(pause.ended, 'degenerate Pause elapses on the spot → ended (v1.7.1 strip)').not.toBeNull();
+        expect(pause.expired, 'the leaked expired flag no longer reaches the dispatcher').toBeNull();
+        expect(pause.result).toBe('pause_ended');
     });
 
     test('D3 (Pause skipped via run-session-ended cron path)', async ({ page, baseURL }) => {

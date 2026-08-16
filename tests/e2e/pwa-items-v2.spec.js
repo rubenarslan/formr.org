@@ -114,7 +114,14 @@ test.describe('PWA items v2 — cookie + phone', () => {
         await page.addInitScript(() => {
             Object.defineProperty(Object.getPrototypeOf(navigator), 'webdriver', { get: () => false });
         });
-        await freshParticipant(page, AW_RUN, { baseURL });
+        // acceptCookies: false — the shared helper's banner dismissal grants
+        // FULL consent (its selector list resolves by DOM order and accept-all
+        // renders first), which makes initRequestCookie() auto-answer and
+        // disable the button before this test ever clicks it. The wiring
+        // under test only exists for a participant WITHOUT functional
+        // consent; the un-dismissed banner is fine because the click below
+        // goes through page.evaluate (no actionability check).
+        await freshParticipant(page, AW_RUN, { baseURL, acceptCookies: false });
         await expect(page.locator(v2.FORM_SELECTOR).first()).toBeVisible({ timeout: 20000 });
         await v2.waitForBundle(page);
         test.skip((await page.locator('form.fmr-form-v2 .request-cookie-wrapper, form.fmr-form-v2 .item-request_cookie').count()) === 0, 'no request_cookie in fixture');

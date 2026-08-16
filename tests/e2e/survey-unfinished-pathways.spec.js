@@ -472,13 +472,12 @@ $rs->forceTo(${f.positions.endpage});
 
         const s = dbState(usId);
         expect(s.ended, 'Survey ended via admin forceTo').not.toBeNull();
-        // Note: forceTo at RunSession.php:382-386 calls end() then sets
-        // result='manual_admin_push' and logResult(). But end() set
-        // ended=NOW; logResult's UPDATE has WHERE ended IS NULL, so
-        // result='manual_admin_push' is silently dropped — result stays
-        // at 'survey_ended' from end(). Documented as a separate
-        // dead-code observation; not in scope to fix here.
-        expect(s.result).toBe('survey_ended');
+        // v1.8.0 audit X1: forceTo passes its reason INTO end(), so the
+        // operator label finally lands (pre-fix, logResult's
+        // `WHERE ended IS NULL` guard silently dropped it and the row read
+        // 'survey_ended' — indistinguishable from the unit ending on its
+        // own; that was the dead-code observation this spec used to pin).
+        expect(s.result).toBe('manual_admin_push');
 
         // The kicker: no results-row was ever created.
         r = dbResultsRow(f.results_table, usId);
