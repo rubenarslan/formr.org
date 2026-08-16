@@ -750,6 +750,14 @@ Not audit findings, but open and related:
 - **Twenty-eight `rescov-*` fixture runs live on the dev instance**, plus the
   `rescov-nosender` second admin account and three OAuth clients. Delete them
   when this work settles; the specs skip cleanly when a fixture is absent.
+  **All rescov runs are `cron_active = 0` since 2026-08-16**: the
+  permanently-failing fixtures (exterr, mail-norec, mail-ratelimit, skiperr)
+  had ~99 live queued sessions retrying on the v1.7.1 flat +10-minute
+  re-arm forever, mailing the admin once per run per 10-minute throttle
+  window (~365 notifications in the two days before shutoff). Any spec
+  that drives the daemon must re-enable cron on its fixture run (run
+  settings, or `UPDATE survey_runs SET cron_active = 1 WHERE name = …`) —
+  and should disable it again after, or the spam resumes.
 - **Two specs are opt-in and one is mode-dependent**, so a bare `npx
   playwright test result-coverage` under-reports: `RESCOV_PUSH=1` (delivers
   a real notification), `RESCOV_OUTAGE=1` (stops OpenCPU / blackholes SMTP),
