@@ -1554,6 +1554,20 @@ function opencpu_code_is_empty($code)
     return trim((string) $stripped) === '';
 }
 
+/**
+ * Leave a note for opencpu_last_error() when an HTTP call died before an
+ * OpenCPU_Session existed. Without it the fallback in opencpu_last_error()
+ * reads the PREVIOUS session — whose hasError() consults the singleton's
+ * curl_info, which the failed request just overwrote (X3 in
+ * documentation/agent_doc/LOG_STATE_AUDIT.md). A session-borne R error
+ * needs no note: the failed session registered itself as the fallback
+ * when it was constructed.
+ */
+function opencpu_note_transport_failure(OpenCPU_Exception $e)
+{
+    $GLOBALS['opencpu_local_error'] = 'OpenCPU request failed: ' . opencpu_redact_secrets($e->getMessage());
+}
+
 function opencpu_evaluate($code, $variables = null, $return_format = 'json', $context = null, $return_session = false)
 {
     $GLOBALS['opencpu_local_error'] = null;
@@ -1598,6 +1612,7 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 })() }'];
 
     $uri = '/base/R/identity/' . $return_format;
+    $session = null;
     try {
         $session = OpenCPU::getInstance()->post($uri, $params);
 
@@ -1609,6 +1624,9 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 
         return $return_session ? $session : ($return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format));
     } catch (OpenCPU_Exception $e) {
+        if ($session === null) {
+            opencpu_note_transport_failure($e);
+        }
         notify_user_error($e, "There was a computational error.");
         opencpu_log($e);
         return null;
@@ -1651,9 +1669,15 @@ function shortcut_without_opencpu($code, $data)
  */
 function opencpu_knit($code, $return_format = 'json', $self_contained = 1, $return_session = false)
 {
+    // This call's outcome must be what opencpu_last_error() reports — never
+    // a predecessor's note (X3): knit paths used to leave the global alone,
+    // so a stale "expression is empty" from an earlier evaluate survived.
+    $GLOBALS['opencpu_local_error'] = null;
+
     $params = array('text' => "'" . addslashes($code) . "'");
     $uri = '/knitr/R/knit/' . $return_format;
 
+    $session = null;
     try {
         $session = OpenCPU::getInstance()->post($uri, $params);
         if ($return_session === true) {
@@ -1665,6 +1689,9 @@ function opencpu_knit($code, $return_format = 'json', $self_contained = 1, $retu
         }
         return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
     } catch (OpenCPU_Exception $e) {
+        if ($session === null) {
+            opencpu_note_transport_failure($e);
+        }
         notify_user_error($e, "There was a problem dynamically knitting something using openCPU.");
         opencpu_log($e);
         return null;
@@ -1724,8 +1751,12 @@ opts_knit$set(base.url="' . OpenCPU::TEMP_BASE_URL . '")
  */
 function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1, $return_session = false)
 {
+    // See opencpu_knit: this call owns the local-error note from here on.
+    $GLOBALS['opencpu_local_error'] = null;
+
     $params = array('text' => "'" . addslashes($source) . "'", 'self_contained' => $self_contained);
     $uri = '/formr/R/formr_inline_render/' . $return_format;
+    $session = null;
     try {
         $session = OpenCPU::getInstance()->post($uri, $params);
 
@@ -1743,6 +1774,9 @@ function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1
 
         return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
     } catch (OpenCPU_Exception $e) {
+        if ($session === null) {
+            opencpu_note_transport_failure($e);
+        }
         notify_user_error($e, "There was a problem dynamically knitting something to HTML using openCPU.");
         opencpu_log($e);
         return null;
@@ -1769,6 +1803,9 @@ function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1
  */
 function opencpu_knit_iframe($source, $variables = null, $return_session = false, $context = null, $description = '', $footer_text = '')
 {
+    // See opencpu_knit: this call owns the local-error note from here on.
+    $GLOBALS['opencpu_local_error'] = null;
+
     $temp_token_to_delete = opencpu_prepare_api_access($source, $variables);
 
     if (!is_string($variables)) {
@@ -1828,6 +1865,7 @@ opts_chunk$set(warning=' . $show_warnings . ',message=' . $show_warnings . ',err
 
     $uri = '/formr/R/formr_render/';
 
+    $session = null;
     try {
         $session = OpenCPU::getInstance()->post($uri, $params);
         if ($return_session === true) {
@@ -1840,6 +1878,9 @@ opts_chunk$set(warning=' . $show_warnings . ',message=' . $show_warnings . ',err
 
         return $session->getJSONObject();
     } catch (OpenCPU_Exception $e) {
+        if ($session === null) {
+            opencpu_note_transport_failure($e);
+        }
         notify_user_error($e, "There was a computational error.");
         opencpu_log($e);
         return null;
@@ -2218,11 +2259,12 @@ function opencpu_session(OpenCPU_Session $session = null)
 function opencpu_last_error()
 {
     global $opencpu_session;
-    // A pre-flight failure (see opencpu_evaluate) never opens a session, so
-    // it has nowhere else to report from — and without this the caller
-    // would either see nothing or, worse, the error from some earlier
-    // call still sitting in the global. opencpu_evaluate clears it on
-    // every invocation, so it cannot outlive the call it describes.
+    // A pre-flight failure (see opencpu_evaluate) or a transport failure
+    // (see opencpu_note_transport_failure) never opens a session, so it has
+    // nowhere else to report from — and without this the caller would
+    // either see nothing or, worse, the error from some earlier call still
+    // sitting in the global. opencpu_evaluate and every knit wrapper clear
+    // it on entry, so it cannot outlive the call it describes (X3).
     if (!empty($GLOBALS['opencpu_local_error'])) {
         return $GLOBALS['opencpu_local_error'];
     }

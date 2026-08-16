@@ -104,7 +104,7 @@ participant whose R still reads `2`.
 the source of truth moved. A legacy row whose shuffle entry predates the
 table still falls back to its old `result` via COALESCE.
 
-**X3 — `opencpu_last_error()` reports the wrong error after a knit failure.**
+**X3 — `opencpu_last_error()` reports the wrong error after a knit failure.** *(FIXED, v1.8.0)*
 Two independent mechanisms on one line (`Page.php:137`): the
 `$GLOBALS['opencpu_local_error']` flag is cleared only by
 `opencpu_evaluate()`, so a stale "expression is empty" from an earlier
@@ -115,12 +115,29 @@ the failed knit just overwrote. After a 502 it returns the body of an
 earlier successful call. With no prior call, the admin email ends
 `"...knitting page content. "` with no detail at all.
 
-**X4 — the second `notify_study_admin()` is always throttled away.**
+*Fixed (v1.8.0):* every knit wrapper clears the note on entry (it cannot
+outlive the call it describes), and a transport failure leaves its own
+note (`opencpu_note_transport_failure()`, secrets redacted) so the
+previous-session fallback is never consulted for a call that constructed
+no session. Pinned by `tests/OpenCPULastErrorTest.php`, red pre-fix on
+all three staleness paths.
+
+**X4 — the second `notify_study_admin()` is always throttled away.** *(FIXED, v1.8.0)*
 `Page.php:138` fires an `error` notification microseconds after
 `getParsedBody()` already fired one; `Notification::canBeSent` throttles
 per run + recipient + type at 10 minutes, so the second is dropped. Any
 other `error` notification in that run within 10 minutes also suppresses
 it — leaving several of the losses below with no channel at all.
+
+*Fixed (v1.8.0):* the throttle now keys on a per-unit fingerprint
+(`<type>:u<unit id>`, patch 075), so distinct units' problems no longer
+share one email slot; suppressed notifications are recorded
+(`suppressed = 1`) and the next delivered email carries a "N similar
+suppressed" digest. Page's duplicate notify is removed; instead the
+OpenCPU-down branch of `getParsedBody()` notifies for every unit type,
+with the accurate X3 transport note. Pinned by
+`tests/NotificationThrottleTest.php` and
+`tests/OpenCPUDownAdminNotifyTest.php`.
 
 ## Per-unit findings
 
@@ -254,7 +271,9 @@ Severity: **P** participant-visible · **D** data/analysis integrity ·
   reload, and `logResult()`'s `ended IS NULL` guard means 0 rows. A
   participant who bookmarked their feedback page sees an empty page forever
   while the row still reads `result='ended'`, `result_log=NULL`.
-- **A** X3 and X4 both live here.
+- **A** X3 and X4 both live here. *(Both FIXED, v1.8.0 — see above; Page's
+  duplicate notify is gone, the down-branch channel moved into
+  `getParsedBody()` for every unit type.)*
 - **A** A successful retry NULLs `result_log`, permanently erasing the
   record that the endpage failed — generic (M3) but *terminal* for Page,
   since nothing writes that row again.
@@ -646,8 +665,9 @@ Ordered by what they cost. Full detail in *Per-unit findings* above.
   in no admin template at all, so the drift is invisible even when it
   matters.
 - **X3 — `opencpu_last_error()` reports the wrong error after a knit
-  failure.** Two independent mechanisms on one line: the
-  `$GLOBALS['opencpu_local_error']` flag is cleared only by
+  failure.** *(FIXED, v1.8.0 — knit wrappers clear the note on entry;
+  transport failures leave their own note.)* Two independent mechanisms on
+  one line: the `$GLOBALS['opencpu_local_error']` flag is cleared only by
   `opencpu_evaluate()`, so a stale message from an earlier Pause/Branch is
   reported as the Page's failure; and when the knit throws, no session is
   constructed, so the fallback reads the *previous* session, whose
@@ -656,7 +676,9 @@ Ordered by what they cost. Full detail in *Per-unit findings* above.
 - **X4 — the second `notify_study_admin()` is always throttled away**
   (10 minutes per run + recipient + type), so several losses above have no
   channel at all. Any other `error` notification in that window suppresses
-  it too.
+  it too. *(FIXED, v1.8.0 — per-unit fingerprint throttle, suppressed
+  notifications recorded with a digest on the next delivered email,
+  patch 075.)*
 - **Survey expiry records no reason.** The X/Y/Z matrix computes *which*
   rule fired — never opened, hard cap, inactive — and discards it;
   `expire()` writes no `result_log`, so a stale one from an earlier pass

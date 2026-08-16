@@ -149,10 +149,10 @@ class Page extends RunUnit {
             $output['wait_opencpu'] = true; // wait for openCPU to be fixed!
             $output['log'] = array_val($this->errors, 'log', []);
 
-            // Issue #608: include the actual OpenCPU/R error so the admin
-            // email is actionable, mirroring Branch/External/Pause units.
-            $error = (string) opencpu_last_error();
-            notify_study_admin($unitSession, 'Page unit: OpenCPU error while knitting page content. ' . $error, 'error');
+            // getParsedBody already notified the study admin — R-error and
+            // down branches both. The second notify that used to live here
+            // was either throttled away microseconds after the first (X4)
+            // or, in the down case, built from a stale global (X3).
             return $output;
         }
         

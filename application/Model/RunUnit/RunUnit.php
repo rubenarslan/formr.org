@@ -589,6 +589,18 @@ OVERVIEW_BODY
             $this->errors['log'] = $this->getLogMessage('error_opencpu_down', 'OpenCPU is probably down or inaccessible.');
 
             alert('OpenCPU is probably down or inaccessible. Please retry in a few minutes.', 'alert-danger');
+
+            // The R-error branch below notifies with the session's own
+            // error; this branch has no session — opencpu_last_error()
+            // carries the transport note the failed wrapper just left (X3).
+            // Without this, only Page had a channel here, and its message
+            // was built before the note existed (X4).
+            if ($unitSession) {
+                $error = (string) opencpu_last_error();
+                $message = 'OpenCPU was unreachable while rendering ' . $this->type . ' at position ' . $this->position
+                    . ($error ? ': ' . $error : '.');
+                notify_study_admin($unitSession, $message, 'error');
+            }
             return false;
         } elseif ($ocpu->hasError()) {
             $this->errors['log'] = $this->getLogMessage('error_opencpu_r', 'OpenCPU R error. Fix code.' . opencpu_redact_secrets($ocpu->getError()));
