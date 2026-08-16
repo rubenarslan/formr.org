@@ -47,6 +47,7 @@ Queue-hardening release. A three-angle audit of the RunUnit queue after v1.7.1 t
 - Patch 073 — drops `survey_unit_sessions.state_log` (see Removed).
 - Patch 074 — adds the `(run_id, testing, last_access)` index on `survey_run_sessions` for the guinea-pig filter (see Fixes); also folded into `sql/schema.sql`.
 - Patch 075 — `survey_notifications` gains `fingerprint` + `suppressed` and the `(run_id, recipient_id, fingerprint)` index (per-unit notification throttle with suppression records; see Fixes). Also folded into `sql/schema.sql`, and guarded with `IF NOT EXISTS` so the migrations-CI replay against the reconciled schema succeeds. Legacy rows keep a NULL fingerprint and are no longer consulted by the throttle, so at most one extra email per unit can go out in the first window after upgrading.
+- Patch 066 (retroactive) — every `DROP INDEX` gains `IF EXISTS` and the `oauth_scopes` PK addition gains `IF NOT EXISTS`, so the patch replays cleanly against a schema where a key is already gone (or was never present) instead of failing with errno 1091. Same replay convention as 071/073/075; the ENGINE conversions were already idempotent.
 
 ### Known gaps (tracked, not fixed here)
 - Queued emails whose sending account is later deactivated or deleted sit at `status = 0` indefinitely: the pickup poll's `survey_email_accounts.status = 1` join hides them, so they never reach the new give-up path either.
