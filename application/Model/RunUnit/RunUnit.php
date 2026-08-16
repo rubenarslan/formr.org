@@ -408,6 +408,11 @@ OVERVIEW_BODY
         if ($special !== null) {
             return $this->db->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special));
         } else {
+            // NOTE: this deletes the unit DEFINITION, and
+            // survey_unit_sessions.unit_id is FK ON DELETE CASCADE, so every
+            // participant's session for this unit goes with it. That is
+            // correct for "delete this unit", and catastrophic for "remove it
+            // from the run" — see removeFromRun().
             $affected = $this->db->delete('survey_units', array('id' => $this->id));
             if ($affected) { // remove from all runs
                 $affected += $this->db->delete('survey_run_units', array('unit_id' => $this->id));
@@ -582,8 +587,20 @@ OVERVIEW_BODY
         // At this stage we are sure to have an OpenCPU_Session in $ocpu. If there is an error in the session return FALSE
         if (empty($ocpu)) {
             $this->errors['log'] = $this->getLogMessage('error_opencpu_down', 'OpenCPU is probably down or inaccessible.');
-            
+
             alert('OpenCPU is probably down or inaccessible. Please retry in a few minutes.', 'alert-danger');
+
+            // The R-error branch below notifies with the session's own
+            // error; this branch has no session — opencpu_last_error()
+            // carries the transport note the failed wrapper just left (X3).
+            // Without this, only Page had a channel here, and its message
+            // was built before the note existed (X4).
+            if ($unitSession) {
+                $error = (string) opencpu_last_error();
+                $message = 'OpenCPU was unreachable while rendering ' . $this->type . ' at position ' . $this->position
+                    . ($error ? ': ' . $error : '.');
+                notify_study_admin($unitSession, $message, 'error');
+            }
             return false;
         } elseif ($ocpu->hasError()) {
             $this->errors['log'] = $this->getLogMessage('error_opencpu_r', 'OpenCPU R error. Fix code.' . opencpu_redact_secrets($ocpu->getError()));
@@ -669,5 +686,40 @@ OVERVIEW_BODY
     
     protected function noTestSession() {
         return alert('No data to compare to yet. Create some test data by sending guinea pigs through the run using the "Test run" function on the left.', 'alert-info');
+    }
+
+    /**
+     * Re-arm a transient failure with a delay instead of leaving the row
+     * hot (v1.7.1 for Email; shared here in v1.8.0 because External's
+     * failed R-address evaluation needs the identical re-arm).
+     *
+     * A failed side-effect returns neither `end_session` nor `move_on` —
+     * correct: the participant must not be advanced past an email or an
+     * R call that never happened. But leaving `queued`/`expires` untouched
+     * meant the daemon's pickup poll (`expires <= NOW()`) re-selected the
+     * row on the very next pass (~15 s) and every pass after that: a hot
+     * loop that re-knitted content through OpenCPU and re-fired
+     * notify_study_admin on every tick. The +10 min re-arm turns that into
+     * ~144 attempts/day, and lines up with the admin-notification throttle
+     * so the error mail collapses to roughly one per retry. Retrying
+     * rather than giving up is deliberate: a rate-limit window drains and
+     * an outage ends, whereas moving on would silently drop the unit's
+     * side effect.
+     *
+     * KNOWN LIMITATION (tracked for feature/form_v2): this is a FLAT tier,
+     * not the escalating/capped backoff Pause/Branch rechecks get from
+     * UnitSession::recheckBackoffExpression(). A permanently-broken unit
+     * therefore retries ~144x/day indefinitely rather than degrading to a
+     * few per day. Sharing that mechanism is blocked on the same schema
+     * work as the reverted F19 streak rework; +10 min flat is the safe
+     * interim (strictly better than the hot loop it replaces). Because the
+     * tier lives HERE, upgrading it upgrades Email and External together.
+     */
+    protected function retryBackoffQueue() {
+        $extension = Config::get('unit_session.queue_expiration_extension', '+10 minutes');
+        return [
+            'expires' => mysql_datetime(strtotime($extension)),
+            'queued' => UnitSessionQueue::QUEUED_TO_EXECUTE,
+        ];
     }
 }

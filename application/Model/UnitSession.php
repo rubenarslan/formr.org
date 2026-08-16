@@ -17,7 +17,12 @@ class UnitSession extends Model {
     public $ended;
     public $expired;
     public $state; // ENUM (PENDING, RUNNING, WAITING_USER, WAITING_TIMER, ENDED, EXPIRED, SUPERSEDED)
-    public $state_log; // JSON, structured sibling of result_log
+    /**
+     * The `result` this request's logResult() wrote, or null if this request
+     * logged nothing. NOT a column — load() hydrates `result`/`result_log`
+     * from an EARLIER pass, and end() must be able to tell the two apart.
+     */
+    protected $loggedResultThisPass = null;
     public $idempotency_key;
     public $execution_time; // issue #608: cumulative wall-clock seconds spent in execute(), incl. OpenCPU
     public $meta;
@@ -233,7 +238,7 @@ class UnitSession extends Model {
     }
 
     public function load() {
-        $columns = 'id, unit_id, run_unit_id, iteration, run_session_id, created, expires, queued, result, result_log, ended, expired, state, state_log, idempotency_key';
+        $columns = 'id, unit_id, run_unit_id, iteration, run_session_id, created, expires, queued, result, result_log, ended, expired, state, idempotency_key';
         if ($this->id !== null) {
             $vars = $this->db->findRow('survey_unit_sessions', ['id' => (int)$this->id], $columns);
         } else {
@@ -388,6 +393,27 @@ class UnitSession extends Model {
             }
         }
 
+        // Upstream PR #702 (Tim Seidel), companion to F23 below. A Pause/Wait
+        // elapse assigns end_session and expired the SAME value (Pause.php:272),
+        // and the array_merge above copied BOTH into execResults. The expired
+        // copy must never reach executeUnitSession(), which tests `expired`
+        // before `end_session` and would call expire() — stamping a normal
+        // elapse as result='expired' with `ended` left NULL (which also fed the
+        // wrong `seconds_stayed` in the user-detail export, PR #703).
+        //
+        // Strip the leaked copy whenever end_session is present, BEFORE the
+        // return branches below. end_session is only ever set by Pause/Wait
+        // (Survey and External never set it; Branch never sets expired), so
+        // this is correct on every path — including the text-only / boolean-
+        // true Pause that carries no `expires` and returns at the empty-expires
+        // guard, which the original merge-point fix (scoped to the end_session
+        // branch) did not reach. The flag stays in $expirationData: Wait's
+        // getUnitSessionOutput() branches on it to tell "came back in time"
+        // from "elapsed" — only the execResults copy is wrong.
+        if (!empty($expirationData['end_session'])) {
+            unset($this->execResults['expired']);
+        }
+
         if (empty($expirationData['expires'])) {
             return false;
         } elseif(!empty($expirationData['end_session'])) {
@@ -422,6 +448,21 @@ class UnitSession extends Model {
      * (a proxy for attempts, since each retry is ~one interval apart).
      * Configurable via unit_session.queue_expiration_extension (the fast
      * tier) and unit_session.recheck_backoff_* .
+     *
+     * NOTE: a streak-keyed rework was attempted in v1.7.1 and reverted. It
+     * stored the streak marker in `state_log`, which logResult() overwrote
+     * on every failing pass (it runs via logOutput() at the top of
+     * isExpired(), before this reads it), so the streak reset every pass and
+     * the backoff never escalated. v1.8.0 dropped `state_log` outright
+     * (patch 073) — it had no reader and duplicated the row — so that avenue
+     * is closed for good, which is the right outcome: a value that must
+     * survive across passes cannot live in a column every pass rewrites. A
+     * correct version needs its own column, holding the first-failure
+     * timestamp. That would also close the audit finding that a retrying
+     * unit loses the ORIGINAL error text (the actionable one) to the latest,
+     * with no record of when the failure started. Until then this stays
+     * age-keyed, which at least escalates. See
+     * documentation/agent_doc/LOG_STATE_AUDIT.md (M3).
      */
     protected function recheckBackoffExpression() {
         $fast = Config::get('unit_session.queue_expiration_extension', '+10 minutes');
@@ -498,27 +539,29 @@ class UnitSession extends Model {
         // exports get a self-documenting state value without having to
         // reason about the absence-of-`queued` semantics. The legacy
         // columns remain authoritative for queue pickup; the `state`
-        // column is additive. state_log captures the structured reason.
+        // column is additive.
         $expired = $this->db->exec(
             "UPDATE `survey_unit_sessions` SET
                 `expired` = NOW(),
                 `result` = 'expired',
                 `queued` = 0,
-                `state` = :state,
-                `state_log` = :state_log
+                `state` = :state
              WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
              [
                  'id'        => $this->id,
                  'unit_id'   => $unit->id,
                  'state'     => UnitSessionQueue::STATE_EXPIRED,
-                 'state_log' => self::buildStateLog('expired', ['unit_type' => $unit->type]),
              ]
         );
 
         return $expired === 1;
     }
 
-    public function end($reason = null) {
+    /**
+     * @param string|null $reason  explicit terminal result, wins over the type default
+     * @param bool $completes      false when an OPERATOR ended this, not the participant
+     */
+    public function end($reason = null, $completes = true) {
         $unit = $this->runUnit;
 
         if ($unit->type == "Survey" || $unit->type == "Form" || $unit->type == "External") {
@@ -527,7 +570,18 @@ class UnitSession extends Model {
             // 'survey_ended' — not a Form-specific value — so downstream
             // analyses filtering result='survey_ended' keep counting
             // completions across a v1→v2 study upgrade.
-            if (($unit->type == "Survey" || $unit->type == "Form") && Config::get('form_v2_dual_write_results', true)) {
+            //
+            // Audit X1 (v1.8.0): an admin force-move is not a completion.
+            // The UPDATE below flips the results row's `ended` from NULL to
+            // now, and `ended IS NOT NULL` is the standard completion filter
+            // in analysis — so an admin using "send to position" on someone
+            // parked mid-survey manufactured a row indistinguishable from a
+            // real completion, and recordCompletion() folded its duration
+            // into the study's geometric mean (an accumulator: the skew was
+            // permanent). $completes is false for the two operator paths
+            // (forceTo, forceMoveOn); participants finishing, the queue and
+            // expiry are unaffected.
+            if (($unit->type == "Survey" || $unit->type == "Form") && $completes && Config::get('form_v2_dual_write_results', true)) {
                 $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
                 $params = array('session_id' => $this->id, 'study_id' => $unit->surveyStudy->id);
                 $ended_now = $this->db->exec($query, $params);
@@ -548,23 +602,22 @@ class UnitSession extends Model {
             // Pre-fix Survey/External hardcoded 'survey_ended'/'external_ended'
             // and dropped the caller's reason on the floor — masking audit
             // trail. See tests/e2e/EXPIRY_PLAN.md "Hygiene 5".
-            if ($reason !== null) {
-                $this->result = $reason;
-            } else {
-                $this->result = $unit->type == "External" ? "external_ended" : "survey_ended";
-            }
+            // Form deliberately shares "survey_ended" (see the comment above);
+            // only External diverges.
+            $this->resolveEndResult($reason, $unit->type == "External" ? "external_ended" : "survey_ended");
         } else {
-            if ($reason !== null) {
-                $this->result = $reason;
-            } else if ($unit->type == "Pause") {
-                $this->result = "pause_ended";
+            if ($unit->type == "Pause") {
+                $default = "pause_ended";
             } else if ($unit->type == "Wait") {
-                $this->result = "wait_ended";
+                $default = "wait_ended";
             } else if ($unit->type == "Endpage") {
-                $this->result = $this->isExecutedByCron() ? 'ended_by_queue' : 'ended';
+                $default = $this->isExecutedByCron() ? 'ended_by_queue' : 'ended';
             } else {
-                //$this->result = "ended_other";
+                // Email, PushMessage, Shuffle, Branch/Skip: no type default —
+                // whatever the unit's own log recorded stands.
+                $default = null;
             }
+            $this->resolveEndResult($reason, $default);
         }
 
         // Reset queued symmetrically with expire(). Pre-fix end() left
@@ -572,8 +625,7 @@ class UnitSession extends Model {
         // createUnitSession in the run-session would supersede to -9 —
         // making the audit trail ambiguous between "completed normally"
         // and "orphaned mid-flow". See "Hygiene 4" in EXPIRY_PLAN.md.
-        // Track A: also set state='ENDED' (dual-write) and state_log
-        // (structured sibling of the human-readable result_log).
+        // Track A: also set state='ENDED' (dual-write).
         $this->result_log = truncate_result_log($this->result_log);
         $ended = $this->db->exec(
                 "UPDATE `survey_unit_sessions` SET
@@ -581,8 +633,7 @@ class UnitSession extends Model {
                 `result` = :result,
                 `result_log` = :result_log,
                 `queued` = 0,
-                `state` = :state,
-                `state_log` = :state_log
+                `state` = :state
                 WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
                 [
                     'id'         => $this->id,
@@ -590,10 +641,6 @@ class UnitSession extends Model {
                     'result'     => $this->result,
                     'result_log' => $this->result_log,
                     'state'      => UnitSessionQueue::STATE_ENDED,
-                    'state_log'  => self::buildStateLog($this->result, [
-                        'unit_type' => $unit->type,
-                        'msg'       => $this->result_log,
-                    ]),
                 ]
         );
 
@@ -617,85 +664,92 @@ class UnitSession extends Model {
     }
 
     /**
-     * Persist `result` and `result_log` into the row. Track A also
-     * dual-writes a structured `state_log` JSON value of the form:
+     * Decide the terminal `result` for end(), and keep `result_log` matched
+     * to it.
      *
-     *   {
-     *     "reason": "<result string, e.g. survey_started, email_sent>",
-     *     "ctx":    { "unit_type": "Survey", "msg": "<result_log text>" },
-     *     "at":     "<ISO 8601 timestamp>"
-     *   }
+     * Precedence: an explicit caller reason, then whatever this pass's own
+     * log recorded, then the type default. The middle arm is the v1.8.0 fix:
+     * end() used to re-derive the result from the unit TYPE alone, so a
+     * Survey that logged `survey_completed`, an External that logged
+     * `external_r_call_no_redirect` and a Pause that logged
+     * `error_pause_relative_to` all had their own verdict replaced by
+     * `survey_ended` / `external_ended` / `pause_ended`. Distinct outcomes
+     * collapsed into one label — which is why an admin force-push was
+     * indistinguishable from a genuine survey completion. Wait's `end_reason`
+     * lever solved this for one unit; this generalises it, and units that
+     * record nothing keep the type default exactly as before.
      *
-     * Reason values mirror the `result` column. The "ctx" sub-object is
-     * a per-reason free bag: handlers add unit_type, the human-readable
-     * message, and any reason-specific extras. Consumers (analysis
-     * exports, admin tooling) prefer state_log for structured reads and
-     * fall back to result_log for legacy rows where state_log is NULL.
-     * See REFACTOR_QUEUE_PLAN.md A6 / D5.
+     * The log is cleared whenever the result being written did NOT come from
+     * this pass. `result_log` is hydrated by load() out of an earlier pass and
+     * end() re-writes it verbatim — that is how a Pause ended up reading
+     * `pause_ended` next to an OpenCPU traceback, and a skip `moved` next to
+     * an R error. A label describing one event beside text describing another
+     * is worse than no text: it sends whoever reads it after the wrong bug.
+     *
+     * @param string|null $reason  explicit caller reason, wins outright
+     * @param string|null $default type-derived fallback, null = leave as-is
+     */
+    protected function resolveEndResult($reason, $default) {
+        if ($reason !== null) {
+            $this->result = $reason;
+        } elseif ($this->loggedResultThisPass !== null) {
+            $this->result = $this->loggedResultThisPass;
+        } elseif ($default !== null) {
+            $this->result = $default;
+        }
+
+        if ($this->result !== $this->loggedResultThisPass) {
+            // The pairing rule discards a log that describes a different
+            // result — correct for the row, but that text can be the only
+            // record of WHY a participant was stuck (an OpenCPU traceback,
+            // an SMTP error) at the exact moment an operator or the queue
+            // force-ends the session (`manual_admin_push`, `moved`,
+            // `ended_by_queue_rse`). Park it in the application log before
+            // it goes, so the post-hoc investigation still has something.
+            if ((string) $this->result_log !== '') {
+                formr_log("UnitSession {$this->id}: result_log superseded by result '{$this->result}': {$this->result_log}", 'result_log_superseded');
+            }
+            $this->result_log = null;
+        }
+    }
+
+    /**
+     * Persist `result` and `result_log` into the row.
+     *
+     * The two columns are a MATCHED PAIR: `result_log` must always describe
+     * the `result` written beside it. Every writer therefore sets both, and
+     * `end()` clears the log when it falls back to a type default rather than
+     * leaving an earlier pass's text under a new label.
+     *
+     * v1.8.0 dropped the `state_log` JSON sibling this method used to
+     * dual-write. It carried nothing the row did not already hold — `reason`
+     * was derived from `result`, `ctx.unit_type` from the unit, `ctx.msg` was
+     * a copy of `result_log` — and had no reader outside its own smoke test:
+     * no admin template selected it and the v1 API projected `state` but not
+     * `state_log`. It also actively misled the reverted streak-marker work,
+     * which stored its marker in a column this method overwrites wholesale
+     * every pass. `state` (the ENUM) is kept; it does have readers.
      */
     public function logResult() {
         $this->result_log = truncate_result_log($this->result_log);
+        // v1.8.0: remember what THIS pass recorded so end() can tell the
+        // unit's own verdict from a value hydrated by load() out of an
+        // earlier pass. See resolveEndResult().
+        $this->loggedResultThisPass = $this->result;
         $log = $this->db->exec(
                 "UPDATE `survey_unit_sessions` SET
                 `result` = :result,
-                `result_log` = :result_log,
-                `state_log` = :state_log
+                `result_log` = :result_log
                 WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
                 [
                     'id'         => $this->id,
                     'unit_id'    => $this->runUnit->id,
                     'result'     => $this->result,
                     'result_log' => $this->result_log,
-                    'state_log'  => self::buildStateLog($this->result, [
-                        'unit_type' => $this->runUnit->type ?? null,
-                        'msg'       => $this->result_log,
-                    ]),
                 ]
         );
 
         return $log;
-    }
-
-    /**
-     * Build the JSON value written into the `state_log` column. Returns
-     * a string so it can be passed straight into a PDO bind. Returns
-     * NULL when there's no useful reason to log (caller's UPDATE then
-     * sets state_log = NULL, preserving the legacy NULL semantics for
-     * rows the new code chooses to skip).
-     *
-     * Hardened against malformed UTF-8 in `result_log` text (which can
-     * arrive from OpenCPU error responses or external service callbacks
-     * containing raw bytes). Without JSON_INVALID_UTF8_SUBSTITUTE,
-     * json_encode would return false on a single bad byte and the
-     * caller's UPDATE would fail the JSON_VALID CHECK constraint on
-     * the column. The substitution writes U+FFFD in place of bad
-     * bytes; the overall message still round-trips, just lossily on
-     * the bad spans.
-     */
-    public static function buildStateLog($reason, array $ctx = []): ?string {
-        if ($reason === null || $reason === '') {
-            return null;
-        }
-        $ctx = array_filter($ctx, function ($v) {
-            return $v !== null && $v !== '';
-        });
-        $encoded = json_encode([
-            'reason' => (string) $reason,
-            'ctx'    => $ctx,
-            'at'     => date(DATE_ATOM),
-        ], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
-        // Last-ditch defence: if encoding still failed (e.g. recursive
-        // ctx structure), write a sentinel rather than `false` so the
-        // CHECK constraint passes and we lose only the offending row's
-        // detail, not the row itself.
-        if ($encoded === false) {
-            return json_encode([
-                'reason' => (string) $reason,
-                'ctx'    => ['encode_error' => json_last_error_msg()],
-                'at'     => date(DATE_ATOM),
-            ], JSON_UNESCAPED_SLASHES);
-        }
-        return $encoded;
     }
 
     protected function hasOrderedStudyItems() {
@@ -1177,6 +1231,27 @@ class UnitSession extends Model {
                 }
             }
 
+            // Upstream PR #702 (Tim Seidel): every data frame handed to R must
+            // come back in a deterministic chronological order. Without an
+            // ORDER BY the optimizer is free to return rows grouped by unit
+            // (it drives from `survey_run_units` and does a per-unit ref
+            // lookup), so `tail(survey_unit_sessions$created, 1)` is not "the
+            // most recent unit session" but "the newest session of whichever
+            // unit sorts last" — an anchor that lags by minutes on a looping
+            // ESM run and by days on a long diary. `created` is the semantic
+            // key (it is what tail() is being asked for); `id` breaks ties,
+            // which are real because a cascade creates several unit sessions
+            // inside the same second. The sort set is one participant's
+            // history, not the table, so the cost is ~0.2 ms at 2.4k rows.
+            //
+            // v1.7.0 no longer routes its OWN Pause/Wait anchor through here
+            // (Pause.php:150 short-circuits the default relative_to to
+            // $unitSession->created), so this is not the Wait-expiry fix it
+            // was upstream — it is what makes study-authored tail()/head()
+            // idioms in relative_to, Branch conditions, item values/showifs
+            // and email bodies mean what their authors think they mean.
+            $order = ' ORDER BY `survey_unit_sessions`.`created`, `survey_unit_sessions`.`id`';
+
             if (!in_array($results_table, get_db_non_session_tables())) {
                 $joins = "
 					LEFT JOIN `survey_unit_sessions` ON `$results_table`.session_id = `survey_unit_sessions`.id
@@ -1205,13 +1280,17 @@ class UnitSession extends Model {
                 $where .= " AND `survey_runs`.id = :run_id";
             } elseif ($results_table == 'survey_run_sessions') {
                 $joins = "";
+                // No survey_unit_sessions in scope to order by (and both of
+                // these resolve to a single row for the current participant).
+                $order = '';
             } elseif ($results_table == 'survey_users') {
                 $joins = "LEFT JOIN `survey_run_sessions` ON `survey_users`.id = `survey_run_sessions`.user_id";
+                $order = '';
             }
 
             $select .= " FROM `$results_table` ";
 
-            $q = $select . $joins . $where . ";";
+            $q = $select . $joins . $where . $order . ";";
 
             $get_results = $this->db->prepare($q);
             if (($runSession->id === null || $runSession->isTestingStudy()) && !in_array($results_table, get_db_non_session_tables())) {

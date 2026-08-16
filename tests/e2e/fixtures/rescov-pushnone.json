@@ -1,0 +1,43 @@
+{
+  "name": "rescov-pushnone",
+  "units": [
+    {
+      "type": "PushMessage",
+      "description": "participant never subscribed -> no_subscription",
+      "position": 10,
+      "special": null,
+      "message": "You should never receive this.",
+      "topic": "rescov",
+      "priority": "normal",
+      "time_to_live": 86400,
+      "badge_count": 1,
+      "vibrate": 1,
+      "require_interaction": 0,
+      "renotify": 0,
+      "silent": 0
+    },
+    {
+      "type": "Endpage",
+      "description": "ends the run session",
+      "position": 20,
+      "special": null,
+      "body": "No subscription.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-pushnone/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-pushnone/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-pushnone/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

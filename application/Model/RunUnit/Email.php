@@ -66,7 +66,16 @@ class Email extends RunUnit {
             if (isset($options['account_id']) && is_numeric($options['account_id'])) {
                $options['account_id'] = (int) $options['account_id'];
             }
-            $options['cron_only'] = (int)isset($options['cron_only']);
+            // `(int) isset(...)` read PRESENCE, not value. That works for the
+            // admin form, which posts the checkbox only when it is ticked, but
+            // it inverts every caller that sends the field explicitly: the v1
+            // API, a run import, the MCP. `cron_only: 0` became 1. And since
+            // cron_only is in $export_attribs, exporting a run and importing it
+            // back turned every Email in it cron-only — after which a
+            // participant who reached one in their browser was skipped with
+            // `email_skipped_user_active` instead of being mailed. Absence
+            // still means 0, so the form behaves exactly as before.
+            $options['cron_only'] = isset($options['cron_only']) ? (int) (bool) $options['cron_only'] : 0;
             $options['html'] = 1;
             $this->assignProperties($options);
         }
@@ -179,7 +188,14 @@ class Email extends RunUnit {
 
 
 
-    public function sendMail(UnitSession $unitSession, $who = null) {
+    /**
+     * @param bool $isTest true when the admin's "Test" button drives this.
+     *   The test borrows a REAL participant's unit session for R context
+     *   (grabRandomSession) but sends to the admin, so the resulting
+     *   survey_email_log row must not carry that participant's session_id —
+     *   see queueNow().
+     */
+    public function sendMail(UnitSession $unitSession, $who = null, $isTest = false) {
         $this->mail_queued = $this->mail_sent = false;
         $this->recipient = $who !== null ? $who : $unitSession->runSession->getRecipientEmail($this->recipient_field, false, $unitSession);
 
@@ -251,15 +267,38 @@ class Email extends RunUnit {
 
         // if formr is configured to use the email queue then add mail to queue and return
         if (Config::get('email.use_queue', false) === true) {
-            return $this->queueNow($acc, $subject, $body, $unitSession);
+            return $this->queueNow($acc, $subject, $body, $unitSession, $isTest);
         } else {
-            return $this->sendNow($acc, $subject, $body, $unitSession);
+            return $this->sendNow($acc, $subject, $body, $unitSession, $isTest);
         }
 
         
     }
 
-    protected function queueNow(EmailAccount $acc, string $subject, string $body, UnitSession $unitSession) {
+    protected function queueNow(EmailAccount $acc, string $subject, string $body, UnitSession $unitSession, $isTest = false) {
+        // v1.8.0: a test send must not be attributed to the participant whose
+        // unit session it borrowed for R context. EmailQueue::logResult()
+        // UPDATEs survey_unit_sessions by session_id alone — no unit_id, no
+        // `ended IS NULL` — so the daemon would stamp result='email_sent',
+        // result_log=NULL onto that participant's row, ended or not. On a row
+        // that had recorded email_skipped_user_disabled that is a false record
+        // of mailing someone who opted out; on a row still inside its retry
+        // window it also matches getUnitSessionOutput()'s terminal-result
+        // allowlist, so the run daemon then ADVANCES that participant past an
+        // email never sent to them. A null session_id makes the daemon skip
+        // the unit-session UPDATE entirely (its `if ($session_id)` guard).
+        //
+        // The key is randomised for the same reason: keyed on the borrowed
+        // session it would collide with that participant's real email and
+        // report a phantom success (affected = 0 still sets mail_queued).
+        if ($isTest) {
+            $session_id = null;
+            $idempotency_key = "emailtest:{$this->id}:" . crypto_token(16);
+        } else {
+            $session_id = $unitSession->id;
+            $idempotency_key = null; // set below
+        }
+
         // Track A A4 — closes R5. The idempotency_key is unique per
         // (unit_session, email_id), so a SIGKILL'd daemon's restart
         // re-attempt collides on UNIQUE and the second INSERT is a
@@ -269,7 +308,9 @@ class Email extends RunUnit {
         // getUnitSessionOutput catches the case where this row INSERTed
         // and result was set; this guard catches the gap between row
         // INSERT and result UPDATE. See REFACTOR_QUEUE_PLAN.md A4.
-        $idempotency_key = "email:{$unitSession->id}:{$this->id}";
+        if ($idempotency_key === null) {
+            $idempotency_key = "email:{$unitSession->id}:{$this->id}";
+        }
 
         $affected = $this->db->exec(
             "INSERT INTO `survey_email_log`
@@ -279,7 +320,7 @@ class Email extends RunUnit {
              ON DUPLICATE KEY UPDATE `id` = `id`",
             [
                 'subject'         => $subject,
-                'session_id'      => $unitSession->id,
+                'session_id'      => $session_id,
                 'email_id'        => $this->id,
                 'message'         => $body,
                 'recipient'       => $this->recipient,
@@ -300,7 +341,7 @@ class Email extends RunUnit {
         return $this->mail_queued;
     }
 
-    protected function sendNow(EmailAccount $acc, string $subject, string $body, UnitSession $unitSession) {
+    protected function sendNow(EmailAccount $acc, string $subject, string $body, UnitSession $unitSession, $isTest = false) {
         // Audit F21 (2026-07): claim before sending, mirroring queueNow,
         // so a crash between $mail->Send() and the audit write cannot
         // permit a duplicate send on retry. The claim row IS the log row
@@ -310,10 +351,17 @@ class Email extends RunUnit {
         // the claim up during the SMTP window and send the same email a
         // second time (use_queue=false host with the daemon running).
         // 'handled' = the row is already SENT, or QUEUED (daemon owns it).
-        $idempotency_key = "email:{$unitSession->id}:{$this->id}";
+        //
+        // v1.8.0: same reasoning as queueNow() — a test send borrows a real
+        // participant's unit session for R context but must not be recorded
+        // against it, and must not adopt or collide with that participant's
+        // claim (which would report a phantom success via 'handled').
+        $idempotency_key = $isTest
+            ? "emailtest:{$this->id}:" . crypto_token(16)
+            : "email:{$unitSession->id}:{$this->id}";
         $claim = EmailQueue::claimSyncSend([
             'subject'         => $subject,
-            'session_id'      => $unitSession->id,
+            'session_id'      => $isTest ? null : $unitSession->id,
             'email_id'        => $this->id,
             'message'         => $body,
             'recipient'       => $this->recipient,
@@ -420,7 +468,7 @@ class Email extends RunUnit {
         $output .= $this->getParsedBody($this->body, $unitSession, ['admin' => true]);
 
         $output .= "<h4>Attempt to send email</h4>";
-        if ($this->sendMail($unitSession, $receiver)) {
+        if ($this->sendMail($unitSession, $receiver, true)) {
             $output .= "<p>An email was sent to your own email address (" . h($receiver) . ").</p>";
         } else {
             $output .= "<p>No email sent.</p>";
@@ -491,8 +539,28 @@ class Email extends RunUnit {
 
         // Check if user is enabled to receive emails
         if (!$unitSession->runSession->canReceiveMails()) {
+            // A disabled recipient is a terminal SKIP: end the unit session and
+            // advance, exactly as the cron_only skip above does.
+            //
+            // v1.8.0: this branch used to return log+content only. That halted
+            // the run — executeUnitSession() returns the content as the page
+            // body BEFORE reaching its fall-through moveOn(), leaving the row
+            // at queued=0, which the daemon pickup cannot see. On the web path
+            // the participant got a dead-end page; on a CRON cascade nothing
+            // rescheduled it at all, so every snoozed / no_email participant
+            // parked on their Email unit until bin/sweep_stalled_unit_sessions
+            // healed it (~30-100 min where that job is scheduled — hourly via
+            // ofelia in the docker stack — and never on installs driven by
+            // config/formr_crontab, which does not schedule the sweep).
+            //
+            // The cron_only sibling avoids this only because it sets NO
+            // `content`, so it falls through to the final moveOn(). Setting
+            // move_on explicitly is clearer than relying on that, and matches
+            // the send-success branch below. The `content` string is dropped
+            // deliberately: it was participant-facing debug text, and with
+            // move_on set it is unreachable anyway (move_on is tested first).
             $data['log'] = $this->getLogMessage('email_skipped_user_disabled', "User {$unitSession->runSession->session} disabled receiving emails at this time");
-            $data['content'] = "<p>User <code>{$unitSession->runSession->session}</code> disabled receiving emails at this time </p>";
+            $data['end_session'] = $data['move_on'] = true;
             return $data;
         }
 
@@ -505,9 +573,18 @@ class Email extends RunUnit {
         } else {
             $data['log'] = array_val($this->errors, 'log', $this->getLogMessage('error_email'));
             $data['content'] = $err;
+            $data['queue'] = $this->retryBackoffQueue();
         }
-  
+
         return $data;
     }
 
+    // retryBackoffQueue() moved to RunUnit in v1.8.0 — External's failed
+    // R-address re-arm uses the identical flat tier, and keeping one copy
+    // means upgrading the backoff upgrades both unit types together.
+    // Email-specific context for the v1.7.1 rationale: a rate-limited
+    // recipient (thresholds are per address, instance-wide: 1/min, 10/day,
+    // 60/week — an ESM design or a shared lab address reaches them
+    // legitimately), an SMTP outage, or a missing recipient all used to
+    // produce the ~15 s hot loop the shared docblock describes.
 }

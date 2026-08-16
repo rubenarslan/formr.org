@@ -1,0 +1,39 @@
+{
+  "name": "rescov-pause",
+  "units": [
+    {
+      "type": "Pause",
+      "description": "deadline an hour out -> pause_waiting",
+      "position": 10,
+      "special": null,
+      "wait_until_time": null,
+      "wait_until_date": null,
+      "wait_minutes": 60,
+      "relative_to": null,
+      "body": "Waiting for the deadline."
+    },
+    {
+      "type": "Endpage",
+      "description": "only reachable once the pause elapses",
+      "position": 20,
+      "special": null,
+      "body": "Pause over.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-pause/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-pause/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-pause/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

@@ -240,8 +240,25 @@ class Survey extends RunUnit {
                 ->where('survey_items_display.session_id IS NOT NULL')
                 ->where('survey_items.study_id = :study_id')
                 ->where($where ? $where : '1=1')
-                ->order('survey_items_display.saved', $order)
-                ->order('survey_items_display.created', $order)
+                // Sort by the SAME expression that is projected (v1.7.1).
+                // Ordering by the raw, nullable `saved` and only then by
+                // `created` does not rank rows by "last activity": in DESC
+                // a NULL `saved` sorts LAST, so an item rendered after the
+                // participant's most recent save (created later, saved
+                // still NULL — i.e. the page they are looking at right
+                // now) can never win, and the function returns the older
+                // save instead. That value is the anchor for the
+                // inactivity-grace branch of per-unit expiry above, so the
+                // deadline was computed from a stale timestamp and the
+                // session could expire while the participant was still
+                // working — by up to one page's think time. `id` breaks
+                // ties, which are real: createSurveyStudyRecord() stamps
+                // `created` identically for every item of a page.
+                // DB::raw() is required because DB_Select::order()'s
+                // strict-identifier validation (v0.26.x) rejects
+                // expressions.
+                ->order(DB::raw('COALESCE(`survey_items_display`.`saved`,`survey_items_display`.`created`)'), $order)
+                ->order('survey_items_display.id', $order)
                 ->limit(1)
                 ->bindParams(array('session_id' => $unitSession->id, 'study_id' => $this->surveyStudy->id));
 

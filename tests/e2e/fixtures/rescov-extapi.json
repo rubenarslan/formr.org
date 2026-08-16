@@ -1,0 +1,37 @@
+{
+  "name": "rescov-extapi",
+  "units": [
+    {
+      "type": "External",
+      "description": "api_end: redirects with {{login_code}} and waits for the callback -> external_wait_for_api",
+      "position": 10,
+      "special": null,
+      "address": "https://study.researchmixtape.com/rescov-extapi/privacy_policy/?code={{login_code}}",
+      "api_end": 1,
+      "expire_after": 0
+    },
+    {
+      "type": "Endpage",
+      "description": "reached only after the callback ends the External",
+      "position": 20,
+      "special": null,
+      "body": "Callback received.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-extapi/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-extapi/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-extapi/settings/).",
+    "public_blurb": null,
+    "privacy": "Stand-in for the external service. It renders instead of bouncing back, so the participant genuinely leaves the run and the api_end External stays parked until they return.",
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

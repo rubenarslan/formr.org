@@ -1,0 +1,39 @@
+{
+  "name": "rescov-mail-norec",
+  "units": [
+    {
+      "type": "Email",
+      "description": "recipient R returns NULL -> no_recipient",
+      "position": 10,
+      "special": null,
+      "subject": "rescov coverage",
+      "account_id": 14,
+      "recipient_field": "NULL",
+      "body": "Body.",
+      "cron_only": 0
+    },
+    {
+      "type": "Endpage",
+      "description": "only reachable if the email succeeds",
+      "position": 20,
+      "special": null,
+      "body": "Done.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-mail-norec/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-mail-norec/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-mail-norec/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

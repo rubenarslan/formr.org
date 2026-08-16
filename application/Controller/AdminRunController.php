@@ -101,6 +101,28 @@ class AdminRunController extends AdminController
             $querystring['session'] = $session;
         }
 
+        // Filter by the test-session flag. `testing=1` is what the run menu's
+        // "Old Guinea Pigs" link passes.
+        //
+        // That link used to pass `session=XXX` instead, which worked only
+        // because the session search was a substring match: test codes are
+        // <animalname>XXX<token>, so "XXX" never occurs at the start. 890ba81e
+        // dropped the leading wildcard so the search could use the index on
+        // `session`, which silently turned that link into "codes starting with
+        // XXX" — permanently empty. `survey_run_sessions`.testing is the flag
+        // the stethoscope toggle and getTestSession() already maintain, so
+        // filter on it rather than on a naming convention.
+        //
+        // Note this is narrower than the old link in one respect:
+        // getNamedSession() also appends XXX to a *named real* session, so
+        // `session=XXX` used to list those too. They are not guinea pigs and
+        // are excluded here; `testing=0` lists them (and everyone else).
+        $testing = $this->request->getParam('testing');
+        if ($testing !== null && $testing !== '') {
+            $queryparams['testing'] = (int) (bool) $testing;
+            $querystring['testing'] = $queryparams['testing'];
+        }
+
         if ($this->request->position) {
             $queryparams['position'] = $this->request->position;
             $querystring['position'] = $queryparams['position'];

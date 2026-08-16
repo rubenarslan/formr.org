@@ -33,7 +33,7 @@ class UnitSessionStateTest extends \PHPUnit\Framework\TestCase
         // write to land in the row. If any of these get renamed or
         // removed in code without updating the migration / admin
         // templates, this test catches the drift.
-        foreach (['run_unit_id', 'iteration', 'state', 'state_log', 'idempotency_key'] as $name) {
+        foreach (['run_unit_id', 'iteration', 'state', 'idempotency_key'] as $name) {
             $this->assertTrue(
                 $rc->hasProperty($name),
                 "UnitSession must expose property `{$name}` for Track A round-tripping"

@@ -1,0 +1,39 @@
+{
+  "name": "rescov-mail-crononly",
+  "units": [
+    {
+      "type": "Email",
+      "description": "cron_only reached by a human request -> email_skipped_user_active",
+      "position": 10,
+      "special": null,
+      "subject": "rescov coverage",
+      "account_id": 14,
+      "recipient_field": "'rescov-crononly@invalid.invalid'",
+      "body": "Body.",
+      "cron_only": 1
+    },
+    {
+      "type": "Endpage",
+      "description": "reached because the cron_only email is skipped for a live participant",
+      "position": 20,
+      "special": null,
+      "body": "Skipped.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-mail-crononly/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-mail-crononly/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-mail-crononly/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

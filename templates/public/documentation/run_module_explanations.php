@@ -29,6 +29,29 @@
     </div>
 </div>
 <h4>
+    Participant links
+</h4>
+<p>
+    Your run lives at <strong><?= run_url('yourRunName') ?></strong>. Once you set its access to <em>People who have the link can access</em>, anyone who opens that address is given a session and enrolled — for most studies this plain link is the only one you need to share.
+</p>
+<p>
+    Each participant is identified by a <strong>session code</strong>. It travels in the link as <code>?code=…</code> and is also kept in a cookie, so a participant can close the tab and pick up where they left off. To send someone their own link, use <code>{{login_link}}</code> in an <a data-toggle="collapse" href="#email">Email</a>, or <code>{{login_code}}</code> to build a custom link yourself — for instance to invite informants to rate a participant.
+</p>
+<h5>Advanced: <small>starting a fresh session with <code>?_new_session=1</code></small></h5>
+<p>
+    Add <code>?_new_session=1</code> to your run link and <em>every</em> visit starts a brand-new session: formr generates a fresh session code and forwards the visitor to their own <code>?code=…</code> link. This is meant for links that cannot carry a personal code — a printed QR code or poster, a link handed to many raters at once, or one rater working through several targets in turn.
+</p>
+<ul>
+    <li>Other parameters are carried across, so <code>?_new_session=1&amp;rated=P1</code> lands on <code>?code=…&amp;rated=P1</code> and <code>rated</code> is still available to your survey's items.</li>
+    <li>It works only on the run's own address, not on a link to a particular page inside the run.</li>
+    <li>It grants no extra access. The run still has to be set to <em>People who have the link can access</em>, exactly as for anyone else arriving without a code.</li>
+    <li>An existing cookie is deliberately ignored: someone who already has a session gets a new, separate one instead of resuming the old one.</li>
+    <li>Participants land on an ordinary <code>?code=…</code> link, so reloading or bookmarking <em>that</em> page keeps them in the session they just started.</li>
+</ul>
+<p>
+    <small class="text-muted">Because every visit enrols someone new, don't use it for a link people might open twice — a reminder email, say. Use <code>{{login_link}}</code> there instead.</small>
+</p>
+<h4>
     Module explanations
 </h4>
 <div class="panel-group">
@@ -106,7 +129,7 @@
                     Once your study has a manifest, you can add special items (see App section of <a href="<?= site_url('documentation#available_items') ?>">available items</a>) like <code>add_to_homescreen</code> to your surveys. This will add a button to the participant's device that allows them to add your study to their homescreen. <code>request_phone</code> will guide the user to switch to a mobile device. And <code>push_notification</code> will ask the user to allow push notifications for your study. You can also insert the <code>request_cookie</code> item to explicitly ask participants to allow functional cookies which won't expire when the app is closed.
                 </p>
                 <p>
-                    Sending push notifications to the user can be configured in the run. You can define when a notification should expire, what message should be shown, whether the user needs to interact with the notification, whether it is silent or whether it should vibrate. Push notifications are automatically dismissed once the user opens the app. As long as push notifications exist, a badge counter (1) will be shown on the app on the operating systems that support it.
+                    Sending push notifications to the user can be configured in the run. Be aware that notifications of "normal" priority can be delayed or supressed by the participants phone.You can define when a notification should expire, what message should be shown, whether the user needs to interact with the notification, whether it is silent or whether it should vibrate. Push notifications are automatically dismissed once the user opens the app. As long as push notifications exist, a badge counter (1) will be shown on the app on the operating systems that support it.
                 </p>
             </div>
         </div>
@@ -257,6 +280,28 @@
                 <p>
                     In this scenario, the participant takes part in the short survey first. We obtain the geolocation, which can be used to retrieve the local weather using API calls to weather information services in the Skip Backward at position 30. The weather gets checked once each day (pause at 20) and if there ever is a thunderstorm in the area, the participant is invited via email (40) to take a survey (50) detailing their experience of the thunderstorm. This way, the participants only get invited when necessary, we don't have to ask them to report weather events on a daily basis and risk driving them away.
                 </p>
+                <h4>Advanced: <small>computed jumps (return a position number)</small></h4>
+                <p>
+                    Instead of a TRUE/FALSE condition, your R code can return a <strong>position number of 2 or higher</strong> — the participant then jumps straight to that position, ignoring the "skip backward to" field. This lets a single unit send different participants to different positions: e.g. <code>c(30, 50, 70)[screener$arm]</code> routes arm 1 to 30, arm 2 to 50, arm 3 to 70. The same works in a Skip Forward.
+                </p>
+                <p>How formr reads the value your code returns:</p>
+                <ul>
+                    <li><code>TRUE</code> / <code>FALSE</code> — the ordinary skip: jump to the position in the field below, or carry on to the next unit.</li>
+                    <li><strong><code>0</code> and <code>1</code> always mean FALSE and TRUE</strong>, never positions 0 and 1. Conditions that return 1/0 rather than TRUE/FALSE — <code>screener$consent</code> on a 1/0 coded item, <code>sum(x)</code>, <code>nrow(df)</code> — therefore keep working exactly as they always have. If you genuinely need to send someone to position 1, renumber the run.</li>
+                    <li><strong><code>2</code> or higher</strong> — an absolute position to jump to.</li>
+                    <li><strong>Decimals are rounded to the nearest whole number</strong>, with halves rounding up: <code>29.5</code> and <code>30.4</code> both mean position 30. Rounding happens first, so <code>1.9</code> becomes 2 and does jump.</li>
+                    <li><strong>Several values</strong> (a vector) — only the first one is used, and a warning is recorded in the unit's log. Return a single value.</li>
+                    <li><strong>Anything else</strong> — a negative number, text, a date — falls back to a best-effort TRUE/FALSE reading and records a warning. Don't rely on it.</li>
+                </ul>
+                <p>A few more things worth knowing:</p>
+                <ul>
+                    <li>The number must match a unit's position <strong>exactly</strong>; there is no nearest-match. If no unit sits at that position, the participant simply carries on with the next unit after the skip and the study's admin is emailed — nobody is ever stranded.</li>
+                    <li>Direction is up to your number, not the unit type: a Skip Backward whose code returns a position ahead of it moves the participant forward.</li>
+                    <li>The number is a position, not a unit — re-check your computed jumps after reordering a run.</li>
+                </ul>
+                <p>
+                    <small class="text-muted">The <em>Routes to</em> column in the unit's Test view shows the destination formr would actually pick for each participant — use it to check your code before you send anyone through.</small>
+                </p>
             </div>
         </div>
     </div>
@@ -350,11 +395,11 @@
                 <ul class="fa-ul">
                     <li><i class="fa-li fa fa-pencil-square"></i> 	Pos. 10. a survey on optimism (optimism)
                     </li>
-                    <li><i class="fa-li fa fa-forward"></i> 		Pos. 20. a Skip Forward which checks <code>optimism$pessimist == 1</code>. If the person is a pessimist, it skips forward to pos 5.
+                    <li><i class="fa-li fa fa-forward"></i> 		Pos. 20. a Skip Forward which checks <code>optimism$pessimist == 1</code>. If the person is a pessimist, it skips forward to pos 50.
                     </li>
                     <li><i class="fa-li fa fa-pencil-square"></i> 	Pos. 30. a survey tailored to optimists
                     </li>
-                    <li><i class="fa-li fa fa-forward"></i> 		Pos. 40. a Skip Forward which checks <code>TRUE</code>, so it always skips forward to pos 6.
+                    <li><i class="fa-li fa fa-forward"></i> 		Pos. 40. a Skip Forward which checks <code>TRUE</code>, so it always skips forward to pos 60.
                     </li>
                     <li><i class="fa-li fa fa-pencil-square"></i> 	Pos. 50. a survey tailored to pessimists
                     </li>
@@ -367,6 +412,28 @@
                 </h5>
                 <p>
                     Starting at 10, participants would complete a survey on optimism. If they indicated that they are pessimists, they fill out a different survey than if they are optimists. Both groups receive the same feedback at the end. It is important to note that we have to let the optimists jump over the survey tailored to pessimists at position 40, so that they do not have to take both surveys.
+                </p>
+                <h4>Advanced: <small>computed jumps (return a position number)</small></h4>
+                <p>
+                    Instead of a TRUE/FALSE condition, your R code can return a <strong>position number of 2 or higher</strong> — the participant then jumps straight to that position, ignoring the "skip forward to" field. This lets a single unit send different participants to different arms: e.g. <code>c(30, 50, 70)[screener$arm]</code> routes arm 1 to 30, arm 2 to 50, arm 3 to 70. The same works in a Skip Backward.
+                </p>
+                <p>How formr reads the value your code returns:</p>
+                <ul>
+                    <li><code>TRUE</code> / <code>FALSE</code> — the ordinary skip: jump to the position in the field below, or carry on to the next unit.</li>
+                    <li><strong><code>0</code> and <code>1</code> always mean FALSE and TRUE</strong>, never positions 0 and 1. Conditions that return 1/0 rather than TRUE/FALSE — <code>screener$consent</code> on a 1/0 coded item, <code>sum(x)</code>, <code>nrow(df)</code> — therefore keep working exactly as they always have. If you genuinely need to send someone to position 1, renumber the run.</li>
+                    <li><strong><code>2</code> or higher</strong> — an absolute position to jump to.</li>
+                    <li><strong>Decimals are rounded to the nearest whole number</strong>, with halves rounding up: <code>29.5</code> and <code>30.4</code> both mean position 30. Rounding happens first, so <code>1.9</code> becomes 2 and does jump.</li>
+                    <li><strong>Several values</strong> (a vector) — only the first one is used, and a warning is recorded in the unit's log. Return a single value.</li>
+                    <li><strong>Anything else</strong> — a negative number, text, a date — falls back to a best-effort TRUE/FALSE reading and records a warning. Don't rely on it.</li>
+                </ul>
+                <p>A few more things worth knowing:</p>
+                <ul>
+                    <li>The number must match a unit's position <strong>exactly</strong>; there is no nearest-match. If no unit sits at that position, the participant simply carries on with the next unit after the skip and the study's admin is emailed — nobody is ever stranded.</li>
+                    <li>Direction is up to your number, not the unit type: a Skip Forward whose code returns a position behind it moves the participant backward.</li>
+                    <li>The number is a position, not a unit — re-check your computed jumps after reordering a run.</li>
+                </ul>
+                <p>
+                    <small class="text-muted">The <em>Routes to</em> column in the unit's Test view shows the destination formr would actually pick for each participant — use it to check your code before you send anyone through.</small>
                 </p>
             </div>
         </div>

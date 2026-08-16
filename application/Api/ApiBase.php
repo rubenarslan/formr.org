@@ -69,6 +69,19 @@ abstract class ApiBase
         $this->db = $db;
         $this->request = $request;
         $this->tokenData = $token_data;
+
+        // No token at all: an action on ApiController::$unrestrictedActions,
+        // which by design carries no OAuth credentials. There is no user to
+        // hydrate and no grant to re-check, so return before the checks below
+        // rather than dereferencing a null token. Such an action must
+        // authorise on its own terms and must not read $this->user —
+        // end-last-external does both: it identifies the participant by their
+        // session code, which already grants control of that session (it is
+        // what a run URL's ?code= carries).
+        if ($token_data === null) {
+            return;
+        }
+
         // Retrieves the user associated with the access token
         $this->user = OAuthHelper::getInstance()->getUserByEmail($token_data['user_id']);
 
@@ -494,18 +507,64 @@ abstract class ApiBase
      */
     protected function getShuffleResults(Run $run, $sessions = null)
     {
+        // D1 fan-out fix (v1.7.1). The old run_units join was
+        //     LEFT JOIN survey_run_units AS sru ON sru.unit_id = u.id AND sru.run_id = srs.run_id
+        // which keys on the unit DEFINITION rather than on the placement, so a
+        // Shuffle slotted at N positions in the run (a legitimate design — the
+        // same randomiser revisited in a loop) returned every unit-session row
+        // N times, each duplicate carrying a different `position`. Callers read
+        // one row per shuffle assignment, so group counts came out N-fold
+        // inflated and `position` was whichever duplicate happened to survive.
+        // Two-alias form (see RunHelper::PLACEMENT_JOIN, the canonical wording):
+        // `sru_own` pins the row to its OWN placement via
+        // survey_unit_sessions.run_unit_id (patch 047 — indexed PK lookup, at
+        // most one row); `sru_fallback` fires only when that misses — rows
+        // predating 047, plus the multi-position rows the 048 backfill
+        // intentionally left NULL — and keeps the legacy unit_id match, now
+        // run_id-scoped, so no row silently disappears.
+        // Unlike UnitSession::getRunData()'s two-alias join, the fallback arm
+        // here pins to ONE placement (lowest id) rather than matching them all.
+        // For a legacy row the true placement is unknowable, and this is a
+        // row-per-shuffle-assignment result: returning the assignment N times
+        // under N positions IS the bug being fixed, so a best-effort position
+        // on a single row beats N wrong rows. Without the pick the fix would
+        // only help sessions created after 047 (26% of the unit sessions on
+        // this instance's oldest run still have a NULL run_unit_id).
+        // survey_run_units holds a few hundred rows instance-wide and the
+        // subquery is served by (run_id) + (unit_id), so the cost is negligible.
         $sql = "
-            SELECT 
+            SELECT
                 sus.id AS session_id,
                 srs.session AS run_session,
-                sru.position,
+                COALESCE(sru_own.position, sru_fallback.position) AS position,
                 sus.unit_id,
-                sus.result AS `group`,
+                -- Audit X2 (v1.8.0): read the group from the `shuffle` table,
+                -- which is where Shuffle::getUnitSessionOutput() writes it and
+                -- what `shuffle$group` resolves to in R and in the admin's
+                -- randomisation page and its exports. This used to select
+                -- `sus.result`, a SECOND copy of the same fact in a different
+                -- value space (the string 'group_2' against the integer 2),
+                -- with nothing keeping the two in sync — and it was the copy
+                -- that gets overwritten: anything writing another reason into
+                -- `result` before the participant returns made the API report
+                -- a group of 'moved' or 'manual_admin_push' for someone whose
+                -- R still read 2. Formatting stays `group_N` so existing
+                -- clients see the value they always did; only the source of
+                -- truth changes. COALESCE keeps a legacy row whose shuffle
+                -- entry predates the table readable via its old result.
+                COALESCE(CONCAT('group_', sh.`group`), sus.result) AS `group`,
                 sus.created
             FROM survey_unit_sessions AS sus
+            LEFT JOIN `shuffle` AS sh ON sh.session_id = sus.id
             LEFT JOIN survey_run_sessions AS srs ON srs.id = sus.run_session_id
             LEFT JOIN survey_units AS u ON u.id = sus.unit_id
-            LEFT JOIN survey_run_units AS sru ON sru.unit_id = u.id AND sru.run_id = srs.run_id
+            LEFT JOIN survey_run_units AS sru_own ON sru_own.id = sus.run_unit_id
+            LEFT JOIN survey_run_units AS sru_fallback ON sru_own.id IS NULL
+                AND sru_fallback.id = (
+                    SELECT MIN(ru_pick.id) FROM survey_run_units AS ru_pick
+                    WHERE ru_pick.unit_id = sus.unit_id
+                      AND ru_pick.run_id = srs.run_id
+                )
             WHERE srs.run_id = :run_id
             AND u.type = 'Shuffle'
         ";

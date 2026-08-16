@@ -1,0 +1,64 @@
+{
+  "name": "rescov-ext",
+  "units": [
+    {
+      "type": "External",
+      "description": "R returns a non-address value -> external_compute, moves on",
+      "position": 10,
+      "special": null,
+      "address": "1 + 1",
+      "api_end": 0,
+      "expire_after": 0
+    },
+    {
+      "type": "External",
+      "description": "R returns FALSE -> external_r_call_no_redirect, moves on",
+      "position": 20,
+      "special": null,
+      "address": "FALSE",
+      "api_end": 0,
+      "expire_after": 0
+    },
+    {
+      "type": "External",
+      "description": "plain address -> external_redirect, moves on",
+      "position": 30,
+      "special": null,
+      "address": "https://study.researchmixtape.com/rescov-ext/privacy_policy/",
+      "api_end": 0,
+      "expire_after": 0
+    },
+    {
+      "type": "External",
+      "description": "R returns a URL -> external_r_redirect, moves on",
+      "position": 40,
+      "special": null,
+      "address": "paste0('https://study.researchmixtape.com/', 'rescov-ext/terms_of_service/')",
+      "api_end": 0,
+      "expire_after": 0
+    },
+    {
+      "type": "Endpage",
+      "description": "ends the run session",
+      "position": 50,
+      "special": null,
+      "body": "Externals traversed.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-ext/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-ext/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-ext/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

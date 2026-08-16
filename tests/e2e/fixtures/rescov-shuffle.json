@@ -1,0 +1,35 @@
+{
+  "name": "rescov-shuffle",
+  "units": [
+    {
+      "type": "Shuffle",
+      "description": "two groups -> group_N",
+      "position": 10,
+      "special": null,
+      "groups": 2
+    },
+    {
+      "type": "Endpage",
+      "description": "ends the run session",
+      "position": 20,
+      "special": null,
+      "body": "Shuffled.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-shuffle/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-shuffle/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-shuffle/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

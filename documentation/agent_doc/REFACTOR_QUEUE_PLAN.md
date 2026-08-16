@@ -1,5 +1,17 @@
 # Refactor plan: unit-session lifecycle and queue
 
+> **Superseded (v1.8.0):** the `state_log` JSON column described in this
+> plan (A6 / D5) was dropped in patch 073. It never acquired a reader — no
+> admin template selected it, the v1 API projected `state` but not
+> `state_log`, and the hydrated property was never read — and it duplicated
+> the row: `reason` was derived from `result`, `ctx.unit_type` from the
+> unit, `ctx.msg` from `result_log`. The effort moved to making `result` /
+> `result_log` a matched pair instead (`UnitSession::resolveEndResult()`).
+> The `state` ENUM is unaffected and remains. See
+> `documentation/agent_doc/LOG_STATE_AUDIT.md`.
+
+
+
 Status: draft, pre-implementation. Owner: discuss before any code lands.
 
 ## TL;DR — recommended scope

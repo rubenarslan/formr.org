@@ -39,7 +39,7 @@
                                             <td><?php echo $d_study['modified']; ?></td>
                                             <td>
                                                 <?php if ($d_study['google_file_id']): ?>
-                                                    <a href="<?php echo google_get_sheet_link($d_study['google_file_id']); ?>" target="_blank"><?php echo substr($d_study['google_file_id'], 0, 8); ?>...<i class="fa fa-external-link-square"></i></a>
+                                                    <a href="<?php echo h(google_get_sheet_link($d_study['google_file_id'])); ?>" target="_blank"><?php echo h(substr($d_study['google_file_id'], 0, 8)); ?>...<i class="fa fa-external-link-square"></i></a>
                                                 <?php endif; ?>
                                             </td>
                                         </tr>

@@ -8,7 +8,7 @@ per-response paradata). Read `documentation/form_v2.md` first for the
 admin-facing "what/when"; this doc is the "how/why" for maintainers.
 
 Terminology bridge: the spec calls them **paged** and **scrolling**; formr calls
-them **`solo`** and **`default`** (`survey_studies.layout` ENUM, patch 066). The
+them **`solo`** and **`default`** (`survey_studies.layout` ENUM, patch 085). The
 renderer emits `data-layout="solo|default"` on the `<form>`; everything branches
 off that attribute.
 
@@ -28,7 +28,7 @@ off that attribute.
 
 `SurveyStudy.layout` (066) gates the solo behaviours; `survey_unit_sessions.layout`
 (068) records the mode per response. (The `option_keys`/A·B·C letter-badge
-feature, patch 067, was **removed** — solo is a mobile/app view where keyboard
+feature, patch 086, was **removed** — solo is a mobile/app view where keyboard
 shortcuts are irrelevant; the `option_keys` column is left dormant in the DB.)
 
 ## Solo (paged) layout — the step controller
@@ -220,7 +220,7 @@ The spec's most formr-specific section. Co-locating items on one screen
 (paged/solo) — a real, replicated effect, so the same scale can show different
 reliability/factor structure across modes.
 
-- **Layout recorded per response** — `survey_unit_sessions.layout` (patch 068),
+- **Layout recorded per response** — `survey_unit_sessions.layout` (patch 087),
   stamped from `SurveyStudy.layout` at first render in
   `UnitSession::createSurveyStudyRecord` (captured at start, so a later flip of
   the study's layout doesn't rewrite history). This is paradata, queryable

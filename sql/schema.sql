@@ -6,6 +6,13 @@ SET NAMES utf8mb4;
 CREATE DATABASE IF NOT EXISTS formr CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE formr;
 SET FOREIGN_KEY_CHECKS=0;
+CREATE TABLE `formr_rate_limits` (
+  `bucket_key` varchar(80) NOT NULL,
+  `window_start` int(10) unsigned NOT NULL,
+  `count` int(10) unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`bucket_key`),
+  KEY `idx_window_start` (`window_start`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `oauth_access_tokens` (
   `access_token` varchar(64) NOT NULL DEFAULT '',
   `client_id` varchar(80) DEFAULT NULL,
@@ -168,6 +175,8 @@ CREATE TABLE `survey_email_log` (
   `message` text DEFAULT NULL,
   `meta` text DEFAULT NULL,
   `status` tinyint(1) DEFAULT NULL,
+  `tries` tinyint(3) unsigned NOT NULL DEFAULT 0,
+  `last_attempt` datetime DEFAULT NULL,
   `sent` datetime DEFAULT NULL,
   `idempotency_key` varchar(128) DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -177,6 +186,7 @@ CREATE TABLE `survey_email_log` (
   KEY `account_status` (`account_id`,`status`),
   KEY `idx_status` (`status`),
   KEY `idx_recipient_status_created` (`recipient`,`status`,`created`),
+  KEY `idx_status_retry` (`status`,`tries`,`last_attempt`),
   CONSTRAINT `fk_survey_email_log_survey_emails1` FOREIGN KEY (`email_id`) REFERENCES `survey_emails` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_email_log_survey_unit_sessions1` FOREIGN KEY (`session_id`) REFERENCES `survey_unit_sessions` (`id`) ON DELETE SET NULL ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -201,6 +211,18 @@ CREATE TABLE `survey_externals` (
   `expire_after` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_external_unit` FOREIGN KEY (`id`) REFERENCES `survey_units` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `survey_form_submissions` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `uuid` char(36) NOT NULL,
+  `unit_session_id` int(10) unsigned NOT NULL,
+  `page` smallint(5) unsigned NOT NULL,
+  `client_ts` datetime DEFAULT NULL,
+  `applied_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uuid` (`uuid`),
+  KEY `unit_session_id` (`unit_session_id`),
+  CONSTRAINT `fk_sfs_unit_session` FOREIGN KEY (`unit_session_id`) REFERENCES `survey_unit_sessions` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `survey_item_choices` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -281,11 +303,14 @@ CREATE TABLE `survey_notifications` (
   `type` enum('error','warning','info') NOT NULL DEFAULT 'error',
   `created` datetime NOT NULL,
   `recipient_id` int(11) unsigned NOT NULL,
+  `fingerprint` varchar(64) DEFAULT NULL,
+  `suppressed` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   KEY `session_id` (`session_id`),
   KEY `recipient_id` (`recipient_id`),
   KEY `created` (`created`),
   KEY `idx_run_recipient_type` (`run_id`,`recipient_id`,`type`),
+  KEY `idx_run_recipient_fingerprint` (`run_id`,`recipient_id`,`fingerprint`),
   CONSTRAINT `survey_notifications_ibfk_1` FOREIGN KEY (`run_id`) REFERENCES `survey_runs` (`id`) ON DELETE CASCADE,
   CONSTRAINT `survey_notifications_ibfk_2` FOREIGN KEY (`session_id`) REFERENCES `survey_unit_sessions` (`id`) ON DELETE CASCADE,
   CONSTRAINT `survey_notifications_ibfk_3` FOREIGN KEY (`recipient_id`) REFERENCES `survey_users` (`id`) ON DELETE CASCADE
@@ -309,6 +334,35 @@ CREATE TABLE `survey_pauses` (
   `body_parsed` mediumtext DEFAULT NULL,
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_survey_breaks_survey_run_items1` FOREIGN KEY (`id`) REFERENCES `survey_units` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `survey_r_call_results` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `call_id` bigint(20) unsigned NOT NULL,
+  `unit_session_id` int(10) unsigned NOT NULL DEFAULT 0,
+  `args_hash` char(64) NOT NULL COMMENT 'sha256 of normalized JSON-encoded args',
+  `result_json` text NOT NULL COMMENT 'JSON-encoded {result: ...} payload',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_call_session_args` (`call_id`,`unit_session_id`,`args_hash`),
+  KEY `idx_created` (`created_at`),
+  KEY `fk_r_call_results_unit_session` (`unit_session_id`),
+  CONSTRAINT `fk_r_call_results_call` FOREIGN KEY (`call_id`) REFERENCES `survey_r_calls` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_r_call_results_unit_session` FOREIGN KEY (`unit_session_id`) REFERENCES `survey_unit_sessions` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `survey_r_calls` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `study_id` int(10) unsigned NOT NULL,
+  `slot` enum('showif','value','label','page_body','choice_label') NOT NULL,
+  `item_id` int(10) unsigned DEFAULT NULL,
+  `expr` text NOT NULL,
+  `expr_hash` char(64) NOT NULL,
+  `created` datetime NOT NULL DEFAULT current_timestamp(),
+  `modified` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `study_expr_hash_slot` (`study_id`,`expr_hash`,`slot`,`item_id`),
+  KEY `study_slot` (`study_id`,`slot`),
+  KEY `item_id` (`item_id`),
+  CONSTRAINT `fk_survey_r_calls_study` FOREIGN KEY (`study_id`) REFERENCES `survey_studies` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `survey_reports` (
   `session_id` int(10) unsigned NOT NULL,
@@ -456,6 +510,7 @@ CREATE TABLE `survey_run_sessions` (
   KEY `fk_survey_run_sessions_survey_units1_idx` (`current_unit_session_id`),
   KEY `idx_run_created` (`run_id`,`created`),
   KEY `idx_run_last_access` (`run_id`,`last_access`),
+  KEY `idx_run_testing_last_access` (`run_id`,`testing`,`last_access`),
   CONSTRAINT `fk_survey_run_sessions_survey_runs1` FOREIGN KEY (`run_id`) REFERENCES `survey_runs` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_run_sessions_survey_users1` FOREIGN KEY (`user_id`) REFERENCES `survey_users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -579,7 +634,6 @@ CREATE TABLE `survey_unit_sessions` (
   `ended` datetime DEFAULT NULL,
   `expired` datetime DEFAULT NULL,
   `state` enum('PENDING','RUNNING','WAITING_USER','WAITING_TIMER','ENDED','EXPIRED','SUPERSEDED') DEFAULT NULL,
-  `state_log` longtext DEFAULT NULL CHECK (`state_log` is null or json_valid(`state_log`)),
   `idempotency_key` varchar(128) DEFAULT NULL,
   `execution_time` decimal(12,3) unsigned DEFAULT NULL COMMENT 'Cumulative wall-clock seconds in UnitSession::execute(), incl. OpenCPU (issue #608)',
   PRIMARY KEY (`id`),

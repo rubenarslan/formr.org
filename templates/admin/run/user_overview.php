@@ -79,6 +79,23 @@
                                 </select>
                             </div>
 
+                            <?php
+                            // The run menu's "Old Guinea Pigs" link lands here with testing=1.
+                            // Surfacing it as a form control means the filter is visible (an
+                            // otherwise empty-looking table is explained) and reversible.
+                            $testing_filter = array_val($_GET, 'testing');
+                            $testing_filter = ($testing_filter === '') ? '' : (string) (int) (bool) $testing_filter;
+                            ?>
+                            <label class="sr-only">Test sessions</label>
+                            <div class="input-group">
+                                <div class="input-group-addon hastooltip" title="Guinea pigs are sessions carrying the testing flag — created via Test Run, or switched on with the stethoscope button below."><i class="fa fa-stethoscope"></i></div>
+                                <select class="form-control" name="testing">
+                                    <option value="" <?= ($testing_filter === '') ? 'selected' : ''; ?>>Everyone</option>
+                                    <option value="1" <?= ($testing_filter === '1') ? 'selected' : ''; ?>>Guinea pigs only</option>
+                                    <option value="0" <?= ($testing_filter === '0') ? 'selected' : ''; ?>>Real users only</option>
+                                </select>
+                            </div>
+
                             <button type="submit" class="btn btn-default"><i class="fa fa-search"></i></button>
                         </form>
 

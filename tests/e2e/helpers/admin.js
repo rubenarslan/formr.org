@@ -94,4 +94,31 @@ async function setAceValue(page, textareaSelector, value) {
     }, { sel: textareaSelector, val: value });
 }
 
-module.exports = { ADMIN_BASE, STATE_PATH, adminLogin, ensureAdminState, createRun, deleteRun, setAceValue, dismissConsent };
+// --- participant-management actions from the user overview -----------------
+//
+// These are the buttons in the Action column of admin/run/<name>/user_overview,
+// posted the way the page's own form-ajax posts them. Driving the endpoint
+// rather than clicking through the table keeps a spec independent of which
+// page of a 200-row table its participant landed on; the request is identical.
+
+/** "Send this user to that position" — RunSession::forceTo() + execute(). */
+async function sendToPosition(page, runName, session, position) {
+    const res = await page.request.post(
+        `${ADMIN_BASE}/admin/run/${runName}/ajax_send_to_position`,
+        { headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          form: { session, new_position: String(position) } }
+    );
+    return res;
+}
+
+/** "Next in run" — RunSession::forceMoveOn('moved'). */
+async function nextInRun(page, runName, session) {
+    const res = await page.request.post(
+        `${ADMIN_BASE}/admin/run/${runName}/ajax_next_in_run`,
+        { headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          form: { session } }
+    );
+    return res;
+}
+
+module.exports = { ADMIN_BASE, STATE_PATH, adminLogin, ensureAdminState, createRun, deleteRun, setAceValue, dismissConsent, sendToPosition, nextInRun };

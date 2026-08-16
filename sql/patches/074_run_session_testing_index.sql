@@ -1,0 +1,22 @@
+-- v1.8.0 — index the test-session filter on the user overview.
+--
+-- The run menu's "Old Guinea Pigs" entry used to link to
+-- `user_overview?session=XXX` and lean on the session search being a
+-- substring match (test codes are <animalname>XXX<token>, so XXX never
+-- occurs at the start). 890ba81e dropped the leading wildcard so that
+-- search could use the index on `session`, which turned the link into
+-- "codes starting with XXX" — always empty. The view now filters on
+-- `testing`, the flag getTestSession() and the stethoscope toggle already
+-- maintain.
+--
+-- Without this index that filter is the same kind of scan the earlier perf
+-- work removed: guinea pigs are a handful of rows among all of a run's
+-- sessions, so idx_run_last_access would walk the whole run to find them.
+-- Ordering the key (run_id, testing, last_access) lets one range scan serve
+-- the WHERE and the ORDER BY last_access DESC together, so the LIMIT stops
+-- early instead of after a filesort.
+--
+-- It also covers the inverse filter (`testing=0`, real participants only),
+-- which is the same access path.
+ALTER TABLE `survey_run_sessions`
+    ADD KEY IF NOT EXISTS `idx_run_testing_last_access` (`run_id`, `testing`, `last_access`);
