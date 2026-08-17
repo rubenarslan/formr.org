@@ -20,12 +20,19 @@ const db = require('./helpers/db');
 const RUN = () => runName('all_widgets', 'v2');
 
 // This suite asserts DEFAULT-layout behaviour, but other suites toggle the
-// shared all_widgets study's layout and v2-finish deliberately leaves it on
-// 'solo' (the user's preferred manual-fixture state). Pin it ourselves so
-// execution order can't break us. workers:1 makes this race-free.
+// shared all_widgets study's layout. The suite's canonical REST state for
+// this study is 'default': solo-layout.spec.js:50 pins exactly that as a
+// regression test, and solo coverage has its own permanently-solo fixture
+// (e2e-aw-solo-v2 / e2e_all_widgets_solo_v2). An earlier version of this
+// afterAll restored 'solo' ("preferred manual-fixture state" — predating
+// the dedicated solo fixture), which made every FULL suite run fail
+// solo-layout while file-scoped runs passed: this file runs first
+// alphabetically ('f' < 's') and left the contradiction behind for
+// solo-layout to find. Pin default before AND after so execution order
+// can't break either suite. workers:1 makes this race-free.
 const STUDY_ID = 1602; // all_widgets — bound to e2e-aw-v2 via survey_units.form_study_id
 test.beforeAll(() => db.dbExecRaw(`UPDATE survey_studies SET layout='default' WHERE id=${STUDY_ID}`));
-test.afterAll(() => db.dbExecRaw(`UPDATE survey_studies SET layout='solo' WHERE id=${STUDY_ID}`));
+test.afterAll(() => db.dbExecRaw(`UPDATE survey_studies SET layout='default' WHERE id=${STUDY_ID}`));
 
 test.describe('form_v2 spec: a11y group semantics', () => {
 

@@ -50,8 +50,13 @@ module.exports = defineConfig({
     // BS sessions occasionally drop the websocket bridge or the device
     // returns ERR_CONNECTION_CLOSED on a navigation; one retry absorbs
     // those without papering over real test failures (a real failure
-    // reproduces on retry). Local stays at 0.
-    retries: RUNNING_ON_BS ? 1 : 0,
+    // reproduces on retry). The same reasoning now applies locally: a
+    // 30-40 minute full run on the long-lived dev box occasionally eats a
+    // host-level network blip (net::ERR_NETWORK_CHANGED took out three
+    // adjacent files' navigations in one window on 2026-08-17), and with
+    // retries: 0 any blip is a hard failure. One retry; deterministic
+    // failures still fail.
+    retries: 1,
     workers: 1,
     reporter: [
         ['list'],
