@@ -762,3 +762,15 @@ Not audit findings, but open and related:
   playwright test result-coverage` under-reports: `RESCOV_PUSH=1` (delivers
   a real notification), `RESCOV_OUTAGE=1` (stops OpenCPU / blackholes SMTP),
   and `error_email` needs the instance in synchronous mode.
+- **The full local suite is green as of 2026-08-17** (194 passed, 0 failed,
+  25 opt-in skips, ~31 min) — the first recorded fully-green full run.
+  Getting there took five root causes, none an application regression:
+  the release-behavior spec drift from v1.8.0 (X1 label, elapsed-Pause
+  end, last-visit-anchored expiry fixtures), a vendor/ tree drifted from
+  composer.lock (altcha missing), the assets.php dev-build preference
+  with no existence fallback (fix: b24b7ae2 — this one silently killed
+  every admin/v1 bundle), two specs encoding contradictory rest states
+  for the shared all_widgets layout (0e8fcdb0), and host network blips
+  now absorbed by retries: 1. Full-run-only failures mean shared-fixture
+  contamination or dead assets, not flaky tests — bisect by file order
+  before blaming the spec.
