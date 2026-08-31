@@ -1,7 +1,7 @@
 <?php
 
 use AltchaOrg\Altcha\Altcha;
-use AltchaOrg\Altcha\Algorithm\Sha;
+use AltchaOrg\Altcha\Algorithm\Argon2id;
 use AltchaOrg\Altcha\Challenge;
 use AltchaOrg\Altcha\ChallengeParameters;
 use AltchaOrg\Altcha\CreateChallengeOptions;
@@ -15,30 +15,46 @@ use AltchaOrg\Altcha\VerifySolutionOptions;
  * server: no third party, no cookies, no visitor data leaves the box, so it
  * raises no data-protection questions for European institutional deployments
  * (unlike the Cloudflare/reCAPTCHA siteverify model). Usage patterns follow
- * the vetted BotCheckChallenge service on the feature/altcha branch, reduced
- * to SHA-256 PoW so the stock <altcha-widget> works without extra worker
- * assets.
+ * the vetted BotCheckChallenge service on the feature/altcha branch:
+ * memory-hard Argon2id proof of work, solved in-browser by the self-hosted
+ * argon2id.js Web Worker registered with the stock <altcha-widget> — the
+ * ONLY algorithm/widget pairing with browser e2e evidence (the v3 widget
+ * refuses the PHP lib's SHA-256 challenges: "Unsupported algorithm").
+ * Requires ext-sodium; without it the challenge fails open (no widget)
+ * rather than minting challenges no browser can solve.
  *
  * The widget (self-hosted, webpack-copied from the `altcha` npm package into
  * the asset build) fetches a fresh challenge from
- * admin/account/register-challenge when it mounts and submits the solved
- * payload in the hidden `altcha` field. The HMAC signature (secret shared
- * with RegistrationGuard, derived from the instance crypto key) pins the
- * difficulty and the session binding; verification is a single hash.
+ * admin/account/register-challenge (v3 attribute name: `challenge`) when
+ * clicked and submits the solved payload in the hidden `altcha` field. The
+ * HMAC signature (secret shared with RegistrationGuard, derived from the
+ * instance crypto key) pins difficulty, memory cost and the session binding;
+ * server-side verification is a single Argon2id hash (~ms).
  */
 class AltchaChallenge implements RegistrationChallenge {
 
     /** How long a minted challenge stays valid. */
     const TTL = 3600;
 
-    /** SHA-256 PoW difficulty: expected number of hash attempts (~cost/2). */
-    const DEFAULT_COST = 100000;
+    // Argon2id knobs, straight from the vetted BotCheckChallenge defaults:
+    // 4 MiB memory (GPU/ASIC-resistant), 1 iteration, 1-byte zero prefix
+    // (~256 expected attempts) — sub-second-to-a-few-seconds on a normal
+    // device via the widget's workers; ONE ~ms hash for the server to verify.
+    const MEMORY_COST = 4096; // KiB
+    const TIME_COST = 1;
+    const PARALLELISM = 1;
+    const KEY_PREFIX = '00';  // one zero byte
+    const KEY_LENGTH = 16;
 
     const FIELD = 'altcha';
 
     protected function altcha() {
         if (!class_exists('AltchaOrg\\Altcha\\Altcha')) {
             formr_log('ALTCHA: composer package altcha-org/altcha is not installed — challenge disabled (failing open).', 'MailGuard');
+            return null;
+        }
+        if (!function_exists('sodium_crypto_pwhash') || !defined('SODIUM_CRYPTO_PWHASH_ALG_ARGON2ID13')) {
+            formr_log('ALTCHA: ext-sodium (Argon2id) unavailable — challenge disabled (failing open).', 'MailGuard');
             return null;
         }
         $secret = RegistrationGuard::secret();
@@ -65,10 +81,12 @@ class AltchaChallenge implements RegistrationChallenge {
             return null;
         }
         $opts = new CreateChallengeOptions(
-            algorithm: new Sha(),
-            cost: (int) Config::get('registration.altcha_cost', self::DEFAULT_COST),
-            keyLength: 16,
-            keyPrefix: '00',
+            algorithm: new Argon2id(),
+            cost: self::TIME_COST,
+            keyLength: self::KEY_LENGTH,
+            keyPrefix: self::KEY_PREFIX,
+            memoryCost: self::MEMORY_COST,
+            parallelism: self::PARALLELISM,
             expiresAt: time() + self::TTL,
             data: array('sid' => $this->subject())
         );
@@ -82,9 +100,20 @@ class AltchaChallenge implements RegistrationChallenge {
         $challengeUrl = h(site_url('admin/account/register-challenge'));
         $js = h(asset_url('assets/build/js/altcha/altcha.min.js'));
         $css = h(asset_url('assets/build/js/altcha/altcha.css'));
+        $worker = json_encode(asset_url('assets/build/js/altcha/argon2id.js'));
+        // The admin CSP nonce-gates inline scripts (script-src 'self'
+        // 'nonce-…', no unsafe-inline); getCspNonce() is memoized per
+        // request, so this matches the header. External 'self' scripts need
+        // no nonce. Module scripts run in document order: the external build
+        // defines <altcha-widget> and window.$altcha, then the inline module
+        // registers the self-hosted Argon2id worker (same pattern as the
+        // run-level bot_check item on feature/altcha).
+        $nonce = h(Site::getInstance()->getCspNonce());
         return '<link rel="stylesheet" href="' . $css . '">'
             . '<script type="module" src="' . $js . '"></script>'
-            . '<div class="form-group"><altcha-widget challengeurl="' . $challengeUrl . '"></altcha-widget></div>';
+            . '<script type="module" nonce="' . $nonce . '">if (window.$altcha && window.$altcha.algorithms) {'
+            . ' window.$altcha.algorithms.set(\'ARGON2ID\', () => new Worker(' . $worker . ')); }</script>'
+            . '<div class="form-group"><altcha-widget challenge="' . $challengeUrl . '"></altcha-widget></div>';
     }
 
     public function verifyRequest(Request $request) {
@@ -98,7 +127,7 @@ class AltchaChallenge implements RegistrationChallenge {
         }
         $params = isset($arr['challenge']['parameters']) && is_array($arr['challenge']['parameters'])
             ? $arr['challenge']['parameters'] : array();
-        if (!$params || (isset($params['algorithm']) && $params['algorithm'] !== 'SHA-256')) {
+        if (!$params || (isset($params['algorithm']) && $params['algorithm'] !== 'ARGON2ID')) {
             return false;
         }
         $challenge = new Challenge(
@@ -111,7 +140,7 @@ class AltchaChallenge implements RegistrationChallenge {
         );
         $result = $altcha->verifySolution(new VerifySolutionOptions(
             payload: new Payload($challenge, $solution),
-            algorithm: new Sha()
+            algorithm: new Argon2id()
         ));
         if (!$result->verified) {
             return false;

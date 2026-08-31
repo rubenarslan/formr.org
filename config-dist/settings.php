@@ -187,7 +187,6 @@ $settings['registration'] = array(
 	'min_form_seconds' => 3,      // submissions faster than this are bots
 	'form_token_ttl' => 43200,    // signed form timestamp validity (12 h)
 	'challenge' => null,          // null | 'altcha' | 'turnstile'
-	'altcha_cost' => 100000,      // proof-of-work difficulty (expected hashes ≈ cost/2)
 	'turnstile_site_key' => '',
 	'turnstile_secret_key' => '',
 );

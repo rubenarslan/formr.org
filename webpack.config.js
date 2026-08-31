@@ -134,6 +134,15 @@ module.exports = (env, argv) => {
                         to: path.resolve(__dirname, outputDir + '/js/altcha/altcha.css'),
                         info: { minimized: true },
                     },
+                    // Memory-hard Argon2id Web Worker (inline WASM, no network):
+                    // the widget's solver for the challenges AltchaChallenge
+                    // mints. Copied verbatim — es5 target + worker-chunk
+                    // publicPath make bundling it fragile.
+                    {
+                        from: path.resolve(__dirname, 'node_modules/altcha/dist/workers/argon2id.js'),
+                        to: path.resolve(__dirname, outputDir + '/js/altcha/argon2id.js'),
+                        info: { minimized: true },
+                    },
                     // Site Images
                     {
                         from: path.resolve(__dirname, 'webroot/assets/site/img/'),
