@@ -334,8 +334,8 @@ class AdminAccountController extends Controller {
             $this->request->redirect('index');
         }
 
-        if ($this->request->isHTTPPostRequest() && 
-        $site->request->str('email') && 
+        if ($this->request->isHTTPPostRequest() &&
+        $site->request->str('email') &&
         filter_var($this->request->str('email'), FILTER_VALIDATE_EMAIL)) {
             if(Site::getSettings('signup:allow', 'true') !== 'true') {
                 alert('Signing up has been disabled for the moment.', 'alert-info');
@@ -347,6 +347,42 @@ class AdminAccountController extends Controller {
                 return $this->request->redirect('admin/account/register');
             }
 
+            $email = $site->request->str('email');
+            $ip = MailGuardService::clientIp();
+
+            // Bot friction: honeypot, signed form-timestamp, optional challenge.
+            $bot = RegistrationGuard::checkSubmission($this->request);
+            if (!$bot['ok']) {
+                MailGuardService::record($email, 'registration_attempt', MailGuardService::CATEGORY_TRANSACTIONAL, $ip, null, $bot['outcome']);
+                if ($bot['silent']) {
+                    // Honeypot hit: mimic the success path so the bot learns nothing.
+                    alert('An email has been sent to you. Please check your email and verify your account.', 'alert-info');
+                    return $this->request->redirect('admin/account/register');
+                }
+                $this->response->setStatusCode(Response::STATUS_BAD_REQUEST);
+                alert($bot['message'], 'alert-danger');
+                return $this->renderRegisterForm();
+            }
+
+            // Registration gating (registration.mode: open/domains/invite/closed).
+            $gate = RegistrationGuard::gate($email, $site->request->str('referrer_code'));
+            if (!$gate['ok']) {
+                MailGuardService::record($email, 'registration_attempt', MailGuardService::CATEGORY_TRANSACTIONAL, $ip, null, 'refused_gate');
+                $this->response->setStatusCode(Response::STATUS_FORBIDDEN);
+                alert($gate['message'], 'alert-danger');
+                return $this->renderRegisterForm();
+            }
+
+            // Would the verification mail even be allowed to leave? Checked
+            // BEFORE creating the account, so an over-limit or suppressed
+            // request gets a clean refusal instead of a silently created row.
+            $verdict = MailGuardService::check($email, 'verification', MailGuardService::CATEGORY_TRANSACTIONAL, $ip);
+            if (!$verdict['allowed']) {
+                MailGuardService::record($email, 'verification', MailGuardService::CATEGORY_TRANSACTIONAL, $ip, null, $verdict['outcome']);
+                $this->response->setStatusCode(Response::STATUS_TOO_MANY_REQUESTS);
+                alert($verdict['message'], 'alert-danger');
+                return $this->renderRegisterForm();
+            }
 
             $info = array(
                 'email' => $site->request->str('email'),
@@ -354,6 +390,10 @@ class AdminAccountController extends Controller {
                 'referrer_code' => $site->request->str('referrer_code'),
             );
             if ($user->register($info)) {
+                if (Config::get('registration.mode', 'open') === 'invite') {
+                    $newUserId = (int) $this->fdb->findValue('survey_users', array('email' => $email), 'id');
+                    RegistrationGuard::consumeInvite($site->request->str('referrer_code'), $newUserId);
+                }
                 $this->request->redirect('admin/account/register');
             } else {
                 $this->response->setStatusCode(Response::STATUS_BAD_REQUEST);
@@ -361,8 +401,32 @@ class AdminAccountController extends Controller {
             }
         }
 
+        return $this->renderRegisterForm();
+    }
+
+    /** Render the signup form with the anti-bot fields it needs. */
+    protected function renderRegisterForm() {
         $this->registerAssets('material');
-        $this->setView('admin/account/register');
+        $challenge = RegistrationGuard::challengeDriver();
+        $this->setView('admin/account/register', array(
+            'registration_form_token' => RegistrationGuard::mintFormToken(),
+            'registration_challenge_html' => $challenge ? $challenge->widgetHtml() : '',
+        ));
+        return $this->sendResponse();
+    }
+
+    /**
+     * JSON endpoint (admin/account/register-challenge) the self-hosted Altcha
+     * widget on the signup form fetches its proof-of-work challenge from.
+     */
+    public function registerChallengeAction() {
+        $driver = RegistrationGuard::challengeDriver();
+        if (!($driver instanceof AltchaChallenge) || ($challenge = $driver->mint()) === null) {
+            $this->response->setStatusCode(Response::STATUS_NOT_FOUND, 'Not Found');
+            $this->response->setJsonContent(array('error' => 'no challenge configured'));
+            return $this->sendResponse();
+        }
+        $this->response->setJsonContent($challenge);
         return $this->sendResponse();
     }
 
@@ -399,7 +463,19 @@ class AdminAccountController extends Controller {
                 $this->response->setStatusCode(Response::STATUS_UNAUTHORIZED);
                 alert('Please enter a valid email address.', 'alert-danger');
             } else {
-                $result = $this->user->forgotPassword($this->request->str('email'));
+                $email = $this->request->str('email');
+                $ip = MailGuardService::clientIp();
+                // Early mail-guard check: forgot-password is the only
+                // unauthenticated endpoint that can re-emit mail to the same
+                // address indefinitely, so cap it before touching the DB. The
+                // response is byte-identical to the success path — refusals
+                // must not become an account-existence or rate-state oracle.
+                $verdict = MailGuardService::check($email, 'password_reset', MailGuardService::CATEGORY_TRANSACTIONAL, $ip);
+                if (!$verdict['allowed']) {
+                    MailGuardService::record($email, 'password_reset', MailGuardService::CATEGORY_TRANSACTIONAL, $ip, null, $verdict['outcome']);
+                } else {
+                    $result = $this->user->forgotPassword($email);
+                }
                 $this->response->setStatusCode(Response::STATUS_UNAUTHORIZED);
                 alert('If an account exists for this email address, you will receive password reset instructions.', 'alert-info');
             }
