@@ -420,6 +420,9 @@ class AdminAccountController extends Controller {
      * widget on the signup form fetches its proof-of-work challenge from.
      */
     public function registerChallengeAction() {
+        // setJsonContent only encodes; the content type is on us (cf.
+        // AdminAjaxController) — the Altcha widget refuses non-JSON replies.
+        $this->response->setContentType('application/json');
         $driver = RegistrationGuard::challengeDriver();
         if (!($driver instanceof AltchaChallenge) || ($challenge = $driver->mint()) === null) {
             $this->response->setStatusCode(Response::STATUS_NOT_FOUND, 'Not Found');
