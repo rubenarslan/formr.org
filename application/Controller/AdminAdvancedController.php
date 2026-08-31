@@ -30,6 +30,31 @@ class AdminAdvancedController extends AdminController {
         return $this->sendResponse();
     }
 
+    /** Outbound-mail guard status: refusal counts, recent refusals, suppression list. */
+    public function mailGuardAction() {
+        $hours = (int) $this->request->str('hours');
+        if ($hours < 1 || $hours > 24 * 30) {
+            $hours = 24;
+        }
+        try {
+            $vars = array(
+                'hours' => $hours,
+                'summary' => MailGuardService::summary($hours),
+                'ceiling_tripped' => MailGuardService::globalCeilingTripped($hours),
+                'recent_refusals' => MailGuardService::recentRefusals(50),
+                'suppressions' => MailGuardService::listSuppressions(),
+                'guard_error' => null,
+            );
+        } catch (Throwable $e) {
+            // e.g. the 076 migration has not run yet
+            $vars = array('hours' => $hours, 'summary' => array(), 'ceiling_tripped' => false,
+                'recent_refusals' => array(), 'suppressions' => array(),
+                'guard_error' => $e->getMessage());
+        }
+        $this->setView('advanced/mail_guard', $vars);
+        return $this->sendResponse();
+    }
+
     public function testOpencpuSpeedAction() {
         $this->setView('advanced/test_opencpu_speed');
         return $this->sendResponse();

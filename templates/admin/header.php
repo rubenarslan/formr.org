@@ -94,6 +94,9 @@
                                        <li><a href="<?php echo site_url('admin/advanced/info'); ?>"><i class="fa fa-list fa-fw"></i> PHP Info</a></li>
                                        <li><a href="<?php echo site_url('admin/advanced/runs_management'); ?>"><i class="fa fa-list fa-fw"></i> Manage Runs</a></li>
                                        <li><a href="<?php echo site_url('admin/advanced/compute_usage'); ?>"><i class="fa fa-clock-o fa-fw"></i> Compute Usage</a></li>
+                                       <?php $mail_guard_tripped = MailGuardService::globalCeilingTripped(24); ?>
+                                       <li><a href="<?php echo site_url('admin/advanced/mail_guard'); ?>"><i class="fa fa-shield fa-fw"></i> Mail Guard
+                                           <?php if ($mail_guard_tripped): ?><span class="label label-danger">ceiling hit</span><?php endif; ?></a></li>
                                        <li><a href="<?php echo site_url('admin/advanced/cron_log'); ?>"><i class="fa fa-list fa-fw"></i> Cron Log</a></li>
 
                                     </ul>
