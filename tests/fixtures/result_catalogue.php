@@ -83,6 +83,13 @@ return [
     // coverage report flags them as newly reachable.
     'error_email_invalid_recipient' => ['unit' => 'Email', 'reach' => 'unreachable',
                               'why'  => 'the daemon re-checks a recipient that sendMail already validated before queueing'],
+    // Terminal, never retried: the mail guard (survey_mail_suppressions /
+    // domain plausibility) refused the recipient at the SMTP handoff. The
+    // specific guard outcome (refused_suppressed, refused_bad_domain) rides
+    // in the detail column. Reached by suppressing an address via
+    // bin/suppression.php and then sending it a study email.
+    'error_email_guard_refused' => ['unit' => 'Email', 'reach' => 'smtp',
+                              'how'  => 'recipient suppressed or domain undeliverable at daemon send time'],
     'error_email_invalid_subject'   => ['unit' => 'Email', 'reach' => 'unreachable',
                               'why'  => 'the daemon re-checks a subject that sendMail already validated before queueing'],
     'email_skipped_user_disabled' => ['unit' => 'Email', 'reach' => 'web', 'how' => 'participant opted out or snoozed'],

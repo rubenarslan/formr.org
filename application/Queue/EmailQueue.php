@@ -150,7 +150,7 @@ class EmailQueue extends Queue {
             $WHERE .= ' AND account_id = ' . (int) $account_id . ' ';
         }
 
-        $query = "SELECT account_id, `session_id`, `from`, from_name, host, port, tls, username, password, auth_key 
+        $query = "SELECT account_id, `session_id`, `survey_email_accounts`.user_id, `from`, from_name, host, port, tls, username, password, auth_key
 				FROM survey_email_log
 				LEFT JOIN survey_email_accounts ON survey_email_accounts.id = survey_email_log.account_id
 				{$WHERE}
@@ -189,8 +189,11 @@ class EmailQueue extends Queue {
             $account_connected = true;
         }
 
-        if (!$account_connected) {            
-            $mailer = new PHPMailer();
+        if (!$account_connected) {
+            $mailer = new GuardedMailer();
+            $mailer->guard_category = MailGuardService::CATEGORY_STUDY;
+            $mailer->guard_type = 'study';
+            $mailer->guard_user_id = isset($account['user_id']) ? (int) $account['user_id'] : null;
             $mailer->SetLanguage("de", "/");
 
             $mailer->isSMTP();
@@ -396,6 +399,12 @@ class EmailQueue extends Queue {
             if (($sent = $mailer->send())) {
                 $this->logResult($email['session_id'],  $email['id'], self::STATUS_SENT, "email_sent");
                 $this->dbg("Send Success. \n {$debugInfo}");
+            } elseif (!empty($mailer->guard_blocked)) {
+                // Refused by the mail guard (suppressed recipient / dead
+                // domain): terminal, never retried — retrying can't change
+                // the verdict and would burn the try budget for nothing.
+                $this->dbg("Send refused by mail guard ({$mailer->guard_outcome}). \n {$debugInfo}");
+                $this->logResult($email['session_id'], $email['id'], self::STATUS_INVALID_RECIPIENT, "error_email_guard_refused", (string) $mailer->guard_outcome);
             } else {
                 $this->dbg($mailer->ErrorInfo);
                 $this->logResult($email['session_id'],  $email['id'], self::STATUS_FAILED_TO_SEND, "error_email_not_sent", $mailer->ErrorInfo);

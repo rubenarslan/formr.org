@@ -111,6 +111,10 @@ class Notification {
         if (!$mailer) {
             return false;
         }
+        // Admin-error notification to the study owner's own address — not
+        // participant mail, so 'system' semantics in the guard log.
+        $mailer->guard_category = MailGuardService::CATEGORY_SYSTEM;
+        $mailer->guard_type = 'notification';
 
         // Prepare email
         $mailer->IsHTML(true);

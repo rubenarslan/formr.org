@@ -154,6 +154,8 @@ class User extends Model {
         ));
 
         $mail = Site::getInstance()->makeAdminMailer();
+        $mail->guard_type = 'verification';
+        $mail->guard_user_id = $this->id;
         $mail->AddAddress($this->email);
         $mail->Subject = 'formr: confirm your email address';
         $mail->Body = Template::get_replace('email/verify-email.ftpl', array(
@@ -276,6 +278,7 @@ class User extends Model {
             ));
 
             $mail = Site::getInstance()->makeAdminMailer();
+            $mail->guard_type = 'password_reset';
             $mail->AddAddress($email);
             $mail->Subject = 'formr: forgot password';
             $mail->Body = Template::get_replace('email/forgot-password.ftpl', array(
@@ -284,7 +287,13 @@ class User extends Model {
             ));
 
             if (!$mail->Send()) {
-                alert($mail->ErrorInfo, 'alert-danger');
+                // A guard refusal (duplicate window, rate limit, suppression)
+                // only happens for existing accounts — surfacing it would be
+                // an account-existence oracle. Stay silent and let the
+                // controller's neutral "if an account exists…" response stand.
+                if (empty($mail->guard_blocked)) {
+                    alert($mail->ErrorInfo, 'alert-danger');
+                }
             } else {
                 alert("If the provided email was registered with us, you will receive an email with instructions on how to reset your password.", 'alert-info');
                 redirect_to("admin/account/forgot-password");

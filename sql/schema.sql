@@ -655,4 +655,53 @@ CREATE TABLE `user_uploaded_files` (
   CONSTRAINT `fk_user_uploaded_files_study` FOREIGN KEY (`study_id`) REFERENCES `survey_studies` (`id`) ON DELETE SET NULL ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
+CREATE TABLE `survey_mail_guard_log` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `recipient` varchar(255) NOT NULL,
+  `type` varchar(32) NOT NULL,
+  `category` varchar(16) NOT NULL DEFAULT 'transactional',
+  `user_id` int(10) unsigned DEFAULT NULL,
+  `ip` varchar(45) DEFAULT NULL,
+  `subnet` varchar(45) DEFAULT NULL,
+  `outcome` varchar(32) NOT NULL,
+  `created` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_mail_guard_recipient` (`recipient`,`type`,`created`),
+  KEY `idx_mail_guard_ip` (`ip`,`created`),
+  KEY `idx_mail_guard_subnet` (`subnet`,`created`),
+  KEY `idx_mail_guard_outcome` (`category`,`outcome`,`created`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `survey_mail_suppressions` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `address` varchar(255) NOT NULL,
+  `reason` varchar(255) DEFAULT NULL,
+  `added_by` varchar(255) DEFAULT NULL,
+  `created` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_mail_suppression_address` (`address`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `survey_registration_invites` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `token_hash` varchar(64) NOT NULL,
+  `created_by` varchar(255) DEFAULT NULL,
+  `created` datetime NOT NULL,
+  `expires` datetime DEFAULT NULL,
+  `used_at` datetime DEFAULT NULL,
+  `used_by` int(10) unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_invite_token_hash` (`token_hash`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `survey_mail_domain_cache` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `domain` varchar(255) NOT NULL,
+  `deliverable` tinyint(1) NOT NULL,
+  `checked` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_mail_domain` (`domain`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS=1;

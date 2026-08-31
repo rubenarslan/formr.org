@@ -156,7 +156,10 @@ class Site {
 
     public function makeAdminMailer() {
         $settings = Config::get('email');
-        $mail = new PHPMailer();
+        // GuardedMailer routes every send through MailGuardService. Default
+        // tagging is the strictest (transactional); callers sending
+        // researcher-facing system mail downgrade guard_category themselves.
+        $mail = new GuardedMailer();
         $mail->SetLanguage("de", "/");
 
         $mail->IsSMTP();  // telling the class to use SMTP
