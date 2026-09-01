@@ -28,7 +28,8 @@
             </div>
 
             <?php $invite_mode = Config::get('registration.mode', 'open') === 'invite'; ?>
-            <?php if ($invite_mode || Site::getSettings("signup:enable_referral_token", 'true') === 'true'): ?>
+            <?php // domains mode also shows the field: an admin-issued invite is the per-person exception to the domain gate ?>
+            <?php if ($invite_mode || Config::get('registration.mode', 'open') === 'domains' || Site::getSettings("signup:enable_referral_token", 'true') === 'true'): ?>
                 <div class="form-group label-floating">
                     <label class="control-label" for="token"><i class="fa fa-gift"></i>
                         <?= $invite_mode ? 'Invitation token (required)' : 'Referral token (if available)' ?></label>

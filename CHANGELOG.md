@@ -2,7 +2,12 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [v1.9.1] - 01.09.2026
+## [v1.9.2] - 01.09.2026
+
+People always want exceptions — this release gives superadmins an in-app lever for them.
+
+### Added
+- **Registration invites can be issued from the admin UI, and a valid invite overrides the domain gate.** New superadmin page `admin/advanced/registration_invites` (Advanced → Registration Invites): issue 1–50 single-use tokens with an optional expiry, see who issued/used each one, revoke unused ones. Tokens are displayed exactly once at issuance; only sha256 hashes are stored, and used invites are kept as an audit trail (who let whom in). In `domains` mode a valid invite now admits the one person carrying it past the domain/TLD restriction — the in-app answer to "my collaborator's email domain isn't on the list" that previously required host CLI access (`bin/registration_invite.php`, which remains and now shares the same implementation). The signup form shows the token field in `domains` mode, the rejection message mentions invitation tokens, an invite counts as a trusted signup (v1.9.1 rate-limit relaxation) in every mode, and a presented invite is burned on successful registration regardless of mode. `closed` still means closed — an operator wanting exceptions-only signup uses `invite` mode.
 
 Follow-ups to the v1.9.0 mail-guard work.
 

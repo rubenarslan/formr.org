@@ -175,9 +175,12 @@ $settings['mail_guard'] = array(
  *
  *   'open'     anyone (current behaviour, default)
  *   'domains'  only emails under 'allowed_domains' (whole domains, subdomains
- *              included) OR ending in an 'allowed_tlds' entry (e.g. only .edu)
- *   'invite'   only with a single-use token from bin/registration_invite.php,
- *              entered in the token field of the signup form
+ *              included) OR ending in an 'allowed_tlds' entry (e.g. only .edu).
+ *              A single-use invitation token (issued by a superadmin under
+ *              admin/advanced/registration_invites, or via
+ *              bin/registration_invite.php) overrides the restriction for
+ *              one person — the escape hatch for legitimate exceptions.
+ *   'invite'   only with such a single-use invitation token
  *   'closed'   nobody
  *
  * Independent of the DB-backed signup:allow switch in the admin UI — both

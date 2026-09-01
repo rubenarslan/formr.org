@@ -121,7 +121,14 @@ class RegistrationGuard {
                     || self::domainMatchesAny($domain, (array) Config::get('registration.allowed_tlds', array()))) {
                     return array('ok' => true, 'message' => '');
                 }
-                return array('ok' => false, 'message' => __('Sign-up on this formr instance is limited to certain institutions. Please use your institutional email address, or contact the administrator.'));
+                // A single-use invite (issued by a superadmin in the admin UI
+                // or via bin/registration_invite.php) overrides the domain
+                // restriction: it is a deliberate per-person exception, which
+                // is exactly what people ask administrators for.
+                if ($suppliedToken && self::findUsableInvite($suppliedToken)) {
+                    return array('ok' => true, 'message' => '');
+                }
+                return array('ok' => false, 'message' => __('Sign-up on this formr instance is limited to certain institutions. Please use your institutional email address or an invitation token, or contact the administrator.'));
             case 'invite':
                 if ($suppliedToken && self::findUsableInvite($suppliedToken)) {
                     return array('ok' => true, 'message' => '');
@@ -169,10 +176,53 @@ class RegistrationGuard {
         if (in_array($code, (array) Config::get('referrer_codes', array()), true)) {
             return true;
         }
-        if (Config::get('registration.mode', 'open') === 'invite' && self::findUsableInvite($code)) {
+        // A usable single-use invite is admin-issued, so it is trusted in any
+        // mode — including as a domain-gate exception in 'domains' mode.
+        if (self::findUsableInvite($code)) {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Issue $count single-use invites; returns the plaintext tokens — the
+     * only time they are visible (only a sha256 is stored). Shared by the
+     * admin UI (admin/advanced/registration-invites) and the caller-formatted
+     * bin/registration_invite.php.
+     *
+     * @return string[] the tokens, to hand to the invitees
+     */
+    public static function issueInvites($count, $expiresDays, $createdBy) {
+        $count = max(1, min(50, (int) $count));
+        $expires = ((int) $expiresDays) > 0 ? date('Y-m-d H:i:s', time() + ((int) $expiresDays) * 86400) : null;
+        $tokens = array();
+        for ($i = 0; $i < $count; $i++) {
+            $token = crypto_token(24);
+            DB::getInstance()->insert('survey_registration_invites', array(
+                'token_hash' => hash('sha256', $token),
+                'created_by' => (string) $createdBy,
+                'created' => mysql_now(),
+                'expires' => $expires,
+            ));
+            $tokens[] = $token;
+        }
+        return $tokens;
+    }
+
+    /** All invites, newest first (metadata only — hashes are not reversible). */
+    public static function listInvites() {
+        return DB::getInstance()->execute(
+            'SELECT id, created_by, created, expires, used_at, used_by '
+            . 'FROM survey_registration_invites ORDER BY id DESC'
+        );
+    }
+
+    /** Delete one UNUSED invite by id (used ones stay for the audit trail). */
+    public static function revokeInviteById($id) {
+        return (bool) DB::getInstance()->exec(
+            'DELETE FROM survey_registration_invites WHERE id = :id AND used_at IS NULL',
+            array('id' => (int) $id)
+        );
     }
 
     protected static function findUsableInvite($suppliedToken) {

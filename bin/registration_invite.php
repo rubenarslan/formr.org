@@ -24,21 +24,14 @@ function invite_usage() {
 
 switch ($action) {
     case 'issue':
-        $count = isset($opts['n']) ? max(1, (int) $opts['n']) : 1;
+        $count = isset($opts['n']) ? (int) $opts['n'] : 1;
         $days = isset($opts['d']) ? (int) $opts['d'] : 30;
-        $expires = $days > 0 ? date('Y-m-d H:i:s', time() + $days * 86400) : null;
         $createdBy = 'cli:' . (getenv('SUDO_USER') ?: getenv('USER') ?: 'unknown');
-        for ($i = 0; $i < $count; $i++) {
-            $token = crypto_token(24);
-            $db->insert('survey_registration_invites', array(
-                'token_hash' => hash('sha256', $token),
-                'created_by' => $createdBy,
-                'created' => mysql_now(),
-                'expires' => $expires,
-            ));
+        $tokens = RegistrationGuard::issueInvites($count, $days, $createdBy);
+        foreach ($tokens as $token) {
             print $token . "\n";
         }
-        fwrite(STDERR, $count . " invite(s) issued" . ($expires ? ", expiring {$expires}" : ", no expiry") . ".\n");
+        fwrite(STDERR, count($tokens) . " invite(s) issued" . ($days > 0 ? ", expiring in {$days} day(s)" : ", no expiry") . ".\n");
         break;
 
     case 'revoke':

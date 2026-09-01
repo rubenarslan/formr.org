@@ -396,7 +396,9 @@ class AdminAccountController extends Controller {
             );
             $user->signup_trusted = $trusted; // relax the guard on the verification send too
             if ($user->register($info)) {
-                if (Config::get('registration.mode', 'open') === 'invite') {
+                // Burn a presented invite in ANY mode — it may have served as
+                // the invite-mode ticket or as a domain-gate exception.
+                if ($site->request->str('referrer_code')) {
                     $newUserId = (int) $this->fdb->findValue('survey_users', array('email' => $email), 'id');
                     RegistrationGuard::consumeInvite($site->request->str('referrer_code'), $newUserId);
                 }

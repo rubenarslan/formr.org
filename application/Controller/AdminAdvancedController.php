@@ -30,6 +30,35 @@ class AdminAdvancedController extends AdminController {
         return $this->sendResponse();
     }
 
+    /**
+     * Issue / revoke single-use registration invites from the admin UI. An
+     * invite lets one person register past the registration.mode gate
+     * ('invite' mode, or as a per-person exception to 'domains') — the
+     * in-app answer to "my collaborator's email domain isn't on the list".
+     * Tokens are shown exactly once, at issuance; only hashes are stored.
+     */
+    public function registrationInvitesAction() {
+        $issued = array();
+        if ($this->request->isHTTPPostRequest()) {
+            $post = new Request($_POST);
+            if ($post->str('do') === 'issue') {
+                $issued = RegistrationGuard::issueInvites(
+                    $post->str('count', 1), $post->str('expires_days', 30),
+                    'admin:' . $this->user->email);
+                alert(count($issued) . ' invitation token(s) issued. Copy them now — they cannot be shown again.', 'alert-success');
+            } elseif ($post->str('do') === 'revoke') {
+                $revoked = RegistrationGuard::revokeInviteById($post->str('id'));
+                alert($revoked ? 'Invite revoked.' : 'No unused invite with that id.', $revoked ? 'alert-info' : 'alert-danger');
+            }
+        }
+        $this->setView('advanced/registration_invites', array(
+            'issued' => $issued,
+            'invites' => RegistrationGuard::listInvites(),
+            'mode' => Config::get('registration.mode', 'open'),
+        ));
+        return $this->sendResponse();
+    }
+
     /** Outbound-mail guard status: refusal counts, recent refusals, suppression list. */
     public function mailGuardAction() {
         $hours = (int) $this->request->str('hours');

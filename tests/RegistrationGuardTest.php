@@ -155,7 +155,7 @@ class RegistrationGuardTest extends PHPUnit\Framework\TestCase {
         $this->assertFalse(RegistrationGuard::signupIsTrusted('badcode'));
         $this->assertFalse(RegistrationGuard::signupIsTrusted(''));
 
-        // a usable single-use invite is trusted, but only in invite mode
+        // a usable single-use invite is admin-issued, so trusted in ANY mode
         $token = 'trusted-invite-token';
         DB::getInstance()->insert('survey_registration_invites', array(
             'token_hash' => hash('sha256', $token), 'created_by' => 'test',
@@ -164,7 +164,43 @@ class RegistrationGuardTest extends PHPUnit\Framework\TestCase {
         $this->assertTrue(RegistrationGuard::signupIsTrusted($token));
         $this->assertFalse(RegistrationGuard::signupIsTrusted('nope'));
         $this->configure(array('mode' => 'open'), array('referrer_codes' => array()));
-        $this->assertFalse(RegistrationGuard::signupIsTrusted($token), 'invite tokens only count in invite mode');
+        $this->assertTrue(RegistrationGuard::signupIsTrusted($token), 'admin-issued invites are trusted in any mode');
+    }
+
+    public function testInviteOverridesDomainGate() {
+        $this->configure(array('mode' => 'domains', 'allowed_domains' => array('example.org'), 'allowed_tlds' => array()));
+        $token = 'domain-exception-token';
+        DB::getInstance()->insert('survey_registration_invites', array(
+            'token_hash' => hash('sha256', $token), 'created_by' => 'test',
+            'created' => date('Y-m-d H:i:s'), 'expires' => null));
+        $this->assertFalse(RegistrationGuard::gate('a@blocked.com', null)['ok'], 'blocked without a token');
+        $this->assertFalse(RegistrationGuard::gate('a@blocked.com', 'wrong')['ok'], 'a wrong token grants nothing');
+        $this->assertTrue(RegistrationGuard::gate('a@blocked.com', $token)['ok'], 'a valid invite is the per-person exception');
+        // burning the invite closes the exception again
+        $this->assertTrue(RegistrationGuard::consumeInvite($token, 7));
+        $this->assertFalse(RegistrationGuard::gate('a@blocked.com', $token)['ok'], 'single use');
+    }
+
+    public function testIssueListRevokeInvites() {
+        $this->configure(array('mode' => 'open'), array('referrer_codes' => array()));
+        $tokens = RegistrationGuard::issueInvites(2, 30, 'admin:test@example.org');
+        $this->assertCount(2, $tokens);
+        $this->assertTrue(RegistrationGuard::signupIsTrusted($tokens[0]), 'freshly issued invite is usable');
+
+        $rows = RegistrationGuard::listInvites(); // newest first: rows[0] is tokens[1]
+        $this->assertCount(2, $rows);
+        $this->assertEquals('admin:test@example.org', $rows[0]['created_by']);
+
+        $this->assertTrue(RegistrationGuard::revokeInviteById($rows[0]['id']));
+        $this->assertCount(1, RegistrationGuard::listInvites());
+        $this->assertFalse(RegistrationGuard::signupIsTrusted($tokens[1]), 'revoked invite is dead');
+
+        // a used invite cannot be revoked away (audit trail)
+        $this->assertTrue(RegistrationGuard::consumeInvite($tokens[0], 9));
+        $used = RegistrationGuard::listInvites();
+        $this->assertNotNull($used[0]['used_at']);
+        $this->assertFalse(RegistrationGuard::revokeInviteById($used[0]['id']));
+        $this->assertCount(1, RegistrationGuard::listInvites(), 'used invite kept for the audit trail');
     }
 
     public function testChallengeDriverSelection() {
