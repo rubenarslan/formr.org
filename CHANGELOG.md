@@ -2,6 +2,17 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v1.9.1] - 01.09.2026
+
+Follow-ups to the v1.9.0 mail-guard work.
+
+### Fixes
+- **Verifying an email no longer shows a contradictory "token invalid or outdated" error.** `User::setVerified()` wrote `email_verified = 1` and showed the success alert, then — in the same method — checked for a referral token to grant study-creation rights and, on not finding one, fired an `alert-danger` reading "Your email verification token was invalid or oudated", contradicting the success message a line earlier. This hit *every* plain signup without a referral token (the common case). Verification was never actually failing (the account is verified either way; `verifyEmailAction` ignores the return), so the branch now shows an informational note — "Your account is a participant account; ask an administrator for study-creation rights." — instead of a false error. Pre-existing since at least v1.8.0; not a v1.9.0 regression.
+
+### Added
+- **`registration.allowed_tlds`** — in `domains` mode, accept any address whose domain ends in one of these TLDs (e.g. `array('edu', 'ac.uk')`), so an instance can limit sign-ups to a whole TLD without listing every institution in `allowed_domains`. Same label-boundary suffix match (`edu` accepts `x.edu`, not `x.notedu.com`); the two lists combine.
+- **Rate-limit relaxation for signups bearing a valid referral/invite token.** A spammer essentially never has one, so such signups now SKIP the per-IP and per-/24 ceilings — which otherwise blocked a workshop or course cohort all signing up from one institutional NAT — while remaining bounded by a separate, higher instance-wide ceiling (`mail_guard.trusted_global_limit_per_hour`, default 200) so a leaked token still can't bomb without limit, and by the unchanged duplicate-send / suppression / MX checks. The trust signal is a `referrer_codes` match (open/domains modes) or a usable single-use invite (invite mode); `RegistrationGuard::signupIsTrusted()` decides, and the flag rides the verification mail through `GuardedMailer`.
+
 ## [v1.9.0] - 31.08.2026
 
 Outbound-mail abuse hardening. A hosted instance had its SMTP disabled after bots used the registration and forgot-password forms as a free mailer (subscription bombing). Every outbound message now passes a send-path guard (suppression, duplicate-send window, per-IP/subnet/global ceilings, MX plausibility, full attempt log), and registration gains gating plus honeypot/timing bot friction and an optional self-hosted Altcha challenge. Every default is chosen so an instance upgrading without editing its config keeps working.
