@@ -149,6 +149,12 @@ $settings['mail_guard'] = array(
 	'ip_limit_per_hour' => 10,       // transactional mail per source IP
 	'subnet_limit_per_hour' => 20,   // …per /24 (IPv4) or /64 (IPv6)
 	'global_limit_per_hour' => 50,   // …instance-wide; hitting it is surfaced in the admin UI
+	// Signups bearing a valid referral/invite token are almost never spam, so
+	// they SKIP the per-IP and per-/24 limits above (this is what lets a whole
+	// workshop or course cohort sign up from one institutional NAT). They are
+	// still bounded by this separate, higher instance-wide ceiling, so a leaked
+	// token can't be used to bomb without limit.
+	'trusted_global_limit_per_hour' => 200,
 	// refuse addresses whose domain has no MX and no A/AAAA record. Fails
 	// open (sends anyway, logs) when DNS itself is unreachable.
 	'mx_check' => true,
@@ -168,7 +174,8 @@ $settings['mail_guard'] = array(
  * signup-mail abuse as a cost of doing business.
  *
  *   'open'     anyone (current behaviour, default)
- *   'domains'  only emails under 'allowed_domains' (subdomains included)
+ *   'domains'  only emails under 'allowed_domains' (whole domains, subdomains
+ *              included) OR ending in an 'allowed_tlds' entry (e.g. only .edu)
  *   'invite'   only with a single-use token from bin/registration_invite.php,
  *              entered in the token field of the signup form
  *   'closed'   nobody
@@ -183,7 +190,8 @@ $settings['mail_guard'] = array(
  */
 $settings['registration'] = array(
 	'mode' => 'open',
-	'allowed_domains' => array(), // e.g. array('uni-example.edu', 'example.org')
+	'allowed_domains' => array(), // ('domains' mode) whole domains, e.g. array('uni-example.edu', 'example.org')
+	'allowed_tlds' => array(),    // ('domains' mode) accept any address ending in these TLDs, e.g. array('edu', 'ac.uk')
 	'min_form_seconds' => 3,      // submissions faster than this are bots
 	'form_token_ttl' => 43200,    // signed form timestamp validity (12 h)
 	'challenge' => null,          // null | 'altcha' | 'turnstile'

@@ -112,12 +112,14 @@ class RegistrationGuard {
             case 'open':
                 return array('ok' => true, 'message' => '');
             case 'domains':
+                // Accept if the address matches a whole allowed domain OR ends
+                // in an allowed TLD. allowed_tlds is the same label-boundary
+                // suffix match, just named for operators who only want to gate
+                // by TLD (e.g. 'edu', 'ac.uk') without listing every institution.
                 $domain = EmailDomainService::domainOf($email);
-                foreach ((array) Config::get('registration.allowed_domains', array()) as $allowed) {
-                    $allowed = strtolower(trim($allowed));
-                    if ($allowed !== '' && ($domain === $allowed || substr($domain, -strlen('.' . $allowed)) === '.' . $allowed)) {
-                        return array('ok' => true, 'message' => '');
-                    }
+                if (self::domainMatchesAny($domain, (array) Config::get('registration.allowed_domains', array()))
+                    || self::domainMatchesAny($domain, (array) Config::get('registration.allowed_tlds', array()))) {
+                    return array('ok' => true, 'message' => '');
                 }
                 return array('ok' => false, 'message' => __('Sign-up on this formr instance is limited to certain institutions. Please use your institutional email address, or contact the administrator.'));
             case 'invite':
@@ -132,6 +134,45 @@ class RegistrationGuard {
                 }
                 return array('ok' => false, 'message' => __('Sign-up is disabled on this formr instance.'));
         }
+    }
+
+    /**
+     * True when $domain equals, or is a subdomain/TLD-suffix of, any entry
+     * (label-boundary match: 'edu' accepts x.edu but not x.notedu.com).
+     */
+    protected static function domainMatchesAny($domain, array $entries) {
+        $domain = strtolower(trim((string) $domain));
+        if ($domain === '') {
+            return false;
+        }
+        foreach ($entries as $entry) {
+            $entry = strtolower(trim((string) $entry, ". \t"));
+            if ($entry !== '' && ($domain === $entry || substr($domain, -strlen('.' . $entry)) === '.' . $entry)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether a signup carries strong evidence of a real user: a valid
+     * referral token (referrer_codes), or a valid single-use invite in
+     * invite mode. A spammer essentially never has one, so the mail guard
+     * relaxes per-source rate limits for these — keeping the global ceiling
+     * and the duplicate/suppression/MX checks. See MailGuardService::check().
+     */
+    public static function signupIsTrusted($suppliedToken) {
+        $code = trim((string) $suppliedToken);
+        if ($code === '') {
+            return false;
+        }
+        if (in_array($code, (array) Config::get('referrer_codes', array()), true)) {
+            return true;
+        }
+        if (Config::get('registration.mode', 'open') === 'invite' && self::findUsableInvite($code)) {
+            return true;
+        }
+        return false;
     }
 
     protected static function findUsableInvite($suppliedToken) {

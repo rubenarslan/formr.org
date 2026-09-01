@@ -17,7 +17,14 @@ class User extends Model {
     public $admin = false;
     public $referrer_code = null;
     // todo: time zone, etc.
-    
+
+    /**
+     * Request-scoped: set by the registration controller when the signup
+     * carries a valid referral/invite token, so the verification mail relaxes
+     * the mail guard's per-source rate limits. Not a DB column.
+     */
+    public $signup_trusted = false;
+
     protected $table = "survey_users";
 
     public function __construct($id = null, $user_code = null, $options = []) {
@@ -156,6 +163,7 @@ class User extends Model {
         $mail = Site::getInstance()->makeAdminMailer();
         $mail->guard_type = 'verification';
         $mail->guard_user_id = $this->id;
+        $mail->guard_trusted = (bool) $this->signup_trusted;
         $mail->AddAddress($this->email);
         $mail->Subject = 'formr: confirm your email address';
         $mail->Body = Template::get_replace('email/verify-email.ftpl', array(
@@ -440,8 +448,13 @@ class User extends Model {
 
             alert('You now have the rights to create your own studies!', 'alert-success');
         } else {
-            alert('Your email verification token was invalid or oudated. Please try copy-pasting the link in your email and removing any spaces.', 'alert-danger');
-            return false;
+            // Reaching here means the account has no valid referral token, so
+            // it stays participant-level — the normal outcome of a plain
+            // signup, NOT a verification failure. Verification already
+            // succeeded above (email_verified = 1); the old "token invalid or
+            // outdated" alert here was simply wrong and contradicted the
+            // success message shown moments earlier.
+            alert('Your account is a participant account; ask an administrator for study-creation rights.', 'alert-info');
         }
         return true;
     }

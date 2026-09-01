@@ -140,6 +140,31 @@ class MailGuardServiceTest extends PHPUnit\Framework\TestCase {
         $this->assertTrue(MailGuardService::check('b@example.org', 'study', MailGuardService::CATEGORY_STUDY, '203.0.113.7')['allowed']);
     }
 
+    public function testTrustedSignupSkipsPerSourceLimits() {
+        $this->configure(array('ip_limit_per_hour' => 2, 'subnet_limit_per_hour' => 2,
+            'global_limit_per_hour' => 0, 'trusted_global_limit_per_hour' => 0));
+        $this->insertLog(array('recipient' => 'a@example.org', 'ip' => '203.0.113.7', 'subnet' => '203.0.113.0/24'));
+        $this->insertLog(array('recipient' => 'b@example.org', 'ip' => '203.0.113.7', 'subnet' => '203.0.113.0/24'));
+        // untrusted: blocked by the per-IP ceiling
+        $this->assertFalse(MailGuardService::check('c@example.org', 'verification', self::T, '203.0.113.7', false)['allowed']);
+        // trusted (valid referral/invite token): the workshop-behind-one-NAT case sails through
+        $this->assertTrue(MailGuardService::check('c@example.org', 'verification', self::T, '203.0.113.7', true)['allowed']);
+    }
+
+    public function testTrustedSignupStillHitsGlobalCeiling() {
+        $this->configure(array('ip_limit_per_hour' => 0, 'subnet_limit_per_hour' => 0,
+            'global_limit_per_hour' => 0, 'trusted_global_limit_per_hour' => 2));
+        $this->insertLog(array('recipient' => 'a@example.org'));
+        $this->insertLog(array('recipient' => 'b@example.org', 'type' => 'password_reset'));
+        // even trusted, the higher trusted ceiling is a real backstop against a leaked token
+        $v = MailGuardService::check('c@example.org', 'verification', self::T, null, true);
+        $this->assertFalse($v['allowed']);
+        $this->assertEquals(MailGuardService::OUTCOME_GLOBAL_LIMIT, $v['outcome']);
+        // and an untrusted send at the same moment is still under its own (disabled here) ceiling logic:
+        // untrusted uses global_limit_per_hour (0 = off), so it is allowed — proving the two ceilings are distinct
+        $this->assertTrue(MailGuardService::check('c@example.org', 'verification', self::T, null, false)['allowed']);
+    }
+
     public function testMxRejection() {
         $this->configure(array('mx_check' => true));
         MailGuardService::$domainChecker = function ($address) {

@@ -21,13 +21,13 @@ class RegistrationGuardTest extends PHPUnit\Framework\TestCase {
         $this->configure(array());
     }
 
-    protected function configure(array $registration) {
+    protected function configure(array $registration, array $extra = array()) {
         $computed = new ReflectionProperty('Config', 'computed');
         $computed->setAccessible(true);
         $computed->setValue(null, array());
         $config = new ReflectionProperty('Config', 'config');
         $config->setAccessible(true);
-        Config::initialize(array_merge((array) $config->getValue(null), array(
+        Config::initialize(array_merge((array) $config->getValue(null), $extra, array(
             'mail_guard' => array('form_secret' => self::SECRET),
             'registration' => array_merge(array('mode' => 'open', 'min_form_seconds' => 3), $registration),
         )));
@@ -132,6 +132,39 @@ class RegistrationGuardTest extends PHPUnit\Framework\TestCase {
             'expires' => date('Y-m-d H:i:s', time() - 3600),
         ));
         $this->assertFalse(RegistrationGuard::gate('a@x.org', 'expired-token')['ok']);
+    }
+
+    public function testGateAllowsByTld() {
+        $this->configure(array('mode' => 'domains', 'allowed_domains' => array(), 'allowed_tlds' => array('edu', 'ac.uk')));
+        $this->assertTrue(RegistrationGuard::gate('a@uni-example.edu')['ok']);
+        $this->assertTrue(RegistrationGuard::gate('a@dept.school.ac.uk')['ok'], 'multi-label TLD');
+        $this->assertFalse(RegistrationGuard::gate('a@example.com')['ok']);
+        $this->assertFalse(RegistrationGuard::gate('a@notedu.com')['ok'], 'TLD must be the real suffix, not a substring');
+
+        // allowed_domains and allowed_tlds combine — either grants
+        $this->configure(array('mode' => 'domains', 'allowed_domains' => array('example.org'), 'allowed_tlds' => array('edu')));
+        $this->assertTrue(RegistrationGuard::gate('a@example.org')['ok']);
+        $this->assertTrue(RegistrationGuard::gate('a@x.edu')['ok']);
+        $this->assertFalse(RegistrationGuard::gate('a@example.com')['ok']);
+    }
+
+    public function testSignupIsTrusted() {
+        // referral-code path (open / domains modes)
+        $this->configure(array('mode' => 'open'), array('referrer_codes' => array('goodcode')));
+        $this->assertTrue(RegistrationGuard::signupIsTrusted('goodcode'));
+        $this->assertFalse(RegistrationGuard::signupIsTrusted('badcode'));
+        $this->assertFalse(RegistrationGuard::signupIsTrusted(''));
+
+        // a usable single-use invite is trusted, but only in invite mode
+        $token = 'trusted-invite-token';
+        DB::getInstance()->insert('survey_registration_invites', array(
+            'token_hash' => hash('sha256', $token), 'created_by' => 'test',
+            'created' => date('Y-m-d H:i:s'), 'expires' => null));
+        $this->configure(array('mode' => 'invite'), array('referrer_codes' => array()));
+        $this->assertTrue(RegistrationGuard::signupIsTrusted($token));
+        $this->assertFalse(RegistrationGuard::signupIsTrusted('nope'));
+        $this->configure(array('mode' => 'open'), array('referrer_codes' => array()));
+        $this->assertFalse(RegistrationGuard::signupIsTrusted($token), 'invite tokens only count in invite mode');
     }
 
     public function testChallengeDriverSelection() {

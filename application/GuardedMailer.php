@@ -27,6 +27,9 @@ class GuardedMailer extends PHPMailer {
     /** Account id of the user this mail concerns, when known. */
     public $guard_user_id = null;
 
+    /** Signup bearing a valid referral/invite token — relaxes per-source limits. */
+    public $guard_trusted = false;
+
     /** True when the last send() was refused by the guard (never attempted). */
     public $guard_blocked = false;
 
@@ -41,7 +44,7 @@ class GuardedMailer extends PHPMailer {
         $ip = MailGuardService::clientIp();
 
         foreach ($recipients as $address) {
-            $verdict = MailGuardService::check($address, $this->guard_type, $this->guard_category, $ip);
+            $verdict = MailGuardService::check($address, $this->guard_type, $this->guard_category, $ip, $this->guard_trusted);
             if (!$verdict['allowed']) {
                 MailGuardService::record($address, $this->guard_type, $this->guard_category, $ip, $this->guard_user_id, $verdict['outcome']);
                 $this->guard_blocked = true;

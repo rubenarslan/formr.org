@@ -373,10 +373,15 @@ class AdminAccountController extends Controller {
                 return $this->renderRegisterForm();
             }
 
+            // A signup with a valid referral/invite token is almost certainly a
+            // real user (a spammer never has one), so relax the per-source rate
+            // limits — this is what lets a workshop behind one NAT all sign up.
+            $trusted = RegistrationGuard::signupIsTrusted($site->request->str('referrer_code'));
+
             // Would the verification mail even be allowed to leave? Checked
             // BEFORE creating the account, so an over-limit or suppressed
             // request gets a clean refusal instead of a silently created row.
-            $verdict = MailGuardService::check($email, 'verification', MailGuardService::CATEGORY_TRANSACTIONAL, $ip);
+            $verdict = MailGuardService::check($email, 'verification', MailGuardService::CATEGORY_TRANSACTIONAL, $ip, $trusted);
             if (!$verdict['allowed']) {
                 MailGuardService::record($email, 'verification', MailGuardService::CATEGORY_TRANSACTIONAL, $ip, null, $verdict['outcome']);
                 $this->response->setStatusCode(Response::STATUS_TOO_MANY_REQUESTS);
@@ -389,6 +394,7 @@ class AdminAccountController extends Controller {
                 'password' => $site->request->str('password'),
                 'referrer_code' => $site->request->str('referrer_code'),
             );
+            $user->signup_trusted = $trusted; // relax the guard on the verification send too
             if ($user->register($info)) {
                 if (Config::get('registration.mode', 'open') === 'invite') {
                     $newUserId = (int) $this->fdb->findValue('survey_users', array('email' => $email), 'id');

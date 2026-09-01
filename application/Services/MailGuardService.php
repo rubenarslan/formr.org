@@ -143,9 +143,17 @@ class MailGuardService {
      * Decide whether a message may be handed to the mailer. Pure — records
      * nothing; callers record the resulting outcome via record().
      *
+     * $trusted marks a signup bearing a valid referral/invite token (a
+     * spammer essentially never has one, see RegistrationGuard::signupIsTrusted):
+     * such sends skip the per-IP and per-/24 ceilings — which otherwise block
+     * a workshop or course cohort all signing up from one institutional NAT —
+     * while STILL subject to the (higher) global ceiling, so a leaked token
+     * can't be used to bomb without bound, plus the duplicate/suppression/MX
+     * checks, which never hurt a real user.
+     *
      * @return array{allowed: bool, outcome: string, message: string}
      */
-    public static function check($recipient, $type, $category, $ip = null) {
+    public static function check($recipient, $type, $category, $ip = null, $trusted = false) {
         $allowed = array('allowed' => true, 'outcome' => self::OUTCOME_SENT, 'message' => '');
         if (!self::enabled()) {
             return $allowed;
@@ -166,7 +174,9 @@ class MailGuardService {
                         return self::refusal(self::OUTCOME_DUPLICATE);
                     }
                 }
-                if ($ip) {
+                // Per-source ceilings: skipped for trusted signups (the NAT
+                // false-positive lives here), enforced for everyone else.
+                if (!$trusted && $ip) {
                     $ipLimit = (int) Config::get('mail_guard.ip_limit_per_hour', 10);
                     if ($ipLimit > 0 && self::countLog(
                         "ip = :k AND category = 'transactional'",
@@ -181,11 +191,16 @@ class MailGuardService {
                         return self::refusal(self::OUTCOME_SUBNET_LIMIT);
                     }
                 }
-                $global = (int) Config::get('mail_guard.global_limit_per_hour', 50);
+                // Global ceiling always applies (the backstop against a leaked
+                // token); trusted signups get a separate, higher ceiling.
+                $global = $trusted
+                    ? (int) Config::get('mail_guard.trusted_global_limit_per_hour', 200)
+                    : (int) Config::get('mail_guard.global_limit_per_hour', 50);
                 if ($global > 0 && self::countLog(
                     "category = 'transactional' AND outcome = 'sent'", array(), 3600) >= $global) {
+                    $knob = $trusted ? 'trusted_global_limit_per_hour' : 'global_limit_per_hour';
                     formr_log("MAIL GUARD: global transactional ceiling ({$global}/h) reached; "
-                        . "refusing sends. If this is not an attack, raise mail_guard.global_limit_per_hour. "
+                        . "refusing sends. If this is not an attack, raise mail_guard.{$knob}. "
                         . "See admin/advanced/mail-guard.", 'MailGuard');
                     return self::refusal(self::OUTCOME_GLOBAL_LIMIT);
                 }
