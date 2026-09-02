@@ -8,16 +8,23 @@
  * past an email that never went out), so they cannot be chained.
  *
  * Every fixture resolves its recipient with an R literal in
- * `recipient_field`, e.g. `'rescov-queued@invalid.invalid'`. That is a real
+ * `recipient_field`, e.g. `'rescov-nobody@invalid.invalid'`. That is a real
  * feature of the field — it is evaluated as R whenever it is not "most
  * recent reported address" — and it means these runs need no upstream survey
  * to collect an address. Each has its OWN address, because the rate limiter
  * counts per recipient across the whole instance: sharing one address made
  * the fixtures block each other, which looks exactly like a bug in the unit.
  *
- * `.invalid` is the reserved never-resolving TLD, so no real mailbox is
- * involved. The dev relay accepts the messages anyway (they bounce later),
- * which is what makes `email_sent` observable here without mailing a person.
+ * Fixtures that fail BEFORE the send keep `.invalid` recipients — the
+ * reserved never-resolving TLD, so no mailbox is involved. Fixtures that
+ * reach the SMTP handoff (queued, ratelimit, smtpfail, syncfail) cannot: since
+ * v1.9.0 the mail guard's MX check (`mail_guard.mx_check`) refuses a domain
+ * with no MX/A record and records `error_email_guard_refused` instead of
+ * handing the message to the relay. Those address the fixture account's own
+ * mailbox with a plus tag (`e2etesting+rescov-…@researchmixtape.com`): the
+ * domain resolves, nobody else is mailed, and the tag keeps the recipient
+ * string different from the account's `from`, so the rate limiter's
+ * mailing-yourself exemption does not apply.
  *
  * Fixtures (MCP-built, exported to tests/e2e/fixtures/<run>.json):
  *   rescov-mail-norec      recipient R -> NULL          -> no_recipient
@@ -97,14 +104,14 @@ test.describe('result coverage — Email', () => {
         expect(sent, 'the daemon rewrites the row once SMTP accepts it').toBe('email_sent');
 
         // The fixture's recipient_field is
-        // `paste0('rescov-queued-', as.integer(Sys.time()), '@invalid.invalid')`
+        // `paste0('e2etesting+rescov-queued-', as.integer(Sys.time()), '@researchmixtape.com')`
         // — a fresh address per execution, so the per-address rate limiter can
         // never block this fixture. With a fixed address the spec passed once
         // and then failed for a minute afterwards, reporting
         // error_send_eligible where it expected email_queued.
         const logged = dbQuery(`
             SELECT status FROM survey_email_log
-             WHERE recipient LIKE 'rescov-queued-%@invalid.invalid'
+             WHERE recipient LIKE 'e2etesting+rescov-queued-%@researchmixtape.com'
              ORDER BY id DESC LIMIT 1;
         `);
         expect(parseInt(logged[0].status, 10), 'and survey_email_log agrees').toBe(1);

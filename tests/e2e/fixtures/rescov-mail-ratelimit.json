@@ -8,7 +8,7 @@
       "special": null,
       "subject": "rescov coverage 1",
       "account_id": 14,
-      "recipient_field": "'rescov-ratelimit@invalid.invalid'",
+      "recipient_field": "'e2etesting+rescov-ratelimit@researchmixtape.com'",
       "body": "Body.",
       "cron_only": 0
     },
@@ -19,7 +19,7 @@
       "special": null,
       "subject": "rescov coverage 2",
       "account_id": 14,
-      "recipient_field": "'rescov-ratelimit@invalid.invalid'",
+      "recipient_field": "'e2etesting+rescov-ratelimit@researchmixtape.com'",
       "body": "Body.",
       "cron_only": 0
     },

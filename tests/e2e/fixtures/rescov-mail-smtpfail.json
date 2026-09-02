@@ -8,7 +8,7 @@
       "special": null,
       "subject": "rescov coverage",
       "account_id": 14,
-      "recipient_field": "paste0('rescov-smtpfail-', as.integer(Sys.time()), '@invalid.invalid')",
+      "recipient_field": "paste0('e2etesting+rescov-smtpfail-', as.integer(Sys.time()), '@researchmixtape.com')",
       "body": "Body.",
       "cron_only": 0
     },
