@@ -670,7 +670,8 @@ CREATE TABLE `survey_mail_guard_log` (
   KEY `idx_mail_guard_recipient` (`recipient`,`type`,`created`),
   KEY `idx_mail_guard_ip` (`ip`,`created`),
   KEY `idx_mail_guard_subnet` (`subnet`,`created`),
-  KEY `idx_mail_guard_outcome` (`category`,`outcome`,`created`)
+  KEY `idx_mail_guard_outcome` (`category`,`outcome`,`created`),
+  KEY `idx_mail_guard_created` (`created`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `survey_mail_suppressions` (

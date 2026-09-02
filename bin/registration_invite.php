@@ -46,7 +46,7 @@ switch ($action) {
         break;
 
     case 'list':
-        $rows = $db->execute('SELECT id, created_by, created, expires, used_at, used_by FROM survey_registration_invites ORDER BY id');
+        $rows = array_reverse(RegistrationGuard::listInvites()); // oldest first on the console
         if (!$rows) {
             print "No invites issued.\n";
             break;

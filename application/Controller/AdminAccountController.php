@@ -364,8 +364,10 @@ class AdminAccountController extends Controller {
                 return $this->renderRegisterForm();
             }
 
+            $code = trim($site->request->str('referrer_code'));
+
             // Registration gating (registration.mode: open/domains/invite/closed).
-            $gate = RegistrationGuard::gate($email, $site->request->str('referrer_code'));
+            $gate = RegistrationGuard::gate($email, $code);
             if (!$gate['ok']) {
                 MailGuardService::record($email, 'registration_attempt', MailGuardService::CATEGORY_TRANSACTIONAL, $ip, null, 'refused_gate');
                 $this->response->setStatusCode(Response::STATUS_FORBIDDEN);
@@ -373,16 +375,49 @@ class AdminAccountController extends Controller {
                 return $this->renderRegisterForm();
             }
 
+            // An existing account is answered before any counter moves or
+            // invite is touched: the form already tells people this, so a
+            // rate-limit refusal here would only hide the actual reason.
+            if ($this->fdb->entry_exists('survey_users', array('email' => $email))) {
+                $this->response->setStatusCode(Response::STATUS_BAD_REQUEST);
+                alert('This e-mail address is already associated to an existing account.', 'alert-danger');
+                return $this->renderRegisterForm();
+            }
+
             // A signup with a valid referral/invite token is almost certainly a
             // real user (a spammer never has one), so relax the per-source rate
             // limits — this is what lets a workshop behind one NAT all sign up.
-            $trusted = RegistrationGuard::signupIsTrusted($site->request->str('referrer_code'));
+            $trusted = RegistrationGuard::signupIsTrusted($code);
+
+            // A single-use invite is claimed atomically NOW, before the account
+            // exists, so two signups racing on one token can't both pass the
+            // gate: exactly one claim wins. The loser is re-evaluated as if it
+            // had no token (it may still pass an open/domains gate on its own)
+            // and is not trusted. A referral code is not an invite.
+            $claimed = false;
+            $isReferral = $code !== '' && in_array($code, (array) Config::get('referrer_codes', array()), true);
+            if ($code !== '' && !$isReferral) {
+                $claimed = RegistrationGuard::claimInvite($code);
+                if (!$claimed) {
+                    $gate = RegistrationGuard::gate($email, null);
+                    if (!$gate['ok']) {
+                        MailGuardService::record($email, 'registration_attempt', MailGuardService::CATEGORY_TRANSACTIONAL, $ip, null, 'refused_gate');
+                        $this->response->setStatusCode(Response::STATUS_FORBIDDEN);
+                        alert($gate['message'], 'alert-danger');
+                        return $this->renderRegisterForm();
+                    }
+                    $trusted = false;
+                }
+            }
 
             // Would the verification mail even be allowed to leave? Checked
             // BEFORE creating the account, so an over-limit or suppressed
             // request gets a clean refusal instead of a silently created row.
             $verdict = MailGuardService::check($email, 'verification', MailGuardService::CATEGORY_TRANSACTIONAL, $ip, $trusted);
             if (!$verdict['allowed']) {
+                if ($claimed) {
+                    RegistrationGuard::releaseInvite($code);
+                }
                 MailGuardService::record($email, 'verification', MailGuardService::CATEGORY_TRANSACTIONAL, $ip, null, $verdict['outcome']);
                 $this->response->setStatusCode(Response::STATUS_TOO_MANY_REQUESTS);
                 alert($verdict['message'], 'alert-danger');
@@ -390,23 +425,29 @@ class AdminAccountController extends Controller {
             }
 
             $info = array(
-                'email' => $site->request->str('email'),
+                'email' => $email,
                 'password' => $site->request->str('password'),
-                'referrer_code' => $site->request->str('referrer_code'),
+                'referrer_code' => $code,
             );
             $user->signup_trusted = $trusted; // relax the guard on the verification send too
-            if ($user->register($info)) {
-                // Burn a presented invite in ANY mode — it may have served as
-                // the invite-mode ticket or as a domain-gate exception.
-                if ($site->request->str('referrer_code')) {
-                    $newUserId = (int) $this->fdb->findValue('survey_users', array('email' => $email), 'id');
-                    RegistrationGuard::consumeInvite($site->request->str('referrer_code'), $newUserId);
+            $registered = false;
+            try {
+                $registered = (bool) $user->register($info);
+            } finally {
+                if ($claimed) {
+                    if ($registered) {
+                        $newUserId = (int) $this->fdb->findValue('survey_users', array('email' => $email), 'id');
+                        RegistrationGuard::bindInvite($code, $newUserId);
+                    } else {
+                        RegistrationGuard::releaseInvite($code);
+                    }
                 }
-                $this->request->redirect('admin/account/register');
-            } else {
-                $this->response->setStatusCode(Response::STATUS_BAD_REQUEST);
-                alert(implode($user->errors), 'alert-danger');
             }
+            if ($registered) {
+                $this->request->redirect('admin/account/register');
+            }
+            $this->response->setStatusCode(Response::STATUS_BAD_REQUEST);
+            alert(implode($user->errors), 'alert-danger');
         }
 
         return $this->renderRegisterForm();
@@ -471,26 +512,29 @@ class AdminAccountController extends Controller {
         if ($this->request->str('email')) {
             $start = $this->minimumWait(null, 1.0); // slower for security
             if (!filter_var($this->request->str('email'), FILTER_VALIDATE_EMAIL)) {
-                $this->response->setStatusCode(Response::STATUS_UNAUTHORIZED);
+                $this->response->setStatusCode(Response::STATUS_BAD_REQUEST);
                 alert('Please enter a valid email address.', 'alert-danger');
+                $this->minimumWait($start, 1.0);
             } else {
                 $email = $this->request->str('email');
                 $ip = MailGuardService::clientIp();
                 // Early mail-guard check: forgot-password is the only
                 // unauthenticated endpoint that can re-emit mail to the same
-                // address indefinitely, so cap it before touching the DB. The
-                // response is byte-identical to the success path — refusals
-                // must not become an account-existence or rate-state oracle.
+                // address indefinitely, so cap it before touching the DB.
                 $verdict = MailGuardService::check($email, 'password_reset', MailGuardService::CATEGORY_TRANSACTIONAL, $ip);
                 if (!$verdict['allowed']) {
                     MailGuardService::record($email, 'password_reset', MailGuardService::CATEGORY_TRANSACTIONAL, $ip, null, $verdict['outcome']);
                 } else {
-                    $result = $this->user->forgotPassword($email);
+                    $this->user->forgotPassword($email);
                 }
-                $this->response->setStatusCode(Response::STATUS_UNAUTHORIZED);
+                // One response for every outcome — sent, no such account,
+                // guard refusal, SMTP failure: same alert, same 302, same
+                // timing floor. Any difference is an account-existence or
+                // rate-state oracle.
                 alert('If an account exists for this email address, you will receive password reset instructions.', 'alert-info');
+                $this->minimumWait($start, 1.0);
+                $this->request->redirect('admin/account/forgot-password');
             }
-            $this->minimumWait($start, 1.0);
         }
 
         $this->registerAssets('material');

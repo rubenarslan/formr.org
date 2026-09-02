@@ -18,6 +18,7 @@ class RegistrationGuardTest extends PHPUnit\Framework\TestCase {
 
     protected function setUp(): void {
         DB::getInstance()->pdo()->exec('DELETE FROM survey_registration_invites');
+        $_SESSION = array(); // the burn list lives in the session
         $this->configure(array());
     }
 
@@ -33,10 +34,17 @@ class RegistrationGuardTest extends PHPUnit\Framework\TestCase {
         )));
     }
 
-    /** A token minted $age seconds ago, signed with the configured secret. */
-    protected function agedToken($age) {
+    /** A token minted $age seconds ago for session $sid ('' = this CLI process), signed with the configured secret. */
+    protected function agedToken($age, $sid = '') {
         $payload = (time() - $age) . '.' . bin2hex(random_bytes(8));
-        return $payload . '.' . hash_hmac('sha256', $payload, self::SECRET);
+        return $payload . '.' . hash_hmac('sha256', $payload . '|' . $sid, self::SECRET);
+    }
+
+    protected function insertInvite($token, $expires = null) {
+        DB::getInstance()->insert('survey_registration_invites', array(
+            'token_hash' => hash('sha256', $token), 'created_by' => 'test',
+            'created' => date('Y-m-d H:i:s'), 'expires' => $expires,
+        ));
     }
 
     public function testFormTokenRoundTrip() {
@@ -201,6 +209,107 @@ class RegistrationGuardTest extends PHPUnit\Framework\TestCase {
         $this->assertNotNull($used[0]['used_at']);
         $this->assertFalse(RegistrationGuard::revokeInviteById($used[0]['id']));
         $this->assertCount(1, RegistrationGuard::listInvites(), 'used invite kept for the audit trail');
+    }
+
+    public function testHoneypotZeroIsStillAHoneypotHit() {
+        // '0' is falsy in PHP; a bot that fills the hidden field with "0"
+        // must not slip through an empty() check.
+        $check = RegistrationGuard::checkSubmission(new Request(array(
+            RegistrationGuard::HONEYPOT_FIELD => '0',
+            RegistrationGuard::TOKEN_FIELD => $this->agedToken(10),
+        )));
+        $this->assertFalse($check['ok']);
+        $this->assertEquals('refused_honeypot', $check['outcome']);
+    }
+
+    public function testFormTokenIsSingleUse() {
+        $token = $this->agedToken(10);
+        $request = new Request(array(RegistrationGuard::TOKEN_FIELD => $token));
+        $this->assertTrue(RegistrationGuard::checkSubmission($request)['ok']);
+
+        $replay = RegistrationGuard::checkSubmission($request);
+        $this->assertFalse($replay['ok'], 'a passed token is burned for the rest of its TTL');
+        $this->assertEquals('refused_form_token', $replay['outcome']);
+
+        // a different token in the same session is unaffected
+        $this->assertTrue(RegistrationGuard::checkSubmission(new Request(array(
+            RegistrationGuard::TOKEN_FIELD => $this->agedToken(10),
+        )))['ok']);
+    }
+
+    public function testBurnListExpiresAndIsBounded() {
+        RegistrationGuard::burn('x:expired', time() - 1);
+        RegistrationGuard::burn('x:live', time() + 60);
+        $this->assertFalse(RegistrationGuard::isBurned('x:expired'), 'expired burns are forgotten');
+        $this->assertTrue(RegistrationGuard::isBurned('x:live'));
+        $this->assertArrayNotHasKey('x:expired', Session::get(RegistrationGuard::BURN_SESSION_KEY), 'expired entries are pruned on write');
+    }
+
+    public function testFormTokenIsBoundToTheSession() {
+        // signed for another browser's session id: same secret, still refused
+        $check = RegistrationGuard::checkSubmission(new Request(array(
+            RegistrationGuard::TOKEN_FIELD => $this->agedToken(10, 'someone-elses-session'),
+        )));
+        $this->assertFalse($check['ok']);
+        $this->assertEquals('refused_form_token', $check['outcome']);
+    }
+
+    public function testClaimBindReleaseInvite() {
+        $this->configure(array('mode' => 'invite'));
+        $token = 'claimable-token';
+        $this->insertInvite($token);
+
+        $this->assertTrue(RegistrationGuard::claimInvite($token));
+        $this->assertFalse(RegistrationGuard::claimInvite($token), 'a claimed invite cannot be claimed twice');
+        $this->assertFalse(RegistrationGuard::gate('a@x.org', $token)['ok'], 'in-flight invite is not usable by a second signup');
+
+        // signup failed after the claim: the invite goes back into the pool
+        $this->assertTrue(RegistrationGuard::releaseInvite($token));
+        $this->assertTrue(RegistrationGuard::gate('a@x.org', $token)['ok']);
+        $this->assertFalse(RegistrationGuard::releaseInvite($token), 'nothing in flight to release');
+
+        // signup succeeded: bind to the account, then it stays consumed
+        $this->assertTrue(RegistrationGuard::claimInvite($token));
+        $this->assertTrue(RegistrationGuard::bindInvite($token, 42));
+        $this->assertFalse(RegistrationGuard::bindInvite($token, 43), 'already bound');
+        $this->assertFalse(RegistrationGuard::releaseInvite($token), 'a bound invite is never released');
+        $rows = RegistrationGuard::listInvites();
+        $this->assertEquals(42, (int) $rows[0]['used_by']);
+        $this->assertNotNull($rows[0]['used_at']);
+
+        $this->assertFalse(RegistrationGuard::claimInvite('never-issued'));
+        $this->insertInvite('expired-claim', date('Y-m-d H:i:s', time() - 60));
+        $this->assertFalse(RegistrationGuard::claimInvite('expired-claim'));
+    }
+
+    public function testMissingInviteTableFailsClosed() {
+        $pdo = DB::getInstance()->pdo();
+        $pdo->exec('ALTER TABLE survey_registration_invites RENAME TO survey_registration_invites_gone');
+        try {
+            $this->configure(array('mode' => 'invite'));
+            $this->assertFalse(RegistrationGuard::gate('a@x.org', 'any-token')['ok'], 'no table: no invite is usable');
+            $this->assertFalse(RegistrationGuard::signupIsTrusted('any-token'));
+            $this->assertFalse(RegistrationGuard::claimInvite('any-token'));
+            $this->assertFalse(RegistrationGuard::accountIsTrusted(1, 'any-token'));
+            $this->assertFalse(RegistrationGuard::releaseInvite('any-token'));
+        } finally {
+            $pdo->exec('ALTER TABLE survey_registration_invites_gone RENAME TO survey_registration_invites');
+        }
+    }
+
+    public function testAccountIsTrusted() {
+        $this->configure(array('mode' => 'open'), array('referrer_codes' => array('goodcode')));
+        $this->assertTrue(RegistrationGuard::accountIsTrusted(5, 'goodcode'), 'referral code recorded on the account');
+        $this->assertFalse(RegistrationGuard::accountIsTrusted(5, 'badcode'));
+        $this->assertFalse(RegistrationGuard::accountIsTrusted(5, ''));
+
+        // an invite is trusted only for the account it was bound to
+        $token = 'bound-token';
+        $this->insertInvite($token);
+        $this->assertTrue(RegistrationGuard::consumeInvite($token, 5));
+        $this->assertTrue(RegistrationGuard::accountIsTrusted(5, ''), 'the binding is on the account, no code needed');
+        $this->assertFalse(RegistrationGuard::accountIsTrusted(6, $token), 'someone else\'s invite');
+        $this->assertFalse(RegistrationGuard::accountIsTrusted(0, 'badcode'));
     }
 
     public function testChallengeDriverSelection() {

@@ -94,7 +94,12 @@ class EmailAccount extends Model {
         $mail->Body = Template::get_replace('email/test-account.ftpl', array('site_url' => site_url()));
 
         if (!$mail->Send()) {
-            $this->invalidate();
+            // A guard refusal (e.g. the duplicate window after two quick
+            // clicks) says nothing about the SMTP credentials, so the
+            // account's verified state is left alone.
+            if (empty($mail->guard_blocked)) {
+                $this->invalidate();
+            }
             alert('Account Test Failed: ' . $mail->ErrorInfo, 'alert-danger');
             return false;
         } else {

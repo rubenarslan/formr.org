@@ -2,12 +2,32 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v1.9.3] - 02.09.2026
+
+Review pass over the v1.9.0–v1.9.2 mail-guard work. Thirteen findings from a full review of the diff since v1.8.0, fixed by root cause rather than one by one: state changes that ran before the guard's verdict, fail-open rules that each path interpreted differently, a DNS check that could not tell "no such domain" from "resolver down", challenges that could be replayed, and a Turnstile driver that never actually worked under the admin CSP.
+
+### Fixes
+- **Guard refusals no longer leave state behind as if the mail had gone out.** A signup whose verification mail the guard refused had already been given a *new* verification hash (invalidating the link from the earlier mail); a queued study Email refused at send time stayed stuck in `status = sending` for the daemon to retry forever, and the synchronous (`use_queue = false`) path reported it as sent; a suppressed study owner produced no `survey_notifications` anchor, so the throttle never engaged and every recurrence re-hit the guard; a refused account self-test marked the SMTP credentials invalid. Now the hash is rotated only after a successful send (a brand-new account still gets its first hash up front, because the login page's "Resend link" identifies the account by that hash), a refused Email unit is marked `invalid_recipient` and the participant moves on with an `error_email_guard_refused` log line, a guard-refused admin notification anchors the throttle like a delivery would (a transient SMTP failure still does not), and an account test refused by the guard leaves the verified state alone.
+- **Invite tokens are claimed atomically.** The invite was checked before and consumed after `User::register()`, so two concurrent signups with one token both passed the check, and a failed registration had already burned it. A single `UPDATE … WHERE used_at IS NULL` now takes the token out of circulation before the account exists (`used_by = 0` = in flight), a successful registration binds it to the new user id, and a failed one releases it. The duplicate-email check moved ahead of the claim as well, so an "already registered" answer no longer costs the invite.
+- **One fail-open rule, stated once.** Missing guard tables let mail through (unchanged); a missing `survey_registration_invites` table now reads as "no usable invite" on every invite path — a grant must fail closed — instead of a 500 on some and an uncaught exception on others. Turnstile fails open only on transport failure, a 5xx, or an answer without a verdict; Cloudflare's own `"success": false` is final. The `forgot-password` form answers every outcome, including an unparseable address, with the same alert and redirect, so the guard cannot become an existence oracle by way of a different status code.
+- **The Turnstile driver works under the admin CSP.** It emitted a plain `<script src>` for `api.js` — blocked by the nonce-only `script-src`, along with the widget's iframe and its calls home — and posted to `siteverify` with a hand-rolled cURL call that ignored the instance's outbound proxy settings. The widget now carries the request nonce, registers `https://challenges.cloudflare.com` for `script-src`/`frame-src`/`connect-src` on the one response that renders it (`Csp::allow()`, request-scoped), and verifies through `CURL::HttpRequest` with a 5 s budget. Browser-tested end to end with Cloudflare's test keys, alongside Altcha.
+- **DNS honesty.** The deliverability check treated SERVFAIL/timeout as "no records" (`checkdnsrr()` cannot tell the two apart) and cached that as an authoritative refusal for 24 h. It now uses `dns_get_record()` — `false` is transient and fails open uncached, an empty answer is authoritative — honours RFC 7505 null MX (`MX 0 .` = "never accepts mail"), keeps a control lookup for the resolver-answers-nothing case, and expires its per-process memo after 10 minutes so the long-lived mail daemon does not remember a verdict for the rest of its life.
+- **Challenge responses are single-use.** An Altcha solution or a signed form timestamp could be replayed for its whole lifetime by anyone who captured one submission. Both are now burned in the session on first successful use, and the form timestamp is signed over the PHP session id as well, so a token minted in one browser is worthless in another. The honeypot treats `"0"` as a hit (`empty()` did not).
+
+### Added
+- **`mail_guard.log_retention_days`** (default 90; `0` keeps everything). The guard log and the domain cache were unbounded; the daily cleanup cron now prunes both, and patch 077 adds the `created` index that makes the sweep and the status page's time-window counts cheap.
+
+### Schema
+- Patch 077: `ADD INDEX IF NOT EXISTS idx_mail_guard_created` on `survey_mail_guard_log`. Additive, replayable.
+
 ## [v1.9.2] - 01.09.2026
 
 People always want exceptions — this release gives superadmins an in-app lever for them.
 
 ### Added
 - **Registration invites can be issued from the admin UI, and a valid invite overrides the domain gate.** New superadmin page `admin/advanced/registration_invites` (Advanced → Registration Invites): issue 1–50 single-use tokens with an optional expiry, see who issued/used each one, revoke unused ones. Tokens are displayed exactly once at issuance; only sha256 hashes are stored, and used invites are kept as an audit trail (who let whom in). In `domains` mode a valid invite now admits the one person carrying it past the domain/TLD restriction — the in-app answer to "my collaborator's email domain isn't on the list" that previously required host CLI access (`bin/registration_invite.php`, which remains and now shares the same implementation). The signup form shows the token field in `domains` mode, the rejection message mentions invitation tokens, an invite counts as a trusted signup (v1.9.1 rate-limit relaxation) in every mode, and a presented invite is burned on successful registration regardless of mode. `closed` still means closed — an operator wanting exceptions-only signup uses `invite` mode.
+
+## [v1.9.1] - 01.09.2026
 
 Follow-ups to the v1.9.0 mail-guard work.
 

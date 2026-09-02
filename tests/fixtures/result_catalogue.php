@@ -89,7 +89,7 @@ return [
     // in the detail column. Reached by suppressing an address via
     // bin/suppression.php and then sending it a study email.
     'error_email_guard_refused' => ['unit' => 'Email', 'reach' => 'smtp',
-                              'how'  => 'recipient suppressed or domain undeliverable at daemon send time'],
+                              'how'  => 'recipient suppressed or domain undeliverable at send time (daemon, or the synchronous use_queue=false path — both terminal, participant moves on)'],
     'error_email_invalid_subject'   => ['unit' => 'Email', 'reach' => 'unreachable',
                               'why'  => 'the daemon re-checks a subject that sendMail already validated before queueing'],
     'email_skipped_user_disabled' => ['unit' => 'Email', 'reach' => 'web', 'how' => 'participant opted out or snoozed'],

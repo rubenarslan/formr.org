@@ -68,6 +68,20 @@ class NTTRecordingNotification extends NTTExposedNotification
     }
 }
 
+/** deliver() as it looks when the mail guard refused the owner's address (vs. an SMTP failure). */
+class NTTGuardRefusedNotification extends NTTExposedNotification
+{
+    public $attempts = 0;
+    public $smtpFailure = false;
+
+    protected function deliver(User $studyOwner, UnitSession $unitSession, string $message, string $type): bool
+    {
+        $this->attempts++;
+        $this->lastSendGuardRefused = !$this->smtpFailure;
+        return false;
+    }
+}
+
 class ODANUnitSession extends UnitSession
 {
     public function getRunData($q, $required = null)

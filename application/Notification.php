@@ -17,6 +17,9 @@ class Notification {
      */
     protected $pdo;
 
+    /** @var bool the last deliver() was refused by the mail guard (not an SMTP failure) */
+    protected $lastSendGuardRefused = false;
+
     public function __construct()
     {
         $this->config = Config::get('notification', [
@@ -81,12 +84,16 @@ class Notification {
                 . ' suppressed by throttling since the last email.)';
         }
 
-        if ($this->deliver($studyOwner, $unitSession, $message, $type)) {
+        $delivered = $this->deliver($studyOwner, $unitSession, $message, $type);
+        if ($delivered || $this->lastSendGuardRefused) {
+            // A guard refusal (owner's address suppressed, dead domain,
+            // duplicate window) is not going to resolve on the next cron
+            // pass, so it anchors the throttle exactly like a delivery
+            // would; otherwise every recurrence re-hits the guard and fills
+            // its log. The refusal itself is in survey_mail_guard_log.
             $this->logNotification($unitSession, $message, $type, $studyOwner);
-            return true;
         }
-
-        return false;
+        return $delivered;
     }
 
     /**
@@ -94,6 +101,7 @@ class Notification {
      * so the throttle/bookkeeping policy is testable without SMTP.
      */
     protected function deliver(User $studyOwner, UnitSession $unitSession, string $message, string $type): bool {
+        $this->lastSendGuardRefused = false;
         // Get the owner's email account
         $emailAccounts = $studyOwner->getEmailAccounts();
         if (empty($emailAccounts)) {
@@ -135,7 +143,9 @@ class Notification {
 
         $mailer->Body = $formattedMessage;
 
-        return (bool) $mailer->Send();
+        $sent = (bool) $mailer->Send();
+        $this->lastSendGuardRefused = !$sent && !empty($mailer->guard_blocked);
+        return $sent;
     }
 
     /**

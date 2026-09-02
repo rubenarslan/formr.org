@@ -155,10 +155,15 @@ $settings['mail_guard'] = array(
 	// still bounded by this separate, higher instance-wide ceiling, so a leaked
 	// token can't be used to bomb without limit.
 	'trusted_global_limit_per_hour' => 200,
-	// refuse addresses whose domain has no MX and no A/AAAA record. Fails
-	// open (sends anyway, logs) when DNS itself is unreachable.
+	// refuse addresses whose domain has no MX and no A/AAAA record (or a
+	// null MX). Only an authoritative "no such record" fails closed; a
+	// transient resolver failure (SERVFAIL, timeout) sends anyway, logs, and
+	// is not cached.
 	'mx_check' => true,
 	'mx_cache_hours' => 24,
+	// keep survey_mail_guard_log rows this long (daily prune from the
+	// cleanup cron; 0 = keep forever). Longest rate-limit window is a week.
+	'log_retention_days' => 90,
 	// optional blocklist file: one domain per line, # comments. Empty default.
 	'disposable_domains_file' => null,
 	// HMAC secret for the signup form's signed timestamp and the Altcha

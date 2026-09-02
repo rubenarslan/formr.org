@@ -7,11 +7,15 @@
  * survey_mail_domain_cache (default 24h) so DNS is consulted at most once per
  * domain per window.
  *
- * Fail-open by design: PHP's resolver functions expose no timeout knob, and a
- * flaky resolver must not block real mail. We only fail CLOSED on an answer
- * we can call authoritative-ish: the target domain resolves to nothing while
- * a control lookup (this instance's own domain) succeeds in the same process,
- * proving the resolver itself is alive. Resolver down -> send anyway, log it.
+ * Fail-open by design, but honestly: dns_get_record() distinguishes an
+ * authoritative "no such name / no such record" (empty array) from a
+ * transient resolver failure — SERVFAIL, timeout — (false + E_WARNING),
+ * which checkdnsrr() collapses into one "no". Only the authoritative answer
+ * fails closed and is cached; a transient one lets the mail through, is
+ * logged, and is never cached or memoised, so the next attempt asks again.
+ * A control lookup still guards the one case dns_get_record() can't see: a
+ * resolver that answers NXDOMAIN for everything (captive/misconfigured
+ * search path), where an all-negative answer set is not evidence.
  *
  * Optionally, mail_guard.disposable_domains_file names a text file (one
  * domain per line, # comments) of domains to refuse outright. Empty/absent
@@ -19,7 +23,10 @@
  */
 class EmailDomainService {
 
-    /** @var array<string,bool> per-request memo */
+    /** Memo lifetime; the mail daemons are long-lived processes, so the per-process memo must expire. */
+    const MEMO_TTL = 600;
+
+    /** @var array<string,array{verdict:bool,expires:int}> per-process memo of authoritative verdicts only */
     protected static $memo = array();
 
     /** @var bool any lookup succeeded this process — the resolver works */
@@ -47,14 +54,25 @@ class EmailDomainService {
         if ($domain === '') {
             return false;
         }
-        if (isset(self::$memo[$domain])) {
-            return self::$memo[$domain];
+        if (isset(self::$memo[$domain]) && self::$memo[$domain]['expires'] > time()) {
+            return self::$memo[$domain]['verdict'];
         }
+        unset(self::$memo[$domain]);
         $verdict = static::resolveVerdict($domain);
-        self::$memo[$domain] = $verdict;
+        if ($verdict === null) {
+            return true; // transient: fail open now, ask again next time
+        }
+        self::$memo[$domain] = array('verdict' => $verdict, 'expires' => time() + self::MEMO_TTL);
         return $verdict;
     }
 
+    /** Drop the per-process memo (tests; also lets a long-lived daemon be told to forget). */
+    public static function resetMemo() {
+        self::$memo = array();
+        self::$sawSuccessfulLookup = false;
+    }
+
+    /** @return bool|null true/false = authoritative, null = could not tell (transient) */
     protected static function resolveVerdict($domain) {
         if (static::isBlocklisted($domain)) {
             return false;
@@ -65,32 +83,66 @@ class EmailDomainService {
             return $cached;
         }
 
-        if (static::hasMailRecords($domain)) {
+        $found = static::lookupMailRecords($domain);
+        if ($found === true) {
             static::cacheVerdict($domain, true);
             return true;
         }
+        if ($found === null) {
+            formr_log("MAIL GUARD: transient DNS failure while checking '{$domain}'; failing open (not cached).", 'MailGuard');
+            return null;
+        }
 
-        // Nothing found. Only fail closed if the resolver demonstrably works:
-        // an instance can always resolve its own admin domain, so if that
-        // control lookup fails too, DNS is down and we fail open (and do NOT
-        // cache the non-answer).
+        // Authoritative "nothing there". Still only fail closed if the resolver
+        // demonstrably resolves *something*: an instance can always resolve
+        // its own admin domain, so if that control lookup fails too, the
+        // negative answers are not evidence (and we do NOT cache them).
         if (!static::resolverAlive()) {
-            formr_log("MAIL GUARD: DNS resolver unavailable while checking '{$domain}'; failing open.", 'MailGuard');
-            return true;
+            formr_log("MAIL GUARD: DNS resolver unavailable while checking '{$domain}'; failing open (not cached).", 'MailGuard');
+            return null;
         }
 
         static::cacheVerdict($domain, false);
         return false;
     }
 
-    /** MX first, then A/AAAA fallback per RFC 5321 implicit MX. */
-    protected static function hasMailRecords($domain) {
+    /**
+     * MX first, then A/AAAA fallback per RFC 5321 implicit MX.
+     *
+     * @return bool|null true = records exist, false = authoritative negative
+     *   (NXDOMAIN / NODATA on every type, or a null MX per RFC 7505),
+     *   null = at least one lookup failed transiently and none succeeded.
+     */
+    protected static function lookupMailRecords($domain) {
         $fqdn = $domain . '.'; // absolute — keep resolv.conf search domains out of it
-        $found = @checkdnsrr($fqdn, 'MX') || @checkdnsrr($fqdn, 'A') || @checkdnsrr($fqdn, 'AAAA');
-        if ($found) {
+        $transient = false;
+        foreach (array(DNS_MX, DNS_A, DNS_AAAA) as $type) {
+            $records = @dns_get_record($fqdn, $type);
+            if ($records === false) {
+                $transient = true; // SERVFAIL / timeout: no verdict from this type
+                continue;
+            }
+            if (count($records) === 0) {
+                continue; // NXDOMAIN or NODATA: authoritative "not this type"
+            }
             self::$sawSuccessfulLookup = true;
+            if ($type === DNS_MX && static::isNullMx($records)) {
+                return false; // the domain declares it never accepts mail
+            }
+            return true;
         }
-        return $found;
+        return $transient ? null : false;
+    }
+
+    /** RFC 7505: a single MX whose exchange is the root ("." / "") means "no mail". */
+    protected static function isNullMx(array $records) {
+        foreach ($records as $record) {
+            $target = isset($record['target']) ? trim((string) $record['target'], '.') : '';
+            if ($target !== '') {
+                return false;
+            }
+        }
+        return true;
     }
 
     protected static function resolverAlive() {
@@ -100,7 +152,8 @@ class EmailDomainService {
         // Control lookup: the instance's own host where available (CLI
         // contexts may have no WEBROOT), else a domain that always exists.
         $control = parse_url(site_url(), PHP_URL_HOST) ?: 'gmail.com';
-        if (@checkdnsrr($control . '.', 'A')) {
+        $records = @dns_get_record($control . '.', DNS_A);
+        if (is_array($records) && count($records) > 0) {
             self::$sawSuccessfulLookup = true;
             return true;
         }
@@ -129,6 +182,13 @@ class EmailDomainService {
         } catch (Throwable $e) {
             formr_log('MAIL GUARD domain cache write failed: ' . $e->getMessage(), 'MailGuard');
         }
+    }
+
+    /** Delete cache rows older than the configured window (called from the daily cleanup cron). */
+    public static function pruneCache() {
+        $ttl = (float) Config::get('mail_guard.mx_cache_hours', 24);
+        $cutoff = date('Y-m-d H:i:s', time() - (int) ($ttl * 3600));
+        return (int) DB::getInstance()->exec('DELETE FROM survey_mail_domain_cache WHERE checked < :cutoff', array('cutoff' => $cutoff));
     }
 
     protected static function isBlocklisted($domain) {

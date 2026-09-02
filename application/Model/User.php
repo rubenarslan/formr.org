@@ -150,10 +150,23 @@ class User extends Model {
         }
     }
 
+    /**
+     * (Re)send the verification mail. The stored hash is only rotated once
+     * the new link has actually left: a refused or failed send must not
+     * invalidate a link that was mailed earlier. A brand-new account has no
+     * earlier link, so its hash is written up front — the login page's
+     * "Resend" button identifies the account by that hash.
+     *
+     * @return bool whether the mail was sent
+     */
     public function needToVerifyMail() {
+        $row = $this->db->findRow('survey_users', array('id' => $this->id), array('email_verification_hash', 'referrer_code'));
+        $existingHash = $row ? $row['email_verification_hash'] : null;
         $token = crypto_token(48);
         $token_hash = password_hash($token, PASSWORD_DEFAULT);
-        $this->db->update('survey_users', array('email_verification_hash' => $token_hash, 'email_verified' => 0), array('id' => $this->id));
+        if (!$existingHash) {
+            $this->db->update('survey_users', array('email_verification_hash' => $token_hash, 'email_verified' => 0), array('id' => $this->id));
+        }
 
         $verify_link = site_url('verify_email', array(
             'email' => $this->email,
@@ -163,7 +176,9 @@ class User extends Model {
         $mail = Site::getInstance()->makeAdminMailer();
         $mail->guard_type = 'verification';
         $mail->guard_user_id = $this->id;
-        $mail->guard_trusted = (bool) $this->signup_trusted;
+        // A re-send keeps the trust its signup earned (referral code, invite).
+        $mail->guard_trusted = (bool) $this->signup_trusted
+            || RegistrationGuard::accountIsTrusted($this->id, $row ? $row['referrer_code'] : null);
         $mail->AddAddress($this->email);
         $mail->Subject = 'formr: confirm your email address';
         $mail->Body = Template::get_replace('email/verify-email.ftpl', array(
@@ -172,12 +187,17 @@ class User extends Model {
             'verify_link' => $verify_link,
         ));
 
-        if (!$mail->Send()) {
+        $sent = (bool) $mail->Send();
+        if (!$sent) {
             alert($mail->ErrorInfo, 'alert-danger');
         } else {
+            if ($existingHash) {
+                $this->db->update('survey_users', array('email_verification_hash' => $token_hash, 'email_verified' => 0), array('id' => $this->id));
+            }
             alert('An email has been sent to you. Please check your email and verify your account.', 'alert-info');
         }
         $this->id = null;
+        return $sent;
     }
 
     public function login($info) {
@@ -271,42 +291,48 @@ class User extends Model {
         }
     }
 
+    /**
+     * Mail a password-reset link if the account exists. Says nothing to the
+     * visitor either way — no alert, no redirect — because every difference
+     * between "exists" and "doesn't" (a different message, a 302 vs a 200, a
+     * guard refusal that only existing accounts can trigger) is an
+     * account-existence oracle. The controller renders one neutral response
+     * for all outcomes; delivery problems go to the log.
+     *
+     * @return bool whether a reset mail was sent
+     */
     public function forgotPassword($email) {
         $user_exists = $this->db->entry_exists('survey_users', array('email' => $email));
-
-        if ($user_exists) {
-            $token = crypto_token(48);
-            $hash = password_hash($token, PASSWORD_DEFAULT);
-
-            $this->db->update('survey_users', array('reset_token_hash' => $hash, 'reset_token_expiry' => mysql_interval('+2 days')), array('email' => $email));
-
-            $reset_link = site_url('reset_password', array(
-                'email' => $email,
-                'reset_token' => $token
-            ));
-
-            $mail = Site::getInstance()->makeAdminMailer();
-            $mail->guard_type = 'password_reset';
-            $mail->AddAddress($email);
-            $mail->Subject = 'formr: forgot password';
-            $mail->Body = Template::get_replace('email/forgot-password.ftpl', array(
-                'site_url' => site_url(),
-                'reset_link' => $reset_link,
-            ));
-
-            if (!$mail->Send()) {
-                // A guard refusal (duplicate window, rate limit, suppression)
-                // only happens for existing accounts — surfacing it would be
-                // an account-existence oracle. Stay silent and let the
-                // controller's neutral "if an account exists…" response stand.
-                if (empty($mail->guard_blocked)) {
-                    alert($mail->ErrorInfo, 'alert-danger');
-                }
-            } else {
-                alert("If the provided email was registered with us, you will receive an email with instructions on how to reset your password.", 'alert-info');
-                redirect_to("admin/account/forgot-password");
-            }
+        if (!$user_exists) {
+            return false;
         }
+
+        $token = crypto_token(48);
+        $hash = password_hash($token, PASSWORD_DEFAULT);
+
+        $this->db->update('survey_users', array('reset_token_hash' => $hash, 'reset_token_expiry' => mysql_interval('+2 days')), array('email' => $email));
+
+        $reset_link = site_url('reset_password', array(
+            'email' => $email,
+            'reset_token' => $token
+        ));
+
+        $mail = Site::getInstance()->makeAdminMailer();
+        $mail->guard_type = 'password_reset';
+        $mail->AddAddress($email);
+        $mail->Subject = 'formr: forgot password';
+        $mail->Body = Template::get_replace('email/forgot-password.ftpl', array(
+            'site_url' => site_url(),
+            'reset_link' => $reset_link,
+        ));
+
+        if (!$mail->Send()) {
+            if (empty($mail->guard_blocked)) {
+                formr_log('Password reset mail could not be sent: ' . $mail->ErrorInfo, 'MailGuard');
+            }
+            return false;
+        }
+        return true;
     }
 
     function logout() {

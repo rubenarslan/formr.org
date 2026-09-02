@@ -10,6 +10,8 @@ class Email extends RunUnit {
     
     protected $mail_queued = false;
     protected $mail_sent = false;
+    /** set by sendNow() when the mail guard refused the recipient (terminal, no retry) */
+    protected $mail_guard_refused = false;
     protected $body = null;
     protected $body_parsed = null;
     protected $account_id = null;
@@ -196,7 +198,7 @@ class Email extends RunUnit {
      *   see queueNow().
      */
     public function sendMail(UnitSession $unitSession, $who = null, $isTest = false) {
-        $this->mail_queued = $this->mail_sent = false;
+        $this->mail_queued = $this->mail_sent = $this->mail_guard_refused = false;
         $this->recipient = $who !== null ? $who : $unitSession->runSession->getRecipientEmail($this->recipient_field, false, $unitSession);
 
         if ($this->recipient == null) {
@@ -403,6 +405,22 @@ class Email extends RunUnit {
                  WHERE `idempotency_key` = :k LIMIT 1",
                 ['k' => $idempotency_key]
             );
+        } elseif (!empty($mail->guard_blocked)) {
+            // Refused by the mail guard (suppressed recipient / dead domain):
+            // terminal, exactly as the daemon path records it — retrying
+            // can't change the verdict, so the claim is kept as the audit
+            // row rather than released into a backoff loop.
+            $this->mail_guard_refused = true;
+            $this->db->exec(
+                "UPDATE `survey_email_log` SET `status` = " . EmailQueue::STATUS_INVALID_RECIPIENT . "
+                 WHERE `idempotency_key` = :k AND `status` = " . EmailQueue::STATUS_SENDING . " LIMIT 1",
+                ['k' => $idempotency_key]
+            );
+            $this->errors['log'] = $this->getLogMessage('error_email_guard_refused', (string) $mail->guard_outcome);
+            alert('Email with the subject "' . h($mail->Subject) . '" was not sent to ' . h($this->recipient) . ':<br>' . $mail->ErrorInfo, 'alert-danger');
+            if (!$isTest) {
+                notify_study_admin($unitSession, 'Email unit: the mail guard refused sending to ' . $this->recipient . ' (' . $mail->guard_outcome . '); the participant moved on.', 'error');
+            }
         } else {
             // Release the claim so a later retry can send (the failure
             // was delivery, not a duplicate). Only drop OUR in-flight claim.
@@ -569,6 +587,13 @@ class Email extends RunUnit {
         if ($this->mail_sent || $this->mail_queued) {
             $log = array_val($this->messages, 'log', ['result_log' => null]);
             $data['log'] = $this->getLogMessage(($this->mail_queued ? 'email_queued' : 'email_sent'), $log['result_log']);
+            $data['end_session'] = $data['move_on'] = true;
+        } elseif ($this->mail_guard_refused) {
+            // A guard verdict is terminal for this recipient: the queued path
+            // has already moved the participant on by the time the daemon
+            // records the same refusal, so the synchronous path ends the unit
+            // the same way instead of re-arming a backoff that can't succeed.
+            $data['log'] = $this->errors['log'];
             $data['end_session'] = $data['move_on'] = true;
         } else {
             $data['log'] = array_val($this->errors, 'log', $this->getLogMessage('error_email'));

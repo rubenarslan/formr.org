@@ -148,7 +148,20 @@ class AltchaChallenge implements RegistrationChallenge {
         // The signature proved data.sid is what we minted; confirm it was
         // minted FOR this visitor so solutions can't be replayed cross-session.
         $boundSid = isset($params['data']['sid']) ? (string) $params['data']['sid'] : '';
-        return $boundSid === $this->subject();
+        if ($boundSid !== $this->subject()) {
+            return false;
+        }
+        // ...and only once within this session: a solved challenge is burned
+        // until it expires, so the same PoW can't be resubmitted for the rest
+        // of its TTL. The signature identifies the challenge (it covers salt +
+        // expiry), and each re-rendered form fetches a fresh one.
+        $id = 'altcha:' . (string) $challenge->signature;
+        if (RegistrationGuard::isBurned($id)) {
+            return false;
+        }
+        $expires = isset($params['expiresAt']) ? (int) $params['expiresAt'] : time() + self::TTL;
+        RegistrationGuard::burn($id, $expires);
+        return true;
     }
 
     /** The widget submits base64-encoded JSON {challenge, solution}. */

@@ -272,6 +272,31 @@ class MailGuardService {
         );
     }
 
+    /**
+     * Retention: drop guard-log rows older than mail_guard.log_retention_days
+     * (default 90; 0 keeps everything) and stale domain-cache rows. Run daily
+     * from the orphaned-files cleanup cron. The longest window any check
+     * looks back over is the weekly per-recipient limit, so 90 days is
+     * generous for the rate-limit purpose; keep more only for forensics.
+     *
+     * @return array{log: int, domain_cache: int} rows deleted
+     */
+    public static function prune() {
+        $deleted = array('log' => 0, 'domain_cache' => 0);
+        $days = (int) Config::get('mail_guard.log_retention_days', 90);
+        try {
+            if ($days > 0) {
+                $cutoff = date('Y-m-d H:i:s', time() - $days * 86400);
+                $deleted['log'] = (int) DB::getInstance()->exec(
+                    'DELETE FROM survey_mail_guard_log WHERE created < :cutoff', array('cutoff' => $cutoff));
+            }
+            $deleted['domain_cache'] = EmailDomainService::pruneCache();
+        } catch (Throwable $e) {
+            formr_log('MAIL GUARD prune failed: ' . $e->getMessage(), 'MailGuard');
+        }
+        return $deleted;
+    }
+
     protected static function refusal($outcome) {
         return array('allowed' => false, 'outcome' => $outcome, 'message' => self::REFUSAL_MESSAGE);
     }

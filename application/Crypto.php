@@ -18,7 +18,8 @@ class Crypto {
         }
     }
 
-    protected static function getKeyFile() {
+    /** Path of the at-rest key file (config override, else the compiled-in default). */
+    public static function getKeyFile() {
         if (Config::get('encryption_key_file')) {
             return Config::get('encryption_key_file');
         }
