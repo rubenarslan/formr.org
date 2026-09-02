@@ -459,7 +459,7 @@ class AdminAccountController extends Controller {
         $challenge = RegistrationGuard::challengeDriver();
         $this->setView('admin/account/register', array(
             'registration_form_token' => RegistrationGuard::mintFormToken(),
-            'registration_challenge_html' => $challenge ? $challenge->widgetHtml() : '',
+            'registration_challenge_html' => $challenge ? $challenge->widgetHtml($this->site->getCspNonce()) : '',
         ));
         return $this->sendResponse();
     }

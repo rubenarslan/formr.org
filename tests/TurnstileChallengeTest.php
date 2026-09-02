@@ -84,15 +84,15 @@ class TurnstileChallengeTest extends PHPUnit\Framework\TestCase {
     public function testUnconfiguredDriverIsInert() {
         $this->configure(array('turnstile_site_key' => '', 'turnstile_secret_key' => ''));
         $driver = $this->driver(200, '{"success":false}');
-        $this->assertSame('', $driver->widgetHtml());
+        $this->assertSame('', $driver->widgetHtml('n'));
         $this->assertTrue($driver->verifyRequest(new Request(array())), 'no keys: nothing rendered, nothing required');
         $this->assertNull($driver->posted);
         $this->assertStringNotContainsString('cloudflare', Csp::buildPolicy('n'), 'no widget, no CSP widening');
     }
 
     public function testWidgetCarriesNonceAndWidensCsp() {
-        $html = (new TurnstileChallenge())->widgetHtml();
-        $nonce = Site::getInstance()->getCspNonce();
+        $nonce = 'TESTNONCE123';
+        $html = (new TurnstileChallenge())->widgetHtml($nonce);
         $this->assertStringContainsString('src="' . TurnstileChallenge::ORIGIN . '/turnstile/v0/api.js"', $html);
         $this->assertStringContainsString('nonce="' . $nonce . '"', $html);
         $this->assertStringContainsString('class="form-group cf-turnstile"', $html);

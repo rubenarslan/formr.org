@@ -120,9 +120,7 @@ class User extends Model {
             return false;
         }
 
-        if ($this->user_code === null) {
-            $this->user_code = crypto_token(48);
-        }
+        $this->user_code = $this->signupUserCode();
 
         $this->referrer_code = $referrer_code;
 
@@ -148,6 +146,22 @@ class User extends Model {
             alert('<strong>Error!</strong> Hash error.', 'alert-danger');
             return false;
         }
+    }
+
+    /**
+     * The code a new account gets: the visitor's session code, so surveys
+     * taken before signing up stay linked — unless an account already owns
+     * it. A second signup from the same browser session (a typo'd address
+     * that never got its verification mail, say) used to collide on
+     * user_code_UNIQUE and die with a 500.
+     *
+     * @return string
+     */
+    public function signupUserCode() {
+        if ($this->user_code !== null && !$this->db->entry_exists('survey_users', array('user_code' => $this->user_code))) {
+            return $this->user_code;
+        }
+        return crypto_token(48);
     }
 
     /**

@@ -28,14 +28,14 @@ class TurnstileChallenge implements RegistrationChallenge {
     const ORIGIN = 'https://challenges.cloudflare.com';
     const VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
-    public function widgetHtml() {
+    public function widgetHtml($cspNonce) {
         $siteKey = Config::get('registration.turnstile_site_key');
         if (!$siteKey || !Config::get('registration.turnstile_secret_key')) {
             formr_log('TURNSTILE: site/secret key not configured — challenge disabled (failing open).', 'MailGuard');
             return '';
         }
         Csp::allow(self::ORIGIN, array('script-src', 'frame-src', 'connect-src'));
-        $nonce = h(Site::getInstance()->getCspNonce());
+        $nonce = h($cspNonce);
         return '<script src="' . self::ORIGIN . '/turnstile/v0/api.js" nonce="' . $nonce . '" async defer></script>'
             . '<div class="form-group cf-turnstile" data-sitekey="' . h($siteKey) . '"></div>';
     }

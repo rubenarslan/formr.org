@@ -93,7 +93,7 @@ class AltchaChallenge implements RegistrationChallenge {
         return $altcha->createChallenge($opts)->toArray();
     }
 
-    public function widgetHtml() {
+    public function widgetHtml($cspNonce) {
         if ($this->altcha() === null) {
             return ''; // failing open — no widget, no verification
         }
@@ -102,13 +102,14 @@ class AltchaChallenge implements RegistrationChallenge {
         $css = h(asset_url('assets/build/js/altcha/altcha.css'));
         $worker = json_encode(asset_url('assets/build/js/altcha/argon2id.js'));
         // The admin CSP nonce-gates inline scripts (script-src 'self'
-        // 'nonce-…', no unsafe-inline); getCspNonce() is memoized per
-        // request, so this matches the header. External 'self' scripts need
-        // no nonce. Module scripts run in document order: the external build
-        // defines <altcha-widget> and window.$altcha, then the inline module
-        // registers the self-hosted Argon2id worker (same pattern as the
-        // run-level bot_check item on feature/altcha).
-        $nonce = h(Site::getInstance()->getCspNonce());
+        // 'nonce-…', no unsafe-inline); the nonce comes from the controller
+        // so it is the one in the header (see RegistrationChallenge).
+        // External 'self' scripts need no nonce. Module scripts run in
+        // document order: the external build defines <altcha-widget> and
+        // window.$altcha, then the inline module registers the self-hosted
+        // Argon2id worker — if that inline script is blocked, the widget
+        // has no algorithm and reports "Verification failed" on every click.
+        $nonce = h($cspNonce);
         return '<link rel="stylesheet" href="' . $css . '">'
             . '<script type="module" src="' . $js . '"></script>'
             . '<script type="module" nonce="' . $nonce . '">if (window.$altcha && window.$altcha.algorithms) {'

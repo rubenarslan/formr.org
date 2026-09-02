@@ -14,6 +14,12 @@ class RegistrationGuardTest extends PHPUnit\Framework\TestCase {
         DB::getInstance()->pdo()->exec('CREATE TABLE IF NOT EXISTS survey_registration_invites (
             id INTEGER PRIMARY KEY, token_hash TEXT UNIQUE, created_by TEXT,
             created TEXT, expires TEXT, used_at TEXT, used_by INTEGER)');
+        // DBTest swaps the singleton for a bare :memory: connection, so the
+        // bootstrap tables may be gone by the time this class runs
+        DB::getInstance()->pdo()->exec('CREATE TABLE IF NOT EXISTS survey_users (
+            id INTEGER PRIMARY KEY, email TEXT, password TEXT, admin INTEGER, user_code TEXT,
+            referrer_code TEXT, first_name TEXT, last_name TEXT, affiliation TEXT,
+            created TEXT, email_verified INTEGER)');
     }
 
     protected function setUp(): void {
@@ -320,6 +326,24 @@ class RegistrationGuardTest extends PHPUnit\Framework\TestCase {
         $this->assertInstanceOf('TurnstileChallenge', RegistrationGuard::challengeDriver());
         $this->configure(array('challenge' => 'bogus'));
         $this->assertNull(RegistrationGuard::challengeDriver());
+    }
+
+    public function testSecondSignupFromTheSameSessionGetsAFreshUserCode() {
+        $db = DB::getInstance();
+        $db->pdo()->exec("DELETE FROM survey_users WHERE email LIKE 'code-%@example.com'");
+        $visitor = new User(null, 'visitor-code-1234');
+        $this->assertSame('visitor-code-1234', $visitor->signupUserCode(), 'a free code links the visitor\'s surveys to the new account');
+
+        $db->insert('survey_users', array('email' => 'code-first@example.com', 'user_code' => 'visitor-code-1234', 'created' => date('Y-m-d H:i:s')));
+        $fresh = $visitor->signupUserCode();
+        $this->assertNotSame('visitor-code-1234', $fresh, 'the code already belongs to an account');
+        $this->assertSame(strlen(crypto_token(48)), strlen($fresh));
+
+        $arrival = new User(null, 'arrival-code-5678');
+        $this->assertSame('arrival-code-5678', $arrival->signupUserCode());
+        $arrival->user_code = null;
+        $this->assertNotEmpty($arrival->signupUserCode(), 'no code at all still gets one');
+        $db->pdo()->exec("DELETE FROM survey_users WHERE email LIKE 'code-%@example.com'");
     }
 
 }
