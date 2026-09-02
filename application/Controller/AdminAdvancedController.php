@@ -84,6 +84,22 @@ class AdminAdvancedController extends AdminController {
         return $this->sendResponse();
     }
 
+    /**
+     * Who collects (probably) personal data, in which runs. Heuristic over
+     * item types and names; see PersonalDataAudit for what it can't see.
+     */
+    public function personalDataAction() {
+        try {
+            $vars = array('report' => PersonalDataAudit::report(), 'audit_error' => null);
+        } catch (Throwable $e) {
+            $vars = array('report' => array('totals' => array('admins' => 0, 'runs' => 0, 'surveys' => 0, 'items' => 0, 'by_category' => array()), 'admins' => array()),
+                'audit_error' => $e->getMessage());
+        }
+        $vars['category_labels'] = PersonalDataAudit::categoryLabels();
+        $this->setView('advanced/personal_data', $vars);
+        return $this->sendResponse();
+    }
+
     public function testOpencpuSpeedAction() {
         $this->setView('advanced/test_opencpu_speed');
         return $this->sendResponse();
