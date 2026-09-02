@@ -2,6 +2,12 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v1.10.0] - 02.09.2026
+
+### Added
+- **Superadmin "Personal Data" overview** (`admin/advanced/personal_data`, Advanced → Personal Data): which admins collect what is likely personal data, in which runs and surveys, and from how many participants. An item is flagged when its *type* collects personal data by construction (`email`, `tel`, `request_phone`, `geopoint`, `file`, `ip`, `browser`, `server`, `referrer`, `push_notification`) or when a free-response item's name or label mentions a keyword — phone, e-mail, name, date of birth, postal address, IBAN, student/Prolific/MTurk/SONA IDs, in English and German (`PersonalDataAudit::KEYWORDS`; extend for your instance's vocabulary). Choice items are never flagged. The page opens with a per-admin summary (runs, participants, surveys, flagged items, categories), then lists each run's surveys with the flagged items and the reason each was flagged, so a "do you own a phone?" false positive is visible as such. Technical items (IP/browser/referrer/push) are collapsed to one muted line per survey. Participant counts are non-tester sessions per run and non-tester results per survey (`?` for surveys with no metrics row yet). It is a heuristic over item definitions, not a PII detector: a text item labelled "Tell us about yourself" is invisible to it.
+- Only the logged-in superadmin's own runs and surveys are linked from the page; the admin run/survey pages resolve names against the current user, so links to other admins' objects would 401/404. Other admins' objects show name and id.
+
 ## [v1.9.3] - 02.09.2026
 
 Review pass over the v1.9.0–v1.9.2 mail-guard work. Thirteen findings from a full review of the diff since v1.8.0, fixed by root cause rather than one by one: state changes that ran before the guard's verdict, fail-open rules that each path interpreted differently, a DNS check that could not tell "no such domain" from "resolver down", challenges that could be replayed, and a Turnstile driver that never actually worked under the admin CSP.
