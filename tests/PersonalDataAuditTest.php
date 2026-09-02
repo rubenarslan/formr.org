@@ -155,8 +155,10 @@ class PersonalDataAuditTest extends PHPUnit\Framework\TestCase {
         $this->assertSame(2, $study['finished']);
         $this->assertSame(array('em', 'tel1', 'phone_number', 'PROLIFIC_PID', 'photo'), array_column($study['items'], 'name'));
         $this->assertSame('name contains "prolific"', $study['items'][3]['reason']);
+        $this->assertSame(array('runs' => 1, 'surveys' => 1, 'items' => 5, 'participants' => 3, 'by_category' => array('contact' => 3, 'ids' => 1, 'uploads' => 1)), $alice['summary']);
 
         $bob = $report['admins'][2];
+        $this->assertSame(array('runs' => 0, 'surveys' => 1, 'items' => 1, 'participants' => 0, 'by_category' => array('location' => 1)), $bob['summary']);
         $this->assertSame(array(), $bob['runs']);
         $orphan = $bob['orphan_surveys'][11];
         $this->assertSame('geo_survey', $orphan['name']);

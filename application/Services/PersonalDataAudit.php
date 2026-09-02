@@ -216,6 +216,10 @@ class PersonalDataAudit {
             $admins[$uid]['orphan_surveys'][$sid] = $study;
         }
         uasort($admins, function ($a, $b) { return strcmp((string) $a['email'], (string) $b['email']); });
+        foreach ($admins as &$admin) {
+            $admin['summary'] = self::summarise($admin);
+        }
+        unset($admin);
 
         $by_category = array();
         foreach ($items as $item) {
@@ -226,6 +230,30 @@ class PersonalDataAudit {
             'totals' => array('admins' => count($admins), 'runs' => count($runs_seen), 'surveys' => count($studies), 'items' => count($items), 'by_category' => $by_category),
             'admins' => $admins,
         );
+    }
+
+    /**
+     * Per-admin headline numbers for the overview table: distinct surveys
+     * and items (a survey in two runs counts once), participants across
+     * runs, and items per category.
+     */
+    private static function summarise(array $admin) {
+        $surveys = $admin['orphan_surveys'];
+        $participants = 0;
+        foreach ($admin['runs'] as $run) {
+            $participants += $run['sessions'];
+            $surveys += $run['surveys'];
+        }
+        $items = 0;
+        $by_category = array();
+        foreach ($surveys as $study) {
+            foreach ($study['items'] as $item) {
+                $items++;
+                $by_category[$item['category']] = (isset($by_category[$item['category']]) ? $by_category[$item['category']] : 0) + 1;
+            }
+        }
+        arsort($by_category);
+        return array('runs' => count($admin['runs']), 'surveys' => count($surveys), 'items' => $items, 'participants' => $participants, 'by_category' => $by_category);
     }
 
     /** Broad SQL prefilter (type list + LIKE on name/label), then classify() decides. */
