@@ -951,6 +951,107 @@ body:has(.fmr-form-v2:not([data-layout="solo"])) .container-fluid > p {
         }
     }
 
+    // rank item — Qualtrics-style drag-and-drop ordering (items/rank.js).
+    // Rows are <li> with a position badge, a grab handle, the label and ▲/▼
+    // buttons. The dragged row is lifted to position:fixed and follows the
+    // pointer while a same-height placeholder keeps its slot; siblings glide
+    // via FLIP transforms set inline by the module.
+    .fmr-rank {
+        max-width: 32rem;
+        .fmr-rank-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            position: relative;
+        }
+        .fmr-rank-item {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin: 0 0 0.4rem;
+            padding: 0.55rem 0.6rem 0.55rem 0.5rem;
+            border: 1.5px solid var(--bs-border-color, #dee2e6);
+            border-radius: 0.5rem;
+            background: var(--bs-body-bg, #fff);
+            color: var(--bs-body-color, #212529);
+            cursor: grab;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;   // no iOS copy bubble on press-and-hold
+            transition: border-color 0.12s ease, box-shadow 0.12s ease;
+            &:hover { border-color: var(--bs-primary, #0d6efd); }
+            &:focus-visible {
+                outline: none;
+                border-color: var(--bs-primary, #0d6efd);
+                box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.35);
+            }
+        }
+        .fmr-rank-pos {
+            flex: 0 0 auto;
+            min-width: 1.6rem;
+            height: 1.6rem;
+            line-height: 1.6rem;
+            text-align: center;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            background: var(--bs-primary, #0d6efd);
+            color: #fff;
+        }
+        // A "⋮⋮" grip; touch-action:none makes a finger on it a drag at once
+        // (the row body needs a press-and-hold so the page still scrolls).
+        .fmr-rank-handle {
+            flex: 0 0 auto;
+            width: 0.9rem;
+            height: 1.2rem;
+            touch-action: none;
+            background-image: radial-gradient(circle, var(--bs-secondary-color, #6c757d) 1.3px, transparent 1.6px);
+            background-size: 0.45rem 0.4rem;
+            background-position: 0 0;
+            opacity: 0.7;
+        }
+        .fmr-rank-label { flex: 1 1 auto; min-width: 0; }
+        .fmr-rank-btns {
+            flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            button {
+                width: 1.7rem;
+                height: 1.2rem;
+                padding: 0;
+                border: 1px solid var(--bs-border-color, #dee2e6);
+                border-radius: 0.25rem;
+                background: var(--bs-tertiary-bg, #f8f9fa);
+                color: var(--bs-body-color, #212529);
+                font-size: 0.6rem;
+                line-height: 1;
+                cursor: pointer;
+                &::before { content: '▲'; }
+                &.fmr-rank-down::before { content: '▼'; }
+                &:hover:not(:disabled) { border-color: var(--bs-primary, #0d6efd); color: var(--bs-primary, #0d6efd); }
+                &:disabled { opacity: 0.35; cursor: default; }
+            }
+        }
+        .fmr-rank-dragging {
+            position: fixed;
+            z-index: 1050;
+            margin: 0;
+            pointer-events: none;
+            cursor: grabbing;
+            border-color: var(--bs-primary, #0d6efd);
+            box-shadow: 0 0.5rem 1.2rem rgba(0, 0, 0, 0.2);
+            transform: scale(1.02);
+        }
+        .fmr-rank-placeholder {
+            margin: 0 0 0.4rem;
+            border: 1.5px dashed var(--bs-primary, #0d6efd);
+            border-radius: 0.5rem;
+            background: rgba(13, 110, 253, 0.06);
+        }
+        &.fmr-rank-active { cursor: grabbing; }
+    }
+
     // Hide v1 submit buttons emitted by Item::render — v2 supplies its own nav.
     button[name="submit"]:not([data-fmr-next]):not([data-fmr-prev]),
     input[type=submit]:not([data-fmr-next]) {

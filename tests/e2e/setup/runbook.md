@@ -262,3 +262,35 @@ page 2: `cp_b` + `cp_followup` with showif `cp_a == 1 && cp_b == 3`).
    `e2e_crosspage_showif_v2.rendering_mode = 'v2'` (see §2a).
 
 In `runs.json` as `crosspage_showif.v1` / `.v2`.
+
+## Fixture: rank (`e2e-rank-v2`)
+
+For `rank-item-v2.spec.js` — the form_v2-only drag-and-drop `rank` item.
+Survey source: `tests/e2e/setup/e2e_rank.json` (a JSON survey export; the
+upload field accepts `.json` as well as `.xlsx`). Page 1: `rank_plain`
+(required, five fruits, authored order) and `rank_random` (optional,
+`type_options: random`, six colours); page 2: `rank_touch` (required,
+`type_options: touch`, four animals — the hidden inputs stay empty until the
+participant moves or taps a row).
+
+1. Upload the survey: `/admin/survey/` → "Add a new survey" → upload
+   `tests/e2e/setup/e2e_rank.json`. The study name comes from the JSON
+   (`e2e_rank`). Check the item list shows the three `rank` rows with their
+   `type_options` intact (`random` / `touch` must NOT have been consumed as a
+   choice-list name).
+2. Create run `e2e-rank-v2`. Add the `e2e_rank` survey as a **Form** unit
+   (sets `survey_units.form_study_id`, flips the study to
+   `rendering_mode='v2'`), then add a **Stop** unit.
+3. Set an expiry date, then toggle **public = 2** ("Anyone with the link").
+4. Verify as for bot_check: the position-10 unit's `form_study_id` equals the
+   `e2e_rank` study id and `survey_studies.rendering_mode = 'v2'`.
+
+Scripted equivalent (what was actually used on dev): the admin endpoints are
+`POST /admin/survey/add_survey/` (multipart `uploaded`), `POST
+/admin/run/add_run/` (`run_name`), `POST /admin/run/<run>/ajax_create_run_unit?type=Form&position=10`
+followed by `ajax_save_run_unit` with `{unit_id, run_unit_id, type: 'Form',
+position, study_id}` to link the study, and `ajax_create_run_unit?type=Page&position=20`
+for the Stop (the unit type is `Page`, not `Endpage`; both ajax calls need
+`X-Requested-With: XMLHttpRequest`). Results land in `s<studyId>_e2e_rank`.
+
+In `runs.json` as `rank.v2`.

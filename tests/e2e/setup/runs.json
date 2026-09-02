@@ -26,5 +26,8 @@
   "crosspage_showif": {
     "v1": { "run": "e2e-crosspage-v1", "study": "e2e_crosspage_showif" },
     "v2": { "run": "e2e-crosspage-v2", "study": "e2e_crosspage_showif_v2" }
+  },
+  "rank": {
+    "v2": { "run": "e2e-rank-v2", "study": "e2e_rank" }
   }
 }

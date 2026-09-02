@@ -159,4 +159,34 @@ class SpreadsheetReaderTypeOptionsTest extends PHPUnit\Framework\TestCase {
         $this->assertSame('', $item['type']);
         $this->assertNull($item['choice_list']);
     }
+
+    /**
+     * `rank` keeps the usual "first token is the choice list" rule …
+     */
+    public function testRankTakesChoiceListThenKeywords() {
+        $item = $this->parseItem(
+            array('name', 'type', 'label'),
+            array('v1', 'rank mylist random touch', 'Label')
+        );
+
+        $this->assertSame('rank', $item['type']);
+        $this->assertSame('mylist', $item['choice_list']);
+        $this->assertSame('random touch', $item['type_options']);
+    }
+
+    /**
+     * … except when that token is one of its own option keywords: `rank random
+     * touch` with inline choice columns must not look for a list named "random"
+     * (which then collided with choice1 as "both a named choice_list and choice1").
+     */
+    public function testRankKeywordIsNotMistakenForChoiceList() {
+        $item = $this->parseItem(
+            array('name', 'type', 'label', 'choice1', 'choice2'),
+            array('v1', 'rank random touch', 'Label', 'first', 'second')
+        );
+
+        $this->assertSame('rank', $item['type']);
+        $this->assertSame('v1', $item['choice_list'], 'inline choices are listed under the item name');
+        $this->assertSame('random touch', $item['type_options']);
+    }
 }
