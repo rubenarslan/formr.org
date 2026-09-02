@@ -121,7 +121,7 @@ class Form extends Survey {
             return [
                 'content' => $renderer->render(),
                 'use_form_v2' => true,
-                // Participant-page language (patch 077): threads up the same
+                // Participant-page language (patch 092): threads up the same
                 // fixed-shape-dict chain as use_form_v2 (RunSession::
                 // executeUnitSession → Run::exec → RunController) so
                 // form_index.php can set <html lang/dir> + window.fmrStrings.

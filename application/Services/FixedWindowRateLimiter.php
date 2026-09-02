@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Generic DB-backed fixed-window rate limiter (patch 076).
+ * Generic DB-backed fixed-window rate limiter (patch 091).
  *
  * Replaces the $_SESSION-stored buckets the form_v2 endpoints used: session
  * storage reset with every PHP-session-cookie rotation (re-auth via ?code=,

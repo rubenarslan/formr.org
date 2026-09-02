@@ -432,7 +432,7 @@ $settings['form_v2_long_reads'] = true;
 $settings['form_v2_offline_blob_max_mb'] = 10;
 
 // form_v2 endpoint rate limits, per fixed 60s window (FixedWindowRateLimiter,
-// patch 076; buckets keyed by run session, beacon by IP; fail-open when the
+// patch 091; buckets keyed by run session, beacon by IP; fail-open when the
 // table is missing so a misapplied patch never locks participants out).
 //   rcall_per_min  — /form-r-call + /form-fill + /form-render-page (shared
 //                    bucket; these trigger OpenCPU work)
