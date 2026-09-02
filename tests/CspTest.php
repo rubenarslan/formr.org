@@ -93,6 +93,29 @@ class CspTest extends PHPUnit\Framework\TestCase {
         $this->assertStringContainsString('report-uri ' . Csp::REPORT_URI, $policy);
     }
 
+    public function testAllowWidensOnlyTheNamedDirectivesForThisRequest() {
+        Csp::resetExtra();
+        try {
+            Csp::allow('https://challenges.cloudflare.com', array('script-src', 'frame-src'));
+            Csp::allow('https://challenges.cloudflare.com', array('script-src')); // idempotent
+            $policy = Csp::buildPolicy('n');
+            foreach (explode('; ', $policy) as $directive) {
+                $name = strtok($directive, ' ');
+                $widened = strpos($directive, 'https://challenges.cloudflare.com') !== false;
+                if ($name === 'script-src' || $name === 'frame-src') {
+                    $this->assertTrue($widened, $directive);
+                    $this->assertSame(1, substr_count($directive, 'https://challenges.cloudflare.com'), 'registered once');
+                } else {
+                    $this->assertFalse($widened, "$name must not be widened");
+                }
+            }
+            $this->assertStringContainsString("script-src 'self' 'nonce-n' https://challenges.cloudflare.com", $policy, 'nonce is kept');
+        } finally {
+            Csp::resetExtra();
+        }
+        $this->assertStringNotContainsString('cloudflare', Csp::buildPolicy('n'), 'reset forgets the origin');
+    }
+
     public function testExtractReportFieldsCspLevel2Wrapper() {
         $fields = Csp::extractReportFields(array('csp-report' => array(
             'document-uri' => 'https://admin.example/admin/run/',

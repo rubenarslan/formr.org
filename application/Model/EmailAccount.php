@@ -84,13 +84,22 @@ class EmailAccount extends Model {
     public function test() {
         $receiver = $this->account['from'];
         $mail = $this->makeMailer();
+        // Researcher-initiated self-test to the account's own from-address;
+        // repeatable on purpose, so not 'transactional'.
+        $mail->guard_category = MailGuardService::CATEGORY_SYSTEM;
+        $mail->guard_type = 'account_test';
 
         $mail->AddAddress($receiver);
         $mail->Subject = 'formr: account test success';
         $mail->Body = Template::get_replace('email/test-account.ftpl', array('site_url' => site_url()));
 
         if (!$mail->Send()) {
-            $this->invalidate();
+            // A guard refusal (e.g. the duplicate window after two quick
+            // clicks) says nothing about the SMTP credentials, so the
+            // account's verified state is left alone.
+            if (empty($mail->guard_blocked)) {
+                $this->invalidate();
+            }
             alert('Account Test Failed: ' . $mail->ErrorInfo, 'alert-danger');
             return false;
         } else {
@@ -101,7 +110,12 @@ class EmailAccount extends Model {
     }
 
     public function makeMailer() {
-        $mail = new PHPMailer();
+        $mail = new GuardedMailer();
+        // Study mail through a researcher-owned account: suppression + domain
+        // check + guard log; pacing stays with RateLimitService.
+        $mail->guard_category = MailGuardService::CATEGORY_STUDY;
+        $mail->guard_type = 'study';
+        $mail->guard_user_id = $this->user_id ?? null;
         $mail->SetLanguage("de", "/");
 
         $mail->IsSMTP();  // telling the class to use SMTP

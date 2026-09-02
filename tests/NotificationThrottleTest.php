@@ -86,6 +86,26 @@ class NotificationThrottleTest extends \PHPUnit\Framework\TestCase
         $this->assertEquals(1, $suppressed, 'a throttled notification must be recorded, not vanish');
     }
 
+    public function testGuardRefusalAnchorsTheThrottleButAnSmtpFailureDoesNot(): void
+    {
+        $n = new NTTGuardRefusedNotification();
+        $unitA = $this->makeUnitSession(11);
+
+        $this->assertFalse($n->notifyStudyAdmin($unitA, 'owner address suppressed', 'error'));
+        $this->assertFalse($n->notifyStudyAdmin($unitA, 'again', 'error'), 'throttled: the guard will refuse again anyway');
+        $this->assertSame(1, $n->attempts, 'the guard is not re-hit on every recurrence');
+        $rows = DB::getInstance()->pdo()->query('SELECT suppressed FROM survey_notifications ORDER BY id')->fetchAll(PDO::FETCH_COLUMN);
+        $this->assertEquals([0, 1], $rows, 'the refusal anchors the window like a delivery; the repeat is a suppression');
+
+        DB::getInstance()->pdo()->exec('DELETE FROM survey_notifications');
+        $n = new NTTGuardRefusedNotification();
+        $n->smtpFailure = true;
+        $this->assertFalse($n->notifyStudyAdmin($unitA, 'smtp down', 'error'));
+        $this->assertFalse($n->notifyStudyAdmin($unitA, 'smtp still down', 'error'));
+        $this->assertSame(2, $n->attempts, 'a transient SMTP failure leaves the window open for a retry');
+        $this->assertEquals(0, DB::getInstance()->pdo()->query('SELECT COUNT(*) FROM survey_notifications')->fetchColumn(), 'nothing delivered, nothing anchored');
+    }
+
     public function testNextEmailCarriesSuppressionDigest(): void
     {
         $n = new NTTRecordingNotification();

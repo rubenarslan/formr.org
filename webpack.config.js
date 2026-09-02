@@ -161,6 +161,32 @@ module.exports = (env, argv) => {
                         to: path.resolve(__dirname, outputDir + '/js/shims'),
                         info: { minimized: false },
                     },
+                    // Altcha widget for the signup bot-check (registration.challenge
+                    // = 'altcha'): shipped as its prebuilt standalone module and
+                    // loaded via <script type=module> from the register template,
+                    // NOT webpack-bundled (its ESM plugin loader uses a dynamic
+                    // require webpack can't resolve). Self-hosted — no CDN, no
+                    // third party. The external build does not inject styles at
+                    // runtime, so its stylesheet ships alongside.
+                    {
+                        from: path.resolve(__dirname, 'node_modules/altcha/dist/external/altcha.min.js'),
+                        to: path.resolve(__dirname, outputDir + '/js/altcha/altcha.min.js'),
+                        info: { minimized: true },
+                    },
+                    {
+                        from: path.resolve(__dirname, 'node_modules/altcha/dist/external/altcha.css'),
+                        to: path.resolve(__dirname, outputDir + '/js/altcha/altcha.css'),
+                        info: { minimized: true },
+                    },
+                    // Memory-hard Argon2id Web Worker (inline WASM, no network):
+                    // the widget's solver for the challenges AltchaChallenge
+                    // mints. Copied verbatim — es5 target + worker-chunk
+                    // publicPath make bundling it fragile.
+                    {
+                        from: path.resolve(__dirname, 'node_modules/altcha/dist/workers/argon2id.js'),
+                        to: path.resolve(__dirname, outputDir + '/js/altcha/argon2id.js'),
+                        info: { minimized: true },
+                    },
                     // Site Images
                     {
                         from: path.resolve(__dirname, 'webroot/assets/site/img/'),

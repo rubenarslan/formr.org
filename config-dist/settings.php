@@ -124,6 +124,89 @@ $settings['email_thresholds'] = [
 	'in_last_1w' => 60
 ];
 
+/*
+ * Outbound-mail abuse guard.
+ *
+ * Failure mode this prevents: bots submit the signup / forgot-password form
+ * with strangers' addresses (subscription bombing); formr mails each one; the
+ * recipients complain; your provider disables SMTP for the whole mailbox.
+ * Every send is checked against the suppression list (bin/suppression.php)
+ * and logged in survey_mail_guard_log; unauthenticated "transactional" mail
+ * (verification, password reset) is additionally subject to a duplicate-send
+ * window and the rate ceilings below. Study/cron mail keeps its own limits
+ * (email_thresholds above) and is never capped by these ceilings.
+ * Status page: admin/advanced/mail_guard.
+ *
+ * The defaults are deliberately generous for humans and tight for bots: a
+ * lab will never notice them, a bombing run is capped at tens of messages
+ * per hour instead of thousands. Set a limit to 0 to disable that limit.
+ */
+$settings['mail_guard'] = array(
+	'enabled' => true,
+	// refuse a second verification / password-reset mail to the same address
+	// within this window (a repeat request within it is almost always abuse)
+	'duplicate_window_hours' => 24,
+	'ip_limit_per_hour' => 10,       // transactional mail per source IP
+	'subnet_limit_per_hour' => 20,   // …per /24 (IPv4) or /64 (IPv6)
+	'global_limit_per_hour' => 50,   // …instance-wide; hitting it is surfaced in the admin UI
+	// Signups bearing a valid referral/invite token are almost never spam, so
+	// they SKIP the per-IP and per-/24 limits above (this is what lets a whole
+	// workshop or course cohort sign up from one institutional NAT). They are
+	// still bounded by this separate, higher instance-wide ceiling, so a leaked
+	// token can't be used to bomb without limit.
+	'trusted_global_limit_per_hour' => 200,
+	// refuse addresses whose domain has no MX and no A/AAAA record (or a
+	// null MX). Only an authoritative "no such record" fails closed; a
+	// transient resolver failure (SERVFAIL, timeout) sends anyway, logs, and
+	// is not cached.
+	'mx_check' => true,
+	'mx_cache_hours' => 24,
+	// keep survey_mail_guard_log rows this long (daily prune from the
+	// cleanup cron; 0 = keep forever). Longest rate-limit window is a week.
+	'log_retention_days' => 90,
+	// optional blocklist file: one domain per line, # comments. Empty default.
+	'disposable_domains_file' => null,
+	// HMAC secret for the signup form's signed timestamp and the Altcha
+	// challenge; derived from the instance crypto key when null.
+	'form_secret' => null,
+);
+
+/*
+ * Who may register an account at all. Most lab instances need accounts for a
+ * handful of researchers and hand participants session links — for those,
+ * 'domains' or 'closed' removes the signup attack surface entirely. Be
+ * honest with yourself: 'open' on a public instance means accepting
+ * signup-mail abuse as a cost of doing business.
+ *
+ *   'open'     anyone (current behaviour, default)
+ *   'domains'  only emails under 'allowed_domains' (whole domains, subdomains
+ *              included) OR ending in an 'allowed_tlds' entry (e.g. only .edu).
+ *              A single-use invitation token (issued by a superadmin under
+ *              admin/advanced/registration_invites, or via
+ *              bin/registration_invite.php) overrides the restriction for
+ *              one person — the escape hatch for legitimate exceptions.
+ *   'invite'   only with such a single-use invitation token
+ *   'closed'   nobody
+ *
+ * Independent of the DB-backed signup:allow switch in the admin UI — both
+ * must allow a signup. The honeypot + signed-timestamp bot check on the form
+ * is always on; 'challenge' adds a proof-of-work widget on top:
+ *   'altcha'    self-hosted, no third party, no data-protection questions
+ *               (recommended if you need a challenge)
+ *   'turnstile' Cloudflare — sends visitor data to a third party, which your
+ *               privacy policy must then document; needs both keys below
+ */
+$settings['registration'] = array(
+	'mode' => 'open',
+	'allowed_domains' => array(), // ('domains' mode) whole domains, e.g. array('uni-example.edu', 'example.org')
+	'allowed_tlds' => array(),    // ('domains' mode) accept any address ending in these TLDs, e.g. array('edu', 'ac.uk')
+	'min_form_seconds' => 3,      // submissions faster than this are bots
+	'form_token_ttl' => 43200,    // signed form timestamp validity (12 h)
+	'challenge' => null,          // null | 'altcha' | 'turnstile'
+	'turnstile_site_key' => '',
+	'turnstile_secret_key' => '',
+);
+
 // What regular expression should the user codes match? Make sure your RegEx allows 64 character base64 like ^[A-Za-z0-9+-_~]{64}, as these are the codes formr generates. You can generate shorter/longer codes yourself though.
 $settings['user_code_regular_expression'] = "/^[A-Za-z0-9+-_~]{64}$/";
 

@@ -10,6 +10,14 @@
     <div style="margin-top: 55px;">
 
         <form class="" id="register" name="register" method="post" action="">
+            <?php if (!empty($registration_form_token)): ?>
+                <input type="hidden" name="<?= RegistrationGuard::TOKEN_FIELD ?>" value="<?= h($registration_form_token) ?>">
+            <?php endif; ?>
+            <?php /* Honeypot: invisible to people, autofilled by bots. Submissions that fill it are dropped. */ ?>
+            <div style="position:absolute;left:-9999px;top:-9999px;" aria-hidden="true">
+                <label for="reg_website">Website</label>
+                <input type="text" id="reg_website" name="<?= RegistrationGuard::HONEYPOT_FIELD ?>" tabindex="-1" autocomplete="off" value="">
+            </div>
             <div class="form-group label-floating">
                 <label class="control-label" for="email"><i class="fa fa-envelope"></i> Email</label>
                 <input class="form-control" type="email" id="email" name="email" required autocomplete="new-password">
@@ -19,10 +27,13 @@
                 <input class="form-control" type="password" id="pass" name="password" required autocomplete="new-password">
             </div>
 
-            <?php if (Site::getSettings("signup:enable_referral_token", 'true') === 'true'): ?>
+            <?php $invite_mode = Config::get('registration.mode', 'open') === 'invite'; ?>
+            <?php // domains mode also shows the field: an admin-issued invite is the per-person exception to the domain gate ?>
+            <?php if ($invite_mode || Config::get('registration.mode', 'open') === 'domains' || Site::getSettings("signup:enable_referral_token", 'true') === 'true'): ?>
                 <div class="form-group label-floating">
-                    <label class="control-label" for="token"><i class="fa fa-gift"></i> Referral token (if available)</label>
-                    <input class="form-control" type="text" id="token" name="referrer_code" autocomplete="off">
+                    <label class="control-label" for="token"><i class="fa fa-gift"></i>
+                        <?= $invite_mode ? 'Invitation token (required)' : 'Referral token (if available)' ?></label>
+                    <input class="form-control" type="text" id="token" name="referrer_code" autocomplete="off" <?= $invite_mode ? 'required' : '' ?>>
                 </div>
 
                 <div>
@@ -52,6 +63,8 @@
                     <p class="help-block">You will be prompted to set up 2FA after email verification.</p>
                 </div>
             <?php endif; ?>
+
+            <?php if (!empty($registration_challenge_html)) echo $registration_challenge_html; ?>
 
             <button type="submit" class="btn btn-sup btn-material-pink btn-raised"><i class="fa fa-pencil fa-fw"></i> Sign Up</button>
         </form>

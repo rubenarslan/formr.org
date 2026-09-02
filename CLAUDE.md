@@ -235,7 +235,11 @@ templating engine — short tags + `htmlspecialchars` + helpers from
 
 - **CSRF tokens were removed in v0.25.1.** Do not reintroduce
   `Session::REQUEST_TOKENS`, `getRequestToken`, or per-form hidden
-  tokens. Auth relies on session cookies + same-site.
+  tokens. Auth relies on session cookies + same-site. The one
+  deliberate exception is the signup form's `_form_minted` field
+  (`RegistrationGuard`, v1.9.0): it is a bot-friction timestamp
+  (signed, session-bound, single-use) on an *unauthenticated* form,
+  not a CSRF token, and it must not spread to authenticated forms.
 - **`Crypto` reads a key from `formr-crypto.key/`.** Breaking the
   key breaks decryption of at-rest data — treat like a database.
 - **`expire_cookie` on a run drives `Session::setSessionLifetime`

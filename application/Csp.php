@@ -27,6 +27,38 @@ class Csp {
     /** Endpoint that receives violation reports (admin-domain relative). */
     const REPORT_URI = '/api/csp-report';
 
+    /** @var array<string,string[]> directive => extra origins registered for this request */
+    protected static $extra = array();
+
+    /**
+     * Allow an extra origin in named directives for the current request.
+     * Registered by code that emits third-party markup (e.g. the Turnstile
+     * widget) before the header is sent; the static list only widens the
+     * policy for the request that actually renders that markup.
+     *
+     * @param string $origin e.g. 'https://challenges.cloudflare.com'
+     * @param string[] $directives e.g. array('script-src', 'frame-src')
+     */
+    public static function allow($origin, array $directives) {
+        foreach ($directives as $directive) {
+            if (!isset(self::$extra[$directive])) {
+                self::$extra[$directive] = array();
+            }
+            if (!in_array($origin, self::$extra[$directive], true)) {
+                self::$extra[$directive][] = $origin;
+            }
+        }
+    }
+
+    /** Forget extra origins (tests). */
+    public static function resetExtra() {
+        self::$extra = array();
+    }
+
+    protected static function extra($directive) {
+        return empty(self::$extra[$directive]) ? '' : ' ' . implode(' ', self::$extra[$directive]);
+    }
+
     /**
      * @return string one of 'off' | 'report-only' | 'enforce'
      */
@@ -71,13 +103,13 @@ class Csp {
             "default-src 'self'",
             "base-uri 'self'",
             "object-src 'none'",
-            "script-src 'self' " . $n,
+            "script-src 'self' " . $n . self::extra('script-src'),
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: blob:",
             "font-src 'self' data:",
             "worker-src 'self' blob:",
-            "connect-src 'self' " . self::CONNECT_SRC,
-            "frame-src 'self' " . self::FRAME_SRC,
+            "connect-src 'self' " . self::CONNECT_SRC . self::extra('connect-src'),
+            "frame-src 'self' " . self::FRAME_SRC . self::extra('frame-src'),
             "form-action 'self' " . self::FORM_ACTION,
             "frame-ancestors 'self'",
             "report-uri " . self::REPORT_URI,

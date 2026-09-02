@@ -33,6 +33,11 @@ abstract class Cron {
         if ($this->mailer === null) {
             $this->mailer = $this->site->makeAdminMailer();
             $this->mailer->SMTPKeepAlive = true; // keep the SMTP connection alive between sends
+            // Researcher-facing notices to known account owners: exempt from the
+            // transactional ceilings (many per hour is legitimate on a big
+            // instance), still suppressed/logged/domain-checked.
+            $this->mailer->guard_category = MailGuardService::CATEGORY_SYSTEM;
+            $this->mailer->guard_type = 'cron';
         }
         $this->mailer->clearAddresses();
         $this->mailer->clearAttachments();

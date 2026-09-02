@@ -35,12 +35,12 @@ class Autoload {
      */
     public function loadClass($class) {
         if ($file = $this->findFile($class)) {
-            if (class_exists($class, false)) {
+            if (class_exists($class, false) || interface_exists($class, false)) {
                 return true;
             }
 
             include $file;
-            if (!class_exists($class)) {
+            if (!class_exists($class) && !interface_exists($class)) {
                 $message = sprintf("Autloader expected class %s to be defined in file %s. The file was found but the class was not in it", $class, $file);
                 throw new RuntimeException($message);
             }
