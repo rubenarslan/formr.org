@@ -52,6 +52,12 @@ class FormStrings {
             'solo.hint_enter' => 'press Enter ↵',
             'solo.hint_textarea' => 'Ctrl + Enter to continue',
             'solo.hint_multi' => 'Choose all that apply, then OK',
+            'validation.rank' => 'Please rank the options to continue.',
+            'rank.hint' => 'Use the up and down arrow keys to move this option; Home and End move it to the top or bottom.',
+            'rank.move_up' => 'Move up',
+            'rank.move_down' => 'Move down',
+            'rank.position' => '%label, position %pos of %total',
+            'rank.moved' => '%label moved to position %pos of %total',
         ),
         'de' => array(
             'nav.previous' => 'Zurück',
@@ -84,6 +90,12 @@ class FormStrings {
             'solo.hint_enter' => 'Enter ↵ drücken',
             'solo.hint_textarea' => 'Strg + Enter zum Fortfahren',
             'solo.hint_multi' => 'Alles Zutreffende auswählen, dann OK',
+            'validation.rank' => 'Bitte bringen Sie die Optionen in eine Reihenfolge, um fortzufahren.',
+            'rank.hint' => 'Mit den Pfeiltasten nach oben und unten verschieben Sie diese Option; Pos1 und Ende verschieben sie ganz nach oben oder unten.',
+            'rank.move_up' => 'Nach oben',
+            'rank.move_down' => 'Nach unten',
+            'rank.position' => '%label, Position %pos von %total',
+            'rank.moved' => '%label auf Position %pos von %total verschoben',
         ),
     );
 

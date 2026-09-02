@@ -1,0 +1,31 @@
+{
+    "name": "e2e_rank",
+    "settings": {},
+    "items": [
+        {
+            "type": "note", "name": "intro", "optional": 1,
+            "label": "## Rank item fixture\n\nPage 1: a plain required rank and a `random` optional rank. Page 2: a `touch` required rank."
+        },
+        {
+            "type": "rank", "choice_list": "fruits", "type_options": "", "name": "rank_plain", "optional": 0,
+            "label": "Rank these fruits (best first).",
+            "choices": {"1": "Apple", "2": "Banana", "3": "Cherry", "4": "Date", "5": "Elderberry"}
+        },
+        {
+            "type": "rank", "choice_list": "colours", "type_options": "random", "name": "rank_random", "optional": 1,
+            "label": "Rank these colours — the start order is shuffled on every load.",
+            "choices": {"red": "Red", "green": "Green", "blue": "Blue", "yellow": "Yellow", "purple": "Purple", "orange": "Orange"}
+        },
+        {
+            "type": "submit", "name": "submit_page1", "optional": 1, "label": "Next"
+        },
+        {
+            "type": "rank", "choice_list": "animals", "type_options": "touch", "name": "rank_touch", "optional": 0,
+            "label": "Rank these animals — you must touch the list before you can continue.",
+            "choices": {"1": "Cat", "2": "Dog", "3": "Horse", "4": "Rabbit"}
+        },
+        {
+            "type": "submit", "name": "submit_page2", "optional": 1, "label": "Finish"
+        }
+    ]
+}

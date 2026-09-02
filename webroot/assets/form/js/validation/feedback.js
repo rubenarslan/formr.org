@@ -126,6 +126,7 @@ function requiredMsg(g) {
     if (g.classList.contains('item-visual_analog_scale')) return 'Please choose a point on the scale to continue.';
     if (g.classList.contains('item-geopoint')) return 'Please provide your location to continue.';
     if (g.matches('.item-file, .item-image, .item-audio, .item-video')) return 'Please add a file to continue.';
+    if (g.classList.contains('item-rank')) return t('validation.rank', 'Please rank the options to continue.');
     return t('validation.required', "We'll need this to continue.");
 }
 
@@ -260,7 +261,7 @@ export function validatePageAndShowFeedback(pageEl) {
         }
         if (!firstFocusTarget) {
             firstFocusTarget = g.querySelector(
-                'input:not([type=hidden]):not([disabled]), textarea, select, .fmr-botcheck-box, .vas-display, .btn[data-for]',
+                'input:not([type=hidden]):not([disabled]), textarea, select, .fmr-botcheck-box, .vas-display, .btn[data-for], .fmr-rank-item[tabindex]',
             ) || g;
         }
     });

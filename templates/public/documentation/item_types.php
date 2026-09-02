@@ -190,6 +190,14 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         like select_multiple and select_or_add_one, allows users to add options not given. <i>maxChoose</i> can be used to place an upper limit on the number of chooseable options.
     </dd>
     <dt>
+        rank <br><i>choice_list, random, touch</i>
+    </dt>
+    <dd>
+        rank order by drag and drop (as in Qualtrics): the choices are shown as a list that participants reorder by dragging (mouse or touch), with the ▲/▼ buttons on each row, or with the keyboard (focus a row, then use Arrow Up/Down, Home/End). Stored as the choice <em>names</em> in their final order, joined by a comma, e.g. <code>3, 1, 2</code> for "3 ranked first" — <code>strsplit(rank, ", ")</code> in R recovers the ranking.<br>
+        Options after the choice list: <code>random</code> shuffles the starting order on every page load (so an untouched submit does not silently store your authored order); <code>touch</code> counts the item as answered only once the participant has actually interacted with it (dragged, tapped a row, or used the buttons/keyboard) — combine with a required item to force an explicit choice. Without <code>touch</code>, submitting stores the order as displayed, like Qualtrics. E.g. <code>rank fruits random touch</code>.<br>
+        <strong>Form (v2) units only.</strong>
+    </dd>
+    <dt>
         mc_heading <i>choice_list</i>
     </dt>
     <dd>

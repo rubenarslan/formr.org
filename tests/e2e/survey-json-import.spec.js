@@ -54,6 +54,10 @@ test.describe('survey JSON upload (robot seeding)', () => {
         // internal `name` so createFromData stores it as STUDY, not all_widgets).
         const survey = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
         survey.name = STUDY;
+        // Drop the export's explicit ordering: a hand-written survey JSON has
+        // none, and createFromData must then keep file order (it used to leave
+        // item_order NULL, so the render order was whatever MariaDB returned).
+        survey.items.forEach((i) => { delete i.order; delete i.item_order; });
         const ctx = await request.newContext({ ignoreHTTPSErrors: true, storageState: ADMIN_STATE });
         const res = await ctx.post(`${ADMIN_URL}/admin/survey/add_survey/`, {
             multipart: {
@@ -77,5 +81,11 @@ test.describe('survey JSON upload (robot seeding)', () => {
         const missing = [...want].filter((t) => !got.has(t)).sort();
         expect(missing, `seeded study is missing item types: ${missing.join(', ')}`).toEqual([]);
         expect(got.size, 'expected the full widget catalogue').toBeGreaterThanOrEqual(50);
+
+        const stored = db.dbQuery(
+            `SELECT name, item_order FROM survey_items WHERE study_id = ${parseInt(study.id, 10)} ORDER BY item_order, id`,
+        );
+        expect(stored.map((r) => r.name)).toEqual(survey.items.map((i) => i.name));
+        expect(stored.map((r) => Number(r.item_order))).toEqual(survey.items.map((_, i) => i + 1));
     });
 });
