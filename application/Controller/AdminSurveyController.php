@@ -70,6 +70,16 @@ class AdminSurveyController extends AdminController {
                         delete_tmp_file($file);
                         return $this->request->redirect('admin/survey');
                     }
+                    // createFromData reuses (and re-uploads items into) a
+                    // same-named study of the current user — the run-import
+                    // semantics. This form only creates, so refuse instead of
+                    // silently rewriting an existing survey's item table.
+                    $existing = SurveyStudy::loadByUserAndName($this->user, $data->name);
+                    if ($existing->valid) {
+                        alert('<strong>Error:</strong> You already have a survey named "' . h($data->name) . '". Rename it in the JSON ("name"), or upload the items into the existing survey from its page.', 'alert-danger');
+                        delete_tmp_file($file);
+                        return $this->request->redirect('admin/survey');
+                    }
                     if (SurveyStudy::createFromData($data, array('user_id' => $this->user->id))) {
                         alert('<strong>Success!</strong> New survey created from JSON!', 'alert-success');
                         $created = SurveyStudy::loadByUserAndName($this->user, $data->name);
