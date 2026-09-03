@@ -24,7 +24,15 @@ class Form extends Survey {
     }
 
     public function create($options = []) {
-        $study_id = (!empty($options['study_id']) && $this->db->entry_exists('survey_studies', ['id' => (int) $options['study_id']]))
+        // Same ownership gate as Survey::create — the study must belong to
+        // the run's owner, not merely exist. Without it a structure import
+        // (Run::importUnits / the API's PUT structure) could point a Form
+        // at another user's study and read it through this run.
+        $study_id = (!empty($options['study_id']) && $this->run && $this->isOwnedBy(
+                'survey_studies',
+                (int) $options['study_id'],
+                (int) $this->run->user_id
+            ))
             ? (int) $options['study_id']
             : null;
 
