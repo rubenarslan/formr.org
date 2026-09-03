@@ -43,7 +43,7 @@ import '@khmyznikov/pwa-install';
 
 import { mysqlDatetime } from './lib/time.js';
 import { genUuid } from './lib/uuid.js';
-import { queueAdd, queueGetAll, queueDelete, wipeQueueForRun, buildSyncFormData, isTransientFailure } from './offline/queue.js';
+import { queueAdd, queueGetAll, queueDelete, wipeQueueForRun, buildSyncFormData, normalizeSyncEntry, isTransientFailure } from './offline/queue.js';
 import { initMediaRecorders } from './items/recorders.js';
 import { initButtonGroups } from './items/button-groups.js';
 import { initBotCheck } from './items/bot-check.js';
@@ -429,7 +429,13 @@ function initForm() {
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                        body: JSON.stringify(entry),
+                        // normalizeSyncEntry, not the raw entry: /form-sync now
+                        // 400s a client_ts that isn't a MySQL DATETIME (it used
+                        // to 500 at INSERT time, after the answers were already
+                        // applied — the client then retried and double-wrote).
+                        // A 400 halts the whole drain, so an entry stored by an
+                        // older bundle must be fixed up here, not wedge forever.
+                        body: JSON.stringify(normalizeSyncEntry(entry)),
                     });
                 }
             } catch (e) {

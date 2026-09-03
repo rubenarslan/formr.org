@@ -10,6 +10,7 @@
 // don't care that the underlying mechanism is IDB.
 
 import { openDB } from 'idb';
+import { toMysqlDatetime } from '../lib/time.js';
 
 const DB_NAME = 'formrQueue';
 const STORE = 'queue';
@@ -78,12 +79,30 @@ export async function wipeQueueForRun(runPathPrefix) {
     }
 }
 
+// Normalise a stored entry's envelope before it goes on the wire.
+//
+// `/form-sync` validates uuid / page / unit_session_id / client_ts strictly and
+// answers 400 — which halts the whole drain, not just this entry — so a value
+// an older bundle happened to store in a different shape must be fixed here
+// rather than wedging the queue. Only the envelope is touched; `data`,
+// `item_views` and `files` are passed through untouched.
+export function normalizeSyncEntry(entry) {
+    const out = Object.assign({}, entry);
+    out.page = Number(out.page);
+    if (!Number.isFinite(out.page) || out.page < 1) out.page = 1;
+    out.page = Math.round(out.page);
+    const ts = toMysqlDatetime(out.client_ts);
+    if (ts === null) delete out.client_ts; else out.client_ts = ts;
+    return out;
+}
+
 // Build a FormData representation of a queued entry that has `files`. Keys
 // mirror form-page-submit's multipart branch (see `RunController::formSyncAction`).
 // Pulled out of drainQueue so the multipart shape lives in one place — also
 // useful when an entry goes from JSON to multipart between offline-enqueue
 // and online-drain (e.g. a future blob attachment).
-export function buildSyncFormData(entry) {
+export function buildSyncFormData(rawEntry) {
+    const entry = normalizeSyncEntry(rawEntry);
     const fd = new FormData();
     fd.append('uuid', entry.uuid);
     fd.append('page', String(entry.page));
