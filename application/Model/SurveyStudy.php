@@ -183,13 +183,33 @@ class SurveyStudy extends Model
         }
         $this->results_table = $results_table;
         $this->save();
+        $this->valid = true;
 
         return true;
     }
 
+    /**
+     * Materialise a survey from an exported `survey_data` object (a run
+     * bundle's per-unit payload, or the standalone survey JSON upload) and
+     * load its items.
+     *
+     * A study of that name owned by the current user is reused (items
+     * replaced); otherwise it is created. With $options['run'] set, a
+     * Survey unit for the study is also placed in that run — the
+     * behaviour Survey::create relies on. Pass $options['place_unit'] =
+     * false to get the study only: Form::create does, because a Form
+     * places the study through its own survey_units row and must not
+     * leave a stray Survey unit behind.
+     *
+     * @param object $data  {name, items, settings?}
+     * @param array $options
+     * @return SurveyStudy|false the study, or false on failure
+     */
     public static function createFromData($data, $options = [])
     {
         unset($options['survey_data']);
+        $place_unit = !array_key_exists('place_unit', $options) || $options['place_unit'];
+        unset($options['place_unit']);
         if (empty($data->name) || empty($data->items)) {
             return false;
         }
@@ -207,20 +227,30 @@ class SurveyStudy extends Model
 
         if ($study->valid) {
             // Survey exists so use existing data
-            $unit = [
-                'id' => $study->id,
-                'study_id' => $study->id,
-                'type' => 'Survey',
-                'importing' => true,
-            ];
-            $options['add_to_run'] = true;
+            if ($place_unit && !empty($options['run'])) {
+                $unit = [
+                    'id' => $study->id,
+                    'study_id' => $study->id,
+                    'type' => 'Survey',
+                    'importing' => true,
+                ];
+                $options['add_to_run'] = true;
 
-            RunUnitFactory::make($options['run'], $unit)->create($options);
+                RunUnitFactory::make($options['run'], $unit)->create($options);
+            }
         } else {
             $study = new SurveyStudy();
             $file = ['name' => $data->name . '.xlsx'];
             unset($options['is_import']);
-            if (!$study->createFromFile($file, $options)) {
+            // createFromFile places the unit as a side effect of the run
+            // options it is handed (RunUnit::create assigns `run`,
+            // `position`, `type`, … and addToRun inserts the row). When the
+            // caller places the study itself, hand it only what the
+            // ownership check needs, or the study's survey_units row would
+            // inherit the caller's unit type and a second unit would land
+            // in the run.
+            $file_options = $place_unit ? $options : ['user_id' => ($options['user_id'] ?? null)];
+            if (!$study->createFromFile($file, $file_options)) {
                 return false;
             }
 
@@ -252,9 +282,18 @@ class SurveyStudy extends Model
                 'enable_instant_validation',
                 'unlinked', 'hide_results', 'use_paging',
                 'google_file_id',
+                // v2 engine settings — exported by getSettings(), so a
+                // bundle round-trips its rendering mode. Validated below
+                // exactly as the admin settings form does
+                // (AdminSurveyController::settingsAction); an invalid value
+                // is dropped rather than coerced, so a bad bundle imports
+                // with the column default.
+                'rendering_mode', 'offline_mode', 'allow_previous',
+                'layout', 'language',
             ];
             $raw_settings = isset($data->settings) ? (array) $data->settings : [];
             $filtered = array_intersect_key($raw_settings, array_flip($allowed_settings));
+            $filtered = self::validateEngineSettings($filtered);
             // Validate google_file_id at the WRITE boundary, not only on the
             // download path (google_get_sheet_id). This value is
             // attacker-controlled on the import path — a shared run-bundle's
@@ -321,13 +360,44 @@ class SurveyStudy extends Model
                 alert('<ul><li>' . implode("</li><li>", $study->messages) . '</li></ul>', 'alert-info');
             }
 
-            return true;
+            return $study;
         } else {
             alert('<ul><li>' . implode("</li><li>", $study->errors) . '</li></ul>', 'alert-danger');
             return false;
         }
+    }
 
-        return $study;
+    /**
+     * Validate the v2 engine settings of an imported bundle the way the
+     * admin settings form does. Keys that fail validation are removed so
+     * the column default applies; keys that are absent stay absent.
+     *
+     * @param array $settings allowlisted settings from createFromData
+     * @return array
+     */
+    private static function validateEngineSettings(array $settings)
+    {
+        if (array_key_exists('rendering_mode', $settings) && !in_array($settings['rendering_mode'], ['v1', 'v2'], true)) {
+            unset($settings['rendering_mode']);
+        }
+        foreach (['offline_mode', 'allow_previous'] as $flag) {
+            if (array_key_exists($flag, $settings)) {
+                // Exports carry DB strings ("1"), hand-written JSON ints or bools.
+                $settings[$flag] = (int) in_array($settings[$flag], [1, '1', true], true);
+            }
+        }
+        if (array_key_exists('layout', $settings) && !in_array($settings['layout'], ['default', 'solo'], true)) {
+            unset($settings['layout']);
+        }
+        if (array_key_exists('language', $settings)) {
+            $lang = trim((string) $settings['language']);
+            if (preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', $lang)) {
+                $settings['language'] = $lang;
+            } else {
+                unset($settings['language']);
+            }
+        }
+        return $settings;
     }
 
     public function uploadItems($file, $can_delete = false, $is_new = false)
@@ -1817,11 +1887,17 @@ class SurveyStudy extends Model
             'expire_invitation_grace',
             'hide_results',
             'use_paging',
+            // v2 engine settings; createFromData validates them on import.
+            'rendering_mode',
+            'offline_mode',
+            'allow_previous',
+            'layout',
+            'language',
         ];
         $settings = [];
 
         foreach ($keys as $key) {
-            $settings[$key] = $this->{$key};
+            $settings[$key] = $this->{$key} ?? null;
         }
 
         return $settings;

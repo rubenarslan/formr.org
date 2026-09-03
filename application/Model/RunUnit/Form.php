@@ -24,6 +24,26 @@ class Form extends Survey {
     }
 
     public function create($options = []) {
+        // A run bundle exported with survey details carries the study as
+        // `survey_data` (Run::export). Materialise it first — study only,
+        // no unit: Survey::create's survey_data path lets createFromData
+        // place a *Survey* unit as a side effect, which is exactly what a
+        // Form must not do — then link it like a dropdown-chosen study.
+        // createFromData reuses a same-named study of the current user, so
+        // re-importing a bundle updates that study rather than duplicating
+        // it. On failure the errors are already alerted; the Form is still
+        // created, unlinked, so the run's structure survives the import.
+        if (isset($options['survey_data'])) {
+            $opts = $options;
+            $opts['importing'] = true;
+            $opts['place_unit'] = false;
+            $study = SurveyStudy::createFromData($options['survey_data'], $opts);
+            unset($options['survey_data']);
+            if ($study && $study->valid) {
+                $options['study_id'] = $study->id;
+            }
+        }
+
         // Same ownership gate as Survey::create — the study must belong to
         // the run's owner, not merely exist. Without it a structure import
         // (Run::importUnits / the API's PUT structure) could point a Form

@@ -1446,9 +1446,14 @@ class Run extends Model
         $SPR = new SpreadsheetReader();
         // Save run units
         foreach ($units as $i => &$unit) {
-            if ($inc_survey && $unit->type === 'Survey') {
-                $survey = SurveyStudy::loadById($unit->unit_id);
-                $unit->survey_data = $SPR->exportItemTableJSON($survey, true);
+            if ($inc_survey && in_array($unit->type, ['Survey', 'Form'], true)) {
+                $survey = SurveyStudy::loadById($this->exportedStudyId($unit));
+                // The admin export posts the unit list from the browser, so
+                // the id is caller-supplied: only ship items of a study the
+                // run owner actually owns.
+                if ($survey->valid && (int) $survey->user_id === (int) $this->user_id) {
+                    $unit->survey_data = $SPR->exportItemTableJSON($survey, true);
+                }
             }
             unset($unit->unit_id, $unit->run_unit_id);
         }
@@ -1482,6 +1487,24 @@ class Run extends Model
             'files' => $files,
         );
         return $export;
+    }
+
+    /**
+     * The SurveyStudy an exported unit stands for. A Survey unit shares its
+     * id with the study, so unit_id is the study id; a Form unit has its own
+     * survey_units row and points at the study via form_study_id (patch 079).
+     * The admin export dialog also serialises the Form dialog's study_id
+     * select, which is used when present; exportStructure() doesn't set it.
+     */
+    private function exportedStudyId($unit)
+    {
+        if ($unit->type !== 'Form') {
+            return (int) $unit->unit_id;
+        }
+        if (!empty($unit->study_id) && is_numeric($unit->study_id)) {
+            return (int) $unit->study_id;
+        }
+        return (int) $this->db->findValue('survey_units', ['id' => (int) ($unit->unit_id ?? 0), 'type' => 'Form'], 'form_study_id');
     }
 
     public function exportStructure()
@@ -1566,6 +1589,13 @@ class Run extends Model
             //                  $options['survey_data']->settings is
             //                  allowlisted in SurveyStudy::createFromData
             //                  (987cfba8).
+            //   Form         — $options['study_id'] is gated by the same
+            //                  isOwnedBy check in Form::create (it does not
+            //                  inherit Survey's: it must keep its own
+            //                  survey_units row). survey_data goes through
+            //                  the same SurveyStudy::createFromData allowlist
+            //                  as Survey, with place_unit=false so the study
+            //                  is materialised but only the Form places it.
             //   Email        — $options['account_id'] is gated by
             //                  Email::create's isOwnedBy check (5783f101).
             //   Pause, Page, External, Shuffle, Branch, Privacy,
@@ -1595,6 +1625,7 @@ class Run extends Model
                     break;
 
                 case 'Survey':
+                case 'Form':
                     $options = (array)$unit;
                     $options['importing'] = true;
                     $options['run'] = $this;
