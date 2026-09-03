@@ -1006,6 +1006,11 @@ class RunController extends Controller {
      * a retry with the same uuid returns `{status: 'ok', already_applied: true}` without
      * re-applying. Otherwise the endpoint follows the same auth + apply path as
      * `formPageSubmitAction` and records the uuid on success.
+     *
+     * The envelope (uuid / page / unit_session_id / client_ts — every field that
+     * lands in a typed `survey_form_submissions` column) is validated by
+     * `FormSyncPayload::validate` BEFORE any state change; a bad value is a 400,
+     * never a 500 halfway through.
      */
     public function formSyncAction() {
         if (!Request::isHTTPPostRequest()) {
@@ -1015,12 +1020,12 @@ class RunController extends Controller {
         $contentType = isset($_SERVER['CONTENT_TYPE']) ? (string) $_SERVER['CONTENT_TYPE'] : '';
         $isMultipart = stripos($contentType, 'multipart/form-data') === 0;
         if ($isMultipart) {
-            $uuid = isset($_POST['uuid']) ? (string) $_POST['uuid'] : '';
-            $submittedPage = isset($_POST['page']) ? (int) $_POST['page'] : 1;
-            $claimedUnitSessionId = isset($_POST['unit_session_id']) ? (int) $_POST['unit_session_id'] : 0;
+            $uuid = isset($_POST['uuid']) ? $_POST['uuid'] : '';
+            $submittedPage = isset($_POST['page']) ? $_POST['page'] : null;
+            $claimedUnitSessionId = isset($_POST['unit_session_id']) ? $_POST['unit_session_id'] : null;
             $data = (isset($_POST['data']) && is_array($_POST['data'])) ? $_POST['data'] : array();
             $itemViews = (isset($_POST['item_views']) && is_array($_POST['item_views'])) ? $_POST['item_views'] : array();
-            $clientTs = isset($_POST['client_ts']) ? (string) $_POST['client_ts'] : null;
+            $clientTs = isset($_POST['client_ts']) ? $_POST['client_ts'] : null;
             // Re-project $_FILES['files'][...][itemName] into the flat
             // {name,type,tmp_name,error,size} dict File_Item::validateInput
             // expects — same logic as formPageSubmitAction.
@@ -1042,19 +1047,32 @@ class RunController extends Controller {
                 $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
                 return;
             }
-            $uuid = isset($payload['uuid']) ? (string) $payload['uuid'] : '';
-            $submittedPage = isset($payload['page']) ? (int) $payload['page'] : 1;
-            $claimedUnitSessionId = isset($payload['unit_session_id']) ? (int) $payload['unit_session_id'] : 0;
+            $uuid = isset($payload['uuid']) ? $payload['uuid'] : '';
+            $submittedPage = isset($payload['page']) ? $payload['page'] : null;
+            $claimedUnitSessionId = isset($payload['unit_session_id']) ? $payload['unit_session_id'] : null;
             $data = (isset($payload['data']) && is_array($payload['data'])) ? $payload['data'] : array();
             $itemViews = (isset($payload['item_views']) && is_array($payload['item_views'])) ? $payload['item_views'] : array();
-            $clientTs = isset($payload['client_ts']) ? (string) $payload['client_ts'] : null;
+            $clientTs = isset($payload['client_ts']) ? $payload['client_ts'] : null;
         }
-        // RFC 4122-ish: 8-4-4-4-12 hex chars. Tight so a malformed client can't
-        // pollute the ledger with arbitrary strings.
-        if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $uuid)) {
-            $this->sendJsonResponse(array('error' => 'Malformed uuid'), 400);
+
+        // Validate the WHOLE envelope before anything can change state. Every
+        // field below is written verbatim into a typed `survey_form_submissions`
+        // column, so a value the column can't hold is an error that used to
+        // surface at INSERT time — i.e. AFTER updateSurveyStudyRecord had
+        // already applied the answers but BEFORE the uuid ledger row existed.
+        // The client retries a 5xx, the dedupe pre-check finds no row, and the
+        // answers land twice. Refuse at the door instead: nothing here has
+        // touched the run session yet. (uuid was already checked up front; page
+        // — SMALLINT UNSIGNED — and client_ts — DATETIME — were not.)
+        $envelope = FormSyncPayload::validate($uuid, $submittedPage, $claimedUnitSessionId, $clientTs);
+        if (!$envelope['ok']) {
+            $this->sendJsonResponse(array('error' => $envelope['error'], 'field' => $envelope['field']), 400);
             return;
         }
+        $uuid = $envelope['uuid'];
+        $submittedPage = $envelope['page'];
+        $claimedUnitSessionId = $envelope['unit_session_id'];
+        $clientTs = $envelope['client_ts'];
 
         $this->run = $this->getRun();
         $this->user = $this->loginUser();
