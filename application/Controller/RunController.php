@@ -1217,22 +1217,56 @@ class RunController extends Controller {
      * cookie is present here as at submit time, so BotCheckChallenge::subject()
      * resolves identically. Everything is computed on this server — no third
      * party, no PII leaves the box.
+     *
+     * Gated like the other form_v2 endpoints: an active run session is required
+     * and the mint is rate limited per run session. A challenge minted without a
+     * session was never usable anyway — it binds to the empty subject, and by
+     * submit time subject() is a real user_code, so verify() rejects it — but as
+     * an open endpoint it was a free HMAC-minting oracle for anyone who knew a
+     * run name.
      */
     public function formBotChallengeAction() {
+        if (!Request::isHTTPGetRequest()) {
+            $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
+            return;
+        }
         $this->run = $this->getRun();
-        // Resolve the participant so the challenge binds to THIS session. If
-        // there is no session yet, subject() returns '' and the challenge binds
-        // to the empty subject (verify() then also reads '' — still consistent).
+        // Resolve the participant so the challenge binds to THIS session.
         $this->user = $this->loginUser();
+
+        // Ownership: only a participant with a live session in this run may mint.
+        // The widget only ever mounts inside a rendered form, which already
+        // requires one, so this costs no legitimate caller anything. (The
+        // /survey-test/ preview path rewrites the run URL, so its widget never
+        // reached this endpoint in the first place.)
+        $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
+        if (!$runSession->id) {
+            $this->sendJsonResponse(array('error' => 'No active run session'), 403);
+            return;
+        }
+        if (!$this->botChallengeRateAllowed((int) $runSession->id)) {
+            $this->sendJsonResponse(array('error' => 'Rate limit exceeded'), 429);
+            return;
+        }
+
         // Optional per-item difficulty (prefix bytes). mint() clamps to [1,3] and
         // the HMAC signature pins it, so a tampered value can't weaken the gate.
         $difficulty = isset($_GET['difficulty']) && is_numeric($_GET['difficulty'])
             ? (int) $_GET['difficulty'] : null;
         $challenge = BotCheckChallenge::mint($difficulty);
         if ($challenge === null) {
-            // Server can't sign (no crypto key). Tell the widget so it can skip;
-            // verify() fails open in this misconfiguration so participants aren't
-            // locked out.
+            // Server can't sign (no crypto key / unreadable key file). This is a
+            // misconfiguration, not a participant problem — but it fails CLOSED:
+            // verify() refuses every token while the secret is missing, so the
+            // bot_check item blocks the page rather than waving everyone through.
+            // Log it loudly; it is otherwise invisible until participants report
+            // being stuck.
+            formr_log(
+                'bot_check unavailable: BotCheckChallenge cannot sign (no bot_check_secret and no readable '
+                . 'encryption key file). Participants on a bot_check item are blocked until this is fixed. run='
+                . (string) $this->run->name,
+                'bot_check'
+            );
             $this->sendJsonResponse(array('error' => 'bot_check_unavailable'), 503);
             return;
         }
@@ -1442,6 +1476,22 @@ class RunController extends Controller {
         $limits = Config::get('form_v2_rate_limits', array());
         $max = isset($limits['write_per_min']) ? (int) $limits['write_per_min'] : 90;
         return FixedWindowRateLimiter::allow('formwrite:' . (int) $runSessionId, $max, 60);
+    }
+
+    /**
+     * Budget for minting bot_check challenges (/form-bot-challenge). A
+     * participant needs one mint per bot_check item, and the widget is
+     * auto="off" so it only fetches on click — 20/min is far more than any
+     * human produces, while still bounding a scripted client to something that
+     * can't be used as a free HMAC-minting oracle. Own bucket rather than
+     * sharing `formwrite`, so a burst of challenge fetches can never eat a
+     * participant's page-submit budget (or vice versa). Override via
+     * $settings['form_v2_rate_limits']['bot_challenge_per_min'].
+     */
+    private function botChallengeRateAllowed($runSessionId) {
+        $limits = Config::get('form_v2_rate_limits', array());
+        $max = isset($limits['bot_challenge_per_min']) ? (int) $limits['bot_challenge_per_min'] : 20;
+        return FixedWindowRateLimiter::allow('botchallenge:' . (int) $runSessionId, $max, 60);
     }
 
     /**

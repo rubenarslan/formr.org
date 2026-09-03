@@ -438,10 +438,14 @@ $settings['form_v2_offline_blob_max_mb'] = 10;
 //                    bucket; these trigger OpenCPU work)
 //   write_per_min  — /form-page-submit + /form-save + /form-sync (DB writes)
 //   beacon_per_min — /pwa-beacon (unauthenticated logging endpoint)
+//   bot_challenge_per_min — /form-bot-challenge (bot_check nonce minting;
+//                    own bucket so challenge fetches can't eat the write
+//                    budget, or vice versa)
 $settings['form_v2_rate_limits'] = array(
     'rcall_per_min' => 30,
     'write_per_min' => 90,
     'beacon_per_min' => 10,
+    'bot_challenge_per_min' => 20,
 );
 
 // Per-slot TTLs (seconds) for the survey_r_call_results cache. showif is
