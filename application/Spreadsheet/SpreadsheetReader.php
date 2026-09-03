@@ -895,7 +895,13 @@ class SpreadsheetReader
                     throw new \PhpOffice\PhpSpreadsheet\Exception($error);
                 }
 
-                // Save cell value
+                // Save cell value. A blank `choice_list` cell is "no list": store
+                // null so Item::validate() doesn't read it as choices on a text
+                // item, and so the inline-choice branch above (keyed on isset)
+                // still defaults the list name to the item name.
+                if ($colName === 'choice_list' && $cellValue === '') {
+                    $cellValue = null;
+                }
                 $data[$rowNumber][$colName] = $cellValue;
             } // Cell Loop
 

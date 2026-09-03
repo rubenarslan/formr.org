@@ -167,6 +167,13 @@ class Item {
                 $this->{$property} = $value;
             }
         }
+        // A blank choice_list — from a sheet cell, a JSON export, or a DB row
+        // the pre-fix reader wrote — means "no list". Only null reads that way
+        // in validate(), which would otherwise reject every non-choice item in a
+        // sheet that merely has the column.
+        if ($this->choice_list === '') {
+            $this->choice_list = null;
+        }
 
         // Assign needed defaults
         $this->id = isset($options['id']) ? $options['id'] : 0;
