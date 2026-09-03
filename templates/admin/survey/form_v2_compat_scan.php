@@ -123,7 +123,6 @@
 
                         <p class="text-muted"><small>
                             Scan is informational only — it does not mutate <code>survey_items.showif</code> or <code>survey_items.value</code>.
-                            Auto-wrap via <code>--auto-wrap</code> is still a CLI TODO.
                         </small></p>
                     </div>
                 </div>

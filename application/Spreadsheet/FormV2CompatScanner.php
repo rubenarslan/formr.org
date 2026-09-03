@@ -6,10 +6,11 @@
  * bin/form_v2_compat_scan.php); extracted to a class so the admin UI can
  * surface the same report without shelling out.
  *
- * Heuristic — the client evaluator has a runtime try/catch that falls back
- * to "visible" on reference or syntax errors, so a borderline expression
- * may still work at runtime. Useful for upgrade-readiness overviews and as
- * a CI gate (the CLI exits 2 when anything is flagged).
+ * Heuristic — the client evaluator has a runtime try/catch: on a reference
+ * or syntax error the item keeps whatever visibility the server rendered
+ * it with (hidden for an NA showif), so a borderline expression may still
+ * behave at runtime. Useful for upgrade-readiness overviews and as a CI
+ * gate (the CLI exits 2 when anything is flagged).
  */
 class FormV2CompatScanner {
 

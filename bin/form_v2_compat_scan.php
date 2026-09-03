@@ -7,21 +7,24 @@
  * Usage:
  *   php bin/form_v2_compat_scan.php <study_id|study_name>
  *
- * Categories:
+ * showif buckets (showifs are JS-only in form_v2):
  *   - empty            — no expression
- *   - r-wrapped        — `r(...)` wrapped; server-evaluated via /form-r-call
- *                        or /form-fill (no admin action needed)
- *   - JS-OK            — the v1 transpile (Item.php regex pass) yields
+ *   - JS-OK            — the v1 transpile (Item.php regex pass) yields an
  *                        expression that looks like valid JS with no
  *                        residual R-only tokens
- *   - needs r(...) wrap — residual R tokens the client evaluator won't
- *                        handle; admin should wrap the source in `r(...)`
- *                        so it goes through the server path
+ *   - needs JS rewrite — residual R tokens the client evaluator won't
+ *                        handle; rewrite in JS, or move the R into a
+ *                        hidden item's `value` and reference that name
+ *   - invalid: r()     — `r(...)` in a showif is rejected at render time;
+ *                        same fix: hidden item + `value`
+ * value buckets (the value column is the R path):
+ *   - empty / literal / R
  *
  * The classification is heuristic, not a guarantee. The client evaluator
- * has a runtime try/catch that falls back to "visible" on reference or
- * syntax errors, so a borderline-looking expression may still work at
- * runtime. Still useful for an upgrade-readiness overview.
+ * has a runtime try/catch: on a reference or syntax error the item keeps
+ * the visibility the server rendered it with, so a borderline-looking
+ * expression may still behave at runtime. Still useful for an
+ * upgrade-readiness overview.
  *
  * The scanning logic itself lives in FormV2CompatScanner so the admin UI
  * (AdminSurveyController::formV2CompatScanAction) can reuse it without
@@ -51,7 +54,7 @@ echo "Study '{$study['name']}' (id={$study['id']}, rendering_mode="
     . ($study['rendering_mode'] ?? 'null') . ")\n\n";
 
 if (!empty($report['flagged'])) {
-    echo "Flagged items (likely need r(...) wrapping):\n";
+    echo "Flagged expressions:\n";
     echo str_repeat('-', 110) . "\n";
     foreach ($report['flagged'] as $r) {
         echo sprintf("  item %s %-20s [%s] %s\n",
@@ -60,7 +63,11 @@ if (!empty($report['flagged'])) {
         if ($r['transpiled'] !== $r['source']) {
             echo "    transpiled: {$r['transpiled']}\n";
         }
-        echo "    suggested:  r({$r['source']})\n\n";
+        $fixes = [
+            'create_hidden_field' => 'move the R into a hidden item\'s `value` and reference that name from the showif',
+            'rewrite_in_js' => 'rewrite the showif in JS (or move the R into a hidden item\'s `value`)',
+        ];
+        echo "    fix:        " . ($fixes[$r['suggested_fix']] ?? $r['suggested_fix']) . "\n\n";
     }
 } else {
     echo "No problematic expressions found.\n\n";

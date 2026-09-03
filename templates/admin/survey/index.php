@@ -229,7 +229,7 @@
                                         <label>Compatibility scan</label>
                                         <span class="help-block">
                                             <i class="fa fa-info-circle"></i>
-                                            Classifies every <code>showif</code> and <code>value</code> expression in this survey as empty / <code>r(...)</code>-wrapped / JS-OK / needs-<code>r()</code>-wrap. Run this before rolling out to participants to see which expressions the client-side evaluator can't handle.
+                                            Classifies every <code>showif</code> as empty / JS-OK / needs a JS rewrite / invalid (<code>r(...)</code> is not allowed in a showif — move the R into a hidden item's <code>value</code>), and every <code>value</code> as empty / literal / R. Run this before rolling out to participants to see which expressions the client-side evaluator can't handle.
                                         </span>
                                         <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>" class="btn btn-default"><i class="fa fa-search"></i> Run v2 compatibility scan</a>
                                     </td>
@@ -276,7 +276,7 @@
                                 <?php if ($fmrScanFlagged === 0): ?>
                                     <p class="text-success"><i class="fa fa-check"></i> Compatibility scan: all <code>showif</code>/<code>value</code> expressions look v2-ready.</p>
                                 <?php elseif ($fmrScanFlagged > 0): ?>
-                                    <p class="text-warning"><i class="fa fa-exclamation-triangle"></i> Compatibility scan: <strong><?= (int) $fmrScanFlagged ?></strong> expression(s) need attention (e.g. an <code>r(...)</code> wrap) — <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>">see the full report</a> before upgrading.</p>
+                                    <p class="text-warning"><i class="fa fa-exclamation-triangle"></i> Compatibility scan: <strong><?= (int) $fmrScanFlagged ?></strong> expression(s) need attention (a showif that needs a JS rewrite, or R that must move into a hidden item's <code>value</code>) — <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>">see the full report</a> before upgrading.</p>
                                 <?php endif; ?>
                                 <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" onsubmit="return confirm('Upgrade this study to the form_v2 engine? Run units using it as a classic Survey are converted to Form units; participants currently mid-form finish on the old engine, new sessions get v2. You can switch back at any time.');" style="display:inline">
                                     <input type="hidden" name="target" value="v2">
