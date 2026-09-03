@@ -404,14 +404,17 @@ $settings['form_v2_enabled'] = false;
 // and the v1 API's /api/v1/runs/{name}/results endpoint).
 //
 // Leave on (default) until you've verified that downstream consumers
-// you care about have been migrated off the wide path. As of patch 065
-// the still-wide-dependent readers are:
+// you care about have been migrated off the wide path. As of patch 086
+// the readers that still go to the wide table when form_v2_long_reads
+// is false are:
 //   - UnitSession::getRunData (OpenCPU R overlay — tail(survey, 1))
 //   - SurveyStudy::getResultCount (admin survey page "begun/finished")
 //   - SurveyStudy::getAverageTimeItTakes
 //   - AdminRunController::backup (per-run TSV)
 // Form_v2 exports (admin CSV/XLSX) pivot from the long table regardless
-// and are not affected by this flag.
+// and are not affected by this flag. Do NOT turn this off while
+// form_v2_long_reads is false: the wide table would stop filling and
+// every reader above would go stale.
 $settings['form_v2_dual_write_results'] = true;
 
 // Reader-migration escape hatch (temporary; remove after one release).
@@ -419,9 +422,15 @@ $settings['form_v2_dual_write_results'] = true;
 // overlay (UnitSession::getRunData), admin result counts / average-time,
 // getResults for v1 studies (and with it the per-run backup TSV) — read
 // from the long format (survey_items_display + survey_unit_sessions)
-// for ALL studies. Set to false to fall back to the legacy wide reads
-// if a discrepancy is found in the field. Once this has baked, the
-// wide dual-write itself can be turned off.
+// for ALL studies, v1 and v2 alike. The long read re-types each column
+// from the item definition (number / numeric-choice items come back as
+// numbers, exactly as the typed wide column did), so R code sees the
+// same data either way. Set to false to fall back to the legacy wide
+// reads if a discrepancy is found in the field — that needs
+// form_v2_dual_write_results to be on, and it also sends v2 studies'
+// R overlay back to the wide table (their result counts / getResults
+// stay long). Once this has baked, the wide dual-write itself can be
+// turned off.
 $settings['form_v2_long_reads'] = true;
 
 // form_v2 offline-queue per-file blob cap (megabytes). Pages with file
