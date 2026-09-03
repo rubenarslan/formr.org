@@ -713,14 +713,9 @@ class SurveyStudy extends Model
                 continue;
             }
 
-            $val_results = $item->validate();
-            if (!empty($val_results['val_errors'])) {
-                $this->errors = $this->errors + $val_results['val_errors'];
+            if (!$this->collectItemValidation($item)) {
                 unset($reader->survey[$row_number]);
                 continue;
-            }
-            if (!empty($val_results['val_warnings'])) {
-                $this->warnings = $this->warnings + $val_results['val_warnings'];
             }
 
             // if the parsed label is constant or exists
@@ -783,6 +778,29 @@ class SurveyStudy extends Model
             }
         }
         return $names;
+    }
+
+    /**
+     * Fold one item's validate() result into $this->errors / $this->warnings.
+     *
+     * array_merge, not `+`: validate() returns list arrays, and the union
+     * operator keeps only the FIRST value at each numeric key — so of ten
+     * invalid items the upload used to report just one, and the author fixed
+     * them one re-upload at a time.
+     *
+     * @return bool whether the item is usable (validated without errors)
+     */
+    private function collectItemValidation(Item $item)
+    {
+        $val_results = $item->validate();
+        if (!empty($val_results['val_errors'])) {
+            $this->errors = array_merge($this->errors, $val_results['val_errors']);
+            return false;
+        }
+        if (!empty($val_results['val_warnings'])) {
+            $this->warnings = array_merge($this->warnings, $val_results['val_warnings']);
+        }
+        return true;
     }
 
     private function addChoices($reader)
