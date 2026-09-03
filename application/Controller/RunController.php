@@ -1010,7 +1010,9 @@ class RunController extends Controller {
      * The envelope (uuid / page / unit_session_id / client_ts — every field that
      * lands in a typed `survey_form_submissions` column) is validated by
      * `FormSyncPayload::validate` BEFORE any state change; a bad value is a 400,
-     * never a 500 halfway through.
+     * never a 500 halfway through. The apply and the ledger INSERT then share one
+     * transaction, so a failure can never leave answers applied with no uuid row
+     * (which is what made the client retry into a double-apply).
      */
     public function formSyncAction() {
         if (!Request::isHTTPPostRequest()) {
@@ -1140,34 +1142,67 @@ class RunController extends Controller {
         $posted = $data;
         $posted['_item_views'] = $itemViews;
 
-        $saved = $unitSession->updateSurveyStudyRecord($posted, true);
+        // Apply and ledger-write are ONE transaction: "answers applied" and
+        // "uuid recorded" must be true together or not at all, or a retry
+        // double-applies (no row → the dedupe pre-check above misses).
+        //
+        // The ordering is load-bearing and depends on how DB's transaction
+        // helpers behave. They are FLAT, not nested: DB::beginTransaction() is
+        // a no-op while a transaction is already open, and the first commit()
+        // closes it. UnitSession::updateSurveyStudyRecord runs its own
+        // begin/commit/rollBack around the writes, so:
+        //   - open the transaction here and INSERT the ledger row first;
+        //   - the apply's inner begin is a no-op and its COMMIT commits both
+        //     the answers and the ledger row atomically;
+        //   - its rollBack (on an exception inside the apply) discards both;
+        //   - the paths where it returns false *before* opening its own
+        //     transaction (validation errors, ended session, stale session_id)
+        //     leave ours open, so we roll the claim back ourselves.
+        // The trailing commit() is a no-op after the inner commit and a safety
+        // net if updateSurveyStudyRecord ever stops committing on its own.
+        $db = DB::getInstance();
+        $saved = false;
+        $db->beginTransaction();
+        try {
+            $stmt = $db->prepare(
+                'INSERT INTO `survey_form_submissions` (uuid, unit_session_id, page, client_ts) '
+                . 'VALUES (:uuid, :usid, :page, :cts)'
+            );
+            $stmt->bindValue(':uuid', $uuid);
+            $stmt->bindValue(':usid', (int) $unitSession->id, PDO::PARAM_INT);
+            $stmt->bindValue(':page', (int) $submittedPage, PDO::PARAM_INT);
+            if ($clientTs === null) {
+                $stmt->bindValue(':cts', null, PDO::PARAM_NULL);
+            } else {
+                $stmt->bindValue(':cts', $clientTs);
+            }
+            $stmt->execute();
+            $saved = $unitSession->updateSurveyStudyRecord($posted, true);
+        } catch (Throwable $e) {
+            $db->rollBack();
+            // A concurrent drain of the same uuid raced us between the
+            // pre-check and this INSERT. It either has applied or is applying
+            // the same answers; we applied none (rolled back). Report
+            // already-applied so the client drops the entry exactly once.
+            if ($e instanceof PDOException && (int) ($e->errorInfo[1] ?? 0) === 1062) {
+                $this->sendJsonResponse(array('status' => 'ok', 'already_applied' => true));
+                return;
+            }
+            throw $e;
+        }
+
         if (!$saved) {
+            // Drop the uuid claim so the participant can fix the errors and
+            // re-drain the same entry; leaving it would make the retry look
+            // already-applied and silently discard the answers.
+            $db->rollBack();
             $errors = isset($unitSession->errors) && is_array($unitSession->errors) ? $unitSession->errors : array();
             // Validation errors are not a transient offline failure — surface
             // them so the client can show them to the user instead of looping.
             $this->sendJsonResponse(array('status' => 'errors', 'errors' => $errors));
             return;
         }
-
-        // Record uuid only on successful apply. Use a stmt so a concurrent
-        // retry caught between pre-check and insert fails fast via the UNIQUE
-        // constraint (caught above by the fetch on next tick).
-        $stmt = DB::getInstance()->prepare(
-            'INSERT INTO `survey_form_submissions` (uuid, unit_session_id, page, client_ts) '
-            . 'VALUES (:uuid, :usid, :page, :cts)'
-        );
-        $stmt->bindValue(':uuid', $uuid);
-        $stmt->bindValue(':usid', (int) $unitSession->id);
-        $stmt->bindValue(':page', $submittedPage);
-        $stmt->bindValue(':cts', $clientTs);
-        try {
-            $stmt->execute();
-        } catch (PDOException $e) {
-            // Concurrent retry raced us to INSERT. Treat as already-applied.
-            if ((int) $e->errorInfo[1] !== 1062) {
-                throw $e;
-            }
-        }
+        $db->commit();
 
         // Same hidden-item resolution as formPageSubmitAction: the queued page
         // may contain client-side showif-hidden items, which would otherwise
