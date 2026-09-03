@@ -1594,8 +1594,17 @@ class UnitSession extends Model {
                 $items = $this->db->select('name')->from('survey_items')
                         ->where(['study_id' => $study_id])
                         ->where("type NOT IN ('mc_heading', 'note', 'submit', 'block', 'note_iframe')")
-                        ->where("name != 'iteration'")
-                        ->fetchAll();
+                        ->where("name != 'iteration'");
+                if (!Config::get('form_v2_long_reads', true)) {
+                    // Soft-deleting an item (patch 090) keeps its survey_items
+                    // row but drops its wide column, so on the wide path a
+                    // still-referenced name (or a scale base name that
+                    // matches it) would SELECT a column that no longer exists.
+                    // The long read keys on name and still serves those
+                    // answers, so it keeps them.
+                    $items->where('`deleted` IS NULL');
+                }
+                $items = $items->fetchAll();
 
                 $variable_names_in_table[$table_name] = array("created", "modified", "ended"); // should avoid modified, sucks for caching
                 $res_table = $results_tables[$table_name];
