@@ -18,8 +18,9 @@
  * load), so it can't go stale before a participant reaches a later page.
  *
  * Spreadsheet usage:  type = `bot_check`  (optionally `bot_check 2` to set the
- * PoW prefix-byte difficulty, 1..3). Mark the item required (the default) so a
- * failed/missing token blocks the page submit.
+ * PoW prefix-byte difficulty, 1..3). Leave the item required (the default) so a
+ * failed/missing token blocks the page submit; an `optional` bot_check may be
+ * skipped (stored NULL), but a token that IS submitted is always verified.
  *
  * Customisable text — repurpose it as a consent / "I'm answering myself"
  * affirmation gate:
@@ -112,6 +113,18 @@ class BotCheck_Item extends Item {
     }
 
     public function validateInput($reply) {
+        // `optional` means the box may be left alone, as for every other item
+        // (Item::validateInput nulls an empty optional reply). The client-side
+        // gate (validation/feedback.js) already skips a non-`required` group,
+        // so without this the participant was blocked here with no way past.
+        // Only an ABSENT token is skippable: a token that was submitted still
+        // goes through the fail-closed checks below — optional says "may be
+        // skipped", not "may be forged".
+        if ($this->optional && ($reply === null || $reply === false || $reply === array() || (is_string($reply) && trim($reply) === ''))) {
+            $this->reply = null;
+            return null;
+        }
+
         // Fail closed on the wire shape before anything else. A missing field, an
         // empty string, or a non-scalar (`bot_check[]=x`) is not a token and must
         // never reach verify() as something that might be "accepted".

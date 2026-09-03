@@ -136,6 +136,64 @@ class BotCheckFailClosedTest extends TestCase
         $this->assertNotEmpty($item->error);
     }
 
+    // ---- `optional` may be skipped, never forged ---------------------------
+
+    private function optionalItem()
+    {
+        return new BotCheck_Item(array('type' => 'bot_check', 'name' => 'human', 'optional' => 1));
+    }
+
+    /**
+     * @dataProvider skippedReplies
+     */
+    public function testOptionalItemAcceptsAnAbsentToken($reply)
+    {
+        $this->workingSecret();
+        $item = $this->optionalItem();
+        $this->assertNull($item->validateInput($reply));
+        $this->assertEmpty($item->error, 'an optional bot_check left alone must not block the submit');
+        $this->assertNull($item->reply);
+    }
+
+    public static function skippedReplies()
+    {
+        return array(
+            'missing' => array(null),
+            'empty' => array(''),
+            'whitespace' => array("  \n "),
+        );
+    }
+
+    /**
+     * @dataProvider unusableTokens
+     */
+    public function testOptionalItemStillRefusesAnUnusableToken($reply)
+    {
+        $this->workingSecret();
+        $item = $this->optionalItem();
+        $this->assertNull($item->validateInput($reply));
+        $this->assertNotEmpty($item->error, 'optional means skippable, not forgeable');
+        $this->assertNotSame('verified', $item->reply);
+    }
+
+    public static function unusableTokens()
+    {
+        $all = self::unusableReplies();
+        return array_diff_key($all, self::skippedReplies());
+    }
+
+    public function testOptionalItemBlocksWhenTheServerCannotVerifyASubmittedToken()
+    {
+        $this->breakTheSecret();
+        $item = $this->optionalItem();
+        $this->assertNull($item->validateInput('whatever-the-client-sent'));
+        $this->assertStringContainsString('unavailable', (string) $item->error);
+        // ...but skipping it still works even then: nothing needs verifying
+        $item = $this->optionalItem();
+        $this->assertNull($item->validateInput(''));
+        $this->assertEmpty($item->error);
+    }
+
     // ---- and the accept path still accepts -------------------------------
 
     public function testGenuineSolvedTokenIsAccepted()
@@ -147,6 +205,11 @@ class BotCheckFailClosedTest extends TestCase
         $item = $this->item();
         $this->assertSame('verified', $item->validateInput($token));
         $this->assertSame('verified', $item->reply, 'the compact marker is stored, not the base64 blob');
+        $this->assertEmpty($item->error);
+
+        // an optional item that WAS solved records the verification too
+        $item = $this->optionalItem();
+        $this->assertSame('verified', $item->validateInput($token));
         $this->assertEmpty($item->error);
     }
 

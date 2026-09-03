@@ -166,6 +166,11 @@ the gate below the configured minimum. (The sheet reader treats an all-digit
 token after `bot_check` as this difficulty, not as a choice-list name — a list
 that relabels the widget is `bot_check mylist`, see §9.)
 
+**`optional`:** an optional `bot_check` may be left alone — an absent/empty
+token stores NULL and doesn't block the page, like any other optional item. A
+token that *was* submitted is still verified fail-closed; optional means
+"skippable", never "forgeable".
+
 **Bounded, not unbounded.** Prefix-byte PoW has bounded variance (~256 expected
 attempts/byte), so legitimate slow devices don't hit a runaway search — a
 deliberate fix for the old custom gate's high-variance timing.
