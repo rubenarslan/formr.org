@@ -5,7 +5,7 @@
  * survey_studies.last_iteration from existing per-study wide results
  * tables.
  *
- * After patch 065 adds the columns, this script is the bridge that
+ * After patch 086 adds the columns, this script is the bridge that
  * carries forward the historical iteration values researchers depend
  * on (block-randomization, "Nth participant" analyses). New sessions
  * post-deploy will get their study_iteration allocated by
@@ -24,14 +24,22 @@
  *      wide table on session_id. Only rows currently NULL get written
  *      (`WHERE study_iteration IS NULL`) so a partial previous run
  *      doesn't double-process.
- *   4. SET survey_studies.last_iteration = MAX(wide.iteration) so the
+ *   4. Raise survey_studies.last_iteration to MAX(wide.iteration) so the
  *      next allocation continues the sequence without colliding with
- *      historical values.
+ *      historical values. The counter only ever goes UP
+ *      (GREATEST(last_iteration, wide max)): with --force on a study that
+ *      has live allocations the wide max can sit below the counter —
+ *      sessions started long-only (dual-write off) never get a wide row,
+ *      and an in-flight session holds its number before its row lands —
+ *      and a plain SET would rewind the sequence into values already
+ *      handed out (UnitSession::allocateStudyIteration keeps the same
+ *      invariant when it self-heals).
  *
  * Usage:
  *   docker exec formr_app php bin/backfill_study_iteration.php
  *   docker exec formr_app php bin/backfill_study_iteration.php --dry-run
  *   docker exec formr_app php bin/backfill_study_iteration.php --study=42
+ *   docker exec formr_app php bin/backfill_study_iteration.php --force   # re-process backfilled studies
  */
 
 require_once dirname(__FILE__) . '/../setup.php';
@@ -106,8 +114,8 @@ foreach ($studies as $study) {
         $maxRows = $db->query($maxSql);
         $maxIter = isset($maxRows[0]['max_iter']) ? (int) $maxRows[0]['max_iter'] : 0;
 
-        printf("  study %5d %-40s rows_to_backfill=%d last_iteration->%d\n",
-            $studyId, $name, $wouldUpdate, $maxIter);
+        printf("  study %5d %-40s rows_to_backfill=%d last_iteration %d->%d\n",
+            $studyId, $name, $wouldUpdate, $lastIteration, max($lastIteration, $maxIter));
         $totalRowsBackfilled += $wouldUpdate;
         $processed++;
         continue;
@@ -123,9 +131,17 @@ foreach ($studies as $study) {
         $maxRows = $db->query($maxSql);
         $maxIter = isset($maxRows[0]['max_iter']) ? (int) $maxRows[0]['max_iter'] : 0;
 
-        $db->update('survey_studies',
-            ['last_iteration' => $maxIter],
-            ['id' => $studyId]);
+        // Monotonic: never rewind a counter that live allocations have
+        // already advanced past the wide table (see header, step 4).
+        // $maxIter is interpolated as an int on purpose: a bound param
+        // arrives as a string, and GREATEST() with any string argument
+        // compares as strings ('3' > '10').
+        $db->exec(
+            "UPDATE `survey_studies` SET `last_iteration` = GREATEST(`last_iteration`, {$maxIter}) WHERE `id` = :id",
+            ['id' => $studyId]
+        );
+        $newRows = $db->query('SELECT `last_iteration` FROM `survey_studies` WHERE `id` = ' . $studyId);
+        $newIteration = isset($newRows[0]['last_iteration']) ? (int) $newRows[0]['last_iteration'] : $maxIter;
 
         $db->commit();
     } catch (Exception $e) {
@@ -134,8 +150,8 @@ foreach ($studies as $study) {
         continue;
     }
 
-    printf("  study %5d %-40s rows_backfilled=%d last_iteration=%d\n",
-        $studyId, $name, $rowsUpdated, $maxIter);
+    printf("  study %5d %-40s rows_backfilled=%d last_iteration %d->%d\n",
+        $studyId, $name, $rowsUpdated, $lastIteration, $newIteration);
     $totalRowsBackfilled += $rowsUpdated;
     $processed++;
 }
