@@ -1451,16 +1451,95 @@ class UnitSession extends Model {
         }
         $stmt->execute();
 
+        // survey_items_display.answer is MEDIUMTEXT, so every pivoted value
+        // comes back a PHP string — json_encode then ships "7" instead of 7
+        // and R sees character columns where the wide read (typed columns)
+        // gave it numbers: `age > 18` turns into a lexical comparison and
+        // mean()/arithmetic error. Coerce to what the item's wide column
+        // type would have produced.
+        $casts = $this->getLongReadCasts($studyId, $names);
+        if (in_array('iteration', $names)) {
+            // COALESCE(INT UNSIGNED, ROW_NUMBER()) is typed DECIMAL by
+            // MariaDB, which PDO hands back as a string; the wide column
+            // was INT.
+            $casts['iteration'] = 'int';
+        }
+
         $columns = array();
         while ($res = $stmt->fetch(PDO::FETCH_ASSOC)) {
             foreach ($res as $var => $val) {
                 if (!isset($columns[$var])) {
                     $columns[$var] = array();
                 }
+                if ($val !== null && isset($casts[$var]) && is_numeric($val)) {
+                    $val = $casts[$var] === 'int' ? (int) $val : (float) $val;
+                }
                 $columns[$var][] = $val;
             }
         }
         return $columns;
+    }
+
+    /**
+     * Per-column PHP cast that reproduces what PDO returned from the wide
+     * results table: integer column families → int, FLOAT/DOUBLE → float,
+     * everything else (VARCHAR/TEXT/DATE…, and DECIMAL, which PDO also
+     * returns as a string) → untouched. The column type is whatever
+     * Item::getResultField() would have declared, so items are instantiated
+     * through ItemFactory exactly as the upload path does; soft-deleted rows
+     * are included because the long read still serves their answers, with
+     * a live row winning over a deleted namesake.
+     *
+     * @param int $studyId
+     * @param string[] $names
+     * @return array<string, string> [item name => 'int'|'float']
+     */
+    protected function getLongReadCasts($studyId, array $names) {
+        $itemNames = array_values(array_diff($names, array('created', 'modified', 'ended', 'iteration')));
+        if (!$itemNames) {
+            return array();
+        }
+
+        $rows = $this->db->select('id, study_id, type, choice_list, type_options, name, deleted')
+            ->from('survey_items')
+            ->where(array('study_id' => (int) $studyId))
+            ->whereIn('name', $itemNames)
+            ->order(DB::raw('`deleted` IS NULL'), 'DESC')
+            ->order('id', 'DESC')
+            ->fetchAll();
+        if (!$rows) {
+            return array();
+        }
+
+        $choiceLists = array();
+        $choiceRows = $this->db->select('list_name, name, label')
+            ->from('survey_item_choices')
+            ->where(array('study_id' => (int) $studyId))
+            ->order('id', 'ASC')
+            ->fetchAll();
+        foreach ($choiceRows as $c) {
+            $choiceLists[$c['list_name']][$c['name']] = $c['label'];
+        }
+
+        $factory = new ItemFactory($choiceLists);
+        $casts = $seen = array();
+        foreach ($rows as $row) {
+            if (isset($seen[$row['name']])) {
+                continue;
+            }
+            $seen[$row['name']] = true;
+            $item = $factory->make($row);
+            if ($item === false || !$item->isStoredInResultsTable() || ($field = $item->getResultField()) === null) {
+                continue;
+            }
+            $type = strtoupper(ltrim(substr($field, strlen("`{$row['name']}` "))));
+            if (preg_match('/^(TINY|SMALL|MEDIUM|BIG)?INT\b/', $type)) {
+                $casts[$row['name']] = 'int';
+            } elseif (preg_match('/^(FLOAT|DOUBLE)\b/', $type)) {
+                $casts[$row['name']] = 'float';
+            }
+        }
+        return $casts;
     }
 
     protected function getRunDataNeeded($q, $token_add = null) {
