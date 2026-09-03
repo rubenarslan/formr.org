@@ -100,4 +100,20 @@ class SpreadsheetReaderBlankChoiceListTest extends PHPUnit\Framework\TestCase {
         $item = (new ItemFactory(array()))->make(array('name' => 'q_text', 'type' => 'text', 'choice_list' => ''));
         $this->assertSame(array(), $item->validate()['val_errors']);
     }
+
+    public function testBotCheckDifficultyIsATypeOptionNotAChoiceList() {
+        $reader = $this->parse(array(
+            array('name', 'type', 'label'),
+            array('human', 'bot_check 3', 'Are you human?'),
+            array('human_easy', 'bot_check 1', 'Are you human?'),
+            array('human_labelled', 'bot_check consent', 'Are you human?'),
+        ));
+        $rows = array_column($reader->survey, null, 'name');
+        $this->assertSame('3', (string) $rows['human']['type_options']);
+        $this->assertNull($rows['human']['choice_list'] ?? null);
+        $this->assertSame('1', (string) $rows['human_easy']['type_options']);
+        // a named list still relabels the widget (BotCheck::render_input)
+        $this->assertSame('consent', $rows['human_labelled']['choice_list']);
+        $this->assertSame(array(), $this->validationErrors($reader));
+    }
 }

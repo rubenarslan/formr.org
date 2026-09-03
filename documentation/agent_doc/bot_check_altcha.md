@@ -162,7 +162,9 @@ median ~0.3 s across the widget's parallel workers; in-browser WASM a few× slow
 **Per-item difficulty:** `bot_check N` in the spreadsheet (`type_options`) maps to
 prefix bytes 1..3. It rides as `?difficulty=N` on the challenge URL, but the
 endpoint clamps it and the **signature pins it**, so a tampered query can't weaken
-the gate below the configured minimum.
+the gate below the configured minimum. (The sheet reader treats an all-digit
+token after `bot_check` as this difficulty, not as a choice-list name — a list
+that relabels the widget is `bot_check mylist`, see §9.)
 
 **Bounded, not unbounded.** Prefix-byte PoW has bounded variance (~256 expected
 attempts/byte), so legitimate slow devices don't hit a runaway search — a

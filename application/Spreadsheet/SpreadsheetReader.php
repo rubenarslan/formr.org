@@ -849,7 +849,11 @@ class SpreadsheetReader
                             preg_match('/^[A-Za-z0-9_]{1,20}$/', trim($typeOptions[1])) &&
                             // `rank random touch` with inline choice columns: the first
                             // token is an option keyword, not a choice-list name.
-                            !($type === 'rank' && Rank_Item::isOptionKeyword($typeOptions[1]))
+                            !($type === 'rank' && Rank_Item::isOptionKeyword($typeOptions[1])) &&
+                            // `bot_check 3` is the PoW difficulty (BotCheck::chosenDifficulty
+                            // reads the numeric type_options), not a choice-list name; a
+                            // list relabelling the widget is `bot_check mylist`.
+                            !($type === 'bot_check' && ctype_digit(trim($typeOptions[1])))
                         ) {
                             if (!isset($data[$rowNumber]['choice_list']) || trim((string) $data[$rowNumber]['choice_list']) === '') {
                                 $data[$rowNumber]['choice_list'] = trim($typeOptions[1]);
