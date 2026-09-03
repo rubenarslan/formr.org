@@ -112,6 +112,21 @@ class BotCheck_Item extends Item {
     }
 
     public function validateInput($reply) {
+        // Fail closed on the wire shape before anything else. A missing field, an
+        // empty string, or a non-scalar (`bot_check[]=x`) is not a token and must
+        // never reach verify() as something that might be "accepted".
+        if (!is_string($reply) || trim($reply) === '') {
+            return $this->refuse(__('Please verify that you are human to continue.'));
+        }
+
+        // Distinguish "this server cannot run the check" from "this participant
+        // failed it". Both block the submit — verify() fails closed — but an
+        // unreadable crypto key is an admin problem and the participant can't do
+        // anything about it, so don't tell them to click the box again.
+        if (!BotCheckChallenge::available()) {
+            return $this->refuse(__('Human verification is temporarily unavailable. Please contact the study administrator.'));
+        }
+
         // Store a compact marker, not the (large) base64 token. The token only
         // needs to verify here; persisting it adds no value and would bloat the
         // result column.
@@ -119,12 +134,21 @@ class BotCheck_Item extends Item {
             $this->reply = 'verified';
             return 'verified';
         }
-        $this->reply = $reply;
-        // The save loop (UnitSession::updateSurveyStudyRecord) detects a failed
-        // item by `$item->error` being set — NOT by the return value. Without
-        // this the invalid/empty token is silently accepted. Setting it both
-        // blocks the submit and surfaces the message inline.
-        $this->error = __('Please verify that you are human to continue.');
+        return $this->refuse(__('Please verify that you are human to continue.'));
+    }
+
+    /**
+     * Block the submit with $message.
+     *
+     * The save loop (UnitSession::updateSurveyStudyRecord) detects a failed item
+     * by `$item->error` being set — NOT by the return value. Without it an
+     * invalid/empty token is silently accepted. The reply is deliberately NOT
+     * kept: it is either empty or an unverified base64 blob far longer than the
+     * VARCHAR(20) result column, and there is nothing to learn from storing it.
+     */
+    private function refuse($message) {
+        $this->reply = null;
+        $this->error = $message;
         return null;
     }
 }

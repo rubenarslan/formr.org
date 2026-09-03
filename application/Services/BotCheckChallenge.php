@@ -29,7 +29,8 @@ use AltchaOrg\Altcha\VerifySolutionOptions;
  *              parameters so difficulty/memory can't be lowered), confirms the
  *              session binding, and checks freshness/expiry. A harvested token is
  *              worthless to another participant and a direct-POST bot can't forge
- *              one at all.
+ *              one at all. Fails CLOSED in every direction, including a server
+ *              that has lost its signing secret.
  *
  * The memory-hard Argon2id PoW shifts the cost to RAM, resisting GPU/ASIC
  * acceleration and bot farms. It stops the dominant survey-fraud classes
@@ -86,7 +87,10 @@ class BotCheckChallenge {
         if ($keyFile && is_readable($keyFile)) {
             return hash('sha256', 'fmr-bot-check|' . file_get_contents($keyFile));
         }
-        return null; // misconfigured — caller fails open (see BotCheck_Item)
+        // Misconfigured. Callers fail CLOSED: mint() returns null (endpoint 503s
+        // + logs), verify() rejects every token, BotCheck_Item surfaces a
+        // "temporarily unavailable" error. Never silently accept.
+        return null;
     }
 
     /** Stable per-participant binding so a token can't be reused across sessions. */
@@ -99,6 +103,16 @@ class BotCheckChallenge {
     public static function argon2idAvailable() {
         return function_exists('sodium_crypto_pwhash')
             && defined('SODIUM_CRYPTO_PWHASH_ALG_ARGON2ID13');
+    }
+
+    /**
+     * Whether the server can sign (and therefore verify) challenges at all.
+     * False means the install is misconfigured — see secret(). Callers use it
+     * to tell "this participant failed the check" apart from "this server
+     * cannot run the check", which are the same `false` out of verify().
+     */
+    public static function available() {
+        return self::secret() !== null;
     }
 
     protected static function altcha() {
@@ -206,11 +220,28 @@ class BotCheckChallenge {
      * it's fresh. The signature (recomputed from our secret over the canonical
      * parameters, incl. `data.uc`) pins everything: difficulty/memory can't be
      * lowered, the binding can't be re-pointed, the solution can't be forged.
+     *
+     * FAILS CLOSED. Every path that cannot positively verify returns false —
+     * including the one where the server has no signing secret. That branch used
+     * to `return true`, on the reasoning that an install which can't mint a
+     * challenge shouldn't lock participants out. But the branch is reachable by
+     * a plain empty token, so the effect was that a single unreadable key file
+     * silently turned every bot_check in the fleet into a no-op that still
+     * *looked* armed in the admin UI — a security control whose failure mode is
+     * "accept everything, tell nobody". The endpoint now logs the
+     * misconfiguration and answers 503, and BotCheck_Item::validateInput shows a
+     * distinct "temporarily unavailable" message, so the failure is loud and
+     * fixable instead of silent and permanent.
      */
     public static function verify($token) {
         $altcha = self::altcha();
         if ($altcha === null) {
-            return true; // can't sign → can't challenge; don't lock people out
+            formr_log(
+                'BotCheckChallenge::verify refused: no signing secret (set bot_check_secret, or make the '
+                . 'encryption key file readable). Every bot_check submission is rejected until this is fixed.',
+                'bot_check'
+            );
+            return false;
         }
         $arr = self::decodePayload($token);
         if ($arr === null) return false;

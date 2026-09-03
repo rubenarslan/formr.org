@@ -207,7 +207,19 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
     </dd>
 </dl>
 
-
+<h4><i class="fa fa-fw fa-shield"></i> Bot check</h4>
+<p>A gate you can put in front of (or at the end of) a form to raise the cost of automated submissions. It is a proof-of-work puzzle that is created and checked <strong>on your own formr server</strong> — nothing about the participant is sent anywhere else, so it adds no third party to your data processing agreement, unlike a hosted captcha. It makes scripted mass responding expensive, but it is friction, not identity: a person filling out your survey by hand — including a paid one — will pass it.</p>
+<dl class="dl-horizontal dl-wider">
+    <dt>
+        bot_check
+    </dt>
+    <dd>
+        shows a checkbox the participant ticks ("Verify you are human" by default). Ticking it makes the browser solve a small puzzle, which usually takes about a second. The page cannot be submitted until that has succeeded — this is true whether or not you mark the item optional, so put it where a blocked submit is what you want.<br>
+        Only the word <code>verified</code> is stored, never the token itself, so there is nothing participant-identifying in your results table.<br>
+        The wording is yours: the <strong>label</strong> is the prompt above the box, <strong>choice1</strong> replaces the text next to the checkbox, <strong>choice2</strong> the confirmation shown afterwards, and <strong>choice3</strong> the text shown while it is working. That makes it usable as an "I am answering this myself" affirmation, e.g. choice1 = <em>I confirm I am completing this survey myself, without automation.</em> All three are optional; leave them empty for the English defaults.<br>
+        <strong>Form (v2) units only.</strong>
+    </dd>
+</dl>
 
 <h4><i class="fa fa-fw fa-eye-slash"></i> Hidden family</h4>
 These items don't require the user to do anything, so including them simply means that the relevant value will be stored. If you have exclusively hidden items in a form, things will wrap up immediately and move to the next element in the run. This can be useful for hooking up with other software which sends data over the query string i.e. <?= h(run_url('run_name', '', ['param1' => 10, 'user_id' => 29])) ?>

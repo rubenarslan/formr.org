@@ -60,5 +60,37 @@ $check('wrong PoW solution rejected', BotCheckChallenge::verify($payload($mint, 
 $rebind = $mint; $rebind['parameters']['data'] = ['uc' => 'someone-else'];
 $check('re-bound session rejected (sig)', BotCheckChallenge::verify($payload($rebind, $sol->toArray())), false);
 
+// 5) the item wraps verify() — a genuine token stores the compact marker, a
+//    missing/garbage one sets ->error (which is what the save loop reads).
+$item = new BotCheck_Item(['type' => 'bot_check', 'name' => 'human']);
+$check('item accepts a solved token', $item->validateInput($payload($mint, $sol->toArray())), 'verified');
+$item = new BotCheck_Item(['type' => 'bot_check', 'name' => 'human']);
+$item->validateInput('');
+$check('item blocks on an empty token', !empty($item->error), true);
+
+// 6) FAIL CLOSED. Simulate the misconfiguration that used to make verify()
+//    `return true` for everything: no configured secret and no readable crypto
+//    key file. One unreadable key file silently disarmed every bot_check in the
+//    install while the admin UI still showed it armed.
+echo "\n-- fail-closed (simulated missing crypto key) --\n";
+$configProp = new ReflectionProperty('Config', 'config');
+$configProp->setAccessible(true);
+$savedConfig = (array) $configProp->getValue(null);
+Config::initialize(array_merge($savedConfig, [
+    'bot_check_secret' => '',
+    'encryption_key_file' => '/nonexistent/formr-crypto.key',
+]));
+
+$check('available() reports the outage', BotCheckChallenge::available(), false);
+$check('mint() returns null (endpoint 503s)', BotCheckChallenge::mint(), null);
+$check('empty token still refused', BotCheckChallenge::verify(''), false);
+$check('previously-valid token refused', BotCheckChallenge::verify($payload($mint, $sol->toArray())), false);
+$item = new BotCheck_Item(['type' => 'bot_check', 'name' => 'human']);
+$check('item blocks the submit', $item->validateInput('anything'), null);
+$check('item says "unavailable", not "try again"', strpos((string) $item->error, 'unavailable') !== false, true);
+
+Config::initialize($savedConfig);
+$check('config restored', BotCheckChallenge::available(), true);
+
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

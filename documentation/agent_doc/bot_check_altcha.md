@@ -181,9 +181,13 @@ deliberate fix for the old custom gate's high-variance timing.
 - **Freshness.** `expiresAt` is enforced inside `verifySolution`; `verify()` also
   rejects clock-skew "issued in the future" tokens. Slowness is *not* a bot
   signal — a long TTL grants an attacker nothing (binding + PoW cost are unchanged).
-- **Fail-open on misconfiguration only.** If the server has no crypto key,
-  `secret()` is null → `verify()` returns true so a misconfigured install doesn't
-  lock every participant out. With a key present (the normal case) it fails closed.
+- **Fails closed, always.** If the server has no crypto key, `secret()` is
+  null → `mint()` returns null (the endpoint logs and answers 503) and
+  `verify()` refuses *every* token, including an empty one. The bot_check item
+  then shows "Human verification is temporarily unavailable…" rather than
+  waving everyone through. The earlier fail-open branch meant one unreadable
+  key file silently disarmed every bot_check while the admin UI still showed
+  it armed. `available()` is the probe for that state.
 - **The server is the boundary.** The client gate (`feedback.js`) is UX only; the
   `tests/e2e` "forged token" case deliberately bypasses it and asserts the server
   rejects. Never treat the widget's green check as the security decision.
