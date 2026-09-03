@@ -12,18 +12,28 @@ class Crypto {
             throw new Exception('The libsodium extension is required. Please see https://paragonie.com/book/pecl-libsodium/read/00-intro.md#installing-libsodium on how to install');
         }
 
-        if (!file_exists(self::getKeyFile())) {
+        if (!is_file(self::getKeyFile())) {
             $enc_key = \ParagonIE\Halite\KeyFactory::generateEncryptionKey();
             \ParagonIE\Halite\KeyFactory::save($enc_key, self::getKeyFile());
         }
     }
 
-    /** Path of the at-rest key file (config override, else the compiled-in default). */
+    /**
+     * Path of the at-rest key file (config override, else the compiled-in default).
+     *
+     * A directory at that path resolves to the key file inside it. That is how
+     * the deployment lays the key out — a Docker volume mounted at
+     * formr-crypto.key/ holding formr-crypto.key — and what Docker leaves
+     * behind on the host side of a bind-mount. Before this, file_exists() on
+     * the directory skipped key generation, loadEncryptionKey() then failed
+     * on it, and encrypt()/decrypt() silently returned null.
+     */
     public static function getKeyFile() {
-        if (Config::get('encryption_key_file')) {
-            return Config::get('encryption_key_file');
+        $path = Config::get('encryption_key_file') ?: self::KEY_FILE;
+        if (is_dir($path)) {
+            $path = rtrim($path, '/') . '/' . basename(self::KEY_FILE);
         }
-        return self::KEY_FILE;
+        return $path;
     }
 
     /**
