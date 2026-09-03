@@ -33,7 +33,7 @@ class SurveyStudy extends Model
     public $allow_previous = 0;
     public $layout = 'default';
     public $language = 'en'; // BCP 47; drives v2 engine-chrome i18n (patch 092)
-    public $last_iteration = 0; // per-study counter for survey_unit_sessions.study_iteration; patch 065
+    public $last_iteration = 0; // per-study counter for survey_unit_sessions.study_iteration; patch 086
 
     public $created = null;
     public $modified = null;
@@ -535,7 +535,7 @@ class SurveyStudy extends Model
                 // name, so they're excluded here — they only need the wide-table
                 // column rebuild in alterResultsTable below.)
                 //
-                // Soft-delete (patch 069): flip removed / renamed-away items to a
+                // Soft-delete (patch 090): flip removed / renamed-away items to a
                 // `deleted` marker instead of DELETE. Keeping the survey_items row
                 // means its CASCADE-linked survey_items_display answers survive, so
                 // the long-format participant data is preserved and stays in
@@ -612,14 +612,14 @@ class SurveyStudy extends Model
 
         // Prepare SQL statement for adding items.
         //
-        // `showif_js` (patch 063) caches the v1 regex transpile of `showif`
+        // `showif_js` (patch 084) caches the v1 regex transpile of `showif`
         // so per-request renders skip the work and admin tooling can reason
         // about the produced JS (compat scanner, future hardened parser).
         // The Item property holding the transpile is `js_showif` (legacy
         // name); the column is `showif_js`. Bound separately below the
         // generic loop because the property/column names differ.
         $UPDATES = implode(', ', get_duplicate_update_string(array_merge($definedColumns, ['showif_js'])));
-        // Re-uploading a name that was soft-deleted (patch 069) revives it: clear
+        // Re-uploading a name that was soft-deleted (patch 090) revives it: clear
         // the marker on upsert so an item that reappears in the sheet is live
         // again, and its preserved survey_items_display answers re-enter the form.
         $UPDATES .= ', `deleted` = NULL';
@@ -825,16 +825,16 @@ class SurveyStudy extends Model
     public function getItems($columns = null, $whereIn = null, $includeDeleted = false)
     {
         if ($columns === null) {
-            // showif_js (patch 063) is the cached transpile of `showif`. Item.php
+            // showif_js (patch 084) is the cached transpile of `showif`. Item.php
             // uses it to skip per-request regex work when populated.
-            // `deleted` (patch 069) is the soft-delete marker.
+            // `deleted` (patch 090) is the soft-delete marker.
             $columns = "id, study_id, type, choice_list, type_options, name, label, label_parsed, optional, class, showif, showif_js, value, block_order,item_order, deleted";
         }
 
         $select = $this->db->select($columns);
         $select->from('survey_items');
         $select->where(array('study_id' => $this->id));
-        // Soft-deleted items (patch 069) don't render and aren't editable, so
+        // Soft-deleted items (patch 090) don't render and aren't editable, so
         // they're excluded by default. Results/export callers pass
         // $includeDeleted = true to keep the preserved data recoverable.
         if (!$includeDeleted) {
@@ -852,7 +852,7 @@ class SurveyStudy extends Model
         $get_items = $this->db->select('type, type_options, choice_list, name, label, optional, class, showif, value, block_order, item_order')
             ->from('survey_items')
             ->where(array('study_id' => $this->id))
-            // soft-deleted items (patch 069) stay out of the editable sheet, so a
+            // soft-deleted items (patch 090) stay out of the editable sheet, so a
             // download→re-upload round-trip doesn't silently revive them.
             ->where('`deleted` IS NULL')
             ->order("`survey_items`.order")
@@ -995,7 +995,7 @@ class SurveyStudy extends Model
      *   session, session_id, ended, expired -> survey_unit_sessions / survey_run_sessions
      *   created -> MIN(survey_items_display.created)
      *   modified -> MAX(survey_items_display.saved)
-     *   iteration -> survey_unit_sessions.study_iteration (patch 065).
+     *   iteration -> survey_unit_sessions.study_iteration (patch 086).
      *     Pre-patch sessions are backfilled from the wide table by
      *     bin/backfill_study_iteration.php. ROW_NUMBER() fallback is
      *     used only when the column is unexpectedly NULL (e.g. backfill
@@ -1110,9 +1110,9 @@ class SurveyStudy extends Model
         }
 
         // Iteration: survey_unit_sessions.study_iteration is the long-
-        // form source of truth (patch 065). COALESCE to ROW_NUMBER()
+        // form source of truth (patch 086). COALESCE to ROW_NUMBER()
         // covers any session row whose study_iteration is NULL — pre-
-        // 065 sessions whose backfill hasn't run yet, or non-Survey
+        // 086 sessions whose backfill hasn't run yet, or non-Survey
         // unit_sessions that somehow ended up here. The ROW_NUMBER()
         // fallback is a 1..N sequence per result set, not byte-equal
         // to a historical wide.iteration; the backfill closes that
@@ -1754,7 +1754,7 @@ class SurveyStudy extends Model
 				`survey_items`.`item_order`,
 				`survey_items`.`block_order`')
             ->from('survey_items')
-            // soft-deleted items (patch 069) get no new survey_items_display rows
+            // soft-deleted items (patch 090) get no new survey_items_display rows
             ->where("`survey_items`.`study_id` = :study_id AND `survey_items`.`deleted` IS NULL")
             ->order("`survey_items`.order")
             ->bindParams(array('`study_id`' => $this->id))

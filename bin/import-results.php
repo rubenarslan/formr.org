@@ -309,7 +309,7 @@ foreach ($resultsSheet->getRowIterator() as $row) {
 }
 
 // Imported wide rows take their `iteration` from the table's AUTO_INCREMENT,
-// which survey_studies.last_iteration (the live allocator, patch 068) knows
+// which survey_studies.last_iteration (the live allocator, patch 086) knows
 // nothing about — without this resync, the next live participant's allocated
 // iteration collides with an imported row and their survey 500s.
 $sql = "\nUPDATE `survey_studies` SET `last_iteration` = GREATEST(`last_iteration`, (SELECT COALESCE(MAX(`iteration`), 0) FROM `{$survey->results_table}`)) WHERE `id` = " . (int) $studyId . ";";

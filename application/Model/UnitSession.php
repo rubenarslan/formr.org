@@ -7,7 +7,7 @@ class UnitSession extends Model {
     public $run_unit_id; // survey_run_units.id — Track A: disambiguates same-unit-at-multiple-positions
     public $iteration; // 1-based count of attempts at THIS run_unit_id by THIS run_session
     public $study_iteration; // per-study sequence (wide-table-equivalent "Nth participant to start this study"); allocated via survey_studies.last_iteration
-    public $layout; // paradata: the study layout mode ('default'/'solo') this response was collected under (patch 068)
+    public $layout; // paradata: the study layout mode ('default'/'solo') this response was collected under (patch 089)
     public $run_session_id;
     public $created;
     public $expires;
@@ -825,7 +825,7 @@ class UnitSession extends Model {
         if (!$alreadyAllocated) {
             $iteration = $this->allocateStudyIteration($study->id);
             // Stamp the layout mode this response is collected under (paradata
-            // for measurement equivalence; patch 068). Captured at first render
+            // for measurement equivalence; patch 089). Captured at first render
             // so a later flip of the study's layout doesn't rewrite history.
             $this->db->update('survey_unit_sessions',
                 ['study_iteration' => $iteration, 'layout' => $study->layout],

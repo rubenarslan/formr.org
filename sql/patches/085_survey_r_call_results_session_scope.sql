@@ -1,6 +1,6 @@
--- SQL Patch 064: scope survey_r_call_results to the unit session.
+-- SQL Patch 085: scope survey_r_call_results to the unit session.
 --
--- Patch 062 keyed the cache on (call_id, args_hash) where args_hash is
+-- Patch 083 keyed the cache on (call_id, args_hash) where args_hash is
 -- sha256 of the client-supplied overlay answers. The R expression
 -- evaluates against tail(survey_name, 1) — the *current participant's*
 -- persisted row — so the same overlay yielded different results per
@@ -25,7 +25,8 @@
 -- phantom patch 054 already applied the same change: those re-run cleanly
 -- instead of dying mid-file on a duplicate column. The MODIFY normalizes
 -- the column to INT(10) UNSIGNED — the type of survey_unit_sessions.id —
--- so the cascade FK below is addable (054/early-064 used BIGINT).
+-- so the cascade FK below is addable (the phantom 054, and earlier
+-- numberings of this same patch, used BIGINT).
 
 TRUNCATE TABLE `survey_r_call_results`;
 

@@ -25,7 +25,7 @@
  *    (eligibility flags, scores) or plumbing fields (session_id) into the
  *    evaluation row.
  *
- * 3. RESULT CACHE (survey_r_call_results, patch 065) keyed on
+ * 3. RESULT CACHE (survey_r_call_results, patches 083 + 085) keyed on
  *    (call_id, unit_session_id, sha256(normalized answers)) with per-slot
  *    TTLs, plus bounded write-time eviction.
  *

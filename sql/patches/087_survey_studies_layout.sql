@@ -1,4 +1,4 @@
--- SQL Patch 066: form_v2 presentation layout (skin).
+-- SQL Patch 087: form_v2 presentation layout (skin).
 --
 -- `layout` switches the v2 renderer between the default multi-item page
 -- and a "solo" skin that presents one item per screen (scroll-snap-based,
