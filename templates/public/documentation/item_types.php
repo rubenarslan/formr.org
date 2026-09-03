@@ -65,7 +65,7 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         range <i>min,max,step</i>
     </dt>
     <dd>
-        these are sliders. The numeric value chosen is not displayed. Text to be shown to the left and right of the slider can be defined using the choice1 and choice2 fields. Defaults are <code>1,100,1</code>.
+        these are sliders. The numeric value chosen is not displayed. The text shown to the left and right of the slider is defined using the choice1 and choice2 fields — every slider needs those two labels, an item without them is rejected when you upload the sheet. Defaults are <code>1,100,1</code>.
     </dd>
     <dt>
         range_ticks <i>min,max,step</i>
@@ -77,7 +77,7 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         visual_analog_scale <i>min,max,step</i>
     </dt>
     <dd>
-        like range but with no default — the slider thumb is hidden until the participant interacts with it, and required items stay invalid until the participant actively chooses a position. The value submitted is empty (rather than the midpoint) if the participant never moves the slider. Defaults are <code>0,100,1</code>.
+        like range but with no default — the slider thumb is hidden until the participant interacts with it, and required items stay invalid until the participant actively chooses a position. The value submitted is empty (rather than the midpoint) if the participant never moves the slider; once it is moved, a whole number between min and max is stored. The end labels come from choice1 and choice2, exactly as for range (and are just as mandatory). Defaults are <code>0,100,1</code>. Works in both survey and Form (v2) units.
     </dd>
 </dl>
 
@@ -93,7 +93,7 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         time <i>min,max</i>
     </dt>
     <dd>
-        for times (displays an input with hours and minutes). Input can also be constrained using min,max, e.g. <code>12:00,17:00</code>
+        for times (displays an input with hours and minutes). Input can also be constrained using min,max, e.g. <code>12:00,17:00</code>. Stored as a time (<code>HH:MM:SS</code>), so in R you get a string, not a number.
     </dd>
 </dl>
 <h4><i class="fa fa-fw fa-magic"></i> Fancy family</h4>
@@ -194,8 +194,9 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
     </dt>
     <dd>
         rank order by drag and drop (as in Qualtrics): the choices are shown as a list that participants reorder by dragging (mouse or touch), with the ▲/▼ buttons on each row, or with the keyboard (focus a row, then use Arrow Up/Down, Home/End). Stored as the choice <em>names</em> in their final order, joined by a comma, e.g. <code>3, 1, 2</code> for "3 ranked first" — <code>strsplit(rank, ", ")</code> in R recovers the ranking.<br>
-        Options after the choice list: <code>random</code> shuffles the starting order on every page load (so an untouched submit does not silently store your authored order); <code>touch</code> counts the item as answered only once the participant has actually interacted with it (dragged, tapped a row, or used the buttons/keyboard) — combine with a required item to force an explicit choice. Without <code>touch</code>, submitting stores the order as displayed, like Qualtrics. E.g. <code>rank fruits random touch</code>.<br>
-        <strong>Form (v2) units only.</strong>
+        Options after the choice list: <code>random</code> (or <code>shuffle</code>) shuffles the starting order on every page load (so an untouched submit does not silently store your authored order); <code>touch</code> (or <code>require_change</code>) counts the item as answered only once the participant has actually interacted with it (dragged, tapped a row, or used the buttons/keyboard) — combine with a required item to force an explicit choice. Without <code>touch</code>, submitting stores the order as displayed, like Qualtrics. E.g. <code>rank fruits random touch</code>.<br>
+        Participants always rank <em>all</em> the choices: a partial or repeated order is rejected. An answer given earlier (or a <code>value</code> you set in the sheet) becomes the starting order when the item is shown again, so going back does not scramble what someone already did. Only an optional item may be left unranked.<br>
+        <strong>Form (v2) units only.</strong> In a v1 survey unit the drag-and-drop widget is not loaded.
     </dd>
     <dt>
         mc_heading <i>choice_list</i>

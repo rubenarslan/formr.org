@@ -14,8 +14,9 @@
 //      reactive state normalizes empty/unchecked to `null`, not `undefined`.
 //   3. Wrap runtime eval in `(function(){try{return (expr)}catch(e){return undefined}})()`
 //      so ReferenceErrors on run-level (`ran_group`) or future-page (`puppy`)
-//      variables silently fall back to undefined (→ visible) instead of
-//      noisily blowing up every keystroke.
+//      variables silently fall back to undefined (→ the item keeps the
+//      visibility the server rendered it with) instead of noisily blowing
+//      up every keystroke.
 
 export function registerFmrForm(Alpine) {
     Alpine.data('fmrForm', () => ({

@@ -24,17 +24,19 @@ class FormRenderer extends SpreadsheetRenderer {
     /**
      * Page-scoped processing for form_v2 (post-PWA-port redesign).
      *
-     * Architectural rules (see plan_form_v2.md §3 / §5):
+     * Architectural rules (see documentation/agent_doc/plan_form_v2.md §3 / §5):
      *
      *   1. `showif` is JS-only. `r(...)` in showif is invalid and surfaces a
      *      validation error to the admin at render time. To run server-side R
      *      and have the result feed a showif, the admin uses a hidden item
      *      with `value: r(...)` and references that field name from the JS
      *      showif.
-     *   2. `value` accepts literals + `r(...)` wraps. Bare R (not r-wrapped)
-     *      is invalid and surfaces a validation error. r()-wrapped values
-     *      record into `survey_r_calls` (slot='value') and resolve via
-     *      `/form-render-page` at page-transition time.
+     *   2. `value` is the R path: literals and 'sticky' pass through;
+     *      anything else is recorded into `survey_r_calls` (slot='value')
+     *      whether the admin wrote it bare or wrapped in `r(...)` — the
+     *      wrapper is stripped before OpenCPU sees it and exists as the
+     *      documented bridge idiom. Values resolve via `/form-render-page`
+     *      at page-transition time (inline for the first page).
      *   3. Dynamic labels (Item::needsDynamicLabel) record into
      *      `survey_r_calls` (slot='label') with the FULL label as `expr` —
      *      we don't extract partial Rmd chunks; the whole label is one
@@ -142,7 +144,7 @@ class FormRenderer extends SpreadsheetRenderer {
         // (including first) defer to /form-render-page: blank label_parsed
         // and emit data-fmr-label-id; the client batch-resolves on page
         // show. Costs a brief first-paint flicker on page 1 in exchange for
-        // architectural consistency + cache hits via patch 062 — admins who
+        // architectural consistency + cache hits via patch 083 — admins who
         // can't tolerate the flicker should keep dynamic content off the
         // first page (plan_form_v2 §8 P2 trade-off).
         foreach ($items as $item) {

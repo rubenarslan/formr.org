@@ -13,8 +13,8 @@
  * This first pass handles the narrow case "the entire expression is a single
  * top-level r(...)". Admin showifs are usually single expressions, not scripts
  * that mix plain JS with embedded r() calls, so this covers most of the real
- * surface. Labels / page_body Rmd (plan §5.2) need a different extractor that
- * walks markdown; that's deferred to Phase 4.
+ * surface. Labels are not extracted at all: FormRenderer records the whole
+ * label text as one allowlisted call (slot='label').
  */
 class RAllowlistExtractor {
 

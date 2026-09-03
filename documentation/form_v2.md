@@ -1,58 +1,62 @@
 # form_v2 — admin guide
 
-A practical guide to authoring surveys in the new "Form" engine. This is the user-facing companion to `plan_form_v2.md` (which is for engineers working on form_v2 itself).
+A practical guide to authoring surveys in the new "Form" engine. Operators upgrading an instance should read `form_v2_upgrade.md` (migrations, settings, the backfill step) first; engineers working on the engine itself want `agent_doc/plan_form_v2.md`.
 
 ---
 
 ## TL;DR
 
-- **Form** is a new RunUnit type that renders surveys as a single-page AJAX form. It coexists with the legacy **Survey** unit; you opt in per-study via `rendering_mode='v2'`. Existing Surveys keep working unchanged.
-- The biggest behavioural change: **`showif` runs in the browser by default**. To keep an expression on the server (R via OpenCPU), wrap it in `r(...)`.
-- Same change for the `value` column: server-side R is opt-in via `r(...)`; literals and the `sticky` keyword work as before.
-- Admin authoring stays the same — same spreadsheet format, same item types.
+- **Form** is a new run-unit type that renders a survey as a single-page AJAX form: per-page submission without reloads, reactive `showif`s, autosave, an offline queue, and an optional one-item-per-screen layout. It coexists with the classic **Survey** unit; you opt in per study. Existing Surveys keep working unchanged.
+- The one authoring rule that changes: **`showif` runs in the browser, as JavaScript.** `r(...)` in a showif is rejected. Server-side R lives in the `value` column, and a hidden item's `value` is how you feed an R result into a showif.
+- Everything else stays the same — same spreadsheet format, same item types (plus a few new ones, see "What's new in v2"), same R data access in the rest of the run.
 
 ## When to use form_v2
 
-Use it for any new study you're starting, unless you're using `Survey`-only features (very-deep nested showifs your sheet relies on, embedded Rmd-rendered HTML chunks in labels — see "Known limitations" below). Keep existing studies on `Survey` until you're ready to test against `form_v2_compat_scan` (below).
+Use it for any new study. Keep a running v1 study on Survey until you have run the compatibility scan on it and tested the upgraded study as yourself.
 
-The visible benefits to participants:
+What participants notice:
 - No full-page reload between pages — much snappier on poor connections.
-- Reactive `showif` updates without round-trips.
-- Offline queue: a failed page submit is held in IndexedDB and replayed when connectivity returns. Multi-page forms can be filled offline.
-- Optional Background Sync (Chromium / Firefox / Android Chrome) drains the queue even after the tab is closed.
+- `showif` reacts to answers instantly, without a round-trip.
+- Answers are autosaved while typing; a page submit that fails (no network, server error) is held in the browser and replayed once the participant is back online, so multi-page forms can be filled offline.
+- Optionally, one item per screen ("solo" layout) and localized engine strings.
 
 ## Enabling form_v2 for a study
 
-1. **Server flag**: `$settings['form_v2_enabled'] = true` in `config/settings.php`. This gates the admin UI; existing v2 studies continue rendering even if the flag flips back off.
-2. **Add a Form unit**: in the run editor, click "Add Form" (the icon is a fresh sheet — `fa-wpforms`). This creates a Form RunUnit, links it to the chosen `SurveyStudy`, and stamps `rendering_mode='v2'` on the study.
-3. **Per-study flags** (visible only on v2 studies, under `/admin/survey/<name>` → "Form_v2 settings"):
-   - **Offline queue** (default *on*): when off, a network-failed submission errors out instead of being persisted in IndexedDB. Disable for studies whose answers must not touch local storage.
-   - **Allow "Previous" button** (default *off*): renders a Previous button on non-first pages. Enable if your study tolerates back-navigation; leave off if your design relies on participants only ever moving forward.
+There are two ways in, both from the admin UI. Neither touches your items.
+
+- **New study**: in the run editor, "Add Form (form_v2, beta)" creates a Form unit for the study you pick and switches that study to the v2 engine. The button only appears when the operator has set `$settings['form_v2_enabled'] = true`; studies already on v2 keep rendering on v2 regardless of that flag.
+- **Existing study**: on the survey's settings page (`/admin/survey/<name>`) the "Rendering engine" box shows a compatibility-scan summary and an **Upgrade to form_v2** button. Upgrading converts every run unit that uses the study as a classic Survey into a Form unit; participants who are mid-form finish on the old engine, new sessions get v2. **Switch back to v1** is next to it and is safe at any time — a Form unit whose study is on v1 simply renders through the classic pipeline.
+
+Once a study is on v2, the same page shows the **Form_v2 settings**:
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| Offline queue | on | A failed page submission is stored in the participant's browser (IndexedDB) and replayed when connectivity returns. Turn off for studies whose answers must not persist on the device — submissions then fail hard when offline. |
+| Show "Previous" button | off | Lets participants move back between the form's pages. Leave off unless your design tolerates back-navigation (see "Known limitations"). |
+| Layout | Default | *Default* renders all items of an authored page together. *Solo* shows one item per screen with auto-advance on answer, Typeform-style — good on mobile. Page boundaries (submit items) still define what is submitted together; only the visual rhythm changes. |
+| Participant language | `en` | A BCP 47 tag. Sets the page's `lang`/`dir` and localizes the engine's own strings (buttons, save indicator, offline banner, validation fallbacks). English and German ship built-in; `de-AT` falls back to `de`, anything else to English strings while keeping the `lang` attribute you set. Your item labels are always shown as authored. |
 
 ## Authoring `showif` and `value`
 
 ### The two rules
 
-1. **`showif` is JavaScript-only.** Evaluated client-side, reactive on every input change. `r(...)` in `showif` is invalid — the compat scanner flags it and FormRenderer surfaces a validation error. To get server-side R into a showif, see "Bridging R into a showif" below.
-2. **`value` is R-only.** Any non-empty, non-numeric value is treated as R, allowlisted automatically, and evaluated server-side. No wrapping required.
+1. **`showif` is JavaScript.** It is evaluated in the participant's browser and re-evaluated on every input change. `r(...)` in a showif is invalid: the compatibility scanner flags it and the form reports a validation error to you instead of rendering the item. To gate visibility on an R result, see "Bridging R into a showif".
+2. **`value` is R.** Anything that isn't empty, a number, or the `sticky` keyword is evaluated as R on the server. You can write the R bare or wrapped in `r(...)` — both mean the same thing; the wrapper is just the idiom used in the bridge example below.
 
-### Default: client-side JS
+### `showif`: client-side JS
 
-`showif` is interpreted as a JavaScript expression evaluated in the participant's browser, with one reactive variable per item name and a small helper stdlib:
+Each item's name is available as a reactive variable, and a small helper library is in scope:
 
-| Helper       | Meaning                                                              |
-|--------------|-----------------------------------------------------------------------|
-| `isNA(x)`    | true for `null`/`undefined`/`""`/empty array/`NaN`                   |
-| `answered(x)`| `!isNA(x)`                                                            |
-| `contains(haystack, needle)` | substring or array-includes                          |
-| `containsWord(haystack, word)` | matches `\bword\b`                                  |
-| `startsWith(s, p)`           | `String(s).startsWith(p)`                            |
-| `endsWith(s, p)`             | `String(s).endsWith(p)`                              |
-| `last(arr)`                  | last element, or value as-is for non-arrays          |
+| Helper | Meaning |
+| --- | --- |
+| `isNA(x)` | true for `null` / `undefined` / `""` / empty array / `NaN` |
+| `answered(x)` | `!isNA(x)` |
+| `contains(haystack, needle)` | substring or array-includes |
+| `containsWord(haystack, word)` | matches `\bword\b` |
+| `startsWith(s, p)`, `endsWith(s, p)` | `String(s).startsWith(p)` / `.endsWith(p)` |
+| `last(arr)` | last element, or the value as-is for non-arrays |
 
-A small set of R-isms is rewritten to JS automatically by the existing transpiler in `Item.php`: comparison operators (`==`, `!=`, `>`, `<=`), boolean operators (`&&`, `||`), the formr R-package infix ops (`%contains%`, `%begins_with%`, `%ends_with%`, `%starts_with%`, `%contains_word%`), `is.na()`, `tail(x, 1)`, `current(x)`, `stringr::str_length()`. So a v1 showif like `mc_polytheism == 2` works unchanged.
-
-Examples:
+The R-isms a v1 showif typically uses are rewritten to JS for you: comparison operators, `&&`/`||`, the formr infix operators (`%contains%`, `%begins_with%`, `%starts_with%`, `%ends_with%`, `%contains_word%`), `is.na()`, `tail(x, 1)`, `current(x)`, `stringr::str_length()`. So `mc_polytheism == 2` works unchanged.
 
 ```
 showif: mc_polytheism == 2
@@ -61,131 +65,121 @@ showif: !contains(animals, "cat")
 showif: last(daily_mood) > 5
 ```
 
-If an expression references a variable that doesn't exist (a future-page item, a run-level variable like `ran_group`), the evaluator silently treats it as `undefined` and the item stays visible — no console errors, no flickering.
+**Names the browser doesn't know.** A showif may reference something that isn't an item on the form — a run-level variable like `ran_group`, or an item from an earlier survey. The server evaluates every showif once when it renders the form (with the participant's full run data, exactly as v1 does) and hides items whose showif is false or unknown. In the browser, an expression that hits an unknown name is not an error: the item simply keeps whatever visibility the server gave it. Only showifs whose inputs are all on the form are live.
 
-### Server-side R on the `value` column
+### `value`: server-side R
 
-Just write the R. No wrapping required. Numeric values stay as literal defaults; everything else is evaluated as R server-side. Examples:
+Just write the R. Numbers stay literal defaults; `sticky` keeps its v1 meaning (`tail(na.omit(survey$item), 1)`); everything else is evaluated on the server with the participant's answers overlaid on `tail(survey_name, 1)`:
 
 ```
 value: paste(answered_items, collapse=", ")
 value: complex_score(current(q1), current(q2))
 value: ifelse(is.na(other), "", nchar(other))
 value: sample(c(1,1,1,2,2,2,2), 7)
-value: sticky                              # v1 keyword: tail(na.omit(survey$item), 1)
-value: 5                                   # numeric literal — not evaluated
+value: sticky
+value: 5
 ```
 
-The R source never reaches the browser — every non-empty, non-numeric value is recorded in `survey_r_calls` (slot=`value`) at render time, and the client only ever sees the recorded call ID. The server overlays the participant's answers on `tail(survey_name, 1)` and evaluates inside an allowlist-only path. Results are cached for 5 minutes per `(call_id, sorted answers)` pair.
+The R source never reaches the browser. At render time each dynamic value is recorded in `survey_r_calls` (slot `value`) and the client only ever sees the recorded call id, which it hands back when it asks the server to resolve the page. Results are cached for 5 minutes per `(call, answers)` pair.
 
 ### Bridging R into a `showif`
 
-`r(...)` in `showif` is no longer supported. Showifs are JS-only. To gate visibility on a server-computed R result, **add a hidden item with `value: r(...)` and reference its field name from the showif**:
+To gate visibility on something only R can compute, put the R in a **hidden item's `value`** and reference that item's name from the showif:
 
 ```
-name           type     showif                    value
-my_score       hidden                             r(complex_score(current(q1)))
-followup       text     my_score > 0.5
+name       type    showif           value
+my_score   hidden                   r(complex_score(current(q1)))
+followup   text    my_score > 0.5
 ```
 
-The hidden field gets resolved server-side; the resolved scalar is written into the input and Alpine reactivity makes it available to any showif that references it. Cleaner separation, more inspectable (admins can debug by reading the hidden field's resolved value), and you can reuse `my_score` from multiple showifs without paying the OpenCPU cost more than once per page.
+The hidden field is resolved on the server; the resolved scalar is written into the input, and the showif reacts to it like to any other answer. This is more inspectable than the old server-side showif (you can read the hidden field's resolved value while testing) and you can reuse `my_score` from several showifs without paying the OpenCPU cost again.
 
 ### Page-scoped resolution
 
-Server-side R only fires for items on the page the participant is currently viewing:
+Server-side R only runs for the page the participant is looking at:
 
-- **Initial page load**: only the first visible page's `r(...)` values + dynamic labels are resolved server-side. Items on later pages are placeholders.
-- **Page transition**: when the participant submits page N, the server persists answers; the client then POSTs `/form-render-page` for page N+1, which batch-resolves all of N+1's dynamic content in one OpenCPU call against the latest answer state. The participant sees page N+1 with everything resolved.
-- **Last page**: same model — resolved on the transition that brings the participant to it.
+- **Initial load**: the first page's dynamic values are resolved inline. Items on later pages get placeholders.
+- **Page transition**: when page N is submitted, the server stores the answers, then the client asks for page N+1 (`/form-render-page`), which resolves all of N+1's dynamic values and labels in one OpenCPU batch against the latest answers.
 
-Why: dynamic content on page N+1 often depends on answers given on page N, so we can't resolve it until N is submitted. And we don't pre-resolve future pages because that work would be discarded on every keystroke.
+Dynamic content on page N+1 usually depends on page N, so it can't be resolved earlier — and pre-resolving pages that may never be reached would waste OpenCPU time. Cost: one OpenCPU batch per page transition (cache-aware), rate-limited to 30 per minute per session (`form_v2_rate_limits` in `settings.php`).
 
-Cost: one OpenCPU batch per page transition (cache-aware). Rate limit: 30 calls / 60 s per session.
+### Dynamic labels (R-Markdown in labels)
 
-### Embedded Rmd in labels
-
-If a label contains R-Markdown syntax (inline R chunks like `` `r expr` ``), the **entire label** is treated as one allowlisted call. We don't extract partial Rmd chunks. The compat scanner's "label slot" entries are item-keyed; the server batches all of a page's dynamic labels into one knit call alongside the value evaluations.
-
+A label containing inline R (`` `r expr` ``) is treated as **one** allowlisted call for the whole label — chunks are not extracted individually. Dynamic labels on every page, including the first, are resolved through the page request described above, so a dynamic label on page 1 paints a moment after the rest of the page. Keep heavy dynamic content off the first page if that flicker matters to you.
 
 ## Compatibility scanner
 
-Before flipping a busy v1 study to v2, run the compatibility scanner. It classifies expressions per the new rules:
+Before upgrading a v1 study, run the scanner. It classifies every expression:
 
-**For `showif`:**
+**`showif`**
 - **empty** — no expression
-- **JS-OK** — the regex transpile produced valid JS
-- **needs JS rewrite** — residual R-only tokens (`ifelse`, `c(`, `%in%`, `<-`, …); rewrite in JS or move the R into a hidden field's value
-- **invalid: r() in showif** — flagged for migration to a hidden-field bridge
+- **JS-OK** — transpiles to JavaScript cleanly
+- **needs JS rewrite** — residual R-only tokens (`ifelse`, `c(`, `%in%`, `<-`, …): rewrite in JS, or move the R into a hidden item's `value` and reference that name
+- **invalid: r() in showif** — same fix: hidden item + `value`
 
-**For `value`:**
-- **empty** — no expression
-- **literal** — numeric default, kept as-is
-- **R** — admin-authored R, automatically allowlisted and evaluated server-side
+**`value`**
+- **empty**, **literal** (a number, kept as-is), or **R** (evaluated on the server)
 
 Two ways to run it:
 
-- **Admin UI** (recommended): on the survey settings page (`/admin/survey/<name>`), click **"Run v2 compatibility scan"**. Reports inline with the source, the transpile output, the detected problems, and a suggested wrapping.
+- **Admin UI** (recommended): the survey settings page (`/admin/survey/<name>`) shows the flagged count next to the **Upgrade to form_v2** button; **Run v2 compatibility scan** opens the full report with source, transpiled output, and the suggested fix per item.
 - **CLI**: `php bin/form_v2_compat_scan.php <study_id|study_name>`. Exits 0 if clean, 2 if anything is flagged — usable as a CI gate.
 
-The scan is *advisory*. The runtime evaluator wraps every expression in `try/catch` and falls back to "show" on error, so a flagged item isn't necessarily broken; it just isn't *guaranteed* to behave the way the R source would. If you care about deterministic behaviour for a flagged item, wrap it in `r(...)`.
+The scan is advisory and changes nothing. At runtime a showif that can't be evaluated leaves the item as the server rendered it, so a flagged item isn't necessarily broken — it just isn't guaranteed to behave like the R would have.
 
 ## PWA features (AddToHomeScreen / PushNotification)
 
-These items work in v2 the same way as in v1, with one technical change: the wiring is vanilla JS in the form bundle (no jQuery). Functionally, an admin shouldn't notice a difference.
+The `add_to_home_screen` and `push_notification` items work in v2 as in v1; the wiring is vanilla JS inside the form bundle (no jQuery), and admins shouldn't notice a difference.
 
-Setup:
-
-1. Configure the run as installable (run settings → "Use as installable PWA"). This generates the manifest, the VAPID keypair, and the icon set.
+1. Configure the run as installable (run settings → "Use as installable PWA"). This generates the manifest, the VAPID keypair and the icon set; check that `/{run}/manifest` responds.
 2. Add the items to your survey sheet as usual:
-   - `add_to_home_screen` — renders an "Add to Home Screen" button. Captures the browser's `beforeinstallprompt`, fires it on click. iOS Safari shows inline "tap Share → Add to Home Screen" guidance instead (iOS has no programmatic install API).
-   - `push_notification` — renders an "Allow Notifications" button. Calls `Notification.requestPermission`, subscribes via the SW's pushManager, POSTs the subscription to the run.
-3. The participant page automatically registers the service worker and enables Background Sync for the offline queue.
+   - `add_to_home_screen` — captures the browser's `beforeinstallprompt` and fires it on click. Where there is no programmatic install API (iOS Safari), it shows inline "Share → Add to Home Screen" guidance instead.
+   - `push_notification` — calls `Notification.requestPermission`, subscribes through the service worker's push manager and POSTs the subscription to the run.
+3. The participant page registers the service worker itself.
 
-iOS specifics: PushNotification only works **inside the installed PWA** on iOS 16.4+. The participant must add the study to their home screen first, then reopen it from there. If they tap the push button before installing, v2 surfaces a clear error message explaining this.
+iOS specifics: push only works **inside the installed PWA** on iOS 16.4+. The participant must add the study to their home screen first and reopen it from there; if they tap the push button before installing, v2 shows an error explaining this.
 
-## Offline queue (Phase 5)
+## Offline queue
 
-When a page submit fails (no network, server 5xx, etc.), v2:
+When **Offline queue** is on (the default), a page submission that fails — no network, or a 5xx from the server — is stored in the browser's IndexedDB and the participant advances locally. The banner says "queued". The queue drains when the browser fires `online` and on the next load of any page of the study; each entry is replayed to `/{run}/form-sync`, which applies the answers through the same path as a normal page submit and ignores entries it has already seen (each entry carries a UUID; the server keeps a ledger in `survey_form_submissions`). A drain that hits a validation error stops, keeps the entry queued and shows "A queued submission was rejected. Please review the page."; entries the server says no longer apply (the session ended, the participant moved on to another Form) are dropped.
 
-1. Persists the submission to IndexedDB (store `formrQueue`, keyed by a client-generated UUID).
-2. Shows a yellow banner: "You're offline. This submission is queued and will be sent when you reconnect."
-3. Lets the participant continue to the next page locally — the form holds its full state in memory.
-4. On the `online` event, on next page load, or on a Background Sync wake-up (if the browser supports it), drains the queue against `/{run}/form-sync`. Server is idempotent — replaying the same UUID is a no-op.
+- **Nothing drains while the tab is closed.** The page registers a Background Sync tag, but the service worker does not yet act on it, and iOS Safari has no Background Sync at all. Tell participants to reopen the study once they are back online.
+- **File uploads are queued too**, up to `form_v2_offline_blob_max_mb` per file (`settings.php`, default 10 MB). A larger file is refused with a "too large to queue offline" message instead of risking the browser's storage quota.
+- **Answers sit in plaintext on the device until they drain.** If that is unacceptable for your study, turn the queue off — submissions then fail visibly when offline and nothing is stored.
+- The queue for a run is wiped when the participant clicks a logout link on the form page. That is the only wipe: a participant who reaches `/{run}/logout` from elsewhere, or uninstalls the PWA, keeps whatever is queued.
 
-File uploads ≤10 MB are queued the same way (the file Blob is stored alongside the JSON payload). Larger files surface a hard error rather than fill the IndexedDB quota.
+## Known limitations
 
-The whole thing is on by default. Disable per-study via the **Offline queue** toggle in survey settings if your study can't tolerate plaintext answers persisting on the participant's device.
-
-## Known limitations vs. v1
-
-- **Audio / Video items**: render through the same multipart path as File items, but the `getUserMedia` capture UX hasn't been smoke-tested cross-browser. The form shows an admin notice ("Heads up: this form uses audio…"). Use a real device to verify before relying on it.
-- **iOS Safari + Background Sync**: not supported in iOS Safari. The page's own `online` event still drains the queue when the participant reopens the tab; Background Sync just isn't an extra layer there.
-- **`Previous` button mid-flow**: the button reveals already-rendered pages but doesn't refetch them from the server. If your study mutates per-page state on the server (e.g. via Pause units), back-navigation may show stale content. Leave the toggle off unless your design tolerates this.
-- **Spreadsheet-side admin classes** like `mc_width70`, `rotate_label45`, `mc_vertical`, `rating_button_label_width50` — supported. Works the same as v1 (the same `custom_item_classes.css` ships in the v2 bundle).
-- **Range tooltip / animated value indicator**: v1's animated tooltip on `range` and `range_ticks` came from the `webshim` range plugin. v2 doesn't ship webshim and renders a bare native range with side labels — the participant sees their current position via the slider thumb, but no floating-number tooltip. The new `visual_analog_scale` item type below is the v2-native answer for "no default" rating-style items.
+- **Background Sync**: see above — page-side drain only, and none on iOS.
+- **Previous button**: going back reveals the already-rendered page; it is not refetched from the server. Dynamic values and labels on it are whatever they resolved to the first time. Leave the toggle off unless your design tolerates that.
+- **Range slider**: v1's floating value tooltip came from the `webshim` plugin, which v2 doesn't ship. `range` / `range_ticks` render as a native slider with side labels; the participant sees their position on the thumb only. `visual_analog_scale` is the v2-native answer for "no default" rating items.
+- **Solo layout**: auto-advance fires on the first commit of single-choice radios, single selects and range sliders. Checkboxes, multi-selects and free-text items never auto-advance — the participant uses the Next button.
+- **Spreadsheet-side admin classes** (`mc_width70`, `rotate_label45`, `mc_vertical`, `rating_button_label_width50`, …) work as in v1; the same `custom_item_classes.css` ships in the v2 bundle.
 
 ## What's new in v2
 
-- **`visual_analog_scale`** item type. Like `range` but with no default value: until the participant moves the slider, the thumb stays hidden and the form submits empty for that item. Required `visual_analog_scale` items therefore catch "participant never engaged with the scale" the same way required text items catch a blank field. Authoring is identical to `range` — `min,max,step` in the type column, left/right pole text in `choice1`/`choice2`. Renders in both v1 and v2 (an inline 4-line touch listener in the rendered HTML mirrors the slider value into a sibling hidden input on first interaction; no bundle wiring required).
-- **Page-expired modal**. v1's `ExpiryNotifier` (a modal that pops when the unit-session passes its `expires` timestamp, with a Reload button) is now ported to the v2 bundle as a vanilla module. `templates/run/form_index.php` exposes `window.unit_session_expires` the same way `templates/public/head.php` does for v1, so per-page session-expiry timing is identical across the two pipelines.
-- **Offline-queue wipe on logout / push-subscription change**. Previously `formrQueue` (IndexedDB) entries persisted on the participant's device past logout — a small but real plaintext-data-at-rest gap. Now the service worker wipes the queue when (a) the participant navigates to `/{run}/logout` (intercepted by the SW's `fetch` handler) and (b) the browser fires `pushsubscriptionchange` (typically on PWA uninstall or notification-permission revocation). The page-side bundle also wipes preemptively when the participant clicks a logout link, so there's a fast path even when no SW is installed.
+Beyond the rendering model:
 
-## Migration checklist
+- **New item types**: `rank` (drag-to-order list) and `bot_check` (a proof-of-work human check, ALTCHA-style, no third party). Both are v2-only. `visual_analog_scale` renders on both engines. See `templates/public/documentation/item_types.php` for the item reference.
+- **`bot_check` fails closed.** If the server has no crypto key it refuses every token and the item shows "Human verification is temporarily unavailable" instead of waving everyone through; the challenge endpoint requires an active participant session and is rate-limited (`form_v2_rate_limits.bot_challenge_per_min`, default 20).
+- **Page-expired modal**: when a unit session's expiry passes mid-form, participants see the same "page expired" prompt as in v1.
+- **Localized engine strings** (`language` setting, see the settings table).
+- **Solo layout** (`layout` setting).
 
-Migrating a study from `Survey` to `Form`:
+## Migration checklist for an existing study
 
-1. Run the compat scanner. Resolve flagged rows: wrap in `r(...)` or rewrite the expression in JS.
-2. Decide on the per-study flags:
-   - Offline queue: on (recommended unless sensitive data + no participant device persistence).
-   - Allow Previous: usually off.
-3. If the study uses PWA install or push, configure the run as installable and verify the manifest URL responds (`/{run}/manifest`).
-4. Test as yourself via the run's "Use as yourself" link. Walk through every page; verify any flagged or `r(...)`-wrapped items behave as expected.
-5. Flip the study's `rendering_mode` to `'v2'` (the "Add Form" button does this automatically when you wire a new Form unit; for an existing Survey unit's study, set the column directly: `UPDATE survey_studies SET rendering_mode='v2' WHERE id=…`).
+1. Run the compatibility scan (survey settings page, or `bin/form_v2_compat_scan.php`).
+2. For every flagged item: rewrite the showif in JS, or move the R into a hidden item's `value` and reference that item from the showif. Re-upload the sheet.
+3. Decide the per-study settings — offline queue, Previous button, layout, language.
+4. If the study uses install or push, configure the run as installable and verify `/{run}/manifest` responds.
+5. Test as yourself via the run's "Use as yourself" link. Walk every page; check flagged items and dynamic values behave as expected.
+6. Click **Upgrade to form_v2** on the survey settings page. Participants mid-form finish on the old engine; new sessions get v2. **Switch back to v1** undoes it at any time.
 
 ## See also
 
-- `documentation/agent_doc/form_v2_layout_modes.md` — design notes for the two layouts (default/scrolling, solo/paged): the step controller, autosave/throttle/bfcache guard, group a11y, per-response layout paradata, spec alignment, and the v1-vs-solo trade-offs.
-- `plan_form_v2.md` — the engineering-side plan: phase status, remaining work, deferred designs.
-- `CLAUDE.md` → "form_v2 development notes" — day-to-day dev gotchas (DOM specificity, BS3↔BS5 coexistence, PHP `$_POST` semantics, etc.).
-- `bin/form_v2_compat_scan.php` — CLI source for the compatibility scanner (`application/Spreadsheet/FormV2CompatScanner.php`).
-- `documentation/example_surveys/` — XLSform fixtures that exercise specific item types or behaviours.
+- `form_v2_upgrade.md` — instance upgrade: migrations 078–092, settings, the backfill step, rollback.
+- `agent_doc/form_v2_layout_modes.md` — the solo layout design.
+- `agent_doc/plan_form_v2.md` — engine design and remaining work (for engineers).
+- `CLAUDE.md` § "form_v2 development notes" — code-level gotchas.
+- `bin/form_v2_compat_scan.php` — CLI scanner.
+- `documentation/example_surveys/form_v2_basic.xlsx` and `documentation/run_components/Form_v2_Basic.json` — a minimal v2 study (JS showif, `rank`, `visual_analog_scale`, `bot_check`) and an importable run using it. The run bundle embeds the study, so importing it in the run editor creates `form_v2_basic` and links the Form unit to it (the sheet is the same study, for uploading by hand). Your own runs export the same way: "Export" with *Include survey items* ticked ships each Form's study, and importing the bundle recreates it — under the current user, reusing a same-named study if one exists.

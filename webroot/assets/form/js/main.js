@@ -88,7 +88,7 @@ function initForm() {
     const progressBar = root.querySelector('[data-fmr-progress-bar]');
     const progressLabel = root.querySelector('[data-fmr-progress-label]');
 
-    // ---- Save indicator (patch 067) --------------------------------------
+    // ---- Save indicator ---------------------------------------------------
     // Surfaces the existing /form-page-submit + /form-sync state to the
     // participant so they know the answers are safely persisted. Not a new
     // data flow; just a visible affordance. aria-live="polite" gives screen
@@ -1855,12 +1855,9 @@ function initForm() {
     initExpiryNotifier();
 
     // Logout-link click handler: wipe the offline queue before navigating.
-    // The SW's fetch handler also wipes (covers cases where the participant
-    // navigates to /<run>/logout from outside the form bundle), but doing
-    // it here too means the wipe is in flight before the browser starts
-    // tearing down the page — useful when there is no SW (queue exists in
-    // IDB regardless of SW availability) or when the SW intercept races
-    // the navigation completion.
+    // This is the only wipe: the service worker's fetch handler is GET-only
+    // and never sees /<run>/logout, so a participant who reaches logout from
+    // outside the form bundle (or uninstalls the PWA) is not covered.
     document.addEventListener('click', (e) => {
         const a = e.target.closest && e.target.closest('a[href]');
         if (!a) return;

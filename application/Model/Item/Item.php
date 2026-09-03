@@ -77,7 +77,7 @@ class Item {
     public $showif = null;
     public $js_showif = null;
     // Cached v1 transpile of `showif`, populated at import time and persisted
-    // in the survey_items.showif_js column (patch 063). When set, the regex
+    // in the survey_items.showif_js column (patch 084). When set, the regex
     // transpile in setMoreOptions is skipped — both for performance (~12 regex
     // passes saved per item per request) and so admin tooling can reason about
     // a stable transpile output. Property name differs from the legacy
@@ -253,7 +253,7 @@ class Item {
 
         if ($this->showif) {
             // Prefer the import-time cached transpile (survey_items.showif_js,
-            // patch 063) when present — saves the dozen-or-so regex passes
+            // patch 084) when present — saves the dozen-or-so regex passes
             // below, and gives admin tooling a stable output to introspect.
             // Falls back to live transpile when the column is null (legacy
             // items pre-patch).
