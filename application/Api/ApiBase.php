@@ -352,12 +352,34 @@ abstract class ApiBase
     }
 
     /**
+     * SQL predicate: `survey_studies`.`id` is placed in one of $runIds.
+     *
+     * A v1 Survey unit shares its id with survey_studies.id, so its
+     * placement is survey_run_units.unit_id itself. A Form unit
+     * (form_v2) has its own survey_units row and names the study in
+     * survey_units.form_study_id (patch 079) — the id-only join missed
+     * those, so restricted clients could neither list nor read a study
+     * that only ran as a Form. Same rule as Run::getAllSurveys.
+     * $runIds are cast to int, so the string is safe to inline.
+     */
+    protected static function placedStudiesSql(array $runIds)
+    {
+        $in = implode(',', array_map('intval', $runIds));
+        return "`survey_studies`.`id` IN (
+            SELECT `survey_run_units`.`unit_id` FROM `survey_run_units`
+             WHERE `survey_run_units`.`run_id` IN ($in)
+            UNION
+            SELECT `survey_units`.`form_study_id` FROM `survey_run_units`
+             INNER JOIN `survey_units` ON `survey_units`.`id` = `survey_run_units`.`unit_id`
+             WHERE `survey_run_units`.`run_id` IN ($in)
+               AND `survey_units`.`form_study_id` IS NOT NULL)";
+    }
+
+    /**
      * True when the calling client is permitted to act on $surveyId.
      * Empty allowlist => unrestricted. Non-empty allowlist => the
-     * survey must appear as a unit in at least one allowlisted run
-     * (survey-type units in formr share their id with
-     * survey_studies.id; see Run::getAllSurveys at
-     * application/Model/Run.php:907 for the same join).
+     * survey must be placed (as a Survey or Form unit) in at least one
+     * allowlisted run; see placedStudiesSql().
      */
     protected function clientMayAccessSurvey($surveyId)
     {
@@ -365,13 +387,13 @@ abstract class ApiBase
         if (empty($allowed)) {
             return true;
         }
-        $placeholders = implode(',', array_fill(0, count($allowed), '?'));
         $stmt = $this->db->prepare(
-            "SELECT 1 FROM survey_run_units
-             WHERE unit_id = ? AND run_id IN ($placeholders)
+            "SELECT 1 FROM `survey_studies`
+             WHERE `survey_studies`.`id` = :id AND " . self::placedStudiesSql($allowed) . "
              LIMIT 1"
         );
-        $stmt->execute(array_merge([(int) $surveyId], $allowed));
+        $stmt->bindValue(':id', (int) $surveyId, PDO::PARAM_INT);
+        $stmt->execute();
         return (bool) $stmt->fetchColumn();
     }
 

@@ -1097,29 +1097,43 @@ class Run extends Model
         return true;
     }
 
+    /**
+     * Every SurveyStudy placed in this run, one row per study
+     * (results_table, name, id). A legacy v1 Survey unit shares its id with
+     * its study (survey_studies.id is an FK onto that survey_units row), so
+     * `survey_studies.id = survey_run_units.unit_id` finds those; a v2 Form
+     * unit has its own survey_units row and points at its study through
+     * survey_units.form_study_id (patch 079), which the study-id match can
+     * never hit — before this join every Form study was invisible here, so
+     * R code in a Branch/Pause/Email after a Form got "object not found",
+     * and run-level export / the API results listing skipped it.
+     */
     public function getAllSurveys()
     {
-        // first, generate a master list of the search set (all the surveys that are part of the run)
-        return $this->db->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
-            ->from('survey_studies')
-            ->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
-            ->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
-            ->where('survey_runs.id = :run_id')
-            ->bindParams(array('run_id' => $this->id))
-            ->fetchAll();
+        return $this->selectRunSurveys('');
     }
 
     public function getAllLinkedSurveys()
     {
-        // first, generate a master list of the search set (all the surveys that are part of the run)
-        return $this->db->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
-            ->from('survey_studies')
-            ->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
-            ->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
-            ->where('survey_runs.id = :run_id')
-            ->where('survey_studies.unlinked = 0')
-            ->bindParams(array('run_id' => $this->id))
-            ->fetchAll();
+        return $this->selectRunSurveys(' AND `survey_studies`.`unlinked` = 0');
+    }
+
+    private function selectRunSurveys($extraWhere)
+    {
+        // Raw SQL: DB_Select's join parser only accepts a single `a = b`
+        // condition, and this join needs the OR.
+        $stmt = $this->db->prepare("SELECT DISTINCT
+                COALESCE(`survey_studies`.`results_table`, `survey_studies`.`name`) AS `results_table`,
+                `survey_studies`.`name`, `survey_studies`.`id`
+            FROM `survey_run_units`
+            LEFT JOIN `survey_units` ON `survey_units`.`id` = `survey_run_units`.`unit_id`
+            INNER JOIN `survey_studies`
+                ON `survey_studies`.`id` = `survey_run_units`.`unit_id`
+                OR `survey_studies`.`id` = `survey_units`.`form_study_id`
+            WHERE `survey_run_units`.`run_id` = :run_id" . $extraWhere);
+        $stmt->bindValue(':run_id', (int) $this->id, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function getData($rstmt = false)

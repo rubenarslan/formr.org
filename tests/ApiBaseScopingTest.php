@@ -40,12 +40,23 @@ class ApiBaseScopingTest extends TestCase
                 position INTEGER
             )
 SQL);
+        self::$pdo->exec('CREATE TABLE IF NOT EXISTS survey_units (id INTEGER PRIMARY KEY, type TEXT, form_study_id INTEGER)');
+        self::$pdo->exec('CREATE TABLE IF NOT EXISTS survey_studies (id INTEGER PRIMARY KEY, name TEXT)');
         self::$pdo->exec('DELETE FROM survey_run_units');
+        self::$pdo->exec('DELETE FROM survey_units');
+        self::$pdo->exec('DELETE FROM survey_studies');
         // run_A has survey 100 and 101; run_B has survey 200.
+        // Unit 400 is a Form unit rendering study 300 in run_B — a
+        // survey_run_units row never carries a Form's study id directly.
         self::$pdo->exec("INSERT INTO survey_run_units (id, run_id, unit_id, position) VALUES
             (1, 1, 100, 10),
             (2, 1, 101, 20),
-            (3, 2, 200, 10)");
+            (3, 2, 200, 10),
+            (5, 2, 400, 20)");
+        self::$pdo->exec("INSERT INTO survey_units (id, type, form_study_id) VALUES
+            (100, 'Survey', NULL), (101, 'Survey', NULL), (200, 'Survey', NULL), (400, 'Form', 300)");
+        self::$pdo->exec("INSERT INTO survey_studies (id, name) VALUES
+            (100, 'a'), (101, 'b'), (200, 'c'), (300, 'form_study')");
     }
 
     /**
@@ -142,9 +153,22 @@ SQL);
 
     public function testSurveyAccessDeniedForOrphanSurvey()
     {
-        $base = $this->makeFixture([1, 2]);
-        // 300 has no survey_run_units row → unreachable through any run
+        $base = $this->makeFixture([1]);
+        // 300 is only reachable through run 2's Form unit → not via run 1
         $this->assertFalse($base->callMayAccessSurvey(300));
+        // 999 has no survey_studies row at all
+        $base = $this->makeFixture([1, 2]);
+        $this->assertFalse($base->callMayAccessSurvey(999));
+    }
+
+    public function testSurveyAccessGrantedThroughFormUnit()
+    {
+        // Study 300 is placed in run 2 only as a Form unit (unit 400,
+        // survey_units.form_study_id = 300); the unit id itself must not
+        // pass as a study.
+        $base = $this->makeFixture([2]);
+        $this->assertTrue($base->callMayAccessSurvey(300));
+        $this->assertFalse($base->callMayAccessSurvey(400));
     }
 
     public function testSurveyAccessGrantedWhenSharedAcrossMultipleAllowlistedRuns()
