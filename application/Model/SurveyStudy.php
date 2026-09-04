@@ -275,7 +275,7 @@ class SurveyStudy extends Model
 
         // Mock SpreadSheetReader to use existing mechanism of creating survey items
         $reader = new SpreadsheetReader();
-        foreach ($data->items as $item) {
+        foreach (array_values((array) $data->items) as $position => $item) {
             if (!empty($item->choices) && !empty($item->choice_list)) {
                 foreach ($item->choices as $name => $label) {
                     $reader->choices[] = array(
@@ -286,7 +286,20 @@ class SurveyStudy extends Model
                 }
                 unset($item->choices);
             }
-            $reader->addSurveyItem((array) $item);
+            $row = (array) $item;
+            // Same default the spreadsheet reader applies per row: an item
+            // without an explicit order sits where it appears in the file.
+            // formr's own JSON export carries item_order, but a hand-written
+            // survey JSON usually doesn't — and with every item_order NULL the
+            // render order (ORDER BY item_order) is whatever the engine
+            // returns, so pages came out scrambled.
+            if (!isset($row['order']) || !is_formr_truthy($row['order'])) {
+                $row['order'] = $position + 1;   // 1-based, like the reader's row numbers
+            }
+            if (!isset($row['item_order']) || !is_formr_truthy($row['item_order'])) {
+                $row['item_order'] = $row['order'];
+            }
+            $reader->addSurveyItem($row);
         }
 
         if ($study->saveUploadedItemsFromReader($reader)) {
