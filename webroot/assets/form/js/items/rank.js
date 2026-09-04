@@ -158,7 +158,12 @@ class RankWidget {
         else if (e.key === 'Home') delta = -rows.indexOf(row);
         else if (e.key === 'End') delta = rows.length - 1 - rows.indexOf(row);
         else return;
+        // The key is ours: mark it handled (preventDefault) AND keep it from
+        // bubbling. The solo controller listens for Arrow keys on `document` to
+        // move between steps — without stopPropagation, reordering a row with
+        // ArrowDown would also advance the page (and submit it on the last step).
         e.preventDefault();
+        e.stopPropagation();
         this.moveRow(row, delta);
         row.focus({ preventScroll: true });
     }

@@ -395,6 +395,70 @@ test.describe('solo-layout: solo mode', () => {
 
 });
 
+test.describe('solo-layout: keyboard guards', () => {
+
+    test('an arrow key a widget already handled does not change the step', async ({ page, baseURL }) => {
+        // Regression: the rank item reorders its rows on ArrowUp/ArrowDown and
+        // calls preventDefault(); the controller's document-level arrow handler
+        // saw the same keystroke and ALSO advanced — on the last step of a page
+        // that submitted it. The controller now ignores `e.defaultPrevented`
+        // (and treats rank rows / ARIA listbox-option-slider / contenteditable
+        // targets as editable), so any widget that consumes the key wins.
+        //
+        // Asserted without a rank fixture, at the rule's own altitude: a step
+        // that marks the keystroke handled must not move, while the SAME
+        // unhandled keystroke on the same step does (the control, so a page
+        // where arrow nav happens to be off can't make this vacuous).
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+
+        const r = await page.evaluate(async () => {
+            const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+            const cur = () => document.querySelector('.fmr-solo-current');
+            const arrowDown = (el, handled) => {
+                const stop = (e) => e.preventDefault();
+                if (handled) el.addEventListener('keydown', stop);
+                el.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+                if (handled) el.removeEventListener('keydown', stop);
+            };
+            const hasNextStep = (g) => {
+                for (let n = g.nextElementSibling; n; n = n.nextElementSibling) {
+                    if (n.classList.contains('form-group') && !n.classList.contains('hidden') && !n.hasAttribute('hidden')) return true;
+                }
+                return false;
+            };
+            for (let i = 0; i < 8; i++) {
+                await sleep(700);
+                const g = cur();
+                if (!g || !hasNextStep(g)) break;
+                // Arrow navigation is deliberately off while the page scrolls.
+                if (document.documentElement.scrollHeight > window.innerHeight + 4) {
+                    const inp = g.querySelector('input:not([type=hidden]):not([disabled]),textarea');
+                    if (inp) { inp.value = inp.value || 'x'; inp.dispatchEvent(new Event('input', { bubbles: true })); }
+                    document.querySelector('.fmr-solo-ok')?.click();
+                    continue;
+                }
+                arrowDown(g, true);
+                await sleep(500);
+                if (cur() !== g) return { found: true, handledMoved: true };
+                arrowDown(g, false);
+                await sleep(500);
+                if (cur() !== g) return { found: true, handledMoved: false };
+                // Arrow nav didn't move this step either (required gate, or a
+                // step whose own control owns the key) — try the next one.
+                const inp = g.querySelector('input:not([type=hidden]):not([disabled]),textarea');
+                if (inp) { inp.value = inp.value || 'x'; inp.dispatchEvent(new Event('input', { bubbles: true })); }
+                document.querySelector('.fmr-solo-ok')?.click();
+            }
+            return { found: false };
+        });
+
+        test.skip(!r.found, 'no step in this fixture where a plain ArrowDown navigates (control absent)');
+        expect(r.handledMoved, 'a keydown already handled by a widget must not advance the solo step').toBe(false);
+    });
+
+});
+
 test.describe('solo-layout: admin round-trip', () => {
 
     test('Layout dropdown persists across reload', async ({ browser }) => {

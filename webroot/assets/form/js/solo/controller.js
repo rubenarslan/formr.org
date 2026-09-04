@@ -27,7 +27,7 @@ import { t } from '../lib/i18n.js';
 const HIDDEN_TYPES = ['hidden', 'get', 'random', 'referrer', 'ip', 'browser', 'calculate', 'server', 'mc_heading'];
 
 export function initSolo(opts) {
-    const { root, pages, getCurrentIndex, showPage, submitPage, validate, allowPrevious } = opts;
+    const { root, pages, getCurrentIndex, showPage, submitPage, validate, canSubmitPage, allowPrevious } = opts;
 
     let current = null;          // the active step element (.form-group)
     let pendingGoLast = false;   // next onPageShown should land on the last step (back-nav)
@@ -382,6 +382,38 @@ export function initSolo(opts) {
             seat(el, dir);
         }
     }
+    // --- minimum exposure time ------------------------------------------------
+    // A submit item with a NEGATIVE `data-timeout` starts its button disabled
+    // and re-enables it after |t| ms (items/auto-submit.js:91-96) — the study
+    // author is holding the participant on the page for a minimum time. Every
+    // path that crosses a page boundary has to honour that, not just a click on
+    // the button itself: solo advances on Enter, ArrowDown, choice auto-advance
+    // and the footer OK, none of which touch the button.
+    //
+    // "May this page be submitted?" is main.js's call — it gates the paged
+    // engine's submit paths from the same selector list (passed in as
+    // `canSubmitPage`, also on window.fmrCanSubmitPage), so the two engines
+    // can't drift apart on which controls count. Solo needs the button
+    // itself as well, to seat the step that owns the countdown, and keeps
+    // its own scan as the fallback for a page rendered without the gate.
+    const SUBMIT_CONTROL_SELECTOR =
+        '.item-submit button, .item-submit input[type=submit], button.submit_automatically_after_timeout, [data-fmr-next]';
+    function blockedSubmitButton(pageEl) {
+        if (!pageEl) return null;
+        const gate = typeof canSubmitPage === 'function' ? canSubmitPage : window.fmrCanSubmitPage;
+        if (typeof gate === 'function' && gate(pageEl)) return null;
+        for (const b of pageEl.querySelectorAll(SUBMIT_CONTROL_SELECTOR)) {
+            if (b.disabled) return b;
+        }
+        return null;
+    }
+    // Keep the participant on this page, seated on the step that owns the
+    // countdown so the fuse bar explains why OK did nothing. A disabled button
+    // is not focusable, so seating its step is the strongest cue available.
+    function showSubmitCountdown(pageEl, btn) {
+        const step = btn.closest && btn.closest('.form-group');
+        if (step && step !== current && steps(pageEl).indexOf(step) !== -1) goTo(step, 'forward');
+    }
     function onContinue(userGesture) {
         if (transitioning || submittingPage) return;
         const pageEl = pages[getCurrentIndex()];
@@ -407,6 +439,9 @@ export function initSolo(opts) {
             if (bad && bad !== current) goTo(bad, 'forward');
             return;
         }
+        // Minimum exposure time not elapsed → don't submit, stay here.
+        const blocker = blockedSubmitButton(pageEl);
+        if (blocker) { showSubmitCountdown(pageEl, blocker); return; }
         // Page boundary → a real submit (POST + OpenCPU resolve). Show a loading
         // cue if it runs longer than a moment, and guard against double-submit.
         submittingPage = true;
@@ -588,6 +623,11 @@ export function initSolo(opts) {
         if (!current || !current.contains(t)) return;
         if (!autoAdvances(current)) return;
         if (isTerminal(current)) return;     // require an explicit Submit at the very end
+        // Answering the last step of a page auto-advances across the page
+        // boundary; don't even arm the timer while a minimum-exposure submit
+        // button is still disabled (onContinue would refuse anyway, but arming
+        // it would leave a stale advance queued behind the participant).
+        if (!nextStep(current) && blockedSubmitButton(pages[getCurrentIndex()])) return;
         clearTimeout(advanceTimer);
         advanceTimer = setTimeout(onContinue, 450);
     });
@@ -616,10 +656,19 @@ export function initSolo(opts) {
     // --- keyboard ------------------------------------------------------------
     // True when the target is a control that consumes the keystroke itself
     // (free text, dropdowns, tom-select) — we must not hijack those.
+    // True when the target is a control that consumes the keystroke itself
+    // (free text, dropdowns, tom-select, rank rows, ARIA composite widgets) —
+    // we must not hijack those. Note `input[type=range]` (VAS / range /
+    // range_ticks sliders) falls out of the INPUT branch below because `range`
+    // is not in the exclusion list: arrows there change the value.
     function isEditableTarget(t) {
         if (!t || !t.tagName) return false;
         if (t.tagName === 'TEXTAREA' || t.tagName === 'SELECT') return true;
-        if (t.closest && t.closest('.ts-wrapper')) return true;
+        // Widgets that own the arrow keys: tom-select's rendered control and its
+        // listbox/option roles, ARIA sliders, rich-text targets, and the rank
+        // item's keyboard-reorderable rows.
+        if (t.closest && t.closest('.ts-wrapper, .fmr-rank, [role="listbox"], [role="option"],'
+            + ' [role="slider"], [role="combobox"], [contenteditable]:not([contenteditable="false"])')) return true;
         return t.tagName === 'INPUT'
             && !['hidden', 'checkbox', 'radio', 'button', 'submit', 'file', 'reset'].includes(t.type);
     }
@@ -637,6 +686,12 @@ export function initSolo(opts) {
         const t = e.target;
         const inScope = t === document.body || (root.contains && root.contains(t));
         if (!inScope || !current) return;
+        // A widget nearer the target already handled this key (rank reordering,
+        // a datepicker, anything that calls preventDefault). This handler runs
+        // last — on `document`, during bubbling — so "already handled" is a
+        // reliable signal, and it's the general rule that keeps us out of every
+        // widget's arrow/Enter semantics without enumerating them.
+        if (e.defaultPrevented) return;
 
         // Enter advances: single-line inputs, choice steps, and statement
         // screens alike. Textareas keep Enter = newline (Ctrl/Cmd+Enter
