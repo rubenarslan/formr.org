@@ -13,6 +13,9 @@ class LongReadTypesTest extends \PHPUnit\Framework\TestCase {
 
     private const STUDY_ID = 300;
     private const SESSION_ID = 7;
+    private const RUN_SESSION_ID = 5;
+    private const WIDE_SESSION_ID = 8;
+    private const WIDE_TABLE = 's300_long_read_test';
 
     /** @var DB */
     private $db;
@@ -24,7 +27,9 @@ class LongReadTypesTest extends \PHPUnit\Framework\TestCase {
         $this->db->exec('CREATE TABLE survey_items (id INTEGER PRIMARY KEY, study_id INTEGER, type TEXT, choice_list TEXT, type_options TEXT, name TEXT, deleted TEXT)');
         $this->db->exec('CREATE TABLE survey_item_choices (id INTEGER PRIMARY KEY, study_id INTEGER, list_name TEXT, name TEXT, label TEXT)');
         $this->db->exec('CREATE TABLE survey_items_display (id INTEGER PRIMARY KEY, session_id INTEGER, item_id INTEGER, answer TEXT, created TEXT, saved TEXT)');
-        $this->db->exec('CREATE TABLE survey_unit_sessions (id INTEGER PRIMARY KEY, run_session_id INTEGER, ended TEXT, study_iteration INTEGER)');
+        // `result` is part of the fixture because the long read derives v1's
+        // completion semantics from it (UnitSession::completedEndedSql).
+        $this->db->exec('CREATE TABLE survey_unit_sessions (id INTEGER PRIMARY KEY, run_session_id INTEGER, ended TEXT, result TEXT, study_iteration INTEGER)');
 
         $s = self::STUDY_ID;
         // A soft-deleted `age` (text) predates the live `age` (number): the
@@ -39,7 +44,7 @@ class LongReadTypesTest extends \PHPUnit\Framework\TestCase {
         $this->db->exec("INSERT INTO survey_item_choices (study_id, list_name, name, label) VALUES
             ($s, 'mood', '1', 'bad'), ($s, 'mood', '2', 'meh'), ($s, 'mood', '3', 'good'),
             ($s, 'pet', 'cat', 'Cat'), ($s, 'pet', 'dog', 'Dog')");
-        $this->db->exec("INSERT INTO survey_unit_sessions (id, run_session_id, ended, study_iteration) VALUES (" . self::SESSION_ID . ", NULL, NULL, NULL)");
+        $this->db->exec("INSERT INTO survey_unit_sessions (id, run_session_id, ended, result, study_iteration) VALUES (" . self::SESSION_ID . ", " . self::RUN_SESSION_ID . ", NULL, NULL, NULL)");
         $sid = self::SESSION_ID;
         $this->db->exec("INSERT INTO survey_items_display (session_id, item_id, answer, created, saved) VALUES
             ($sid, 2, '42',   '2026-02-01 10:00:00', '2026-02-01 10:01:00'),
@@ -55,7 +60,7 @@ class LongReadTypesTest extends \PHPUnit\Framework\TestCase {
 
     private function dropTables(): void {
         $this->db->execute('SELECT 1');
-        foreach (array('survey_items', 'survey_item_choices', 'survey_items_display', 'survey_unit_sessions') as $t) {
+        foreach (array('survey_items', 'survey_item_choices', 'survey_items_display', 'survey_unit_sessions', self::WIDE_TABLE) as $t) {
             $this->db->exec("DROP TABLE IF EXISTS $t");
         }
     }
@@ -92,5 +97,82 @@ class LongReadTypesTest extends \PHPUnit\Framework\TestCase {
         $this->db->exec("UPDATE survey_items_display SET answer = NULL WHERE item_id = 2");
         $cols = $this->longRead(array('age'));
         $this->assertSame(array(null), $cols['age']);
+    }
+
+    /**
+     * Run-scoped read (a real participant's data frame): both halves of the
+     * legacy-session union filter on run_session_id.
+     */
+    private function longReadForRun(array $names, $resultsTable = null, array $wideColumns = null) {
+        $runSession = (new ReflectionClass(RunSession::class))->newInstanceWithoutConstructor();
+        $runSession->boot();
+        $runSession->id = self::RUN_SESSION_ID;
+        // isTestingStudy() asks the run; a real (non-test) run keeps the read
+        // in run scope, which is where the legacy union matters.
+        $run = new ReflectionProperty(RunSession::class, 'run');
+        $run->setAccessible(true);
+        $run->setValue($runSession, new class {
+            public function isStudyTest() {
+                return false;
+            }
+        });
+        $unitSession = new UnitSession($runSession);
+        $unitSession->id = self::SESSION_ID;
+        $m = new ReflectionMethod('UnitSession', 'getSurveyDataLong');
+        $m->setAccessible(true);
+        return $m->invoke($unitSession, self::STUDY_ID, $names, $resultsTable, $wideColumns);
+    }
+
+    public function testOperatorForceMoveIsNotACompletion() {
+        $sid = self::SESSION_ID;
+        // v1 wrote `ended` into the wide row only for real completions;
+        // survey_unit_sessions.ended is stamped for a force-move too, so the
+        // long read has to reconstruct the distinction from `result`.
+        $this->db->exec("UPDATE survey_unit_sessions SET ended = '2026-02-01 10:05:00', result = 'manual_admin_push' WHERE id = $sid");
+        $cols = $this->longRead(array('ended'));
+        $this->assertSame(array(null), $cols['ended'], 'a force-moved session has not ended');
+
+        $this->db->exec("UPDATE survey_unit_sessions SET result = 'survey_ended' WHERE id = $sid");
+        $cols = $this->longRead(array('ended'));
+        $this->assertSame(array('2026-02-01 10:05:00'), $cols['ended'], 'a real completion still ends');
+    }
+
+    public function testLegacyWideOnlySessionsAreNotLost() {
+        // A session imported into the wide table without survey_items_display
+        // rows (bin/import-results.php pre-2026-09, restored backups): the
+        // INNER JOIN of the long read cannot see it, so it used to disappear
+        // from R data frames, results and exports.
+        $w = self::WIDE_TABLE;
+        $this->db->exec("CREATE TABLE $w (session_id INTEGER PRIMARY KEY, study_id INTEGER, created TEXT, modified TEXT, ended TEXT, iteration INTEGER, age INTEGER, comment TEXT)");
+        $this->db->exec("INSERT INTO survey_unit_sessions (id, run_session_id, ended, result, study_iteration) VALUES (" . self::WIDE_SESSION_ID . ", " . self::RUN_SESSION_ID . ", '2025-01-02 09:00:00', 'survey_ended', NULL)");
+        $this->db->exec("INSERT INTO $w (session_id, study_id, created, modified, ended, iteration, age, comment) VALUES (" . self::WIDE_SESSION_ID . ", " . self::STUDY_ID . ", '2025-01-02 08:00:00', '2025-01-02 08:30:00', '2025-01-02 09:00:00', 17, 33, 'imported')");
+
+        $names = array('age', 'comment', 'ended', 'iteration');
+        $wide = array('session_id', 'study_id', 'created', 'modified', 'ended', 'iteration', 'age', 'comment');
+
+        $onlyLong = $this->longReadForRun($names);
+        $this->assertSame(array(42), $onlyLong['age'], 'without the wide table only the live session is read');
+
+        $cols = $this->longReadForRun($names, $w, $wide);
+        // Ordered by unit-session id, i.e. the wide table's PK order.
+        $this->assertSame(array(42, 33), $cols['age'], 'the imported session is unioned back in, typed like the live one');
+        $this->assertSame(array('7', 'imported'), $cols['comment']);
+        $this->assertSame(array(null, '2025-01-02 09:00:00'), $cols['ended']);
+        $this->assertSame(array(1, 17), $cols['iteration'], 'the wide row keeps its own iteration');
+        $this->assertArrayNotHasKey('formr_sid__', $cols, 'the ordering helper never reaches the data frame');
+    }
+
+    public function testAWideRowIsNotDoubleCountedWhenDisplayRowsExist() {
+        $w = self::WIDE_TABLE;
+        $this->db->exec("CREATE TABLE $w (session_id INTEGER PRIMARY KEY, study_id INTEGER, created TEXT, modified TEXT, ended TEXT, iteration INTEGER, age INTEGER, comment TEXT)");
+        // The live session's dual-written wide row: it has display rows, so the
+        // long half serves it and the union must not add it a second time.
+        $this->db->exec("INSERT INTO $w (session_id, study_id, created, modified, ended, iteration, age, comment) VALUES (" . self::SESSION_ID . ", " . self::STUDY_ID . ", '2026-02-01 10:00:00', '2026-02-01 10:01:00', NULL, 1, 42, '7')");
+
+        $cols = $this->longReadForRun(
+            array('age'), $w,
+            array('session_id', 'study_id', 'created', 'modified', 'ended', 'iteration', 'age', 'comment')
+        );
+        $this->assertSame(array(42), $cols['age']);
     }
 }

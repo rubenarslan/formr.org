@@ -17,6 +17,37 @@ class UnitSession extends Model {
     public $ended;
     public $expired;
     public $state; // ENUM (PENDING, RUNNING, WAITING_USER, WAITING_TIMER, ENDED, EXPIRED, SUPERSEDED)
+
+    /**
+     * `result` values end() records when an OPERATOR ended a Survey/Form
+     * unit session (`$completes = false`: RunSession::forceTo writes
+     * 'manual_admin_push', RunSession::forceMoveOn defaults to 'moved').
+     * The v1.8.0 "force-move is not a completion" rule leaves the wide
+     * results row's `ended` NULL for these while survey_unit_sessions.ended
+     * is still stamped — so the long read (survey_items_display +
+     * survey_unit_sessions) has to reconstruct that distinction from
+     * `result`, via completedEndedSql(). Keep this list in step with every
+     * `end($reason, false)` call site.
+     */
+    const OPERATOR_END_RESULTS = array('manual_admin_push', 'moved');
+
+    /**
+     * SQL expression for a unit session's `ended` with v1 completion
+     * semantics: NULL unless the participant (or the queue / expiry) ended
+     * the survey. `!is.na(survey$ended)` in R and the admin "complete"
+     * filter are TRUE only for real completions, exactly as the wide
+     * results row's `ended` is.
+     *
+     * @param string $alias survey_unit_sessions alias in the query
+     * @return string
+     */
+    public static function completedEndedSql($alias = 'us') {
+        $in = implode(', ', array_map(function ($r) {
+            return "'" . str_replace("'", "''", $r) . "'";
+        }, self::OPERATOR_END_RESULTS));
+        return "CASE WHEN `{$alias}`.`result` IN ({$in}) THEN NULL ELSE `{$alias}`.`ended` END";
+    }
+
     /**
      * The `result` this request's logResult() wrote, or null if this request
      * logged nothing. NOT a column — load() hydrates `result`/`result_log`
@@ -584,18 +615,10 @@ class UnitSession extends Model {
             if (($unit->type == "Survey" || $unit->type == "Form") && $completes && Config::get('form_v2_dual_write_results', true)) {
                 $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
                 $params = array('session_id' => $this->id, 'study_id' => $unit->surveyStudy->id);
-                $ended_now = $this->db->exec($query, $params);
-
-                // Write-time hook: this UPDATE flips ended NULL→now exactly once
-                // (the `ended IS null` guard), so a non-zero row count is a real
-                // completion. Feed the study rollup (counts + geometric-mean
-                // duration, audit SQ-10/SQ-11). Self-guarded — best-effort.
-                if ($ended_now) {
-                    StudyMetrics::recordCompletion(
-                        (int) $unit->surveyStudy->id, $this->runSession->testing ?? null,
-                        $unit->surveyStudy->results_table, (int) $this->id
-                    );
-                }
+                $this->db->exec($query, $params);
+                // The completion rollup (StudyMetrics::recordCompletion) is fed
+                // below, after the survey_unit_sessions UPDATE, so it also runs
+                // with dual-write off (F5) — it no longer depends on the wide row.
             }
             // Honour an explicit reason from the caller (e.g. the queue's
             // run-session-ended branch passes 'ended_by_queue_rse').
@@ -605,6 +628,21 @@ class UnitSession extends Model {
             // Form deliberately shares "survey_ended" (see the comment above);
             // only External diverges.
             $this->resolveEndResult($reason, $unit->type == "External" ? "external_ended" : "survey_ended");
+
+            // F4: with long reads the wide `ended` column no longer exists to
+            // consult, so completedEndedSql() reconstructs "was this a real
+            // completion?" from `result`: operator results (OPERATOR_END_RESULTS)
+            // read as NULL ended. That only holds if every !$completes caller
+            // records one of those results. A new operator path with a fresh
+            // reason would silently count as a completion in R / exports —
+            // make that loud rather than let it drift.
+            if (!$completes && ($unit->type == "Survey" || $unit->type == "Form")
+                    && !in_array($this->result, self::OPERATOR_END_RESULTS, true)) {
+                formr_log(sprintf(
+                    'UnitSession::end(): session %d ended with completes=false but result "%s" is not in OPERATOR_END_RESULTS (%s); long reads will treat it as a completion. Add the result to UnitSession::OPERATOR_END_RESULTS.',
+                    (int) $this->id, (string) $this->result, implode(', ', self::OPERATOR_END_RESULTS)
+                ), 'WARNING');
+            }
         } else {
             if ($unit->type == "Pause") {
                 $default = "pause_ended";
@@ -643,6 +681,19 @@ class UnitSession extends Model {
                     'state'      => UnitSessionQueue::STATE_ENDED,
                 ]
         );
+
+        // Write-time hook (F5): the UPDATE above flips survey_unit_sessions.ended
+        // NULL→now exactly once (the `ended IS NULL` guard), so $ended === 1 is a
+        // real, first-time completion of a Survey/Form when $completes is true
+        // (operator force-moves pass false and are not completions, audit X1).
+        // Lives outside the form_v2_dual_write_results gate: the rollup
+        // (counts + geometric-mean duration, audit SQ-10/SQ-11) must keep being
+        // fed when the wide table is no longer written. Self-guarded.
+        if ($ended === 1 && $completes && ($unit->type == "Survey" || $unit->type == "Form")) {
+            StudyMetrics::recordCompletion(
+                (int) $unit->surveyStudy->id, $this->runSession->testing ?? null, (int) $this->id
+            );
+        }
 
         return $ended === 1;
     }
@@ -752,12 +803,36 @@ class UnitSession extends Model {
         return $log;
     }
 
+    /**
+     * Does this session already have a survey_items_display row for every
+     * LIVE item of the study?
+     *
+     * Both counts use the same predicate as SurveyStudy::getOrderedItemsIds
+     * (`deleted IS NULL`, patch 090). Counting every survey_items row on one
+     * side and every display row on the other made the two disagree forever
+     * after any soft-delete — a deleted item still has its survey_items row
+     * (so it was counted as an item) and its display rows survive (so an
+     * older session counted it too, a newer one didn't) — and
+     * createSurveyStudyRecord then re-ran the ordering on every request,
+     * re-shuffling randomised blocks mid-session.
+     *
+     * Display rows are counted through survey_items so rows belonging to a
+     * since-deleted item are excluded on that side as well; otherwise an
+     * old session (10 rows, one item since deleted) would never match the 9
+     * live items.
+     */
     protected function hasOrderedStudyItems() {
         /** @var SurveyStudy $study */
         $study = $this->runUnit->surveyStudy;
 
-        $nr_items = $this->db->count('survey_items', array('study_id' => $study->id), 'id');
-        $nr_display_items = $this->db->count('survey_items_display', array('session_id' => $this->id), 'id');
+        $nr_items = (int) $this->db->count('survey_items', '`study_id` = ' . (int) $study->id . ' AND `deleted` IS NULL', 'id');
+        $nr_display_items = (int) $this->db->execute(
+            'SELECT COUNT(*) FROM `survey_items_display` `sid`
+             INNER JOIN `survey_items` `i` ON `i`.`id` = `sid`.`item_id`
+             WHERE `sid`.`session_id` = :session_id AND `i`.`study_id` = :study_id AND `i`.`deleted` IS NULL',
+            array('session_id' => $this->id, 'study_id' => $study->id),
+            true
+        );
 
         return $nr_display_items === $nr_items;
     }
@@ -821,8 +896,30 @@ class UnitSession extends Model {
             'study_iteration'
         );
 
+        // Legacy-host guard (F2): wide tables created before 2024-07 (commit
+        // 89383543) have no `iteration` column. SurveyStudy owns the probe
+        // (cached per request) so every writer below asks the same question
+        // once instead of guessing from an error message.
+        $wideHasIteration = $dualWrite && $study->resultsTableHasIteration();
+
         $sessionStarted = false;
         if (!$alreadyAllocated) {
+            // Lazy seed (F2): survey_studies.last_iteration (patch 086) starts at
+            // 0 on hosts that pre-date the allocator, while the wide table's
+            // AUTO_INCREMENT `iteration` may already be in the thousands. Seed
+            // the counter from MAX(wide.iteration) exactly once, on the first
+            // allocation, so allocated values never collide with historic rows.
+            // Guarded by `last_iteration = 0` in the WHERE so a concurrent first
+            // allocation can't double-seed; a table without the column has no
+            // history to seed from.
+            if ($wideHasIteration && (int) $study->last_iteration === 0) {
+                $this->db->exec(
+                    "UPDATE `survey_studies`
+                     SET `last_iteration` = (SELECT COALESCE(MAX(`iteration`), 0) FROM `{$study->results_table}`)
+                     WHERE `id` = :id AND `last_iteration` = 0",
+                    array('id' => $study->id)
+                );
+            }
             $iteration = $this->allocateStudyIteration($study->id);
             // Stamp the layout mode this response is collected under (paradata
             // for measurement equivalence; patch 089). Captured at first render
@@ -848,12 +945,16 @@ class UnitSession extends Model {
                 // with survey_unit_sessions.study_iteration. The wide
                 // table's AUTO_INCREMENT bumps its internal counter to
                 // our value if higher, leaving subsequent inserts
-                // consistent.
-                $entry['iteration'] = $iteration;
+                // consistent. Legacy wide tables without the column (F2) get
+                // the row without it; survey_unit_sessions.study_iteration is
+                // then the only iteration and the long path reads it there.
+                if ($wideHasIteration) {
+                    $entry['iteration'] = $iteration;
+                }
                 try {
                     $this->db->insert($study->results_table, $entry);
                 } catch (Exception $e) {
-                    if (strpos($e->getMessage(), "for key 'iteration'") === false) {
+                    if (!$wideHasIteration || strpos($e->getMessage(), "for key 'iteration'") === false) {
                         throw $e;
                     }
                     // survey_studies.last_iteration lags the wide table:
@@ -917,7 +1018,17 @@ class UnitSession extends Model {
             $values = '';
             $valuesCount = 0;
             $valuesMax = 60;
-            $sql_tpl = "INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`, `page`, `created`)  VALUES %s ON DUPLICATE KEY UPDATE `display_order` = VALUES(`display_order`), `page` = VALUES(`page`)";
+            // Insert-missing-only (F1). The UNIQUE key `session_item_views`
+            // (session_id, item_id) makes the ON DUPLICATE KEY clause fire for
+            // rows that already exist; historically it overwrote display_order
+            // and page with the freshly computed ordering. Because
+            // getOrderedItemsIds() randomises blocks and breaks ties at random,
+            // every re-run re-shuffled the already-shown items of a session.
+            // The self-assignment is a documented MySQL/MariaDB no-op that keeps
+            // the statement a single upsert (no per-row existence probe) while
+            // leaving existing rows' order and page untouched. An item added to
+            // a study mid-session therefore only gets its own row appended.
+            $sql_tpl = "INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`, `page`, `created`)  VALUES %s ON DUPLICATE KEY UPDATE `display_order` = `display_order`";
             $lastId = end($item_ids);
 
             foreach ($item_ids as $display_order => $item_id) {
@@ -1190,9 +1301,16 @@ class UnitSession extends Model {
             if (is_numeric($study_id)
                     && !in_array($results_table, get_db_non_session_tables())
                     && Config::get('form_v2_long_reads', true)) {
+                // The wide table and its columns come along so sessions that
+                // pre-date survey_items_display (v1 imports, restored backups)
+                // are UNION ALL-ed back in rather than vanishing from the
+                // INNER JOIN; [] when the table is gone, which turns the union
+                // off. One cached SHOW COLUMNS per table per request.
                 $datasets['datasets'][$survey_name] = $this->getSurveyDataLong(
                     (int) $study_id,
-                    isset($matches_variable_names[$survey_name]) ? $matches_variable_names[$survey_name] : array()
+                    isset($matches_variable_names[$survey_name]) ? $matches_variable_names[$survey_name] : array(),
+                    $results_table,
+                    SurveyStudy::wideTableColumns($results_table)
                 );
                 continue;
             }
@@ -1393,32 +1511,67 @@ class UnitSession extends Model {
      * ordered by unit-session id ASC (the wide table's PK order, which
      * tail(survey, 1) depends on).
      *
+     * `ended` (F4): the wide column was only stamped by real completions —
+     * UnitSession::end($reason, $completes = false), the operator force-move
+     * path, leaves it NULL while it does stamp survey_unit_sessions.ended.
+     * So the long read must not hand back us.ended verbatim; it uses
+     * completedEndedSql(), which yields NULL when `result` records an
+     * operator end. R's `!is.na(survey$ended)` therefore keeps meaning "the
+     * participant finished", as in v1.
+     *
+     * Legacy wide-only sessions (F3): rows written before survey_items_display
+     * carried every answer (pre-2019 imports, bin/import-results.php without
+     * --include-itemsdisplay, hand-restored backups) have a wide row but no
+     * display rows and would vanish from the INNER JOIN. When the caller
+     * passes the study's wide table and its column list, those sessions are
+     * UNION ALL-ed in from the wide table (only sessions with NO display rows,
+     * so nothing is double-counted; a session with display rows is always
+     * served from the long side). The wide half reads `ended` straight from
+     * the wide column, which is v1 semantics by construction. The union is
+     * chosen over a whole-table fallback so mixed studies (a v1 import plus
+     * live v2 sessions) return one consistent data frame.
+     *
      * @param int $studyId
      * @param string[] $names referenced variable names (meta + item names)
+     * @param string|null $resultsTable wide table to union legacy sessions from (null: long only)
+     * @param string[]|null $wideColumns its column names (SurveyStudy::wideTableColumns); empty/null: long only
      * @return array<string, array> column-arrays: [var => [v1, v2, ...]]
      */
-    protected function getSurveyDataLong($studyId, array $names) {
-        $selectParts = array();
+    protected function getSurveyDataLong($studyId, array $names, $resultsTable = null, array $wideColumns = null) {
+        $useWide = $resultsTable !== null && $resultsTable !== '' && !empty($wideColumns);
+        $wideHasIteration = $useWide && in_array('iteration', $wideColumns, true);
+
+        $selectParts = $wideParts = array();
         foreach ($names as $name) {
+            $safe = str_replace('`', '``', $name);
             switch ($name) {
                 case 'created':
                     $selectParts[$name] = 'MIN(`sid`.`created`) AS `created`';
+                    $wideParts[$name] = '`w`.`created` AS `created`';
                     break;
                 case 'modified':
                     $selectParts[$name] = 'MAX(`sid`.`saved`) AS `modified`';
+                    $wideParts[$name] = '`w`.`modified` AS `modified`';
                     break;
                 case 'ended':
-                    $selectParts[$name] = '`us`.`ended` AS `ended`';
+                    $selectParts[$name] = self::completedEndedSql('us') . ' AS `ended`';
+                    $wideParts[$name] = '`w`.`ended` AS `ended`';
                     break;
                 case 'iteration':
                     $selectParts[$name] = 'COALESCE(`us`.`study_iteration`, ROW_NUMBER() OVER (ORDER BY `us`.`id` ASC)) AS `iteration`';
+                    $wideParts[$name] = $wideHasIteration
+                        ? 'COALESCE(`us`.`study_iteration`, `w`.`iteration`) AS `iteration`'
+                        : 'COALESCE(`us`.`study_iteration`, ROW_NUMBER() OVER (ORDER BY `us`.`id` ASC)) AS `iteration`';
                     break;
                 default:
                     // Item names are validated as identifiers at upload;
                     // escape defensively anyway.
-                    $safe = str_replace('`', '``', $name);
                     $quoted = str_replace("'", "''", $name);
                     $selectParts[$name] = "MAX(CASE WHEN `i`.`name` = '{$quoted}' THEN `sid`.`answer` END) AS `{$safe}`";
+                    // A soft-deleted item's wide column is dropped; NULL then.
+                    $wideParts[$name] = ($useWide && in_array($name, $wideColumns, true))
+                        ? "`w`.`{$safe}` AS `{$safe}`"
+                        : "NULL AS `{$safe}`";
             }
         }
         if (!$selectParts) {
@@ -1426,6 +1579,7 @@ class UnitSession extends Model {
             // the row COUNT still matters, so emit one dummy row per session
             // exactly like the wide read's "NULL AS formr_dummy".
             $selectParts[] = 'NULL AS `formr_dummy`';
+            $wideParts[] = 'NULL AS `formr_dummy`';
         }
 
         $runSession = $this->runSession;
@@ -1434,20 +1588,46 @@ class UnitSession extends Model {
             ? '`sid`.`session_id` = :session_id'
             : '`us`.`run_session_id` = :run_session_id';
 
-        $sql = 'SELECT ' . implode(', ', $selectParts) . '
+        $longSql = 'SELECT ' . implode(', ', $selectParts) . ', `us`.`id` AS `formr_sid__`
             FROM `survey_items_display` `sid`
             INNER JOIN `survey_items` `i` ON `i`.`id` = `sid`.`item_id` AND `i`.`study_id` = :study_id
             INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `sid`.`session_id`
             WHERE ' . $where . '
-            GROUP BY `us`.`id`, `us`.`ended`, `us`.`study_iteration`
-            ORDER BY `us`.`id` ASC';
+            GROUP BY `us`.`id`, `us`.`ended`, `us`.`result`, `us`.`study_iteration`';
+
+        if ($useWide) {
+            // Distinct placeholder names: the DB layer uses non-emulated
+            // prepares, which forbid binding one name twice.
+            $wideWhere = $testingScope
+                ? '`w`.`session_id` = :session_id_w'
+                : '`us`.`run_session_id` = :run_session_id_w';
+            $wideTable = str_replace('`', '``', $resultsTable);
+            $wideSql = 'SELECT ' . implode(', ', $wideParts) . ', `us`.`id` AS `formr_sid__`
+                FROM `' . $wideTable . '` `w`
+                INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `w`.`session_id`
+                WHERE ' . $wideWhere . '
+                  AND NOT EXISTS (SELECT 1 FROM `survey_items_display` `sid2` WHERE `sid2`.`session_id` = `w`.`session_id`)';
+            // Halves are unparenthesised (SQLite rejects parenthesised
+            // compound members); neither carries ORDER BY, so that is legal
+            // on MariaDB too. The outer ORDER BY on the hidden id column
+            // restores the wide PK order across both halves.
+            $sql = 'SELECT * FROM (' . $longSql . ' UNION ALL ' . $wideSql . ') `u` ORDER BY `u`.`formr_sid__` ASC';
+        } else {
+            $sql = $longSql . ' ORDER BY `us`.`id` ASC';
+        }
 
         $stmt = $this->db->prepare($sql);
         $stmt->bindValue(':study_id', (int) $studyId, PDO::PARAM_INT);
         if ($testingScope) {
             $stmt->bindValue(':session_id', $this->id);
+            if ($useWide) {
+                $stmt->bindValue(':session_id_w', $this->id);
+            }
         } else {
             $stmt->bindValue(':run_session_id', $runSession->id);
+            if ($useWide) {
+                $stmt->bindValue(':run_session_id_w', $runSession->id);
+            }
         }
         $stmt->execute();
 
@@ -1467,6 +1647,9 @@ class UnitSession extends Model {
 
         $columns = array();
         while ($res = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            // Ordering helper only (it restores the wide PK order across the
+            // union's two halves) — never a variable of the data frame.
+            unset($res['formr_sid__']);
             foreach ($res as $var => $val) {
                 if (!isset($columns[$var])) {
                     $columns[$var] = array();
@@ -1500,6 +1683,17 @@ class UnitSession extends Model {
             return array();
         }
 
+        // Per-request memo (F7). getRunData is called once per unit render but
+        // asks per study, and a run's R code routinely references the same
+        // study from several units; each miss costs two queries plus an
+        // ItemFactory build of every referenced item. Item definitions change
+        // only through an upload, which is a different request.
+        sort($itemNames);
+        $cacheKey = ((int) $studyId) . ':' . implode(',', $itemNames);
+        if (isset(self::$longReadCastsCache[$cacheKey])) {
+            return self::$longReadCastsCache[$cacheKey];
+        }
+
         $rows = $this->db->select('id, study_id, type, choice_list, type_options, name, deleted')
             ->from('survey_items')
             ->where(array('study_id' => (int) $studyId))
@@ -1508,7 +1702,7 @@ class UnitSession extends Model {
             ->order('id', 'DESC')
             ->fetchAll();
         if (!$rows) {
-            return array();
+            return self::$longReadCastsCache[$cacheKey] = array();
         }
 
         $choiceLists = array();
@@ -1539,8 +1733,16 @@ class UnitSession extends Model {
                 $casts[$row['name']] = 'float';
             }
         }
-        return $casts;
+        return self::$longReadCastsCache[$cacheKey] = $casts;
     }
+
+    /**
+     * [study id + referenced names => casts], see getLongReadCasts (F7).
+     * Request-scoped: an upload that changes item types is another request.
+     *
+     * @var array<string, array<string, string>>
+     */
+    private static $longReadCastsCache = array();
 
     protected function getRunDataNeeded($q, $token_add = null) {
         $matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();
@@ -1607,10 +1809,13 @@ class UnitSession extends Model {
                 $items = $items->fetchAll();
 
                 $variable_names_in_table[$table_name] = array("created", "modified", "ended"); // should avoid modified, sucks for caching
+                // `iteration` (F2): the long read always serves it (from
+                // survey_unit_sessions.study_iteration), the wide read only
+                // when the legacy table actually has the column. One cached
+                // SHOW COLUMNS per table per request via SurveyStudy.
                 $res_table = $results_tables[$table_name];
-                $has_iter = $this->db->prepare("DESCRIBE `$res_table` `iteration`");
-                $has_iter->execute();
-                if($has_iter->fetch(PDO::FETCH_ASSOC) !== false) {
+                if (Config::get('form_v2_long_reads', true)
+                        || in_array('iteration', SurveyStudy::wideTableColumns($res_table), true)) {
                     $variable_names_in_table[$table_name][] = "iteration";
                 }
         

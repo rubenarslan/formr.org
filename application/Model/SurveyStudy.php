@@ -457,6 +457,62 @@ class SurveyStudy extends Model
         return $this->db->table_exists($this->results_table);
     }
 
+    /**
+     * Per-request cache of a wide results table's column names, keyed by
+     * table name. [] when the table does not exist. Static because the same
+     * study is routinely instantiated several times per request (RunUnit,
+     * UnitSession::getRunData, the API); one SHOW COLUMNS per table per
+     * request is enough.
+     *
+     * @var array<string, string[]>
+     */
+    private static $wideColumnsCache = [];
+
+    /**
+     * Column names of a wide results table (F2/F3). The single probe every
+     * wide-table writer/reader goes through: which item columns exist, and
+     * whether the legacy table pre-dates the `iteration` column.
+     *
+     * @param string $resultsTable
+     * @return string[] empty when the table is missing
+     */
+    public static function wideTableColumns($resultsTable)
+    {
+        $resultsTable = (string) $resultsTable;
+        if ($resultsTable === '') {
+            return [];
+        }
+        if (!array_key_exists($resultsTable, self::$wideColumnsCache)) {
+            // getTableDefinition($t, 'Field') keys the SHOW COLUMNS rows by name.
+            $cols = DB::getInstance()->getTableDefinition($resultsTable, 'Field');
+            self::$wideColumnsCache[$resultsTable] = is_array($cols) ? array_map('strval', array_keys($cols)) : [];
+        }
+        return self::$wideColumnsCache[$resultsTable];
+    }
+
+    /** Drop the cached column list for a table after DDL on it. */
+    public static function forgetWideTableColumns($resultsTable)
+    {
+        unset(self::$wideColumnsCache[(string) $resultsTable]);
+    }
+
+    /**
+     * Whether this study's wide table carries the `iteration` column (F2).
+     * Wide tables created before commit 89383543 (2024-07) lack it; writers
+     * must then omit `iteration` and readers must take it from
+     * survey_unit_sessions.study_iteration instead. False when no wide table
+     * exists (long-only mode).
+     *
+     * @return bool
+     */
+    public function resultsTableHasIteration()
+    {
+        if (!$this->results_table) {
+            return false;
+        }
+        return in_array('iteration', self::wideTableColumns($this->results_table), true);
+    }
+
     protected function toArray()
     {
         return [
@@ -877,6 +933,9 @@ class SurveyStudy extends Model
 
     private function createResultsTable($syntax)
     {
+        // The column probe cache is keyed by table name; a (re)create changes
+        // the answer for this name within the same request.
+        self::forgetWideTableColumns($this->results_table);
         // 1. Attempt to drop the table if allowed
         if ($this->deleteResults()) {
             $drop = $this->db->query("DROP TABLE IF EXISTS `{$this->results_table}` ;");
@@ -1207,8 +1266,21 @@ class SurveyStudy extends Model
         // gap once it's run.
         $iterationExpr = "COALESCE(`us`.`study_iteration`, ROW_NUMBER() OVER (ORDER BY `us`.`id` ASC))";
 
+        // `ended` (F4): survey_unit_sessions.ended is stamped when an OPERATOR
+        // force-moves someone out of a survey too, while the wide column it
+        // replaces deliberately stayed NULL there (the v1.8.0 "a force-move is
+        // not a completion" rule). completedEndedSql() folds that rule back in
+        // from `result`, so the exported `ended`, the complete/incomplete
+        // filter and R's !is.na(survey$ended) keep meaning what they did in v1.
+        $endedExpr = UnitSession::completedEndedSql('us');
+
         if ($unlinked) {
-            $selectParts = $pivotCols;
+            // A study with no scorable items — notes only, or every answer item
+            // soft-deleted (patch 090) — would otherwise build `SELECT  FROM`
+            // and die with a 1064 on the Results page. One dummy column keeps
+            // the statement valid and still reports the row count, which is all
+            // an unlinked view of such a study can say.
+            $selectParts = $pivotCols ? $pivotCols : array('NULL AS `formr_dummy`');
         } else {
             $selectParts = array_merge(array(
                 "`rs`.`session` AS `session`",
@@ -1216,7 +1288,7 @@ class SurveyStudy extends Model
                 "$iterationExpr AS `iteration`",
                 "MIN(`sid`.`created`) AS `created`",
                 "MAX(`sid`.`saved`) AS `modified`",
-                "`us`.`ended` AS `ended`",
+                "$endedExpr AS `ended`",
                 "`us`.`expired` AS `expired`",
             ), $pivotCols);
         }
@@ -1258,9 +1330,9 @@ class SurveyStudy extends Model
         //                lands in HAVING.
         $having = '';
         if (!empty($filter['results']) && $filter['results'] === 'complete') {
-            $wheres[] = '`us`.`ended` IS NOT NULL';
+            $wheres[] = $endedExpr . ' IS NOT NULL';
         } elseif (!empty($filter['results']) && $filter['results'] === 'incomplete') {
-            $having = "\n        HAVING (MIN(`sid`.`created`) <> MAX(`sid`.`saved`) OR MAX(`sid`.`saved`) IS NULL) AND `us`.`ended` IS NULL";
+            $having = "\n        HAVING (MIN(`sid`.`created`) <> MAX(`sid`.`saved`) OR MAX(`sid`.`saved`) IS NULL) AND {$endedExpr} IS NULL";
         }
 
         $sql .= "\n        WHERE " . implode(' AND ', $wheres);
@@ -1268,7 +1340,8 @@ class SurveyStudy extends Model
         // study_iteration is functionally dependent on us.id (PK), but
         // ONLY_FULL_GROUP_BY can't always prove that across the LEFT
         // JOIN, so list it explicitly.
-        $groupCols = array('`us`.`id`', '`us`.`study_iteration`', '`rs`.`session`', '`us`.`ended`', '`us`.`expired`');
+        // `us`.`result` joins the list because $endedExpr reads it.
+        $groupCols = array('`us`.`id`', '`us`.`study_iteration`', '`rs`.`session`', '`us`.`ended`', '`us`.`result`', '`us`.`expired`');
         $sql .= "\n        GROUP BY " . implode(', ', $groupCols);
         $sql .= $having;
 
@@ -1281,7 +1354,7 @@ class SurveyStudy extends Model
                 'iteration' => '`us`.`id`',
                 'created' => 'MIN(`sid`.`created`)',
                 'modified' => 'MAX(`sid`.`saved`)',
-                'ended' => '`us`.`ended`',
+                'ended' => $endedExpr,
                 'session' => '`rs`.`session`',
             );
             $orderByKey = isset($paginate['order_by']) ? $paginate['order_by'] : 'session_id';
@@ -1643,16 +1716,19 @@ class SurveyStudy extends Model
                 $bindings[':session_like'] = $session . '%';
             }
         }
-        // Canonical results filters, long semantics (see buildPivotSql).
+        // Canonical results filters, long semantics (see buildPivotSql) —
+        // including the same operator-force-move rule for `ended` (F4), so the
+        // counts above the results table agree with the rows in it.
+        $endedExpr = UnitSession::completedEndedSql('us');
         if (!empty($filter['results']) && $filter['results'] === 'complete') {
-            $wheres[] = '`us`.`ended` IS NOT NULL';
+            $wheres[] = $endedExpr . ' IS NOT NULL';
         } elseif (!empty($filter['results']) && $filter['results'] === 'incomplete') {
-            $wheres[] = '(`t`.`first_created` <> `t`.`last_saved` OR `t`.`last_saved` IS NULL) AND `us`.`ended` IS NULL';
+            $wheres[] = '(`t`.`first_created` <> `t`.`last_saved` OR `t`.`last_saved` IS NULL) AND ' . $endedExpr . ' IS NULL';
         }
 
         $sql = 'SELECT
-            SUM(`rs`.`testing` IS NOT NULL AND `rs`.`testing` = 0 AND `us`.`ended` IS NULL) AS `begun`,
-            SUM(`rs`.`testing` IS NOT NULL AND `rs`.`testing` = 0 AND `us`.`ended` IS NOT NULL) AS `finished`,
+            SUM(`rs`.`testing` IS NOT NULL AND `rs`.`testing` = 0 AND ' . $endedExpr . ' IS NULL) AS `begun`,
+            SUM(`rs`.`testing` IS NOT NULL AND `rs`.`testing` = 0 AND ' . $endedExpr . ' IS NOT NULL) AS `finished`,
             SUM(`rs`.`testing` IS NULL OR `rs`.`testing` = 1) AS `testers`,
             SUM(`rs`.`testing` IS NOT NULL AND `rs`.`testing` = 0) AS `real_users`
         FROM (
@@ -1758,6 +1834,18 @@ class SurveyStudy extends Model
         // just for safety checking that there is something to be deleted (in case of aborted earlier tries)
         $existingColumns = $this->db->getTableDefinition($this->results_table, 'Field');
 
+        // Legacy-host heal (F2): a wide table created before 2024-07 has no
+        // `iteration` column. Add it here, on the one code path that already
+        // ALTERs this table (a re-upload by the study owner), rather than at
+        // request time for a participant. Same definition as
+        // getResultsTableSyntax(); AUTO_INCREMENT backfills existing rows in
+        // session_id order. Idempotent via IF NOT EXISTS.
+        if ($existingColumns && !isset($existingColumns['iteration'])) {
+            $this->db->query("ALTER TABLE `{$this->results_table}` ADD COLUMN IF NOT EXISTS `iteration` INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE");
+            $actions[] = "Added the missing `iteration` column.";
+            self::forgetWideTableColumns($this->results_table);
+        }
+
         // Create query to drop items in existing table
         foreach ($deleteItems as $name => $result_field) {
             if ($result_field !== null && isset($existingColumns[$name])) {
@@ -1793,6 +1881,7 @@ class SurveyStudy extends Model
         }
 
         if (!empty($actions)) {
+            self::forgetWideTableColumns($this->results_table);
             $this->messages[] = "<strong>The results table was modified.</strong>";
             $this->messages = array_merge($this->messages, $actions);
         } else {

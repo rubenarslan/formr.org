@@ -23,6 +23,9 @@ use PHPUnit\Framework\TestCase;
  *    the WHERE clause; do not interpolate.
  *  - Pagination order_by is allowlisted; unknown keys silently fall
  *    back to session_id (no SQL-injection sink).
+ *  - `ended` carries v1 completion semantics: an operator force-move
+ *    (UnitSession::OPERATOR_END_RESULTS) reads as NULL.
+ *  - A study with no scorable items still produces valid SQL.
  */
 class SurveyStudyPivotSqlTest extends TestCase
 {
@@ -51,7 +54,12 @@ class SurveyStudyPivotSqlTest extends TestCase
         $this->assertStringContainsString('`us`.`id` AS `session_id`', $sql);
         $this->assertStringContainsString("MIN(`sid`.`created`) AS `created`", $sql);
         $this->assertStringContainsString("MAX(`sid`.`saved`) AS `modified`", $sql);
-        $this->assertStringContainsString("`us`.`ended` AS `ended`", $sql);
+        // `ended` is not the raw column: an operator force-move stamps
+        // survey_unit_sessions.ended but is not a completion (F4).
+        $this->assertStringContainsString(
+            UnitSession::completedEndedSql('us') . " AS `ended`",
+            $sql
+        );
         $this->assertStringContainsString("`us`.`expired` AS `expired`", $sql);
 
         $this->assertStringContainsString(
@@ -217,5 +225,55 @@ class SurveyStudyPivotSqlTest extends TestCase
             '/GROUP BY[^;]*`us`\.`study_iteration`/s',
             $sql
         );
+    }
+
+    public function testEndedExcludesOperatorForceMoves(): void
+    {
+        list($sql, ) = SurveyStudy::buildPivotSql(
+            42, $this->items(), false, true, array('results' => 'complete'), null, null
+        );
+
+        // The wide `ended` column was only ever stamped by a real completion;
+        // survey_unit_sessions.ended is also stamped when an admin force-moves
+        // a participant on. Both the projection and the "complete" filter have
+        // to read through the same CASE, or the results table shows rows the
+        // filter says are complete with an empty `ended`.
+        foreach (UnitSession::OPERATOR_END_RESULTS as $result) {
+            $this->assertStringContainsString("'" . $result . "'", $sql);
+        }
+        $this->assertStringContainsString(
+            UnitSession::completedEndedSql('us') . ' IS NOT NULL',
+            $sql
+        );
+        // `us`.`result` feeds the CASE, so it has to be grouped as well.
+        $this->assertStringContainsString('`us`.`result`', $sql);
+        $this->assertStringNotContainsString('`us`.`ended` IS NOT NULL', $sql);
+    }
+
+    public function testIncompleteFilterUsesTheSameEndedSemantics(): void
+    {
+        list($sql, ) = SurveyStudy::buildPivotSql(
+            42, $this->items(), false, true, array('results' => 'incomplete'), null, null
+        );
+
+        $this->assertStringContainsString(
+            UnitSession::completedEndedSql('us') . ' IS NULL',
+            $sql
+        );
+        $this->assertStringNotContainsString('AND `us`.`ended` IS NULL', $sql);
+    }
+
+    public function testStudyWithoutScorableItemsStillBuildsValidSql(): void
+    {
+        // A notes-only study, or one whose answer items were all soft-deleted
+        // (patch 090): the unlinked branch used to emit the pivot columns and
+        // nothing else, i.e. `SELECT  FROM …` — a 1064 on the Results page.
+        list($sql, ) = SurveyStudy::buildPivotSql(
+            42, array(), true, true, null, null, null
+        );
+
+        $this->assertStringNotContainsString('SELECT  FROM', $sql);
+        $this->assertStringContainsString('NULL AS `formr_dummy`', $sql);
+        $this->assertStringContainsString('ORDER BY RAND()', $sql);
     }
 }

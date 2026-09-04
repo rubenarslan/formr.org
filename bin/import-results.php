@@ -35,7 +35,12 @@ function help() {
 			--run-id     : Numeric ID of the run to which you want to import data
 			--position   : Position of the UNIT ID in the run
 			--backup-file: Asolute path to the backup results file
-			--include-itemsdisplay: If this flag is present then queries for survey_items_display table will be included
+			--skip-itemsdisplay: Omit the survey_items_display rows. Almost never right: since
+			                     form_v2 the app READS answers from survey_items_display (long
+			                     reads), so a wide-table-only import is invisible to R data
+			                     frames, admin results and exports. Only use it when the rows
+			                     already exist. (--include-itemsdisplay is the old name for the
+			                     behaviour that is now the default; it is still accepted.)
 			
 	";
     exit(0);
@@ -50,7 +55,7 @@ function quit($msg = '', $code = 1) {
 }
 
 function collectVars() {
-    $opts = getopt('h', array('survey-id:', 'run-id:', 'backup-file:', 'include-itemsdisplay', 'help'));
+    $opts = getopt('h', array('survey-id:', 'run-id:', 'backup-file:', 'include-itemsdisplay', 'skip-itemsdisplay', 'help'));
     if (isset($opts['h']) || isset($opts['help'])) {
         return help();
     }
@@ -81,7 +86,13 @@ function collectVars() {
         'position' => (int) $opts['position'],
         'backupFile' => $backupFile,
         'sqlBackupFile' => $backupFile . '.sql',
-        'inlcudeItemsDisplay' => isset($opts['include-itemsdisplay']),
+        // Default ON (F3): the long read (survey_items_display) is what R,
+        // the results table and exports see since form_v2. An import without
+        // these rows lands in the wide table only and is invisible there —
+        // which is how the review found sessions "vanishing". The old
+        // --include-itemsdisplay flag is now the default and kept as a no-op
+        // so existing runbooks keep working.
+        'inlcudeItemsDisplay' => !isset($opts['skip-itemsdisplay']),
     );
 }
 
@@ -283,7 +294,6 @@ foreach ($resultsSheet->getRowIterator() as $row) {
             $item_id = array_val($surveyItems[$itemName], 'id');
             $session_id = $entry['session_id'];
             $created = strtotime($entry['created']);
-            $itemsDisplay = itemsDisplayCols($item_id, $session_id, $created, $itemValue);
 
             if (!empty($inlcudeItemsDisplay) && ($itemsDisplay = itemsDisplayCols($item_id, $session_id, $created, $itemValue))) {
                 $displayCols = quoteCols($db, array_keys($itemsDisplay));
@@ -312,8 +322,15 @@ foreach ($resultsSheet->getRowIterator() as $row) {
 // which survey_studies.last_iteration (the live allocator, patch 086) knows
 // nothing about — without this resync, the next live participant's allocated
 // iteration collides with an imported row and their survey 500s.
-$sql = "\nUPDATE `survey_studies` SET `last_iteration` = GREATEST(`last_iteration`, (SELECT COALESCE(MAX(`iteration`), 0) FROM `{$survey->results_table}`)) WHERE `id` = " . (int) $studyId . ";";
-fwrite($fp, $sql);
+//
+// Wide tables created before 2024-07 have no `iteration` column (F2); the
+// statement would then fail with 1054 halfway through the generated file, so
+// skip it — with no wide iterations to collide with, the allocator's counter
+// is already authoritative.
+if (in_array('iteration', SurveyStudy::wideTableColumns($survey->results_table), true)) {
+    $sql = "\nUPDATE `survey_studies` SET `last_iteration` = GREATEST(`last_iteration`, (SELECT COALESCE(MAX(`iteration`), 0) FROM `{$survey->results_table}`)) WHERE `id` = " . (int) $studyId . ";";
+    fwrite($fp, $sql);
+}
 fclose($fp);
 
 quit("Rows processed: {$processed}\n SQL file: {$sqlBackupFile}", 0);

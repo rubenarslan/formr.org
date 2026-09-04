@@ -42,16 +42,31 @@ class StudyMetrics {
     }
 
     /**
-     * Write hook from UnitSession::end(): a participant just completed this
-     * study. Owns the duration measurement (one indexed lookup on the results
-     * table) so the caller stays a guard-free one-liner. Self-guarded.
+     * Duration expression shared by recordCompletion() and the long-path
+     * reconcile: seconds from the session's first display row (stamped by
+     * createSurveyStudyRecord at first render — the same instant the wide
+     * row's `created` used to record) to survey_unit_sessions.ended, falling
+     * back to the unit session's own `created` when no display rows exist.
+     * Requires `us` (survey_unit_sessions) joined to `sid`
+     * (survey_items_display) and a GROUP BY on us.id.
      */
-    public static function recordCompletion(int $studyId, $testing, string $resultsTable, int $sessionId): void {
+    private const LONG_DURATION_SQL =
+        "TIMESTAMPDIFF(SECOND, COALESCE(MIN(`sid`.`created`), `us`.`created`), `us`.`ended`)";
+
+    /**
+     * Write hook from UnitSession::end(): a participant just completed this
+     * study. Called after survey_unit_sessions.ended has been stamped, and
+     * independently of form_v2_dual_write_results (F5) — the duration is read
+     * from the long tables, never from the wide row. Self-guarded.
+     */
+    public static function recordCompletion(int $studyId, $testing, int $sessionId): void {
         try {
-            $rt = str_replace('`', '', $resultsTable);
             $seconds = (int) DB::getInstance()->execute(
-                "SELECT TIMESTAMPDIFF(SECOND, `created`, `ended`) FROM `{$rt}`
-                 WHERE session_id = :sid AND study_id = :stid",
+                "SELECT " . self::LONG_DURATION_SQL . "
+                 FROM `survey_unit_sessions` `us`
+                 LEFT JOIN `survey_items_display` `sid` ON `sid`.`session_id` = `us`.`id`
+                 WHERE `us`.`id` = :sid AND `us`.`unit_id` = :stid
+                 GROUP BY `us`.`id`, `us`.`created`, `us`.`ended`",
                 ['sid' => $sessionId, 'stid' => $studyId], true
             );
             self::onSurveyComplete($studyId, $testing, $seconds);
@@ -148,27 +163,62 @@ class StudyMetrics {
         }
     }
 
-    /** Recompute one study's counts + duration accumulator from ground truth. */
+    /**
+     * Recompute one study's counts + duration accumulator from ground truth.
+     *
+     * With form_v2_dual_write_results on (and a wide table present) the wide
+     * table is the ground truth, as before. Otherwise (F5) the long tables
+     * are: one row per survey_unit_sessions row of this study, "ended" taken
+     * as UnitSession::completedEndedSql() — i.e. operator force-moves
+     * (result in OPERATOR_END_RESULTS) are not completions, matching what the
+     * long read reports as `ended` and what recordCompletion() feeds live.
+     * Only sessions that reached first render count as "started" (they hold
+     * a study_iteration or display rows), mirroring the wide path, where a
+     * row exists only once createSurveyStudyRecord ran.
+     */
     private static function reconcileStudy(int $studyId, string $resultsTable): void {
         $db = DB::getInstance();
-        if (!$db->table_exists($resultsTable)) {
-            return;
-        }
-        // identifier, not user input: study results tables are app-created (s<N>_…)
-        $rt = str_replace('`', '', $resultsTable);
+        $useWide = (bool) Config::get('form_v2_dual_write_results', true) && $db->table_exists($resultsTable);
         // begun is derived (real_users - finished) — not aggregated or stored.
-        $agg = $db->execute("
-            SELECT
-              SUM(rs.testing IS NOT NULL AND rs.testing = 0 AND rt.ended IS NOT NULL)  AS finished,
-              SUM(rs.testing IS NULL OR rs.testing = 1)                               AS testers,
-              SUM(rs.testing IS NOT NULL AND rs.testing = 0)                          AS real_users,
-              SUM(CASE WHEN rt.ended IS NOT NULL
-                       THEN LN(GREATEST(TIMESTAMPDIFF(SECOND, rt.created, rt.ended), 1)) ELSE 0 END) AS sum_log_duration,
-              SUM(rt.ended IS NOT NULL)                                               AS n_durations
-            FROM `{$rt}` rt
-            LEFT JOIN `survey_unit_sessions` us ON us.id = rt.session_id
-            LEFT JOIN `survey_run_sessions` rs ON us.run_session_id = rs.id
-        ", [], false, true);
+        if ($useWide) {
+            // identifier, not user input: study results tables are app-created (s<N>_…)
+            $rt = str_replace('`', '', $resultsTable);
+            $agg = $db->execute("
+                SELECT
+                  SUM(rs.testing IS NOT NULL AND rs.testing = 0 AND rt.ended IS NOT NULL)  AS finished,
+                  SUM(rs.testing IS NULL OR rs.testing = 1)                               AS testers,
+                  SUM(rs.testing IS NOT NULL AND rs.testing = 0)                          AS real_users,
+                  SUM(CASE WHEN rt.ended IS NOT NULL
+                           THEN LN(GREATEST(TIMESTAMPDIFF(SECOND, rt.created, rt.ended), 1)) ELSE 0 END) AS sum_log_duration,
+                  SUM(rt.ended IS NOT NULL)                                               AS n_durations
+                FROM `{$rt}` rt
+                LEFT JOIN `survey_unit_sessions` us ON us.id = rt.session_id
+                LEFT JOIN `survey_run_sessions` rs ON us.run_session_id = rs.id
+            ", [], false, true);
+        } else {
+            $endedSql = UnitSession::completedEndedSql('us');
+            $agg = $db->execute("
+                SELECT
+                  SUM(t.real_user AND t.ended IS NOT NULL)                                AS finished,
+                  SUM(NOT t.real_user)                                                    AS testers,
+                  SUM(t.real_user)                                                        AS real_users,
+                  SUM(CASE WHEN t.ended IS NOT NULL
+                           THEN LN(GREATEST(t.seconds, 1)) ELSE 0 END)                    AS sum_log_duration,
+                  SUM(t.ended IS NOT NULL)                                                AS n_durations
+                FROM (
+                  SELECT
+                    (rs.testing IS NOT NULL AND rs.testing = 0) AS real_user,
+                    {$endedSql} AS ended,
+                    " . self::LONG_DURATION_SQL . " AS seconds
+                  FROM `survey_unit_sessions` us
+                  LEFT JOIN `survey_run_sessions` rs ON us.run_session_id = rs.id
+                  LEFT JOIN `survey_items_display` sid ON sid.session_id = us.id
+                  WHERE us.unit_id = :unit_id
+                  GROUP BY us.id, us.created, us.ended, us.result, rs.testing
+                  HAVING us.study_iteration IS NOT NULL OR COUNT(sid.item_id) > 0
+                ) t
+            ", ['unit_id' => $studyId], false, true);
+        }
         $db->exec(
             "INSERT INTO `survey_study_metrics`
                (study_id, finished, testers, real_users, sum_log_duration, n_durations)
