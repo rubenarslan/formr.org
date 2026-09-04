@@ -65,6 +65,29 @@ class ItemFactory {
  */
 class Item {
 
+    /**
+     * Item names that may never be used. Single source of truth: both
+     * Item::validate() (per-item, JSON imports included) and
+     * SpreadsheetReader (per-row, at upload) check against this list.
+     *
+     * Two groups:
+     *   - results-table / session columns (`id`, `session_id`, `created`,
+     *     `modified`, `ended`, `study_id`, `iteration`) — an item of that name
+     *     would collide with the wide results table's own columns.
+     *   - the JS helpers the form_v2 showif evaluator exposes
+     *     (webroot/assets/form/js/showif/alpine.js). Item values are top-level
+     *     fields on the same Alpine component as those helpers, because the
+     *     transpiled showif references item names bare. An item named
+     *     `answered` would shadow the method, every showif calling it would
+     *     throw, and — since the directive treats an unevaluable expression as
+     *     "keep the server's decision" — those showifs would silently freeze.
+     *     `isNA` is on the list because that is what `is.na()` transpiles to.
+     */
+    const RESERVED_NAMES = array(
+        'session_id', 'created', 'modified', 'ended', 'id', 'study_id', 'iteration',
+        'isNA', 'answered', 'contains', 'containsWord', 'startsWith', 'endsWith', 'last',
+    );
+
     public $id = null;
     public $name = null;
     public $type = null;
@@ -84,6 +107,19 @@ class Item {
     // js_showif on purpose: db column = property name, legacy field stays for
     // backwards compat.
     public $showif_js = null;
+
+    // Bump this whenever the R->JS transpile regexes in setMoreOptions()
+    // below change (added/removed/reworded a preg_replace). It's embedded
+    // as a leading `/*sjv<N>*/` JS comment in the value setMoreOptions()
+    // writes back into $this->js_showif after a live re-transpile -- the
+    // only value SurveyStudy::addItems() ever persists into
+    // survey_items.showif_js (it binds :showif_js to $item->js_showif at
+    // import time; see SurveyStudy.php ~685-734). Without this, a fixed
+    // transpiler is inert for every already-imported study until someone
+    // re-uploads it, because the cache-hit branch below returns the old
+    // cached JS unconditionally. See stampShowifJs()/parseShowifJsCache().
+    const SHOWIF_JS_VERSION = 1;
+
     public $value = null; // syntax for sticky value
     public $value_validated = null;
     public $order = null;
@@ -253,16 +289,23 @@ class Item {
 
         if ($this->showif) {
             // Prefer the import-time cached transpile (survey_items.showif_js,
-            // patch 084) when present — saves the dozen-or-so regex passes
-            // below, and gives admin tooling a stable output to introspect.
-            // Falls back to live transpile when the column is null (legacy
-            // items pre-patch).
+            // patch 084) when present AND stamped with the current
+            // SHOWIF_JS_VERSION — saves the dozen-or-so regex passes below,
+            // and gives admin tooling a stable output to introspect. A cache
+            // with no stamp at all (legacy row, written before this
+            // versioning existed) or a stamp below the current version is
+            // treated as stale, not as a match — falls through to a live
+            // re-transpile instead of serving output from a since-fixed
+            // transpiler forever.
             if ($this->showif_js !== null && $this->showif_js !== '') {
-                $this->js_showif = $this->showif_js;
-                if (strstr($this->showif, "//js_only") !== false) {
-                    $this->setVisibility(array(null));
+                $cached = self::parseShowifJsCache($this->showif_js);
+                if ($cached !== null && $cached['version'] === self::SHOWIF_JS_VERSION) {
+                    $this->js_showif = $cached['js'];
+                    if (strstr($this->showif, "//js_only") !== false) {
+                        $this->setVisibility(array(null));
+                    }
+                    return;
                 }
-                return;
             }
             // primitive R to JS translation
             $this->js_showif = preg_replace("/current\(\s*(\w+)\s*\)/", "$1", $this->showif); // remove current function
@@ -284,7 +327,39 @@ class Item {
             if ($this->showif && strstr($this->showif, "//js_only") !== false) {
                 $this->setVisibility(array(null));
             }
+
+            // Stamp the freshly transpiled JS with the current version so
+            // that if this Item gets persisted next (SurveyStudy::addItems
+            // binds :showif_js to $item->js_showif at import time), the
+            // cache it writes carries a version future requests can trust.
+            // The stamp is an inert leading JS comment: both showif
+            // evaluators strip comments before eval'ing (v2's x-showif
+            // directive; v1's Survey.prototype.showIf in survey.js), so
+            // this doesn't change runtime behaviour — it only means a
+            // render that had to re-transpile (not yet backed by a
+            // current-version cache) shows the stamp in admin-facing
+            // surfaces (item title tooltip, compat-scan report) until the
+            // study is re-uploaded and the cache-hit branch above strips it
+            // again.
+            $this->js_showif = self::stampShowifJs($this->js_showif);
         }
+    }
+
+    // Wrap a freshly transpiled JS showif with a leading version comment.
+    // Pairs with parseShowifJsCache() below.
+    private static function stampShowifJs($js) {
+        return '/*sjv' . self::SHOWIF_JS_VERSION . '*/' . $js;
+    }
+
+    // Parse a cached survey_items.showif_js value produced by
+    // stampShowifJs(). Returns null (never a version) when $cached carries
+    // no recognisable stamp at all, so callers always treat an unstamped
+    // legacy cache as stale rather than silently trusting it.
+    private static function parseShowifJsCache($cached) {
+        if (preg_match('/^\/\*sjv(\d+)\*\/(.*)$/s', $cached, $m)) {
+            return array('version' => (int) $m[1], 'js' => $m[2]);
+        }
+        return null;
     }
 
     public function refresh($options = array(), $properties = array()) {
@@ -366,6 +441,10 @@ class Item {
 
         if (!preg_match('/^[A-Za-z][A-Za-z0-9_]+$/', (string)$this->name)) {
             $this->val_errors[] = "'{$this->name}' The variable name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. It needs to start with a letter. You cannot use spaces, dots, or dashes.";
+        }
+
+        if (in_array((string)$this->name, self::RESERVED_NAMES, true)) {
+            $this->val_errors[] = "'{$this->name}' is a reserved variable name and cannot be used for an item. Reserved names are: " . implode(', ', self::RESERVED_NAMES) . ".";
         }
 
         if (trim($this->type) == '') {

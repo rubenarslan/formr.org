@@ -18,6 +18,27 @@
 //      visibility the server rendered it with) instead of noisily blowing
 //      up every keystroke.
 
+// Names the `fmrForm` component itself owns.
+//
+// Item values and these helpers share ONE object — the transpiled showif
+// references item names bare (`q1 == 2`), so they have to be top-level fields
+// on the component. An item named `answered` (or `contains`, `last`, `isNA` —
+// the name `is.na()` is rewritten into at :148) would therefore overwrite the
+// method it shadows. The eval wrapper then swallows the resulting TypeError,
+// the expression yields `undefined`, and the directive PRESERVES the current
+// visibility — i.e. every showif on the page that calls that helper freezes at
+// whatever the server rendered. So we simply never write a field whose key is
+// one of ours: the study degrades to "this one item isn't reactive" instead.
+// New uploads can't get into that state at all — the server rejects these as
+// item names (`Item::RESERVED_NAMES`, application/Model/Item/Item.php).
+//
+// Alpine's own magics (`$el`, `$refs`, …) and internals (`_x_…`) need no entry:
+// an item name must match `^[A-Za-z][A-Za-z0-9_]*$`, so it can never spell one.
+export const RESERVED_FIELD_NAMES = new Set([
+    'isNA', 'answered', 'contains', 'containsWord', 'startsWith', 'endsWith', 'last',
+    'init', '_syncInput', '_emptyValue', '_onShowifToggled',
+]);
+
 export function registerFmrForm(Alpine) {
     Alpine.data('fmrForm', () => ({
         isNA(v) {
@@ -54,11 +75,55 @@ export function registerFmrForm(Alpine) {
                 const raw = inp.name || '';
                 if (raw.startsWith('_item_views')) return;
                 const key = raw.endsWith('[]') ? raw.slice(0, -2) : raw;
+                if (RESERVED_FIELD_NAMES.has(key)) return;
                 if (!(key in this)) this[key] = null;
             });
             inputs.forEach((inp) => this._syncInput(inp));
             this.$root.addEventListener('input', (e) => this._syncInput(e.target));
             this.$root.addEventListener('change', (e) => this._syncInput(e.target));
+            // `x-showif` dispatches this from the item wrapper on every
+            // visibility CHANGE; retract / restore the item's answer with it.
+            this.$root.addEventListener('fmr:showif-toggled', (e) => this._onShowifToggled(e));
+        },
+
+        // The "not answered" representation for one input, mirroring the shapes
+        // _syncInput produces: `name[]` fields and multi-selects hold arrays,
+        // everything else a scalar. Note a single Check_Item reads back as its
+        // hidden partner's `0` when merely unchecked, but as `null` when hidden —
+        // hidden means not submitted at all, which is what the server records.
+        _emptyValue(inp) {
+            const raw = inp.name || '';
+            if (raw.endsWith('[]')) return [];
+            if (inp.tagName === 'SELECT' && inp.multiple) return [];
+            return null;
+        },
+
+        // A showif that hides an item RETRACTS its answer: collectPayload skips
+        // the (now disabled) inputs and the server marks the item hidden, so the
+        // reactive field has to read as unanswered too. Otherwise a cascaded
+        // showif (`answered(q2)`, where q2 was itself hidden by a q1 change) and
+        // the client-side required gate keep evaluating against a value that will
+        // never be submitted.
+        //
+        // On re-show we re-read the DOM rather than clearing it: v1 semantics are
+        // that the inputs keep what the participant typed, so the item comes back
+        // pre-filled — and now that it is submitted again, the field must hold
+        // that value once more.
+        _onShowifToggled(e) {
+            const wrapper = e.target;
+            if (!wrapper || !wrapper.querySelectorAll) return;
+            const visible = !!(e.detail && e.detail.visible);
+            wrapper.querySelectorAll('input[name], select[name], textarea[name]').forEach((inp) => {
+                const raw = inp.name || '';
+                if (!raw || raw.startsWith('_item_views')) return;
+                const key = raw.endsWith('[]') ? raw.slice(0, -2) : raw;
+                if (RESERVED_FIELD_NAMES.has(key)) return;
+                if (visible) {
+                    this._syncInput(inp);
+                } else {
+                    this[key] = this._emptyValue(inp);
+                }
+            });
         },
 
         _syncInput(inp) {
@@ -67,6 +132,7 @@ export function registerFmrForm(Alpine) {
             if (inp.disabled) return;
             const isArr = raw.endsWith('[]');
             const key = isArr ? raw.slice(0, -2) : raw;
+            if (RESERVED_FIELD_NAMES.has(key)) return;
             const coerce = (s) => {
                 if (s === '' || s === null || s === undefined) return null;
                 const n = Number(s);

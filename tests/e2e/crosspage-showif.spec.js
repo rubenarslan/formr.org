@@ -23,13 +23,24 @@
 // Provisioned by tests/e2e/setup/create-crosspage-showif-fixture.sql
 // (runs e2e-crosspage-v1 / e2e-crosspage-v2; see setup/runbook.md + runs.json).
 
-const { test, expect } = require('./helpers/test');
+const { test, expect, bsSafeEvaluate } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const v1 = require('./helpers/v1Form');
 const v2 = require('./helpers/v2Form');
 
 const FOLLOWUP = '[name="cp_followup"]';
+
+// Read one field straight off the Alpine `fmrForm` component. `_x_dataStack` is
+// internal, but it is the only way to see the reactive state the showifs and the
+// required gate actually evaluate against — the DOM deliberately keeps a hidden
+// item's old value, so reading the input can't tell the two apart.
+const alpineValue = (page, name) => bsSafeEvaluate(page, (n) => {
+    const form = document.querySelector('form.fmr-form-v2');
+    const data = form && form._x_dataStack && form._x_dataStack[0];
+    if (!data) return '__no_alpine__';
+    return data[n] === undefined ? '__undefined__' : data[n];
+}, name);
 
 test.describe('cross-page showif (prior-page var + current-page var)', () => {
 
@@ -53,6 +64,42 @@ test.describe('cross-page showif (prior-page var + current-page var)', () => {
         await page.locator('[name="cp_b"]').blur();
         await expect(page.locator(FOLLOWUP),
             'v2 should reveal the cross-page showif item live').toBeVisible({ timeout: 5000 });
+    });
+
+    // Regression: hiding an item must RETRACT its answer from the reactive
+    // state, not only from the payload. collectPayload skips the disabled inputs
+    // and the server marks the item hidden, so a stale Alpine value is a value
+    // that will never be submitted — yet cascaded showifs (`answered(cp_followup)`)
+    // and the client-side required gate would still see it.
+    test('v2: hiding an item retracts its Alpine value; re-showing restores it', async ({ page, baseURL }) => {
+        const run = runName('crosspage_showif', 'v2');
+        await freshParticipant(page, run, { baseURL });
+        await v2.waitForBundle(page);
+
+        await page.fill('[name="cp_a"]', '1');
+        await v2.submitV2(page);
+        await page.fill('[name="cp_b"]', '3');
+        await page.locator('[name="cp_b"]').blur();
+        await expect(page.locator(FOLLOWUP)).toBeVisible({ timeout: 5000 });
+
+        await page.fill(FOLLOWUP, '42');
+        await page.locator(FOLLOWUP).blur();
+        await expect.poll(() => alpineValue(page, 'cp_followup')).toBe(42);
+
+        // break the condition — the item hides and its answer goes with it
+        await page.fill('[name="cp_b"]', '4');
+        await page.locator('[name="cp_b"]').blur();
+        await expect(page.locator(FOLLOWUP)).toBeHidden();
+        await expect.poll(() => alpineValue(page, 'cp_followup'),
+            'a hidden item must read as unanswered').toBe(null);
+        // …but the DOM keeps what the participant typed (v1 semantics)
+        expect(await page.locator(FOLLOWUP).inputValue()).toBe('42');
+
+        // re-show: the field must reflect the still-present DOM answer again
+        await page.fill('[name="cp_b"]', '3');
+        await page.locator('[name="cp_b"]').blur();
+        await expect(page.locator(FOLLOWUP)).toBeVisible();
+        await expect.poll(() => alpineValue(page, 'cp_followup')).toBe(42);
     });
 
     test('v1: does NOT reveal live — prior-page var is absent from the page context', async ({ page, baseURL }) => {

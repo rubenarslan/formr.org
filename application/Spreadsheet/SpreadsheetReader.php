@@ -805,7 +805,10 @@ class SpreadsheetReader
                         $this->errors[] = __("The variable name '%s' is invalid. It has to be between 1 and 64 characters. It needs to start with a letter and can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.", $cellValue);
                     }
 
-                    if (in_array($cellValue, array('session_id', 'created', 'modified', 'ended', 'id', 'study_id', 'iteration'))) {
+                    // Item::RESERVED_NAMES is the single source of truth (it also
+                    // covers the form_v2 showif helper names, which an item would
+                    // otherwise shadow on the Alpine component — see the constant).
+                    if (in_array($cellValue, Item::RESERVED_NAMES, true)) {
                         $this->errors[] = __("Row %s: variable name '%s' is not permitted.", $rowNumber, $cellValue);
                     }
 
