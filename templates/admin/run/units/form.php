@@ -7,7 +7,7 @@
     AJAX submission, reactive client-side <code>showif</code>s, autosave, offline
     queueing, and the optional solo layout. Per-study options (offline queue,
     Previous button, layout, participant language) live on the survey's settings
-    page. See the form_v2 guide (<code>documentation/form_v2.md</code> in the formr repository).
+    page. <a href="<?= site_url('documentation#form_v2') ?>" target="_blank" class="alert-link"><i class="fa fa-question-circle"></i> Read the Form (v2) guide</a>.
 </div>
 
 <?php if ($studies): ?>

@@ -263,7 +263,9 @@
                     }
                     ?>
                     <div class="box box-solid">
-                        <div class="box-header"><h3 class="box-title"><i class="fa fa-wpforms"></i> Rendering engine</h3></div>
+                        <div class="box-header"><h3 class="box-title"><i class="fa fa-wpforms"></i> Rendering engine</h3>
+                            <a href="<?= site_url('documentation#form_v2_enable') ?>" target="_blank" class="pull-right hastooltip" title="What switching the engine does, the compatibility scan, and the upgrade checklist"><i class="fa fa-question-circle"></i> Form (v2) guide</a>
+                        </div>
                         <div class="box-body">
                             <?php if ($study->rendering_mode === 'v2'): ?>
                                 <p>This study renders on the <strong>form_v2</strong> engine (single-document form, client-side showifs, offline queue, autosave).</p>

@@ -88,6 +88,27 @@
     </div>
     <div class="panel panel-default">
         <div class="panel-heading">
+            <a class="accordion-toggle" data-toggle="collapse" href="#form_unit">
+                <i class="fa-fw fa fa-wpforms pull-left fa-3x"></i>
+                Form (v2)<br>
+                <small>the same survey, rendered by the new form engine</small></a>
+        </div>
+        <div id="form_unit" class="panel-collapse collapse form_unit">
+            <div class="panel-body">
+                <p>
+                    A Form unit does what a Survey unit does — it asks the questions defined in a study's item table — but renders them with the new <strong>form (v2) engine</strong>: the whole survey is loaded once as a single document, pages are submitted in the background without a reload, <code>showif</code>s react instantly in the browser, answers are autosaved, and a page that cannot reach the server is queued and replayed once the participant is back online. It also offers a one-item-per-screen "solo" layout and localized buttons.
+                </p>
+                <p>
+                    The unit appears as <strong>Add Form (form_v2, beta)</strong> in the run editor once the instance administrator has enabled it. Choosing a study in the Form unit switches that study to the v2 engine; alternatively, upgrade an existing study from its settings page, which converts the Survey units using it into Form units. In R (run conditions, other surveys' labels) a Form's data is reached exactly like a survey's: <code>study_name$item</code>.
+                </p>
+                <p>
+                    The one authoring rule that changes: in a Form, <code>showif</code> is JavaScript and may not contain <code>r(...)</code>; R belongs in the <code>value</code> column, and a hidden item's <code>value</code> is how an R result gets into a showif. Everything else — spreadsheet format, item types, R elsewhere in the run — stays the same. Read the full <a href="<?= site_url('documentation#form_v2') ?>">Form (v2) guide</a> before switching a study that is already collecting data.
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="panel panel-default">
+        <div class="panel-heading">
             <a class="accordion-toggle" data-toggle="collapse" href="#external">
                 <i class="fa-fw fa fa-external-link-square pull-left fa-3x"></i>
                 External link<br>
