@@ -26,6 +26,11 @@ const v2 = require('./helpers/v2Form');
 
 const RUN = () => runName('pwa_low', 'v2');
 const SYNC_RE = /\/form-sync\/?$/;
+// Route matcher, not the assertion one: run_url() emits the sync URL WITH a
+// trailing slash (https://<study-domain>/<run>/form-sync/), which the glob
+// '**/form-sync' does not match — the drain then hit the real server and the
+// entry was applied and deleted, i.e. the test silently exercised nothing.
+const SYNC_ROUTE = /\/form-sync\/?(\?.*)?$/;
 
 // Raw IDB access (the bundle doesn't expose queue.js). The store exists once
 // the bundle has run its load-time drain, which waitForBundle guarantees.
@@ -105,7 +110,7 @@ test.describe('offline queue: rejected entries are kept, not deleted', () => {
     test.skip(RUNNING_ON_BS, 'page.route is not available through the BrowserStack Selenium bridge');
 
     test.afterEach(async ({ page }) => {
-        try { await page.unroute('**/form-sync'); } catch {}
+        try { await page.unroute(SYNC_ROUTE); } catch {}
         try { await page.evaluate(IDB_CLEAR); } catch {}
     });
 
@@ -119,7 +124,7 @@ test.describe('offline queue: rejected entries are kept, not deleted', () => {
         const uuid = await seedEntry(page, ctx);
         const errorMsg = 'Server rejected this answer (e2e)';
         const syncCalls = [];
-        await page.route('**/form-sync', async (route) => {
+        await page.route(SYNC_ROUTE, async (route) => {
             syncCalls.push(route.request().postData());
             await route.fulfill({
                 status: 200,
@@ -166,7 +171,7 @@ test.describe('offline queue: rejected entries are kept, not deleted', () => {
 
         const uuid = await seedEntry(page, ctx);
         let syncCalls = 0;
-        await page.route('**/form-sync', async (route) => {
+        await page.route(SYNC_ROUTE, async (route) => {
             syncCalls += 1;
             await route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ error: 'No active run session' }) });
         });
