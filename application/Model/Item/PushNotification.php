@@ -4,6 +4,7 @@ class PushNotification_Item extends Item {
     public $type = 'push_notification';
     public $no_user_input_required = false;
     public $hasChoices = true;
+    public $choicesOptional = true;
     public $mysql_field = 'TEXT DEFAULT NULL';
     protected $classes_input = array('btn', 'btn-primary', 'push-notification-permission');
 

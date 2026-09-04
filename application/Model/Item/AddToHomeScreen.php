@@ -4,6 +4,7 @@ class AddToHomeScreen_Item extends Item {
     public $type = 'add_to_home_screen';
     public $no_user_input_required = false;
     public $hasChoices = true;
+    public $choicesOptional = true;
     public $mysql_field = 'VARCHAR(20) DEFAULT NULL';
     protected $classes_input = array('btn', 'btn-primary', 'add-to-homescreen');
 
