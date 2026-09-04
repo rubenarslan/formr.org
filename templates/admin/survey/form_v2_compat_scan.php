@@ -29,7 +29,6 @@
                                     <ul>
                                         <li><strong>JS-OK</strong> — transpiles cleanly to JS the client evaluator understands.</li>
                                         <li><strong>Needs JS rewrite</strong> — residual R tokens the client can't handle. Rewrite in JS, or move the R into a hidden item's <code>value</code> column and reference the field name from the showif.</li>
-                                        <li><strong class="text-red">Invalid: r() in showif</strong> — no longer supported. Migrate to the hidden-field bridge.</li>
                                     </ul>
                                 </li>
                                 <li><strong>value is R-only.</strong> Any non-empty, non-numeric value is treated as R, allowlisted, and evaluated server-side (page-scoped: first visible page inline at render, later pages on the page transition via <code>/form-render-page</code>).
@@ -44,7 +43,7 @@
                         <h4>showif summary</h4>
                         <table class="table table-bordered table-condensed">
                             <thead>
-                                <tr><th>Empty</th><th>JS-OK</th><th>Needs JS rewrite</th><th>r() in showif (invalid)</th></tr>
+                                <tr><th>Empty</th><th>JS-OK</th><th>Needs JS rewrite</th></tr>
                             </thead>
                             <tbody>
                                 <?php $c = $report['counts']['showif']; ?>
@@ -52,7 +51,6 @@
                                     <td><?= (int) $c['empty'] ?></td>
                                     <td><?= (int) $c['js_ok'] ?></td>
                                     <td<?= ((int) $c['needs_js_rewrite'] > 0) ? ' class="text-red"' : '' ?>><strong><?= (int) $c['needs_js_rewrite'] ?></strong></td>
-                                    <td<?= ((int) $c['invalid_r'] > 0) ? ' class="text-red"' : '' ?>><strong><?= (int) $c['invalid_r'] ?></strong></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -96,20 +94,7 @@
                                             <td><code><?= htmlspecialchars($r['source']) ?></code></td>
                                             <td><?php if ($r['transpiled'] !== $r['source']): ?><code><?= htmlspecialchars($r['transpiled']) ?></code><?php else: ?><em class="text-muted">(same as source)</em><?php endif; ?></td>
                                             <td>
-                                                <?php
-                                                $fix = $r['suggested_fix'] ?? null;
-                                                if ($fix === 'create_hidden_field'):
-                                                    $hiddenName = $r['name'] . '_r';
-                                                ?>
-                                                    Add a hidden item:<br>
-                                                    <small><code>name: <?= htmlspecialchars($hiddenName) ?>, type: hidden, value: r(<?= htmlspecialchars($r['source']) ?>)</code></small><br>
-                                                    Then change this item's showif to:<br>
-                                                    <small><code><?= htmlspecialchars($hiddenName) ?> == ...</code></small>
-                                                <?php elseif ($fix === 'wrap_in_r'): ?>
-                                                    <code>r(<?= htmlspecialchars($r['source']) ?>)</code>
-                                                <?php else: ?>
-                                                    Rewrite <code><?= htmlspecialchars($r['source']) ?></code> in JS, or move the R into a hidden field's <code>value</code> and reference its name from the showif.
-                                                <?php endif; ?>
+                                                Rewrite <code><?= htmlspecialchars($r['source']) ?></code> in JS, or move the R into a hidden field's <code>value</code> and reference its name from the showif.
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>

@@ -28,7 +28,7 @@ Phases 0–5 are code-complete on-branch (with gaps noted below). Phases 6 (docs
 | 0 — Plumbing | ✅ done | `Form` RunUnit, `rendering_mode` column, `form_v2_enabled` flag |
 | 1 — Single-page AJAX form | ✅ done | FormRenderer, Alpine, BS5, form-page-submit |
 | 2 — Item-type coverage | ✅ done bar A/V smoke | PWA items wired vanilla; only audio/video need in-browser capture smoke |
-| 3 — Client-side showif (JS only) | ✅ done | Alpine-driven; r() in showif is invalid; bridge via hidden field with r() value |
+| 3 — Client-side showif (JS only) | ✅ done | Alpine-driven; server-side R reaches a showif via a hidden item's `value` |
 | 4 — Page-scoped value + label resolution | ✅ done | r(...) on value (only); label slot for embedded Rmd; first-page resolved server-side, later pages via /form-render-page on transition |
 | 5 — Offline queue | ✅ done bar SW drain + iOS | page-JS enqueue/drain + `offline_mode` flag + file-blob queue (10 MB cap). The SW-side drain is registered but **not implemented** (no `sync` listener); iOS Safari pass still open |
 | 6 — Docs + migration tooling + parity gate | ✅ mostly | admin compat-scanner UI, admin/operator docs (`documentation/form_v2.md`, `form_v2_upgrade.md`) and the v2 example study + run bundle all shipped; the v1↔v2 parity **suite** exists and runs (`tests/e2e/`) — what's still open is the *gate being green* (pwa_high fixture-permission skips + three iOS device skips). See §6 checklist. |
@@ -133,7 +133,7 @@ The Router splits on `-` and camelCases; `form-page-submit` → `formPageSubmitA
 
 ### 3.1 Defaults
 
-- `showif` is **client-side JS, full stop** — not merely "by default". Server emits `data-showif="<js-expr>"` on the wrapper for every item with a non-empty `showif` (v1 only emitted it when the server had hidden the item; FormRenderer forces `data_showif=true` unconditionally so Alpine has something to bind to). An `r(...)` wrap in `showif` is now **rejected** with an admin-visible validation error (`FormRenderer::processItems` Step 1); the sanctioned bridge is a hidden item with `value: r(...)`, referenced by name from the JS showif.
+- `showif` is **client-side JS, full stop** — not merely "by default". Server emits `data-showif="<js-expr>"` on the wrapper for every item with a non-empty `showif` (v1 only emitted it when the server had hidden the item; FormRenderer forces `data_showif=true` unconditionally so Alpine has something to bind to). The sanctioned way to reach server-side R from a showif is a hidden item with `value: r(...)`, referenced by name from the JS showif.
 - `value` is the **R path**: literal / `'sticky'` (client resolves via `lastAnsweredValue`) / R, bare or `r(...)`-wrapped — either way `FormRenderer` records the (unwrapped) expression in `survey_r_calls` slot='value' and emits `data-fmr-fill-id`. First-page items are resolved inline by the render-time OpenCPU batch; later pages resolve at the page transition via `/form-render-page`.
 - Embedded Rmd in labels is routed through the allowlist too — slot='label', with the FULL label as the expression, deferred to `/form-render-page` for *every* page including the first (§8). (There is no separate `page_body` surface in the survey renderer — item labels are the Rmd surface; the one mention of `page_body` left in the code is a stale comment in `RAllowlistExtractor.php:16`.)
 
@@ -162,14 +162,13 @@ Admins reach server-side R through the **`value` column** — bare, or wrapped a
 - `FormRenderer::processItems` passes each item's `value` through `RAllowlistExtractor::unwrap`; the (unwrapped) expression is UPSERTed into `survey_r_calls` (dedup by `study_id + expr_hash + slot + item_id` — one row per item even for identical expressions, since `/form-render-page` resolves a page's calls via `r.item_id`; id recovered via `LAST_INSERT_ID(id)` on duplicate).
 - The `r()` wrapper must be stripped before OpenCPU sees it (`r()` isn't a function in OpenCPU's base+formr env and one bad entry torches the whole batch for the page).
 - Resolution is page-scoped: a **first-page** item keeps its unwrapped value so the inherited OpenCPU batch resolves it at render; a **later-page** item gets `$item->value = ''` (so `needsDynamicValue()` trims to falsy and the batch skips it) plus a `data-fmr-fill-id` wrapper attribute, and the client resolves it in the `/form-render-page` batch at the page transition. `/form-fill` still exists for one-off re-triggers but is no longer fired on load.
-- An `r(...)` in `showif` is detected the same way and **rejected**: `showif` and `js_showif` are blanked and the admin gets a validation error on the item.
 - Security invariant matches import-time: the server only evaluates expressions already recorded in `survey_r_calls`, keyed by id. Render-time population means the allowlist auto-updates when admins edit the sheet — no schema drift between import and render. Expression-level granularity (every unique `r(...)` gets a row) is the confirmed design choice over function-level allowlisting.
 
 ### 3.5 Compatibility scanning
 
 `bin/form_v2_compat_scan.php <study_id|study_name>` classifies every non-empty `showif` / `value` in a study as:
 
-- `showif` → `empty` / `js_ok` (v1 transpile yields an expression with no residual R-only tokens) / `needs_js_rewrite` (residual R tokens — ifelse/c/tail/paste/is.na/%in%/%%/NA/`<-` — the client evaluator won't handle; `suggested_fix: rewrite_in_js`) / `invalid_r` (an `r(...)` wrap, which the renderer rejects; `suggested_fix: create_hidden_field`)
+- `showif` → `empty` / `js_ok` (v1 transpile yields an expression with no residual R-only tokens) / `needs_js_rewrite` (residual R tokens — ifelse/c/tail/paste/is.na/%in%/%%/NA/`<-` — the client evaluator won't handle; `suggested_fix: rewrite_in_js`)
 - `value` → `empty` / `literal` (numeric) / `r` (everything else, allowlisted and evaluated as R — never flagged)
 
 Heuristic, not a guarantee (the client has a try/catch fallback that preserves the server's render decision on any eval error). Exits 0 if clean, 2 if anything flagged — usable as a CI gate. Informational: doesn't mutate `survey_items.showif`. Run before upgrading an existing v1 study to `rendering_mode='v2'`. The scan logic lives in `application/Spreadsheet/FormV2CompatScanner::scan()` so the admin UI shares it with the CLI. **Known staleness:** the CLI's flagged-row block still prints a `suggested: r(<source>)` line and the header "likely need r(...) wrapping" — left over from the r()-in-showif era, and wrong for showif rows now.
@@ -310,7 +309,7 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] Audio, video — `initMediaRecorders()` in `webroot/assets/form/js/main.js` is a vanilla port of v1's `AudioRecorder.js` extended to also handle `class=record_video` items. MediaRecorder + getUserMedia capture, recorded Blob is stuffed back into the file input via `DataTransfer` so the existing v2 multipart submit picks it up unchanged. Smoke test at `tests/e2e/media-recorder-v2.spec.js` stubs MediaRecorder + getUserMedia + AudioContext, injects `.record_audio` / `.record_video` markup into the rendered v2 form, drives a synthetic record/stop cycle, asserts the Blob lands in `<input type=file>`. Real-device verification still belongs on BrowserStack iOS/Android.
 - [x] Date/time/datetime-local/month/week cross-browser smoke — `tests/e2e/datetime-render.spec.js` asserts each variant's rendered `<input type>` and that a valid value sticks (date/time/datetime-local/datetime/month/week/yearmonth). Green locally; BS-reliable wiring is the open remainder (§8 P2)
 
-### Phase 3 — Client-side showif + r(...) opt-in
+### Phase 3 — Client-side showif
 - [x] `data-showif` forced on every item with non-empty `showif` (FormRenderer)
 - [x] Alpine `fmrForm` component + `x-showif` directive + attribute promotion
 - [x] Helper stdlib (`isNA`, `answered`, `contains`, `containsWord`, `startsWith`, `endsWith`, `last`) on component
@@ -318,7 +317,6 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] Comment-stripping + try/catch wrapper for runtime eval
 - [x] `r(...)` wrapper detection at render (`RAllowlistExtractor`)
 - [x] `survey_r_calls` table (`sql/patches/080_survey_r_calls.sql`)
-- [removed 2026-09-04] `POST /{run}/form-r-call` (`RunController::formRCallAction`, slot='showif') — the r()-in-showif opt-in was withdrawn (§3.1/§3.4) and nothing emitted `data-fmr-r-call` any more, so the endpoint, its debounced client (~99 lines of main.js), the `slot='showif'` branches in `RCallService` and the `data-rcall-url` attribute were deleted. Patch 080's `slot` ENUM still lists `'showif'`: applied migrations are not rewritten.
 - [x] Debounced (300ms) seq-guarded client r-call resolver (same caveat)
 - [x] Compat scanner (`bin/form_v2_compat_scan.php`) + admin UI (`/admin/survey/<name>/form_v2_compat_scan`)
 - [x] Per-run-session rate-limit on r-call (30/min, returns 429). Now DB-backed via `FixedWindowRateLimiter` + patch 091 `formr_rate_limits`, not the original `$_SESSION` bucket (which reset on cookie rotation)
@@ -425,7 +423,7 @@ Nothing here is still open; these are the frozen decisions.
    - For each flagged row, offer two embedded playgrounds the admin can use to debug in place — both use real prefill APIs, not URL params:
      - **CodePen prefill embed** (https://blog.codepen.io/documentation/prefill-embeds/): a per-row `<div data-prefill='{...}'>…<pre data-lang="js">{transpiled JS}</pre>…</div>` plus the CodePen embed script. CodePen renders an interactive iframe with the JS already loaded, alongside a mocked `answers` object derived from the survey's other items. The admin can tweak inputs and re-run.
      - **rdrr.io embed iframe** for R: `<iframe src='https://rdrr.io/snippets/embed/?code=<urlencoded R>'>` — same idea, but for the source-side R expression, so admins can verify what the R version evaluates to before deciding whether to wrap in `r(...)` or rewrite as JS.
-   - Add an auto-fix button per flagged row that mutates the item in place and re-runs the scan. **Rescoped since this was written:** an `r(...)` wrap is only a legal fix on `value` now, so the showif version of the button would have to create the hidden `value: r(...)` item and rewrite the showif to reference it (`suggested_fix: create_hidden_field`) rather than wrap in place.
+   - Add an auto-fix button per flagged row that mutates the item in place and re-runs the scan: for a showif, create a hidden item whose `value` holds the R and rewrite the showif to reference that name.
    - Order of operations to ship this: (a) `survey_items.showif_js` column + import-time `new Function()` parse-check — column landed (patch 084), parse-check didn't; (b) compat-scan UI extension to render the two embeds; (c) auto-fix button + scanner re-run.
 
 ## 10. Appendix: references

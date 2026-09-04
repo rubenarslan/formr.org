@@ -118,60 +118,7 @@ class FormRenderer extends SpreadsheetRenderer {
             return isset($pageMap[(int) $item->id]) ? (int) $pageMap[(int) $item->id] : 1;
         };
 
-        // Step 1: reject r(...) showifs as invalid. Showifs are JS-only.
-        //
-        // FAIL CLOSED. Blanking showif/js_showif alone (what this used to do)
-        // left the item with no condition at all, i.e. unconditionally VISIBLE
-        // — an item the author meant to gate behind an R condition was shown to
-        // every participant. Treat the broken condition as `showif` FALSE
-        // instead: hide + prune the item exactly like the OpenCPU batch does
-        // for a definite-FALSE showif (SpreadsheetRenderer::processDynamic-
-        // ValuesAndShowIfs), and persist hidden=1 so it neither renders nor
-        // blocks completion on later renders of this session.
-        //
-        // The explanation is author-facing, so it only enters validationErrors
-        // (→ the .alert-danger banner + the item's own error) in test/preview
-        // sessions; a real participant gets a silent hide plus a log line the
-        // admin can find. Upload/switch-time rejection is the primary gate —
-        // this is the runtime safety net for studies that predate it.
-        $prunedShowifs = [];
-        foreach ($items as $name => $item) {
-            if (!$item || empty($item->showif)) continue;
-            if (RAllowlistExtractor::unwrap($item->showif) === null) continue;
-
-            $message = 'r(...) is no longer supported in `showif`. '
-                . 'Add a hidden item with `value: r(...)` and reference its '
-                . 'name from the showif (which is now JS-only). '
-                . 'The item is hidden until the showif is fixed.';
-            $item->showif = '';
-            $item->js_showif = null;
-            // hide() sets hidden=true; probably_render stays null (protected,
-            // and null is what "definitely hidden" wants), so isRendered() and
-            // isHiddenButRendered() are both false → no render, no progress
-            // contribution.
-            $item->hide();
-            $prunedShowifs[(int) $item->id] = ['hidden' => 1];
-            unset($items[$name], $this->unanswered[$name]);
-
-            if ($this->isAuthorFacingSession()) {
-                $this->validationErrors[$name] = $message;
-            } else {
-                formr_log(sprintf(
-                    "form_v2: hid item '%s' (id %d) in study '%s' (id %d): %s",
-                    (string) $name, (int) $item->id,
-                    (string) $this->study->name, (int) $this->study->id,
-                    $message
-                ));
-            }
-        }
-        if ($prunedShowifs) {
-            $this->db->batchUpdateByKey(
-                'survey_items_display', 'item_id', $prunedShowifs,
-                [], ['session_id' => $this->unitSession->id]
-            );
-        }
-
-        // Step 2: dynamic values. The `value` column carries R that we
+        // Step 1: dynamic values. The `value` column carries R that we
         // route through the allowlist; admins can author it bare or
         // wrapped in r(...) — the latter is the documented bridge for
         // surfacing R into a JS-only showif (see documentation/form_v2.md
@@ -215,7 +162,7 @@ class FormRenderer extends SpreadsheetRenderer {
             }
         }
 
-        // Step 3: dynamic labels. The full label text is the allowlisted
+        // Step 2: dynamic labels. The full label text is the allowlisted
         // expression — we don't extract partial Rmd chunks. ALL pages
         // (including first) defer to /form-render-page: blank label_parsed
         // and emit data-fmr-label-id; the client batch-resolves on page
@@ -232,7 +179,7 @@ class FormRenderer extends SpreadsheetRenderer {
         //     (RCallService::resolveLabels knits markdown, not an iframe), and
         //     asking it twice costs two OpenCPU knits. We only ask for items on
         //     the FIRST page here, because the inherited
-        //     processDynamicLabelsAndChoices (Step 5) asks again for exactly
+        //     processDynamicLabelsAndChoices (Step 4) asks again for exactly
         //     those — so first-page iframes are knitted once, by the parent,
         //     and later-page iframes once, here.
         //   - only note_iframe consumes the $vars argument (Item::needs-
@@ -250,7 +197,7 @@ class FormRenderer extends SpreadsheetRenderer {
             if (!$item) continue;
             $isIframe = (isset($item->type) && $item->type === 'note_iframe');
             if ($isIframe && $itemPageOf($item) === $firstPage) {
-                continue; // Step 5's parent pass knits this one (exactly once)
+                continue; // Step 4's parent pass knits this one (exactly once)
             }
             $vars = $isIframe
                 ? $this->unitSession->getRunData((string) $item->label, $this->study->name)
@@ -275,7 +222,7 @@ class FormRenderer extends SpreadsheetRenderer {
             $targetItem->parent_attributes[$attribute] = (string) $callIds[$i];
         }
 
-        // Step 4: submit-type items are page boundaries AND the page's advance
+        // Step 3: submit-type items are page boundaries AND the page's advance
         // control. Keep them in $items so they flow into toRender → render() as
         // their own big centred button (the goal: "submit = a big button, no
         // separate OK"); the solo controller upgrades them to .fmr-solo-bigsubmit
@@ -285,12 +232,12 @@ class FormRenderer extends SpreadsheetRenderer {
         // them can't block studyCompleted(). (Previously they were marked hidden
         // and stripped here, which left the big-button JS/CSS dead code.)
 
-        // Step 4b: attach choices to ALL items (no OpenCPU). Step 5's
+        // Step 3b: attach choices to ALL items (no OpenCPU). Step 4's
         // first-page-only label/choice pass would otherwise leave later-page
         // mc/select items with an empty choice list — an unanswerable screen.
         $this->attachStaticChoices($items);
 
-        // Step 5: page-scoped OpenCPU resolution. Run the parent's batches
+        // Step 4: page-scoped OpenCPU resolution. Run the parent's batches
         // over first-page items only — later pages have placeholders + IDs
         // and resolve at page transition via /form-render-page.
         $byPage = $this->splitByPageFromMap($items, $firstPage, $pageMap);
@@ -303,7 +250,7 @@ class FormRenderer extends SpreadsheetRenderer {
         // `undefined` and preserves whatever the server rendered, so without
         // a server decision BOTH branches of a randomized split stayed
         // visible. Later-page items enter the batch with their values
-        // already blanked (Step 2), so they only contribute si.* entries.
+        // already blanked (Step 1), so they only contribute si.* entries.
         $laterShowifItems = [];
         foreach ($byPage['later'] as $name => $item) {
             if ($item && $item->getShowIf()) {
@@ -327,7 +274,7 @@ class FormRenderer extends SpreadsheetRenderer {
             }
         }
 
-        // Step 6: merge first-page-resolved items back with the placeholder
+        // Step 5: merge first-page-resolved items back with the placeholder
         // items from later pages, preserving original order.
         $merged = [];
         foreach ($items as $name => $item) {
@@ -413,13 +360,13 @@ class FormRenderer extends SpreadsheetRenderer {
      *
      * The parent's processDynamicLabelsAndChoices does TWO things — parse
      * dynamic labels via OpenCPU *and* call setChoices() — but FormRenderer
-     * only runs it on the first visible page (Step 5) to keep OpenCPU
+     * only runs it on the first visible page (Step 4) to keep OpenCPU
      * page-scoped. The side effect was that later-page mc / mc_heading /
      * select items rendered with an empty `.mc-table` (no radios at all), so a
      * required choice question on page 2+ became an unanswerable dead screen.
      * Choices don't need OpenCPU unless a choice *label* carries dynamic R, so
      * attach them here for ALL pages; first-page items are re-set with the
-     * OpenCPU-parsed labels when Step 5 runs. Dynamic choice labels on later
+     * OpenCPU-parsed labels when Step 4 runs. Dynamic choice labels on later
      * pages degrade to their raw source text rather than disappearing.
      */
     protected function attachStaticChoices(array &$items) {
@@ -545,7 +492,7 @@ class FormRenderer extends SpreadsheetRenderer {
             //     no input to post, so it never gets a `saved` row.
             // (note / note_iframe / mc_heading don't need this: note-likes post a
             // hidden value=1 and mc_heading is filtered out of the query above.)
-            //   - `submit`: renders as the page's big advance button (Step 4 above)
+            //   - `submit`: renders as the page's big advance button (Step 3 above)
             //     but posts no `saved` row (save_in_results_table=false) and is
             //     excluded from "answered" by getStudyProgress()'s SQL — counting
             //     it would keep not_answered > 0 forever and the form could never
@@ -573,8 +520,8 @@ class FormRenderer extends SpreadsheetRenderer {
         // Emit data-showif on every item with a showif expression, so the client
         // runtime can re-evaluate on each input change. v1 only set data_showif
         // when the server hid the item; v2 wants reactive visibility without a
-        // round-trip. An item with a showif but no transpiled js_showif was
-        // gated out in processItems (Step 1) and never reaches here.
+        // round-trip. An item whose showif produced no transpiled js_showif
+        // keeps whatever visibility the server's OpenCPU batch decided.
         foreach ($this->renderedItems as $item) {
             if (!empty($item->showif) && !empty($item->js_showif)) {
                 $item->data_showif = true;

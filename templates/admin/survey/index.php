@@ -229,7 +229,7 @@
                                         <label>Compatibility scan</label>
                                         <span class="help-block">
                                             <i class="fa fa-info-circle"></i>
-                                            Classifies every <code>showif</code> as empty / JS-OK / needs a JS rewrite / invalid (<code>r(...)</code> is not allowed in a showif — move the R into a hidden item's <code>value</code>), and every <code>value</code> as empty / literal / R. Run this before rolling out to participants to see which expressions the client-side evaluator can't handle.
+                                            Classifies every <code>showif</code> as empty / JS-OK / needs a JS rewrite (rewrite it in JS, or move the R into a hidden item's <code>value</code> and reference that name), and every <code>value</code> as empty / literal / R. Run this before rolling out to participants to see which expressions the client-side evaluator can't handle.
                                         </span>
                                         <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>" class="btn btn-default"><i class="fa fa-search"></i> Run v2 compatibility scan</a>
                                     </td>

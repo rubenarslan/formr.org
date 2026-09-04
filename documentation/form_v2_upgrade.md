@@ -192,18 +192,6 @@ The hidden item resolves on the server, its scalar is written into the
 input, and the showif reacts to it like to any other answer. (In `value`
 the `r(...)` wrapper is optional — bare R means the same thing.)
 
-A footnote you can skip unless the scanner reports it: an `r(...)` wrap
-around a **showif** does not work and never has. v1 spliced the showif
-into R, where `r()` is not a function, and v2 does not evaluate R in a
-showif at all — the wrapper was an interim opt-in during form_v2
-development and was withdrawn before release, so no study collected on a
-released formr can contain one. It is nevertheless refused twice:
-`AdminSurveyController::switchRenderingModeAction` blocks the v1 → v2
-switch and names the items (`rShowifFindings`), and `FormRenderer` hides
-and prunes such an item at render, showing the reason in test/preview
-sessions and logging it in real ones. There is deliberately no third
-gate at upload time.
-
 ### Run the scanner
 
 Two equivalent entry points — the CLI
@@ -226,12 +214,11 @@ column — the same names the admin report and `form_v2.md` use:
 | `showif` | **empty** | no | Nothing — no expression. |
 | `showif` | **JS-OK** (`js_ok`) | no | Nothing — the R→JS transpile came out clean. |
 | `showif` | **needs JS rewrite** (`needs_js_rewrite`, fix `rewrite_in_js`) | yes | The transpiled expression still contains R-only tokens — an R-only function call (`ifelse`, `c(`, `paste`, `grepl`, `unlist`, …), `tail`/`head` with a non-1 argument, an untranspiled `is.na()`, `%in%` / `%%`, an assignment arrow, an `NA` constant, or R `$`-member access. Rewrite the expression in JS (the helpers `isNA`, `answered`, `contains`, `containsWord`, `startsWith`, `endsWith`, `last` are in scope), **or** move the R into a hidden item's `value` and test that item's name. |
-| `showif` | **invalid: `r()` in showif** (`invalid_r`, fix `create_hidden_field`) | yes — and **blocking** | The showif is an `r(...)` wrap, which v2 refuses outright. These are the *only* findings that block the **Upgrade to form_v2** button: the switch is refused with the list of items until you fix them. Use the hidden-item bridge above. Do **not** try to fix a flagged showif by adding an `r(...)` wrap — that turns an advisory rewrite into a hard block. |
 | `value` | **empty** / **literal** (numeric, kept as-is) / **R** (everything else, evaluated server-side) | no | Nothing. `value` is never flagged — every non-empty, non-numeric entry is allowlisted and evaluated as R, `sticky` included. |
 
 **needs JS rewrite** findings are advisory (heuristic — the scan page
-lists them, they don't stop the switch); **invalid `r()`** findings
-block it. At runtime a showif the client can't evaluate
+lists them, they don't stop the switch). At runtime a showif the client
+can't evaluate
 leaves the item at whatever visibility the server rendered it with, so a
 flagged item is not necessarily broken — it just isn't guaranteed to
 behave the way the R did. See [form_v2.md](form_v2.md) § "Authoring
@@ -243,9 +230,7 @@ placement's unit sessions across with it
 (`convertSurveyPlacementsToForm`), so **participants who are mid-form
 continue on v2 from where they are** rather than finishing on v1. Both
 engines read and write the same `survey_items_display` rows, so nothing
-is lost in the handover. The switch is **refused** while any item still
-has an `r(...)` showif: the alert names the offending items and nothing
-is changed until you fix them.
+is lost in the handover.
 
 ## 6. Rollback
 
@@ -294,10 +279,10 @@ docker compose exec formr_app php bin/form_v2_compat_scan.php <study_id|study_na
 
 (or the **Run v2 compatibility scan** button on the survey's settings
 page). It is read-only and exits 2 when anything is flagged, so it also
-works as a CI gate. Resolve the blocking `r()`-in-showif findings the way
-§5 describes — a hidden item (`hidden`, or `calculate`) whose `value`
-holds the R, referenced by name from a plain JS showif; **Upgrade to
-form_v2** refuses the switch while any remain and names them. Once the
+works as a CI gate. Resolve the flagged showifs the way §5 describes —
+rewrite them in JavaScript, or put the R in a hidden item (`hidden`, or
+`calculate`) whose `value` holds it and reference that name from a plain
+JS showif. Once the
 switch goes through, open sessions move with the converted run unit, so
 participants who are mid-form continue on v2 from where they are.
 

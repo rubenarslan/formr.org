@@ -98,14 +98,4 @@ class FormUnitSwitchTest extends \PHPUnit\Framework\TestCase {
         $this->assertSame($before, $this->db->select('id, unit_id')->from('survey_run_units')->order('id')->fetchAll());
         $this->assertSame(0, AdminSurveyController::convertSurveyPlacementsToForm($this->db, 30), 'a Form-born study has no Survey placements');
     }
-
-    public function testOnlyRWrappedShowifsBlockTheSwitch() {
-        $report = ['flagged' => [
-            ['name' => 'a', 'type' => 'text', 'column' => 'showif', 'source' => 'r(x > 1)', 'suggested_fix' => 'create_hidden_field'],
-            ['name' => 'b', 'type' => 'text', 'column' => 'showif', 'source' => 'ifelse(x, 1, 0)', 'suggested_fix' => 'rewrite_in_js'],
-        ]];
-        $this->assertSame(['a'], array_column(AdminSurveyController::rShowifFindings($report), 'name'));
-        $this->assertSame([], AdminSurveyController::rShowifFindings(['flagged' => []]));
-        $this->assertSame([], AdminSurveyController::rShowifFindings([]));
-    }
 }

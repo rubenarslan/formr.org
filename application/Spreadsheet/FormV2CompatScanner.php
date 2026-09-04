@@ -18,7 +18,7 @@ class FormV2CompatScanner {
      * @param int $studyId
      * @return array{
      *     counts: array{
-     *         showif: array{empty:int, invalid_r:int, js_ok:int, needs_js_rewrite:int},
+     *         showif: array{empty:int, js_ok:int, needs_js_rewrite:int},
      *         value: array{empty:int, literal:int, r:int}
      *     },
      *     flagged: list<array{id:int, name:string, type:string, column:string, source:string, transpiled:string, problems:list<string>, suggested_fix:string}>,
@@ -36,10 +36,10 @@ class FormV2CompatScanner {
         $itemFactory = new ItemFactory([]);
 
         $counts = [
-            // showif is JS-only. r() in showif is invalid (`invalid_r`);
-            // bare R that doesn't transpile cleanly is `needs_js_rewrite`
-            // (admin should rewrite in JS or move R into a hidden value).
-            'showif' => ['empty' => 0, 'invalid_r' => 0, 'js_ok' => 0, 'needs_js_rewrite' => 0],
+            // showif is JS-only: R that doesn't transpile cleanly is
+            // `needs_js_rewrite` (rewrite it in JS, or move the R into a
+            // hidden item's value and reference that name).
+            'showif' => ['empty' => 0, 'js_ok' => 0, 'needs_js_rewrite' => 0],
             // value is R-only — every non-empty, non-numeric value is
             // routed through the allowlist as R. Buckets describe how the
             // entry will be handled, not whether it's valid.
@@ -54,18 +54,6 @@ class FormV2CompatScanner {
             // ---- showif ----
             if ($raw_showif === '') {
                 $counts['showif']['empty']++;
-            } elseif (preg_match('/^r\s*\(.*\)\s*$/s', $raw_showif)) {
-                $counts['showif']['invalid_r']++;
-                $flagged[] = [
-                    'id' => (int) $row['id'],
-                    'name' => (string) $row['name'],
-                    'type' => (string) $row['type'],
-                    'column' => 'showif',
-                    'source' => $raw_showif,
-                    'transpiled' => $raw_showif,
-                    'problems' => ['r() in showif is no longer supported — migrate to a hidden field with R in its value'],
-                    'suggested_fix' => 'create_hidden_field',
-                ];
             } else {
                 $transpiled = $raw_showif;
                 try {

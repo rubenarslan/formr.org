@@ -25,7 +25,7 @@ What participants notice:
 There are two ways in, both from the admin UI. Neither touches your items.
 
 - **New study**: in the run editor, "Add Form (form_v2, beta)" creates a Form unit for the study you pick and switches that study to the v2 engine. The button only appears when the operator has set `$settings['form_v2_enabled'] = true`; studies already on v2 keep rendering on v2 regardless of that flag.
-- **Existing study**: on the survey's settings page (`/admin/survey/<name>`) the "Rendering engine" box shows a compatibility-scan summary and an **Upgrade to form_v2** button. Upgrading converts every run unit that uses the study as a classic Survey into a Form unit and moves that placement's open unit sessions across, so participants who are mid-form continue on v2 from where they are (both engines read and write the same rows). The button is refused while any item still has an `r(...)` showif — fix those first (see "The two rules"). **Switch back to v1** is next to it and is safe at any time — a Form unit whose study is on v1 simply renders through the classic pipeline.
+- **Existing study**: on the survey's settings page (`/admin/survey/<name>`) the "Rendering engine" box shows a compatibility-scan summary and an **Upgrade to form_v2** button. Upgrading converts every run unit that uses the study as a classic Survey into a Form unit and moves that placement's open unit sessions across, so participants who are mid-form continue on v2 from where they are (both engines read and write the same rows). **Switch back to v1** is next to it and is safe at any time — a Form unit whose study is on v1 simply renders through the classic pipeline.
 
 Once a study is on v2, the same page shows the **Form_v2 settings**:
 
@@ -41,8 +41,6 @@ Once a study is on v2, the same page shows the **Form_v2 settings**:
 ### The two rules
 
 1. **`showif` is JavaScript.** It is evaluated in the participant's browser and re-evaluated on every input change. In v1 the same column held R, so every non-empty showif of a study you are upgrading has to be rewritten — most transpile as-is (`q1 == 1`), the rest need a JS rewrite or the hidden-item bridge below. The compatibility scanner tells you which is which before you switch.
-
-   *Footnote, for completeness:* wrapping a showif in `r(...)` does not work and never did — v1 evaluated the showif as R, where `r()` is not a function, and v2 does not evaluate R in a showif at all. The scanner flags such a showif, **Upgrade to form_v2** refuses while one exists, and at render the engine hides the item and tells the author. You will only meet this if you typed it.
 2. **`value` is R.** Anything that isn't empty, a number, or the `sticky` keyword is evaluated as R on the server. You can write the R bare or wrapped in `r(...)` — both mean the same thing; the wrapper is just the idiom used in the bridge example below.
 
 ### `showif`: client-side JS
@@ -117,7 +115,6 @@ Before upgrading a v1 study, run the scanner. It classifies every expression:
 - **empty** — no expression
 - **JS-OK** — transpiles to JavaScript cleanly
 - **needs JS rewrite** — residual R-only tokens (`ifelse`, `c(`, `%in%`, `<-`, …): rewrite in JS, or move the R into a hidden item's `value` and reference that name
-- **invalid: r() in showif** — rare (the wrapper was never valid; see rule 1's footnote); same fix: hidden item + `value`
 
 **`value`**
 - **empty**, **literal** (a number, kept as-is), or **R** (evaluated on the server)
@@ -175,7 +172,7 @@ Beyond the rendering model:
 3. Decide the per-study settings — offline queue, Previous button, layout, language.
 4. If the study uses install or push, configure the run as installable and verify `/{run}/manifest` responds.
 5. Test as yourself via the run's "Use as yourself" link. Walk every page; check flagged items and dynamic values behave as expected.
-6. Click **Upgrade to form_v2** on the survey settings page. Participants who are mid-form continue on v2 from where they are — their open sessions move with the converted run unit. (The switch is refused while any item still has an `r(...)` showif.) **Switch back to v1** undoes it at any time.
+6. Click **Upgrade to form_v2** on the survey settings page. Participants who are mid-form continue on v2 from where they are — their open sessions move with the converted run unit. **Switch back to v1** undoes it at any time.
 
 ## See also
 

@@ -3,7 +3,7 @@
 <p class="lead">A <strong>Form</strong> unit shows a survey as one JavaScript-rendered document: pages are submitted in the background, <code>showif</code>s react instantly, answers are autosaved, and a page that cannot reach the server is queued and replayed later. It is opt-in per study and lives next to the classic <strong>Survey</strong> unit, which keeps working unchanged.</p>
 
 <div class="alert alert-info">
-    <strong>The one authoring rule that changes:</strong> in a Form, <code>showif</code> is evaluated <em>in the participant's browser as JavaScript</em>. <code>r(...)</code> is not allowed in a showif. Server-side R goes into the <code>value</code> column, and a hidden item's <code>value</code> is how you feed an R result into a showif. Everything else — the spreadsheet format, item types, R elsewhere in the run — stays as it was. See <a href="#form_v2_showif">showif and value</a>.
+    <strong>The one authoring rule that changes:</strong> in a Form, <code>showif</code> is evaluated <em>in the participant's browser as JavaScript</em>. Server-side R goes into the <code>value</code> column, and a hidden item's <code>value</code> is how you feed an R result into a showif. Everything else — the spreadsheet format, item types, R elsewhere in the run — stays as it was. See <a href="#form_v2_showif">showif and value</a>.
 </div>
 
 <ul class="list-inline" id="form_v2_toc">
@@ -72,7 +72,7 @@
 
 <p>Two columns of the item table decide what a participant sees and what is pre-filled. On a Form they follow two rules:</p>
 <ol>
-    <li><strong><code>showif</code> is JavaScript.</strong> It runs in the participant's browser and is re-evaluated whenever an input changes. It cannot contain <code>r(...)</code>: an <code>r(...)</code>-wrapped showif is blanked (the item is then always shown) and the form reports a validation error to you, the author, with the fix.</li>
+    <li><strong><code>showif</code> is JavaScript.</strong> It runs in the participant's browser and is re-evaluated whenever an input changes. Familiar R-flavoured conditions are rewritten to JavaScript for you when you upload the sheet; what cannot be rewritten is listed by the compatibility scan, and the fix is either a JavaScript rewrite or the hidden-item bridge below.</li>
     <li><strong><code>value</code> is R.</strong> Anything that is not empty or a plain number is sent to R on the server. Writing it bare or wrapped in <code>r(...)</code> means the same thing — the wrapper is stripped before evaluation.</li>
 </ol>
 
@@ -149,10 +149,9 @@ value: r(complex_score(current(q1), current(q2)))</pre>
 <table class="table table-condensed table-striped">
     <thead><tr><th>Column</th><th>Bucket</th><th>Meaning</th><th>What to do</th></tr></thead>
     <tbody>
-        <tr><td rowspan="4"><code>showif</code></td><td><em>empty</em></td><td>no expression</td><td>—</td></tr>
+        <tr><td rowspan="3"><code>showif</code></td><td><em>empty</em></td><td>no expression</td><td>—</td></tr>
         <tr><td><em>JS-OK</em></td><td>transpiles to JavaScript without leftover R</td><td>nothing; test it in the browser anyway</td></tr>
         <tr><td><em>needs JS rewrite</em> (flagged, fix: <em>rewrite in JS</em>)</td><td>the transpiled expression still contains R-only pieces: function calls such as <code>ifelse</code>, <code>c</code>, <code>paste</code>, <code>grepl</code>, <code>sprintf</code>, <code>unique</code>, <code>which</code>, …; <code>tail</code>/<code>head</code> with an argument other than <code>1</code>; an <code>is.na()</code> that did not transpile; <code>%in%</code> or <code>%%</code>; the assignment arrow <code>&lt;-</code>; a bare <code>NA</code>; or <code>$</code> member access like <code>survey$item</code></td><td>Rewrite it with JavaScript operators and the <a href="#form_v2_showif">helpers</a>: <code>x %in% c(1,2)</code> becomes <code>[1,2].includes(x)</code> or <code>x == 1 || x == 2</code>; <code>ifelse(a, b, c)</code> becomes <code>a ? b : c</code>; <code>is.na(x)</code> becomes <code>isNA(x)</code>; <code>survey$item</code> becomes just <code>item</code> if it is on the form. If the logic genuinely needs R (data from another survey, a function from your R package), move it into a hidden item's <code>value</code> and test that item's name in the showif — see <a href="#form_v2_bridge">Bridging R into a showif</a>.</td></tr>
-        <tr><td><em>invalid: r() in showif</em> (flagged, fix: <em>create hidden field</em>)</td><td>the whole showif is wrapped in <code>r(...)</code>; the Form engine rejects this outright</td><td>Move the R into a hidden item's <code>value</code> (keep the <code>r(...)</code> wrapper there if you like) and reference the hidden item from the showif.</td></tr>
         <tr><td rowspan="3"><code>value</code></td><td><em>empty</em></td><td>no default</td><td>—</td></tr>
         <tr><td><em>literal</em></td><td>a number, used as-is</td><td>—</td></tr>
         <tr><td><em>R</em></td><td>everything else, including <code>sticky</code>; evaluated on the server</td><td>nothing — values are never flagged</td></tr>

@@ -15,8 +15,6 @@
  *   - needs JS rewrite — residual R tokens the client evaluator won't
  *                        handle; rewrite in JS, or move the R into a
  *                        hidden item's `value` and reference that name
- *   - invalid: r()     — `r(...)` in a showif is rejected at render time;
- *                        same fix: hidden item + `value`
  * value buckets (the value column is the R path):
  *   - empty / literal / R
  *
@@ -64,7 +62,6 @@ if (!empty($report['flagged'])) {
             echo "    transpiled: {$r['transpiled']}\n";
         }
         $fixes = [
-            'create_hidden_field' => 'move the R into a hidden item\'s `value` and reference that name from the showif',
             'rewrite_in_js' => 'rewrite the showif in JS (or move the R into a hidden item\'s `value`)',
         ];
         echo "    fix:        " . ($fixes[$r['suggested_fix']] ?? $r['suggested_fix']) . "\n\n";
@@ -80,7 +77,6 @@ echo "  showif (" . array_sum($cs) . " items, JS-only):\n";
 echo "    empty:                  {$cs['empty']}\n";
 echo "    JS-OK:                  {$cs['js_ok']}\n";
 echo "    needs JS rewrite:       {$cs['needs_js_rewrite']}\n";
-echo "    r() in showif (invalid): {$cs['invalid_r']}\n";
 
 $cv = $report['counts']['value'];
 echo "  value (" . array_sum($cv) . " items, R-only):\n";

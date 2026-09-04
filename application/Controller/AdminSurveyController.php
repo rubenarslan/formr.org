@@ -644,12 +644,9 @@ class AdminSurveyController extends AdminController {
      * The rendering_mode column alone is only half an upgrade: plain Survey
      * units never consult it — only Form units branch. So:
      *
-     *   v1 → v2: refuse if the compatibility scan finds an `r(...)` showif
-     *     (FormRenderer blanks those at participant render time, so the
-     *     switch would silently un-gate items). Otherwise set
-     *     rendering_mode='v2' AND convert every placement of this study as a
-     *     plain Survey (survey_run_units.unit_id == study id, the v1
-     *     shared-PK convention) — see convertSurveyPlacementsToForm().
+     *   v1 → v2: set rendering_mode='v2' AND convert every placement of this
+     *     study as a plain Survey (survey_run_units.unit_id == study id, the
+     *     v1 shared-PK convention) — see convertSurveyPlacementsToForm().
      *
      *   v2 → v1: set rendering_mode='v1' only. Form::getUnitSessionOutput
      *     falls through to the v1 pipeline for non-v2 studies, so no unit
@@ -667,19 +664,6 @@ class AdminSurveyController extends AdminController {
         $db = DB::getInstance();
 
         if ($target === 'v2' && $this->study->rendering_mode !== 'v2') {
-            $blocking = self::rShowifFindings(FormV2CompatScanner::scan($this->study->id));
-            if ($blocking) {
-                $lines = array_map(function ($f) {
-                    return '<li><code>' . h($f['name']) . '</code> (' . h($f['type']) . '): <code>' . h($f['source']) . '</code></li>';
-                }, $blocking);
-                alert('<strong>Not switched.</strong> ' . count($blocking) . ' item(s) use <code>r(...)</code> in <code>showif</code>, '
-                    . 'which the form_v2 engine does not evaluate (the item would always be shown). '
-                    . 'Add a hidden item with <code>value: r(...)</code> and reference its name from the showif, then re-upload and switch again:'
-                    . '<ul>' . implode('', $lines) . '</ul>', 'alert-danger');
-                $this->request->redirect(admin_study_url($this->study->name));
-                return;
-            }
-
             $this->study->update(['rendering_mode' => 'v2']);
             $converted = self::convertSurveyPlacementsToForm($db, (int) $this->study->id);
             $note = $converted
@@ -693,20 +677,6 @@ class AdminSurveyController extends AdminController {
             alert('Study is already on the requested engine.', 'alert-info');
         }
         $this->request->redirect(admin_study_url($this->study->name));
-    }
-
-    /**
-     * The scanner findings that block a v1 → v2 switch: showifs wrapped in
-     * `r(...)`. Other findings (needs_js_rewrite) are heuristic and stay
-     * advisory — the scan page lists them.
-     *
-     * @param array $report FormV2CompatScanner::scan() result
-     * @return list<array> the blocking `flagged` rows
-     */
-    public static function rShowifFindings(array $report) {
-        return array_values(array_filter((array) ($report['flagged'] ?? []), function ($f) {
-            return ($f['column'] ?? '') === 'showif' && ($f['suggested_fix'] ?? '') === 'create_hidden_field';
-        }));
     }
 
     /**

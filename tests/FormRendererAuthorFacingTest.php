@@ -5,16 +5,12 @@ use PHPUnit\Framework\TestCase;
 /**
  * form_v2 must not show study-authoring diagnostics to participants.
  *
- * Two things used to leak into the participant document:
- *   - the "these item types have not yet been end-to-end smoke-tested on
- *     form_v2" banner (deliberately ungated, on the theory that an admin-role
- *     check is impossible on the participant subdomain), and
- *   - the `r(...) in showif` spreadsheet validation error, which reached the
- *     .alert-danger banner and the item's own error slot.
- *
- * Both are now gated on FormRenderer::isAuthorFacingSession(), which reads the
- * run session (preview / testing / cron) rather than an admin cookie — so it
- * works across the origin split.
+ * The "these item types have not yet been end-to-end smoke-tested on form_v2"
+ * banner used to leak into the participant document, deliberately ungated on
+ * the theory that an admin-role check is impossible on the participant
+ * subdomain. It is gated on FormRenderer::isAuthorFacingSession() now, which
+ * reads the run session (preview / testing / cron) rather than an admin
+ * cookie — so it works across the origin split.
  */
 class FormRendererAuthorFacingTest extends TestCase
 {
