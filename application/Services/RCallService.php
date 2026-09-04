@@ -15,7 +15,7 @@
  *    call id alone must not stay evaluable forever. A call is LIVE only if
  *    its item still exists (not soft-deleted) and the item's CURRENT column
  *    content still yields this exact expression (hash compare against the
- *    unwrapped showif/value or the raw label). Editing or removing the
+ *    unwrapped value or the raw label). Editing or removing the
  *    r(...) in the sheet therefore revokes historic call ids instantly, with
  *    no reconciliation pass and no schema change.
  *
@@ -54,13 +54,13 @@ class RCallService {
     }
 
     /**
-     * Per-slot cache TTL in seconds. showif is reactive (short TTL so admin
-     * edits flow through quickly); value fills and labels are one-shot per
-     * page show and tolerate longer.
+     * Per-slot cache TTL in seconds. Value fills and labels are one-shot per
+     * page show, so they tolerate a long TTL; the floor for an unknown slot
+     * stays short.
      */
     public static function ttlForSlot($slot) {
         $ttls = Config::get('form_v2_rcall_ttl', array());
-        $defaults = array('showif' => 30, 'value' => 300, 'label' => 300);
+        $defaults = array('value' => 300, 'label' => 300);
         $slot = (string) $slot;
         if (is_array($ttls) && isset($ttls[$slot])) {
             return (int) $ttls[$slot];
@@ -78,7 +78,7 @@ class RCallService {
         $stmt = $this->db->prepare(
             'SELECT r.id, r.study_id, r.slot, r.expr, r.item_id,
                     i.id AS item_row_id, i.deleted AS item_deleted,
-                    i.showif AS item_showif, i.value AS item_value,
+                    i.value AS item_value,
                     i.label AS item_label
              FROM `survey_r_calls` r
              LEFT JOIN `survey_items` i ON i.id = r.item_id
@@ -107,7 +107,7 @@ class RCallService {
     /**
      * Revocation check: the recorded expression must still be derivable from
      * the item's CURRENT sheet content. $row needs slot/expr/item_id plus the
-     * item_deleted/item_showif/item_value/item_label join columns.
+     * item_deleted/item_value/item_label join columns.
      */
     public static function callRowIsLive(array $row) {
         if (empty($row['item_id'])) {
@@ -128,11 +128,6 @@ class RCallService {
                 return $current !== '' && trim($current) === $expr;
             case 'label':
                 return trim((string) $row['item_label']) === $expr;
-            case 'showif':
-                // Legacy slot (showifs are JS-only since the Phase 3 redesign);
-                // honour rows only while the sheet still carries the wrap.
-                $current = RAllowlistExtractor::unwrap((string) $row['item_showif']);
-                return $current !== null && trim($current) === $expr;
         }
         return false;
     }
@@ -149,7 +144,7 @@ class RCallService {
         $stmt = $this->db->prepare(
             'SELECT r.id, r.slot, r.expr, r.item_id,
                     i.id AS item_row_id, i.deleted AS item_deleted,
-                    i.showif AS item_showif, i.value AS item_value,
+                    i.value AS item_value,
                     i.label AS item_label
              FROM `survey_r_calls` r
              INNER JOIN `survey_items_display` d ON d.item_id = r.item_id
@@ -365,7 +360,7 @@ class RCallService {
     // ------------------------------------------------------------------
 
     /**
-     * Resolve expression calls (slot 'value' or legacy 'showif') in one
+     * Resolve expression calls (slot 'value' or 'label') in one
      * OpenCPU batch, cache-first. THE single implementation — the previous
      * controller had a single-call and a batch copy that had already drifted
      * (only one evicted stale rows). Returns [call_id => result]; misses that

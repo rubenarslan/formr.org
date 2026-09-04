@@ -61,9 +61,6 @@ class FormRenderer extends SpreadsheetRenderer {
         if (!$item) {
             return false;
         }
-        if (!empty($item->parent_attributes['data-fmr-r-call'])) {
-            return false; // server-resolved showif, not a JS expression
-        }
         return !empty($item->js_showif);
     }
 
@@ -576,12 +573,9 @@ class FormRenderer extends SpreadsheetRenderer {
         // Emit data-showif on every item with a showif expression, so the client
         // runtime can re-evaluate on each input change. v1 only set data_showif
         // when the server hid the item; v2 wants reactive visibility without a
-        // round-trip. Skip items whose showif was an r() wrap — those go via
-        // /form/r-call and have no local JS expression to evaluate.
+        // round-trip. An item with a showif but no transpiled js_showif was
+        // gated out in processItems (Step 1) and never reaches here.
         foreach ($this->renderedItems as $item) {
-            if (!empty($item->parent_attributes['data-fmr-r-call'])) {
-                continue;
-            }
             if (!empty($item->showif) && !empty($item->js_showif)) {
                 $item->data_showif = true;
             }
@@ -700,7 +694,6 @@ class FormRenderer extends SpreadsheetRenderer {
 
     protected function renderV2Header() {
         $submitUrl = run_url($this->run->name, 'form-page-submit');
-        $rcallUrl = run_url($this->run->name, 'form-r-call');
         $fillUrl = run_url($this->run->name, 'form-fill');
         $syncUrl = run_url($this->run->name, 'form-sync');
         $saveUrl = run_url($this->run->name, 'form-save');
@@ -729,9 +722,8 @@ class FormRenderer extends SpreadsheetRenderer {
         // …) — the admin-choosable layout modifiers. Keep it on the v2 form
         // so those classes keep working without a parallel scss port.
         $html = sprintf(
-            '<form class="fmr-form-v2 form-horizontal" method="post" data-submit-url="%s" data-rcall-url="%s" data-fill-url="%s" data-sync-url="%s" data-save-url="%s" data-run-url="%s" data-offline-mode="%s" data-allow-previous="%s" data-layout="%s" data-fmr-progress-from="%d" data-fmr-progress-to="%d" novalidate>',
+            '<form class="fmr-form-v2 form-horizontal" method="post" data-submit-url="%s" data-fill-url="%s" data-sync-url="%s" data-save-url="%s" data-run-url="%s" data-offline-mode="%s" data-allow-previous="%s" data-layout="%s" data-fmr-progress-from="%d" data-fmr-progress-to="%d" novalidate>',
             htmlspecialchars($submitUrl, ENT_QUOTES),
-            htmlspecialchars($rcallUrl, ENT_QUOTES),
             htmlspecialchars($fillUrl, ENT_QUOTES),
             htmlspecialchars($syncUrl, ENT_QUOTES),
             htmlspecialchars($saveUrl, ENT_QUOTES),

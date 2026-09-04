@@ -364,7 +364,7 @@ class UnitSession extends Model {
      * ends the session still counts.
      *
      * Public because RCallService meters the form_v2 reactive-R endpoints
-     * (form-r-call / form-fill / form-render-page) into the same column —
+     * (form-fill / form-render-page) into the same column —
      * participant-driven OpenCPU load must count against the owner's
      * compute budget like unit execution does.
      *

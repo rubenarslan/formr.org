@@ -1381,39 +1381,6 @@ class RunController extends Controller {
     }
 
     /**
-     * form_v2 Phase 3: evaluate an allowlisted r(...) expression with live answers.
-     *
-     * URL: POST /{runName}/form-r-call
-     * Body: JSON `{"call_id": int, "answers": {name: value, ...}}`
-     *
-     * The client sends its current reactive answers; the server overlays them on
-     * the persisted survey row and evaluates the stored R expression. This exists
-     * so admin-authored showifs that contain R-only constructs the regex
-     * transpiler can't handle still react within the same page, without ever
-     * shipping R source to the client.
-     */
-    public function formRCallAction() {
-        if (!Request::isHTTPPostRequest()) {
-            $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
-            return;
-        }
-        $payload = json_decode(file_get_contents('php://input'), true);
-        if (!is_array($payload)) {
-            $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
-            return;
-        }
-        $callId = isset($payload['call_id']) ? (int) $payload['call_id'] : 0;
-        $answers = (isset($payload['answers']) && is_array($payload['answers'])) ? $payload['answers'] : array();
-
-        $out = $this->evaluateAllowlistedRCall($callId, 'showif', $answers);
-        if (!$out['ok']) {
-            $this->sendJsonResponse(array('error' => $out['error']), $out['status']);
-            return;
-        }
-        $this->sendJsonResponse(array('result' => RCallService::rResultToBool($out['result'])));
-    }
-
-    /**
      * bot_check (Altcha): mint a fresh, session-bound proof-of-work challenge.
      *
      * URL: GET /{runName}/form-bot-challenge?item=<bot_check item name>
@@ -1519,7 +1486,7 @@ class RunController extends Controller {
      * URL: POST /{runName}/form-fill
      * Body: JSON `{"call_id": int, "answers": {name: value, ...}}`
      *
-     * Same shape as form-r-call but enforces slot='value' and returns the R
+     * Enforces slot='value' and returns the R
      * result stringified for the input. Client sets `input.value` and fires a
      * change event so dependent showifs re-evaluate.
      */
@@ -1639,7 +1606,7 @@ class RunController extends Controller {
     }
 
     /**
-     * Shared body for form-r-call + form-fill: validate session/study ownership
+     * Shared body for form-fill + form-render-page: validate session/study ownership
      * of the call_id, enforce expected slot, overlay client answers on the last
      * persisted row, evaluate the R expression via OpenCPU. Never ships R
      * source to the client.
@@ -1685,7 +1652,7 @@ class RunController extends Controller {
     }
 
     /**
-     * Shared r-call/fill/render-page budget: one bucket per run session so a
+     * Shared fill/render-page budget: one bucket per run session so a
      * hostile client can't multiply its budget by alternating endpoints.
      * 30/min default is generous for a participant typing through every
      * debounce window of a long form; override via

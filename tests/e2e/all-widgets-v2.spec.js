@@ -22,7 +22,6 @@ test.describe('all_widgets v2', () => {
         await v2.waitForBundle(page);
         const f = v2.form(page);
         expect(await f.getAttribute('data-submit-url')).toMatch(/\/form-page-submit\/?$/);
-        expect(await f.getAttribute('data-rcall-url')).toMatch(/\/form-r-call\/?$/);
         expect(await f.getAttribute('data-fill-url')).toMatch(/\/form-fill\/?$/);
         expect(await f.getAttribute('data-sync-url')).toMatch(/\/form-sync\/?$/);
     });

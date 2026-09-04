@@ -2,8 +2,8 @@
 // Single-page AJAX form: all pages rendered server-side in one document,
 // client-side navigation between `<section data-fmr-page>` wrappers, page-at-
 // a-time AJAX submission. Alpine drives reactive `showif` (`x-showif`
-// directive + `fmrForm` component); everything else (r-call debounce, offline
-// queue, button-group wiring, file uploads, geopoint) is plain DOM/fetch.
+// directive + `fmrForm` component); everything else (offline queue,
+// button-group wiring, file uploads, geopoint) is plain DOM/fetch.
 
 import 'bootstrap5/dist/css/bootstrap.min.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
@@ -741,7 +741,7 @@ function initForm() {
     };
 
     // Read the current state of every named form input as a flat map. Used
-    // for /form-render-page (and /form-r-call / /form-fill on the JS side).
+    // for /form-render-page and /form-fill.
     // Same coercion as Alpine's _syncInput so the server sees identical
     // shape regardless of which path it came from.
     const collectAllAnswers = () => {
@@ -1918,105 +1918,6 @@ function initForm() {
     // server-emitted `data-showif="<transpiled-js>"` attribute to `x-showif`
     // and adds `x-data="fmrForm"` on the root form.
     promoteShowifAttributes(root);
-
-    // collectAnswers remains as a helper for r-call/fill POST payloads. It
-    // reads the DOM fresh each call (same contract as before) rather than
-    // snapshotting Alpine state — Alpine and the DOM agree at event time.
-    const collectAnswers = () => {
-        const a = {};
-        root.querySelectorAll('input[name], select[name], textarea[name]').forEach((inp) => {
-            const raw = inp.name || '';
-            if (raw.startsWith('_item_views')) return;
-            const isArr = raw.endsWith('[]');
-            const key = isArr ? raw.slice(0, -2) : raw;
-            // Disabled FIRST — a showif-hidden item disables its inputs but a
-            // checkbox/radio may still be checked; the checkbox/radio branches
-            // below return early on !checked and would otherwise ship that
-            // retracted answer to the server-side R overlay (collectPayload and
-            // collectAllAnswers already order it this way).
-            if (inp.disabled) return;
-            let v;
-            if (inp.type === 'checkbox') {
-                if (!inp.checked) return;
-                v = inp.value;
-            } else if (inp.type === 'radio') {
-                if (!inp.checked) return;
-                v = inp.value;
-            } else {
-                v = inp.value;
-            }
-            const n = v === '' || v === null || v === undefined ? null : (isNaN(Number(v)) ? v : Number(v));
-            if (isArr) {
-                a[key] = (a[key] || []).concat([n]);
-            } else {
-                a[key] = n;
-            }
-        });
-        return a;
-    };
-
-    // --- r-call showif (Phase 3) ---
-    // Items the admin opted into server-side R via `r(...)` carry
-    // `data-fmr-r-call="{id}"`. When any input changes, POST the current
-    // answers + call_id to /form-r-call and let the server evaluate; apply
-    // visibility from the response. Debounced + seq-guarded so rapid typing
-    // doesn't stack requests or let stale responses override fresh ones.
-    const rcallItems = Array.from(root.querySelectorAll('[data-fmr-r-call]'));
-    if (rcallItems.length > 0) {
-        const rcallUrl = root.getAttribute('data-rcall-url');
-        const rcallSeqs = new Map();       // el -> latest seq #
-        const rcallLastArgs = new Map();   // el -> last JSON string sent, for dedup
-        let rcallPendingTimer = null;
-
-        const applyRCallResult = (el, visible) => {
-            el.classList.toggle('hidden', !visible);
-            el.toggleAttribute('data-fmr-hidden', !visible);
-            el.style.display = visible ? '' : 'none';
-            el.querySelectorAll('input, select, textarea').forEach((inp) => {
-                if (inp.name && !inp.name.startsWith('_item_views')) {
-                    inp.disabled = !visible;
-                }
-            });
-        };
-
-        const triggerRCalls = () => {
-            if (!rcallUrl) return;
-            const answers = collectAnswers();
-            const answersKey = JSON.stringify(answers);
-            rcallItems.forEach((el) => {
-                const callId = Number(el.getAttribute('data-fmr-r-call'));
-                if (!callId) return;
-                // Skip duplicate: same answers → same visibility, no need to re-POST.
-                if (rcallLastArgs.get(el) === answersKey) return;
-                const seq = (rcallSeqs.get(el) || 0) + 1;
-                rcallSeqs.set(el, seq);
-                fetch(rcallUrl, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ call_id: callId, answers }),
-                }).then((r) => (r.ok ? r.json() : null))
-                  .then((data) => {
-                      if (!data || rcallSeqs.get(el) !== seq) return; // stale
-                      // Record the dedup key only on success — a failed POST
-                      // must stay re-triggerable for the same answer state.
-                      rcallLastArgs.set(el, answersKey);
-                      if (typeof data.result === 'boolean') applyRCallResult(el, data.result);
-                  }).catch(() => { /* leave visibility as-is on failure; no dedup record */ });
-            });
-        };
-
-        const scheduleRCalls = () => {
-            if (rcallPendingTimer !== null) clearTimeout(rcallPendingTimer);
-            rcallPendingTimer = setTimeout(() => { rcallPendingTimer = null; triggerRCalls(); }, 300);
-        };
-
-        root.addEventListener('input', scheduleRCalls);
-        root.addEventListener('change', scheduleRCalls);
-        // Fire once at load so any items hidden server-side by initial-empty-answers
-        // can re-evaluate against whatever answers actually exist in the DOM.
-        triggerRCalls();
-    }
 
     // Deferred-fill at initial load was the previous model's per-item
     // /form-fill resolver. Under the page-scoped model:

@@ -443,8 +443,8 @@ $settings['form_v2_offline_blob_max_mb'] = 10;
 // form_v2 endpoint rate limits, per fixed 60s window (FixedWindowRateLimiter,
 // patch 091; buckets keyed by run session, beacon by IP; fail-open when the
 // table is missing so a misapplied patch never locks participants out).
-//   rcall_per_min  — /form-r-call + /form-fill + /form-render-page (shared
-//                    bucket; these trigger OpenCPU work)
+//   rcall_per_min  — /form-fill + /form-render-page (shared bucket; these
+//                    trigger OpenCPU work)
 //   write_per_min  — /form-page-submit + /form-save + /form-sync (DB writes)
 //   beacon_per_min — /pwa-beacon (unauthenticated logging endpoint)
 //   bot_challenge_per_min — /form-bot-challenge (bot_check nonce minting;
