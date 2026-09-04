@@ -67,6 +67,41 @@ class FormRenderer extends SpreadsheetRenderer {
         return !empty($item->js_showif);
     }
 
+    /** @var bool|null memoized isAuthorFacingSession() */
+    protected $authorFacingSession = null;
+
+    /**
+     * Is this render being watched by the study's author rather than by a
+     * participant?
+     *
+     * Two cases count: the admin survey preview (RunSession::isTestingStudy() —
+     * Run::TEST_RUN, or the synthetic id === -1 session) and a run session
+     * flagged `testing` (the "use run as yourself" flow, RunSession::isTesting()).
+     * Cron-driven sessions count too: nobody is looking, but the notice/error
+     * would land in the admin's log rather than in a participant's browser.
+     *
+     * Everything author-facing in the rendered document (spreadsheet validation
+     * errors, the unverified-item-types banner) must be gated on this: the
+     * participant subdomain is a separate origin, so we cannot ask "is an admin
+     * logged in" — but a participant must never be shown study-authoring
+     * diagnostics either way.
+     */
+    protected function isAuthorFacingSession() {
+        if ($this->authorFacingSession !== null) {
+            return $this->authorFacingSession;
+        }
+        $this->authorFacingSession = false;
+        $runSession = $this->unitSession ? $this->unitSession->runSession : null;
+        if ($runSession) {
+            $this->authorFacingSession = (bool) (
+                $runSession->isTestingStudy()
+                || $runSession->isTesting()
+                || $runSession->isCron()
+            );
+        }
+        return $this->authorFacingSession;
+    }
+
     public function processItems() {
         $items = $this->getAllUnansweredItems();
         if (!$items) {
@@ -87,16 +122,56 @@ class FormRenderer extends SpreadsheetRenderer {
         };
 
         // Step 1: reject r(...) showifs as invalid. Showifs are JS-only.
-        foreach ($items as $item) {
+        //
+        // FAIL CLOSED. Blanking showif/js_showif alone (what this used to do)
+        // left the item with no condition at all, i.e. unconditionally VISIBLE
+        // — an item the author meant to gate behind an R condition was shown to
+        // every participant. Treat the broken condition as `showif` FALSE
+        // instead: hide + prune the item exactly like the OpenCPU batch does
+        // for a definite-FALSE showif (SpreadsheetRenderer::processDynamic-
+        // ValuesAndShowIfs), and persist hidden=1 so it neither renders nor
+        // blocks completion on later renders of this session.
+        //
+        // The explanation is author-facing, so it only enters validationErrors
+        // (→ the .alert-danger banner + the item's own error) in test/preview
+        // sessions; a real participant gets a silent hide plus a log line the
+        // admin can find. Upload/switch-time rejection is the primary gate —
+        // this is the runtime safety net for studies that predate it.
+        $prunedShowifs = [];
+        foreach ($items as $name => $item) {
             if (!$item || empty($item->showif)) continue;
-            if (RAllowlistExtractor::unwrap($item->showif) !== null) {
-                $this->validationErrors[$item->name] =
-                    'r(...) is no longer supported in `showif`. '
-                    . 'Add a hidden item with `value: r(...)` and reference its '
-                    . 'name from the showif (which is now JS-only).';
-                $item->showif = '';
-                $item->js_showif = null;
+            if (RAllowlistExtractor::unwrap($item->showif) === null) continue;
+
+            $message = 'r(...) is no longer supported in `showif`. '
+                . 'Add a hidden item with `value: r(...)` and reference its '
+                . 'name from the showif (which is now JS-only). '
+                . 'The item is hidden until the showif is fixed.';
+            $item->showif = '';
+            $item->js_showif = null;
+            // hide() sets hidden=true; probably_render stays null (protected,
+            // and null is what "definitely hidden" wants), so isRendered() and
+            // isHiddenButRendered() are both false → no render, no progress
+            // contribution.
+            $item->hide();
+            $prunedShowifs[(int) $item->id] = ['hidden' => 1];
+            unset($items[$name], $this->unanswered[$name]);
+
+            if ($this->isAuthorFacingSession()) {
+                $this->validationErrors[$name] = $message;
+            } else {
+                formr_log(sprintf(
+                    "form_v2: hid item '%s' (id %d) in study '%s' (id %d): %s",
+                    (string) $name, (int) $item->id,
+                    (string) $this->study->name, (int) $this->study->id,
+                    $message
+                ));
             }
+        }
+        if ($prunedShowifs) {
+            $this->db->batchUpdateByKey(
+                'survey_items_display', 'item_id', $prunedShowifs,
+                [], ['session_id' => $this->unitSession->id]
+            );
         }
 
         // Step 2: dynamic values. The `value` column carries R that we
@@ -119,16 +194,20 @@ class FormRenderer extends SpreadsheetRenderer {
         //     render; the participant sees the resolved value immediately.
         //   - Later-page items get $item->value blanked + data-fmr-fill-id
         //     emitted; the client resolves them at page transition.
+        //   - The survey_r_calls rows are collected here and written in ONE
+        //     batch below (see ensureRCalls): the allowlist is a pure function
+        //     of the study definition, so re-upserting a row per dynamic item
+        //     per participant render was pure write amplification.
+        $pendingCalls = [];   // list of ['slot'=>…, 'expr'=>…, 'item_id'=>…]
+        $callTargets = [];    // parallel list of [$item, attribute name]
         foreach ($items as $item) {
             if (!$item) continue;
             if (!$item->needsDynamicValue()) continue;
             $rawValue = trim((string) $item->value);
             if ($rawValue === '') continue;
             $rExpr = RAllowlistExtractor::unwrap($rawValue) ?? $rawValue;
-            $callId = RAllowlistExtractor::record(
-                $this->db, $this->study->id, 'value', $rExpr, $item->id
-            );
-            $item->parent_attributes['data-fmr-fill-id'] = (string) $callId;
+            $pendingCalls[] = ['slot' => 'value', 'expr' => $rExpr, 'item_id' => $item->id];
+            $callTargets[] = [$item, 'data-fmr-fill-id'];
             if ($itemPageOf($item) !== $firstPage) {
                 $item->value = '';
             } elseif ($rExpr !== $rawValue) {
@@ -147,21 +226,56 @@ class FormRenderer extends SpreadsheetRenderer {
         // architectural consistency + cache hits via patch 083 — admins who
         // can't tolerate the flicker should keep dynamic content off the
         // first page (plan_form_v2 §8 P2 trade-off).
+        //
+        // note_iframe is the exception and needs care on two counts:
+        //   - needsDynamicLabel() is a QUERY for every other type (is
+        //     label_parsed null?) but NoteIframe_Item's override *does the
+        //     work*: it knits the Rmd through OpenCPU synchronously and returns
+        //     false. It is therefore not deferrable through the label slot
+        //     (RCallService::resolveLabels knits markdown, not an iframe), and
+        //     asking it twice costs two OpenCPU knits. We only ask for items on
+        //     the FIRST page here, because the inherited
+        //     processDynamicLabelsAndChoices (Step 5) asks again for exactly
+        //     those — so first-page iframes are knitted once, by the parent,
+        //     and later-page iframes once, here.
+        //   - only note_iframe consumes the $vars argument (Item::needs-
+        //     DynamicLabel ignores it), so building run data for every item was
+        //     one getRunData() round trip per unanswered item per render.
+        //     Mirror SpreadsheetRenderer::processDynamicLabelsAndChoices and
+        //     compute it only for note_iframe.
+        //
+        // KNOWN LIMITATION: a later-page note_iframe is knitted at initial
+        // render, so its content reflects the data as of page 1 rather than as
+        // of the page it sits on. Deferring it properly needs an 'iframe' slot
+        // in survey_r_calls plus resolution in RCallService/RunController and
+        // the form bundle; the label slot cannot carry it.
         foreach ($items as $item) {
             if (!$item) continue;
-            if (!$item->needsDynamicLabel(
-                $this->unitSession->getRunData((string) $item->label, $this->study->name),
-                $this->study->name
-            )) {
+            $isIframe = (isset($item->type) && $item->type === 'note_iframe');
+            if ($isIframe && $itemPageOf($item) === $firstPage) {
+                continue; // Step 5's parent pass knits this one (exactly once)
+            }
+            $vars = $isIframe
+                ? $this->unitSession->getRunData((string) $item->label, $this->study->name)
+                : [];
+            if (!$item->needsDynamicLabel($vars, $this->study->name)) {
                 continue;
             }
             $labelSrc = (string) $item->label;
             if ($labelSrc === '') continue;
-            $callId = RAllowlistExtractor::record(
-                $this->db, $this->study->id, 'label', $labelSrc, $item->id
-            );
-            $item->parent_attributes['data-fmr-label-id'] = (string) $callId;
+            $pendingCalls[] = ['slot' => 'label', 'expr' => $labelSrc, 'item_id' => $item->id];
+            $callTargets[] = [$item, 'data-fmr-label-id'];
             $item->label_parsed = '';
+        }
+
+        // Steps 2+3 write-back: one SELECT of the study's existing allowlist
+        // rows (cached per request) and an INSERT only for rows that don't
+        // exist yet, instead of an upsert per dynamic item per render.
+        $callIds = $this->ensureRCalls($pendingCalls);
+        foreach ($callTargets as $i => $target) {
+            if (!isset($callIds[$i])) continue;
+            list($targetItem, $attribute) = $target;
+            $targetItem->parent_attributes[$attribute] = (string) $callIds[$i];
         }
 
         // Step 4: submit-type items are page boundaries AND the page's advance
@@ -229,6 +343,71 @@ class FormRenderer extends SpreadsheetRenderer {
 
         $this->toRender = $merged;
         $this->renderedItems = $this->getRenderedStudyItems();
+    }
+
+    /**
+     * Per-request memo of a study's survey_r_calls ids, keyed by
+     * "<study id>:<study modified>" so an edited/re-imported study never reads
+     * a stale id. Static because a single request can render the same study
+     * more than once (preview + progress), and because in a long-running
+     * daemon it collapses the SELECT too.
+     *
+     * @var array<string, array<string, int>> studyKey => (callKey => id)
+     */
+    protected static $rCallIdCache = [];
+
+    /**
+     * Resolve survey_r_calls ids for the calls collected in Steps 2 and 3.
+     *
+     * The allowlist is a pure function of the study definition, so the steady
+     * state is "every row already exists": this does ONE SELECT per study
+     * (memoized for the request) and writes only rows that are genuinely
+     * missing — where the old per-item RAllowlistExtractor::record() upserted,
+     * and bumped `modified` on, one row per dynamic item on every participant
+     * render.
+     *
+     * @param array<int, array{slot:string, expr:string, item_id:int|null}> $calls
+     * @return array<int, int> same keys as $calls => call id
+     */
+    protected function ensureRCalls(array $calls) {
+        if (!$calls) {
+            return [];
+        }
+        $studyKey = (int) $this->study->id . ':' . (string) ($this->study->modified ?? '');
+        $known = isset(self::$rCallIdCache[$studyKey]) ? self::$rCallIdCache[$studyKey] : [];
+
+        $keys = [];
+        $missing = [];
+        foreach ($calls as $i => $call) {
+            $itemId = (isset($call['item_id']) && $call['item_id'] !== null) ? (int) $call['item_id'] : null;
+            $key = RAllowlistExtractor::callKey(
+                $call['slot'], $itemId, hash('sha256', (string) $call['expr'])
+            );
+            $keys[$i] = $key;
+            if (!isset($known[$key])) {
+                $missing[$key] = $call;
+            }
+        }
+        if ($missing) {
+            $known = array_merge(
+                $known,
+                RAllowlistExtractor::ensure($this->db, $this->study->id, array_values($missing))
+            );
+            // Bound the memo in long-running processes (queue daemons render
+            // units for many studies in one PHP process).
+            if (count(self::$rCallIdCache) > 20) {
+                self::$rCallIdCache = [];
+            }
+            self::$rCallIdCache[$studyKey] = $known;
+        }
+
+        $out = [];
+        foreach ($keys as $i => $key) {
+            if (isset($known[$key])) {
+                $out[$i] = $known[$key];
+            }
+        }
+        return $out;
     }
 
     /**
@@ -596,18 +775,30 @@ class FormRenderer extends SpreadsheetRenderer {
     /**
      * Notice listing item types that haven't been smoke-tested in v2 yet.
      * Rendered above the form header when the survey contains any such type;
-     * omitted entirely otherwise. Intentionally not gated by admin role — the
-     * participant subdomain is a separate origin so the admin cookie isn't
-     * visible there, and a mild "we haven't verified this everywhere" hint is
-     * cheaper than missing real-world UX bugs because nobody saw the banner.
-     * Not a hard gate: the items still render and submit through the normal
-     * v1-inherited pipeline.
+     * omitted entirely otherwise.
+     *
+     * GATED on isAuthorFacingSession(). The message ("these item types have not
+     * yet been end-to-end smoke-tested on form_v2") is addressed to the study
+     * author and is meaningless-to-alarming for a participant, who has no way
+     * to act on it and reads it as "this survey is broken". The banner was
+     * previously ungated on the theory that the participant subdomain is a
+     * separate origin so an admin-cookie check is impossible there — true, but
+     * the run session itself already tells us whether this is a test/preview
+     * render (see isAuthorFacingSession), which is the check we actually
+     * needed. Authors still see it in preview and in their own test sessions,
+     * which is where they can act on it.
+     *
+     * Not a hard gate on the items themselves: they still render and submit
+     * through the normal v1-inherited pipeline for everyone.
      *
      * Omitted in the solo (one-item-per-screen) layout: it's an author-facing
      * dev hint with nowhere to sit there without either pushing every step
-     * down or eating the participant's first screen.
+     * down or eating the author's first screen.
      */
     protected function renderUnverifiedTypesNotice() {
+        if (!$this->isAuthorFacingSession()) {
+            return '';
+        }
         if (($this->study->layout ?? 'default') === 'solo') {
             return '';
         }

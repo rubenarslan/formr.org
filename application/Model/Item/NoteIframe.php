@@ -8,7 +8,22 @@ class NoteIframe_Item extends Note_Item {
     public $input_attributes = array('type' => 'hidden', "value" => 1);
     public $save_in_results_table = false;
 
+    /**
+     * This override DOES the work instead of answering a question, so calling
+     * it twice knits twice. FormRenderer (v2) and the inherited
+     * SpreadsheetRenderer::processDynamicLabelsAndChoices both ask; page
+     * scoping in FormRenderer keeps them from overlapping, and this flag is the
+     * backstop — one knit per item per request, whatever the caller does.
+     *
+     * @var bool
+     */
+    protected $knitted = false;
+
     public function needsDynamicLabel($vars = [], $context = null) {
+        if ($this->knitted) {
+            return false;
+        }
+        $this->knitted = true;
 
         $ocpu_session = opencpu_knit_iframe($this->label, $vars, true, $context);
         if ($ocpu_session && !$ocpu_session->hasError()) {
