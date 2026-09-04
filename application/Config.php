@@ -26,6 +26,9 @@ class Config {
      */
     public static function initialize(array $settings) {
         self::$config = $settings;
+        // Drop memoized lookups: a re-initialize (the PHPUnit bootstrap does
+        // one after setup.php) must not keep answering from the old settings.
+        self::$computed = array();
     }
 
     /**
