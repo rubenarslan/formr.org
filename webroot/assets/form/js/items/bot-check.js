@@ -76,15 +76,17 @@ function registerArgon2id() {
 
 // Build the absolute challenge URL from the form's data-run-url (set by
 // FormRenderer) + the item's run-relative data-challenge-path, mirroring how
-// main.js derives renderPageUrl. Optional per-item difficulty rides as a query
-// param (the server clamps + signs it, so it can't weaken the gate).
-function challengeUrlFor(widget) {
-    const form = widget.closest('form.fmr-form-v2');
+// main.js derives renderPageUrl. The item NAME rides as a query param; the
+// server looks the item up in the current study and derives the difficulty
+// from its `bot_check N` (and verifies against the same floor), so nothing
+// the client sends can weaken the gate. `data-difficulty` on the wrapper is
+// informational only and is deliberately NOT sent.
+function challengeUrlFor(wrapper, itemName) {
+    const form = wrapper.closest('form.fmr-form-v2');
     const runUrl = (form && form.getAttribute('data-run-url')) || (window.formr && window.formr.runUrl) || '';
-    const path = widget.getAttribute('data-challenge-path') || 'form-bot-challenge';
+    const path = wrapper.getAttribute('data-challenge-path') || 'form-bot-challenge';
     let url = (runUrl || '').replace(/\/?$/, '/') + path;
-    const diff = widget.getAttribute('data-difficulty');
-    if (diff) url += (url.indexOf('?') === -1 ? '?' : '&') + 'difficulty=' + encodeURIComponent(diff);
+    if (itemName) url += (url.indexOf('?') === -1 ? '?' : '&') + 'item=' + encodeURIComponent(itemName);
     return url;
 }
 
@@ -103,7 +105,8 @@ export function initBotCheck(root) {
         // the standalone script defines it). auto="off" keeps it inert until the
         // participant clicks, so there's no eager fetch on initial (multi-page)
         // render.
-        const url = challengeUrlFor(wrapper);
+        const itemName = wrapper.getAttribute('data-item') || altcha.getAttribute('name') || '';
+        const url = challengeUrlFor(wrapper, itemName);
         if (url) altcha.setAttribute('challenge', url);
     });
 

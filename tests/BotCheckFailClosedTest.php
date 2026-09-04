@@ -208,8 +208,11 @@ class BotCheckFailClosedTest extends TestCase
         $this->assertEmpty($item->error);
 
         // an optional item that WAS solved records the verification too
+        // (tokens are single-use / burned on verify, so solve a fresh one)
+        $solved2 = $this->solveAFreshChallenge();
+        $token2 = base64_encode(json_encode($solved2));
         $item = $this->optionalItem();
-        $this->assertSame('verified', $item->validateInput($token));
+        $this->assertSame('verified', $item->validateInput($token2));
         $this->assertEmpty($item->error);
     }
 

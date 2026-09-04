@@ -762,9 +762,8 @@ class RunController extends Controller {
         }
 
         $runUnit = $unitSession->runUnit;
-        // Form extends Survey — accept both, but only v2-rendered studies should reach this endpoint.
-        if (!($runUnit instanceof Survey)) {
-            $this->sendJsonResponse(array('error' => 'Current unit is not a survey/form'), 409);
+        if (!$this->formV2Study($runUnit)) {
+            $this->sendJsonResponse(array('error' => 'Current unit is not a v2 form'), 409);
             return;
         }
 
@@ -843,16 +842,35 @@ class RunController extends Controller {
      *
      * URL: POST /{runName}/form-save  — JSON only: {data:{...}, item_views:{...}}.
      *
-     * Writes whatever answers the participant has entered so far WITHOUT
-     * page-completion semantics: no required-gating, no page advance, no
-     * redirect. So a mid-page breakoff (close tab, lose signal, walk away) still
-     * yields partial data — the spec's "persist on advance/blur, not only on
-     * explicit submit." Idempotent: updateSurveyStudyRecord upserts
-     * survey_items_display by (session_id, item_id) and the results row by
-     * (study_id, session_id), so a later validated page-submit cleanly
-     * overwrites. Best-effort by design — the client rate-limits these and
-     * treats failures as non-fatal (the explicit submit + offline queue are the
-     * durable path). Files are not autosaved (they ride the explicit submit).
+     * Writes the answers the participant has entered so far WITHOUT
+     * page-completion semantics: no required-gating (unanswered items are just
+     * not in the payload), no page advance, no redirect. So a mid-page breakoff
+     * (close tab, lose signal, walk away) still yields partial data — the
+     * spec's "persist on advance/blur, not only on explicit submit."
+     * Idempotent: updateSurveyStudyRecord upserts survey_items_display by
+     * (session_id, item_id) and the results row by (study_id, session_id), so a
+     * later validated page-submit cleanly overwrites. Best-effort by design —
+     * the client rate-limits these and treats failures as non-fatal (the
+     * explicit submit + offline queue are the durable path).
+     *
+     * Every autosaved value goes through the item's own validateInput() first,
+     * exactly as on page-submit (F1, 2026-09). This endpoint used to call
+     * updateSurveyStudyRecord with validate=false, and that method stamps
+     * `survey_items_display.saved` for every posted item — FormRenderer only
+     * re-renders `saved IS NULL` rows and progress counts saved rows as
+     * answered — so /form-save let anyone persist an unverified bot_check
+     * token, an out-of-range choice, an empty required item or an arbitrary
+     * file string, and the item vanished from every later page. Now a value
+     * that fails validation is dropped (not saved, not an error: autosave is
+     * best-effort), and items whose validation has side effects or must only
+     * ever be judged at submit — bot_check, file/image/audio/video uploads —
+     * are never autosaved at all (see autosaveEligible()).
+     *
+     * Known limitation: updateSurveyStudyRecord has no "draft" mode, so an
+     * autosaved item still gets `saved` stamped once its value validated. That
+     * is the same state a page-submit would leave it in, so it is safe; a
+     * separate draft column would only change resume UX (re-showing already
+     * answered items of a half-finished page).
      */
     public function formSaveAction() {
         if (!Request::isHTTPPostRequest()) {
@@ -906,8 +924,9 @@ class RunController extends Controller {
             $this->sendJsonResponse(array('error' => 'No current unit session'), 409);
             return;
         }
-        if (!($unitSession->runUnit instanceof Survey)) {
-            $this->sendJsonResponse(array('error' => 'Current unit is not a survey/form'), 409);
+        $study = $this->formV2Study($unitSession->runUnit);
+        if (!$study) {
+            $this->sendJsonResponse(array('error' => 'Current unit is not a v2 form'), 409);
             return;
         }
 
@@ -923,14 +942,151 @@ class RunController extends Controller {
             return;
         }
 
+        // Keep only values that (a) belong to an item this study actually has,
+        // (b) belong to an item type that may be autosaved, and (c) pass that
+        // item's own validateInput(). Anything else is silently dropped — the
+        // explicit page-submit is where the participant sees errors.
+        $items = $study->getItemsWithChoices(null, array(
+            'field' => 'name',
+            'values' => array_keys($data),
+        ));
+        $accepted = self::filterAutosaveAnswers($data, $items);
+        if (!$accepted) {
+            $this->sendJsonResponse(array('status' => 'noop'));
+            return;
+        }
+
         // survey_items_display rows already exist from the GET render; we only
-        // UPDATE them. validate=false → save the partial answers as-is; quiet=true
-        // → a lost race is silent (no user error, no admin email).
-        $posted = $data;
+        // UPDATE them. validate=true → the same per-item checks as page-submit
+        // (every value here already passed them, so this cannot fail on
+        // validation); quiet=true → a lost race is silent (no user error, no
+        // admin email).
+        $posted = $accepted;
         $posted['_item_views'] = $itemViews;
-        $unitSession->updateSurveyStudyRecord($posted, false, true);
+        $unitSession->updateSurveyStudyRecord($posted, true, true);
 
         $this->sendJsonResponse(array('status' => 'saved'));
+    }
+
+    /**
+     * Item types the autosave path must never touch. bot_check: its value is a
+     * one-shot proof-of-work token that verify() BURNS, so validating it here
+     * would consume it before the real submit (and it must only ever be judged
+     * at submit). File uploads: the JSON autosave can't carry bytes anyway, and
+     * File_Item::validateInput moves the upload — an arbitrary string posted
+     * under a file item's name must not be persisted as if it were one.
+     */
+    public static function autosaveEligible(Item $item) {
+        if ($item instanceof BotCheck_Item || $item instanceof File_Item) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * The subset of $data (name => value) that autosave may persist: only
+     * names that resolve to an eligible item AND whose value passes that
+     * item's validateInput(). Validation runs on a clone so the study's item
+     * objects (and the later real save) aren't left holding this attempt's
+     * reply/error state.
+     *
+     * @param array $data posted name => value
+     * @param array $items name => Item, from SurveyStudy::getItemsWithChoices
+     * @return array name => value
+     */
+    public static function filterAutosaveAnswers(array $data, array $items) {
+        $accepted = array();
+        foreach ($data as $name => $value) {
+            if (!isset($items[$name]) || !($items[$name] instanceof Item)) {
+                continue;
+            }
+            $item = $items[$name];
+            if (!self::autosaveEligible($item)) {
+                continue;
+            }
+            // $_POST semantics: a form submit only ever yields strings (or
+            // arrays of strings), and the validators assume that — Mc_Item's
+            // choice check is `is_string($reply) && !in_array(...)`, so a JSON
+            // integer 7 would sail past `mc` with choices 1..2. Normalise before
+            // probing so the JSON autosave can't reach a laxer path than submit.
+            $value = self::postScalar($value);
+            // Nothing to persist for a cleared/empty field — and stamping
+            // `saved` on an empty optional item would drop it from the next
+            // render. Only real answers are autosaved.
+            if ($value === null || $value === '' || $value === array()) {
+                continue;
+            }
+            // An array only belongs to an item whose input is `<name>[]`
+            // (mc_multiple, select_multiple, rank, …). Scalar validators aren't
+            // written for arrays (Number_Item's trim() throws), and a scalar
+            // under an array item is equally malformed.
+            $inputName = isset($item->input_attributes['name']) ? (string) $item->input_attributes['name'] : $name;
+            $wantsArray = substr($inputName, -2) === '[]';
+            if (is_array($value) !== $wantsArray) {
+                continue;
+            }
+            $probe = clone $item;
+            $probe->error = null;
+            $probe->validateInput($value);
+            if ($probe->error) {
+                continue;
+            }
+            $accepted[$name] = $value;
+        }
+        return $accepted;
+    }
+
+    /**
+     * Coerce a JSON value to what PHP's $_POST would have carried: scalars
+     * become strings, arrays are coerced element-wise, anything else
+     * (objects, nested structures) becomes null so validators refuse it.
+     */
+    private static function postScalar($value) {
+        if (is_string($value)) {
+            return $value;
+        }
+        if (is_int($value) || is_float($value)) {
+            return (string) $value;
+        }
+        if (is_bool($value)) {
+            return $value ? '1' : '';
+        }
+        if (is_array($value)) {
+            $out = array();
+            foreach ($value as $k => $v) {
+                if (!is_scalar($v)) {
+                    return null; // $_POST never carries nested structures
+                }
+                $out[$k] = self::postScalar($v);
+            }
+            return $out;
+        }
+        return null;
+    }
+
+    /**
+     * The SurveyStudy behind $runUnit if — and only if — the form_v2 endpoints
+     * may serve it: a Survey/Form unit whose study renders in v2. v1 studies
+     * (SpreadsheetRenderer) submit through RunController::indexAction and must
+     * not be reachable through the v2 AJAX paths, which skip v1's own gating.
+     *
+     * @return SurveyStudy|null
+     */
+    private function formV2Study($runUnit) {
+        if (!($runUnit instanceof Survey)) {
+            return null;
+        }
+        $study = $runUnit->surveyStudy;
+        if (!$study || empty($study->id)) {
+            $study = $runUnit->getStudy(true);
+        }
+        if (!$study || empty($study->id)) {
+            return null;
+        }
+        if (!isset($study->rendering_mode) || $study->rendering_mode !== 'v2') {
+            return null;
+        }
+        return $study;
     }
 
     /**
@@ -1116,8 +1272,8 @@ class RunController extends Controller {
             $this->sendJsonResponse(array('error' => 'No current unit session', 'drop_entry' => true), 409);
             return;
         }
-        if (!($unitSession->runUnit instanceof Survey)) {
-            $this->sendJsonResponse(array('error' => 'Current unit is not a survey/form', 'drop_entry' => true), 409);
+        if (!$this->formV2Study($unitSession->runUnit)) {
+            $this->sendJsonResponse(array('error' => 'Current unit is not a v2 form', 'drop_entry' => true), 409);
             return;
         }
 
@@ -1260,7 +1416,15 @@ class RunController extends Controller {
     /**
      * bot_check (Altcha): mint a fresh, session-bound proof-of-work challenge.
      *
-     * URL: GET /{runName}/form-bot-challenge
+     * URL: GET /{runName}/form-bot-challenge?item=<bot_check item name>
+     *
+     * The difficulty is the SERVER's call: `item` names a bot_check item of the
+     * current unit session's (v2) study, and its `bot_check N` type_options —
+     * not anything else in the request — set the PoW prefix bytes. (An earlier
+     * version took `?difficulty=` from the query string and signed whatever it
+     * was given, so `?difficulty=1` downgraded a `bot_check 3` to a 1-byte
+     * prefix; verify() now re-derives the floor from the item as well, so even
+     * a genuinely signed easier challenge is refused at submit.)
      *
      * The <altcha-widget challenge="…/form-bot-challenge"> fetches this lazily
      * when it mounts (NOT at form render), so the challenge is fresh when the
@@ -1302,11 +1466,32 @@ class RunController extends Controller {
             return;
         }
 
-        // Optional per-item difficulty (prefix bytes). mint() clamps to [1,3] and
-        // the HMAC signature pins it, so a tampered value can't weaken the gate.
-        $difficulty = isset($_GET['difficulty']) && is_numeric($_GET['difficulty'])
-            ? (int) $_GET['difficulty'] : null;
-        $challenge = BotCheckChallenge::mint($difficulty);
+        // Only a v2 form's own bot_check items can be minted for — the same
+        // gate as the other form_v2 endpoints, plus the item lookup that
+        // decides the difficulty.
+        $unitSession = $runSession->getCurrentUnitSession();
+        if (!$unitSession || !$unitSession->runUnit) {
+            $this->sendJsonResponse(array('error' => 'No current unit session'), 409);
+            return;
+        }
+        $study = $this->formV2Study($unitSession->runUnit);
+        if (!$study) {
+            $this->sendJsonResponse(array('error' => 'Current unit is not a v2 form'), 409);
+            return;
+        }
+        $itemName = isset($_GET['item']) && is_string($_GET['item']) ? trim($_GET['item']) : '';
+        if ($itemName === '' || !preg_match('/^[A-Za-z0-9_]{1,255}$/', $itemName)) {
+            $this->sendJsonResponse(array('error' => 'Missing or invalid bot_check item name'), 400);
+            return;
+        }
+        $items = $study->getItemsWithChoices(null, array('field' => 'name', 'values' => array($itemName)));
+        $item = isset($items[$itemName]) ? $items[$itemName] : null;
+        if (!($item instanceof BotCheck_Item)) {
+            $this->sendJsonResponse(array('error' => 'No such bot_check item in this form'), 404);
+            return;
+        }
+
+        $challenge = BotCheckChallenge::mint($item);
         if ($challenge === null) {
             // Server can't sign (no crypto key / unreadable key file). This is a
             // misconfiguration, not a participant problem — but it fails CLOSED:
@@ -1416,13 +1601,9 @@ class RunController extends Controller {
             return;
         }
         $runUnit = $unitSession->runUnit;
-        if (!($runUnit instanceof Survey)) {
-            $this->sendJsonResponse(array('error' => 'Current unit is not a form'), 409);
-            return;
-        }
-        $study = method_exists($runUnit, 'getStudy') ? $runUnit->getStudy(true) : $runUnit->surveyStudy;
-        if (!$study || empty($study->id)) {
-            $this->sendJsonResponse(array('error' => 'No study'), 409);
+        $study = $this->formV2Study($runUnit);
+        if (!$study) {
+            $this->sendJsonResponse(array('error' => 'Current unit is not a v2 form'), 409);
             return;
         }
 
@@ -1486,12 +1667,9 @@ class RunController extends Controller {
             return array('ok' => false, 'status' => 409, 'error' => 'No current unit session');
         }
         $runUnit = $unitSession->runUnit;
-        if (!($runUnit instanceof Survey)) {
-            return array('ok' => false, 'status' => 409, 'error' => 'Current unit is not a survey/form');
-        }
-        $study = method_exists($runUnit, 'getStudy') ? $runUnit->getStudy(true) : $runUnit->surveyStudy;
-        if (!$study || empty($study->id)) {
-            return array('ok' => false, 'status' => 409, 'error' => 'No study on current unit');
+        $study = $this->formV2Study($runUnit);
+        if (!$study) {
+            return array('ok' => false, 'status' => 409, 'error' => 'Current unit is not a v2 form');
         }
 
         // Reactive r-calls are debounced (300ms) and seq-guarded client-side,

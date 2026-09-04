@@ -12,8 +12,9 @@
  * Altcha's free self-hosted PoW, NOT the Sentinel SaaS.
  *
  * The widget renders an <altcha-widget> whose challenge is fetched lazily from
- * /{run}/form-bot-challenge when it mounts (the JS layer fills in the
- * challengeurl from the form's data-run-url). Fetching on mount keeps the
+ * /{run}/form-bot-challenge?item=<name> when it mounts (the JS layer fills in
+ * the challengeurl from the form's data-run-url; the server looks the item up
+ * in the current study to set the difficulty). Fetching on mount keeps the
  * challenge fresh in form_v2 (which renders every page into one document at
  * load), so it can't go stale before a participant reaches a later page.
  *
@@ -44,7 +45,12 @@ class BotCheck_Item extends Item {
         return "`{$this->name}` {$this->mysql_field}";
     }
 
-    protected function chosenDifficulty() {
+    /**
+     * The `N` of `bot_check N` (PoW prefix bytes), or null when the sheet left
+     * it unset. This is the study-authored difficulty; BotCheckChallenge reads
+     * it at mint AND verify time, so it can't be lowered from the client.
+     */
+    public function chosenDifficulty() {
         $opt = trim((string) $this->type_options);
         return ($opt !== '' && is_numeric($opt)) ? (int) $opt : null;
     }
@@ -94,18 +100,21 @@ class BotCheck_Item extends Item {
 
         $name = htmlspecialchars($this->name, ENT_QUOTES);
         $config = htmlspecialchars(json_encode($cfg, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), ENT_QUOTES);
-        // Per-item difficulty (prefix bytes 1..3) from `bot_check N`. The endpoint
-        // clamps it and the signature pins it, so a tampered query can't weaken
-        // the gate below the configured minimum.
+        // data-difficulty is INFORMATIONAL only (shows the `bot_check N` the sheet
+        // set). The client never sends it: the mint endpoint takes the item NAME
+        // (data-item / the widget's name) and derives the difficulty from this
+        // item's row in the study, and verify() re-derives it the same way — so
+        // nothing in the markup or the request can weaken the gate.
         $diff = $this->chosenDifficulty();
         $diffAttr = ($diff !== null) ? sprintf(' data-difficulty="%d"', (int) $diff) : '';
 
         // data-fmr-botcheck flags the wrapper for initBotCheck(); data-challenge-path
         // is the run-relative endpoint the JS turns into an absolute challengeurl.
         return sprintf(
-            '<div class="fmr-botcheck" data-fmr-botcheck data-challenge-path="form-bot-challenge"%s>'
+            '<div class="fmr-botcheck" data-fmr-botcheck data-challenge-path="form-bot-challenge" data-item="%s"%s>'
             . '<altcha-widget name="%s" auto="off" configuration=\'%s\'></altcha-widget>'
             . '</div>',
+            $name,
             $diffAttr,
             $name,
             $config
@@ -142,8 +151,8 @@ class BotCheck_Item extends Item {
 
         // Store a compact marker, not the (large) base64 token. The token only
         // needs to verify here; persisting it adds no value and would bloat the
-        // result column.
-        if (BotCheckChallenge::verify($reply)) {
+        // result column. $this carries the difficulty floor (`bot_check N`).
+        if (BotCheckChallenge::verify($reply, $this)) {
             $this->reply = 'verified';
             return 'verified';
         }
