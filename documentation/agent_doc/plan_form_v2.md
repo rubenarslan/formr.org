@@ -121,10 +121,9 @@ Endpoints are **hyphen-flat**, not nested under `/form/…`, and live in `RunCon
 | `/{runName}/form-page-submit` | POST | `RunController::formPageSubmitAction` |
 | `/{runName}/form-render-page` | POST | `RunController::formRenderPageAction` — batched per-page resolve of slot='value' + slot='label'; the live R path |
 | `/{runName}/form-fill` | POST | `RunController::formFillAction` (slot='value') — single-call re-trigger; not fired on load any more |
-| `/{runName}/form-r-call` | POST | `RunController::formRCallAction` (slot='showif') — dormant since r() in showif was withdrawn |
 | `/{runName}/form-sync` | POST | `RunController::formSyncAction` |
 
-`form-r-call` and `form-fill` share a protected helper `RunController::evaluateAllowlistedRCall($callId, $expectedSlot, $answers)` that does the session/study-ownership check, enforces the slot match (so a showif call_id can't be used as a fill and vice versa), overlays the posted `answers` on `tail(survey, 1)`, and calls OpenCPU with `tryCatch`.
+`form-fill` and `form-render-page` go through a protected helper `RunController::evaluateAllowlistedRCall($callId, $expectedSlot, $answers)` that does the session/study-ownership check, enforces the slot match, overlays the posted `answers` on `tail(survey, 1)`, and calls OpenCPU with `tryCatch`.
 
 The Router splits on `-` and camelCases; `form-page-submit` → `formPageSubmitAction`. Don't nest under `/form/` — that regresses the split logic and breaks existing urls.
 
@@ -319,7 +318,7 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] Comment-stripping + try/catch wrapper for runtime eval
 - [x] `r(...)` wrapper detection at render (`RAllowlistExtractor`)
 - [x] `survey_r_calls` table (`sql/patches/080_survey_r_calls.sql`)
-- [x] `POST /{run}/form-r-call` (`RunController::formRCallAction`, slot='showif') — endpoint and its debounced client still exist, but **nothing emits `data-fmr-r-call` any more**: the r()-in-showif opt-in was withdrawn (§3.1/§3.4), so this path is dormant
+- [removed 2026-09-04] `POST /{run}/form-r-call` (`RunController::formRCallAction`, slot='showif') — the r()-in-showif opt-in was withdrawn (§3.1/§3.4) and nothing emitted `data-fmr-r-call` any more, so the endpoint, its debounced client (~99 lines of main.js), the `slot='showif'` branches in `RCallService` and the `data-rcall-url` attribute were deleted. Patch 080's `slot` ENUM still lists `'showif'`: applied migrations are not rewritten.
 - [x] Debounced (300ms) seq-guarded client r-call resolver (same caveat)
 - [x] Compat scanner (`bin/form_v2_compat_scan.php`) + admin UI (`/admin/survey/<name>/form_v2_compat_scan`)
 - [x] Per-run-session rate-limit on r-call (30/min, returns 429). Now DB-backed via `FixedWindowRateLimiter` + patch 091 `formr_rate_limits`, not the original `$_SESSION` bucket (which reset on cookie rotation)
@@ -435,7 +434,7 @@ Nothing here is still open; these are the frozen decisions.
 - `application/Model/RunUnit/Form.php` — Form unit; extends Survey; strips `study_id` before delegating to `Survey::create`; loads study via `form_study_id`.
 - `application/Spreadsheet/FormRenderer.php` — single-document renderer; overrides `processItems`; r(...) unwrap + allowlist UPSERT.
 - `application/Spreadsheet/RAllowlistExtractor.php` — `r(...)` detection + dedup.
-- `application/Controller/RunController.php` — endpoints `formPageSubmitAction`, `formRenderPageAction`, `formFillAction`, `formSyncAction`, `formRCallAction` (dormant), `evaluateAllowlistedRCall`.
+- `application/Controller/RunController.php` — endpoints `formPageSubmitAction`, `formRenderPageAction`, `formFillAction`, `formSyncAction`, `evaluateAllowlistedRCall`.
 - `application/Model/RunSession.php` — `executeUnitSession` passthrough for `use_form_v2`.
 - `application/Model/Run.php` — `exec` passthrough for `use_form_v2`.
 - `webroot/assets/form/js/main.js` — form bundle (Alpine, showif, page submit, offline queue, r-call, fill).

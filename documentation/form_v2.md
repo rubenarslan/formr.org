@@ -7,7 +7,7 @@ A practical guide to authoring surveys in the new "Form" engine. Operators upgra
 ## TL;DR
 
 - **Form** is a new run-unit type that renders a survey as a single-page AJAX form: per-page submission without reloads, reactive `showif`s, autosave, an offline queue, and an optional one-item-per-screen layout. It coexists with the classic **Survey** unit; you opt in per study. Existing Surveys keep working unchanged.
-- The one authoring rule that changes: **`showif` runs in the browser, as JavaScript.** `r(...)` in a showif is rejected. Server-side R lives in the `value` column, and a hidden item's `value` is how you feed an R result into a showif.
+- The one authoring rule that changes: **`showif` runs in the browser, as JavaScript.** A v1 study's showifs are R, so upgrading means rewriting each one in JS — or, when the condition really needs R, computing it in a hidden item's `value` and referencing that item by name. Server-side R still lives in the `value` column.
 - Everything else stays the same — same spreadsheet format, same item types (plus a few new ones, see "What's new in v2"), same R data access in the rest of the run.
 
 ## When to use form_v2
@@ -40,7 +40,9 @@ Once a study is on v2, the same page shows the **Form_v2 settings**:
 
 ### The two rules
 
-1. **`showif` is JavaScript.** It is evaluated in the participant's browser and re-evaluated on every input change. `r(...)` in a showif is invalid: the compatibility scanner flags it, **Upgrade to form_v2 refuses to switch the study** while any item still has one, and if a study got onto v2 before that gate existed the engine hides that item outright (rather than showing it unconditionally) — telling you why when you preview or test the study, and logging it for real participants. To gate visibility on an R result, see "Bridging R into a showif".
+1. **`showif` is JavaScript.** It is evaluated in the participant's browser and re-evaluated on every input change. In v1 the same column held R, so every non-empty showif of a study you are upgrading has to be rewritten — most transpile as-is (`q1 == 1`), the rest need a JS rewrite or the hidden-item bridge below. The compatibility scanner tells you which is which before you switch.
+
+   *Footnote, for completeness:* wrapping a showif in `r(...)` does not work and never did — v1 evaluated the showif as R, where `r()` is not a function, and v2 does not evaluate R in a showif at all. The scanner flags such a showif, **Upgrade to form_v2** refuses while one exists, and at render the engine hides the item and tells the author. You will only meet this if you typed it.
 2. **`value` is R.** Anything that isn't empty, a number, or the `sticky` keyword is evaluated as R on the server. You can write the R bare or wrapped in `r(...)` — both mean the same thing; the wrapper is just the idiom used in the bridge example below.
 
 ### `showif`: client-side JS
@@ -115,7 +117,7 @@ Before upgrading a v1 study, run the scanner. It classifies every expression:
 - **empty** — no expression
 - **JS-OK** — transpiles to JavaScript cleanly
 - **needs JS rewrite** — residual R-only tokens (`ifelse`, `c(`, `%in%`, `<-`, …): rewrite in JS, or move the R into a hidden item's `value` and reference that name
-- **invalid: r() in showif** — same fix: hidden item + `value`
+- **invalid: r() in showif** — rare (the wrapper was never valid; see rule 1's footnote); same fix: hidden item + `value`
 
 **`value`**
 - **empty**, **literal** (a number, kept as-is), or **R** (evaluated on the server)

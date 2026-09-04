@@ -50,7 +50,7 @@ update; restart the app and daemons after editing — step 4.)
 | --- | --- | --- |
 | `form_v2_enabled` | `false` | You want admins to be able to author v2 forms. It gates exactly one thing: the "Add Form (form_v2, beta)" button in the run editor (`AdminRunController::getUnitAddButtons`). Existing Form units keep loading and running regardless. |
 | `form_v2_rcall_ttl` | `['showif' => 30, 'value' => 300, 'label' => 300]` (seconds) | Per-slot TTL of the `survey_r_call_results` cache. `showif` is short so admin edits to R flow through quickly; `value`/`label` resolve once per page show. Lower them if authors complain that edited R takes too long to take effect; raise to cut OpenCPU load. |
-| `form_v2_rate_limits` | `['rcall_per_min' => 30, 'write_per_min' => 90, 'beacon_per_min' => 10, 'bot_challenge_per_min' => 20]` | Per fixed 60-second window. `rcall` covers `/form-r-call`, `/form-fill`, `/form-render-page` (they trigger OpenCPU work); `write` covers `/form-page-submit`, `/form-save`, `/form-sync`; `beacon` covers the unauthenticated `/pwa-beacon`; `bot_challenge` covers `/form-bot-challenge` (one mint per `bot_check` render). Buckets are keyed by run session (beacon by IP). Raise these for fast-typing diary studies with many reactive showifs. The limiter **fails open** if `formr_rate_limits` is missing, so a half-applied patch 091 cannot lock participants out. |
+| `form_v2_rate_limits` | `['rcall_per_min' => 30, 'write_per_min' => 90, 'beacon_per_min' => 10, 'bot_challenge_per_min' => 20]` | Per fixed 60-second window. `rcall` covers `/form-fill` and `/form-render-page` (they trigger OpenCPU work); `write` covers `/form-page-submit`, `/form-save`, `/form-sync`; `beacon` covers the unauthenticated `/pwa-beacon`; `bot_challenge` covers `/form-bot-challenge` (one mint per `bot_check` render). Buckets are keyed by run session (beacon by IP). Raise these for fast-typing diary studies with many reactive showifs. The limiter **fails open** if `formr_rate_limits` is missing, so a half-applied patch 091 cannot lock participants out. |
 | `form_v2_offline_blob_max_mb` | `10` | Per-file cap for offline queueing. A page with a larger file upload is not queued; the participant is told to retry online. Raise for studies that routinely collect long audio/video. |
 | `form_v2_dual_write_results` | `true` | Controls only the *wide* per-study `survey_NN` write. The long-format write (`survey_items_display`) always happens. Leave on until every consumer you care about (your own scripts, the per-run backup TSV) has moved off the wide tables. |
 
@@ -172,15 +172,12 @@ over either — it only shows the "Add Form" button in the run editor.
 ### The one authoring rule that changes
 
 **`showif` is JavaScript; `value` is R.** A v2 `showif` is evaluated in
-the participant's browser and re-evaluated on every input change, so
-`r(...)` in a `showif` is **rejected**, not required. It is rejected
-twice: `AdminSurveyController::switchRenderingModeAction` refuses the
-v1 → v2 switch outright and names the offending items
-(`rShowifFindings`), and — for a study that reached v2 before that gate
-existed — `FormRenderer` catches the wrap at render time, blanks the
-showif and **hides and prunes the item** rather than showing it
-unconditionally, surfacing the explanation as a validation error in
-test/preview sessions and as a log line in real participant sessions.
+the participant's browser and re-evaluated on every input change. In v1
+the same column held R evaluated on the server, so **every non-empty
+showif in the study has to be rewritten as JavaScript** — this is the
+work an upgrade actually costs you. Most transpile unchanged (`q1 == 1`,
+`age > 40`); the scanner below lists the ones that don't.
+
 Server-side R lives in the `value` column, and the supported way to gate
 visibility on an R result is a **hidden item whose `value` is the R**,
 referenced by name from the (JS) showif:
@@ -194,6 +191,18 @@ followup   text    my_score > 0.5
 The hidden item resolves on the server, its scalar is written into the
 input, and the showif reacts to it like to any other answer. (In `value`
 the `r(...)` wrapper is optional — bare R means the same thing.)
+
+A footnote you can skip unless the scanner reports it: an `r(...)` wrap
+around a **showif** does not work and never has. v1 spliced the showif
+into R, where `r()` is not a function, and v2 does not evaluate R in a
+showif at all — the wrapper was an interim opt-in during form_v2
+development and was withdrawn before release, so no study collected on a
+released formr can contain one. It is nevertheless refused twice:
+`AdminSurveyController::switchRenderingModeAction` blocks the v1 → v2
+switch and names the items (`rShowifFindings`), and `FormRenderer` hides
+and prunes such an item at render, showing the reason in test/preview
+sessions and logging it in real ones. There is deliberately no third
+gate at upload time.
 
 ### Run the scanner
 

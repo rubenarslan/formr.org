@@ -126,7 +126,7 @@ phase. Ranked; triage before shipping form_v2.
    PRE-067 shape** — no `unit_session_id`, old `uq_call_args
    (call_id, args_hash)`. Fresh installs are baselined past 067 without
    running it, so `RCallService::cachedResults` throws "Unknown column"
-   on every `/form-r-call` and `/form-fill`, and the key structurally
+   on every `/form-fill` and `/form-render-page`, and the key structurally
    reinstates the cross-participant cache leak 067 closed.
 
 **Correctness**
