@@ -1431,8 +1431,14 @@ class Run extends Model
         // Save run units
         foreach ($units as $i => &$unit) {
             if ($inc_survey && $unit->type === 'Survey') {
-                $survey = SurveyStudy::loadById($unit->unit_id);
-                $unit->survey_data = $SPR->exportItemTableJSON($survey, true);
+                // The export dialog posts the unit list from the browser, so
+                // `unit_id` is caller-supplied: attach items only for a study
+                // the run's owner actually owns. Without this check any admin
+                // could read another user's item table by editing the POST.
+                if ($this->isOwnedBy('survey_studies', $unit->unit_id, $this->user_id)) {
+                    $survey = SurveyStudy::loadById($unit->unit_id);
+                    $unit->survey_data = $SPR->exportItemTableJSON($survey, true);
+                }
             }
             unset($unit->unit_id, $unit->run_unit_id);
         }
