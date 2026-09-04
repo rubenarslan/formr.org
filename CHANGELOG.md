@@ -2,6 +2,23 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v1.10.1] - 04.09.2026
+
+Seven fixes found while reviewing an unreleased feature branch against this
+release line. All of them are bugs in v1.10.0 itself, so they ship on their own.
+
+### Security
+- **Run export shipped items of studies the exporter doesn't own.** `Run::export` attached `survey_data` for whatever `unit_id` it was handed, and the ids come from the browser (`AdminRunController::exportAction` decodes `$_POST['units']`), so any admin able to export one of their own runs could read another user's full item table — labels, choices, showifs, values — by editing the posted unit list. Items are attached only when `survey_studies.user_id` matches the run's owner.
+
+### Fixes
+- **A key that cannot be loaded no longer fatals the request.** `Crypto::getKey()` returns null when Halite can't load the key, and `encrypt`/`decrypt` passed that null into Halite's typed `EncryptionKey` parameter: the resulting TypeError is an `Error`, not an `Exception`, so `catch (Exception)` let it escape as a 500 on any encryption call (saving a mail account was the canary). Both short-circuit with a logged error now, and every catch around Halite is `\Throwable`.
+- **The encryption key is found when it lives in a mounted directory.** `setup()` and `getKeyFile()` used `file_exists`, which is true for a *directory* at the key path — deployments that mount a volume at `formr-crypto.key/` and keep the key inside therefore skipped generation, failed to load the "key", and silently encrypted nothing. `getKeyFile()` resolves a directory to the file inside it; `setup()` generates on `is_file`. `Config::initialize()` also drops its memoized lookups so a re-initialize can't answer from stale settings.
+- **A blank `choice_list` cell no longer fails the upload.** The reader stored `''` and `Item::validate()` (`choice_list !== null`) then rejected every non-choice item in a sheet that merely *has* the column: "You defined choices for this item, even though this type doesn't have choices." Blank cells store NULL, and the `Item` constructor normalises `''` to NULL so JSON imports and rows written by the old reader read the same way.
+- **A survey upload reports *every* invalid item, not just the first.** `SurveyStudy::addItems` folded each item's validation result in with the array-union operator, which keeps only the first value at each numeric index — so a sheet with ten invalid items showed one error, and the author fixed them one re-upload at a time. Same for warnings.
+- **The PWA prompt items no longer demand choices.** `add_to_home_screen`, `push_notification` and `request_cookie` declare `hasChoices` (they use a choice only as a button-label override), so validation refused them when written without choices, while `request_phone` refused them when written *with* one — a sheet using them imported as an item-less husk study. New `Item::$choicesOptional` exempts an item from both directions.
+- **A non-scalar answer is rejected instead of fataling.** `Number_Item::validateInput` went straight into `trim(str_replace(…))`, which TypeErrors on PHP 8 when the reply is an array — a participant posting `age[]=1` turned the page into a 500. `Mc_Item`'s unknown-choice check also only ran for `is_string`, so a non-string scalar bypassed it entirely (not reachable from a browser form post, but from any JSON payload).
+- **A survey JSON upload keeps file order.** Items without an explicit `order` / `item_order` stored NULL for both, and rendering is `ORDER BY item_order` — so a hand-written survey JSON or an older run bundle came out with its pages scrambled and `submit` items ahead of the items they close. Items now default to their position in the file, the rule the spreadsheet reader already applies per row.
+
 ## [v1.10.0] - 02.09.2026
 
 ### Added
