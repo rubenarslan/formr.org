@@ -43,7 +43,7 @@ class RCallService {
     protected $study;
     /** @var string R-identifier-safe survey frame name ('' if unusable) */
     protected $surveyName;
-    /** @var array<string,bool>|null lazy cache of live item names */
+    /** @var array<string,string>|null lazy cache of live item name => 'numeric'|'character' */
     protected $allowedNames = null;
 
     public function __construct(UnitSession $unitSession, SurveyStudy $study) {
@@ -182,9 +182,19 @@ class RCallService {
     // ------------------------------------------------------------------
 
     /**
-     * Names a participant may overlay: the study's live item names. Anything
-     * else (other studies' columns, admin-computed values persisted earlier,
-     * plumbing fields like session_id) is dropped before code-gen.
+     * Names a participant may overlay, mapped to the R type the survey frame
+     * carries for them: the study's live item names. Anything else (other
+     * studies' columns, admin-computed values persisted earlier, plumbing
+     * fields like session_id) is dropped before code-gen.
+     *
+     * The type matters because the overlay is assigned into the frame the
+     * expression sees. Formatting by value shape instead of by column type
+     * silently retypes columns: a `text` answer of '07743' would land as the
+     * number 7743 (leading zero gone, character column coerced) and '1e3' as
+     * 1000 — so a reactive r() would disagree with the same expression run
+     * over the saved data. See rTypeForResultField().
+     *
+     * @return array<string, string> item name => 'numeric'|'character'
      */
     protected function allowedOverlayNames() {
         if ($this->allowedNames !== null) {
@@ -192,19 +202,73 @@ class RCallService {
         }
         $this->allowedNames = array();
         $stmt = $this->db->prepare(
-            'SELECT `name` FROM `survey_items` WHERE `study_id` = :sid AND `deleted` IS NULL'
+            'SELECT `id`, `name`, `type`, `choice_list`, `type_options`
+             FROM `survey_items` WHERE `study_id` = :sid AND `deleted` IS NULL
+             ORDER BY `id` DESC'
         );
         $stmt->bindValue(':sid', (int) $this->study->id, PDO::PARAM_INT);
         $stmt->execute();
-        while ($row = $stmt->fetch(PDO::FETCH_NUM)) {
-            $this->allowedNames[(string) $row[0]] = true;
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (!$rows) {
+            return $this->allowedNames;
+        }
+
+        // Choice lists decide the column type for mc/check families
+        // (numeric choice names → TINYINT, string names → VARCHAR), exactly
+        // as they do on the results-table upload path.
+        $choiceLists = array();
+        $cstmt = $this->db->prepare(
+            'SELECT `list_name`, `name`, `label` FROM `survey_item_choices`
+             WHERE `study_id` = :sid ORDER BY `id` ASC'
+        );
+        $cstmt->bindValue(':sid', (int) $this->study->id, PDO::PARAM_INT);
+        $cstmt->execute();
+        while ($c = $cstmt->fetch(PDO::FETCH_ASSOC)) {
+            $choiceLists[(string) $c['list_name']][(string) $c['name']] = $c['label'];
+        }
+
+        $factory = new ItemFactory($choiceLists);
+        foreach ($rows as $row) {
+            $name = (string) $row['name'];
+            if (isset($this->allowedNames[$name])) {
+                continue; // highest id wins, like UnitSession::getLongReadCasts
+            }
+            $item = $factory->make($row);
+            $field = ($item === false || !$item->isStoredInResultsTable())
+                ? null : $item->getResultField();
+            $this->allowedNames[$name] = self::rTypeForResultField($name, $field);
         }
         return $this->allowedNames;
     }
 
     /**
+     * Mirror of UnitSession::getLongReadCasts: the wide results table's column
+     * type decides what R sees. Integer families and FLOAT/DOUBLE arrive as
+     * numbers; everything else — VARCHAR/TEXT/DATE/… and DECIMAL, which PDO
+     * hands back as a string — arrives as character. An item with no results
+     * column at all (note, mc_heading, or an unknown type) is not in the frame,
+     * so quote it: character is the shape that cannot silently retype anything.
+     *
+     * @param string $name item name, as prefixed onto the field definition
+     * @param string|null $field the item's getResultField(), e.g. "`age` INT UNSIGNED DEFAULT NULL"
+     * @return string 'numeric'|'character'
+     */
+    public static function rTypeForResultField($name, $field) {
+        if (!is_string($field)) {
+            return 'character';
+        }
+        $type = strtoupper(ltrim(substr($field, strlen("`{$name}` "))));
+        if (preg_match('/^(TINY|SMALL|MEDIUM|BIG)?INT\b/', $type) || preg_match('/^(FLOAT|DOUBLE)\b/', $type)) {
+            return 'numeric';
+        }
+        return 'character';
+    }
+
+    /**
      * Build an R `list(name = value, ...)` literal from client answers. Keys
-     * must be syntactically safe AND belong to the study (see class doc).
+     * must be syntactically safe AND belong to the study (see class doc), and
+     * each value is formatted as its own column's R type — never by guessing
+     * from the string.
      */
     public function formatROverlay(array $answers) {
         $allowed = $this->allowedOverlayNames();
@@ -216,7 +280,7 @@ class RCallService {
             if (!isset($allowed[$key])) {
                 continue;
             }
-            $parts[] = $key . ' = ' . self::formatRValue($val);
+            $parts[] = $key . ' = ' . self::formatRValue($val, $allowed[$key] === 'numeric');
         }
         return 'list(' . implode(', ', $parts) . ')';
     }
@@ -484,10 +548,25 @@ class RCallService {
     // R value plumbing (formerly RunController statics)
     // ------------------------------------------------------------------
 
-    public static function formatRValue($v) {
+    /**
+     * One R literal for one answer. $numeric says whether the item's own
+     * column is numeric (see rTypeForResultField) — it is NOT inferred from
+     * the value, because is_numeric() is true for plenty of answers that are
+     * stored as text ('07743', '1e3', '+1', ' 7'), and emitting those bare
+     * would retype the column and change the value the expression sees.
+     *
+     * Defaults to character: quoting can never silently retype a column, so a
+     * caller that doesn't know the item type gets the safe shape.
+     *
+     * @param mixed $v
+     * @param bool $numeric true only for items whose results column is INT-family/FLOAT/DOUBLE
+     */
+    public static function formatRValue($v, $numeric = false) {
         if ($v === null || $v === '') return 'NA';
         if (is_bool($v)) return $v ? 'TRUE' : 'FALSE';
-        if (is_int($v) || is_float($v)) return (string) $v;
+        if (is_int($v) || is_float($v)) {
+            return $numeric ? (string) $v : '"' . (string) $v . '"';
+        }
         if (is_array($v)) {
             // The survey data.frame stores multi-selects as ", "-joined strings
             // (McMultiple/SelectMultiple::getReply), and the overlay assigns
@@ -500,9 +579,9 @@ class RCallService {
                 $vals[] = (string) $part;
             }
             if (empty($vals)) return 'NA';
-            return self::formatRValue(implode(', ', $vals));
+            return self::formatRValue(implode(', ', $vals), $numeric);
         }
-        if (is_numeric($v)) return (string) $v;
+        if ($numeric && is_numeric($v)) return (string) $v;
         // String: R double-quoted, escape backslash and double-quote.
         $s = str_replace(array('\\', '"'), array('\\\\', '\"'), (string) $v);
         return '"' . $s . '"';
