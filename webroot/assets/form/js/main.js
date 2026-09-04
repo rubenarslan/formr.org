@@ -43,7 +43,12 @@ import '@khmyznikov/pwa-install';
 
 import { mysqlDatetime } from './lib/time.js';
 import { genUuid } from './lib/uuid.js';
-import { queueAdd, queueGetAll, queueDelete, wipeQueueForRun, buildSyncFormData, normalizeSyncEntry, isTransientFailure } from './offline/queue.js';
+import {
+    queueAdd, queueGetAll, queueDelete, queueUpdate, queueSupersede, queueResetRetry,
+    wipeQueueForRun, buildSyncFormData, normalizeSyncEntry, isTransientFailure,
+    entryState, entryIsDue, markRetryFailure, markNeedsAttention,
+    STATE_PENDING, STATE_NEEDS_ATTENTION, STATE_BLOCKED,
+} from './offline/queue.js';
 import { initMediaRecorders } from './items/recorders.js';
 import { initButtonGroups } from './items/button-groups.js';
 import { initBotCheck } from './items/bot-check.js';
@@ -370,7 +375,10 @@ function initForm() {
     // banner + drain orchestration stays here because it pokes `root` and
     // window navigation directly.
     let queueBanner = null;
-    const showQueueBanner = (msg, variant) => {
+    // `actions` — optional [{label, onClick}] rendered as buttons after the
+    // message (Retry / Go to page). Message is textContent, never HTML: the
+    // banner may carry server-supplied error text.
+    const showQueueBanner = (msg, variant, actions) => {
         if (!queueBanner) {
             queueBanner = document.createElement('div');
             queueBanner.className = 'alert fmr-queue-banner';
@@ -380,7 +388,19 @@ function initForm() {
         queueBanner.classList.remove('alert-warning', 'alert-success', 'alert-danger');
         queueBanner.classList.add(variant === 'success' ? 'alert-success'
             : variant === 'danger' ? 'alert-danger' : 'alert-warning');
-        queueBanner.textContent = msg;
+        queueBanner.dataset.queueState = variant || 'warning';
+        const text = document.createElement('span');
+        text.className = 'fmr-queue-banner-text';
+        text.textContent = msg;
+        queueBanner.replaceChildren(text);
+        (actions || []).forEach((a) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-sm btn-outline-dark ms-2 fmr-queue-banner-action';
+            btn.textContent = a.label;
+            btn.addEventListener('click', (e) => { e.preventDefault(); a.onClick(btn); });
+            queueBanner.appendChild(btn);
+        });
         queueBanner.hidden = false;
     };
     const hideQueueBanner = () => { if (queueBanner) queueBanner.hidden = true; };
@@ -399,82 +419,250 @@ function initForm() {
             drainInFlight = false;
         }
     };
+    // Timer for the next automatic retry of a backed-off entry (see
+    // renderQueueSummary). One at a time; re-armed after every drain.
+    let queueRetryTimer = null;
+    const scheduleQueueRetry = (delayMs) => {
+        if (queueRetryTimer) clearTimeout(queueRetryTimer);
+        queueRetryTimer = setTimeout(() => { queueRetryTimer = null; drainQueue(); }, Math.max(1000, Math.min(delayMs, 60 * 60 * 1000)));
+    };
+
+    // Post one entry to its run's /form-sync. Throws on network failure
+    // (caller treats that as "still offline"); resolves {res, body}.
+    const postQueueEntry = async (entry, entrySyncUrl) => {
+        const hasFiles = entry.files && Object.keys(entry.files).length > 0;
+        let res;
+        if (hasFiles) {
+            // Multipart drain — mirrors the submitPage multipart path.
+            res = await fetch(entrySyncUrl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                body: buildSyncFormData(entry),
+            });
+        } else {
+            res = await fetch(entrySyncUrl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                // normalizeSyncEntry, not the raw entry: /form-sync 400s a
+                // client_ts that isn't a MySQL DATETIME (it used to 500 at
+                // INSERT time, after the answers were already applied — the
+                // client then retried and double-wrote). A 400 blocks the
+                // entry, so one stored by an older bundle is fixed up here.
+                body: JSON.stringify(normalizeSyncEntry(entry)),
+            });
+        }
+        const body = await res.json().catch(() => null);
+        return { res, body };
+    };
+
+    // Classify a /form-sync response into a drain outcome. Every shape
+    // RunController::formSyncAction can answer with is named here:
+    //   applied   200 {status:'ok', next_page|redirect} / {already_applied}
+    //   errors    200 {status:'errors', errors:{name: msg}} — the server rolled
+    //             the ledger row back and applied NOTHING; the entry must be
+    //             kept and the participant has to fix the page.
+    //   drop      409 {drop_entry:true} — session ended / different unit.
+    //   throttled 429 — retry the run later, don't count an attempt.
+    //   session   403 "No active run session", or a 200 that isn't JSON (an
+    //             auth redirect to a login page) — session gone for this run.
+    //   invalid   400 envelope error — permanent for this entry.
+    //   server    anything else (5xx, unexpected 4xx).
+    const classifySyncResponse = (res, body) => {
+        if (body && body.already_applied) return 'applied';
+        if (res.ok && body && body.status === 'errors') {
+            const errs = body.errors && typeof body.errors === 'object' ? body.errors : {};
+            // An empty error map means updateSurveyStudyRecord bailed for a
+            // non-validation reason (ended session, …): nothing for the
+            // participant to fix, so treat it as a retryable failure.
+            return Object.keys(errs).length ? 'errors' : 'server';
+        }
+        if (res.ok && body && body.status === 'ok') return 'applied';
+        if (res.ok && !body) return 'session';
+        if (body && body.drop_entry) return 'drop';
+        if (res.status === 429) return 'throttled';
+        if (res.status === 403) return 'session';
+        if (res.status === 400) return 'invalid';
+        return 'server';
+    };
+
     const drainQueueInner = async () => {
         let entries;
         try { entries = await queueGetAll(); } catch (e) { return; }
         if (!entries || !entries.length) { hideQueueBanner(); return; }
         entries.sort((a, b) => (a.client_ts || '').localeCompare(b.client_ts || ''));
-        showQueueBanner(t('queue.syncing', 'Syncing %n queued submission(s)…', { n: entries.length }), 'warning');
-        for (const entry of entries) {
-            const hasFiles = entry.files && Object.keys(entry.files).length > 0;
-            // Post each entry to the run it was queued under. The queue DB is
-            // origin-wide; before entries carried sync_url, a drain running on
-            // run B posted run A's answers to run B's endpoint, which replied
-            // drop_entry and the answers were deleted forever. Legacy entries
-            // without sync_url fall back to this form's endpoint (old behaviour).
-            const entrySyncUrl = entry.sync_url || syncUrl;
-            const isOwnRun = !entry.sync_url || entry.sync_url === syncUrl;
-            let res;
+        // Scope the drain per run: one run's rejection (expired session,
+        // validation error) must not head-of-line block another run's entries
+        // on this origin. Legacy entries without sync_url belong to this form.
+        const groups = new Map();
+        entries.forEach((entry) => {
+            const key = entry.sync_url || syncUrl;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(entry);
+        });
+        const dueCount = entries.filter((e) => entryIsDue(e)).length;
+        if (dueCount) {
+            showQueueBanner(t('queue.syncing', 'Syncing %n queued submission(s)…', { n: dueCount }), 'warning');
+        }
+        let ownRedirect = null;
+        for (const [entrySyncUrl, groupEntries] of groups) {
+            const isOwnRun = entrySyncUrl === syncUrl;
+            const outcome = await drainRunGroup(groupEntries, entrySyncUrl, isOwnRun);
+            if (outcome === 'offline') return;
+            if (outcome && outcome.redirect) ownRedirect = outcome.redirect;
+        }
+        await renderQueueSummary(ownRedirect);
+    };
+
+    // Drain one run's entries oldest-first. Returns 'offline' (abort every
+    // group), or {redirect} when this run's final page landed.
+    const drainRunGroup = async (groupEntries, entrySyncUrl, isOwnRun) => {
+        let redirect = null;
+        for (const entry of groupEntries) {
+            if (!entryIsDue(entry)) {
+                // A rejected page halts ITS run's queue: later pages must not
+                // land ahead of the one the participant still has to fix (the
+                // final page's redirect would otherwise bounce them out of the
+                // form). Backoff / blocked entries just skip.
+                if (entryState(entry) === STATE_NEEDS_ATTENTION) break;
+                continue;
+            }
+            let res, body;
             try {
-                if (hasFiles) {
-                    // Multipart drain — mirrors the submitPage multipart path.
-                    res = await fetch(entrySyncUrl, {
-                        method: 'POST',
-                        credentials: 'same-origin',
-                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-                        body: buildSyncFormData(entry),
-                    });
-                } else {
-                    res = await fetch(entrySyncUrl, {
-                        method: 'POST',
-                        credentials: 'same-origin',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                        // normalizeSyncEntry, not the raw entry: /form-sync now
-                        // 400s a client_ts that isn't a MySQL DATETIME (it used
-                        // to 500 at INSERT time, after the answers were already
-                        // applied — the client then retried and double-wrote).
-                        // A 400 halts the whole drain, so an entry stored by an
-                        // older bundle must be fixed up here, not wedge forever.
-                        body: JSON.stringify(normalizeSyncEntry(entry)),
-                    });
-                }
+                ({ res, body } = await postQueueEntry(entry, entrySyncUrl));
             } catch (e) {
                 // Still offline / transient. Leave entries in place; next `online` retries.
                 showQueueBanner(t('queue.offline_wait', 'Offline — submissions will sync automatically when you reconnect.'), 'warning');
-                return;
+                return 'offline';
             }
-            const body = await res.json().catch(() => null);
-            if (res.ok || (body && body.already_applied)) {
+            const outcome = classifySyncResponse(res, body);
+            if (outcome === 'applied') {
                 await queueDelete(entry.uuid);
                 // If the drain applied the final page of the form, the server
-                // returns a redirect so Run::exec can advance. Take it once
-                // the queue is empty so the participant lands on the next unit
-                // — but only for entries of THIS run; another run's redirect
-                // would hijack the participant out of the form they're on.
-                if (body && body.redirect && isOwnRun) {
-                    const remaining = await queueGetAll();
-                    if (!remaining.length) {
-                        window.location.href = body.redirect;
-                        return;
-                    }
-                }
+                // returns a redirect so Run::exec can advance. Taken by
+                // renderQueueSummary once nothing else is pending for THIS run
+                // — another run's redirect would hijack the participant out of
+                // the form they're on.
+                if (body && body.redirect && isOwnRun) redirect = body.redirect;
                 continue;
             }
-            if (body && body.drop_entry) {
-                // Session ended / not applicable — stop retrying this entry.
+            if (outcome === 'drop') {
+                // Session ended / different unit — the server says this entry
+                // can never apply. Stop retrying it.
                 await queueDelete(entry.uuid);
                 continue;
             }
-            // 4xx / validation failure. Stop draining; the user needs to see the error.
-            showQueueBanner(t('queue.rejected', 'A queued submission was rejected. Please review the page.'), 'danger');
+            if (outcome === 'errors') {
+                // Validation failure: the server applied nothing (ledger row
+                // rolled back). KEEP the answers; the participant fixes the
+                // page and re-submits it, which supersedes this entry.
+                markNeedsAttention(entry, body.errors);
+                await queueUpdate(entry).catch(() => {});
+                break;
+            }
+            if (outcome === 'throttled') break; // 429: retry the run later, no attempt counted
+            const status = res.status;
+            const message = (body && body.error) ? String(body.error) : '';
+            if (outcome === 'invalid') {
+                // 400 envelope error — re-POSTing the same bytes can't succeed.
+                markRetryFailure(entry, { reason: 'invalid', status, message, permanent: true });
+                await queueUpdate(entry).catch(() => {});
+                continue;
+            }
+            if (outcome === 'session') {
+                // No run session for this run: every entry of the run fails
+                // the same way, so back them all off together instead of
+                // burning one attempt per entry per drain.
+                for (const e of groupEntries) {
+                    if (!entryIsDue(e)) continue;
+                    markRetryFailure(e, { reason: 'session', status, message });
+                    await queueUpdate(e).catch(() => {});
+                }
+                break;
+            }
+            // 5xx / unexpected: back this entry off and leave the rest of the
+            // run for the next drain (a sick server won't take them either).
+            markRetryFailure(entry, { reason: 'server', status, message });
+            await queueUpdate(entry).catch(() => {});
+            break;
+        }
+        return redirect ? { redirect } : null;
+    };
+
+    // After a drain: take this run's redirect if its queue is clear, else
+    // explain what's still on disk and why. Priority: a page the participant
+    // must fix > entries we gave up on (Retry button) > entries in backoff
+    // (auto-retry timer + Retry button) > everything sent.
+    const renderQueueSummary = async (ownRedirect) => {
+        let remaining;
+        try { remaining = await queueGetAll(); } catch (e) { return; }
+        const belongsHere = (e) => (e.sync_url || syncUrl) === syncUrl;
+        const ownRemaining = remaining.filter(belongsHere);
+        if (ownRedirect && !ownRemaining.length) {
+            window.location.href = ownRedirect;
             return;
         }
-        const remaining = await queueGetAll();
         if (!remaining.length) {
             setSaveState('synced', t('save.synced', 'Synced'), 2500);
             showQueueBanner(t('queue.all_sent', 'All queued submissions have been sent.'), 'success');
             setTimeout(hideQueueBanner, 3000);
+            return;
         }
+        const attention = remaining.filter((e) => entryState(e) === STATE_NEEDS_ATTENTION);
+        if (attention.length) {
+            const own = attention.find(belongsHere);
+            if (own) surfaceNeedsAttention(own);
+            else showQueueBanner(t('queue.needs_attention_other_run', 'A queued submission for another study on this device was rejected. Open that study to fix it.'), 'danger');
+            return;
+        }
+        const retryAction = { label: t('queue.retry', 'Retry now'), onClick: async (btn) => {
+            btn.disabled = true;
+            btn.textContent = t('queue.retrying', 'Retrying…');
+            try { await queueResetRetry(); } catch (e) { /* drain re-renders */ }
+            drainQueue();
+        } };
+        const blocked = remaining.filter((e) => entryState(e) === STATE_BLOCKED);
+        if (blocked.length) {
+            const session = blocked.some((e) => e.last_error && e.last_error.reason === 'session');
+            showQueueBanner(session
+                ? t('queue.blocked_session', '%n queued submission(s) could not be sent because your session has expired. Open your personal study link to sign in again, then retry.', { n: blocked.length })
+                : t('queue.blocked', '%n queued submission(s) could not be sent after several attempts. Your answers are kept on this device — please retry, or contact the study team if this persists.', { n: blocked.length }),
+            'danger', [retryAction]);
+            return;
+        }
+        const pending = remaining.filter((e) => entryState(e) === STATE_PENDING);
+        if (pending.length) {
+            showQueueBanner(t('queue.retry_later', "%n queued submission(s) could not be sent yet. We'll retry automatically.", { n: pending.length }), 'warning', [retryAction]);
+            const now = Date.now();
+            const waits = pending.map((e) => (e.next_retry_at ? e.next_retry_at - now : 60 * 1000));
+            scheduleQueueRetry(Math.max(0, Math.min.apply(null, waits)));
+        }
+    };
+
+    // A queued page the server rejected with per-item errors: render them
+    // through the same feedback path the live submit uses (applyErrors) when
+    // that page is on screen, and give the participant a way back to it
+    // otherwise. The entry stays in IDB until the page is re-submitted.
+    const surfaceNeedsAttention = (entry) => {
+        const pageNum = Number(entry.page);
+        const idx = pages.findIndex((p) => Number(p.dataset.fmrPage) === pageNum);
+        const errors = entry.errors || {};
+        const goToPage = () => {
+            if (idx === -1) return;
+            showPage(idx);
+            try { history.pushState(null, '', `?page=${pageNum}`); } catch (e) { /* noop */ }
+            clearCustomValidity(pages[idx]);
+            applyErrors(pages[idx], errors);
+        };
+        const actions = [];
+        if (idx !== -1 && idx === currentIndex) {
+            clearCustomValidity(pages[idx]);
+            applyErrors(pages[idx], errors);
+        } else if (idx !== -1) {
+            actions.push({ label: t('queue.go_to_page', 'Go to page %page', { page: pageNum }), onClick: goToPage });
+        }
+        showQueueBanner(t('queue.needs_attention', 'Your answers for page %page could not be saved: please fix the highlighted answers and submit the page again.', { page: pageNum }), 'danger', actions);
     };
 
     // --- Page-transition resolver (POST /form-render-page) ---
@@ -595,8 +783,46 @@ function initForm() {
     installFeedbackClearer(root);
     installBlurValidation(root);
 
+    // Is the page's submit control enabled? items/auto-submit.js implements a
+    // Submit_Item with a NEGATIVE data-timeout as "minimum exposure": the
+    // button starts `disabled` and is enabled after |t| ms. A disabled button
+    // can't be clicked, but the page can still be submitted implicitly (Enter
+    // in a text input → the form's `submit` event, solo's onContinue, the
+    // all-answered auto-submit), so every submit path consults this gate.
+    // Selector mirrors solo/controller.js's submit-step lookup. Exposed as
+    // `window.fmrCanSubmitPage` (and passed to initSolo as `canSubmitPage`).
+    const SUBMIT_CONTROL_SELECTOR = '.item-submit button, .item-submit input[type=submit], button.submit_automatically_after_timeout, [data-fmr-next]';
+    const canSubmitPage = (pageEl) => {
+        const p = pageEl || pages[currentIndex];
+        if (!p) return false;
+        const controls = Array.from(p.querySelectorAll(SUBMIT_CONTROL_SELECTOR));
+        return !controls.some((btn) => btn.disabled);
+    };
+    // Refuse + draw the eye to the still-disabled button (the fuse bar shows
+    // how long is left). Returns true when the submit may proceed.
+    const gateSubmit = (pageEl) => {
+        if (canSubmitPage(pageEl)) return true;
+        const p = pageEl || pages[currentIndex];
+        const btn = p && Array.from(p.querySelectorAll(SUBMIT_CONTROL_SELECTOR)).find((b) => b.disabled);
+        if (btn) {
+            // Web Animations shake — no stylesheet dependency.
+            try {
+                if (typeof btn.animate === 'function') {
+                    btn.animate([
+                        { transform: 'translateX(0)' }, { transform: 'translateX(-5px)' },
+                        { transform: 'translateX(5px)' }, { transform: 'translateX(-3px)' },
+                        { transform: 'translateX(0)' },
+                    ], { duration: 320, easing: 'ease-out' });
+                }
+                btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } catch (e) { /* noop */ }
+        }
+        return false;
+    };
+
     const submitPageInner = async () => {
         const page = pages[currentIndex];
+        if (!gateSubmit(page)) return;
         clearCustomValidity(page);
         if (!validatePageAndShowFeedback(page)) {
             return;
@@ -722,6 +948,10 @@ function initForm() {
                 window.alert(t('error.queue_failed', 'Your submission could not be queued locally. Please check your connection and try again.'));
                 return;
             }
+            // This submission replaces any earlier queued copy of the same page
+            // (a rejected `needs_attention` one, or a plain re-visit): the old
+            // bytes must not drain after — or instead of — the new ones.
+            try { await queueSupersede(entry, entry.uuid); } catch (e) { /* best effort */ }
             // Ask the SW to wake us up on next connectivity change. No-op on
             // browsers without Background Sync — page-JS online event still
             // catches it there.
@@ -789,6 +1019,15 @@ function initForm() {
             savePill.classList.remove('is-visible');
             applyErrors(page, body.errors);
             return;
+        }
+        // The server accepted this page: any earlier queued copy of it (e.g. a
+        // rejected `needs_attention` entry the participant just fixed) is now
+        // stale and must not drain over the accepted answers. Then re-run the
+        // drain so the queue banner reflects what's left (hides when empty).
+        if (syncUrl) {
+            queueSupersede({ sync_url: syncUrl, unit_session_id: unitSessionId, page: pageNum })
+                .then((removed) => { if (removed) drainQueue(); })
+                .catch(() => {});
         }
         if (body.redirect) {
             // Last page just landed — pause briefly so the participant sees
@@ -951,6 +1190,9 @@ function initForm() {
             showPage,
             submitPage,
             validate: validatePageAndShowFeedback,
+            // Minimum-exposure gate (disabled submit button): the controller
+            // should consult this before treating Enter/OK as a page submit.
+            canSubmitPage,
             allowPrevious,
         });
     }
@@ -1876,6 +2118,9 @@ function initForm() {
     // is blocked client-side, without needing a dedicated required-VAS run).
     // Harmless in prod — it's the same function the submit/solo paths call.
     window.fmrValidatePage = validatePageAndShowFeedback;
+    // Same for the minimum-exposure submit gate (auto-submit's negative
+    // data-timeout keeps the button disabled until |t| ms have elapsed).
+    window.fmrCanSubmitPage = canSubmitPage;
 
     // Test-side signal that initForm finished — every listener is attached,
     // every item's init has run. Without this, real-device tests race the

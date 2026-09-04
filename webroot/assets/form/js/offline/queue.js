@@ -47,6 +47,125 @@ export async function queueDelete(uuid) {
     await db.delete(STORE, uuid);
 }
 
+// Overwrite a stored entry in place (same keyPath). Used by the drain to
+// persist retry bookkeeping (`attempts`, `next_retry_at`, `state`, `errors`)
+// so backoff survives a reload — the drain runs on every load and every
+// `online` event, and without persisted state a permanently-rejected entry
+// is re-POSTed on each of them.
+export async function queueUpdate(entry) {
+    const db = await getDb();
+    await db.put(STORE, entry);
+    return entry;
+}
+
+// Delete every entry that targets the same page of the same unit session as
+// `entry` (except `entry` itself, when given). A page re-submitted — after a
+// validation rejection, or simply re-visited via Previous — supersedes the
+// earlier queued copy: draining the old one after the new one landed would
+// overwrite the accepted answers with the stale ones, and a `needs_attention`
+// copy would wedge the run's queue behind an error the participant already
+// fixed. `sync_url` scopes the match to one run (the DB is origin-wide).
+export async function queueSupersede({ sync_url, unit_session_id, page }, keepUuid) {
+    const db = await getDb();
+    const entries = (await db.getAll(STORE)) || [];
+    let removed = 0;
+    for (const e of entries) {
+        if (keepUuid && e.uuid === keepUuid) continue;
+        if ((e.sync_url || '') !== (sync_url || '')) continue;
+        if (Number(e.page) !== Number(page)) continue;
+        if ((e.unit_session_id || 0) !== (unit_session_id || 0)) continue;
+        await db.delete(STORE, e.uuid);
+        removed += 1;
+    }
+    return removed;
+}
+
+// ---- Retry state -----------------------------------------------------------
+//
+// Every entry starts as STATE_PENDING (also the implicit state of entries
+// written by older bundles, which carry no `state` at all). The drain moves it
+// to:
+//   - STATE_NEEDS_ATTENTION: the server applied nothing and answered
+//     `{status:'errors', errors}` — the participant has to fix the page and
+//     re-submit it (which supersedes this entry). Never auto-retried: the same
+//     bytes would be rejected again.
+//   - STATE_BLOCKED: rejected RETRY_MAX_ATTEMPTS times, or rejected with an
+//     error the client knows won't clear on its own (400 envelope error, 403 for
+//     the run the page itself belongs to). Kept on disk, surfaced in the banner,
+//     retried only when the participant presses Retry (`queueResetRetry`).
+// A pending entry that was rejected carries `attempts` + `next_retry_at` (ms
+// epoch) and is skipped by the drain until that time — exponential backoff so a
+// server that keeps saying no isn't hammered on every `online` / load.
+export const STATE_PENDING = 'pending';
+export const STATE_NEEDS_ATTENTION = 'needs_attention';
+export const STATE_BLOCKED = 'blocked';
+
+export const RETRY_MAX_ATTEMPTS = 8;
+const RETRY_BASE_MS = 30 * 1000;
+const RETRY_CAP_MS = 60 * 60 * 1000;
+
+export function entryState(entry) {
+    return (entry && entry.state) || STATE_PENDING;
+}
+
+export function retryDelayMs(attempts) {
+    const n = Math.max(1, Number(attempts) || 1);
+    return Math.min(RETRY_CAP_MS, RETRY_BASE_MS * Math.pow(2, n - 1));
+}
+
+// Is this entry due for a POST right now? Only pending entries are ever
+// auto-drained; a backoff window keeps it pending but not due.
+export function entryIsDue(entry, now = Date.now()) {
+    if (entryState(entry) !== STATE_PENDING) return false;
+    return !(entry.next_retry_at && entry.next_retry_at > now);
+}
+
+// Record one failed attempt. `permanent` skips the backoff ladder and blocks
+// immediately. `reason` is a short machine tag ('session', 'invalid',
+// 'server', 'errors') the banner turns into participant-facing copy.
+export function markRetryFailure(entry, { reason, status, message, permanent = false, now = Date.now() } = {}) {
+    const attempts = (Number(entry.attempts) || 0) + 1;
+    entry.attempts = attempts;
+    entry.last_error = { reason: reason || 'server', status: status || 0, message: message || '', at: now };
+    if (permanent || attempts >= RETRY_MAX_ATTEMPTS) {
+        entry.state = STATE_BLOCKED;
+        entry.next_retry_at = null;
+    } else {
+        entry.state = STATE_PENDING;
+        entry.next_retry_at = now + retryDelayMs(attempts);
+    }
+    return entry;
+}
+
+export function markNeedsAttention(entry, errors, now = Date.now()) {
+    entry.state = STATE_NEEDS_ATTENTION;
+    entry.errors = errors || {};
+    entry.next_retry_at = null;
+    entry.last_error = { reason: 'errors', status: 200, message: '', at: now };
+    return entry;
+}
+
+// Manual "Retry": clear the bookkeeping so the next drain POSTs the entry
+// again. Applies to blocked and backoff-pending entries; needs_attention ones
+// are left alone (only a re-submit of the page can fix those).
+export async function queueResetRetry(filter) {
+    const db = await getDb();
+    const entries = (await db.getAll(STORE)) || [];
+    let reset = 0;
+    for (const e of entries) {
+        if (entryState(e) === STATE_NEEDS_ATTENTION) continue;
+        if (typeof filter === 'function' && !filter(e)) continue;
+        if (!e.attempts && !e.next_retry_at && entryState(e) === STATE_PENDING) continue;
+        e.state = STATE_PENDING;
+        e.attempts = 0;
+        e.next_retry_at = null;
+        delete e.last_error;
+        await db.put(STORE, e);
+        reset += 1;
+    }
+    return reset;
+}
+
 // Wipe every queued entry. Used on logout / account deletion / SW unregister
 // so plaintext answers don't persist on the participant's device beyond their
 // participant relationship with the run. The objectStore stays in place
@@ -82,9 +201,10 @@ export async function wipeQueueForRun(runPathPrefix) {
 // Normalise a stored entry's envelope before it goes on the wire.
 //
 // `/form-sync` validates uuid / page / unit_session_id / client_ts strictly and
-// answers 400 — which halts the whole drain, not just this entry — so a value
-// an older bundle happened to store in a different shape must be fixed here
-// rather than wedging the queue. Only the envelope is touched; `data`,
+// answers 400 — which the drain treats as permanent (the entry is blocked until
+// a manual Retry) — so a value an older bundle happened to store in a different
+// shape must be fixed here rather than stranding the answers. Only the envelope
+// is touched; `data`,
 // `item_views` and `files` are passed through untouched.
 export function normalizeSyncEntry(entry) {
     const out = Object.assign({}, entry);
