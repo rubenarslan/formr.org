@@ -16,7 +16,7 @@ class Mc_Item extends Item {
 
     public function validateInput($reply) {
         if (!($this->optional && $reply == '') && !empty($this->choices) && // check
-                ( is_string($reply) && !in_array($reply, array_keys($this->choices)) ) || // mc
+                ( is_scalar($reply) && !in_array((string) $reply, array_keys($this->choices)) ) || // mc
                 ( is_array($reply) && ($diff = array_diff($reply, array_keys($this->choices))) && !empty($diff) && current($diff) !== '' ) // mc_multiple
         ) { // invalid multiple choice answer 
             if (isset($diff)) {

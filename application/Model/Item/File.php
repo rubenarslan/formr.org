@@ -108,8 +108,24 @@ class File_Item extends Item {
         // v1's UPLOAD_ERR_NO_FILE handling: treat as a (valid) non-answer so the
         // page can complete; a required-but-empty file is barred client-side and,
         // if it ever reaches here, parent::validateInput raises the missing error.
+        //
+        // '' / null is the ONLY legitimate non-array shape: the v2 client
+        // (webroot/assets/form/js/main.js collectPayload) posts '' exclusively
+        // for an empty optional file input, and a chosen file always rides the
+        // multipart/FormData path into the $_FILES-shaped array handled below —
+        // there is no client code path that re-posts existing embed markup or
+        // any other non-empty scalar. Trusting an arbitrary non-empty scalar
+        // here would let a participant store unescaped text into a column that
+        // is otherwise only ever server-generated embed markup (see
+        // getEscapedResult below), so reject it the same way a failed upload
+        // is rejected rather than passing it through verbatim.
         if (!is_array($reply)) {
-            $this->reply = parent::validateInput(($reply === '' || $reply === null) ? null : $reply);
+            if ($reply === '' || $reply === null) {
+                $this->reply = parent::validateInput(null);
+            } else {
+                $this->error = __("Invalid file upload.");
+                $this->reply = parent::validateInput(null);
+            }
             return $this->reply;
         }
 

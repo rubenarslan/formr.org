@@ -32,7 +32,7 @@ class UnitSessionQueue extends Queue {
     /**
      * Map a queued unit-session to its named state based on the runUnit type.
      * Used by addItem() to dual-write the state column. The split:
-     *   - Survey / External / Page: WAITING_USER
+     *   - Survey (incl. Form, see Survey::TYPES) / External / Page: WAITING_USER
      *     (interactive units; the participant is the next actor; the
      *     queue's expires deadline is the fallback timer for inactivity)
      *   - everything else (Pause, Wait, Branch, SkipForward/Backward, Shuffle,
@@ -41,7 +41,7 @@ class UnitSessionQueue extends Queue {
      *     is the next actor)
      */
     public static function stateForQueuedUnit(RunUnit $runUnit) {
-        if (in_array($runUnit->type, ['Survey', 'External', 'Page', 'Endpage'], true)) {
+        if (in_array($runUnit->type, array_merge(Survey::TYPES, ['External', 'Page', 'Endpage']), true)) {
             return self::STATE_WAITING_USER;
         }
         return self::STATE_WAITING_TIMER;

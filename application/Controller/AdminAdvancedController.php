@@ -409,7 +409,8 @@ class AdminAdvancedController extends AdminController {
                 $userx['ended'] = $userx['expired'] . ' (expired)';
             }
 
-            if ($userx['unit_type'] != 'Survey') {
+            // Survey and Form (v2) sessions both hold participant data.
+            if (!in_array($userx['unit_type'], Survey::TYPES, true)) {
                 $userx['delete_msg'] = "Are you sure you want to delete this unit session?";
                 $userx['delete_title'] = "Delete this waypoint";
             } else {

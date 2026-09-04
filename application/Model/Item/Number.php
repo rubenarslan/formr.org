@@ -78,6 +78,15 @@ class Number_Item extends Item {
     }
 
     public function validateInput($reply) { // fixme: input is not re-displayed after this
+        // A number item's input is always scalar; a participant posting
+        // age[]=1 (or any other array/object payload) can't be trim()'d
+        // without a TypeError. Reject it the same way File_Item rejects an
+        // unexpected shape instead of fataling.
+        if (!is_scalar($reply) && $reply !== null) {
+            $this->error = __("This is not a valid number.");
+            return parent::validateInput(null);
+        }
+
         $reply = trim(str_replace(",", ".", $reply));
         if (!$reply && $reply !== 0 && $this->optional) {
             return null;
