@@ -470,8 +470,14 @@ class RunSession extends Model {
         }
 
         if (isset($result['redirect'])) {
-            // move on in the run before redirecting to external service (except for surveys)
-            if ($this->currentUnitSession->runUnit->type !== 'Survey') {
+            // Move on in the run before redirecting to an external service.
+            // Survey-pipeline units (Survey, and Form — which delegates to
+            // the v1 pipeline whenever its study is not rendering_mode v2)
+            // return a redirect after every page POST to re-render the next
+            // page; they must stay current, or the participant is advanced
+            // past the survey after its first page. Ask the class, not the
+            // type string, so every survey-like unit is covered.
+            if (!($this->currentUnitSession->runUnit instanceof Survey)) {
                 // Audit F5 (2026-07): a cron cascade cannot follow a
                 // redirect. Advancing anyway (without executing) parked
                 // the successor at PENDING/queued=0 — invisible to the
@@ -781,10 +787,11 @@ class RunSession extends Model {
 
     public function endCurrentUnitSession($reason = null) {
         if ($this->getCurrentUnitSession()) {
-            $type = $this->currentUnitSession->runUnit->type;
-            // Form = v2 Survey: an in-progress Form cut short is expired
-            // (participant never finished), not ended-as-completed.
-            if ($type == 'Survey' || $type == 'Form' || $type == 'External') {
+            $runUnit = $this->currentUnitSession->runUnit;
+            // Survey-pipeline units (Survey and its v2 subclass Form): an
+            // in-progress form cut short is expired (participant never
+            // finished), not ended-as-completed. Same for External.
+            if ($runUnit instanceof Survey || $runUnit->type == 'External') {
                 $this->currentUnitSession->expire();
             } else {
                 $this->currentUnitSession->end($reason);
@@ -997,9 +1004,13 @@ class RunSession extends Model {
         $mostrecent = "most recent reported address";
         
         if (!$recipient_field || $recipient_field === $mostrecent) {
+            // Both survey-pipeline unit types (Survey::TYPES): a Form unit's
+            // session carries the Form row as unit_id, and its items hang off
+            // the session the same way a v1 Survey's do — the study itself
+            // need not be resolved here.
             $recent_email_query = "
                 SELECT survey_items_display.answer AS email FROM survey_unit_sessions
-                LEFT JOIN survey_units ON survey_units.id = survey_unit_sessions.unit_id AND survey_units.type = 'Survey'
+                LEFT JOIN survey_units ON survey_units.id = survey_unit_sessions.unit_id AND survey_units.type IN ('Survey', 'Form')
                 LEFT JOIN survey_run_units ON survey_run_units.unit_id = survey_units.id
                 LEFT JOIN survey_items_display ON survey_items_display.session_id = survey_unit_sessions.id
                 LEFT JOIN survey_items ON survey_items.id = survey_items_display.item_id

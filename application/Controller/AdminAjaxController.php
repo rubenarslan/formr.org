@@ -454,7 +454,8 @@ class AdminAjaxController {
         }
 
         $unit = RunUnit::findByRunUnitId($run_unit_id, ['ignore_missing' => true]);
-        if (!$unit || $unit->type !== 'Survey' || (int) $unit->run->id !== (int) $this->controller->run->id) {
+        // Survey or its v2 subclass Form — both resolve their study via getStudy().
+        if (!$unit || !($unit instanceof Survey) || (int) $unit->run->id !== (int) $this->controller->run->id) {
             $this->response->setStatusCode(400, 'Bad Request');
             return $this->response->setJsonContent([
                 'success' => false,

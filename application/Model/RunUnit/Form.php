@@ -56,8 +56,13 @@ class Form extends Survey {
             ? (int) $options['study_id']
             : null;
 
-        // Strip study_id so Survey::create skips its re-point-the-run_unit logic.
-        // We want survey_run_units.unit_id to stay pointing at this Form's own row.
+        // Strip study_id: Survey::create's study_id branch would set
+        // $this->unit_id to the study (the v1 shared-PK convention), which a
+        // Form must not do — its link is form_study_id, written below. The
+        // survey_run_units.unit_id re-point itself is handled by the
+        // persistStudyLink() override, which Survey::create reaches whenever
+        // $this->surveyStudy is set — i.e. on every re-save of an existing
+        // Form, since find() has already loaded the study.
         $opts = $options;
         unset($opts['study_id']);
 
@@ -92,6 +97,26 @@ class Form extends Survey {
 
         $this->valid = true;
         return $this;
+    }
+
+    /**
+     * Survey::persistStudyLink re-points survey_run_units.unit_id at the
+     * study id, because a v1 Survey unit IS its study (shared primary key).
+     * A Form has its own survey_units row and links the study through
+     * form_study_id (written in create()), so the run unit must keep
+     * pointing at this row: re-pointing it would turn the Form back into a
+     * v1 Survey unit on the next request (the factory instantiates by
+     * survey_units.type of whatever unit_id references). Only the
+     * description is written here.
+     */
+    protected function persistStudyLink($description) {
+        if ($this->run_unit_id) {
+            $this->db->update(
+                'survey_run_units',
+                ['description' => $description],
+                ['id' => $this->run_unit_id]
+            );
+        }
     }
 
     /**

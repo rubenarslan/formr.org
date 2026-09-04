@@ -8,6 +8,14 @@
 class Survey extends RunUnit {
 
     /**
+     * Unit types that run through the survey pipeline. Form is the v2 Survey:
+     * it extends this class, so PHP code holding a RunUnit object should test
+     * `instanceof Survey`; this list exists for SQL and for type strings read
+     * back from the database (e.g. survey_units.type joins).
+     */
+    const TYPES = ['Survey', 'Form'];
+
+    /**
      * Survey study assigned to the Survey unit
      *
      * @var SurveyStudy
@@ -64,16 +72,30 @@ class Survey extends RunUnit {
         }
 
         if ($this->surveyStudy) {
-            $this->db->update(
-                    'survey_run_units',
-                    ['description' => $options['description'], 'unit_id' => $this->surveyStudy->id],
-                    ['id' => $this->run_unit_id]
-            );
+            $this->persistStudyLink($options['description']);
         }
 
         $this->valid = true;
 
         return $this;
+    }
+
+    /**
+     * Write the run unit's link to its study. A v1 Survey unit shares the
+     * study's primary key, so linking means re-pointing
+     * survey_run_units.unit_id at the study id. Subclasses that keep their
+     * own survey_units row (Form, via form_study_id) override this: the
+     * re-point must never run for them, or the run unit silently turns into
+     * a v1 Survey on every save.
+     *
+     * @param string $description
+     */
+    protected function persistStudyLink($description) {
+        $this->db->update(
+                'survey_run_units',
+                ['description' => $description, 'unit_id' => $this->surveyStudy->id],
+                ['id' => $this->run_unit_id]
+        );
     }
 
     public function displayForRun($prepend = '') {
