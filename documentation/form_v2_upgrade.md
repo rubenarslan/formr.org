@@ -37,8 +37,10 @@ duplicate column or index.
 
 ## 2. Configuration keys
 
-Six new keys in `config-dist/settings.php`. `setup.php` loads the dist
-file first and your `config/settings.php` on top, so **you need not add
+Six new `form_v2_*` keys in `config-dist/settings.php`, plus five
+optional `bot_check_*` keys (shipped commented out, since every one of
+them has a working built-in default). `setup.php` loads the dist file
+first and your `config/settings.php` on top, so **you need not add
 anything** — the defaults below apply automatically; add a key to your
 own `config/settings.php` only to change it. (On the docker deployment
 that file is `formr_app/config/settings.php`, never overwritten by an
@@ -72,6 +74,25 @@ soft-deleted items (patch 090) are excluded from the overlay explicitly,
 since the wide table has no notion of them. Once the long read has
 baked, `form_v2_dual_write_results` can be turned off.
 
+### `bot_check_*` — the proof-of-work human check
+
+Only relevant if a study uses the `bot_check` item. All five are read
+via `Config::get()` in `application/Services/BotCheckChallenge.php` and
+ship **commented out** in `config-dist/settings.php`; the defaults in
+the table are what the service uses when the key is absent.
+
+| Key | Default | Change it when |
+| --- | --- | --- |
+| `bot_check_secret` | derived from the at-rest crypto key | You want the challenge-signing secret independent of `formr-crypto.key`. Unset or empty means "derive it", which every install can do. If neither the key nor this setting is readable the item fails **closed** — mint 503s, `verify()` refuses every token, and participants see "Human verification is temporarily unavailable". |
+| `bot_check_prefix_bytes` | `1` (~256 expected hashes) | You want a harder default gate. Leading bytes of the derived key the client must match; valid `1`–`3`, out-of-range values clamp. A sheet can override per item with `bot_check N` in the type column — difficulty is always a server decision, never taken from the request. |
+| `bot_check_argon_memory` | `4096` (KiB = 4 MiB) | You want more memory-hardness. This is the GPU/ASIC-resistant knob and it costs the attacker, not you — the server computes exactly one verification hash (~7 ms) per solve. Values below `256` are ignored. |
+| `bot_check_argon_time` | `1` | You want more Argon2id passes. Values below `1` are ignored. |
+| `bot_check_ttl` | `86400` (24 h) | A minted challenge should expire sooner. Tokens are session-bound and burned after a successful verify, so a long window buys an attacker nothing; the generous default exists so a diary page left open overnight still verifies. Values below `60` are ignored. |
+
+The rate limit on the minting endpoint is **not** a `bot_check_*` key —
+it is `form_v2_rate_limits['bot_challenge_per_min']` (default 20,
+enforced in `RunController`).
+
 ## 3. Backfill `study_iteration` — do not skip this
 
 Patch 086 moves the `iteration` variable off the wide per-study table
@@ -85,17 +106,23 @@ docker compose exec formr_app php bin/backfill_study_iteration.php            # 
 docker compose exec formr_app php bin/backfill_study_iteration.php --study=42 # one study
 ```
 
-**Idempotent and resumable.** One transaction per study; a study is
-skipped when `survey_studies.last_iteration > 0` (already backfilled, or
-live allocation has started) and the `UPDATE` only touches rows where
-`study_iteration IS NULL`, so a partial previous run is continued rather
-than redone. Per-study failures print to stderr and the loop moves on;
-studies with no results table or with `valid <> 1` are skipped. Cost is
-one `UPDATE … JOIN` plus one `MAX()` per study — seconds to a few minutes
-on a typical instance, but it writes to `survey_unit_sessions`, so prefer
-a quiet window. **`--force` is a foot-gun:** it re-processes already-done
-studies and *sets* `last_iteration` to the wide `MAX(iteration)`, which
-can rewind the counter below values already handed out.
+**Idempotent, resumable, and safe to run late.** One transaction per
+study. It **only ever fills rows where `study_iteration IS NULL`** and
+never overwrites an allocated value, so a partial previous run is
+continued rather than redone — and a study that already saw live traffic
+between the deploy and the run still gets its historical rows filled.
+(This is why `last_iteration > 0` is *not* a skip condition: an earlier
+version of the script bailed on that and silently left late-deployed
+instances unbackfilled.) A study counts as "nothing to do" only when
+both the fill found no NULL rows and `last_iteration` is already caught
+up; `last_iteration` is raised with `GREATEST(...)`, so the counter only
+ever moves up and can never rewind below numbers already handed out.
+Per-study failures print to stderr and the loop moves on; studies with
+no results table, or with `valid <> 1`, are skipped. Cost is one
+`UPDATE … JOIN` plus one `MAX()` per study — seconds to a few minutes on
+a typical instance, but it writes to `survey_unit_sessions`, so prefer a
+quiet window. The only flags are `--dry-run` and `--study=N`; there is
+no `--force`.
 
 **Run it after the migrations and before participant traffic returns** —
 new sessions allocate from `survey_studies.last_iteration`, which is `0`
@@ -103,8 +130,9 @@ until the backfill runs. It doesn't care whether the daemons are up, so
 the slot is: migrations → backfill → restart app + daemons (step 4).
 With `form_v2_dual_write_results = true` (the default) there is a
 backstop: the wide table's `UNIQUE` `iteration` rejects the colliding
-insert, and `UnitSession::createSurveyStudyRecord` resyncs the counter to
-the wide `MAX` and retries. With dual-write **off** there is none, and
+insert, and `UnitSession::createSurveyStudyRecord` raises the counter to
+`GREATEST(last_iteration, MAX(wide.iteration))` and retries
+(`UnitSession.php:955-979`). With dual-write **off** there is none, and
 new sessions get numbered 1, 2, 3… on top of your historical values.
 
 ### What `iteration` means before the backfill
@@ -141,10 +169,35 @@ afterwards.)
 behaviour** after the upgrade. `form_v2_enabled` doesn't switch any study
 over either — it only shows the "Add Form" button in the run editor.
 
-Before switching a study, run the compatibility scanner and resolve what
-it flags: it classifies every `showif` and `value` expression against the
-v2 rules, and expressions the client-side evaluator can't handle need an
-`r(...)` wrap. Two equivalent entry points — the CLI
+### The one authoring rule that changes
+
+**`showif` is JavaScript; `value` is R.** A v2 `showif` is evaluated in
+the participant's browser and re-evaluated on every input change, so
+`r(...)` in a `showif` is **rejected**, not required. It is rejected
+twice: `AdminSurveyController::switchRenderingModeAction` refuses the
+v1 → v2 switch outright and names the offending items
+(`rShowifFindings`), and — for a study that reached v2 before that gate
+existed — `FormRenderer` catches the wrap at render time, blanks the
+showif and **hides and prunes the item** rather than showing it
+unconditionally, surfacing the explanation as a validation error in
+test/preview sessions and as a log line in real participant sessions.
+Server-side R lives in the `value` column, and the supported way to gate
+visibility on an R result is a **hidden item whose `value` is the R**,
+referenced by name from the (JS) showif:
+
+```
+name       type    showif           value
+my_score   hidden                   r(complex_score(current(q1)))
+followup   text    my_score > 0.5
+```
+
+The hidden item resolves on the server, its scalar is written into the
+input, and the showif reacts to it like to any other answer. (In `value`
+the `r(...)` wrapper is optional — bare R means the same thing.)
+
+### Run the scanner
+
+Two equivalent entry points — the CLI
 
 ```bash
 docker compose exec formr_app php bin/form_v2_compat_scan.php <study_id|study_name>
@@ -152,12 +205,38 @@ docker compose exec formr_app php bin/form_v2_compat_scan.php <study_id|study_na
 
 or, in the admin UI, the survey's settings page → **Run v2 compatibility
 scan**; the same page's "Rendering engine" box shows the flagged count
-next to the **Upgrade to form_v2** button. See [form_v2.md](form_v2.md)
-for what the findings mean and how to fix them. Upgrading
+next to the **Upgrade to form_v2** button. The scan is read-only (it
+never rewrites `survey_items`) and the CLI exits 0 when nothing is
+flagged, 2 otherwise, so it works as a CI gate.
+
+`FormV2CompatScanner::scan()` puts every item in exactly one bucket per
+column — the same names the admin report and `form_v2.md` use:
+
+| Column | Bucket | Flagged? | What to do |
+| --- | --- | --- | --- |
+| `showif` | **empty** | no | Nothing — no expression. |
+| `showif` | **JS-OK** (`js_ok`) | no | Nothing — the R→JS transpile came out clean. |
+| `showif` | **needs JS rewrite** (`needs_js_rewrite`, fix `rewrite_in_js`) | yes | The transpiled expression still contains R-only tokens — an R-only function call (`ifelse`, `c(`, `paste`, `grepl`, `unlist`, …), `tail`/`head` with a non-1 argument, an untranspiled `is.na()`, `%in%` / `%%`, an assignment arrow, an `NA` constant, or R `$`-member access. Rewrite the expression in JS (the helpers `isNA`, `answered`, `contains`, `containsWord`, `startsWith`, `endsWith`, `last` are in scope), **or** move the R into a hidden item's `value` and test that item's name. |
+| `showif` | **invalid: `r()` in showif** (`invalid_r`, fix `create_hidden_field`) | yes — and **blocking** | The showif is an `r(...)` wrap, which v2 refuses outright. These are the *only* findings that block the **Upgrade to form_v2** button: the switch is refused with the list of items until you fix them. Use the hidden-item bridge above. Do **not** try to fix a flagged showif by adding an `r(...)` wrap — that turns an advisory rewrite into a hard block. |
+| `value` | **empty** / **literal** (numeric, kept as-is) / **R** (everything else, evaluated server-side) | no | Nothing. `value` is never flagged — every non-empty, non-numeric entry is allowlisted and evaluated as R, `sticky` included. |
+
+**needs JS rewrite** findings are advisory (heuristic — the scan page
+lists them, they don't stop the switch); **invalid `r()`** findings
+block it. At runtime a showif the client can't evaluate
+leaves the item at whatever visibility the server rendered it with, so a
+flagged item is not necessarily broken — it just isn't guaranteed to
+behave the way the R did. See [form_v2.md](form_v2.md) § "Authoring
+`showif` and `value`" for the full authoring rules. Upgrading
 (`AdminSurveyController::switchRenderingModeAction`) sets
 `rendering_mode='v2'` and re-points every run unit that referenced the
-study as a plain Survey at a freshly created Form unit; participants
-mid-form finish on the old engine, new sessions get v2.
+study as a plain Survey at a freshly created Form unit — and moves that
+placement's unit sessions across with it
+(`convertSurveyPlacementsToForm`), so **participants who are mid-form
+continue on v2 from where they are** rather than finishing on v1. Both
+engines read and write the same `survey_items_display` rows, so nothing
+is lost in the handover. The switch is **refused** while any item still
+has an `r(...)` showif: the alert names the offending items and nothing
+is changed until you fix them.
 
 ## 6. Rollback
 
@@ -174,3 +253,61 @@ has applied and which stay applied. The deployment repo's
 deliberate, review-the-plan-first, back-up-first operation — and note
 that dropping patch 090's `survey_items.deleted` would make previously
 soft-deleted items visible again.
+
+## 7. Post-upgrade
+
+Three things that are easy to forget once the stack is back up.
+
+**Run the `study_iteration` backfill promptly.** Patch 086 adds the
+columns empty; until `bin/backfill_study_iteration.php` has run, historic
+sessions have `study_iteration IS NULL` and `iteration` in your R code
+means a per-participant row number rather than the study-wide counter
+(§3). Prompt is better than late because researchers may pull data in
+between — but it is **not** a one-shot window you can miss: the script
+fills only sessions that still lack `study_iteration`, never touches an
+already-allocated value, and raises `survey_studies.last_iteration` with
+`GREATEST(...)`, so running it after participants have already been
+allocated live numbers is safe and does the right thing. Re-export any
+data you pulled before the backfill.
+
+```bash
+docker compose exec formr_app php bin/backfill_study_iteration.php --dry-run
+docker compose exec formr_app php bin/backfill_study_iteration.php
+```
+
+**Scan every study you intend to move, then switch it.** The upgrade
+itself changes no study's behaviour (§5), so this step is on your
+schedule, not the deploy's. For each candidate study run
+
+```bash
+docker compose exec formr_app php bin/form_v2_compat_scan.php <study_id|study_name>
+```
+
+(or the **Run v2 compatibility scan** button on the survey's settings
+page). It is read-only and exits 2 when anything is flagged, so it also
+works as a CI gate. Resolve the blocking `r()`-in-showif findings the way
+§5 describes — a hidden item (`hidden`, or `calculate`) whose `value`
+holds the R, referenced by name from a plain JS showif; **Upgrade to
+form_v2** refuses the switch while any remain and names them. Once the
+switch goes through, open sessions move with the converted run unit, so
+participants who are mid-form continue on v2 from where they are.
+
+**Importing historical results: write the display rows.**
+`bin/import-results.php` generates the SQL that loads a backup file into
+a study. The wide `survey_NN` insert alone is no longer enough: with
+`form_v2_long_reads` on (the default), admin result counts, average
+time, `getResults`/the per-run backup TSV and the OpenCPU R overlay all
+read the **long** format — `survey_items_display` — so imported data
+that has no display rows is invisible to them even though the wide table
+is populated. Pass `--include-itemsdisplay` so the generated SQL also
+inserts into `survey_items_display`:
+
+```bash
+docker compose exec formr_app php bin/import-results.php \
+  --survey-id=<sid> --run-id=<rid> --backup-file=<path> --include-itemsdisplay
+```
+
+Both inserts are `ON DUPLICATE KEY UPDATE`, so re-running the generated
+SQL is safe. If you imported without the flag before upgrading, re-run
+the import with it (or the imported rows will keep showing as missing in
+the admin result views).

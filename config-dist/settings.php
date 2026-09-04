@@ -466,6 +466,47 @@ $settings['form_v2_rcall_ttl'] = array(
     'label' => 300,
 );
 
+// ---------------------------------------------------------------------------
+// `bot_check` item — self-hosted Altcha + Argon2id proof-of-work (form_v2).
+// Read by application/Services/BotCheckChallenge.php. Every key below has a
+// working built-in default, so an install that sets none of them still gets a
+// functioning, fail-closed bot check. Uncomment only what you want to change.
+// The per-window limit on the mint endpoint is NOT here — it lives in
+// $settings['form_v2_rate_limits']['bot_challenge_per_min'] above.
+// See documentation/agent_doc/bot_check_altcha.md for the threat model.
+// ---------------------------------------------------------------------------
+
+// HMAC secret the challenge signature is derived from. Never sent to the
+// client. Default (unset or empty string): derived from the instance's
+// at-rest crypto key (`Crypto::getKeyFile()`), which every formr install has —
+// so you normally leave this alone. If neither is available the item fails
+// CLOSED: mint 503s, verify() refuses every token, and the participant sees
+// "Human verification is temporarily unavailable". Set it only if you want a
+// secret independent of the crypto key (rotating it invalidates outstanding
+// challenges; participants just get a fresh one).
+// $settings['bot_check_secret'] = '';
+
+// Proof-of-work length: how many leading bytes of the derived key the client
+// must match (~256 expected hashes per byte). 1..3; out-of-range values clamp.
+// An item can override per-question with `bot_check N` in its type column —
+// the server always decides, never the request.
+// $settings['bot_check_prefix_bytes'] = 1;
+
+// Argon2id memory cost in KiB. This is what makes the work memory-hard
+// (GPU/ASIC-resistant). The server only ever computes ONE verification hash
+// (~7 ms), so raising it costs an attacker, not you. Values below 256 are
+// ignored and fall back to the default.
+// $settings['bot_check_argon_memory'] = 4096;
+
+// Argon2id iterations (passes). Values below 1 fall back to the default.
+// $settings['bot_check_argon_time'] = 1;
+
+// How long a minted challenge stays valid, in seconds. The token is bound to
+// the participant's session and burned after a successful verify, so a long
+// window grants an attacker nothing — the default is generous so a diary page
+// left open overnight still verifies. Values below 60 fall back to the default.
+// $settings['bot_check_ttl'] = 86400;
+
 // Brand
 $settings['brand'] = '<span>f</span>orm<span>{`r}</span>';
 $settings['brand_long'] = '<b>formr</b> survey framework';

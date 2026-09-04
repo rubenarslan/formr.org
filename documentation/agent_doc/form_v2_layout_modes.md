@@ -26,14 +26,22 @@ off that attribute.
 | Form/autosave/sync endpoints | `application/Controller/RunController.php` |
 | Per-response write path | `application/Model/UnitSession.php` |
 
-`SurveyStudy.layout` (066) gates the solo behaviours; `survey_unit_sessions.layout`
-(068) records the mode per response. (The `option_keys`/A·B·C letter-badge
-feature, patch 088, was **removed** — solo is a mobile/app view where keyboard
-shortcuts are irrelevant; the `option_keys` column is left dormant in the DB.)
+`survey_studies.layout` (`sql/patches/087_survey_studies_layout.sql`) gates the
+solo behaviours; `survey_unit_sessions.layout`
+(`sql/patches/089_unit_session_layout.sql`) records the mode per response.
+(The `option_keys`/A·B·C letter-badge feature, `sql/patches/088_survey_studies_option_keys.sql`,
+was **removed** — solo is a mobile/app view where keyboard shortcuts are
+irrelevant; the `option_keys` column is left dormant in the DB.)
+
+Patch numbers in this document are the post-v1.9.3 ones (078–092). Earlier
+drafts cite 066/068 for the two layout columns; those were pre-renumbering
+slots and no longer exist — 066 and 068 are release-line patches
+(`schema_housekeeping`, `run_metrics_rollup`).
 
 ## Solo (paged) layout — the step controller
 
-`js/solo/controller.js` **replaced** the original patch-066 CSS scroll-snap skin.
+`js/solo/controller.js` **replaced** the original CSS scroll-snap skin that
+shipped with the layout column (the patch then numbered 066, now 087).
 Scroll-snap broke on multi-page forms (nested 100vh scroll containers), had no
 explicit forward/back affordance, auto-advanced on the first `change` of a
 multi-checkbox item, and let the sticky progress bar overlap content.
@@ -267,8 +275,9 @@ For reviewers weighing solo for a given study:
 Matrix / blank / combined-block handling were **deliberately left as-is** (the
 one-item-per-screen model genuinely fights that content).
 
-Where solo is better: focus, big tap targets + letter-badge cards, auto-advance,
-cleaner mobile ergonomics.
+Where solo is better: focus, big tap targets, auto-advance, cleaner mobile
+ergonomics. (Letter-badge cards were part of an earlier draft of this list;
+the feature was removed before release — see the `option_keys` note above.)
 
 ## Test coverage
 

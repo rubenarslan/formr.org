@@ -1,9 +1,13 @@
 // Typeform-style "solo" skin for form_v2 (layout=solo).
 //
 // One item per screen, JS-driven stepping (js/solo/controller.js). Unlike the
-// original patch-066 scroll-snap version, exactly ONE .form-group is visible at
-// a time (.fmr-solo-current); the controller manages forward/back, per-item
-// validation, a thin top progress bar and a fixed Back / OK nav footer. Scoped
+// original scroll-snap version that shipped with the layout column (patch 087,
+// numbered 066 before the release-line renumbering), exactly ONE .form-group
+// is visible at a time (.fmr-solo-current); the controller manages
+// forward/back, per-item validation, a thin top progress bar and a fixed
+// Back / OK nav footer. Auto-advance is a 450 ms timer on item types that
+// answer in one gesture (radios, single selects, sliders) — not a scroll
+// debounce, and never on checkboxes / multi-selects. Scoped
 // under .fmr-form-v2[data-layout="solo"] so the default layout is byte-identical
 // to pre-patch behaviour.
 //

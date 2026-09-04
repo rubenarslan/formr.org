@@ -151,7 +151,11 @@ UPDATE` over a bare `INSERT` so a re-run cannot double-write.
   `survey_unit_sessions.study_iteration` +
   `survey_studies.last_iteration` from the per-study wide results
   tables, for instances that had data before patch 086 added the
-  columns. Skips studies whose `last_iteration` is already > 0.
+  columns. Fills only rows where `study_iteration IS NULL` and raises
+  `last_iteration` with `GREATEST(...)`, so it is safe to run after live
+  allocation has started; a study is skipped only when it has no NULL
+  rows left and its `last_iteration` is already caught up. (No `--force`
+  — it was removed along with the old `last_iteration > 0` skip.)
 - `bin/gen_pwa_items_xlsx.php` — regenerates the committed
   `documentation/example_surveys/pwa_items_{default,solo}.xlsx` pair
   (byte-identical sheets; `layout` is a study setting, not a column,

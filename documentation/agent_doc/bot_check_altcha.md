@@ -7,9 +7,11 @@ minted and verified entirely on the formr server; nothing about the participant
 (IP, headers, behaviour) leaves the box, so it adds **no GDPR processor
 relationship** the way Cloudflare Turnstile / reCAPTCHA `siteverify` would.
 
-> This branch (`feature/altcha`) replaced an earlier *custom* hand-rolled PoW
-> implementation with Altcha so the two can be compared side-by-side. See
-> **§7 Comparison** for what changed and why.
+> Altcha replaced an earlier *custom* hand-rolled PoW implementation, so the two
+> could be compared side-by-side. That work was prototyped on `feature/altcha`
+> and now lives on `feature/form_v2` — this document describes the shipped
+> Altcha implementation, not a branch-local experiment. See **§7 Comparison**
+> for what changed and why.
 
 ## 1. Why a PoW gate, and why self-hosted
 
@@ -47,7 +49,9 @@ render        BotCheck_Item::render_input()
                   <altcha-widget name="<item>" auto="off" configuration='{…}'>
               (no challenge baked in — stays inert)
 
-mount (JS)    initBotCheck() sets challenge="<runUrl>/form-bot-challenge[?difficulty=N]"
+mount (JS)    initBotCheck() sets challenge="<runUrl>/form-bot-challenge?item=<name>"
+              (the item NAME, never a difficulty — the server looks the item up
+               in the current study and derives the difficulty itself)
               loadAltcha() injects the self-hosted standalone module → window.$altcha
               registerArgon2id() wires the self-hosted memory-hard worker
 
@@ -89,8 +93,15 @@ identically both times.
 `verify()` recomputes the HMAC from the server secret over the canonical
 parameters (**including `data.uc`**) — so the signature *pins* every knob:
 difficulty/memory can't be lowered, the session binding can't be re-pointed, and
-the PoW solution can't be forged. Then it checks (a) the Altcha solution verifies,
-(b) `data.uc === subject()` (session binding), (c) freshness/expiry.
+the PoW solution can't be forged. Then it checks (a) the **difficulty floor**
+re-derived server-side for *this* item (`meetsDifficultyFloor()`) — a genuinely
+signed but easier challenge, e.g. one minted at the config default for a
+`bot_check 3` item, is refused; (b) the Altcha solution verifies; (c)
+`data.uc === subject()` (session binding); (d) freshness/expiry; and (e) that the
+token has not been used before — a verified token is **burned** (single-use, via
+RegistrationGuard's session burn list, remembered until it would have expired
+anyway), so one solved PoW can't be replayed at the next `bot_check` the
+participant meets within the TTL.
 
 ## 5. Why Altcha is loaded as a standalone script (not webpack-bundled)
 
@@ -159,12 +170,19 @@ does one verification hash, so **raising it costs the attacker, not us**. Native
 median ~0.3 s across the widget's parallel workers; in-browser WASM a few× slower
 (sub-second to ~2 s on a normal device).
 
-**Per-item difficulty:** `bot_check N` in the spreadsheet (`type_options`) maps to
-prefix bytes 1..3. It rides as `?difficulty=N` on the challenge URL, but the
-endpoint clamps it and the **signature pins it**, so a tampered query can't weaken
-the gate below the configured minimum. (The sheet reader treats an all-digit
-token after `bot_check` as this difficulty, not as a choice-list name — a list
-that relabels the widget is `bot_check mylist`, see §9.)
+**Per-item difficulty is a server decision.** `bot_check N` in the spreadsheet
+(`type_options`) maps to prefix bytes 1..3 via `BotCheck_Item::chosenDifficulty()`;
+without it `Config('bot_check_prefix_bytes')` applies, and
+`BotCheckChallenge::expectedPrefixBytes()` clamps anything outside 1..3. The
+client never sends a difficulty: the challenge URL carries the item **name**
+(`?item=<name>`), `RunController::formBotChallengeAction` looks that item up in
+the participant's current study and mints for it, and `verify()` re-derives the
+same floor from the item row — so neither a tampered query nor a harvested,
+genuinely-signed easier challenge can weaken the gate. (`data-difficulty` on the
+wrapper is informational only and is deliberately not sent. The sheet reader
+treats an all-digit token after `bot_check` as this difficulty, not as a
+choice-list name — a list that relabels the widget is `bot_check mylist`,
+see §9.)
 
 **`optional`:** an optional `bot_check` may be left alone — an absent/empty
 token stores NULL and doesn't block the page, like any other optional item. A

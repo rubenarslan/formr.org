@@ -25,13 +25,13 @@ What participants notice:
 There are two ways in, both from the admin UI. Neither touches your items.
 
 - **New study**: in the run editor, "Add Form (form_v2, beta)" creates a Form unit for the study you pick and switches that study to the v2 engine. The button only appears when the operator has set `$settings['form_v2_enabled'] = true`; studies already on v2 keep rendering on v2 regardless of that flag.
-- **Existing study**: on the survey's settings page (`/admin/survey/<name>`) the "Rendering engine" box shows a compatibility-scan summary and an **Upgrade to form_v2** button. Upgrading converts every run unit that uses the study as a classic Survey into a Form unit; participants who are mid-form finish on the old engine, new sessions get v2. **Switch back to v1** is next to it and is safe at any time — a Form unit whose study is on v1 simply renders through the classic pipeline.
+- **Existing study**: on the survey's settings page (`/admin/survey/<name>`) the "Rendering engine" box shows a compatibility-scan summary and an **Upgrade to form_v2** button. Upgrading converts every run unit that uses the study as a classic Survey into a Form unit and moves that placement's open unit sessions across, so participants who are mid-form continue on v2 from where they are (both engines read and write the same rows). The button is refused while any item still has an `r(...)` showif — fix those first (see "The two rules"). **Switch back to v1** is next to it and is safe at any time — a Form unit whose study is on v1 simply renders through the classic pipeline.
 
 Once a study is on v2, the same page shows the **Form_v2 settings**:
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| Offline queue | on | A failed page submission is stored in the participant's browser (IndexedDB) and replayed when connectivity returns. Turn off for studies whose answers must not persist on the device — submissions then fail hard when offline. |
+| Enable offline queue | on | A failed page submission is stored in the participant's browser (IndexedDB) and replayed when connectivity returns. Turn off for studies whose answers must not persist on the device — submissions then fail hard when offline. |
 | Show "Previous" button | off | Lets participants move back between the form's pages. Leave off unless your design tolerates back-navigation (see "Known limitations"). |
 | Layout | Default | *Default* renders all items of an authored page together. *Solo* shows one item per screen with auto-advance on answer, Typeform-style — good on mobile. Page boundaries (submit items) still define what is submitted together; only the visual rhythm changes. |
 | Participant language | `en` | A BCP 47 tag. Sets the page's `lang`/`dir` and localizes the engine's own strings (buttons, save indicator, offline banner, validation fallbacks). English and German ship built-in; `de-AT` falls back to `de`, anything else to English strings while keeping the `lang` attribute you set. Your item labels are always shown as authored. |
@@ -40,7 +40,7 @@ Once a study is on v2, the same page shows the **Form_v2 settings**:
 
 ### The two rules
 
-1. **`showif` is JavaScript.** It is evaluated in the participant's browser and re-evaluated on every input change. `r(...)` in a showif is invalid: the compatibility scanner flags it and the form reports a validation error to you instead of rendering the item. To gate visibility on an R result, see "Bridging R into a showif".
+1. **`showif` is JavaScript.** It is evaluated in the participant's browser and re-evaluated on every input change. `r(...)` in a showif is invalid: the compatibility scanner flags it, **Upgrade to form_v2 refuses to switch the study** while any item still has one, and if a study got onto v2 before that gate existed the engine hides that item outright (rather than showing it unconditionally) — telling you why when you preview or test the study, and logging it for real participants. To gate visibility on an R result, see "Bridging R into a showif".
 2. **`value` is R.** Anything that isn't empty, a number, or the `sticky` keyword is evaluated as R on the server. You can write the R bare or wrapped in `r(...)` — both mean the same thing; the wrapper is just the idiom used in the bridge example below.
 
 ### `showif`: client-side JS
@@ -161,7 +161,7 @@ When **Offline queue** is on (the default), a page submission that fails — no 
 Beyond the rendering model:
 
 - **New item types**: `rank` (drag-to-order list) and `bot_check` (a proof-of-work human check, ALTCHA-style, no third party). Both are v2-only. `visual_analog_scale` renders on both engines. See `templates/public/documentation/item_types.php` for the item reference.
-- **`bot_check` fails closed.** If the server has no crypto key it refuses every token and the item shows "Human verification is temporarily unavailable" instead of waving everyone through; the challenge endpoint requires an active participant session and is rate-limited (`form_v2_rate_limits.bot_challenge_per_min`, default 20).
+- **`bot_check` fails closed.** If the server has no crypto key it refuses every token and the item shows "Human verification is temporarily unavailable" instead of waving everyone through; the challenge endpoint requires an active participant session and is rate-limited (`form_v2_rate_limits.bot_challenge_per_min`, default 20). Difficulty is a server decision: write `bot_check 2` in the type column for a harder proof-of-work on one item (1–3), or have your operator raise the instance defaults — `bot_check_prefix_bytes` (default 1), `bot_check_argon_memory` (4096 KiB), `bot_check_argon_time` (1), `bot_check_ttl` (86400 s) and `bot_check_secret` (default: derived from the instance crypto key), all documented and shipped commented-out in `config-dist/settings.php`. Nothing about the participant leaves the server.
 - **Page-expired modal**: when a unit session's expiry passes mid-form, participants see the same "page expired" prompt as in v1.
 - **Localized engine strings** (`language` setting, see the settings table).
 - **Solo layout** (`layout` setting).
@@ -173,7 +173,7 @@ Beyond the rendering model:
 3. Decide the per-study settings — offline queue, Previous button, layout, language.
 4. If the study uses install or push, configure the run as installable and verify `/{run}/manifest` responds.
 5. Test as yourself via the run's "Use as yourself" link. Walk every page; check flagged items and dynamic values behave as expected.
-6. Click **Upgrade to form_v2** on the survey settings page. Participants mid-form finish on the old engine; new sessions get v2. **Switch back to v1** undoes it at any time.
+6. Click **Upgrade to form_v2** on the survey settings page. Participants who are mid-form continue on v2 from where they are — their open sessions move with the converted run unit. (The switch is refused while any item still has an `r(...)` showif.) **Switch back to v1** undoes it at any time.
 
 ## See also
 
