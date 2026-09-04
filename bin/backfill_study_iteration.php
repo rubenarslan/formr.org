@@ -8,46 +8,59 @@
  * After patch 086 adds the columns, this script is the bridge that
  * carries forward the historical iteration values researchers depend
  * on (block-randomization, "Nth participant" analyses). New sessions
- * post-deploy will get their study_iteration allocated by
- * UnitSession::createSurveyStudyRecord; this script handles everything
- * already in the database.
+ * post-deploy get their study_iteration allocated live by
+ * UnitSession::createSurveyStudyRecord — including for any participant
+ * who reaches a study between the deploy and this script actually
+ * running, so a study can have a MIX of live-allocated (non-NULL) and
+ * historical (NULL) study_iteration rows by the time this runs. This
+ * script only ever fills the NULL ones; it never touches an
+ * already-allocated value.
  *
- * Idempotent: skips studies whose last_iteration is already > 0, since
- * a non-zero last_iteration means a successful previous backfill (or
- * live allocations have started). Re-runs are safe.
+ * Idempotent: a study with no NULL study_iteration left to backfill
+ * (as seen through its wide table) and a last_iteration already caught
+ * up is a no-op. Re-runs are safe.
  *
  * Per-study process:
- *   1. Skip if results_table is missing or doesn't exist on disk.
- *   2. Skip if survey_studies.last_iteration > 0 (already backfilled
- *      or actively in use).
- *   3. UPDATE survey_unit_sessions.study_iteration via a JOIN with the
- *      wide table on session_id. Only rows currently NULL get written
- *      (`WHERE study_iteration IS NULL`) so a partial previous run
- *      doesn't double-process.
- *   4. Raise survey_studies.last_iteration to MAX(wide.iteration) so the
- *      next allocation continues the sequence without colliding with
- *      historical values. The counter only ever goes UP
- *      (GREATEST(last_iteration, wide max)): with --force on a study that
- *      has live allocations the wide max can sit below the counter —
- *      sessions started long-only (dual-write off) never get a wide row,
- *      and an in-flight session holds its number before its row lands —
- *      and a plain SET would rewind the sequence into values already
- *      handed out (UnitSession::allocateStudyIteration keeps the same
- *      invariant when it self-heals).
+ *   1. Skip (skipped_no_table) if results_table is missing or doesn't
+ *      exist on disk.
+ *   2. Detect whether the wide table has an `iteration` column
+ *      (information_schema.COLUMNS). Pre-2024-07 wide tables predate
+ *      that column entirely.
+ *   3a. Has `iteration`: UPDATE survey_unit_sessions.study_iteration
+ *       via a JOIN with the wide table on session_id, copying
+ *       w.iteration — only rows currently NULL
+ *       (`WHERE us.study_iteration IS NULL`), so an already-allocated
+ *       value (live or a prior backfill run) is never overwritten.
+ *   3b. No `iteration` column: there is no historical value to copy,
+ *       so NULL study_iteration rows matched to a wide row
+ *       (session_id join) are numbered sequentially in wide.created
+ *       order, continuing from the current max of already-allocated
+ *       study_iteration values for this study (live allocations, or a
+ *       prior run) — so newly-assigned historical numbers can never
+ *       collide with numbers already handed out.
+ *   4. Raise survey_studies.last_iteration to
+ *      GREATEST(last_iteration, max iteration now on record for this
+ *      study) — always, even for a study with nothing to backfill,
+ *      since last_iteration can itself have drifted behind the wide
+ *      table. The counter only ever goes UP: a plain SET would risk
+ *      rewinding it into values already handed out
+ *      (UnitSession::allocateStudyIteration keeps the same invariant
+ *      when it self-heals).
+ *
+ * A study only counts as "skipped, nothing to do" when BOTH (3) found
+ * no NULL rows to fill AND (4) found last_iteration already caught up.
  *
  * Usage:
  *   docker exec formr_app php bin/backfill_study_iteration.php
  *   docker exec formr_app php bin/backfill_study_iteration.php --dry-run
  *   docker exec formr_app php bin/backfill_study_iteration.php --study=42
- *   docker exec formr_app php bin/backfill_study_iteration.php --force   # re-process backfilled studies
  */
 
 require_once dirname(__FILE__) . '/../setup.php';
 
-$opts = getopt('', ['dry-run', 'study::', 'force']);
+$opts = getopt('', ['dry-run', 'study::']);
 $dryRun = isset($opts['dry-run']);
 $onlyStudyId = isset($opts['study']) ? (int) $opts['study'] : null;
-$force = isset($opts['force']);
 
 $db = DB::getInstance();
 
@@ -65,7 +78,7 @@ $studies = $db->select('id, name, results_table, last_iteration')
     ->fetchAll();
 
 $skippedNoTable = 0;
-$skippedAlreadyDone = 0;
+$skippedNothingToDo = 0;
 $processed = 0;
 $totalRowsBackfilled = 0;
 
@@ -80,59 +93,95 @@ foreach ($studies as $study) {
         continue;
     }
 
-    if ($lastIteration > 0 && !$force) {
-        $skippedAlreadyDone++;
-        continue;
-    }
-
     // Safe to backtick-interpolate the table name: it was originally
     // generated by SurveyStudy::createResultsTable from a validated
     // study name and lives in survey_studies.results_table, which is
-    // not user-editable post-creation.
+    // not user-editable post-creation. table_exists() above also
+    // asserts it matches /^[A-Za-z0-9_]+$/.
     $safeWide = str_replace('`', '``', $resultsTable);
 
-    // The wide table iteration is per-row, session_id is its PK.
-    // JOIN on session_id, copy iteration into the long row.
-    $updateSql = "
-        UPDATE `survey_unit_sessions` AS `us`
-        INNER JOIN `{$safeWide}` AS `w` ON `w`.`session_id` = `us`.`id`
-        SET `us`.`study_iteration` = `w`.`iteration`
-        WHERE `us`.`study_iteration` IS NULL
-          AND `w`.`iteration` IS NOT NULL
-    ";
+    $hasIterationCol = backfillHasIterationColumn($db, $resultsTable);
 
-    $maxSql = "SELECT COALESCE(MAX(`iteration`), 0) AS max_iter FROM `{$safeWide}`";
+    $result = $hasIterationCol
+        ? backfillFromWideIteration($db, $safeWide, $studyId, $lastIteration, $dryRun)
+        : backfillSequentially($db, $safeWide, $studyId, $lastIteration, $dryRun);
 
-    if ($dryRun) {
-        // DB::query() returns fetchAll() rows for SELECTs (not a PDOStatement),
-        // so index into the result array directly.
-        $countRows = $db->query("SELECT COUNT(*) AS n FROM `{$safeWide}` `w`
-            INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `w`.`session_id`
-            WHERE `us`.`study_iteration` IS NULL AND `w`.`iteration` IS NOT NULL");
-        $wouldUpdate = isset($countRows[0]['n']) ? (int) $countRows[0]['n'] : 0;
+    $wouldUpdate = $result['rows'];
+    $newIteration = $result['newLastIteration'];
+    $nothingToDo = ($wouldUpdate === 0 && $newIteration <= $lastIteration);
 
-        $maxRows = $db->query($maxSql);
-        $maxIter = isset($maxRows[0]['max_iter']) ? (int) $maxRows[0]['max_iter'] : 0;
-
-        printf("  study %5d %-40s rows_to_backfill=%d last_iteration %d->%d\n",
-            $studyId, $name, $wouldUpdate, $lastIteration, max($lastIteration, $maxIter));
-        $totalRowsBackfilled += $wouldUpdate;
-        $processed++;
+    if ($nothingToDo) {
+        $skippedNothingToDo++;
         continue;
     }
 
+    $label = $dryRun ? 'rows_to_backfill' : 'rows_backfilled';
+    $mode = $hasIterationCol ? '' : ' (no iteration column; sequential)';
+    printf("  study %5d %-40s %s=%d last_iteration %d->%d%s\n",
+        $studyId, $name, $label, $wouldUpdate, $lastIteration, $newIteration, $mode);
+    $totalRowsBackfilled += $wouldUpdate;
+    $processed++;
+}
+
+echo "\n$tag Done. processed=$processed skipped_no_table=$skippedNoTable "
+    . "skipped_nothing_to_do=$skippedNothingToDo rows_backfilled=$totalRowsBackfilled\n";
+
+/**
+ * Does `$table` (unquoted identifier, already validated by
+ * DB::table_exists()) have an `iteration` column? Queried via
+ * information_schema rather than SHOW COLUMNS because DB::query()
+ * only fetchAll()s statements that literally start with "select" —
+ * SHOW COLUMNS would come back as a bare PDOStatement instead.
+ */
+function backfillHasIterationColumn($db, $table) {
+    $rows = $db->query(
+        'SELECT COUNT(*) AS n FROM information_schema.COLUMNS '
+        . 'WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ' . $db->quote($table)
+        . " AND COLUMN_NAME = 'iteration'"
+    );
+    return isset($rows[0]['n']) && (int) $rows[0]['n'] > 0;
+}
+
+/**
+ * Has-iteration-column path: copy w.iteration into any NULL
+ * us.study_iteration matched by session_id, then raise
+ * survey_studies.last_iteration to the wide table's max. Never
+ * overwrites a non-NULL study_iteration (WHERE us.study_iteration IS
+ * NULL).
+ *
+ * @return array{rows:int, newLastIteration:int}
+ */
+function backfillFromWideIteration($db, $safeWide, $studyId, $lastIteration, $dryRun) {
+    $countRows = $db->query("SELECT COUNT(*) AS n FROM `{$safeWide}` `w`
+        INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `w`.`session_id`
+        WHERE `us`.`study_iteration` IS NULL AND `w`.`iteration` IS NOT NULL");
+    $wouldUpdate = isset($countRows[0]['n']) ? (int) $countRows[0]['n'] : 0;
+
+    $maxRows = $db->query("SELECT COALESCE(MAX(`iteration`), 0) AS max_iter FROM `{$safeWide}`");
+    $maxIter = isset($maxRows[0]['max_iter']) ? (int) $maxRows[0]['max_iter'] : 0;
+    $newLastIteration = max($lastIteration, $maxIter);
+
+    if ($dryRun) {
+        return ['rows' => $wouldUpdate, 'newLastIteration' => $newLastIteration];
+    }
+
+    // Run the UPDATE and the last_iteration bump together even when
+    // $wouldUpdate is 0: a study can have nothing left to backfill but
+    // still have last_iteration lagging the wide table's max (drift —
+    // requirement 4), and that only gets fixed if this transaction
+    // actually runs.
     $db->beginTransaction();
     try {
         // DB::query() returns a PDOStatement for non-SELECT (UPDATE here).
-        $updateStmt = $db->query($updateSql);
+        $updateStmt = $db->query("
+            UPDATE `survey_unit_sessions` AS `us`
+            INNER JOIN `{$safeWide}` AS `w` ON `w`.`session_id` = `us`.`id`
+            SET `us`.`study_iteration` = `w`.`iteration`
+            WHERE `us`.`study_iteration` IS NULL
+              AND `w`.`iteration` IS NOT NULL
+        ");
         $rowsUpdated = $updateStmt->rowCount();
 
-        // DB::query() returns fetchAll() rows for SELECT; index directly.
-        $maxRows = $db->query($maxSql);
-        $maxIter = isset($maxRows[0]['max_iter']) ? (int) $maxRows[0]['max_iter'] : 0;
-
-        // Monotonic: never rewind a counter that live allocations have
-        // already advanced past the wide table (see header, step 4).
         // $maxIter is interpolated as an int on purpose: a bound param
         // arrives as a string, and GREATEST() with any string argument
         // compares as strings ('3' > '10').
@@ -140,25 +189,71 @@ foreach ($studies as $study) {
             "UPDATE `survey_studies` SET `last_iteration` = GREATEST(`last_iteration`, {$maxIter}) WHERE `id` = :id",
             ['id' => $studyId]
         );
-        $newRows = $db->query('SELECT `last_iteration` FROM `survey_studies` WHERE `id` = ' . $studyId);
-        $newIteration = isset($newRows[0]['last_iteration']) ? (int) $newRows[0]['last_iteration'] : $maxIter;
-
         $db->commit();
     } catch (Exception $e) {
         $db->rollBack();
-        fprintf(STDERR, "study %d (%s): FAILED — %s\n", $studyId, $name, $e->getMessage());
-        continue;
+        fprintf(STDERR, "study %d: FAILED — %s\n", $studyId, $e->getMessage());
+        return ['rows' => 0, 'newLastIteration' => $lastIteration];
     }
 
-    printf("  study %5d %-40s rows_backfilled=%d last_iteration %d->%d\n",
-        $studyId, $name, $rowsUpdated, $lastIteration, $newIteration);
-    $totalRowsBackfilled += $rowsUpdated;
-    $processed++;
+    return ['rows' => $rowsUpdated, 'newLastIteration' => $newLastIteration];
 }
 
-echo "\n$tag Done. processed=$processed skipped_no_table=$skippedNoTable "
-    . "skipped_already_done=$skippedAlreadyDone rows_backfilled=$totalRowsBackfilled\n";
+/**
+ * No-iteration-column path (pre-2024-07 wide tables): there is no
+ * historical value to copy, so NULL study_iteration rows matched to a
+ * wide row (session_id join) are numbered sequentially in
+ * wide.created order, starting just above the highest study_iteration
+ * already allocated for this study — either through a matching wide
+ * row, or (if dual-write was ever off) survey_studies.last_iteration
+ * itself — so newly-assigned historical numbers can never collide
+ * with numbers already handed out live.
+ *
+ * @return array{rows:int, newLastIteration:int}
+ */
+function backfillSequentially($db, $safeWide, $studyId, $lastIteration, $dryRun) {
+    $rows = $db->query("SELECT `us`.`id` AS session_pk FROM `{$safeWide}` `w`
+        INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `w`.`session_id`
+        WHERE `us`.`study_iteration` IS NULL
+        ORDER BY `w`.`created` ASC, `w`.`session_id` ASC");
+    $toAssign = array_map(function ($r) { return (int) $r['session_pk']; }, $rows);
+    $count = count($toAssign);
 
-if ($skippedAlreadyDone > 0 && !$force) {
-    echo "  (Use --force to re-process studies whose last_iteration > 0.)\n";
+    $maxRows = $db->query("SELECT COALESCE(MAX(`us`.`study_iteration`), 0) AS max_iter FROM `{$safeWide}` `w`
+        INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `w`.`session_id`");
+    $existingMax = isset($maxRows[0]['max_iter']) ? (int) $maxRows[0]['max_iter'] : 0;
+    $start = max($existingMax, $lastIteration);
+    $newLastIteration = $start + $count;
+
+    if ($dryRun) {
+        return ['rows' => $count, 'newLastIteration' => $newLastIteration];
+    }
+
+    // Run the assignment loop and the last_iteration bump together even
+    // when $count is 0: a study can have nothing left to backfill but
+    // still have last_iteration lagging already-allocated study_iteration
+    // values (drift — requirement 4), and that only gets fixed if this
+    // transaction actually runs.
+    $db->beginTransaction();
+    try {
+        $next = $start + 1;
+        foreach ($toAssign as $sessionPk) {
+            $db->update('survey_unit_sessions',
+                ['study_iteration' => $next],
+                ['id' => $sessionPk]);
+            $next++;
+        }
+
+        $db->exec(
+            "UPDATE `survey_studies` SET `last_iteration` = GREATEST(`last_iteration`, {$newLastIteration}) WHERE `id` = :id",
+            ['id' => $studyId]
+        );
+        $db->commit();
+    } catch (Exception $e) {
+        $db->rollBack();
+        fprintf(STDERR, "study %d: FAILED — %s\n", $studyId, $e->getMessage());
+        return ['rows' => 0, 'newLastIteration' => $lastIteration];
+    }
+
+    return ['rows' => $count, 'newLastIteration' => $newLastIteration];
 }
