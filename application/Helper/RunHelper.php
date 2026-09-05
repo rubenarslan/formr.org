@@ -65,7 +65,17 @@ class RunHelper {
     }
 
     public function remind() {
-        if ($this->run->sendReminder($this->request->reminder_id, $this->request->session, $this->request->run_session_id) === false) {
+        // Monkey-bar authority is the gated (testing) session that passed
+        // RunController::monkeyBarAction — a reminder may only be fired for
+        // THAT session, not an arbitrary run_session_id in the run, which a
+        // shared test link would otherwise let a non-admin aim at a real
+        // participant. Symmetric with deleteUser().
+        if (!$this->runSession || !$this->runSession->valid
+                || (int) $this->request->run_session_id !== (int) $this->runSession->id) {
+            $this->errors[] = 'Something went wrong with the reminder. in run ' . $this->run->name;
+            return false;
+        }
+        if ($this->run->sendReminder($this->request->reminder_id, $this->request->session, $this->runSession->id) === false) {
             $this->errors[] = 'Something went wrong with the reminder. in run ' . $this->run->name;
             return false;
         }

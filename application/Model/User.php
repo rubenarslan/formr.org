@@ -491,7 +491,7 @@ class User extends Model {
         $verify_data = $this->db->findRow('survey_users', array('email' => $email), array('email_verification_hash', 'referrer_code'));
 
         if (Site::getSettings("signup:enable_referral_token", 'true') === 'true' &&
-            in_array($verify_data['referrer_code'], Config::get('referrer_codes'))) {
+            in_array($verify_data['referrer_code'], (array) Config::get('referrer_codes'), true)) {
             $this->db->update('survey_users', array('admin' => 1), array('email' => $email));
             $this->id = (int) $this->db->findValue('survey_users', array('email' => $email), array('id'));
             $this->load();
@@ -646,8 +646,11 @@ class User extends Model {
         $backup_codes = $this->get2FABackupCodes();
         if(!empty($backup_codes)) {
             $backup_codes_array = explode(';', $backup_codes);
-            if (in_array($code, $backup_codes_array)) {
-                $key = array_search($code, $backup_codes_array);
+            // Strict comparison: a loose in_array/array_search lets PHP
+            // type-juggling (e.g. an INF-parsing "9E9999" vs a stored
+            // "2E4567") satisfy the check and bypass the second factor.
+            if (in_array($code, $backup_codes_array, true)) {
+                $key = array_search($code, $backup_codes_array, true);
                 unset($backup_codes_array[$key]);
                 $this->set2FABackupCodes(implode(';', $backup_codes_array));
                 return true;
