@@ -312,28 +312,8 @@ class AdminRunController extends AdminController
 
     private function settingsAction()
     {
-        $osf_projects = array();
-
-        if (($token = OSF::getUserAccessToken($this->user))) {
-            $osf = new OSF(Config::get('osf'));
-            $osf->setAccessToken($token);
-            $response = $osf->getProjects();
-
-            if ($response->hasError()) {
-                alert($response->getError(), 'alert-danger');
-                $token = null;
-            } else {
-                foreach ($response->getJSON()->data as $project) {
-                    $osf_projects[] = array('id' => $project->id, 'name' => $project->attributes->title);
-                }
-            }
-        }
-
         $this->setView('run/settings', array(
-            'osf_token' => $token,
             'run_selected' => $this->request->getParam('run'),
-            'osf_projects' => $osf_projects,
-            'osf_project' => $this->run->osf_project_id,
             'run_id' => $this->run->id,
             'reminders' => $this->run->getSpecialUnits(true, 'ReminderEmail'),
             'service_messages' => $this->run->getSpecialUnits(true, 'ServiceMessagePage'),

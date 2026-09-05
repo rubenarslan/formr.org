@@ -136,7 +136,7 @@ function print_hidden_opencpu_debug_message($ocpu_req, $public_message = '')
  * Location header, so a request parameter that reaches it unchecked is an
  * open redirect (phishing hand-off from a trusted origin). Return $value
  * only when it is a plain local path; otherwise fall back to $default.
- * Legitimate off-site redirects (the OSF login URL, INFO_SITE) are built
+ * Legitimate off-site redirects (INFO_SITE) are built
  * by the app, never taken from a request, so they don't pass through here.
  */
 function safe_local_redirect($value, $default = '')

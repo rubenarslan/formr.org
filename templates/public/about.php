@@ -153,7 +153,7 @@ Template::loadChild('public/header');
                         This instance of the formr.org is hosted on servers at the Georg August University Göttingen. It implements a security model that individually and uniquely protects the various entities of the platform, the application, it's data and the R interface (OpenCPU). These entities communicate only within a local network whose access is restricted to the IT administators of the Georg-Elias-Müller-Institute of Psychology.
                     </p>
                     <p>
-                        Our entire database is backed up nightly. Whenever real data is deleted by you in bulk, formr backs it up as well, right before deletion. No backup is made if you delete single users/single survey entries. We do not specifically back up run units and survey files, but you can redownload the most recently uploaded version of a survey file and download files with the run structure to your computer or to the <a href="https://osf.io">openscienceframework</a>.
+                        Our entire database is backed up nightly. Whenever real data is deleted by you in bulk, formr backs it up as well, right before deletion. No backup is made if you delete single users/single survey entries. We do not specifically back up run units and survey files, but you can redownload the most recently uploaded version of a survey file and download files with the run structure to your computer.
                     </p>
 
 

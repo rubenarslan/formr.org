@@ -49,7 +49,6 @@ class Run extends Model
     public $header_image_path = null;
     public $title = null;
     public $description = null;
-    public $osf_project_id = null;
     public $footer_text = null;
     public $public_blurb = null;
     public $use_material_design = false;
@@ -87,7 +86,6 @@ class Run extends Model
         "custom_r",
         "manifest_json",
         "cron_active",
-        "osf_project_id",
         "use_material_design",
         "expire_cookie",
         "expire_cookie_value",
@@ -137,7 +135,7 @@ class Run extends Model
             return;
         }
 
-        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, custom_r_path, manifest_json_path, osf_project_id, use_material_design, expire_cookie, expiresOn, vapid_public_key, vapid_private_key, pwa_icon_path";
+        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, custom_r_path, manifest_json_path, use_material_design, expire_cookie, expiresOn, vapid_public_key, vapid_private_key, pwa_icon_path";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
 

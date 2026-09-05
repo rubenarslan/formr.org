@@ -31,66 +31,6 @@ class AdminController extends Controller {
         return $this->sendResponse();
     }
 
-    public function osfAction() {
-        if (!($token = OSF::getUserAccessToken($this->user))) {
-            $this->request->redirect('api/osf/login');
-        }
-
-        $osf = new OSF(Config::get('osf'));
-        $osf->setAccessToken($token);
-
-        if (Request::isHTTPPostRequest() && $this->request->getParam('osf_action') === 'export-run') {
-            $run = new Run($this->request->getParam('formr_project'));
-            $osf_project = $this->request->getParam('osf_project');
-            if (!$run->valid || !$osf_project) {
-                throw new Exception('Invalid Request');
-            }
-            // The run is named by the request and Run::load() is a global
-            // name lookup: without this gate any admin could export another
-            // user's run (structure AND item tables) to their own OSF
-            // project and write osf_project_id onto the victim's run.
-            if (!$this->user->created($run)) {
-                formr_error(401, 'Unauthorized', 'You do not have access to export this run');
-            }
-
-            $export = $run->exportStructure();
-            $export_file = Config::get('survey_upload_dir') . '/run-' . time() . '-' . $run->name . '.json';
-            $create = file_put_contents($export_file, json_encode($export, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK));
-            $response = $osf->upload($osf_project, $export_file, $run->name . '-' . date('YmdHis') . '.json');
-            @unlink($export_file);
-
-            if (!$response->hasError()) {
-                $run->saveSettings(array('osf_project_id' => $osf_project));
-                alert('Run exported to OSF', 'alert-success');
-            } else {
-                alert($response->getError(), 'alert-danger');
-            }
-
-            if ($redirect = safe_local_redirect($this->request->getParam('redirect'))) {
-                $this->request->redirect($redirect);
-            }
-        }
-
-        // @todo implement get projects recursively
-        $response = $osf->getProjects();
-        $osf_projects = array();
-        if ($response->hasError()) {
-            alert($response->getError(), 'alert-danger');
-        } else {
-            foreach ($response->getJSON()->data as $project) {
-                $osf_projects[] = array('id' => $project->id, 'name' => $project->attributes->title);
-            }
-        }
-
-        $this->setView('misc/osf', array(
-            'token' => $token,
-            'runs' => $this->user->getRuns(),
-            'run_selected' => $this->request->getParam('run'),
-            'osf_projects' => $osf_projects,
-        ));
-
-        return $this->sendResponse();
-    }
 
     protected function setView($template, $vars = array(), $prepend_admin = true) {
         if ($prepend_admin) {
