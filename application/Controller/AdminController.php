@@ -45,6 +45,13 @@ class AdminController extends Controller {
             if (!$run->valid || !$osf_project) {
                 throw new Exception('Invalid Request');
             }
+            // The run is named by the request and Run::load() is a global
+            // name lookup: without this gate any admin could export another
+            // user's run (structure AND item tables) to their own OSF
+            // project and write osf_project_id onto the victim's run.
+            if (!$this->user->created($run)) {
+                formr_error(401, 'Unauthorized', 'You do not have access to export this run');
+            }
 
             $export = $run->exportStructure();
             $export_file = Config::get('survey_upload_dir') . '/run-' . time() . '-' . $run->name . '.json';
@@ -59,7 +66,7 @@ class AdminController extends Controller {
                 alert($response->getError(), 'alert-danger');
             }
 
-            if ($redirect = $this->request->getParam('redirect')) {
+            if ($redirect = safe_local_redirect($this->request->getParam('redirect'))) {
                 $this->request->redirect($redirect);
             }
         }
@@ -119,11 +126,20 @@ class AdminController extends Controller {
 
     public function createRunUnit($id = null) {
         $data = array_merge($this->request->getParams(), RunUnit::getDefaults($this->request->type), RunUnit::getDefaults($this->request->special));
+        // The unit's identity never comes from the request: a posted `id`
+        // would make create() modify() / insert_update an existing unit by
+        // bare id. Only the explicit $id (delete_run_unit) may address one.
+        unset($data['id']);
         if ($id) {
-            $data['id'] = $id;
+            $data['id'] = (int) $id;
         }
 
         $unit = RunUnitFactory::make($this->run, $data);
+        if ($id && !$unit->id) {
+            // find() could not place $id in this run and the constructor
+            // dropped it; refuse instead of create()-ing a stray new unit.
+            return $unit;
+        }
         
         return $unit->create($data);
     }

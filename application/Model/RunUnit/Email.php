@@ -61,6 +61,10 @@ class Email extends RunUnit {
                     (int) $this->run->user_id
                 )) {
             $options['account_id'] = null;
+            // parent::create() has already assigned the posted value onto
+            // $this->account_id; unless `body` is also posted the branch
+            // below never re-assigns from $options, so clear it here too.
+            $this->account_id = null;
         }
 
         $parsedown = new ParsedownExtra();
@@ -80,6 +84,14 @@ class Email extends RunUnit {
             $options['cron_only'] = isset($options['cron_only']) ? (int) (bool) $options['cron_only'] : 0;
             $options['html'] = 1;
             $this->assignProperties($options);
+        }
+
+        // Whatever its source — posted, imported, or a row written before
+        // this gate existed — the account that ends up on the unit must
+        // belong to the run owner: sendMail() loads it by bare id and
+        // decrypts its SMTP credentials.
+        if ($this->account_id !== null && !$this->isOwnedBy('survey_email_accounts', (int) $this->account_id, (int) $this->run->user_id)) {
+            $this->account_id = null;
         }
 
         if ($this->account_id === null) {

@@ -27,6 +27,13 @@ class SurveyTestController extends Controller {
      * ciphertext is base64url, so it is safe as a path segment.
      */
     public static function mintToken($studyName, $userId, $ttl = self::TOKEN_TTL) {
+        // The token is glue-joined plaintext under authenticated encryption,
+        // so a glue character inside the study name would let the name
+        // re-map the user id / expiry fields on the way back out. Names are
+        // validated on creation and rename; refuse here too.
+        if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/', (string) $studyName)) {
+            return null;
+        }
         return Crypto::encrypt(array($studyName, (int) $userId, time() + (int) $ttl), self::TOKEN_GLUE);
     }
 
@@ -155,8 +162,13 @@ class SurveyTestController extends Controller {
             formr_error(403, 'Invalid link', 'This survey preview link is invalid.');
             return null;
         }
-        $parts = explode(self::TOKEN_GLUE, $plain, 3);
-        if (count($parts) !== 3) {
+        // No explode() limit: exactly three fields, each of the shape it was
+        // minted with. A limit of 3 would fold any extra glue-separated
+        // fields into $expires, where (int) silently discards them.
+        $parts = explode(self::TOKEN_GLUE, $plain);
+        if (count($parts) !== 3
+                || !preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/', $parts[0])
+                || !ctype_digit($parts[1]) || !ctype_digit($parts[2])) {
             formr_error(403, 'Invalid link', 'This survey preview link is malformed.');
             return null;
         }

@@ -92,9 +92,17 @@ class AdminAjaxController {
             $params = $this->request->getParams();
             $params['id'] = (int) $id;
             $unit = RunUnitFactory::make($run, $params);
+            if (!$unit->id) {
+                // find() could not place unit_id in this run (the
+                // constructor forgot the identity) — nothing to render.
+                formr_error(404, 'Not Found', 'Requested Run Unit was not found in this run');
+            }
             $content = $unit->displayForRun();
         } elseif($this->request->getParam('run_unit_id')) {
-            $unit = RunUnit::findByRunUnitId($this->request->getParam('run_unit_id'), ['ignore_missing' => true]);
+            $unit = RunUnit::findByRunUnitId($this->request->getParam('run_unit_id'), ['ignore_missing' => true], $run);
+            if (!$unit) {
+                formr_error(404, 'Not Found', 'Requested Run Unit was not found in this run');
+            }
             $unit->type = 'missing';
             $dialog = Template::get($unit->getTemplatePath('missing'));
             $content = $unit->displayForRun($dialog);
@@ -294,7 +302,9 @@ class AdminAjaxController {
 
             $params = $this->request->getParams();
             $params['ignore_missing'] = true;
-            $unit = RunUnit::findByRunUnitId($run_unit_id, $params);
+            // Scoped to the run setRun() authorised — findByRunUnitId
+            // otherwise builds the unit's OWN run from the row.
+            $unit = RunUnit::findByRunUnitId($run_unit_id, $params, $run);
 
             if (!$unit) {
                 formr_error(404, 'Not Found', 'Requested Run Unit was not found');
@@ -420,6 +430,11 @@ class AdminAjaxController {
             }
 
             $unit = RunUnitFactory::make($run, $params);
+            if (!$unit->id) {
+                // unit_id (and run_unit_id) are posted; find() could not
+                // place them in this run, so there is nothing to save.
+                formr_error(404, 'Not Found', 'Requested Run Unit was not found in this run');
+            }
             $unit->create($params);
 
             if ($unit->valid) {
@@ -453,7 +468,7 @@ class AdminAjaxController {
             ]);
         }
 
-        $unit = RunUnit::findByRunUnitId($run_unit_id, ['ignore_missing' => true]);
+        $unit = RunUnit::findByRunUnitId($run_unit_id, ['ignore_missing' => true], $this->controller->run);
         if (!$unit || $unit->type !== 'Survey' || (int) $unit->run->id !== (int) $this->controller->run->id) {
             $this->response->setStatusCode(400, 'Bad Request');
             return $this->response->setJsonContent([
@@ -593,7 +608,10 @@ class AdminAjaxController {
         }
 
         if ($run_unit_id = $this->request->getParam('run_unit_id')) {
-            $unit = RunUnit::findByRunUnitId($run_unit_id, $this->request->getParams());
+            $unit = RunUnit::findByRunUnitId($run_unit_id, $this->request->getParams(), $this->controller->run);
+            if (!$unit) {
+                formr_error(404, 'Not Found', 'Requested Run Unit was not found in this run');
+            }
             $test_content = $unit->test();
             $content = $this->site->renderAlerts();
             $content .= $test_content;
@@ -776,7 +794,7 @@ class AdminAjaxController {
     }
 
     protected function getSessionRemindersSent($run_session_id) {
-        return RunSession::getSentRemindersBySessionId($run_session_id);
+        return RunSession::getSentRemindersBySessionId($run_session_id, $this->controller->run->id);
     }
 
 }

@@ -28,7 +28,15 @@ class EmailAccount extends Model {
     }
 
     protected function load() {
-        $this->account = $this->db->findRow('survey_email_accounts', array('id' => $this->id));
+        // When a user id was supplied (admin edit/delete/test), only load an
+        // account that belongs to them; the id alone is caller-controlled.
+        // Callers that legitimately load by id (Email::sendMail dispatch)
+        // pass user_id 0, which skips the predicate.
+        $where = array('id' => $this->id);
+        if ($this->user_id) {
+            $where['user_id'] = $this->user_id;
+        }
+        $this->account = $this->db->findRow('survey_email_accounts', $where);
         if ($this->account) {
             $this->valid = true;
             $this->user_id = (int) $this->account['user_id'];

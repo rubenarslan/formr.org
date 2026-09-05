@@ -105,6 +105,18 @@ class OAuthHelper
             error_log('OAuthHelper::createClient label validation failed for user ' . $formrUser->id);
             return false;
         }
+        // A user credential MUST declare at least one scope. bshaffer treats
+        // an empty client scope as "no restriction": with no scope in the
+        // token request it hands out the default scopes, and an explicit
+        // request is validated only against the globally-supported set — so
+        // a "no permissions" credential is in fact a full-permissions one.
+        // (The auto-managed internal client legitimately has empty scope but
+        // is created via createClientInternal, which this guard doesn't gate,
+        // and its tokens are explicitly scoped at issuance.)
+        if (empty($scopes)) {
+            error_log('OAuthHelper::createClient refused empty scope for user ' . $formrUser->id);
+            return false;
+        }
         return $this->createClientInternal($formrUser, $label, $scopes, $runIds);
     }
 

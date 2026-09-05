@@ -223,7 +223,13 @@ class User extends Model {
                         ->where(array('email' => $email))
                         ->limit(1)->fetch();
 
-        if ($user && !$user['email_verified']) {
+        if ($user && password_verify($password, $user['password']) && !$user['email_verified']) {
+            // Only reveal the unverified state — and the verification token —
+            // to someone who has proved the password. Before this guard the
+            // branch ran on any known email regardless of password, which
+            // both leaked an account-exists/unverified oracle and handed the
+            // email_verification_hash (a live resend token) to an anonymous
+            // caller.
             $verification_link = site_url('verify-email', array('token' => $user['email_verification_hash']));
             $this->id = $user['id'];
             $this->email = $email;
@@ -451,9 +457,14 @@ class User extends Model {
             return false;
         }
 
-        $reset_token_hash = $this->db->findValue('survey_users', array('email' => $email), array('reset_token_hash'));
+        $reset_row = $this->db->findRow('survey_users', array('email' => $email), 'reset_token_hash, reset_token_expiry');
+        $reset_token_hash = $reset_row ? $reset_row['reset_token_hash'] : null;
+        // The expiry was written at request time (+2 days) but never
+        // enforced, so a reset link stayed valid indefinitely until used.
+        $reset_not_expired = $reset_row && !empty($reset_row['reset_token_expiry'])
+            && strtotime($reset_row['reset_token_expiry']) > time();
 
-        if ($reset_token_hash) {
+        if ($reset_token_hash && $reset_not_expired) {
             if (password_verify($token, $reset_token_hash)) {
                 $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
                 $this->db->update(

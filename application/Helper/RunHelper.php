@@ -94,7 +94,17 @@ class RunHelper {
 
     public function deleteUser() {
         $session = $this->request->session;
-        if (($deleted = $this->db->delete('survey_run_sessions', array('id' => $this->request->run_session_id, 'run_id' => $this->run->id)))) {
+        // The monkey bar's authority is the (testing) session code that
+        // passed RunController::monkeyBarAction's gate, so only that
+        // session may be deleted — not an arbitrary run_session_id in the
+        // run, which would let anyone holding a shared test link delete
+        // real participants.
+        if (!$this->runSession || !$this->runSession->valid
+                || (int) $this->request->run_session_id !== (int) $this->runSession->id) {
+            $this->errors[] = "User with session '{$session}' could not be deleted";
+            return;
+        }
+        if (($deleted = $this->db->delete('survey_run_sessions', array('id' => $this->runSession->id, 'run_id' => $this->run->id)))) {
             $this->message = "User with session '{$session}' was deleted";
         } else {
             $this->errors[] = "User with session '{$session}' could not be deleted";

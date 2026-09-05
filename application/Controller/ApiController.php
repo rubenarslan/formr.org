@@ -221,7 +221,7 @@ class ApiController extends Controller
         // Case 1: User wants to login to give formr authorization
         // If user has a valid access token then just use it (i.e redirect to where access token is needed
         if ($do === 'login') {
-            $redirect = $this->request->getParam('redirect', 'admin/osf') . '#osf';
+            $redirect = safe_local_redirect($this->request->getParam('redirect'), 'admin/osf') . '#osf';
             if ($token = OSF::getUserAccessToken($user)) {
                 // redirect user to where he came from and get access token from there for current user
                 alert('You have authorized FORMR to act on your behalf on the OSF', 'alert-success');

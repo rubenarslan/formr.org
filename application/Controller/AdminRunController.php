@@ -676,7 +676,9 @@ class AdminRunController extends AdminController
     private function importAction()
     {
         if ($run_file = $this->request->getParam('run_file_name')) {
-            $file = Config::get('run_exports_dir') . '/' . $run_file;
+            // basename() keeps run_file_name inside run_exports_dir — without
+            // it a "../.." value reads any JSON-parsable file on the host.
+            $file = Config::get('run_exports_dir') . '/' . basename($run_file);
         } elseif (!empty($_FILES['run_file'])) {
             $file = $_FILES['run_file']['tmp_name'];
         }

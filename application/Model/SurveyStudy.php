@@ -68,8 +68,8 @@ class SurveyStudy extends Model
     public function __construct($id = null, $options = [])
     {
         parent::__construct();
-        // Defense-in-depth allowlist. Static factories loadByName /
-        // loadByUserAndName pass {name, user_id} as lookup keys; load()
+        // Defense-in-depth allowlist. The loadByUserAndName factory
+        // passes {name, user_id} as lookup keys; load()
         // also takes 'id' from these. Everything else (results_table,
         // valid, created, ...) must come from the DB row that load()
         // resolves, not from caller-provided $options.
@@ -99,12 +99,6 @@ class SurveyStudy extends Model
      * @param string $name
      * @return SurveyStudy
      */
-    public static function loadByName($name)
-    {
-        $options = ['name' => $name];
-        return new SurveyStudy(null, $options);
-    }
-
     /**
      * 
      * @param User $user

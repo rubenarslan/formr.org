@@ -386,7 +386,10 @@ class AdminSurveyController extends AdminController {
         $old_name = $study->name;
 
         if ($new_name && $new_name !== $study->name) {
-            if (!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/", $new_name) || 
+            // Anchored: unanchored, any name *containing* a word passed, so a
+            // rename could smuggle `|`-separated fields into the survey-test
+            // token (SurveyTestController) or arbitrary characters into URLs.
+            if (!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,64}$/", $new_name) || 
                     $this->fdb->entry_exists('survey_studies', array('name' => $new_name, 'user_id' => $this->user->id))) {
 
                 alert('A study with this name already exists', 'alert-danger');
@@ -520,6 +523,14 @@ class AdminSurveyController extends AdminController {
                 $value = (int) $value;
             }
         });
+        // google_file_id is the one non-integer setting, so it must be
+        // validated explicitly — otherwise arbitrary text (quotes, angle
+        // brackets) is stored and echoed into admin views. Empty clears it.
+        if (isset($settings['google_file_id']) && $settings['google_file_id'] !== ''
+                && !google_is_valid_sheet_id($settings['google_file_id'])) {
+            alert('The Google Sheet ID is not valid.', 'alert-warning');
+            $errors = true;
+        }
         if (isset($settings['maximum_number_displayed']) && $settings['maximum_number_displayed'] > 3000 || $settings['maximum_number_displayed'] < 0) {
             alert("Maximum number displayed has to be between 1 and 3000", 'alert-warning');
             $errors = true;

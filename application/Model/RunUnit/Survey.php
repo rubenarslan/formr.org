@@ -64,10 +64,13 @@ class Survey extends RunUnit {
         }
 
         if ($this->surveyStudy) {
+            // run_unit_id can arrive in the save/import payload; the run_id
+            // predicate stops a placement in another run from being
+            // re-pointed at this (legitimately owned) study.
             $this->db->update(
                     'survey_run_units',
                     ['description' => $options['description'], 'unit_id' => $this->surveyStudy->id],
-                    ['id' => $this->run_unit_id]
+                    ['id' => $this->run_unit_id, 'run_id' => $this->run->id]
             );
         }
 
@@ -128,8 +131,15 @@ class Survey extends RunUnit {
      * @doc {inherit}
      */
     public function find($id, $special = false, $props = []) {
-        parent::find($id, $special, $props);
+        $found = parent::find($id, $special, $props);
+        if ($found === false) {
+            // Not in this run: don't load a study for a caller-supplied
+            // unit_id (the constructor is about to forget the identity).
+            $this->surveyStudy = null;
+            return false;
+        }
         $this->getStudy();
+        return $found;
     }
 
     public function getUnitSessionExpirationData(UnitSession $unitSession) {
