@@ -134,6 +134,14 @@ class RunUnit extends Model {
      * @return RunUnit
      */
     public function create($props = []) {
+        // Identity is established ONLY by the constructor's run-scoped find()
+        // (which forgetIdentity()s a foreign id). create()'s argument must
+        // not be able to re-introduce id / unit_id / run_unit_id — otherwise
+        // a caller that passes the same untrusted payload to both make() and
+        // create() (or any direct model caller) would resurrect the rejected
+        // id here and modify()/insert_update another run's row. Content
+        // fields still come from $props.
+        unset($props['id'], $props['unit_id'], $props['run_unit_id']);
         $this->assignProperties($props);
         
         if ($this->id) {
