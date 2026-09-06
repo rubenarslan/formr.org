@@ -223,7 +223,12 @@ class User extends Model {
                         ->where(array('email' => $email))
                         ->limit(1)->fetch();
 
-        if ($user && password_verify($password, $user['password']) && !$user['email_verified']) {
+        // One bcrypt verification per attempt: both branches below need the
+        // verdict, and verifying twice doubled login latency and the CPU a
+        // credential-stuffing burst can pin.
+        $password_ok = $user && password_verify($password, $user['password']);
+
+        if ($password_ok && !$user['email_verified']) {
             // Only reveal the unverified state — and the verification token —
             // to someone who has proved the password. Before this guard the
             // branch ran on any known email regardless of password, which
@@ -238,7 +243,7 @@ class User extends Model {
                 <a class="btn btn-raised btn-default" href="%s">Resend Link</a>', 
             $verification_link);
             return false;
-        } elseif ($user && password_verify($password, $user['password'])) {
+        } elseif ($password_ok) {
             if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
                 /* Store new hash in db */
@@ -491,7 +496,10 @@ class User extends Model {
         $verify_data = $this->db->findRow('survey_users', array('email' => $email), array('email_verification_hash', 'referrer_code'));
 
         if (Site::getSettings("signup:enable_referral_token", 'true') === 'true' &&
-            in_array($verify_data['referrer_code'], (array) Config::get('referrer_codes'), true)) {
+            // strict compare (a loose one let `array(0)` promote every
+            // verifier), but the column is VARCHAR so a numeric code
+            // configured as an int literal must still match.
+            in_array((string) $verify_data['referrer_code'], array_map('strval', (array) Config::get('referrer_codes')), true)) {
             $this->db->update('survey_users', array('admin' => 1), array('email' => $email));
             $this->id = (int) $this->db->findValue('survey_users', array('email' => $email), array('id'));
             $this->load();

@@ -29,7 +29,7 @@ $survey_rows = function ($study) use ($category_badge, $mine) {
         $items[] = '<div class="text-muted"><small>' . $category_badge('technical') . ' ' . implode(', ', $technical) . '</small></div>';
     }
     $count = $study['real_users'] === null ? '<span class="text-muted">?</span>' : (int) $study['real_users'] . ' <small class="text-muted">(' . (int) $study['finished'] . ' finished)</small>';
-    $name = $mine($study['owner_id']) ? '<a href="' . admin_study_url($study['name']) . '">' . h($study['name']) . '</a>' : h($study['name']);
+    $name = $mine($study['owner_id']) ? '<a href="' . h(admin_study_url($study['name'])) . '">' . h($study['name']) . '</a>' : h($study['name']);
     return '<td data-study-id="' . (int) $study['id'] . '">' . $name . ' <small class="text-muted">#' . (int) $study['id'] . '</small></td>'
             . '<td class="text-right">' . $count . '</td>'
             . '<td>' . implode('', $items) . '</td>';
@@ -120,7 +120,7 @@ $survey_rows = function ($study) use ($category_badge, $mine) {
                                 <tr>
                                     <?php if ($first): $first = false; ?>
                                         <td rowspan="<?= count($run['surveys']) ?>" data-run-id="<?= (int) $run['id'] ?>">
-                                            <?php if ($mine($admin['id'])): ?><a href="<?= admin_run_url($run['name']) ?>"><?= h($run['name']) ?></a><?php else: ?><?= h($run['name']) ?><?php endif; ?>
+                                            <?php if ($mine($admin['id'])): ?><a href="<?= h(admin_run_url($run['name'])) ?>"><?= h($run['name']) ?></a><?php else: ?><?= h($run['name']) ?><?php endif; ?>
                                             <?php $public_labels = array(0 => 'closed', 1 => 'enrolled only', 2 => 'link access', 3 => 'listed publicly'); ?>
                                             <span class="label <?= $run['public'] >= 2 ? 'label-success' : 'label-default' ?>"><?= isset($public_labels[$run['public']]) ? $public_labels[$run['public']] : (int) $run['public'] ?></span>
                                             <?php if ($run['email_units'] > 0): ?><span class="label label-info" title="Email units in this run"><i class="fa fa-envelope"></i> <?= (int) $run['email_units'] ?></span><?php endif; ?>

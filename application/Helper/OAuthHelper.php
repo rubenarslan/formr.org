@@ -522,6 +522,22 @@ class OAuthHelper
      * @param string[] $scopes
      * @return string[]|false
      */
+    /**
+     * Every scope the instance knows (oauth_scopes rows). The admin-issued
+     * credential path grants all of them — the effective grant such a
+     * credential had before v1.10.2, when an empty client scope fell back
+     * to the (then all-default) scope table.
+     *
+     * @return string[]
+     */
+    public function listScopes()
+    {
+        $db = Site::getDb();
+        $stmt = $db->prepare("SELECT DISTINCT scope FROM {$this->config['scope_table']} ORDER BY scope");
+        $stmt->execute();
+        return array_values(array_filter($stmt->fetchAll(PDO::FETCH_COLUMN, 0), 'strlen'));
+    }
+
     protected function validateScopes(array $scopes)
     {
         $scopes = array_values(array_unique(array_filter(array_map('strval', $scopes), 'strlen')));

@@ -190,19 +190,14 @@ class RunUnit extends Model {
         return $this;
     }
     
-    public function updateUnitId() {
-        return $this->db->update(
-                'survey_run_units', 
-                array('unit_id' => $this->id), 
-                array('id' => $this->run_unit_id), 
-                array('int'), 
-                array('int')
-        );
-    }
-
     public function modify($options = []) {
         $change = array('modified' => mysql_now());
-        $table = empty($options['special']) ? 'survey_run_units' : 'survey_run_special_units';
+        // A special unit resolved by find()'s fallback (bare unit_id, no
+        // `special` posted) carries $this->special from its row; without
+        // this the description UPDATE would target survey_run_units by the
+        // special's id and rename an unrelated placement in this run.
+        $special = !empty($options['special']) ? $options['special'] : $this->special;
+        $table = empty($special) ? 'survey_run_units' : 'survey_run_special_units';
         if ($this->id && isset($options['description'])):
             // run_unit_id is a public property and so assignable from a
             // posted/imported payload; the run_id predicate keeps a foreign
@@ -501,7 +496,7 @@ OVERVIEW_BODY
                 // special units before declaring the id missing. This is
                 // what the failure being non-fatal used to paper over.
                 // Still scoped to $this->run.
-                $unit = $this->db->select("
+                $fallback = $this->db->select("
                     `survey_run_special_units`.`id` AS run_unit_id,
                     `survey_run_special_units`.`run_id`,
                     `survey_run_special_units`.`type` AS special,
@@ -513,14 +508,21 @@ OVERVIEW_BODY
                                 ->from('survey_run_special_units')
                                 ->leftJoin('survey_units', "survey_units.id = `survey_run_special_units`.`id`")
                                 ->where('survey_run_special_units.run_id = :run_id')
-                                ->where("`survey_run_special_units`.`id` = :id")
-                                ->bindParams(array('run_id' => $this->run->id, 'id' => $id))
-                                ->limit(1)->fetch();
+                                ->where("`survey_run_special_units`.`id` = :id");
+                if (!empty($props['run_unit_id'])) {
+                    // Honour the caller's placement filter like the primary
+                    // query does (special rows have id == run_unit_id).
+                    $fallback->where('survey_run_special_units.id = :run_unit_id');
+                }
+                $unit = $fallback->bindParams($params)->limit(1)->fetch();
             }
         } else {
             $specials = array('ServiceMessagePage', 'OverviewScriptPage', 'ReminderEmail');
             if (!in_array($special, $specials)) {
-                die("Special unit not allowed");
+                // `special` is a public property and arrives straight from
+                // request params; an unknown value is "not in this run",
+                // not a reason to die() mid-response with a plain-text 200.
+                return false;
             }
 
             $select = $this->db->select("
@@ -542,7 +544,14 @@ OVERVIEW_BODY
             }
             
             $unit = $select->bindParams($params)->limit(1)->fetch();
-            $unit["special"] = $special;
+            // Only tag a row that exists: `$unit["special"] = …` on a false
+            // fetch silently converts false to an array, so the `=== false`
+            // verdict below never fired and a request-supplied `special`
+            // kept a foreign id alive (cross-tenant read/write via
+            // ajax_get_unit / ajax_save_run_unit / delete_run_unit).
+            if ($unit !== false) {
+                $unit["special"] = $special;
+            }
         }
 
         if ($unit === false) { // or maybe we've got a problem

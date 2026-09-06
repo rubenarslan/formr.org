@@ -212,6 +212,13 @@ class AdminSurveyController extends AdminController {
         // URL instead of the admin Session — the /survey-test/ path can't read
         // that session (different cookie path).
         $token = SurveyTestController::mintToken($this->study->name, $this->user->id);
+        if ($token === null) {
+            // A name stored under the old, unanchored rename check can't be
+            // minted into the token; sending an empty token only yields a
+            // bare 403 on /survey-test/ with no explanation.
+            alert('This survey cannot be tested until it is renamed to a plain identifier (letters, digits and underscores, starting with a letter).', 'alert-danger');
+            $this->request->redirect(admin_study_url($this->study->name, 'rename_study'));
+        }
         $this->request->redirect(site_url('survey-test/' . $token));
     }
 
@@ -389,7 +396,7 @@ class AdminSurveyController extends AdminController {
             // Anchored: unanchored, any name *containing* a word passed, so a
             // rename could smuggle `|`-separated fields into the survey-test
             // token (SurveyTestController) or arbitrary characters into URLs.
-            if (!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,64}$/", $new_name) || 
+            if (!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,64}\z/", $new_name) ||
                     $this->fdb->entry_exists('survey_studies', array('name' => $new_name, 'user_id' => $this->user->id))) {
 
                 alert('A study with this name already exists', 'alert-danger');
@@ -531,17 +538,19 @@ class AdminSurveyController extends AdminController {
             alert('The Google Sheet ID is not valid.', 'alert-warning');
             $errors = true;
         }
-        if (isset($settings['maximum_number_displayed']) && $settings['maximum_number_displayed'] > 3000 || $settings['maximum_number_displayed'] < 0) {
+        // Range checks: the isset() must cover both bounds, otherwise a POST
+        // that omits a key reads an undefined index on the `||` side.
+        if (isset($settings['maximum_number_displayed']) && ($settings['maximum_number_displayed'] > 3000 || $settings['maximum_number_displayed'] < 0)) {
             alert("Maximum number displayed has to be between 1 and 3000", 'alert-warning');
             $errors = true;
         }
 
-        if (isset($settings['displayed_percentage_maximum']) && $settings['displayed_percentage_maximum'] > 100 || $settings['displayed_percentage_maximum'] < 1) {
+        if (isset($settings['displayed_percentage_maximum']) && ($settings['displayed_percentage_maximum'] > 100 || $settings['displayed_percentage_maximum'] < 1)) {
             alert("Percentage maximum has to be between 1 and 100.", 'alert-warning');
             $errors = true;
         }
 
-        if (isset($settings['add_percentage_points']) && $settings['add_percentage_points'] > 100 || $settings['add_percentage_points'] < 0) {
+        if (isset($settings['add_percentage_points']) && ($settings['add_percentage_points'] > 100 || $settings['add_percentage_points'] < 0)) {
             alert("Percentage points added has to be between 0 and 100.", 'alert-warning');
             $errors = true;
         }

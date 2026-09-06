@@ -420,6 +420,7 @@ CREATE TABLE `survey_runs` (
   `compute_closed_from` tinyint(4) DEFAULT NULL COMMENT 'Prior public level if auto-closed by the monthly compute limiter (issue #608); NULL=not compute-closed',
   `compute_closed_cron_active` tinyint(4) DEFAULT NULL COMMENT 'Prior cron_active if auto-paused by the monthly compute limiter (issue #608); NULL=not compute-closed',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`),
   KEY `fk_runs_survey_users1_idx` (`user_id`),
   KEY `fk_survey_runs_survey_units1_idx` (`reminder_email`),
   KEY `fk_survey_runs_survey_units2_idx` (`service_message`),

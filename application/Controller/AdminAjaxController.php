@@ -89,7 +89,7 @@ class AdminAjaxController {
        $run = $this->controller->run;
 
         if ($id = $this->request->getParam('unit_id')) {
-            $params = $this->request->getParams();
+            $params = $this->unitParamsFromRequest();
             $params['id'] = (int) $id;
             $unit = RunUnitFactory::make($run, $params);
             if (!$unit->id) {
@@ -300,7 +300,7 @@ class AdminAjaxController {
 
         if (($run_unit_id = $this->request->getParam('run_unit_id'))) {
 
-            $params = $this->request->getParams();
+            $params = $this->unitParamsFromRequest();
             $params['ignore_missing'] = true;
             // Scoped to the run setRun() authorised — findByRunUnitId
             // otherwise builds the unit's OWN run from the row.
@@ -423,7 +423,7 @@ class AdminAjaxController {
         $content = '';
 
         if ($id = $this->request->getParam('unit_id')) {
-            $params = $this->request->getParams();
+            $params = $this->unitParamsFromRequest();
             $params['id'] = (int) $id;
             if (!empty($params['position']) && is_array($params['position'])) {
                 $params['position'] = array_shift($params['position']);
@@ -608,7 +608,7 @@ class AdminAjaxController {
         }
 
         if ($run_unit_id = $this->request->getParam('run_unit_id')) {
-            $unit = RunUnit::findByRunUnitId($run_unit_id, $this->request->getParams(), $this->controller->run);
+            $unit = RunUnit::findByRunUnitId($run_unit_id, $this->unitParamsFromRequest(), $this->controller->run);
             if (!$unit) {
                 formr_error(404, 'Not Found', 'Requested Run Unit was not found in this run');
             }
@@ -791,6 +791,20 @@ class AdminAjaxController {
             throw new Exception("Action '$name' is not found in $class.");
         }
         return $action;
+    }
+
+    /**
+     * Request params for constructing a RunUnit. `importing` is a
+     * model-internal flag (Run::importUnits, SurveyStudy::createFromData)
+     * that makes the RunUnit constructor skip its run-scoped find() — the
+     * only thing that forgets a caller-supplied id — so a client that posts
+     * importing=1 with a foreign unit_id would load and overwrite another
+     * user's unit definition by bare id.
+     */
+    private function unitParamsFromRequest() {
+        $params = $this->request->getParams();
+        unset($params['importing']);
+        return $params;
     }
 
     protected function getSessionRemindersSent($run_session_id) {

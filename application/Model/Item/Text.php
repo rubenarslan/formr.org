@@ -19,6 +19,9 @@ class Text_Item extends Item {
     }
 
     public function validateInput($reply) {
+        if ($this->rejectNonScalarReply($reply)) {
+            return null;
+        }
         if (isset($this->input_attributes['maxlength']) && $this->input_attributes['maxlength'] > 0 && strlen($reply) > $this->input_attributes['maxlength']) { // verify maximum length 
             $this->error = __("You can't use that many characters. The maximum is %d", $this->input_attributes['maxlength']);
         }

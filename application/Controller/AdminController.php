@@ -69,7 +69,10 @@ class AdminController extends Controller {
         // The unit's identity never comes from the request: a posted `id`
         // would make create() modify() / insert_update an existing unit by
         // bare id. Only the explicit $id (delete_run_unit) may address one.
-        unset($data['id']);
+        // `importing` is a model-internal flag (Run::importUnits,
+        // SurveyStudy::createFromData) that makes the constructor skip its
+        // run-scoped find(); posted, it would keep a foreign id alive.
+        unset($data['id'], $data['importing']);
         if ($id) {
             $data['id'] = (int) $id;
         }

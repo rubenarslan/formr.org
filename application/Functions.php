@@ -129,29 +129,6 @@ function print_hidden_opencpu_debug_message($ocpu_req, $public_message = '')
     }
 }
 
-/**
- * Sanitise a caller-supplied redirect target to a local (same-site) path.
- *
- * redirect_to() sends any value beginning with a scheme straight to a
- * Location header, so a request parameter that reaches it unchecked is an
- * open redirect (phishing hand-off from a trusted origin). Return $value
- * only when it is a plain local path; otherwise fall back to $default.
- * Legitimate off-site redirects (INFO_SITE) are built
- * by the app, never taken from a request, so they don't pass through here.
- */
-function safe_local_redirect($value, $default = '')
-{
-    $value = str_replace(array("\r", "\n"), '', (string) $value);
-    if ($value === ''
-            || preg_match('~^[a-z][a-z0-9+.\-]*:~i', $value) // has a scheme (http:, javascript:, data: …)
-            || strncmp($value, '//', 2) === 0                // protocol-relative //evil.com
-            || strncmp($value, '/\\', 2) === 0
-            || strncmp($value, '\\', 1) === 0) {
-        return $default;
-    }
-    return $value;
-}
-
 function redirect_to($location = '', $params = array())
 {
     if (formr_in_console()) {

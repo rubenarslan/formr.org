@@ -136,19 +136,35 @@ class PersonalDataAudit {
         return ' ' . trim($text) . ' ';
     }
 
+    /** keyword → compiled patterns; built once per request instead of per item × keyword. */
+    private static $patterns = array();
+
     private static function matches($keyword, $words) {
-        $kw = preg_replace('/[^\p{L}\p{N}]+/u', ' ', $keyword);
-        $exact = in_array($keyword, self::EXACT_KEYWORDS, true);
-        // "first name" also as "firstname"; "e-mail" also as "email" (already
-        // listed) — the joined form covers admins who write names without _.
-        $variants = array_unique(array($kw, str_replace(' ', '', $kw)));
-        foreach ($variants as $variant) {
-            $pattern = '/ ' . preg_quote($variant, '/') . ($exact ? ' ' : '') . '/u';
+        if (!isset(self::$patterns[$keyword])) {
+            $kw = preg_replace('/[^\p{L}\p{N}]+/u', ' ', $keyword);
+            $exact = in_array($keyword, self::EXACT_KEYWORDS, true);
+            // "first name" also as "firstname"; "e-mail" also as "email" (already
+            // listed) — the joined form covers admins who write names without _.
+            $patterns = array();
+            foreach (array_unique(array($kw, str_replace(' ', '', $kw))) as $variant) {
+                $patterns[] = '/ ' . preg_quote($variant, '/') . ($exact ? ' ' : '') . '/u';
+            }
+            self::$patterns[$keyword] = $patterns;
+        }
+        foreach (self::$patterns[$keyword] as $pattern) {
             if (preg_match($pattern, $words)) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** The shape report() returns when nothing matched; the controller's fallback when the audit query fails. */
+    public static function emptyReport() {
+        return array(
+            'totals' => array('admins' => 0, 'runs' => 0, 'surveys' => 0, 'items' => 0, 'by_category' => array()),
+            'admins' => array(),
+        );
     }
 
     /**

@@ -150,7 +150,7 @@ unique.
 ### Domain model
 
 - `Run` (`Model/Run.php`) — a study. Owner, privacy, PWA manifest,
-  expiry, OSF, cookie lifetime.
+  expiry, cookie lifetime.
 - `RunUnit` subclasses (`Model/RunUnit/`) — `Survey`, `Pause`,
   `Email`, `PushMessage`, `External`, `Page`, `SkipBackward`,
   `SkipForward`, `Shuffle`, `Wait` (+ `Branch`, `Privacy` internal).
@@ -181,7 +181,6 @@ Controllers are thin: fetch models, call `Run::exec()`, pass
   (`web_push`/`notification` object alongside encrypted body); added
   v0.25.1. iOS terminates subscriptions after ~3 silent pushes —
   never drop empty payloads silently.
-- `Services/OSF.php` — OAuth2 with osf.io.
 - `Services/RateLimitService.php` — generic rate limiter.
 - `Queue/EmailQueue.php`, `Queue/UnitSessionQueue.php` — DB-backed
   (not Redis). Track A v0.26.0 added named `STATE_*` constants and

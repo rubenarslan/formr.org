@@ -46,27 +46,6 @@ class Email extends RunUnit {
     public function create($options = []) {
         parent::create($options);
 
-        // The email account must belong to the run owner. Without this
-        // check, a structure-import body or AdminAjaxController::ajax_save_
-        // run_unit POST can re-point a Run's Email unit at any other
-        // admin's survey_email_accounts row by id, and subsequent send-
-        // mail dispatches would go through the victim's SMTP credentials.
-        // Run::importUnits also nulls account_id pre-emptively (cross-
-        // server portability), but this is the canonical gate so the
-        // admin-AJAX path is also covered.
-        if (!empty($options['account_id']) && is_numeric($options['account_id'])
-                && !$this->isOwnedBy(
-                    'survey_email_accounts',
-                    (int) $options['account_id'],
-                    (int) $this->run->user_id
-                )) {
-            $options['account_id'] = null;
-            // parent::create() has already assigned the posted value onto
-            // $this->account_id; unless `body` is also posted the branch
-            // below never re-assigns from $options, so clear it here too.
-            $this->account_id = null;
-        }
-
         $parsedown = new ParsedownExtra();
         if (isset($options['body'])) {
             if (isset($options['account_id']) && is_numeric($options['account_id'])) {
@@ -86,10 +65,14 @@ class Email extends RunUnit {
             $this->assignProperties($options);
         }
 
-        // Whatever its source — posted, imported, or a row written before
-        // this gate existed — the account that ends up on the unit must
-        // belong to the run owner: sendMail() loads it by bare id and
-        // decrypts its SMTP credentials.
+        // The email account must belong to the run owner: a structure-import
+        // body or an ajax_save_run_unit POST could otherwise re-point this
+        // unit at any other admin's survey_email_accounts row by id and have
+        // sendMail() dispatch through the victim's SMTP credentials. One gate
+        // for every source — posted (parent::create() assigned it), imported,
+        // or re-assigned from $options in the body branch above. sendMail()
+        // scopes its own load to the run owner as well, for rows written
+        // before this gate existed.
         if ($this->account_id !== null && !$this->isOwnedBy('survey_email_accounts', (int) $this->account_id, (int) $this->run->user_id)) {
             $this->account_id = null;
         }
@@ -234,7 +217,16 @@ class Email extends RunUnit {
         $run_session = $unitSession->runSession;
         $testing = !$run_session || $run_session->isTesting();
 
-        $acc = new EmailAccount($this->account_id, null);
+        // Scoped to the run owner: create()'s gate only covers rows written
+        // since it existed, and this is where the account's SMTP credentials
+        // are actually decrypted and used.
+        $acc = new EmailAccount($this->account_id, $this->run ? (int) $this->run->user_id : null);
+        if (!$acc->valid) {
+            alert("The email account selected for this unit does not belong to the study owner. Select one of your own accounts in the email unit.", 'alert-danger');
+            $this->errors['log'] = $this->getLogMessage('no_sender', "The email account selected for this unit does not belong to the study owner.");
+            notify_study_admin($unitSession, 'Email unit: the sender account is not owned by the study owner', 'error');
+            return false;
+        }
         $mailing_themselves = (is_array($acc->account) && $acc->account["from"] === $this->recipient) ||
                 (($user = Site::getCurrentUser()) && $user->email === $this->recipient) ||
                 ($this->run && $this->run->getOwner()->email === $this->recipient);

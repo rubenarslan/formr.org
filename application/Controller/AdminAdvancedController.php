@@ -92,8 +92,7 @@ class AdminAdvancedController extends AdminController {
         try {
             $vars = array('report' => PersonalDataAudit::report(), 'audit_error' => null);
         } catch (Throwable $e) {
-            $vars = array('report' => array('totals' => array('admins' => 0, 'runs' => 0, 'surveys' => 0, 'items' => 0, 'by_category' => array()), 'admins' => array()),
-                'audit_error' => $e->getMessage());
+            $vars = array('report' => PersonalDataAudit::emptyReport(), 'audit_error' => $e->getMessage());
         }
         $vars['category_labels'] = PersonalDataAudit::categoryLabels();
         $this->setView('advanced/personal_data', $vars);
@@ -254,7 +253,10 @@ class AdminAdvancedController extends AdminController {
             // from their own account page if needed (well — currently
             // labels are immutable; future-friendly default).
             $label = 'admin-issued-' . date('Ymd-His');
-            $client = $helper->createClient($user, $label);
+            // createClient() refuses an empty scope list (an empty client
+            // scope is "unrestricted" to bshaffer); an admin-issued credential
+            // is granted every known scope, the effective grant it had before.
+            $client = $helper->createClient($user, $label, $helper->listScopes());
             if (!$client) {
                 return array('success' => false, 'message' => 'Unable to create client');
             }

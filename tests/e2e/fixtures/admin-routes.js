@@ -17,7 +17,6 @@ module.exports = [
     { path: '/admin/', needs: null },
     { path: '/admin/account', needs: null },
     { path: '/admin/account/manage_two_factor', needs: null },
-    { path: '/admin/osf', needs: null },
     { path: '/admin/account/login', needs: null },
     { path: '/admin/account/register', needs: null },
     { path: '/admin/account/reset-password', needs: null },

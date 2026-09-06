@@ -28,6 +28,9 @@ class Datetime_Item extends Item {
     }
 
     public function validateInput($reply) {
+        if ($this->rejectNonScalarReply($reply, _('You did not enter a valid date.'))) {
+            return null;
+        }
         if (!($this->optional && $reply == '')) {
 
             $time_reply = strtotime($reply);

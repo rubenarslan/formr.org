@@ -12,6 +12,9 @@ class Color_Item extends Item {
     }
 
     public function validateInput($reply) {
+        if ($this->rejectNonScalarReply($reply, __('The color is not valid'))) {
+            return null;
+        }
         if ($this->optional && trim($reply) == '') {
             return parent::validateInput($reply);
         } else {

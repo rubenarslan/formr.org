@@ -347,6 +347,25 @@ class Item {
         return array('val_errors' => $this->val_errors, 'val_warnings' => $this->val_warnings);
     }
 
+    /**
+     * Reject a non-scalar reply on an item whose input is a single value.
+     *
+     * A client can post `name[]=x` against any item; the string functions
+     * the scalar items then call on the reply (trim, strlen, filter_var,
+     * strtotime, preg_match, htmlspecialchars) TypeError on PHP 8 and the
+     * survey page turns into a 500. Sets the error and returns true when
+     * the reply is unusable — the caller returns null. Null is left to the
+     * caller (it is the "missed required" / optional-empty case).
+     */
+    protected function rejectNonScalarReply($reply, $message = null) {
+        if ($reply === null || is_scalar($reply)) {
+            return false;
+        }
+        $this->reply = null;
+        $this->error = $message !== null ? $message : __("This is not a valid answer.");
+        return true;
+    }
+
     public function validateInput($reply) {
         $this->reply = $reply;
 

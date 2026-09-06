@@ -295,6 +295,22 @@ class UnitSession extends Model {
         $started = hrtime(true);
         try {
             $this->execResults = [];
+
+            // Hydrated from a session row whose unit is no longer placed in
+            // this run (the admin swapped the study behind this placement,
+            // or a pre-F22 orphan): the constructor's run-scoped find()
+            // failed and forgetIdentity() left a unit with no id and — for a
+            // Survey — no study, so getUnitSessionOutput() would dereference
+            // null. Treat it like a removed placement (audit F22): end this
+            // unit session and let the run session move on to whatever now
+            // sits at this position.
+            if ($this->runUnit && $this->runUnit->id === null) {
+                $this->execResults['end_session'] = true;
+                $this->execResults['end_reason'] = 'unit_removed_from_run';
+                $this->execResults['move_on'] = true;
+                return $this->execResults;
+            }
+
             // Check if session has expired by getting relevant unit data
             if ($this->isExpired()) {
                 $this->execResults['expired'] = true;
