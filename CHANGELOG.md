@@ -2,6 +2,31 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v1.10.2] - 06.09.2026
+
+Cross-tenant IDOR sweep over the admin run/survey/API paths, plus the review
+of that sweep. The OSF integration is removed.
+
+### Security
+- **Run-unit identity is established only by a run-scoped lookup.** `RunUnit`'s constructor forgets a caller-supplied `id` / `unit_id` / `run_unit_id` that `find()` cannot place in the run, `create()` cannot re-introduce one, `modify()` / `removeFromRun()` / `delete()` carry a `run_id` predicate, `findByRunUnitId()` takes the authorised run, and the admin AJAX handlers 404 on a unit that is not in the run. Two ways around that gate found in review are closed too: a request-supplied `special` (the special-unit branch of `find()` tagged a *missing* row, which PHP turned into a found one) and a request-supplied `importing` flag (skips `find()` entirely; the admin entry points now strip it).
+- **Reminders, participant deletion and reminder counts are scoped.** `Run::getReminderSession` accepts only the run's own ReminderEmail units and a session of the run; the monkey bar may only remind / delete the session whose code passed its gate; `RunSession::load` scopes an `id` lookup to its run; `getSentRemindersBySessionId` joins the run.
+- **Email accounts stay with their owner.** An Email unit's `account_id` must belong to the run owner (one gate in `create()`, and `sendMail()` loads the account scoped to the owner, so rows written before the gate cannot send through another user's SMTP credentials); `EmailAccount` loads by `(id, user_id)` when a user is given.
+- **OAuth: an empty client scope no longer means "everything".** Patch 078 clears `oauth_scopes.is_default`; `createClient()` refuses an empty scope list; and a legacy non-internal client stored with scope `''` is handed a scope no row can satisfy, so an explicit `scope=` request is refused too. The superadmin "issue credential" action grants every known scope explicitly. `ApiV0` checks `data:read` / `session:write`.
+- **Smaller closures.** Run import `basename()`s `run_file_name`; `Run::deleteFile` is run-scoped; `SurveyStudy::loadByName` (by name only) is gone; the survey rename check is anchored and the survey-test token refuses a name that is not a bare identifier and requires exactly three fields on the way back; `google_file_id` is validated and escaped; `User::login` verifies the password before revealing the unverified state (and verifies it once); password-reset links honour their 2-day expiry; 2FA backup codes and referral codes compare strictly.
+
+### Fixes
+- A live unit session whose unit is no longer placed in the run (study swapped behind the placement, or a pre-F22 orphan) ends as `unit_removed_from_run` and the run moves on, instead of executing an identity-less unit (a 500 for a Survey).
+- Every scalar item (`text`, `email`, `url`, `color`, `date`/`datetime`, `check`, `number`, …) rejects an array reply with an error instead of a TypeError 500; `number` keeps its own message for a required item.
+- Testing a survey whose stored name is not a bare identifier explains itself instead of landing on a bare 403.
+- The survey settings range checks no longer read undefined keys on a partial POST; an unknown `special` no longer `die()`s mid-response.
+
+### Changes
+- **The OSF integration is removed** (`Services/OSF.php`, `admin/osf`, `api/osf`, the run-settings OSF tab, `$settings['osf']`, the CSP allowlist entries). The `osf` table and `survey_runs.osf_project_id` column are left in place.
+
+### Schema
+- 078: `oauth_scopes.is_default = 0` for every scope.
+- 079: `UNIQUE KEY name` on `survey_runs` (also in `schema.sql`, so fresh installs baselined past 079 carry it).
+
 ## [v1.10.1] - 04.09.2026
 
 Seven fixes found while reviewing an unreleased feature branch against this
