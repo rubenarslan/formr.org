@@ -292,6 +292,7 @@
                     <li><strong>Decimals are rounded to the nearest whole number</strong>, with halves rounding up: <code>29.5</code> and <code>30.4</code> both mean position 30. Rounding happens first, so <code>1.9</code> becomes 2 and does jump.</li>
                     <li><strong>Several values</strong> (a vector) — only the first one is used, and a warning is recorded in the unit's log. Return a single value.</li>
                     <li><strong>Anything else</strong> — a negative number, text, a date — falls back to a best-effort TRUE/FALSE reading and records a warning. Don't rely on it.</li>
+                    <li><strong>Skip units created before formr v1.10.3</strong> have their condition wrapped in <code>as.logical({ … })</code>. Before computed jumps existed, any non-zero number meant TRUE, and the wrapper keeps that reading (<code>as.logical(25)</code> is TRUE) so an older study is not rerouted. To use a position number in such a unit, remove the wrapper.</li>
                 </ul>
                 <p>A few more things worth knowing:</p>
                 <ul>
@@ -425,6 +426,7 @@
                     <li><strong>Decimals are rounded to the nearest whole number</strong>, with halves rounding up: <code>29.5</code> and <code>30.4</code> both mean position 30. Rounding happens first, so <code>1.9</code> becomes 2 and does jump.</li>
                     <li><strong>Several values</strong> (a vector) — only the first one is used, and a warning is recorded in the unit's log. Return a single value.</li>
                     <li><strong>Anything else</strong> — a negative number, text, a date — falls back to a best-effort TRUE/FALSE reading and records a warning. Don't rely on it.</li>
+                    <li><strong>Skip units created before formr v1.10.3</strong> have their condition wrapped in <code>as.logical({ … })</code>. Before computed jumps existed, any non-zero number meant TRUE, and the wrapper keeps that reading (<code>as.logical(25)</code> is TRUE) so an older study is not rerouted. To use a position number in such a unit, remove the wrapper.</li>
                 </ul>
                 <p>A few more things worth knowing:</p>
                 <ul>
