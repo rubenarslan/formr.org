@@ -78,6 +78,22 @@ test.describe('result coverage — participant traversal', () => {
         recordObserved(['error_opencpu_r']);
     });
 
+    test('a skip whose condition returns NA halts like an R error instead of continuing', async ({ page, context }) => {
+        // v1.10.3: NA decodes to null — the same value a failed evaluation
+        // returns — so it halted as "OpenCPU error. Fix R code" with nothing
+        // after it, while the unit's Test view said "continue". The row must
+        // now name NA and say how to fix the condition.
+        requireFixture('rescov-skipna');
+        await enrol(page, context, 'rescov-skipna');
+
+        const rows = sessionRows('rescov-skipna');
+        expect(rows.map((r) => [r.position, r.result]), 'no row at 20: the skip must not fall through')
+            .toEqual([[10, 'error_opencpu_r']]);
+        expect(rows[0].log).toMatch(/returned NA/);
+
+        recordObserved(['error_opencpu_r']);
+    });
+
     test('Shuffle records the group it assigned, and the row agrees with the shuffle table', async ({ page, context }) => {
         requireFixture('rescov-shuffle');
         await enrol(page, context, 'rescov-shuffle');

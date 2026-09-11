@@ -1,0 +1,38 @@
+{
+  "name": "rescov-skipna",
+  "units": [
+    {
+      "type": "SkipForward",
+      "description": "condition returns NA",
+      "position": 10,
+      "special": null,
+      "condition": "NA",
+      "if_true": 20,
+      "automatically_jump": 1,
+      "automatically_go_on": 1
+    },
+    {
+      "type": "Endpage",
+      "description": "unreachable while the condition is broken",
+      "position": 20,
+      "special": null,
+      "body": "Should not be reached.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-skipna/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-skipna/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-skipna/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

@@ -207,6 +207,13 @@ class Branch extends RunUnit {
             // fataling the whole Test view over one participant's result.
             return 'cannot route (R returned a nested list)';
         }
+        if ($eval === null) {
+            // Same split as getUnitSessionExpirationData(): a failed
+            // evaluation leaves a message behind, NA does not. Both halt.
+            return (string) opencpu_last_error() !== ''
+                ? 'halt (R error — fix the condition)'
+                : 'halt (R returned NA — make the condition return TRUE/FALSE)';
+        }
         if (($target = $this->computedJumpTarget($eval)) !== null) {
             return $unitSession->runSession->getUnitIdAtPosition($target)
                 ? "jump to position $target"
@@ -234,9 +241,11 @@ class Branch extends RunUnit {
         $data = ['expire_relatively' => null, 'check_failed' => false];
         $opencpu_vars = $unitSession->getRunData($this->condition);
         $eval = opencpu_evaluate($this->condition, $opencpu_vars);
-        
-        if ($eval === null) {
-            $error = (string) opencpu_last_error();
+
+        // null is what opencpu_evaluate() returns for a failed evaluation —
+        // and ALSO what R's NA decodes to (JSON null). Only a failure leaves
+        // a message in opencpu_last_error(); NA is handled further down.
+        if ($eval === null && ($error = (string) opencpu_last_error()) !== '') {
             notify_study_admin($unitSession, 'Branch unit: OpenCPU error evaluating condition. ' . $error, 'error');
             $data['log'] = $this->getLogMessage('error_opencpu_r', "OpenCPU error. Fix R code \n\n" . $error);
             $data['wait_opencpu'] = true;
@@ -285,6 +294,26 @@ class Branch extends RunUnit {
             // author error it is: halt, notify, and back off like any other
             // unevaluable condition.
             $reason = 'Skip unit: your R code returned a nested list. Return a single TRUE/FALSE or a position number.';
+            notify_study_admin($unitSession, $reason, 'error');
+            $data['log'] = $this->getLogMessage('error_opencpu_r', $this->joinNotes($notes, $reason));
+            $data['wait_opencpu'] = true;
+            $data['check_failed'] = true;
+            $this->outputData = $data;
+            return $data;
+        }
+
+        if ($eval === null) {
+            // R's NA (v1.10.3): a comparison against missing data —
+            // `survey$x == 1` with x unanswered — or as.logical() of free
+            // text (patch 080's wrapper). There is no right way to route on
+            // "unknown", and this did halt before — but since null is also
+            // the failed-evaluation signal it landed in the branch above as
+            // "OpenCPU error evaluating condition. " with nothing after the
+            // colon, while the Test view previewed the same value as
+            // "continue (coerced)". Name it and say how to fix it; the row
+            // backs off like any other unevaluable condition and picks up
+            // the fix at the next retry. describeRouting() mirrors this.
+            $reason = 'Skip unit: your R code returned NA (a missing value) instead of TRUE/FALSE, so the participant cannot be routed. Handle missing data in the condition, e.g. isTRUE(...) or !is.na(x) && x == 1.';
             notify_study_admin($unitSession, $reason, 'error');
             $data['log'] = $this->getLogMessage('error_opencpu_r', $this->joinNotes($notes, $reason));
             $data['wait_opencpu'] = true;
