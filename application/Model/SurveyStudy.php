@@ -467,8 +467,10 @@ class SurveyStudy extends Model
         // When the loop over survey items ends you will know which should be deleted.
         $old_items = array();
         $old_items_in_results = array();
+        $old_showifs = array(); // name => showif before the upload, see invalidateShowifVerdicts()
 
         foreach ($this->getItems() as $item) {
+            $old_showifs[$item['name']] = $item['showif'];
             if (($object = $itemFactory->make($item)) !== false) {
                 $old_items[$item['name']] = $object->getResultField();
                 if ($object->isStoredInResultsTable()) {
@@ -539,6 +541,8 @@ class SurveyStudy extends Model
                 }
             }
 
+            $this->invalidateShowifVerdicts($old_showifs);
+
             $this->db->commit();
             return true;
         } catch (Exception $e) {
@@ -547,6 +551,69 @@ class SurveyStudy extends Model
             formr_log_exception($e, __CLASS__, $this->errors);
             return false;
         }
+    }
+
+    /**
+     * Forget the showif verdicts that unfinished sessions cached for items
+     * whose showif just changed.
+     *
+     * survey_items_display.hidden is a per-session cache of the server-side
+     * showif verdict: SpreadsheetRenderer writes it the first time an item
+     * comes up for rendering (1 = hidden, gone for good; 0 = shown; NULL =
+     * undecided / left to the page's JS) and never asks R again —
+     * Item::getShowIf() returns false once `hidden` is set, and the item
+     * query skips hidden = 1 rows outright. Re-uploading the item table
+     * keeps item ids (INSERT … ON DUPLICATE KEY UPDATE) and never touched
+     * these rows, so every session that predated the upload — a participant
+     * mid-survey, or the admin's own in-flight "Test Survey" — kept routing
+     * by the OLD showif for as long as it lived. The admin saw the new code
+     * in the item table, watched the item stay hidden, and the only thing
+     * that "fixed" it was deleting and recreating the survey (new ids, new
+     * sessions). Resetting the verdict to NULL makes the next render
+     * evaluate the new showif; item views already saved are untouched.
+     *
+     * @param array $old_showifs name => showif as stored before the upload
+     * @return int number of item views reset
+     */
+    protected function invalidateShowifVerdicts(array $old_showifs)
+    {
+        $changed = array();
+        foreach ($this->getItems('id, name, showif') as $item) {
+            $old = array_key_exists($item['name'], $old_showifs) ? $old_showifs[$item['name']] : null;
+            if (self::showifChanged($old, $item['showif'])) {
+                $changed[(int) $item['id']] = $item['name'];
+            }
+        }
+        if (!$changed) {
+            return 0;
+        }
+
+        $ids = implode(',', array_keys($changed)); // ints, from the DB
+        $reset = (int) $this->db->exec(
+            "UPDATE `survey_items_display` d
+               JOIN `survey_unit_sessions` s ON s.id = d.session_id
+              SET d.`hidden` = NULL
+              WHERE d.item_id IN ($ids) AND d.`hidden` IS NOT NULL AND d.`saved` IS NULL
+                AND s.unit_id = :study_id AND s.ended IS NULL AND s.expired IS NULL",
+            array('study_id' => (int) $this->id)
+        );
+        if ($reset > 0) {
+            $names = implode(', ', array_map(function ($name) {
+                return '<code>' . h($name) . '</code>';
+            }, $changed));
+            $this->messages[] = "The showif of {$names} changed: {$reset} pending item view(s) in unfinished sessions (including a test you may have open) will re-evaluate it on their next page.";
+        }
+        return $reset;
+    }
+
+    /**
+     * Did an item's showif change between two uploads? NULL, '' and
+     * whitespace-only all mean "no showif". Public+static so it is unit
+     * testable without a database.
+     */
+    public static function showifChanged($old, $new)
+    {
+        return trim((string) $old) !== trim((string) $new);
     }
 
     /**

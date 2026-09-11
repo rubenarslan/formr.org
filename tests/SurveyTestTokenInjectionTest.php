@@ -53,5 +53,10 @@ class SurveyTestTokenInjectionTest extends TestCase
         $this->assertSame('my_study1', $parsed[0]);
         $this->assertSame(7, $parsed[1]);
         $this->assertFalse($parsed[2], 'a token minted with a 1h ttl must not read as expired');
+        // v1.10.3: the expiry is also handed back, as the token's mint stamp
+        // (indexAction starts a fresh test for a token newer than the live one).
+        $this->assertIsInt($parsed[3]);
+        $this->assertGreaterThan(time(), $parsed[3]);
+        $this->assertLessThanOrEqual(time() + 3600, $parsed[3]);
     }
 }
