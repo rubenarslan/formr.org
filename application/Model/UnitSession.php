@@ -424,6 +424,41 @@ class UnitSession extends Model {
         }
 
         if (empty($expirationData['expires'])) {
+            // The recompute produced no LIVE deadline. For a Survey this is
+            // where the client/server expiry mismatch was born (v1.10.3): the
+            // stored `expires` column still held a PAST deadline, head.php
+            // rendered it into window.unit_session_expires, the ExpiryNotifier
+            // showed "Session expired / reload", and the reload re-ran exactly
+            // this branch — returning false, so the server re-served the same
+            // page without ever ending it, forever.
+            //
+            // The common cause is a survey with a START window but no
+            // post-access deadline (expire_invitation_after > 0, grace = 0,
+            // expire_after = 0 → "X minutes to START, then no limit"): the
+            // moment the participant starts, the PRE-access deadline stops
+            // applying (the wiki's "Y=0 & Z=0 ⇒ never expires" post-access),
+            // but the stored pre-access `expires` lingers on the row. Expiry
+            // being switched off entirely lands here too.
+            //
+            // Reconcile at this single point, which BOTH the participant render
+            // (execute()) and the daemon (revalidateQueueVerdict()) reach:
+            // clear the stale stored `expires` so nothing renders a past
+            // deadline the server will not enforce — the modal can no longer
+            // outlive the row. Do NOT expire on the stale value: the
+            // participant started within their window and is entitled to
+            // finish; ending them here would discard an in-progress response
+            // they were allowed to complete. A study that wants in-progress
+            // sessions to time out must configure a post-access window (grace
+            // or expire_after); X alone only gates STARTING. Scoped to Survey;
+            // Pause/Wait/External keep their own handling.
+            if ($this->runUnit instanceof Survey && $this->expires !== null) {
+                $this->db->exec(
+                    "UPDATE `survey_unit_sessions` SET `expires` = NULL
+                     WHERE `id` = :id AND `ended` IS NULL AND `expired` IS NULL",
+                    ['id' => $this->id]
+                );
+                $this->expires = null;
+            }
             return false;
         } elseif(!empty($expirationData['end_session'])) {
             $this->execResults['end_session'] = true;
@@ -523,6 +558,12 @@ class UnitSession extends Model {
             UnitSessionQueue::addItem($this, $this->runUnit, $this->execResults['queue']);
             return 'requeued';
         }
+
+        // No live deadline. isExpired() (the shared reconciliation point) has
+        // already handled a Survey whose armed deadline is past — it returns
+        // true there, so we took the 'end' branch above — and has cleared a
+        // stale stored `expires` for the no-deadline case. Nothing left to do
+        // but drop the queue row.
         UnitSessionQueue::removeItem($this->id);
         return 'dequeued';
     }

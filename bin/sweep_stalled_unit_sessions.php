@@ -68,8 +68,13 @@ $rows = $db->execute("
     LIMIT {$limit}", ['min_age' => $minAge]);
 
 if (!$rows) {
-    fwrite(STDERR, "sweep: nothing to do\n");
-    exit(0);
+    // No stalled auto-advancing rows — but still fall through to the
+    // reconciliation steps below (push_logs, and the Survey-orphan re-arm),
+    // which key off different state and must run even when the main sweep is
+    // empty. (Pre-v1.10.3 this `exit(0)`'d here, so those never ran on an
+    // otherwise-idle instance.)
+    fwrite(STDERR, "sweep: no stalled auto-advancing rows\n");
+    $rows = [];
 }
 
 $runs = [];
@@ -158,6 +163,53 @@ try {
 } catch (Exception $e) {
     // push_logs absent on pre-044 instances — non-fatal.
     fwrite(STDERR, "sweep: push_logs reconciliation skipped (" . $e->getMessage() . ")\n");
+}
+
+// v1.10.3: clean up Survey sessions left with a phantom past `expires`. When a
+// survey has a start window but no post-access deadline (expire_invitation_after
+// > 0, grace = 0, expire_after = 0), a participant who starts keeps the stored
+// PRE-access deadline on the row even though it no longer applies; the row was
+// dequeued to queued=0 with that stale `expires` in place, so the admin overview
+// showed a phantom "expires in Xh ago" and the participant's client kept firing
+// the expiry modal. A live participant self-heals on their next request (the
+// render clears it), but an abandoned session never does — the daemon's pickup
+// needs queued>0 and the main sweep above excludes Survey. Re-arm such rows to
+// QUEUED_TO_END so the daemon re-evaluates them under the fixed
+// revalidateQueueVerdict()/isExpired() and CLEARS the phantom `expires` (it does
+// not expire them — a started participant is entitled to finish). Scoped to rows
+// that still carry a real past `expires`, so a no-expiry Survey is never touched
+// and a cleared row is not re-picked. Bounded by --limit; idempotent.
+try {
+    $orphans = $db->execute(
+        "SELECT us.id
+         FROM survey_unit_sessions us
+         JOIN survey_units u ON u.id = us.unit_id
+         JOIN survey_run_sessions rs ON rs.id = us.run_session_id
+         JOIN survey_runs r ON r.id = rs.run_id
+         WHERE us.queued = 0 AND us.ended IS NULL AND us.expired IS NULL
+           AND us.expires IS NOT NULL AND us.expires < NOW()
+           AND u.type = 'Survey'
+           AND rs.ended IS NULL AND r.cron_active = 1{$runWhere}
+         ORDER BY us.id ASC
+         LIMIT {$limit}", []
+    );
+    $rearmed = 0;
+    foreach (($orphans ?: []) as $o) {
+        fwrite(STDERR, "sweep: re-arm orphaned Survey unit-session #{$o['id']} (queued=0 with a past deadline) -> QUEUED_TO_END" . ($dry ? ' [dry-run]' : '') . "\n");
+        if (!$dry) {
+            $db->exec(
+                "UPDATE `survey_unit_sessions` SET `queued` = :q
+                 WHERE `id` = :id AND `queued` = 0 AND `ended` IS NULL AND `expired` IS NULL",
+                ['q' => UnitSessionQueue::QUEUED_TO_END, 'id' => (int) $o['id']]
+            );
+            $rearmed++;
+        }
+    }
+    if ($orphans) {
+        fwrite(STDERR, "sweep: re-armed " . ($dry ? count($orphans) . ' (dry-run)' : $rearmed) . " orphaned Survey session(s)\n");
+    }
+} catch (Exception $e) {
+    fwrite(STDERR, "sweep: survey-orphan reconciliation skipped (" . $e->getMessage() . ")\n");
 }
 
 exit(0);
