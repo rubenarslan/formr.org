@@ -83,6 +83,14 @@ test.describe('result coverage — participant traversal', () => {
         // returns — so it halted as "OpenCPU error. Fix R code" with nothing
         // after it, while the unit's Test view said "continue". The row must
         // now name NA and say how to fix the condition.
+        //
+        // The fixture MUST stay cron_active=0 (set in rescov-skipna.json, like
+        // the other deliberate-error fixtures): the enrolment below drives the
+        // skip synchronously on the web path, so cron is not needed — and a
+        // cron-active copy makes the daemon re-evaluate the NA skip every pass,
+        // firing a notify_study_admin error email to the run owner each
+        // throttle window (an hourly inbox flood). enrol() re-uses the run as
+        // imported; it does not re-enable cron.
         requireFixture('rescov-skipna');
         await enrol(page, context, 'rescov-skipna');
 
