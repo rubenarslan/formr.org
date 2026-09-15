@@ -20,7 +20,38 @@ class ItemNonScalarReplyTest extends \PHPUnit\Framework\TestCase {
         return array(
             array('number'), array('text'), array('textarea'), array('letters'), array('email'),
             array('url'), array('color'), array('date'), array('datetime'), array('check'),
+            // No validateInput override of their own: covered by the base
+            // guard (an array used to be stored as a JSON list in a
+            // single-choice column; timezone's getReply then TypeErrored).
+            array('select_one'), array('select_or_add_one'), array('timezone'),
+            array('mc'), array('mc_button'), array('hidden'),
         );
+    }
+
+    public static function multiValuedTypes() {
+        return array(array('mc_multiple'), array('select_multiple'), array('select_or_add_multiple'), array('geopoint'));
+    }
+
+    /** @dataProvider multiValuedTypes */
+    public function testMultiValuedTypesStillAcceptArrays($type) {
+        // Mc's choice check rejects an array whose values are not choices,
+        // so give the multi-choice types a list to check against.
+        $item = $this->item(array('name' => 'q1', 'type' => $type, 'optional' => 1, 'choices' => array('1' => 'one', '2' => 'two')));
+        $this->assertTrue($item->acceptsArrayReply(), "$type must accept an array reply");
+        $this->assertFalse($item->rejectNonScalarReply(array('1')));
+        $item->validateInput(array('1'));
+        $this->assertEmpty($item->error, "$type must not reject an array reply");
+    }
+
+    public function testDispatchSiteGuardRejectsBeforeGetReply() {
+        // What UnitSession runs before validateInput()/getReply(): the
+        // reply is dropped and an error set, so getReply() is never handed
+        // the array (Timezone_Item::getReply indexes its choices with it).
+        $item = $this->item(array('name' => 'tz', 'type' => 'timezone'));
+        $this->assertTrue($item->rejectNonScalarReply(array('Europe/Berlin')));
+        $this->assertNotEmpty($item->error);
+        $this->assertNull($item->reply);
+        $this->assertFalse($item->rejectNonScalarReply('Europe/Berlin'));
     }
 
     /** @dataProvider scalarTypes */

@@ -974,7 +974,18 @@ class UnitSession extends Model {
                 $item = $items[$item_name];
             }
 
-            $validInput = ($validate && !$item->skip_validation) ? $item->validateInput($item_value) : $item_value;
+            // Shape check before anything touches the reply: a client can post
+            // `name[]=x` against any item, and the paths that skip
+            // validateInput() (skip_validation, $validate = false) still hand
+            // the value to getReply(), which for a scalar item may index an
+            // array with it (Timezone) — a TypeError 500 on PHP 8. Items that
+            // take several values (mc_multiple, select_multiple, file, …)
+            // opt in via Item::$accepts_array_reply.
+            if ($item->rejectNonScalarReply($item_value)) {
+                $validInput = null;
+            } else {
+                $validInput = ($validate && !$item->skip_validation) ? $item->validateInput($item_value) : $item_value;
+            }
             if ($item->save_in_results_table) {
                 if ($item->error) {
                     $this->errors[$item_name] = $item->error;

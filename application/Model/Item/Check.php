@@ -5,6 +5,9 @@
  */
 
 class Check_Item extends McMultiple_Item {
+    // A checkbox is one value (0/1) even though it extends McMultiple.
+    protected $accepts_array_reply = false;
+
 
     public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
     public $choice_list = NULL;

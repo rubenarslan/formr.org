@@ -1,6 +1,8 @@
 <?php
 
 class Geopoint_Item extends Item {
+    protected $accepts_array_reply = true;
+
 
     public $type = 'geopoint';
     public $input_attributes = array('type' => 'text', 'readonly');

@@ -1,6 +1,8 @@
 <?php
 
 class SelectOrAddMultiple_Item extends SelectOrAddOne_Item {
+    protected $accepts_array_reply = true;
+
 
     public $type = 'select_or_add_multiple';
     public $mysql_field = 'TEXT DEFAULT NULL';

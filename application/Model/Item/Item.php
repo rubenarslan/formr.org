@@ -78,6 +78,19 @@ class Item {
     public $item_order = null;
     public $displaycount = null;
     public $error = null;
+
+    /**
+     * Whether a reply may be an array (several values). False for every
+     * scalar input; the multi-valued types (mc_multiple, select_multiple,
+     * select_or_add_multiple, file, geopoint) set it to true. Consulted by
+     * rejectNonScalarReply(), which UnitSession runs on every posted value
+     * before validateInput() / getReply() see it.
+     */
+    protected $accepts_array_reply = false;
+
+    public function acceptsArrayReply() {
+        return (bool) $this->accepts_array_reply;
+    }
     public $dont_validate = null;
     public $reply = null;
     public $val_errors = array();
@@ -357,8 +370,8 @@ class Item {
      * the reply is unusable — the caller returns null. Null is left to the
      * caller (it is the "missed required" / optional-empty case).
      */
-    protected function rejectNonScalarReply($reply, $message = null) {
-        if ($reply === null || is_scalar($reply)) {
+    public function rejectNonScalarReply($reply, $message = null) {
+        if ($reply === null || is_scalar($reply) || $this->accepts_array_reply) {
             return false;
         }
         $this->reply = null;
@@ -367,6 +380,12 @@ class Item {
     }
 
     public function validateInput($reply) {
+        // Scalar by default: a select_one / timezone / hidden item that does
+        // not override validateInput() would otherwise pass `name[]=x`
+        // through to be stored as a JSON array in a single-value column.
+        if ($this->rejectNonScalarReply($reply)) {
+            return null;
+        }
         $this->reply = $reply;
 
         if (!$this->optional && (($reply === null || $reply === false || $reply === array() || $reply === '') || (is_array($reply) && count($reply) === 1 && current($reply) === ''))) {

@@ -4,6 +4,8 @@
  * Dropdown to select multiple items
  */
 class SelectMultiple_Item extends SelectOne_Item {
+    protected $accepts_array_reply = true;
+
 
     public $type = 'select_multiple';
     public $mysql_field = 'VARCHAR(40) DEFAULT NULL';
