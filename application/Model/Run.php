@@ -1451,6 +1451,12 @@ class Run extends Model
                 if ($this->isOwnedBy('survey_studies', $unit->unit_id, $this->user_id)) {
                     $survey = SurveyStudy::loadById($unit->unit_id);
                     $unit->survey_data = $SPR->exportItemTableJSON($survey, true);
+                } else {
+                    // A legacy placement of a colleague's study (or one a
+                    // superadmin re-assigned): still exported as a skeleton,
+                    // but say so — silently, the bundle looked complete and
+                    // only failed to link a study on import.
+                    alert('The survey unit at position ' . (int) $unit->position . ' points to a study you do not own, so its items were not included in the export.', 'alert-warning');
                 }
             }
             unset($unit->unit_id, $unit->run_unit_id);
