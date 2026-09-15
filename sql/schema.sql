@@ -77,12 +77,6 @@ CREATE TABLE `oauth_users` (
   `last_name` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-CREATE TABLE `osf` (
-  `user_id` int(10) unsigned NOT NULL,
-  `access_token` varchar(150) DEFAULT NULL,
-  `access_token_expires` int(10) unsigned NOT NULL,
-  PRIMARY KEY (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `push_logs` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `unit_session_id` int(10) unsigned NOT NULL,
@@ -408,7 +402,6 @@ CREATE TABLE `survey_runs` (
   `custom_js_path` varchar(255) DEFAULT NULL,
   `custom_r_path` varchar(255) DEFAULT NULL,
   `manifest_json_path` varchar(255) DEFAULT NULL,
-  `osf_project_id` varchar(20) DEFAULT NULL,
   `last_deamon_access` int(10) unsigned DEFAULT 0,
   `cron_fork` tinyint(3) unsigned NOT NULL DEFAULT 1,
   `use_material_design` tinyint(1) NOT NULL DEFAULT 0,
