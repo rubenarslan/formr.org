@@ -32,7 +32,20 @@ class SurveyStudy extends Model
     public $created = null;
     public $modified = null;
 
-    protected $valid_name_pattern = "/[a-zA-Z][a-zA-Z0-9_]{2,64}/";
+    /**
+     * The one rule for a survey name: a bare identifier — a letter, then
+     * letters, digits or underscores, 3 to 65 characters in all. The name
+     * is a results-table name, a URL segment and a field of the survey-test
+     * token (SurveyTestController joins it with `|`), so every path that
+     * accepts a name (upload, Google-sheet import, rename, test link) asks
+     * isValidName() rather than carrying its own copy of the pattern —
+     * four copies had drifted into three different rules.
+     */
+    const NAME_PATTERN = '/^[a-zA-Z][a-zA-Z0-9_]{2,64}\z/';
+
+    public static function isValidName($name) {
+        return is_string($name) && preg_match(self::NAME_PATTERN, $name) === 1;
+    }
 
     protected $table = 'survey_studies';
 

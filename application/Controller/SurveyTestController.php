@@ -30,8 +30,8 @@ class SurveyTestController extends Controller {
         // The token is glue-joined plaintext under authenticated encryption,
         // so a glue character inside the study name would let the name
         // re-map the user id / expiry fields on the way back out. Names are
-        // validated on creation and rename; refuse here too.
-        if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]*\z/', (string) $studyName)) {
+        // validated on creation and rename; refuse here too — by the same rule.
+        if (!SurveyStudy::isValidName((string) $studyName)) {
             return null;
         }
         return Crypto::encrypt(array($studyName, (int) $userId, time() + (int) $ttl), self::TOKEN_GLUE);
@@ -200,7 +200,7 @@ class SurveyTestController extends Controller {
         // fields into $expires, where (int) silently discards them.
         $parts = explode(self::TOKEN_GLUE, $plain);
         if (count($parts) !== 3
-                || !preg_match('/^[a-zA-Z][a-zA-Z0-9_]*\z/', $parts[0])
+                || !SurveyStudy::isValidName($parts[0])
                 || !ctype_digit($parts[1]) || !ctype_digit($parts[2])) {
             formr_error(403, 'Invalid link', 'This survey preview link is malformed.');
             return null;
