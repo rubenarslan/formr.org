@@ -162,9 +162,19 @@ class SurveyTestController extends Controller {
             return false;
         }
         // A token minted after the live test's own one is a new "Test Survey"
-        // click, not a continuation of that test. A slot seeded before
-        // token_expires existed (pre-1.10.3) counts as older than any token.
-        if ($tokenExpires !== null && (int) array_val($existing, 'token_expires', 0) < (int) $tokenExpires) {
+        // click, not a continuation of that test.
+        $slotExpires = array_val($existing, 'token_expires');
+        if ($tokenExpires !== null && $slotExpires === null) {
+            // A slot seeded before token_expires existed (pre-1.10.3) has no
+            // stamp to compare: it is a test that was in flight across the
+            // upgrade, and its next "Next" must continue it, not restart at
+            // page 1 (or 410 on an expired-but-authentic token). Adopt this
+            // token's stamp so a later click is still told apart.
+            $existing['token_expires'] = (int) $tokenExpires;
+            Session::set('test_study_data_' . (int) $study->id, $existing);
+            return true;
+        }
+        if ($tokenExpires !== null && (int) $slotExpires < (int) $tokenExpires) {
             return false;
         }
         return true;
