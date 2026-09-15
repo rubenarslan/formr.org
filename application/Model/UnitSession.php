@@ -547,6 +547,13 @@ class UnitSession extends Model {
      */
     public function revalidateQueueVerdict() {
         $this->execResults = [];
+        // Same orphan execute() ends as unit_removed_from_run: the unit is
+        // no longer placed in the run, so there is no deadline to recompute
+        // (Survey's would dereference the nulled surveyStudy). End it so the
+        // run session moves on, instead of 'dequeued' leaving it open forever.
+        if ($this->runUnit && $this->runUnit->id === null) {
+            return 'end';
+        }
         $isExpired = $this->isExpired();
         if ($isExpired || !empty($this->execResults['expired']) || !empty($this->execResults['end_session'])) {
             return 'end';
@@ -571,7 +578,7 @@ class UnitSession extends Model {
     public function expire() {
         $unit = $this->runUnit;
 
-        if ($unit->type === 'Survey') {
+        if ($unit->type === 'Survey' && $unit->surveyStudy) { // see end(): no study once identity is forgotten
             $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `expired` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
 			$params = ['session_id' => $this->id, 'study_id' => $unit->surveyStudy->id];
 			try {
@@ -596,7 +603,7 @@ class UnitSession extends Model {
              WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
              [
                  'id'        => $this->id,
-                 'unit_id'   => $unit->id,
+                 'unit_id'   => $unit->id ?? $this->unit_id,
                  'state'     => UnitSessionQueue::STATE_EXPIRED,
              ]
         );
@@ -626,7 +633,16 @@ class UnitSession extends Model {
             // $completes is false for the two operator paths (forceTo,
             // forceMoveOn). Everything else — participants finishing, the
             // queue, expiry — is unaffected.
-            if ($unit->type == "Survey" && $completes) {
+            // A unit hydrated from a session row whose study is no longer
+            // placed in the run (the constructor's find() failed and
+            // forgetIdentity() nulled surveyStudy) has no results table to
+            // stamp: the study behind the placement changed, so there is
+            // nothing of this participant's to complete. Without the guard
+            // the UPDATE targets an empty table name and the PDOException
+            // escapes (no catch here, unlike expire()) — a 500 on every
+            // participant request, and the daemon re-picks the queued row
+            // on every pass because removeItem() is never reached.
+            if ($unit->type == "Survey" && $completes && $unit->surveyStudy) {
                 $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
                 $params = array('session_id' => $this->id, 'study_id' => $unit->surveyStudy->id);
                 $ended_now = $this->db->exec($query, $params);
@@ -680,7 +696,7 @@ class UnitSession extends Model {
                 WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
                 [
                     'id'         => $this->id,
-                    'unit_id'    => $this->runUnit->id,
+                    'unit_id'    => $this->runUnit->id ?? $this->unit_id,
                     'result'     => $this->result,
                     'result_log' => $this->result_log,
                     'state'      => UnitSessionQueue::STATE_ENDED,
@@ -786,7 +802,7 @@ class UnitSession extends Model {
                 WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
                 [
                     'id'         => $this->id,
-                    'unit_id'    => $this->runUnit->id,
+                    'unit_id'    => $this->runUnit->id ?? $this->unit_id,
                     'result'     => $this->result,
                     'result_log' => $this->result_log,
                 ]

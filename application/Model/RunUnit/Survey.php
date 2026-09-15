@@ -163,6 +163,12 @@ class Survey extends RunUnit {
         // of invitation+X, so early starters got less total time than
         // late starters. See tests/e2e/EXPIRY_PLAN.md "Fix 3" and the
         // wiki-cell matrix in tests/e2e/survey-expiry-matrix.spec.js.
+        if (!$this->surveyStudy) {
+            // Identity forgotten (unit no longer placed in the run): there
+            // is no study to take a window from. "No expiry" — the callers
+            // end such a session as unit_removed_from_run before routing.
+            return [];
+        }
         $X = (int) $this->surveyStudy->expire_invitation_after;
         $Y = (int) $this->surveyStudy->expire_invitation_grace;
         $Z = (int) $this->surveyStudy->expire_after;
