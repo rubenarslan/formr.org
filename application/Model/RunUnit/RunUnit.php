@@ -94,6 +94,29 @@ class RunUnit extends Model {
      * @param Run $run
 	 * @param array $props
      */
+    /**
+     * Properties a props array may never set, whoever built it. The
+     * constructor's $props usually come straight from a request
+     * (ajax_save_run_unit, ajax_get_unit, a structure import) and
+     * Model::assignProperties() assigns ANY declared property — so a POST
+     * of `run=1` replaced the authorised Run object (find() then looked up
+     * run_id NULL and create() inserted a placement with no run), and
+     * `valid` / `surveyStudy` could pre-empt the run-scoped lookup's
+     * verdict. Identity fields (id, unit_id, run_unit_id) stay assignable
+     * here: find() is what validates them. Content columns are whatever
+     * the subclass declares.
+     */
+    const UNASSIGNABLE_PROPS = ['run', 'valid', 'surveyStudy', 'errors', 'messages', 'export_attribs', 'icon', 'body_parsed', 'retryOutput', 'outputData'];
+
+    protected function assignProperties($props) {
+        if ($props && is_array($props)) {
+            foreach (self::UNASSIGNABLE_PROPS as $prop) {
+                unset($props[$prop]);
+            }
+        }
+        return parent::assignProperties($props);
+    }
+
     public function __construct(Run $run, array $props = []) {
         parent::__construct();
         $this->run = $run;
