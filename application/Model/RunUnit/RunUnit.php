@@ -106,7 +106,20 @@ class RunUnit extends Model {
      * here: find() is what validates them. Content columns are whatever
      * the subclass declares.
      */
-    const UNASSIGNABLE_PROPS = ['run', 'valid', 'surveyStudy', 'errors', 'messages', 'export_attribs', 'icon', 'body_parsed', 'retryOutput', 'outputData'];
+    // Properties a props array must never set, whoever built it — a
+    // RunUnit's props usually come straight from a request, and
+    // Model::assignProperties() assigns ANY declared public property, so a
+    // POST of run=1 replaced the authorised Run object (find() then looked
+    // up run_id NULL and create() inserted a placement with no run).
+    //
+    // Deliberately NOT here: `valid` and `body_parsed`. Both are written
+    // through assignProperties() by trusted internal hydration — find()
+    // sets `valid` (v1.10.3 stripped it and left every find()-loaded unit
+    // valid=false, so runTo()/deleteRunUnitAction() failed on a placed
+    // unit — v1.10.4), and each subclass constructor sets `body_parsed`
+    // from its own table. A request `valid` is inert anyway: find()/
+    // forgetIdentity() overwrite it whenever an id is present.
+    const UNASSIGNABLE_PROPS = ['run', 'surveyStudy', 'errors', 'messages', 'export_attribs', 'icon', 'retryOutput', 'outputData'];
 
     protected function assignProperties($props) {
         if ($props && is_array($props)) {
