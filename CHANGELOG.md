@@ -9,6 +9,9 @@ A regression from the v1.10.3 review fixes.
 ### Fixes
 - **Admin "send to position" works again, and a participant whose current unit is deleted moves on instead of stalling.** v1.10.3 stopped a request props array from overwriting a `RunUnit`'s authorised `Run` object by overriding `assignProperties()` to strip `run`/`valid`/`surveyStudy`/… . But `RunUnit::find()` marks a placed unit valid by setting `valid` **through** that same `assignProperties()` (as do the subclass constructors for `body_parsed`), so every unit `find()` hydrated came back `valid = false`. `RunSession::runTo()` and the run-editor delete both gate on `->valid`, so pushing a participant to a position failed with "Could not create unit session for unit N at pos. M" on a perfectly-placed unit, and Pause/Branch/Email/Page bodies stopped rendering their parsed markup. The strip list now excludes `valid` and `body_parsed` — the two properties trusted internal hydration writes through `assignProperties()` — so the request-smuggling guard still holds (a POST cannot replace `run` or `surveyStudy`) while `find()` can mark a placed unit valid again. A request `valid` is inert regardless: `find()`/`forgetIdentity()` overwrite it whenever an id is present. Regression test `tests/RunUnitValidHydrationTest.php`.
 
+### Changes
+- **Survey "Test Survey" links now last 60 minutes** (was 15). The token still bounds replay of a leaked link, and a test already in flight continues past expiry regardless; the longer window just means fewer re-clicks while building a long survey.
+
 ## [v1.10.3] - 15.09.2026
 
 Two user reports: a corrected showif that would not apply, and a skip unit rerouted by the v1.8.0 computed-jump feature.

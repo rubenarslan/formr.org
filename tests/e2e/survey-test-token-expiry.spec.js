@@ -1,5 +1,5 @@
 // Regression: the "Test Survey" preview token (SurveyTestController,
-// TOKEN_TTL = 15 min) must not kill a test that is already IN FLIGHT when it
+// TOKEN_TTL = 60 min) must not kill a test that is already IN FLIGHT when it
 // expires. Filling a real survey routinely takes longer than the TTL; before
 // the fix, the first "Next"/"Finish" POST after expiry got a 410 "Link
 // expired" and silently discarded that page's answers (the pre-1.3.0

@@ -19,7 +19,7 @@
  */
 class SurveyTestController extends Controller {
 
-    const TOKEN_TTL = 900; // 15 min — covers a test session, bounds replay
+    const TOKEN_TTL = 3600; // 60 min — covers a test session, bounds replay
     const TOKEN_GLUE = '|';
 
     /**
@@ -68,7 +68,7 @@ class SurveyTestController extends Controller {
         // new one. TOKEN_TTL bounds how long a (possibly leaked) link can
         // mint fresh previews, but filling out a survey legitimately takes
         // longer than any sane TTL: without this carve-out, the first
-        // "Next"/"Finish" POST after the 15-minute mark got the 410 below
+        // "Next"/"Finish" POST after the token's TTL got the 410 below
         // and silently discarded that page's answers (the pre-1.3.0
         // admin-session preview never expired mid-test).
         if ($expired && !$this->hasLiveTestSession($study, $expires)) {
