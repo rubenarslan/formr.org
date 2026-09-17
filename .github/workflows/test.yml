@@ -2,8 +2,13 @@ name: PHPUnit
 
 on:
   push:
-    branches: [master, develop]
+    # release/** and hotfix/** so a release branch pushed straight to the
+    # embargo repo (the recent point-release path — no PR) still runs the
+    # suite. Without this, 1.10.2–1.10.4 shipped with zero CI (the v1.10.3
+    # valid/body_parsed regression among them).
+    branches: [master, develop, 'release/**', 'hotfix/**']
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
