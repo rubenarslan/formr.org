@@ -229,6 +229,13 @@ release bumps `VERSION` and `package.json` version (`composer.json`
 has a drifted version that is not kept in sync). Entries group under
 **Added / Fixes / Changes / Schema**.
 
+**Before cutting a release, run the pre-release test gate** — the unit
+lane plus every `bin/*_smoke.php` live-MariaDB smoke, on the dev stack,
+cutting only if green. The SQLite CI lane cannot host the smokes, which
+is how the v1.10.3 regression shipped. Procedure and cut steps:
+`documentation/agent_doc/releasing.md` (companion to `testing.md` and
+`regression_prevention_plan.md`).
+
 ## Dev environment & operational gotchas
 
 - **Dev instance:** `https://formr.researchmixtape.com` (login
