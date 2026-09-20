@@ -2,6 +2,11 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v1.10.5] - unreleased
+
+### Changes
+- **Dead `select2pills` initializer removed** (#415). The block in `Select2Initializer.js` bound to `.select2pills select` and rendered pill images from a relative `assets/img/pills/` path that broke on the move to study subdomains. No Item class emits that markup and the image directory does not exist, so the code was unreachable; the issue is closed as obsolete rather than fixed.
+
 ## [v1.10.4] - 17.09.2026
 
 A regression from the v1.10.3 review fixes.
