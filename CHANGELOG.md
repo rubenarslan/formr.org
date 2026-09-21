@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [v1.10.5] - unreleased
 
 ### Fixes
+- **Figures embed in emails again when the chunk label contains a space** (#290). The knitted HTML references a figure as `cid:<URL-encoded file name>` (R's `URLencode(basename(x))`), but the Email unit registered the attachment under the raw file name, so `{r my picture}` produced `cid:my%20picture-1.png` in the body and an attachment called `my picture-1.png`, and mail clients showed a broken image. The Content-ID is now encoded the same way (`Email::embeddedImageCid()`); labels without spaces are unaffected. Regression test `tests/EmailEmbeddedImageCidTest.php`.
 - **A survey-upload error is reported once, not three times** (#385). A duplicate variable name (and any other cell-level error the reader raises itself) was listed as the bare row message, then a generic "An error occured reading your excel file" line, then the cell-located copy that already wrapped the row message. The reader now keeps only the cell-located message; the generic line is reserved for genuinely foreign failures, and its typo is fixed. Regression test `tests/SpreadsheetReaderDuplicateNameTest.php`.
 
 ### Changes

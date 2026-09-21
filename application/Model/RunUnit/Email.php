@@ -395,7 +395,13 @@ class Email extends RunUnit {
                 unlink($local_image);
             });
 
-            if (!$mail->AddEmbeddedImage($local_image, $image_id, $image_id, 'base64', 'image/png')) {
+            // The knitted HTML references the figure as cid:<URLencode(basename)>
+            // (see opencpu_knit_email's upload.fun), so the Content-ID we
+            // register must be the encoded form too. Registering the raw file
+            // name broke every figure whose chunk label contained a space
+            // ("my picture" -> cid:my%20picture-1.png vs "my picture-1.png"; #290).
+            $cid = self::embeddedImageCid($image_id);
+            if (!$mail->AddEmbeddedImage($local_image, $cid, $image_id, 'base64', 'image/png')) {
                 alert("Could not embed image with id '{$image_id}'", 'alert-danger');
             }
         }
@@ -616,4 +622,14 @@ class Email extends RunUnit {
     // 60/week — an ESM design or a shared lab address reaches them
     // legitimately), an SMTP outage, or a missing recipient all used to
     // produce the ~15 s hot loop the shared docblock describes.
+
+    /**
+     * Content-ID under which a knitted figure is embedded. Mirrors R's
+     * URLencode(basename(x)) used by opencpu_knit_email's upload.fun, so the
+     * cid: reference in the HTML and the registered attachment agree even
+     * when the chunk label (and hence the file name) contains a space.
+     */
+    public static function embeddedImageCid($imageId) {
+        return rawurlencode((string) $imageId);
+    }
 }
