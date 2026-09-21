@@ -470,6 +470,46 @@ class SpreadsheetReader
         $this->survey[] = $row;
     }
 
+    /**
+     * Ranges of merged cells as "<sheet>!A1:B2" strings, or [] if none.
+     *
+     * The Xlsx reader drops merge information under setReadDataOnly(true),
+     * which we keep because it is what makes large uploads affordable, so
+     * for .xlsx the ranges are read straight from the worksheet XML inside
+     * the zip: cheap, and no second parse. Ods records merges regardless,
+     * so the loaded workbook answers there. The legacy BIFF .xls reader
+     * drops them under read-data-only and is not covered.
+     */
+    private function findMergedCells($filepath, $filetype, \PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet)
+    {
+        $found = array();
+        if ($filetype === 'Xlsx' && class_exists('ZipArchive')) {
+            $zip = new \ZipArchive();
+            if ($zip->open($filepath) === true) {
+                for ($i = 0; $i < $zip->numFiles; $i++) {
+                    $name = $zip->getNameIndex($i);
+                    if (!preg_match('#^xl/worksheets/sheet(\d+)\.xml$#', $name, $m)) {
+                        continue;
+                    }
+                    $xml = $zip->getFromIndex($i);
+                    if ($xml !== false && preg_match_all('/<mergeCell\s[^>]*\bref="([^"]+)"/', $xml, $mm)) {
+                        foreach ($mm[1] as $ref) {
+                            $found[] = 'worksheet ' . $m[1] . '!' . $ref;
+                        }
+                    }
+                }
+                $zip->close();
+            }
+            return $found;
+        }
+        foreach ($spreadsheet->getAllSheets() as $ws) {
+            foreach (array_keys($ws->getMergeCells()) as $range) {
+                $found[] = $ws->getTitle() . '!' . $range;
+            }
+        }
+        return $found;
+    }
+
     public function readItemTableFile($filepath)
     {
         ini_set('max_execution_time', 360);
@@ -488,6 +528,16 @@ class SpreadsheetReader
 
             /* @var $phpSpreadsheet \PhpOffice\PhpSpreadsheet\Spreadsheet */
             $phpSpreadsheet = $phpSpreadsheetReader->load($filepath);
+
+            // Merged cells silently swallow whatever sat in the covered
+            // cells, so a merged header or label row reads as blanks and the
+            // errors that follow point at the wrong place (#111). Refuse the
+            // upload and name the ranges instead.
+            $merged = $this->findMergedCells($filepath, $filetype, $phpSpreadsheet);
+            if ($merged) {
+                $this->errors[] = __('Your spreadsheet contains merged cells (%s). formr cannot read merged cells: unmerge them and re-upload.', implode(', ', $merged));
+                return;
+            }
 
             // Gather sheets to be read
             if ($phpSpreadsheet->sheetNameExists('survey')) {
