@@ -41,6 +41,30 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         displays a multi-line input field
     </dd>
     <dt>
+        tel
+    </dt>
+    <dd>
+        a single-line input for telephone numbers. Phones show the numeric keypad; no format is enforced.
+    </dd>
+    <dt>
+        url
+    </dt>
+    <dd>
+        a single-line input for a web address; the browser and the server both check that it is a URL.
+    </dd>
+    <dt>
+        cc
+    </dt>
+    <dd>
+        a single-line input for a card-style number; validated with the Luhn checksum.
+    </dd>
+    <dt>
+        blank
+    </dt>
+    <dd>
+        renders the label as plain content with no input and no note styling. Useful for markup that should not be wrapped like a note.
+    </dd>
+    <dt>
         number <i>min, max, step</i>
     </dt>
     <dd>
@@ -88,6 +112,42 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
     </dt>
     <dd>
         for times (displays an input with hours and minutes). Input can also be constrained using min,max, e.g. <code>12:00,17:00</code>
+    </dd>
+    <dt>
+        datetime_local <i>min,max</i>
+    </dt>
+    <dd>
+        date and time in one input (the browser's <code>datetime-local</code> control). Stored as a DATETIME.
+    </dd>
+    <dt>
+        datetime <i>min,max</i>
+    </dt>
+    <dd>
+        like datetime_local; kept for older sheets. Browsers have dropped the plain <code>datetime</code> control, so prefer datetime_local.
+    </dd>
+    <dt>
+        yearmonth <i>min,max</i>
+    </dt>
+    <dd>
+        a year and month, entered as <code>yyyy-mm</code>. Stored as a DATE on the first of that month.
+    </dd>
+    <dt>
+        month <i>min,max</i>
+    </dt>
+    <dd>
+        like yearmonth, but uses the browser's native month picker where one exists.
+    </dd>
+    <dt>
+        week <i>min,max</i>
+    </dt>
+    <dd>
+        an ISO week, entered as <code>yyyy-Www</code>. Stored as text.
+    </dd>
+    <dt>
+        year <i>min,max</i>
+    </dt>
+    <dd>
+        a four-digit year. Stored as a YEAR.
     </dd>
 </dl>
 <h4><i class="fa fa-fw fa-magic"></i> Fancy family</h4>
@@ -166,6 +226,12 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         a dropdown, you can choose only one
     </dd>
     <dt>
+        timezone
+    </dt>
+    <dd>
+        a dropdown listing every IANA time zone (e.g. <code>Europe/Berlin</code>). No choice list needed; the chosen zone name is stored as text.
+    </dd>
+    <dt>
         select_multiple <i>choice_list</i>
     </dt>
     <dd>
@@ -221,6 +287,12 @@ These items don't require the user to do anything, so including them simply mean
     </dt>
     <dd>
         saves the <a href="https://us1.php.net/manual/en/reserved.variables.server.php">$_SERVER</a> value with the index given by var. Can be used to store one of 'HTTP_USER_AGENT', 'HTTP_ACCEPT', 'HTTP_ACCEPT_CHARSET', 'HTTP_ACCEPT_ENCODING', 'HTTP_ACCEPT_LANGUAGE', 'HTTP_CONNECTION', 'HTTP_HOST', 'QUERY_STRING', 'REQUEST_TIME', 'REQUEST_TIME_FLOAT'. In English: the browser, some stuff about browser language information, some server stuff, and access time.
+    </dd>
+    <dt>
+        browser
+    </dt>
+    <dd>
+        saves the participant's user-agent string. Same as <code>server HTTP_USER_AGENT</code>.
     </dd>
     <dt>
         get var
