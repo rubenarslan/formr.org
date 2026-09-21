@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [v1.10.5] - unreleased
 
 ### Changes
+- **CSS classes have their own documentation section** (#399). The "Optional classes for visual styling" list moved out of the Survey Spreadsheet page into a "CSS classes" tab that links to `custom_item_classes.css` on GitHub as the authoritative list and explains the `item-<type>` wrapper class and per-run custom CSS. The spreadsheet page keeps a one-line pointer.
 - **Dead `select2pills` initializer removed** (#415). The block in `Select2Initializer.js` bound to `.select2pills select` and rendered pill images from a relative `assets/img/pills/` path that broke on the move to study subdomains. No Item class emits that markup and the image directory does not exist, so the code was unreachable; the issue is closed as obsolete rather than fixed.
 
 ## [v1.10.4] - 17.09.2026
