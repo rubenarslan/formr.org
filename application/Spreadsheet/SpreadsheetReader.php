@@ -521,8 +521,18 @@ class SpreadsheetReader
             // and other reader internals surface as a graceful error rather than
             // a 500. Note: a PHP memory-exhaustion fatal is NOT a Throwable and
             // cannot be caught here — the row cap in read*Sheet() guards that.
-            $this->errors[] = "An error occured reading your excel file. Please check your file or report to admin";
-            $this->errors[] = $e->getMessage();
+            if ($this->errors) {
+                // One of our own cell-located errors: readSurveySheet() /
+                // readChoicesSheet() push the row message onto $this->errors
+                // and then throw a message that already wraps every entry
+                // with its cell address. Reporting the bare row message, a
+                // generic line AND the wrapped copy showed one mistake three
+                // times (#385); keep only the located copy.
+                $this->errors = array($e->getMessage());
+            } else {
+                $this->errors[] = "An error occurred reading your spreadsheet. Please check your file or report to admin";
+                $this->errors[] = $e->getMessage();
+            }
             formr_log_exception($e, __CLASS__, $filepath);
             return;
         }

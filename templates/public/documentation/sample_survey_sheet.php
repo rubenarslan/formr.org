@@ -186,5 +186,56 @@
     </dd>
 </dl>
 
+<h3>Randomising items and blocks</h3>
+<p>The <code>item_order</code> and <code>block_order</code> columns together cover the common randomisation schemes. Items that share an <code>item_order</code> value are shuffled among themselves; <code>block_order</code> assigns items to blocks, and consecutively labelled blocks are shuffled as wholes. Four examples:</p>
+<h4>1. Simple randomisation of items</h4>
+<p>An instruction is shown first, followed by items 1&ndash;4 in random order.</p>
+<table class="table table-condensed" style="width:auto">
+<thead><tr><th>name</th><th>block_order</th><th>item_order</th></tr></thead>
+<tbody>
+<tr><td>instr</td><td></td><td>1</td></tr>
+<tr><td>item_1</td><td></td><td>2</td></tr>
+<tr><td>item_2</td><td></td><td>2</td></tr>
+<tr><td>item_3</td><td></td><td>2</td></tr>
+<tr><td>item_4</td><td></td><td>2</td></tr>
+</tbody>
+</table>
+<h4>2. Random block order, fixed order within blocks</h4>
+<p>Blocks A and B are presented in random order; within each block the items keep their order.</p>
+<table class="table table-condensed" style="width:auto">
+<thead><tr><th>name</th><th>block_order</th><th>item_order</th></tr></thead>
+<tbody>
+<tr><td>item_1</td><td>A</td><td>1</td></tr>
+<tr><td>item_2</td><td>A</td><td>2</td></tr>
+<tr><td>item_3</td><td>B</td><td>1</td></tr>
+<tr><td>item_4</td><td>B</td><td>2</td></tr>
+</tbody>
+</table>
+<h4>3. Fixed block order, random order within blocks</h4>
+<p>Block A always comes first. Its two items are shuffled and followed by a submit button, so each block sits on its own page.</p>
+<table class="table table-condensed" style="width:auto">
+<thead><tr><th>name</th><th>block_order</th><th>item_order</th></tr></thead>
+<tbody>
+<tr><td>item_1</td><td>A</td><td>1</td></tr>
+<tr><td>item_2</td><td>A</td><td>1</td></tr>
+<tr><td>submit1</td><td>A</td><td>2</td></tr>
+<tr><td>item_3</td><td>B</td><td>3</td></tr>
+<tr><td>item_4</td><td>B</td><td>3</td></tr>
+<tr><td>submit2</td><td>B</td><td>4</td></tr>
+</tbody>
+</table>
+<h4>4. Random blocks, random items within them</h4>
+<p>Blocks are shuffled and so are the items inside each block; the submit button stays at the bottom of its block's page. The same trick places an instruction item at the top of every page.</p>
+<table class="table table-condensed" style="width:auto">
+<thead><tr><th>name</th><th>block_order</th><th>item_order</th></tr></thead>
+<tbody>
+<tr><td>item_1</td><td>A</td><td>1</td></tr>
+<tr><td>item_2</td><td>A</td><td>1</td></tr>
+<tr><td>submit1</td><td>A</td><td>2</td></tr>
+<tr><td>item_3</td><td>B</td><td>1</td></tr>
+<tr><td>item_4</td><td>B</td><td>1</td></tr>
+<tr><td>submit2</td><td>B</td><td>2</td></tr>
+</tbody>
+</table>
 <h3>Optional classes for visual styling</h3>
 <p>Add a <code>class</code> column with space-separated class names to change how an item looks. The available classes are documented in the <a href="#css_classes" data-toggle="tab">CSS classes</a> section.</p>

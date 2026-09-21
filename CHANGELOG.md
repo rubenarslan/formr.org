@@ -4,7 +4,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [v1.10.5] - unreleased
 
+### Fixes
+- **A survey-upload error is reported once, not three times** (#385). A duplicate variable name (and any other cell-level error the reader raises itself) was listed as the bare row message, then a generic "An error occured reading your excel file" line, then the cell-located copy that already wrapped the row message. The reader now keeps only the cell-located message; the generic line is reserved for genuinely foreign failures, and its typo is fixed. Regression test `tests/SpreadsheetReaderDuplicateNameTest.php`.
+
 ### Changes
+- **Randomisation examples in the documentation** (#388). The four schemes from the wiki page "How to randomize items and blocks" (shuffled items, shuffled blocks, shuffled items within fixed blocks, both) now sit under the Survey Spreadsheet page with their `block_order` / `item_order` tables.
 - **CSS classes have their own documentation section** (#399). The "Optional classes for visual styling" list moved out of the Survey Spreadsheet page into a "CSS classes" tab that links to `custom_item_classes.css` on GitHub as the authoritative list and explains the `item-<type>` wrapper class and per-run custom CSS. The spreadsheet page keeps a one-line pointer.
 - **Dead `select2pills` initializer removed** (#415). The block in `Select2Initializer.js` bound to `.select2pills select` and rendered pill images from a relative `assets/img/pills/` path that broke on the move to study subdomains. No Item class emits that markup and the image directory does not exist, so the code was unreachable; the issue is closed as obsolete rather than fixed.
 
