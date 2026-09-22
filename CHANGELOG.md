@@ -2,7 +2,7 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [v1.10.5] - unreleased
+## [v1.11.0] - unreleased
 
 ### Fixes
 - **Figures embed in emails again when the chunk label contains a space** (#290). The knitted HTML references a figure as `cid:<URL-encoded file name>` (R's `URLencode(basename(x))`), but the Email unit registered the attachment under the raw file name, so `{r my picture}` produced `cid:my%20picture-1.png` in the body and an attachment called `my picture-1.png`, and mail clients showed a broken image. The Content-ID is now encoded the same way (`Email::embeddedImageCid()`); labels without spaces are unaffected. Regression test `tests/EmailEmbeddedImageCidTest.php`.

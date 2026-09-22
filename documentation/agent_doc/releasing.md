@@ -17,7 +17,7 @@ which only mean anything against a live MariaDB (plus OpenCPU and mail for a
 few of them).
 
 Releases also go out as a direct push to a `release/X.Y.Z` branch on the
-embargo repo — no PR — so before v1.10.5 they triggered no CI at all.
+embargo repo — no PR — so before v1.11.0 they triggered no CI at all.
 v1.10.2–v1.10.4 shipped ungated; the **v1.10.3 `valid`/`body_parsed`
 regression** (an `assignProperties()` override stripped the flags
 `RunUnit::find()` sets, so admin push and unit-delete failed on
@@ -61,7 +61,7 @@ reproduces the "Could not create unit session" symptom end to end).
 ## Machine backstop (does not replace the gate)
 
 `.github/workflows/test.yml` triggers the unit lane on `release/**` and
-`hotfix/**` pushes (and on PRs) since v1.10.5, so a release-branch push runs
+`hotfix/**` pushes (and on PRs) since v1.11.0, so a release-branch push runs
 `composer test`. It is SQLite-only, so it still cannot see the smoke class —
 the manual battery above stays mandatory until Layer 4 lands.
 

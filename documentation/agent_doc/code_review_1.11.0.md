@@ -1,7 +1,7 @@
-# Code review notes — release/1.10.5 (v1.10.4..HEAD)
+# Code review notes — release/1.11.0 (v1.10.4..HEAD)
 
 Resumable working notes for `/code-review high --fix` run on 2026-09-22.
-Scope: `git diff v1.10.4` on branch `release/1.10.5` (9 commits, 16 files).
+Scope: `git diff v1.10.4` on branch `release/1.11.0` (9 commits, 16 files).
 Diff snapshot: scratchpad `review.diff` / `review_code.diff` / `review_other.diff`
 (regenerate with `git diff v1.10.4 -- <paths>` if the scratchpad is gone).
 
@@ -26,7 +26,7 @@ Commits in scope:
 - [ ] Phase 3: --fix applied (parent)
 
 Subagents append their candidates below under their own heading
-(`cat >> documentation/agent_doc/code_review_1.10.5.md`). If a session is
+(`cat >> documentation/agent_doc/code_review_1.11.0.md`). If a session is
 interrupted, resume from the first unchecked phase; completed sections are
 already on disk.
 
