@@ -118,12 +118,26 @@ try {
     // Strip line-comments — the bare ';' splitter doesn't reason about
     // them, so leaving them in confuses statement boundaries.
     $sql = preg_replace('/^--[^\n]*$/m', '', $sql);
-    foreach (preg_split('/;\s*\n/', $sql) as $stmt) {
-        $stmt = trim($stmt);
-        if ($stmt === '') continue;
-        $db->exec($stmt);
-    }
-    echo "  applied 3 backfill statements\n";
+    // Replay the patch on the fixture rows only. A live database keeps
+    // legacy rows with run_unit_id NULL (a unit placed at several positions
+    // is unresolvable), and re-running the patch over them collides with
+    // the UNIQUE (run_session_id, run_unit_id, iteration) key. The
+    // state_log statement is skipped: that column was dropped in v1.8.0.
+    $fixture_ids = implode(',', array_map('intval', [$us_a_p1, $us_a_p2, $us_a_s1, $us_b_1, $us_b_2]));
+    $applyBackfill = function () use ($db, $sql, $fixture_ids) {
+        $applied = 0;
+        foreach (preg_split('/;\s*\n/', $sql) as $stmt) {
+            $stmt = trim($stmt);
+            if ($stmt === '' || stripos($stmt, 'state_log') !== false) continue;
+            $scope = (strpos($stmt, '`us`') !== false ? '`us`.`id`' : '`id`') . " IN ({$fixture_ids})";
+            $stmt = preg_match('/\bWHERE\b/i', $stmt) ? preg_replace('/\bWHERE\b/i', "WHERE {$scope} AND", $stmt, 1) : "{$stmt} WHERE {$scope}";
+            $db->exec($stmt);
+            $applied++;
+        }
+        return $applied;
+    };
+    $applied = $applyBackfill();
+    echo "  applied {$applied} backfill statements (scoped to the fixture rows)\n";
 
     echo "\n-- Run A (unique-position): all 3 rows backfilled, iterations correct --\n";
     $rows = $db->execute(
@@ -150,12 +164,7 @@ try {
     echo "\n-- Backfill is idempotent: re-applying 048 produces no changes --\n";
     $idsCsv = implode(',', [$us_a_p1, $us_a_p2, $us_a_s1, $us_b_1, $us_b_2]);
     $before = $db->execute("SELECT id, run_unit_id, iteration, state FROM survey_unit_sessions WHERE id IN ($idsCsv) ORDER BY id");
-    $sql2 = preg_replace('/^--[^\n]*$/m', '', file_get_contents('/var/www/formr/sql/patches/048_uxec_track_a_backfill.sql'));
-    foreach (preg_split('/;\s*\n/', $sql2) as $stmt) {
-        $stmt = trim($stmt);
-        if ($stmt === '') continue;
-        $db->exec($stmt);
-    }
+    $applyBackfill();
     $after = $db->execute("SELECT id, run_unit_id, iteration, state FROM survey_unit_sessions WHERE id IN ($idsCsv) ORDER BY id");
     assert_eq($before === $after, true, 'backfill SQL is idempotent: re-run leaves fixture rows unchanged');
 

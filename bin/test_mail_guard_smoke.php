@@ -43,6 +43,14 @@ try {
         exit(1);
     }
 
+    // Sections B-E exercise suppression, the duplicate window, the ceilings
+    // and the mailer choke point — none of them is about DNS, yet every
+    // address here lives at example.org, which publishes a null MX (RFC
+    // 7505) that the guard has correctly refused since the v1.9.3 DNS
+    // rework. Stub the domain verdict so those sections test what they
+    // claim to; section F puts the real checker back.
+    MailGuardService::$domainChecker = function () { return true; };
+
     echo "B. suppression round trip\n";
     ok(MailGuardService::suppress($addr('Victim'), 'smoke', 'smoke'), 'suppress() accepts the address');
     foreach (array($T, MailGuardService::CATEGORY_SYSTEM, MailGuardService::CATEGORY_STUDY) as $cat) {
@@ -99,11 +107,13 @@ try {
     ok(!empty($row), 'refusal recorded in survey_mail_guard_log');
 
     echo "F. domain plausibility + cache\n";
+    MailGuardService::$domainChecker = null;
     ok(EmailDomainService::isDeliverableDomain('gmail.com'), 'gmail.com is deliverable');
     $ghost = $marker . '-no-such-domain.invalid';
     ok(!EmailDomainService::isDeliverableDomain($ghost), "{$ghost} is not");
     ok((bool) $db->findRow('survey_mail_domain_cache', array('domain' => 'gmail.com')), 'verdict cached');
 } finally {
+    MailGuardService::$domainChecker = null;
     $db->exec("DELETE FROM survey_mail_guard_log WHERE recipient LIKE :m", array('m' => "{$marker}-%"));
     $db->exec("DELETE FROM survey_mail_suppressions WHERE address LIKE :m", array('m' => "{$marker}-%"));
     $db->exec("DELETE FROM survey_mail_domain_cache WHERE domain LIKE :m", array('m' => "{$marker}-%"));
