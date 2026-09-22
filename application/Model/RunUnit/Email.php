@@ -628,8 +628,20 @@ class Email extends RunUnit {
      * URLencode(basename(x)) used by opencpu_knit_email's upload.fun, so the
      * cid: reference in the HTML and the registered attachment agree even
      * when the chunk label (and hence the file name) contains a space.
+     *
+     * Not rawurlencode(): R's URLencode(reserved = FALSE) leaves the RFC 3986
+     * reserved set (!$&'()*+,;=:/?@#) and square brackets alone as well as the unreserved
+     * characters, whereas rawurlencode() escapes everything outside
+     * A-Za-z0-9-._~. A chunk label such as "plot(1)" would otherwise be
+     * referenced as cid:plot(1)-1.png but registered as plot%281%29-1.png.
      */
     public static function embeddedImageCid($imageId) {
-        return rawurlencode((string) $imageId);
+        return preg_replace_callback(
+            '/[^A-Za-z0-9._~!$&\'()*+,;=:\/?@#\[\]-]/',
+            function ($m) {
+                return sprintf('%%%02X', ord($m[0]));
+            },
+            (string) $imageId
+        );
     }
 }

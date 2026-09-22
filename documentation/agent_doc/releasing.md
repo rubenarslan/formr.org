@@ -40,8 +40,9 @@ green:
    docker exec formr_app sh -c 'cd /var/www/formr && \
      php vendor/bin/phpunit --configuration tests/phpunit.xml --exclude-group integration'
    ```
-2. **Live-MariaDB smokes** — each must exit `0` / print `all checks passed`;
-   a `FAIL` line or non-zero exit blocks the release:
+2. **Live-MariaDB smokes** — each must exit `0` (the pass banner differs per
+   script, so key on the exit status, not on a phrase); a `FAIL` line or
+   non-zero exit blocks the release:
    ```bash
    for f in bin/*_smoke.php; do
      echo "== $f"; docker exec formr_app php "/var/www/formr/$f"; echo "exit=$?"

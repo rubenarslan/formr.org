@@ -2,6 +2,8 @@
 
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/helpers/SpreadsheetFixture.php';
+
 /**
  * Regression for #385: a duplicate variable name used to be reported three
  * times — the bare row message, a generic "An error occured reading your
@@ -10,43 +12,7 @@ use PHPUnit\Framework\TestCase;
  */
 class SpreadsheetReaderDuplicateNameTest extends TestCase
 {
-    private $tmpFiles = array();
-
-    protected function tearDown(): void
-    {
-        foreach ($this->tmpFiles as $f) {
-            if (file_exists($f)) {
-                @unlink($f);
-            }
-        }
-        $this->tmpFiles = array();
-    }
-
-    private function makeWorkbook(array $sheets)
-    {
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-        $spreadsheet->removeSheetByIndex(0);
-        foreach ($sheets as $title => $rows) {
-            $ws = $spreadsheet->createSheet();
-            $ws->setTitle($title);
-            $r = 1;
-            foreach ($rows as $row) {
-                $c = 1;
-                foreach ($row as $value) {
-                    $coord = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r;
-                    $ws->getCell($coord)->setValue($value);
-                    $c++;
-                }
-                $r++;
-            }
-        }
-        $path = tempnam(sys_get_temp_dir(), 'srdup_') . '.xlsx';
-        $this->tmpFiles[] = $path;
-        $writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
-        $writer->save($path);
-        $spreadsheet->disconnectWorksheets();
-        return $path;
-    }
+    use SpreadsheetFixture;
 
     public function testDuplicateVariableNameIsReportedOnce()
     {

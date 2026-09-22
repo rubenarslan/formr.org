@@ -1,6 +1,8 @@
 <?php
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/helpers/SpreadsheetFixture.php';
+
 /**
  * Tests for SpreadsheetReader's row-count cap (SpreadsheetReader::MAX_DATA_ROWS).
  *
@@ -18,53 +20,19 @@ use PHPUnit\Framework\TestCase;
  */
 class SpreadsheetReaderRowCapTest extends TestCase
 {
-    private $tmpFiles = array();
-
-    protected function tearDown(): void
-    {
-        foreach ($this->tmpFiles as $f) {
-            if (is_file($f)) {
-                @unlink($f);
-            }
-        }
-        $this->tmpFiles = array();
-    }
+    use SpreadsheetFixture;
 
     private const STRAY_ROW = 1048576; // Excel's maximum row index
 
     /**
-     * Write an .xlsx to a temp path. $sheets maps sheet title => array of rows,
-     * each row an array of cell values (row 1 is the header). If $strayOnSheet
-     * is given, an extra cell is set at column A of STRAY_ROW on that sheet to
-     * inflate its reported data-row count.
+     * Workbook from makeWorkbook() with one stray valued cell at column A of
+     * STRAY_ROW on $strayOnSheet, so that sheet reports the maximum row count.
      */
-    private function makeWorkbook(array $sheets, $strayOnSheet = null)
+    private function bloatedWorkbook(array $sheets, $strayOnSheet)
     {
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-        $spreadsheet->removeSheetByIndex(0);
-        foreach ($sheets as $title => $rows) {
-            $ws = $spreadsheet->createSheet();
-            $ws->setTitle($title);
-            $r = 1;
-            foreach ($rows as $row) {
-                $c = 1;
-                foreach ($row as $value) {
-                    $coord = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r;
-                    $ws->getCell($coord)->setValue($value);
-                    $c++;
-                }
-                $r++;
-            }
-            if ($strayOnSheet === $title) {
-                $ws->getCell('A' . self::STRAY_ROW)->setValue('x');
-            }
-        }
-        $path = tempnam(sys_get_temp_dir(), 'srtest_') . '.xlsx';
-        $this->tmpFiles[] = $path;
-        $writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
-        $writer->save($path);
-        $spreadsheet->disconnectWorksheets();
-        return $path;
+        return $this->makeWorkbook($sheets, array(
+            'cells' => array($strayOnSheet => array('A' . self::STRAY_ROW => 'x')),
+        ));
     }
 
     private function surveyRows()
@@ -100,7 +68,7 @@ class SpreadsheetReaderRowCapTest extends TestCase
 
     public function testStrayCellOnChoicesSheetIsRefused()
     {
-        $path = $this->makeWorkbook(array(
+        $path = $this->bloatedWorkbook(array(
             'survey' => $this->surveyRows(),
             'choices' => $this->choicesRows(),
         ), 'choices');
@@ -121,7 +89,7 @@ class SpreadsheetReaderRowCapTest extends TestCase
         // "if ($this->errors)" guard re-wrapped and re-threw the choices error on
         // the first cell, adding the generic "An error occured reading your excel
         // file" message plus a duplicate "Error in cell B2 (Survey Sheet): ...".
-        $path = $this->makeWorkbook(array(
+        $path = $this->bloatedWorkbook(array(
             'survey' => $this->surveyRows(),
             'choices' => $this->choicesRows(),
         ), 'choices');
@@ -136,7 +104,7 @@ class SpreadsheetReaderRowCapTest extends TestCase
 
     public function testStrayCellOnSurveySheetIsRefused()
     {
-        $path = $this->makeWorkbook(array(
+        $path = $this->bloatedWorkbook(array(
             'survey' => $this->surveyRows(),
         ), 'survey');
         $reader = new SpreadsheetReader();

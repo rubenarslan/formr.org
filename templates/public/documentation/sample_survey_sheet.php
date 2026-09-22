@@ -212,16 +212,16 @@
 </tbody>
 </table>
 <h4>3. Fixed block order, random order within blocks</h4>
-<p>Block A always comes first. Its two items are shuffled and followed by a submit button, so each block sits on its own page.</p>
+<p>Blocks are only shuffled against the blocks they sit next to, so an item <em>without</em> a <code>block_order</code> between two blocks pins their order. Here each submit button is left unblocked: block A always comes first, its two items are shuffled, and each block sits on its own page. (Giving the submit buttons a <code>block_order</code> too would make A and B a consecutive pair and randomise which comes first.)</p>
 <table class="table table-condensed" style="width:auto">
 <thead><tr><th>name</th><th>block_order</th><th>item_order</th></tr></thead>
 <tbody>
 <tr><td>item_1</td><td>A</td><td>1</td></tr>
 <tr><td>item_2</td><td>A</td><td>1</td></tr>
-<tr><td>submit1</td><td>A</td><td>2</td></tr>
+<tr><td>submit1</td><td></td><td>2</td></tr>
 <tr><td>item_3</td><td>B</td><td>3</td></tr>
 <tr><td>item_4</td><td>B</td><td>3</td></tr>
-<tr><td>submit2</td><td>B</td><td>4</td></tr>
+<tr><td>submit2</td><td></td><td>4</td></tr>
 </tbody>
 </table>
 <h4>4. Random blocks, random items within them</h4>

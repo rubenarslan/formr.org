@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/helpers/SpreadsheetFixture.php';
+
 /**
  * A named choice list must be recognised whether it is written inline in the
  * `type` cell ("mc_button mylist") or in a separate `type_options` column.
@@ -10,40 +12,22 @@
  */
 class SpreadsheetReaderTypeOptionsTest extends PHPUnit\Framework\TestCase {
 
-    private $files = array();
-
-    protected function tearDown(): void {
-        foreach ($this->files as $file) {
-            if (file_exists($file)) {
-                unlink($file);
-            }
-        }
-        $this->files = array();
-    }
+    use SpreadsheetFixture;
 
     /**
      * Build a one-item survey workbook with a `choices` sheet defining
      * 'mylist' and 'otherlist'.
      */
     private function makeSheet(array $header, array $row) {
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-        $survey = $spreadsheet->getActiveSheet();
-        $survey->setTitle('survey');
-        $survey->fromArray(array($header, $row), null, 'A1');
-
-        $choices = $spreadsheet->createSheet();
-        $choices->setTitle('choices');
-        $choices->fromArray(array(
-            array('list_name', 'name', 'label'),
-            array('mylist', 'bla', 'bla'),
-            array('mylist', 'blu', 'blu'),
-            array('otherlist', 'x', 'x'),
-        ), null, 'A1');
-
-        $file = tempnam(sys_get_temp_dir(), 'formr_sheet_') . '.xlsx';
-        $this->files[] = $file;
-        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save($file);
-        return $file;
+        return $this->makeWorkbook(array(
+            'survey' => array($header, $row),
+            'choices' => array(
+                array('list_name', 'name', 'label'),
+                array('mylist', 'bla', 'bla'),
+                array('mylist', 'blu', 'blu'),
+                array('otherlist', 'x', 'x'),
+            ),
+        ));
     }
 
     /**

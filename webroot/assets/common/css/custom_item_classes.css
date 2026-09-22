@@ -699,9 +699,6 @@ form.form-horizontal div.form-group.vertical_range div.controls div.controls-inn
 		margin-top: 0px;
 	}
 }
-.select2pills .select2-container {
-	width: 250px;
-}
 .square .btn-group>.btn {
 	border-radius: 4px !important;
 	float: left;
