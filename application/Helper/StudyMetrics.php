@@ -197,6 +197,9 @@ class StudyMetrics {
             ", [], false, true);
         } else {
             $endedSql = UnitSession::completedEndedSql('us');
+            // us.study_iteration is in the GROUP BY because the HAVING reads
+            // it: MariaDB resolves only grouped or aggregated columns there
+            // and does not infer them from the us.id primary key (1054).
             $agg = $db->execute("
                 SELECT
                   SUM(t.real_user AND t.ended IS NOT NULL)                                AS finished,
@@ -214,7 +217,7 @@ class StudyMetrics {
                   LEFT JOIN `survey_run_sessions` rs ON us.run_session_id = rs.id
                   LEFT JOIN `survey_items_display` sid ON sid.session_id = us.id
                   WHERE us.unit_id = :unit_id
-                  GROUP BY us.id, us.created, us.ended, us.result, rs.testing
+                  GROUP BY us.id, us.created, us.ended, us.result, us.study_iteration, rs.testing
                   HAVING us.study_iteration IS NOT NULL OR COUNT(sid.item_id) > 0
                 ) t
             ", ['unit_id' => $studyId], false, true);

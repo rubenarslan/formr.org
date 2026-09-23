@@ -44,8 +44,10 @@ if ($sol === null) { echo "\n$pass passed, " . ($fail) . " failed (solver gave u
 
 $payload = fn ($c, $s) => base64_encode(json_encode(['challenge' => $c, 'solution' => $s]));
 
-// 3) the solved token verifies
+// 3) the solved token verifies — once. verify() burns the challenge on
+//    success, so the same token must not pass a second time.
 $check('valid solved token verifies', BotCheckChallenge::verify($payload($mint, $sol->toArray())), true);
+$check('replayed token rejected (single use)', BotCheckChallenge::verify($payload($mint, $sol->toArray())), false);
 
 // 4) negatives
 $check('empty rejected', BotCheckChallenge::verify(''), false);
@@ -62,8 +64,13 @@ $check('re-bound session rejected (sig)', BotCheckChallenge::verify($payload($re
 
 // 5) the item wraps verify() — a genuine token stores the compact marker, a
 //    missing/garbage one sets ->error (which is what the save loop reads).
+//    The token from step 3 is burned, so the item gets a fresh one.
+$mint2 = BotCheckChallenge::mint();
+$sol2 = $altcha->solveChallenge(new SolveChallengeOptions(
+    challenge: new Challenge(ChallengeParameters::fromArray($mint2['parameters']), $mint2['signature']),
+    algorithm: $alg, timeout: 25.0));
 $item = new BotCheck_Item(['type' => 'bot_check', 'name' => 'human']);
-$check('item accepts a solved token', $item->validateInput($payload($mint, $sol->toArray())), 'verified');
+$check('item accepts a solved token', $sol2 ? $item->validateInput($payload($mint2, $sol2->toArray())) : null, 'verified');
 $item = new BotCheck_Item(['type' => 'bot_check', 'name' => 'human']);
 $item->validateInput('');
 $check('item blocks on an empty token', !empty($item->error), true);

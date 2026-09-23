@@ -121,8 +121,8 @@ class FormSaveAutosaveTest extends TestCase
         $items = $this->fixtureItems();
         RunController::filterAutosaveAnswers(array('age' => 99, 'mood' => 7, 'note' => 'ok'), $items);
         foreach ($items as $name => $item) {
-            $this->assertEmpty($item->error, "$name->error was set by the probe");
-            $this->assertNull($item->reply, "$name->reply was set by the probe");
+            $this->assertEmpty($item->error, "{$name}: error was set by the probe");
+            $this->assertNull($item->reply, "{$name}: reply was set by the probe");
         }
     }
 }
