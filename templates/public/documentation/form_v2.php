@@ -110,7 +110,7 @@ showif: trigger == "yes" &amp;&amp; answered(plain)
 showif: !contains(animals, 1)
 showif: last(daily_mood) &gt; 5</pre>
 
-<p><strong>Only the browser evaluates a showif.</strong> An item with a showif starts out hidden and appears as soon as its showif is true; the server never runs it. The browser knows every item of this form — including answers given on earlier pages, when the participant reloads or comes back later — and the results of <code>calculate</code> items. Anything else, such as a run variable like <code>ran_group</code> or an item from another survey, is an unknown name: a showif that reads one is not true, so its item stays hidden. Bring such a value onto the form with a hidden item (<a href="#form_v2_bridge">below</a>). A showif on a <code>calculate</code> item has no effect, because a calculate is computed on the server; put the condition into its R instead (<code>if (condition) value else NA</code>). The compatibility scanner flags both.</p>
+<p><strong>Only the browser evaluates a showif.</strong> An item with a showif starts out hidden and appears as soon as its showif is true; the server never runs it. The browser knows every item of this form — including answers given on earlier pages, when the participant reloads or comes back later — and the results of <code>calculate</code> items. Anything else, such as a run variable like <code>ran_group</code> or an item from another survey, is an unknown name: a showif that reads one is not true, so its item stays hidden. Bring such a value onto the form with a hidden item (<a href="#form_v2_bridge">below</a>). A showif on a <code>calculate</code> item has no effect, because a calculate is computed on the server, not in the browser where showifs run; put the condition into its R instead (<code>if (condition) value else NA</code>). The compatibility scanner flags both.</p>
 
 <h5>Writing a <code>value</code></h5>
 <p>A number is a literal default. Anything else is R, evaluated on the server with the participant's current answers overlaid on their data — so <code>sticky</code> keeps its meaning, and so do expressions like these:</p>
@@ -122,7 +122,7 @@ value: r(complex_score(current(q1), current(q2)))</pre>
 <p>The R source never reaches the browser. When the form is rendered, every dynamic <code>value</code> (and every label or choice label with inline R) is recorded on the server as an <em>allowlisted call</em> for that item; the browser only ever refers to the recorded call and can only supply answers to the study's own items. A participant cannot run R of their own, cannot reach other studies' data, and a call is revoked the moment the item is deleted or its expression changes in the sheet. Expressions that error in R resolve to NA, which arrives in the item as an empty value; a logical arrives as <code>TRUE</code> or <code>FALSE</code>. Results are cached for a few minutes per participant and answer set (see <a href="#form_v2_settings">Instance settings</a>).</p>
 
 <p><strong>Page-scoped resolution.</strong> Dynamic values, labels (containing <code>`r …`</code>), choice labels and <code>note_iframe</code> documents are resolved when the participant reaches their page, in one batched request after the previous page has been stored — so a value on page 2 can depend on answers from page 1. The first page works the same way, so its dynamic content paints a moment after the rest of the page. Keep heavy dynamic content off the first page if that flicker matters.</p>
-<p><strong><code>calculate</code> items</strong> are the study's own computation, so they never go through the browser: the server evaluates and stores them when the participant reaches their page, against the answers stored by then (as in a classic survey, a calculate uses earlier pages, not its own). A logical is stored as <code>TRUE</code>/<code>FALSE</code>, NA as missing.</p>
+<p><strong><code>calculate</code> items</strong> are the study's own computation, so the browser never posts them: the server evaluates and stores them when the participant reaches their page, against the answers stored by then (as in a classic survey, a calculate uses earlier pages, not its own). A logical is stored as <code>TRUE</code>/<code>FALSE</code>, NA as missing.</p>
 
 <h5 id="form_v2_bridge">Bridging R into a showif</h5>
 <p>To gate visibility on something only R can compute, put the R into a <strong>hidden item's <code>value</code></strong> and reference that item's name from the showif:</p>
@@ -134,7 +134,21 @@ value: r(complex_score(current(q1), current(q2)))</pre>
         <tr><td><code>younger_block</code></td><td><code>note</code></td><td><code>treat == 2</code></td><td></td></tr>
     </tbody>
 </table>
-<p>The hidden item is resolved on the server, its result is written into the form, and the showifs react to it like to any other answer. You can read the resolved value while testing, it is stored with the results, and several showifs can reuse it without paying for the R call again.</p>
+<p>The hidden item is resolved on the server, its result is written into the form, and the showifs react to it like to any other answer. You can read the resolved value while testing, it is stored with the results, and several showifs can reuse it without paying for the R call again. A <code>calculate</code> item works as a bridge too — see below for which one to use.</p>
+
+<h5 id="form_v2_calculate_or_hidden"><code>calculate</code> or <code>hidden</code>?</h5>
+<p>Both run R from the <code>value</code> column on the server, and showifs can read both. They differ in when the R runs and who stores the result:</p>
+<table class="table table-condensed">
+    <thead><tr><th></th><th><code>calculate</code></th><th><code>hidden</code> with a <code>value</code></th></tr></thead>
+    <tbody>
+        <tr><td>R runs</td><td>when the participant reaches the item's page, once</td><td>when the item's page is shown</td></tr>
+        <tr><td>sees answers from</td><td>earlier pages — placed after the last page, all of them</td><td>earlier pages only (the page's own answers are still empty when it is shown)</td></tr>
+        <tr><td>result is stored by</td><td>the server</td><td>the browser, which posts it with autosave and the page submit — so a participant (or bot) can change it</td></tr>
+        <tr><td>if the page's dynamic content can't be loaded (network, rate limit, offline)</td><td>unaffected: it doesn't go through the page (if OpenCPU itself is down, it is computed at the next page)</td><td>submitted empty</td></tr>
+    </tbody>
+</table>
+<p>Use <strong><code>calculate</code></strong> for anything you analyse or act on: scores, random assignment, eligibility flags that a later Skip unit reads, payment codes, and end-of-form scores (put them after the last page). Use <strong><code>hidden</code></strong> for what the page itself needs: a pre-filled answer, or a bridge into a showif where it doesn't matter that the participant could change the value.</p>
+<p>Neither keeps a value secret from the participant. Everything this form stores — answers and <code>calculate</code> results alike — is readable in the participant's browser, because showifs can use it. A value participants must not be able to see (their experimental condition, say) belongs outside the form, for example in an earlier survey of the run, and must not be referenced from a showif.</p>
 
 <h5 id="form_v2_reserved">Reserved item names</h5>
 <p>These names are rejected when you upload a sheet, on every engine: <code>session_id</code>, <code>created</code>, <code>modified</code>, <code>ended</code>, <code>id</code>, <code>study_id</code>, <code>iteration</code> (columns of the results), and <code>isNA</code>, <code>answered</code>, <code>contains</code>, <code>containsWord</code>, <code>startsWith</code>, <code>endsWith</code>, <code>last</code> (the showif helpers).</p>
@@ -150,16 +164,18 @@ value: r(complex_score(current(q1), current(q2)))</pre>
 <table class="table table-condensed table-striped">
     <thead><tr><th>Column</th><th>Bucket</th><th>Meaning</th><th>What to do</th></tr></thead>
     <tbody>
-        <tr><td rowspan="3"><code>showif</code></td><td><em>empty</em></td><td>no expression</td><td>—</td></tr>
+        <tr><td rowspan="5"><code>showif</code></td><td><em>empty</em></td><td>no expression</td><td>—</td></tr>
         <tr><td><em>JS-OK</em></td><td>transpiles to JavaScript without leftover R</td><td>nothing; test it in the browser anyway</td></tr>
         <tr><td><em>needs JS rewrite</em> (flagged, fix: <em>rewrite in JS</em>)</td><td>the transpiled expression still contains R-only pieces: function calls such as <code>ifelse</code>, <code>c</code>, <code>paste</code>, <code>grepl</code>, <code>sprintf</code>, <code>unique</code>, <code>which</code>, …; <code>tail</code>/<code>head</code> with an argument other than <code>1</code>; an <code>is.na()</code> that did not transpile; <code>%in%</code> or <code>%%</code>; the assignment arrow <code>&lt;-</code>; a bare <code>NA</code>; or <code>$</code> member access like <code>survey$item</code></td><td>Rewrite it with JavaScript operators and the <a href="#form_v2_showif">helpers</a>: <code>x %in% c(1,2)</code> becomes <code>[1,2].includes(x)</code> or <code>x == 1 || x == 2</code>; <code>ifelse(a, b, c)</code> becomes <code>a ? b : c</code>; <code>is.na(x)</code> becomes <code>isNA(x)</code>; <code>survey$item</code> becomes just <code>item</code> if it is on the form. If the logic genuinely needs R (data from another survey, a function from your R package), move it into a hidden item's <code>value</code> and test that item's name in the showif — see <a href="#form_v2_bridge">Bridging R into a showif</a>.</td></tr>
+        <tr><td><em>not on the form</em> (flagged)</td><td>the showif reads a name that isn't an item of this survey — a run variable such as <code>ran_group</code>, or another survey's item. The browser only knows this form's items, so the item would stay hidden</td><td>compute the value in a <code>calculate</code> or hidden item on this form and reference that item</td></tr>
+        <tr><td><em>on a calculate</em> (flagged)</td><td>a showif on a <code>calculate</code> item, which has no effect</td><td>put the condition into its R: <code>if (condition) value else NA</code></td></tr>
         <tr><td rowspan="3"><code>value</code></td><td><em>empty</em></td><td>no default</td><td>—</td></tr>
         <tr><td><em>literal</em></td><td>a number, used as-is</td><td>—</td></tr>
         <tr><td><em>R</em></td><td>everything else, including <code>sticky</code>; evaluated on the server</td><td>nothing — values are never flagged</td></tr>
     </tbody>
 </table>
 
-<p>String literals are ignored when looking for R tokens, so a label such as <code>"paste here"</code> does not trigger a false alarm. The scan is a heuristic: a flagged showif is not necessarily broken (at runtime an expression the browser cannot evaluate simply leaves the item as the server rendered it), and a JS-OK showif can still reference a name the browser doesn't know. Always walk through the study yourself after switching.</p>
+<p>String literals are ignored when looking for R tokens, so a label such as <code>"paste here"</code> does not trigger a false alarm. The scan is a heuristic, but take its showif flags seriously: a showif the browser cannot evaluate keeps its item hidden for every participant. Always walk through the study yourself after switching.</p>
 
 <h4 id="form_v2_layout"><i class="fa fa-fw fa-columns"></i> Layout modes</h4>
 

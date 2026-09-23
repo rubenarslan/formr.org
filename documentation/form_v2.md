@@ -67,7 +67,7 @@ showif: last(daily_mood) > 5
 
 **Only the browser evaluates a showif.** An item with a showif renders hidden and is revealed as soon as its showif is true; the server never runs it. The browser knows every item of this form — including answers saved on earlier pages when the participant reloads or comes back later — and the results of `calculate` items. It does not know anything else: a run-level variable like `ran_group` or an item from another survey is an unknown name, and a showif that reads one stays false, so its item stays hidden. Bring such a value onto the form with a hidden item (next section). The compatibility scanner flags these names.
 
-A showif on a `calculate` item has no effect: a calculate is computed on the server and never reaches the browser. Put the condition into its R instead: `if (condition) value else NA`.
+A showif on a `calculate` item has no effect: a calculate is computed on the server, not in the browser where showifs run. Put the condition into its R instead: `if (condition) value else NA`.
 
 ### `value`: server-side R
 
@@ -84,7 +84,7 @@ value: 5
 
 The R source never reaches the browser. At render time each dynamic value is recorded in `survey_r_calls` (slot `value`) and the client only ever sees the recorded call id, which it hands back when it asks the server to resolve the page. Results are cached for 5 minutes per `(call, answers)` pair. A logical result is written into the field as `TRUE` or `FALSE`.
 
-**`calculate` items** are different: they are the study's own computation (a score, a group, an eligibility flag), so they never go through the browser. The server evaluates and stores them when the participant reaches their page, against the answers saved by then and nothing the browser sends; their results then feed showifs like any answer. A logical is stored as `TRUE`/`FALSE`, NA as missing. As in v1, a calculate can use answers from earlier pages, not from its own page.
+**`calculate` items** are different: they are the study's own computation (a score, a group, an eligibility flag), so they are computed and stored on the server and never posted by the browser. The server evaluates and stores them when the participant reaches their page, against the answers saved by then and nothing the browser sends; their results then feed showifs like any answer. A logical is stored as `TRUE`/`FALSE`, NA as missing. As in v1, a calculate can use answers from earlier pages, not from its own page.
 
 ### Bridging R into a `showif`
 
@@ -96,7 +96,22 @@ my_score   hidden                   r(complex_score(current(q1)))
 followup   text    my_score > 0.5
 ```
 
-The hidden field is resolved on the server; the resolved scalar is written into the input, and the showif reacts to it like to any other answer. This is more inspectable than the old server-side showif (you can read the hidden field's resolved value while testing) and you can reuse `my_score` from several showifs without paying the OpenCPU cost again.
+The hidden field is resolved on the server; the resolved scalar is written into the input, and the showif reacts to it like to any other answer. You can read the resolved value while testing, and several showifs can reuse `my_score` without paying the OpenCPU cost again. A `calculate` item works as a bridge too — see the next section for which one to use.
+
+### `calculate` or `hidden`?
+
+Both run R from the `value` column on the server, and showifs can read both. They differ in when the R runs and who stores the result:
+
+| | `calculate` | `hidden` with a `value` |
+| --- | --- | --- |
+| R runs | when the participant reaches the item's page, once | when the item's page is shown |
+| sees answers from | earlier pages — placed after the last page, all of them | earlier pages only (the page's own answers are still empty when it is shown) |
+| result is stored by | the server | the browser, which posts it with autosave and the page submit — so a participant (or bot) can change it |
+| if the page's dynamic content can't be loaded (network, rate limit, offline) | unaffected: it doesn't go through the page (if OpenCPU itself is down, it is computed at the next page) | submitted empty |
+
+Use **`calculate`** for anything you analyse or act on: scores, random assignment, eligibility flags that a later Skip unit reads, payment codes, and end-of-form scores (put them after the last page). Use **`hidden`** for what the page itself needs: a pre-filled answer, or a bridge into a showif where it doesn't matter that the participant could change the value.
+
+Neither keeps a value secret from the participant. Everything this form stores — answers and `calculate` results alike — is readable in the participant's browser, because showifs can use it. A value participants must not be able to see (their experimental condition, say) belongs outside the form, for example in an earlier survey of the run, and must not be referenced from a showif.
 
 ### Page-scoped resolution
 
