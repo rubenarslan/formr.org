@@ -5,6 +5,8 @@
  * 
  */
 class McMultiple_Item extends Mc_Item {
+    protected $accepts_array_reply = true;
+
 
     public $type = 'mc_multiple';
     public $input_attributes = array('type' => 'checkbox');

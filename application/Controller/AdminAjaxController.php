@@ -89,12 +89,20 @@ class AdminAjaxController {
        $run = $this->controller->run;
 
         if ($id = $this->request->getParam('unit_id')) {
-            $params = $this->request->getParams();
+            $params = $this->unitParamsFromRequest();
             $params['id'] = (int) $id;
             $unit = RunUnitFactory::make($run, $params);
+            if (!$unit->id) {
+                // find() could not place unit_id in this run (the
+                // constructor forgot the identity) — nothing to render.
+                formr_error(404, 'Not Found', 'Requested Run Unit was not found in this run');
+            }
             $content = $unit->displayForRun();
         } elseif($this->request->getParam('run_unit_id')) {
-            $unit = RunUnit::findByRunUnitId($this->request->getParam('run_unit_id'), ['ignore_missing' => true]);
+            $unit = RunUnit::findByRunUnitId($this->request->getParam('run_unit_id'), ['ignore_missing' => true], $run);
+            if (!$unit) {
+                formr_error(404, 'Not Found', 'Requested Run Unit was not found in this run');
+            }
             $unit->type = 'missing';
             $dialog = Template::get($unit->getTemplatePath('missing'));
             $content = $unit->displayForRun($dialog);
@@ -292,9 +300,11 @@ class AdminAjaxController {
 
         if (($run_unit_id = $this->request->getParam('run_unit_id'))) {
 
-            $params = $this->request->getParams();
+            $params = $this->unitParamsFromRequest();
             $params['ignore_missing'] = true;
-            $unit = RunUnit::findByRunUnitId($run_unit_id, $params);
+            // Scoped to the run setRun() authorised — findByRunUnitId
+            // otherwise builds the unit's OWN run from the row.
+            $unit = RunUnit::findByRunUnitId($run_unit_id, $params, $run);
 
             if (!$unit) {
                 formr_error(404, 'Not Found', 'Requested Run Unit was not found');
@@ -413,13 +423,18 @@ class AdminAjaxController {
         $content = '';
 
         if ($id = $this->request->getParam('unit_id')) {
-            $params = $this->request->getParams();
+            $params = $this->unitParamsFromRequest();
             $params['id'] = (int) $id;
             if (!empty($params['position']) && is_array($params['position'])) {
                 $params['position'] = array_shift($params['position']);
             }
 
             $unit = RunUnitFactory::make($run, $params);
+            if (!$unit->id) {
+                // unit_id (and run_unit_id) are posted; find() could not
+                // place them in this run, so there is nothing to save.
+                formr_error(404, 'Not Found', 'Requested Run Unit was not found in this run');
+            }
             $unit->create($params);
 
             if ($unit->valid) {
@@ -453,7 +468,7 @@ class AdminAjaxController {
             ]);
         }
 
-        $unit = RunUnit::findByRunUnitId($run_unit_id, ['ignore_missing' => true]);
+        $unit = RunUnit::findByRunUnitId($run_unit_id, ['ignore_missing' => true], $this->controller->run);
         // Survey or its v2 subclass Form — both resolve their study via getStudy().
         if (!$unit || !($unit instanceof Survey) || (int) $unit->run->id !== (int) $this->controller->run->id) {
             $this->response->setStatusCode(400, 'Bad Request');
@@ -594,7 +609,10 @@ class AdminAjaxController {
         }
 
         if ($run_unit_id = $this->request->getParam('run_unit_id')) {
-            $unit = RunUnit::findByRunUnitId($run_unit_id, $this->request->getParams());
+            $unit = RunUnit::findByRunUnitId($run_unit_id, $this->unitParamsFromRequest(), $this->controller->run);
+            if (!$unit) {
+                formr_error(404, 'Not Found', 'Requested Run Unit was not found in this run');
+            }
             $test_content = $unit->test();
             $content = $this->site->renderAlerts();
             $content .= $test_content;
@@ -776,8 +794,22 @@ class AdminAjaxController {
         return $action;
     }
 
+    /**
+     * Request params for constructing a RunUnit. `importing` is a
+     * model-internal flag (Run::importUnits, SurveyStudy::createFromData)
+     * that makes the RunUnit constructor skip its run-scoped find() — the
+     * only thing that forgets a caller-supplied id — so a client that posts
+     * importing=1 with a foreign unit_id would load and overwrite another
+     * user's unit definition by bare id.
+     */
+    private function unitParamsFromRequest() {
+        $params = $this->request->getParams();
+        unset($params['importing']);
+        return $params;
+    }
+
     protected function getSessionRemindersSent($run_session_id) {
-        return RunSession::getSentRemindersBySessionId($run_session_id);
+        return RunSession::getSentRemindersBySessionId($run_session_id, $this->controller->run->id);
     }
 
 }

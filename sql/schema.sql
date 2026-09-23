@@ -84,12 +84,6 @@ CREATE TABLE `oauth_users` (
   `last_name` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-CREATE TABLE `osf` (
-  `user_id` int(10) unsigned NOT NULL,
-  `access_token` varchar(150) DEFAULT NULL,
-  `access_token_expires` int(10) unsigned NOT NULL,
-  PRIMARY KEY (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `push_logs` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `unit_session_id` int(10) unsigned NOT NULL,
@@ -456,7 +450,6 @@ CREATE TABLE `survey_runs` (
   `custom_js_path` varchar(255) DEFAULT NULL,
   `custom_r_path` varchar(255) DEFAULT NULL,
   `manifest_json_path` varchar(255) DEFAULT NULL,
-  `osf_project_id` varchar(20) DEFAULT NULL,
   `last_deamon_access` int(10) unsigned DEFAULT 0,
   `cron_fork` tinyint(3) unsigned NOT NULL DEFAULT 1,
   `use_material_design` tinyint(1) NOT NULL DEFAULT 0,
@@ -468,6 +461,7 @@ CREATE TABLE `survey_runs` (
   `compute_closed_from` tinyint(4) DEFAULT NULL COMMENT 'Prior public level if auto-closed by the monthly compute limiter (issue #608); NULL=not compute-closed',
   `compute_closed_cron_active` tinyint(4) DEFAULT NULL COMMENT 'Prior cron_active if auto-paused by the monthly compute limiter (issue #608); NULL=not compute-closed',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`),
   KEY `fk_runs_survey_users1_idx` (`user_id`),
   KEY `fk_survey_runs_survey_units1_idx` (`reminder_email`),
   KEY `fk_survey_runs_survey_units2_idx` (`service_message`),

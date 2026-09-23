@@ -313,6 +313,8 @@
                     <li><strong>Decimals are rounded to the nearest whole number</strong>, with halves rounding up: <code>29.5</code> and <code>30.4</code> both mean position 30. Rounding happens first, so <code>1.9</code> becomes 2 and does jump.</li>
                     <li><strong>Several values</strong> (a vector) — only the first one is used, and a warning is recorded in the unit's log. Return a single value.</li>
                     <li><strong>Anything else</strong> — a negative number, text, a date — falls back to a best-effort TRUE/FALSE reading and records a warning. Don't rely on it.</li>
+                    <li><strong>NA or an empty result</strong> (<code>logical(0)</code>, <code>NULL</code> — typically a comparison against a column that does not exist for this participant) halts the unit and emails you; the message names the fix, e.g. <code>isTRUE(survey$consent == "yes")</code>. Before formr v1.10.3 an empty result silently meant FALSE.</li>
+                    <li><strong>Skip units created before formr v1.10.3</strong> have their condition wrapped in <code>as.logical({ … })</code>. Before computed jumps existed, any non-zero number meant TRUE, and the wrapper keeps that reading (<code>as.logical(25)</code> is TRUE) so an older study is not rerouted. A wrapped condition that returns an R <code>Date</code> or <code>POSIXct</code> value also keeps its old reading (a past moment is TRUE, a future one FALSE); a date <em>string</em> is NA and halts. To use a position number in such a unit, remove the wrapper.</li>
                 </ul>
                 <p>A few more things worth knowing:</p>
                 <ul>
@@ -446,6 +448,8 @@
                     <li><strong>Decimals are rounded to the nearest whole number</strong>, with halves rounding up: <code>29.5</code> and <code>30.4</code> both mean position 30. Rounding happens first, so <code>1.9</code> becomes 2 and does jump.</li>
                     <li><strong>Several values</strong> (a vector) — only the first one is used, and a warning is recorded in the unit's log. Return a single value.</li>
                     <li><strong>Anything else</strong> — a negative number, text, a date — falls back to a best-effort TRUE/FALSE reading and records a warning. Don't rely on it.</li>
+                    <li><strong>NA or an empty result</strong> (<code>logical(0)</code>, <code>NULL</code> — typically a comparison against a column that does not exist for this participant) halts the unit and emails you; the message names the fix, e.g. <code>isTRUE(survey$consent == "yes")</code>. Before formr v1.10.3 an empty result silently meant FALSE.</li>
+                    <li><strong>Skip units created before formr v1.10.3</strong> have their condition wrapped in <code>as.logical({ … })</code>. Before computed jumps existed, any non-zero number meant TRUE, and the wrapper keeps that reading (<code>as.logical(25)</code> is TRUE) so an older study is not rerouted. A wrapped condition that returns an R <code>Date</code> or <code>POSIXct</code> value also keeps its old reading (a past moment is TRUE, a future one FALSE); a date <em>string</em> is NA and halts. To use a position number in such a unit, remove the wrapper.</li>
                 </ul>
                 <p>A few more things worth knowing:</p>
                 <ul>

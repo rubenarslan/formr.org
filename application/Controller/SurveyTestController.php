@@ -19,7 +19,7 @@
  */
 class SurveyTestController extends Controller {
 
-    const TOKEN_TTL = 900; // 15 min — covers a test session, bounds replay
+    const TOKEN_TTL = 3600; // 60 min — covers a test session, bounds replay
     const TOKEN_GLUE = '|';
 
     /**
@@ -27,6 +27,13 @@ class SurveyTestController extends Controller {
      * ciphertext is base64url, so it is safe as a path segment.
      */
     public static function mintToken($studyName, $userId, $ttl = self::TOKEN_TTL) {
+        // The token is glue-joined plaintext under authenticated encryption,
+        // so a glue character inside the study name would let the name
+        // re-map the user id / expiry fields on the way back out. Names are
+        // validated on creation and rename; refuse here too — by the same rule.
+        if (!SurveyStudy::isValidName((string) $studyName)) {
+            return null;
+        }
         return Crypto::encrypt(array($studyName, (int) $userId, time() + (int) $ttl), self::TOKEN_GLUE);
     }
 
@@ -35,7 +42,7 @@ class SurveyTestController extends Controller {
         if ($parsed === null) {
             return; // verifyToken already emitted the error page
         }
-        list($studyName, $userId, $expired) = $parsed;
+        list($studyName, $userId, $expired, $expires) = $parsed;
 
         // Paged surveys (use_paging) navigate by a URL page segment:
         // /survey-test/<token>/<page>. Mirror RunController — surface that
@@ -61,10 +68,10 @@ class SurveyTestController extends Controller {
         // new one. TOKEN_TTL bounds how long a (possibly leaked) link can
         // mint fresh previews, but filling out a survey legitimately takes
         // longer than any sane TTL: without this carve-out, the first
-        // "Next"/"Finish" POST after the 15-minute mark got the 410 below
+        // "Next"/"Finish" POST after the token's TTL got the 410 below
         // and silently discarded that page's answers (the pre-1.3.0
         // admin-session preview never expired mid-test).
-        if ($expired && !$this->hasLiveTestSession($study)) {
+        if ($expired && !$this->hasLiveTestSession($study, $expires)) {
             return formr_error(410, 'Link expired', 'This survey preview link has expired. Open the survey again and click "Test Survey".');
         }
 
@@ -72,20 +79,32 @@ class SurveyTestController extends Controller {
         // AdminSurveyController::accessAction), in THIS request's own session
         // (cookie path /survey-test/, see determine_session_context()).
         //
-        // Seed ONLY when there is no live test session for THIS study yet.
-        // Run::testStudy() persists the created unit_session_id back into this
-        // same array so later requests (the "Next" POSTs, which all hit this
-        // one action) can resume and advance it. Re-seeding unconditionally
-        // would drop unit_session_id every request, so every "Next" would spawn
-        // a fresh unit session stuck on page 1 — and, when execute() answers a
-        // unit-session creation with a PRG redirect, loop forever. A token for
-        // a different study (or after the test finished and testStudy() cleared
-        // the data) re-seeds as expected.
-        if (!$this->hasLiveTestSession($study)) {
+        // Seed when there is no live test session for THIS study and THIS
+        // token. Run::testStudy() persists the created unit_session_id back
+        // into this same array so later requests (the "Next" POSTs and page
+        // GETs, which all hit this one action with the SAME token) can resume
+        // and advance it. Re-seeding unconditionally would drop
+        // unit_session_id every request, so every "Next" would spawn a fresh
+        // unit session stuck on page 1 — and, when execute() answers a
+        // unit-session creation with a PRG redirect, loop forever.
+        //
+        // A NEWER token — the admin clicked "Test Survey" again — starts a
+        // fresh test instead of resuming the old one, as the pre-1.3.0
+        // admin-session preview did (it re-seeded on every click; the
+        // resume was a side effect of moving the seed into this action).
+        // Resuming is what made a corrected item table look broken: the old
+        // unit session kept the showif verdicts survey_items_display had
+        // cached under the previous showif, so the item stayed hidden until
+        // the survey was deleted and recreated. The token's expiry doubles as
+        // its mint stamp. A token for a different study, or one arriving
+        // after the test finished and testStudy() cleared the slot, re-seeds
+        // as before.
+        if (!$this->hasLiveTestSession($study, $expires)) {
             Session::set('test_study_data_' . (int) $study->id, array(
                 'study_id' => $study->id,
                 'study_name' => $study->name,
                 'unit_id' => $study->id,
+                'token_expires' => $expires,
                 'data' => $study->getItems('id, name, type'),
             ));
         }
@@ -137,17 +156,38 @@ class SurveyTestController extends Controller {
      * under the per-study 'test_study_data_<id>' slot and deletes it when
      * the test finishes.
      */
-    private function hasLiveTestSession($study) {
+    private function hasLiveTestSession($study, $tokenExpires = null) {
         $existing = Session::get('test_study_data_' . (int) $study->id);
-        return is_array($existing) && (int) array_val($existing, 'study_id') === (int) $study->id;
+        if (!is_array($existing) || (int) array_val($existing, 'study_id') !== (int) $study->id) {
+            return false;
+        }
+        // A token minted after the live test's own one is a new "Test Survey"
+        // click, not a continuation of that test.
+        $slotExpires = array_val($existing, 'token_expires');
+        if ($tokenExpires !== null && $slotExpires === null) {
+            // A slot seeded before token_expires existed (pre-1.10.3) has no
+            // stamp to compare: it is a test that was in flight across the
+            // upgrade, and its next "Next" must continue it, not restart at
+            // page 1 (or 410 on an expired-but-authentic token). Adopt this
+            // token's stamp so a later click is still told apart.
+            $existing['token_expires'] = (int) $tokenExpires;
+            Session::set('test_study_data_' . (int) $study->id, $existing);
+            return true;
+        }
+        if ($tokenExpires !== null && (int) $slotExpires < (int) $tokenExpires) {
+            return false;
+        }
+        return true;
     }
 
     /**
      * Decrypt + validate the preview token. Emits a 403 error page and
      * returns null on a forged or malformed token; otherwise
-     * array($name, $userId, $expired). Expiry is deliberately NOT fatal
-     * here — indexAction still honours an expired-but-authentic token when
-     * it merely continues a test session that is already in flight.
+     * array($name, $userId, $expired, $expires). Expiry is deliberately NOT
+     * fatal here — indexAction still honours an expired-but-authentic token
+     * when it merely continues a test session that is already in flight.
+     * $expires (unix time) also identifies the "Test Survey" click that
+     * minted the token: a later one means a new click, see indexAction.
      */
     private function verifyToken($token) {
         $plain = $token ? Crypto::decrypt($token) : null;
@@ -155,12 +195,17 @@ class SurveyTestController extends Controller {
             formr_error(403, 'Invalid link', 'This survey preview link is invalid.');
             return null;
         }
-        $parts = explode(self::TOKEN_GLUE, $plain, 3);
-        if (count($parts) !== 3) {
+        // No explode() limit: exactly three fields, each of the shape it was
+        // minted with. A limit of 3 would fold any extra glue-separated
+        // fields into $expires, where (int) silently discards them.
+        $parts = explode(self::TOKEN_GLUE, $plain);
+        if (count($parts) !== 3
+                || !SurveyStudy::isValidName($parts[0])
+                || !ctype_digit($parts[1]) || !ctype_digit($parts[2])) {
             formr_error(403, 'Invalid link', 'This survey preview link is malformed.');
             return null;
         }
         list($studyName, $userId, $expires) = $parts;
-        return array($studyName, (int) $userId, (int) $expires < time());
+        return array($studyName, (int) $userId, (int) $expires < time(), (int) $expires);
     }
 }

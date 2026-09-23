@@ -91,10 +91,13 @@ class Survey extends RunUnit {
      * @param string $description
      */
     protected function persistStudyLink($description) {
+        // run_unit_id can arrive in the save/import payload; the run_id
+        // predicate stops a placement in another run from being
+        // re-pointed at this (legitimately owned) study.
         $this->db->update(
                 'survey_run_units',
                 ['description' => $description, 'unit_id' => $this->surveyStudy->id],
-                ['id' => $this->run_unit_id]
+                ['id' => $this->run_unit_id, 'run_id' => $this->run->id]
         );
     }
 
@@ -150,8 +153,15 @@ class Survey extends RunUnit {
      * @doc {inherit}
      */
     public function find($id, $special = false, $props = []) {
-        parent::find($id, $special, $props);
+        $found = parent::find($id, $special, $props);
+        if ($found === false) {
+            // Not in this run: don't load a study for a caller-supplied
+            // unit_id (the constructor is about to forget the identity).
+            $this->surveyStudy = null;
+            return false;
+        }
         $this->getStudy();
+        return $found;
     }
 
     public function getUnitSessionExpirationData(UnitSession $unitSession) {
@@ -175,6 +185,12 @@ class Survey extends RunUnit {
         // of invitation+X, so early starters got less total time than
         // late starters. See tests/e2e/EXPIRY_PLAN.md "Fix 3" and the
         // wiki-cell matrix in tests/e2e/survey-expiry-matrix.spec.js.
+        if (!$this->surveyStudy) {
+            // Identity forgotten (unit no longer placed in the run): there
+            // is no study to take a window from. "No expiry" — the callers
+            // end such a session as unit_removed_from_run before routing.
+            return [];
+        }
         $X = (int) $this->surveyStudy->expire_invitation_after;
         $Y = (int) $this->surveyStudy->expire_invitation_grace;
         $Z = (int) $this->surveyStudy->expire_after;
@@ -256,11 +272,23 @@ class Survey extends RunUnit {
         // $where directly — fine for current callers (DB-sourced
         // values only) but a bad pattern. See EXPIRY_AUDIT.md §1's
         // "pre-existing pattern propagated" note.
+        // Scope by session_id ALONE — a unit session's display rows are all
+        // for its one survey, so the old join to `survey_items` (filtering
+        // `study_id`) added nothing but a failure mode: because it was a
+        // LEFT JOIN with a WHERE on the right table, a display row whose
+        // item had since been DELETED or renamed (a mid-run item-table
+        // re-upload — routine in diary/ESM studies) no longer matched and
+        // was dropped. When the participant's most recent activity — or all
+        // of it — sat on such rows, this returned NULL, the Z (inactivity)
+        // deadline in getUnitSessionExpirationData() lost its anchor and
+        // collapsed to "no expiry", and the queued-to-end session was
+        // dequeued into limbo instead of expiring (the "expires in Xh ago"
+        // orphan; other participants, whose answered items still existed,
+        // expired normally). session_id is the PK of survey_unit_sessions,
+        // so it pins the study without the join. See v1.10.3 changelog.
         $query = $this->db->select(array('COALESCE(`survey_items_display`.saved,`survey_items_display`.created)' => 'last_viewed'))
                 ->from('survey_items_display')
-                ->leftJoin('survey_items', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-                ->where('survey_items_display.session_id IS NOT NULL')
-                ->where('survey_items.study_id = :study_id')
+                ->where('survey_items_display.session_id = :session_id')
                 ->where($where ? $where : '1=1')
                 // Sort by the SAME expression that is projected (v1.7.1).
                 // Ordering by the raw, nullable `saved` and only then by
@@ -282,7 +310,7 @@ class Survey extends RunUnit {
                 ->order(DB::raw('COALESCE(`survey_items_display`.`saved`,`survey_items_display`.`created`)'), $order)
                 ->order('survey_items_display.id', $order)
                 ->limit(1)
-                ->bindParams(array('session_id' => $unitSession->id, 'study_id' => $this->surveyStudy->id));
+                ->bindParams(array('session_id' => $unitSession->id));
 
         if ($whereBinds) {
             $query->bindParams($whereBinds);

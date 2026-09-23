@@ -4,6 +4,9 @@ class ApiV0 extends ApiBase {
 
 
     public function results() {
+        // Same scope the v1 results endpoint requires; without it a
+        // credential issued without data:read could still dump answers here.
+        $this->checkScope('data:read');
         ini_set('memory_limit', Config::get('memory_limit.run_get_data'));
 
         // Get run object from request
@@ -67,6 +70,7 @@ class ApiV0 extends ApiBase {
     }
 
     public function createSession() {
+        $this->checkScope('session:write');
         if (!($request = $this->parseJsonRequest()) || !($run = $this->getRunFromRequest($request))) {
             return $this;
         }

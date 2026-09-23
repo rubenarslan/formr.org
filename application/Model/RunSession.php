@@ -100,6 +100,11 @@ class RunSession extends Model {
         $options = [];
         if ($this->id) {
             $options['id'] = (int) $this->id;
+            // An id is only ever passed together with the Run it belongs to
+            // (Run::getReminderSession, RunUnit::getSampleSessions). Scope
+            // the lookup to that run, so a request-supplied id can't resolve
+            // to another run's participant.
+            $options['run_id'] = $this->run->id;
         } elseif ($this->session) {
             $options['session'] = $this->session;
             $options['run_id'] = $this->run->id;
@@ -1129,14 +1134,18 @@ class RunSession extends Model {
         return $count;
     }
 
-    public static function getSentRemindersBySessionId($id) {
+    public static function getSentRemindersBySessionId($id, $run_id) {
+        // Joined to survey_run_sessions and scoped by run: the id comes
+        // from the request (ajax_remind?get_count=1).
         $stmt = DB::getInstance()->prepare('
-            SELECT survey_unit_sessions.id as unit_session_id, survey_run_special_units.id as unit_id FROM survey_unit_sessions 
-			LEFT JOIN survey_units ON survey_unit_sessions.unit_id = survey_units.id
-			LEFT JOIN survey_run_special_units ON survey_run_special_units.id = survey_units.id
-			WHERE survey_unit_sessions.run_session_id = :run_session_id AND survey_run_special_units.type = "ReminderEmail"
-		');
+            SELECT survey_unit_sessions.id as unit_session_id, survey_run_special_units.id as unit_id FROM survey_unit_sessions
+            JOIN survey_run_sessions ON survey_run_sessions.id = survey_unit_sessions.run_session_id
+            LEFT JOIN survey_units ON survey_unit_sessions.unit_id = survey_units.id
+            LEFT JOIN survey_run_special_units ON survey_run_special_units.id = survey_units.id
+            WHERE survey_unit_sessions.run_session_id = :run_session_id AND survey_run_sessions.run_id = :run_id AND survey_run_special_units.type = "ReminderEmail"
+        ');
         $stmt->bindValue('run_session_id', $id, PDO::PARAM_INT);
+        $stmt->bindValue('run_id', $run_id, PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }

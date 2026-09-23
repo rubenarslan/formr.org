@@ -209,7 +209,7 @@ unique.
 ### Domain model
 
 - `Run` (`Model/Run.php`) — a study. Owner, privacy, PWA manifest,
-  expiry, OSF, cookie lifetime.
+  expiry, cookie lifetime.
 - `RunUnit` subclasses (`Model/RunUnit/`) — `Survey`, `Pause`,
   `Email`, `PushMessage`, `External`, `Page`, `SkipBackward`,
   `SkipForward`, `Shuffle`, `Wait` (+ `Branch`, `Privacy` internal).
@@ -240,7 +240,6 @@ Controllers are thin: fetch models, call `Run::exec()`, pass
   (`web_push`/`notification` object alongside encrypted body); added
   v0.25.1. iOS terminates subscriptions after ~3 silent pushes —
   never drop empty payloads silently.
-- `Services/OSF.php` — OAuth2 with osf.io.
 - `Services/RateLimitService.php` — generic rate limiter.
 - `Queue/EmailQueue.php`, `Queue/UnitSessionQueue.php` — DB-backed
   (not Redis). Track A v0.26.0 added named `STATE_*` constants and
@@ -288,6 +287,13 @@ templating engine — short tags + `htmlspecialchars` + helpers from
 release bumps `VERSION` and `package.json` version (`composer.json`
 has a drifted version that is not kept in sync). Entries group under
 **Added / Fixes / Changes / Schema**.
+
+**Before cutting a release, run the pre-release test gate** — the unit
+lane plus every `bin/*_smoke.php` live-MariaDB smoke, on the dev stack,
+cutting only if green. The SQLite CI lane cannot host the smokes, which
+is how the v1.10.3 regression shipped. Procedure and cut steps:
+`documentation/agent_doc/releasing.md` (companion to `testing.md` and
+`regression_prevention_plan.md`).
 
 ## Dev environment & operational gotchas
 

@@ -94,14 +94,73 @@ class RunUnit extends Model {
      * @param Run $run
 	 * @param array $props
      */
+    /**
+     * Properties a props array may never set, whoever built it. The
+     * constructor's $props usually come straight from a request
+     * (ajax_save_run_unit, ajax_get_unit, a structure import) and
+     * Model::assignProperties() assigns ANY declared property — so a POST
+     * of `run=1` replaced the authorised Run object (find() then looked up
+     * run_id NULL and create() inserted a placement with no run), and
+     * `valid` / `surveyStudy` could pre-empt the run-scoped lookup's
+     * verdict. Identity fields (id, unit_id, run_unit_id) stay assignable
+     * here: find() is what validates them. Content columns are whatever
+     * the subclass declares.
+     */
+    // Properties a props array must never set, whoever built it — a
+    // RunUnit's props usually come straight from a request, and
+    // Model::assignProperties() assigns ANY declared public property, so a
+    // POST of run=1 replaced the authorised Run object (find() then looked
+    // up run_id NULL and create() inserted a placement with no run).
+    //
+    // Deliberately NOT here: `valid` and `body_parsed`. Both are written
+    // through assignProperties() by trusted internal hydration — find()
+    // sets `valid` (v1.10.3 stripped it and left every find()-loaded unit
+    // valid=false, so runTo()/deleteRunUnitAction() failed on a placed
+    // unit — v1.10.4), and each subclass constructor sets `body_parsed`
+    // from its own table. A request `valid` is inert anyway: find()/
+    // forgetIdentity() overwrite it whenever an id is present.
+    const UNASSIGNABLE_PROPS = ['run', 'surveyStudy', 'errors', 'messages', 'export_attribs', 'icon', 'retryOutput', 'outputData'];
+
+    protected function assignProperties($props) {
+        if ($props && is_array($props)) {
+            foreach (self::UNASSIGNABLE_PROPS as $prop) {
+                unset($props[$prop]);
+            }
+        }
+        return parent::assignProperties($props);
+    }
+
     public function __construct(Run $run, array $props = []) {
         parent::__construct();
         $this->run = $run;
         $this->assignProperties($props);
         
         if ($this->id && empty($props['importing'])) {
-            $this->find($this->id, $this->special, $props);
+            if ($this->find($this->id, $this->special, $props) === false) {
+                // Not placed in this run. `id` / `unit_id` / `run_unit_id`
+                // came from the caller — often straight from a request
+                // (ajax_get_unit, ajax_save_run_unit, delete_run_unit, a
+                // structure import, a reminder id) — and keeping them would
+                // let the subclass constructors load, and create() /
+                // modify() / removeFromRun() write, another user's rows by
+                // bare id. find() is the only run-scoped lookup, so its
+                // verdict is final.
+                $this->forgetIdentity();
+            }
         }
+    }
+
+    /**
+     * Drop every caller-supplied identifier after find() failed to place
+     * the unit in $this->run. The object stays usable for create() (which
+     * then inserts a fresh unit) but can no longer address an existing row.
+     */
+    protected function forgetIdentity() {
+        $this->id = null;
+        $this->unit_id = null;
+        $this->run_unit_id = null;
+        $this->surveyStudy = null;
+        $this->valid = false;
     }
 
     /**
@@ -111,6 +170,14 @@ class RunUnit extends Model {
      * @return RunUnit
      */
     public function create($props = []) {
+        // Identity is established ONLY by the constructor's run-scoped find()
+        // (which forgetIdentity()s a foreign id). create()'s argument must
+        // not be able to re-introduce id / unit_id / run_unit_id — otherwise
+        // a caller that passes the same untrusted payload to both make() and
+        // create() (or any direct model caller) would resurrect the rejected
+        // id here and modify()/insert_update another run's row. Content
+        // fields still come from $props.
+        unset($props['id'], $props['unit_id'], $props['run_unit_id']);
         $this->assignProperties($props);
         
         if ($this->id) {
@@ -159,21 +226,19 @@ class RunUnit extends Model {
         return $this;
     }
     
-    public function updateUnitId() {
-        return $this->db->update(
-                'survey_run_units', 
-                array('unit_id' => $this->id), 
-                array('id' => $this->run_unit_id), 
-                array('int'), 
-                array('int')
-        );
-    }
-
     public function modify($options = []) {
         $change = array('modified' => mysql_now());
-        $table = empty($options['special']) ? 'survey_run_units' : 'survey_run_special_units';
+        // A special unit resolved by find()'s fallback (bare unit_id, no
+        // `special` posted) carries $this->special from its row; without
+        // this the description UPDATE would target survey_run_units by the
+        // special's id and rename an unrelated placement in this run.
+        $special = !empty($options['special']) ? $options['special'] : $this->special;
+        $table = empty($special) ? 'survey_run_units' : 'survey_run_special_units';
         if ($this->id && isset($options['description'])):
-            $this->db->update($table, array("description" => $options['description']), array('id' => $this->run_unit_id));
+            // run_unit_id is a public property and so assignable from a
+            // posted/imported payload; the run_id predicate keeps a foreign
+            // placement from being renamed through this run.
+            $this->db->update($table, array("description" => $options['description']), array('id' => $this->run_unit_id, 'run_id' => $this->run->id));
             $this->description = $options['description'];
         endif;
         
@@ -184,7 +249,7 @@ class RunUnit extends Model {
     public function removeFromRun($special = null) {
         // todo: set run modified
         if ($special !== null) {
-            return $this->db->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special));
+            return $this->db->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special, 'run_id' => $this->run->id));
         } else {
             // Audit F22/F7 (2026-07): terminate live unit sessions at this
             // placement BEFORE unlinking it. This base (placement-scoped)
@@ -194,7 +259,9 @@ class RunUnit extends Model {
             // stranding participants and littering every audit. run_unit_id
             // still resolves here because the delete happens after.
             $this->endLiveSessionsAtPlacement();
-            return $this->db->delete('survey_run_units', array('id' => $this->run_unit_id));
+            // Scoped to the run: run_unit_id may have been posted
+            // (delete_run_unit, ajax_remove_run_unit_from_run).
+            return $this->db->delete('survey_run_units', array('id' => $this->run_unit_id, 'run_id' => $this->run->id));
         }
     }
 
@@ -205,7 +272,7 @@ class RunUnit extends Model {
      * placement that no longer exists. Audit F22/F7 (2026-07).
      */
     protected function endLiveSessionsAtPlacement() {
-        if (!$this->run_unit_id) {
+        if (!$this->run_unit_id || !$this->run || !$this->run->id) {
             return 0;
         }
         // Legacy arm (review 2026-07, item 13): pre-047 rows and the 048
@@ -220,12 +287,13 @@ class RunUnit extends Model {
                  us.`result` = COALESCE(us.`result`, 'unit_removed_from_run'),
                  us.`state` = :state
              WHERE us.`ended` IS NULL AND us.`expired` IS NULL
+               AND rs.run_id = :run_id
                AND (us.`run_unit_id` = :run_unit_id
-                    OR (us.`run_unit_id` IS NULL AND us.`unit_id` = :unit_id AND rs.run_id = :run_id))",
+                    OR (us.`run_unit_id` IS NULL AND us.`unit_id` = :unit_id))",
             [
                 'run_unit_id' => $this->run_unit_id,
                 'unit_id'     => $this->id,
-                'run_id'      => $this->run ? $this->run->id : 0, // no run context -> legacy arm matches nothing
+                'run_id'      => $this->run->id, // both arms run-scoped: run_unit_id may be caller-supplied
                 'state'       => UnitSessionQueue::STATE_EXPIRED,
             ]
         );
@@ -406,7 +474,7 @@ OVERVIEW_BODY
     public function delete($special = null) {
         // todo: set run modified
         if ($special !== null) {
-            return $this->db->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special));
+            return $this->db->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special, 'run_id' => $this->run->id));
         } else {
             // NOTE: this deletes the unit DEFINITION, and
             // survey_unit_sessions.unit_id is FK ON DELETE CASCADE, so every
@@ -454,10 +522,43 @@ OVERVIEW_BODY
             }
             
             $unit = $select->bindParams($params)->limit(1)->fetch();
+
+            if ($unit === false) {
+                // Special units (ReminderEmail, ServiceMessagePage,
+                // OverviewScriptPage) have no survey_run_units row. Callers
+                // that only know the survey_units id — the email queue
+                // executing a reminder's unit session, RunSession hydrating
+                // one — arrive here without $special, so try the run's
+                // special units before declaring the id missing. This is
+                // what the failure being non-fatal used to paper over.
+                // Still scoped to $this->run.
+                $fallback = $this->db->select("
+                    `survey_run_special_units`.`id` AS run_unit_id,
+                    `survey_run_special_units`.`run_id`,
+                    `survey_run_special_units`.`type` AS special,
+                    `survey_run_special_units`.`description`,
+                    `survey_units`.id,
+                    `survey_units`.type,
+                    `survey_units`.created,
+                    `survey_units`.modified")
+                                ->from('survey_run_special_units')
+                                ->leftJoin('survey_units', "survey_units.id = `survey_run_special_units`.`id`")
+                                ->where('survey_run_special_units.run_id = :run_id')
+                                ->where("`survey_run_special_units`.`id` = :id");
+                if (!empty($props['run_unit_id'])) {
+                    // Honour the caller's placement filter like the primary
+                    // query does (special rows have id == run_unit_id).
+                    $fallback->where('survey_run_special_units.id = :run_unit_id');
+                }
+                $unit = $fallback->bindParams($params)->limit(1)->fetch();
+            }
         } else {
             $specials = array('ServiceMessagePage', 'OverviewScriptPage', 'ReminderEmail');
             if (!in_array($special, $specials)) {
-                die("Special unit not allowed");
+                // `special` is a public property and arrives straight from
+                // request params; an unknown value is "not in this run",
+                // not a reason to die() mid-response with a plain-text 200.
+                return false;
             }
 
             $select = $this->db->select("
@@ -479,7 +580,14 @@ OVERVIEW_BODY
             }
             
             $unit = $select->bindParams($params)->limit(1)->fetch();
-            $unit["special"] = $special;
+            // Only tag a row that exists: `$unit["special"] = …` on a false
+            // fetch silently converts false to an array, so the `=== false`
+            // verdict below never fired and a request-supplied `special`
+            // kept a foreign id alive (cross-tenant read/write via
+            // ajax_get_unit / ajax_save_run_unit / delete_run_unit).
+            if ($unit !== false) {
+                $unit["special"] = $special;
+            }
         }
 
         if ($unit === false) { // or maybe we've got a problem
@@ -509,10 +617,18 @@ OVERVIEW_BODY
      * @param array $params
      * @return RunUnit
      */
-    public static function findByRunUnitId($id, $params = []) {
-        $row = DB::getInstance()->findRow('survey_run_units', ['id' => $id]);
+    public static function findByRunUnitId($id, $params = [], Run $run = null) {
+        // With $run given the lookup is scoped to that run. Without it the
+        // unit's own run is loaded from the row — which proves nothing about
+        // the caller's rights, so request-driven callers must pass the run
+        // they were authorised for.
+        $where = ['id' => (int) $id];
+        if ($run !== null) {
+            $where['run_id'] = (int) $run->id;
+        }
+        $row = DB::getInstance()->findRow('survey_run_units', $where);
         if ($row) {
-            $run = new Run(null, $row['run_id']);
+            $run = $run ?: new Run(null, $row['run_id']);
             if (!$row['unit_id'] && isset($params['ignore_missing'])) {
                 $row['run_unit_id'] = $id;
                 $row['id'] = null;

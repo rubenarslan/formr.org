@@ -1571,6 +1571,7 @@ function opencpu_note_transport_failure(OpenCPU_Exception $e)
 function opencpu_evaluate($code, $variables = null, $return_format = 'json', $context = null, $return_session = false)
 {
     $GLOBALS['opencpu_local_error'] = null;
+    opencpu_forget_session();
 
     // An empty expression must never reach OpenCPU. The request body below
     // wraps the author's code in a closure that opens with
@@ -1673,6 +1674,7 @@ function opencpu_knit($code, $return_format = 'json', $self_contained = 1, $retu
     // a predecessor's note (X3): knit paths used to leave the global alone,
     // so a stale "expression is empty" from an earlier evaluate survived.
     $GLOBALS['opencpu_local_error'] = null;
+    opencpu_forget_session();
 
     $params = array('text' => "'" . addslashes($code) . "'");
     $uri = '/knitr/R/knit/' . $return_format;
@@ -1781,6 +1783,7 @@ function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1
 {
     // See opencpu_knit: this call owns the local-error note from here on.
     $GLOBALS['opencpu_local_error'] = null;
+    opencpu_forget_session();
 
     $params = array('text' => "'" . addslashes($source) . "'", 'self_contained' => $self_contained);
     $uri = '/formr/R/formr_inline_render/' . $return_format;
@@ -1833,6 +1836,7 @@ function opencpu_knit_iframe($source, $variables = null, $return_session = false
 {
     // See opencpu_knit: this call owns the local-error note from here on.
     $GLOBALS['opencpu_local_error'] = null;
+    opencpu_forget_session();
 
     $temp_token_to_delete = opencpu_prepare_api_access($source, $variables);
 
@@ -2286,6 +2290,25 @@ function opencpu_session(OpenCPU_Session $session = null)
     return $opencpu_session;
 }
 
+/**
+ * Forget the session of the previous OpenCPU call.
+ *
+ * opencpu_last_error() falls back to the global session's error when no
+ * local note is set, and the session is only replaced when a call actually
+ * opens one. shortcut_without_opencpu() answers a bare `survey$x` from the
+ * data set without OpenCPU, and an unanswered item makes it yield null —
+ * the same value a genuine R error produces — so in the run daemon and in
+ * the Test view's loop over sample sessions, participant A's R error was
+ * reported as B's ("OpenCPU error evaluating condition. <A's error>")
+ * instead of "returned NA". Every entry point forgets it alongside the
+ * local note, so an error can only describe the call it came from.
+ */
+function opencpu_forget_session()
+{
+    global $opencpu_session;
+    $opencpu_session = null;
+}
+
 function opencpu_last_error()
 {
     global $opencpu_session;
@@ -2294,7 +2317,8 @@ function opencpu_last_error()
     // nowhere else to report from — and without this the caller would
     // either see nothing or, worse, the error from some earlier call still
     // sitting in the global. opencpu_evaluate and every knit wrapper clear
-    // it on entry, so it cannot outlive the call it describes (X3).
+    // it on entry and forget the previous session (opencpu_forget_session),
+    // so neither can outlive the call it describes (X3).
     if (!empty($GLOBALS['opencpu_local_error'])) {
         return $GLOBALS['opencpu_local_error'];
     }

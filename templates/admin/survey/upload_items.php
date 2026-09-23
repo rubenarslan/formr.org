@@ -60,7 +60,7 @@ $resultCount = $study->getResultCount();
 
                             <h4>
                                 Or use 	<?php if (!empty($google['id'])): ?>
-                                    <a href="<?php echo $google['link']; ?>" target="_blank" title="Go to your Google sheet, check if this is the right one">this</a>
+                                    <a href="<?php echo h($google['link']); ?>" target="_blank" title="Go to your Google sheet, check if this is the right one">this</a>
                                 <?php else: ?>
                                     a
                                 <?php endif; ?> Googlesheet

@@ -1,7 +1,9 @@
 <?php
 
+require_once __DIR__ . '/helpers/SpreadsheetFixture.php';
+
 /**
- * Two sheet-parsing gaps found in the form_v2 release review:
+ * Two sheet-parsing gaps:
  *
  * - A `choice_list` column with a blank cell must mean "no choice list".
  *   The reader stored the empty string, and Item::validate() (`!== null`)
@@ -15,34 +17,18 @@
  */
 class SpreadsheetReaderBlankChoiceListTest extends PHPUnit\Framework\TestCase {
 
-    private $files = array();
-
-    protected function tearDown(): void {
-        foreach ($this->files as $file) {
-            if (file_exists($file)) {
-                unlink($file);
-            }
-        }
-        $this->files = array();
-    }
+    use SpreadsheetFixture;
 
     private function makeSheet(array $rows) {
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-        $survey = $spreadsheet->getActiveSheet();
-        $survey->setTitle('survey');
-        $survey->fromArray($rows, null, 'A1');
-        $choices = $spreadsheet->createSheet();
-        $choices->setTitle('choices');
-        $choices->fromArray(array(
-            array('list_name', 'name', 'label'),
-            array('mood', '1', 'bad'),
-            array('mood', '2', 'good'),
-            array('consent', '1', 'I am human'),
-        ), null, 'A1');
-        $file = tempnam(sys_get_temp_dir(), 'formr_sheet_') . '.xlsx';
-        $this->files[] = $file;
-        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save($file);
-        return $file;
+        return $this->makeWorkbook(array(
+            'survey' => $rows,
+            'choices' => array(
+                array('list_name', 'name', 'label'),
+                array('mood', '1', 'bad'),
+                array('mood', '2', 'good'),
+                array('consent', '1', 'I am human'),
+            ),
+        ));
     }
 
     private function parse(array $rows) {

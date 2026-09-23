@@ -103,10 +103,12 @@ class Privacy extends RunUnit {
     }
 
     public function find($id, $special = false, $props = []) {
-        parent::find($id, $special, $props);
+        // Propagate find()'s verdict: false means "not in this run" and the
+        // constructor then forgets the caller-supplied identity.
+        $found = parent::find($id, $special, $props);
         $this->type = 'Privacy';
 
-        return $this;
+        return $found;
     }
 
     public function getUnitSessionOutput(UnitSession $unitSession) {

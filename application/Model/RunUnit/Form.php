@@ -114,7 +114,8 @@ class Form extends Survey {
             $this->db->update(
                 'survey_run_units',
                 ['description' => $description],
-                ['id' => $this->run_unit_id]
+                // Same run_id predicate as Survey::persistStudyLink().
+                ['id' => $this->run_unit_id, 'run_id' => $this->run->id]
             );
         }
     }

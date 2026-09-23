@@ -14,35 +14,6 @@ export function initializeSelect2Components() {
             });
         });
 
-        // Initialize select2 pills
-        $(".select2pills select").each(function (i, elm) {
-            var slct = $(elm);
-            slct.select2({
-                width: "width:300px",
-                dropdownCssClass: "bigdrop",
-                maximumSelectionSize: slct.data('select2maximumSelectionSize'),
-                maximumInputLength: slct.data('select2maximumInputLength'),
-                formatResult: function (pill) {
-                    if (pill.id !== '') {
-                        var markup = "<strong>" + pill.text + "</strong><br><img width='200px' alt='" + pill.text + "' src='assets/img/pills/" + pill.id + ".jpg'/>";
-                        return markup;
-                    } else
-                        return '';
-                },
-                formatSelection: function (pill) {
-                    return pill.text;
-                },
-                escapeMarkup: function (m) {
-                    return m;
-                }
-            }).on("change select2-open", function (e) {
-                document.activeElement.blur();
-            });
-            webshim.ready("dom-extend", function () {
-                webshim.addShadowDom(slct, slct.select2("container"));
-            });
-        });
-
         // Initialize people list
         $(".people_list textarea").each(function (i, elm) {
             var slct = $(elm);

@@ -481,6 +481,95 @@ class SpreadsheetReader
         $this->survey[] = $row;
     }
 
+    /**
+     * Ranges of merged cells on the given worksheets, as "<sheet>!A1:B2"
+     * strings, or [] if none. Only the sheets readItemTableFile() goes on
+     * to parse are inspected: a merge on a notes or instructions tab
+     * swallows nothing we read, so it must not block the upload.
+     *
+     * The Xlsx reader drops merge information under setReadDataOnly(true),
+     * which we keep because it is what makes large uploads affordable, so
+     * for .xlsx the ranges are read straight from the worksheet XML inside
+     * the zip (PhpSpreadsheet's Xlsx reader already requires ext-zip). The
+     * part is located through workbook.xml and its rels rather than by
+     * assuming "sheetN.xml" is the N-th tab: Excel keeps the part number
+     * a sheet was created with, so after reordering or deleting tabs the
+     * numbers no longer follow the visible order. Ods records a merge
+     * regardless whenever its anchor cell holds a value, which is the only
+     * case in which a merge hides data, so the loaded workbook answers
+     * there. The legacy BIFF .xls reader drops them under read-data-only
+     * and is not covered.
+     *
+     * @param \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet[] $worksheets
+     */
+    private function findMergedCells($filepath, $filetype, array $worksheets)
+    {
+        $found = array();
+        if ($filetype !== 'Xlsx') {
+            foreach ($worksheets as $ws) {
+                foreach (array_keys($ws->getMergeCells()) as $range) {
+                    $found[] = $ws->getTitle() . '!' . $range;
+                }
+            }
+            return $found;
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($filepath) !== true) {
+            return $found;
+        }
+        $wanted = array();
+        foreach ($worksheets as $ws) {
+            $wanted[$ws->getTitle()] = true;
+        }
+        foreach ($this->xlsxWorksheetParts($zip) as $title => $part) {
+            if (!isset($wanted[$title])) {
+                continue;
+            }
+            $xml = $zip->getFromName($part);
+            if ($xml !== false && strpos($xml, '<mergeCell') !== false
+                    && preg_match_all('/<mergeCell\s[^>]*\bref="([^"]+)"/', $xml, $mm)) {
+                foreach ($mm[1] as $ref) {
+                    $found[] = $title . '!' . $ref;
+                }
+            }
+        }
+        $zip->close();
+        return $found;
+    }
+
+    /**
+     * Map of sheet title => worksheet part name ("xl/worksheets/sheet1.xml")
+     * for an open .xlsx zip, resolved via xl/workbook.xml and its rels.
+     */
+    private function xlsxWorksheetParts(\ZipArchive $zip)
+    {
+        $parts = array();
+        $workbook = $zip->getFromName('xl/workbook.xml');
+        $rels = $zip->getFromName('xl/_rels/workbook.xml.rels');
+        if ($workbook === false || $rels === false) {
+            return $parts;
+        }
+        $targets = array();
+        if (preg_match_all('/<Relationship\s[^>]*>/', $rels, $rm)) {
+            foreach ($rm[0] as $rel) {
+                if (preg_match('/\bId="([^"]+)"/', $rel, $id) && preg_match('/\bTarget="([^"]+)"/', $rel, $target)) {
+                    $path = $target[1];
+                    $path = ($path !== '' && $path[0] === '/') ? ltrim($path, '/') : 'xl/' . $path;
+                    $targets[$id[1]] = $path;
+                }
+            }
+        }
+        if (preg_match_all('/<sheet\s[^>]*>/', $workbook, $sm)) {
+            foreach ($sm[0] as $sheet) {
+                if (preg_match('/\bname="([^"]*)"/', $sheet, $name) && preg_match('/\br:id="([^"]+)"/', $sheet, $rid) && isset($targets[$rid[1]])) {
+                    $parts[html_entity_decode($name[1], ENT_QUOTES | ENT_XML1, 'UTF-8')] = $targets[$rid[1]];
+                }
+            }
+        }
+        return $parts;
+    }
+
     public function readItemTableFile($filepath)
     {
         ini_set('max_execution_time', 360);
@@ -513,6 +602,16 @@ class SpreadsheetReader
                 $choicesSheet = $phpSpreadsheet->getSheet(1);
             }
 
+            // Merged cells silently swallow whatever sat in the covered
+            // cells, so a merged header or label row reads as blanks and the
+            // errors that follow point at the wrong place (#111). Refuse the
+            // upload and name the ranges instead.
+            $merged = $this->findMergedCells($filepath, $filetype, isset($choicesSheet) ? array($surveySheet, $choicesSheet) : array($surveySheet));
+            if ($merged) {
+                $this->errors[] = __('Your spreadsheet contains merged cells (%s). formr cannot read merged cells: unmerge them and re-upload.', implode(', ', $merged));
+                return;
+            }
+
             if (isset($choicesSheet)) {
                 $this->readChoicesSheet($choicesSheet);
             }
@@ -532,8 +631,21 @@ class SpreadsheetReader
             // and other reader internals surface as a graceful error rather than
             // a 500. Note: a PHP memory-exhaustion fatal is NOT a Throwable and
             // cannot be caught here — the row cap in read*Sheet() guards that.
-            $this->errors[] = "An error occured reading your excel file. Please check your file or report to admin";
-            $this->errors[] = $e->getMessage();
+            if ($e instanceof SpreadsheetCellException) {
+                // One of our own cell-located errors: readSurveySheet() /
+                // readChoicesSheet() push the row message onto $this->errors
+                // and then throw a message that already wraps every entry
+                // with its cell address. Reporting the bare row message, a
+                // generic line AND the wrapped copy showed one mistake three
+                // times (#385); keep only the located copy. Dispatching on
+                // the type rather than on "$this->errors is non-empty" keeps
+                // an unrelated reader exception from swallowing errors that
+                // were pushed before it fired.
+                $this->errors = array($e->getMessage());
+            } else {
+                $this->errors[] = "An error occurred reading your spreadsheet. Please check your file or report to admin";
+                $this->errors[] = $e->getMessage();
+            }
             formr_log_exception($e, __CLASS__, $filepath);
             return;
         }
@@ -675,7 +787,7 @@ class SpreadsheetReader
                 // Stop processing if we have any errors
                 if ($this->errors) {
                     $error = sprintf("Error in cell %s%s (Choices sheet): \n %s", $cell->getColumn(), $rowNumber, implode("\n", $this->errors));
-                    throw new \PhpOffice\PhpSpreadsheet\Exception($error);
+                    throw new SpreadsheetCellException($error);
                 }
 
                 // Save cell value
@@ -899,7 +1011,7 @@ class SpreadsheetReader
                 // Stop processing if we have any errors
                 if ($this->errors) {
                     $error = sprintf("Error in cell %s%s (Survey Sheet): \n %s", $cell->getColumn(), $rowNumber, implode("\n", $this->errors));
-                    throw new \PhpOffice\PhpSpreadsheet\Exception($error);
+                    throw new SpreadsheetCellException($error);
                 }
 
                 // Save cell value. A blank `choice_list` cell is "no list": store

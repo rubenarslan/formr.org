@@ -75,8 +75,12 @@ try {
     $db->exec("INSERT INTO survey_unit_sessions (unit_id, run_session_id, created) VALUES (:u, :rs, NOW())",
         ['u' => $unit_id, 'rs' => end($rs_ids)]);
     $us_id = (int) $db->lastInsertId();
-    $db->exec("INSERT INTO survey_notifications (run_id, session_id, recipient_id, message, type, created) VALUES (:r, :sid, :u, 'smoke', 'error', NOW())",
-        ['r' => $run_id, 'sid' => $us_id, 'u' => $uid]);
+    // Since v1.8.0 the throttle keys on a per-unit fingerprint and ignores
+    // rows without one, so record the row exactly as notifyStudyAdmin would.
+    $fingerprint = new ReflectionMethod('Notification', 'fingerprint');
+    $fingerprint->setAccessible(true);
+    $db->exec("INSERT INTO survey_notifications (run_id, session_id, recipient_id, message, type, fingerprint, suppressed, created) VALUES (:r, :sid, :u, 'smoke', 'error', :f, 0, NOW())",
+        ['r' => $run_id, 'sid' => $us_id, 'u' => $uid, 'f' => $fingerprint->invoke($notification, $usTesting, 'error')]);
     ok($canBeSent->invoke($notification, $usTesting, 'error') === false,
         "canBeSent: false within the throttle window (throttling intact)");
 } catch (Throwable $e) {

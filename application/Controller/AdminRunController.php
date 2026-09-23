@@ -313,28 +313,8 @@ class AdminRunController extends AdminController
 
     private function settingsAction()
     {
-        $osf_projects = array();
-
-        if (($token = OSF::getUserAccessToken($this->user))) {
-            $osf = new OSF(Config::get('osf'));
-            $osf->setAccessToken($token);
-            $response = $osf->getProjects();
-
-            if ($response->hasError()) {
-                alert($response->getError(), 'alert-danger');
-                $token = null;
-            } else {
-                foreach ($response->getJSON()->data as $project) {
-                    $osf_projects[] = array('id' => $project->id, 'name' => $project->attributes->title);
-                }
-            }
-        }
-
         $this->setView('run/settings', array(
-            'osf_token' => $token,
             'run_selected' => $this->request->getParam('run'),
-            'osf_projects' => $osf_projects,
-            'osf_project' => $this->run->osf_project_id,
             'run_id' => $this->run->id,
             'reminders' => $this->run->getSpecialUnits(true, 'ReminderEmail'),
             'service_messages' => $this->run->getSpecialUnits(true, 'ServiceMessagePage'),
@@ -677,7 +657,9 @@ class AdminRunController extends AdminController
     private function importAction()
     {
         if ($run_file = $this->request->getParam('run_file_name')) {
-            $file = Config::get('run_exports_dir') . '/' . $run_file;
+            // basename() keeps run_file_name inside run_exports_dir — without
+            // it a "../.." value reads any JSON-parsable file on the host.
+            $file = Config::get('run_exports_dir') . '/' . basename($run_file);
         } elseif (!empty($_FILES['run_file'])) {
             $file = $_FILES['run_file']['tmp_name'];
         }

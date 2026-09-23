@@ -299,17 +299,6 @@ $settings['social_share'] = array(
 	),
 );
 
-// Settings for the OSF API
-$settings['osf'] = array(
-	'client_id' => 'xxxxxxxxx',
-	'client_secret' => 'xxxxxxx-secret',
-	'redirect_url' => 'https://formr.org/api/osf',
-	'scope' => 'osf.full_write',
-	'token_uri' => 'https://accounts.osf.io/oauth2/token',
-	'authorization_uri' => 'https://accounts.osf.io/oauth2/authorize',
-	'api' => 'https://api.osf.io/v2',
-	'site_url' => 'https://osf.io/myprojects/'
-);
 
 // Default time lengths for email subscriptions
 $settings['email_subscriptions'] = array(

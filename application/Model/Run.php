@@ -49,7 +49,6 @@ class Run extends Model
     public $header_image_path = null;
     public $title = null;
     public $description = null;
-    public $osf_project_id = null;
     public $footer_text = null;
     public $public_blurb = null;
     public $use_material_design = false;
@@ -87,7 +86,6 @@ class Run extends Model
         "custom_r",
         "manifest_json",
         "cron_active",
-        "osf_project_id",
         "use_material_design",
         "expire_cookie",
         "expire_cookie_value",
@@ -137,7 +135,7 @@ class Run extends Model
             return;
         }
 
-        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, custom_r_path, manifest_json_path, osf_project_id, use_material_design, expire_cookie, expiresOn, vapid_public_key, vapid_private_key, pwa_icon_path";
+        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, custom_r_path, manifest_json_path, use_material_design, expire_cookie, expiresOn, vapid_public_key, vapid_private_key, pwa_icon_path";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
 
@@ -503,7 +501,9 @@ class Run extends Model
 
     public function deleteFile($id, $filename)
     {
-        $where = array('id' => (int) $id, 'original_file_name' => $filename);
+        // Both id and name come from the request; scope to this run so
+        // another run's asset can't be unlinked and deleted through it.
+        $where = array('id' => (int) $id, 'original_file_name' => $filename, 'run_id' => (int) $this->id);
         $filepath = $this->db->findValue('survey_uploaded_files', $where, 'new_file_path');
         $deleted = $this->db->delete('survey_uploaded_files', $where);
         $physicalfile = APPLICATION_ROOT . "webroot/" . $filepath;
@@ -817,9 +817,22 @@ class Run extends Model
 
     public function getReminderSession($reminder_id, $session, $run_session_id)
     {
-        // create a unit_session here and get a session_id and pass it when making the unit
-        $runUnit = RunUnitFactory::make($this, ['id' => $reminder_id]);
+        // Both ids arrive from the request (ajax_remind, bulk actions, the
+        // monkey bar). The reminder must be one of THIS run's ReminderEmail
+        // special units — resolved by bare survey_units id it could be any
+        // user's email unit, rendered and sent through their SMTP account —
+        // and RunSession::load() scopes the run_session_id lookup to $this,
+        // so a foreign id yields an invalid session, not another run's
+        // participant.
+        $runUnit = $this->getSpecialUnit('ReminderEmail', $reminder_id);
+        if (!$runUnit || !($runUnit instanceof Email) || !$runUnit->valid) {
+            return null;
+        }
         $runSession = new RunSession($session, $this, ['id' => $run_session_id]);
+        if (!$runSession->valid) {
+            return null;
+        }
+        // create a unit_session here and get a session_id and pass it when making the unit
         $runSession->createUnitSession($runUnit, false);
 
         return $runSession->currentUnitSession;
@@ -1447,12 +1460,21 @@ class Run extends Model
         // Save run units
         foreach ($units as $i => &$unit) {
             if ($inc_survey && in_array($unit->type, ['Survey', 'Form'], true)) {
-                $survey = SurveyStudy::loadById($this->exportedStudyId($unit));
-                // The admin export posts the unit list from the browser, so
-                // the id is caller-supplied: only ship items of a study the
-                // run owner actually owns.
-                if ($survey->valid && (int) $survey->user_id === (int) $this->user_id) {
+                // The export dialog posts the unit list from the browser, so
+                // `unit_id` (and a Form's `study_id`) is caller-supplied:
+                // attach items only for a study the run's owner actually owns.
+                // Without this check any admin could read another user's item
+                // table by editing the POST.
+                $study_id = $this->exportedStudyId($unit);
+                if ($this->isOwnedBy('survey_studies', $study_id, $this->user_id)) {
+                    $survey = SurveyStudy::loadById($study_id);
                     $unit->survey_data = $SPR->exportItemTableJSON($survey, true);
+                } else {
+                    // A legacy placement of a colleague's study (or one a
+                    // superadmin re-assigned): still exported as a skeleton,
+                    // but say so — silently, the bundle looked complete and
+                    // only failed to link a study on import.
+                    alert('The ' . strtolower($unit->type) . ' unit at position ' . (int) $unit->position . ' points to a study you do not own, so its items were not included in the export.', 'alert-warning');
                 }
             }
             unset($unit->unit_id, $unit->run_unit_id);
@@ -1561,6 +1583,17 @@ class Run extends Model
         foreach ($units as $unitData) {
             // Cast to object to be safe, though json_decode usually returns objects
             $unit = (object)$unitData;
+
+            // Never trust identity or linkage fields from an import payload.
+            // A legitimate export carries none of them (Run::export unsets
+            // unit_id / run_unit_id, and export_attribs never include id),
+            // while a crafted one could name another user's survey_units /
+            // survey_run_units row and have create() modify(), insert_update
+            // or addToRun() it. Imports always create fresh rows; the
+            // Survey/Form branch below re-adds `importing` itself.
+            foreach (['id', 'unit_id', 'run_unit_id', 'run_id', 'add_to_run', 'importing', 'valid', 'run', 'user_id'] as $identityField) {
+                unset($unit->$identityField);
+            }
 
             // 3. Skip invalid units (missing type or position)
             if (!isset($unit->position) || empty($unit->type)) {

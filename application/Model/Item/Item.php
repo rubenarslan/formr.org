@@ -127,6 +127,19 @@ class Item {
     public $item_order = null;
     public $displaycount = null;
     public $error = null;
+
+    /**
+     * Whether a reply may be an array (several values). False for every
+     * scalar input; the multi-valued types (mc_multiple, select_multiple,
+     * select_or_add_multiple, file, geopoint) set it to true. Consulted by
+     * rejectNonScalarReply(), which UnitSession runs on every posted value
+     * before validateInput() / getReply() see it.
+     */
+    protected $accepts_array_reply = false;
+
+    public function acceptsArrayReply() {
+        return (bool) $this->accepts_array_reply;
+    }
     public $dont_validate = null;
     public $reply = null;
     public $val_errors = array();
@@ -460,7 +473,32 @@ class Item {
         return array('val_errors' => $this->val_errors, 'val_warnings' => $this->val_warnings);
     }
 
+    /**
+     * Reject a non-scalar reply on an item whose input is a single value.
+     *
+     * A client can post `name[]=x` against any item; the string functions
+     * the scalar items then call on the reply (trim, strlen, filter_var,
+     * strtotime, preg_match, htmlspecialchars) TypeError on PHP 8 and the
+     * survey page turns into a 500. Sets the error and returns true when
+     * the reply is unusable — the caller returns null. Null is left to the
+     * caller (it is the "missed required" / optional-empty case).
+     */
+    public function rejectNonScalarReply($reply, $message = null) {
+        if ($reply === null || is_scalar($reply) || $this->accepts_array_reply) {
+            return false;
+        }
+        $this->reply = null;
+        $this->error = $message !== null ? $message : __("This is not a valid answer.");
+        return true;
+    }
+
     public function validateInput($reply) {
+        // Scalar by default: a select_one / timezone / hidden item that does
+        // not override validateInput() would otherwise pass `name[]=x`
+        // through to be stored as a JSON array in a single-value column.
+        if ($this->rejectNonScalarReply($reply)) {
+            return null;
+        }
         $this->reply = $reply;
 
         if (!$this->optional && (($reply === null || $reply === false || $reply === array() || $reply === '') || (is_array($reply) && count($reply) === 1 && current($reply) === ''))) {

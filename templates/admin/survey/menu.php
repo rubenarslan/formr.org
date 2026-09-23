@@ -11,7 +11,7 @@
             <li><a href="<?= admin_study_url($study->name, 'upload_items') ?>"><i class="fa fa-upload"></i> Import Items</a></li>
             <li><a href="<?= admin_study_url($study->name, 'show_item_table') ?>"><i class="fa fa-th"></i> Items Table</a></li>
             <?php if (!empty($google['id'])): ?>
-                <li><a href="<?php echo $google['link']; ?>" target="_blank"><i class="fa fa-google"></i> Open Google Sheet</a></li>
+                <li><a href="<?php echo h($google['link']); ?>" target="_blank"><i class="fa fa-google"></i> Open Google Sheet</a></li>
             <?php endif; ?>
         </ul>
     </div>

@@ -223,7 +223,18 @@ class User extends Model {
                         ->where(array('email' => $email))
                         ->limit(1)->fetch();
 
-        if ($user && !$user['email_verified']) {
+        // One bcrypt verification per attempt: both branches below need the
+        // verdict, and verifying twice doubled login latency and the CPU a
+        // credential-stuffing burst can pin.
+        $password_ok = $user && password_verify($password, $user['password']);
+
+        if ($password_ok && !$user['email_verified']) {
+            // Only reveal the unverified state — and the verification token —
+            // to someone who has proved the password. Before this guard the
+            // branch ran on any known email regardless of password, which
+            // both leaked an account-exists/unverified oracle and handed the
+            // email_verification_hash (a live resend token) to an anonymous
+            // caller.
             $verification_link = site_url('verify-email', array('token' => $user['email_verification_hash']));
             $this->id = $user['id'];
             $this->email = $email;
@@ -232,7 +243,7 @@ class User extends Model {
                 <a class="btn btn-raised btn-default" href="%s">Resend Link</a>', 
             $verification_link);
             return false;
-        } elseif ($user && password_verify($password, $user['password'])) {
+        } elseif ($password_ok) {
             if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
                 /* Store new hash in db */
@@ -451,9 +462,14 @@ class User extends Model {
             return false;
         }
 
-        $reset_token_hash = $this->db->findValue('survey_users', array('email' => $email), array('reset_token_hash'));
+        $reset_row = $this->db->findRow('survey_users', array('email' => $email), 'reset_token_hash, reset_token_expiry');
+        $reset_token_hash = $reset_row ? $reset_row['reset_token_hash'] : null;
+        // The expiry was written at request time (+2 days) but never
+        // enforced, so a reset link stayed valid indefinitely until used.
+        $reset_not_expired = $reset_row && !empty($reset_row['reset_token_expiry'])
+            && strtotime($reset_row['reset_token_expiry']) > time();
 
-        if ($reset_token_hash) {
+        if ($reset_token_hash && $reset_not_expired) {
             if (password_verify($token, $reset_token_hash)) {
                 $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
                 $this->db->update(
@@ -480,7 +496,10 @@ class User extends Model {
         $verify_data = $this->db->findRow('survey_users', array('email' => $email), array('email_verification_hash', 'referrer_code'));
 
         if (Site::getSettings("signup:enable_referral_token", 'true') === 'true' &&
-            in_array($verify_data['referrer_code'], Config::get('referrer_codes'))) {
+            // strict compare (a loose one let `array(0)` promote every
+            // verifier), but the column is VARCHAR so a numeric code
+            // configured as an int literal must still match.
+            in_array((string) $verify_data['referrer_code'], array_map('strval', (array) Config::get('referrer_codes')), true)) {
             $this->db->update('survey_users', array('admin' => 1), array('email' => $email));
             $this->id = (int) $this->db->findValue('survey_users', array('email' => $email), array('id'));
             $this->load();
@@ -635,8 +654,11 @@ class User extends Model {
         $backup_codes = $this->get2FABackupCodes();
         if(!empty($backup_codes)) {
             $backup_codes_array = explode(';', $backup_codes);
-            if (in_array($code, $backup_codes_array)) {
-                $key = array_search($code, $backup_codes_array);
+            // Strict comparison: a loose in_array/array_search lets PHP
+            // type-juggling (e.g. an INF-parsing "9E9999" vs a stored
+            // "2E4567") satisfy the check and bypass the second factor.
+            if (in_array($code, $backup_codes_array, true)) {
+                $key = array_search($code, $backup_codes_array, true);
                 unset($backup_codes_array[$key]);
                 $this->set2FABackupCodes(implode(';', $backup_codes_array));
                 return true;

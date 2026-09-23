@@ -92,6 +92,25 @@ class BranchComputedJumpTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
+     * v1.10.3: NA (JSON null) is not a verdict. The live path has always halted
+     * on it — null is also the failed-evaluation signal — but called it an
+     * "OpenCPU error" with an empty message, and the Test view previewed the
+     * very same value as "continue (coerced)". The preview must show the halt.
+     * With no OpenCPU call in this lane opencpu_last_error() is empty, which is
+     * exactly how a genuine NA arrives (a failed evaluation leaves a message).
+     */
+    public function testNaPreviewsAsAHaltNotAsContinue(): void
+    {
+        $branch = $this->makeBranch();
+        $m = new ReflectionMethod(Branch::class, 'describeRouting');
+        $m->setAccessible(true);
+        $routing = $m->invoke($branch, null, $this->makeUnitSession());
+        $this->assertStringStartsWith('halt', $routing);
+        $this->assertStringContainsString('NA', $routing);
+        $this->assertStringNotContainsString('continue', $routing);
+    }
+
+    /**
      * A nested list used to reach strtotime() with an array — a TypeError in
      * PHP 8, fataling ajax_test_unit for the whole Test view over one
      * participant's result.

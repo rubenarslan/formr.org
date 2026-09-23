@@ -136,7 +136,7 @@ class Branch extends RunUnit {
         // take the first sample session
         $unitSession = current($results);
         $opencpu_vars = $unitSession->getRunData($this->condition);
-        $ocpu_session = opencpu_evaluate($this->condition, $opencpu_vars, 'text', null, true);
+        $ocpu_session = opencpu_evaluate($this->conditionForEvaluation(), $opencpu_vars, 'text', null, true);
         $output = opencpu_debug($ocpu_session, null, 'text');
 
         // Maybe there is a way that we prevent 'calling opencpu' in a loop by gathering what is needed to be evaluated
@@ -144,7 +144,7 @@ class Branch extends RunUnit {
         $rows = '';
         foreach ($results as $unitSession) {
             $opencpu_vars = $unitSession->getRunData($this->condition);
-            $eval = opencpu_evaluate($this->condition, $opencpu_vars);
+            $eval = opencpu_evaluate($this->conditionForEvaluation(), $opencpu_vars);
             $rows .= Template::replace($row_tpl, array(
                 'session' => $unitSession->runSession->session,
                 'position' => $unitSession->runSession->position,
@@ -197,6 +197,10 @@ class Branch extends RunUnit {
      * participant would actually go (not just the raw R value).
      */
     protected function describeRouting($eval, UnitSession $unitSession) {
+        if ($eval === []) {
+            // logical(0) / NULL: halts on the live path with its own message.
+            return 'halt (R returned an empty result — make the condition return TRUE/FALSE)';
+        }
         if (is_array($eval)) {
             $eval = array_shift($eval);
         }
@@ -206,6 +210,13 @@ class Branch extends RunUnit {
             // which takes a string and would TypeError out of ajax_test_unit,
             // fataling the whole Test view over one participant's result.
             return 'cannot route (R returned a nested list)';
+        }
+        if ($eval === null) {
+            // Same split as getUnitSessionExpirationData(): a failed
+            // evaluation leaves a message behind, NA does not. Both halt.
+            return (string) opencpu_last_error() !== ''
+                ? 'halt (R error — fix the condition)'
+                : 'halt (R returned NA — make the condition return TRUE/FALSE)';
         }
         if (($target = $this->computedJumpTarget($eval)) !== null) {
             return $unitSession->runSession->getUnitIdAtPosition($target)
@@ -230,13 +241,48 @@ class Branch extends RunUnit {
         return ($result ? 'jump to position ' . $this->if_true : 'continue') . ' (coerced)';
     }
 
+    /**
+     * Patch 080's wrapper exactly as the migration wrote it: `as.logical({`
+     * at the very start of the condition. An author-written
+     * as.logical(...) call (no brace) is deliberately not matched.
+     */
+    const LEGACY_BOOLEAN_WRAPPER = '/^\s*as\.logical\(\{/';
+
+    /**
+     * The R code actually sent for evaluation.
+     *
+     * A condition wrapped by patch 080 is meant to keep the reading it had
+     * before computed jumps (v1.8.0). as.logical() reproduces it for numbers
+     * (non-zero → TRUE) and booleans, but not for a Date / POSIXct result:
+     * pre-1.10.3 that came back as a string and the coercion below read a
+     * past date as TRUE and a future one as FALSE, whereas as.logical() of a
+     * Date is its day count — always TRUE — so a "not yet" skip silently
+     * became "jump". as.logical is an S3 internal generic: two methods
+     * defined in the closure the evaluation runs in give a wrapped condition
+     * its past/future reading back. They are visible to that one evaluation
+     * only and are added only when the condition carries the wrapper.
+     * Strings are unaffected (as.logical("2026-01-01") stays NA, the
+     * documented halt).
+     */
+    protected function conditionForEvaluation() {
+        $code = (string) $this->condition;
+        if (!preg_match(self::LEGACY_BOOLEAN_WRAPPER, $code)) {
+            return $this->condition;
+        }
+        return "as.logical.Date <- function(x, ...) x <= Sys.Date()\n"
+             . "as.logical.POSIXt <- function(x, ...) x <= Sys.time()\n"
+             . $code;
+    }
+
     public function getUnitSessionExpirationData(UnitSession $unitSession) {
         $data = ['expire_relatively' => null, 'check_failed' => false];
         $opencpu_vars = $unitSession->getRunData($this->condition);
-        $eval = opencpu_evaluate($this->condition, $opencpu_vars);
-        
-        if ($eval === null) {
-            $error = (string) opencpu_last_error();
+        $eval = opencpu_evaluate($this->conditionForEvaluation(), $opencpu_vars);
+
+        // null is what opencpu_evaluate() returns for a failed evaluation —
+        // and ALSO what R's NA decodes to (JSON null). Only a failure leaves
+        // a message in opencpu_last_error(); NA is handled further down.
+        if ($eval === null && ($error = (string) opencpu_last_error()) !== '') {
             notify_study_admin($unitSession, 'Branch unit: OpenCPU error evaluating condition. ' . $error, 'error');
             $data['log'] = $this->getLogMessage('error_opencpu_r', "OpenCPU error. Fix R code \n\n" . $error);
             $data['wait_opencpu'] = true;
@@ -264,6 +310,23 @@ class Branch extends RunUnit {
         // instead, which is the row an admin actually reads.
         $notes = [];
 
+        if ($eval === []) {
+            // logical(0) / NULL — OpenCPU serialises both to an empty JSON
+            // value. Typically `survey$x == 'yes'` where x does not exist for
+            // this participant. There is nothing to route on; before v1.10.3
+            // the unwrap below turned it into null and (bool) null read as
+            // "continue", silently. Halt like NA does, but say what it was:
+            // the NA message and the "more than one result" note would both
+            // be wrong for an empty vector.
+            $reason = 'Skip unit: your R code returned an empty result (logical(0) or NULL) instead of TRUE/FALSE, so the participant cannot be routed. This is usually a comparison against a column that does not exist for this participant. Return a single TRUE/FALSE, e.g. isTRUE(survey$consent == "yes").';
+            notify_study_admin($unitSession, $reason, 'error');
+            $data['log'] = $this->getLogMessage('error_opencpu_r', $reason);
+            $data['wait_opencpu'] = true;
+            $data['check_failed'] = true;
+            $this->outputData = $data;
+            return $data;
+        }
+
         if (is_array($eval)) {
             $eval = array_shift($eval);
             $notes[] = "Your R code is returning more than one result. Please fix your code, so it returns only true/false.";
@@ -285,6 +348,26 @@ class Branch extends RunUnit {
             // author error it is: halt, notify, and back off like any other
             // unevaluable condition.
             $reason = 'Skip unit: your R code returned a nested list. Return a single TRUE/FALSE or a position number.';
+            notify_study_admin($unitSession, $reason, 'error');
+            $data['log'] = $this->getLogMessage('error_opencpu_r', $this->joinNotes($notes, $reason));
+            $data['wait_opencpu'] = true;
+            $data['check_failed'] = true;
+            $this->outputData = $data;
+            return $data;
+        }
+
+        if ($eval === null) {
+            // R's NA (v1.10.3): a comparison against missing data —
+            // `survey$x == 1` with x unanswered — or as.logical() of free
+            // text (patch 080's wrapper). There is no right way to route on
+            // "unknown", and this did halt before — but since null is also
+            // the failed-evaluation signal it landed in the branch above as
+            // "OpenCPU error evaluating condition. " with nothing after the
+            // colon, while the Test view previewed the same value as
+            // "continue (coerced)". Name it and say how to fix it; the row
+            // backs off like any other unevaluable condition and picks up
+            // the fix at the next retry. describeRouting() mirrors this.
+            $reason = 'Skip unit: your R code returned NA (a missing value) instead of TRUE/FALSE, so the participant cannot be routed. Handle missing data in the condition, e.g. isTRUE(...) or !is.na(x) && x == 1.';
             notify_study_admin($unitSession, $reason, 'error');
             $data['log'] = $this->getLogMessage('error_opencpu_r', $this->joinNotes($notes, $reason));
             $data['wait_opencpu'] = true;

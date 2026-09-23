@@ -6,7 +6,7 @@
  * Phase 1 targets admin_domain only. Scripts are nonce-gated
  * (script-src 'self' 'nonce-…', no 'unsafe-inline'); inline styles are
  * permitted pragmatically (style-src 'unsafe-inline'). External origins the
- * admin UI legitimately reaches (OpenCPU, OSF, R-fiddle, Google Sheets) are
+ * admin UI legitimately reaches (OpenCPU, R-fiddle, Google Sheets) are
  * allowlisted for connect/frame/form-action. worker-src blob: is required by
  * the Ace code editors. Deliberately NO 'unsafe-eval': the prod build/ bundles
  * have none (only the dev-build/ webpack bundles use eval).
@@ -16,13 +16,13 @@
 class Csp {
 
     /** Browser-facing origins the admin UI talks to via fetch/XHR. */
-    const CONNECT_SRC = 'https://public.opencpu.org https://fiddle.rforms.org https://accounts.osf.io https://api.osf.io https://docs.google.com';
+    const CONNECT_SRC = 'https://public.opencpu.org https://fiddle.rforms.org https://docs.google.com';
 
-    /** Origins framed by the admin UI (OpenCPU knit output, OSF, fiddle). */
-    const FRAME_SRC = 'https://public.opencpu.org https://fiddle.rforms.org https://accounts.osf.io https://docs.google.com';
+    /** Origins framed by the admin UI (OpenCPU knit output, fiddle). */
+    const FRAME_SRC = 'https://public.opencpu.org https://fiddle.rforms.org https://docs.google.com';
 
-    /** Cross-origin form POST targets (social share, OSF OAuth). */
-    const FORM_ACTION = 'https://www.facebook.com https://twitter.com https://accounts.osf.io';
+    /** Cross-origin form POST targets (social share). */
+    const FORM_ACTION = 'https://www.facebook.com https://twitter.com';
 
     /** Endpoint that receives violation reports (admin-domain relative). */
     const REPORT_URI = '/api/csp-report';

@@ -47,7 +47,7 @@
 
                             <?php if (!empty($google['id'])): ?>
                                 <div class="col-md-4">
-                                    <a href="<?php echo $google['link']; ?>" class="dashboard-link" target="_blank">
+                                    <a href="<?php echo h($google['link']); ?>" class="dashboard-link" target="_blank">
                                         <span class="icon"><i class="fa fa-google"></i></span>
                                         <span class="text">Google Sheet</span>
                                     </a>
@@ -102,7 +102,7 @@
                 <?php endif; ?>
                 <?php if ($google_id): ?>
                     <div class="list-group-item">
-                        <h4 class="list-group-item-heading"><a href="https://docs.google.com/spreadsheets/d/<?php echo $google_id; ?>" target="blank"><i class="fa fa-link fa-fw"></i> GOOGLE SHEET</a></h4>
+                        <h4 class="list-group-item-heading"><a href="https://docs.google.com/spreadsheets/d/<?php echo h($google_id); ?>" target="blank"><i class="fa fa-link fa-fw"></i> GOOGLE SHEET</a></h4>
                         <p class="list-group-item-text">Opens google sheet in new tab</p>
                     </div>
                 <?php endif; ?>

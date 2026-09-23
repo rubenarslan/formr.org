@@ -11,6 +11,9 @@ class Email_Item extends Text_Item {
     protected $prepend = 'fa-envelope';
 
     public function validateInput($reply) {
+        if ($this->rejectNonScalarReply($reply, __('The email address is not valid'))) {
+            return null;
+        }
         if ($this->optional && trim($reply) == '') {
             return parent::validateInput($reply);
         } else {

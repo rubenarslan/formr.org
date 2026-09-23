@@ -46,23 +46,6 @@ class Email extends RunUnit {
     public function create($options = []) {
         parent::create($options);
 
-        // The email account must belong to the run owner. Without this
-        // check, a structure-import body or AdminAjaxController::ajax_save_
-        // run_unit POST can re-point a Run's Email unit at any other
-        // admin's survey_email_accounts row by id, and subsequent send-
-        // mail dispatches would go through the victim's SMTP credentials.
-        // Run::importUnits also nulls account_id pre-emptively (cross-
-        // server portability), but this is the canonical gate so the
-        // admin-AJAX path is also covered.
-        if (!empty($options['account_id']) && is_numeric($options['account_id'])
-                && !$this->isOwnedBy(
-                    'survey_email_accounts',
-                    (int) $options['account_id'],
-                    (int) $this->run->user_id
-                )) {
-            $options['account_id'] = null;
-        }
-
         $parsedown = new ParsedownExtra();
         if (isset($options['body'])) {
             if (isset($options['account_id']) && is_numeric($options['account_id'])) {
@@ -80,6 +63,18 @@ class Email extends RunUnit {
             $options['cron_only'] = isset($options['cron_only']) ? (int) (bool) $options['cron_only'] : 0;
             $options['html'] = 1;
             $this->assignProperties($options);
+        }
+
+        // The email account must belong to the run owner: a structure-import
+        // body or an ajax_save_run_unit POST could otherwise re-point this
+        // unit at any other admin's survey_email_accounts row by id and have
+        // sendMail() dispatch through the victim's SMTP credentials. One gate
+        // for every source — posted (parent::create() assigned it), imported,
+        // or re-assigned from $options in the body branch above. sendMail()
+        // scopes its own load to the run owner as well, for rows written
+        // before this gate existed.
+        if ($this->account_id !== null && !$this->isOwnedBy('survey_email_accounts', (int) $this->account_id, (int) $this->run->user_id)) {
+            $this->account_id = null;
         }
 
         if ($this->account_id === null) {
@@ -230,7 +225,16 @@ class Email extends RunUnit {
         $run_session = $unitSession->runSession;
         $testing = !$run_session || $run_session->isTesting();
 
-        $acc = new EmailAccount($this->account_id, null);
+        // Scoped to the run owner: create()'s gate only covers rows written
+        // since it existed, and this is where the account's SMTP credentials
+        // are actually decrypted and used.
+        $acc = new EmailAccount($this->account_id, $this->run ? (int) $this->run->user_id : null);
+        if (!$acc->valid) {
+            alert("The email account selected for this unit does not belong to the study owner. Select one of your own accounts in the email unit.", 'alert-danger');
+            $this->errors['log'] = $this->getLogMessage('no_sender', "The email account selected for this unit does not belong to the study owner.");
+            notify_study_admin($unitSession, 'Email unit: the sender account is not owned by the study owner', 'error');
+            return false;
+        }
         $mailing_themselves = (is_array($acc->account) && $acc->account["from"] === $this->recipient) ||
                 (($user = Site::getCurrentUser()) && $user->email === $this->recipient) ||
                 ($this->run && $this->run->getOwner()->email === $this->recipient);
@@ -399,7 +403,13 @@ class Email extends RunUnit {
                 unlink($local_image);
             });
 
-            if (!$mail->AddEmbeddedImage($local_image, $image_id, $image_id, 'base64', 'image/png')) {
+            // The knitted HTML references the figure as cid:<URLencode(basename)>
+            // (see opencpu_knit_email's upload.fun), so the Content-ID we
+            // register must be the encoded form too. Registering the raw file
+            // name broke every figure whose chunk label contained a space
+            // ("my picture" -> cid:my%20picture-1.png vs "my picture-1.png"; #290).
+            $cid = self::embeddedImageCid($image_id);
+            if (!$mail->AddEmbeddedImage($local_image, $cid, $image_id, 'base64', 'image/png')) {
                 alert("Could not embed image with id '{$image_id}'", 'alert-danger');
             }
         }
@@ -620,4 +630,26 @@ class Email extends RunUnit {
     // 60/week — an ESM design or a shared lab address reaches them
     // legitimately), an SMTP outage, or a missing recipient all used to
     // produce the ~15 s hot loop the shared docblock describes.
+
+    /**
+     * Content-ID under which a knitted figure is embedded. Mirrors R's
+     * URLencode(basename(x)) used by opencpu_knit_email's upload.fun, so the
+     * cid: reference in the HTML and the registered attachment agree even
+     * when the chunk label (and hence the file name) contains a space.
+     *
+     * Not rawurlencode(): R's URLencode(reserved = FALSE) leaves the RFC 3986
+     * reserved set (!$&'()*+,;=:/?@#) and square brackets alone as well as the unreserved
+     * characters, whereas rawurlencode() escapes everything outside
+     * A-Za-z0-9-._~. A chunk label such as "plot(1)" would otherwise be
+     * referenced as cid:plot(1)-1.png but registered as plot%281%29-1.png.
+     */
+    public static function embeddedImageCid($imageId) {
+        return preg_replace_callback(
+            '/[^A-Za-z0-9._~!$&\'()*+,;=:\/?@#\[\]-]/',
+            function ($m) {
+                return sprintf('%%%02X', ord($m[0]));
+            },
+            (string) $imageId
+        );
+    }
 }

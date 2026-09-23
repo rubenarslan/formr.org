@@ -328,6 +328,22 @@ class UnitSession extends Model {
         $started = hrtime(true);
         try {
             $this->execResults = [];
+
+            // Hydrated from a session row whose unit is no longer placed in
+            // this run (the admin swapped the study behind this placement,
+            // or a pre-F22 orphan): the constructor's run-scoped find()
+            // failed and forgetIdentity() left a unit with no id and — for a
+            // Survey — no study, so getUnitSessionOutput() would dereference
+            // null. Treat it like a removed placement (audit F22): end this
+            // unit session and let the run session move on to whatever now
+            // sits at this position.
+            if ($this->runUnit && $this->runUnit->id === null) {
+                $this->execResults['end_session'] = true;
+                $this->execResults['end_reason'] = 'unit_removed_from_run';
+                $this->execResults['move_on'] = true;
+                return $this->execResults;
+            }
+
             // Check if session has expired by getting relevant unit data
             if ($this->isExpired()) {
                 $this->execResults['expired'] = true;
@@ -446,6 +462,41 @@ class UnitSession extends Model {
         }
 
         if (empty($expirationData['expires'])) {
+            // The recompute produced no LIVE deadline. For a Survey this is
+            // where the client/server expiry mismatch was born (v1.10.3): the
+            // stored `expires` column still held a PAST deadline, head.php
+            // rendered it into window.unit_session_expires, the ExpiryNotifier
+            // showed "Session expired / reload", and the reload re-ran exactly
+            // this branch — returning false, so the server re-served the same
+            // page without ever ending it, forever.
+            //
+            // The common cause is a survey with a START window but no
+            // post-access deadline (expire_invitation_after > 0, grace = 0,
+            // expire_after = 0 → "X minutes to START, then no limit"): the
+            // moment the participant starts, the PRE-access deadline stops
+            // applying (the wiki's "Y=0 & Z=0 ⇒ never expires" post-access),
+            // but the stored pre-access `expires` lingers on the row. Expiry
+            // being switched off entirely lands here too.
+            //
+            // Reconcile at this single point, which BOTH the participant render
+            // (execute()) and the daemon (revalidateQueueVerdict()) reach:
+            // clear the stale stored `expires` so nothing renders a past
+            // deadline the server will not enforce — the modal can no longer
+            // outlive the row. Do NOT expire on the stale value: the
+            // participant started within their window and is entitled to
+            // finish; ending them here would discard an in-progress response
+            // they were allowed to complete. A study that wants in-progress
+            // sessions to time out must configure a post-access window (grace
+            // or expire_after); X alone only gates STARTING. Scoped to Survey;
+            // Pause/Wait/External keep their own handling.
+            if ($this->runUnit instanceof Survey && $this->expires !== null) {
+                $this->db->exec(
+                    "UPDATE `survey_unit_sessions` SET `expires` = NULL
+                     WHERE `id` = :id AND `ended` IS NULL AND `expired` IS NULL",
+                    ['id' => $this->id]
+                );
+                $this->expires = null;
+            }
             return false;
         } elseif(!empty($expirationData['end_session'])) {
             $this->execResults['end_session'] = true;
@@ -534,6 +585,13 @@ class UnitSession extends Model {
      */
     public function revalidateQueueVerdict() {
         $this->execResults = [];
+        // Same orphan execute() ends as unit_removed_from_run: the unit is
+        // no longer placed in the run, so there is no deadline to recompute
+        // (Survey's would dereference the nulled surveyStudy). End it so the
+        // run session moves on, instead of 'dequeued' leaving it open forever.
+        if ($this->runUnit && $this->runUnit->id === null) {
+            return 'end';
+        }
         $isExpired = $this->isExpired();
         if ($isExpired || !empty($this->execResults['expired']) || !empty($this->execResults['end_session'])) {
             return 'end';
@@ -545,6 +603,12 @@ class UnitSession extends Model {
             UnitSessionQueue::addItem($this, $this->runUnit, $this->execResults['queue']);
             return 'requeued';
         }
+
+        // No live deadline. isExpired() (the shared reconciliation point) has
+        // already handled a Survey whose armed deadline is past — it returns
+        // true there, so we took the 'end' branch above — and has cleared a
+        // stale stored `expires` for the no-deadline case. Nothing left to do
+        // but drop the queue row.
         UnitSessionQueue::removeItem($this->id);
         return 'dequeued';
     }
@@ -555,7 +619,8 @@ class UnitSession extends Model {
         // 'Form' too: v2 Form units dual-write the same wide results table via
         // createSurveyStudyRecord, so their rows need the expired stamp as well —
         // gating on 'Survey' alone left every Form row expired=NULL forever.
-        if (in_array($unit->type, ['Survey', 'Form'], true) && Config::get('form_v2_dual_write_results', true)) {
+        // surveyStudy: see end() — no study once identity is forgotten.
+        if (in_array($unit->type, ['Survey', 'Form'], true) && $unit->surveyStudy && Config::get('form_v2_dual_write_results', true)) {
             $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `expired` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
 			$params = ['session_id' => $this->id, 'study_id' => $unit->surveyStudy->id];
 			try {
@@ -580,7 +645,7 @@ class UnitSession extends Model {
              WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
              [
                  'id'        => $this->id,
-                 'unit_id'   => $unit->id,
+                 'unit_id'   => $unit->id ?? $this->unit_id,
                  'state'     => UnitSessionQueue::STATE_EXPIRED,
              ]
         );
@@ -604,15 +669,27 @@ class UnitSession extends Model {
             //
             // Audit X1 (v1.8.0): an admin force-move is not a completion.
             // The UPDATE below flips the results row's `ended` from NULL to
-            // now, and `ended IS NOT NULL` is the standard completion filter
-            // in analysis — so an admin using "send to position" on someone
-            // parked mid-survey manufactured a row indistinguishable from a
-            // real completion, and recordCompletion() folded its duration
-            // into the study's geometric mean (an accumulator: the skew was
-            // permanent). $completes is false for the two operator paths
-            // (forceTo, forceMoveOn); participants finishing, the queue and
-            // expiry are unaffected.
-            if (($unit->type == "Survey" || $unit->type == "Form") && $completes && Config::get('form_v2_dual_write_results', true)) {
+            // now, and `ended IS NOT NULL` is the standard completion filter in
+            // analysis — so an admin using "send to position" on someone parked
+            // mid-survey manufactured a row indistinguishable from a real
+            // completion, and recordCompletion() folded its duration into the
+            // study's geometric mean. RunSession::positionSessions() does it in
+            // bulk. The rollup is an accumulator, so the skew was permanent and
+            // silent, and it reached published numbers.
+            //
+            // $completes is false for the two operator paths (forceTo,
+            // forceMoveOn). Everything else — participants finishing, the
+            // queue, expiry — is unaffected.
+            // A unit hydrated from a session row whose study is no longer
+            // placed in the run (the constructor's find() failed and
+            // forgetIdentity() nulled surveyStudy) has no results table to
+            // stamp: the study behind the placement changed, so there is
+            // nothing of this participant's to complete. Without the guard
+            // the UPDATE targets an empty table name and the PDOException
+            // escapes (no catch here, unlike expire()) — a 500 on every
+            // participant request, and the daemon re-picks the queued row
+            // on every pass because removeItem() is never reached.
+            if (($unit->type == "Survey" || $unit->type == "Form") && $completes && $unit->surveyStudy && Config::get('form_v2_dual_write_results', true)) {
                 $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
                 $params = array('session_id' => $this->id, 'study_id' => $unit->surveyStudy->id);
                 $this->db->exec($query, $params);
@@ -675,7 +752,7 @@ class UnitSession extends Model {
                 WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
                 [
                     'id'         => $this->id,
-                    'unit_id'    => $this->runUnit->id,
+                    'unit_id'    => $this->runUnit->id ?? $this->unit_id,
                     'result'     => $this->result,
                     'result_log' => $this->result_log,
                     'state'      => UnitSessionQueue::STATE_ENDED,
@@ -794,7 +871,7 @@ class UnitSession extends Model {
                 WHERE `id` = :id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
                 [
                     'id'         => $this->id,
-                    'unit_id'    => $this->runUnit->id,
+                    'unit_id'    => $this->runUnit->id ?? $this->unit_id,
                     'result'     => $this->result,
                     'result_log' => $this->result_log,
                 ]
@@ -1130,7 +1207,18 @@ class UnitSession extends Model {
                 $item = $items[$item_name];
             }
 
-            $validInput = ($validate && !$item->skip_validation) ? $item->validateInput($item_value) : $item_value;
+            // Shape check before anything touches the reply: a client can post
+            // `name[]=x` against any item, and the paths that skip
+            // validateInput() (skip_validation, $validate = false) still hand
+            // the value to getReply(), which for a scalar item may index an
+            // array with it (Timezone) — a TypeError 500 on PHP 8. Items that
+            // take several values (mc_multiple, select_multiple, file, …)
+            // opt in via Item::$accepts_array_reply.
+            if ($item->rejectNonScalarReply($item_value)) {
+                $validInput = null;
+            } else {
+                $validInput = ($validate && !$item->skip_validation) ? $item->validateInput($item_value) : $item_value;
+            }
             if ($item->save_in_results_table) {
                 if ($item->error) {
                     $this->errors[$item_name] = $item->error;

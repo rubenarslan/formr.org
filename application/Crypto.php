@@ -15,6 +15,12 @@ class Crypto {
         if (!is_file(self::getKeyFile())) {
             $enc_key = \ParagonIE\Halite\KeyFactory::generateEncryptionKey();
             \ParagonIE\Halite\KeyFactory::save($enc_key, self::getKeyFile());
+            // Expected exactly once, at first run. Any later mint means the
+            // configured key went missing (an empty volume, a re-created
+            // mount): everything encrypted so far is unreadable under the
+            // new key, and the new writes become unreadable once the old
+            // key comes back — so leave a trace instead of failing silently.
+            formr_log('Crypto::setup generated a new at-rest key at ' . self::getKeyFile() . '. If this host already holds encrypted data, restore the original key file.');
         }
     }
 

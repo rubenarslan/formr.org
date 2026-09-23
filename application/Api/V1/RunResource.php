@@ -5,7 +5,7 @@ class RunResource extends BaseResource
     // Allowlist of run fields the v1 API may write via updateRun().
     // Deliberately narrower than Run::$run_settings (used by the admin
     // UI): omits `name` (security boundary — admin vs study domain),
-    // `vapid_*` (auto-generated), `osf_project_id` (OAuth-managed),
+    // `vapid_*` (auto-generated),
     // `manifest_json` (computed), and `expire_cookie` (derived from
     // value × unit pair). New fields added to Run::$run_settings will
     // NOT auto-propagate here — extend this list explicitly when the
@@ -221,7 +221,7 @@ class RunResource extends BaseResource
         $input = $this->getJsonBody();
 
         // Allowlist of fields this endpoint may update. Anything else
-        // (vapid keys, osf_project_id, name, manifest_json, expire_cookie,
+        // (vapid keys, name, manifest_json, expire_cookie,
         // etc.) is dropped silently — preventing mass-assignment of
         // sensitive or computed columns that live on the run_settings
         // allowlist used by the admin UI.

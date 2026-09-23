@@ -12,7 +12,7 @@
 
 </div>
 
-<p><small class="text-muted"><strong>Advanced:</strong> if your R code returns a position number of <strong>2 or higher</strong> instead of TRUE/FALSE, the participant jumps straight to that position. Consult the documentation for more details.</small></p>
+<p><small class="text-muted"><strong>Advanced:</strong> if your R code returns a position number of <strong>2 or higher</strong> instead of TRUE/FALSE, the participant jumps straight to that position. Consult the documentation for more details. A unit created before formr v1.10.3 has its condition wrapped in <code>as.logical({ … })</code>, which keeps the TRUE/FALSE reading it always had (any non-zero number counts as TRUE, a past date TRUE, a future date FALSE); remove the wrapper to return a position.</small></p>
 
 <p class="btn-group">
     <a class="btn btn-default unit_save" href="ajax_save_run_unit?type=SkipBackward">Save</a>

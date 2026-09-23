@@ -96,6 +96,7 @@
                                        <li><a href="<?php echo site_url('admin/advanced/info'); ?>"><i class="fa fa-list fa-fw"></i> PHP Info</a></li>
                                        <li><a href="<?php echo site_url('admin/advanced/runs_management'); ?>"><i class="fa fa-list fa-fw"></i> Manage Runs</a></li>
                                        <li><a href="<?php echo site_url('admin/advanced/compute_usage'); ?>"><i class="fa fa-clock-o fa-fw"></i> Compute Usage</a></li>
+                                       <li><a href="<?php echo site_url('admin/advanced/personal_data'); ?>"><i class="fa fa-user-secret fa-fw"></i> Personal Data</a></li>
                                        <?php $mail_guard_tripped = MailGuardService::globalCeilingTripped(24); ?>
                                        <li><a href="<?php echo site_url('admin/advanced/registration_invites'); ?>"><i class="fa fa-ticket fa-fw"></i> Registration Invites</a></li>
                                        <li><a href="<?php echo site_url('admin/advanced/mail_guard'); ?>"><i class="fa fa-shield fa-fw"></i> Mail Guard

@@ -84,6 +84,21 @@ class AdminAdvancedController extends AdminController {
         return $this->sendResponse();
     }
 
+    /**
+     * Who collects (probably) personal data, in which runs. Heuristic over
+     * item types and names; see PersonalDataAudit for what it can't see.
+     */
+    public function personalDataAction() {
+        try {
+            $vars = array('report' => PersonalDataAudit::report(), 'audit_error' => null);
+        } catch (Throwable $e) {
+            $vars = array('report' => PersonalDataAudit::emptyReport(), 'audit_error' => $e->getMessage());
+        }
+        $vars['category_labels'] = PersonalDataAudit::categoryLabels();
+        $this->setView('advanced/personal_data', $vars);
+        return $this->sendResponse();
+    }
+
     public function testOpencpuSpeedAction() {
         $this->setView('advanced/test_opencpu_speed');
         return $this->sendResponse();
@@ -238,7 +253,10 @@ class AdminAdvancedController extends AdminController {
             // from their own account page if needed (well — currently
             // labels are immutable; future-friendly default).
             $label = 'admin-issued-' . date('Ymd-His');
-            $client = $helper->createClient($user, $label);
+            // createClient() refuses an empty scope list (an empty client
+            // scope is "unrestricted" to bshaffer); an admin-issued credential
+            // is granted every known scope, the effective grant it had before.
+            $client = $helper->createClient($user, $label, $helper->listScopes());
             if (!$client) {
                 return array('success' => false, 'message' => 'Unable to create client');
             }

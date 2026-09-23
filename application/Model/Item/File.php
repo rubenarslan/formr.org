@@ -1,6 +1,8 @@
 <?php
 
 class File_Item extends Item {
+    protected $accepts_array_reply = true;
+
 
     public $type = 'file';
     public $input_attributes = array('type' => 'file', 'accept' => "image/*,video/*,audio/*,text/*");

@@ -144,9 +144,9 @@ class AdminSurveyController extends AdminController {
         }
         
         $name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", basename($file['name']));
-        if (!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/", (string)$name)) {
+        if (!SurveyStudy::isValidName((string) $name)) {
             alert("<strong>Error:</strong> The study name (the name of the file or Google sheet you uploaded, \"".(string)$file['name']."\") can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.
-                    The name has to at least 2, at most 64 characters long. It needs to start with a letter. No dots, no spaces, no dashes, no umlauts please. 
+                    The name has to be at least 3, at most 65 characters long. It needs to start with a letter. No dots, no spaces, no dashes, no umlauts please. 
                     The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>, but they will be ignored.", 'alert-danger');
             return false;
         }
@@ -252,6 +252,13 @@ class AdminSurveyController extends AdminController {
         // URL instead of the admin Session — the /survey-test/ path can't read
         // that session (different cookie path).
         $token = SurveyTestController::mintToken($this->study->name, $this->user->id);
+        if ($token === null) {
+            // A name stored under the old, unanchored rename check can't be
+            // minted into the token; sending an empty token only yields a
+            // bare 403 on /survey-test/ with no explanation.
+            alert('This survey cannot be tested until it is renamed to a plain identifier (letters, digits and underscores, starting with a letter).', 'alert-danger');
+            $this->request->redirect(admin_study_url($this->study->name, 'rename_study'));
+        }
         $this->request->redirect(site_url('survey-test/' . $token));
     }
 
@@ -426,7 +433,10 @@ class AdminSurveyController extends AdminController {
         $old_name = $study->name;
 
         if ($new_name && $new_name !== $study->name) {
-            if (!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/", $new_name) || 
+            // Anchored: unanchored, any name *containing* a word passed, so a
+            // rename could smuggle `|`-separated fields into the survey-test
+            // token (SurveyTestController) or arbitrary characters into URLs.
+            if (!SurveyStudy::isValidName($new_name) ||
                     $this->fdb->entry_exists('survey_studies', array('name' => $new_name, 'user_id' => $this->user->id))) {
 
                 alert('A study with this name already exists', 'alert-danger');
@@ -569,17 +579,27 @@ class AdminSurveyController extends AdminController {
                 $value = (int) $value;
             }
         });
-        if (isset($settings['maximum_number_displayed']) && $settings['maximum_number_displayed'] > 3000 || $settings['maximum_number_displayed'] < 0) {
+        // google_file_id is the one non-integer setting, so it must be
+        // validated explicitly — otherwise arbitrary text (quotes, angle
+        // brackets) is stored and echoed into admin views. Empty clears it.
+        if (isset($settings['google_file_id']) && $settings['google_file_id'] !== ''
+                && !google_is_valid_sheet_id($settings['google_file_id'])) {
+            alert('The Google Sheet ID is not valid.', 'alert-warning');
+            $errors = true;
+        }
+        // Range checks: the isset() must cover both bounds, otherwise a POST
+        // that omits a key reads an undefined index on the `||` side.
+        if (isset($settings['maximum_number_displayed']) && ($settings['maximum_number_displayed'] > 3000 || $settings['maximum_number_displayed'] < 0)) {
             alert("Maximum number displayed has to be between 1 and 3000", 'alert-warning');
             $errors = true;
         }
 
-        if (isset($settings['displayed_percentage_maximum']) && $settings['displayed_percentage_maximum'] > 100 || $settings['displayed_percentage_maximum'] < 1) {
+        if (isset($settings['displayed_percentage_maximum']) && ($settings['displayed_percentage_maximum'] > 100 || $settings['displayed_percentage_maximum'] < 1)) {
             alert("Percentage maximum has to be between 1 and 100.", 'alert-warning');
             $errors = true;
         }
 
-        if (isset($settings['add_percentage_points']) && $settings['add_percentage_points'] > 100 || $settings['add_percentage_points'] < 0) {
+        if (isset($settings['add_percentage_points']) && ($settings['add_percentage_points'] > 100 || $settings['add_percentage_points'] < 0)) {
             alert("Percentage points added has to be between 0 and 100.", 'alert-warning');
             $errors = true;
         }
