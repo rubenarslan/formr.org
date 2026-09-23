@@ -70,6 +70,15 @@ class AdminSurveyController extends AdminController {
                         delete_tmp_file($file);
                         return $this->request->redirect('admin/survey');
                     }
+                    // The study is named by the JSON's "name", not by the file
+                    // name validateUploadedFile() checked, so apply the one
+                    // name rule here too — createFromFile() would otherwise
+                    // strip "foo-v2" to "foo" or store a NULL name for "My survey".
+                    if (!SurveyStudy::isValidName($data->name)) {
+                        alert('<strong>Error:</strong> The survey name in the JSON ("name": "' . h(is_scalar($data->name) ? (string) $data->name : '') . '") can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. It has to be 3 to 65 characters long and start with a letter.', 'alert-danger');
+                        delete_tmp_file($file);
+                        return $this->request->redirect('admin/survey');
+                    }
                     // createFromData reuses (and re-uploads items into) a
                     // same-named study of the current user — the run-import
                     // semantics. This form only creates, so refuse instead of

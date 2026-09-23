@@ -35,6 +35,10 @@ class Rank_Item extends Item {
     public $mysql_field = 'VARCHAR (255) DEFAULT NULL';
     protected $hasChoices = true;
     protected $group_role = 'group';
+    // Posts `<name>[]` (one hidden input per row), so opt out of the scalar
+    // shape check UnitSession runs before validateInput() — without this every
+    // rank answer was refused as "not a valid answer".
+    protected $accepts_array_reply = true;
 
     /** Keywords the `type_options` may carry (see class doc). */
     public static $optionKeywords = array('random', 'shuffle', 'touch', 'require_change');

@@ -765,8 +765,9 @@ class UnitSession extends Model {
         // (operator force-moves pass false and are not completions, audit X1).
         // Lives outside the form_v2_dual_write_results gate: the rollup
         // (counts + geometric-mean duration, audit SQ-10/SQ-11) must keep being
-        // fed when the wide table is no longer written. Self-guarded.
-        if ($ended === 1 && $completes && ($unit->type == "Survey" || $unit->type == "Form")) {
+        // fed when the wide table is no longer written. Self-guarded. No
+        // surveyStudy: see the dual-write block above (identity forgotten).
+        if ($ended === 1 && $completes && ($unit->type == "Survey" || $unit->type == "Form") && $unit->surveyStudy) {
             StudyMetrics::recordCompletion(
                 (int) $unit->surveyStudy->id, $this->runSession->testing ?? null, (int) $this->id
             );

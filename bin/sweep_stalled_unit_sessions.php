@@ -188,14 +188,14 @@ try {
          JOIN survey_runs r ON r.id = rs.run_id
          WHERE us.queued = 0 AND us.ended IS NULL AND us.expired IS NULL
            AND us.expires IS NOT NULL AND us.expires < NOW()
-           AND u.type = 'Survey'
+           AND u.type IN ('Survey', 'Form')
            AND rs.ended IS NULL AND r.cron_active = 1{$runWhere}
          ORDER BY us.id ASC
          LIMIT {$limit}", []
     );
     $rearmed = 0;
     foreach (($orphans ?: []) as $o) {
-        fwrite(STDERR, "sweep: re-arm orphaned Survey unit-session #{$o['id']} (queued=0 with a past deadline) -> QUEUED_TO_END" . ($dry ? ' [dry-run]' : '') . "\n");
+        fwrite(STDERR, "sweep: re-arm orphaned Survey/Form unit-session #{$o['id']} (queued=0 with a past deadline) -> QUEUED_TO_END" . ($dry ? ' [dry-run]' : '') . "\n");
         if (!$dry) {
             $db->exec(
                 "UPDATE `survey_unit_sessions` SET `queued` = :q

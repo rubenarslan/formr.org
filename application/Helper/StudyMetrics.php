@@ -65,14 +65,26 @@ class StudyMetrics {
                 "SELECT " . self::LONG_DURATION_SQL . "
                  FROM `survey_unit_sessions` `us`
                  LEFT JOIN `survey_items_display` `sid` ON `sid`.`session_id` = `us`.`id`
-                 WHERE `us`.`id` = :sid AND `us`.`unit_id` = :stid
+                 WHERE `us`.`id` = :sid AND " . self::studySessionsSql('us', 'stid') . "
                  GROUP BY `us`.`id`, `us`.`created`, `us`.`ended`",
-                ['sid' => $sessionId, 'stid' => $studyId], true
+                ['sid' => $sessionId, 'stid' => $studyId, 'stid_form' => $studyId], true
             );
             self::onSurveyComplete($studyId, $testing, $seconds);
         } catch (Throwable $e) {
             formr_log_exception($e, 'StudyMetrics::recordCompletion');
         }
+    }
+
+    /**
+     * WHERE fragment: `$alias` is a unit session of the study bound to :$param.
+     * A Survey session's unit_id IS the study id; a Form session's unit_id is
+     * the Form's own survey_units row, which names the study in form_study_id
+     * (patch 083). Binds :$param and :{$param}_form (native prepares cannot
+     * reuse a placeholder).
+     */
+    private static function studySessionsSql(string $alias, string $param): string {
+        return "(`{$alias}`.`unit_id` = :{$param} OR `{$alias}`.`unit_id` IN "
+            . "(SELECT `id` FROM `survey_units` WHERE `type` = 'Form' AND `form_study_id` = :{$param}_form))";
     }
 
     /**
@@ -216,11 +228,11 @@ class StudyMetrics {
                   FROM `survey_unit_sessions` us
                   LEFT JOIN `survey_run_sessions` rs ON us.run_session_id = rs.id
                   LEFT JOIN `survey_items_display` sid ON sid.session_id = us.id
-                  WHERE us.unit_id = :unit_id
+                  WHERE " . self::studySessionsSql('us', 'unit_id') . "
                   GROUP BY us.id, us.created, us.ended, us.result, us.study_iteration, rs.testing
                   HAVING us.study_iteration IS NOT NULL OR COUNT(sid.item_id) > 0
                 ) t
-            ", ['unit_id' => $studyId], false, true);
+            ", ['unit_id' => $studyId, 'unit_id_form' => $studyId], false, true);
         }
         $db->exec(
             "INSERT INTO `survey_study_metrics`

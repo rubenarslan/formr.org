@@ -47,6 +47,15 @@ class RankItemTest extends TestCase
         $this->assertSame(array('2', '1', '3', '4'), $item->validateInput('2, 1, 3, 4'));
     }
 
+    public function testArrayReplyPassesTheSaveLoopShapeCheck()
+    {
+        // UnitSession::updateSurveyStudyRecord() runs rejectNonScalarReply()
+        // before validateInput(); rank posts `name[]`, so it must opt in.
+        $item = $this->make();
+        $this->assertFalse($item->rejectNonScalarReply(array('3', '1', '4', '2')));
+        $this->assertNull($item->error);
+    }
+
     public function testUnknownIncompleteAndDuplicateOrdersAreRejected()
     {
         $item = $this->make();

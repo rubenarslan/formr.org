@@ -194,9 +194,14 @@ class PersonalDataAudit {
         $admins = array();
         $placed = array();
         $runs_seen = array();
-        $run_rows = self::rows($db, 'SELECT ru.unit_id AS study_id, r.id AS run_id, r.name AS run_name, r.public, r.user_id, u.email, u.admin '
-                . 'FROM survey_run_units ru JOIN survey_runs r ON r.id = ru.run_id JOIN survey_users u ON u.id = r.user_id '
-                . 'WHERE ru.unit_id IN (%s) ORDER BY u.email, r.name, ru.position', $study_ids);
+        // A Survey placement's unit_id IS the study id; a Form placement points
+        // at its own survey_units row, which names the study in form_study_id
+        // (patch 083). One pass over both, so a study used only through a Form
+        // is not reported as an unplaced orphan.
+        $run_rows = self::rows($db, 'SELECT COALESCE(fu.form_study_id, ru.unit_id) AS study_id, r.id AS run_id, r.name AS run_name, r.public, r.user_id, u.email, u.admin '
+                . 'FROM survey_run_units ru LEFT JOIN survey_units fu ON fu.id = ru.unit_id AND fu.type = \'Form\' '
+                . 'JOIN survey_runs r ON r.id = ru.run_id JOIN survey_users u ON u.id = r.user_id '
+                . 'WHERE ru.unit_id IN (%s) OR fu.form_study_id IN (%s) ORDER BY u.email, r.name, ru.position', $study_ids);
         $run_ids = array_values(array_unique(array_map(function ($r) { return (int) $r['run_id']; }, $run_rows)));
         $sessions = self::countsByRun($db, 'SELECT run_id, COUNT(*) AS n FROM survey_run_sessions WHERE COALESCE(testing, 0) = 0 AND run_id IN (%s) GROUP BY run_id', $run_ids);
         $email_units = self::countsByRun($db, 'SELECT ru.run_id, COUNT(*) AS n FROM survey_run_units ru JOIN survey_units un ON un.id = ru.unit_id '
@@ -331,18 +336,26 @@ class PersonalDataAudit {
         return $out;
     }
 
-    /** Run $sql with its `%s` replaced by an IN-list of $ids; no ids → no rows, no query. */
+    /**
+     * Run $sql with each `%s` replaced by an IN-list of $ids; no ids → no rows,
+     * no query. Every `%s` gets its own placeholder names: the connection uses
+     * native prepares, which refuse a named placeholder bound twice.
+     */
     private static function rows($db, $sql, array $ids) {
         if (!$ids) {
             return array();
         }
-        $placeholders = array();
+        $lists = array();
         $params = array();
-        foreach (array_values($ids) as $i => $id) {
-            $placeholders[] = ':i' . $i;
-            $params[':i' . $i] = (int) $id;
+        for ($k = 0, $n = substr_count($sql, '%s'); $k < $n; $k++) {
+            $placeholders = array();
+            foreach (array_values($ids) as $i => $id) {
+                $placeholders[] = ":i{$k}_{$i}";
+                $params[":i{$k}_{$i}"] = (int) $id;
+            }
+            $lists[] = implode(', ', $placeholders);
         }
-        return $db->execute(sprintf($sql, implode(', ', $placeholders)), $params);
+        return $db->execute(vsprintf($sql, $lists), $params);
     }
 
 }

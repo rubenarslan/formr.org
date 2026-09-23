@@ -757,8 +757,12 @@ class SurveyStudy extends Model
                JOIN `survey_unit_sessions` s ON s.id = d.session_id
               SET d.`hidden` = NULL
               WHERE d.item_id IN ($ids) AND d.`hidden` IS NOT NULL AND d.`saved` IS NULL
-                AND s.unit_id = :study_id AND s.ended IS NULL AND s.expired IS NULL",
-            array('study_id' => (int) $this->id)
+                AND (s.unit_id = :study_id
+                     OR s.unit_id IN (SELECT `id` FROM `survey_units` WHERE `type` = 'Form' AND `form_study_id` = :form_study_id))
+                AND s.ended IS NULL AND s.expired IS NULL",
+            // A Form's sessions carry the Form's own survey_units id, which
+            // points at this study through form_study_id (patch 083).
+            array('study_id' => (int) $this->id, 'form_study_id' => (int) $this->id)
         );
         if ($reset > 0) {
             $names = implode(', ', array_map(function ($name) {
