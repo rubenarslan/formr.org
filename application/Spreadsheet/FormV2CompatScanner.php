@@ -6,11 +6,14 @@
  * bin/form_v2_compat_scan.php); extracted to a class so the admin UI can
  * surface the same report without shelling out.
  *
- * Heuristic — the client evaluator has a runtime try/catch: on a reference
- * or syntax error the item keeps whatever visibility the server rendered
- * it with (hidden for an NA showif), so a borderline expression may still
- * behave at runtime. Useful for upgrade-readiness overviews and as a CI
- * gate (the CLI exits 2 when anything is flagged).
+ * In form_v2 a showif is JavaScript and runs only in the browser: an item
+ * with a showif renders hidden, and the browser reveals it. So an expression
+ * the browser cannot evaluate — leftover R, or a name that is not an item of
+ * this form (a run variable, another survey's item) — leaves its item hidden
+ * for good. Both are flagged, as is a showif on a `calculate` item, which is
+ * computed on the server and never reaches the browser. Heuristic; useful for
+ * upgrade-readiness overviews and as a CI gate (the CLI exits 2 when anything
+ * is flagged).
  */
 class FormV2CompatScanner {
 
@@ -18,7 +21,7 @@ class FormV2CompatScanner {
      * @param int $studyId
      * @return array{
      *     counts: array{
-     *         showif: array{empty:int, js_ok:int, needs_js_rewrite:int},
+     *         showif: array{empty:int, js_ok:int, needs_js_rewrite:int, not_on_form:int, on_calculate:int},
      *         value: array{empty:int, literal:int, r:int}
      *     },
      *     flagged: list<array{id:int, name:string, type:string, column:string, source:string, transpiled:string, problems:list<string>, suggested_fix:string}>,
@@ -34,12 +37,21 @@ class FormV2CompatScanner {
             ->fetchAll();
 
         $itemFactory = new ItemFactory([]);
+        $formNames = [];
+        foreach ((array) $items as $row) {
+            if (empty($row['deleted'])) {
+                $formNames[(string) $row['name']] = true;
+            }
+        }
 
         $counts = [
             // showif is JS-only: R that doesn't transpile cleanly is
             // `needs_js_rewrite` (rewrite it in JS, or move the R into a
             // hidden item's value and reference that name).
-            'showif' => ['empty' => 0, 'js_ok' => 0, 'needs_js_rewrite' => 0],
+            // `not_on_form`: names the browser has no value for (bridge them
+            // through a hidden item); `on_calculate`: a showif the server
+            // ignores (put the condition into the calculate's R).
+            'showif' => ['empty' => 0, 'js_ok' => 0, 'needs_js_rewrite' => 0, 'not_on_form' => 0, 'on_calculate' => 0],
             // value is R-only — every non-empty, non-numeric value is
             // routed through the allowlist as R. Buckets describe how the
             // entry will be handled, not whether it's valid.
@@ -48,6 +60,9 @@ class FormV2CompatScanner {
         $flagged = [];
 
         foreach ((array) $items as $row) {
+            if (!empty($row['deleted'])) {
+                continue; // soft-deleted: not rendered, nothing to fix
+            }
             $raw_showif = trim((string) ($row['showif'] ?? ''));
             $raw_value = trim((string) ($row['value'] ?? ''));
 
@@ -56,15 +71,12 @@ class FormV2CompatScanner {
                 $counts['showif']['empty']++;
             } else {
                 $transpiled = $raw_showif;
+                $item = null;
                 try {
                     $item = $itemFactory->make($row);
                     $transpiled = $item && isset($item->js_showif) ? (string) $item->js_showif : $raw_showif;
                 } catch (Throwable $e) { /* keep $raw_showif */ }
-                $problems = self::detectRTokens($transpiled);
-                if (empty($problems)) {
-                    $counts['showif']['js_ok']++;
-                } else {
-                    $counts['showif']['needs_js_rewrite']++;
+                $flag = function ($problems, $fix) use (&$flagged, $row, $raw_showif, $transpiled) {
                     $flagged[] = [
                         'id' => (int) $row['id'],
                         'name' => (string) $row['name'],
@@ -73,8 +85,20 @@ class FormV2CompatScanner {
                         'source' => $raw_showif,
                         'transpiled' => $transpiled,
                         'problems' => $problems,
-                        'suggested_fix' => 'rewrite_in_js',
+                        'suggested_fix' => $fix,
                     ];
+                };
+                if ($item && !$item->requiresUserInput() && $item->needsDynamicValue()) {
+                    $counts['showif']['on_calculate']++;
+                    $flag(['showif on an item computed on the server'], 'move_into_value');
+                } elseif ($problems = self::detectRTokens($transpiled)) {
+                    $counts['showif']['needs_js_rewrite']++;
+                    $flag($problems, 'rewrite_in_js');
+                } elseif ($unknown = self::namesNotOnForm($transpiled, $formNames)) {
+                    $counts['showif']['not_on_form']++;
+                    $flag(['not an item of this form: ' . implode(', ', $unknown)], 'bridge_hidden_item');
+                } else {
+                    $counts['showif']['js_ok']++;
                 }
             }
 
@@ -96,6 +120,39 @@ class FormV2CompatScanner {
             'flagged' => $flagged,
             'itemCount' => count((array) $items),
         ];
+    }
+
+    /** Identifiers a transpiled showif may use besides the form's item names. */
+    const JS_KNOWN_NAMES = [
+        'true', 'false', 'null', 'undefined', 'NaN', 'Infinity', 'typeof', 'instanceof', 'in', 'of',
+        'new', 'this', 'void', 'Math', 'Number', 'String', 'Boolean', 'Date', 'Array', 'Object', 'JSON',
+        'parseInt', 'parseFloat', 'isNaN', 'isFinite', 'RegExp',
+        // the fmrForm helpers (webroot/assets/form/js/showif/alpine.js)
+        'isNA', 'answered', 'contains', 'containsWord', 'startsWith', 'endsWith', 'last',
+    ];
+
+    /**
+     * The names a (transpiled) showif reads that are not items of this form.
+     * The browser only knows the form's own items (answers saved on earlier
+     * pages included), so such a showif can never become true there.
+     * Function calls are left to detectRTokens(); property accesses (`.length`)
+     * are not names.
+     *
+     * @param string $expr
+     * @param array<string, bool> $formNames
+     * @return list<string>
+     */
+    public static function namesNotOnForm($expr, array $formNames) {
+        $code = preg_replace('~/\*.*?\*/|//[^\n]*~s', ' ', (string) $expr);
+        $code = preg_replace('/"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|`[^`]*`/', '""', $code);
+        preg_match_all('/(?<![\w.$])([A-Za-z_$][A-Za-z0-9_$]*)(?![\w$])(?!\s*\()/', $code, $m);
+        $unknown = [];
+        foreach (array_unique($m[1]) as $name) {
+            if (!isset($formNames[$name]) && !in_array($name, self::JS_KNOWN_NAMES, true)) {
+                $unknown[] = $name;
+            }
+        }
+        return $unknown;
     }
 
     /**

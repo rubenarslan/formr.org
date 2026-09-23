@@ -1,16 +1,39 @@
 <?php
 
 /**
- * FormRenderer — single-document renderer for form_v2 (Phase 1).
+ * FormRenderer — single-document renderer for form_v2.
  *
- * Inherits the v1 processing pipeline (OpenCPU-evaluated showif/value/Rmd,
- * validation, item view tracking) from SpreadsheetRenderer, and replaces
- * only the HTML output: the form wrapper is v2-flavoured (BS5, data-submit-url,
- * progress bar) and all items land inside a `<section data-fmr-page>` so the
- * client-side runtime can switch pages without a round-trip.
+ * Reuses SpreadsheetRenderer's item loading, automatic items, validation
+ * plumbing and item view tracking, and replaces the rest: the form wrapper
+ * is v2-flavoured (BS5, data-submit-url, progress bar) and every page of the
+ * form lands in one document, each in a `<section data-fmr-page>`, so the
+ * client-side runtime switches pages without a round-trip. No R runs at
+ * render time for what the participant sees; only the calculations that are
+ * due (rule 4).
  *
- * Phase 1 groups all items into a single page. Multi-page support using
- * survey_items_display.page is a follow-up.
+ * Architectural rules (see documentation/agent_doc/plan_form_v2.md §3 / §5):
+ *
+ *   1. `showif` is JavaScript, evaluated only in the browser (Alpine). The
+ *      server does not run it: an item with a showif renders hidden, and
+ *      the client reveals it. Names the browser needs but that are not on
+ *      the form — answers saved on earlier pages of a resumed session —
+ *      are seeded into the page (renderV2Header); anything else (a run
+ *      variable, another survey) reaches a showif through a hidden item
+ *      whose `value` computes it in R.
+ *   2. `value` is the R path: literals pass through; anything else,
+ *      including `sticky`, is recorded into `survey_r_calls`
+ *      (slot='value') and resolved by the client through
+ *      `/form-render-page` when the item's page is shown — the first page
+ *      exactly like every later one.
+ *   3. Dynamic labels (Item::needsDynamicLabel), note_iframe documents and
+ *      R in choice labels record into `survey_r_calls` (slots 'label' and
+ *      'choice_label') and resolve through the same page request.
+ *   4. `calculate` items (no input, R in `value`) are the study's own
+ *      computation, so they never go through the client: they are
+ *      evaluated and stored on the server when their page is reached —
+ *      here for the pages up to the first one shown, and at every page
+ *      submit for the pages up to the next one (RCallService::
+ *      computeCalculations).
  */
 class FormRenderer extends SpreadsheetRenderer {
 
@@ -21,48 +44,6 @@ class FormRenderer extends SpreadsheetRenderer {
      */
     protected $applyMaxDisplayedCap = false;
 
-    /**
-     * Page-scoped processing for form_v2 (post-PWA-port redesign).
-     *
-     * Architectural rules (see documentation/agent_doc/plan_form_v2.md §3 / §5):
-     *
-     *   1. `showif` is JS-only. `r(...)` in showif is invalid and surfaces a
-     *      validation error to the admin at render time. To run server-side R
-     *      and have the result feed a showif, the admin uses a hidden item
-     *      with `value: r(...)` and references that field name from the JS
-     *      showif.
-     *   2. `value` is the R path: literals and 'sticky' pass through;
-     *      anything else is recorded into `survey_r_calls` (slot='value')
-     *      whether the admin wrote it bare or wrapped in `r(...)` — the
-     *      wrapper is stripped before OpenCPU sees it and exists as the
-     *      documented bridge idiom. Values resolve via `/form-render-page`
-     *      at page-transition time (inline for the first page).
-     *   3. Dynamic labels (Item::needsDynamicLabel) record into
-     *      `survey_r_calls` (slot='label') with the FULL label as `expr` —
-     *      we don't extract partial Rmd chunks; the whole label is one
-     *      allowlisted call, item-keyed.
-     *   4. OpenCPU evaluation is page-scoped: at initial render only the
-     *      first VISIBLE page (lowest page number among unanswered items)
-     *      is resolved through OpenCPU. Items on later pages get their
-     *      `data-fmr-fill-id` / `data-fmr-label-id` placeholders but no
-     *      OpenCPU call yet — those resolve when the participant submits
-     *      the prior page and the client POSTs `/form-render-page`.
-     */
-    /**
-     * In form_v2 a showif with a transpiled js_showif (and not routed through
-     * the server r-call path) is evaluated reactively client-side by Alpine. So
-     * when the server-side initial evaluation returns NA (dependency not yet
-     * answered), the item must NOT be pruned to hidden=1 / dropped — keep it
-     * rendered (initially .hidden) so picking the dependency reveals it instantly
-     * without a server round-trip. (This was the "gods/kittens showif shows up
-     * too late" bug.)
-     */
-    protected function naShowifIsClientResolvable($item) {
-        if (!$item) {
-            return false;
-        }
-        return !empty($item->js_showif);
-    }
 
     /** @var bool|null memoized isAuthorFacingSession() */
     protected $authorFacingSession = null;
@@ -108,184 +89,138 @@ class FormRenderer extends SpreadsheetRenderer {
         }
 
         $items = $this->processAutomaticItems($items);
-
-        // Compute the first visible page once. The page-scope decisions
-        // below (resolve inline vs. defer to /form-render-page) all key off
-        // this number.
         $pageMap = $this->fetchPageMap();
-        $firstPage = $this->firstVisiblePageNumberFromMap($items, $pageMap);
         $itemPageOf = function ($item) use ($pageMap) {
             return isset($pageMap[(int) $item->id]) ? (int) $pageMap[(int) $item->id] : 1;
         };
 
-        // Step 1: dynamic values. The `value` column carries R that we
-        // route through the allowlist; admins can author it bare or
-        // wrapped in r(...) — the latter is the documented bridge for
-        // surfacing R into a JS-only showif (see documentation/form_v2.md
-        // §"Bridging R into a showif"). v1's Item::needsDynamicValue
-        // already returns false for empty / numeric values (those stay
-        // as literal defaults).
+        // Step 0: calculations due now — every calculate on a page up to the
+        // first page that shows anything (all of them when nothing is left to
+        // show, which is how the final render completes the form).
+        $firstShownPage = null;
+        foreach ($items as $item) {
+            if ($item && $item->isRendered()) {
+                $p = $itemPageOf($item);
+                $firstShownPage = ($firstShownPage === null) ? $p : min($firstShownPage, $p);
+            }
+        }
+        $computed = (new RCallService($this->unitSession, $this->study))->computeCalculations($firstShownPage);
+        foreach ($computed as $name => $_) {
+            unset($items[$name]);
+        }
+        $this->answered($computed);
+
+        // Step 1: dynamic values. The `value` column carries R that we route
+        // through the allowlist; admins can author it bare or wrapped in r(...)
+        // (the documented bridge into a JS showif, see documentation/form_v2.md
+        // §"Bridging R into a showif"). Item::needsDynamicValue already returns
+        // false for empty / numeric values (those stay literal defaults).
         //   - Unwrap r(...) before recording. base+formr R has no r()
-        //     function, so leaving the wrapper in survey_r_calls.expr
-        //     would make every subsequent OpenCPU eval return NA via
-        //     tryCatch, silently breaking the documented bridge example.
+        //     function, so leaving the wrapper in survey_r_calls.expr would
+        //     make every OpenCPU eval return NA via tryCatch.
         //   - Record the (unwrapped) R text in survey_r_calls slot='value'.
         //     This is what authorizes the client to invoke it via
-        //     /form-render-page — the client never gets the source, only
-        //     the call_id.
-        //   - First-page items keep $item->value untouched so the parent's
-        //     processDynamicValuesAndShowIfs evaluates it inline at this
-        //     render; the participant sees the resolved value immediately.
-        //   - Later-page items get $item->value blanked + data-fmr-fill-id
-        //     emitted; the client resolves them at page transition.
+        //     /form-render-page — the client never gets the source, only the
+        //     call_id. `sticky` is recorded as written and expanded at
+        //     evaluation (RCallService::expandValueExpr).
+        //   - The value is blanked on every page and resolved when its page is
+        //     shown; items that take no input are Step 0's business.
         //   - The survey_r_calls rows are collected here and written in ONE
-        //     batch below (see ensureRCalls): the allowlist is a pure function
-        //     of the study definition, so re-upserting a row per dynamic item
-        //     per participant render was pure write amplification.
+        //     batch below (see ensureRCalls).
         $pendingCalls = [];   // list of ['slot'=>…, 'expr'=>…, 'item_id'=>…]
         $callTargets = [];    // parallel list of [$item, attribute name]
         foreach ($items as $item) {
-            if (!$item) continue;
-            if (!$item->needsDynamicValue()) continue;
+            if (!$item || !$item->requiresUserInput() || !$item->needsDynamicValue()) {
+                continue;
+            }
             $rawValue = trim((string) $item->value);
             if ($rawValue === '') continue;
             $rExpr = RAllowlistExtractor::unwrap($rawValue) ?? $rawValue;
             $pendingCalls[] = ['slot' => 'value', 'expr' => $rExpr, 'item_id' => $item->id];
             $callTargets[] = [$item, 'data-fmr-fill-id'];
-            if ($itemPageOf($item) !== $firstPage) {
-                $item->value = '';
-            } elseif ($rExpr !== $rawValue) {
-                // First-page item with r(...) wrapper: hand the parent
-                // the unwrapped expr so its inline OpenCPU batch evaluates
-                // the same code as later-page items get via /form-fill.
-                $item->value = $rExpr;
-            }
+            $item->value = '';
         }
 
-        // Step 2: dynamic labels. The full label text is the allowlisted
-        // expression — we don't extract partial Rmd chunks. ALL pages
-        // (including first) defer to /form-render-page: blank label_parsed
-        // and emit data-fmr-label-id; the client batch-resolves on page
-        // show. Costs a brief first-paint flicker on page 1 in exchange for
-        // architectural consistency + cache hits via patch 087 — admins who
-        // can't tolerate the flicker should keep dynamic content off the
-        // first page (plan_form_v2 §8 P2 trade-off).
-        //
-        // note_iframe is the exception and needs care on two counts:
-        //   - needsDynamicLabel() is a QUERY for every other type (is
-        //     label_parsed null?) but NoteIframe_Item's override *does the
-        //     work*: it knits the Rmd through OpenCPU synchronously and returns
-        //     false. It is therefore not deferrable through the label slot
-        //     (RCallService::resolveLabels knits markdown, not an iframe), and
-        //     asking it twice costs two OpenCPU knits. We only ask for items on
-        //     the FIRST page here, because the inherited
-        //     processDynamicLabelsAndChoices (Step 4) asks again for exactly
-        //     those — so first-page iframes are knitted once, by the parent,
-        //     and later-page iframes once, here.
-        //   - only note_iframe consumes the $vars argument (Item::needs-
-        //     DynamicLabel ignores it), so building run data for every item was
-        //     one getRunData() round trip per unanswered item per render.
-        //     Mirror SpreadsheetRenderer::processDynamicLabelsAndChoices and
-        //     compute it only for note_iframe.
-        //
-        // KNOWN LIMITATION: a later-page note_iframe is knitted at initial
-        // render, so its content reflects the data as of page 1 rather than as
-        // of the page it sits on. Deferring it properly needs an 'iframe' slot
-        // in survey_r_calls plus resolution in RCallService/RunController and
-        // the form bundle; the label slot cannot carry it.
+        // Step 2: dynamic labels, including note_iframe. The full label text is
+        // the allowlisted expression — we don't extract partial Rmd chunks.
+        // Every page defers to /form-render-page: label_parsed is blanked and
+        // data-fmr-label-id emitted. A note_iframe's label is a whole R
+        // Markdown document; NoteIframe_Item::needsDynamicLabel() would knit it
+        // right here (at render, against page-1 data), so it is recorded
+        // directly instead and knitted when its page is shown.
         foreach ($items as $item) {
             if (!$item) continue;
-            $isIframe = (isset($item->type) && $item->type === 'note_iframe');
-            if ($isIframe && $itemPageOf($item) === $firstPage) {
-                continue; // Step 4's parent pass knits this one (exactly once)
-            }
-            $vars = $isIframe
-                ? $this->unitSession->getRunData((string) $item->label, $this->study->name)
-                : [];
-            if (!$item->needsDynamicLabel($vars, $this->study->name)) {
-                continue;
-            }
             $labelSrc = (string) $item->label;
             if ($labelSrc === '') continue;
+            $isIframe = (isset($item->type) && $item->type === 'note_iframe');
+            if (!$isIframe && !$item->needsDynamicLabel([], $this->study->name)) {
+                continue;
+            }
             $pendingCalls[] = ['slot' => 'label', 'expr' => $labelSrc, 'item_id' => $item->id];
             $callTargets[] = [$item, 'data-fmr-label-id'];
             $item->label_parsed = '';
         }
 
-        // Steps 2+3 write-back: one SELECT of the study's existing allowlist
-        // rows (cached per request) and an INSERT only for rows that don't
-        // exist yet, instead of an upsert per dynamic item per render.
+        // Step 3: choices for every item (no OpenCPU). A choice label that
+        // carries R becomes a 'choice_label' call, resolved with its page.
+        $dynamicChoices = $this->attachStaticChoices($items);
+        $choiceCallIndex = [];
+        foreach ($dynamicChoices as $k => $choice) {
+            $choiceCallIndex[$k] = count($pendingCalls);
+            $pendingCalls[] = ['slot' => 'choice_label', 'expr' => $choice['expr'], 'item_id' => $choice['item']->id];
+        }
+
+        // Write-back: one SELECT of the study's existing allowlist rows (cached
+        // per request) and an INSERT only for rows that don't exist yet.
         $callIds = $this->ensureRCalls($pendingCalls);
         foreach ($callTargets as $i => $target) {
             if (!isset($callIds[$i])) continue;
             list($targetItem, $attribute) = $target;
             $targetItem->parent_attributes[$attribute] = (string) $callIds[$i];
         }
-
-        // Step 3: submit-type items are page boundaries AND the page's advance
-        // control. Keep them in $items so they flow into toRender → render() as
-        // their own big centred button (the goal: "submit = a big button, no
-        // separate OK"); the solo controller upgrades them to .fmr-solo-bigsubmit
-        // and non-solo wires their data-fmr-next to submitPage(). They are kept
-        // OUT of the completion count in getAllUnansweredItems() (like block/blank)
-        // and excluded from "answered" by getStudyProgress()'s SQL, so rendering
-        // them can't block studyCompleted(). (Previously they were marked hidden
-        // and stripped here, which left the big-button JS/CSS dead code.)
-
-        // Step 3b: attach choices to ALL items (no OpenCPU). Step 4's
-        // first-page-only label/choice pass would otherwise leave later-page
-        // mc/select items with an empty choice list — an unanswerable screen.
-        $this->attachStaticChoices($items);
-
-        // Step 4: page-scoped OpenCPU resolution. Run the parent's batches
-        // over first-page items only — later pages have placeholders + IDs
-        // and resolve at page transition via /form-render-page.
-        $byPage = $this->splitByPageFromMap($items, $firstPage, $pageMap);
-        $firstPageItems = $byPage['first'];
-
-        // Visibility is evaluated for ALL pages in the one initial OpenCPU
-        // batch, not just the first page. Values/labels stay page-scoped
-        // (deferred to /form-render-page), but a later-page showif over a
-        // run variable (`ran_group == 1`) is server-only: Alpine evaluates
-        // `undefined` and preserves whatever the server rendered, so without
-        // a server decision BOTH branches of a randomized split stayed
-        // visible. Later-page items enter the batch with their values
-        // already blanked (Step 1), so they only contribute si.* entries.
-        $laterShowifItems = [];
-        foreach ($byPage['later'] as $name => $item) {
-            if ($item && $item->getShowIf()) {
-                $laterShowifItems[$name] = $item;
+        foreach ($dynamicChoices as $k => $choice) {
+            $item = $choice['item'];
+            if (!isset($callIds[$choiceCallIndex[$k]])) {
+                continue; // stays on its raw source text, as before
             }
+            $item->choices[$choice['value']] = sprintf(
+                '<span class="fmr-choice-label fmr-fill-pending" data-fmr-choice-id="%d"></span>',
+                (int) $callIds[$choiceCallIndex[$k]]
+            );
+            $item->parent_attributes['data-fmr-choice-item'] = (string) (int) $item->id;
         }
-        $evalItems = array_merge($firstPageItems, $laterShowifItems);
-        if ($evalItems) {
-            $evalInputKeys = array_keys($evalItems);
-            $evalItems = $this->processDynamicValuesAndShowIfs($evalItems);
-            $firstPageItems = array_intersect_key($evalItems, $byPage['first']);
-            if ($firstPageItems) {
-                $firstPageItems = $this->processDynamicLabelsAndChoices($firstPageItems);
-            }
-            // Items the batch dropped (definite-FALSE showif, or computed +
-            // immediately saved) must not be resurrected by the merge below.
-            foreach ($evalInputKeys as $name) {
-                if (!isset($evalItems[$name])) {
-                    unset($items[$name]);
-                }
+
+        // Step 4: visibility belongs to the client. Every item with a showif
+        // renders hidden (and its inputs disabled) until Alpine evaluates the
+        // showif, which then reveals it — so nothing flashes visible or blocks
+        // the page before the bundle has run. A showif that did not transpile
+        // leaves its item hidden: unknown means not shown.
+        //
+        // Submit-type items are page boundaries AND the page's advance control;
+        // they stay in $items and render as the page's big button, and are kept
+        // out of the completion count by getAllUnansweredItems().
+        foreach ($items as $item) {
+            if ($item && trim((string) $item->showif) !== '') {
+                $item->hideByDefaultPendingClient();
             }
         }
 
-        // Step 5: merge first-page-resolved items back with the placeholder
-        // items from later pages, preserving original order.
-        $merged = [];
+        // A page whose items were all answered still has its submit button
+        // (submit items are never saved). Rendering it would greet a resuming
+        // participant with an empty page and a Next button, so drop the page.
+        $answerablePages = [];
+        foreach ($items as $item) {
+            if ($item && $item->type !== 'submit') {
+                $answerablePages[$itemPageOf($item)] = true;
+            }
+        }
         foreach ($items as $name => $item) {
-            if (isset($firstPageItems[$name])) {
-                $merged[$name] = $firstPageItems[$name];
-            } else {
-                $merged[$name] = $item;
+            if ($item && $item->type === 'submit' && !isset($answerablePages[$itemPageOf($item)])) {
+                unset($items[$name]);
             }
         }
 
-        $this->toRender = $merged;
+        $this->toRender = $items;
         $this->renderedItems = $this->getRenderedStudyItems();
     }
 
@@ -356,18 +291,11 @@ class FormRenderer extends SpreadsheetRenderer {
 
     /**
      * Attach choice options to every item that has a choice_list, using the
-     * choice labels straight from the DB (no OpenCPU).
+     * choice labels straight from the DB (no OpenCPU). A label that carries R
+     * (label_parsed NULL since upload) is attached as its raw source and
+     * returned, so the caller can turn it into a deferred 'choice_label' call.
      *
-     * The parent's processDynamicLabelsAndChoices does TWO things — parse
-     * dynamic labels via OpenCPU *and* call setChoices() — but FormRenderer
-     * only runs it on the first visible page (Step 4) to keep OpenCPU
-     * page-scoped. The side effect was that later-page mc / mc_heading /
-     * select items rendered with an empty `.mc-table` (no radios at all), so a
-     * required choice question on page 2+ became an unanswerable dead screen.
-     * Choices don't need OpenCPU unless a choice *label* carries dynamic R, so
-     * attach them here for ALL pages; first-page items are re-set with the
-     * OpenCPU-parsed labels when Step 4 runs. Dynamic choice labels on later
-     * pages degrade to their raw source text rather than disappearing.
+     * @return array<int, array{item: Item, value: string, expr: string}>
      */
     protected function attachStaticChoices(array &$items) {
         $lists = [];
@@ -377,10 +305,11 @@ class FormRenderer extends SpreadsheetRenderer {
             }
         }
         if (!$lists) {
-            return;
+            return [];
         }
         $rows = $this->study->getChoices(array_values(array_unique($lists)), null);
         $byList = [];
+        $dynamicByList = [];
         foreach ((array) $rows as $row) {
             if (!isset($row['list_name'], $row['name'])) {
                 continue;
@@ -388,7 +317,11 @@ class FormRenderer extends SpreadsheetRenderer {
             $parsed = $row['label_parsed'] ?? null;
             $byList[$row['list_name']][$row['name']] =
                 ($parsed !== null && $parsed !== '') ? $parsed : $row['label'];
+            if ($parsed === null && trim((string) $row['label']) !== '') {
+                $dynamicByList[$row['list_name']][(string) $row['name']] = (string) $row['label'];
+            }
         }
+        $dynamic = [];
         foreach ($items as $name => $item) {
             if (!$item || !$item->choice_list) {
                 continue;
@@ -396,40 +329,14 @@ class FormRenderer extends SpreadsheetRenderer {
             if (isset($byList[$item->choice_list])) {
                 $list = array_filter($byList[$item->choice_list], 'is_formr_truthy');
                 $items[$name]->setChoices($list);
+                foreach ($dynamicByList[$item->choice_list] ?? [] as $value => $label) {
+                    if (isset($list[$value])) {
+                        $dynamic[] = ['item' => $items[$name], 'value' => (string) $value, 'expr' => $label];
+                    }
+                }
             }
         }
-    }
-
-    /**
-     * Lowest page number among `survey_items_display.page` for the given items.
-     * That's the page the participant lands on (the server only emits
-     * unanswered items, so this is whatever's currently active).
-     */
-    protected function firstVisiblePageNumberFromMap(array $items, array $pageMap) {
-        $min = null;
-        foreach ($items as $item) {
-            if (!$item) continue;
-            $p = isset($pageMap[(int) $item->id]) ? (int) $pageMap[(int) $item->id] : 1;
-            if ($min === null || $p < $min) $min = $p;
-        }
-        return $min === null ? 1 : $min;
-    }
-
-    /**
-     * Partition items into [first => first-visible-page, later => everything else].
-     */
-    protected function splitByPageFromMap(array $items, $firstPage, array $pageMap) {
-        $first = [];
-        $later = [];
-        foreach ($items as $name => $item) {
-            $p = isset($pageMap[(int) $item->id]) ? (int) $pageMap[(int) $item->id] : 1;
-            if ($p === (int) $firstPage) {
-                $first[$name] = $item;
-            } else {
-                $later[$name] = $item;
-            }
-        }
-        return ['first' => $first, 'later' => $later];
+        return $dynamic;
     }
 
     /**
@@ -521,7 +428,7 @@ class FormRenderer extends SpreadsheetRenderer {
         // runtime can re-evaluate on each input change. v1 only set data_showif
         // when the server hid the item; v2 wants reactive visibility without a
         // round-trip. An item whose showif produced no transpiled js_showif
-        // keeps whatever visibility the server's OpenCPU batch decided.
+        // stays hidden (processItems Step 4): unknown means not shown.
         foreach ($this->renderedItems as $item) {
             if (!empty($item->showif) && !empty($item->js_showif)) {
                 $item->data_showif = true;
@@ -690,6 +597,9 @@ class FormRenderer extends SpreadsheetRenderer {
             htmlspecialchars(Session::REQUEST_USER_CODE, ENT_QUOTES),
             htmlspecialchars((string) $userCode, ENT_QUOTES)
         );
+        $html .= '<script type="application/json" class="fmr-saved-answers">'
+               . json_encode($this->savedAnswers(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE)
+               . '</script>';
 
         $html .= '<div class="fmr-progress">'
                . '<div class="fmr-progress-track">'
@@ -705,6 +615,42 @@ class FormRenderer extends SpreadsheetRenderer {
         }
 
         return $html;
+    }
+
+    /**
+     * The answers this unit session has already saved, by item name, for the
+     * client's showif scope. Saved items are not rendered again, so after a
+     * reload (or when the participant resumes later) a showif on page 3 that
+     * reads a page-1 answer would otherwise see a name the browser does not
+     * know, and keep its item hidden. Multi-value answers arrive as arrays,
+     * the shape the live inputs produce; uploads are left out (a file name is
+     * not something a showif compares against).
+     *
+     * @return array<string, string|array|null>
+     */
+    protected function savedAnswers() {
+        $rows = $this->db->execute(
+            'SELECT i.id, i.study_id, i.name, i.type, i.choice_list, i.type_options, d.answer
+             FROM `survey_items_display` d
+             JOIN `survey_items` i ON i.id = d.item_id
+             WHERE d.session_id = :session_id AND i.study_id = :study_id
+               AND i.deleted IS NULL AND d.saved IS NOT NULL',
+            ['session_id' => (int) $this->unitSession->id, 'study_id' => (int) $this->study->id]
+        );
+        $factory = new ItemFactory([]);
+        $out = [];
+        foreach ((array) $rows as $row) {
+            $item = $factory->make($row);
+            if (!$item || $item instanceof File_Item || !$item->save_in_results_table) {
+                continue;
+            }
+            $answer = $row['answer'];
+            if ($answer !== null && $item->acceptsArrayReply() && !($item instanceof Geopoint_Item)) {
+                $answer = ($answer === '') ? [] : explode(', ', (string) $answer);
+            }
+            $out[(string) $row['name']] = $answer;
+        }
+        return $out;
     }
 
     protected function renderV2Footer() {

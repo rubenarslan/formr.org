@@ -211,8 +211,8 @@ Server (`RunController::formSaveAction`, `/{run}/form-save`, JSON only):
 ## FormRenderer: choices on later pages
 
 `FormRenderer` renders all pages into one document and keeps OpenCPU
-**page-scoped** (only the first visible page resolves inline; later pages defer to
-`/form-render-page`). The bug: the parent's `processDynamicLabelsAndChoices` does
+**page-scoped** (at the time: only the first visible page resolved inline; later
+pages deferred to `/form-render-page` — since 2026-09-23 every page defers). The bug: the parent's `processDynamicLabelsAndChoices` does
 both OpenCPU label parsing *and* the static `setChoices()`, and it only ran on the
 first page — so every `mc`/`mc_heading`/`select` on page 2+ rendered an **empty
 `.mc-table`** (no radios), making a required later-page question an unanswerable
@@ -220,6 +220,8 @@ dead screen (and in solo it silently auto-advanced). Fix: `attachStaticChoices()
 attaches choices to **all** items straight from the DB (no OpenCPU) before the
 first-page OpenCPU pass; dynamic *choice labels* on later pages degrade to raw
 text rather than vanishing. Verified server-side (raw curl): radios 43→66.
+(Since 2026-09-23 R in choice labels resolves on every page, via the
+`choice_label` slot.)
 
 ## Measurement equivalence (researcher guardrails)
 

@@ -63,6 +63,8 @@ if (!empty($report['flagged'])) {
         }
         $fixes = [
             'rewrite_in_js' => 'rewrite the showif in JS (or move the R into a hidden item\'s `value`)',
+            'bridge_hidden_item' => 'compute the value in a hidden item\'s `value` (R) and reference that item from the showif',
+            'move_into_value' => 'remove the showif; put the condition into the R `value`: if (condition) value else NA',
         ];
         echo "    fix:        " . ($fixes[$r['suggested_fix']] ?? $r['suggested_fix']) . "\n\n";
     }
@@ -77,6 +79,8 @@ echo "  showif (" . array_sum($cs) . " items, JS-only):\n";
 echo "    empty:                  {$cs['empty']}\n";
 echo "    JS-OK:                  {$cs['js_ok']}\n";
 echo "    needs JS rewrite:       {$cs['needs_js_rewrite']}\n";
+echo "    not on the form:        {$cs['not_on_form']}\n";
+echo "    on a calculate item:    {$cs['on_calculate']}\n";
 
 $cv = $report['counts']['value'];
 echo "  value (" . array_sum($cv) . " items, R-only):\n";

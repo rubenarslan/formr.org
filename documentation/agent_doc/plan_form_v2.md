@@ -29,7 +29,7 @@ Phases 0–5 are code-complete on-branch (with gaps noted below). Phases 6 (docs
 | 1 — Single-page AJAX form | ✅ done | FormRenderer, Alpine, BS5, form-page-submit |
 | 2 — Item-type coverage | ✅ done bar A/V smoke | PWA items wired vanilla; only audio/video need in-browser capture smoke |
 | 3 — Client-side showif (JS only) | ✅ done | Alpine-driven; server-side R reaches a showif via a hidden item's `value` |
-| 4 — Page-scoped value + label resolution | ✅ done | r(...) on value (only); label slot for embedded Rmd; first-page resolved server-side, later pages via /form-render-page on transition |
+| 4 — Page-scoped value + label resolution | ✅ done | r(...) on value (only); label slot for embedded Rmd, choice_label slot for R in choice labels, note_iframe via the label slot; every page (the first included) resolves via /form-render-page when shown; calculate items computed server-side when their page is reached (2026-09-23) |
 | 5 — Offline queue | ✅ done bar SW drain + iOS | page-JS enqueue/drain + `offline_mode` flag + file-blob queue (10 MB cap). The SW-side drain is registered but **not implemented** (no `sync` listener); iOS Safari pass still open |
 | 6 — Docs + migration tooling + parity gate | ✅ mostly | admin compat-scanner UI, admin/operator docs (`documentation/form_v2.md`, `form_v2_upgrade.md`) and the v2 example study + run bundle all shipped; the v1↔v2 parity **suite** exists and runs (`tests/e2e/`) — what's still open is the *gate being green* (pwa_high fixture-permission skips + three iOS device skips). See §6 checklist. |
 | Rollout gates | ⬜ open | parity gate, default flip, sunset |
@@ -61,11 +61,10 @@ flowchart TB
     K --> L
   end
   subgraph reactive["server-side R cadence"]
-    M[first page at render] --> N[FormRenderer inline OpenCPU batch]
-    O[page transition] --> P[POST form-render-page]
-    P --> Q[batch resolve slot=value and slot=label for that page]
+    M[page shown: on load and after each submit] --> P[POST form-render-page]
+    P --> Q[batch resolve slot=value, label, choice_label for that page]
     Q --> R[OpenCPU overlay on tail survey,1]
-    N --> R
+    O[page reached] --> N[calculate items: RCallService computeCalculations, persisted data only]
     S[showif] --> T[JS only - no server round trip]
   end
 ```
@@ -161,7 +160,7 @@ Admins reach server-side R through the **`value` column** — bare, or wrapped a
 
 - `FormRenderer::processItems` passes each item's `value` through `RAllowlistExtractor::unwrap`; the (unwrapped) expression is UPSERTed into `survey_r_calls` (dedup by `study_id + expr_hash + slot + item_id` — one row per item even for identical expressions, since `/form-render-page` resolves a page's calls via `r.item_id`; id recovered via `LAST_INSERT_ID(id)` on duplicate).
 - The `r()` wrapper must be stripped before OpenCPU sees it (`r()` isn't a function in OpenCPU's base+formr env and one bad entry torches the whole batch for the page).
-- Resolution is page-scoped: a **first-page** item keeps its unwrapped value so the inherited OpenCPU batch resolves it at render; a **later-page** item gets `$item->value = ''` (so `needsDynamicValue()` trims to falsy and the batch skips it) plus a `data-fmr-fill-id` wrapper attribute, and the client resolves it in the `/form-render-page` batch at the page transition. `/form-fill` still exists for one-off re-triggers but is no longer fired on load.
+- Resolution is page-scoped and the same on every page (since 2026-09-23; before, the first page ran through the inherited v1 OpenCPU batch at render, with different semantics — e.g. a `calculate` returning FALSE was stored empty on page 1 and "FALSE" later): every item gets `$item->value = ''` plus a `data-fmr-fill-id` wrapper attribute, and the client resolves it in the `/form-render-page` batch when the page is shown (on load for the first page). `calculate` items never reach the client: `RCallService::computeCalculations()` evaluates and stores them when their page is reached. `/form-fill` still exists for one-off re-triggers but is no longer fired on load.
 - Security invariant matches import-time: the server only evaluates expressions already recorded in `survey_r_calls`, keyed by id. Render-time population means the allowlist auto-updates when admins edit the sheet — no schema drift between import and render. Expression-level granularity (every unique `r(...)` gets a row) is the confirmed design choice over function-level allowlisting.
 
 ### 3.5 Compatibility scanning
@@ -326,7 +325,7 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 ### Phase 4 — Deferred fill for `value`
 - [x] `POST /{run}/form-fill` (`RunController::formFillAction`, slot='value'). Superseded as the load-time path by `/form-render-page`; kept live for one-off re-triggers
 - [x] Shared helper `evaluateAllowlistedRCall($id, $slot, $answers)` with slot enforcement
-- [x] `r(...)` unwrap on `value`: FormRenderer records + emits `data-fmr-fill-id`. Clearing `$item->value` is now page-scoped — first-page items keep the unwrapped expression and resolve inline at render, later-page items get blanked and resolve at the transition
+- [x] `r(...)` unwrap on `value`: FormRenderer records + emits `data-fmr-fill-id`. Every item's value is blanked and resolved when its page is shown (first page on load) — one path for all pages
 - [x] Client fill resolver: set first `input/textarea/select[name]` inside wrapper (only if empty — don't clobber back-nav state), fire input+change. Now driven by the batched `/form-render-page` response, not a per-item POST on load
 - [x] `.fmr-fill-pending` added client-side (classes_wrapper is `protected` on Item — server can't push to it)
 - [x] Bail-out UI on OpenCPU error (`.fmr-fill-error` + inline feedback)

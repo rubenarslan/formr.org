@@ -671,15 +671,18 @@ function initForm() {
     // participant sees the resolved content as soon as the new page appears.
     // No-op for pages without any dynamic items (no data-fmr-fill-id /
     // -label-id placeholders) — short-circuits with no network.
+    const PAGE_RESOLVE_WAIT_MS = 800;
     const resolveAndSubstitutePage = async (pageNum) => {
         const targetPage = pages.find((p) => Number(p.dataset.fmrPage) === Number(pageNum));
         if (!targetPage) return;
         const fillItems = targetPage.querySelectorAll('[data-fmr-fill-id]');
         const labelItems = targetPage.querySelectorAll('[data-fmr-label-id]');
-        if (fillItems.length === 0 && labelItems.length === 0) return;
+        const choiceSpans = targetPage.querySelectorAll('[data-fmr-choice-id]');
+        if (fillItems.length === 0 && labelItems.length === 0 && choiceSpans.length === 0) return;
         // Mark items pending while we wait — visual feedback.
         fillItems.forEach((el) => el.classList.add('fmr-fill-pending'));
         labelItems.forEach((el) => el.classList.add('fmr-fill-pending'));
+        const settleChoices = () => choiceSpans.forEach((el) => el.classList.remove('fmr-fill-pending'));
         let body;
         try {
             const res = await fetch(renderPageUrl, {
@@ -692,6 +695,7 @@ function initForm() {
             if (!res.ok || !body) {
                 fillItems.forEach((el) => el.classList.remove('fmr-fill-pending'));
                 labelItems.forEach((el) => el.classList.remove('fmr-fill-pending'));
+                settleChoices();
                 console.warn('form-render-page failed', res.status, body);
                 return;
             }
@@ -701,6 +705,7 @@ function initForm() {
             // label / blank value field; not great but not fatal.
             fillItems.forEach((el) => el.classList.remove('fmr-fill-pending'));
             labelItems.forEach((el) => el.classList.remove('fmr-fill-pending'));
+            settleChoices();
             console.warn('form-render-page network error', e);
             return;
         }
@@ -737,6 +742,29 @@ function initForm() {
             const html = labelsMap[id];
             const labelEl = wrapper.querySelector('.control-label, label.control-label');
             if (labelEl) labelEl.innerHTML = html;
+        });
+        // Substitute R in choice labels. Radio/checkbox/button labels carry a
+        // placeholder span; an <option> can't hold markup, so options (and a
+        // tom-select built on them) are reached through the item + value.
+        const choicesMap = (body && body.choices) || {};
+        choiceSpans.forEach((span) => {
+            const entry = choicesMap[span.dataset.fmrChoiceId];
+            if (entry) span.innerHTML = entry.html;
+        });
+        settleChoices();
+        Object.values(choicesMap).forEach((entry) => {
+            const wrapper = targetPage.querySelector(`[data-fmr-choice-item="${Number(entry.item_id)}"]`);
+            if (!wrapper) return;
+            const tmp = document.createElement('div');
+            tmp.innerHTML = entry.html;
+            const text = tmp.textContent.trim();
+            (entry.values || []).forEach((value) => {
+                wrapper.querySelectorAll(`option[value="${CSS.escape(String(value))}"]`).forEach((opt) => {
+                    opt.textContent = text;
+                    const ts = opt.parentElement && opt.parentElement.tomselect;
+                    if (ts) ts.updateOption(String(value), { value: String(value), text });
+                });
+            });
         });
     };
 
@@ -1036,16 +1064,27 @@ function initForm() {
             setTimeout(() => { window.location.href = body.redirect; }, 600);
             return;
         }
+        // Calculate items the server just ran (they are never on the page) —
+        // hand their values to the showif scope.
+        if (body.computed && window.Alpine) {
+            try { window.Alpine.$data(root)._seed(body.computed); } catch (e) { /* noop */ }
+        }
         if (typeof body.next_page === 'number') {
             setSaveState('saved', t('save.saved', 'Saved'));
             const nextIdx = pages.findIndex((p) => Number(p.dataset.fmrPage) === body.next_page);
             if (nextIdx !== -1) {
-                // Resolve the next page's dynamic labels + values via the
-                // batched OpenCPU endpoint BEFORE showing it. This is the
-                // page-scoped model: page 1 was resolved server-side at
-                // initial render, but pages 2..N have placeholders that
-                // need filling against the just-persisted answer state.
-                await resolveAndSubstitutePage(body.next_page);
+                // Resolve the next page's dynamic labels, values and choice
+                // labels via the batched OpenCPU endpoint against the
+                // just-persisted answer state. Every page works this way, the
+                // first one included (see initial resolve below). Show the page
+                // once that is in — but no later than PAGE_RESOLVE_WAIT_MS:
+                // slow content (a note_iframe's R Markdown, a heavy label)
+                // keeps its placeholder and fills in when it arrives, exactly
+                // as on the page the participant lands on.
+                await Promise.race([
+                    resolveAndSubstitutePage(body.next_page),
+                    new Promise((done) => setTimeout(done, PAGE_RESOLVE_WAIT_MS)),
+                ]);
                 showPage(nextIdx);
                 try { history.pushState(null, '', `?page=${body.next_page}`); } catch (e) { /* noop */ }
                 return;
@@ -1920,18 +1959,12 @@ function initForm() {
     promoteShowifAttributes(root);
 
     // Deferred-fill at initial load was the previous model's per-item
-    // /form-fill resolver. Under the page-scoped model:
-    //   - First-page items have their r(...) values resolved server-side at
-    //     FormRenderer time (the inner R is substituted into $item->value
-    //     and runs through processDynamicValuesAndShowIfs). The server
-    //     emits the resolved scalar in the input's value attribute, so the
-    //     client doesn't need to ask.
-    //   - Later-page items have data-fmr-fill-id but a blank value; they
-    //     resolve via /form-render-page when the participant transitions
-    //     to that page (resolveAndSubstitutePage above).
-    // The /form-fill endpoint itself is still live and useful for one-off
-    // live re-triggers (e.g. an admin-driven retrigger button) — we just
-    // don't fire it on every page-load anymore.
+    // /form-fill resolver. Under the page-scoped model every page — the
+    // first one included — carries data-fmr-fill-id placeholders with blank
+    // values and resolves via /form-render-page when it is shown
+    // (resolveAndSubstitutePage). The /form-fill endpoint itself is still live
+    // and useful for one-off live re-triggers (e.g. an admin-driven retrigger
+    // button) — we just don't fire it on every page-load anymore.
 
     // initButtonGroups + initMediaRecorders + tom-select wiring (plain
     // <select> and <input.select2add>) live in items/* modules — imports above.
@@ -1959,10 +1992,11 @@ function initForm() {
     const paramPage = Number(new URLSearchParams(window.location.search).get('page'));
     showPage(indexForPageParam(paramPage));
 
-    // Resolve any deferred labels / values on the initial page. Labels are
-    // ALWAYS deferred now (FormRenderer Step 3 — see plan_form_v2 §8). For
-    // the first page that means a brief "loading" flicker before content
-    // appears. Fire-and-forget — page is already shown; this just fills.
+    // Resolve the deferred values, labels and choice labels of the page we
+    // landed on. The server renders no R for any page (FormRenderer), so the
+    // first page resolves exactly like the others — with a brief "loading"
+    // flicker before dynamic content appears. Fire-and-forget: the page is
+    // already shown; this just fills.
     const initialPageEl = pages[currentIndex];
     if (initialPageEl) {
         const initialPageNum = Number(initialPageEl.dataset.fmrPage);

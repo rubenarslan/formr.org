@@ -60,7 +60,7 @@ class RCallService {
      */
     public static function ttlForSlot($slot) {
         $ttls = Config::get('form_v2_rcall_ttl', array());
-        $defaults = array('value' => 300, 'label' => 300);
+        $defaults = array('value' => 300, 'label' => 300, 'choice_label' => 300);
         $slot = (string) $slot;
         if (is_array($ttls) && isset($ttls[$slot])) {
             return (int) $ttls[$slot];
@@ -79,7 +79,8 @@ class RCallService {
             'SELECT r.id, r.study_id, r.slot, r.expr, r.item_id,
                     i.id AS item_row_id, i.deleted AS item_deleted,
                     i.value AS item_value,
-                    i.label AS item_label
+                    i.label AS item_label,
+                    i.name AS item_name
              FROM `survey_r_calls` r
              LEFT JOIN `survey_items` i ON i.id = r.item_id
              WHERE r.id = :id'
@@ -101,6 +102,7 @@ class RCallService {
             'slot' => (string) $row['slot'],
             'expr' => (string) $row['expr'],
             'item_id' => (int) $row['item_id'],
+            'item_name' => (string) $row['item_name'],
         ));
     }
 
@@ -128,29 +130,42 @@ class RCallService {
                 return $current !== '' && trim($current) === $expr;
             case 'label':
                 return trim((string) $row['item_label']) === $expr;
+            case 'choice_label':
+                // The item's choice list must still carry a choice with this
+                // exact label; callers pass the list's current labels.
+                foreach ((array) ($row['item_choice_labels'] ?? array()) as $label) {
+                    if (trim((string) $label) === $expr) {
+                        return true;
+                    }
+                }
+                return false;
         }
         return false;
     }
 
     /**
-     * All LIVE value/label calls for items scheduled on $pageNum in this unit
-     * session. The survey_items_display JOIN limits resolution to items
-     * actually on that page in THIS session (a hostile page number resolves
-     * nothing); callRowIsLive() then applies the revocation check per row.
+     * All LIVE value/label/choice-label calls for items scheduled on $pageNum
+     * in this unit session. The survey_items_display JOIN limits resolution to
+     * items actually on that page in THIS session (a hostile page number
+     * resolves nothing); callRowIsLive() then applies the revocation check per
+     * row. A choice-label entry also names the choice `values` it labels, so
+     * the client can reach an `<option>` (which cannot hold a placeholder).
      *
-     * @return array{value: array<int, array{item_id:int, expr:string}>, label: array<int, array{item_id:int, expr:string}>}
+     * @return array{value: array<int, array>, label: array<int, array>, choice_label: array<int, array>}
+     *   call id => {item_id, item_name, item_type, expr[, values]}
      */
     public function callsForPage($pageNum) {
         $stmt = $this->db->prepare(
             'SELECT r.id, r.slot, r.expr, r.item_id,
                     i.id AS item_row_id, i.deleted AS item_deleted,
                     i.value AS item_value,
-                    i.label AS item_label
+                    i.label AS item_label,
+                    i.name AS item_name, i.type AS item_type, i.choice_list AS item_choice_list
              FROM `survey_r_calls` r
              INNER JOIN `survey_items_display` d ON d.item_id = r.item_id
              LEFT JOIN `survey_items` i ON i.id = r.item_id
              WHERE r.study_id = :study_id
-               AND r.slot IN ("value", "label")
+               AND r.slot IN ("value", "label", "choice_label")
                AND d.session_id = :session_id
                AND d.page = :page'
         );
@@ -158,16 +173,41 @@ class RCallService {
         $stmt->bindValue(':session_id', (int) $this->unitSession->id, PDO::PARAM_INT);
         $stmt->bindValue(':page', (int) $pageNum, PDO::PARAM_INT);
         $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $out = array('value' => array(), 'label' => array());
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        // Current choice labels of the lists the choice-label calls point at.
+        $lists = array();
+        foreach ($rows as $row) {
+            if ($row['slot'] === 'choice_label' && (string) $row['item_choice_list'] !== '') {
+                $lists[(string) $row['item_choice_list']] = array();
+            }
+        }
+        foreach ($lists ? (array) $this->study->getChoices(array_keys($lists), null) : array() as $choice) {
+            $lists[(string) $choice['list_name']][(string) $choice['name']] = (string) $choice['label'];
+        }
+
+        $out = array('value' => array(), 'label' => array(), 'choice_label' => array());
+        foreach ($rows as $row) {
+            $choices = array();
+            if ($row['slot'] === 'choice_label') {
+                $choices = isset($lists[(string) $row['item_choice_list']]) ? $lists[(string) $row['item_choice_list']] : array();
+                $row['item_choice_labels'] = $choices;
+            }
             if (!self::callRowIsLive($row)) {
                 continue;
             }
-            $out[(string) $row['slot']][(int) $row['id']] = array(
+            $entry = array(
                 'item_id' => (int) $row['item_id'],
+                'item_name' => (string) $row['item_name'],
+                'item_type' => (string) $row['item_type'],
                 'expr' => (string) $row['expr'],
             );
+            if ($row['slot'] === 'choice_label') {
+                $entry['values'] = array_map('strval', array_keys(array_filter($choices, function ($label) use ($row) {
+                    return trim((string) $label) === trim((string) $row['expr']);
+                })));
+            }
+            $out[(string) $row['slot']][(int) $row['id']] = $entry;
         }
         return $out;
     }
@@ -379,16 +419,99 @@ class RCallService {
             return $results;
         }
 
+        $exprs = array();
+        foreach ($misses as $callId => $entry) {
+            $exprs[(int) $callId] = $this->expandValueExpr(
+                (string) $entry['expr'],
+                isset($entry['item_name']) ? (string) $entry['item_name'] : ''
+            );
+        }
+        $evaluated = $this->evaluateBatch($exprs, $answers);
+        foreach ($evaluated['results'] as $cid => $val) {
+            $results[$cid] = $val;
+            $this->writeCache($cid, $argsHash, $val);
+        }
+        self::evictStale();
+        return $results;
+    }
+
+    /**
+     * `sticky` is the one `value` keyword that is not R: it means "the last
+     * non-missing answer this participant gave to this item" (v1's
+     * Item::getValue()). The allowlist records the keyword as written, so the
+     * revocation check keeps comparing like with like; it is expanded here,
+     * at evaluation.
+     */
+    public function expandValueExpr($expr, $itemName) {
+        if (trim((string) $expr) === 'sticky' && preg_match('/^[A-Za-z][A-Za-z0-9_]*$/', (string) $itemName)) {
+            return "tail(na.omit({$this->surveyName}\${$itemName}), 1)";
+        }
+        return (string) $expr;
+    }
+
+    /**
+     * Evaluate R expressions in ONE OpenCPU batch against tail(survey, 1) with
+     * $answers overlaid, each isolated by tryCatch (a runtime error yields NA
+     * for that expression only).
+     *
+     * A PARSE error in any one expression fails the whole batch, since R parses
+     * the batch as a single program. Then each expression is retried on its own,
+     * so one author typo cannot blank every other value on the page.
+     *
+     * @param array<int, string> $exprs key => R expression
+     * @return array{results: array<int, mixed>, failed: array<int, string>}
+     *   results: key => R result (length-1 vectors unwrapped); failed: key =>
+     *   'r' (R refused the expression itself: an author error) or 'transient'
+     *   (OpenCPU unreachable: worth retrying later)
+     */
+    protected function evaluateBatch(array $exprs, array $answers) {
+        $out = array('results' => array(), 'failed' => array());
+        if (!$exprs || $this->surveyName === '') {
+            return $out;
+        }
+        list($session, $transient) = $this->runBatch($exprs, $answers);
+        if ($session) {
+            $batched = $session->getJSONObject();
+            foreach (is_array($batched) ? $batched : array() as $key => $val) {
+                $key = (int) $key;
+                if (!isset($exprs[$key])) continue;
+                // R length-1 vector unwrap.
+                if (is_array($val) && count($val) === 1 && array_keys($val) === array(0)) {
+                    $val = $val[0];
+                }
+                $out['results'][$key] = $val;
+            }
+            return $out;
+        }
+        formr_log('RCallService::evaluateBatch OpenCPU error: ' . (string) opencpu_last_error());
+        if ($transient || count($exprs) === 1) {
+            foreach ($exprs as $key => $_) {
+                $out['failed'][$key] = $transient ? 'transient' : 'r';
+            }
+            return $out;
+        }
+        foreach ($exprs as $key => $expr) {
+            $single = $this->evaluateBatch(array($key => $expr), $answers);
+            $out['results'] += $single['results'];
+            $out['failed'] += $single['failed'];
+        }
+        return $out;
+    }
+
+    /**
+     * @return array{0: OpenCPU_Session|null, 1: bool} the session (null when R
+     *   or the transport failed) and whether the failure was the transport.
+     *   opencpu_evaluate() returns null either way; only a transport failure
+     *   leaves a local error behind (opencpu_note_transport_failure).
+     */
+    protected function runBatch(array $exprs, array $answers) {
         $overlayR = $this->formatROverlay($answers);
         $listEntries = array();
-        foreach ($misses as $callId => $entry) {
-            // call_id is an int, so the backtick-quoted key is safe; expr is
-            // admin-authored R vetted by the (revocation-checked) allowlist.
-            $listEntries[] = sprintf(
-                "`%d` = tryCatch({ %s }, error = function(e) NA)",
-                (int) $callId,
-                (string) $entry['expr']
-            );
+        foreach ($exprs as $key => $expr) {
+            // The key is an int, so the backtick-quoted name is safe; expr is
+            // admin-authored R (vetted by the revocation-checked allowlist when
+            // a client asked for it).
+            $listEntries[] = sprintf("`%d` = tryCatch({ %s }, error = function(e) NA)", (int) $key, (string) $expr);
         }
         $code = "(function() {\n"
               . "  .fmr.overlay <- {$overlayR}\n"
@@ -409,24 +532,9 @@ class RCallService {
             $this->unitSession->addExecutionTime((hrtime(true) - $started) / 1e9);
         }
         if ($session && !$session->hasError()) {
-            $batched = $session->getJSONObject();
-            if (is_array($batched)) {
-                foreach ($batched as $key => $val) {
-                    $cid = (int) $key;
-                    if (!isset($misses[$cid])) continue;
-                    // R length-1 vector unwrap.
-                    if (is_array($val) && count($val) === 1 && array_keys($val) === array(0)) {
-                        $val = $val[0];
-                    }
-                    $results[$cid] = $val;
-                    $this->writeCache($cid, $argsHash, $val);
-                }
-            }
-        } else {
-            formr_log('RCallService::resolveExpressions OpenCPU error: ' . (string) opencpu_last_error());
+            return array($session, false);
         }
-        self::evictStale();
-        return $results;
+        return array(null, !empty($GLOBALS['opencpu_local_error']));
     }
 
     /**
@@ -451,7 +559,7 @@ class RCallService {
         if ($expectedSlot === 'label') {
             $results = $this->resolveLabels(array($call['id'] => array('expr' => $call['expr'])), $answers, $ttl);
         } else {
-            $results = $this->resolveExpressions(array($call['id'] => array('expr' => $call['expr'])), $answers, $ttl);
+            $results = $this->resolveExpressions(array($call['id'] => array('expr' => $call['expr'], 'item_name' => $call['item_name'])), $answers, $ttl);
         }
         if (!array_key_exists($call['id'], $results)) {
             return array('ok' => false, 'status' => 502, 'error' => 'Evaluation failed');
@@ -535,6 +643,123 @@ class RCallService {
             }
         } else {
             formr_log('RCallService::resolveLabels OpenCPU error: ' . (string) opencpu_last_error());
+        }
+        return $results;
+    }
+
+    /**
+     * Compute and store the items that take no input but carry R in `value`
+     * (`calculate`), for every page up to and including $upToPage (all pages
+     * when null), that this unit session has not saved yet.
+     *
+     * A calculate is due when the participant reaches its page: the same moment
+     * v1 evaluated it, against the answers persisted by then. It runs here, on
+     * the server, against persisted data only — never a client-sent overlay —
+     * because a calculate is the study's own computation (a score, a group, an
+     * eligibility flag) and must not be something a participant can post.
+     * The result is stored like every r(...) value the client receives (see
+     * rResultToScalarString): a logical as "TRUE"/"FALSE", NA as missing.
+     *
+     * showif is ignored for these items: it is JavaScript, evaluated in the
+     * browser, and a calculate never reaches the browser. The compatibility
+     * scanner flags a calculate that has one (move the condition into the R).
+     *
+     * An item whose R cannot be evaluated at all (an author error) is stored as
+     * missing so it cannot block completion; an unreachable OpenCPU leaves it
+     * unsaved, to be retried at the next page.
+     *
+     * @return array<string, string|null> item name => stored value, for the
+     *   items computed by this call
+     */
+    public function computeCalculations($upToPage = null) {
+        $sql = 'SELECT i.id, i.study_id, i.name, i.type, i.value, i.optional, i.type_options, i.choice_list,
+                       i.class, i.label, i.label_parsed, i.showif
+                FROM `survey_items` i
+                JOIN `survey_items_display` d ON d.item_id = i.id AND d.session_id = :session_id
+                WHERE i.study_id = :study_id AND i.deleted IS NULL
+                  AND d.saved IS NULL AND (d.hidden IS NULL OR d.hidden = 0)'
+            . ($upToPage !== null ? ' AND d.page <= :page' : '')
+            . ' ORDER BY d.page, d.display_order, i.`order`, i.id';
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindValue(':session_id', (int) $this->unitSession->id, PDO::PARAM_INT);
+        $stmt->bindValue(':study_id', (int) $this->study->id, PDO::PARAM_INT);
+        if ($upToPage !== null) {
+            $stmt->bindValue(':page', (int) $upToPage, PDO::PARAM_INT);
+        }
+        $stmt->execute();
+
+        $factory = new ItemFactory(array());
+        $exprs = array();
+        $names = array();
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $item = $factory->make($row);
+            if (!$item || $item->requiresUserInput() || !$item->needsDynamicValue()) {
+                continue;
+            }
+            $raw = trim((string) $item->value);
+            $expr = RAllowlistExtractor::unwrap($raw);
+            $exprs[(int) $row['id']] = $this->expandValueExpr($expr !== null ? $expr : $raw, $item->name);
+            $names[(int) $row['id']] = $item->name;
+        }
+        if (!$exprs) {
+            return array();
+        }
+
+        $evaluated = $this->evaluateBatch($exprs, array());
+        $store = array();
+        foreach ($exprs as $id => $expr) {
+            if (array_key_exists($id, $evaluated['results'])) {
+                $value = self::rResultToScalarString($evaluated['results'][$id]);
+                $store[$names[$id]] = $value === '' ? null : $value;
+            } elseif (isset($evaluated['failed'][$id]) && $evaluated['failed'][$id] === 'r') {
+                formr_log("form_v2 calculate '{$names[$id]}' (study {$this->study->id}): R could not evaluate its value; stored as missing.");
+                $store[$names[$id]] = null;
+            }
+        }
+        if ($store && !$this->unitSession->updateSurveyStudyRecord($store, false, true)) {
+            return array();
+        }
+        return $store;
+    }
+
+    /**
+     * Knit note_iframe items: their label is a whole R Markdown document,
+     * rendered by OpenCPU into an HTML file the item frames. Resolved like any
+     * other dynamic label — when the item's page is reached, against the answers
+     * persisted by then — so it can show what the participant entered on
+     * earlier pages. Cached per unit session.
+     *
+     * @param array<int, array{expr:string, item_name?:string}> $calls
+     * @return array<int, string> call id => the item's label HTML
+     */
+    public function resolveIframes(array $calls, $ttl) {
+        if (empty($calls) || $this->surveyName === '') {
+            return array();
+        }
+        $argsHash = self::argsHash(array());
+        $results = $this->cachedResults(array_keys($calls), $argsHash, $ttl);
+        foreach (array_diff_key($calls, $results) as $callId => $entry) {
+            $source = (string) $entry['expr'];
+            $started = hrtime(true);
+            try {
+                $vars = $this->unitSession->getRunData($source, $this->study->name);
+                $session = opencpu_knit_iframe($source, $vars, true, $this->study->name);
+            } finally {
+                $this->unitSession->addExecutionTime((hrtime(true) - $started) / 1e9);
+            }
+            if ($session && !$session->hasError()) {
+                $files = $session->getFiles('knit.html');
+                $src = isset($files['knit.html']) ? (string) $files['knit.html'] : '';
+                $html = '<div class="rmarkdown_iframe"><iframe src="' . h($src) . '">'
+                      . '<p>Your browser does not support iframes.</p></iframe></div>';
+                $results[(int) $callId] = $html;
+                $this->writeCache((int) $callId, $argsHash, $html);
+            } else {
+                $name = isset($entry['item_name']) ? $entry['item_name'] : '?';
+                formr_log("note_iframe '{$name}': knit failed: " . (string) opencpu_last_error());
+                $results[(int) $callId] = '<div class="alert alert-warning fmr-iframe-fallback">'
+                    . h(_('This content is temporarily unavailable.')) . '</div>';
+            }
         }
         return $results;
     }

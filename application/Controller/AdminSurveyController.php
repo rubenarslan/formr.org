@@ -238,6 +238,15 @@ class AdminSurveyController extends AdminController {
                 if ($study->uploadItems($file, $can_delete, false)) {
                     // upload items
                     alert('<strong>Success!</strong> Survey items uploaded!', 'alert-success');
+                    // A v2 showif runs only in the browser: one it can't
+                    // evaluate keeps its item hidden for good. Say so now,
+                    // not when a participant never sees the item.
+                    if ($study->rendering_mode === 'v2') {
+                        $flagged = count(FormV2CompatScanner::scan($study->id)['flagged']);
+                        if ($flagged > 0) {
+                            alert('<strong>Check your showifs:</strong> ' . $flagged . ' expression(s) can\'t be evaluated in the browser, so their items would stay hidden — <a href="' . admin_study_url($study->name, 'form_v2_compat_scan') . '">see the compatibility report</a>.', 'alert-warning');
+                        }
+                    }
                     delete_tmp_file($file);
                     return $this->request->redirect(admin_study_url($study->name, 'upload_items'));
                 }

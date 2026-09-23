@@ -65,11 +65,13 @@ showif: !contains(animals, "cat")
 showif: last(daily_mood) > 5
 ```
 
-**Names the browser doesn't know.** A showif may reference something that isn't an item on the form — a run-level variable like `ran_group`, or an item from an earlier survey. The server evaluates every showif once when it renders the form (with the participant's full run data, exactly as v1 does) and hides items whose showif is false or unknown. In the browser, an expression that hits an unknown name is not an error: the item simply keeps whatever visibility the server gave it. Only showifs whose inputs are all on the form are live.
+**Only the browser evaluates a showif.** An item with a showif renders hidden and is revealed as soon as its showif is true; the server never runs it. The browser knows every item of this form — including answers saved on earlier pages when the participant reloads or comes back later — and the results of `calculate` items. It does not know anything else: a run-level variable like `ran_group` or an item from another survey is an unknown name, and a showif that reads one stays false, so its item stays hidden. Bring such a value onto the form with a hidden item (next section). The compatibility scanner flags these names.
+
+A showif on a `calculate` item has no effect: a calculate is computed on the server and never reaches the browser. Put the condition into its R instead: `if (condition) value else NA`.
 
 ### `value`: server-side R
 
-Just write the R. Numbers stay literal defaults; `sticky` keeps its v1 meaning (`tail(na.omit(survey$item), 1)`); everything else is evaluated on the server with the participant's answers overlaid on `tail(survey_name, 1)`:
+Just write the R. Numbers stay literal defaults; `sticky` keeps its v1 meaning (`tail(na.omit(survey$item), 1)`); everything else is evaluated on the server with the participant's answers overlaid on `tail(survey_name, 1)`, when the item's page is shown:
 
 ```
 value: paste(answered_items, collapse=", ")
@@ -80,7 +82,9 @@ value: sticky
 value: 5
 ```
 
-The R source never reaches the browser. At render time each dynamic value is recorded in `survey_r_calls` (slot `value`) and the client only ever sees the recorded call id, which it hands back when it asks the server to resolve the page. Results are cached for 5 minutes per `(call, answers)` pair.
+The R source never reaches the browser. At render time each dynamic value is recorded in `survey_r_calls` (slot `value`) and the client only ever sees the recorded call id, which it hands back when it asks the server to resolve the page. Results are cached for 5 minutes per `(call, answers)` pair. A logical result is written into the field as `TRUE` or `FALSE`.
+
+**`calculate` items** are different: they are the study's own computation (a score, a group, an eligibility flag), so they never go through the browser. The server evaluates and stores them when the participant reaches their page, against the answers saved by then and nothing the browser sends; their results then feed showifs like any answer. A logical is stored as `TRUE`/`FALSE`, NA as missing. As in v1, a calculate can use answers from earlier pages, not from its own page.
 
 ### Bridging R into a `showif`
 
@@ -96,16 +100,16 @@ The hidden field is resolved on the server; the resolved scalar is written into 
 
 ### Page-scoped resolution
 
-Server-side R only runs for the page the participant is looking at:
+Server-side R only runs for the page the participant is looking at, and every page — the first one included — is resolved the same way:
 
-- **Initial load**: the first page's dynamic values are resolved inline. Items on later pages get placeholders.
-- **Page transition**: when page N is submitted, the server stores the answers, then the client asks for page N+1 (`/form-render-page`), which resolves all of N+1's dynamic values and labels in one OpenCPU batch against the latest answers.
+- **Showing a page** (on load, and after each page submit): the client asks the server for that page (`/form-render-page`), which resolves all of its dynamic values, labels, choice labels and `note_iframe` documents in one OpenCPU batch against the latest answers. Until then they show as placeholders.
+- **Submitting a page**: the server stores the answers and runs the `calculate` items on the page that comes next (and on any page that holds nothing but calculations, which is skipped).
 
-Dynamic content on page N+1 usually depends on page N, so it can't be resolved earlier — and pre-resolving pages that may never be reached would waste OpenCPU time. Cost: one OpenCPU batch per page transition (cache-aware), rate-limited to 30 per minute per session (`form_v2_rate_limits` in `settings.php`).
+Dynamic content on page N+1 usually depends on page N, so it can't be resolved earlier — and pre-resolving pages that may never be reached would waste OpenCPU time. Cost: one OpenCPU batch per page shown (cache-aware), rate-limited to 30 per minute per session (`form_v2_rate_limits` in `settings.php`).
 
 ### Dynamic labels (R-Markdown in labels)
 
-A label containing inline R (`` `r expr` ``) is treated as **one** allowlisted call for the whole label — chunks are not extracted individually. Dynamic labels on every page, including the first, are resolved through the page request described above, so a dynamic label on page 1 paints a moment after the rest of the page. Keep heavy dynamic content off the first page if that flicker matters to you.
+A label containing inline R (`` `r expr` ``) is treated as **one** allowlisted call for the whole label — chunks are not extracted individually. The same goes for a choice label with inline R, and for a `note_iframe` (its label is a whole R Markdown document, knitted into the frame). All of them, on every page, are resolved through the page request described above, so dynamic content paints a moment after the rest of the page. Keep heavy dynamic content off the first page if that flicker matters to you.
 
 ## Compatibility scanner
 
@@ -115,16 +119,18 @@ Before upgrading a v1 study, run the scanner. It classifies every expression:
 - **empty** — no expression
 - **JS-OK** — transpiles to JavaScript cleanly
 - **needs JS rewrite** — residual R-only tokens (`ifelse`, `c(`, `%in%`, `<-`, …): rewrite in JS, or move the R into a hidden item's `value` and reference that name
+- **not on the form** — reads a name that isn't an item of this survey (`ran_group`, another survey's item): compute it in a hidden item's `value` and reference that item
+- **on a calculate** — a showif on a `calculate` item, which has no effect: put the condition into its R
 
 **`value`**
 - **empty**, **literal** (a number, kept as-is), or **R** (evaluated on the server)
 
 Two ways to run it:
 
-- **Admin UI** (recommended): the survey settings page (`/admin/survey/<name>`) shows the flagged count next to the **Upgrade to form_v2** button; **Run v2 compatibility scan** opens the full report with source, transpiled output, and the suggested fix per item.
+- **Admin UI** (recommended): the survey settings page (`/admin/survey/<name>`) shows the flagged count next to the **Upgrade to form_v2** button; **Run v2 compatibility scan** opens the full report with source, transpiled output, and the suggested fix per item. Re-uploading the items of a study that is already on v2 warns when anything is flagged.
 - **CLI**: `php bin/form_v2_compat_scan.php <study_id|study_name>`. Exits 0 if clean, 2 if anything is flagged — usable as a CI gate.
 
-The scan is advisory and changes nothing. At runtime a showif that can't be evaluated leaves the item as the server rendered it, so a flagged item isn't necessarily broken — it just isn't guaranteed to behave like the R would have.
+The scan is advisory and changes nothing. But take the showif flags seriously: at runtime a showif the browser can't evaluate leaves its item hidden, for every participant.
 
 ## PWA features (AddToHomeScreen / PushNotification)
 

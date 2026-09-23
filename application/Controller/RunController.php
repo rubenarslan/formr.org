@@ -822,19 +822,45 @@ class RunController extends Controller {
         // For a multi-page form, if more pages remain, tell the client to show the
         // next one locally (no reload). If this was the last page, redirect back
         // to the run URL so Run::exec can advance to the next unit.
-        $nextPage = (int) $this->findNextRenderablePage($unitSession->id, $submittedPage);
-        if ($nextPage > 0) {
-            $this->sendJsonResponse(array(
-                'status' => 'ok',
-                'next_page' => $nextPage,
-            ));
-            return;
-        }
+        $this->sendJsonResponse($this->advancePastPage($unitSession, $submittedPage));
+    }
 
-        $this->sendJsonResponse(array(
-            'status' => 'ok',
-            'redirect' => run_url($this->run->name),
-        ));
+    /**
+     * After page $submittedPage is saved: run the calculate items that are now
+     * due — those on every page up to the one the participant goes to next —
+     * and name that page. A page holding nothing but calculate items is never
+     * shown: its calculations run here and the participant moves past it.
+     *
+     * @return array the JSON response: status ok plus `next_page` or
+     *   `redirect`, and `computed` (name => value) for the values just stored,
+     *   so the page's showifs can read them
+     */
+    private function advancePastPage(UnitSession $unitSession, $submittedPage) {
+        $study = $this->formV2Study($unitSession->runUnit);
+        $service = new RCallService($unitSession, $study);
+        $computed = array();
+        $nextPage = 0;
+        // Bounded: each pass either settles on a page or saves every item on
+        // the candidate page, so it runs at most once per remaining page.
+        for ($pass = 0; $pass < 256; $pass++) {
+            $candidate = (int) $this->findNextRenderablePage($unitSession->id, $submittedPage);
+            $computed += $service->computeCalculations($candidate > 0 ? $candidate : null);
+            $after = (int) $this->findNextRenderablePage($unitSession->id, $submittedPage);
+            if ($after === $candidate || $after === 0) {
+                $nextPage = $after;
+                break;
+            }
+        }
+        $response = array('status' => 'ok');
+        if ($nextPage > 0) {
+            $response['next_page'] = $nextPage;
+        } else {
+            $response['redirect'] = run_url($this->run->name);
+        }
+        if ($computed) {
+            $response['computed'] = $computed;
+        }
+        return $response;
     }
 
     /**
@@ -1372,12 +1398,7 @@ class RunController extends Controller {
             $this->markClientHiddenItems((int) $unitSession->id, (int) $submittedPage, $hiddenIds);
         }
 
-        $nextPage = (int) $this->findNextRenderablePage($unitSession->id, $submittedPage);
-        if ($nextPage > 0) {
-            $this->sendJsonResponse(array('status' => 'ok', 'next_page' => $nextPage));
-            return;
-        }
-        $this->sendJsonResponse(array('status' => 'ok', 'redirect' => run_url($this->run->name)));
+        $this->sendJsonResponse($this->advancePastPage($unitSession, $submittedPage));
     }
 
     /**
@@ -1531,8 +1552,11 @@ class RunController extends Controller {
      * substitutes labels into the wrapper innerHTML and writes values into
      * the matching `data-fmr-fill-id` inputs before showing the page.
      *
-     * Initial page render does NOT call this — the first visible page's
-     * dynamic content is resolved server-side at FormRenderer time.
+     * The first page goes through here too: the client calls it for the page
+     * it lands on, right after load. FormRenderer evaluates no R for the
+     * participant's display (only the calculate items that are due).
+     *
+     * `choices` (R in choice labels): call id => {html, item_id, values}.
      *
      * The `answers` payload also enables a "retrigger" use case: a client
      * could re-POST with hypothetical answers to refresh dynamic content
@@ -1585,13 +1609,22 @@ class RunController extends Controller {
         // in THIS unit-session and applies the allowlist revocation check.
         $service = new RCallService($unitSession, $study);
         $calls = $service->callsForPage($pageNum);
-        if (empty($calls['value']) && empty($calls['label'])) {
-            $this->sendJsonResponse(array('values' => array(), 'labels' => array()));
+        if (empty($calls['value']) && empty($calls['label']) && empty($calls['choice_label'])) {
+            $this->sendJsonResponse(array('values' => array(), 'labels' => array(), 'choices' => array()));
             return;
         }
 
+        // A note_iframe's "label" is a whole R Markdown document knitted to its
+        // own HTML file; every other label is inline markdown.
+        $iframeCalls = array_filter($calls['label'], function ($call) {
+            return $call['item_type'] === 'note_iframe';
+        });
+        $labelCalls = array_diff_key($calls['label'], $iframeCalls);
+
         $values = $service->resolveExpressions($calls['value'], $answers, RCallService::ttlForSlot('value'));
-        $labels = $service->resolveLabels($calls['label'], $answers, RCallService::ttlForSlot('label'));
+        $labels = $service->resolveLabels($labelCalls, $answers, RCallService::ttlForSlot('label'))
+                + $service->resolveIframes($iframeCalls, RCallService::ttlForSlot('label'));
+        $choiceLabels = $service->resolveLabels($calls['choice_label'], $answers, RCallService::ttlForSlot('choice_label'));
 
         $valuesOut = array();
         foreach ($values as $callId => $val) {
@@ -1601,8 +1634,19 @@ class RunController extends Controller {
         foreach ($labels as $callId => $html) {
             $labelsOut[(string) $callId] = $html;
         }
+        // Choice labels also name the item and the choice values they label:
+        // a placeholder span can't live inside an <option>, so the client
+        // reaches options by value instead.
+        $choicesOut = array();
+        foreach ($choiceLabels as $callId => $html) {
+            $choicesOut[(string) $callId] = array(
+                'html' => $html,
+                'item_id' => $calls['choice_label'][$callId]['item_id'],
+                'values' => $calls['choice_label'][$callId]['values'],
+            );
+        }
 
-        $this->sendJsonResponse(array('values' => $valuesOut, 'labels' => $labelsOut));
+        $this->sendJsonResponse(array('values' => $valuesOut, 'labels' => $labelsOut, 'choices' => $choicesOut));
     }
 
     /**

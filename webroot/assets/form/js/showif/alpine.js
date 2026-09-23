@@ -36,8 +36,17 @@
 // an item name must match `^[A-Za-z][A-Za-z0-9_]*$`, so it can never spell one.
 export const RESERVED_FIELD_NAMES = new Set([
     'isNA', 'answered', 'contains', 'containsWord', 'startsWith', 'endsWith', 'last',
-    'init', '_syncInput', '_emptyValue', '_onShowifToggled',
+    'init', '_syncInput', '_emptyValue', '_onShowifToggled', '_seed',
 ]);
+
+// The same coercion _syncInput applies to a live input: '' → null, numeric
+// strings → numbers, so a seeded answer compares exactly like a typed one.
+function coerceField(v) {
+    if (Array.isArray(v)) return v.map(coerceField);
+    if (v === '' || v === null || v === undefined) return null;
+    const n = Number(v);
+    return isNaN(n) ? v : n;
+}
 
 export function registerFmrForm(Alpine) {
     Alpine.data('fmrForm', () => ({
@@ -79,11 +88,31 @@ export function registerFmrForm(Alpine) {
                 if (!(key in this)) this[key] = null;
             });
             inputs.forEach((inp) => this._syncInput(inp));
+            // Answers saved on earlier pages are not rendered again, so a
+            // showif that reads one would see a name it doesn't know. The
+            // server ships them (FormRenderer::savedAnswers); a live input of
+            // the same name always wins.
+            const saved = this.$root.querySelector('script.fmr-saved-answers');
+            if (saved) {
+                try { this._seed(JSON.parse(saved.textContent || '{}'), true); } catch (e) { /* malformed: skip */ }
+            }
             this.$root.addEventListener('input', (e) => this._syncInput(e.target));
             this.$root.addEventListener('change', (e) => this._syncInput(e.target));
             // `x-showif` dispatches this from the item wrapper on every
             // visibility CHANGE; retract / restore the item's answer with it.
             this.$root.addEventListener('fmr:showif-toggled', (e) => this._onShowifToggled(e));
+        },
+
+        // Set fields from a name → value map the server supplied: saved answers
+        // at load, calculate results after a page submit. `onlyUnknown` keeps
+        // a field some input on the page already owns.
+        _seed(values, onlyUnknown = false) {
+            if (!values || typeof values !== 'object') return;
+            Object.keys(values).forEach((key) => {
+                if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(key) || RESERVED_FIELD_NAMES.has(key)) return;
+                if (onlyUnknown && key in this) return;
+                this[key] = coerceField(values[key]);
+            });
         },
 
         // The "not answered" representation for one input, mirroring the shapes
