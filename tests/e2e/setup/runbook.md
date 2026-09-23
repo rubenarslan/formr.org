@@ -294,3 +294,24 @@ for the Stop (the unit type is `Page`, not `Endpage`; both ajax calls need
 `X-Requested-With: XMLHttpRequest`). Results land in `s<studyId>_e2e_rank`.
 
 In `runs.json` as `rank.v2`.
+
+## v2_dynamic / v2_inputs (form_v2 resolution path and input behaviour)
+
+Two small JSON surveys, scripted end to end — the steps above, automated:
+
+    node tests/e2e/setup/create-v2-fixtures.js
+
+It needs the robot admin session global-setup writes (run any e2e spec once
+first) and skips a fixture whose run already exists.
+
+- `e2e_v2_dynamic.json` → run `e2e-dyn-v2` (`v2-dynamic.spec.js`): dynamic
+  values, labels, R in choice labels, `calculate` items and a `note_iframe`
+  on two pages, so the first page and a later page are checked for the same
+  resolution path; plus a showif over a page-1 answer after a reload.
+- `e2e_v2_inputs.json` → run `e2e-inputs-v2` (`v2-inputs.spec.js`):
+  deselectable optional radios and button groups (#377), a `text` pattern
+  whose first choice is its message (#269), an email field (#327), and the
+  study's own button wording — the script sets `next_button_label = 'Onward'`
+  and `submit_button_label = 'Finish now'` (#322).
+
+In `runs.json` as `v2_dynamic.v2` and `v2_inputs.v2`.

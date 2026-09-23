@@ -1,0 +1,123 @@
+// form_v2: one resolution path for dynamic content on every page.
+//
+//   npx playwright test --config tests/e2e/playwright.config.js v2-dynamic
+//
+// Dynamic `value`s (including `calculate` items), dynamic labels, R in choice
+// labels and note_iframe all resolve through /form-render-page — on the first
+// page as on every later one — and showif is JavaScript only (no server-side R
+// pass). Fixture: tests/e2e/setup/e2e_v2_dynamic.json, provisioned by
+// tests/e2e/setup/create-v2-fixtures.js as run `e2e-dyn-v2`.
+//
+//   page 1: d_intro (label `r 2*3`), d_num (number), d_default (value
+//           paste("pre","filled")), d_calc_false (calculate 1 > 2), d_calc_seed
+//           (calculate 3 + 4), d_after_calc (showif d_calc_seed == 7), d_mc
+//           (choice label `r 10 + 1`)
+//   page 2: d_label2 (label `r d_num`), d_default2 (value d_num * 2), d_calc2
+//           (calculate d_num > 5), d_mc2 (choice label `r d_num + 100`),
+//           d_show2 (showif d_num > 5), d_iframe (note_iframe `r d_num`)
+const { test, expect, bsSafeEvaluate } = require('./helpers/test');
+const { runName } = require('./helpers/runs');
+const { freshParticipant } = require('./helpers/participant');
+const v2 = require('./helpers/v2Form');
+const db = require('./helpers/db');
+
+const RUN = () => runName('v2_dynamic', 'v2');
+
+function study() {
+    return db.dbQuery("SELECT id, results_table FROM survey_studies WHERE name = 'e2e_v2_dynamic' ORDER BY id DESC LIMIT 1")[0];
+}
+
+async function unitSessionId(page) {
+    return bsSafeEvaluate(page, () => Number(document.querySelector('form.fmr-form-v2 input[name="session_id"]').value));
+}
+
+// Deferred content has resolved once page `pageNum` is the visible one and
+// nothing on it is pending (the client resolves a page before showing it).
+async function waitResolved(page, pageNum) {
+    await page.waitForFunction((n) => {
+        const sec = document.querySelector('form.fmr-form-v2 section.fmr-page:not([hidden])');
+        return sec && Number(sec.dataset.fmrPage) === n && !sec.querySelector('.fmr-fill-pending');
+    }, pageNum, { timeout: 30000 });
+}
+
+// The knitted note_iframe document (OpenCPU session file), as text.
+async function iframeText(page, src) {
+    const res = await page.request.get(src, { ignoreHTTPSErrors: true });
+    return (await res.text()).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+}
+
+async function snapshot(page) {
+    return bsSafeEvaluate(page, () => {
+        const wrap = (name) => document.querySelector(`form.fmr-form-v2 [name="${name}"]`)?.closest('.form-group');
+        const visible = (name) => { const w = wrap(name); return !!w && !w.hasAttribute('data-fmr-hidden') && w.style.display !== 'none' && !w.classList.contains('hidden'); };
+        const text = (sel) => document.querySelector(sel)?.textContent.replace(/\s+/g, ' ').trim() || null;
+        const choice = (name, value) => text(`form.fmr-form-v2 label[for$="_${value}"]:has(input[name="${name}"])`);
+        return {
+            intro: text('form.fmr-form-v2 .item-note:has([name="d_intro"]) .control-label'),
+            label2: text('form.fmr-form-v2 .item-note:has([name="d_label2"]) .control-label'),
+            d_default: document.querySelector('[name="d_default"]')?.value ?? null,
+            d_default2: document.querySelector('[name="d_default2"]')?.value ?? null,
+            mc1: choice('d_mc', 1),
+            mc2_1: choice('d_mc2', 1),
+            afterCalc: visible('d_after_calc'),
+            show2: visible('d_show2'),
+            iframeSrc: document.querySelector('form.fmr-form-v2 .item-note_iframe iframe')?.getAttribute('src') || null,
+            rawR: /`r /.test(document.querySelector('form.fmr-form-v2 section.fmr-page:not([hidden])')?.textContent || ''),
+        };
+    });
+}
+
+test.describe('form_v2: dynamic content resolves the same way on every page', () => {
+    test('page 1: values, labels, choice labels and calculates resolve on load', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        await waitResolved(page, 1);
+        const s = await snapshot(page);
+        expect(s.intro).toContain('Dynamic label on page one: 6');
+        expect(s.d_default).toBe('pre filled');
+        expect(s.mc1).toBe('11');
+        expect(s.rawR, 'no raw `r …` source may reach the participant').toBe(false);
+        expect(s.afterCalc, 'a showif over a same-page calculate item').toBe(true);
+
+        const st = study();
+        const row = db.dbResultsRow(st.results_table, await unitSessionId(page));
+        expect(row.d_calc_false, 'a FALSE calculate is stored as "FALSE", not empty').toBe('FALSE');
+        expect(row.d_calc_seed).toBe('7');
+    });
+
+    test('page 2 resolves against page-1 answers, and calculates store TRUE/FALSE', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        await waitResolved(page, 1);
+        await page.fill('[name="d_num"]', '9');
+        const r = await v2.submitV2(page);
+        expect(r.body && r.body.next_page, JSON.stringify(r.body)).toBeTruthy();
+        await waitResolved(page, 2);
+        const s = await snapshot(page);
+        expect(s.label2).toContain('You picked 9');
+        expect(s.d_default2).toBe('18');
+        expect(s.mc2_1).toBe('109');
+        expect(s.show2).toBe(true);
+        expect(s.rawR).toBe(false);
+        expect(s.iframeSrc, 'note_iframe gets its knitted src on its own page').toMatch(/^https?:\/\//);
+        expect(await iframeText(page, s.iframeSrc), 'knitted with the page-1 answer, not at initial render').toContain('Iframe says 9');
+
+        const row = db.dbResultsRow(study().results_table, await unitSessionId(page));
+        expect(row.d_calc2).toBe('TRUE');
+    });
+
+    test('resume: a showif over an earlier page\'s answer survives a reload', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        await waitResolved(page, 1);
+        await page.fill('[name="d_num"]', '9');
+        const r = await v2.submitV2(page);
+        expect(r.body && r.body.next_page, JSON.stringify(r.body)).toBeTruthy();
+        await page.reload();
+        await v2.waitForBundle(page);
+        await waitResolved(page, 2);
+        const s = await snapshot(page);
+        expect(s.show2, 'd_num is no longer in the DOM; its saved answer must still drive the showif').toBe(true);
+        expect(s.label2).toContain('You picked 9');
+    });
+});

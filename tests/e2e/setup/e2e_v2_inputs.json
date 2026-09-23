@@ -1,0 +1,37 @@
+{
+    "name": "e2e_v2_inputs",
+    "settings": {},
+    "items": [
+        {
+            "type": "mc", "name": "i_mc", "choice_list": "yesno", "optional": 1,
+            "label": "Optional single choice (click the picked option again to clear it)",
+            "choices": {"1": "Yes", "2": "No"}
+        },
+        {
+            "type": "mc", "name": "i_mc_req", "choice_list": "ab", "optional": 0,
+            "label": "Required single choice (stays picked)",
+            "choices": {"1": "A", "2": "B"}
+        },
+        {
+            "type": "mc_button", "name": "i_btn", "choice_list": "lr", "optional": 1,
+            "label": "Optional button group",
+            "choices": {"1": "Left", "2": "Right"}
+        },
+        {
+            "type": "text", "name": "i_zip", "type_options": "[0-9]{5}", "choice_list": "zipmsg", "optional": 1,
+            "label": "Postcode",
+            "choices": {"1": "Please enter five digits."}
+        },
+        {
+            "type": "email", "name": "i_email", "optional": 1,
+            "label": "Email"
+        },
+        {
+            "type": "submit", "name": "i_p1", "label": ""
+        },
+        {
+            "type": "note", "name": "i_done", "optional": 1,
+            "label": "Last page"
+        }
+    ]
+}
