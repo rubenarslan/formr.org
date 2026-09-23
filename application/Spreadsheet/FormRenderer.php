@@ -181,7 +181,7 @@ class FormRenderer extends SpreadsheetRenderer {
         foreach ($dynamicChoices as $k => $choice) {
             $item = $choice['item'];
             if (!isset($callIds[$choiceCallIndex[$k]])) {
-                continue; // stays on its raw source text, as before
+                continue; // no call id: the choice keeps its raw source text
             }
             $item->choices[$choice['value']] = sprintf(
                 '<span class="fmr-choice-label fmr-fill-pending" data-fmr-choice-id="%d"></span>',

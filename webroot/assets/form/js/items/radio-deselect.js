@@ -3,7 +3,7 @@
 // A native radio group can't be emptied again once something is picked, so a
 // participant who touched an OPTIONAL question could no longer leave it
 // unanswered. Clicking (or tapping) the picked option of an optional group
-// now takes the answer back. Required groups keep native behaviour. Button
+// takes the answer back. Required groups keep native behaviour. Button
 // groups (mc_button, rating_button, …) hide their radios and handle this in
 // items/button-groups.js.
 //

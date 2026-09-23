@@ -127,7 +127,7 @@ Before upgrading a v1 study, run the scanner. It classifies every expression:
 
 Two ways to run it:
 
-- **Admin UI** (recommended): the survey settings page (`/admin/survey/<name>`) shows the flagged count next to the **Upgrade to form_v2** button; **Run v2 compatibility scan** opens the full report with source, transpiled output, and the suggested fix per item. Re-uploading the items of a study that is already on v2 warns when anything is flagged.
+- **Admin UI** (recommended): the survey settings page (`/admin/survey/<name>`) shows the flagged count next to the **Upgrade to form_v2** button; **Run v2 compatibility scan** opens the full report with source, transpiled output, and the suggested fix per item.
 - **CLI**: `php bin/form_v2_compat_scan.php <study_id|study_name>`. Exits 0 if clean, 2 if anything is flagged — usable as a CI gate.
 
 The scan is advisory and changes nothing. But take the showif flags seriously: at runtime a showif the browser can't evaluate leaves its item hidden, for every participant.
