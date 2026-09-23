@@ -578,8 +578,11 @@ export function initSolo(opts) {
         // without having to re-pick the same option.
         // Hide the footer OK on single-choice steps (picking advances) and on a
         // `submit` step (its own big button IS the action — see wireSubmitStep).
+        // An OPTIONAL single choice keeps OK: it is how the step is left
+        // unanswered (before anything is picked, or after un-picking, #377).
         const hideOk = isSubmitStep(current)
-            || (isRadioChoice(current) && !terminal && !hasSelection(current));
+            || (isRadioChoice(current) && !terminal && !hasSelection(current)
+                && !!current.querySelector('input[type=radio][required]'));
         okBtn.style.display = hideOk ? 'none' : '';
         okBtn.innerHTML = terminal
             ? t('nav.submit', 'Submit') + ' <i class="fa fa-paper-plane" aria-hidden="true"></i>'
@@ -622,6 +625,13 @@ export function initSolo(opts) {
         if (t.name && t.name.startsWith('_item_views')) return;
         if (!current || !current.contains(t)) return;
         if (!autoAdvances(current)) return;
+        // Un-picking an optional single choice (#377) is not a commit: stay
+        // (updateNav keeps OK visible on an optional step).
+        if (isRadioChoice(current) && !hasSelection(current)) {
+            clearTimeout(advanceTimer);
+            updateNav();
+            return;
+        }
         if (isTerminal(current)) return;     // require an explicit Submit at the very end
         // Answering the last step of a page auto-advances across the page
         // boundary; don't even arm the timer while a minimum-exposure submit

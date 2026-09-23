@@ -51,6 +51,7 @@ import {
 } from './offline/queue.js';
 import { initMediaRecorders } from './items/recorders.js';
 import { initButtonGroups } from './items/button-groups.js';
+import { initRadioDeselect } from './items/radio-deselect.js';
 import { initBotCheck } from './items/bot-check.js';
 import { initRank } from './items/rank.js';
 import { initGeopoint } from './items/geopoint.js';
@@ -1969,6 +1970,7 @@ function initForm() {
     // initButtonGroups + initMediaRecorders + tom-select wiring (plain
     // <select> and <input.select2add>) live in items/* modules — imports above.
     initButtonGroups(root);
+    initRadioDeselect(root);
     initBotCheck(root);
     initRank(root);
     initMediaRecorders(root);

@@ -226,6 +226,25 @@
                                 </tr>
                                 <tr>
                                     <td colspan="2">
+                                        <label>Button labels</label>
+                                        <span class="help-block">
+                                            <i class="fa fa-info-circle"></i>
+                                            Your own wording for the page navigation. Leave empty for the built-in label in the participant language (<em><?= h(FormStrings::get($study->language, 'nav.next')) ?></em> / <em><?= h(FormStrings::get($study->language, 'nav.submit')) ?></em>). A <code>submit</code> item in your sheet still labels its own page's button.
+                                        </span>
+                                        <div class="row">
+                                            <div class="col-sm-6">
+                                                <input type="text" class="form-control" name="next_button_label" value="<?= h((string) $study->next_button_label) ?>" maxlength="100" placeholder="<?= h(FormStrings::get($study->language, 'nav.next')) ?>" aria-label="Next button label">
+                                                <small class="text-muted">Next page</small>
+                                            </div>
+                                            <div class="col-sm-6">
+                                                <input type="text" class="form-control" name="submit_button_label" value="<?= h((string) $study->submit_button_label) ?>" maxlength="100" placeholder="<?= h(FormStrings::get($study->language, 'nav.submit')) ?>" aria-label="Submit button label">
+                                                <small class="text-muted">Last page</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2">
                                         <label>Compatibility scan</label>
                                         <span class="help-block">
                                             <i class="fa fa-info-circle"></i>

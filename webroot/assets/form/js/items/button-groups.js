@@ -28,10 +28,16 @@ export function initButtonGroups(root) {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 if (isRadio) {
+                    // Clicking the picked option of an OPTIONAL question takes
+                    // the answer back (#377) — otherwise a participant who
+                    // touched it once could never leave it unanswered again.
+                    const deselect = input.checked && !input.required;
                     group.querySelectorAll('input[type=radio]').forEach((r) => { r.checked = false; });
                     group.querySelectorAll('.btn[data-for]').forEach((b) => b.classList.remove('btn-checked'));
-                    input.checked = true;
-                    btn.classList.add('btn-checked');
+                    if (!deselect) {
+                        input.checked = true;
+                        btn.classList.add('btn-checked');
+                    }
                 } else {
                     input.checked = !input.checked;
                     btn.classList.toggle('btn-checked', input.checked);

@@ -576,6 +576,8 @@ CREATE TABLE `survey_studies` (
   `option_keys` tinyint(1) NOT NULL DEFAULT 1,
   `last_iteration` int(10) unsigned NOT NULL DEFAULT 0,
   `language` varchar(35) NOT NULL DEFAULT 'en' COMMENT 'BCP 47 tag for participant-facing engine chrome (form_v2 i18n)',
+  `next_button_label` varchar(100) DEFAULT NULL COMMENT 'form_v2: custom Next button text (NULL = built-in)',
+  `submit_button_label` varchar(100) DEFAULT NULL COMMENT 'form_v2: custom Submit button text on the last page (NULL = built-in)',
   PRIMARY KEY (`id`),
   UNIQUE KEY `name_by_user` (`user_id`,`name`),
   CONSTRAINT `fk_study_unit` FOREIGN KEY (`id`) REFERENCES `survey_units` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION,

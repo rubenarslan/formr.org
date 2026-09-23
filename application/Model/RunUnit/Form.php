@@ -180,6 +180,8 @@ class Form extends Survey {
                 // executeUnitSession → Run::exec → RunController) so
                 // form_index.php can set <html lang/dir> + window.fmrStrings.
                 'form_language' => !empty($study->language) ? $study->language : 'en',
+                // …and the study's own navigation wording on top (#322).
+                'form_strings' => FormStrings::table(!empty($study->language) ? $study->language : 'en', FormStrings::studyOverrides($study)),
             ];
         } catch (Exception $e) {
             formr_log_exception($e, __CLASS__ . '-' . $e->getCode());

@@ -444,6 +444,8 @@ class FormRenderer extends SpreadsheetRenderer {
 
         $i = 0;
         $isSolo = (($this->study->layout ?? 'default') === 'solo');
+        $lang = !empty($this->study->language) ? $this->study->language : 'en';
+        $strings = FormStrings::table($lang, FormStrings::studyOverrides($this->study));
         foreach ($itemsByPage as $pageNum => $pageItems) {
             $i++;
             $isLast = ($i === $pageCount);
@@ -473,6 +475,14 @@ class FormRenderer extends SpreadsheetRenderer {
                 // through submitPage() (preventDefault'd → no native POST); in
                 // solo the solo controller's wireSubmitStep() owns the click, so
                 // we DON'T add data-fmr-next there (avoids a double-bound submit).
+                // A `submit` row with no label is a bare page break: give its
+                // button the navigation wording — the study's own (#322) or
+                // the built-in one — instead of rendering it empty.
+                if (isset($item->type) && $item->type === 'submit'
+                        && trim(strip_tags((string) $item->label_parsed)) === '') {
+                    $item->label_parsed = htmlspecialchars($strings[$isLast ? 'nav.submit' : 'nav.next'], ENT_QUOTES);
+                    $item->input_attributes['value'] = $item->label_parsed;
+                }
                 if (isset($item->type) && $item->type === 'submit' && !$isSolo) {
                     $item->input_attributes['data-fmr-next'] = '1';
                 }
@@ -707,11 +717,12 @@ class FormRenderer extends SpreadsheetRenderer {
 
     protected function renderPageNav($showPrev, $isLast, $hasSubmit = false) {
         $lang = !empty($this->study->language) ? $this->study->language : 'en';
+        $strings = FormStrings::table($lang, FormStrings::studyOverrides($this->study));
         // Previous button is opt-in per form (SurveyStudy.allow_previous).
         $allowPrev = $showPrev && !empty($this->study->allow_previous);
         $left = $allowPrev
             ? '<button type="button" class="btn btn-outline-secondary" data-fmr-prev><i class="fa fa-arrow-left"></i> '
-                . htmlspecialchars(FormStrings::get($lang, 'nav.previous'), ENT_QUOTES) . '</button>'
+                . htmlspecialchars($strings['nav.previous'], ENT_QUOTES) . '</button>'
             : '';
         // When the page already carries a submit item, that item's own button is
         // the (big, centred) advance control — emit no duplicate Next/Submit. Keep
@@ -721,7 +732,7 @@ class FormRenderer extends SpreadsheetRenderer {
                 ? ''
                 : '<div class="fmr-page-nav"><div class="fmr-page-nav__left">' . $left . '</div></div>';
         }
-        $nextLabel = FormStrings::get($lang, $isLast ? 'nav.submit' : 'nav.next');
+        $nextLabel = $strings[$isLast ? 'nav.submit' : 'nav.next'];
         $nextIcon = $isLast ? 'fa-check' : 'fa-arrow-right';
         return sprintf(
             '<div class="fmr-page-nav"><div class="fmr-page-nav__left">%s</div>'

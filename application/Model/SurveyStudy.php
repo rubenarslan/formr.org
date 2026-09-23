@@ -33,6 +33,9 @@ class SurveyStudy extends Model
     public $allow_previous = 0;
     public $layout = 'default';
     public $language = 'en'; // BCP 47; drives v2 engine-chrome i18n (patch 096)
+    // v2 navigation wording, NULL = built-in per language (patch 097, #322)
+    public $next_button_label = null;
+    public $submit_button_label = null;
     public $last_iteration = 0; // per-study counter for survey_unit_sessions.study_iteration; patch 090
 
     public $created = null;
@@ -296,7 +299,7 @@ class SurveyStudy extends Model
                 // is dropped rather than coerced, so a bad bundle imports
                 // with the column default.
                 'rendering_mode', 'offline_mode', 'allow_previous',
-                'layout', 'language',
+                'layout', 'language', 'next_button_label', 'submit_button_label',
             ];
             $raw_settings = isset($data->settings) ? (array) $data->settings : [];
             $filtered = array_intersect_key($raw_settings, array_flip($allowed_settings));
@@ -404,7 +407,29 @@ class SurveyStudy extends Model
                 unset($settings['language']);
             }
         }
+        foreach (['next_button_label', 'submit_button_label'] as $key) {
+            if (array_key_exists($key, $settings)) {
+                $settings[$key] = self::normalizeButtonLabel($settings[$key]);
+            }
+        }
         return $settings;
+    }
+
+    /**
+     * A custom navigation button label (#322): plain text, one line, at most
+     * 100 characters; anything empty means "use the built-in wording" (NULL).
+     * Markup is stripped rather than escaped because the label is shown as
+     * text, and a button is no place for it.
+     */
+    public static function normalizeButtonLabel($label) {
+        if (!is_scalar($label)) {
+            return null;
+        }
+        $label = trim(preg_replace('/\s+/u', ' ', strip_tags((string) $label)));
+        if ($label === '') {
+            return null;
+        }
+        return mb_substr($label, 0, 100);
     }
 
     public function uploadItems($file, $can_delete = false, $is_new = false)
@@ -545,6 +570,8 @@ class SurveyStudy extends Model
             'allow_previous' => $this->allow_previous,
             'layout' => $this->layout,
             'language' => $this->language,
+            'next_button_label' => $this->next_button_label,
+            'submit_button_label' => $this->submit_button_label,
             'created' => $this->created,
             'modified' => $this->modified,
         ];
@@ -2078,6 +2105,8 @@ class SurveyStudy extends Model
             'allow_previous',
             'layout',
             'language',
+            'next_button_label',
+            'submit_button_label',
         ];
         $settings = [];
 

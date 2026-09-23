@@ -15,8 +15,8 @@
  * Parameterized strings use named %tokens replaced by the caller (client
  * t(key, params) / server get(..., params)).
  *
- * Adding a language = adding one array below. Per-study custom overrides are
- * a possible follow-up (see the form_v2 punch list).
+ * Adding a language = adding one array below. A study can override the
+ * navigation wording (studyOverrides(), patch 097 / #322).
  */
 class FormStrings {
 
@@ -107,16 +107,40 @@ class FormStrings {
      * ('de-AT' → 'de'), then English. Always returns EVERY key (missing
      * translations fall back to English key-by-key).
      */
-    public static function table($language) {
+    public static function table($language, array $overrides = array()) {
         $en = self::$tables['en'];
         $lang = strtolower(trim((string) $language));
-        if ($lang === '' || $lang === 'en') {
-            return $en;
+        $chosen = array();
+        if ($lang !== '' && $lang !== 'en') {
+            $primary = strtok($lang, '-');
+            $chosen = isset(self::$tables[$lang]) ? self::$tables[$lang]
+                : (isset(self::$tables[$primary]) ? self::$tables[$primary] : array());
         }
-        $primary = strtok($lang, '-');
-        $chosen = isset(self::$tables[$lang]) ? self::$tables[$lang]
-            : (isset(self::$tables[$primary]) ? self::$tables[$primary] : array());
-        return array_merge($en, $chosen);
+        // Overrides replace known keys only, and only with a non-empty string.
+        $overrides = array_filter(array_intersect_key($overrides, $en), function ($s) {
+            return is_string($s) && $s !== '';
+        });
+        return array_merge($en, $chosen, $overrides);
+    }
+
+    /**
+     * The strings a study replaces with its own wording (#322): the custom
+     * Next label also stands in for the solo layout's page-boundary
+     * "Continue"; the custom Submit label for the last page's button.
+     *
+     * @param SurveyStudy|null $study
+     * @return array<string, string>
+     */
+    public static function studyOverrides($study) {
+        $out = array();
+        if ($study && !empty($study->next_button_label)) {
+            $out['nav.next'] = (string) $study->next_button_label;
+            $out['nav.continue'] = (string) $study->next_button_label;
+        }
+        if ($study && !empty($study->submit_button_label)) {
+            $out['nav.submit'] = (string) $study->submit_button_label;
+        }
+        return $out;
     }
 
     /** One string, with %token replacement. */

@@ -78,7 +78,7 @@ $formDir = FormStrings::dir($formLanguage);
             window.formr = <?php echo !empty($jsConfig) ? json_encode($jsConfig) : '{}'; ?>;
             // Engine-chrome strings in the study's language (FormStrings;
             // English fallback key-by-key). Read by the bundle's lib/i18n.js.
-            window.fmrStrings = <?php echo json_encode(FormStrings::table($formLanguage), JSON_UNESCAPED_UNICODE); ?>;
+            window.fmrStrings = <?php echo json_encode(!empty($form_strings) && is_array($form_strings) ? $form_strings : FormStrings::table($formLanguage), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP); ?>;
             // bot_check (Altcha): same-origin URL of the self-hosted memory-hard
             // Argon2id Web Worker, copied next to the form bundle by webpack.
             // Resolved against the active build/dev-build dir so it always matches

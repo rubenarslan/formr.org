@@ -16,6 +16,16 @@ import { t } from '../lib/i18n.js';
 // (AddToHomeScreen, PushNotification, RequestCookie, …) must persist —
 // otherwise the participant can advance past a required gate without
 // completing it. Server-set inputs are tagged with `data-fmr-server-validity`.
+// The message for an invalid field. For a format mismatch the item's `title`
+// wins: it is the author's own wording (a pattern item's first choice, #269)
+// or the server's default for the type (email). Browsers treat `title` as a
+// mere hint and often leave it out of validationMessage.
+function invalidMessage(el, fallback) {
+    const v = el.validity || {};
+    if ((v.patternMismatch || v.typeMismatch) && el.title) return el.title;
+    return el.validationMessage || fallback;
+}
+
 export function clearCustomValidity(pageEl) {
     pageEl.querySelectorAll(
         'input[data-fmr-server-validity], select[data-fmr-server-validity], textarea[data-fmr-server-validity]'
@@ -233,7 +243,7 @@ export function validatePageAndShowFeedback(pageEl) {
         el.classList.add('is-invalid');
         const fb = document.createElement('div');
         fb.className = 'invalid-feedback fmr-invalid-feedback d-block';
-        fb.textContent = el.validationMessage || t('validation.required', "We'll need this to continue.");
+        fb.textContent = invalidMessage(el, t('validation.required', "We'll need this to continue."));
         const anchor = el.closest('.controls, .form-group') || el.parentElement;
         if (anchor && anchor.parentElement) {
             anchor.parentElement.insertBefore(fb, anchor.nextSibling);
@@ -303,7 +313,7 @@ export function installBlurValidation(root) {
         el.classList.add('is-invalid');
         const fb = document.createElement('div');
         fb.className = 'invalid-feedback fmr-invalid-feedback d-block';
-        fb.textContent = el.validationMessage || 'Please check this entry.';
+        fb.textContent = invalidMessage(el, 'Please check this entry.');
         const anchor = el.closest('.controls, .form-group') || el.parentElement;
         if (anchor && anchor.parentElement) {
             anchor.parentElement.insertBefore(fb, anchor.nextSibling);

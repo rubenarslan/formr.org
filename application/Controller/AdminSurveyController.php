@@ -586,12 +586,13 @@ class AdminSurveyController extends AdminController {
             // handling block runs and the saves would silently rewrite
             // the columns to their false/null defaults.
             'offline_mode', 'allow_previous', 'layout', 'language',
+            'next_button_label', 'submit_button_label',
         ];
         $settings = array_intersect_key($settings, array_flip($allowed));
         // String-typed columns must opt out of the int cast — google_file_id
         // is a Drive ID; layout is an ENUM('default','solo'); language is a
         // BCP 47 tag.
-        $stringCols = ['google_file_id', 'layout', 'language'];
+        $stringCols = ['google_file_id', 'layout', 'language', 'next_button_label', 'submit_button_label'];
         array_walk($settings, function (&$value, $key) use ($stringCols) {
             if (!in_array($key, $stringCols, true)) {
                 $value = (int) $value;
@@ -640,8 +641,13 @@ class AdminSurveyController extends AdminController {
             // table + lang/dir attributes.
             $langInput = trim((string) ($settings['language'] ?? 'en'));
             $settings['language'] = preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', $langInput) ? $langInput : 'en';
+            // Custom navigation wording (#322); empty = built-in.
+            foreach (['next_button_label', 'submit_button_label'] as $key) {
+                $settings[$key] = SurveyStudy::normalizeButtonLabel($settings[$key] ?? null);
+            }
         } else {
-            unset($settings['offline_mode'], $settings['allow_previous'], $settings['layout'], $settings['language']);
+            unset($settings['offline_mode'], $settings['allow_previous'], $settings['layout'], $settings['language'],
+                $settings['next_button_label'], $settings['submit_button_label']);
         }
 
         // user can't revert unlinking

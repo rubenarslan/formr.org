@@ -518,6 +518,9 @@ class RunSession extends Model {
             if (!empty($result['form_language'])) {
                 $out['form_language'] = $result['form_language'];
             }
+            if (!empty($result['form_strings'])) {
+                $out['form_strings'] = $result['form_strings'];
+            }
             return $out;
         }
 

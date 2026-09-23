@@ -1442,6 +1442,7 @@ class Run extends Model
             'redirect' => array_val($output, 'redirect'),
             'use_form_v2' => !empty($output['use_form_v2']),
             'form_language' => array_val($output, 'form_language'),
+            'form_strings' => array_val($output, 'form_strings'),
             'run' => $this,
         );
     }
