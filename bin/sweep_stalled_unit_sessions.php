@@ -181,7 +181,7 @@ try {
 // and a cleared row is not re-picked. Bounded by --limit; idempotent.
 try {
     $orphans = $db->execute(
-        "SELECT us.id
+        "SELECT us.id, u.type
          FROM survey_unit_sessions us
          JOIN survey_units u ON u.id = us.unit_id
          JOIN survey_run_sessions rs ON rs.id = us.run_session_id
@@ -195,7 +195,7 @@ try {
     );
     $rearmed = 0;
     foreach (($orphans ?: []) as $o) {
-        fwrite(STDERR, "sweep: re-arm orphaned Survey/Form unit-session #{$o['id']} (queued=0 with a past deadline) -> QUEUED_TO_END" . ($dry ? ' [dry-run]' : '') . "\n");
+        fwrite(STDERR, "sweep: re-arm orphaned {$o['type']} unit-session #{$o['id']} (queued=0 with a past deadline) -> QUEUED_TO_END" . ($dry ? ' [dry-run]' : '') . "\n");
         if (!$dry) {
             $db->exec(
                 "UPDATE `survey_unit_sessions` SET `queued` = :q
