@@ -14,7 +14,7 @@ cascade silently deleted that item's long-format answers. A **rename** is
 delete-old-name + insert-new-name (the item upsert is keyed on
 `UNIQUE(study_id, name)`), so renames lost data the same way.
 
-## What changed (patch 090: `survey_items.deleted DATETIME`)
+## What changed (patch 094: `survey_items.deleted DATETIME`)
 
 - **saveUploadedItemsFromReader**: the removed-items `DELETE` is now
   `UPDATE survey_items SET deleted = NOW()`. No row removal → no cascade → the

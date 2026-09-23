@@ -49,7 +49,7 @@ per-request, so this fires for every distinct R expression evaluated
 (showif batches, Branch conditions, Pause relative_to, email
 bodies). The plan is fine only while the optimizer drives
 runs → run_units → units(PK) → studies(PK). The COALESCE is
-structurally unindexable in the reverse direction — patch 079's
+structurally unindexable in the reverse direction — patch 083's
 `form_study_id` index cannot serve it — so a mispick (stale stats,
 small-table heuristics) degrades to a full `survey_units` scan
 (all units, all users) per study row per R evaluation. On a large

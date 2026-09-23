@@ -393,7 +393,7 @@ $settings['form_v2_enabled'] = false;
 // and the v1 API's /api/v1/runs/{name}/results endpoint).
 //
 // Leave on (default) until you've verified that downstream consumers
-// you care about have been migrated off the wide path. As of patch 086
+// you care about have been migrated off the wide path. As of patch 090
 // the readers that still go to the wide table when form_v2_long_reads
 // is false are:
 //   - UnitSession::getRunData (OpenCPU R overlay — tail(survey, 1))
@@ -430,7 +430,7 @@ $settings['form_v2_long_reads'] = true;
 $settings['form_v2_offline_blob_max_mb'] = 10;
 
 // form_v2 endpoint rate limits, per fixed 60s window (FixedWindowRateLimiter,
-// patch 091; buckets keyed by run session, beacon by IP; fail-open when the
+// patch 095; buckets keyed by run session, beacon by IP; fail-open when the
 // table is missing so a misapplied patch never locks participants out).
 //   rcall_per_min  — /form-fill + /form-render-page (shared bucket; these
 //                    trigger OpenCPU work)

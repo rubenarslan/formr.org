@@ -1,4 +1,4 @@
--- SQL Patch 088: form_v2 solo-layout letter keys (A·B·C…) toggle.
+-- SQL Patch 092: form_v2 solo-layout letter keys (A·B·C…) toggle.
 --
 -- DORMANT COLUMN. `option_keys` was added for the solo layout's letter-key
 -- badges (A/B/C on mc option cards + keyboard selection); the feature was

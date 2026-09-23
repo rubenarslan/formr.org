@@ -7,7 +7,7 @@ class UnitSession extends Model {
     public $run_unit_id; // survey_run_units.id — Track A: disambiguates same-unit-at-multiple-positions
     public $iteration; // 1-based count of attempts at THIS run_unit_id by THIS run_session
     public $study_iteration; // per-study sequence (wide-table-equivalent "Nth participant to start this study"); allocated via survey_studies.last_iteration
-    public $layout; // paradata: the study layout mode ('default'/'solo') this response was collected under (patch 089)
+    public $layout; // paradata: the study layout mode ('default'/'solo') this response was collected under (patch 093)
     public $run_session_id;
     public $created;
     public $expires;
@@ -885,7 +885,7 @@ class UnitSession extends Model {
      * LIVE item of the study?
      *
      * Both counts use the same predicate as SurveyStudy::getOrderedItemsIds
-     * (`deleted IS NULL`, patch 090). Counting every survey_items row on one
+     * (`deleted IS NULL`, patch 094). Counting every survey_items row on one
      * side and every display row on the other made the two disagree forever
      * after any soft-delete — a deleted item still has its survey_items row
      * (so it was counted as an item) and its display rows survive (so an
@@ -981,7 +981,7 @@ class UnitSession extends Model {
 
         $sessionStarted = false;
         if (!$alreadyAllocated) {
-            // Lazy seed (F2): survey_studies.last_iteration (patch 086) starts at
+            // Lazy seed (F2): survey_studies.last_iteration (patch 090) starts at
             // 0 on hosts that pre-date the allocator, while the wide table's
             // AUTO_INCREMENT `iteration` may already be in the thousands. Seed
             // the counter from MAX(wide.iteration) exactly once, on the first
@@ -999,7 +999,7 @@ class UnitSession extends Model {
             }
             $iteration = $this->allocateStudyIteration($study->id);
             // Stamp the layout mode this response is collected under (paradata
-            // for measurement equivalence; patch 089). Captured at first render
+            // for measurement equivalence; patch 093). Captured at first render
             // so a later flip of the study's layout doesn't rewrite history.
             $this->db->update('survey_unit_sessions',
                 ['study_iteration' => $iteration, 'layout' => $study->layout],
@@ -1886,7 +1886,7 @@ class UnitSession extends Model {
                         ->where("type NOT IN ('mc_heading', 'note', 'submit', 'block', 'note_iframe')")
                         ->where("name != 'iteration'");
                 if (!Config::get('form_v2_long_reads', true)) {
-                    // Soft-deleting an item (patch 090) keeps its survey_items
+                    // Soft-deleting an item (patch 094) keeps its survey_items
                     // row but drops its wide column, so on the wide path a
                     // still-referenced name (or a scale base name that
                     // matches it) would SELECT a column that no longer exists.

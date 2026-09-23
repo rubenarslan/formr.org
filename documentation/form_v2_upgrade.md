@@ -6,7 +6,7 @@ the schema and the `iteration` variable change for everyone, so read
 steps 1 and 3 even if you never enable v2. For what form_v2 *is*, see
 [form_v2.md](form_v2.md).
 
-## 1. Schema migrations (078–092)
+## 1. Schema migrations (082–096)
 
 Fifteen new patches in `sql/patches/`. On the docker deployment they are
 mirrored into `mysql/atlas/migrations/` and applied by `./update.sh`;
@@ -14,21 +14,21 @@ nothing extra to run.
 
 | Patch | What it does |
 | --- | --- |
-| `078_survey_studies_rendering_mode` | `survey_studies.rendering_mode` ENUM('v1','v2'), **default `v1`** — the per-study engine switch. |
-| `079_survey_units_form_study_id` | `survey_units.form_study_id` (+ index): lets a Form unit reference a SurveyStudy without sharing its primary key the way v1 Survey units do. |
-| `080_survey_r_calls` | New `survey_r_calls` table: the per-study allowlist of `r(...)` expressions the server will evaluate. Raw R never reaches the browser. |
-| `081_survey_form_submissions` | New `survey_form_submissions` table: UUID ledger so an offline-queued page submission that is retried is applied once. |
-| `082_form_v2_survey_study_flags` | `survey_studies.offline_mode` (default 1) and `allow_previous` (default 0). v1 ignores both. |
-| `083_survey_r_call_results` | New `survey_r_call_results` table: memoizes evaluated `r(...)` results. |
-| `084_survey_items_showif_js` | `survey_items.showif_js`: caches the R→JS transpile of `showif` at import time. Nullable; items without it re-transpile at request time. |
-| `085_survey_r_call_results_session_scope` | Re-keys that cache on `(call_id, unit_session_id, args_hash)` and adds the cascade FK, closing a cross-participant cache leak. **`TRUNCATE`s the cache table** — that is a cold cache, not participant data. |
-| `086_study_iteration` | `survey_unit_sessions.study_iteration` (+ index) and `survey_studies.last_iteration`: the long-format source of truth for the `iteration` variable. **Needs the backfill in step 3.** |
-| `087_survey_studies_layout` | `survey_studies.layout` ENUM('default','solo') — the v2 presentation skin. |
-| `088_survey_studies_option_keys` | `survey_studies.option_keys`. Dormant: the letter-key feature was removed end-to-end; the column ships unread so branch-tracking hosts stay consistent. |
-| `089_unit_session_layout` | `survey_unit_sessions.layout`: paradata stamping which layout each response was collected under, so a later flip of the study's layout doesn't rewrite history. |
-| `090_survey_items_deleted` | `survey_items.deleted`: removing/renaming an item mid-study becomes a soft delete, so its `survey_items_display` answers survive a sheet edit. |
-| `091_formr_rate_limits` | New `formr_rate_limits` table: DB-backed fixed-window buckets, replacing a limiter that lived in `$_SESSION` and reset on cookie rotation. |
-| `092_survey_studies_language` | `survey_studies.language` (BCP 47, default `en`): drives `<html lang>` / `dir="rtl"` and the v2 client's UI strings. |
+| `082_survey_studies_rendering_mode` | `survey_studies.rendering_mode` ENUM('v1','v2'), **default `v1`** — the per-study engine switch. |
+| `083_survey_units_form_study_id` | `survey_units.form_study_id` (+ index): lets a Form unit reference a SurveyStudy without sharing its primary key the way v1 Survey units do. |
+| `084_survey_r_calls` | New `survey_r_calls` table: the per-study allowlist of `r(...)` expressions the server will evaluate. Raw R never reaches the browser. |
+| `085_survey_form_submissions` | New `survey_form_submissions` table: UUID ledger so an offline-queued page submission that is retried is applied once. |
+| `086_form_v2_survey_study_flags` | `survey_studies.offline_mode` (default 1) and `allow_previous` (default 0). v1 ignores both. |
+| `087_survey_r_call_results` | New `survey_r_call_results` table: memoizes evaluated `r(...)` results. |
+| `088_survey_items_showif_js` | `survey_items.showif_js`: caches the R→JS transpile of `showif` at import time. Nullable; items without it re-transpile at request time. |
+| `089_survey_r_call_results_session_scope` | Re-keys that cache on `(call_id, unit_session_id, args_hash)` and adds the cascade FK, closing a cross-participant cache leak. **`TRUNCATE`s the cache table** — that is a cold cache, not participant data. |
+| `090_study_iteration` | `survey_unit_sessions.study_iteration` (+ index) and `survey_studies.last_iteration`: the long-format source of truth for the `iteration` variable. **Needs the backfill in step 3.** |
+| `091_survey_studies_layout` | `survey_studies.layout` ENUM('default','solo') — the v2 presentation skin. |
+| `092_survey_studies_option_keys` | `survey_studies.option_keys`. Dormant: the letter-key feature was removed end-to-end; the column ships unread so branch-tracking hosts stay consistent. |
+| `093_unit_session_layout` | `survey_unit_sessions.layout`: paradata stamping which layout each response was collected under, so a later flip of the study's layout doesn't rewrite history. |
+| `094_survey_items_deleted` | `survey_items.deleted`: removing/renaming an item mid-study becomes a soft delete, so its `survey_items_display` answers survive a sheet edit. |
+| `095_formr_rate_limits` | New `formr_rate_limits` table: DB-backed fixed-window buckets, replacing a limiter that lived in `$_SESSION` and reset on cookie rotation. |
+| `096_survey_studies_language` | `survey_studies.language` (BCP 47, default `en`): drives `<html lang>` / `dir="rtl"` and the v2 client's UI strings. |
 
 **All fifteen are drift-tolerant** — every DDL statement carries an
 `IF NOT EXISTS` / `IF EXISTS` guard, so a host that was hand-patched
@@ -50,7 +50,7 @@ update; restart the app and daemons after editing — step 4.)
 | --- | --- | --- |
 | `form_v2_enabled` | `false` | You want admins to be able to author v2 forms. It gates exactly one thing: the "Add Form (form_v2, beta)" button in the run editor (`AdminRunController::getUnitAddButtons`). Existing Form units keep loading and running regardless. |
 | `form_v2_rcall_ttl` | `['showif' => 30, 'value' => 300, 'label' => 300]` (seconds) | Per-slot TTL of the `survey_r_call_results` cache. `showif` is short so admin edits to R flow through quickly; `value`/`label` resolve once per page show. Lower them if authors complain that edited R takes too long to take effect; raise to cut OpenCPU load. |
-| `form_v2_rate_limits` | `['rcall_per_min' => 30, 'write_per_min' => 90, 'beacon_per_min' => 10, 'bot_challenge_per_min' => 20]` | Per fixed 60-second window. `rcall` covers `/form-fill` and `/form-render-page` (they trigger OpenCPU work); `write` covers `/form-page-submit`, `/form-save`, `/form-sync`; `beacon` covers the unauthenticated `/pwa-beacon`; `bot_challenge` covers `/form-bot-challenge` (one mint per `bot_check` render). Buckets are keyed by run session (beacon by IP). Raise these for fast-typing diary studies with many reactive showifs. The limiter **fails open** if `formr_rate_limits` is missing, so a half-applied patch 091 cannot lock participants out. |
+| `form_v2_rate_limits` | `['rcall_per_min' => 30, 'write_per_min' => 90, 'beacon_per_min' => 10, 'bot_challenge_per_min' => 20]` | Per fixed 60-second window. `rcall` covers `/form-fill` and `/form-render-page` (they trigger OpenCPU work); `write` covers `/form-page-submit`, `/form-save`, `/form-sync`; `beacon` covers the unauthenticated `/pwa-beacon`; `bot_challenge` covers `/form-bot-challenge` (one mint per `bot_check` render). Buckets are keyed by run session (beacon by IP). Raise these for fast-typing diary studies with many reactive showifs. The limiter **fails open** if `formr_rate_limits` is missing, so a half-applied patch 095 cannot lock participants out. |
 | `form_v2_offline_blob_max_mb` | `10` | Per-file cap for offline queueing. A page with a larger file upload is not queued; the participant is told to retry online. Raise for studies that routinely collect long audio/video. |
 | `form_v2_dual_write_results` | `true` | Controls only the *wide* per-study `survey_NN` write. The long-format write (`survey_items_display`) always happens. Leave on until every consumer you care about (your own scripts, the per-run backup TSV) has moved off the wide tables. |
 
@@ -70,7 +70,7 @@ discrepancy in the field. Two consequences of doing that: the R overlay
 for **v2 studies too** goes back to the wide table (only their admin
 counts and `getResults` stay long), so `form_v2_dual_write_results` must
 stay `true` for as long as `form_v2_long_reads` is `false`; and
-soft-deleted items (patch 090) are excluded from the overlay explicitly,
+soft-deleted items (patch 094) are excluded from the overlay explicitly,
 since the wide table has no notion of them. Once the long read has
 baked, `form_v2_dual_write_results` can be turned off.
 
@@ -95,7 +95,7 @@ enforced in `RunController`).
 
 ## 3. Backfill `study_iteration` — do not skip this
 
-Patch 086 moves the `iteration` variable off the wide per-study table
+Patch 090 moves the `iteration` variable off the wide per-study table
 onto `survey_unit_sessions.study_iteration`, adding the columns empty.
 **Historical values are carried across by a script, and until you run it
 `iteration` means something different than it used to.**
@@ -241,18 +241,18 @@ with **Switch back to v1** on its settings page (that sets
 `rendering_mode='v1'` only — Form units fall through to the classic
 pipeline, and you can switch forward again at any time).
 
-**Not reversible by flipping a flag:** migrations 078–092, which Atlas
+**Not reversible by flipping a flag:** migrations 082–096, which Atlas
 has applied and which stay applied. The deployment repo's
 `./db_atlas_down.sh` can compute and run a reversal, but treat it as a
 deliberate, review-the-plan-first, back-up-first operation — and note
-that dropping patch 090's `survey_items.deleted` would make previously
+that dropping patch 094's `survey_items.deleted` would make previously
 soft-deleted items visible again.
 
 ## 7. Post-upgrade
 
 Three things that are easy to forget once the stack is back up.
 
-**Run the `study_iteration` backfill promptly.** Patch 086 adds the
+**Run the `study_iteration` backfill promptly.** Patch 090 adds the
 columns empty; until `bin/backfill_study_iteration.php` has run, historic
 sessions have `study_iteration IS NULL` and `iteration` in your R code
 means a per-participant row number rather than the study-wide counter

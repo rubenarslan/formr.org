@@ -16,7 +16,7 @@ use PHPUnit\Framework\TestCase;
  * misses and the answers are applied a second time.
  *
  * Every field here lands verbatim in a typed `survey_form_submissions` column
- * (patch 081), so the same class of failure exists for `page`
+ * (patch 085), so the same class of failure exists for `page`
  * (SMALLINT UNSIGNED). Validation must therefore be complete and must run
  * before any state change.
  *

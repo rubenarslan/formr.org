@@ -835,7 +835,7 @@ NULL
                 ->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
                 ->where('survey_items_display.session_id IS NOT NULL')
                 ->where('survey_items.study_id = :study_id')
-                ->where('survey_items.deleted IS NULL')   // soft-deleted items don't count toward progress (patch 090)
+                ->where('survey_items.deleted IS NULL')   // soft-deleted items don't count toward progress (patch 094)
                 ->where("survey_items.type NOT IN ('submit')")
                 ->where("`survey_items_display`.saved IS NOT NULL")
                 ->bindParams(array('session_id' => $this->unitSession->id, 'study_id' => $study->id))

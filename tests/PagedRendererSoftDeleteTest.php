@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Patch 090 turned "remove an item from a study" from a hard
+ * Patch 094 turned "remove an item from a study" from a hard
  * `DELETE FROM survey_items` (whose FK cascade also removed the item's
  * survey_items_display rows) into a soft delete. The display rows now survive
  * forever with `answered` NULL, because UnitSession::updateSurveyStudyRecord

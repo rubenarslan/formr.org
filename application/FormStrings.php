@@ -2,7 +2,7 @@
 
 /**
  * FormStrings — participant-facing UI strings for the form_v2 engine chrome
- * (patch 092). Item labels/choices are authored in the study's language
+ * (patch 096). Item labels/choices are authored in the study's language
  * already; this covers the engine's own strings around them (nav buttons,
  * save pill, offline banners, validation fallbacks, solo hints), which were
  * hardcoded English.

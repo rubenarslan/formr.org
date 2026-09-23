@@ -5,7 +5,7 @@
  * survey_studies.last_iteration from existing per-study wide results
  * tables.
  *
- * After patch 086 adds the columns, this script is the bridge that
+ * After patch 090 adds the columns, this script is the bridge that
  * carries forward the historical iteration values researchers depend
  * on (block-randomization, "Nth participant" analyses). New sessions
  * post-deploy get their study_iteration allocated live by
