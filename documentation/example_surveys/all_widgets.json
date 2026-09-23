@@ -1103,6 +1103,27 @@
             }
         },
         {
+            "type": "rank",
+            "choice_list": "rank_demo",
+            "type_options": null,
+            "name": "rank_demo",
+            "label": "### rank\nDrag the options into your preferred order, best first (the arrow buttons and the keyboard work too). Add `random` to the type to shuffle the starting order, or `touch` to count the item as answered only once the participant has interacted with it. Stores the choice keys in ranked order, e.g. `3, 1, 2`. Form (v2) only.",
+            "label_parsed": null,
+            "optional": 1,
+            "class": "",
+            "showif": "",
+            "showif_js": null,
+            "value": "",
+            "block_order": null,
+            "item_order": 75,
+            "choices": {
+                "1": "Apple",
+                "2": "Banana",
+                "3": "Cherry",
+                "4": "Date"
+            }
+        },
+        {
             "type": "blank",
             "choice_list": null,
             "type_options": null,
@@ -1115,7 +1136,7 @@
             "showif_js": null,
             "value": "",
             "block_order": null,
-            "item_order": 75
+            "item_order": 76
         },
         {
             "type": "choose_two_weekdays",
@@ -1130,7 +1151,7 @@
             "showif_js": null,
             "value": "",
             "block_order": null,
-            "item_order": 76,
+            "item_order": 77,
             "choices": {
                 "1": "Monday",
                 "2": "Tuesday",
@@ -1154,7 +1175,7 @@
             "showif_js": null,
             "value": "",
             "block_order": null,
-            "item_order": 77
+            "item_order": 78
         },
         {
             "type": "image",
@@ -1169,7 +1190,7 @@
             "showif_js": null,
             "value": "",
             "block_order": null,
-            "item_order": 78
+            "item_order": 79
         },
         {
             "type": "audio",
@@ -1184,7 +1205,7 @@
             "showif_js": null,
             "value": "",
             "block_order": null,
-            "item_order": 79
+            "item_order": 80
         },
         {
             "type": "video",
@@ -1199,7 +1220,7 @@
             "showif_js": null,
             "value": "",
             "block_order": null,
-            "item_order": 80
+            "item_order": 81
         },
         {
             "type": "calculate",
@@ -1214,7 +1235,7 @@
             "showif_js": null,
             "value": "teeth * 2",
             "block_order": null,
-            "item_order": 81
+            "item_order": 82
         },
         {
             "type": "server",
@@ -1229,7 +1250,7 @@
             "showif_js": null,
             "value": "1 + 1",
             "block_order": null,
-            "item_order": 82
+            "item_order": 83
         },
         {
             "type": "request_cookie",
@@ -1244,7 +1265,7 @@
             "showif_js": null,
             "value": "",
             "block_order": null,
-            "item_order": 83,
+            "item_order": 84,
             "choices": {
                 "1": "Remember me on this device"
             }
@@ -1262,7 +1283,7 @@
             "showif_js": null,
             "value": "",
             "block_order": null,
-            "item_order": 84
+            "item_order": 85
         },
         {
             "type": "add_to_home_screen",
@@ -1277,7 +1298,7 @@
             "showif_js": null,
             "value": "",
             "block_order": null,
-            "item_order": 85,
+            "item_order": 86,
             "choices": {
                 "1": "Add to Home Screen"
             }
@@ -1295,7 +1316,7 @@
             "showif_js": null,
             "value": "",
             "block_order": null,
-            "item_order": 86,
+            "item_order": 87,
             "choices": {
                 "1": "Enable notifications"
             }
@@ -1313,7 +1334,7 @@
             "showif_js": null,
             "value": "",
             "block_order": null,
-            "item_order": 87
+            "item_order": 88
         },
         {
             "type": "bot_check",
@@ -1328,7 +1349,7 @@
             "showif_js": null,
             "value": "",
             "block_order": null,
-            "item_order": 88
+            "item_order": 89
         }
     ],
     "settings": {
