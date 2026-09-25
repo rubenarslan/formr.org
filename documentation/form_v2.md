@@ -22,7 +22,7 @@ What participants notice:
 
 ## Trying it out
 
-`documentation/example_surveys/all_widgets_v2.json` has every item type v2 supports (the PWA items are in `pwa_items_default.xlsx`), grouped into five pages, with JavaScript showifs, a random group, hidden items computed in R, dynamic labels and a `block` guard. Upload it under "Add a new survey", add a Form unit for it to a run and use the run as yourself.
+`documentation/example_surveys/all_widgets_v2.json` has every item type v2 supports (the PWA items are in `pwa_items_default.xlsx`), grouped into five pages, with JavaScript showifs, a random group, hidden items computed in R, dynamic labels and a `block` guard. Upload it under "Add a new survey", switch it to form_v2 and click **Test Survey**.
 
 ## Enabling form_v2 for a study
 
@@ -30,6 +30,8 @@ There are two ways in, both from the admin UI. Neither touches your items.
 
 - **New study**: in the run editor, "Add Form (form_v2, beta)" creates a Form unit for the study you pick and switches that study to the v2 engine. The button only appears when the operator has set `$settings['form_v2_enabled'] = true`; studies already on v2 keep rendering on v2 regardless of that flag.
 - **Existing study**: on the survey's settings page (`/admin/survey/<name>`) the "Rendering engine" box shows a compatibility-scan summary and an **Upgrade to form_v2** button. Upgrading converts every run unit that uses the study as a classic Survey into a Form unit and moves that placement's open unit sessions across, so participants who are mid-form continue on v2 from where they are (both engines read and write the same rows). The upgrade is refused while the study has items v2 cannot run (`calculate`), and while the scan flags showifs — each of those would keep its item hidden for good; fix them, or, if the scan is wrong about one, use **Upgrade anyway**. **Switch back to v1** is next to it and is safe at any time — a Form unit whose study is on v1 simply renders through the classic pipeline.
+
+Every survey admin page shows the engine next to the study's name (**form_v2** or **v1**), as does the survey list. **Test Survey** previews the study on its engine: a v2 study is shown exactly as a Form unit shows it to participants — one document, JavaScript showifs, per-page submits, autosave — with a note at the top saying which engine the preview uses. The preview's answers go to a test session, as for v1.
 
 Once a study is on v2, the same page shows the **Form_v2 settings**:
 

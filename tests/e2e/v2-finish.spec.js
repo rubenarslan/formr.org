@@ -14,6 +14,7 @@ const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const v2 = require('./helpers/v2Form');
 const v2c = require('./helpers/v2Complete');
+const { fillScope, formGone, driveDefault } = require('./helpers/v2Drive');
 
 const RUN_SOLO = () => runName('all_widgets_solo', 'v2');
 const RUN_DEFAULT = () => runName('all_widgets', 'v2');
@@ -37,25 +38,6 @@ async function soloSig(page) {
     }
 }
 
-async function fillScope(page, scopeSelector) {
-    // Swallow "execution context destroyed" — a submit can navigate to the next
-    // unit mid-fill; the caller's formGone() check handles completion.
-    try {
-        await v2c.solveBotCheckIfPresent(page, scopeSelector);
-        await v2c.fillAll(page, scopeSelector);
-    } catch (e) { /* navigation mid-fill */ }
-}
-
-async function formGone(page) {
-    // The final submit navigates to the next unit; let any in-flight nav settle,
-    // then the form is absent on the end/Stop page.
-    await page.waitForLoadState('domcontentloaded').catch(() => {});
-    try {
-        return (await page.locator('form.fmr-form-v2').count()) === 0;
-    } catch (e) {
-        return false;
-    }
-}
 
 // ---- solo driver: one item per screen ----
 async function driveSolo(page) {
@@ -116,59 +98,6 @@ async function driveSolo(page) {
     return { completed: false, stuckAt: await soloSig(page), steps: 80 };
 }
 
-// ---- non-solo driver: paged, many items per page ----
-async function driveDefault(page) {
-    for (let p = 0; p < 12; p++) {
-        if (await formGone(page)) return { completed: true, pages: p };
-        const scope = 'form.fmr-form-v2 section.fmr-page:not([hidden])';
-        const before = await v2.visiblePageNum(page).catch(() => null);
-        // Two passes: the first answers what's visible; picking a choice can REVEAL
-        // a conditional required item via Alpine (async), so a second pass after a
-        // tick fills those (in solo each item is its own step, so reveals are caught
-        // naturally — here every item is on screen at once).
-        await fillScope(page, scope);
-        await page.waitForTimeout(350);
-        await fillScope(page, scope);
-        const res = await v2.submitV2(page, { timeout: RUNNING_ON_BS ? 60000 : 12000 });
-        // Detect advancement by the visible page CHANGING (or navigating away), NOT
-        // by submitV2's blockedByClient flag: under the BS service worker the
-        // form-page-submit POST is intercepted, so waitForResponse never fires and
-        // submitV2 falsely reports "blocked" even though the submit succeeded and
-        // the next page is already showing. (Solo never hit this — it detects
-        // advancement by the step changing.)
-        await page.waitForTimeout(RUNNING_ON_BS ? 2500 : 1200);
-        if (await formGone(page)) return { completed: true, pages: p }; // last page redirected to the next unit
-        const after = await v2.visiblePageNum(page).catch(() => null);
-        if (after !== before) continue; // advanced to the next page
-
-        // Looks unchanged — but a final-page redirect can still be navigating.
-        // Give it one more beat and re-check before declaring a real failure.
-        await page.waitForTimeout(RUNNING_ON_BS ? 2000 : 1000);
-        if (await formGone(page)) return { completed: true, pages: p };
-
-        // Genuinely stuck → a server-validation error or a real client gate.
-        const serverErrors = (res.body && res.body.status === 'errors') ? res.body.errors : null;
-        const diag = await page.evaluate(function () {
-            const form = document.querySelector('form.fmr-form-v2');
-            const alp = form && form._x_dataStack && form._x_dataStack[0];
-            const sections = Array.prototype.map.call(document.querySelectorAll('form.fmr-form-v2 section.fmr-page'), function (s) {
-                return { page: s.getAttribute('data-fmr-page'), hidden: s.hasAttribute('hidden') };
-            });
-            const root = document.querySelector('form.fmr-form-v2 section.fmr-page:not([hidden])') || document;
-            const unanswered = [];
-            root.querySelectorAll('.form-group.required').forEach(function (g) {
-                if (g.hasAttribute('data-fmr-hidden') || g.classList.contains('hidden') || g.offsetParent === null) return;
-                const t = (g.className.match(/item-([a-z_0-9]+)/) || [null, '?'])[1];
-                const answered = !!g.querySelector('input:checked, input[type=hidden][value]:not([value=""])')
-                    || Array.prototype.some.call(g.querySelectorAll('input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=file]),textarea,select'), function (e) { return !e.readOnly && String(e.value || '').trim() !== ''; });
-                if (!answered) unanswered.push({ t: t, page: g.closest('section.fmr-page') ? g.closest('section.fmr-page').getAttribute('data-fmr-page') : null });
-            });
-            return { sections: sections, alpine: alp ? 'yes' : 'no', unanswered: unanswered };
-        }).catch(function (e) { return { error: String(e && e.message || e) }; });
-        return { completed: false, pages: p, serverErrors, errors: await v2.errorMessages(page), diag };
-    }
-    return { completed: await formGone(page), pages: 12 };
-}
 
 test.describe('v2 survey completes end-to-end', () => {
     test('solo layout: walk every item to the end', async ({ page, baseURL }) => {

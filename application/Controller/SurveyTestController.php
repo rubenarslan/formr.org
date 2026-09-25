@@ -44,6 +44,12 @@ class SurveyTestController extends Controller {
         }
         list($studyName, $userId, $expired, $expires) = $parsed;
 
+        // /survey-test/<token>/form-page-submit etc.: a v2 form's own
+        // endpoints, for the preview's test session (formV2Endpoint).
+        if ($page !== null && isset(RunController::FORM_V2_PREVIEW_ACTIONS[$page])) {
+            return $this->formV2Endpoint($token, (string) $page, $studyName, $userId, $expired, $expires);
+        }
+
         // Paged surveys (use_paging) navigate by a URL page segment:
         // /survey-test/<token>/<page>. Mirror RunController — surface that
         // segment as the pageNo request global so PagedSpreadsheetRenderer
@@ -141,13 +147,74 @@ class SurveyTestController extends Controller {
         $assets = Config::get('assets.frontend');
         $run_vars['js'] = array(array_val($assets, 'js', array()));
         // Point the form / continue links at this preview URL, not the raw
-        // TEST_RUN run URL, so multi-page tests stay on /survey-test/.
-        $run_vars['run_content'] = str_replace(
+        // TEST_RUN run URL, so multi-page tests stay on /survey-test/. For a
+        // v2 form that includes its endpoint URLs (data-submit-url, …, and
+        // data-run-url, from which the page derives form-render-page and
+        // form-bot-challenge), which formV2Endpoint serves.
+        $run_vars['run_content'] = self::previewNote($study) . str_replace(
             run_url(Run::TEST_RUN), $surveyTestUrl, $run_vars['run_content']
         );
 
-        $this->setView('run/index', $run_vars);
+        if (!empty($run_vars['use_form_v2'])) {
+            // The v2 page (run/form_index) reads the run for its PWA head.
+            $this->run = $testRun;
+            $this->setView('run/form_index', $run_vars);
+        } else {
+            $this->setView('run/index', $run_vars);
+        }
         return $this->sendResponse();
+    }
+
+    /**
+     * Which engine this preview shows — v1 and v2 render the same item table
+     * very differently, so the author must be able to tell at a glance.
+     */
+    public static function previewNote(SurveyStudy $study) {
+        $v2 = $study->rendering_mode === 'v2';
+        return '<div class="alert alert-info fmr-preview-note" role="note">'
+            . '<strong>Test preview</strong> of <code>' . h($study->name) . '</code> on the '
+            . ($v2 ? '<strong>form_v2</strong> engine (Form unit)' : '<strong>classic v1</strong> engine (Survey unit)')
+            . '. Answers are stored in a test session.</div>';
+    }
+
+    /**
+     * A v2 form's endpoint for this preview: the same RunController action
+     * a participant's form calls (RunController::dispatchFormV2Preview), with
+     * the preview's unit session as the context. Only a test that is already
+     * in flight in this browser's /survey-test/ session can be written to —
+     * the GET that renders the form starts it.
+     */
+    private function formV2Endpoint($token, $action, $studyName, $userId, $expired, $expires) {
+        $json = function ($body, $status) {
+            header('Content-Type: application/json');
+            http_response_code($status);
+            echo json_encode($body);
+            return null;
+        };
+        $user = new User($userId);
+        $study = $user->id ? SurveyStudy::loadByUserAndName($user, $studyName) : null;
+        if (!$study || !$study->valid) {
+            return $json(array('error' => 'This survey preview is no longer available.'), 404);
+        }
+        $slot = Session::get('test_study_data_' . (int) $study->id);
+        if (!$this->hasLiveTestSession($study, $expires) || !is_array($slot) || empty($slot['unit_session_id'])) {
+            return $json(array('error' => 'No current unit session', 'drop_entry' => true), 409);
+        }
+        $testRun = new Run(Run::TEST_RUN);
+        $testRun->test_study_id = (int) $study->id;
+        $data = $slot;
+        $data['id'] = $slot['unit_id'];
+        $runUnit = $testRun->testStudyUnit($data);
+        $runSession = new RunSession(null, $testRun);
+        $unitSession = new UnitSession($runSession, $runUnit, array('id' => (int) $slot['unit_session_id'], 'load' => true));
+        $runSession->currentUnitSession = $unitSession;
+
+        return (new RunController($this->site))->dispatchFormV2Preview($action, array(
+            'run' => $testRun,
+            'unitSession' => $unitSession,
+            'study' => $study,
+            'runUrl' => site_url('survey-test/' . $token),
+        ));
     }
 
     /**

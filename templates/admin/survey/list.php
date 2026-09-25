@@ -25,6 +25,7 @@
                                     <tr>
                                         <th># ID</th>
                                         <th>Name</th>
+                                        <th>Engine</th>
                                         <th>Created</th>
                                         <th>Modified</th>
                                         <th>Google Sheet</th>
@@ -35,6 +36,7 @@
                                         <tr>
                                             <td>#<?php echo $d_study['id']; ?></td>
                                             <td><a href="<?php echo admin_study_url($d_study['name']); ?>"><?php echo $d_study['name']; ?></a></td>
+                                            <td><?php echo study_engine_badge($d_study); ?></td>
                                             <td><?php echo $d_study['created']; ?></td>
                                             <td><?php echo $d_study['modified']; ?></td>
                                             <td>

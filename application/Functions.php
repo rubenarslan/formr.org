@@ -935,6 +935,24 @@ function run_url($name = '', $action = '', $params = array())
     return $url;
 }
 
+/**
+ * A label naming the engine a study renders on: form_v2 (Form units) or the
+ * classic v1 engine (Survey units). Shown next to the study name on every
+ * survey admin page, in the survey list and on "Test Survey", because the
+ * same item table behaves very differently on the two.
+ *
+ * @param SurveyStudy|array|string $study a study, a survey_studies row, or a rendering_mode
+ */
+function study_engine_badge($study)
+{
+    $mode = is_string($study) ? $study
+        : (is_array($study) ? ($study['rendering_mode'] ?? 'v1') : ($study->rendering_mode ?? 'v1'));
+    if ($mode === 'v2') {
+        return '<span class="label label-primary fmr-engine-badge" title="Renders on the form_v2 engine: one document, JavaScript showifs, autosave, offline queue. Placed in runs as a Form unit."><i class="fa fa-wpforms"></i> form_v2</span>';
+    }
+    return '<span class="label label-default fmr-engine-badge" title="Renders on the classic v1 engine. Placed in runs as a Survey unit.">v1</span>';
+}
+
 function admin_study_url($name = '', $action = '', $params = array())
 {
     if ($action) {

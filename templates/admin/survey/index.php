@@ -3,7 +3,7 @@
 <div class="content-wrapper">
 
     <section class="content-header">
-        <h1><?= $study->name ?> <small>Survey ID: <?= $survey_id ?></small></h1>
+        <h1><?= $study->name ?> <?= study_engine_badge($study) ?> <small>Survey ID: <?= $survey_id ?></small></h1>
     </section>
 
     <section class="content">

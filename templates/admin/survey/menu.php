@@ -29,7 +29,7 @@
     </div>
     <div class="box-body no-padding context-menu">
         <ul class="nav nav-pills nav-stacked">
-            <li><a target="_blank" href="<?= admin_study_url($study->name, 'access') ?>" class="hastooltip" title="Simply click this link to test this survey. But remember that it's not in the broader context of a run, so if you refer to other surveys, that will cause problems."><i class="fa fa-play"></i> Test Survey</a></li>
+            <li><a target="_blank" href="<?= admin_study_url($study->name, 'access') ?>" class="hastooltip" title="Simply click this link to test this survey on the engine it is set to (<?= $study->rendering_mode === 'v2' ? 'form_v2: as a Form unit' : 'classic v1: as a Survey unit' ?>). But remember that it's not in the broader context of a run, so if you refer to other surveys, that will cause problems."><i class="fa fa-play"></i> Test Survey <?= study_engine_badge($study) ?></a></li>
             <?php if (!$study->hide_results): ?>
                 <li><a href="<?= admin_study_url($study->name, 'show_results') ?>"><i class="fa fa-file-text-o"></i> Show Results</a></li>
                 <li class="dropdown"><a  href="#" data-toggle="dropdown" aria-expanded="false" class="dropdown-toggle"><i class="fa fa-save"></i> Export Results</a>

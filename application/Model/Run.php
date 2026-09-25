@@ -1313,6 +1313,23 @@ class Run extends Model
         return 'test_study_data_' . (int) $this->test_study_id;
     }
 
+    /**
+     * The unit a "Test Survey" preview runs: a Form for a study on the
+     * form_v2 engine — so the preview renders exactly what participants get,
+     * through the same v2 endpoints (SurveyTestController routes them) —
+     * and the classic Survey otherwise.
+     */
+    public function testStudyUnit(array $data)
+    {
+        $study = new SurveyStudy((int) $data['study_id']);
+        if ($study->valid && $study->rendering_mode === 'v2') {
+            $form = new Form($this, $data);
+            $form->surveyStudy = $study;
+            return $form;
+        }
+        return (new Survey($this, $data))->load();
+    }
+
     private function testStudy()
     {
         if (!($data = Session::get($this->testStudyKey()))) {
@@ -1323,8 +1340,9 @@ class Run extends Model
             $data['id'] = $data['unit_id'];
         }
 
-        $runUnit = (new Survey($this, $data))->load();
+        $runUnit = $this->testStudyUnit($data);
         $runSession = RunSession::getTestSession($this);
+        $output = null;
         if (!isset($data['unit_session_id'])) {
             $runSession->createUnitSession($runUnit);
             $data['unit_session_id'] = $runSession->currentUnitSession->id;
@@ -1333,7 +1351,11 @@ class Run extends Model
             $unitSession = new UnitSession($runSession, $runUnit, ['id' => $data['unit_session_id'], 'load' => true]);
             $runSession->currentUnitSession = $unitSession;
         }
-        $output = $runSession->execute();
+        // A v2 form is ended by its final page submit (FormSubmissionService),
+        // not by a GET; the redirect that follows lands here and finishes.
+        if (!($runUnit instanceof Form) || $runSession->currentUnitSession->ended === null) {
+            $output = $runSession->execute();
+        }
 
         if (!$output) {
             $output = [

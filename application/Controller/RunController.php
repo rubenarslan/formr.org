@@ -738,6 +738,9 @@ class RunController extends Controller {
      * @return array|null
      */
     private function formWriteContext($claimedUnitSessionId, array $extra409 = array(), $rateBucket = 'write') {
+        if ($this->previewContext !== null) {
+            return $this->previewWriteContext($claimedUnitSessionId, $extra409, $rateBucket);
+        }
         $this->run = $this->getRun();
         $this->user = $this->loginUser();
         $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
@@ -780,9 +783,82 @@ class RunController extends Controller {
      */
     private function withRunRedirect(array $result) {
         if (!empty($result['complete'])) {
-            $result['redirect'] = run_url($this->run->name);
+            $result['redirect'] = $this->previewContext !== null
+                ? $this->previewContext['runUrl']
+                : run_url($this->run->name);
         }
         return $result;
+    }
+
+    /**
+     * A "Test Survey" preview of a v2 study (SurveyTestController): the
+     * unit session comes from the preview's own session slot, not from a
+     * participant's run session. Set by dispatchFormV2Preview.
+     *
+     * @var array{run: Run, unitSession: UnitSession, study: SurveyStudy, runUrl: string}|null
+     */
+    private $previewContext = null;
+
+    /** The v2 actions a preview may call (see SurveyTestController). */
+    const FORM_V2_PREVIEW_ACTIONS = array(
+        'form-page-submit' => 'formPageSubmitAction',
+        'form-sync' => 'formSyncAction',
+        'form-save' => 'formSaveAction',
+        'form-render-page' => 'formRenderPageAction',
+        'form-bot-challenge' => 'formBotChallengeAction',
+    );
+
+    /**
+     * Run one v2 endpoint for a "Test Survey" preview. The action is the
+     * very one participants hit; only the gate (formWriteContext) takes the
+     * preview's unit session instead of looking up a run session, so the
+     * preview exercises the same code as a real run.
+     *
+     * @param string $action a key of FORM_V2_PREVIEW_ACTIONS
+     * @param array $context run (the TEST_RUN), unitSession, study, runUrl
+     *   (where a completed form redirects: the preview URL)
+     */
+    public function dispatchFormV2Preview($action, array $context) {
+        if (!isset(self::FORM_V2_PREVIEW_ACTIONS[$action])) {
+            formr_error(404, 'Not Found', 'The requested URL was not found');
+            return null;
+        }
+        $this->previewContext = $context;
+        $this->run = $context['run'];
+        $method = self::FORM_V2_PREVIEW_ACTIONS[$action];
+        return $this->$method();
+    }
+
+    /**
+     * formWriteContext for a preview: the same checks, against the preview's
+     * unit session. Rate limits are keyed by the unit session (every preview
+     * shares the dummy run session id -1).
+     */
+    private function previewWriteContext($claimedUnitSessionId, array $extra409, $rateBucket) {
+        $unitSession = $this->previewContext['unitSession'];
+        $study = $this->formV2Study($unitSession ? $unitSession->runUnit : null);
+        $bucketId = -1 * (int) ($unitSession ? $unitSession->id : 0);
+        switch ($rateBucket) {
+            case 'rcall': $allowed = $this->rcallRateAllowed($bucketId); break;
+            case 'bot': $allowed = $this->botChallengeRateAllowed($bucketId); break;
+            default: $allowed = $this->formWriteRateAllowed($bucketId);
+        }
+        if (!$allowed) {
+            $this->sendJsonResponse(array('error' => 'Rate limit exceeded'), 429);
+            return null;
+        }
+        if (!$unitSession || $unitSession->ended !== null || !$study) {
+            $this->sendJsonResponse(array('error' => 'No current unit session') + $extra409, 409);
+            return null;
+        }
+        if ((int) $claimedUnitSessionId > 0 && (int) $claimedUnitSessionId !== (int) $unitSession->id) {
+            $this->sendJsonResponse(array(
+                'error' => 'This preview was rendered for a different test session. Reload to continue.',
+                'stale_session' => true,
+            ) + $extra409, 409);
+            return null;
+        }
+        return array($unitSession->runSession, $unitSession, $study);
     }
     /**
      * form_v2: incremental ("autosave") persistence.
@@ -1119,9 +1195,9 @@ class RunController extends Controller {
         // as the other form_v2 endpoints (the challenge binds to THIS
         // session), with the challenge bucket for the rate limit. The widget
         // only ever mounts inside a rendered form, which already requires a
-        // session, so this costs no legitimate caller anything. (The
-        // /survey-test/ preview path rewrites the run URL, so its widget never
-        // reached this endpoint in the first place.)
+        // session, so this costs no legitimate caller anything. A "Test
+        // Survey" preview reaches it through /survey-test/<token>/ with the
+        // preview's unit session (dispatchFormV2Preview).
         $context = $this->formWriteContext(0, array(), 'bot');
         if (!$context) {
             return;

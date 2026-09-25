@@ -3,7 +3,7 @@
 <div class="content-wrapper">
 
     <section class="content-header">
-        <h1>form_v2 compatibility scan <small><?= htmlspecialchars($study->name) ?> (ID: <?= (int) $study->id ?>)</small></h1>
+        <h1>form_v2 compatibility scan <small><?= htmlspecialchars($study->name) ?> <?= study_engine_badge($study) ?> (ID: <?= (int) $study->id ?>)</small></h1>
     </section>
 
     <section class="content">

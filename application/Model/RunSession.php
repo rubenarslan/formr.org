@@ -650,6 +650,12 @@ class RunSession extends Model {
      * @return bool false only when the lock could not be taken
      */
     public function endFormUnitSession(UnitSession $unitSession) {
+        if ($this->isTestingStudy()) {
+            // A "Test Survey" preview: a dummy run session with no position
+            // to move and nothing another process could race.
+            $unitSession->end();
+            return true;
+        }
         $lock_name = $this->lockName();
         if (!$this->acquireLock($lock_name, Config::get('run_session.lock_timeout.user', 10.0))) {
             return false;
