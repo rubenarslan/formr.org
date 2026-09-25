@@ -22,6 +22,14 @@ class SpreadsheetReader
     public $warnings = array();
     public $survey = array();
     public $choices = array();
+    /**
+     * The `settings` sheet (two columns, `item` and `value`, the shape the
+     * xlsx export writes), as name => value. Only a NEW survey takes them,
+     * through SurveyStudy::importableSettings.
+     *
+     * @var array<string, string>
+     */
+    public $settings = array();
     public static $exportFormats = array('csv', 'csv_german', 'tsv', 'xlsx', 'xls', 'json');
 
     public $parsedown;
@@ -570,6 +578,22 @@ class SpreadsheetReader
         return $parts;
     }
 
+    /**
+     * Read a `settings` sheet: column A the setting's name, column B its
+     * value; a header row (`item` / `value`) and blank rows are skipped.
+     * Nothing is validated here — SurveyStudy::importableSettings does that.
+     */
+    protected function readSettingsSheet($sheet)
+    {
+        foreach ($sheet->toArray(null, true, false, false) as $i => $row) {
+            $name = trim((string) ($row[0] ?? ''));
+            if ($name === '' || ($i === 0 && strtolower($name) === 'item')) {
+                continue;
+            }
+            $this->settings[$name] = trim((string) ($row[1] ?? ''));
+        }
+    }
+
     public function readItemTableFile($filepath)
     {
         ini_set('max_execution_time', 360);
@@ -598,8 +622,15 @@ class SpreadsheetReader
 
             if ($phpSpreadsheet->sheetNameExists('choices') && $phpSpreadsheet->getSheetCount() > 1) {
                 $choicesSheet = $phpSpreadsheet->getSheetByName('choices');
-            } elseif ($phpSpreadsheet->getSheetCount() > 1) {
+            } elseif ($phpSpreadsheet->getSheetCount() > 1
+                    && strtolower($phpSpreadsheet->getSheet(1)->getTitle()) !== 'settings') {
+                // An unnamed second sheet is the choices — but not the
+                // settings sheet an export of a survey without choices
+                // writes in second place.
                 $choicesSheet = $phpSpreadsheet->getSheet(1);
+            }
+            if ($phpSpreadsheet->sheetNameExists('settings')) {
+                $this->readSettingsSheet($phpSpreadsheet->getSheetByName('settings'));
             }
 
             // Merged cells silently swallow whatever sat in the covered

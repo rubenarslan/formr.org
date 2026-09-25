@@ -215,6 +215,72 @@ class SurveyStudy extends Model
      * @param array $options
      * @return SurveyStudy|false the study, or false on failure
      */
+    /**
+     * The settings a new survey may take from its import — a JSON file's
+     * "settings", or a spreadsheet's `settings` sheet (the sheet the xlsx
+     * export writes) — allowlisted and validated, so every import path
+     * accepts exactly the same keys and values. Engine settings included:
+     * a v2 study exported and uploaded again comes back on v2.
+     *
+     * @param array $raw name => value
+     * @return array
+     */
+    public static function importableSettings(array $raw)
+    {
+        $allowed_settings = [
+            'maximum_number_displayed', 'displayed_percentage_maximum',
+            'add_percentage_points', 'expire_after',
+            'expire_invitation_after', 'expire_invitation_grace',
+            'enable_instant_validation',
+            'unlinked', 'hide_results', 'use_paging',
+            'google_file_id',
+            // v2 engine settings — exported by getSettings(), so a
+            // bundle round-trips its rendering mode. Validated below
+            // exactly as the admin settings form does
+            // (AdminSurveyController::settingsAction); an invalid value
+            // is dropped rather than coerced, so a bad bundle imports
+            // with the column default.
+            'rendering_mode', 'offline_mode', 'allow_previous',
+            'layout', 'language', 'next_button_label', 'submit_button_label',
+        ];
+        $filtered = array_intersect_key($raw, array_flip($allowed_settings));
+        $filtered = self::validateEngineSettings($filtered);
+        // Validate google_file_id at the WRITE boundary, not only on the
+        // download path (google_get_sheet_id). This value is
+        // attacker-controlled on the import path — a shared run-bundle's
+        // settings.google_file_id — and admin templates render it
+        // unescaped inside an href via google_get_sheet_link() (raw string
+        // interpolation). Storing a crafted value would be stored XSS on
+        // the admin origin, the exact boundary the study-subdomain split
+        // exists to protect. Drop anything that isn't a real Drive file id
+        // (base64url) so a bad bundle imports without the link rather than
+        // with a payload. The templates are also being escaped (defence in
+        // depth), but the value should never reach the DB malformed.
+        if (isset($filtered['google_file_id']) && !google_is_valid_sheet_id($filtered['google_file_id'])) {
+            unset($filtered['google_file_id']);
+        }
+        return $filtered;
+    }
+
+    /**
+     * Store the importable part of $raw (importableSettings) on this new
+     * survey and say what was taken.
+     */
+    protected function applyImportedSettings(array $raw)
+    {
+        $settings = self::importableSettings($raw);
+        if (!$settings) {
+            return;
+        }
+        $this->assignProperties($settings);
+        $this->save();
+        $shown = array();
+        foreach ($settings as $k => $v) {
+            $shown[] = h($k) . ' = ' . h((string) $v);
+        }
+        $this->messages[] = 'Settings taken from the upload: ' . implode(', ', $shown) . '.';
+    }
+
     public static function createFromData($data, $options = [])
     {
         unset($options['survey_data']);
@@ -285,39 +351,8 @@ class SurveyStudy extends Model
             // also covers the admin settings form — that path has allowed
             // google_file_id through all along (AdminSurveyController:515),
             // so omitting it here never actually closed the hazard.
-            $allowed_settings = [
-                'maximum_number_displayed', 'displayed_percentage_maximum',
-                'add_percentage_points', 'expire_after',
-                'expire_invitation_after', 'expire_invitation_grace',
-                'enable_instant_validation',
-                'unlinked', 'hide_results', 'use_paging',
-                'google_file_id',
-                // v2 engine settings — exported by getSettings(), so a
-                // bundle round-trips its rendering mode. Validated below
-                // exactly as the admin settings form does
-                // (AdminSurveyController::settingsAction); an invalid value
-                // is dropped rather than coerced, so a bad bundle imports
-                // with the column default.
-                'rendering_mode', 'offline_mode', 'allow_previous',
-                'layout', 'language', 'next_button_label', 'submit_button_label',
-            ];
             $raw_settings = isset($data->settings) ? (array) $data->settings : [];
-            $filtered = array_intersect_key($raw_settings, array_flip($allowed_settings));
-            $filtered = self::validateEngineSettings($filtered);
-            // Validate google_file_id at the WRITE boundary, not only on the
-            // download path (google_get_sheet_id). This value is
-            // attacker-controlled on the import path — a shared run-bundle's
-            // settings.google_file_id — and admin templates render it
-            // unescaped inside an href via google_get_sheet_link() (raw string
-            // interpolation). Storing a crafted value would be stored XSS on
-            // the admin origin, the exact boundary the study-subdomain split
-            // exists to protect. Drop anything that isn't a real Drive file id
-            // (base64url) so a bad bundle imports without the link rather than
-            // with a payload. The templates are also being escaped (defence in
-            // depth), but the value should never reach the DB malformed.
-            if (isset($filtered['google_file_id']) && !google_is_valid_sheet_id($filtered['google_file_id'])) {
-                unset($filtered['google_file_id']);
-            }
+            $filtered = self::importableSettings($raw_settings);
             $data->settings = array_merge([
                 'maximum_number_displayed' => 0,
                 'displayed_percentage_maximum' => 100,
@@ -432,7 +467,12 @@ class SurveyStudy extends Model
         return mb_substr($label, 0, 100);
     }
 
-    public function uploadItems($file, $can_delete = false, $is_new = false)
+    /**
+     * @param array $settingsOverride for a NEW survey: settings the uploader
+     *   chose on the form (the engine), applied over the file's own
+     *   `settings` sheet
+     */
+    public function uploadItems($file, $can_delete = false, $is_new = false, array $settingsOverride = array())
     {
         umask(0002);
         ini_set('memory_limit', Config::get('memory_limit.survey_upload_items'));
@@ -452,6 +492,15 @@ class SurveyStudy extends Model
         $this->messages = array_unique(array_merge($this->messages, $reader->messages));
 
         // if items are ok, make actual survey
+        // A new survey takes its settings from the file (the `settings` sheet
+        // an xlsx export writes, so an exported study round-trips — its
+        // engine included) and from the upload form, before its items go in:
+        // the engine decides which items are allowed (formV2Unsupported).
+        // An existing survey's settings are never changed by an upload.
+        if ($is_new && empty($this->errors)) {
+            $this->applyImportedSettings(array_merge($reader->settings, $settingsOverride));
+        }
+
         if (empty($this->errors) && $this->saveUploadedItemsFromReader($reader)) {
             if (!empty($this->warnings)) {
                 alert('<ul><li>' . implode("</li><li>", $this->warnings) . '</li></ul>', 'alert-warning');

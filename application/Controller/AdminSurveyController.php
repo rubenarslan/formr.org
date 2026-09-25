@@ -59,6 +59,16 @@ class AdminSurveyController extends AdminController {
             }
             
             
+            // The engine chosen on the form, if any; otherwise the file's own
+            // settings decide (a JSON "settings" / a spreadsheet's
+            // `settings` sheet), and without one the survey is classic v1.
+            // The choice is offered where the operator has enabled form_v2
+            // authoring (form_v2_enabled, like the run editor's Add Form).
+            $engine = in_array($_POST['engine'] ?? '', array('v1', 'v2'), true) ? $_POST['engine'] : null;
+            if ($engine === 'v2' && !Config::get('form_v2_enabled')) {
+                $engine = null;
+            }
+
             if ($this->validateUploadedFile($file)) {
                 // JSON survey export → import via createFromData (the same path
                 // run-structure imports use). Only reached for new surveys; the
@@ -89,6 +99,12 @@ class AdminSurveyController extends AdminController {
                         delete_tmp_file($file);
                         return $this->request->redirect('admin/survey');
                     }
+                    if ($engine !== null) {
+                        if (!isset($data->settings) || !is_object($data->settings)) {
+                            $data->settings = new stdClass();
+                        }
+                        $data->settings->rendering_mode = $engine;
+                    }
                     if (SurveyStudy::createFromData($data, array('user_id' => $this->user->id))) {
                         alert('<strong>Success!</strong> New survey created from JSON!', 'alert-success');
                         $created = SurveyStudy::loadByUserAndName($this->user, $data->name);
@@ -106,7 +122,7 @@ class AdminSurveyController extends AdminController {
                 $study = new SurveyStudy(null);
                 if ($study->createFromFile($file)) {
                     // upload items
-                    if ($study->uploadItems($file, true, true)) {
+                    if ($study->uploadItems($file, true, true, $engine !== null ? array('rendering_mode' => $engine) : array())) {
                         alert('<strong>Success!</strong> New survey created!', 'alert-success');
                         $redirect = admin_study_url($study->name, 'show_item_table');
                     } else {

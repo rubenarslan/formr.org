@@ -1,6 +1,8 @@
 {
     "name": "all_widgets_v2",
-    "settings": {},
+    "settings": {
+        "rendering_mode": "v2"
+    },
     "items": [
         {
             "type": "note",
