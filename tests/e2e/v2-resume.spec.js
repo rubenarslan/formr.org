@@ -139,3 +139,75 @@ test.describe('form_v2: stored answers come back through the items themselves', 
         expect(items.a_browser.value).toBeNull();
     });
 });
+
+// A server error (not an outage) queues a page; a later page must never
+// overtake it. The live submit of page 2 first tries to send page 1 and,
+// when that still fails, queues itself behind it; once the server is back
+// both land in order and the form completes.
+test.describe('form_v2: the queue keeps pages in order', () => {
+    test.skip(RUNNING_ON_BS, 'page.route is not available through the BrowserStack bridge');
+
+    test('a page after a failed one queues behind it, and both land in order', async ({ page, baseURL }) => {
+        test.setTimeout(120000);
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        const sid = await v2.unitSessionId(page);
+        const livePages = [];
+        const syncedPages = [];
+        page.on('request', (r) => {
+            const p = new URL(r.url()).pathname;
+            let body = null;
+            try { body = JSON.parse(r.postData() || 'null'); } catch (e) { /* multipart */ }
+            if (/\/form-page-submit\/?$/.test(p) && body) livePages.push(body.page);
+            if (/\/form-sync\/?$/.test(p) && body) syncedPages.push(body.page);
+        });
+
+        // Page 1: the server answers 500 — queued, and the participant moves on.
+        await page.route(/\/form-page-submit\/?$/, (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"boom"}' }), { times: 1 });
+        await page.route(/\/form-sync\/?$/, (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"still down"}' }));
+        await page.fill('[name="cp_a"]', '1');
+        await page.locator('form.fmr-form-v2 section.fmr-page:not([hidden]) [data-fmr-next]').first().click();
+        await expect.poll(() => v2.visiblePageNum(page)).toBe(2);
+
+        // Page 2 (the last): page 1 still cannot be sent, so page 2 is not
+        // sent live either — it queues behind page 1.
+        await page.fill('[name="cp_b"]', '2');
+        await page.locator('form.fmr-form-v2 section.fmr-page:not([hidden]) [data-fmr-next]').first().click();
+        await expect(page.locator('.fmr-queue-banner')).toContainText(/queued behind/i);
+        expect(livePages, 'page 2 never went out live').toEqual([1]);
+        const queued = await page.evaluate(() => new Promise((resolve) => {
+            const open = indexedDB.open('formrQueue');
+            open.onsuccess = () => {
+                const req = open.result.transaction('queue').objectStore('queue').getAll();
+                req.onsuccess = () => resolve(req.result.map((e) => ({ page: e.page, final: !!e.final })).sort((a, b) => a.page - b.page));
+            };
+        }));
+        expect(queued).toEqual([{ page: 1, final: false }, { page: 2, final: true }]);
+
+        // The server is back. Clear the backoff and drain.
+        await page.unroute(/\/form-sync\/?$/);
+        syncedPages.length = 0;
+        await page.evaluate(() => new Promise((resolve) => {
+            const open = indexedDB.open('formrQueue');
+            open.onsuccess = () => {
+                const store = open.result.transaction('queue', 'readwrite').objectStore('queue');
+                const req = store.getAll();
+                req.onsuccess = () => {
+                    req.result.forEach((e) => { e.next_retry_at = null; e.attempts = 0; e.state = 'pending'; store.put(e); });
+                    store.transaction.oncomplete = () => resolve();
+                };
+            };
+        }));
+        await page.evaluate(() => window.dispatchEvent(new Event('online')));
+        await expect.poll(() => syncedPages.slice(), { timeout: 30000 }).toEqual([1, 2]);
+        // The final page's redirect takes the participant past the form.
+        await expect.poll(() => page.locator('form.fmr-form-v2').count().catch(() => 1), { timeout: 20000 }).toBe(0);
+
+        const st = db.dbQuery(`SELECT results_table FROM survey_studies WHERE name = '${STUDY}'`)[0];
+        const row = db.dbResultsRow(st.results_table, sid);
+        expect(row.cp_a, 'page 1 landed').toBe('1');
+        expect(row.cp_b, 'page 2 landed').toBe('2');
+        const us = db.dbQuery(`SELECT ended FROM survey_unit_sessions WHERE id = ${Number(sid)}`)[0];
+        expect(us.ended, 'the final page, drained last, ended the form').not.toBeNull();
+    });
+});

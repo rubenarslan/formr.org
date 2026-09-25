@@ -1106,6 +1106,7 @@ function initForm() {
                 .then((removed) => { if (removed) drainQueue(); })
                 .catch(() => {});
         }
+        cancelPendingAutosave();
         // The reply carries the stored state of what was just written: merge
         // it into the store and hand the values to the showif scope.
         absorbReply(body);
@@ -1248,6 +1249,15 @@ function initForm() {
             }
         } catch (e) { /* best-effort; explicit submit + offline queue are the net */ }
         finally { saveInFlight = false; }
+    };
+    // A page submit carries every answer of its page, so an autosave still
+    // waiting for its throttle window is superseded — and must not go out
+    // afterwards (the pagehide beacon would post it into a form the final
+    // submit has already ended).
+    const cancelPendingAutosave = () => {
+        if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+        savePending = false;
+        updateUnloadGuard();
     };
     const schedulePersist = () => {
         if (!saveUrl) return;

@@ -200,6 +200,7 @@ test.describe('v2 survey completes end-to-end', () => {
         test.setTimeout(300000);
         const errors = [];
         page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+        page.on('response', (r) => { if (r.status() >= 400) errors.push(`${r.status()} ${new URL(r.url()).pathname}`); });
         await freshParticipant(page, RUN_SHOWCASE(), { baseURL });
         await v2.waitForBundle(page);
         expect(await v2.pageCount(page), 'five pages').toBe(5);
@@ -207,6 +208,6 @@ test.describe('v2 survey completes end-to-end', () => {
         console.log('SHOWCASE result', JSON.stringify(r));
         expect(r.completed, `${JSON.stringify(r.serverErrors || r.errors || r)}`).toBe(true);
         expect(r.pages, 'every page was submitted').toBe(4);
-        expect(errors.filter((e) => !/favicon|ERR_INTERNET_DISCONNECTED/.test(e)), 'no console errors').toEqual([]);
+        expect(errors.filter((e) => !/favicon|ERR_INTERNET_DISCONNECTED/.test(e)), 'no console errors or failed requests').toEqual([]);
     });
 });

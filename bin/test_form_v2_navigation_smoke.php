@@ -13,6 +13,9 @@
  *     (`missing`) and ends the unit session once nothing is; the server
  *     computes nothing itself (a hidden item's R value is the browser's to
  *     resolve and submit);
+ *   - the final submit ends the form under the run-session lock: with the
+ *     lock held elsewhere it fails (a 5xx the browser retries) and leaves
+ *     the form open; a second, racing end is a no-op (one next unit);
  *   - a study with a `calculate` item cannot become a v2 Form's study;
  *   - a GET never completes the form (Form::getUnitSessionOutput renders).
  *
@@ -59,6 +62,8 @@ $bundle = ['units' => [[
         $item(6, 'score', 'hidden', ['value' => '1 + 1']),
         $item(7, 'q4', 'text', ['optional' => 1]),
     ]],
+], [
+    'type' => 'Endpage', 'position' => 20, 'description' => 'end', 'body' => 'Done.',
 ]]];
 $study = null; $rs = null; $us = null; $unitId = null;
 function teardown() {
@@ -73,7 +78,7 @@ try {
     echo "== form_v2 navigation/state smoke ==\n";
     ok($run->importUnits(json_encode($bundle)) !== false, 'run bundle imported');
     $units = $run->getAllUnitIds();
-    ok(count($units) === 1, 'one run unit', $units);
+    ok(count($units) === 2, 'a Form and an end page', $units);
     $unitId = (int) $units[0]['unit_id'];
     $form = RunUnitFactory::make($run, ['id' => $unitId]);
     ok($form instanceof Form, 'unit is a Form');
@@ -192,6 +197,47 @@ try {
     echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
     $failures++;
 }
+echo "\n-- the final submit ends the form once, under the run-session lock --\n";
+$rs2 = null;
+try {
+    $rs2Id = $db->insert('survey_run_sessions', ['run_id' => $runId, 'session' => 'NAVSMOKE' . bin2hex(random_bytes(8)), 'created' => mysql_now(), 'position' => 10]);
+    $rs2 = new RunSession($db->execute('SELECT session FROM survey_run_sessions WHERE id = :id', ['id' => $rs2Id], false, true)['session'], $run);
+    $rs2->position = 10;
+    $rs2->createUnitSession($form);
+    $us2 = $rs2->currentUnitSession;
+    $us2->createSurveyStudyRecord();
+    $svc2 = new FormSubmissionService($us2, $study);
+    $final = ['page' => 3, 'unit_session_id' => 0, 'data' => ['q1' => '2', 'q3' => 'x'], 'item_views' => [], 'hidden' => [$ids['q2']], 'final' => true];
+    $unitSessions = function () use ($db, $rs2Id) {
+        return (int) $db->execute('SELECT COUNT(*) AS n FROM survey_unit_sessions WHERE run_session_id = :r', ['r' => $rs2Id], false, true)['n'];
+    };
+
+    // Another process (a racing request, the daemon) holds the lock.
+    $cfg = (array) Config::get('database');
+    $dsn = 'mysql:' . http_build_query(array_filter(['host' => $cfg['host'], 'dbname' => $cfg['database'], 'charset' => $cfg['encoding'], 'port' => $cfg['port'] ?? null]), '', ';');
+    $other = new PDO($dsn, $cfg['login'], $cfg['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $lock = 'run_session_' . (int) $rs2Id;
+    ok((int) $other->query("SELECT GET_LOCK('{$lock}', 0)")->fetchColumn() === 1, 'the lock is held by another connection');
+    $threw = false;
+    try { $svc2->apply($final); } catch (RuntimeException $e) { $threw = true; }
+    ok($threw, 'the final submit fails while the lock is held (the browser gets a 5xx and retries)');
+    $open = $db->execute('SELECT ended FROM survey_unit_sessions WHERE id = :id', ['id' => $us2->id], false, true);
+    ok($open['ended'] === null, 'the form is still open');
+    ok($unitSessions() === 1, 'the run did not move on');
+    $other->query("SELECT RELEASE_LOCK('{$lock}')");
+
+    $r = $svc2->apply($final);
+    ok(!empty($r['complete']), 'with the lock free, the retry ends the form', $r);
+    ok($unitSessions() === 2, 'the run moved on to the end page', $unitSessions());
+    ok($rs2->endFormUnitSession($us2) === true && $unitSessions() === 2, 'a second, racing end is a no-op: still one next unit');
+    $pos = $db->execute('SELECT position FROM survey_run_sessions WHERE id = :id', ['id' => $rs2Id], false, true);
+    ok((int) $pos['position'] === 20, 'position advanced once', $pos);
+} catch (Throwable $e) {
+    echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . "\n";
+    $failures++;
+}
+try { if ($rs2 && $rs2->id) { $db->exec('DELETE FROM survey_run_sessions WHERE id = :id', ['id' => $rs2->id]); } } catch (Throwable $e) {}
+
 echo "\n-- a study with a calculate item is not linked to a Form --\n";
 $calcStudy = null;
 try {
