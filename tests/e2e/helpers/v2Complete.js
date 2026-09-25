@@ -18,6 +18,12 @@ const VALUE_OVERRIDES = {
     suffering_animals: '60',
     teeth: '20',                       // number 0..32; keep generic 42 from tripping max
     creditcard: '4242424242424242',    // valid Luhn (Visa test) if a cc is ever visible
+    // all_widgets_v2 showcase
+    t_pattern: '12345',                // pattern [0-9]{5}
+    t_cc: '4242424242424242',
+    n_teeth: '20',
+    r_needy: '40',
+    r_animals: '60',
 };
 
 async function fillAll(page, scopeSelector, overrides = VALUE_OVERRIDES) {

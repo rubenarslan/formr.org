@@ -11,9 +11,9 @@
  * render time.
  *
  * The document is the same whatever the participant has done so far: every
- * item of the study is rendered on its page, and a state block (stateBlock)
- * carries what is stored per item. The browser fills inputs from it and
- * decides which page to show (webroot/assets/form/js/state.js) — see
+ * item of the study is rendered on its page — with its stored answer, which
+ * the item renders itself — and a state block (stateBlock) carries what the
+ * browser needs to decide which page to show (webroot/assets/form/js/state.js) — see
  * documentation/agent_doc/plan_form_v2_navigation_state.md.
  *
  * Architectural rules (see documentation/agent_doc/plan_form_v2.md §3 / §5):
@@ -53,6 +53,9 @@ class FormRenderer extends SpreadsheetRenderer {
 
     /** @var array<string, true> item name => the session has stored a value for it (getStudyItems) */
     protected $storedItems = [];
+
+    /** @var array<string, string> item name => its stored answer, as stored (getStudyItems) */
+    protected $storedAnswers = [];
 
     /**
      * Is this render being watched by the study's author rather than by a
@@ -378,6 +381,7 @@ class FormRenderer extends SpreadsheetRenderer {
             `survey_items_display`.display_order,
             `survey_items_display`.hidden,
             `survey_items_display`.saved,
+            `survey_items_display`.answer AS stored_answer,
             `survey_items_display`.answered')
             ->from('survey_items')
             ->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
@@ -404,6 +408,9 @@ class FormRenderer extends SpreadsheetRenderer {
             if (!$item) continue;
             if (isset($row['saved'])) {
                 $this->storedItems[$item->name] = true;
+                if ($row['stored_answer'] !== null) {
+                    $this->storedAnswers[$item->name] = (string) $row['stored_answer'];
+                }
             }
             // $this->unanswered feeds v1's getStudyProgress() only; v2's
             // completion is the final submit's required check
@@ -434,8 +441,12 @@ class FormRenderer extends SpreadsheetRenderer {
         // when the server hid the item; v2 wants reactive visibility without a
         // round-trip. An item whose showif produced no transpiled js_showif
         // stays hidden (processItems Step 4): unknown means not shown.
+        // A showif that did not transpile still carries the (empty)
+        // attribute: the browser then reports its item as hidden, like any
+        // other showif item it hides, instead of the server waiting for an
+        // answer to an item nobody can see.
         foreach ($this->renderedItems as $item) {
-            if (!empty($item->showif) && !empty($item->js_showif)) {
+            if (trim((string) $item->showif) !== '') {
                 $item->data_showif = true;
             }
         }
@@ -468,6 +479,12 @@ class FormRenderer extends SpreadsheetRenderer {
                 }
                 if (!empty($this->validatedItems[$item->name])) {
                     $item->value_validated = $this->validatedItems[$item->name]->value_validated;
+                } elseif (isset($this->storedAnswers[$item->name]) && self::rendersStoredAnswer($item)) {
+                    // A stored answer is rendered by the item itself, the way
+                    // v1 re-renders a page after a validation error: a slider
+                    // at its value, a rank in its order, the ticked boxes.
+                    // The browser only reads the inputs.
+                    $item->value_validated = $this->storedAnswers[$item->name];
                 }
                 // A submit item renders as the page's big centred button. In
                 // non-solo, tag it data-fmr-next so main.js routes its click
@@ -503,6 +520,16 @@ class FormRenderer extends SpreadsheetRenderer {
         $html .= $this->renderV2Footer();
         $html .= '</div>';
         return $html;
+    }
+
+    /**
+     * Can this item show its stored answer as a preset? Uploads cannot (a
+     * file input takes no value), a bot_check's stored marker is not a
+     * token, and a submit button has no answer.
+     */
+    protected static function rendersStoredAnswer(Item $item) {
+        return !($item instanceof File_Item) && !($item instanceof BotCheck_Item)
+            && $item->type !== 'submit' && $item->save_in_results_table;
     }
 
     /**
@@ -560,7 +587,6 @@ class FormRenderer extends SpreadsheetRenderer {
 
     protected function renderV2Header() {
         $submitUrl = run_url($this->run->name, 'form-page-submit');
-        $fillUrl = run_url($this->run->name, 'form-fill');
         $syncUrl = run_url($this->run->name, 'form-sync');
         $saveUrl = run_url($this->run->name, 'form-save');
         $runUrl = run_url($this->run->name);
@@ -588,9 +614,8 @@ class FormRenderer extends SpreadsheetRenderer {
         // …) — the admin-choosable layout modifiers. Keep it on the v2 form
         // so those classes keep working without a parallel scss port.
         $html = sprintf(
-            '<form class="fmr-form-v2 form-horizontal" method="post" data-submit-url="%s" data-fill-url="%s" data-sync-url="%s" data-save-url="%s" data-run-url="%s" data-offline-mode="%s" data-allow-previous="%s" data-layout="%s" data-fmr-progress-from="%d" data-fmr-progress-to="%d" novalidate>',
+            '<form class="fmr-form-v2 form-horizontal" method="post" data-submit-url="%s" data-sync-url="%s" data-save-url="%s" data-run-url="%s" data-offline-mode="%s" data-allow-previous="%s" data-layout="%s" data-fmr-progress-from="%d" data-fmr-progress-to="%d" novalidate>',
             htmlspecialchars($submitUrl, ENT_QUOTES),
-            htmlspecialchars($fillUrl, ENT_QUOTES),
             htmlspecialchars($syncUrl, ENT_QUOTES),
             htmlspecialchars($saveUrl, ENT_QUOTES),
             htmlspecialchars($runUrl, ENT_QUOTES),
@@ -632,7 +657,8 @@ class FormRenderer extends SpreadsheetRenderer {
      * the showif scope from `value`, and picks the page to open from
      * `answered` / `required` / `hidden` (state.js pageState). Multi-value
      * answers arrive as arrays, the shape the live inputs produce; an
-     * upload's stored path is not shipped (`value` null, `answered` true).
+     * upload's stored path is not shipped (`value` null, `answered` true),
+     * nor the value of an item without an input that no showif reads.
      * Every item is listed, so the browser's copy of the data is complete
      * and the same after a reload as before it.
      *
@@ -640,12 +666,13 @@ class FormRenderer extends SpreadsheetRenderer {
      */
     public function stateBlock() {
         $rows = FormSubmissionService::stateRows($this->db, $this->study->id, $this->unitSession->id);
+        $showifNames = FormSubmissionService::showifNames($this->db, (int) $this->study->id);
         $factory = new ItemFactory([]);
         $items = [];
         foreach ($rows as $row) {
             $item = $factory->make($row);
             if ($item) {
-                $items[(string) $row['name']] = FormSubmissionService::itemState($item, $row);
+                $items[(string) $row['name']] = FormSubmissionService::itemState($item, $row, $showifNames);
             }
         }
         return [
@@ -713,11 +740,7 @@ class FormRenderer extends SpreadsheetRenderer {
      * gets the same row; the browser hides Previous on the first shown page
      * and relabels Next as Submit on the last one (main.js applyNav).
      */
-    protected function renderPageNav($hasSubmit = false, array $strings = null) {
-        if ($strings === null) {
-            $lang = !empty($this->study->language) ? $this->study->language : 'en';
-            $strings = FormStrings::table($lang, FormStrings::studyOverrides($this->study));
-        }
+    protected function renderPageNav($hasSubmit, array $strings) {
         $left = !empty($this->study->allow_previous)
             ? '<button type="button" class="btn btn-outline-secondary" data-fmr-prev><i class="fa fa-arrow-left"></i> '
                 . htmlspecialchars($strings['nav.previous'], ENT_QUOTES) . '</button>'

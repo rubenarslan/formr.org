@@ -17,6 +17,10 @@ const v2c = require('./helpers/v2Complete');
 
 const RUN_SOLO = () => runName('all_widgets_solo', 'v2');
 const RUN_DEFAULT = () => runName('all_widgets', 'v2');
+// The committed showcase documentation/example_surveys/all_widgets_v2.json
+// (every item type v2 supports bar the PWA items), provisioned by
+// tests/e2e/setup/create-v2-fixtures.js.
+const RUN_SHOWCASE = () => runName('all_widgets_v2', 'v2');
 
 // A stable signature of the current solo step so we can tell "advanced" from
 // "stuck" and avoid double-advancing an auto-advancing (radio/select) step.
@@ -190,5 +194,19 @@ test.describe('v2 survey completes end-to-end', () => {
         const r = await driveDefault(page);
         console.log('DEFAULT result', JSON.stringify(r));
         expect(r.completed, `${JSON.stringify(r.serverErrors || r.errors || r)}`).toBe(true);
+    });
+
+    test('all_widgets_v2 showcase: walk every page to the end', async ({ page, baseURL }) => {
+        test.setTimeout(300000);
+        const errors = [];
+        page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+        await freshParticipant(page, RUN_SHOWCASE(), { baseURL });
+        await v2.waitForBundle(page);
+        expect(await v2.pageCount(page), 'five pages').toBe(5);
+        const r = await driveDefault(page);
+        console.log('SHOWCASE result', JSON.stringify(r));
+        expect(r.completed, `${JSON.stringify(r.serverErrors || r.errors || r)}`).toBe(true);
+        expect(r.pages, 'every page was submitted').toBe(4);
+        expect(errors.filter((e) => !/favicon|ERR_INTERNET_DISCONNECTED/.test(e)), 'no console errors').toEqual([]);
     });
 });

@@ -77,6 +77,14 @@ class FormV2UnifiedResolutionTest extends \PHPUnit\Framework\TestCase {
         $this->assertNotEmpty($plain->validate()['val_errors'], 'without a pattern, choices on a text item are still an error');
     }
 
+    public function testAPatternItemKeepsATextColumnDespiteItsMessageChoice() {
+        $factory = new ItemFactory(array('msg' => array('1' => 'Five digits, please')));
+        $item = $factory->make(array('name' => 'zip', 'type' => 'text', 'type_options' => '[0-9]{5}', 'choice_list' => 'msg', 'optional' => 1));
+        $this->assertSame('`zip` TEXT DEFAULT NULL', $item->getResultField(), 'the message is not an answer option; the answer is text');
+        $mc = $factory->make(array('name' => 'm', 'type' => 'mc', 'choice_list' => 'msg', 'optional' => 1));
+        $this->assertStringContainsString('TINYINT', $mc->getResultField(), 'real options still type the column');
+    }
+
     public function testSheetAuthorsWriteThePatternInTypeAndTheMessageInChoice1() {
         $reader = new SpreadsheetReader();
         $reader->readItemTableFile($this->makeWorkbook(array('survey' => array(

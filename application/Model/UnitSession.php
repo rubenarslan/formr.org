@@ -380,7 +380,7 @@ class UnitSession extends Model {
      * ends the session still counts.
      *
      * Public because RCallService meters the form_v2 reactive-R endpoints
-     * (form-fill / form-render-page) into the same column —
+     * (form-render-page) into the same column —
      * participant-driven OpenCPU load must count against the owner's
      * compute budget like unit execution does.
      *
@@ -1133,7 +1133,8 @@ class UnitSession extends Model {
      * browser has not recorded as hidden — what stands between the participant
      * and the end of the form. The only completion rule for a v2 Form (the
      * final page submit, FormSubmissionService::apply); a GET never completes
-     * one. Items that take no input (notes, calculate) are never required.
+     * one. Which items are required is FormSubmissionService::isRequired, the
+     * same rule the browser's state block uses.
      *
      * @return array<string, Item> name => item
      */
@@ -1147,7 +1148,6 @@ class UnitSession extends Model {
              FROM `survey_items` i
              LEFT JOIN `survey_items_display` d ON d.item_id = i.id AND d.session_id = :session_id
              WHERE i.study_id = :study_id AND i.deleted IS NULL
-               AND (i.optional IS NULL OR i.optional = 0)
                AND i.type NOT IN (\'mc_heading\', \'submit\')
                AND d.answer IS NULL AND (d.hidden IS NULL OR d.hidden = 0)
              ORDER BY d.page, d.display_order, i.`order`, i.id',
@@ -1157,7 +1157,7 @@ class UnitSession extends Model {
         $out = array();
         foreach ((array) $rows as $row) {
             $item = $factory->make($row);
-            if ($item && $item->requiresUserInput() && $item->save_in_results_table) {
+            if ($item && FormSubmissionService::isRequired($item) && !$item->formV2Unsupported()) {
                 $out[(string) $row['name']] = $item;
             }
         }

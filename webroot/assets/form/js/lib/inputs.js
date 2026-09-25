@@ -78,3 +78,27 @@ export function collectAnswers(scope, root) {
     });
     return out;
 }
+
+// Is an item hidden? One definition for every consumer: the `.hidden` class
+// on its wrapper. The server renders every showif item with it (so nothing
+// flashes before Alpine runs) and Alpine toggles it (showif/alpine.js
+// applyVisibility), so a showif that never evaluates — leftover R, a syntax
+// error — reads as hidden here, exactly as the participant sees it.
+export function isItemHidden(wrapper) {
+    return !!(wrapper && wrapper.classList && wrapper.classList.contains('hidden'));
+}
+
+// The ids of the showif items currently hidden within `scope`: what a page
+// submit reports so the server records them as hidden (and its required
+// check skips them). Only showif items are reported; the server honours no
+// other claim.
+export function hiddenShowifItemIds(scope) {
+    return Array.from(scope.querySelectorAll('[data-showif], [x-showif]'))
+        .filter(isItemHidden)
+        .map((el) => {
+            const v = el.querySelector('.item_shown');
+            const m = v && v.name && v.name.match(/\[(\d+)\]/);
+            return m ? Number(m[1]) : null;
+        })
+        .filter((id) => id != null);
+}

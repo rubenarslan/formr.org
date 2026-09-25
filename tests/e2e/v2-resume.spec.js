@@ -100,3 +100,42 @@ test.describe('form_v2: reload, offline and Previous agree on the page', () => {
         expect(await page.inputValue('[name="cp_a"]'), 'the queued answer was stored').toBe('1');
     });
 });
+
+// The showcase (documentation/example_surveys/all_widgets_v2.json): items
+// whose inputs always hold a value (range) are
+// restored by the server rendering the stored answer, not by the browser.
+const SHOWCASE = () => runName('all_widgets_v2', 'v2');
+
+test.describe('form_v2: stored answers come back through the items themselves', () => {
+    test('a slider keeps its stored answer across a reload, and loading autosaves nothing', async ({ page, baseURL }) => {
+        await freshParticipant(page, SHOWCASE(), { baseURL });
+        await v2.waitForBundle(page);
+        const saved = page.waitForResponse((r) => /\/form-save\/?$/.test(new URL(r.url()).pathname));
+        await page.evaluate(() => {
+            const r = document.querySelector('[name="n_range"]');
+            r.value = '80';
+            r.dispatchEvent(new Event('input', { bubbles: true }));
+            r.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await saved;
+
+        const saves = [];
+        page.on('request', (r) => { if (/\/form-save\/?$/.test(new URL(r.url()).pathname)) saves.push(r.url()); });
+        await page.reload();
+        await v2.waitForBundle(page);
+        expect(await page.inputValue('[name="n_range"]'), 'the stored 80, not the midpoint').toBe('80');
+        await page.waitForTimeout(1500);
+        expect(saves, 'restoring the page is not an answer').toEqual([]);
+    });
+
+    test('the state block keeps no-input values out of the page unless a showif reads them', async ({ page, baseURL }) => {
+        await freshParticipant(page, SHOWCASE(), { baseURL });
+        await v2.waitForBundle(page);
+        const items = await page.evaluate(() => JSON.parse(document.querySelector('script.fmr-state').textContent).items);
+        expect(items.r_group.answered, 'the random item was drawn').toBe(true);
+        expect(items.r_group.value, 'a showif reads r_group, so it ships').not.toBeNull();
+        expect(items.a_ip.answered).toBe(true);
+        expect(items.a_ip.value, 'no showif reads the IP address').toBeNull();
+        expect(items.a_browser.value).toBeNull();
+    });
+});

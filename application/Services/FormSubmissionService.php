@@ -62,6 +62,12 @@ class FormSubmissionService {
             $data = array();
             foreach ((isset($src['data']) && is_array($src['data'])) ? $src['data'] : array() as $k => $v) {
                 $v = self::postScalar($v);
+                // A multiple choice with nothing ticked arrives as [] here and
+                // as '' over multipart (FormData has no empty array): one
+                // shape, v1's empty placeholder.
+                if ($v === array()) {
+                    $v = '';
+                }
                 if ($v !== null) {
                     $data[$k] = $v;
                 }
@@ -154,6 +160,15 @@ class FormSubmissionService {
         $posted['_item_views'] = $payload['item_views'];
         if (!$this->unitSession->updateSurveyStudyRecord($posted, true)) {
             $errors = is_array($this->unitSession->errors) ? $this->unitSession->errors : array();
+            if (!$errors) {
+                // Not a validation failure (the write itself failed: a value
+                // too long for its column, a deadlock). There is nothing for
+                // the participant to fix, so it must not look like one: a
+                // 5xx makes the browser queue the page and retry (or say it
+                // could not be sent), instead of a Next button that silently
+                // does nothing.
+                throw new RuntimeException('form_v2: the page could not be stored (see the preceding UnitSession exception)');
+            }
             return array('status' => 'errors', 'errors' => $errors);
         }
         $this->markHiddenItems($payload['hidden']);
@@ -172,13 +187,15 @@ class FormSubmissionService {
                 }
             } else {
                 // End the unit session and move the run session to its next
-                // position without executing it (as RunSession does for an
-                // External's redirect): the browser's redirect to the run URL
-                // then executes whatever comes next. Without the move the
-                // next GET would start a fresh session of this same Form.
-                $this->unitSession->end();
-                if ($this->unitSession->runSession) {
-                    $this->unitSession->runSession->moveOn(false, false);
+                // position, under the run-session lock (RunSession::
+                // endFormUnitSession); the browser's redirect to the run URL
+                // then executes whatever comes next.
+                $runSession = $this->unitSession->runSession;
+                if ($runSession && !$runSession->endFormUnitSession($this->unitSession)) {
+                    throw new RuntimeException('form_v2: could not take the run-session lock to end the form');
+                }
+                if (!$runSession) {
+                    $this->unitSession->end();
                 }
                 $response['complete'] = true;
             }
@@ -256,12 +273,13 @@ class FormSubmissionService {
             return array();
         }
         $rows = self::stateRows($this->db, (int) $this->study->id, (int) $this->unitSession->id, $names);
+        $showifNames = self::showifNames($this->db, (int) $this->study->id);
         $factory = new ItemFactory(array());
         $out = array();
         foreach ((array) $rows as $row) {
             $item = $factory->make($row);
             if ($item) {
-                $out[(string) $row['name']] = self::itemState($item, $row);
+                $out[(string) $row['name']] = self::itemState($item, $row, $showifNames);
             }
         }
         return $out;
@@ -299,6 +317,45 @@ class FormSubmissionService {
     }
 
     /**
+     * The identifiers the study's showifs read (a superset: every word-like
+     * token of every showif), as a set.
+     *
+     * @return array<string, true>
+     */
+    public static function showifNames(DB $db, $studyId) {
+        $names = array();
+        $rows = $db->execute(
+            'SELECT showif FROM `survey_items` WHERE study_id = :sid AND deleted IS NULL AND showif IS NOT NULL AND showif <> \'\'',
+            array('sid' => (int) $studyId)
+        );
+        foreach ((array) $rows as $row) {
+            if (preg_match_all('/[A-Za-z_][A-Za-z0-9_]*/', (string) $row['showif'], $m)) {
+                foreach ($m[0] as $name) {
+                    $names[$name] = true;
+                }
+            }
+        }
+        return $names;
+    }
+
+    /** Does the item take an answer the participant gives? */
+    public static function isAnswerable(Item $item) {
+        return $item->requiresUserInput() && (bool) $item->save_in_results_table && $item->type !== 'blank';
+    }
+
+    /**
+     * Must the participant answer it before the form can end? The one rule,
+     * for the state block (the browser's navigation) and the final submit's
+     * check (UnitSession::unansweredRequiredItems) alike. `optional` is the
+     * item's resolved flag, so a blank sheet cell takes the type's default
+     * (hidden, mc_multiple and the automatic items default to optional). A
+     * `blank` renders only text and has nothing to answer.
+     */
+    public static function isRequired(Item $item) {
+        return self::isAnswerable($item) && empty($item->optional);
+    }
+
+    /**
      * One item's entry in the state block / submit reply:
      *   id, page, answerable (takes input), required — the study's definition;
      *   answered — a value has been stored (autosave or submit);
@@ -306,21 +363,25 @@ class FormSubmissionService {
      *     (arrays for multi-value items; an upload's path is not shipped);
      *   hidden — recorded as hidden by the browser's showif.
      */
-    public static function itemState(Item $item, array $row) {
+    public static function itemState(Item $item, array $row, array $showifNames = null) {
         $answer = isset($row['answer']) ? $row['answer'] : null;
-        if ($item instanceof File_Item || !$item->save_in_results_table) {
+        // An item without an input (random, ip, browser, referrer, server, get)
+        // is not on the page, so its value reaches the browser only through
+        // this block — and only if a showif needs it. A random assignment or
+        // an IP address has no business in the page source otherwise.
+        $private = !self::isAnswerable($item) && $showifNames !== null && !isset($showifNames[(string) $item->name]);
+        if ($private || $item instanceof File_Item || !$item->save_in_results_table) {
             $value = null;
         } elseif ($answer !== null && $item->acceptsArrayReply() && !($item instanceof Geopoint_Item)) {
             $value = ($answer === '') ? array() : explode(', ', (string) $answer);
         } else {
             $value = $answer;
         }
-        $answerable = $item->requiresUserInput() && (bool) $item->save_in_results_table;
         return array(
             'id' => (int) $row['id'],
             'page' => isset($row['page']) ? (int) $row['page'] : 1,
-            'answerable' => $answerable,
-            'required' => $answerable && empty($item->optional),
+            'answerable' => self::isAnswerable($item),
+            'required' => self::isRequired($item),
             'answered' => ($answer !== null && isset($row['saved'])),
             'value' => $value,
             'hidden' => !empty($row['hidden']),

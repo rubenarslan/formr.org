@@ -78,7 +78,7 @@ import {
 } from './showif/alpine.js';
 import { initSolo } from './solo/controller.js';
 import { createStore, pageState, readRememberedPage, rememberPage, forgetPage } from './state.mjs';
-import { collectAnswers, fieldKey } from './lib/inputs.js';
+import { collectAnswers, fieldKey, isItemHidden, hiddenShowifItemIds } from './lib/inputs.js';
 
 function initForm() {
     const root = document.querySelector('.fmr-form-v2');
@@ -254,7 +254,17 @@ function initForm() {
     };
     // A showif toggle can change which pages are shown (and so which is
     // last); refresh the page's chrome.
-    root.addEventListener('fmr:showif-toggled', () => { if (pages[currentIndex]) applyNav(pages[currentIndex]); });
+    // Coalesced to one refresh per frame: a single answer can toggle many
+    // showifs, and each refresh snapshots the whole form.
+    let navRefreshQueued = false;
+    root.addEventListener('fmr:showif-toggled', () => {
+        if (navRefreshQueued) return;
+        navRefreshQueued = true;
+        requestAnimationFrame(() => {
+            navRefreshQueued = false;
+            if (pages[currentIndex]) applyNav(pages[currentIndex]);
+        });
+    });
 
     // Answered-timing: stamp on first value change per item. Suppressed while
     // resolveAndSubstitutePage writes server-computed deferred-fill values —
@@ -355,7 +365,7 @@ function initForm() {
                 const name = itemNameOf(el);
                 return {
                     name,
-                    visible: !el.classList.contains('hidden'),
+                    visible: !isItemHidden(el),
                     answerable: !!(name && store.items[name] && store.items[name].answerable),
                 };
             }),
@@ -365,11 +375,7 @@ function initForm() {
     // The ids of every item the form currently hides by showif, all pages:
     // posted with each submit so the server's record of hidden items — and
     // its final required check — agree with what the participant saw.
-    const hiddenItemIds = () => Array.from(root.querySelectorAll('[data-fmr-hidden]')).map((el) => {
-        const v = el.querySelector('.item_shown');
-        const m = v && v.name && v.name.match(/\[(\d+)\]/);
-        return m ? Number(m[1]) : null;
-    }).filter((id) => id != null);
+    const hiddenItemIds = () => hiddenShowifItemIds(root);
 
     // --- Offline queue (Phase 5) ---
     // IDB plumbing + multipart serialization + isTransientFailure live in
@@ -513,27 +519,31 @@ function initForm() {
             showQueueBanner(t('queue.syncing', 'Syncing %n queued submission(s)…', { n: dueCount }), 'warning');
         }
         let ownRedirect = null;
+        let ownMissing = null;
         for (const [entrySyncUrl, groupEntries] of groups) {
             const isOwnRun = entrySyncUrl === syncUrl;
             const outcome = await drainRunGroup(groupEntries, entrySyncUrl, isOwnRun);
             if (outcome === 'offline') return;
             if (outcome && outcome.redirect) ownRedirect = outcome.redirect;
+            if (outcome && outcome.missing) ownMissing = outcome.missing;
         }
         await renderQueueSummary(ownRedirect);
+        if (ownMissing && !ownRedirect) await routeToMissing(ownMissing);
     };
 
     // Drain one run's entries oldest-first. Returns 'offline' (abort every
-    // group), or {redirect} when this run's final page landed.
+    // group), or {redirect, missing} for this run's final page.
     const drainRunGroup = async (groupEntries, entrySyncUrl, isOwnRun) => {
         let redirect = null;
+        let missing = null;
         for (const entry of groupEntries) {
             if (!entryIsDue(entry)) {
-                // A rejected page halts ITS run's queue: later pages must not
-                // land ahead of the one the participant still has to fix (the
-                // final page's redirect would otherwise bounce them out of the
-                // form). Backoff / blocked entries just skip.
-                if (entryState(entry) === STATE_NEEDS_ATTENTION) break;
-                continue;
+                // An entry that cannot go yet — rejected, backing off or
+                // blocked — halts ITS run's queue: a later page must never
+                // land ahead of an earlier one (its hidden-item snapshot is
+                // newer; the final page's redirect would bounce the
+                // participant out of the form).
+                break;
             }
             let res, body;
             try {
@@ -555,6 +565,13 @@ function initForm() {
                 // — another run's redirect would hijack the participant out of
                 // the form they're on.
                 if (body && body.redirect && isOwnRun) redirect = body.redirect;
+                // A final page that landed while a required item elsewhere is
+                // still unanswered: the form is open; route the participant.
+                if (isOwnRun && body && body.missing && Object.keys(body.missing).length) missing = body.missing;
+                // A final page the server had already applied (its reply was
+                // lost): the form may have ended meanwhile, and only the
+                // server knows where the run goes — reload the run URL.
+                if (isOwnRun && entry.final && body && body.already_applied && !redirect) redirect = runUrl || window.location.pathname;
                 continue;
             }
             if (outcome === 'drop') {
@@ -597,7 +614,7 @@ function initForm() {
             await queueUpdate(entry).catch(() => {});
             break;
         }
-        return redirect ? { redirect } : null;
+        return (redirect || missing) ? { redirect, missing } : null;
     };
 
     // After a drain: take this run's redirect if its queue is clear, else
@@ -818,7 +835,7 @@ function initForm() {
     };
 
     // Read the current state of every named form input as a flat map. Used
-    // for /form-render-page and /form-fill.
+    // for /form-render-page.
     // Values stay strings (empty → null), exactly as the inputs hold them:
     // the server types each one by its item's results column
     // (RCallService::formatROverlay). Converting numeric-looking strings here,
@@ -908,8 +925,22 @@ function initForm() {
             delete payload.data[inp.name];
         });
 
+        // An earlier page of this form still waiting in the queue must land
+        // first: try to send it now, and if it is still there, queue this
+        // page behind it instead of overtaking it (a later page carries a
+        // newer hidden-item snapshot, and the final page ends the form).
+        let queuedBehind = false;
+        if (syncUrl) {
+            await drainQueue();
+            const waiting = await queueGetAll().catch(() => []);
+            queuedBehind = waiting.some((e) => (e.sync_url || syncUrl) === syncUrl
+                && (e.unit_session_id || 0) === (unitSessionId || 0) && Number(e.page) !== pageNum);
+        }
+
         let res, netErr;
-        try {
+        if (queuedBehind) {
+            netErr = new Error('queued behind an earlier page');
+        } else try {
             if (useMultipart) {
                 res = await fetch(submitUrl, {
                     method: 'POST',
@@ -996,10 +1027,14 @@ function initForm() {
             try { await queueSupersede(entry, entry.uuid); } catch (e) { /* best effort */ }
             // Ask the SW to wake us up on next connectivity change. No-op on
             // browsers without Background Sync — page-JS online event still
-            // catches it there.
+            // catches it there. A server error fires no `online` event, so
+            // also retry on a timer.
             registerBackgroundSync();
+            scheduleQueueRetry(15000);
             setSaveState('offline', t('save.offline', 'Saved offline'), 2500);
-            showQueueBanner(t('queue.queued_offline', "You're offline. This submission is queued and will be sent when you reconnect."), 'warning');
+            showQueueBanner(queuedBehind
+                ? t('queue.queued_behind', 'An earlier page is still waiting to be sent. This page is queued behind it and will be sent right after.')
+                : t('queue.queued_offline', "You're offline. This submission is queued and will be sent when you reconnect."), 'warning');
             // Advance locally so the participant can continue — the next
             // drain applies in order server-side. The store counts the posted
             // answers as given, so navigation moves on exactly as after a live
@@ -1027,6 +1062,13 @@ function initForm() {
                 // Run session gone — most likely the login session expired.
                 window.alert(t('error.session_expired', 'Your session has expired. The page will reload so you can continue.'));
                 window.location.reload();
+                return;
+            }
+            if (res.status === 409) {
+                // The form is no longer the current unit (it ended — perhaps
+                // a queued final page landed first — or the run moved on).
+                // The server knows where the participant is: go there.
+                window.location.href = runUrl || window.location.pathname;
                 return;
             }
             window.alert(t('error.generic', 'Sorry, something went wrong. Please try again.'));
@@ -1076,16 +1118,8 @@ function initForm() {
             return;
         }
         setSaveState('saved', t('save.saved', 'Saved'));
-        if (body.missing && Object.keys(body.missing).length) {
-            // The final page is stored, but a required item elsewhere is still
-            // unanswered (a showif revealed it after its page was submitted,
-            // say): take the participant to the first such page.
-            const first = firstPageOfItems(Object.keys(body.missing));
-            if (first != null) {
-                await goToPage(first);
-                applyErrors(pages[currentIndex], body.missing);
-                return;
-            }
+        if (body.missing && Object.keys(body.missing).length && await routeToMissing(body.missing)) {
+            return;
         }
         const next = nav().nextAfter(pageNum);
         if (next != null) {
@@ -1096,6 +1130,18 @@ function initForm() {
         // and the server disagree (the form's items changed since it was
         // rendered). Reload and let the server render the current state.
         window.location.href = runUrl || window.location.pathname;
+    };
+
+    // The final page is stored, but a required item elsewhere is still
+    // unanswered (a showif revealed it after its page was submitted, say):
+    // take the participant to the first such page and mark the items. The
+    // same for a live submit and a drained queue entry.
+    const routeToMissing = async (missing) => {
+        const first = firstPageOfItems(Object.keys(missing));
+        if (first == null) return false;
+        await goToPage(first);
+        applyErrors(pages[currentIndex], missing);
+        return true;
     };
 
     // Merge a submit / sync reply into the store and the showif scope.
@@ -1216,6 +1262,9 @@ function initForm() {
     };
     if (saveUrl) {
         root.addEventListener('change', (e) => {
+            // A value the page wrote itself (an R-resolved `value`) is not
+            // the participant's change; it is posted with the page submit.
+            if (programmaticFill) return;
             const t = e.target;
             if (!(t instanceof Element) || !t.name) return;
             if (t.name.startsWith('_item_views')) return;   // tracking inputs, not answers
@@ -1990,14 +2039,6 @@ function initForm() {
     // and adds `x-data="fmrForm"` on the root form.
     promoteShowifAttributes(root);
 
-    // Deferred-fill at initial load was the previous model's per-item
-    // /form-fill resolver. Under the page-scoped model every page — the
-    // first one included — carries data-fmr-fill-id placeholders with blank
-    // values and resolves via /form-render-page when it is shown
-    // (resolveAndSubstitutePage). The /form-fill endpoint itself is still live
-    // and useful for one-off live re-triggers (e.g. an admin-driven retrigger
-    // button) — we just don't fire it on every page-load anymore.
-
     // initButtonGroups + initMediaRecorders + tom-select wiring (plain
     // <select> and <input.select2add>) live in items/* modules — imports above.
     initButtonGroups(root);
@@ -2010,32 +2051,22 @@ function initForm() {
     initChooseWeekdays(root);
 
 
-    // Fill every input from the stored state before anything is shown, so a
-    // reload looks like the moment before it: the same items, with their
-    // answers. setInputValue only writes into empty inputs and never fakes
-    // an answered timestamp.
-    Object.keys(store.items).forEach((name) => {
-        const s = store.items[name];
-        if (s.value == null || s.value === '') return;
-        const inp = root.querySelector(`[name="${CSS.escape(name)}"], [name="${CSS.escape(name)}[]"]`);
-        const wrapper = inp && inp.closest('.form-group, .item');
-        if (!wrapper) return;
-        const target = setInputValue(wrapper, Array.isArray(s.value) ? s.value.join(', ') : s.value);
-        if (!target) return;
-        programmaticFill = true;
-        try {
-            target.dispatchEvent(new Event('input', { bubbles: true }));
-            target.dispatchEvent(new Event('change', { bubbles: true }));
-        } finally {
-            programmaticFill = false;
-        }
-    });
-
+    // Stored answers are already in the inputs: FormRenderer renders each
+    // one through its item's own preset logic, so a reload looks like the
+    // moment before it.
+    //
     // The page to open: the one this browser remembered for this unit
     // session, else the first page with a visible item lacking an answer
     // (pageState). `?page=` is honoured only for a shown page at or before
-    // that one — that is the history the Previous button wrote.
-    {
+    // that one — that is the history the Previous button wrote. Visibility
+    // is the showifs' result, so the choice waits until Alpine has started
+    // and its first evaluations have settled (they resolve asynchronously);
+    // choosing earlier would see every showif item as hidden and step over
+    // a page made of them.
+    let initialPageOpened = false;
+    const openInitialPage = () => {
+        if (initialPageOpened) return;
+        initialPageOpened = true;
         const ps = nav();
         const paramPage = Number(new URLSearchParams(window.location.search).get('page'));
         const initial = (paramPage && ps.isShown(paramPage) && paramPage <= ps.currentPage) ? paramPage : ps.currentPage;
@@ -2046,7 +2077,14 @@ function initForm() {
         // just fills.
         const initialPageEl = pages[currentIndex];
         if (initialPageEl) resolveAndSubstitutePage(Number(initialPageEl.dataset.fmrPage));
-    }
+        // Test-side signal that the form is ready: every listener is attached
+        // and the participant is on their page. waitForBundle() in
+        // tests/e2e/helpers/v2Form.js polls for window.fmrFormReady.
+        window.fmrFormReady = true;
+    };
+    document.addEventListener('alpine:initialized', () => setTimeout(openInitialPage, 0), { once: true });
+    // Should Alpine never start (a broken bundle), still open a page.
+    setTimeout(openInitialPage, 3000);
 
     window.addEventListener('popstate', () => {
         const p = Number(new URLSearchParams(window.location.search).get('page'));
@@ -2102,13 +2140,8 @@ function initForm() {
     // data-timeout keeps the button disabled until |t| ms have elapsed).
     window.fmrCanSubmitPage = canSubmitPage;
 
-    // Test-side signal that initForm finished — every listener is attached,
-    // every item's init has run. Without this, real-device tests race the
-    // bundle: the submit handler attaches LATE in initForm so a click on
-    // [data-fmr-next] before that line does the default form-POST instead
-    // of the JSON path. waitForBundle() in tests/e2e/helpers/v2Form.js
-    // polls for window.fmrFormReady.
-    window.fmrFormReady = true;
+    // window.fmrFormReady is set by openInitialPage (above), once the
+    // participant is on their page.
 }
 
 // Alpine `fmrForm` component + `x-showif` directive registered at module

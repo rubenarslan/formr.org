@@ -27,6 +27,11 @@ class FormSubmissionServiceTest extends \PHPUnit\Framework\TestCase {
         $this->assertSame(2, $p['raw_page']);
     }
 
+    public function testAnEmptyMultipleChoiceIsOneShapeOnBothTransports() {
+        $p = FormSubmissionService::readPayload('application/json', json_encode(array('data' => array('m' => array()))), array(), array());
+        $this->assertSame(array('m' => ''), $p['data'], 'JSON [] becomes the empty placeholder multipart posts');
+    }
+
     public function testDefaultsAndBadJson() {
         $this->assertNull(FormSubmissionService::readPayload('application/json', 'not json', array(), array()));
         $this->assertNull(FormSubmissionService::readPayload('', '"a string"', array(), array()));
@@ -103,5 +108,25 @@ class FormSubmissionServiceTest extends \PHPUnit\Framework\TestCase {
         $this->assertSame(array('1', '2'), FormSubmissionService::itemState($multi, array('id' => 5, 'answer' => '1, 2', 'saved' => 'now'))['value']);
         $this->assertSame(array(), FormSubmissionService::itemState($multi, array('id' => 5, 'answer' => '', 'saved' => 'now'))['value']);
         $this->assertNull(FormSubmissionService::itemState($multi, array('id' => 5, 'answer' => null, 'saved' => null))['value']);
+    }
+
+    public function testRequiredIsTheItemsResolvedFlagAndBlankIsNeverRequired() {
+        $blank = $this->item(array('name' => 'b', 'type' => 'blank', 'optional' => null, 'label' => 'x'));
+        $this->assertFalse(FormSubmissionService::isRequired($blank), 'a blank has nothing to answer');
+        $this->assertFalse(FormSubmissionService::isAnswerable($blank));
+        $hidden = $this->item(array('name' => 'h', 'type' => 'hidden', 'optional' => null));
+        $this->assertFalse(FormSubmissionService::isRequired($hidden), 'an empty optional cell takes the type default (hidden: optional)');
+        $text = $this->item(array('name' => 't', 'type' => 'text', 'optional' => null));
+        $this->assertTrue(FormSubmissionService::isRequired($text), 'text defaults to required');
+    }
+
+    public function testANoInputValueReachesTheBrowserOnlyWhenAShowifReadsIt() {
+        $random = $this->item(array('name' => 'cond', 'type' => 'random', 'type_options' => '1,2'));
+        $row = array('id' => 5, 'answer' => '2', 'saved' => 'now');
+        $this->assertNull(FormSubmissionService::itemState($random, $row, array())['value'], 'no showif reads it');
+        $this->assertTrue(FormSubmissionService::itemState($random, $row, array())['answered']);
+        $this->assertSame('2', FormSubmissionService::itemState($random, $row, array('cond' => true))['value'], 'a showif reads it');
+        $text = $this->item(array('name' => 't', 'type' => 'text'));
+        $this->assertSame('x', FormSubmissionService::itemState($text, array('id' => 5, 'answer' => 'x', 'saved' => 'now'), array())['value'], 'an input\'s own answer is always shipped');
     }
 }

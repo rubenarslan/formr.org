@@ -439,7 +439,11 @@ class Item {
     }
 
     public function getResultField() {
-        if (!empty($this->choices)) {
+        // Only choices that are answer options decide the column type. A
+        // pattern item's first choice is its mismatch message (#269), not an
+        // option; typing its column from that "choice" made a text answer a
+        // TINYINT and every save fail.
+        if (!empty($this->choices) && $this->hasChoices) {
             $this->chooseResultFieldBasedOnChoices();
         }
 

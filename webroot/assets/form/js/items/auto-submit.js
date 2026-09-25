@@ -100,9 +100,10 @@ export function initAutoSubmit({ root, pages, getCurrentIndex, submitPage }) {
             }
         });
         if (page.querySelector('button.submit_on_all_answered')) {
+            // Armed, but only a participant's answer fires it: a page that is
+            // already fully answered when shown (Previous, a reload, stored
+            // answers) must not submit itself the moment it appears.
             allAnsweredArmed = true;
-            // The page may already be fully answered (back-nav, prefills).
-            checkAllAnswered();
         }
     };
 

@@ -700,9 +700,25 @@ class AdminSurveyController extends AdminController {
 
         $unsupported = ($target === 'v2' && $this->study->rendering_mode !== 'v2')
             ? $this->study->formV2UnsupportedItems() : array();
+        // A showif the browser cannot evaluate (leftover R, a name that is not
+        // on the form) keeps its item hidden for good, silently — the one
+        // place v1 studies break on the way to v2. So the scan's showif
+        // findings stop the switch too, unless the author confirms them
+        // (`force`: the scan is a heuristic and can be wrong).
+        $showifFindings = array();
+        if (!$unsupported && $target === 'v2' && $this->study->rendering_mode !== 'v2' && empty($_POST['force'])) {
+            foreach (FormV2CompatScanner::scan((int) $this->study->id)['flagged'] as $f) {
+                if ($f['column'] === 'showif') {
+                    $showifFindings[] = "'{$f['name']}': " . implode('; ', $f['problems']);
+                }
+            }
+        }
         if ($unsupported) {
             alert('<strong>Not switched.</strong> This study has items the form_v2 engine cannot run:<ul><li>'
                 . implode('</li><li>', array_map('h', $unsupported)) . '</li></ul>', 'alert-danger');
+        } elseif ($showifFindings) {
+            alert('<strong>Not switched.</strong> These showifs would keep their items hidden on form_v2 (rewrite them in JavaScript, or compute the value in a hidden item). If the scan is wrong about them, use "Upgrade anyway".<ul><li>'
+                . implode('</li><li>', array_map('h', $showifFindings)) . '</li></ul>', 'alert-danger');
         } elseif ($target === 'v2' && $this->study->rendering_mode !== 'v2') {
             $this->study->update(['rendering_mode' => 'v2']);
             $converted = self::convertSurveyPlacementsToForm($db, (int) $this->study->id);

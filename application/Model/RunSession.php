@@ -636,6 +636,39 @@ class RunSession extends Model {
      * WITHOUT advancing — leaving cron-only participants with nothing
      * current and nothing queued, permanently stalled.
      */
+    /**
+     * form_v2: end a Form's unit session on its final submit and move the run
+     * session on (without executing the next unit — the browser's redirect to
+     * the run URL does that). Under the run-session lock, from a fresh read,
+     * like forceTo/forceMoveOn: a queued final page draining while the
+     * participant clicks Submit again, or the daemon expiring the Form at the
+     * same moment, must not both end it and advance from the same stale
+     * position (a doubled next unit, a clobbered position). If the unit
+     * session is no longer the current one — someone else ended it — this is
+     * a no-op.
+     *
+     * @return bool false only when the lock could not be taken
+     */
+    public function endFormUnitSession(UnitSession $unitSession) {
+        $lock_name = $this->lockName();
+        if (!$this->acquireLock($lock_name, Config::get('run_session.lock_timeout.user', 10.0))) {
+            return false;
+        }
+        try {
+            $this->reloadFromDb();
+            $this->currentUnitSession = null;
+            $current = $this->getCurrentUnitSession();
+            if (!$current || (int) $current->id !== (int) $unitSession->id) {
+                return true;
+            }
+            $current->end();
+            $this->moveOn(false, false);
+            return true;
+        } finally {
+            $this->releaseLock($lock_name);
+        }
+    }
+
     public function forceMoveOn($reason = 'moved') {
         if ($this->ended) {
             alert('This run session has ended; revive it by sending it to a position instead.', 'alert-danger');

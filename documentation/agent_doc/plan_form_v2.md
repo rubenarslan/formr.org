@@ -118,10 +118,9 @@ Endpoints are **hyphen-flat**, not nested under `/form/…`, and live in `RunCon
 |---|---|---|
 | `/{runName}/form-page-submit` | POST | `RunController::formPageSubmitAction` |
 | `/{runName}/form-render-page` | POST | `RunController::formRenderPageAction` — batched per-page resolve of slot='value' + slot='label'; the live R path |
-| `/{runName}/form-fill` | POST | `RunController::formFillAction` (slot='value') — single-call re-trigger; not fired on load any more |
 | `/{runName}/form-sync` | POST | `RunController::formSyncAction` |
 
-`form-fill` and `form-render-page` go through a protected helper `RunController::evaluateAllowlistedRCall($callId, $expectedSlot, $answers)` that does the session/study-ownership check, enforces the slot match, overlays the posted `answers` on `tail(survey, 1)`, and calls OpenCPU with `tryCatch`.
+`form-render-page` passes the shared gate (`RunController::formWriteContext`, 'rcall' rate bucket); `RCallService` scopes the calls to the page's items in this session, applies the revocation check, overlays the posted `answers` on `tail(survey, 1)` and calls OpenCPU with `tryCatch`.
 
 The Router splits on `-` and camelCases; `form-page-submit` → `formPageSubmitAction`. Don't nest under `/form/` — that regresses the split logic and breaks existing urls.
 
@@ -159,7 +158,7 @@ Admins reach server-side R through the **`value` column** — bare, or wrapped a
 
 - `FormRenderer::processItems` passes each item's `value` through `RAllowlistExtractor::unwrap`; the (unwrapped) expression is UPSERTed into `survey_r_calls` (dedup by `study_id + expr_hash + slot + item_id` — one row per item even for identical expressions, since `/form-render-page` resolves a page's calls via `r.item_id`; id recovered via `LAST_INSERT_ID(id)` on duplicate).
 - The `r()` wrapper must be stripped before OpenCPU sees it (`r()` isn't a function in OpenCPU's base+formr env and one bad entry torches the whole batch for the page).
-- Resolution is page-scoped and the same on every page: every item gets `$item->value = ''` plus a `data-fmr-fill-id` wrapper attribute, and the client resolves it in the `/form-render-page` batch when the page is shown (on load for the first page). There is no server-side computation: `calculate` items (and other no-input items with an R `value`) are refused for v2 studies (`Item::formV2Unsupported`). `/form-fill` still exists for one-off re-triggers but is no longer fired on load.
+- Resolution is page-scoped and the same on every page: every item gets `$item->value = ''` plus a `data-fmr-fill-id` wrapper attribute, and the client resolves it in the `/form-render-page` batch when the page is shown (on load for the first page). There is no server-side computation: `calculate` items (and other no-input items with an R `value`) are refused for v2 studies (`Item::formV2Unsupported`).
 - Security invariant matches import-time: the server only evaluates expressions already recorded in `survey_r_calls`, keyed by id. Render-time population means the allowlist auto-updates when admins edit the sheet — no schema drift between import and render. Expression-level granularity (every unique `r(...)` gets a row) is the confirmed design choice over function-level allowlisting.
 
 ### 3.5 Compatibility scanning
@@ -322,7 +321,7 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - ~~Hardened JS transpiler (proper parser)~~ — explicitly not doing; the regex transpile + import-time cache (patch 088) + client try/catch fallback are the chosen design (§8)
 
 ### Phase 4 — Deferred fill for `value`
-- [x] `POST /{run}/form-fill` (`RunController::formFillAction`, slot='value'). Superseded as the load-time path by `/form-render-page`; kept live for one-off re-triggers
+- [x] ~~`POST /{run}/form-fill`~~ removed (2026-09-25): never called once every page resolved through `/form-render-page`.
 - [x] Shared helper `evaluateAllowlistedRCall($id, $slot, $answers)` with slot enforcement
 - [x] `r(...)` unwrap on `value`: FormRenderer records + emits `data-fmr-fill-id`. Every item's value is blanked and resolved when its page is shown (first page on load) — one path for all pages
 - [x] Client fill resolver: set first `input/textarea/select[name]` inside wrapper (only if empty — don't clobber back-nav state), fire input+change. Now driven by the batched `/form-render-page` response, not a per-item POST on load

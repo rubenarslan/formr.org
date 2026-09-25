@@ -1,0 +1,688 @@
+{
+    "name": "all_widgets_v2",
+    "settings": {},
+    "items": [
+        {
+            "type": "note",
+            "name": "intro",
+            "label": "## All widgets (form_v2)\n\nEvery item type the **Form** engine supports, grouped by page. `showif`s are JavaScript and react as you type; `value`s are R, resolved when their page is shown. PWA items (install, push, cookie, phone hand-off) live in the separate `pwa_items_*` showcase.",
+            "optional": 1,
+            "order": 1,
+            "item_order": 1
+        },
+        {
+            "type": "get",
+            "name": "code",
+            "optional": 1,
+            "type_options": "code",
+            "order": 2,
+            "item_order": 2
+        },
+        {
+            "type": "text",
+            "name": "t_text",
+            "label": "### text\nWhere do you live?",
+            "optional": 0,
+            "order": 3,
+            "item_order": 3
+        },
+        {
+            "type": "textarea",
+            "name": "t_textarea",
+            "label": "### textarea\nAnd why would anybody want to live *there*?",
+            "optional": 1,
+            "showif": "answered(t_text)",
+            "order": 4,
+            "item_order": 4
+        },
+        {
+            "type": "letters",
+            "name": "t_letters",
+            "label": "### letters\nLetters only.",
+            "optional": 1,
+            "order": 5,
+            "item_order": 5
+        },
+        {
+            "type": "text",
+            "name": "t_pattern",
+            "label": "### text with a pattern\nFive digits (the first choice is the message shown on a mismatch).",
+            "optional": 1,
+            "type_options": "[0-9]{5}",
+            "choice_list": "t_pattern_msg",
+            "choices": {
+                "1": "Please enter five digits."
+            },
+            "order": 6,
+            "item_order": 6
+        },
+        {
+            "type": "email",
+            "name": "t_email",
+            "label": "### email\nYour e-mail address (not stored anywhere real).",
+            "optional": 1,
+            "order": 7,
+            "item_order": 7
+        },
+        {
+            "type": "url",
+            "name": "t_url",
+            "label": "### url\nYour favourite website.",
+            "optional": 1,
+            "order": 8,
+            "item_order": 8
+        },
+        {
+            "type": "tel",
+            "name": "t_tel",
+            "label": "### tel\nA phone number.",
+            "optional": 1,
+            "order": 9,
+            "item_order": 9
+        },
+        {
+            "type": "cc",
+            "name": "t_cc",
+            "label": "### cc\nA credit-card-shaped number (use a test number).",
+            "optional": 1,
+            "order": 10,
+            "item_order": 10
+        },
+        {
+            "type": "number",
+            "name": "n_teeth",
+            "label": "### number 0,32,1\nHow many teeth do you have?",
+            "optional": 0,
+            "type_options": "0,32,1",
+            "order": 11,
+            "item_order": 11
+        },
+        {
+            "type": "year",
+            "name": "n_year",
+            "label": "### year\nWhen were you born?",
+            "optional": 1,
+            "type_options": "1900,2030",
+            "order": 12,
+            "item_order": 12
+        },
+        {
+            "type": "range",
+            "name": "n_range",
+            "label": "### range 1,100,1\nA slider.",
+            "optional": 1,
+            "type_options": "1,100,1",
+            "choice_list": "n_range",
+            "choices": {
+                "1": "left pole",
+                "2": "right pole"
+            },
+            "order": 13,
+            "item_order": 13
+        },
+        {
+            "type": "range_ticks",
+            "name": "n_ticks",
+            "label": "### range_ticks 1,5,1\nA slider with a mark for every value.",
+            "optional": 1,
+            "type_options": "1,5,1",
+            "choice_list": "n_ticks",
+            "choices": {
+                "1": "not at all",
+                "2": "very much"
+            },
+            "order": 14,
+            "item_order": 14
+        },
+        {
+            "type": "visual_analog_scale",
+            "name": "n_vas",
+            "label": "### visual_analog_scale\nLike `range`, but without a visible default.",
+            "optional": 1,
+            "type_options": "0,100",
+            "choice_list": "n_vas",
+            "choices": {
+                "1": "not at all",
+                "2": "completely"
+            },
+            "order": 15,
+            "item_order": 15
+        },
+        {
+            "type": "color",
+            "name": "t_colour",
+            "label": "### color\nPick a colour.",
+            "optional": 1,
+            "order": 16,
+            "item_order": 16
+        },
+        {
+            "type": "submit",
+            "name": "page_text",
+            "label": "Next: choices",
+            "optional": 1,
+            "order": 17,
+            "item_order": 17
+        },
+        {
+            "type": "mc",
+            "name": "c_gods",
+            "label": "### mc\nHow many gods? What you answer changes what comes next.",
+            "optional": 0,
+            "choice_list": "c_gods",
+            "choices": {
+                "1": "none",
+                "2": "one",
+                "3": "two",
+                "4": "a whole bunch"
+            },
+            "order": 18,
+            "item_order": 18
+        },
+        {
+            "type": "mc_button",
+            "name": "c_which_god",
+            "label": "### mc_button\nWhich one? (shown for *one*)",
+            "optional": 0,
+            "choice_list": "c_which_god",
+            "showif": "c_gods == 2",
+            "choices": {
+                "1": "Zeus",
+                "2": "Odin",
+                "3": "Ra",
+                "4": "another"
+            },
+            "order": 19,
+            "item_order": 19
+        },
+        {
+            "type": "mc_multiple_button",
+            "name": "c_which_gods",
+            "label": "### mc_multiple_button\nWhich ones? (shown for *two* or more)",
+            "optional": 0,
+            "choice_list": "c_which_gods",
+            "showif": "c_gods > 2",
+            "choices": {
+                "1": "Zeus",
+                "2": "Odin",
+                "3": "Ra",
+                "4": "others"
+            },
+            "order": 20,
+            "item_order": 20
+        },
+        {
+            "type": "mc_multiple",
+            "name": "c_hobbies",
+            "label": "### mc_multiple\nWhat do you do in your free time?",
+            "optional": 1,
+            "choice_list": "c_hobbies",
+            "choices": {
+                "1": "read",
+                "2": "run",
+                "3": "cook",
+                "4": "garden",
+                "5": "nothing"
+            },
+            "order": 21,
+            "item_order": 21
+        },
+        {
+            "type": "text",
+            "name": "c_garden_what",
+            "label": "### showif over a multiple choice\nWhat do you grow? (shown if you picked *garden*)",
+            "optional": 1,
+            "showif": "contains(c_hobbies, 4)",
+            "order": 22,
+            "item_order": 22
+        },
+        {
+            "type": "rating_button",
+            "name": "c_rating",
+            "label": "### rating_button 1,5,1\nHow much do you like surveys?",
+            "optional": 0,
+            "type_options": "1,5,1",
+            "choice_list": "c_rating",
+            "choices": {
+                "1": "not at all",
+                "2": "a lot"
+            },
+            "order": 23,
+            "item_order": 23
+        },
+        {
+            "type": "select_one",
+            "name": "c_period",
+            "label": "### select_one\nWhen did you last go on holiday?",
+            "optional": 0,
+            "choice_list": "c_period",
+            "choices": {
+                "1": "this year",
+                "2": "last year",
+                "3": "longer ago",
+                "4": "never"
+            },
+            "order": 24,
+            "item_order": 24
+        },
+        {
+            "type": "select_multiple",
+            "name": "c_partner",
+            "label": "### select_multiple\nWho did you travel with?",
+            "optional": 1,
+            "choice_list": "c_partner",
+            "choices": {
+                "1": "alone",
+                "2": "partner",
+                "3": "family",
+                "4": "friends"
+            },
+            "order": 25,
+            "item_order": 25
+        },
+        {
+            "type": "select_or_add_one",
+            "name": "c_series",
+            "label": "### select_or_add_one\nYour favourite TV series — pick one or type your own and press Enter.",
+            "optional": 1,
+            "choice_list": "c_series",
+            "choices": {
+                "1": "The Wire",
+                "2": "Adventure Time"
+            },
+            "order": 26,
+            "item_order": 26
+        },
+        {
+            "type": "select_or_add_multiple",
+            "name": "c_series_many",
+            "label": "### select_or_add_multiple\nAll the series you have watched this year.",
+            "optional": 1,
+            "choice_list": "c_series_many",
+            "choices": {
+                "1": "The Wire",
+                "2": "Adventure Time",
+                "3": "Severance"
+            },
+            "order": 27,
+            "item_order": 27
+        },
+        {
+            "type": "check",
+            "name": "c_confirm",
+            "label": "### check\nTick to reveal the next item.",
+            "optional": 1,
+            "order": 28,
+            "item_order": 28
+        },
+        {
+            "type": "check_button",
+            "name": "c_confirm2",
+            "label": "### check_button\nThanks for ticking — tick this one too.",
+            "optional": 1,
+            "showif": "c_confirm == 1",
+            "order": 29,
+            "item_order": 29
+        },
+        {
+            "type": "sex",
+            "name": "c_sex",
+            "label": "### sex\nThe ready-made sex/gender item.",
+            "optional": 1,
+            "order": 30,
+            "item_order": 30
+        },
+        {
+            "type": "rank",
+            "name": "c_rank",
+            "label": "### rank\nDrag into your preferred order, best first (arrow buttons and keyboard work too).",
+            "optional": 1,
+            "choice_list": "c_rank",
+            "choices": {
+                "1": "Apple",
+                "2": "Banana",
+                "3": "Cherry",
+                "4": "Date"
+            },
+            "order": 31,
+            "item_order": 31
+        },
+        {
+            "type": "choose_two_weekdays",
+            "name": "c_weekdays",
+            "label": "### choose_two_weekdays\nPick two weekdays.",
+            "optional": 1,
+            "choice_list": "c_weekdays",
+            "choices": {
+                "1": "Monday",
+                "2": "Tuesday",
+                "3": "Wednesday",
+                "4": "Thursday",
+                "5": "Friday",
+                "6": "Saturday",
+                "7": "Sunday"
+            },
+            "order": 32,
+            "item_order": 32
+        },
+        {
+            "type": "timezone",
+            "name": "c_timezone",
+            "label": "### timezone\nWhich timezone are you in?",
+            "optional": 1,
+            "choice_list": "*",
+            "order": 33,
+            "item_order": 33
+        },
+        {
+            "type": "submit",
+            "name": "page_choices",
+            "label": "Next: dates and times",
+            "optional": 1,
+            "order": 34,
+            "item_order": 34
+        },
+        {
+            "type": "date",
+            "name": "d_date",
+            "label": "### date\nWhen did you last cut your toenails?",
+            "optional": 1,
+            "type_options": "2012-01-01,now",
+            "order": 35,
+            "item_order": 35
+        },
+        {
+            "type": "time",
+            "name": "d_time",
+            "label": "### time 11:00,12:00\nPick a time around noon.",
+            "optional": 1,
+            "type_options": "11:00,12:00",
+            "order": 36,
+            "item_order": 36
+        },
+        {
+            "type": "datetime",
+            "name": "d_datetime",
+            "label": "### datetime",
+            "optional": 1,
+            "order": 37,
+            "item_order": 37
+        },
+        {
+            "type": "datetime-local",
+            "name": "d_datetime_local",
+            "label": "### datetime-local",
+            "optional": 1,
+            "order": 38,
+            "item_order": 38
+        },
+        {
+            "type": "month",
+            "name": "d_month",
+            "label": "### month",
+            "optional": 1,
+            "order": 39,
+            "item_order": 39
+        },
+        {
+            "type": "week",
+            "name": "d_week",
+            "label": "### week",
+            "optional": 1,
+            "order": 40,
+            "item_order": 40
+        },
+        {
+            "type": "yearmonth",
+            "name": "d_yearmonth",
+            "label": "### yearmonth",
+            "optional": 1,
+            "order": 41,
+            "item_order": 41
+        },
+        {
+            "type": "submit",
+            "name": "page_dates",
+            "label": "Next: R and logic",
+            "optional": 1,
+            "order": 42,
+            "item_order": 42
+        },
+        {
+            "type": "random",
+            "name": "r_group",
+            "optional": 1,
+            "type_options": "0,1",
+            "order": 43,
+            "item_order": 43
+        },
+        {
+            "type": "hidden",
+            "name": "r_monotheist",
+            "optional": 1,
+            "value": "ifelse(c_gods == 2, 1, 0)",
+            "order": 44,
+            "item_order": 44
+        },
+        {
+            "type": "note",
+            "name": "r_label",
+            "label": "### dynamic label\nYou said you have `r n_teeth` teeth — that is `r ifelse(n_teeth >= 32, 'a full set', paste(32 - n_teeth, 'short of a full set'))`.",
+            "optional": 1,
+            "order": 45,
+            "item_order": 45
+        },
+        {
+            "type": "text",
+            "name": "r_prefill",
+            "label": "### dynamic value\nPrefilled in R from page 1; change it if you like.",
+            "optional": 1,
+            "value": "paste('lives in', t_text)",
+            "order": 46,
+            "item_order": 46
+        },
+        {
+            "type": "mc",
+            "name": "r_kitten",
+            "label": "### random group 0\nDo you like kittens? (half of all participants see this — `random` item `r_group`)",
+            "optional": 1,
+            "choice_list": "r_kitten",
+            "showif": "r_group == 0",
+            "choices": {
+                "1": "yes",
+                "2": "no"
+            },
+            "order": 47,
+            "item_order": 47
+        },
+        {
+            "type": "mc",
+            "name": "r_puppy",
+            "label": "### random group 1\nDo you like puppies? (the other half see this)",
+            "optional": 1,
+            "choice_list": "r_puppy",
+            "showif": "r_group == 1",
+            "choices": {
+                "1": "yes",
+                "2": "no"
+            },
+            "order": 48,
+            "item_order": 48
+        },
+        {
+            "type": "text",
+            "name": "r_bridge",
+            "label": "### showif over a hidden item\nShown to monotheists only: which temple do you go to? (`r_monotheist` is a hidden item computed in R)",
+            "optional": 1,
+            "showif": "r_monotheist == 1",
+            "order": 49,
+            "item_order": 49
+        },
+        {
+            "type": "mc",
+            "name": "r_dyn_choices",
+            "label": "### R in a choice label\nPick one.",
+            "optional": 1,
+            "choice_list": "r_dyn_choices",
+            "choices": {
+                "1": "`r n_teeth` teeth",
+                "2": "`r 32 - n_teeth` missing"
+            },
+            "order": 50,
+            "item_order": 50
+        },
+        {
+            "type": "note",
+            "name": "r_budget_note",
+            "label": "### block\nSplit 100 between the two causes below. A `block` item keeps you on the page until the numbers add up.",
+            "optional": 1,
+            "order": 51,
+            "item_order": 51
+        },
+        {
+            "type": "number",
+            "name": "r_needy",
+            "label": "People in need",
+            "optional": 0,
+            "type_options": "0,100,1",
+            "order": 52,
+            "item_order": 52
+        },
+        {
+            "type": "number",
+            "name": "r_animals",
+            "label": "Suffering animals",
+            "optional": 0,
+            "type_options": "0,100,1",
+            "order": 53,
+            "item_order": 53
+        },
+        {
+            "type": "block",
+            "name": "r_block_over",
+            "label": "That is more than 100.",
+            "optional": 0,
+            "showif": "(r_needy + r_animals) > 100",
+            "order": 54,
+            "item_order": 54
+        },
+        {
+            "type": "block",
+            "name": "r_block_under",
+            "label": "That is less than 100.",
+            "optional": 0,
+            "showif": "answered(r_needy) && answered(r_animals) && (r_needy + r_animals) < 100",
+            "order": 55,
+            "item_order": 55
+        },
+        {
+            "type": "note_iframe",
+            "name": "r_iframe",
+            "label": "### note_iframe\nA knitted R Markdown document in a frame, resolved when this page is shown.\n\n```{r echo=FALSE}\nplot(1:10, (1:10)^2, type = 'b', main = paste('teeth:', n_teeth))\n```",
+            "optional": 1,
+            "order": 56,
+            "item_order": 56
+        },
+        {
+            "type": "blank",
+            "name": "r_blank",
+            "label": "### blank\nA placeholder that renders only its text.",
+            "optional": 1,
+            "order": 57,
+            "item_order": 57
+        },
+        {
+            "type": "submit",
+            "name": "page_r",
+            "label": "Next: uploads and location",
+            "optional": 1,
+            "order": 58,
+            "item_order": 58
+        },
+        {
+            "type": "geopoint",
+            "name": "u_geo",
+            "label": "### geopoint\nShare your location (or skip).",
+            "optional": 1,
+            "order": 59,
+            "item_order": 59
+        },
+        {
+            "type": "file",
+            "name": "u_file",
+            "label": "### file\nUpload any file.",
+            "optional": 1,
+            "order": 60,
+            "item_order": 60
+        },
+        {
+            "type": "image",
+            "name": "u_image",
+            "label": "### image\nUpload a photo.",
+            "optional": 1,
+            "order": 61,
+            "item_order": 61
+        },
+        {
+            "type": "audio",
+            "name": "u_audio",
+            "label": "### audio\nRecord a short sound.",
+            "optional": 1,
+            "order": 62,
+            "item_order": 62
+        },
+        {
+            "type": "video",
+            "name": "u_video",
+            "label": "### video\nRecord a short clip.",
+            "optional": 1,
+            "order": 63,
+            "item_order": 63
+        },
+        {
+            "type": "bot_check",
+            "name": "u_human",
+            "label": "### bot_check\nA local proof-of-work check — no third-party captcha.",
+            "optional": 1,
+            "order": 64,
+            "item_order": 64
+        },
+        {
+            "type": "referrer",
+            "name": "a_referrer",
+            "optional": 1,
+            "order": 65,
+            "item_order": 65
+        },
+        {
+            "type": "ip",
+            "name": "a_ip",
+            "optional": 1,
+            "order": 66,
+            "item_order": 66
+        },
+        {
+            "type": "browser",
+            "name": "a_browser",
+            "optional": 1,
+            "order": 67,
+            "item_order": 67
+        },
+        {
+            "type": "server",
+            "name": "a_accept_language",
+            "optional": 1,
+            "type_options": "HTTP_ACCEPT_LANGUAGE",
+            "order": 68,
+            "item_order": 68
+        },
+        {
+            "type": "submit",
+            "name": "page_done",
+            "label": "Finish",
+            "optional": 1,
+            "order": 69,
+            "item_order": 69
+        }
+    ]
+}

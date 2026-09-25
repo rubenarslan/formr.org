@@ -339,3 +339,29 @@ study, at the switch, at a Form's study link and in the compat scan.
 gone; `/form-render-page` stores no answers. Where §2/§3 above describe
 calculations on page show or at the final submit, read "none".
 
+## 8. Follow-up: the 2026-09-25 review, remaining findings
+
+- Stored answers are rendered by the items (`value_validated`); the
+  browser's restore loop is gone (sliders, ranks, VAS came back wrong).
+- Autosave ignores programmatic fills; loading a page posts nothing.
+- The landing page is chosen after Alpine's first showif evaluations
+  settle (`alpine:initialized` + a macrotask); `fmrFormReady` is set then.
+- One definition of hidden: the wrapper's `.hidden` class
+  (`lib/inputs.js isItemHidden` / `hiddenShowifItemIds`); every showif
+  item carries `data-showif`, even one that did not transpile.
+- One required rule: `FormSubmissionService::isRequired`.
+- The final submit ends the form under the run-session lock
+  (`RunSession::endFormUnitSession`).
+- Queue: a later page never overtakes an earlier queued one (a live submit
+  queues behind it; the drain stops at the first entry that cannot go);
+  a 5xx schedules a retry; a drained final entry's `missing` routes the
+  participant; an `already_applied` final entry reloads the run URL; a
+  live 409 reloads the run URL; a store failure is a JSON 500.
+- No-input values reach the page only if a showif reads them.
+- The switch to v2 is refused on flagged showifs unless forced.
+- `/form-fill`, `RCallService::evaluateSingle`/`fetchLiveCall` removed.
+- Empty multiple choice: one shape (`''`) on both transports.
+- `submit_on_all_answered` no longer fires on revisiting an answered page.
+- `Item::getResultField` types a column from choices only when they are
+  answer options (a pattern item's message choice made its column TINYINT).
+

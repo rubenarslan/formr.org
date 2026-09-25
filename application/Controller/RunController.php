@@ -709,7 +709,15 @@ class RunController extends Controller {
             return;
         }
         list(, $unitSession, $study) = $context;
-        $result = (new FormSubmissionService($unitSession, $study))->apply($payload);
+        try {
+            $result = (new FormSubmissionService($unitSession, $study))->apply($payload);
+        } catch (Throwable $e) {
+            // Not the participant's doing (see FormSubmissionService::apply):
+            // a 5xx, which the browser queues and retries like an outage.
+            formr_log_exception($e, __METHOD__);
+            $this->sendJsonResponse(array('error' => 'The page could not be stored.'), 500);
+            return;
+        }
         $this->sendJsonResponse($this->withRunRedirect($result));
     }
 
@@ -1056,7 +1064,9 @@ class RunController extends Controller {
                 $this->sendJsonResponse(array('status' => 'ok', 'already_applied' => true));
                 return;
             }
-            throw $e;
+            formr_log_exception($e, __METHOD__);
+            $this->sendJsonResponse(array('error' => 'The page could not be stored.'), 500);
+            return;
         }
         if ($result['status'] !== 'ok') {
             // Drop the uuid claim so the participant can fix the errors and
@@ -1152,51 +1162,6 @@ class RunController extends Controller {
     }
 
     /**
-     * form_v2 Phase 4: deferred fill for r(...)-wrapped `value` expressions.
-     *
-     * URL: POST /{runName}/form-fill
-     * Body: JSON `{"call_id": int, "answers": {name: value, ...}}`
-     *
-     * Enforces slot='value' and returns the R
-     * result stringified for the input. Client sets `input.value` and fires a
-     * change event so dependent showifs re-evaluate.
-     */
-    public function formFillAction() {
-        if (!Request::isHTTPPostRequest()) {
-            $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
-            return;
-        }
-        $payload = json_decode(file_get_contents('php://input'), true);
-        if (!is_array($payload)) {
-            $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
-            return;
-        }
-        $callId = isset($payload['call_id']) ? (int) $payload['call_id'] : 0;
-        $answers = (isset($payload['answers']) && is_array($payload['answers'])) ? $payload['answers'] : array();
-        if ($callId <= 0) {
-            $this->sendJsonResponse(array('error' => 'Missing call_id'), 400);
-            return;
-        }
-        // Reactive r-calls are debounced and seq-guarded client-side, but a
-        // malicious or buggy client could loop: the 'rcall' bucket is DB-keyed
-        // (formr_rate_limits, patch 095), so it survives cookie rotation.
-        $context = $this->formWriteContext(0, array(), 'rcall');
-        if (!$context) {
-            return;
-        }
-        list(, $unitSession, $study) = $context;
-        // Validates study ownership of the call_id and the slot, overlays the
-        // client's answers on the last persisted row and evaluates via
-        // OpenCPU. Never ships R source to the client.
-        $out = (new RCallService($unitSession, $study))->evaluateSingle($callId, 'value', $answers);
-        if (!$out['ok']) {
-            $this->sendJsonResponse(array('error' => $out['error']), $out['status']);
-            return;
-        }
-        $this->sendJsonResponse(array('value' => RCallService::rResultToScalarString($out['result'])));
-    }
-
-    /**
      * form_v2 page-transition resolver.
      *
      * URL: POST /{runName}/form-render-page
@@ -1240,8 +1205,7 @@ class RunController extends Controller {
         }
         $answers = (isset($payload['answers']) && is_array($payload['answers'])) ? $payload['answers'] : array();
 
-        // Shares the r-call bucket with form-fill so a hostile client can't
-        // multiply its budget by alternating endpoints.
+        // The r-call rate bucket: page resolutions are OpenCPU calls.
         $context = $this->formWriteContext(0, array(), 'rcall');
         if (!$context) {
             return;

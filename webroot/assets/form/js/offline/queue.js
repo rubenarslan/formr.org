@@ -233,7 +233,12 @@ export function buildFormData(entry) {
     const data = entry.data || {};
     Object.keys(data).forEach((k) => {
         const v = data[k];
-        if (Array.isArray(v)) {
+        if (Array.isArray(v) && v.length === 0) {
+            // Nothing ticked: post the empty scalar v1's hidden placeholder
+            // posts, so an answered-empty multiple choice is stored as such
+            // on both transports (readPayload maps JSON's [] to it too).
+            fd.append(`data[${k}]`, '');
+        } else if (Array.isArray(v)) {
             v.forEach((vv) => fd.append(`data[${k}][]`, vv == null ? '' : String(vv)));
         } else if (v != null) {
             fd.append(`data[${k}]`, String(v));

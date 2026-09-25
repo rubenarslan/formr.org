@@ -69,44 +69,6 @@ class RCallService {
     }
 
     /**
-     * Fetch a call row and verify it is still LIVE for this service's study
-     * (see class doc, concern 1).
-     *
-     * @return array{ok:bool, status?:int, error?:string, call?:array{id:int, slot:string, expr:string, item_id:int}}
-     */
-    public function fetchLiveCall($callId, $expectedSlot) {
-        $stmt = $this->db->prepare(
-            'SELECT r.id, r.study_id, r.slot, r.expr, r.item_id,
-                    i.id AS item_row_id, i.deleted AS item_deleted,
-                    i.value AS item_value,
-                    i.label AS item_label,
-                    i.name AS item_name
-             FROM `survey_r_calls` r
-             LEFT JOIN `survey_items` i ON i.id = r.item_id
-             WHERE r.id = :id'
-        );
-        $stmt->bindValue(':id', (int) $callId, PDO::PARAM_INT);
-        $stmt->execute();
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$row || (int) $row['study_id'] !== (int) $this->study->id) {
-            return array('ok' => false, 'status' => 404, 'error' => 'Unknown call_id for this study');
-        }
-        if ((string) $row['slot'] !== (string) $expectedSlot) {
-            return array('ok' => false, 'status' => 400, 'error' => 'call_id slot mismatch');
-        }
-        if (!self::callRowIsLive($row)) {
-            return array('ok' => false, 'status' => 410, 'error' => 'call_id no longer active (item removed or expression edited)');
-        }
-        return array('ok' => true, 'call' => array(
-            'id' => (int) $row['id'],
-            'slot' => (string) $row['slot'],
-            'expr' => (string) $row['expr'],
-            'item_id' => (int) $row['item_id'],
-            'item_name' => (string) $row['item_name'],
-        ));
-    }
-
-    /**
      * Revocation check: the recorded expression must still be derivable from
      * the item's CURRENT sheet content. $row needs slot/expr/item_id plus the
      * item_deleted/item_value/item_label join columns.
@@ -553,36 +515,6 @@ class RCallService {
             return array($session, false);
         }
         return array(null, !empty($GLOBALS['opencpu_local_error']));
-    }
-
-    /**
-     * Evaluate one call end-to-end: live-allowlist fetch (with revocation),
-     * then the shared batch resolver. Shape matches the old controller helper.
-     *
-     * @return array{ok:bool, status?:int, error?:string, result?:mixed}
-     */
-    public function evaluateSingle($callId, $expectedSlot, array $answers) {
-        if ($callId <= 0) {
-            return array('ok' => false, 'status' => 400, 'error' => 'Missing call_id');
-        }
-        if ($this->surveyName === '') {
-            return array('ok' => false, 'status' => 500, 'error' => 'Bad study name');
-        }
-        $fetched = $this->fetchLiveCall($callId, $expectedSlot);
-        if (!$fetched['ok']) {
-            return $fetched;
-        }
-        $call = $fetched['call'];
-        $ttl = self::ttlForSlot($expectedSlot);
-        if ($expectedSlot === 'label') {
-            $results = $this->resolveLabels(array($call['id'] => array('expr' => $call['expr'])), $answers, $ttl);
-        } else {
-            $results = $this->resolveExpressions(array($call['id'] => array('expr' => $call['expr'], 'item_name' => $call['item_name'])), $answers, $ttl);
-        }
-        if (!array_key_exists($call['id'], $results)) {
-            return array('ok' => false, 'status' => 502, 'error' => 'Evaluation failed');
-        }
-        return array('ok' => true, 'result' => $results[$call['id']]);
     }
 
     /**
