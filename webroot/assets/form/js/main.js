@@ -45,7 +45,7 @@ import { mysqlDatetime } from './lib/time.js';
 import { genUuid } from './lib/uuid.js';
 import {
     queueAdd, queueGetAll, queueDelete, queueUpdate, queueSupersede, queueResetRetry,
-    wipeQueueForRun, buildSyncFormData, normalizeSyncEntry, isTransientFailure,
+    wipeQueueForRun, buildFormData, normalizeSyncEntry, isTransientFailure,
     entryState, entryIsDue, markRetryFailure, markNeedsAttention,
     STATE_PENDING, STATE_NEEDS_ATTENTION, STATE_BLOCKED,
 } from './offline/queue.js';
@@ -77,6 +77,7 @@ import {
     promoteShowifAttributes,
 } from './showif/alpine.js';
 import { initSolo } from './solo/controller.js';
+import { createStore, pageState, readRememberedPage, rememberPage, forgetPage } from './state.mjs';
 
 function initForm() {
     const root = document.querySelector('.fmr-form-v2');
@@ -186,9 +187,13 @@ function initForm() {
         if (changed) {
             document.dispatchEvent(new CustomEvent('fmr:pagechange', { detail: { index: i } }));
         }
+        const p = pages[i];
+        const pageNum = p ? Number(p.dataset.fmrPage) : null;
+        if (pageNum) rememberPage(unitSessionId, pageNum);
         // In solo, the step controller owns progress (per-item, not per-page)
         // and focus; it re-seats stepping via onPageShown below.
-        if (!isSolo) {
+        if (!isSolo && pageNum) {
+            const { index, total } = nav().progress(pageNum);
             if (progressBar) {
                 // Interpolate within the study's [from, to] window
                 // (add_percentage_points / displayed_percentage_maximum) so
@@ -196,16 +201,16 @@ function initForm() {
                 // their coordinated ranges — parity with v1's stretch math.
                 const from = Number(root.dataset.fmrProgressFrom) || 0;
                 const to = Number(root.dataset.fmrProgressTo) || 100;
-                const pct = Math.round(from + ((i + 1) / pages.length) * (to - from));
+                const pct = Math.round(from + (index / Math.max(1, total)) * (to - from));
                 progressBar.style.width = pct + '%';
                 progressBar.setAttribute('aria-valuenow', String(pct));
             }
             if (progressLabel) {
-                progressLabel.textContent = t('progress.page_of', 'Page %cur of %total', { cur: i + 1, total: pages.length });
+                progressLabel.textContent = t('progress.page_of', 'Page %cur of %total', { cur: index, total });
             }
         }
-        const p = pages[i];
         if (p) {
+            applyNav(p);
             observeItems(p);
             if (isSolo) {
                 if (soloController) soloController.onPageShown(p);
@@ -228,6 +233,27 @@ function initForm() {
             }
         }
     };
+
+    // Every page carries the same navigation row (FormRenderer::renderPageNav):
+    // Previous is shown only when there is a shown page before this one, and
+    // the advance button reads Submit on the last shown page, Next before it
+    // — an authored submit label (no data-fmr-nav-label) is left alone.
+    const applyNav = (pageEl) => {
+        const pageNum = Number(pageEl.dataset.fmrPage);
+        const ps = nav();
+        pageEl.querySelectorAll('[data-fmr-prev]').forEach((btn) => { btn.hidden = ps.previousOf(pageNum) == null; });
+        const last = ps.isLastShown(pageNum);
+        pageEl.querySelectorAll('[data-fmr-nav-label]').forEach((btn) => {
+            const label = t(last ? 'nav.submit' : 'nav.next', last ? 'Submit' : 'Next');
+            if (btn.tagName === 'INPUT') { btn.value = label; return; }
+            const icon = btn.querySelector('i');
+            btn.textContent = label + ' ';
+            if (icon) { icon.className = 'fa ' + (last ? 'fa-check' : 'fa-arrow-right'); btn.appendChild(icon); }
+        });
+    };
+    // A showif toggle can change which pages are shown (and so which is
+    // last); refresh the page's chrome.
+    root.addEventListener('fmr:showif-toggled', () => { if (pages[currentIndex]) applyNav(pages[currentIndex]); });
 
     // Answered-timing: stamp on first value change per item. Suppressed while
     // resolveAndSubstitutePage writes server-computed deferred-fill values —
@@ -325,19 +351,6 @@ function initForm() {
                 data[name] = value; // last-wins
             }
         });
-        // Report which items the client currently HIDES via showif. Alpine sets
-        // `data-fmr-hidden` on a hidden wrapper; the server marks these items
-        // hidden so a conditionally-hidden required item doesn't count toward
-        // completion. We send CURRENT visibility rather than inverting
-        // `_item_views[shown]` (that stamp fires once an item flashes into view at
-        // load, before Alpine hides it — so a shown-then-hidden item looks shown).
-        const hidden = {};
-        pageEl.querySelectorAll('[data-fmr-hidden]').forEach((el) => {
-            const v = el.querySelector('.item_shown');
-            const m = v && v.name && v.name.match(/\[(\d+)\]/);
-            if (m) hidden[m[1]] = 1;
-        });
-        itemViews.hidden = hidden;
         return { data, item_views: itemViews };
     };
 
@@ -354,7 +367,7 @@ function initForm() {
     const renderPageUrl = (runUrl || '').replace(/\/?$/, '/') + 'form-render-page';
     // Admin-controlled per-study flags (SurveyStudy.offline_mode /
     // .allow_previous). Default to on/off respectively when the attribute is
-    // missing (safe for pre-patch-051 forms: unchanged v2 behaviour).
+    // missing (the column defaults, patch 086).
     const offlineModeEnabled = (root.dataset.offlineMode || 'on') !== 'off';
     const allowPrevious = (root.dataset.allowPrevious || 'off') !== 'off';
     // When offline mode is off, don't expose the sync URL to the queue path —
@@ -364,11 +377,50 @@ function initForm() {
     // given (rate-limited) so a mid-page breakoff still yields partial data,
     // independent of the explicit page-submit. Best-effort; see persist block.
     const saveUrl = root.dataset.saveUrl || '';
-    // The unit session this page was rendered for. Rides along on every write
-    // (page-submit, autosave, queue entry) so the server can reject writes from
-    // a stale tab into a newer unit session (repeated Forms / diary runs).
-    const sessionInput = root.querySelector('input[name="session_id"]');
-    const unitSessionId = sessionInput ? Number(sessionInput.value) : null;
+    // The server's state block (FormRenderer::stateBlock): the unit session
+    // this page was rendered for — it rides along on every write so the
+    // server can reject a stale tab's writes into a newer unit session
+    // (repeated Forms / diary runs) — and, per item, what is stored. The
+    // store is the browser's copy; every submit reply is merged into it and
+    // navigation is derived from it (pageState, ./state.mjs).
+    let stateBlock = {};
+    try { stateBlock = JSON.parse((root.querySelector('script.fmr-state') || {}).textContent || '{}'); } catch (e) { /* malformed: empty */ }
+    const store = createStore(stateBlock);
+    const unitSessionId = store.unitSessionId;
+
+    // A snapshot of the document for pageState: per page, its items with the
+    // live showif result (`.hidden` is what Alpine toggles, showif/alpine.js
+    // applyVisibility) and whether they take input (the server's word, from
+    // the state block: a rank item's inputs are all type=hidden, a note's
+    // is too). A submit item is the page's button, not content.
+    const itemNameOf = (wrapper) => {
+        const inp = wrapper.querySelector('input[name]:not([name^="_item_views"]), select[name], textarea[name]');
+        if (!inp) return null;
+        return inp.name.endsWith('[]') ? inp.name.slice(0, -2) : inp.name;
+    };
+    const snapshotPages = () => pages.map((pageEl) => ({
+        page: Number(pageEl.dataset.fmrPage),
+        items: Array.from(pageEl.querySelectorAll(':scope > .form-group, :scope > .item'))
+            .filter((el) => !el.classList.contains('item-submit'))
+            .map((el) => {
+                const name = itemNameOf(el);
+                return {
+                    name,
+                    visible: !el.classList.contains('hidden'),
+                    answerable: !!(name && store.items[name] && store.items[name].answerable),
+                };
+            }),
+    }));
+    const nav = () => pageState(snapshotPages(), store, readRememberedPage(unitSessionId), allowPrevious);
+    const pageIndexOf = (pageNum) => pages.findIndex((p) => Number(p.dataset.fmrPage) === Number(pageNum));
+    // The ids of every item the form currently hides by showif, all pages:
+    // posted with each submit so the server's record of hidden items — and
+    // its final required check — agree with what the participant saw.
+    const hiddenItemIds = () => Array.from(root.querySelectorAll('[data-fmr-hidden]')).map((el) => {
+        const v = el.querySelector('.item_shown');
+        const m = v && v.name && v.name.match(/\[(\d+)\]/);
+        return m ? Number(m[1]) : null;
+    }).filter((id) => id != null);
 
     // --- Offline queue (Phase 5) ---
     // IDB plumbing + multipart serialization + isTransientFailure live in
@@ -406,10 +458,10 @@ function initForm() {
     };
     const hideQueueBanner = () => { if (queueBanner) queueBanner.hidden = true; };
 
-    // Single-flight: the drain is triggered by `online`, by initial load, and
-    // by the SW's Background Sync — two interleaved drains would double-fire
-    // the banner and the final-page redirect (server UUID dedup makes the
-    // POSTs themselves harmless).
+    // Single-flight: the drain is triggered by `online`, by initial load, by
+    // the retry timer and by page submits — two interleaved drains would
+    // double-fire the banner and the final-page redirect (server UUID dedup
+    // makes the POSTs themselves harmless).
     let drainInFlight = false;
     const drainQueue = async () => {
         if (!syncUrl || drainInFlight) return;
@@ -434,12 +486,12 @@ function initForm() {
         const hasFiles = entry.files && Object.keys(entry.files).length > 0;
         let res;
         if (hasFiles) {
-            // Multipart drain — mirrors the submitPage multipart path.
+            // Multipart drain — the same request builder as a live submit.
             res = await fetch(entrySyncUrl, {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-                body: buildSyncFormData(entry),
+                body: buildFormData(normalizeSyncEntry(entry)),
             });
         } else {
             res = await fetch(entrySyncUrl, {
@@ -460,7 +512,7 @@ function initForm() {
 
     // Classify a /form-sync response into a drain outcome. Every shape
     // RunController::formSyncAction can answer with is named here:
-    //   applied   200 {status:'ok', next_page|redirect} / {already_applied}
+    //   applied   200 {status:'ok', items, redirect?} / {already_applied}
     //   errors    200 {status:'errors', errors:{name: msg}} — the server rolled
     //             the ledger row back and applied NOTHING; the entry must be
     //             kept and the participant has to fix the page.
@@ -492,7 +544,12 @@ function initForm() {
         let entries;
         try { entries = await queueGetAll(); } catch (e) { return; }
         if (!entries || !entries.length) { hideQueueBanner(); return; }
-        entries.sort((a, b) => (a.client_ts || '').localeCompare(b.client_ts || ''));
+        // Oldest first. client_ts has one-second resolution, so pages queued
+        // within the same second fall back to `queued_at` (ms) — IDB returns
+        // entries in uuid order, i.e. at random, and a later page must never
+        // apply first (its calculations would run without the earlier page).
+        entries.sort((a, b) => (a.client_ts || '').localeCompare(b.client_ts || '')
+            || ((a.queued_at || 0) - (b.queued_at || 0)));
         // Scope the drain per run: one run's rejection (expired session,
         // validation error) must not head-of-line block another run's entries
         // on this origin. Legacy entries without sync_url belong to this form.
@@ -540,6 +597,9 @@ function initForm() {
             const outcome = classifySyncResponse(res, body);
             if (outcome === 'applied') {
                 await queueDelete(entry.uuid);
+                // The stored state of what just landed (and any calculate
+                // items a final entry ran) — for this form's showifs.
+                if (isOwnRun) absorbReply(body);
                 // If the drain applied the final page of the form, the server
                 // returns a redirect so Run::exec can advance. Taken by
                 // renderQueueSummary once nothing else is pending for THIS run
@@ -673,6 +733,49 @@ function initForm() {
     // No-op for pages without any dynamic items (no data-fmr-fill-id /
     // -label-id placeholders) — short-circuits with no network.
     const PAGE_RESOLVE_WAIT_MS = 800;
+    // Write one value into its item — a resolved `value` when its page is
+    // shown, or a stored answer at load — and return the input to fire
+    // input/change on, or null when nothing was written. Choice items are
+    // preset by ticking the matching choice: mc / select_one / check render a
+    // hidden placeholder input ahead of their real controls, and writing the
+    // value there would preset nothing visible while still posting it. A
+    // multi-choice value arrives the way it is stored ("1, 3"). A `hidden`
+    // item has only its hidden input, which is the target.
+    const setInputValue = (wrapper, raw) => {
+        const val = raw == null ? '' : String(raw);
+        const named = Array.from(wrapper.querySelectorAll('input[name], textarea[name], select[name]'))
+            .filter((el) => !el.name.startsWith('_item_views'));
+        const choices = named.filter((el) => el.type === 'radio' || el.type === 'checkbox');
+        if (choices.length) {
+            if (val === '' || choices.some((el) => el.checked)) return null;
+            const wanted = choices[0].name.endsWith('[]') ? val.split(/\s*,\s*/) : [val];
+            const hits = choices.filter((el) => wanted.includes(el.value)
+                || (el.type === 'checkbox' && !el.name.endsWith('[]') && /^(1|true)$/i.test(val)));
+            hits.forEach((el) => {
+                el.checked = true;
+                if (el.id) {
+                    wrapper.querySelectorAll(`.btn[data-for="${CSS.escape(el.id)}"]`)
+                        .forEach((btn) => btn.classList.add('btn-checked'));
+                }
+            });
+            return hits[0] || null;
+        }
+        const target = named.find((el) => el.type !== 'hidden') || named[0];
+        if (!target) return null;
+        if (target.tagName === 'SELECT') {
+            const values = target.multiple ? val.split(/\s*,\s*/) : [val];
+            if (val === '' || Array.from(target.selectedOptions).some((o) => o.value !== '')) return null;
+            if (target.tomselect) {
+                target.tomselect.setValue(target.multiple ? values : val, true);
+            } else {
+                Array.from(target.options).forEach((o) => { if (values.includes(o.value)) o.selected = true; });
+            }
+            return target;
+        }
+        if (target.value !== '' || val === '') return null; // already answered / nothing to write
+        target.value = val;
+        return target;
+    };
     const resolveAndSubstitutePage = async (pageNum) => {
         const targetPage = pages.find((p) => Number(p.dataset.fmrPage) === Number(pageNum));
         if (!targetPage) return;
@@ -712,18 +815,16 @@ function initForm() {
         }
         const valuesMap = (body && body.values) || {};
         const labelsMap = (body && body.labels) || {};
-        // Substitute values: write to the first named input under the
-        // wrapper. Don't clobber a value the participant already edited
-        // (back-nav case).
+        // Calculate items the page show just ran, for the showif scope.
+        absorbReply({ computed: body.computed });
+        // Substitute values (setInputValue). Don't clobber a value the
+        // participant already gave (back-nav case).
         fillItems.forEach((wrapper) => {
             wrapper.classList.remove('fmr-fill-pending');
             const id = wrapper.dataset.fmrFillId;
             if (!(id in valuesMap)) return;
-            const val = valuesMap[id];
-            const target = wrapper.querySelector('input[name], textarea[name], select[name]');
+            const target = setInputValue(wrapper, valuesMap[id]);
             if (!target) return;
-            if (target.value && target.value !== '') return; // user already edited
-            target.value = val == null ? '' : String(val);
             programmaticFill = true;
             try {
                 target.dispatchEvent(new Event('input', { bubbles: true }));
@@ -771,8 +872,10 @@ function initForm() {
 
     // Read the current state of every named form input as a flat map. Used
     // for /form-render-page and /form-fill.
-    // Same coercion as Alpine's _syncInput so the server sees identical
-    // shape regardless of which path it came from.
+    // Values stay strings (empty → null), exactly as the inputs hold them:
+    // the server types each one by its item's results column
+    // (RCallService::formatROverlay). Converting numeric-looking strings here,
+    // as the showif scope does, would hand R a text answer "07743" as 7743.
     const collectAllAnswers = () => {
         const out = {};
         root.querySelectorAll('input[name], textarea[name], select[name]').forEach((inp) => {
@@ -780,11 +883,7 @@ function initForm() {
             if (inp.disabled) return;
             const isArr = inp.name.endsWith('[]');
             const key = isArr ? inp.name.slice(0, -2) : inp.name;
-            const coerce = (s) => {
-                if (s === '' || s === null || s === undefined) return null;
-                const n = Number(s);
-                return isNaN(n) ? s : n;
-            };
+            const coerce = (s) => ((s === '' || s === null || s === undefined) ? null : String(s));
             if (inp.type === 'checkbox' || inp.type === 'radio') {
                 if (!inp.checked) return;
                 if (isArr) {
@@ -858,7 +957,14 @@ function initForm() {
         }
         setSaveState('saving', t('save.saving', 'Saving…'), 0);
         const pageNum = Number(page.dataset.fmrPage) || (currentIndex + 1);
-        const payload = Object.assign({ page: pageNum, unit_session_id: unitSessionId }, collectPayload(page));
+        const nextPage = nav().nextAfter(pageNum);
+        // `hidden`: every item the form hides right now, all pages. `final`:
+        // no shown page follows this one, so the server may end the form
+        // once every required item is answered.
+        const payload = Object.assign(
+            { page: pageNum, unit_session_id: unitSessionId, hidden: hiddenItemIds(), final: nextPage == null },
+            collectPayload(page)
+        );
 
         // If this page has a file input with a selected file, switch to
         // FormData/multipart. File bytes can't ride in JSON, and the server
@@ -867,37 +973,22 @@ function initForm() {
             page.querySelectorAll('input[type="file"]:not([disabled])')
         ).filter((inp) => inp.name && inp.files && inp.files.length > 0);
         const useMultipart = fileInputs.length > 0;
+        const files = {};
+        fileInputs.forEach((inp) => {
+            // File_Item reads from $_FILES['files'][itemName]; the placeholder
+            // in `data` must not sit beside it.
+            files[inp.name] = inp.files[0];
+            delete payload.data[inp.name];
+        });
 
         let res, netErr;
         try {
             if (useMultipart) {
-                const fd = new FormData();
-                fd.append('page', String(pageNum));
-                if (unitSessionId != null) fd.append('unit_session_id', String(unitSessionId));
-                const appendVal = (prefix, key, val) => {
-                    if (Array.isArray(val)) {
-                        val.forEach((v) => fd.append(`${prefix}[${key}][]`, v == null ? '' : String(v)));
-                    } else if (val != null) {
-                        fd.append(`${prefix}[${key}]`, String(val));
-                    }
-                };
-                const data = payload.data || {};
-                Object.keys(data).forEach((k) => appendVal('data', k, data[k]));
-                const views = payload.item_views || {};
-                Object.keys(views).forEach((bucket) => {
-                    const m = views[bucket] || {};
-                    Object.keys(m).forEach((id) => fd.append(`item_views[${bucket}][${id}]`, String(m[id])));
-                });
-                fileInputs.forEach((inp) => {
-                    // Drop this item from `data` — File_Item reads from $_FILES['files'][itemName].
-                    fd.delete(`data[${inp.name}]`);
-                    fd.append(`files[${inp.name}]`, inp.files[0], inp.files[0].name);
-                });
                 res = await fetch(submitUrl, {
                     method: 'POST',
                     credentials: 'same-origin',
                     headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-                    body: fd,
+                    body: buildFormData(Object.assign({ files }, payload)),
                 });
             } else {
                 res = await fetch(submitUrl, {
@@ -955,23 +1046,18 @@ function initForm() {
                 sync_url: syncUrl,
                 data: Object.assign({}, payload.data),
                 item_views: payload.item_views,
+                hidden: payload.hidden,
+                final: payload.final,
                 // MySQL DATETIME rejects ISO-8601 with ".sssZ" — same gotcha as
                 // item_shown timestamps. Use the space-separated format.
                 client_ts: mysqlDatetime(),
+                // Drain order within one client_ts second (see drainQueueInner).
+                queued_at: Date.now(),
             };
-            // Stash the File objects separately and strip their placeholders
-            // out of `data` so the server's $_POST['data'] doesn't end up
-            // with a stringified File next to the $_FILES entry.
-            if (useMultipart) {
-                entry.files = {};
-                fileInputs.forEach((inp) => {
-                    const f = inp.files[0];
-                    if (f) {
-                        entry.files[inp.name] = f;
-                        delete entry.data[inp.name];
-                    }
-                });
-            }
+            // The File objects live beside `data`, never in it, so the
+            // server's $_POST['data'] doesn't get a stringified File next
+            // to the $_FILES entry.
+            if (useMultipart) entry.files = files;
             try { await queueAdd(entry); } catch (e) {
                 console.error('enqueue failed', e);
                 window.alert(t('error.queue_failed', 'Your submission could not be queued locally. Please check your connection and try again.'));
@@ -987,21 +1073,14 @@ function initForm() {
             registerBackgroundSync();
             setSaveState('offline', t('save.offline', 'Saved offline'), 2500);
             showQueueBanner(t('queue.queued_offline', "You're offline. This submission is queued and will be sent when you reconnect."), 'warning');
-            // Advance locally so the participant can continue — next drain
-            // applies in order server-side. If this was the last page, leave
-            // them on it; we don't know the run's next unit until a successful
-            // sync drains and the redirect fires.
-            const nextIdx = currentIndex + 1;
-            if (nextIdx < pages.length) {
-                showPage(nextIdx);
-                // ?page= carries the server page number (data-fmr-page), not the
-                // array index — on resumed sessions only unanswered pages render,
-                // so indices and page numbers diverge.
-                const nextPageNum = Number(pages[nextIdx].dataset.fmrPage);
-                if (nextPageNum) {
-                    try { history.pushState(null, '', `?page=${nextPageNum}`); } catch (e) { /* noop */ }
-                }
-            }
+            // Advance locally so the participant can continue — the next
+            // drain applies in order server-side. The store counts the posted
+            // answers as given, so navigation moves on exactly as after a live
+            // submit. If this was the last page, leave them on it; the run's
+            // next unit is only known once the sync drains and redirects.
+            store.markQueued(payload.data, payload.hidden);
+            const queuedNext = nav().nextAfter(pageNum);
+            if (queuedNext != null) goToPage(queuedNext);
             return;
         }
         if (!res.ok) {
@@ -1058,45 +1137,71 @@ function initForm() {
                 .then((removed) => { if (removed) drainQueue(); })
                 .catch(() => {});
         }
+        // The reply carries the stored state of what was just written (and
+        // of calculate items the final submit ran): merge it into the store
+        // and hand the values to the showif scope.
+        absorbReply(body);
         if (body.redirect) {
             // Last page just landed — pause briefly so the participant sees
             // the completion beat instead of an abrupt jump to the end-page.
+            forgetPage(unitSessionId);
             showCompletion(t('completion.next_step', 'Thanks — sending you to the next step…'));
             setTimeout(() => { window.location.href = body.redirect; }, 600);
             return;
         }
-        // Calculate items the server just ran (they are never on the page) —
-        // hand their values to the showif scope.
-        if (body.computed && window.Alpine) {
-            try { window.Alpine.$data(root)._seed(body.computed); } catch (e) { /* noop */ }
-        }
-        if (typeof body.next_page === 'number') {
-            setSaveState('saved', t('save.saved', 'Saved'));
-            const nextIdx = pages.findIndex((p) => Number(p.dataset.fmrPage) === body.next_page);
-            if (nextIdx !== -1) {
-                // Resolve the next page's dynamic labels, values and choice
-                // labels via the batched OpenCPU endpoint against the
-                // just-persisted answer state. Every page works this way, the
-                // first one included (see initial resolve below). Show the page
-                // once that is in — but no later than PAGE_RESOLVE_WAIT_MS:
-                // slow content (a note_iframe's R Markdown, a heavy label)
-                // keeps its placeholder and fills in when it arrives, exactly
-                // as on the page the participant lands on.
-                await Promise.race([
-                    resolveAndSubstitutePage(body.next_page),
-                    new Promise((done) => setTimeout(done, PAGE_RESOLVE_WAIT_MS)),
-                ]);
-                showPage(nextIdx);
-                try { history.pushState(null, '', `?page=${body.next_page}`); } catch (e) { /* noop */ }
+        setSaveState('saved', t('save.saved', 'Saved'));
+        if (body.missing && Object.keys(body.missing).length) {
+            // The final page is stored, but a required item elsewhere is still
+            // unanswered (a showif revealed it after its page was submitted,
+            // say): take the participant to the first such page.
+            const first = firstPageOfItems(Object.keys(body.missing));
+            if (first != null) {
+                await goToPage(first);
+                applyErrors(pages[currentIndex], body.missing);
                 return;
             }
         }
-        if (body.move_on || body.end_session) {
-            showCompletion(t('completion.next_step', 'Thanks — sending you to the next step…'));
-            setTimeout(() => {
-                window.location.href = runUrl || window.location.pathname;
-            }, 600);
+        const next = nav().nextAfter(pageNum);
+        if (next != null) {
+            await goToPage(next);
+            return;
         }
+        // Nothing follows and the server did not end the form: the document
+        // and the server disagree (the form's items changed since it was
+        // rendered). Reload and let the server render the current state.
+        window.location.href = runUrl || window.location.pathname;
+    };
+
+    // Merge a submit / sync reply into the store and the showif scope.
+    const absorbReply = (body) => {
+        if (!body || typeof body !== 'object') return;
+        if (body.items) store.merge(body.items);
+        const values = {};
+        Object.keys(body.items || {}).forEach((name) => { values[name] = body.items[name].value; });
+        Object.assign(values, body.computed || {});
+        if (Object.keys(values).length && window.Alpine) {
+            try { window.Alpine.$data(root)._seed(values); } catch (e) { /* noop */ }
+        }
+    };
+    const firstPageOfItems = (names) => {
+        const nums = names.map((n) => (store.items[n] ? Number(store.items[n].page) : NaN)).filter((n) => Number.isFinite(n) && pageIndexOf(n) !== -1);
+        return nums.length ? Math.min.apply(null, nums) : null;
+    };
+    // Show page `pageNum`: resolve its dynamic labels, values and choice
+    // labels via the batched OpenCPU endpoint against the persisted answers
+    // first — but wait no longer than PAGE_RESOLVE_WAIT_MS: slow content (a
+    // note_iframe's R Markdown, a heavy label) keeps its placeholder and
+    // fills in when it arrives. Every page works this way, the first one
+    // included.
+    const goToPage = async (pageNum) => {
+        const idx = pageIndexOf(pageNum);
+        if (idx === -1) return;
+        await Promise.race([
+            resolveAndSubstitutePage(pageNum),
+            new Promise((done) => setTimeout(done, PAGE_RESOLVE_WAIT_MS)),
+        ]);
+        showPage(idx);
+        try { history.pushState(null, '', `?page=${pageNum}`); } catch (e) { /* noop */ }
     };
 
     // Single-flight guard: a rapid double-tap / Enter-repeat on Next must not
@@ -1233,7 +1338,13 @@ function initForm() {
             // Minimum-exposure gate (disabled submit button): the controller
             // should consult this before treating Enter/OK as a page submit.
             canSubmitPage,
-            allowPrevious,
+            pageNav: {
+                isLastPage: (pageEl) => nav().isLastShown(Number(pageEl.dataset.fmrPage)),
+                previousPageIndex: (pageEl) => {
+                    const prev = nav().previousOf(Number(pageEl.dataset.fmrPage));
+                    return prev == null ? -1 : pageIndexOf(prev);
+                },
+            },
         });
     }
 
@@ -1242,11 +1353,11 @@ function initForm() {
     window.addEventListener('online', () => { drainQueue(); });
     drainQueue();
 
-    // Register the service worker unconditionally on v2 runs and hand it the
-    // sync URL so Background Sync wake-ups can drain the queue when the tab
-    // is closed. iOS Safari doesn't implement sync — the page `online` path
-    // already handles that case; this is pure upside on Chromium/Firefox/
-    // Android Chrome. Silent on failure (e.g. insecure context).
+    // Register the service worker on v2 runs (offline caching, web push) and
+    // hand it the sync URL. The served SW does not act on that message or on
+    // the `form-v2-drain` Background Sync tag yet, so the queue drains only
+    // page-side (the `online` listener above); nothing drains while the tab
+    // is closed. Silent on failure (e.g. insecure context).
     //
     // SW is served by RunController::serviceWorkerAction at /{runName}/service-worker
     // (path-based deploy) or /service-worker (subdomain deploy). The controller
@@ -1931,13 +2042,8 @@ function initForm() {
     root.querySelectorAll('[data-fmr-prev]').forEach((btn) => {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
-            if (currentIndex > 0) {
-                showPage(currentIndex - 1);
-                const prevPageNum = Number(pages[currentIndex].dataset.fmrPage);
-                if (prevPageNum) {
-                    try { history.pushState(null, '', `?page=${prevPageNum}`); } catch (err) { /* noop */ }
-                }
-            }
+            const prev = nav().previousOf(Number(pages[currentIndex].dataset.fmrPage));
+            if (prev != null) goToPage(prev);
         });
     });
 
@@ -1979,48 +2085,59 @@ function initForm() {
     initChooseWeekdays(root);
 
 
-    // Initial page from ?page=N. The query-string `page` refers to the
-    // server-side `survey_items_display.page` number (which is what shows up
-    // in data-fmr-page and what the submit response returns via next_page).
-    // When a participant reloads mid-form the server only includes the pages
-    // they haven't answered yet, so the page-number ≠ array index. Look up
-    // by dataset match; fall back to first page if the requested page isn't
-    // in the DOM.
-    const indexForPageParam = (p) => {
-        if (!p) return 0;
-        const idx = pages.findIndex((el) => Number(el.dataset.fmrPage) === p);
-        return idx === -1 ? 0 : idx;
-    };
-    const paramPage = Number(new URLSearchParams(window.location.search).get('page'));
-    showPage(indexForPageParam(paramPage));
+    // Fill every input from the stored state before anything is shown, so a
+    // reload looks like the moment before it: the same items, with their
+    // answers. setInputValue only writes into empty inputs and never fakes
+    // an answered timestamp.
+    Object.keys(store.items).forEach((name) => {
+        const s = store.items[name];
+        if (s.value == null || s.value === '') return;
+        const inp = root.querySelector(`[name="${CSS.escape(name)}"], [name="${CSS.escape(name)}[]"]`);
+        const wrapper = inp && inp.closest('.form-group, .item');
+        if (!wrapper) return;
+        const target = setInputValue(wrapper, Array.isArray(s.value) ? s.value.join(', ') : s.value);
+        if (!target) return;
+        programmaticFill = true;
+        try {
+            target.dispatchEvent(new Event('input', { bubbles: true }));
+            target.dispatchEvent(new Event('change', { bubbles: true }));
+        } finally {
+            programmaticFill = false;
+        }
+    });
 
-    // Resolve the deferred values, labels and choice labels of the page we
-    // landed on. The server renders no R for any page (FormRenderer), so the
-    // first page resolves exactly like the others — with a brief "loading"
-    // flicker before dynamic content appears. Fire-and-forget: the page is
-    // already shown; this just fills.
-    const initialPageEl = pages[currentIndex];
-    if (initialPageEl) {
-        const initialPageNum = Number(initialPageEl.dataset.fmrPage);
-        if (initialPageNum) resolveAndSubstitutePage(initialPageNum);
+    // The page to open: the one this browser remembered for this unit
+    // session, else the first page with a visible item lacking an answer
+    // (pageState). `?page=` is honoured only for a shown page at or before
+    // that one — that is the history the Previous button wrote.
+    {
+        const ps = nav();
+        const paramPage = Number(new URLSearchParams(window.location.search).get('page'));
+        const initial = (paramPage && ps.isShown(paramPage) && paramPage <= ps.currentPage) ? paramPage : ps.currentPage;
+        const idx = pageIndexOf(initial);
+        showPage(idx === -1 ? 0 : idx);
+        // Resolve the deferred values, labels and choice labels of the page
+        // we landed on. Fire-and-forget: the page is already shown; this
+        // just fills.
+        const initialPageEl = pages[currentIndex];
+        if (initialPageEl) resolveAndSubstitutePage(Number(initialPageEl.dataset.fmrPage));
     }
 
     window.addEventListener('popstate', () => {
         const p = Number(new URLSearchParams(window.location.search).get('page'));
-        const targetIdx = indexForPageParam(p);
+        const ps = nav();
+        const cur = Number(pages[currentIndex] && pages[currentIndex].dataset.fmrPage);
         // Browser Back must not bypass the per-study allow_previous flag: all
         // pages stay mounted in the DOM, so without this gate popstate lets a
         // participant revisit and edit already-submitted pages the Previous
         // button deliberately doesn't offer. Re-assert the current page in
-        // history and stay put.
-        if (!allowPrevious && targetIdx < currentIndex) {
-            const currentPageNum = Number(pages[currentIndex] && pages[currentIndex].dataset.fmrPage);
-            if (currentPageNum) {
-                try { history.pushState(null, '', `?page=${currentPageNum}`); } catch (e) { /* noop */ }
-            }
+        // history and stay put. Same for a page the showifs have emptied.
+        if (!p || !ps.isShown(p) || (!allowPrevious && p < cur)) {
+            if (cur) { try { history.pushState(null, '', `?page=${cur}`); } catch (e) { /* noop */ } }
             return;
         }
-        showPage(targetIdx);
+        const idx = pageIndexOf(p);
+        if (idx !== -1) showPage(idx);
     });
 
     // RequestCookie + RequestPhone + admin "monkey bar" preview live in items/* modules.
@@ -2048,6 +2165,7 @@ function initForm() {
         // wide, and another run's undrained answers must survive this logout.
         const runPathPrefix = url.pathname.replace(/logout\/?$/, '');
         wipeQueueForRun(runPathPrefix).catch(() => {});
+        forgetPage(unitSessionId);
     });
 
     // Test hook: exercise the real bundled page validator deterministically

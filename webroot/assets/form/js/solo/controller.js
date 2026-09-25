@@ -27,7 +27,10 @@ import { t } from '../lib/i18n.js';
 const HIDDEN_TYPES = ['hidden', 'get', 'random', 'referrer', 'ip', 'browser', 'calculate', 'server', 'mc_heading'];
 
 export function initSolo(opts) {
-    const { root, pages, getCurrentIndex, showPage, submitPage, validate, canSubmitPage, allowPrevious } = opts;
+    // pageNav (main.js): which page is the last shown one and where Previous
+    // goes — derived from the state store (state.mjs pageState), the same
+    // rule the default layout uses.
+    const { root, pages, getCurrentIndex, showPage, submitPage, validate, canSubmitPage, pageNav } = opts;
 
     let current = null;          // the active step element (.form-group)
     let pendingGoLast = false;   // next onPageShown should land on the last step (back-nav)
@@ -77,7 +80,7 @@ export function initSolo(opts) {
         }
         return null;
     }
-    function isLastPage() { return getCurrentIndex() >= pages.length - 1; }
+    function isLastPage() { return pageNav.isLastPage(pages[getCurrentIndex()]); }
     function isTerminal(el) { return !nextStep(el) && isLastPage(); }
     function isSubmitStep(el) { return !!el && el.classList.contains('item-submit'); }
 
@@ -469,10 +472,10 @@ export function initSolo(opts) {
         if (transitioning) return;
         const prv = prevStep(current);
         if (prv) { goTo(prv, 'back'); return; }
-        const idx = getCurrentIndex();
-        if (allowPrevious && idx > 0) {
+        const prevIdx = pageNav.previousPageIndex(pages[getCurrentIndex()]);
+        if (prevIdx !== -1) {
             pendingGoLast = true;
-            showPage(idx - 1);     // host updates currentIndex + fires onPageShown
+            showPage(prevIdx);     // host updates currentIndex + fires onPageShown
         }
     }
     function onPageShown(pageEl) {
@@ -569,7 +572,7 @@ export function initSolo(opts) {
     }
     function updateNav() {
         if (!navEl) buildNav();
-        const canBack = !!prevStep(current) || (allowPrevious && getCurrentIndex() > 0);
+        const canBack = !!prevStep(current) || pageNav.previousPageIndex(pages[getCurrentIndex()]) !== -1;
         backBtn.style.visibility = canBack ? '' : 'hidden';
         const terminal = isTerminal(current);
         // #4: single-choice steps advance on pick, so hide OK (Typeform-style).

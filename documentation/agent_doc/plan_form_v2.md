@@ -284,7 +284,7 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] `POST /{runName}/form-page-submit` (`RunController::formPageSubmitAction`)
 - [x] `<section data-fmr-page>` + vanilla JS nav
 - [x] Per-page submit + native Constraint Validation
-- [x] Multi-page via `survey_items_display.page` + `next_page` responses
+- [x] Multi-page via `survey_items_display.page`; the browser picks the page (`state.mjs`, see `plan_form_v2_navigation_state.md`)
 - [x] MySQL-format timestamps for item views
 - [x] tom-select auto-wired on every named `<select>` under `.fmr-form-v2`
 - [x] `IntersectionObserver` (threshold 0.25, one-shot) for `shown`/`shown_relative`

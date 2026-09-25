@@ -216,18 +216,20 @@ export function normalizeSyncEntry(entry) {
     return out;
 }
 
-// Build a FormData representation of a queued entry that has `files`. Keys
-// mirror form-page-submit's multipart branch (see `RunController::formSyncAction`).
-// Pulled out of drainQueue so the multipart shape lives in one place — also
-// useful when an entry goes from JSON to multipart between offline-enqueue
-// and online-drain (e.g. a future blob attachment).
-export function buildSyncFormData(rawEntry) {
-    const entry = normalizeSyncEntry(rawEntry);
+// The multipart shape of a v2 write, for a live submit and for a queued
+// entry alike (FormSubmissionService::readPayload reads both): the envelope
+// (page, unit_session_id, final, and for the queue uuid + client_ts),
+// data[name] / data[name][], item_views[bucket][id], hidden[] and
+// files[name] for each File beside the answers. One builder, so the two
+// transports cannot drift apart.
+export function buildFormData(entry) {
     const fd = new FormData();
-    fd.append('uuid', entry.uuid);
+    if (entry.uuid) fd.append('uuid', entry.uuid);
     fd.append('page', String(entry.page));
     if (entry.unit_session_id != null) fd.append('unit_session_id', String(entry.unit_session_id));
     if (entry.client_ts) fd.append('client_ts', entry.client_ts);
+    if (entry.final) fd.append('final', '1');
+    (entry.hidden || []).forEach((id) => fd.append('hidden[]', String(id)));
     const data = entry.data || {};
     Object.keys(data).forEach((k) => {
         const v = data[k];

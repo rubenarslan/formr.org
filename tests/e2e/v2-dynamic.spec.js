@@ -28,7 +28,7 @@ function study() {
 }
 
 async function unitSessionId(page) {
-    return bsSafeEvaluate(page, () => Number(document.querySelector('form.fmr-form-v2 input[name="session_id"]').value));
+    return v2.unitSessionId(page);
 }
 
 // Deferred content has resolved once page `pageNum` is the visible one and
@@ -91,7 +91,7 @@ test.describe('form_v2: dynamic content resolves the same way on every page', ()
         await waitResolved(page, 1);
         await page.fill('[name="d_num"]', '9');
         const r = await v2.submitV2(page);
-        expect(r.body && r.body.next_page, JSON.stringify(r.body)).toBeTruthy();
+        expect(v2.advanced(r.body), JSON.stringify(r.body)).toBeTruthy();
         await waitResolved(page, 2);
         const s = await snapshot(page);
         expect(s.label2).toContain('You picked 9');
@@ -112,7 +112,7 @@ test.describe('form_v2: dynamic content resolves the same way on every page', ()
         await waitResolved(page, 1);
         await page.fill('[name="d_num"]', '9');
         const r = await v2.submitV2(page);
-        expect(r.body && r.body.next_page, JSON.stringify(r.body)).toBeTruthy();
+        expect(v2.advanced(r.body), JSON.stringify(r.body)).toBeTruthy();
         await page.reload();
         await v2.waitForBundle(page);
         await waitResolved(page, 2);

@@ -8,18 +8,22 @@
  * is v2-flavoured (BS5, data-submit-url, progress bar) and every page of the
  * form lands in one document, each in a `<section data-fmr-page>`, so the
  * client-side runtime switches pages without a round-trip. No R runs at
- * render time for what the participant sees; only the calculations that are
- * due (rule 4).
+ * render time.
+ *
+ * The document is the same whatever the participant has done so far: every
+ * item of the study is rendered on its page, and a state block (stateBlock)
+ * carries what is stored per item. The browser fills inputs from it and
+ * decides which page to show (webroot/assets/form/js/state.js) — see
+ * documentation/agent_doc/plan_form_v2_navigation_state.md.
  *
  * Architectural rules (see documentation/agent_doc/plan_form_v2.md §3 / §5):
  *
  *   1. `showif` is JavaScript, evaluated only in the browser (Alpine). The
  *      server does not run it: an item with a showif renders hidden, and
- *      the client reveals it. Names the browser needs but that are not on
- *      the form — answers saved on earlier pages of a resumed session —
- *      are seeded into the page (renderV2Header); anything else (a run
- *      variable, another survey) reaches a showif through a hidden item
- *      whose `value` computes it in R.
+ *      the client reveals it. The browser knows every input of the form and
+ *      every stored answer (state block); anything else (a run variable,
+ *      another survey) reaches a showif through a hidden item whose
+ *      `value` computes it in R.
  *   2. `value` is the R path: literals pass through; anything else,
  *      including `sticky`, is recorded into `survey_r_calls`
  *      (slot='value') and resolved by the client through
@@ -30,10 +34,10 @@
  *      'choice_label') and resolve through the same page request.
  *   4. `calculate` items (no input, R in `value`) are the study's own
  *      computation, so they never go through the client: they are
- *      evaluated and stored on the server when their page is reached —
- *      here for the pages up to the first one shown, and at every page
- *      submit for the pages up to the next one (RCallService::
- *      computeCalculations).
+ *      evaluated and stored on the server when the browser asks to show a
+ *      page (every calculate on pages up to it, RunController::
+ *      formRenderPageAction) and at the final submit (the rest). Never at
+ *      render.
  */
 class FormRenderer extends SpreadsheetRenderer {
 
@@ -47,6 +51,9 @@ class FormRenderer extends SpreadsheetRenderer {
 
     /** @var bool|null memoized isAuthorFacingSession() */
     protected $authorFacingSession = null;
+
+    /** @var array<string, true> item name => the session has stored a value for it (getStudyItems) */
+    protected $storedItems = [];
 
     /**
      * Is this render being watched by the study's author rather than by a
@@ -81,34 +88,37 @@ class FormRenderer extends SpreadsheetRenderer {
     }
 
     public function processItems() {
-        $items = $this->getAllUnansweredItems();
+        $items = $this->getStudyItems();
         if (!$items) {
             $this->toRender = [];
             $this->renderedItems = $this->getRenderedStudyItems();
             return;
         }
 
+        // Automatic items (browser, ip, random, …) are computed and stored
+        // the first time the form is rendered; a later render — every item
+        // is queried every time — must not recompute them (a `random` would
+        // re-roll on each reload). Already-stored ones are simply not
+        // rendered.
+        foreach ($items as $name => $item) {
+            if ($item && !$item->requiresUserInput() && !$item->needsDynamicValue() && isset($this->storedItems[$name])) {
+                unset($items[$name]);
+            }
+        }
         $items = $this->processAutomaticItems($items);
         $pageMap = $this->fetchPageMap();
         $itemPageOf = function ($item) use ($pageMap) {
             return isset($pageMap[(int) $item->id]) ? (int) $pageMap[(int) $item->id] : 1;
         };
 
-        // Step 0: calculations due now — every calculate on a page up to the
-        // first page that shows anything (all of them when nothing is left to
-        // show, which is how the final render completes the form).
-        $firstShownPage = null;
-        foreach ($items as $item) {
-            if ($item && $item->isRendered()) {
-                $p = $itemPageOf($item);
-                $firstShownPage = ($firstShownPage === null) ? $p : min($firstShownPage, $p);
+        // Calculate items are not rendered and not evaluated here: they run
+        // when the browser asks to show a page (/form-render-page) and at the
+        // final submit (rule 4). They still appear in the state block.
+        foreach ($items as $name => $item) {
+            if ($item && !$item->requiresUserInput() && $item->needsDynamicValue()) {
+                unset($items[$name]);
             }
         }
-        $computed = (new RCallService($this->unitSession, $this->study))->computeCalculations($firstShownPage);
-        foreach ($computed as $name => $_) {
-            unset($items[$name]);
-        }
-        $this->answered($computed);
 
         // Step 1: dynamic values. The `value` column carries R that we route
         // through the allowlist; admins can author it bare or wrapped in r(...)
@@ -124,7 +134,7 @@ class FormRenderer extends SpreadsheetRenderer {
         //     call_id. `sticky` is recorded as written and expanded at
         //     evaluation (RCallService::expandValueExpr).
         //   - The value is blanked on every page and resolved when its page is
-        //     shown; items that take no input are Step 0's business.
+        //     shown; items that take no input (calculate) were removed above.
         //   - The survey_r_calls rows are collected here and written in ONE
         //     batch below (see ensureRCalls).
         $pendingCalls = [];   // list of ['slot'=>…, 'expr'=>…, 'item_id'=>…]
@@ -198,16 +208,17 @@ class FormRenderer extends SpreadsheetRenderer {
         //
         // Submit-type items are page boundaries AND the page's advance control;
         // they stay in $items and render as the page's big button, and are kept
-        // out of the completion count by getAllUnansweredItems().
+        // out of the state block (they carry no answer).
         foreach ($items as $item) {
             if ($item && trim((string) $item->showif) !== '') {
                 $item->hideByDefaultPendingClient();
             }
         }
 
-        // A page whose items were all answered still has its submit button
-        // (submit items are never saved). Rendering it would greet a resuming
-        // participant with an empty page and a Next button, so drop the page.
+        // A page that holds nothing but calculate items still has its submit
+        // row. It is never shown (its calculations run when the next page is
+        // asked for), so its submit is dropped and the page does not exist in
+        // the document.
         $answerablePages = [];
         foreach ($items as $item) {
             if ($item && $item->type !== 'submit') {
@@ -340,11 +351,14 @@ class FormRenderer extends SpreadsheetRenderer {
     }
 
     /**
-     * All unanswered items across all pages, no submit-chunking. Mirrors the
-     * query in SpreadsheetRenderer::getNextStudyItems but without the
-     * `$inPage` short-circuit.
+     * Every item of the study, across all pages, in the session's stored
+     * order. Answered and hidden items are included: the browser owns which
+     * page is shown (documentation/agent_doc/plan_form_v2_navigation_state.md)
+     * and fills inputs from the state block, so the document is the same
+     * whatever the participant has done so far. Mirrors the query in
+     * SpreadsheetRenderer::getNextStudyItems without its progress filters.
      */
-    protected function getAllUnansweredItems() {
+    protected function getStudyItems() {
         $this->unanswered = [];
         $stmt = $this->db->select('
             `survey_items`.id,
@@ -358,11 +372,13 @@ class FormRenderer extends SpreadsheetRenderer {
             `survey_items`.optional,
             `survey_items`.class,
             `survey_items`.showif,
+            `survey_items`.showif_js,
             `survey_items`.value,
             `survey_items_display`.displaycount,
             `survey_items_display`.session_id,
             `survey_items_display`.display_order,
             `survey_items_display`.hidden,
+            `survey_items_display`.saved,
             `survey_items_display`.answered')
             ->from('survey_items')
             ->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
@@ -371,7 +387,7 @@ class FormRenderer extends SpreadsheetRenderer {
             // matrices as a unit, so it would otherwise surface as a blank,
             // `required` step that can never be answered and blocks completion.
             // Exclude it from the v2 pipeline entirely (v1 unaffected).
-            ->where('(survey_items.study_id = :study_id) AND (survey_items.deleted IS NULL) AND (survey_items.type != \'mc_heading\') AND (survey_items_display.saved IS null) AND (survey_items_display.hidden IS NULL OR survey_items_display.hidden = 0)')
+            ->where('(survey_items.study_id = :study_id) AND (survey_items.deleted IS NULL) AND (survey_items.type != \'mc_heading\')')
             ->order('`survey_items_display`.`display_order`', 'asc')
             ->order('survey_items.`order`', 'asc')
             ->order('survey_items.id', 'asc')
@@ -383,27 +399,17 @@ class FormRenderer extends SpreadsheetRenderer {
 
         $itemFactory = new ItemFactory([]);
         $out = [];
+        $this->storedItems = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $item = $itemFactory->make($row);
             if (!$item) continue;
-            // Display-only items that render but can NEVER be "answered" must be
-            // rendered (kept in $out) yet NEVER counted toward completion — else
-            // they keep not_answered > 0 forever and the form can't finish:
-            //   - `block`: a client-side guard (a required checkbox that can't be
-            //     ticked + a JS showif). Its showif can't be trusted server-side
-            //     (//js_only items aren't sent to OpenCPU; arithmetic showifs are
-            //     mis-evaluated on character answers), and the client gate already
-            //     bars a submit while a block is active — "block recurs / can't
-            //     finish".
-            //   - `blank`: a placeholder that renders only a <div> of text, with
-            //     no input to post, so it never gets a `saved` row.
-            // (note / note_iframe / mc_heading don't need this: note-likes post a
-            // hidden value=1 and mc_heading is filtered out of the query above.)
-            //   - `submit`: renders as the page's big advance button (Step 3 above)
-            //     but posts no `saved` row (save_in_results_table=false) and is
-            //     excluded from "answered" by getStudyProgress()'s SQL — counting
-            //     it would keep not_answered > 0 forever and the form could never
-            //     finish.
+            if (isset($row['saved'])) {
+                $this->storedItems[$item->name] = true;
+            }
+            // $this->unanswered feeds v1's getStudyProgress() only; v2's
+            // completion is the final submit's required check
+            // (UnitSession::unansweredRequiredItems). Kept in step with v1's
+            // exclusions so the inherited render helpers see the same shape.
             if (!in_array($item->type, array('block', 'blank', 'submit'), true)) {
                 $this->unanswered[$item->name] = $item;
             }
@@ -436,25 +442,19 @@ class FormRenderer extends SpreadsheetRenderer {
         }
 
         $itemsByPage = $this->groupByPage($this->renderedItems);
-        $pageCount = count($itemsByPage);
 
         $html = '<div class="fmr-form-v2-outer study-' . (int) $this->study->id . '">';
         $html .= $this->renderUnverifiedTypesNotice();
         $html .= $this->renderV2Header();
 
-        $i = 0;
+        // Every page is emitted hidden; the browser decides which one to show
+        // (pageState in webroot/assets/form/js/state.js), which buttons a
+        // page gets and whether its advance button reads Next or Submit.
         $isSolo = (($this->study->layout ?? 'default') === 'solo');
         $lang = !empty($this->study->language) ? $this->study->language : 'en';
         $strings = FormStrings::table($lang, FormStrings::studyOverrides($this->study));
         foreach ($itemsByPage as $pageNum => $pageItems) {
-            $i++;
-            $isLast = ($i === $pageCount);
-            $isFirst = ($i === 1);
-            $html .= sprintf(
-                '<section class="fmr-page" data-fmr-page="%d"%s>',
-                (int) $pageNum,
-                $isFirst ? '' : ' hidden'
-            );
+            $html .= sprintf('<section class="fmr-page" data-fmr-page="%d" hidden>', (int) $pageNum);
 
             // A submit item on this page IS the page's advance control, so the
             // auto page-nav Next/Submit button below is suppressed (no duplicate).
@@ -477,11 +477,14 @@ class FormRenderer extends SpreadsheetRenderer {
                 // we DON'T add data-fmr-next there (avoids a double-bound submit).
                 // A `submit` row with no label is a bare page break: give its
                 // button the navigation wording — the study's own (#322) or
-                // the built-in one — instead of rendering it empty.
+                // the built-in one — instead of rendering it empty. Tagged so
+                // the browser can swap in the Submit wording on the last
+                // shown page (which only it knows).
                 if (isset($item->type) && $item->type === 'submit'
                         && trim(strip_tags((string) $item->label_parsed)) === '') {
-                    $item->label_parsed = htmlspecialchars($strings[$isLast ? 'nav.submit' : 'nav.next'], ENT_QUOTES);
+                    $item->label_parsed = htmlspecialchars($strings['nav.next'], ENT_QUOTES);
                     $item->input_attributes['value'] = $item->label_parsed;
+                    $item->input_attributes['data-fmr-nav-label'] = '1';
                 }
                 if (isset($item->type) && $item->type === 'submit' && !$isSolo) {
                     $item->input_attributes['data-fmr-next'] = '1';
@@ -494,7 +497,7 @@ class FormRenderer extends SpreadsheetRenderer {
             // button is CSS-hidden anyway and the solo controller drives advance
             // via the .fmr-solo-bigsubmit / footer OK — keep it so the page still
             // carries a [data-fmr-next] hook.
-            $html .= $this->renderPageNav(!$isFirst, $isLast, $pageHasSubmit && !$isSolo);
+            $html .= $this->renderPageNav($pageHasSubmit && !$isSolo, $strings);
             $html .= '</section>';
         }
 
@@ -599,16 +602,12 @@ class FormRenderer extends SpreadsheetRenderer {
             $progressTo
         );
         $html .= sprintf(
-            '<input type="hidden" name="session_id" value="%s">',
-            htmlspecialchars((string) $this->unitSession->id, ENT_QUOTES)
-        );
-        $html .= sprintf(
             '<input type="hidden" name="%s" value="%s">',
             htmlspecialchars(Session::REQUEST_USER_CODE, ENT_QUOTES),
             htmlspecialchars((string) $userCode, ENT_QUOTES)
         );
-        $html .= '<script type="application/json" class="fmr-saved-answers">'
-               . json_encode($this->savedAnswers(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE)
+        $html .= '<script type="application/json" class="fmr-state">'
+               . json_encode($this->stateBlock(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE)
                . '</script>';
 
         $html .= '<div class="fmr-progress">'
@@ -628,39 +627,32 @@ class FormRenderer extends SpreadsheetRenderer {
     }
 
     /**
-     * The answers this unit session has already saved, by item name, for the
-     * client's showif scope. Saved items are not rendered again, so after a
-     * reload (or when the participant resumes later) a showif on page 3 that
-     * reads a page-1 answer would otherwise see a name the browser does not
-     * know, and keep its item hidden. Multi-value answers arrive as arrays,
-     * the shape the live inputs produce; uploads are left out (a file name is
-     * not something a showif compares against).
+     * The state the browser needs to own navigation: the unit session and,
+     * per item, its page, whether it is required, what has been stored for
+     * it and whether it is recorded as hidden. The browser fills inputs and
+     * the showif scope from `value`, and picks the page to open from
+     * `answered` / `required` / `hidden` (state.js pageState). Multi-value
+     * answers arrive as arrays, the shape the live inputs produce; an
+     * upload's stored path is not shipped (`value` null, `answered` true).
+     * Every item is listed, calculate items included, so the browser's copy
+     * of the data is complete and the same after a reload as before it.
      *
-     * @return array<string, string|array|null>
+     * @return array{unit_session_id:int, items: array<string, array>}
      */
-    protected function savedAnswers() {
-        $rows = $this->db->execute(
-            'SELECT i.id, i.study_id, i.name, i.type, i.choice_list, i.type_options, d.answer
-             FROM `survey_items_display` d
-             JOIN `survey_items` i ON i.id = d.item_id
-             WHERE d.session_id = :session_id AND i.study_id = :study_id
-               AND i.deleted IS NULL AND d.saved IS NOT NULL',
-            ['session_id' => (int) $this->unitSession->id, 'study_id' => (int) $this->study->id]
-        );
+    public function stateBlock() {
+        $rows = FormSubmissionService::stateRows($this->db, $this->study->id, $this->unitSession->id);
         $factory = new ItemFactory([]);
-        $out = [];
-        foreach ((array) $rows as $row) {
+        $items = [];
+        foreach ($rows as $row) {
             $item = $factory->make($row);
-            if (!$item || $item instanceof File_Item || !$item->save_in_results_table) {
-                continue;
+            if ($item) {
+                $items[(string) $row['name']] = FormSubmissionService::itemState($item, $row);
             }
-            $answer = $row['answer'];
-            if ($answer !== null && $item->acceptsArrayReply() && !($item instanceof Geopoint_Item)) {
-                $answer = ($answer === '') ? [] : explode(', ', (string) $answer);
-            }
-            $out[(string) $row['name']] = $answer;
         }
-        return $out;
+        return [
+            'unit_session_id' => (int) $this->unitSession->id,
+            'items' => $items,
+        ];
     }
 
     protected function renderV2Footer() {
@@ -715,33 +707,34 @@ class FormRenderer extends SpreadsheetRenderer {
              . '</div>';
     }
 
-    protected function renderPageNav($showPrev, $isLast, $hasSubmit = false) {
-        $lang = !empty($this->study->language) ? $this->study->language : 'en';
-        $strings = FormStrings::table($lang, FormStrings::studyOverrides($this->study));
-        // Previous button is opt-in per form (SurveyStudy.allow_previous).
-        $allowPrev = $showPrev && !empty($this->study->allow_previous);
-        $left = $allowPrev
+    /**
+     * The navigation row of one page: a Previous button (opt-in per form,
+     * SurveyStudy.allow_previous) and, unless the page carries a submit item
+     * whose own big button is the advance control, a Next button. Every page
+     * gets the same row; the browser hides Previous on the first shown page
+     * and relabels Next as Submit on the last one (main.js applyNav).
+     */
+    protected function renderPageNav($hasSubmit = false, array $strings = null) {
+        if ($strings === null) {
+            $lang = !empty($this->study->language) ? $this->study->language : 'en';
+            $strings = FormStrings::table($lang, FormStrings::studyOverrides($this->study));
+        }
+        $left = !empty($this->study->allow_previous)
             ? '<button type="button" class="btn btn-outline-secondary" data-fmr-prev><i class="fa fa-arrow-left"></i> '
                 . htmlspecialchars($strings['nav.previous'], ENT_QUOTES) . '</button>'
             : '';
-        // When the page already carries a submit item, that item's own button is
-        // the (big, centred) advance control — emit no duplicate Next/Submit. Keep
-        // a Previous button if the form opted in; otherwise render no nav row.
         if ($hasSubmit) {
             return $left === ''
                 ? ''
                 : '<div class="fmr-page-nav"><div class="fmr-page-nav__left">' . $left . '</div></div>';
         }
-        $nextLabel = $strings[$isLast ? 'nav.submit' : 'nav.next'];
-        $nextIcon = $isLast ? 'fa-check' : 'fa-arrow-right';
         return sprintf(
             '<div class="fmr-page-nav"><div class="fmr-page-nav__left">%s</div>'
             . '<div class="fmr-page-nav__right">'
-            . '<button type="submit" class="btn btn-primary" data-fmr-next>%s <i class="fa %s"></i></button>'
+            . '<button type="submit" class="btn btn-primary" data-fmr-next data-fmr-nav-label>%s <i class="fa fa-arrow-right"></i></button>'
             . '</div></div>',
             $left,
-            htmlspecialchars($nextLabel, ENT_QUOTES),
-            htmlspecialchars($nextIcon, ENT_QUOTES)
+            htmlspecialchars($strings['nav.next'], ENT_QUOTES)
         );
     }
 }

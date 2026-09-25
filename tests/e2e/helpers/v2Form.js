@@ -2,7 +2,7 @@
 //
 // v2 forms submit via fetch to /{run}/form-page-submit (or /form-sync from
 // the offline queue). Server returns:
-//   - {status: "ok", next_page: N}            multi-page, more pages remain
+//   - {status: "ok", items: {...}}           page stored; the client picks the next page
 //   - {status: "ok", redirect: "/{run}/"}     last page; client navigates
 //   - {status: "errors", errors: {name: msg}} validation failed; stay on page
 //
@@ -134,9 +134,25 @@ async function waitForBundle(page, { timeout = 15000 } = {}) {
     );
 }
 
+// The unit session the form was rendered for, from the server's state block.
+async function unitSessionId(page) {
+    return page.evaluate(() => {
+        const el = document.querySelector('form.fmr-form-v2 script.fmr-state');
+        return el ? Number(JSON.parse(el.textContent).unit_session_id) : null;
+    });
+}
+
+// A page-submit reply that stored the page and left the form open: the
+// client picks the next page itself (state.mjs), so the reply names none.
+function advanced(body) {
+    return !!(body && body.status === 'ok' && !body.redirect && !body.missing);
+}
+
 module.exports = {
     FORM_SELECTOR,
     form,
+    unitSessionId,
+    advanced,
     isPresent,
     visiblePageNum,
     pageCount,

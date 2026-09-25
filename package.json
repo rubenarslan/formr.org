@@ -15,6 +15,7 @@
         "webpack:build": "node --max-old-space-size=2048 node_modules/.bin/webpack --mode production --parallelism=1 --progress",
         "webpack:watch": "webpack --watch --env WEBPACK_WATCH=true",
         "webpack:start": "webpack serve",
+        "test:js": "node --test tests/js/*.test.mjs",
         "test:e2e": "playwright test --config tests/e2e/playwright.config.js --project=local-chromium",
         "test:e2e:widgets": "playwright test --config tests/e2e/playwright.config.js --project=local-chromium all-widgets",
         "test:e2e:pwa": "playwright test --config tests/e2e/playwright.config.js --project=local-chromium pwa-",

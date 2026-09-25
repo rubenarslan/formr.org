@@ -13,10 +13,10 @@
 //   2. Rewrite `(typeof(X) === 'undefined')` → `isNA(X)` because our
 //      reactive state normalizes empty/unchecked to `null`, not `undefined`.
 //   3. Wrap runtime eval in `(function(){try{return (expr)}catch(e){return undefined}})()`
-//      so ReferenceErrors on run-level (`ran_group`) or future-page (`puppy`)
-//      variables silently fall back to undefined (→ the item keeps the
-//      visibility the server rendered it with) instead of noisily blowing
-//      up every keystroke.
+//      so ReferenceErrors on names the browser doesn't know (a run variable
+//      like `ran_group`, another survey's item) silently fall back to
+//      undefined (→ the item keeps its current visibility: hidden, as every
+//      showif item renders) instead of noisily blowing up every keystroke.
 
 // Names the `fmrForm` component itself owns.
 //
@@ -88,13 +88,18 @@ export function registerFmrForm(Alpine) {
                 if (!(key in this)) this[key] = null;
             });
             inputs.forEach((inp) => this._syncInput(inp));
-            // Answers saved on earlier pages are not rendered again, so a
-            // showif that reads one would see a name it doesn't know. The
-            // server ships them (FormRenderer::savedAnswers); a live input of
-            // the same name always wins.
-            const saved = this.$root.querySelector('script.fmr-saved-answers');
-            if (saved) {
-                try { this._seed(JSON.parse(saved.textContent || '{}'), true); } catch (e) { /* malformed: skip */ }
+            // The stored answers (FormRenderer::stateBlock) cover names no
+            // input on the page owns — calculate results, uploads — so a
+            // showif that reads one sees a value; a live input of the same
+            // name always wins (main.js fills those from the same block).
+            const state = this.$root.querySelector('script.fmr-state');
+            if (state) {
+                try {
+                    const items = (JSON.parse(state.textContent || '{}') || {}).items || {};
+                    const values = {};
+                    Object.keys(items).forEach((name) => { values[name] = items[name].value; });
+                    this._seed(values, true);
+                } catch (e) { /* malformed: skip */ }
             }
             this.$root.addEventListener('input', (e) => this._syncInput(e.target));
             this.$root.addEventListener('change', (e) => this._syncInput(e.target));
@@ -280,13 +285,12 @@ export function registerXShowif(Alpine) {
         effect(() => {
             getValue((result) => {
                 // `undefined` = the expression couldn't be evaluated — it references
-                // a name the client doesn't know (a server-only run var like
-                // `ran_group`, which the SERVER already resolved when it rendered).
-                // Match v1 (survey.js defaults _hide=true): do NOT force-show. Keep
-                // the server's decision — NA items are server-rendered `.hidden` by
-                // default, server-shown items render without it — so an unknowable
-                // showif preserves the current state instead of flashing visible
-                // (which on slow iOS Safari blocked the page before Alpine ran).
+                // a name the client doesn't know (a run variable like `ran_group`;
+                // the server never evaluates showifs). Match v1 (survey.js
+                // defaults _hide=true): do NOT force-show. Every showif item
+                // renders `.hidden` (Item::hideByDefaultPendingClient), so an
+                // unknowable showif keeps its item hidden — or, once it was
+                // shown, keeps the current state — instead of flashing visible.
                 const visible = (result === undefined)
                     ? !el.classList.contains('hidden')
                     : !!result;

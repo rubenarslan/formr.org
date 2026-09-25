@@ -65,8 +65,8 @@ test.describe('form_v2 inputs', () => {
         await yes.click();
         await page.locator('input[type=radio][name="i_mc_req"][value="2"]').click();
         const r = await v2.submitV2(page);
-        expect(r.body && r.body.next_page, JSON.stringify(r.body)).toBeTruthy();
-        const sessionId = await bsSafeEvaluate(page, () => Number(document.querySelector('form.fmr-form-v2 input[name="session_id"]').value));
+        expect(v2.advanced(r.body), JSON.stringify(r.body)).toBeTruthy();
+        const sessionId = await v2.unitSessionId(page);
         const study = db.dbQuery("SELECT results_table FROM survey_studies WHERE name = 'e2e_v2_inputs' ORDER BY id DESC LIMIT 1")[0];
         const row = db.dbResultsRow(study.results_table, sessionId);
         expect(row.i_mc === null || row.i_mc === '', `i_mc stored as ${JSON.stringify(row.i_mc)}`).toBe(true);
@@ -106,7 +106,7 @@ test.describe('form_v2 inputs', () => {
         expect(await buttonText(), 'an unlabelled submit row takes the study\'s Next wording').toBe('Onward');
         await page.locator('input[type=radio][name="i_mc_req"][value="1"]').click();
         const r = await v2.submitV2(page);
-        expect(r.body && r.body.next_page, JSON.stringify(r.body)).toBeTruthy();
+        expect(v2.advanced(r.body), JSON.stringify(r.body)).toBeTruthy();
         await page.waitForFunction(() => {
             const sec = document.querySelector('form.fmr-form-v2 section.fmr-page:not([hidden])');
             return sec && sec.dataset.fmrPage === '2';

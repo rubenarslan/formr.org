@@ -45,7 +45,7 @@ function resultsTable() {
 // keys rows by that same id, so a test can find *its own* participant's row
 // without a marker text item.
 async function unitSessionId(page) {
-    const id = await page.evaluate(() => document.querySelector('form.fmr-form-v2 input[name="session_id"]')?.value);
+    const id = await v2.unitSessionId(page);
     expect(id, 'form exposes its unit session id').toBeTruthy();
     return Number(id);
 }
@@ -168,7 +168,7 @@ test.describe('rank item (v2, drag-and-drop)', () => {
         expect(res.blockedByClient).toBe(false);
         expect(res.status).toBe(200);
         expect(res.body && res.body.status).toBe('ok');
-        expect(res.body.next_page).toBe(2);
+        expect(v2.advanced(res.body), JSON.stringify(res.body)).toBeTruthy();
 
         const stored = storedValues(sid);
         expect(stored).not.toBeNull();
@@ -244,7 +244,7 @@ test.describe('rank item (v2, drag-and-drop)', () => {
         // Page 1 as-is (plain is pre-filled, random optional) → page 2.
         let res = await v2.submitV2(page);
         expect(res.blockedByClient).toBe(false);
-        expect(res.body && res.body.next_page).toBe(2);
+        expect(v2.advanced(res.body), JSON.stringify(res.body)).toBeTruthy();
         await waitForPage(page, 2);
 
         let s = await rankState(page, TOUCH);
@@ -283,7 +283,7 @@ test.describe('rank item (v2, drag-and-drop)', () => {
         await v2.waitForBundle(page);
         const sid = await unitSessionId(page);
         let res = await v2.submitV2(page);
-        expect(res.body && res.body.next_page).toBe(2);
+        expect(v2.advanced(res.body), JSON.stringify(res.body)).toBeTruthy();
         await waitForPage(page, 2);
 
         await row(page, TOUCH, '4').focus();

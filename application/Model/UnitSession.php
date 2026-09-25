@@ -1129,6 +1129,42 @@ class UnitSession extends Model {
     }
 
     /**
+     * form_v2: the required items this session has not answered and that the
+     * browser has not recorded as hidden — what stands between the participant
+     * and the end of the form. The only completion rule for a v2 Form (the
+     * final page submit, FormSubmissionService::apply); a GET never completes
+     * one. Items that take no input (notes, calculate) are never required.
+     *
+     * @return array<string, Item> name => item
+     */
+    public function unansweredRequiredItems() {
+        $study = $this->runUnit ? $this->runUnit->surveyStudy : null;
+        if (!$study) {
+            return array();
+        }
+        $rows = $this->db->execute(
+            'SELECT i.id, i.study_id, i.name, i.type, i.choice_list, i.type_options, i.optional
+             FROM `survey_items` i
+             LEFT JOIN `survey_items_display` d ON d.item_id = i.id AND d.session_id = :session_id
+             WHERE i.study_id = :study_id AND i.deleted IS NULL
+               AND (i.optional IS NULL OR i.optional = 0)
+               AND i.type NOT IN (\'mc_heading\', \'submit\')
+               AND d.answer IS NULL AND (d.hidden IS NULL OR d.hidden = 0)
+             ORDER BY d.page, d.display_order, i.`order`, i.id',
+            array('session_id' => (int) $this->id, 'study_id' => (int) $study->id)
+        );
+        $factory = new ItemFactory(array());
+        $out = array();
+        foreach ((array) $rows as $row) {
+            $item = $factory->make($row);
+            if ($item && $item->requiresUserInput() && $item->save_in_results_table) {
+                $out[(string) $row['name']] = $item;
+            }
+        }
+        return $out;
+    }
+
+    /**
      * Save posted survey data to database
      *
      * @param array $posted An array of posted answers
@@ -1164,6 +1200,11 @@ class UnitSession extends Model {
             return false;
         }
 
+        // One write, one verdict: a validation failure from an earlier call on
+        // this object (the smokes drive several pages through one UnitSession)
+        // must not veto this one.
+        $this->errors = array();
+
         /** @var SurveyStudy $study */
         $study = $this->runUnit->surveyStudy;
 
@@ -1195,55 +1236,25 @@ class UnitSession extends Model {
         // Validate items and if any fails return user to same page with all unanswered items and error messages
         // This loop also accumulates potential update data
         $update_data = array();
+        $consuming = array();
         foreach ($posted as $item_name => $item_value) {
             if (!isset($items[$item_name])) {
                 continue;
             }
-
-            /** @var $item Item */
-            if ($item_value instanceof Item) {
-                $item = $item_value;
-                $item_value = $item->value_validated;
-            } else {
-                $item = $items[$item_name];
+            // A bot_check's validation BURNS its one-shot token. Judge it only
+            // once everything else posted has passed: an unrelated error on the
+            // same page would otherwise spend the token, and the participant's
+            // corrected resubmit — widget still showing "verified" — would be
+            // refused as unverified.
+            if ($validate && !($item_value instanceof Item) && $items[$item_name] instanceof BotCheck_Item) {
+                $consuming[$item_name] = $item_value;
+                continue;
             }
-
-            // Shape check before anything touches the reply: a client can post
-            // `name[]=x` against any item, and the paths that skip
-            // validateInput() (skip_validation, $validate = false) still hand
-            // the value to getReply(), which for a scalar item may index an
-            // array with it (Timezone) — a TypeError 500 on PHP 8. Items that
-            // take several values (mc_multiple, select_multiple, file, …)
-            // opt in via Item::$accepts_array_reply.
-            if ($item->rejectNonScalarReply($item_value)) {
-                $validInput = null;
-            } else {
-                $validInput = ($validate && !$item->skip_validation) ? $item->validateInput($item_value) : $item_value;
-            }
-            if ($item->save_in_results_table) {
-                if ($item->error) {
-                    $this->errors[$item_name] = $item->error;
-                } else {
-					$answer = $item->getReply($validInput);
-					if (is_array($answer)) {
-						$answer = json_encode($answer);
-					}
-                    $update_data[$item_name] = $answer;
-                    
-                    // Track uploaded files
-                    if ($item instanceof File_Item) {
-                        $fileInfo = $item->getFileInfo();
-                        if ($fileInfo) {
-                            $this->db->insert('user_uploaded_files', array_merge($fileInfo, [
-                                'study_id' => $study->id,
-                                'unit_session_id' => $this->id,
-                                'created' => mysql_now()
-                            ]));
-                        }
-                    }
-                }
-                $item->value_validated = $item_value;
-                $items[$item_name] = $item;
+            $this->validatePostedItem($item_name, $item_value, $items, $update_data, $validate, $study);
+        }
+        if (empty($this->errors)) {
+            foreach ($consuming as $item_name => $item_value) {
+                $this->validatePostedItem($item_name, $item_value, $items, $update_data, $validate, $study);
             }
         }
 
@@ -1252,6 +1263,68 @@ class UnitSession extends Model {
             return false;
         }
 
+        return $this->writeSurveyStudyRecord($posted, $items, $update_data, $study, $quiet);
+    }
+
+    /**
+     * Validate one posted answer (updateSurveyStudyRecord's first pass): on
+     * success its reply lands in $update_data, on failure its error in
+     * $this->errors; $items[$item_name] carries the item with value_validated
+     * for the write and for re-rendering.
+     */
+    private function validatePostedItem($item_name, $item_value, array &$items, array &$update_data, $validate, SurveyStudy $study) {
+        /** @var $item Item */
+        if ($item_value instanceof Item) {
+            $item = $item_value;
+            $item_value = $item->value_validated;
+        } else {
+            $item = $items[$item_name];
+        }
+
+        // Shape check before anything touches the reply: a client can post
+        // `name[]=x` against any item, and the paths that skip
+        // validateInput() (skip_validation, $validate = false) still hand
+        // the value to getReply(), which for a scalar item may index an
+        // array with it (Timezone) — a TypeError 500 on PHP 8. Items that
+        // take several values (mc_multiple, select_multiple, file, …)
+        // opt in via Item::$accepts_array_reply.
+        if ($item->rejectNonScalarReply($item_value)) {
+            $validInput = null;
+        } else {
+            $validInput = ($validate && !$item->skip_validation) ? $item->validateInput($item_value) : $item_value;
+        }
+        if ($item->save_in_results_table) {
+            if ($item->error) {
+                $this->errors[$item_name] = $item->error;
+            } else {
+					$answer = $item->getReply($validInput);
+					if (is_array($answer)) {
+						$answer = json_encode($answer);
+					}
+                $update_data[$item_name] = $answer;
+                
+                // Track uploaded files
+                if ($item instanceof File_Item) {
+                    $fileInfo = $item->getFileInfo();
+                    if ($fileInfo) {
+                        $this->db->insert('user_uploaded_files', array_merge($fileInfo, [
+                            'study_id' => $study->id,
+                            'unit_session_id' => $this->id,
+                            'created' => mysql_now()
+                        ]));
+                    }
+                }
+            }
+            $item->value_validated = $item_value;
+            $items[$item_name] = $item;
+        }
+    }
+
+    /**
+     * updateSurveyStudyRecord's second pass: every posted answer validated,
+     * write them in one transaction.
+     */
+    private function writeSurveyStudyRecord(array $posted, array $items, array $update_data, SurveyStudy $study, $quiet) {
         // Collect the per-item display writes and flush them in one batched
         // UPDATE after the loop instead of a round trip per posted item on the
         // hottest write path in the app (audit SQ-40). Keyed by item_id; the

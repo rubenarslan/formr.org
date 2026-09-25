@@ -75,11 +75,11 @@ async function currentFormContext(page) {
     return page.evaluate(() => {
         const root = document.querySelector('form.fmr-form-v2');
         const sec = root.querySelector('section.fmr-page:not([hidden])');
-        const sess = root.querySelector('input[name="session_id"]');
+        const state = root.querySelector('script.fmr-state');
         const firstInput = sec.querySelector('input[name]:not([type=hidden]):not([name^="_item_views"]), textarea[name], select[name]');
         return {
             syncUrl: root.dataset.syncUrl,
-            unitSessionId: sess ? Number(sess.value) : null,
+            unitSessionId: state ? Number(JSON.parse(state.textContent).unit_session_id) : null,
             pageNum: Number(sec.dataset.fmrPage),
             itemName: firstInput ? firstInput.name.replace(/\[\]$/, '') : null,
         };

@@ -677,192 +677,105 @@ class RunController extends Controller {
     }
 
     /**
-     * form_v2 page-submit endpoint (Phase 1).
+     * form_v2 page-submit endpoint.
      *
      * URL: POST /{runName}/form-page-submit
-     * Body: JSON `{"page": int, "data": {name: value, ...}, "item_views": {shown|shown_relative|answered|answered_relative: {itemId: value}}}`
+     * Body: JSON or multipart, see FormSubmissionService::readPayload.
      *
-     * Validates and persists a page's answers via UnitSession::updateSurveyStudyRecord
-     * (the same path v1 uses for form submits). On success, instructs the client to
-     * redirect back to the run URL so Run::exec can advance to the next unit.
-     * Validation errors are returned as `{status: "errors", errors: {name: msg}}`
-     * for inline display.
+     * The gates live here (formWriteContext); FormSubmissionService::apply
+     * stores the page and answers with the stored state of what it wrote —
+     * `{status:'ok', items}` — which the browser merges into its state block
+     * and derives the next page from. When the browser flagged the page as
+     * the form's last (`final`), the unit session has been ended and the
+     * reply carries `redirect` so the run can advance, or `missing` (name →
+     * message) when a required item is still unanswered. Validation errors
+     * are `{status:'errors', errors:{name: msg}}` and nothing was written.
      */
     public function formPageSubmitAction() {
         if (!Request::isHTTPPostRequest()) {
             $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
             return;
         }
-
-        // Accept two payload shapes:
-        //   - application/json with {page, data, item_views} (file-less fast path)
-        //   - multipart/form-data with flat fields `data[name]=...`,
-        //     `item_views[shown][itemId]=...`, plus $_FILES entries for File_Item.
-        // v2 switches to multipart when the current page has a file field with
-        // a selected file; FormData is the only way to ship binary through
-        // $_FILES, which File_Item::validateInput requires.
-        $contentType = isset($_SERVER['CONTENT_TYPE']) ? (string) $_SERVER['CONTENT_TYPE'] : '';
-        $isMultipart = stripos($contentType, 'multipart/form-data') === 0;
-
-        $submittedPage = 1;
-        $claimedUnitSessionId = 0;
-        if ($isMultipart) {
-            $submittedPage = isset($_POST['page']) ? (int) $_POST['page'] : 1;
-            $claimedUnitSessionId = isset($_POST['unit_session_id']) ? (int) $_POST['unit_session_id'] : 0;
-            $data = (isset($_POST['data']) && is_array($_POST['data'])) ? $_POST['data'] : array();
-            $itemViews = (isset($_POST['item_views']) && is_array($_POST['item_views'])) ? $_POST['item_views'] : array();
-            // Merge $_FILES[*] entries into $data so File_Item::validateInput
-            // receives the canonical {error, tmp_name, name, size, type} dict
-            // under the item's name. Nested form field `files[name]` is what
-            // the client sends.
-            if (isset($_FILES['files']) && is_array($_FILES['files']['name'])) {
-                $fileNames = $_FILES['files']['name'];
-                foreach ($fileNames as $itemName => $_) {
-                    if (!is_string($itemName) || $itemName === '') continue;
-                    $data[$itemName] = array(
-                        'name' => $_FILES['files']['name'][$itemName] ?? '',
-                        'type' => $_FILES['files']['type'][$itemName] ?? '',
-                        'tmp_name' => $_FILES['files']['tmp_name'][$itemName] ?? '',
-                        'error' => $_FILES['files']['error'][$itemName] ?? UPLOAD_ERR_NO_FILE,
-                        'size' => $_FILES['files']['size'][$itemName] ?? 0,
-                    );
-                }
-            }
-        } else {
-            $raw = file_get_contents('php://input');
-            $payload = json_decode($raw, true);
-            if (!is_array($payload)) {
-                $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
-                return;
-            }
-            $submittedPage = isset($payload['page']) ? (int) $payload['page'] : 1;
-            $claimedUnitSessionId = isset($payload['unit_session_id']) ? (int) $payload['unit_session_id'] : 0;
-            $data = (isset($payload['data']) && is_array($payload['data'])) ? $payload['data'] : array();
-            $itemViews = (isset($payload['item_views']) && is_array($payload['item_views'])) ? $payload['item_views'] : array();
-        }
-
-        $this->run = $this->getRun();
-        $this->user = $this->loginUser();
-
-        $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
-        if (!$runSession->id) {
-            $this->sendJsonResponse(array('error' => 'No active run session'), 403);
+        $payload = FormSubmissionService::readPayload(
+            isset($_SERVER['CONTENT_TYPE']) ? $_SERVER['CONTENT_TYPE'] : '',
+            file_get_contents('php://input'), $_POST, $_FILES
+        );
+        if ($payload === null) {
+            $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
             return;
         }
-
-        if (!$this->formWriteRateAllowed((int) $runSession->id)) {
-            $this->sendJsonResponse(array('error' => 'Rate limit exceeded'), 429);
+        $context = $this->formWriteContext($payload['unit_session_id']);
+        if (!$context) {
             return;
         }
-
-        $unitSession = $runSession->getCurrentUnitSession();
-        if (!$unitSession || !$unitSession->runUnit) {
-            $this->sendJsonResponse(array('error' => 'No current unit session'), 409);
-            return;
-        }
-
-        $runUnit = $unitSession->runUnit;
-        if (!$this->formV2Study($runUnit)) {
-            $this->sendJsonResponse(array('error' => 'Current unit is not a v2 form'), 409);
-            return;
-        }
-
-        // Bind the submit to the unit session the page was rendered for (the
-        // form ships its unit-session id in a hidden field). Without this gate
-        // a stale tab from an earlier iteration of a repeated Form (diary runs)
-        // posts into *today's* unit session — same study, same item names,
-        // silent cross-session corruption. Mirrors formSyncAction's
-        // claimedUnitSessionId gate; 0 (older clients) is accepted leniently.
-        if ($claimedUnitSessionId > 0 && $claimedUnitSessionId !== (int) $unitSession->id) {
-            $this->sendJsonResponse(array(
-                'error' => 'This form was rendered for a different session (continued elsewhere or a new entry started). Reload to continue.',
-                'stale_session' => true,
-            ), 409);
-            return;
-        }
-
-        $unitSession->createSurveyStudyRecord();
-
-        // Reassemble the v1-style $posted shape: flat answers + nested _item_views.
-        $posted = $data;
-        $posted['_item_views'] = $itemViews;
-
-        $saved = $unitSession->updateSurveyStudyRecord($posted, true);
-        if (!$saved) {
-            $errors = isset($unitSession->errors) && is_array($unitSession->errors) ? $unitSession->errors : array();
-            $this->sendJsonResponse(array(
-                'status' => 'errors',
-                'errors' => $errors,
-            ));
-            return;
-        }
-
-        // Mark client-hidden conditional items as resolved-hidden so they stop
-        // blocking completion. v2 showifs are evaluated client-side (Alpine); the
-        // server can't resolve a showif whose dependency is unanswered (e.g. an
-        // item behind a random group, or a `block` guard once its inputs are
-        // satisfied) and would otherwise leave it hidden=NULL = "not answered"
-        // forever — so the survey could never finish ("block recurs on the last
-        // page", "can't finish"). The client reports its CURRENT showif visibility
-        // in `_item_views[hidden]` (ids whose wrapper carries data-fmr-hidden);
-        // record exactly those as hidden. (Using current visibility, NOT inverting
-        // `_item_views[shown]`: that stamp fires once an item flashes into view at
-        // load before Alpine hides it, so a shown-then-hidden item looks shown.)
-        // Answered items are already `saved` and skipped by the helper, and a
-        // shown-but-unanswered required item is never in this set, so genuine
-        // required gaps still block — correctly.
-        $hiddenIds = array();
-        if (isset($itemViews['hidden']) && is_array($itemViews['hidden'])) {
-            $hiddenIds = array_map('intval', array_keys($itemViews['hidden']));
-        }
-        if ($hiddenIds) {
-            $this->markClientHiddenItems((int) $unitSession->id, (int) $submittedPage, $hiddenIds);
-        }
-
-        // For a multi-page form, if more pages remain, tell the client to show the
-        // next one locally (no reload). If this was the last page, redirect back
-        // to the run URL so Run::exec can advance to the next unit.
-        $this->sendJsonResponse($this->advancePastPage($unitSession, $submittedPage));
+        list(, $unitSession, $study) = $context;
+        $result = (new FormSubmissionService($unitSession, $study))->apply($payload);
+        $this->sendJsonResponse($this->withRunRedirect($result));
     }
 
     /**
-     * After page $submittedPage is saved: run the calculate items that are now
-     * due — those on every page up to the one the participant goes to next —
-     * and name that page. A page holding nothing but calculate items is never
-     * shown: its calculations run here and the participant moves past it.
+     * The gates every v2 write shares: an active run session, the write
+     * rate limit, a current unit session that is a v2 Form, and — when the
+     * browser names the unit session its page was rendered for — that it is
+     * still the current one (a page rendered for an earlier unit session of
+     * a repeated Form / diary must not write into the new one). Sends the
+     * error reply and returns null when a gate fails; otherwise
+     * [$runSession, $unitSession, $study].
      *
-     * @return array the JSON response: status ok plus `next_page` or
-     *   `redirect`, and `computed` (name => value) for the values just stored,
-     *   so the page's showifs can read them
+     * @param int $claimedUnitSessionId 0 = not claimed
+     * @param array $extra409 keys merged into every 409 reply (the sync
+     *   endpoint adds drop_entry so the queue stops retrying the entry)
+     * @param string $rateBucket 'write' (form writes), 'rcall' (R calls) or
+     *   'bot' (bot_check challenges)
+     * @return array|null
      */
-    private function advancePastPage(UnitSession $unitSession, $submittedPage) {
+    private function formWriteContext($claimedUnitSessionId, array $extra409 = array(), $rateBucket = 'write') {
+        $this->run = $this->getRun();
+        $this->user = $this->loginUser();
+        $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
+        if (!$runSession->id) {
+            $this->sendJsonResponse(array('error' => 'No active run session'), 403);
+            return null;
+        }
+        switch ($rateBucket) {
+            case 'rcall': $allowed = $this->rcallRateAllowed((int) $runSession->id); break;
+            case 'bot': $allowed = $this->botChallengeRateAllowed((int) $runSession->id); break;
+            default: $allowed = $this->formWriteRateAllowed((int) $runSession->id);
+        }
+        if (!$allowed) {
+            $this->sendJsonResponse(array('error' => 'Rate limit exceeded'), 429);
+            return null;
+        }
+        $unitSession = $runSession->getCurrentUnitSession();
+        if (!$unitSession || !$unitSession->runUnit) {
+            $this->sendJsonResponse(array('error' => 'No current unit session') + $extra409, 409);
+            return null;
+        }
         $study = $this->formV2Study($unitSession->runUnit);
-        $service = new RCallService($unitSession, $study);
-        $computed = array();
-        $nextPage = 0;
-        // Bounded: each pass either settles on a page or saves every item on
-        // the candidate page, so it runs at most once per remaining page.
-        for ($pass = 0; $pass < 256; $pass++) {
-            $candidate = (int) $this->findNextRenderablePage($unitSession->id, $submittedPage);
-            $computed += $service->computeCalculations($candidate > 0 ? $candidate : null);
-            $after = (int) $this->findNextRenderablePage($unitSession->id, $submittedPage);
-            if ($after === $candidate || $after === 0) {
-                $nextPage = $after;
-                break;
-            }
+        if (!$study) {
+            $this->sendJsonResponse(array('error' => 'Current unit is not a v2 form') + $extra409, 409);
+            return null;
         }
-        $response = array('status' => 'ok');
-        if ($nextPage > 0) {
-            $response['next_page'] = $nextPage;
-        } else {
-            $response['redirect'] = run_url($this->run->name);
+        if ((int) $claimedUnitSessionId > 0 && (int) $claimedUnitSessionId !== (int) $unitSession->id) {
+            $this->sendJsonResponse(array(
+                'error' => 'This form was rendered for a different session (continued elsewhere or a new entry started). Reload to continue.',
+                'stale_session' => true,
+            ) + $extra409, 409);
+            return null;
         }
-        if ($computed) {
-            $response['computed'] = $computed;
-        }
-        return $response;
+        return array($runSession, $unitSession, $study);
     }
 
+    /**
+     * A completed form's reply sends the browser back to the run URL, where
+     * Run::exec advances past the ended unit session.
+     */
+    private function withRunRedirect(array $result) {
+        if (!empty($result['complete'])) {
+            $result['redirect'] = run_url($this->run->name);
+        }
+        return $result;
+    }
     /**
      * form_v2: incremental ("autosave") persistence.
      *
@@ -880,38 +793,34 @@ class RunController extends Controller {
      * explicit submit + offline queue are the durable path).
      *
      * Every autosaved value goes through the item's own validateInput() first,
-     * exactly as on page-submit (F1, 2026-09). This endpoint used to call
-     * updateSurveyStudyRecord with validate=false, and that method stamps
-     * `survey_items_display.saved` for every posted item — FormRenderer only
-     * re-renders `saved IS NULL` rows and progress counts saved rows as
-     * answered — so /form-save let anyone persist an unverified bot_check
-     * token, an out-of-range choice, an empty required item or an arbitrary
-     * file string, and the item vanished from every later page. Now a value
-     * that fails validation is dropped (not saved, not an error: autosave is
-     * best-effort), and items whose validation has side effects or must only
-     * ever be judged at submit — bot_check, file/image/audio/video uploads —
-     * are never autosaved at all (see autosaveEligible()).
+     * exactly as on page-submit: a value that fails validation is dropped (not
+     * saved, not an error: autosave is best-effort), and items whose
+     * validation has side effects or must only ever be judged at submit —
+     * bot_check, file/image/audio/video uploads — are never autosaved at all
+     * (see autosaveEligible()). Otherwise anyone could persist an unverified
+     * bot_check token, an out-of-range choice or an arbitrary file string.
      *
-     * Known limitation: updateSurveyStudyRecord has no "draft" mode, so an
-     * autosaved item still gets `saved` stamped once its value validated. That
-     * is the same state a page-submit would leave it in, so it is safe; a
-     * separate draft column would only change resume UX (re-showing already
-     * answered items of a half-finished page).
+     * An autosaved item gets `survey_items_display.saved` stamped like a
+     * submitted one: `saved` is the per-item "when this answer was stored"
+     * timestamp, nothing more. Which page the participant is on is the
+     * browser's business (state.js), so an autosaved item is rendered and
+     * editable exactly as before a reload.
      */
     public function formSaveAction() {
         if (!Request::isHTTPPostRequest()) {
             $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
             return;
         }
-        $raw = file_get_contents('php://input');
-        $payload = json_decode($raw, true);
-        if (!is_array($payload)) {
+        $payload = FormSubmissionService::readPayload(
+            isset($_SERVER['CONTENT_TYPE']) ? $_SERVER['CONTENT_TYPE'] : '',
+            file_get_contents('php://input'), $_POST, $_FILES
+        );
+        if ($payload === null) {
             $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
             return;
         }
-        $data = (isset($payload['data']) && is_array($payload['data'])) ? $payload['data'] : array();
-        $itemViews = (isset($payload['item_views']) && is_array($payload['item_views'])) ? $payload['item_views'] : array();
-        $claimedUnitSessionId = isset($payload['unit_session_id']) ? (int) $payload['unit_session_id'] : 0;
+        $data = $payload['data'];
+        $itemViews = $payload['item_views'];
 
         // Keep only actually-answered fields. The client's collectPayload also
         // emits the empty hidden placeholder of each mc/mc_multiple item
@@ -934,39 +843,13 @@ class RunController extends Controller {
             return;
         }
 
-        $this->run = $this->getRun();
-        $this->user = $this->loginUser();
-        $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
-        if (!$runSession->id) {
-            $this->sendJsonResponse(array('error' => 'No active run session'), 403);
+        // Same gates as form-page-submit, including the stale-tab one. Autosave
+        // is best-effort, so the client treats a 409 as non-fatal.
+        $context = $this->formWriteContext($payload['unit_session_id']);
+        if (!$context) {
             return;
         }
-        if (!$this->formWriteRateAllowed((int) $runSession->id)) {
-            $this->sendJsonResponse(array('error' => 'Rate limit exceeded'), 429);
-            return;
-        }
-        $unitSession = $runSession->getCurrentUnitSession();
-        if (!$unitSession || !$unitSession->runUnit) {
-            $this->sendJsonResponse(array('error' => 'No current unit session'), 409);
-            return;
-        }
-        $study = $this->formV2Study($unitSession->runUnit);
-        if (!$study) {
-            $this->sendJsonResponse(array('error' => 'Current unit is not a v2 form'), 409);
-            return;
-        }
-
-        // Same stale-tab gate as formPageSubmitAction: an autosave from a page
-        // rendered for an earlier unit session (repeated Form / diary) must not
-        // bleed into the current one. Autosave is best-effort, so the client
-        // treats the 409 as non-fatal.
-        if ($claimedUnitSessionId > 0 && $claimedUnitSessionId !== (int) $unitSession->id) {
-            $this->sendJsonResponse(array(
-                'error' => 'Autosave targets a different unit session',
-                'stale_session' => true,
-            ), 409);
-            return;
-        }
+        list(, $unitSession, $study) = $context;
 
         // Keep only values that (a) belong to an item this study actually has,
         // (b) belong to an item type that may be autosaved, and (c) pass that
@@ -1035,7 +918,7 @@ class RunController extends Controller {
             // choice check is `is_string($reply) && !in_array(...)`, so a JSON
             // integer 7 would sail past `mc` with choices 1..2. Normalise before
             // probing so the JSON autosave can't reach a laxer path than submit.
-            $value = self::postScalar($value);
+            $value = FormSubmissionService::postScalar($value);
             // Nothing to persist for a cleared/empty field — and stamping
             // `saved` on an empty optional item would drop it from the next
             // render. Only real answers are autosaved.
@@ -1063,43 +946,18 @@ class RunController extends Controller {
     }
 
     /**
-     * Coerce a JSON value to what PHP's $_POST would have carried: scalars
-     * become strings, arrays are coerced element-wise, anything else
-     * (objects, nested structures) becomes null so validators refuse it.
-     */
-    private static function postScalar($value) {
-        if (is_string($value)) {
-            return $value;
-        }
-        if (is_int($value) || is_float($value)) {
-            return (string) $value;
-        }
-        if (is_bool($value)) {
-            return $value ? '1' : '';
-        }
-        if (is_array($value)) {
-            $out = array();
-            foreach ($value as $k => $v) {
-                if (!is_scalar($v)) {
-                    return null; // $_POST never carries nested structures
-                }
-                $out[$k] = self::postScalar($v);
-            }
-            return $out;
-        }
-        return null;
-    }
-
-    /**
      * The SurveyStudy behind $runUnit if — and only if — the form_v2 endpoints
-     * may serve it: a Survey/Form unit whose study renders in v2. v1 studies
-     * (SpreadsheetRenderer) submit through RunController::indexAction and must
+     * may serve it: a Form unit whose study renders in v2. Only
+     * Form::getUnitSessionOutput renders v2; a plain Survey unit renders v1
+     * whatever its study's rendering_mode says (a Form linked to a study that
+     * is also placed as a Survey flips the study to v2 without touching that
+     * placement). v1 pages submit through RunController::indexAction and must
      * not be reachable through the v2 AJAX paths, which skip v1's own gating.
      *
      * @return SurveyStudy|null
      */
     private function formV2Study($runUnit) {
-        if (!($runUnit instanceof Survey)) {
+        if (!($runUnit instanceof Form)) {
             return null;
         }
         $study = $runUnit->surveyStudy;
@@ -1116,234 +974,66 @@ class RunController extends Controller {
     }
 
     /**
-     * Return the lowest survey_items_display.page > $submittedPage that still
-     * has at least one unanswered, unhidden item — i.e. the next page the
-     * client will actually render. Earlier code returned $submittedPage + 1
-     * unconditionally, which broke when DOM `data-fmr-page` values were
-     * non-contiguous (submit-only intermediate pages get hidden=1 in
-     * FormRenderer Step 4 + groupByPage drops empty pages; resumed sessions
-     * have fully-answered middle pages stripped by the saved IS NULL filter;
-     * server-side showif can hide every item on a given page). The client
-     * `pages.findIndex` then returned -1 and the navigation silently bailed.
-     *
-     * Returns 0 (or false coerced to 0) when no further page is renderable —
-     * caller redirects to the run URL so Run::exec advances units.
-     */
-    private function findNextRenderablePage($unitSessionId, $submittedPage) {
-        return DB::getInstance()
-            ->select('MIN(page)')
-            ->from('survey_items_display')
-            ->where('session_id = :sid AND page > :p AND saved IS NULL AND (hidden IS NULL OR hidden = 0)')
-            ->bindParams(array('sid' => (int) $unitSessionId, 'p' => (int) $submittedPage))
-            ->fetchColumn();
-    }
-
-    /**
-     * Record the client's showif visibility decision for a just-submitted page.
-     * `$hiddenIds` are the item ids the client currently HIDES (their wrapper
-     * carries data-fmr-hidden); set hidden=1 for them so they no longer count as
-     * unanswered (not_answered) and the form can complete. Scoped to the page and
-     * to unsaved items, so it can never overwrite a real answer.
-     */
-    private function markClientHiddenItems($unitSessionId, $page, array $hiddenIds) {
-        $hiddenIds = array_values(array_unique(array_filter(array_map('intval', $hiddenIds))));
-        if (!$hiddenIds) {
-            return;
-        }
-        // Only showif-bearing items are legitimately client-hideable: the whole
-        // reason this endpoint trusts the client is that v2 showifs resolve in
-        // the browser. An item with no showif can never be hidden by Alpine, so
-        // a claim on one is a forged payload trying to skip a required item —
-        // the JOIN makes such claims a silent no-op while honest claims still
-        // land. Soft-deleted items are excluded for the same reason: they don't
-        // render, so no honest client can be hiding them.
-        $stmt = DB::getInstance()->prepare(
-            'UPDATE `survey_items_display` `d`
-               JOIN `survey_items` `i` ON `i`.`id` = `d`.`item_id`
-             SET `d`.`hidden` = 1
-             WHERE `d`.`session_id` = :sid
-               AND `d`.`page` = :p
-               AND `d`.`saved` IS NULL
-               AND `i`.`showif` IS NOT NULL AND TRIM(`i`.`showif`) != \'\'
-               AND `i`.`deleted` IS NULL
-               AND `d`.`item_id` IN (' . implode(',', $hiddenIds) . ')'
-        );
-        $stmt->bindValue(':sid', (int) $unitSessionId, PDO::PARAM_INT);
-        $stmt->bindValue(':p', (int) $page, PDO::PARAM_INT);
-        $stmt->execute();
-    }
-
-    /**
-     * form_v2 Phase 5: offline-queue sync endpoint.
+     * form_v2: offline-queue sync endpoint.
      *
      * URL: POST /{runName}/form-sync
-     * Body:
-     *   - application/json: `{"uuid": str, "page": int, "data": {...}, "item_views": {...}, "client_ts": str}`
-     *   - multipart/form-data (queued file upload): flat fields `uuid`, `page`,
-     *     `client_ts`, `data[name]`, `data[name][]`, `item_views[bucket][id]`,
-     *     plus `files[name]` carrying the Blob; same shape as form-page-submit's
-     *     multipart branch.
+     * Body: as form-page-submit (FormSubmissionService::readPayload), plus the
+     * queue entry's `uuid` and `client_ts`.
      *
-     * Accepts a single queued submission. Idempotent via `survey_form_submissions.uuid`:
-     * a retry with the same uuid returns `{status: 'ok', already_applied: true}` without
-     * re-applying. Otherwise the endpoint follows the same auth + apply path as
-     * `formPageSubmitAction` and records the uuid on success.
-     *
-     * The envelope (uuid / page / unit_session_id / client_ts — every field that
-     * lands in a typed `survey_form_submissions` column) is validated by
-     * `FormSyncPayload::validate` BEFORE any state change; a bad value is a 400,
-     * never a 500 halfway through. The apply and the ledger INSERT then share one
-     * transaction, so a failure can never leave answers applied with no uuid row
-     * (which is what made the client retry into a double-apply).
+     * Accepts one queued submission. Idempotent via `survey_form_submissions.uuid`:
+     * a retry with the same uuid returns `{status:'ok', already_applied:true}`
+     * without re-applying. Otherwise the same gates and the same apply path as
+     * form-page-submit, with the uuid recorded in the same transaction as the
+     * answers, so a failure can never leave answers applied with no uuid row
+     * (which is what made the client retry into a double-apply). The envelope
+     * (uuid / page / unit_session_id / client_ts — every field that lands in a
+     * typed ledger column) is validated by FormSyncPayload before any state
+     * change; a bad value is a 400, never a 500 halfway through. 409 replies
+     * carry drop_entry so the queue stops retrying an entry that can never
+     * apply (session ended, participant moved on to another Form).
      */
     public function formSyncAction() {
         if (!Request::isHTTPPostRequest()) {
             $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
             return;
         }
-        $contentType = isset($_SERVER['CONTENT_TYPE']) ? (string) $_SERVER['CONTENT_TYPE'] : '';
-        $isMultipart = stripos($contentType, 'multipart/form-data') === 0;
-        if ($isMultipart) {
-            $uuid = isset($_POST['uuid']) ? $_POST['uuid'] : '';
-            $submittedPage = isset($_POST['page']) ? $_POST['page'] : null;
-            $claimedUnitSessionId = isset($_POST['unit_session_id']) ? $_POST['unit_session_id'] : null;
-            $data = (isset($_POST['data']) && is_array($_POST['data'])) ? $_POST['data'] : array();
-            $itemViews = (isset($_POST['item_views']) && is_array($_POST['item_views'])) ? $_POST['item_views'] : array();
-            $clientTs = isset($_POST['client_ts']) ? $_POST['client_ts'] : null;
-            // Re-project $_FILES['files'][...][itemName] into the flat
-            // {name,type,tmp_name,error,size} dict File_Item::validateInput
-            // expects — same logic as formPageSubmitAction.
-            if (isset($_FILES['files']) && is_array($_FILES['files']['name'])) {
-                foreach ($_FILES['files']['name'] as $itemName => $_) {
-                    if (!is_string($itemName) || $itemName === '') continue;
-                    $data[$itemName] = array(
-                        'name' => $_FILES['files']['name'][$itemName] ?? '',
-                        'type' => $_FILES['files']['type'][$itemName] ?? '',
-                        'tmp_name' => $_FILES['files']['tmp_name'][$itemName] ?? '',
-                        'error' => $_FILES['files']['error'][$itemName] ?? UPLOAD_ERR_NO_FILE,
-                        'size' => $_FILES['files']['size'][$itemName] ?? 0,
-                    );
-                }
-            }
-        } else {
-            $payload = json_decode(file_get_contents('php://input'), true);
-            if (!is_array($payload)) {
-                $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
-                return;
-            }
-            $uuid = isset($payload['uuid']) ? $payload['uuid'] : '';
-            $submittedPage = isset($payload['page']) ? $payload['page'] : null;
-            $claimedUnitSessionId = isset($payload['unit_session_id']) ? $payload['unit_session_id'] : null;
-            $data = (isset($payload['data']) && is_array($payload['data'])) ? $payload['data'] : array();
-            $itemViews = (isset($payload['item_views']) && is_array($payload['item_views'])) ? $payload['item_views'] : array();
-            $clientTs = isset($payload['client_ts']) ? $payload['client_ts'] : null;
+        $payload = FormSubmissionService::readPayload(
+            isset($_SERVER['CONTENT_TYPE']) ? $_SERVER['CONTENT_TYPE'] : '',
+            file_get_contents('php://input'), $_POST, $_FILES
+        );
+        if ($payload === null) {
+            $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
+            return;
         }
-
-        // Validate the WHOLE envelope before anything can change state. Every
-        // field below is written verbatim into a typed `survey_form_submissions`
-        // column, so a value the column can't hold is an error that used to
-        // surface at INSERT time — i.e. AFTER updateSurveyStudyRecord had
-        // already applied the answers but BEFORE the uuid ledger row existed.
-        // The client retries a 5xx, the dedupe pre-check finds no row, and the
-        // answers land twice. Refuse at the door instead: nothing here has
-        // touched the run session yet. (uuid was already checked up front; page
-        // — SMALLINT UNSIGNED — and client_ts — DATETIME — were not.)
-        $envelope = FormSyncPayload::validate($uuid, $submittedPage, $claimedUnitSessionId, $clientTs);
+        $envelope = FormSyncPayload::validate(
+            $payload['uuid'], $payload['raw_page'], $payload['raw_unit_session_id'], $payload['client_ts']
+        );
         if (!$envelope['ok']) {
             $this->sendJsonResponse(array('error' => $envelope['error'], 'field' => $envelope['field']), 400);
             return;
         }
         $uuid = $envelope['uuid'];
-        $submittedPage = $envelope['page'];
-        $claimedUnitSessionId = $envelope['unit_session_id'];
         $clientTs = $envelope['client_ts'];
+        $payload['page'] = $envelope['page'];
+        $payload['unit_session_id'] = $envelope['unit_session_id'];
 
-        $this->run = $this->getRun();
-        $this->user = $this->loginUser();
-
-        $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
-        if (!$runSession->id) {
-            $this->sendJsonResponse(array('error' => 'No active run session'), 403);
+        $context = $this->formWriteContext($payload['unit_session_id'], array('drop_entry' => true));
+        if (!$context) {
             return;
         }
+        list(, $unitSession, $study) = $context;
 
-        if (!$this->formWriteRateAllowed((int) $runSession->id)) {
-            // 429 without drop_entry: the client's drain treats it as a
-            // validation-ish stop and retries later, which is what we want.
-            $this->sendJsonResponse(array('error' => 'Rate limit exceeded'), 429);
-            return;
-        }
-
-        // Dedup pre-check: if we've already persisted this uuid, short-circuit
-        // so retries are safe and cheap. The uuid is unique-indexed so a true
-        // race ends in a constraint error on INSERT below rather than a
-        // double-apply — the apply is still best-effort idempotent per item.
-        // Deliberately AFTER the session gates so an unauthenticated request
-        // can't probe the ledger as a uuid-existence oracle.
-        $existing = DB::getInstance()
-            ->select('id')
-            ->from('survey_form_submissions')
-            ->where('uuid = :uuid')
-            ->bindParams(array('uuid' => $uuid))
-            ->fetch();
+        // Dedup pre-check: a uuid we already persisted is a cheap, safe retry.
+        // The uuid is unique-indexed, so a race between two drains of the same
+        // entry is caught by the INSERT below; the transaction keeps the
+        // ledger row and the answers together.
+        $db = DB::getInstance();
+        $existing = $db->select('id')->from('survey_form_submissions')
+            ->where('uuid = :uuid')->bindParams(array('uuid' => $uuid))->fetch();
         if ($existing) {
             $this->sendJsonResponse(array('status' => 'ok', 'already_applied' => true));
             return;
         }
-        $unitSession = $runSession->getCurrentUnitSession();
-        if (!$unitSession || !$unitSession->runUnit) {
-            // Most common cause: the participant has since advanced past the form,
-            // so the unit session ended. Surface a distinct status so the client
-            // can drop the entry instead of retrying forever.
-            $this->sendJsonResponse(array('error' => 'No current unit session', 'drop_entry' => true), 409);
-            return;
-        }
-        if (!$this->formV2Study($unitSession->runUnit)) {
-            $this->sendJsonResponse(array('error' => 'Current unit is not a v2 form', 'drop_entry' => true), 409);
-            return;
-        }
-
-        // The queue entry was tagged with the unit-session id at enqueue time.
-        // Drop it if the participant has since advanced to a *different* Form
-        // unit (still a Survey instance, FK-shape compatible, but the wrong
-        // record). Without this gate the queued answers would be silently
-        // written into whichever Form unit happens to be current — diary /
-        // multi-Form runs were the canonical break case. Older queue entries
-        // from before this gate landed have unit_session_id=0; we accept
-        // those rather than wedge in-flight queues, matching the lenient
-        // posture of the existing "no current unit" / "not a survey" drops.
-        if ($claimedUnitSessionId > 0 && $claimedUnitSessionId !== (int) $unitSession->id) {
-            $this->sendJsonResponse(array(
-                'error' => 'Queued submission targets a different unit session',
-                'drop_entry' => true,
-            ), 409);
-            return;
-        }
-
-        $unitSession->createSurveyStudyRecord();
-        $posted = $data;
-        $posted['_item_views'] = $itemViews;
-
-        // Apply and ledger-write are ONE transaction: "answers applied" and
-        // "uuid recorded" must be true together or not at all, or a retry
-        // double-applies (no row → the dedupe pre-check above misses).
-        //
-        // The ordering is load-bearing and depends on how DB's transaction
-        // helpers behave. They are FLAT, not nested: DB::beginTransaction() is
-        // a no-op while a transaction is already open, and the first commit()
-        // closes it. UnitSession::updateSurveyStudyRecord runs its own
-        // begin/commit/rollBack around the writes, so:
-        //   - open the transaction here and INSERT the ledger row first;
-        //   - the apply's inner begin is a no-op and its COMMIT commits both
-        //     the answers and the ledger row atomically;
-        //   - its rollBack (on an exception inside the apply) discards both;
-        //   - the paths where it returns false *before* opening its own
-        //     transaction (validation errors, ended session, stale session_id)
-        //     leave ours open, so we roll the claim back ourselves.
-        // The trailing commit() is a no-op after the inner commit and a safety
-        // net if updateSurveyStudyRecord ever stops committing on its own.
-        $db = DB::getInstance();
-        $saved = false;
         $db->beginTransaction();
         try {
             $stmt = $db->prepare(
@@ -1352,53 +1042,32 @@ class RunController extends Controller {
             );
             $stmt->bindValue(':uuid', $uuid);
             $stmt->bindValue(':usid', (int) $unitSession->id, PDO::PARAM_INT);
-            $stmt->bindValue(':page', (int) $submittedPage, PDO::PARAM_INT);
+            $stmt->bindValue(':page', (int) $payload['page'], PDO::PARAM_INT);
             if ($clientTs === null) {
                 $stmt->bindValue(':cts', null, PDO::PARAM_NULL);
             } else {
                 $stmt->bindValue(':cts', $clientTs);
             }
             $stmt->execute();
-            $saved = $unitSession->updateSurveyStudyRecord($posted, true);
+            $result = (new FormSubmissionService($unitSession, $study))->apply($payload);
         } catch (Throwable $e) {
             $db->rollBack();
-            // A concurrent drain of the same uuid raced us between the
-            // pre-check and this INSERT. It either has applied or is applying
-            // the same answers; we applied none (rolled back). Report
-            // already-applied so the client drops the entry exactly once.
             if ($e instanceof PDOException && (int) ($e->errorInfo[1] ?? 0) === 1062) {
                 $this->sendJsonResponse(array('status' => 'ok', 'already_applied' => true));
                 return;
             }
             throw $e;
         }
-
-        if (!$saved) {
+        if ($result['status'] !== 'ok') {
             // Drop the uuid claim so the participant can fix the errors and
             // re-drain the same entry; leaving it would make the retry look
             // already-applied and silently discard the answers.
             $db->rollBack();
-            $errors = isset($unitSession->errors) && is_array($unitSession->errors) ? $unitSession->errors : array();
-            // Validation errors are not a transient offline failure — surface
-            // them so the client can show them to the user instead of looping.
-            $this->sendJsonResponse(array('status' => 'errors', 'errors' => $errors));
+            $this->sendJsonResponse($result);
             return;
         }
         $db->commit();
-
-        // Same hidden-item resolution as formPageSubmitAction: the queued page
-        // may contain client-side showif-hidden items, which would otherwise
-        // stay hidden=NULL = "not answered" and block studyCompleted() forever
-        // once the queue drains.
-        $hiddenIds = array();
-        if (isset($itemViews['hidden']) && is_array($itemViews['hidden'])) {
-            $hiddenIds = array_map('intval', array_keys($itemViews['hidden']));
-        }
-        if ($hiddenIds) {
-            $this->markClientHiddenItems((int) $unitSession->id, (int) $submittedPage, $hiddenIds);
-        }
-
-        $this->sendJsonResponse($this->advancePastPage($unitSession, $submittedPage));
+        $this->sendJsonResponse($this->withRunRedirect($result));
     }
 
     /**
@@ -1435,38 +1104,19 @@ class RunController extends Controller {
             $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
             return;
         }
-        $this->run = $this->getRun();
-        // Resolve the participant so the challenge binds to THIS session.
-        $this->user = $this->loginUser();
-
-        // Ownership: only a participant with a live session in this run may mint.
-        // The widget only ever mounts inside a rendered form, which already
-        // requires one, so this costs no legitimate caller anything. (The
+        // Ownership: only a participant with a live session in this run may
+        // mint, and only for a v2 form's own bot_check items — the same gates
+        // as the other form_v2 endpoints (the challenge binds to THIS
+        // session), with the challenge bucket for the rate limit. The widget
+        // only ever mounts inside a rendered form, which already requires a
+        // session, so this costs no legitimate caller anything. (The
         // /survey-test/ preview path rewrites the run URL, so its widget never
         // reached this endpoint in the first place.)
-        $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
-        if (!$runSession->id) {
-            $this->sendJsonResponse(array('error' => 'No active run session'), 403);
+        $context = $this->formWriteContext(0, array(), 'bot');
+        if (!$context) {
             return;
         }
-        if (!$this->botChallengeRateAllowed((int) $runSession->id)) {
-            $this->sendJsonResponse(array('error' => 'Rate limit exceeded'), 429);
-            return;
-        }
-
-        // Only a v2 form's own bot_check items can be minted for — the same
-        // gate as the other form_v2 endpoints, plus the item lookup that
-        // decides the difficulty.
-        $unitSession = $runSession->getCurrentUnitSession();
-        if (!$unitSession || !$unitSession->runUnit) {
-            $this->sendJsonResponse(array('error' => 'No current unit session'), 409);
-            return;
-        }
-        $study = $this->formV2Study($unitSession->runUnit);
-        if (!$study) {
-            $this->sendJsonResponse(array('error' => 'Current unit is not a v2 form'), 409);
-            return;
-        }
+        list(, $unitSession, $study) = $context;
         $itemName = isset($_GET['item']) && is_string($_GET['item']) ? trim($_GET['item']) : '';
         if ($itemName === '' || !preg_match('/^[A-Za-z0-9_]{1,255}$/', $itemName)) {
             $this->sendJsonResponse(array('error' => 'Missing or invalid bot_check item name'), 400);
@@ -1523,8 +1173,22 @@ class RunController extends Controller {
         }
         $callId = isset($payload['call_id']) ? (int) $payload['call_id'] : 0;
         $answers = (isset($payload['answers']) && is_array($payload['answers'])) ? $payload['answers'] : array();
-
-        $out = $this->evaluateAllowlistedRCall($callId, 'value', $answers);
+        if ($callId <= 0) {
+            $this->sendJsonResponse(array('error' => 'Missing call_id'), 400);
+            return;
+        }
+        // Reactive r-calls are debounced and seq-guarded client-side, but a
+        // malicious or buggy client could loop: the 'rcall' bucket is DB-keyed
+        // (formr_rate_limits, patch 095), so it survives cookie rotation.
+        $context = $this->formWriteContext(0, array(), 'rcall');
+        if (!$context) {
+            return;
+        }
+        list(, $unitSession, $study) = $context;
+        // Validates study ownership of the call_id and the slot, overlays the
+        // client's answers on the last persisted row and evaluates via
+        // OpenCPU. Never ships R source to the client.
+        $out = (new RCallService($unitSession, $study))->evaluateSingle($callId, 'value', $answers);
         if (!$out['ok']) {
             $this->sendJsonResponse(array('error' => $out['error']), $out['status']);
             return;
@@ -1579,38 +1243,25 @@ class RunController extends Controller {
         }
         $answers = (isset($payload['answers']) && is_array($payload['answers'])) ? $payload['answers'] : array();
 
-        $this->run = $this->getRun();
-        $this->user = $this->loginUser();
-        $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
-        if (!$runSession->id) {
-            $this->sendJsonResponse(array('error' => 'No active run session'), 403);
+        // Shares the r-call bucket with form-fill so a hostile client can't
+        // multiply its budget by alternating endpoints.
+        $context = $this->formWriteContext(0, array(), 'rcall');
+        if (!$context) {
             return;
         }
-        $unitSession = $runSession->getCurrentUnitSession();
-        if (!$unitSession || !$unitSession->runUnit) {
-            $this->sendJsonResponse(array('error' => 'No current unit session', 'drop_entry' => true), 409);
-            return;
-        }
-        $runUnit = $unitSession->runUnit;
-        $study = $this->formV2Study($runUnit);
-        if (!$study) {
-            $this->sendJsonResponse(array('error' => 'Current unit is not a v2 form'), 409);
-            return;
-        }
+        list(, $unitSession, $study) = $context;
 
-        // Shares the r-call bucket so a hostile client can't multiply its
-        // budget by alternating endpoints.
-        if (!$this->rcallRateAllowed((int) $runSession->id)) {
-            $this->sendJsonResponse(array('error' => 'Rate limit exceeded'), 429);
-            return;
-        }
+        // Showing a page is when its calculate items — and those of every
+        // page before it — are due (FormRenderer rule 4). They are stored on
+        // the server and handed back so the page's showifs can read them.
+        $service = new RCallService($unitSession, $study);
+        $computed = $service->computeCalculations($pageNum);
 
         // The service scopes calls to items actually scheduled on that page
         // in THIS unit-session and applies the allowlist revocation check.
-        $service = new RCallService($unitSession, $study);
         $calls = $service->callsForPage($pageNum);
         if (empty($calls['value']) && empty($calls['label']) && empty($calls['choice_label'])) {
-            $this->sendJsonResponse(array('values' => array(), 'labels' => array(), 'choices' => array()));
+            $this->sendJsonResponse(array('values' => array(), 'labels' => array(), 'choices' => array(), 'computed' => $computed));
             return;
         }
 
@@ -1646,53 +1297,7 @@ class RunController extends Controller {
             );
         }
 
-        $this->sendJsonResponse(array('values' => $valuesOut, 'labels' => $labelsOut, 'choices' => $choicesOut));
-    }
-
-    /**
-     * Shared body for form-fill + form-render-page: validate session/study ownership
-     * of the call_id, enforce expected slot, overlay client answers on the last
-     * persisted row, evaluate the R expression via OpenCPU. Never ships R
-     * source to the client.
-     *
-     * @param int $callId survey_r_calls.id
-     * @param string $expectedSlot one of the survey_r_calls.slot enum values
-     * @param array $answers client-sent reactive answers, overlaid on tail(survey, 1)
-     * @return array{ok:bool, status?:int, error?:string, result?:mixed}
-     */
-    protected function evaluateAllowlistedRCall($callId, $expectedSlot, array $answers) {
-        if ($callId <= 0) {
-            return array('ok' => false, 'status' => 400, 'error' => 'Missing call_id');
-        }
-
-        $this->run = $this->getRun();
-        $this->user = $this->loginUser();
-
-        $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
-        if (!$runSession->id) {
-            return array('ok' => false, 'status' => 403, 'error' => 'No active run session');
-        }
-
-        $unitSession = $runSession->getCurrentUnitSession();
-        if (!$unitSession || !$unitSession->runUnit) {
-            return array('ok' => false, 'status' => 409, 'error' => 'No current unit session');
-        }
-        $runUnit = $unitSession->runUnit;
-        $study = $this->formV2Study($runUnit);
-        if (!$study) {
-            return array('ok' => false, 'status' => 409, 'error' => 'Current unit is not a v2 form');
-        }
-
-        // Reactive r-calls are debounced (300ms) and seq-guarded client-side,
-        // but a malicious or buggy client could loop. DB-keyed bucket (patch
-        // 076) — the old $_SESSION bucket reset with every session-cookie
-        // rotation.
-        if (!$this->rcallRateAllowed((int) $runSession->id)) {
-            return array('ok' => false, 'status' => 429, 'error' => 'Rate limit exceeded');
-        }
-
-        $service = new RCallService($unitSession, $study);
-        return $service->evaluateSingle((int) $callId, $expectedSlot, $answers);
+        $this->sendJsonResponse(array('values' => $valuesOut, 'labels' => $labelsOut, 'choices' => $choicesOut, 'computed' => $computed));
     }
 
     /**

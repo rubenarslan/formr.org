@@ -104,10 +104,10 @@ Both run R from the `value` column on the server, and showifs can read both. The
 
 | | `calculate` | `hidden` with a `value` |
 | --- | --- | --- |
-| R runs | when the participant reaches the item's page, once | when the item's page is shown |
+| R runs | when the participant first opens a page at or after the item's, once (and at the final submit for anything left) | when the item's page is shown |
 | sees answers from | earlier pages — placed after the last page, all of them | earlier pages only (the page's own answers are still empty when it is shown) |
 | result is stored by | the server | the browser, which posts it with autosave and the page submit — so a participant (or bot) can change it |
-| if the page's dynamic content can't be loaded (network, rate limit, offline) | unaffected: it doesn't go through the page (if OpenCPU itself is down, it is computed at the next page) | submitted empty |
+| if the page's dynamic content can't be loaded (network, rate limit, offline) | unaffected: it doesn't go through the page (it is computed the next time a page is opened online, or at the final submit) | submitted empty |
 
 Use **`calculate`** for anything you analyse or act on: scores, random assignment, eligibility flags that a later Skip unit reads, payment codes, and end-of-form scores (put them after the last page). Use **`hidden`** for what the page itself needs: a pre-filled answer, or a bridge into a showif where it doesn't matter that the participant could change the value.
 
@@ -161,7 +161,7 @@ iOS specifics: push only works **inside the installed PWA** on iOS 16.4+. The pa
 
 ## Offline queue
 
-When **Offline queue** is on (the default), a page submission that fails — no network, or a 5xx from the server — is stored in the browser's IndexedDB and the participant advances locally. The banner says "queued". The queue drains when the browser fires `online` and on the next load of any page of the study; each entry is replayed to `/{run}/form-sync`, which applies the answers through the same path as a normal page submit and ignores entries it has already seen (each entry carries a UUID; the server keeps a ledger in `survey_form_submissions`). A drain that hits a validation error stops, keeps the entry queued and shows "A queued submission was rejected. Please review the page."; entries the server says no longer apply (the session ended, the participant moved on to another Form) are dropped.
+When **Offline queue** is on (the default), a page submission that fails — no network, or a 5xx from the server — is stored in the browser's IndexedDB and the participant advances locally. The banner says "queued". The queue drains when the browser fires `online` and on the next load of any page of the study; each entry is replayed to `/{run}/form-sync`, which applies the answers through the same path as a normal page submit and ignores entries it has already seen (each entry carries a UUID; the server keeps a ledger in `survey_form_submissions`). A drain that hits a validation error stops that run's queue, keeps the entry and asks the participant to fix the highlighted answers on that page and submit it again; entries the server says no longer apply (the session ended, the participant moved on to another Form) are dropped.
 
 - **Nothing drains while the tab is closed.** The page registers a Background Sync tag, but the service worker does not yet act on it, and iOS Safari has no Background Sync at all. Tell participants to reopen the study once they are back online.
 - **File uploads are queued too**, up to `form_v2_offline_blob_max_mb` per file (`settings.php`, default 10 MB). A larger file is refused with a "too large to queue offline" message instead of risking the browser's storage quota.
@@ -171,7 +171,8 @@ When **Offline queue** is on (the default), a page submission that fails — no 
 ## Known limitations
 
 - **Background Sync**: see above — page-side drain only, and none on iOS.
-- **Previous button**: going back reveals the already-rendered page; it is not refetched from the server. Dynamic values and labels on it are whatever they resolved to the first time. Leave the toggle off unless your design tolerates that.
+- **Previous button**: going back reveals the already-rendered page with the answers given so far; it is not refetched from the server. Dynamic values and labels on it are whatever they resolved to the first time. Leave the toggle off unless your design tolerates that. The server does not police it: with the toggle off, the browser hides the way back, nothing more.
+- **Where a participant resumes**: the browser remembers the page it last showed (in `localStorage`, per unit session), so a reload or a reopened tab lands where they were, with every answer given so far in its input. On another browser or after clearing site data there is no memory, and the form opens on the first page that holds an unanswered item — which can be a page they had already submitted if they left an optional item blank there.
 - **Range slider**: v1's floating value tooltip came from the `webshim` plugin, which v2 doesn't ship. `range` / `range_ticks` render as a native slider with side labels; the participant sees their position on the thumb only. `visual_analog_scale` is the v2-native answer for "no default" rating items.
 - **Solo layout**: auto-advance fires on the first commit of single-choice radios, single selects and range sliders. Checkboxes, multi-selects and free-text items never auto-advance — the participant uses the Next button.
 - **Spreadsheet-side admin classes** (`mc_width70`, `rotate_label45`, `mc_vertical`, `rating_button_label_width50`, …) work as in v1; the same `custom_item_classes.css` ships in the v2 bundle.
@@ -197,7 +198,7 @@ Beyond the rendering model:
 
 ## See also
 
-- `form_v2_upgrade.md` — instance upgrade: migrations 082–096, settings, the backfill step, rollback.
+- `form_v2_upgrade.md` — instance upgrade: migrations 082–097, settings, the backfill step, rollback.
 - `agent_doc/form_v2_layout_modes.md` — the solo layout design.
 - `agent_doc/plan_form_v2.md` — engine design and remaining work (for engineers).
 - `CLAUDE.md` § "form_v2 development notes" — code-level gotchas.

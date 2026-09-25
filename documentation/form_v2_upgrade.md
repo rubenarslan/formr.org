@@ -6,9 +6,9 @@ the schema and the `iteration` variable change for everyone, so read
 steps 1 and 3 even if you never enable v2. For what form_v2 *is*, see
 [form_v2.md](form_v2.md).
 
-## 1. Schema migrations (082–096)
+## 1. Schema migrations (082–097)
 
-Fifteen new patches in `sql/patches/`. On the docker deployment they are
+Sixteen new patches in `sql/patches/`. On the docker deployment they are
 mirrored into `mysql/atlas/migrations/` and applied by `./update.sh`;
 nothing extra to run.
 
@@ -29,8 +29,9 @@ nothing extra to run.
 | `094_survey_items_deleted` | `survey_items.deleted`: removing/renaming an item mid-study becomes a soft delete, so its `survey_items_display` answers survive a sheet edit. |
 | `095_formr_rate_limits` | New `formr_rate_limits` table: DB-backed fixed-window buckets, replacing a limiter that lived in `$_SESSION` and reset on cookie rotation. |
 | `096_survey_studies_language` | `survey_studies.language` (BCP 47, default `en`): drives `<html lang>` / `dir="rtl"` and the v2 client's UI strings. |
+| `097_survey_studies_button_labels` | `survey_studies.next_button_label` / `submit_button_label` (NULL = the built-in wording): the study's own Next / Submit button text in v2. |
 
-**All fifteen are drift-tolerant** — every DDL statement carries an
+**All sixteen are drift-tolerant** — every DDL statement carries an
 `IF NOT EXISTS` / `IF EXISTS` guard, so a host that was hand-patched
 ahead of the release re-runs them cleanly instead of dying mid-file on a
 duplicate column or index.
@@ -241,7 +242,7 @@ with **Switch back to v1** on its settings page (that sets
 `rendering_mode='v1'` only — Form units fall through to the classic
 pipeline, and you can switch forward again at any time).
 
-**Not reversible by flipping a flag:** migrations 082–096, which Atlas
+**Not reversible by flipping a flag:** migrations 082–097, which Atlas
 has applied and which stay applied. The deployment repo's
 `./db_atlas_down.sh` can compute and run a reversal, but treat it as a
 deliberate, review-the-plan-first, back-up-first operation — and note

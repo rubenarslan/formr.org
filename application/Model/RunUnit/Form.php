@@ -162,15 +162,11 @@ class Form extends Survey {
         try {
             $unitSession->createSurveyStudyRecord();
 
+            // A v2 form is completed by its final page submit
+            // (FormSubmissionService::apply ends the unit session), never by
+            // a GET: the document is the same whatever has been answered.
             $renderer = new FormRenderer($study, $unitSession);
             $renderer->processItems();
-            if ($renderer->studyCompleted()) {
-                return [
-                    'end_session' => true,
-                    'move_on' => true,
-                    'log' => $this->getLogMessage('survey_completed'),
-                ];
-            }
 
             return [
                 'content' => $renderer->render(),
