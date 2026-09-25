@@ -56,6 +56,16 @@ class Form extends Survey {
             ? (int) $options['study_id']
             : null;
 
+        // Linking switches the study to form_v2 (below), so a study the v2
+        // engine cannot run (Item::formV2Unsupported — calculate items and
+        // other server-computed values) is refused here, like a failed
+        // import: alerted, and the Form is created unlinked.
+        if ($study_id && ($unsupported = (new SurveyStudy($study_id))->formV2UnsupportedItems())) {
+            alert('<strong>Study not linked to the Form.</strong> It has items the form_v2 engine cannot run:<ul><li>'
+                . implode('</li><li>', array_map('h', $unsupported)) . '</li></ul>', 'alert-danger');
+            $study_id = null;
+        }
+
         // Strip study_id: Survey::create's study_id branch would set
         // $this->unit_id to the study (the v1 shared-PK convention), which a
         // Form must not do — its link is form_study_id, written below. The

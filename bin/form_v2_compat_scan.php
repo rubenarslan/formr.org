@@ -80,7 +80,7 @@ echo "    empty:                  {$cs['empty']}\n";
 echo "    JS-OK:                  {$cs['js_ok']}\n";
 echo "    needs JS rewrite:       {$cs['needs_js_rewrite']}\n";
 echo "    not on the form:        {$cs['not_on_form']}\n";
-echo "    on a calculate item:    {$cs['on_calculate']}\n";
+echo "  not supported in v2:      {$report['counts']['unsupported']}  (blocks the switch)\n";
 
 $cv = $report['counts']['value'];
 echo "  value (" . array_sum($cv) . " items, R-only):\n";

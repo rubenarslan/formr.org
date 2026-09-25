@@ -698,7 +698,12 @@ class AdminSurveyController extends AdminController {
         }
         $db = DB::getInstance();
 
-        if ($target === 'v2' && $this->study->rendering_mode !== 'v2') {
+        $unsupported = ($target === 'v2' && $this->study->rendering_mode !== 'v2')
+            ? $this->study->formV2UnsupportedItems() : array();
+        if ($unsupported) {
+            alert('<strong>Not switched.</strong> This study has items the form_v2 engine cannot run:<ul><li>'
+                . implode('</li><li>', array_map('h', $unsupported)) . '</li></ul>', 'alert-danger');
+        } elseif ($target === 'v2' && $this->study->rendering_mode !== 'v2') {
             $this->study->update(['rendering_mode' => 'v2']);
             $converted = self::convertSurveyPlacementsToForm($db, (int) $this->study->id);
             $note = $converted

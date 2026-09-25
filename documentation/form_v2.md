@@ -8,7 +8,7 @@ A practical guide to authoring surveys in the new "Form" engine. Operators upgra
 
 - **Form** is a new run-unit type that renders a survey as a single-page AJAX form: per-page submission without reloads, reactive `showif`s, autosave, an offline queue, and an optional one-item-per-screen layout. It coexists with the classic **Survey** unit; you opt in per study. Existing Surveys keep working unchanged.
 - The one authoring rule that changes: **`showif` runs in the browser, as JavaScript.** A v1 study's showifs are R, so upgrading means rewriting each one in JS — or, when the condition really needs R, computing it in a hidden item's `value` and referencing that item by name. Server-side R still lives in the `value` column.
-- Everything else stays the same — same spreadsheet format, same item types (plus a few new ones, see "What's new in v2"), same R data access in the rest of the run.
+- Everything else stays the same — same spreadsheet format, same item types (plus a few new ones, see "What's new in v2") except `calculate`, which v2 does not run (use a `hidden` item, or compute the value where it is used — see below), same R data access in the rest of the run.
 
 ## When to use form_v2
 
@@ -65,9 +65,7 @@ showif: !contains(animals, "cat")
 showif: last(daily_mood) > 5
 ```
 
-**Only the browser evaluates a showif.** An item with a showif renders hidden and is revealed as soon as its showif is true; the server never runs it. The browser knows every item of this form — including answers saved on earlier pages when the participant reloads or comes back later — and the results of `calculate` items. It does not know anything else: a run-level variable like `ran_group` or an item from another survey is an unknown name, and a showif that reads one stays false, so its item stays hidden. Bring such a value onto the form with a hidden item (next section). The compatibility scanner flags these names.
-
-A showif on a `calculate` item has no effect: a calculate is computed on the server, not in the browser where showifs run. Put the condition into its R instead: `if (condition) value else NA`.
+**Only the browser evaluates a showif.** An item with a showif renders hidden and is revealed as soon as its showif is true; the server never runs it. The browser knows every item of this form — including answers saved on earlier pages when the participant reloads or comes back later. It does not know anything else: a run-level variable like `ran_group` or an item from another survey is an unknown name, and a showif that reads one stays false, so its item stays hidden. Bring such a value onto the form with a hidden item (next section). The compatibility scanner flags these names.
 
 ### `value`: server-side R
 
@@ -84,7 +82,10 @@ value: 5
 
 The R source never reaches the browser. At render time each dynamic value is recorded in `survey_r_calls` (slot `value`) and the client only ever sees the recorded call id, which it hands back when it asks the server to resolve the page. Results are cached for 5 minutes per `(call, answers)` pair. A logical result is written into the field as `TRUE` or `FALSE`.
 
-**`calculate` items** are different: they are the study's own computation (a score, a group, an eligibility flag), so they are computed and stored on the server and never posted by the browser. The server evaluates and stores them when the participant reaches their page, against the answers saved by then and nothing the browser sends; their results then feed showifs like any answer. A logical is stored as `TRUE`/`FALSE`, NA as missing. As in v1, a calculate can use answers from earlier pages, not from its own page.
+**`calculate` items are not supported.** v2 runs R only for what a page shows; it does no computation of its own. A study with a `calculate` item — or any other item that takes no input but carries R in `value`, such as a `server` item with a value — cannot be switched to v2, uploaded into a v2 study, or linked to a Form unit; the compatibility scanner lists them. Replace each one by what it was for:
+
+- **the form needs the value** (a showif, a pre-filled answer, a random assignment the next page branches on): a `hidden` item with the same `value` — see below;
+- **feedback or a later unit needs it** (a score on the end page, eligibility for a Skip unit, a payment code): compute it there, in that unit's R, from the stored answers. The saving from storing a precomputed score is small, and the R stays next to the place it is used.
 
 ### Bridging R into a `showif`
 
@@ -96,29 +97,16 @@ my_score   hidden                   r(complex_score(current(q1)))
 followup   text    my_score > 0.5
 ```
 
-The hidden field is resolved on the server; the resolved scalar is written into the input, and the showif reacts to it like to any other answer. You can read the resolved value while testing, and several showifs can reuse `my_score` without paying the OpenCPU cost again. A `calculate` item works as a bridge too — see the next section for which one to use.
+The hidden field is resolved on the server; the resolved scalar is written into the input, and the showif reacts to it like to any other answer. You can read the resolved value while testing, and several showifs can reuse `my_score` without paying the OpenCPU cost again. The value is stored with its page like an answer.
 
-### `calculate` or `hidden`?
-
-Both run R from the `value` column on the server, and showifs can read both. They differ in when the R runs and who stores the result:
-
-| | `calculate` | `hidden` with a `value` |
-| --- | --- | --- |
-| R runs | when the participant first opens a page at or after the item's, once (and at the final submit for anything left) | when the item's page is shown |
-| sees answers from | earlier pages — placed after the last page, all of them | earlier pages only (the page's own answers are still empty when it is shown) |
-| result is stored by | the server | the browser, which posts it with autosave and the page submit — so a participant (or bot) can change it |
-| if the page's dynamic content can't be loaded (network, rate limit, offline) | unaffected: it doesn't go through the page (it is computed the next time a page is opened online, or at the final submit) | submitted empty |
-
-Use **`calculate`** for anything you analyse or act on: scores, random assignment, eligibility flags that a later Skip unit reads, payment codes, and end-of-form scores (put them after the last page). Use **`hidden`** for what the page itself needs: a pre-filled answer, or a bridge into a showif where it doesn't matter that the participant could change the value.
-
-Neither keeps a value secret from the participant. Everything this form stores — answers and `calculate` results alike — is readable in the participant's browser, because showifs can use it. A value participants must not be able to see (their experimental condition, say) belongs outside the form, for example in an earlier survey of the run, and must not be referenced from a showif.
+A hidden item resolves when its page is shown, against the answers of earlier pages — its own page's answers are still empty then. It is posted by the browser, so a participant (or a bot) can change it, and it is submitted empty if the page's dynamic content could not be loaded (network, rate limit, offline). Nothing on the form is secret: a value participants must not see (their experimental condition, say) belongs outside the form, for example in an earlier survey of the run, and must not be referenced from a showif.
 
 ### Page-scoped resolution
 
 Server-side R only runs for the page the participant is looking at, and every page — the first one included — is resolved the same way:
 
 - **Showing a page** (on load, and after each page submit): the client asks the server for that page (`/form-render-page`), which resolves all of its dynamic values, labels, choice labels and `note_iframe` documents in one OpenCPU batch against the latest answers. Until then they show as placeholders.
-- **Submitting a page**: the server stores the answers and runs the `calculate` items on the page that comes next (and on any page that holds nothing but calculations, which is skipped).
+- **Submitting a page**: the server stores the answers and records which items the page's showifs hid; it runs no R.
 
 Dynamic content on page N+1 usually depends on page N, so it can't be resolved earlier — and pre-resolving pages that may never be reached would waste OpenCPU time. Cost: one OpenCPU batch per page shown (cache-aware), rate-limited to 30 per minute per session (`form_v2_rate_limits` in `settings.php`).
 
@@ -130,12 +118,13 @@ A label containing inline R (`` `r expr` ``) is treated as **one** allowlisted c
 
 Before upgrading a v1 study, run the scanner. It classifies every expression:
 
+**Items v2 cannot run** — `calculate` items and other items that take no input but carry R in `value`. They block the switch to v2; replace them as described under `value` above.
+
 **`showif`**
 - **empty** — no expression
 - **JS-OK** — transpiles to JavaScript cleanly
 - **needs JS rewrite** — residual R-only tokens (`ifelse`, `c(`, `%in%`, `<-`, …): rewrite in JS, or move the R into a hidden item's `value` and reference that name
 - **not on the form** — reads a name that isn't an item of this survey (`ran_group`, another survey's item): compute it in a hidden item's `value` and reference that item
-- **on a calculate** — a showif on a `calculate` item, which has no effect: put the condition into its R
 
 **`value`**
 - **empty**, **literal** (a number, kept as-is), or **R** (evaluated on the server)

@@ -878,6 +878,11 @@ class SurveyStudy extends Model
                 unset($reader->survey[$row_number]);
                 continue;
             }
+            if ($this->rendering_mode === 'v2' && ($why = $item->formV2Unsupported())) {
+                $this->errors[] = $why;
+                unset($reader->survey[$row_number]);
+                continue;
+            }
 
             // if the parsed label is constant or exists
             if (!knitting_needed($item->label) && !$item->label_parsed) {
@@ -1072,6 +1077,25 @@ class SurveyStudy extends Model
         }
 
         return false;
+    }
+
+    /**
+     * The items that keep this study off the form_v2 engine
+     * (Item::formV2Unsupported), as name => reason. Empty = can run on v2.
+     *
+     * @return array<string, string>
+     */
+    public function formV2UnsupportedItems()
+    {
+        $factory = new ItemFactory(array());
+        $out = array();
+        foreach ((array) $this->getItems() as $row) {
+            $item = $factory->make($row);
+            if ($item && ($why = $item->formV2Unsupported())) {
+                $out[(string) $item->name] = $why;
+            }
+        }
+        return $out;
     }
 
     public function getItems($columns = null, $whereIn = null, $includeDeleted = false)

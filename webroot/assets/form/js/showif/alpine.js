@@ -95,7 +95,7 @@ export function registerFmrForm(Alpine) {
             });
             inputs.forEach((inp) => this._syncInput(inp));
             // The stored answers (FormRenderer::stateBlock) cover names no
-            // input on the page owns — calculate results, uploads — so a
+            // input on the page owns (uploads, automatic items) so a
             // showif that reads one sees a value; a live input of the same
             // name always wins (main.js fills those from the same block).
             const state = this.$root.querySelector('script.fmr-state');
@@ -115,7 +115,7 @@ export function registerFmrForm(Alpine) {
         },
 
         // Set fields from a name → value map the server supplied: saved answers
-        // at load, calculate results after a page submit. `onlyUnknown` keeps
+        // at load, the stored state after a page submit. `onlyUnknown` keeps
         // a field some input on the page already owns.
         _seed(values, onlyUnknown = false) {
             if (!values || typeof values !== 'object') return;

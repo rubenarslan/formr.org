@@ -2,18 +2,18 @@
 //
 //   npx playwright test --config tests/e2e/playwright.config.js v2-dynamic
 //
-// Dynamic `value`s (including `calculate` items), dynamic labels, R in choice
+// Dynamic `value`s (including hidden items with an R value), dynamic labels, R in choice
 // labels and note_iframe all resolve through /form-render-page — on the first
 // page as on every later one — and showif is JavaScript only (no server-side R
 // pass). Fixture: tests/e2e/setup/e2e_v2_dynamic.json, provisioned by
 // tests/e2e/setup/create-v2-fixtures.js as run `e2e-dyn-v2`.
 //
 //   page 1: d_intro (label `r 2*3`), d_num (number), d_default (value
-//           paste("pre","filled")), d_calc_false (calculate 1 > 2), d_calc_seed
-//           (calculate 3 + 4), d_after_calc (showif d_calc_seed == 7), d_mc
+//           paste("pre","filled")), d_calc_false (hidden 1 > 2), d_calc_seed
+//           (hidden 3 + 4), d_after_calc (showif d_calc_seed == 7), d_mc
 //           (choice label `r 10 + 1`)
 //   page 2: d_label2 (label `r d_num`), d_default2 (value d_num * 2), d_calc2
-//           (calculate d_num > 5), d_mc2 (choice label `r d_num + 100`),
+//           (hidden d_num > 5), d_mc2 (choice label `r d_num + 100`),
 //           d_show2 (showif d_num > 5), d_iframe (note_iframe `r d_num`)
 const { test, expect, bsSafeEvaluate } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
@@ -57,6 +57,9 @@ async function snapshot(page) {
             label2: text('form.fmr-form-v2 .item-note:has([name="d_label2"]) .control-label'),
             d_default: document.querySelector('[name="d_default"]')?.value ?? null,
             d_default2: document.querySelector('[name="d_default2"]')?.value ?? null,
+            d_calc_false: document.querySelector('[name="d_calc_false"]')?.value ?? null,
+            d_calc_seed: document.querySelector('[name="d_calc_seed"]')?.value ?? null,
+            d_calc2: document.querySelector('[name="d_calc2"]')?.value ?? null,
             mc1: choice('d_mc', 1),
             mc2_1: choice('d_mc2', 1),
             afterCalc: visible('d_after_calc'),
@@ -68,7 +71,7 @@ async function snapshot(page) {
 }
 
 test.describe('form_v2: dynamic content resolves the same way on every page', () => {
-    test('page 1: values, labels, choice labels and calculates resolve on load', async ({ page, baseURL }) => {
+    test('page 1: values, labels, choice labels and hidden values resolve on load', async ({ page, baseURL }) => {
         await freshParticipant(page, RUN(), { baseURL });
         await v2.waitForBundle(page);
         await waitResolved(page, 1);
@@ -77,15 +80,12 @@ test.describe('form_v2: dynamic content resolves the same way on every page', ()
         expect(s.d_default).toBe('pre filled');
         expect(s.mc1).toBe('11');
         expect(s.rawR, 'no raw `r …` source may reach the participant').toBe(false);
-        expect(s.afterCalc, 'a showif over a same-page calculate item').toBe(true);
-
-        const st = study();
-        const row = db.dbResultsRow(st.results_table, await unitSessionId(page));
-        expect(row.d_calc_false, 'a FALSE calculate is stored as "FALSE", not empty').toBe('FALSE');
-        expect(row.d_calc_seed).toBe('7');
+        expect(s.afterCalc, 'a showif over a same-page hidden item').toBe(true);
+        expect(s.d_calc_false, 'a FALSE result is written as "FALSE", not empty').toBe('FALSE');
+        expect(s.d_calc_seed).toBe('7');
     });
 
-    test('page 2 resolves against page-1 answers, and calculates store TRUE/FALSE', async ({ page, baseURL }) => {
+    test('page 2 resolves against page-1 answers; hidden values are stored with their page', async ({ page, baseURL }) => {
         await freshParticipant(page, RUN(), { baseURL });
         await v2.waitForBundle(page);
         await waitResolved(page, 1);
@@ -102,8 +102,13 @@ test.describe('form_v2: dynamic content resolves the same way on every page', ()
         expect(s.iframeSrc, 'note_iframe gets its knitted src on its own page').toMatch(/^https?:\/\//);
         expect(await iframeText(page, s.iframeSrc), 'knitted with the page-1 answer, not at initial render').toContain('Iframe says 9');
 
-        const row = db.dbResultsRow(study().results_table, await unitSessionId(page));
-        expect(row.d_calc2).toBe('TRUE');
+        expect(s.d_calc2, 'resolved against the page-1 answer').toBe('TRUE');
+
+        // Hidden values are stored with their page's submit, like any answer.
+        const sid = await unitSessionId(page);
+        const row = db.dbResultsRow(study().results_table, sid);
+        expect(row.d_calc_false, 'a FALSE result is stored as "FALSE", not empty').toBe('FALSE');
+        expect(row.d_calc_seed).toBe('7');
     });
 
     test('resume: a showif over an earlier page\'s answer survives a reload', async ({ page, baseURL }) => {

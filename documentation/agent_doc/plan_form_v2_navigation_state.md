@@ -323,3 +323,19 @@ Tests: `tests/FormSubmissionServiceTest.php`, `tests/js/state.test.mjs`
 (`npm run test:js`), `bin/test_form_v2_navigation_smoke.php`,
 `tests/e2e/v2-resume.spec.js`; the existing v2 specs were updated for the
 reply shape (`v2.advanced`, `v2.unitSessionId`).
+
+## 7. Follow-up: no `calculate` in v2
+
+Decided after the 2026-09-25 engine review, whose findings on calculate
+timing (the next page chosen before its calculations ran, pages with no
+dynamic content never computing theirs, same-batch calculations reading
+each other as NA, render-page storing calculations without a stale-tab
+gate) all traced to the server computing values on its own schedule.
+Rather than add a server-side step before every page choice, v2 drops
+server-side computation: `Item::formV2Unsupported()` refuses `calculate`
+items and any other no-input item with an R `value`, at upload into a v2
+study, at the switch, at a Form's study link and in the compat scan.
+`RCallService::computeCalculations` and every `computed` reply field are
+gone; `/form-render-page` stores no answers. Where §2/§3 above describe
+calculations on page show or at the final submit, read "none".
+

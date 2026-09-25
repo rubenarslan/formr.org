@@ -24,7 +24,7 @@ import { t } from '../lib/i18n.js';
 // value, save_in_results_table=false). It's filtered out of the v2 pipeline
 // server-side (FormRenderer::getAllUnansweredItems); listed here too so a
 // legacy/already-rendered session never seats it as its own blank step.
-const HIDDEN_TYPES = ['hidden', 'get', 'random', 'referrer', 'ip', 'browser', 'calculate', 'server', 'mc_heading'];
+const HIDDEN_TYPES = ['hidden', 'get', 'random', 'referrer', 'ip', 'browser', 'server', 'mc_heading'];
 
 export function initSolo(opts) {
     // pageNav (main.js): which page is the last shown one and where Previous

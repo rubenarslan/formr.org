@@ -10,8 +10,9 @@
  * with a showif renders hidden, and the browser reveals it. So an expression
  * the browser cannot evaluate — leftover R, or a name that is not an item of
  * this form (a run variable, another survey's item) — leaves its item hidden
- * for good. Both are flagged, as is a showif on a `calculate` item, which is
- * computed on the server and never reaches the browser. Heuristic; useful for
+ * for good. Both are flagged, as are items v2 cannot run at all
+ * (Item::formV2Unsupported: `calculate` and other server-computed values),
+ * which also block the switch to v2. Heuristic; useful for
  * upgrade-readiness overviews and as a CI gate (the CLI exits 2 when anything
  * is flagged).
  */
@@ -21,7 +22,8 @@ class FormV2CompatScanner {
      * @param int $studyId
      * @return array{
      *     counts: array{
-     *         showif: array{empty:int, js_ok:int, needs_js_rewrite:int, not_on_form:int, on_calculate:int},
+     *         showif: array{empty:int, js_ok:int, needs_js_rewrite:int, not_on_form:int},
+     *         unsupported: int,
      *         value: array{empty:int, literal:int, r:int}
      *     },
      *     flagged: list<array{id:int, name:string, type:string, column:string, source:string, transpiled:string, problems:list<string>, suggested_fix:string}>,
@@ -49,9 +51,12 @@ class FormV2CompatScanner {
             // `needs_js_rewrite` (rewrite it in JS, or move the R into a
             // hidden item's value and reference that name).
             // `not_on_form`: names the browser has no value for (bridge them
-            // through a hidden item); `on_calculate`: a showif the server
-            // ignores (put the condition into the calculate's R).
-            'showif' => ['empty' => 0, 'js_ok' => 0, 'needs_js_rewrite' => 0, 'not_on_form' => 0, 'on_calculate' => 0],
+            // through a hidden item).
+            'showif' => ['empty' => 0, 'js_ok' => 0, 'needs_js_rewrite' => 0, 'not_on_form' => 0],
+            // Items v2 cannot run at all (Item::formV2Unsupported: calculate
+            // and other server-computed values). The switch to v2 refuses a
+            // study with any of these.
+            'unsupported' => 0,
             // value is R-only — every non-empty, non-numeric value is
             // routed through the allowlist as R. Buckets describe how the
             // entry will be handled, not whether it's valid.
@@ -65,6 +70,26 @@ class FormV2CompatScanner {
             }
             $raw_showif = trim((string) ($row['showif'] ?? ''));
             $raw_value = trim((string) ($row['value'] ?? ''));
+
+            // ---- the item itself ----
+            try {
+                $typed = $itemFactory->make($row);
+            } catch (Throwable $e) {
+                $typed = null;
+            }
+            if ($typed && ($why = $typed->formV2Unsupported())) {
+                $counts['unsupported']++;
+                $flagged[] = [
+                    'id' => (int) $row['id'],
+                    'name' => (string) $row['name'],
+                    'type' => (string) $row['type'],
+                    'column' => 'type',
+                    'source' => $raw_value,
+                    'transpiled' => '',
+                    'problems' => [$why],
+                    'suggested_fix' => 'use_hidden',
+                ];
+            }
 
             // ---- showif ----
             if ($raw_showif === '') {
@@ -88,10 +113,7 @@ class FormV2CompatScanner {
                         'suggested_fix' => $fix,
                     ];
                 };
-                if ($item && !$item->requiresUserInput() && $item->needsDynamicValue()) {
-                    $counts['showif']['on_calculate']++;
-                    $flag(['showif on an item computed on the server'], 'move_into_value');
-                } elseif ($problems = self::detectRTokens($transpiled)) {
+                if ($problems = self::detectRTokens($transpiled)) {
                     $counts['showif']['needs_js_rewrite']++;
                     $flag($problems, 'rewrite_in_js');
                 } elseif ($unknown = self::namesNotOnForm($transpiled, $formNames)) {

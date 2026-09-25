@@ -305,7 +305,7 @@ It needs the robot admin session global-setup writes (run any e2e spec once
 first) and skips a fixture whose run already exists.
 
 - `e2e_v2_dynamic.json` → run `e2e-dyn-v2` (`v2-dynamic.spec.js`): dynamic
-  values, labels, R in choice labels, `calculate` items and a `note_iframe`
+  values (including hidden items with an R value), labels, R in choice labels and a `note_iframe`
   on two pages, so the first page and a later page are checked for the same
   resolution path; plus a showif over a page-1 answer after a reload.
 - `e2e_v2_inputs.json` → run `e2e-inputs-v2` (`v2-inputs.spec.js`):

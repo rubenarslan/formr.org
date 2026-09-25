@@ -32,12 +32,11 @@
  *   3. Dynamic labels (Item::needsDynamicLabel), note_iframe documents and
  *      R in choice labels record into `survey_r_calls` (slots 'label' and
  *      'choice_label') and resolve through the same page request.
- *   4. `calculate` items (no input, R in `value`) are the study's own
- *      computation, so they never go through the client: they are
- *      evaluated and stored on the server when the browser asks to show a
- *      page (every calculate on pages up to it, RunController::
- *      formRenderPageAction) and at the final submit (the rest). Never at
- *      render.
+ *   4. There is no server-side computation: `calculate` items, and any
+ *      other item that takes no input but carries R in `value`, are not
+ *      supported (Item::formV2Unsupported). What the form needs is a
+ *      `hidden` item with that value; scores and groups for feedback or
+ *      later units are computed where they are used.
  */
 class FormRenderer extends SpreadsheetRenderer {
 
@@ -95,6 +94,16 @@ class FormRenderer extends SpreadsheetRenderer {
             return;
         }
 
+        // Items v2 cannot run (Item::formV2Unsupported: calculate and other
+        // server-computed values; rule 4) are refused at upload and at the
+        // switch to v2. Should one still be in the study, it is not rendered
+        // — never evaluated, and its R source never reaches the page.
+        foreach ($items as $name => $item) {
+            if ($item && $item->formV2Unsupported()) {
+                unset($items[$name]);
+            }
+        }
+
         // Automatic items (browser, ip, random, …) are computed and stored
         // the first time the form is rendered; a later render — every item
         // is queried every time — must not recompute them (a `random` would
@@ -111,15 +120,6 @@ class FormRenderer extends SpreadsheetRenderer {
             return isset($pageMap[(int) $item->id]) ? (int) $pageMap[(int) $item->id] : 1;
         };
 
-        // Calculate items are not rendered and not evaluated here: they run
-        // when the browser asks to show a page (/form-render-page) and at the
-        // final submit (rule 4). They still appear in the state block.
-        foreach ($items as $name => $item) {
-            if ($item && !$item->requiresUserInput() && $item->needsDynamicValue()) {
-                unset($items[$name]);
-            }
-        }
-
         // Step 1: dynamic values. The `value` column carries R that we route
         // through the allowlist; admins can author it bare or wrapped in r(...)
         // (the documented bridge into a JS showif, see documentation/form_v2.md
@@ -134,7 +134,7 @@ class FormRenderer extends SpreadsheetRenderer {
         //     call_id. `sticky` is recorded as written and expanded at
         //     evaluation (RCallService::expandValueExpr).
         //   - The value is blanked on every page and resolved when its page is
-        //     shown; items that take no input (calculate) were removed above.
+        //     shown; items that take no input carry no R here (see above).
         //   - The survey_r_calls rows are collected here and written in ONE
         //     batch below (see ensureRCalls).
         $pendingCalls = [];   // list of ['slot'=>…, 'expr'=>…, 'item_id'=>…]
@@ -215,10 +215,9 @@ class FormRenderer extends SpreadsheetRenderer {
             }
         }
 
-        // A page that holds nothing but calculate items still has its submit
-        // row. It is never shown (its calculations run when the next page is
-        // asked for), so its submit is dropped and the page does not exist in
-        // the document.
+        // A page left with nothing but its submit row (every other item was
+        // dropped above) is not a page: its submit is dropped too, so the
+        // page does not exist in the document.
         $answerablePages = [];
         foreach ($items as $item) {
             if ($item && $item->type !== 'submit') {
@@ -634,8 +633,8 @@ class FormRenderer extends SpreadsheetRenderer {
      * `answered` / `required` / `hidden` (state.js pageState). Multi-value
      * answers arrive as arrays, the shape the live inputs produce; an
      * upload's stored path is not shipped (`value` null, `answered` true).
-     * Every item is listed, calculate items included, so the browser's copy
-     * of the data is complete and the same after a reload as before it.
+     * Every item is listed, so the browser's copy of the data is complete
+     * and the same after a reload as before it.
      *
      * @return array{unit_session_id:int, items: array<string, array>}
      */

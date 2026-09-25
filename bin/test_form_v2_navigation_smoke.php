@@ -9,9 +9,11 @@
  *   - FormSubmissionService::apply stores a page and replies with the stored
  *     state; hidden ids are recorded over the whole form (hide → retract,
  *     unhide); a validation error writes nothing;
- *   - the final submit computes the remaining calculate items, refuses to end
- *     while a required item is unanswered (`missing`), and ends the unit
- *     session once nothing is;
+ *   - the final submit refuses to end while a required item is unanswered
+ *     (`missing`) and ends the unit session once nothing is; the server
+ *     computes nothing itself (a hidden item's R value is the browser's to
+ *     resolve and submit);
+ *   - a study with a `calculate` item cannot become a v2 Form's study;
  *   - a GET never completes the form (Form::getUnitSessionOutput renders).
  *
  * Run: docker exec formr_app php /var/www/formr/bin/test_form_v2_navigation_smoke.php
@@ -52,8 +54,9 @@ $bundle = ['units' => [[
         // page 2
         $item(4, 'q3', 'text'),
         $item(5, 's2', 'submit', ['label' => '']),
-        // page 3: a calculate and a trailing optional item, no submit row
-        $item(6, 'score', 'calculate', ['value' => '1 + 1']),
+        // page 3: a hidden item with an R value and a trailing optional
+        // item, no submit row
+        $item(6, 'score', 'hidden', ['value' => '1 + 1']),
         $item(7, 'q4', 'text', ['optional' => 1]),
     ]],
 ]]];
@@ -98,7 +101,8 @@ try {
     ok(substr_count($html, '<section class="fmr-page"') === 3, 'three page sections', substr_count($html, '<section class="fmr-page"'));
     ok(substr_count($html, 'data-fmr-page="1" hidden') === 1 && substr_count($html, 'data-fmr-page="3" hidden') === 1, 'every section hidden');
     ok(strpos($html, 'name="q4"') !== false && strpos($html, 'name="q1"') !== false, 'items of every page rendered');
-    ok(strpos($html, 'name="score"') === false, 'calculate item not rendered');
+    ok(strpos($html, 'name="score"') !== false, 'hidden item rendered');
+    ok(strpos($html, '1 + 1') === false, 'its R source is not in the page');
     ok(strpos($html, 'class="fmr-state"') !== false && strpos($html, 'fmr-saved-answers') === false && strpos($html, 'name="session_id"') === false, 'state block replaces saved-answers + session_id');
     ok(substr_count($html, 'data-fmr-nav-label') === 3, 'a relabelable advance button on each page', substr_count($html, 'data-fmr-nav-label'));
     $state = $renderer->stateBlock();
@@ -168,9 +172,8 @@ try {
     ok($r['items']['q4']['value'] === 'trailing', 'the page itself was stored');
     $ended = $db->execute('SELECT ended FROM survey_unit_sessions WHERE id = :id', ['id' => $us->id], false, true);
     ok($ended['ended'] === null, 'unit session still open');
-    $calc = $row('score');
-    ok($calc['answer'] === '2' || $calc['answer'] === null, 'calculate ran on the final submit (2) or OpenCPU is down (null)', $calc);
-    if (isset($r['computed'])) { ok(($r['computed']['score'] ?? null) === '2', 'computed value handed back', $r['computed']); }
+    ok($row('score')['answer'] === null, 'the server computed nothing for the hidden item');
+    ok(!isset($r['computed']), 'no computed values in the reply');
 
     echo "\n-- a GET does not complete the form --\n";
     $out = $form->getUnitSessionOutput($us);
@@ -189,6 +192,36 @@ try {
     echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
     $failures++;
 }
+echo "\n-- a study with a calculate item is not linked to a Form --\n";
+$calcStudy = null;
+try {
+    $calcName = 'navsmoke_calc_' . $suffix;
+    $calcBundle = ['units' => [[
+        'type' => 'Form', 'position' => 20, 'description' => 'calc smoke',
+        'survey_data' => ['name' => $calcName, 'items' => [
+            $item(1, 'c1', 'text'),
+            $item(2, 'c_score', 'calculate', ['value' => 'nchar(c1)']),
+        ]],
+    ]]];
+    $run->importUnits(json_encode($calcBundle));
+    $calcStudy = SurveyStudy::loadByUserAndName($GLOBALS['user'], $calcName);
+    ok($calcStudy && $calcStudy->valid, 'the study itself was created');
+    ok($calcStudy && $calcStudy->rendering_mode === 'v1', 'but not switched to v2', $calcStudy ? $calcStudy->rendering_mode : null);
+    $unsupported = $calcStudy ? $calcStudy->formV2UnsupportedItems() : [];
+    ok(array_keys($unsupported) === ['c_score'], 'the calculate is what blocks it', array_keys($unsupported));
+    $linked = $db->execute('SELECT COUNT(*) AS n FROM survey_units WHERE form_study_id = :s', ['s' => $calcStudy ? $calcStudy->id : 0], false, true);
+    ok((int) $linked['n'] === 0, 'no Form unit points at it');
+} catch (Throwable $e) {
+    echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . "\n";
+    $failures++;
+}
+try {
+    foreach ((array) $db->execute('SELECT unit_id FROM survey_run_units WHERE run_id = :r', ['r' => $runId]) as $u) {
+        $db->exec('DELETE FROM survey_run_units WHERE run_id = :r AND unit_id = :u', ['r' => $runId, 'u' => $u['unit_id']]);
+        $db->exec('DELETE FROM survey_units WHERE id = :u AND id <> :keep', ['u' => $u['unit_id'], 'keep' => (int) $unitId]);
+    }
+    if ($calcStudy && $calcStudy->valid) { $calcStudy->delete(); }
+} catch (Throwable $e) {}
 teardown();
 echo "\n" . ($failures ? "\e[31m{$failures} failure(s)\e[0m" : "\e[32mall passed\e[0m") . "\n";
 exit($failures ? 1 : 0);

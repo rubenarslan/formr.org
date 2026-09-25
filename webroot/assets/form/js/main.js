@@ -546,8 +546,8 @@ function initForm() {
             const outcome = classifySyncResponse(res, body);
             if (outcome === 'applied') {
                 await queueDelete(entry.uuid);
-                // The stored state of what just landed (and any calculate
-                // items a final entry ran) — for this form's showifs.
+                // The stored state of what just landed — for this form's
+                // showifs.
                 if (isOwnRun) absorbReply(body);
                 // If the drain applied the final page of the form, the server
                 // returns a redirect so Run::exec can advance. Taken by
@@ -764,8 +764,6 @@ function initForm() {
         }
         const valuesMap = (body && body.values) || {};
         const labelsMap = (body && body.labels) || {};
-        // Calculate items the page show just ran, for the showif scope.
-        absorbReply({ computed: body.computed });
         // Substitute values (setInputValue). Don't clobber a value the
         // participant already gave (back-nav case).
         fillItems.forEach((wrapper) => {
@@ -1066,9 +1064,8 @@ function initForm() {
                 .then((removed) => { if (removed) drainQueue(); })
                 .catch(() => {});
         }
-        // The reply carries the stored state of what was just written (and
-        // of calculate items the final submit ran): merge it into the store
-        // and hand the values to the showif scope.
+        // The reply carries the stored state of what was just written: merge
+        // it into the store and hand the values to the showif scope.
         absorbReply(body);
         if (body.redirect) {
             // Last page just landed — pause briefly so the participant sees
@@ -1107,7 +1104,6 @@ function initForm() {
         if (body.items) store.merge(body.items);
         const values = {};
         Object.keys(body.items || {}).forEach((name) => { values[name] = body.items[name].value; });
-        Object.assign(values, body.computed || {});
         if (Object.keys(values).length && window.Alpine) {
             try { window.Alpine.$data(root)._seed(values); } catch (e) { /* noop */ }
         }

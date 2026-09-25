@@ -42,17 +42,21 @@
                             </ul>
                         </div>
 
+                        <?php if (!empty($report['counts']['unsupported'])): ?>
+                            <p class="text-red"><strong><?= (int) $report['counts']['unsupported'] ?> item(s) the form_v2 engine cannot run</strong> (calculate items, or items that take no input but carry R in <code>value</code>). The switch to v2 is refused until they are replaced — see the flagged rows below.</p>
+                        <?php endif; ?>
+
                         <h4>showif summary</h4>
                         <table class="table table-bordered table-condensed">
                             <thead>
-                                <tr><th>Empty</th><th>JS-OK</th><th>Needs JS rewrite</th><th>Not on the form</th><th>On a calculate</th></tr>
+                                <tr><th>Empty</th><th>JS-OK</th><th>Needs JS rewrite</th><th>Not on the form</th></tr>
                             </thead>
                             <tbody>
                                 <?php $c = $report['counts']['showif']; ?>
                                 <tr>
                                     <td><?= (int) $c['empty'] ?></td>
                                     <td><?= (int) $c['js_ok'] ?></td>
-                                    <?php foreach (array('needs_js_rewrite', 'not_on_form', 'on_calculate') as $bucket): ?>
+                                    <?php foreach (array('needs_js_rewrite', 'not_on_form') as $bucket): ?>
                                         <td<?= ((int) $c[$bucket] > 0) ? ' class="text-red"' : '' ?>><strong><?= (int) $c[$bucket] ?></strong></td>
                                     <?php endforeach; ?>
                                 </tr>

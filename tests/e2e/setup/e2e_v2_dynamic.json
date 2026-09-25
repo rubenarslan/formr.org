@@ -15,16 +15,16 @@
             "label": "Pre-filled by R", "value": "paste(\"pre\", \"filled\")"
         },
         {
-            "type": "calculate", "name": "d_calc_false", "optional": 1,
-            "label": "calc returning FALSE", "value": "1 > 2"
+            "type": "hidden", "name": "d_calc_false", "optional": 1,
+            "label": "hidden returning FALSE", "value": "1 > 2"
         },
         {
-            "type": "calculate", "name": "d_calc_seed", "optional": 1,
-            "label": "calc returning 7", "value": "3 + 4"
+            "type": "hidden", "name": "d_calc_seed", "optional": 1,
+            "label": "hidden returning 7", "value": "3 + 4"
         },
         {
             "type": "text", "name": "d_after_calc", "optional": 1,
-            "label": "Shown because a calculate item on this page is 7", "showif": "d_calc_seed == 7"
+            "label": "Shown because a hidden item on this page resolved to 7", "showif": "d_calc_seed == 7"
         },
         {
             "type": "mc", "name": "d_mc", "choice_list": "dynlist", "optional": 1,
@@ -43,8 +43,8 @@
             "label": "Twice your number", "value": "d_num * 2"
         },
         {
-            "type": "calculate", "name": "d_calc2", "optional": 1,
-            "label": "calc over a page-1 answer", "value": "d_num > 5"
+            "type": "hidden", "name": "d_calc2", "optional": 1,
+            "label": "hidden over a page-1 answer", "value": "d_num > 5"
         },
         {
             "type": "mc", "name": "d_mc2", "choice_list": "dynlist2", "optional": 1,

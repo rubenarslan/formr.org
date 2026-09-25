@@ -281,9 +281,12 @@ docker compose exec formr_app php bin/form_v2_compat_scan.php <study_id|study_na
 (or the **Run v2 compatibility scan** button on the survey's settings
 page). It is read-only and exits 2 when anything is flagged, so it also
 works as a CI gate. Resolve the flagged showifs the way §5 describes —
-rewrite them in JavaScript, or put the R in a hidden item (`hidden`, or
-`calculate`) whose `value` holds it and reference that name from a plain
-JS showif. Once the
+rewrite them in JavaScript, or put the R in a `hidden` item whose `value`
+holds it and reference that name from a plain JS showif. `calculate` items
+(and other no-input items with an R `value`) are not supported in v2 and
+block the switch: replace each with a `hidden` item if the form needs the
+value, or compute it in the unit that uses it (feedback, a Skip unit's R).
+Once the
 switch goes through, open sessions move with the converted run unit, so
 participants who are mid-form continue on v2 from where they are.
 

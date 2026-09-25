@@ -807,6 +807,31 @@ class Item {
     }
 
     /**
+     * Why this item cannot be part of a form_v2 study, or null when it can.
+     *
+     * form_v2 runs R only for what the participant's browser asks for (a
+     * page's dynamic values and labels), never as the server's own
+     * computation. So an item whose value only the server could compute — a
+     * `calculate`, or any other item that takes no input but carries R in
+     * `value` — has no place in v2. What the form needs is a `hidden` item
+     * with the same `value` (resolved when its page is shown and submitted
+     * with it); a score or group for feedback or later units belongs in the
+     * R of those units. One rule, used by the upload, the switch to v2, the
+     * Form unit's study link and the compatibility scan.
+     *
+     * @return string|null
+     */
+    public function formV2Unsupported() {
+        if ($this->type === 'calculate') {
+            return "'{$this->name}': calculate items are not supported by the form_v2 engine. Use a hidden item with the same value (it is resolved when its page is shown and submitted with it), or compute the value where it is used (a later unit's R, feedback).";
+        }
+        if (!$this->requiresUserInput() && $this->needsDynamicValue()) {
+            return "'{$this->name}': a {$this->type} item takes no input, so its R value would be computed only on the server, which the form_v2 engine does not do. Clear its value, or use a hidden item with that value.";
+        }
+        return null;
+    }
+
+    /**
      * Is an element hidden in DOM but rendered?
      *
      * @return boolean

@@ -141,12 +141,11 @@ class FormSubmissionService {
      *
      * Steps: validate + write the answers (UnitSession::updateSurveyStudyRecord,
      * v1's path); record the browser's showif decisions for the whole form;
-     * and, when the browser says this was the last page, compute the
-     * remaining calculate items, check the required items and end the unit
-     * session. A validation failure writes nothing and returns the errors.
+     * and, when the browser says this was the last page, check the required
+     * items and end the unit session. A validation failure writes nothing and returns the errors.
      *
      * @param array $payload from readPayload
-     * @return array {status:'ok', items, computed?, complete?, missing?} or
+     * @return array {status:'ok', items, complete?, missing?} or
      *   {status:'errors', errors: name => message}
      */
     public function apply(array $payload) {
@@ -162,11 +161,6 @@ class FormSubmissionService {
         $response = array('status' => 'ok');
         $names = array_keys($payload['data']);
         if (!empty($payload['final'])) {
-            $computed = (new RCallService($this->unitSession, $this->study))->computeCalculations(null);
-            if ($computed) {
-                $response['computed'] = $computed;
-                $names = array_merge($names, array_keys($computed));
-            }
             // The page itself is stored either way; `missing` tells the
             // browser which required items still stand between the
             // participant and the end of the form.

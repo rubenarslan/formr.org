@@ -1209,16 +1209,13 @@ class RunController extends Controller {
      *   { "values": { "<call_id>": <scalar>, ... },
      *     "labels": { "<call_id>": "<rendered html>", ... } }
      *
-     * Page-transition flow: client submits page N via /form-page-submit,
-     * server persists answers, returns `next_page`. Client then POSTs here
-     * with `page=next_page` and the current page's answers (so any same-page
-     * hidden-field-with-r() values resolve against the latest state). Client
-     * substitutes labels into the wrapper innerHTML and writes values into
-     * the matching `data-fmr-fill-id` inputs before showing the page.
-     *
-     * The first page goes through here too: the client calls it for the page
-     * it lands on, right after load. FormRenderer evaluates no R for the
-     * participant's display (only the calculate items that are due).
+     * Called by the browser for every page it is about to show — the one it
+     * lands on and each one it moves to (state.mjs decides which) — with the
+     * form's current answers (so hidden-field values resolve against the
+     * latest state). The client substitutes labels into the wrapper
+     * innerHTML and writes values into the matching `data-fmr-fill-id`
+     * inputs. This is the only R a v2 form runs; FormRenderer runs none. It
+     * stores no answers (only its own result cache).
      *
      * `choices` (R in choice labels): call id => {html, item_id, values}.
      *
@@ -1251,17 +1248,13 @@ class RunController extends Controller {
         }
         list(, $unitSession, $study) = $context;
 
-        // Showing a page is when its calculate items — and those of every
-        // page before it — are due (FormRenderer rule 4). They are stored on
-        // the server and handed back so the page's showifs can read them.
         $service = new RCallService($unitSession, $study);
-        $computed = $service->computeCalculations($pageNum);
 
         // The service scopes calls to items actually scheduled on that page
         // in THIS unit-session and applies the allowlist revocation check.
         $calls = $service->callsForPage($pageNum);
         if (empty($calls['value']) && empty($calls['label']) && empty($calls['choice_label'])) {
-            $this->sendJsonResponse(array('values' => array(), 'labels' => array(), 'choices' => array(), 'computed' => $computed));
+            $this->sendJsonResponse(array('values' => array(), 'labels' => array(), 'choices' => array()));
             return;
         }
 
@@ -1297,7 +1290,7 @@ class RunController extends Controller {
             );
         }
 
-        $this->sendJsonResponse(array('values' => $valuesOut, 'labels' => $labelsOut, 'choices' => $choicesOut, 'computed' => $computed));
+        $this->sendJsonResponse(array('values' => $valuesOut, 'labels' => $labelsOut, 'choices' => $choicesOut));
     }
 
     /**
