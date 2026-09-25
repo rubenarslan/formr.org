@@ -245,26 +245,36 @@ work items above; the second is separate work, listed so it isn't lost.
   (item 8/10/11), and `markClientHiddenItems` accepts any item of the
   study (item 4).
 
-### Separate work (not in this plan)
+### Unified in the follow-up commit
 
-- **Three DOM readers for answers**: `collectPayload` (submit),
-  `collectAllAnswers` (R overlay), Alpine `_syncInput`/`coerceField`
-  (showif scope) each have their own empty-value / `[]` / checkbox-"0"
-  rules. Once `state.js` exists it is the natural single reader (the
-  submit payload and the R overlay are projections of the store), but
-  that is a follow-up: the store in this plan holds server state, not
-  live input.
-- **Client answers overlaid on the R data** two ways in `RCallService`
-  (values: `with()` over a copied last row, any name; labels: existing
-  columns only, skipped when empty), so `survey$x` sees the browser's
-  answers in a label but not in a value.
-- **showif contract in three copies**: reserved names in `Item.php:86`,
-  `FormV2CompatScanner.php:126`, `alpine.js:37`; `is.na` rewritten to
-  `typeof` in PHP and back to `isNA()` by regex in Alpine.
-- **Inherently dual, keep**: required-field hint (client) vs
-  `validateInput` (server); autosave eligibility (client skips files,
-  server skips files + bot_check); the solo layout's hand-kept list of
-  non-step item types vs the server's `no_user_input_required`.
+- **One reader of a form input's answer**: `webroot/assets/form/js/lib/inputs.js`
+  (`readField`, `collectAnswers`, `fieldKey`) holds the rules for `[]`
+  fields, choice groups, the Check_Item hidden partner, multi-selects and
+  disabled-means-withdrawn. `collectPayload` adds item views and empty
+  optional files, `collectAllAnswers` maps `''` to null for R, and
+  `fmrForm._syncInput` types the value for arithmetic — nothing else.
+- **One overlay of the browser's answers onto R**:
+  `RCallService::overlayStatements` puts them on the survey frame's last
+  row, for values (`runBatch`, then `with(tail(survey, 1), …)`) and labels
+  (the knitr chunk) alike, so `survey$x` and a bare `x` agree.
+- **One list of showif helpers**: `Item::SHOWIF_HELPERS` feeds both
+  `Item::RESERVED_NAMES` and `FormV2CompatScanner::JS_KNOWN_NAMES`;
+  `ShowifReservedNamesTest` pins alpine.js's `RESERVED_FIELD_NAMES` to it.
+
+### Inherently dual, kept (and pinned)
+
+- **`is.na()` has two JavaScript spellings** because there are two
+  evaluators with different scopes: Item.php transpiles it to
+  `(typeof(X) === 'undefined')` for v1's `showIf` (scope = answered
+  inputs only; `with(context)` makes `typeof` the only safe test), and
+  alpine.js rewrites that to `isNA(X)` for the fmrForm scope (every field
+  defined, `null` when unanswered). Making v1 use `isNA` would change how
+  its evaluator treats names absent from its scope; `ShowifReservedNamesTest::testTheIsNaTranspileIsWhatTheClientRewrites`
+  keeps the two regexes matching.
+- Required-field hint (client) vs `validateInput` (server); autosave
+  eligibility (client skips files, server skips files + bot_check); the
+  solo layout's hand-kept list of non-step item types vs the server's
+  `no_user_input_required`.
 
 ## 5. Decisions to confirm before starting
 

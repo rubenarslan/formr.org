@@ -83,9 +83,17 @@ class Item {
      *     "keep the server's decision" — those showifs would silently freeze.
      *     `isNA` is on the list because that is what `is.na()` transpiles to.
      */
+    /**
+     * The helpers a transpiled showif may call in the browser (the fmrForm
+     * component's methods, webroot/assets/form/js/showif/alpine.js). One
+     * list: RESERVED_NAMES reserves them as item names and
+     * FormV2CompatScanner treats them as known identifiers.
+     */
+    const SHOWIF_HELPERS = array('isNA', 'answered', 'contains', 'containsWord', 'startsWith', 'endsWith', 'last');
+
     const RESERVED_NAMES = array(
         'session_id', 'created', 'modified', 'ended', 'id', 'study_id', 'iteration',
-        'isNA', 'answered', 'contains', 'containsWord', 'startsWith', 'endsWith', 'last',
+        ...self::SHOWIF_HELPERS,
     );
 
     public $id = null;

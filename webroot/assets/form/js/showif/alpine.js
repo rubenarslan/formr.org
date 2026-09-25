@@ -10,13 +10,19 @@
 //   1. Strip `//` and `/* */` comments first — v1's `//js_only` marker
 //      otherwise swallows our wrapping closing paren and produces
 //      SyntaxError at `new AsyncFunction()` time.
-//   2. Rewrite `(typeof(X) === 'undefined')` → `isNA(X)` because our
-//      reactive state normalizes empty/unchecked to `null`, not `undefined`.
+//   2. Rewrite `(typeof(X) === 'undefined')` → `isNA(X)`. Item.php's one
+//      transpile spells `is.na()` for v1's evaluator, whose scope holds only
+//      answered inputs (so `typeof` works there); this scope defines every
+//      field (`null` when unanswered), so the same test has to be `isNA()`.
+//      Two evaluators, two spellings — the pair is pinned by
+//      tests/ShowifReservedNamesTest.php.
 //   3. Wrap runtime eval in `(function(){try{return (expr)}catch(e){return undefined}})()`
 //      so ReferenceErrors on names the browser doesn't know (a run variable
 //      like `ran_group`, another survey's item) silently fall back to
 //      undefined (→ the item keeps its current visibility: hidden, as every
 //      showif item renders) instead of noisily blowing up every keystroke.
+
+import { readField, fieldKey } from '../lib/inputs.js';
 
 // Names the `fmrForm` component itself owns.
 //
@@ -150,7 +156,7 @@ export function registerFmrForm(Alpine) {
             wrapper.querySelectorAll('input[name], select[name], textarea[name]').forEach((inp) => {
                 const raw = inp.name || '';
                 if (!raw || raw.startsWith('_item_views')) return;
-                const key = raw.endsWith('[]') ? raw.slice(0, -2) : raw;
+                const key = fieldKey(raw).key;
                 if (RESERVED_FIELD_NAMES.has(key)) return;
                 if (visible) {
                     this._syncInput(inp);
@@ -161,49 +167,12 @@ export function registerFmrForm(Alpine) {
         },
 
         _syncInput(inp) {
-            const raw = inp.name || '';
-            if (!raw || raw.startsWith('_item_views')) return;
-            if (inp.disabled) return;
-            const isArr = raw.endsWith('[]');
-            const key = isArr ? raw.slice(0, -2) : raw;
-            if (RESERVED_FIELD_NAMES.has(key)) return;
-            const coerce = (s) => {
-                if (s === '' || s === null || s === undefined) return null;
-                const n = Number(s);
-                return isNaN(n) ? s : n;
-            };
-            let v;
-            if (inp.type === 'checkbox') {
-                if (isArr) {
-                    const boxes = this.$root.querySelectorAll(
-                        `input[type=checkbox][name="${CSS.escape(raw)}"]:checked`
-                    );
-                    v = Array.from(boxes).map((b) => coerce(b.value));
-                } else {
-                    // Check_Item emits a hidden "0" partner sharing the name
-                    // ($_POST scalar-last-wins). Server/R sees "0" when
-                    // unchecked — mirror that instead of null, so a showif
-                    // like `mycheck == 0` agrees between client and server.
-                    if (inp.checked) {
-                        v = coerce(inp.value);
-                    } else {
-                        const partner = this.$root.querySelector(
-                            `input[type=hidden][name="${CSS.escape(raw)}"]`
-                        );
-                        v = partner ? coerce(partner.value) : null;
-                    }
-                }
-            } else if (inp.type === 'radio') {
-                const checked = this.$root.querySelector(
-                    `input[type=radio][name="${CSS.escape(raw)}"]:checked`
-                );
-                v = checked ? coerce(checked.value) : null;
-            } else if (inp.tagName === 'SELECT' && inp.multiple) {
-                v = Array.from(inp.selectedOptions).map((o) => coerce(o.value));
-            } else {
-                v = coerce(inp.value);
-            }
-            this[key] = v;
+            // lib/inputs.js reads the input against its group (radio /
+            // checkbox array / Check_Item partner) exactly as the submit
+            // does; here the answer is also typed for arithmetic.
+            const field = readField(inp, this.$root);
+            if (!field || RESERVED_FIELD_NAMES.has(field.key)) return;
+            this[field.key] = coerceField(field.value);
         },
     }));
 }

@@ -98,5 +98,29 @@ class ShowifReservedNamesTest extends \PHPUnit\Framework\TestCase {
         foreach ($helpers as $helper) {
             $this->assertContains($helper, Item::RESERVED_NAMES, "`$helper` must be reserved in Item::RESERVED_NAMES");
         }
+        // … and Item::SHOWIF_HELPERS (what the compat scanner treats as known
+        // identifiers) is exactly that helper set.
+        sort($helpers);
+        $serverHelpers = Item::SHOWIF_HELPERS;
+        sort($serverHelpers);
+        $this->assertSame($helpers, $serverHelpers, 'Item::SHOWIF_HELPERS must list the fmrForm helpers, no more, no less');
+    }
+
+    /**
+     * `is.na()` has two JavaScript spellings because there are two
+     * evaluators: Item.php transpiles it to `(typeof(X) === 'undefined')` for
+     * v1's showIf (whose scope holds only answered inputs), and alpine.js
+     * rewrites that into `isNA(X)` for the fmrForm scope (every field defined,
+     * `null` when unanswered). The two regexes must keep matching each other.
+     */
+    public function testTheIsNaTranspileIsWhatTheClientRewrites() {
+        $item = $this->item(array('name' => 'q2', 'type' => 'text', 'showif' => 'is.na(q1) | q1 == 2'));
+        $js = preg_replace('/^\/\*sjv\d+\*\//', '', (string) $item->js_showif);
+        $this->assertSame("(typeof(q1) === 'undefined') | q1 == 2", $js);
+
+        $alpine = file_get_contents(__DIR__ . '/../webroot/assets/form/js/showif/alpine.js');
+        $pattern = '\(\s*typeof\(\s*([A-Za-z0-9_\'"]+)\s*\)\s*===\s*[\'"]undefined[\'"]\s*\)';
+        $this->assertStringContainsString('/' . $pattern . '/g', $alpine, 'alpine.js must carry the matching rewrite regex');
+        $this->assertSame('isNA(q1) | q1 == 2', preg_replace('/' . $pattern . '/', 'isNA($1)', $js));
     }
 }

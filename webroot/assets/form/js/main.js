@@ -78,6 +78,7 @@ import {
 } from './showif/alpine.js';
 import { initSolo } from './solo/controller.js';
 import { createStore, pageState, readRememberedPage, rememberPage, forgetPage } from './state.mjs';
+import { collectAnswers, fieldKey } from './lib/inputs.js';
 
 function initForm() {
     const root = document.querySelector('.fmr-form-v2');
@@ -278,78 +279,26 @@ function initForm() {
     // it can drive page submission at page boundaries). See ./solo/controller.js.
 
     const collectPayload = (pageEl) => {
-        const data = {};
+        // Answers: lib/inputs.js holds the rules (arrays, choice groups, the
+        // Check_Item partner, disabled = withdrawn); this only adds what a
+        // page submit needs on top.
+        const data = collectAnswers(pageEl, root);
         const itemViews = { shown: {}, shown_relative: {}, answered: {}, answered_relative: {} };
-        const fields = pageEl.querySelectorAll('input[name], select[name], textarea[name]');
-        fields.forEach((inp) => {
-            const rawName = inp.name || '';
-            const viewMatch = rawName.match(/^_item_views\[(\w+)\]\[(\d+)\]$/);
-            if (viewMatch) {
-                itemViews[viewMatch[1]] = itemViews[viewMatch[1]] || {};
-                itemViews[viewMatch[1]][viewMatch[2]] = inp.value;
-                return;
-            }
-
-            // Skip disabled inputs FIRST: a showif that hides an item disables its
-            // inputs (Alpine applyVisibility), and a checkbox/radio left checked
-            // before it was hidden must NOT post stale state. The per-type branches
-            // below (checkbox/radio) return early on `!checked` but never checked
-            // `disabled`, so a checked-then-hidden box would otherwise post `[""]`
-            // and trip the server's required-but-empty validation.
-            if (inp.disabled) return;
-
-            // Name with `[]` suffix is an array field (mc_multiple, select_multiple,
-            // geopoint display, etc.). Strip the suffix for the key. Everything
-            // else is scalar, last-value-wins — same as PHP's $_POST parsing.
-            let name = rawName;
-            let isArray = false;
-            if (rawName.endsWith('[]')) {
-                name = rawName.slice(0, -2);
-                isArray = true;
-            }
-
-            let value;
-            if (inp.type === 'checkbox') {
-                if (!inp.checked) return;
-                value = inp.value;
-            } else if (inp.type === 'radio') {
-                if (!inp.checked) return;
-                value = inp.value;
-            } else if (inp.type === 'file') {
-                // A file WITH a selection rides the multipart/FormData path (bytes
-                // can't go in JSON) — skip it here.
-                if (inp.files && inp.files.length > 0) return;
-                // A disabled (showif-hidden) file input is never submitted.
-                if (inp.disabled) return;
-                // An EMPTY OPTIONAL file/image/audio/video input must still post ''
-                // so the server marks survey_items_display.saved for it; otherwise
-                // it stays `saved IS NULL`, counts as not_answered, and the v2 form
-                // can never reach studyCompleted() (v1 got this for free from the
-                // browser's empty $_FILES entry). Required-but-empty file items are
-                // blocked client-side before we ever get here.
-                if (inp.closest('.form-group') && inp.closest('.form-group').classList.contains('optional')) {
-                    value = '';
-                } else {
-                    return;
-                }
-            } else if (inp.disabled) {
-                return;
-            } else if (inp.tagName === 'SELECT' && inp.multiple) {
-                value = Array.from(inp.selectedOptions).map((o) => o.value);
-                isArray = true; // multi-select always emits an array
-            } else {
-                value = inp.value;
-            }
-
-            if (isArray) {
-                if (Array.isArray(value)) {
-                    data[name] = (data[name] || []).concat(value);
-                } else {
-                    data[name] = (data[name] || []).concat([value]);
-                }
-            } else {
-                data[name] = value; // last-wins
-            }
+        pageEl.querySelectorAll('input[name^="_item_views"]').forEach((inp) => {
+            const m = inp.name.match(/^_item_views\[(\w+)\]\[(\d+)\]$/);
+            if (!m) return;
+            itemViews[m[1]] = itemViews[m[1]] || {};
+            itemViews[m[1]][m[2]] = inp.value;
+        });
+        // A file WITH a selection rides the multipart/FormData path (bytes
+        // can't go in JSON). An EMPTY OPTIONAL file/image/audio/video input
+        // still posts '' so the server stores it as shown-and-left-blank (v1
+        // got this for free from the browser's empty $_FILES entry);
+        // required-but-empty file items are blocked client-side before this.
+        pageEl.querySelectorAll('input[type=file][name]:not([disabled])').forEach((inp) => {
+            if (inp.files && inp.files.length > 0) return;
+            const group = inp.closest('.form-group');
+            if (group && group.classList.contains('optional')) data[fieldKey(inp.name).key] = '';
         });
         return { data, item_views: itemViews };
     };
@@ -878,30 +827,10 @@ function initForm() {
     // as the showif scope does, would hand R a text answer "07743" as 7743.
     const collectAllAnswers = () => {
         const out = {};
-        root.querySelectorAll('input[name], textarea[name], select[name]').forEach((inp) => {
-            if (!inp.name || inp.name.startsWith('_item_views')) return;
-            if (inp.disabled) return;
-            const isArr = inp.name.endsWith('[]');
-            const key = isArr ? inp.name.slice(0, -2) : inp.name;
-            const coerce = (s) => ((s === '' || s === null || s === undefined) ? null : String(s));
-            if (inp.type === 'checkbox' || inp.type === 'radio') {
-                if (!inp.checked) return;
-                if (isArr) {
-                    if (!Array.isArray(out[key])) out[key] = [];
-                    out[key].push(coerce(inp.value));
-                } else {
-                    out[key] = coerce(inp.value);
-                }
-            } else if (inp.tagName === 'SELECT' && inp.multiple) {
-                out[key] = Array.from(inp.selectedOptions).map((o) => coerce(o.value));
-            } else {
-                if (isArr) {
-                    if (!Array.isArray(out[key])) out[key] = [];
-                    if (inp.value !== '') out[key].push(coerce(inp.value));
-                } else {
-                    out[key] = coerce(inp.value);
-                }
-            }
+        const answers = collectAnswers(root, root);
+        Object.keys(answers).forEach((key) => {
+            const v = answers[key];
+            out[key] = Array.isArray(v) ? v.filter((x) => x !== '') : (v === '' ? null : v);
         });
         return out;
     };

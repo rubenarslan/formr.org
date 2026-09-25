@@ -305,6 +305,24 @@ class RCallService {
      * each value is formatted as its own column's R type — never by guessing
      * from the string.
      */
+    /**
+     * The R statements that put the browser's answers onto the survey
+     * frame's last row — the one way the participant's in-flight answers
+     * reach R, for values (runBatch) and labels (resolveLabels) alike.
+     * `$overlayR` is formatROverlay()'s list; names it carries are columns
+     * of the frame (allowedOverlayNames), so the assignment never adds one.
+     * Guarded so a session with no row yet is left alone.
+     *
+     * @param string $indent prefix for each line
+     * @return string R, newline-terminated
+     */
+    public static function overlayStatements($surveyName, $overlayR, $indent = '') {
+        return $indent . ".fmr.overlay <- {$overlayR}\n"
+             . $indent . "if (exists('{$surveyName}') && nrow({$surveyName}) > 0) {\n"
+             . $indent . "  for (.n in names(.fmr.overlay)) {$surveyName}[nrow({$surveyName}), .n] <- .fmr.overlay[[.n]]\n"
+             . $indent . "}\n";
+    }
+
     public function formatROverlay(array $answers) {
         $allowed = $this->allowedOverlayNames();
         $parts = array();
@@ -505,7 +523,6 @@ class RCallService {
      *   leaves a local error behind (opencpu_note_transport_failure).
      */
     protected function runBatch(array $exprs, array $answers) {
-        $overlayR = $this->formatROverlay($answers);
         $listEntries = array();
         foreach ($exprs as $key => $expr) {
             // The key is an int, so the backtick-quoted name is safe; expr is
@@ -513,11 +530,12 @@ class RCallService {
             // a client asked for it).
             $listEntries[] = sprintf("`%d` = tryCatch({ %s }, error = function(e) NA)", (int) $key, (string) $expr);
         }
+        // The browser's answers land on the survey frame first (the same
+        // statements the label path knits), so `survey$x` and a bare `x`
+        // inside with() see the same values.
         $code = "(function() {\n"
-              . "  .fmr.overlay <- {$overlayR}\n"
-              . "  .fmr.row <- tail({$this->surveyName}, 1)\n"
-              . "  for (.n in names(.fmr.overlay)) .fmr.row[[.n]] <- .fmr.overlay[[.n]]\n"
-              . "  with(.fmr.row, list(\n"
+              . self::overlayStatements($this->surveyName, $this->formatROverlay($answers), '  ')
+              . "  with(tail({$this->surveyName}, 1), list(\n"
               . "    " . implode(",\n    ", $listEntries) . "\n"
               . "  ))\n"
               . "})()\n";
@@ -597,20 +615,12 @@ class RCallService {
 
         // Overlay the latest answers onto the survey frame via a hidden knitr
         // chunk (getRunData returns a structured array for opencpu_define_vars;
-        // we can't append raw R to it).
+        // we can't append raw R to it) — the same statements runBatch uses.
         if (!empty($answers)) {
-            $overlayR = $this->formatROverlay($answers);
-            $overlayChunk = "```{r overlay,echo=FALSE,results='hide',message=FALSE,warning=FALSE}\n"
-                          . ".fmr.overlay <- {$overlayR}\n"
-                          . "if (exists('{$this->surveyName}') && nrow({$this->surveyName}) > 0) {\n"
-                          . "  for (.n in names(.fmr.overlay)) {\n"
-                          . "    if (.n %in% names({$this->surveyName})) {\n"
-                          . "      {$this->surveyName}[nrow({$this->surveyName}), .n] <- .fmr.overlay[[.n]]\n"
-                          . "    }\n"
-                          . "  }\n"
-                          . "}\n"
-                          . "```\n";
-            $markdown = $overlayChunk . $markdown;
+            $markdown = "```{r overlay,echo=FALSE,results='hide',message=FALSE,warning=FALSE}\n"
+                      . self::overlayStatements($this->surveyName, $this->formatROverlay($answers))
+                      . "```\n"
+                      . $markdown;
         }
 
         $started = hrtime(true);

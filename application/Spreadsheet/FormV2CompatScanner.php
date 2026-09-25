@@ -122,13 +122,15 @@ class FormV2CompatScanner {
         ];
     }
 
-    /** Identifiers a transpiled showif may use besides the form's item names. */
+    /**
+     * Identifiers a transpiled showif may use besides the form's item names:
+     * JavaScript's own, plus the fmrForm helpers (Item::SHOWIF_HELPERS).
+     */
     const JS_KNOWN_NAMES = [
         'true', 'false', 'null', 'undefined', 'NaN', 'Infinity', 'typeof', 'instanceof', 'in', 'of',
         'new', 'this', 'void', 'Math', 'Number', 'String', 'Boolean', 'Date', 'Array', 'Object', 'JSON',
         'parseInt', 'parseFloat', 'isNaN', 'isFinite', 'RegExp',
-        // the fmrForm helpers (webroot/assets/form/js/showif/alpine.js)
-        'isNA', 'answered', 'contains', 'containsWord', 'startsWith', 'endsWith', 'last',
+        ...Item::SHOWIF_HELPERS,
     ];
 
     /**

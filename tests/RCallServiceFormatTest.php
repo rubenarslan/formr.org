@@ -64,6 +64,18 @@ class RCallServiceFormatTest extends \PHPUnit\Framework\TestCase {
         return $service->formatROverlay($answers);
     }
 
+    public function testValuesAndLabelsApplyTheOverlayWithTheSameStatements() {
+        $r = RCallService::overlayStatements('mystudy', 'list(age = 3)', '  ');
+        $this->assertSame(
+            "  .fmr.overlay <- list(age = 3)\n"
+            . "  if (exists('mystudy') && nrow(mystudy) > 0) {\n"
+            . "    for (.n in names(.fmr.overlay)) mystudy[nrow(mystudy), .n] <- .fmr.overlay[[.n]]\n"
+            . "  }\n",
+            $r
+        );
+        $this->assertStringStartsWith(".fmr.overlay", RCallService::overlayStatements('s', 'list()'));
+    }
+
     public function testTextAnswersStayStringsEvenWhenTheyLookNumeric() {
         $r = $this->overlay(array('code' => '07743', 'comment' => '1e3'));
         $this->assertStringContainsString('code = "07743"', $r, 'leading zero must survive; text column is character');
