@@ -1,7 +1,7 @@
 import { t } from '../lib/i18n.js';
 // Typeform-style "solo" step controller for form_v2 (layout=solo).
 //
-// Replaces the original patch-066 CSS-scroll-snap skin, which broke down on
+// Replaces an earlier CSS-scroll-snap skin, which broke down on
 // multi-page forms (nested 100vh scroll containers), had no explicit
 // forward/back affordance, auto-advanced on the first `change` of a
 // multi-checkbox item, and let the sticky progress bar overlap content.
@@ -22,7 +22,7 @@ import { t } from '../lib/i18n.js';
 // server-side). They must never become their own blank screen.
 // `mc_heading` is the disabled header row of an mc matrix (constant hidden
 // value, save_in_results_table=false). It's filtered out of the v2 pipeline
-// server-side (FormRenderer::getAllUnansweredItems); listed here too so a
+// server-side (FormRenderer::getStudyItems); listed here too so a
 // legacy/already-rendered session never seats it as its own blank step.
 const HIDDEN_TYPES = ['hidden', 'get', 'random', 'referrer', 'ip', 'browser', 'server', 'mc_heading'];
 

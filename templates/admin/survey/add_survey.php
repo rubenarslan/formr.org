@@ -52,8 +52,8 @@
                             <label for="engine_upload">Engine</label>
                             <select name="engine" id="engine_upload" class="form-control">
                                 <option value="" selected>As the file says (classic v1 if it says nothing)</option>
-                                <option value="v2">form_v2 — one-document form, JavaScript showifs, placed as a Form unit</option>
-                                <option value="v1">classic v1 — placed as a Survey unit</option>
+                                <option value="v2">form_v2 — one-document form, JavaScript showifs (runs as v2 in a Form unit: add it to a run with Add Form)</option>
+                                <option value="v1">classic v1 — the classic Survey engine</option>
                             </select>
                             <small class="help-block"><i class="fa fa-info-circle"></i> A file can declare its engine itself: <code>"rendering_mode": "v2"</code> in a JSON file's <code>settings</code>, or a row <code>rendering_mode</code> | <code>v2</code> on a spreadsheet's <code>settings</code> sheet (an exported survey has both). <a href="<?= site_url('documentation#form_v2_enable') ?>" target="_blank">What changes on form_v2</a></small>
                         </div>
@@ -92,8 +92,8 @@
                             <label for="engine_google">Engine</label>
                             <select name="engine" id="engine_google" class="form-control">
                                 <option value="" selected>As the file says (classic v1 if it says nothing)</option>
-                                <option value="v2">form_v2 — one-document form, JavaScript showifs, placed as a Form unit</option>
-                                <option value="v1">classic v1 — placed as a Survey unit</option>
+                                <option value="v2">form_v2 — one-document form, JavaScript showifs (runs as v2 in a Form unit: add it to a run with Add Form)</option>
+                                <option value="v1">classic v1 — the classic Survey engine</option>
                             </select>
                             <small class="help-block"><i class="fa fa-info-circle"></i> A file can declare its engine itself: <code>"rendering_mode": "v2"</code> in a JSON file's <code>settings</code>, or a row <code>rendering_mode</code> | <code>v2</code> on a spreadsheet's <code>settings</code> sheet (an exported survey has both). <a href="<?= site_url('documentation#form_v2_enable') ?>" target="_blank">What changes on form_v2</a></small>
                         </div>

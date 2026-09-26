@@ -97,7 +97,7 @@ export function registerFmrForm(Alpine) {
             // The stored answers (FormRenderer::stateBlock) cover names no
             // input on the page owns (uploads, automatic items) so a
             // showif that reads one sees a value; a live input of the same
-            // name always wins (main.js fills those from the same block).
+            // name always wins (the server renders the stored answer into it).
             const state = this.$root.querySelector('script.fmr-state');
             if (state) {
                 try {

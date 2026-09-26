@@ -8,11 +8,22 @@
             <?php
             foreach ($studies as $study):
                 $study = (object) $study;
-                $selected = ($survey && $survey->id == $study->id) ? 'selected = "selected"' : '';
+                $isCurrent = $survey && $survey->id == $study->id;
+                // form_v2 studies run in a Form unit (Survey::create refuses
+                // them); only one already placed here is still listed.
+                if (($study->rendering_mode ?? 'v1') === 'v2' && !$isCurrent) {
+                    continue;
+                }
+                $selected = $isCurrent ? 'selected = "selected"' : '';
                 ?>
                 <option value="<?= $study->id ?>" <?= $selected ?>><?= $study->name ?></option>
             <?php endforeach; ?>
         </select>
+        <?php if ($survey && ($survey->rendering_mode ?? 'v1') === 'v2'): ?>
+            <p class="text-danger"><i class="fa fa-exclamation-triangle"></i> This survey is on the <strong>form_v2</strong> engine, which a Survey unit does not run: participants see it on v1, where its JavaScript showifs fail. Replace this unit with a Form unit.</p>
+        <?php else: ?>
+            <p class="help-block">Surveys on the form_v2 engine are not listed here: add them with a Form unit.</p>
+        <?php endif; ?>
 
         <?php if ($survey && $survey->id): ?>
             <p>

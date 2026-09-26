@@ -105,7 +105,7 @@ Symptom to watch for if this ever breaks: admin UI looks correct, but v2 renderi
 
 - Server renders **all items of the form, all pages, in a single HTML response**, with `<section data-fmr-page="N">` wrappers. Pages other than the current one are hidden by CSS.
 - Client does page-level POST to `/{runName}/form-page-submit` (JSON, or multipart when the visible page has a selected file). On success the client hides/reveals the next section, updates `.fmr-progress`. On the final page the server returns a redirect and the Run engine advances.
-- `FormRenderer::processItems` overrides the v1 behaviour of emitting only the first submit-delimited chunk; v2 walks every chunk with `getAllUnansweredItems()` (same WHERE as `getNextStudyItems`, minus the `$inPage` short-circuit) and runs one OpenCPU batch over the lot. Submit-type items are hidden — v2 client provides its own nav.
+- `FormRenderer::processItems` overrides the v1 behaviour of emitting only the first submit-delimited chunk; v2 renders every live item of the study, answered or not, with `getStudyItems()` (no `$inPage` short-circuit, no answered filter) and evaluates no R at render — every dynamic value, label and choice label resolves through `/form-render-page` when its page is shown. Submit-type items are hidden — v2 client provides its own nav.
 - Page boundaries still live in `survey_items_display.page`. `UnitSession::createSurveyStudyRecord` writes them at initial render, bumping at every submit-type item. `FormRenderer::fetchPageMap()` reads that column back and `groupByPage()` buckets rendered items. No new schema for multi-page.
 - Timing data (`shown`, `shown_relative`, `answered`, `answered_relative`) is populated client-side: `IntersectionObserver` with threshold 0.25 (one-shot) for `shown`, `input`/`change` for `answered`. Payload rides with the page-submit. All MySQL `DATETIME` fields use `YYYY-MM-DD HH:MM:SS` (the `mysqlDatetime()` helper) — ISO-8601 with `.sssZ` trips "Incorrect datetime value".
 - Client payload matches PHP `$_POST` semantics: names ending in `[]` are arrays, everything else is scalar last-wins. Check_Item's hidden+checkbox same-name pair was the canary that broke naïve same-name-promoted-to-array payloads.
@@ -148,7 +148,7 @@ The hand-rolled `applyShowifs` + `compileShowif` + `input`/`change` listeners fr
 - **`Alpine.directive('showif', …)`** strips `//` and `/* */` comments first (v1's `//js_only` marker otherwise swallows the wrapping closing paren → SyntaxError at `new AsyncFunction()` time), rewrites `(typeof(X) === 'undefined')` → `isNA(X)` (v1's transpile treats NA as undefined, but `collectAnswers` normalizes empty to `null`), wraps runtime eval in `(function(){try{return (expr)}catch(e){return undefined}})()` so ReferenceError on run-level (`ran_group`) or future-page (`puppy`) variables silently falls back to undefined rather than spamming console every keystroke — and `undefined` means "keep whatever the server rendered" (`!el.classList.contains('hidden')`), not "show it". The server has already resolved server-only vars like `ran_group` to shown/pruned, so preserving its decision is the correct default; forcing visible was the iOS-Safari flash-of-hidden-content bug. `effect()` handles dep-tracking and re-run.
 - **Client-side attribute promotion**: the server emits `data-showif`; the bundle walks `[data-showif]` on init, copies the value to `x-showif`, removes `data-showif`, and sets `x-data="fmrForm"` on the root form. Alpine picks up the promoted attributes. No server changes needed.
 
-`collectAnswers` stays as a separate DOM-reading helper for r-call/fill POST payloads — Alpine state and `collectAnswers` agree at event dispatch time (both read the same DOM); reusing Alpine state cross-scope would require grabbing `root._x_dataStack[0]`, which is fragile.
+`collectAnswers` stays as a separate DOM-reading helper for the submit and `/form-render-page` payloads — Alpine state and `collectAnswers` agree at event dispatch time (both read the same DOM); reusing Alpine state cross-scope would require grabbing `root._x_dataStack[0]`, which is fragile.
 
 **Naming collision footgun:** an input named `isNA` or `answered` would shadow the helper method. Unlikely in practice but real. If it becomes a problem, move helpers off the component to an Alpine magic (`$helpers.isNA(…)`).
 
@@ -314,20 +314,18 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] Comment-stripping + try/catch wrapper for runtime eval
 - [x] `r(...)` wrapper detection at render (`RAllowlistExtractor`)
 - [x] `survey_r_calls` table (`sql/patches/084_survey_r_calls.sql`)
-- [x] Debounced (300ms) seq-guarded client r-call resolver (same caveat)
 - [x] Compat scanner (`bin/form_v2_compat_scan.php`) + admin UI (`/admin/survey/<name>/form_v2_compat_scan`)
-- [x] Per-run-session rate-limit on r-call (30/min, returns 429). Now DB-backed via `FixedWindowRateLimiter` + patch 095 `formr_rate_limits`, not the original `$_SESSION` bucket (which reset on cookie rotation)
+- [x] Per-run-session rate-limit on `/form-render-page` (`rcall_per_min`, 30/min, returns 429), DB-backed via `FixedWindowRateLimiter` + patch 095 `formr_rate_limits`
 - [x] Dedicated `showif_js` column on `survey_items` (`sql/patches/088_survey_items_showif_js.sql`); `Item::setMoreOptions` prefers the cached transpile when set, falls back to live regex for legacy items
 - ~~Hardened JS transpiler (proper parser)~~ — explicitly not doing; the regex transpile + import-time cache (patch 088) + client try/catch fallback are the chosen design (§8)
 
 ### Phase 4 — Deferred fill for `value`
-- [x] ~~`POST /{run}/form-fill`~~ removed (2026-09-25): never called once every page resolved through `/form-render-page`.
-- [x] Shared helper `evaluateAllowlistedRCall($id, $slot, $answers)` with slot enforcement
+- [x] Every page's values, labels and choice labels resolve in one `/form-render-page` batch (`formRenderPageAction` → `RCallService`), which resolves only the calls of items scheduled on that page in this unit session and drops calls the sheet no longer vouches for (`RCallService::callsForPage`, `callRowIsLive`)
 - [x] `r(...)` unwrap on `value`: FormRenderer records + emits `data-fmr-fill-id`. Every item's value is blanked and resolved when its page is shown (first page on load) — one path for all pages
 - [x] Client fill resolver: set first `input/textarea/select[name]` inside wrapper (only if empty — don't clobber back-nav state), fire input+change. Now driven by the batched `/form-render-page` response, not a per-item POST on load
 - [x] `.fmr-fill-pending` added client-side (classes_wrapper is `protected` on Item — server can't push to it)
 - [x] Bail-out UI on OpenCPU error (`.fmr-fill-error` + inline feedback)
-- [x] `survey_r_call_results` cache with TTL (patch 087, session-scoped by patch 089; 30s for showif, 5min for value; REPLACE on write)
+- [x] `survey_r_call_results` cache with TTL (patch 087, session-scoped by patch 089; 5 min for value, label and choice label — `form_v2_rcall_ttl`; REPLACE on write)
 - [x] Rate limiting (30 calls / 60 s per run-session; see Phase 3 block)
 - [x] Embedded Rmd routed through `r(...)`+fill — `FormRenderer` registers every `needsDynamicLabel` item in `survey_r_calls` slot='label'; client batch-resolves via `POST /{run}/form-render-page` (`RunController::formRenderPageAction`) on initial page load and on every page transition, with patch 087's TTL cache
 
@@ -429,10 +427,10 @@ Nothing here is still open; these are the frozen decisions.
 - `application/Model/RunUnit/Form.php` — Form unit; extends Survey; strips `study_id` before delegating to `Survey::create`; loads study via `form_study_id`.
 - `application/Spreadsheet/FormRenderer.php` — single-document renderer; overrides `processItems`; r(...) unwrap + allowlist UPSERT.
 - `application/Spreadsheet/RAllowlistExtractor.php` — `r(...)` detection + dedup.
-- `application/Controller/RunController.php` — endpoints `formPageSubmitAction`, `formRenderPageAction`, `formFillAction`, `formSyncAction`, `evaluateAllowlistedRCall`.
+- `application/Controller/RunController.php` — endpoints `formPageSubmitAction`, `formSaveAction`, `formRenderPageAction`, `formSyncAction`, `formBotChallengeAction`, the shared gate `formWriteContext`; the store-a-page path is `application/Services/FormSubmissionService.php`, R evaluation `application/Services/RCallService.php`.
 - `application/Model/RunSession.php` — `executeUnitSession` passthrough for `use_form_v2`.
 - `application/Model/Run.php` — `exec` passthrough for `use_form_v2`.
-- `webroot/assets/form/js/main.js` — form bundle (Alpine, showif, page submit, offline queue, r-call, fill).
+- `webroot/assets/form/js/main.js` — form bundle (Alpine, showif, page submit, offline queue, page resolution).
 - `webroot/assets/form/css/form.scss` — BS5 + `.js_hidden` re-assertion + scoped styles.
 - `templates/run/form_index.php` — v2 participant view.
 - `bin/form_v2_compat_scan.php` — upgrade-readiness classifier.

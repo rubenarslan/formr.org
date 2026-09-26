@@ -30,10 +30,9 @@
                                         <li><strong>JS-OK</strong> — transpiles cleanly to JS the client evaluator understands.</li>
                                         <li><strong>Needs JS rewrite</strong> — residual R tokens the client can't handle. Rewrite in JS, or move the R into a hidden item's <code>value</code> column and reference the field name from the showif.</li>
                                         <li><strong>Not on the form</strong> — reads a name that isn't an item of this survey (a run variable, another survey's item). The browser only knows this form's items; compute the value in a hidden item's <code>value</code> and reference that item.</li>
-                                        <li><strong>On a calculate</strong> — a <code>calculate</code> item is computed on the server and never reaches the browser, so its showif has no effect. Put the condition into its R: <code>if (condition) value else NA</code>.</li>
                                     </ul>
                                 </li>
-                                <li><strong>value is R-only.</strong> Any non-empty, non-numeric value is treated as R, allowlisted, and evaluated server-side when its page is shown (every page through <code>/form-render-page</code>; <code>calculate</code> items are computed and stored on the server when their page is reached).
+                                <li><strong>value is R-only.</strong> Any non-empty, non-numeric value is treated as R, allowlisted, and evaluated server-side when its page is shown (every page through <code>/form-render-page</code>). The server does no computation of its own: <code>calculate</code> items, and other items that take no input but carry R in <code>value</code>, are not supported in v2.
                                     <ul>
                                         <li><strong>literal</strong> — numeric default; not evaluated.</li>
                                         <li><strong>R</strong> — admin-authored R; recorded in <code>survey_r_calls</code> and resolved server-side.</li>
@@ -100,12 +99,12 @@
                                             <td><code><?= htmlspecialchars($r['column']) ?></code></td>
                                             <td><?= htmlspecialchars(implode(', ', $r['problems'])) ?></td>
                                             <td><code><?= htmlspecialchars($r['source']) ?></code></td>
-                                            <td><?php if ($r['transpiled'] !== $r['source']): ?><code><?= htmlspecialchars($r['transpiled']) ?></code><?php else: ?><em class="text-muted">(same as source)</em><?php endif; ?></td>
+                                            <td><?php if ($r['transpiled'] === ''): ?><em class="text-muted">—</em><?php elseif ($r['transpiled'] !== $r['source']): ?><code><?= htmlspecialchars($r['transpiled']) ?></code><?php else: ?><em class="text-muted">(same as source)</em><?php endif; ?></td>
                                             <td>
                                                 <?php if ($r['suggested_fix'] === 'bridge_hidden_item'): ?>
                                                     Add a hidden item whose <code>value</code> computes what the showif needs in R, and reference that item's name from the showif.
-                                                <?php elseif ($r['suggested_fix'] === 'move_into_value'): ?>
-                                                    Remove the showif and put the condition into the R <code>value</code>: <code>if (condition) value else NA</code>.
+                                                <?php elseif ($r['suggested_fix'] === 'use_hidden'): ?>
+                                                    Replace it: if the form needs the value, use a <code>hidden</code> item with the same <code>value</code>; if feedback or a later unit needs it, compute it in that unit's R from the stored answers.
                                                 <?php else: ?>
                                                     Rewrite <code><?= htmlspecialchars($r['source']) ?></code> in JS, or move the R into a hidden field's <code>value</code> and reference its name from the showif.
                                                 <?php endif; ?>

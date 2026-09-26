@@ -887,7 +887,7 @@ class RunController extends Controller {
      * An autosaved item gets `survey_items_display.saved` stamped like a
      * submitted one: `saved` is the per-item "when this answer was stored"
      * timestamp, nothing more. Which page the participant is on is the
-     * browser's business (state.js), so an autosaved item is rendered and
+     * browser's business (state.mjs), so an autosaved item is rendered and
      * editable exactly as before a reload.
      */
     public function formSaveAction() {

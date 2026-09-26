@@ -49,8 +49,8 @@ update; restart the app and daemons after editing — step 4.)
 
 | Key | Default | Change it when |
 | --- | --- | --- |
-| `form_v2_enabled` | `false` | You want admins to be able to author v2 forms. It gates exactly one thing: the "Add Form (form_v2, beta)" button in the run editor (`AdminRunController::getUnitAddButtons`). Existing Form units keep loading and running regardless. |
-| `form_v2_rcall_ttl` | `['showif' => 30, 'value' => 300, 'label' => 300]` (seconds) | Per-slot TTL of the `survey_r_call_results` cache. `showif` is short so admin edits to R flow through quickly; `value`/`label` resolve once per page show. Lower them if authors complain that edited R takes too long to take effect; raise to cut OpenCPU load. |
+| `form_v2_enabled` | `false` | You want admins to be able to author v2 forms. It gates the two ways to start a study on v2: the "Add Form (form_v2, beta)" button in the run editor (`AdminRunController::getUnitAddButtons`) and the **Engine** choice on "Add a new survey" (`AdminSurveyController::addSurveyAction`). Existing Form units and studies already on v2 keep loading and running regardless. |
+| `form_v2_rcall_ttl` | `['value' => 300, 'label' => 300, 'choice_label' => 300]` (seconds) | Per-slot TTL of the `survey_r_call_results` cache (a slot not listed falls back to its built-in default, 60 s for an unknown one). Values, labels and choice labels resolve once per page show. Lower them if authors complain that edited R takes too long to take effect; raise to cut OpenCPU load. |
 | `form_v2_rate_limits` | `['rcall_per_min' => 30, 'write_per_min' => 90, 'beacon_per_min' => 10, 'bot_challenge_per_min' => 20]` | Per fixed 60-second window. `rcall` covers `/form-render-page` (it triggers OpenCPU work); `write` covers `/form-page-submit`, `/form-save`, `/form-sync`; `beacon` covers the unauthenticated `/pwa-beacon`; `bot_challenge` covers `/form-bot-challenge` (one mint per `bot_check` render). Buckets are keyed by run session (beacon by IP). Raise these for fast-typing diary studies with many reactive showifs. The limiter **fails open** if `formr_rate_limits` is missing, so a half-applied patch 095 cannot lock participants out. |
 | `form_v2_offline_blob_max_mb` | `10` | Per-file cap for offline queueing. A page with a larger file upload is not queued; the participant is told to retry online. Raise for studies that routinely collect long audio/video. |
 | `form_v2_dual_write_results` | `true` | Controls only the *wide* per-study `survey_NN` write. The long-format write (`survey_items_display`) always happens. Leave on until every consumer you care about (your own scripts, the per-run backup TSV) has moved off the wide tables. |
@@ -133,7 +133,7 @@ With `form_v2_dual_write_results = true` (the default) there is a
 backstop: the wide table's `UNIQUE` `iteration` rejects the colliding
 insert, and `UnitSession::createSurveyStudyRecord` raises the counter to
 `GREATEST(last_iteration, MAX(wide.iteration))` and retries
-(`UnitSession.php:955-979`). With dual-write **off** there is none, and
+(`UnitSession::createSurveyStudyRecord`). With dual-write **off** there is none, and
 new sessions get numbered 1, 2, 3… on top of your historical values.
 
 ### What `iteration` means before the backfill
@@ -168,7 +168,8 @@ afterwards.)
 
 `rendering_mode` defaults to `v1`, so **no existing study changes
 behaviour** after the upgrade. `form_v2_enabled` doesn't switch any study
-over either — it only shows the "Add Form" button in the run editor.
+over either — it only offers the ways in: the "Add Form" button in the run
+editor and the Engine choice on "Add a new survey".
 
 ### The one authoring rule that changes
 
@@ -215,14 +216,17 @@ column — the same names the admin report and `form_v2.md` use:
 | `showif` | **empty** | no | Nothing — no expression. |
 | `showif` | **JS-OK** (`js_ok`) | no | Nothing — the R→JS transpile came out clean. |
 | `showif` | **needs JS rewrite** (`needs_js_rewrite`, fix `rewrite_in_js`) | yes | The transpiled expression still contains R-only tokens — an R-only function call (`ifelse`, `c(`, `paste`, `grepl`, `unlist`, …), `tail`/`head` with a non-1 argument, an untranspiled `is.na()`, `%in%` / `%%`, an assignment arrow, an `NA` constant, or R `$`-member access. Rewrite the expression in JS (the helpers `isNA`, `answered`, `contains`, `containsWord`, `startsWith`, `endsWith`, `last` are in scope), **or** move the R into a hidden item's `value` and test that item's name. |
+| `showif` | **not on the form** (`not_on_form`, fix `bridge_hidden_item`) | yes | The showif reads a name that is not an item of this form — a run variable such as `ran_group`, or another survey's item. The browser knows only the form's own items, so the showif can never become true. Compute the value in a hidden item's `value` and reference that item. |
+| `type` | **not supported in v2** (`unsupported`, fix `use_hidden`) | yes, **blocks the switch** | A `calculate` item, or another item that takes no input but carries R in `value` (`Item::formV2Unsupported`). Replace it with a `hidden` item if the form needs the value, or compute it in the R of the unit that uses it. |
 | `value` | **empty** / **literal** (numeric, kept as-is) / **R** (everything else, evaluated server-side) | no | Nothing. `value` is never flagged — every non-empty, non-numeric entry is allowlisted and evaluated as R, `sticky` included. |
 
-**needs JS rewrite** findings are advisory (heuristic — the scan page
-lists them, they don't stop the switch). At runtime a showif the client
-can't evaluate
-leaves the item at whatever visibility the server rendered it with, so a
-flagged item is not necessarily broken — it just isn't guaranteed to
-behave the way the R did. See [form_v2.md](form_v2.md) § "Authoring
+**Flagged showifs stop the switch.** An item with a showif renders
+hidden and only the browser reveals it, so at runtime a showif the client
+can't evaluate keeps its item hidden for every participant. The upgrade
+button therefore refuses while any showif is flagged; the scan is a
+heuristic, so an author who is sure a finding is wrong can confirm it with
+**Upgrade anyway**. Unsupported items block the switch without that
+override. See [form_v2.md](form_v2.md) § "Authoring
 `showif` and `value`" for the full authoring rules. Upgrading
 (`AdminSurveyController::switchRenderingModeAction`) sets
 `rendering_mode='v2'` and re-points every run unit that referenced the

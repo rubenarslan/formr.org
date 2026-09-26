@@ -62,8 +62,18 @@ class Survey extends RunUnit {
                     (int) $options['study_id'],
                     (int) $this->run->user_id
             )) {
-                $this->unit_id = (int) $options['study_id'];
-                $this->surveyStudy = $this->getStudy(true);
+                // A study on the form_v2 engine only runs as v2 in a Form
+                // unit; a Survey unit would render it on v1, where its
+                // JavaScript showifs are read as R and their items stay
+                // hidden. Refused like any bad link: alerted, left unlinked.
+                // (Form extends Survey but never passes study_id here.)
+                $candidate = new SurveyStudy((int) $options['study_id']);
+                if ($candidate->valid && $candidate->rendering_mode === 'v2') {
+                    alert('<strong>Survey not linked.</strong> <code>' . h($candidate->name) . '</code> is on the form_v2 engine, which runs in a <strong>Form</strong> unit. Add a Form unit for it instead (or switch the survey back to v1).', 'alert-danger');
+                } else {
+                    $this->unit_id = (int) $options['study_id'];
+                    $this->surveyStudy = $this->getStudy(true);
+                }
             }
         }
 
@@ -121,7 +131,7 @@ class Survey extends RunUnit {
 
         $dialog = Template::get($this->getTemplatePath(), array(
                     'survey' => $this->surveyStudy,
-                    'studies' => Site::getCurrentUser()->getStudies('id DESC', null, 'id, name'),
+                    'studies' => Site::getCurrentUser()->getStudies('id DESC', null, 'id, name, rendering_mode'),
                     'prepend' => $prepend,
                     'resultCount' => $this->id ? $this->getUnitSessionsCount() : null,
                     'surveyResultCount' => $this->surveyStudy ? $this->surveyStudy->getResultCount() : null,

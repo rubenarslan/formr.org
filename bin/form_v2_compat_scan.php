@@ -15,14 +15,19 @@
  *   - needs JS rewrite — residual R tokens the client evaluator won't
  *                        handle; rewrite in JS, or move the R into a
  *                        hidden item's `value` and reference that name
+ *   - not on the form  — reads a name that is not an item of this form
+ *                        (a run variable, another survey's item); bridge
+ *                        it through a hidden item
+ * not supported in v2 (column `type`): calculate items and other no-input
+ *   items with an R `value` (Item::formV2Unsupported); they block the switch
  * value buckets (the value column is the R path):
  *   - empty / literal / R
  *
- * The classification is heuristic, not a guarantee. The client evaluator
- * has a runtime try/catch: on a reference or syntax error the item keeps
- * the visibility the server rendered it with, so a borderline-looking
- * expression may still behave at runtime. Still useful for an
- * upgrade-readiness overview.
+ * The classification is heuristic, not a guarantee. An item with a showif
+ * renders hidden and only the browser reveals it, so on a reference or
+ * syntax error the item stays hidden for good — treat every showif flag as
+ * work to do before the switch (the admin switch refuses while any stand,
+ * unless the author confirms with "Upgrade anyway").
  *
  * The scanning logic itself lives in FormV2CompatScanner so the admin UI
  * (AdminSurveyController::formV2CompatScanAction) can reuse it without
@@ -58,13 +63,13 @@ if (!empty($report['flagged'])) {
         echo sprintf("  item %s %-20s [%s] %s\n",
             $r['id'], $r['name'], $r['column'], implode(', ', $r['problems']));
         echo "    source:     {$r['source']}\n";
-        if ($r['transpiled'] !== $r['source']) {
+        if ($r['transpiled'] !== '' && $r['transpiled'] !== $r['source']) {
             echo "    transpiled: {$r['transpiled']}\n";
         }
         $fixes = [
             'rewrite_in_js' => 'rewrite the showif in JS (or move the R into a hidden item\'s `value`)',
             'bridge_hidden_item' => 'compute the value in a hidden item\'s `value` (R) and reference that item from the showif',
-            'move_into_value' => 'remove the showif; put the condition into the R `value`: if (condition) value else NA',
+            'use_hidden' => 'replace it: a `hidden` item with the same `value` if the form needs it, else compute it in the R of the unit that uses it',
         ];
         echo "    fix:        " . ($fixes[$r['suggested_fix']] ?? $r['suggested_fix']) . "\n\n";
     }

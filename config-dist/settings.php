@@ -379,10 +379,12 @@ $settings['disabled_features'] = array(
     // SURVEY.controller_method_name
 );
 
-// Enable the form_v2 rendering engine (Phase 0+).
-// When true, admins can add the "Form" RunUnit type to a run. Existing Form
-// units continue to load and run regardless of this flag; only the "add Form"
-// affordance in the admin run editor is gated by it.
+// Enable form_v2 authoring.
+// When true, admins can add the "Form" RunUnit type to a run and pick the
+// form_v2 engine when adding a new survey. Existing Form units and studies
+// already on v2 continue to load and run regardless of this flag; only those
+// two ways in (the run editor's "Add Form", the "Engine" choice on "Add a new
+// survey") are gated by it.
 $settings['form_v2_enabled'] = false;
 
 // Per-study wide-table dual-write for survey responses.
@@ -432,8 +434,7 @@ $settings['form_v2_offline_blob_max_mb'] = 10;
 // form_v2 endpoint rate limits, per fixed 60s window (FixedWindowRateLimiter,
 // patch 095; buckets keyed by run session, beacon by IP; fail-open when the
 // table is missing so a misapplied patch never locks participants out).
-//   rcall_per_min  — /form-fill + /form-render-page (shared bucket; these
-//                    trigger OpenCPU work)
+//   rcall_per_min  — /form-render-page (it triggers OpenCPU work)
 //   write_per_min  — /form-page-submit + /form-save + /form-sync (DB writes)
 //   beacon_per_min — /pwa-beacon (unauthenticated logging endpoint)
 //   bot_challenge_per_min — /form-bot-challenge (bot_check nonce minting;
@@ -446,13 +447,14 @@ $settings['form_v2_rate_limits'] = array(
     'bot_challenge_per_min' => 20,
 );
 
-// Per-slot TTLs (seconds) for the survey_r_call_results cache. showif is
-// reactive (short, so admin edits flow through); value/label resolve once
-// per page show and tolerate longer.
+// Per-slot TTLs (seconds) for the survey_r_call_results cache. Values,
+// labels and choice labels resolve once per page show, so they tolerate a
+// long TTL; lower them if edited R should take effect sooner. A slot missing
+// here keeps its built-in default (RCallService::ttlForSlot).
 $settings['form_v2_rcall_ttl'] = array(
-    'showif' => 30,
     'value' => 300,
     'label' => 300,
+    'choice_label' => 300,
 );
 
 // ---------------------------------------------------------------------------

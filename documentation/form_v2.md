@@ -26,7 +26,7 @@ What participants notice:
 
 ## Enabling form_v2 for a study
 
-There are three ways in, all from the admin UI. None touches your items.
+There are three ways in, all from the admin UI. None touches your items. A study on v2 renders with the Form engine only inside a **Form** unit: placed in a classic Survey unit it still renders through the v1 pipeline, so add it to a run with **Add Form**.
 
 - **Upload a new survey on v2**: on "Add a new survey", pick **Engine: form_v2** (offered once the operator has set `form_v2_enabled`), or let the file say so — `"rendering_mode": "v2"` in a JSON file's `settings`, or a row `rendering_mode` | `v2` on a spreadsheet's `settings` sheet (columns `item` and `value`; the xlsx export writes this sheet, so an exported v2 survey comes back on v2). Items v2 cannot run (`calculate`) are refused at upload. A choice on the form wins over the file.
 
@@ -43,6 +43,7 @@ Once a study is on v2, the same page shows the **Form_v2 settings**:
 | Show "Previous" button | off | Lets participants move back between the form's pages. Leave off unless your design tolerates back-navigation (see "Known limitations"). |
 | Layout | Default | *Default* renders all items of an authored page together. *Solo* shows one item per screen with auto-advance on answer, Typeform-style — good on mobile. Page boundaries (submit items) still define what is submitted together; only the visual rhythm changes. |
 | Participant language | `en` | A BCP 47 tag. Sets the page's `lang`/`dir` and localizes the engine's own strings (buttons, save indicator, offline banner, validation fallbacks). English and German ship built-in; `de-AT` falls back to `de`, anything else to English strings while keeping the `lang` attribute you set. Your item labels are always shown as authored. |
+| Button labels | empty | Your own wording for the Next and Submit buttons (plain text, up to 100 characters); empty keeps the built-in label in the participant language. The Next label also labels a `submit` item that has no label of its own. |
 
 ## Authoring `showif` and `value`
 
@@ -191,9 +192,9 @@ Beyond the rendering model:
 
 1. Run the compatibility scan (survey settings page, or `bin/form_v2_compat_scan.php`).
 2. For every flagged item: rewrite the showif in JS, or move the R into a hidden item's `value` and reference that item from the showif. Re-upload the sheet.
-3. Decide the per-study settings — offline queue, Previous button, layout, language.
+3. Decide the per-study settings — offline queue, Previous button, layout, language, button labels (they appear on the settings page once the study is on v2).
 4. If the study uses install or push, configure the run as installable and verify `/{run}/manifest` responds.
-5. Test as yourself via the run's "Use as yourself" link. Walk every page; check flagged items and dynamic values behave as expected.
+5. Try the study on v2 before switching it — until the switch, "Use as yourself" and **Test Survey** still show v1: export the survey as xlsx, upload the file under a new name with **Engine: form_v2**, and walk every page with **Test Survey**; check flagged items and dynamic values behave as expected.
 6. Click **Upgrade to form_v2** on the survey settings page. Participants who are mid-form continue on v2 from where they are — their open sessions move with the converted run unit. **Switch back to v1** undoes it at any time.
 
 ## See also
