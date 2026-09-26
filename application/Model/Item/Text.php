@@ -69,7 +69,7 @@ class Text_Item extends Item {
         if ($this->rejectNonScalarReply($reply)) {
             return null;
         }
-        if (isset($this->input_attributes['maxlength']) && $this->input_attributes['maxlength'] > 0 && strlen($reply) > $this->input_attributes['maxlength']) { // verify maximum length 
+        if (isset($this->input_attributes['maxlength']) && $this->input_attributes['maxlength'] > 0 && mb_strlen((string) $reply, 'UTF-8') > $this->input_attributes['maxlength']) { // maximum length in characters, as the browser counts it (strlen counted bytes: 100 umlauts failed a maxlength of 100) 
             $this->error = __("You can't use that many characters. The maximum is %d", $this->input_attributes['maxlength']);
         }
         return parent::validateInput($reply);

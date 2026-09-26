@@ -51,7 +51,8 @@ class Timezone_Item extends SelectOne_Item {
 
     // Get the select element by its name attribute
     const selectElement = document.querySelector('select[name=\"{$this->name}\"]');
-    if (!selectElement) {
+    // A stored/validated answer is already selected: keep it.
+    if (!selectElement || selectElement.value !== '') {
         return;
     }
     const options = selectElement.options;
@@ -77,7 +78,12 @@ class Timezone_Item extends SelectOne_Item {
 
         $options = '';
         foreach ($this->choices as $value => $option) {
-            $selected = array('selected' => $this->isSelectedOptionValue($value, $this->value_validated));
+            // The stored answer is the zone's label (getReply maps the option
+            // index to it), a re-posted one the index: match either, or a
+            // stored zone never re-selects and the browser-zone script above
+            // overwrites it.
+            $selected = array('selected' => $this->value_validated !== null && $this->value_validated !== ''
+                && ((string) $value === (string) $this->value_validated || $option === $this->value_validated));
             $options .= sprintf('<option value="%s" %s>%s</option>', $value, self::_parseAttributes($selected, array('type')), $option);
         }
 

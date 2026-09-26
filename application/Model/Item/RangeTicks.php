@@ -38,6 +38,11 @@ class RangeTicks_Item extends Number_Item {
     }
 
     protected function render_input() {
+        // Render the stored/validated answer (Range_Item does the same); without
+        // it the slider came back at the browser's midpoint and was re-submitted.
+        if ($this->value_validated !== null && $this->value_validated !== '') {
+            $this->input_attributes['value'] = $this->value_validated;
+        }
         $tpl = '
 			%{left_label}
 			<input %{input_attributes} />

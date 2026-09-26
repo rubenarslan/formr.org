@@ -92,7 +92,10 @@ class Number_Item extends Item {
         }
 
         $reply = trim(str_replace(",", ".", $reply));
-        if (!$reply && $reply !== 0 && $this->optional) {
+        // Only an empty field is "no answer": "0" is falsy in PHP, and the old
+        // `!$reply` check turned an optional number/slider/VAS answered 0 into
+        // NULL in both the long and the wide table.
+        if ($reply === '' && $this->optional) {
             return null;
         }
 
@@ -117,7 +120,7 @@ class Number_Item extends Item {
             return null;
         }
         $reply = trim(str_replace(",", ".", $reply));
-        if (!$reply && $reply !== 0 && $this->optional) {
+        if ($reply === '' && $this->optional) {
             return null;
         }
         return $reply;

@@ -19,7 +19,9 @@ class Range_Item extends Number_Item {
     }
 
     protected function render_input() {
-        if ($this->value_validated) {
+        // `!== null`, not truthiness: a stored 0 must not re-render at the
+        // browser's default midpoint (and be re-submitted as that).
+        if ($this->value_validated !== null && $this->value_validated !== '') {
             $this->input_attributes['value'] = $this->value_validated;
         }
 

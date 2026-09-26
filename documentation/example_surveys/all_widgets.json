@@ -1223,11 +1223,11 @@
             "item_order": 81
         },
         {
-            "type": "hidden",
+            "type": "calculate",
             "choice_list": null,
             "type_options": null,
             "name": "calc_demo",
-            "label": "### hidden with an R value\nComputed in R from earlier answers (here: teeth × 2) when its page is shown, and submitted with the page.",
+            "label": "### calculate\nA value computed in R on the server from earlier answers (here: teeth × 2). Classic v1 engine only: on form_v2 use a hidden item with the same value (see all_widgets_v2.json).",
             "label_parsed": null,
             "optional": 1,
             "class": "",

@@ -1147,6 +1147,62 @@ class SurveyStudy extends Model
         return $out;
     }
 
+    /**
+     * Put this study on the form_v2 engine: the one way a study gets there
+     * after it exists (the admin switch, a Form unit linking it). Besides the
+     * flag, the multiple-choice columns of an older results table are
+     * widened — v2 stores a choice value "0" that v1 dropped
+     * (Item::replyValues), and a column sized without it could not hold a
+     * full selection.
+     */
+    public function adoptFormV2()
+    {
+        $this->db->update('survey_studies', array('rendering_mode' => 'v2'), array('id' => (int) $this->id));
+        $this->rendering_mode = 'v2';
+        $this->widenMultipleChoiceColumns();
+    }
+
+    /**
+     * Widen each mc_multiple / select_multiple results column that is
+     * narrower than its item's current sizing. Never narrows, never touches
+     * another column.
+     *
+     * @return string[] the columns widened
+     */
+    public function widenMultipleChoiceColumns()
+    {
+        // Results tables are MySQL tables; the unit tests' SQLite has neither
+        // SHOW TABLES nor information_schema, and no results tables to widen.
+        if ($this->db->pdo()->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'mysql' || empty($this->results_table) || !$this->db->table_exists($this->results_table)) {
+            return array();
+        }
+        $current = array();
+        foreach ((array) $this->db->execute(
+            'SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t',
+            array('t' => $this->results_table)
+        ) as $col) {
+            $current[(string) $col['COLUMN_NAME']] = $col;
+        }
+        $widened = array();
+        foreach ((array) $this->getItemsWithChoices() as $item) {
+            if (!($item instanceof McMultiple_Item || $item instanceof SelectMultiple_Item)) {
+                continue;
+            }
+            $name = (string) $item->name;
+            if (!isset($current[$name]) || strtolower((string) $current[$name]['DATA_TYPE']) !== 'varchar'
+                    || !preg_match('/^[A-Za-z][A-Za-z0-9_]*$/', $name)
+                    || !preg_match('/VARCHAR\s*\((\d+)\)/i', (string) $item->getResultField(), $m)) {
+                continue;
+            }
+            if ((int) $m[1] > (int) $current[$name]['CHARACTER_MAXIMUM_LENGTH']) {
+                $this->db->query("ALTER TABLE `{$this->results_table}` MODIFY `{$name}` VARCHAR(" . (int) $m[1] . ") DEFAULT NULL");
+                $widened[] = $name;
+            }
+        }
+        return $widened;
+    }
+
     public function getItems($columns = null, $whereIn = null, $includeDeleted = false)
     {
         if ($columns === null) {

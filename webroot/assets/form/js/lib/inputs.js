@@ -71,7 +71,12 @@ export function collectAnswers(scope, root) {
         const field = readField(inp, root);
         if (!field || field.value === null) return;
         if (field.isArray) {
-            out[field.key] = (out[field.key] || []).concat(field.value);
+            // PHP: `x[]` after a scalar `x` replaces it with an array. A
+            // geopoint renders a hidden `geo` (the fix as JSON) before its
+            // visible `geo[]`; `(out.geo || []).concat(...)` on that string
+            // was String#concat and posted '{"coords":…}lat:…/long:…'.
+            const prev = Array.isArray(out[field.key]) ? out[field.key] : [];
+            out[field.key] = prev.concat(field.value);
         } else {
             out[field.key] = field.value;
         }

@@ -17,6 +17,9 @@
  *     lock held elsewhere it fails (a 5xx the browser retries) and leaves
  *     the form open; a second, racing end is a no-op (one next unit);
  *   - a study with a `calculate` item cannot become a v2 Form's study;
+ *   - a v2 multiple choice stores its value "0", and a column sized before
+ *     that is widened when the study moves to v2; an answer the participant
+ *     cleared is withdrawn from both tables;
  *   - a GET never completes the form (Form::getUnitSessionOutput renders).
  *
  * Run: docker exec formr_app php /var/www/formr/bin/test_form_v2_navigation_smoke.php
@@ -238,6 +241,61 @@ try {
 }
 try { if ($rs2 && $rs2->id) { $db->exec('DELETE FROM survey_run_sessions WHERE id = :id', ['id' => $rs2->id]); } } catch (Throwable $e) {}
 
+echo "\n-- a multiple choice keeps its 0; a cleared answer is withdrawn --\n";
+$zeroStudy = null;
+try {
+    $zeroName = 'navsmoke_zero_' . $suffix;
+    $run->importUnits(json_encode(['units' => [[
+        'type' => 'Form', 'position' => 30, 'description' => 'zero smoke',
+        'survey_data' => ['name' => $zeroName, 'items' => [
+            $item(1, 'mm', 'mc_multiple', ['optional' => 1, 'choice_list' => 'zero', 'choices' => ['0' => 'none', '1' => 'one', '2' => 'two', '3' => 'three']]),
+            $item(2, 'tt', 'text', ['optional' => 1]),
+        ]],
+    ]]]));
+    $zeroStudy = SurveyStudy::loadByUserAndName($GLOBALS['user'], $zeroName);
+    ok($zeroStudy && $zeroStudy->rendering_mode === 'v2', 'linked to a Form: on v2');
+    $colLen = function () use ($db, $zeroStudy) {
+        return (int) $db->execute('SELECT CHARACTER_MAXIMUM_LENGTH AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t AND COLUMN_NAME = :c',
+            ['t' => $zeroStudy->results_table, 'c' => 'mm'], false, true)['n'];
+    };
+    ok($colLen() === 10, 'the column fits "0, 1, 2, 3"', $colLen());
+    // A study whose table predates this: sized without the 0.
+    $db->query("ALTER TABLE `{$zeroStudy->results_table}` MODIFY `mm` VARCHAR(7) DEFAULT NULL");
+    $w = $zeroStudy->widenMultipleChoiceColumns();
+    ok($w === ['mm'] && $colLen() === 10, 'moving to v2 widens it', [$w, $colLen()]);
+    ok($zeroStudy->widenMultipleChoiceColumns() === [], 'and never twice');
+
+    $zRow = $db->execute('SELECT ru.unit_id, ru.position FROM survey_run_units ru JOIN survey_units u ON u.id = ru.unit_id WHERE ru.run_id = :r AND u.form_study_id = :s',
+        ['r' => $runId, 's' => $zeroStudy->id], false, true);
+    $zUnit = RunUnitFactory::make($run, ['id' => (int) $zRow['unit_id']]);
+    $zrsId = $db->insert('survey_run_sessions', ['run_id' => $runId, 'session' => 'NAVSMOKE' . bin2hex(random_bytes(8)), 'created' => mysql_now(), 'position' => (int) $zRow['position']]);
+    $zrs = new RunSession($db->execute('SELECT session FROM survey_run_sessions WHERE id = :id', ['id' => $zrsId], false, true)['session'], $run);
+    $zrs->position = (int) $zRow['position'];
+    $zrs->createUnitSession($zUnit);
+    $zus = $zrs->currentUnitSession;
+    $zus->createSurveyStudyRecord();
+    $zsvc = new FormSubmissionService($zus, $zeroStudy);
+    $zsvc->apply(['page' => 1, 'unit_session_id' => 0, 'data' => ['mm' => ['', '0', '2'], 'tt' => 'abc'], 'item_views' => [], 'hidden' => [], 'final' => false]);
+    $wideRow = function () use ($db, $zeroStudy, $zus) {
+        return $db->execute("SELECT mm, tt FROM `{$zeroStudy->results_table}` WHERE session_id = :s", ['s' => $zus->id], false, true);
+    };
+    ok($wideRow()['mm'] === '0, 2', 'the 0 is stored', $wideRow());
+
+    // The participant empties tt and deselects everything; autosave posts that.
+    $items = $zeroStudy->getItemsWithChoices(null, ['field' => 'name', 'values' => ['mm', 'tt']]);
+    $gone = $zsvc->withdrawAnswers(FormSubmissionService::withdrawnNames(['mm' => [''], 'tt' => ''], $items));
+    sort($gone);
+    ok($gone === ['mm', 'tt'], 'both answers withdrawn', $gone);
+    ok($wideRow() === ['mm' => null, 'tt' => null], 'gone from the results table', $wideRow());
+    $disp = $db->execute('SELECT COUNT(*) AS n FROM survey_items_display d JOIN survey_items i ON i.id = d.item_id WHERE d.session_id = :s AND (d.answer IS NOT NULL OR d.saved IS NOT NULL)', ['s' => $zus->id], false, true);
+    ok((int) $disp['n'] === 0, 'and from the display table');
+    ok($zsvc->withdrawAnswers(['tt']) === [], 'withdrawing again changes nothing');
+    $db->exec('DELETE FROM survey_run_sessions WHERE id = :id', ['id' => $zrsId]);
+} catch (Throwable $e) {
+    echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . "\n";
+    $failures++;
+}
+
 echo "\n-- a study with a calculate item is not linked to a Form --\n";
 $calcStudy = null;
 try {
@@ -267,6 +325,7 @@ try {
         $db->exec('DELETE FROM survey_units WHERE id = :u AND id <> :keep', ['u' => $u['unit_id'], 'keep' => (int) $unitId]);
     }
     if ($calcStudy && $calcStudy->valid) { $calcStudy->delete(); }
+    if ($zeroStudy && $zeroStudy->valid) { $db->query('DELETE FROM survey_r_calls WHERE study_id = ' . (int) $zeroStudy->id); $zeroStudy->delete(); }
 } catch (Throwable $e) {}
 teardown();
 echo "\n" . ($failures ? "\e[31m{$failures} failure(s)\e[0m" : "\e[32mall passed\e[0m") . "\n";

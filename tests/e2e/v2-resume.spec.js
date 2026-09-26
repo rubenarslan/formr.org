@@ -48,6 +48,33 @@ test.describe('form_v2: reload, offline and Previous agree on the page', () => {
         expect(await page.locator('form.fmr-form-v2 section.fmr-page:not([hidden]) [data-fmr-prev]:visible').count(), 'no Previous on the first page').toBe(0);
     });
 
+    test('clearing an autosaved answer withdraws it', async ({ page, baseURL }) => {
+        test.setTimeout(90000);
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        const sid = await v2.unitSessionId(page);
+        const nextSave = () => page.waitForResponse((r) => /\/form-save\/?$/.test(new URL(r.url()).pathname), { timeout: 40000 });
+        let saved = nextSave();
+        await page.fill('[name="cp_a"]', 'abc');
+        await page.locator('[name="cp_a"]').blur();
+        await saved;
+        const stored = () => db.dbQuery(`SELECT d.answer, d.saved FROM survey_items_display d JOIN survey_items i ON i.id = d.item_id WHERE d.session_id = ${Number(sid)} AND i.name = 'cp_a'`)[0];
+        expect(stored().answer).toBe('abc');
+
+        // The participant deletes it; the next autosave (throttled) says so.
+        saved = nextSave();
+        await page.fill('[name="cp_a"]', '');
+        await page.locator('[name="cp_a"]').blur();
+        await saved;
+        expect(stored().answer, 'withdrawn from the display table').toBeNull();
+        expect(stored().saved).toBeNull();
+        const st = db.dbQuery(`SELECT results_table FROM survey_studies WHERE name = '${STUDY}'`)[0];
+        expect(db.dbResultsRow(st.results_table, sid).cp_a, 'and from the results table').toBeNull();
+
+        await reload(page);
+        expect(await page.inputValue('[name="cp_a"]'), 'it does not come back').toBe('');
+    });
+
     test('a submitted page stays behind: remembered, and without memory too', async ({ page, baseURL }) => {
         await freshParticipant(page, RUN(), { baseURL });
         await v2.waitForBundle(page);

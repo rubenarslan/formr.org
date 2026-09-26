@@ -95,8 +95,12 @@ function parseChoices(inp) {
         const raw = inp.dataset.select2add;
         if (raw) {
             const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            // Only a lone entry is a packed list (SelectOrAddOne_Item::
+            // setChoices' own rule); splitting every entry broke a real
+            // choice like "Berlin, Germany" into two options.
+            const packed = parsed.length === 1;
             parsed.forEach((opt) => {
-                String(opt.id || '').split(',').forEach((tok) => {
+                (packed ? String(opt.id || '').split(',') : [String(opt.id || '')]).forEach((tok) => {
                     const trimmed = tok.trim();
                     if (trimmed) out.push({ id: trimmed, text: trimmed });
                 });

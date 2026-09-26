@@ -736,7 +736,7 @@ class AdminSurveyController extends AdminController {
             alert('<strong>Not switched.</strong> These showifs would keep their items hidden on form_v2 (rewrite them in JavaScript, or compute the value in a hidden item). If the scan is wrong about them, use "Upgrade anyway".<ul><li>'
                 . implode('</li><li>', array_map('h', $showifFindings)) . '</li></ul>', 'alert-danger');
         } elseif ($target === 'v2' && $this->study->rendering_mode !== 'v2') {
-            $this->study->update(['rendering_mode' => 'v2']);
+            $this->study->adoptFormV2();
             $converted = self::convertSurveyPlacementsToForm($db, (int) $this->study->id);
             $note = $converted
                 ? " $converted run unit(s) now use a Form unit; participants mid-form continue on v2 from where they are."

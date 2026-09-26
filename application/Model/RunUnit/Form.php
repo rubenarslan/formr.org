@@ -85,12 +85,9 @@ class Form extends Survey {
                 ['id' => (int) $this->id]
             );
             $this->surveyStudy = new SurveyStudy($study_id);
-
-            $this->db->update(
-                'survey_studies',
-                ['rendering_mode' => 'v2'],
-                ['id' => $study_id]
-            );
+            if ($this->surveyStudy->rendering_mode !== 'v2') {
+                $this->surveyStudy->adoptFormV2();
+            }
 
             $description = !empty($options['description'])
                 ? $options['description']

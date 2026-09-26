@@ -787,6 +787,14 @@ function initForm() {
             wrapper.classList.remove('fmr-fill-pending');
             const id = wrapper.dataset.fmrFillId;
             if (!(id in valuesMap)) return;
+            // A stored answer — an emptied field or a deselected choice too —
+            // is the participant's: setInputValue only sees an empty input,
+            // so without this the R default came back over it on every
+            // revisit/reload and the next submit stored the default.
+            const storedName = itemNameOf(wrapper);
+            const stored = storedName ? store.items[storedName] : null;
+            const participantFacing = !!wrapper.querySelector('input[name]:not([type=hidden]):not([name^="_item_views"]), select[name], textarea[name]');
+            if (stored && stored.answered && participantFacing) return;
             const target = setInputValue(wrapper, valuesMap[id]);
             if (!target) return;
             programmaticFill = true;
@@ -936,6 +944,10 @@ function initForm() {
             queuedBehind = waiting.some((e) => (e.sync_url || syncUrl) === syncUrl
                 && (e.unit_session_id || 0) === (unitSessionId || 0) && Number(e.page) !== pageNum);
         }
+
+        // Let an autosave already on the wire land before this page does
+        // (see saveInFlightRequest); its failure is irrelevant here.
+        if (saveInFlightRequest) await saveInFlightRequest.catch(() => {});
 
         let res, netErr;
         if (queuedBehind) {
@@ -1199,6 +1211,11 @@ function initForm() {
     // (collectPayload drops them on the JSON path); they ride the explicit submit.
     const SAVE_MIN_INTERVAL = 20000;
     let lastSaveAt = 0, saveTimer = null, savePending = false, saveInFlight = false;
+    // The in-flight autosave request (resolves once the server has replied,
+    // i.e. written). A page submit waits for it: an autosave sent before the
+    // participant's last edit and landing after the submit would overwrite
+    // the submitted answer with the older one.
+    let saveInFlightRequest = null;
     // "Leave with unsaved changes?" guard — armed ONLY while a change is pending
     // (un-flushed), removed the instant a flush starts. A `beforeunload` listener
     // disqualifies the back/forward cache on iOS Safari / Android Chrome, so
@@ -1231,13 +1248,14 @@ function initForm() {
         saveInFlight = true;
         lastSaveAt = Date.now();
         try {
-            const res = await fetch(saveUrl, {
+            saveInFlightRequest = fetch(saveUrl, {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 body: JSON.stringify({ data: payload.data, item_views: payload.item_views, unit_session_id: unitSessionId }),
                 keepalive: true,
             });
+            const res = await saveInFlightRequest;
             // Surface a transient "Saved" pill on a real persist (the server
             // returns {status:'noop'} — still 200 — when nothing was written, so
             // gate on status==='saved' to avoid claiming a save that didn't happen).
@@ -1248,7 +1266,7 @@ function initForm() {
                 if (body && body.status === 'saved') setSaveState('saved', t('save.saved', 'Saved'));
             }
         } catch (e) { /* best-effort; explicit submit + offline queue are the net */ }
-        finally { saveInFlight = false; }
+        finally { saveInFlight = false; saveInFlightRequest = null; }
     };
     // A page submit carries every answer of its page, so an autosave still
     // waiting for its throttle window is superseded — and must not go out

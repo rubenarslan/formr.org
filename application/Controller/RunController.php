@@ -910,8 +910,9 @@ class RunController extends Controller {
         // emits the empty hidden placeholder of each mc/mc_multiple item
         // (name=..., value=""), and writing "" raw to a typed results column
         // (e.g. a TINYINT mc) errors; it would also mark an unanswered REQUIRED
-        // item as saved and let the participant bypass it. Dropping empties here
-        // means autosave persists only what's been entered.
+        // item as saved and let the participant bypass it. So empties are not
+        // stored as answers; an empty value instead withdraws an answer stored
+        // earlier (FormSubmissionService::withdrawnNames / withdrawAnswers).
         $clean = array();
         foreach ($data as $k => $v) {
             if (is_array($v)) {
@@ -921,7 +922,6 @@ class RunController extends Controller {
                 $clean[$k] = $v;
             }
         }
-        $data = $clean;
         if (!$data) {
             $this->sendJsonResponse(array('status' => 'noop'));
             return;
@@ -943,9 +943,13 @@ class RunController extends Controller {
             'field' => 'name',
             'values' => array_keys($data),
         ));
-        $accepted = self::filterAutosaveAnswers($data, $items);
+        // An emptied field or a deselected choice withdraws the answer
+        // autosave stored before; the rest are answers to store.
+        $withdrawn = (new FormSubmissionService($unitSession, $study))
+            ->withdrawAnswers(FormSubmissionService::withdrawnNames($data, $items));
+        $accepted = self::filterAutosaveAnswers($clean, $items);
         if (!$accepted) {
-            $this->sendJsonResponse(array('status' => 'noop'));
+            $this->sendJsonResponse(array('status' => $withdrawn ? 'saved' : 'noop'));
             return;
         }
 

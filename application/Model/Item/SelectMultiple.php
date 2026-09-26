@@ -11,10 +11,7 @@ class SelectMultiple_Item extends SelectOne_Item {
     public $mysql_field = 'VARCHAR(40) DEFAULT NULL';
 
     protected function chooseResultFieldBasedOnChoices() {
-        $choices = array_keys($this->choices);
-        $max = implode(", ", array_filter($choices));
-        $maxlen = strlen($max);
-        $this->mysql_field = 'VARCHAR (' . $maxlen . ') DEFAULT NULL';
+        $this->mysql_field = 'VARCHAR (' . self::joinedChoicesLength(array_keys($this->choices)) . ') DEFAULT NULL';
     }
 
     protected function setMoreOptions() {
@@ -25,7 +22,7 @@ class SelectMultiple_Item extends SelectOne_Item {
 
     public function getReply($reply) {
         if (is_array($reply)) {
-            $reply = implode(", ", array_filter($reply));
+            $reply = implode(", ", $this->replyValues($reply));
         }
         return $reply;
     }

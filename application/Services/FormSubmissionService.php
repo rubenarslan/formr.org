@@ -242,19 +242,92 @@ class FormSubmissionService {
             array('sid' => $sid)
         );
 
-        if (!$retracted || !Config::get('form_v2_dual_write_results', true)) {
+        $this->clearResultsColumns(array_map(function ($row) { return (string) $row['name']; }, (array) $retracted));
+    }
+
+    /**
+     * Withdraw the stored answers of the named items: the participant
+     * cleared the field or deselected the choice, and autosave says so by
+     * posting it empty (withdrawnNames). The answer goes, in both tables, as
+     * if it had never been given — otherwise the old answer would come back
+     * on a reload, or stay in the data if they break off. Only rows with a
+     * stored answer change.
+     *
+     * @param string[] $names
+     * @return string[] the items whose answer was withdrawn
+     */
+    public function withdrawAnswers(array $names) {
+        $names = array_values(array_filter(array_map('strval', $names), function ($n) {
+            return (bool) preg_match('/^[A-Za-z][A-Za-z0-9_]*$/', $n);
+        }));
+        if (!$names) {
+            return array();
+        }
+        $sid = (int) $this->unitSession->id;
+        $params = array('sid' => $sid, 'study' => (int) $this->study->id);
+        $marks = array();
+        foreach ($names as $i => $name) {
+            $marks[] = ':n' . $i;
+            $params['n' . $i] = $name;
+        }
+        $where = '`d`.`session_id` = :sid AND `i`.`study_id` = :study AND `i`.`deleted` IS NULL'
+            . ' AND `i`.`name` IN (' . implode(',', $marks) . ') AND `d`.`saved` IS NOT NULL';
+        $withdrawn = array_map(function ($row) { return (string) $row['name']; }, (array) $this->db->execute(
+            'SELECT DISTINCT `i`.`name` FROM `survey_items_display` `d` JOIN `survey_items` `i` ON `i`.`id` = `d`.`item_id` WHERE ' . $where,
+            $params
+        ));
+        if (!$withdrawn) {
+            return array();
+        }
+        $this->db->exec(
+            'UPDATE `survey_items_display` `d` JOIN `survey_items` `i` ON `i`.`id` = `d`.`item_id`'
+            . ' SET `d`.`answer` = NULL, `d`.`saved` = NULL, `d`.`answered` = NULL, `d`.`answered_relative` = NULL'
+            . ' WHERE ' . $where,
+            $params
+        );
+        $this->clearResultsColumns($withdrawn);
+        return $withdrawn;
+    }
+
+    /**
+     * The items an autosave reports as emptied: posted with no value ('' —
+     * an emptied field, a deselected choice's placeholder — or no ticked
+     * box), taking input, and autosaved at all (RunController::
+     * autosaveEligible: never uploads or a bot_check, whose inputs are
+     * always empty).
+     *
+     * @param array $data the posted answers (readPayload)
+     * @param Item[] $items name => item
+     * @return string[]
+     */
+    public static function withdrawnNames(array $data, array $items) {
+        $out = array();
+        foreach ($data as $name => $value) {
+            $empty = is_array($value)
+                ? !array_filter($value, function ($v) { return $v !== '' && $v !== null; })
+                : ($value === '' || $value === null);
+            $item = isset($items[$name]) ? $items[$name] : null;
+            if ($empty && $item instanceof Item && self::isAnswerable($item) && RunController::autosaveEligible($item)) {
+                $out[] = (string) $name;
+            }
+        }
+        return $out;
+    }
+
+    /** Set the named columns of this session's wide results row to NULL. */
+    protected function clearResultsColumns(array $names) {
+        if (!$names || !Config::get('form_v2_dual_write_results', true)) {
             return;
         }
         $columns = SurveyStudy::wideTableColumns($this->study->results_table);
         $set = array();
-        foreach ((array) $retracted as $row) {
-            $name = (string) $row['name'];
+        foreach ($names as $name) {
             if (in_array($name, $columns, true) && preg_match('/^[A-Za-z][A-Za-z0-9_]*$/', $name)) {
                 $set[$name] = null;
             }
         }
         if ($set) {
-            $this->db->update($this->study->results_table, $set, array('study_id' => $this->study->id, 'session_id' => $sid));
+            $this->db->update($this->study->results_table, $set, array('study_id' => $this->study->id, 'session_id' => (int) $this->unitSession->id));
         }
     }
 

@@ -17,7 +17,7 @@ class SelectOrAddMultiple_Item extends SelectOrAddOne_Item {
 
     public function getReply($reply) {
         if (is_array($reply)) {
-            $reply = implode("\n", array_filter($reply));
+            $reply = implode("\n", $this->replyValues($reply));
         }
         return $reply;
     }

@@ -148,6 +148,38 @@ class Item {
     public function acceptsArrayReply() {
         return (bool) $this->accepts_array_reply;
     }
+    /**
+     * Set when the item is answered through a form_v2 study
+     * (UnitSession::updateSurveyStudyRecord). v2 stores a multiple choice's
+     * value "0" (replyValues); v1 keeps dropping it, as it always has, so
+     * results of running v1 studies do not change shape.
+     */
+    public $formV2 = false;
+
+    /**
+     * The values of a multi-valued reply that are answers: the empty
+     * placeholder the form posts is never one. On v2 "0" is a value like any
+     * other; v1 drops it too (array_filter), which is how its results have
+     * always looked.
+     */
+    protected function replyValues(array $reply) {
+        if (!$this->formV2) {
+            return array_filter($reply);
+        }
+        return array_values(array_filter($reply, function ($v) {
+            return $v !== '' && $v !== null;
+        }));
+    }
+
+    /**
+     * Width of a column that stores every choice key joined by ", " — the
+     * longest a multiple-choice answer can be. "0" counts (v2 stores it).
+     */
+    protected static function joinedChoicesLength(array $keys) {
+        $keys = array_filter($keys, function ($k) { return $k !== '' && $k !== null; });
+        return max(1, strlen(implode(', ', $keys)));
+    }
+
     public $dont_validate = null;
     public $reply = null;
     public $val_errors = array();
@@ -422,9 +454,14 @@ class Item {
 
             if (abs($min) > 32767 OR abs($max) > 32767) {
                 $this->mysql_field = str_replace("TINYINT", "MEDIUMINT", $this->mysql_field);
-            } elseif (abs($min) > 126 OR abs($min) > 126) {
+            } elseif (abs($min) > 126 OR abs($max) > 126) {
+                // ($max, not $min twice: choices 1..3 + a 999 "don't know"
+                // code got a TINYINT, and choosing 999 failed the whole page
+                // write under STRICT_ALL_TABLES.)
                 $this->mysql_field = str_replace("TINYINT", "SMALLINT", $this->mysql_field);
-            } elseif (count(array_filter($choices, "is_float"))) {
+            } elseif (count(array_filter($choices, function ($c) { return (float) $c != (int) $c; }))) {
+                // Choice keys are ints or strings ("0.5" stays a string key),
+                // so is_float never matched and decimal codes were rounded.
                 $this->mysql_field = str_replace("TINYINT", "FLOAT", $this->mysql_field);
             }
         } else {

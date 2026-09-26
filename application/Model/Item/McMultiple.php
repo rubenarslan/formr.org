@@ -19,10 +19,7 @@ class McMultiple_Item extends Mc_Item {
     }
 
     protected function chooseResultFieldBasedOnChoices() {
-        $choices = array_keys($this->choices);
-        $max = implode(", ", array_filter($choices));
-        $maxlen = strlen($max);
-        $this->mysql_field = 'VARCHAR (' . $maxlen . ') DEFAULT NULL';
+        $this->mysql_field = 'VARCHAR (' . self::joinedChoicesLength(array_keys($this->choices)) . ') DEFAULT NULL';
     }
 
     protected function render_input() {
@@ -84,7 +81,7 @@ class McMultiple_Item extends Mc_Item {
 
     public function getReply($reply) {
         if (is_array($reply)) {
-            $reply = implode(", ", array_filter($reply));
+            $reply = implode(", ", $this->replyValues($reply));
         }
         return $reply;
     }
