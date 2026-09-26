@@ -245,6 +245,32 @@ class SurveyStudy extends Model
         ];
         $filtered = array_intersect_key($raw, array_flip($allowed_settings));
         $filtered = self::validateEngineSettings($filtered);
+        // The integer columns: a spreadsheet `settings` sheet carries an
+        // exported NULL (or a FALSE cell) as '', and '' or any other
+        // non-integer is an error for an INT column under STRICT_ALL_TABLES —
+        // so re-uploading an exported xlsx failed. Such a value is dropped
+        // (the column default applies), like an invalid engine setting.
+        foreach (array('maximum_number_displayed', 'displayed_percentage_maximum', 'add_percentage_points',
+                'expire_after', 'expire_invitation_after', 'expire_invitation_grace',
+                'enable_instant_validation', 'unlinked', 'hide_results', 'use_paging') as $key) {
+            if (!array_key_exists($key, $filtered)) {
+                continue;
+            }
+            $v = $filtered[$key];
+            if ($v === null) {
+                // A JSON null is an exported NULL: kept where the column
+                // allows it (these two are NOT NULL).
+                if (in_array($key, array('hide_results', 'use_paging'), true)) {
+                    unset($filtered[$key]);
+                }
+            } elseif (is_bool($v)) {
+                $filtered[$key] = (int) $v;
+            } elseif (is_int($v) || (is_string($v) && preg_match('/^\s*-?\d+\s*$/', $v))) {
+                $filtered[$key] = (int) $v;
+            } else {
+                unset($filtered[$key]);
+            }
+        }
         // Validate google_file_id at the WRITE boundary, not only on the
         // download path (google_get_sheet_id). This value is
         // attacker-controlled on the import path — a shared run-bundle's
@@ -498,6 +524,10 @@ class SurveyStudy extends Model
         // the engine decides which items are allowed (formV2Unsupported).
         // An existing survey's settings are never changed by an upload.
         if ($is_new && empty($this->errors)) {
+            if (($reader->settings['rendering_mode'] ?? null) === 'v2' && ($settingsOverride['rendering_mode'] ?? 'v2') === 'v1') {
+                $this->warnings[] = 'The file declares the form_v2 engine; the survey was created on the classic v1 engine'
+                    . (Config::get('form_v2_enabled') ? ', as chosen.' : ', because form_v2 is not enabled on this instance.');
+            }
             $this->applyImportedSettings(array_merge($reader->settings, $settingsOverride));
         }
 
@@ -969,6 +999,12 @@ class SurveyStudy extends Model
             $items = array();
             foreach ($raw_items as $row) {
                 $item = $itemFactory->make($row);
+                // A v2 study stores a multiple choice's "0" (Item::replyValues):
+                // set here, where the items are made, so every writer — page
+                // submit, autosave, sync — shapes the answer the same way.
+                if ($item instanceof Item && $this->rendering_mode === 'v2') {
+                    $item->formV2 = true;
+                }
                 $items[$item->name] = $item;
             }
             return $items;

@@ -593,9 +593,12 @@ function initForm() {
             const message = (body && body.error) ? String(body.error) : '';
             if (outcome === 'invalid') {
                 // 400 envelope error — re-POSTing the same bytes can't succeed.
+                // It stops its run's queue like any entry that cannot go: a
+                // later page must not land (or end the form) without it. The
+                // banner offers Retry and Discard.
                 markRetryFailure(entry, { reason: 'invalid', status, message, permanent: true });
                 await queueUpdate(entry).catch(() => {});
-                continue;
+                break;
             }
             if (outcome === 'session') {
                 // No run session for this run: every entry of the run fails
@@ -649,13 +652,22 @@ function initForm() {
             try { await queueResetRetry(); } catch (e) { /* drain re-renders */ }
             drainQueue();
         } };
+        // A blocked entry halts its run's queue (pages land in order), so the
+        // participant must be able to let it go: the answers on that page are
+        // lost, the pages after it are sent.
+        const discardAction = (entries) => (entries.length ? { label: t('queue.discard', 'Discard and continue'), onClick: async (btn) => {
+            if (!window.confirm(t('queue.discard_confirm', 'Discard the answers that could not be sent (%n page(s))? They will be lost; the pages after them are sent.', { n: entries.length }))) return;
+            btn.disabled = true;
+            for (const e of entries) { await queueDelete(e.uuid).catch(() => {}); }
+            drainQueue();
+        } } : null);
         const blocked = remaining.filter((e) => entryState(e) === STATE_BLOCKED);
         if (blocked.length) {
             const session = blocked.some((e) => e.last_error && e.last_error.reason === 'session');
             showQueueBanner(session
                 ? t('queue.blocked_session', '%n queued submission(s) could not be sent because your session has expired. Open your personal study link to sign in again, then retry.', { n: blocked.length })
                 : t('queue.blocked', '%n queued submission(s) could not be sent after several attempts. Your answers are kept on this device — please retry, or contact the study team if this persists.', { n: blocked.length }),
-            'danger', [retryAction]);
+            'danger', [retryAction, discardAction(blocked.filter(belongsHere))].filter(Boolean));
             return;
         }
         const pending = remaining.filter((e) => entryState(e) === STATE_PENDING);
@@ -794,13 +806,20 @@ function initForm() {
             const storedName = itemNameOf(wrapper);
             const stored = storedName ? store.items[storedName] : null;
             const participantFacing = !!wrapper.querySelector('input[name]:not([type=hidden]):not([name^="_item_views"]), select[name], textarea[name]');
-            if (stored && stored.answered && participantFacing) return;
+            // `saved`, not `answered`: an emptied field or a deselected
+            // choice is stored with no value (answered: false).
+            if (stored && (stored.saved || stored.answered) && participantFacing) return;
             const target = setInputValue(wrapper, valuesMap[id]);
             if (!target) return;
             programmaticFill = true;
             try {
-                target.dispatchEvent(new Event('input', { bubbles: true }));
-                target.dispatchEvent(new Event('change', { bubbles: true }));
+                // Marked, so listeners outside this module (the
+                // all-answered auto-submit) can tell it from an answer.
+                ['input', 'change'].forEach((type) => {
+                    const ev = new Event(type, { bubbles: true });
+                    ev.fmrProgrammatic = true;
+                    target.dispatchEvent(ev);
+                });
             } finally {
                 programmaticFill = false;
             }
@@ -947,7 +966,13 @@ function initForm() {
 
         // Let an autosave already on the wire land before this page does
         // (see saveInFlightRequest); its failure is irrelevant here.
-        if (saveInFlightRequest) await saveInFlightRequest.catch(() => {});
+        // Bounded: a stalled autosave must not leave Next dead.
+        if (saveInFlightRequest) {
+            await Promise.race([
+                saveInFlightRequest.catch(() => {}),
+                new Promise((done) => setTimeout(done, AUTOSAVE_WAIT_MS)),
+            ]);
+        }
 
         let res, netErr;
         if (queuedBehind) {
@@ -1210,6 +1235,8 @@ function initForm() {
     // page-submit (+ offline queue) is the durable path. Files are excluded
     // (collectPayload drops them on the JSON path); they ride the explicit submit.
     const SAVE_MIN_INTERVAL = 20000;
+    // How long a page submit waits for an autosave already on the wire.
+    const AUTOSAVE_WAIT_MS = 5000;
     let lastSaveAt = 0, saveTimer = null, savePending = false, saveInFlight = false;
     // The in-flight autosave request (resolves once the server has replied,
     // i.e. written). A page submit waits for it: an autosave sent before the
@@ -1237,6 +1264,11 @@ function initForm() {
     const flushPersist = async () => {
         if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
         if (!savePending || saveInFlight || !saveUrl) return;
+        // A page submit on the wire carries every answer of this page; an
+        // autosave sent now would land after it — into a form its final
+        // submit has ended. It stays pending: cancelled if the submit
+        // succeeds, sent with the next change (or the pagehide beacon) if not.
+        if (pageSubmitInFlight) return;
         const page = pages[currentIndex];
         if (!page) return;
         const payload = collectPayload(page);

@@ -64,9 +64,12 @@ class AdminSurveyController extends AdminController {
             // `settings` sheet), and without one the survey is classic v1.
             // The choice is offered where the operator has enabled form_v2
             // authoring (form_v2_enabled, like the run editor's Add Form).
+            // Where it is off, every upload arrives on v1, whatever the file
+            // says: a v2 survey could not be placed in any run (Survey units
+            // refuse it, and Add Form is hidden).
             $engine = in_array($_POST['engine'] ?? '', array('v1', 'v2'), true) ? $_POST['engine'] : null;
-            if ($engine === 'v2' && !Config::get('form_v2_enabled')) {
-                $engine = null;
+            if (!Config::get('form_v2_enabled')) {
+                $engine = 'v1';
             }
 
             if ($this->validateUploadedFile($file)) {
@@ -102,6 +105,10 @@ class AdminSurveyController extends AdminController {
                     if ($engine !== null) {
                         if (!isset($data->settings) || !is_object($data->settings)) {
                             $data->settings = new stdClass();
+                        }
+                        if (($data->settings->rendering_mode ?? null) === 'v2' && $engine === 'v1') {
+                            alert('The file declares the form_v2 engine; the survey was created on the classic v1 engine'
+                                . (Config::get('form_v2_enabled') ? ', as chosen.' : ', because form_v2 is not enabled on this instance.'), 'alert-warning');
                         }
                         $data->settings->rendering_mode = $engine;
                     }

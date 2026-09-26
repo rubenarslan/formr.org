@@ -149,8 +149,8 @@ class Item {
         return (bool) $this->accepts_array_reply;
     }
     /**
-     * Set when the item is answered through a form_v2 study
-     * (UnitSession::updateSurveyStudyRecord). v2 stores a multiple choice's
+     * Set on the items of a form_v2 study when they are made
+     * (SurveyStudy::getItemsWithChoices). v2 stores a multiple choice's
      * value "0" (replyValues); v1 keeps dropping it, as it always has, so
      * results of running v1 studies do not change shape.
      */
@@ -452,17 +452,19 @@ class Item {
                 $this->mysql_field = str_replace('UNSIGNED ', '', $this->mysql_field);
             }
 
-            if (abs($min) > 32767 OR abs($max) > 32767) {
+            if (count(array_filter($choices, function ($c) { return (float) $c != (int) $c; }))) {
+                // Choice keys are ints or strings ("0.5" stays a string key),
+                // so is_float never matched and decimal codes were rounded.
+                // Checked first: a decimal code of any size needs a FLOAT
+                // (150.5 must not land in the SMALLINT branch below).
+                $this->mysql_field = str_replace("TINYINT", "FLOAT", $this->mysql_field);
+            } elseif (abs($min) > 32767 OR abs($max) > 32767) {
                 $this->mysql_field = str_replace("TINYINT", "MEDIUMINT", $this->mysql_field);
             } elseif (abs($min) > 126 OR abs($max) > 126) {
                 // ($max, not $min twice: choices 1..3 + a 999 "don't know"
                 // code got a TINYINT, and choosing 999 failed the whole page
                 // write under STRICT_ALL_TABLES.)
                 $this->mysql_field = str_replace("TINYINT", "SMALLINT", $this->mysql_field);
-            } elseif (count(array_filter($choices, function ($c) { return (float) $c != (int) $c; }))) {
-                // Choice keys are ints or strings ("0.5" stays a string key),
-                // so is_float never matched and decimal codes were rounded.
-                $this->mysql_field = str_replace("TINYINT", "FLOAT", $this->mysql_field);
             }
         } else {
             $lengths = array_map("strlen", $choices);

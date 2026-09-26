@@ -490,7 +490,11 @@ class RCallService {
             // The key is an int, so the backtick-quoted name is safe; expr is
             // admin-authored R (vetted by the revocation-checked allowlist when
             // a client asked for it).
-            $listEntries[] = sprintf("`%d` = tryCatch({ %s }, error = function(e) NA)", (int) $key, (string) $expr);
+            // Each expression on its own lines, in its own function — as v1
+            // evaluates a `value` (SpreadsheetRenderer): a trailing `# comment`
+            // must not swallow the closing brace, and a `return()` must end
+            // this expression, not the whole batch.
+            $listEntries[] = sprintf("`%d` = tryCatch({\n(function() {\n%s\n})()\n}, error = function(e) NA)", (int) $key, (string) $expr);
         }
         // The browser's answers land on the survey frame first (the same
         // statements the label path knits), so `survey$x` and a bare `x`

@@ -52,4 +52,20 @@ class SurveyImportSettingsTest extends \PHPUnit\Framework\TestCase {
         $out = SurveyStudy::importableSettings(array('id' => 5, 'user_id' => 1, 'results_table' => 'x', 'name' => 'y', 'use_paging' => 1));
         $this->assertSame(array('use_paging' => 1), $out, 'identity and plumbing columns are never imported');
     }
+
+    public function testEmptyAndNonIntegerNumericSettingsAreDropped() {
+        // An exported NULL comes back from the settings sheet as '' — which an
+        // INT column refuses under STRICT_ALL_TABLES.
+        $out = SurveyStudy::importableSettings(array(
+            'expire_invitation_after' => '',
+            'maximum_number_displayed' => 'abc',
+            'hide_results' => '0',
+            'expire_after' => ' 60 ',
+            'unlinked' => true,
+            'use_paging' => null,
+            'expire_invitation_grace' => null,
+        ));
+        $this->assertSame(array('hide_results' => 0, 'expire_after' => 60, 'unlinked' => 1, 'expire_invitation_grace' => null), $out,
+            'a JSON null stays where the column is nullable, and is dropped where it is NOT NULL');
+    }
 }

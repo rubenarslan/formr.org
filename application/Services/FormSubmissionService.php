@@ -292,9 +292,8 @@ class FormSubmissionService {
     /**
      * The items an autosave reports as emptied: posted with no value ('' —
      * an emptied field, a deselected choice's placeholder — or no ticked
-     * box), taking input, and autosaved at all (RunController::
-     * autosaveEligible: never uploads or a bot_check, whose inputs are
-     * always empty).
+     * box), taking input, and autosaved at all (autosaveEligible: never
+     * uploads or a bot_check, whose inputs are always empty).
      *
      * @param array $data the posted answers (readPayload)
      * @param Item[] $items name => item
@@ -307,11 +306,24 @@ class FormSubmissionService {
                 ? !array_filter($value, function ($v) { return $v !== '' && $v !== null; })
                 : ($value === '' || $value === null);
             $item = isset($items[$name]) ? $items[$name] : null;
-            if ($empty && $item instanceof Item && self::isAnswerable($item) && RunController::autosaveEligible($item)) {
+            if ($empty && $item instanceof Item && self::isAnswerable($item) && self::autosaveEligible($item)) {
                 $out[] = (string) $name;
             }
         }
         return $out;
+    }
+
+    /**
+     * Item types the autosave path must never touch. bot_check: its value is a
+     * one-shot proof-of-work token that verify() BURNS, so validating it on
+     * autosave would consume it before the real submit (and it must only ever
+     * be judged at submit). File uploads: the JSON autosave can't carry bytes
+     * anyway, and File_Item::validateInput moves the upload — an arbitrary
+     * string posted under a file item's name must not be persisted as if it
+     * were one.
+     */
+    public static function autosaveEligible(Item $item) {
+        return !($item instanceof BotCheck_Item || $item instanceof File_Item);
     }
 
     /** Set the named columns of this session's wide results row to NULL. */
@@ -432,6 +444,7 @@ class FormSubmissionService {
      * One item's entry in the state block / submit reply:
      *   id, page, answerable (takes input), required — the study's definition;
      *   answered — a value has been stored (autosave or submit);
+     *   saved — something has been stored, a blank answer included;
      *   value — what was stored, in the shape the live inputs produce
      *     (arrays for multi-value items; an upload's path is not shipped);
      *   hidden — recorded as hidden by the browser's showif.
@@ -456,6 +469,10 @@ class FormSubmissionService {
             'answerable' => self::isAnswerable($item),
             'required' => self::isRequired($item),
             'answered' => ($answer !== null && isset($row['saved'])),
+            // Stored at all, an empty answer included (an optional field left
+            // blank, a deselected choice): what the participant gave, which an
+            // R default must not fill over (main.js resolveAndSubstitutePage).
+            'saved' => isset($row['saved']),
             'value' => $value,
             'hidden' => !empty($row['hidden']),
         );

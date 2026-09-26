@@ -3,7 +3,7 @@
 //
 // The server renders every item of the study on its page and ships a state
 // block (FormRenderer::stateBlock) — per item: id, page, answerable,
-// required, answered, value, hidden — plus the stored state of whatever a
+// required, answered, saved, value, hidden — plus the stored state of whatever a
 // submit just wrote.
 // This module holds that copy (createStore) and derives navigation from it
 // (pageState): the page to open, the next and previous page, first/last,
@@ -38,6 +38,7 @@ export function createStore(block) {
                 const empty = v == null || v === '' || (Array.isArray(v) && v.length === 0);
                 if (!items[name]) items[name] = { id: null, page: null, required: false, hidden: false };
                 items[name].answered = !empty;
+                items[name].saved = true;
                 items[name].value = empty ? null : v;
             });
             const hidden = new Set((hiddenIds || []).map(Number));

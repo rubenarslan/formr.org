@@ -76,7 +76,11 @@ class FormSubmissionServiceTest extends \PHPUnit\Framework\TestCase {
     public function testItemStateShapesWhatTheBrowserNeeds() {
         $text = $this->item(array('name' => 'q', 'type' => 'text', 'optional' => 0));
         $s = FormSubmissionService::itemState($text, array('id' => 5, 'page' => 2, 'answer' => 'hi', 'saved' => '2026-09-24 10:00:00', 'hidden' => null));
-        $this->assertSame(array('id' => 5, 'page' => 2, 'answerable' => true, 'required' => true, 'answered' => true, 'value' => 'hi', 'hidden' => false), $s);
+        $this->assertSame(array('id' => 5, 'page' => 2, 'answerable' => true, 'required' => true, 'answered' => true, 'saved' => true, 'value' => 'hi', 'hidden' => false), $s);
+
+        $s = FormSubmissionService::itemState($text, array('id' => 5, 'page' => 2, 'answer' => null, 'saved' => '2026-09-24 10:00:00', 'hidden' => null));
+        $this->assertFalse($s['answered'], 'a blank stored answer is not an answer');
+        $this->assertTrue($s['saved'], '…but it was stored: an R default must not refill it');
 
         $s = FormSubmissionService::itemState($text, array('id' => 5, 'page' => null, 'answer' => null, 'saved' => null, 'hidden' => 1));
         $this->assertSame(1, $s['page'], 'no display row yet: page 1');

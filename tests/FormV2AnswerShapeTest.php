@@ -41,6 +41,22 @@ class FormV2AnswerShapeTest extends \PHPUnit\Framework\TestCase {
         }
     }
 
+    public function testAYearBoundStaysWithinTheYearColumn() {
+        // The column is a YEAR (1901-2155): a wider bound would accept a year
+        // whose write then fails the whole page.
+        $year = $this->item('year', array('type_options' => '1850, 2300'));
+        $this->assertSame(1901, $year->input_attributes['min']);
+        $this->assertSame(2155, $year->input_attributes['max']);
+        $year->validateInput('1880');
+        $this->assertNotEmpty($year->error, '1880 does not fit a YEAR column');
+
+        $narrow = $this->item('year', array('type_options' => '1950, 2010'));
+        $this->assertSame(1950, $narrow->input_attributes['min']);
+        $this->assertSame(2010, $narrow->input_attributes['max']);
+        $this->assertSame('1985', $narrow->validateInput('1985'));
+        $this->assertEmpty($narrow->error);
+    }
+
     public function testAnEmptiedAnswerIsOneToWithdraw() {
         $items = array(
             't' => $this->item('text', array('name' => 't')),

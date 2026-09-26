@@ -163,6 +163,47 @@ test.describe('offline queue: rejected entries are kept, not deleted', () => {
         expect(syncCalls.length).toBe(before);
     });
 
+    test('a refused entry stops the later pages until the participant discards it', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        const ctx = await currentFormContext(page);
+        const first = await seedEntry(page, ctx, { page: ctx.pageNum, queued_at: 1 });
+        const second = await seedEntry(page, ctx, { page: ctx.pageNum + 1, queued_at: 2 });
+        const posted = [];
+        await page.route(SYNC_ROUTE, async (route) => {
+            const body = JSON.parse(route.request().postData() || '{}');
+            posted.push(body.uuid);
+            if (body.uuid === first) {
+                await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'bad envelope', field: 'page' }) });
+            } else {
+                await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', items: {} }) });
+            }
+        });
+
+        await Promise.all([
+            page.waitForResponse((r) => SYNC_RE.test(new URL(r.url()).pathname), { timeout: 20000 }),
+            page.reload({ waitUntil: 'commit' }),
+        ]);
+        await v2.waitForBundle(page);
+        const banner = page.locator('.fmr-queue-banner');
+        await expect(banner).toBeVisible();
+        await page.waitForTimeout(1000);
+        expect(posted, 'the later page did not overtake the refused one').toEqual([first]);
+
+        // Discard lets the refused page go; the later one is sent.
+        page.once('dialog', (d) => d.accept());
+        const discard = banner.locator('.fmr-queue-banner-action', { hasText: /Discard/ });
+        await expect(discard).toBeVisible();
+        await Promise.all([
+            page.waitForResponse((r) => SYNC_RE.test(new URL(r.url()).pathname), { timeout: 10000 }),
+            discard.click(),
+        ]);
+        expect(posted).toEqual([first, second]);
+        const left = (await page.evaluate(IDB_GET_ALL)).map((e) => e.uuid);
+        expect(left).not.toContain(first);
+        expect(left).not.toContain(second);
+    });
+
     test('403 keeps the entry with backoff and does not re-POST on the next drain', async ({ page, baseURL }) => {
         await freshParticipant(page, RUN(), { baseURL });
         await v2.waitForBundle(page);

@@ -1232,14 +1232,7 @@ class UnitSession extends Model {
             'field' => 'name',
             'values' => array_keys($posted),
         ));
-        // A v2 study stores a multiple choice's "0" (Item::replyValues).
-        if ($study->rendering_mode === 'v2') {
-            foreach ($items as $item) {
-                if ($item instanceof Item) {
-                    $item->formV2 = true;
-                }
-            }
-        }
+        // (On a v2 study the items come with formV2 set: getItemsWithChoices.)
 
         // Validate items and if any fails return user to same page with all unanswered items and error messages
         // This loop also accumulates potential update data

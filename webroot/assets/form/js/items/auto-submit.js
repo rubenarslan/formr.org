@@ -108,8 +108,11 @@ export function initAutoSubmit({ root, pages, getCurrentIndex, submitPage }) {
     };
 
     ['input', 'change'].forEach((evt) => {
-        root.addEventListener(evt, () => {
+        root.addEventListener(evt, (e) => {
             if (!allAnsweredArmed) return;
+            // An R-resolved value the page wrote (main.js marks it) is not
+            // the participant's answer — it can land after the page is shown.
+            if (e && e.fmrProgrammatic) return;
             if (checkTimer) clearTimeout(checkTimer);
             checkTimer = setTimeout(checkAllAnswered, 250);
         });

@@ -965,19 +965,9 @@ class RunController extends Controller {
         $this->sendJsonResponse(array('status' => 'saved'));
     }
 
-    /**
-     * Item types the autosave path must never touch. bot_check: its value is a
-     * one-shot proof-of-work token that verify() BURNS, so validating it here
-     * would consume it before the real submit (and it must only ever be judged
-     * at submit). File uploads: the JSON autosave can't carry bytes anyway, and
-     * File_Item::validateInput moves the upload — an arbitrary string posted
-     * under a file item's name must not be persisted as if it were one.
-     */
+    /** @see FormSubmissionService::autosaveEligible() */
     public static function autosaveEligible(Item $item) {
-        if ($item instanceof BotCheck_Item || $item instanceof File_Item) {
-            return false;
-        }
-        return true;
+        return FormSubmissionService::autosaveEligible($item);
     }
 
     /**
@@ -1143,6 +1133,18 @@ class RunController extends Controller {
             if ($e instanceof PDOException && (int) ($e->errorInfo[1] ?? 0) === 1062) {
                 $this->sendJsonResponse(array('status' => 'ok', 'already_applied' => true));
                 return;
+            }
+            // The rollback cannot be relied on to drop this entry's uuid:
+            // UnitSession::writeSurveyStudyRecord commits the connection's
+            // transaction (DB::beginTransaction nests as a no-op), so a
+            // failure after the answers were written — the final page's
+            // run-session lock timing out, say — would leave the uuid
+            // recorded, and the retry would be answered `already_applied`
+            // without ever ending the form. Re-applying is safe.
+            try {
+                $db->exec('DELETE FROM `survey_form_submissions` WHERE `uuid` = :uuid', array('uuid' => $uuid));
+            } catch (Throwable $cleanup) {
+                formr_log_exception($cleanup, __METHOD__);
             }
             formr_log_exception($e, __METHOD__);
             $this->sendJsonResponse(array('error' => 'The page could not be stored.'), 500);

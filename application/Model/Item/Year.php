@@ -39,12 +39,12 @@ class Year_Item extends Datetime_Item {
         // way number/email do. Only fill defaults the admin didn't set.
         $this->input_attributes['pattern'] = '\\d{4}';
         $this->input_attributes['maxlength'] = 4;
-        if (!isset($this->input_attributes['min'])) {
-            $this->input_attributes['min'] = 1901; // MySQL YEAR lower bound
-        }
-        if (!isset($this->input_attributes['max'])) {
-            $this->input_attributes['max'] = 2155; // MySQL YEAR upper bound
-        }
+        // The results column is a YEAR (1901-2155): a bound the admin set
+        // beyond it ("1850", "-150 years") is clamped, or a year the item
+        // accepts would fail the whole page write (STRICT_ALL_TABLES) — on
+        // v2 a 5xx the browser keeps retrying.
+        $this->input_attributes['min'] = max(1901, (int) ($this->input_attributes['min'] ?? 1901)); // MySQL YEAR lower bound
+        $this->input_attributes['max'] = min(2155, (int) ($this->input_attributes['max'] ?? 2155)); // MySQL YEAR upper bound
     }
 
     /** A type_options bound as a year (int), or null when it isn't one. */
