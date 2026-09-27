@@ -34,6 +34,12 @@ pages register one. The offline queue drains
 page-side, so its specs (`v2-queue-drain`, `pwa-queue-rejection`, seeding
 IndexedDB through `helpers/idbQueue.js`) run in `local-chromium`.
 
+## Coverage pass
+
+`tests/coverage/run.sh` measures what the unit lane, the smokes and the e2e
+suite (server and browser) execute, merged, into `.coverage/`. It is a map of
+untested code, not a target; see `tests/coverage/README.md`.
+
 ## What's tagged `@group integration`
 
 Four classes carry the tag today:

@@ -78,3 +78,6 @@ tests/e2e/setup/*-state.json
 # Generated CSP-sweep / e2e run artifacts (reports, screenshots)
 tests/e2e/artifacts/
 .claude/scheduled_tasks.lock
+
+# coverage pass output (tests/coverage/README.md)
+/.coverage/

@@ -25,6 +25,7 @@
 // `freshParticipant` calls `clearBrowserState(page)` before navigating.
 
 const base = require('@playwright/test');
+const jsCoverage = require('./jsCoverage');
 
 const RUNNING_ON_BS = process.env.BROWSERSTACK_AUTOMATION === 'true';
 
@@ -64,7 +65,8 @@ const test = RUNNING_ON_BS
             await use(bsPage.context());
         },
     })
-    : base.test;
+    // FORMR_JS_COVERAGE: record bundle coverage per test (helpers/jsCoverage.js).
+    : (jsCoverage.enabled ? base.test.extend(jsCoverage.fixtures) : base.test);
 
 // page.evaluate workaround for BrowserStack Selenium bridge.
 //
