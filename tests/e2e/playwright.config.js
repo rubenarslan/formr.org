@@ -86,6 +86,8 @@ module.exports = defineConfig({
     projects: [
         {
             name: 'local-chromium',
+            // sw-*.spec.js need a live service worker: the sw-chromium project.
+            ...(RUNNING_ON_BS ? {} : { testIgnore: /(^|\/)sw-[^/]*\.spec\.js$/ }),
             // Under BS, the SDK monkey-patches one project per platform in
             // browserstack.yml and uses this base project's `use` block as the
             // template. iOS Safari works without further wiring because BS
@@ -115,5 +117,14 @@ module.exports = defineConfig({
                 }),
             },
         },
+        // Service workers allowed, locally. The default headless shell hangs
+        // on SW-controlled pages (why local-chromium blocks them); the full
+        // Chromium build (`channel: 'chromium'`) runs them. Only sw-*.spec.js
+        // run here — `npm run test:e2e:sw`.
+        ...(RUNNING_ON_BS ? [] : [{
+            name: 'sw-chromium',
+            testMatch: /(^|\/)sw-[^/]*\.spec\.js$/,
+            use: { browserName: 'chromium', channel: 'chromium', serviceWorkers: 'allow' },
+        }]),
     ],
 });

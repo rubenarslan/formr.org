@@ -22,6 +22,18 @@ The unit lane is the CI gate and must stay green. The integration
 lane is exploratory until the bootstrap supports a real-DB switch
 (see below).
 
+## Playwright projects
+
+`tests/e2e/playwright.config.js` has two local projects. `local-chromium`
+(`npm run test:e2e`) blocks service workers: the default headless shell
+hangs on SW-controlled pages. `sw-chromium` (`npm run test:e2e:sw`) runs
+only `sw-*.spec.js`, with service workers allowed, on the full Chromium
+build (`channel: 'chromium'`) — the service worker itself (fetch handler,
+install without a manifest, `CACHE_ASSETS`, `FMR_DUMP_CACHES`) and which
+pages register one. The offline queue drains
+page-side, so its specs (`v2-queue-drain`, `pwa-queue-rejection`, seeding
+IndexedDB through `helpers/idbQueue.js`) run in `local-chromium`.
+
 ## What's tagged `@group integration`
 
 Four classes carry the tag today:

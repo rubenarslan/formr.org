@@ -329,9 +329,14 @@ function initForm() {
     // missing (the column defaults, patch 086).
     const offlineModeEnabled = (root.dataset.offlineMode || 'on') !== 'off';
     const allowPrevious = (root.dataset.allowPrevious || 'off') !== 'off';
-    // When offline mode is off, don't expose the sync URL to the queue path —
-    // submissions fail hard as if the endpoint didn't exist.
-    const syncUrl = offlineModeEnabled ? root.dataset.syncUrl : '';
+    // This form's /form-sync endpoint. Entries already on the device are
+    // drained through it (and recognised as this form's) whatever the
+    // setting says: turning offline mode off must not strand pages queued
+    // while it was on.
+    const ownSyncUrl = root.dataset.syncUrl || '';
+    // When offline mode is off, new submissions are not queued — they fail
+    // hard as if the endpoint didn't exist.
+    const syncUrl = offlineModeEnabled ? ownSyncUrl : '';
     // Incremental autosave endpoint (form-save). Persists answers as they're
     // given (rate-limited) so a mid-page breakoff still yields partial data,
     // independent of the explicit page-submit. Best-effort; see persist block.
@@ -417,15 +422,36 @@ function initForm() {
     // the retry timer and by page submits — two interleaved drains would
     // double-fire the banner and the final-page redirect (server UUID dedup
     // makes the POSTs themselves harmless).
-    let drainInFlight = false;
-    const drainQueue = async () => {
-        if (!syncUrl || drainInFlight) return;
-        drainInFlight = true;
-        try {
-            await drainQueueInner();
-        } finally {
-            drainInFlight = false;
+    // A call made while a drain is running waits for it and then gets one
+    // more pass (the running drain took its snapshot of the queue before the
+    // caller's entry existed). Returning early instead let submitPageInner's
+    // `await drainQueue()` see entries the running drain was about to send,
+    // queue a live page behind them, and wait for the 60 s retry.
+    //
+    // `scope` 'own' drains only this form's entries (its run and unit
+    // session) — what a live page submit waits for; other studies' entries
+    // on this origin are none of its business. 'all' (the triggers) drains
+    // every group. A pass requested while one runs gets the wider scope.
+    let drainPromise = null;
+    let drainAgain = null;
+    const drainQueue = (scope = 'all') => {
+        if (drainPromise) {
+            drainAgain = (drainAgain === 'all' || scope === 'all') ? 'all' : 'own';
+            return drainPromise;
         }
+        drainPromise = (async () => {
+            let pass = scope;
+            try {
+                while (pass) {
+                    drainAgain = null;
+                    await drainQueueInner(pass === 'own');
+                    pass = drainAgain;
+                }
+            } finally {
+                drainPromise = null;
+            }
+        })();
+        return drainPromise;
     };
     // Timer for the next automatic retry of a backed-off entry (see
     // renderQueueSummary). One at a time; re-armed after every drain.
@@ -495,7 +521,7 @@ function initForm() {
         return 'server';
     };
 
-    const drainQueueInner = async () => {
+    const drainQueueInner = async (ownOnly) => {
         let entries;
         try { entries = await queueGetAll(); } catch (e) { return; }
         if (!entries || !entries.length) { hideQueueBanner(); return; }
@@ -503,26 +529,41 @@ function initForm() {
         // within the same second fall back to `queued_at` (ms) — IDB returns
         // entries in uuid order, i.e. at random, and a later page must never
         // apply first (its calculations would run without the earlier page).
-        entries.sort((a, b) => (a.client_ts || '').localeCompare(b.client_ts || '')
+        // A final page always goes last within its unit session: it ends the
+        // form, and anything applied after it is answered 409 drop_entry —
+        // lost. By time alone, a page re-submitted after the final page was
+        // queued (fixing a needs_attention entry, or a revisit via Previous)
+        // sorted after it.
+        entries.sort((a, b) => ((a.final ? 1 : 0) - (b.final ? 1 : 0))
+            || (a.client_ts || '').localeCompare(b.client_ts || '')
             || ((a.queued_at || 0) - (b.queued_at || 0)));
-        // Scope the drain per run: one run's rejection (expired session,
-        // validation error) must not head-of-line block another run's entries
-        // on this origin. Legacy entries without sync_url belong to this form.
+        // Scope the drain per run AND unit session: one run's rejection
+        // (expired session, validation error) must not head-of-line block
+        // another run's entries on this origin, and an entry left over from
+        // an earlier unit session of this run (a previous diary entry — the
+        // server can only drop it) must not block the current one. Legacy
+        // entries without sync_url belong to this form.
+        // This form's own entries: its run and its unit session (or none
+        // recorded — legacy). Only they may merge into this page's store or
+        // move this page on.
+        const isOwn = (url, usid) => url === ownSyncUrl && (!usid || usid === (unitSessionId || 0));
         const groups = new Map();
         entries.forEach((entry) => {
-            const key = entry.sync_url || syncUrl;
-            if (!groups.has(key)) groups.set(key, []);
-            groups.get(key).push(entry);
+            const url = entry.sync_url || ownSyncUrl;
+            const usid = Number(entry.unit_session_id) || 0;
+            if (!url || (ownOnly && !isOwn(url, usid))) return;
+            const key = url + '#' + usid;
+            if (!groups.has(key)) groups.set(key, { url, usid, entries: [] });
+            groups.get(key).entries.push(entry);
         });
-        const dueCount = entries.filter((e) => entryIsDue(e)).length;
+        const dueCount = [...groups.values()].reduce((n, g) => n + g.entries.filter((e) => entryIsDue(e)).length, 0);
         if (dueCount) {
             showQueueBanner(t('queue.syncing', 'Syncing %n queued submission(s)…', { n: dueCount }), 'warning');
         }
         let ownRedirect = null;
         let ownMissing = null;
-        for (const [entrySyncUrl, groupEntries] of groups) {
-            const isOwnRun = entrySyncUrl === syncUrl;
-            const outcome = await drainRunGroup(groupEntries, entrySyncUrl, isOwnRun);
+        for (const { url: entrySyncUrl, usid, entries: groupEntries } of groups.values()) {
+            const outcome = await drainRunGroup(groupEntries, entrySyncUrl, isOwn(entrySyncUrl, usid));
             if (outcome === 'offline') return;
             if (outcome && outcome.redirect) ownRedirect = outcome.redirect;
             if (outcome && outcome.missing) ownMissing = outcome.missing;
@@ -531,9 +572,10 @@ function initForm() {
         if (ownMissing && !ownRedirect) await routeToMissing(ownMissing);
     };
 
-    // Drain one run's entries oldest-first. Returns 'offline' (abort every
-    // group), or {redirect, missing} for this run's final page.
-    const drainRunGroup = async (groupEntries, entrySyncUrl, isOwnRun) => {
+    // Drain one group (a run's entries for one unit session) oldest-first.
+    // Returns 'offline' (abort every group), or {redirect, missing} for this
+    // form's final page.
+    const drainRunGroup = async (groupEntries, entrySyncUrl, isOwnForm) => {
         let redirect = null;
         let missing = null;
         for (const entry of groupEntries) {
@@ -558,26 +600,36 @@ function initForm() {
                 await queueDelete(entry.uuid);
                 // The stored state of what just landed — for this form's
                 // showifs.
-                if (isOwnRun) absorbReply(body);
+                if (isOwnForm) absorbReply(body);
                 // If the drain applied the final page of the form, the server
                 // returns a redirect so Run::exec can advance. Taken by
                 // renderQueueSummary once nothing else is pending for THIS run
                 // — another run's redirect would hijack the participant out of
                 // the form they're on.
-                if (body && body.redirect && isOwnRun) redirect = body.redirect;
+                if (body && body.redirect && isOwnForm) redirect = body.redirect;
                 // A final page that landed while a required item elsewhere is
                 // still unanswered: the form is open; route the participant.
-                if (isOwnRun && body && body.missing && Object.keys(body.missing).length) missing = body.missing;
+                if (isOwnForm && body && body.missing && Object.keys(body.missing).length) missing = body.missing;
                 // A final page the server had already applied (its reply was
                 // lost): the form may have ended meanwhile, and only the
                 // server knows where the run goes — reload the run URL.
-                if (isOwnRun && entry.final && body && body.already_applied && !redirect) redirect = runUrl || window.location.pathname;
+                if (isOwnForm && entry.final && body && body.already_applied && !redirect) redirect = runUrl || window.location.pathname;
                 continue;
             }
             if (outcome === 'drop') {
                 // Session ended / different unit — the server says this entry
                 // can never apply. Stop retrying it.
                 await queueDelete(entry.uuid);
+                // When it is THIS page's unit session that is no longer
+                // current, the page is stale too: the form ended (a final
+                // page whose reply was lost lands here, not on
+                // already_applied — the unit-session gate answers before the
+                // uuid dedup) or the run moved on. Only the server knows
+                // where the participant is; go there, as a live submit's 409
+                // does.
+                if (isOwnForm && unitSessionId && Number(entry.unit_session_id) === unitSessionId) {
+                    redirect = runUrl || window.location.pathname;
+                }
                 continue;
             }
             if (outcome === 'errors') {
@@ -627,8 +679,12 @@ function initForm() {
     const renderQueueSummary = async (ownRedirect) => {
         let remaining;
         try { remaining = await queueGetAll(); } catch (e) { return; }
-        const belongsHere = (e) => (e.sync_url || syncUrl) === syncUrl;
-        const ownRemaining = remaining.filter(belongsHere);
+        const belongsHere = (e) => (e.sync_url || ownSyncUrl) === ownSyncUrl;
+        // Only this unit session's entries hold the redirect back: a leftover
+        // from an earlier unit session of the run can never apply, and must
+        // not keep the participant on a form the server has ended.
+        const ownUnitSession = (e) => belongsHere(e) && (Number(e.unit_session_id) || 0) === (unitSessionId || 0);
+        const ownRemaining = remaining.filter(ownUnitSession);
         if (ownRedirect && !ownRemaining.length) {
             window.location.href = ownRedirect;
             return;
@@ -637,13 +693,6 @@ function initForm() {
             setSaveState('synced', t('save.synced', 'Synced'), 2500);
             showQueueBanner(t('queue.all_sent', 'All queued submissions have been sent.'), 'success');
             setTimeout(hideQueueBanner, 3000);
-            return;
-        }
-        const attention = remaining.filter((e) => entryState(e) === STATE_NEEDS_ATTENTION);
-        if (attention.length) {
-            const own = attention.find(belongsHere);
-            if (own) surfaceNeedsAttention(own);
-            else showQueueBanner(t('queue.needs_attention_other_run', 'A queued submission for another study on this device was rejected. Open that study to fix it.'), 'danger');
             return;
         }
         const retryAction = { label: t('queue.retry', 'Retry now'), onClick: async (btn) => {
@@ -661,6 +710,19 @@ function initForm() {
             for (const e of entries) { await queueDelete(e.uuid).catch(() => {}); }
             drainQueue();
         } } : null);
+        const attention = remaining.filter((e) => entryState(e) === STATE_NEEDS_ATTENTION);
+        if (attention.length) {
+            // Its errors are rendered onto this page's items, so only an
+            // entry of this unit session qualifies.
+            const own = attention.find(ownUnitSession);
+            // One of an earlier unit session of this run (a previous diary
+            // entry) can never apply — the participant can only let it go.
+            const stale = attention.filter((e) => belongsHere(e) && !ownUnitSession(e));
+            if (own) surfaceNeedsAttention(own);
+            else if (stale.length) showQueueBanner(t('queue.needs_attention_stale', 'A page from an earlier visit to this study could not be saved and can no longer be sent.'), 'danger', [discardAction(stale)]);
+            else showQueueBanner(t('queue.needs_attention_other_run', 'A queued submission for another study on this device was rejected. Open that study to fix it.'), 'danger');
+            return;
+        }
         const blocked = remaining.filter((e) => entryState(e) === STATE_BLOCKED);
         if (blocked.length) {
             const session = blocked.some((e) => e.last_error && e.last_error.reason === 'session');
@@ -957,10 +1019,10 @@ function initForm() {
         // page behind it instead of overtaking it (a later page carries a
         // newer hidden-item snapshot, and the final page ends the form).
         let queuedBehind = false;
-        if (syncUrl) {
-            await drainQueue();
+        if (ownSyncUrl) {
+            await drainQueue('own');
             const waiting = await queueGetAll().catch(() => []);
-            queuedBehind = waiting.some((e) => (e.sync_url || syncUrl) === syncUrl
+            queuedBehind = waiting.some((e) => (e.sync_url || ownSyncUrl) === ownSyncUrl
                 && (e.unit_session_id || 0) === (unitSessionId || 0) && Number(e.page) !== pageNum);
         }
 
@@ -1062,11 +1124,8 @@ function initForm() {
             // (a rejected `needs_attention` one, or a plain re-visit): the old
             // bytes must not drain after — or instead of — the new ones.
             try { await queueSupersede(entry, entry.uuid); } catch (e) { /* best effort */ }
-            // Ask the SW to wake us up on next connectivity change. No-op on
-            // browsers without Background Sync — page-JS online event still
-            // catches it there. A server error fires no `online` event, so
-            // also retry on a timer.
-            registerBackgroundSync();
+            // The `online` event drains it on reconnect; a server error fires
+            // no `online` event, so also retry on a timer.
             scheduleQueueRetry(15000);
             setSaveState('offline', t('save.offline', 'Saved offline'), 2500);
             showQueueBanner(queuedBehind
@@ -1138,8 +1197,8 @@ function initForm() {
         // rejected `needs_attention` entry the participant just fixed) is now
         // stale and must not drain over the accepted answers. Then re-run the
         // drain so the queue banner reflects what's left (hides when empty).
-        if (syncUrl) {
-            queueSupersede({ sync_url: syncUrl, unit_session_id: unitSessionId, page: pageNum })
+        if (ownSyncUrl) {
+            queueSupersede({ sync_url: ownSyncUrl, unit_session_id: unitSessionId, page: pageNum })
                 .then((removed) => { if (removed) drainQueue(); })
                 .catch(() => {});
         }
@@ -1387,11 +1446,12 @@ function initForm() {
     window.addEventListener('online', () => { drainQueue(); });
     drainQueue();
 
-    // Register the service worker on v2 runs (offline caching, web push) and
-    // hand it the sync URL. The served SW does not act on that message or on
-    // the `form-v2-drain` Background Sync tag yet, so the queue drains only
-    // page-side (the `online` listener above); nothing drains while the tab
-    // is closed. Silent on failure (e.g. insecure context).
+    // Register the service worker when the run is a PWA (it has a VAPID key:
+    // web push, the manifest, the install items) — the same condition as
+    // v1's pwa-register.js. The offline queue does not need it: it drains
+    // page-side (the `online` listener above), so nothing drains while the
+    // tab is closed, and a study without a manifest gets no worker at all.
+    // Silent on failure (e.g. insecure context).
     //
     // SW is served by RunController::serviceWorkerAction at /{runName}/service-worker
     // (path-based deploy) or /service-worker (subdomain deploy). The controller
@@ -1399,14 +1459,7 @@ function initForm() {
     // whole run path; registering at /assets/common/js/service-worker.js
     // directly would scope to that dir and miss the form POSTs.
     const registerFormSW = async () => {
-        // The SW backs TWO independent features: offline-sync (needs syncUrl) and
-        // web push (needs a VAPID key). Register it when EITHER is in play —
-        // gating only on syncUrl meant a push-enabled study with offline_mode='off'
-        // never registered the SW, so `navigator.serviceWorker.ready` in the push
-        // code hung and push silently broke. (FMR_REGISTER_SYNC_URL is still only
-        // posted when there's a syncUrl to register.)
-        if (!('serviceWorker' in navigator)) return;
-        if (!syncUrl && !window.vapidPublicKey) return;
+        if (!('serviceWorker' in navigator) || !window.vapidPublicKey) return null;
         try {
             const runUrlObj = new URL(runUrl || window.location.href);
             const siteOrigin = window.location.origin;
@@ -1415,20 +1468,17 @@ function initForm() {
             const scope = isPathBased ? runUrlObj.pathname : '/';
             const existing = await navigator.serviceWorker.getRegistration(scope);
             const reg = existing || await navigator.serviceWorker.register(swPath, { scope });
-            const sw = reg.active || reg.waiting || reg.installing || navigator.serviceWorker.controller;
-            if (sw && syncUrl) sw.postMessage({ type: 'FMR_REGISTER_SYNC_URL', url: syncUrl });
+            // Same explicit update check as v1's pwa-register.js: iOS
+            // standalone PWAs don't reliably re-check the worker script on
+            // their own, so a v2-only study would keep an old worker.
+            if (existing) existing.update().catch(() => {});
+            return reg;
         } catch (e) {
             console.warn('form-v2 SW registration failed', e);
+            return null;
         }
     };
-    registerFormSW();
-    const registerBackgroundSync = async () => {
-        if (!('serviceWorker' in navigator)) return;
-        try {
-            const reg = await navigator.serviceWorker.ready;
-            if (reg.sync) await reg.sync.register('form-v2-drain');
-        } catch (e) { /* Background Sync not supported; page-side drain is the fallback. */ }
-    };
+    const formSWRegistration = registerFormSW();
 
     // --- PWA: AddToHomeScreen item ---
     // Two-part install UX, mirroring v1's PWAInstaller.js:
@@ -1937,8 +1987,19 @@ function initForm() {
         }
 
         // Step 3: SW must be registered (the form bundle does this).
+        // `ready` never rejects — it stays pending when no worker ever
+        // activates (registration refused, install failed) — so bound the
+        // wait, or the fallback below is unreachable and the button is never
+        // wired.
         let registration;
-        try { registration = await navigator.serviceWorker.ready; } catch (e) {}
+        try {
+            if (await formSWRegistration) {
+                registration = await Promise.race([
+                    navigator.serviceWorker.ready,
+                    new Promise((done) => setTimeout(() => done(null), 20000)),
+                ]);
+            }
+        } catch (e) {}
         if (!registration || !registration.pushManager) {
             if (hidden) hidden.value = 'not_supported';
             if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">Service worker not registered. Please reload the page and try again.</div>';
@@ -2187,8 +2248,20 @@ function initForm() {
         // Scope the wipe to the run being logged out: the queue DB is origin-
         // wide, and another run's undrained answers must survive this logout.
         const runPathPrefix = url.pathname.replace(/logout\/?$/, '');
-        wipeQueueForRun(runPathPrefix).catch(() => {});
         forgetPage(unitSessionId);
+        const wiped = wipeQueueForRun(runPathPrefix).catch(() => {});
+        // A plain click navigates this document away, which can abort the
+        // IndexedDB transactions mid-wipe (nothing else wipes: the service
+        // worker never sees /logout). Hold the navigation until the wipe
+        // settles — bounded, so a wedged IDB can't trap the participant.
+        // Modified clicks / new-tab targets keep this page alive anyway.
+        const plainClick = e.button === 0 && !e.defaultPrevented
+            && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey
+            && (!a.target || a.target === '_self');
+        if (!plainClick) return;
+        e.preventDefault();
+        Promise.race([wiped, new Promise((done) => setTimeout(done, 1500))])
+            .then(() => { window.location.href = a.href; });
     });
 
     // Test hook: exercise the real bundled page validator deterministically

@@ -10,7 +10,7 @@ This file was originally a design spec. Phases 0–5 have since landed on the br
 
 Everything else in this document describes shipped code. Still open, in rough priority order:
 
-1. **Service-worker-side queue drain.** The page registers a `form-v2-drain` Background Sync tag and posts `FMR_REGISTER_SYNC_URL` to the SW (`webroot/assets/form/js/main.js:986,992-998`), but the served SW (`webroot/assets/common/js/service-worker.js`, served by `RunController::serviceWorkerAction`) has **no `sync` listener, no handler for that message, and its `fetch` handler returns early on any non-GET request** (`service-worker.js:303-307`). So there is no background drain and no POST interception — the queue only drains from the page's `online` event and initial load. §5.1/§5.2, Phase 5.
+1. **Service-worker-side queue drain.** Not built. The queue drains from the page's `online` event, initial load and a retry timer only; the served SW (`webroot/assets/common/js/service-worker.js`) caches static assets and handles push, and leaves every other request to the browser. The page no longer registers a Background Sync tag or hands the SW a sync URL — a drain in the SW would need both, plus a worker on every v2 study (today only PWA runs register one). §5.1/§5.2, Phase 5.
 2. **Queue wipe on PWA uninstall.** The logout wipe landed page-side (`main.js:1851-1869`, `wipeQueueForRun`, scoped to the run being logged out). The SW-side wipe that would cover navigations from outside the form bundle, and uninstall, did not. §5.3.
 3. **iOS Safari compatibility pass** for offline queue + PWA items — three iOS-only skips remain in the BrowserStack suite (two cache-population tests, one offline-submit test). §5.2, §8 P1.
 4. **BS-reliable wiring for the date/time render smoke.** `tests/e2e/datetime-render.spec.js` covers date/time/datetime-local/month/week/yearmonth locally; on real devices it trips the same SDK reporter flake as the offline-submit test. §8 P2.
@@ -37,7 +37,7 @@ Phases 0–5 are code-complete on-branch (with gaps noted below). Phases 6 (docs
 What's live vs. gated:
 - `form_v2_enabled` in `config/settings.php` gates the admin "Add Form" button (fa-wpforms icon). Once a `SurveyStudy` has `rendering_mode='v2'`, the v2 pipeline fires regardless of the flag — flipping the flag off does not disable existing v2 forms. To roll back a single form, flip its `rendering_mode` back to `'v1'`.
 - Per-study flags (admin survey settings page, visible only for v2 studies): `offline_mode` (default on — IDB queueing on failure) and `allow_previous` (default off — "Previous" button between pages).
-- The queue drain runs **page-side only** today: `online` event + initial-page-load. The client already registers a `form-v2-drain` Background Sync tag and hands the SW its sync URL, but the SW implements neither, so a drain across tab/process death does not happen on any platform yet (not just iOS, which has no Background Sync at all).
+- The queue drain runs **page-side only**: `online` event, initial page load and a retry timer. A drain across tab/process death does not happen on any platform.
 
 ### Request-time flow
 
@@ -237,7 +237,7 @@ Offline queue is page-JS. The service-worker half is registered but not implemen
 
 - IndexedDB store `formrQueue`, one object store `queue`, keyPath `uuid`, `client_ts` index for ordered drain (in `webroot/assets/form/js/offline/queue.js`; uses the `idb` wrapper).
 - On fetch failure or 5xx from `/form-page-submit`, the JSON payload is persisted and a `.fmr-queue-banner` (warning variant) is shown. The participant advances locally.
-- Drain triggers that actually run: the page `online` event and an initial-page-load check (`main.js:952-955`). On enqueue the page also registers a `form-v2-drain` Background Sync tag and posts `FMR_REGISTER_SYNC_URL` to the SW — **but the SW implements neither**, and its `fetch` handler bails on every non-GET request, so there is no background drain and no POST interception on any platform. Treat "Background Sync where available" as planned, not shipped.
+- Drain triggers: the page `online` event, an initial-page-load check and a retry timer. There is no background drain and no POST interception in the SW. A live page submit first drains only its own form's entries (run + unit session); entries queued before the study's offline mode was turned off still drain.
 - Entries carry their own `sync_url` (the queue DB is origin-wide; on path-routed deploys a drain running on another run's page must post each entry back to its own run) and `unit_session_id` (so the server can `drop_entry` when the participant has since advanced to a different Form unit).
 - Server dedupes via `survey_form_submissions.uuid` pre-check + UNIQUE backstop (patch 085), applies through the same `UnitSession::updateSurveyStudyRecord` path as `/form-page-submit`. `/form-sync` accepts both JSON and multipart (queued file uploads).
 - SW is registered unconditionally on v2 runs and served by `RunController::serviceWorkerAction` (scope `/{runName}/`, `Service-Worker-Allowed` header set). It is real and useful — precache + push — just not part of the queue yet.
@@ -337,9 +337,9 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] `.fmr-queue-banner` UI (warning/success/danger variants)
 - [x] Drain on `online` event + initial page load
 - [x] Drain semantics (success/drop_entry/transient/validation)
-- [ ] Service-worker interception + Background Sync — **half-wired**: the page registers the `form-v2-drain` tag on enqueue and posts `FMR_REGISTER_SYNC_URL`, but `webroot/assets/common/js/service-worker.js` has no `sync` listener, no handler for that message, and a GET-only `fetch` handler. Nothing drains on wake
+- [ ] Service-worker interception + Background Sync — not built (the unused page-side hookup was removed). Nothing drains while the tab is closed
 - [x] `offline_mode` opt-out flag on `survey_studies` (patch 086; admin toggle in survey settings; client respects it via the form root's `data-offline-mode`)
-- [x] Unconditional SW registration on v2 runs (via `/{runName}/service-worker`, scope `/{runName}/`; `Service-Worker-Allowed` header set by `RunController::serviceWorkerAction`)
+- [x] SW registration on v2 PWA runs (VAPID key present, as v1's `pwa-register.js`; via `/{runName}/service-worker`, scope `/{runName}/`; `Service-Worker-Allowed` header set by `RunController::serviceWorkerAction`)
 - [ ] iOS Safari compatibility pass (Background Sync unavailable; page-JS `online` drain is the fallback). Three iOS-only skips remain in the BS suite — two cache-population, one offline-submit (`setOffline` unimplemented on the BS-Selenium iOS bridge)
 - [x] File-blob queueing + size cap (10 MB default, over-cap submissions surface a hard error; submissions below the cap persist Blob-in-IDB and drain via multipart `/form-sync`)
 

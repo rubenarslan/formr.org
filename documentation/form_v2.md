@@ -153,7 +153,7 @@ The `add_to_home_screen` and `push_notification` items work in v2 as in v1; the 
 2. Add the items to your survey sheet as usual:
    - `add_to_home_screen` — captures the browser's `beforeinstallprompt` and fires it on click. Where there is no programmatic install API (iOS Safari), it shows inline "Share → Add to Home Screen" guidance instead.
    - `push_notification` — calls `Notification.requestPermission`, subscribes through the service worker's push manager and POSTs the subscription to the run.
-3. The participant page registers the service worker itself.
+3. The participant page registers the service worker itself — on installable runs only; a study without the PWA setting gets no service worker.
 
 iOS specifics: push only works **inside the installed PWA** on iOS 16.4+. The participant must add the study to their home screen first and reopen it from there; if they tap the push button before installing, v2 shows an error explaining this.
 
@@ -161,14 +161,15 @@ iOS specifics: push only works **inside the installed PWA** on iOS 16.4+. The pa
 
 When **Offline queue** is on (the default), a page submission that fails — no network, or a 5xx from the server — is stored in the browser's IndexedDB and the participant advances locally. The banner says "queued". The queue drains when the browser fires `online` and on the next load of any page of the study; each entry is replayed to `/{run}/form-sync`, which applies the answers through the same path as a normal page submit and ignores entries it has already seen (each entry carries a UUID; the server keeps a ledger in `survey_form_submissions`). A drain that hits a validation error stops that run's queue, keeps the entry and asks the participant to fix the highlighted answers on that page and submit it again; entries the server says no longer apply (the session ended, the participant moved on to another Form) are dropped.
 
-- **Nothing drains while the tab is closed.** The page registers a Background Sync tag, but the service worker does not yet act on it, and iOS Safari has no Background Sync at all. Tell participants to reopen the study once they are back online.
+- **Nothing drains while the tab is closed.** The queue is drained by the open page, not by the service worker. Tell participants to reopen the study once they are back online.
+- **Turning the queue off does not strand what is already queued.** Entries stored while it was on are still sent the next time the participant opens the study; only new submissions are no longer queued.
 - **File uploads are queued too**, up to `form_v2_offline_blob_max_mb` per file (`settings.php`, default 10 MB). A larger file is refused with a "too large to queue offline" message instead of risking the browser's storage quota.
 - **Answers sit in plaintext on the device until they drain.** If that is unacceptable for your study, turn the queue off — submissions then fail visibly when offline and nothing is stored.
 - The queue for a run is wiped when the participant clicks a logout link on the form page. That is the only wipe: a participant who reaches `/{run}/logout` from elsewhere, or uninstalls the PWA, keeps whatever is queued.
 
 ## Known limitations
 
-- **Background Sync**: see above — page-side drain only, and none on iOS.
+- **No background drain**: see above — the queue is sent by the open page only.
 - **Previous button**: going back reveals the already-rendered page with the answers given so far; it is not refetched from the server. Dynamic values and labels on it are whatever they resolved to the first time. Leave the toggle off unless your design tolerates that. The server does not police it: with the toggle off, the browser hides the way back, nothing more.
 - **Where a participant resumes**: the browser remembers the page it last showed (in `localStorage`, per unit session), so a reload or a reopened tab lands where they were, with every answer given so far in its input. On another browser or after clearing site data there is no memory, and the form opens on the first page that holds an unanswered item — which can be a page they had already submitted if they left an optional item blank there.
 - **Range slider**: v1's floating value tooltip came from the `webshim` plugin, which v2 doesn't ship. `range` / `range_ticks` render as a native slider with side labels; the participant sees their position on the thumb only. `visual_analog_scale` is the v2-native answer for "no default" rating items.

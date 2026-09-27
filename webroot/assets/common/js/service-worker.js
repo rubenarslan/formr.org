@@ -16,8 +16,10 @@ function isValidUrl(url) {
     const urlObj = new URL(url);
     
     // For other assets, only allow URLs from our origin or HTTPS URLs, and only paths containing /assets/
-    return (urlObj.protocol === 'https:' || urlObj.origin === self.location.origin) 
-           && (urlObj.pathname.includes('/assets/') || urlObj.pathname.includes('/manifest'));
+    // `/manifest` must be the last path segment: a bare substring match
+    // made every page of a run named e.g. "manifesto" cache-first.
+    return (urlObj.protocol === 'https:' || urlObj.origin === self.location.origin)
+           && (urlObj.pathname.includes('/assets/') || /\/manifest(\.json)?\/?$/.test(urlObj.pathname));
   } catch {
     return false;
   }
@@ -34,7 +36,11 @@ async function fetchManifest() {
       console.log("SW: Fetching manifest from", url);
       
       const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch manifest.');
+      if (!response.ok) {
+        const err = new Error('Failed to fetch manifest.');
+        err.status = response.status;
+        throw err;
+      }
       
       manifestData = await response.json();
     } catch (err) {
@@ -229,17 +235,23 @@ self.addEventListener('install', (event) => {
       // the run URL matches neither — so the cached entry could never be
       // read. It was write-only. Navigations go to the network exactly as
       // they did before.
-      const assetsToCache = [...new Set(manifest.icons.map(icon => icon.src))];
+      const assetsToCache = [...new Set((manifest.icons || []).map(icon => icon.src))];
       const cache = await caches.open(CACHE_NAME);
       console.log('SW: Caching assets:', assetsToCache);
       return await safeAddAll(cache, assetsToCache);
     } catch (error) {
-      console.error('Install failed:', error);
-      // Wait on the beacon so it actually goes out before the SW
-      // transitions to redundant — once the install handler rejects,
-      // the SW has roughly no time to make outbound requests.
-      await beaconLifecycleFailure('install', error);
-      throw error;
+      // Pre-caching is best-effort: never fail the install over it. A run
+      // without a manifest (/manifest 404s) can still have this worker — an
+      // earlier bundle registered it on every v2 study with the offline
+      // queue on. Rejecting here made the install fail, the registration
+      // vanish, and the next page load re-register, fail and beacon again —
+      // and left navigator.serviceWorker.ready (push) pending forever.
+      // Beacon so the maintainer still gets a signal — except for the
+      // ordinary "this run has no manifest" 404, which is not a failure.
+      console.warn('SW: pre-cache skipped', error);
+      if (!(error && error.status === 404)) {
+        await beaconLifecycleFailure('install', error);
+      }
     }
   };
   event.waitUntil(pre_cache());
@@ -306,9 +318,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Only handle valid URLs (which now must include /assets/)
+  // Only handle valid URLs (which now must include /assets/). Everything
+  // else is left to the browser by NOT calling respondWith(). Never call
+  // fetch(event.request) here without respondWith: the browser still makes
+  // its own request, so that second fetch duplicated every in-scope GET —
+  // a navigation to the run URL (RunSession::execute twice),
+  // /form-bot-challenge mints, cross-origin subresources.
   if (!isValidUrl(event.request.url)) {
-    return fetch(event.request);  // Don't cache, just fetch normally
+    return;
   }
 
   event.respondWith((async () => {
@@ -351,34 +368,55 @@ self.addEventListener('fetch', (event) => {
 
 // Add message event listener to handle asset caching
 self.addEventListener('message', (event) => {
-  // Handle CACHE_ASSETS message
-  if (event.data.type === 'CACHE_ASSETS') {
-    // Filter and deduplicate assets
-    const validAssets = [...new Set(
-      [
-        ...event.data.assets.filter(isValidUrl)
-      ]
-    )].filter(isValidUrl);
-    
-    console.log('Service worker received assets to cache:', validAssets);
-    
-    // Return the Promise chain directly instead of using event.waitUntil
-    event.ports[0]?.postMessage(
-      (async () => {
-        try {
-          const cache = await caches.open(CACHE_NAME);
-          console.log("SW: Caching assets:", validAssets);
-          // Use the same per-URL resilience as the install handler so
-          // one missing CSS file doesn't reject the whole batch and
-          // leave the postMessage caller hanging on a never-resolved
-          // promise.
-          return await safeAddAll(cache, validAssets);
-        } catch (error) {
-          console.error('Error caching assets:', error);
-          throw error; // Propagate to caller
+  const msg = event.data;
+  if (!msg || typeof msg !== 'object') return;
+  const reply = event.ports && event.ports[0];
+  // Test diagnostic: dump cache state via reply port. The page-side
+  // `caches.keys()` is partitioned away from the SW's caches under iOS
+  // Safari + automation, so the e2e cache test (tests/e2e/helpers/pwa.js
+  // swReportedCaches) asks the SW directly.
+  if (msg.type === 'FMR_DUMP_CACHES') {
+    event.waitUntil((async () => {
+      try {
+        const keys = await caches.keys();
+        const entries = {};
+        for (const name of keys) {
+          const c = await caches.open(name);
+          entries[name] = (await c.keys()).length;
         }
-      })()
-    );
+        reply?.postMessage({ keys, entries, cacheName: CACHE_NAME });
+      } catch (err) {
+        reply?.postMessage({ error: String((err && err.message) || err) });
+      }
+    })());
+    return;
+  }
+  // Handle CACHE_ASSETS message
+  if (msg.type === 'CACHE_ASSETS') {
+    // Filter and deduplicate assets
+    const validAssets = [...new Set(Array.isArray(msg.assets) ? msg.assets : [])].filter(isValidUrl);
+
+    console.log('Service worker received assets to cache:', validAssets);
+
+    // Do the caching unconditionally and keep the worker alive for it.
+    // (It used to be the ARGUMENT of `event.ports[0]?.postMessage(...)`:
+    // pwa-register posts without a port, so the optional chain
+    // short-circuited and the caching never ran — and with a port, posting
+    // a Promise throws DataCloneError.) The reply, when a port was given,
+    // is a plain result.
+    event.waitUntil((async () => {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        console.log("SW: Caching assets:", validAssets);
+        // Same per-URL resilience as the install handler: one missing CSS
+        // file doesn't reject the whole batch.
+        const results = await safeAddAll(cache, validAssets);
+        reply?.postMessage({ ok: true, results });
+      } catch (error) {
+        console.error('Error caching assets:', error);
+        reply?.postMessage({ error: String((error && error.message) || error) });
+      }
+    })());
   }
 });
 
