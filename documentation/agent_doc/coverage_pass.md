@@ -122,32 +122,23 @@ model, so it needs a closer look before it goes.
 | 9 | `bin/test_survey_results_smoke.php` (long and wide reads, filters, paging, long-form readers, downloads) | smoke |
 | 10 | `tests/FormV2CompatScannerScanTest.php` | unit |
 
-The smokes record a claim that fails because of a known, unfixed bug as
-`KNOWN BUG` (counted, not fatal) and print `FIXED` once it passes, so they
-can gate a release while the bugs below are open.
+Each smoke's header lists the bugs below that it guards against.
 
-## Bugs the new tests found (open)
+## Bugs the new tests found (fixed)
 
-1. **Run-bundle import leaves new Survey units unplaced** (released,
-   since `b4b3539d`, v1.10.3): `SurveyStudy::createFromFile` builds the unit
-   on `new Run()` and relied on `$options['run']`, which
-   `RunUnit::UNASSIGNABLE_PROPS` now refuses — no `survey_run_units` row, an
-   orphaned `survey_units` row. Existing studies and Form units are fine.
-2. **Sheet export blanks every 0** — `optional = 0` among them, so a
-   required item comes back optional after an xlsx round trip:
-   PhpSpreadsheet `fromArray()` compares loosely by default (`0 != null` is
-   false). Every `fromArray` call in `SpreadsheetReader` needs
-   `$strictNullComparison = true`. The same cause blanks zeros in the
-   pre-deletion backup TSV when `form_v2_long_reads` is off.
-3. **Sheet export loses the choice list of an item with type options**:
-   the type column is written `type options list`, the reader takes a list
-   name only as the first token after the type (a pattern item's message
-   is lost, and its pattern gains the list name).
-4. **The JSON survey download changes numeric-looking text**
-   (`JSON_NUMERIC_CHECK`: `"007"` → `7`, `"1.50"` → `1.5`).
-5. **`getResultsByItemsPerSession` builds `IN ()` when no session matches**
-   (1064), reachable from `show_itemdisplay` with a page past the last one.
-6. **The `.tab` exports split multi-line answers** (`exportTSV` with an
-   empty enclosure).
+1. Run-bundle import left new Survey units unplaced (since `b4b3539d`,
+   v1.10.3) — `SurveyStudy::createFromFile` now builds the unit on the run
+   in `$options['run']`.
+2. Sheet export blanked every 0 (and the wide-read backup TSV its zeros) —
+   every `fromArray` call passes `$strictNullComparison = true`.
+3. Sheet export folded the choice list into `type` — it has its own
+   `choice_list` column now, ahead of `type`; the reader no longer drops an
+   option token when a list is already set, and no longer reads a
+   `choice_list` column as inline choice `_list` (`choice\d+` only).
+4. The JSON survey/run downloads used `JSON_NUMERIC_CHECK` — dropped.
+5. `getResultsByItemsPerSession` built `IN ()` — `IN (0)` when nothing
+   matches.
+6. The `.tab` exports never quoted — a field is quoted when it holds a tab,
+   quote or newline (`setEnclosureRequired(false)`).
 7. Fixture only: `e2e_v2_inputs`' results table predated the pattern-item
    column fix (`i_zip` was `tinyint`); widened on the dev DB.

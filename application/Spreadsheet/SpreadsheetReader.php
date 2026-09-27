@@ -54,7 +54,11 @@ class SpreadsheetReader
         $objWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($objPhpSpreadsheet, 'Csv');
         /** @var \PhpOffice\PhpSpreadsheet\Writer\Csv $objWriter */
         $objWriter->setDelimiter("\t");
-        $objWriter->setEnclosure("");
+        // Quote only a field holding a tab, a quote or a newline — anything
+        // else stays bare, as before; without quoting at all such an answer
+        // split its row. R's read.delim reads both.
+        $objWriter->setEnclosure('"');
+        $objWriter->setEnclosureRequired(false);
 
         try {
             $objWriter->save($filename);
@@ -77,7 +81,7 @@ class SpreadsheetReader
             return $objPhpSpreadsheet;
         }
         array_unshift($array, array_keys($current));
-        $objPhpSpreadsheet->getSheet(0)->fromArray($array);
+        $objPhpSpreadsheet->getSheet(0)->fromArray($array, null, 'A1', true);
 
         return $objPhpSpreadsheet;
     }
@@ -189,7 +193,10 @@ class SpreadsheetReader
             header('Content-Disposition: attachment;filename="' . $filename . '.json"');
             header('Cache-Control: max-age=0');
             header('Content-type: application/json; charset=utf-8');
-            echo json_encode($object, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK);
+            // No JSON_NUMERIC_CHECK: it turns text that looks like a number
+            // ("007", "1.50") into a number — a run bundle carries labels,
+            // values and choice labels, and they must come back as written.
+            echo json_encode($object, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE);
             exit;
         }
     }
@@ -205,7 +212,9 @@ class SpreadsheetReader
             /** @var \PhpOffice\PhpSpreadsheet\Writer\Csv $phpSpreadsheetWriter */
             $phpSpreadsheetWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($phpSpreadsheet, 'Csv');
             $phpSpreadsheetWriter->setDelimiter("\t");
-            $phpSpreadsheetWriter->setEnclosure("");
+            // See backupTSV: quote a field only when it needs it.
+            $phpSpreadsheetWriter->setEnclosure('"');
+            $phpSpreadsheetWriter->setEnclosureRequired(false);
 
             if ($savefile === null) {
                 header('Content-Disposition: attachment;filename="' . $filename . '.tab"');
@@ -316,7 +325,7 @@ class SpreadsheetReader
             $objPhpSpreadsheet->getSheet($sheet_index)->getColumnDimension('B')->setWidth(20); # name
             $objPhpSpreadsheet->getSheet($sheet_index)->getColumnDimension('C')->setWidth(30); # label
 
-            $objPhpSpreadsheet->getSheet($sheet_index)->fromArray($choices);
+            $objPhpSpreadsheet->getSheet($sheet_index)->fromArray($choices, null, 'A1', true);
             $objPhpSpreadsheet->getSheet($sheet_index)->setTitle('choices');
             $objPhpSpreadsheet->getSheet($sheet_index)->getStyle('A1:C1')->applyFromArray(array('font' => array('bold' => true)));
         endif;
@@ -334,7 +343,7 @@ class SpreadsheetReader
             $objPhpSpreadsheet->getSheet($sheet_index)->getColumnDimension('A')->setWidth(20); # item
             $objPhpSpreadsheet->getSheet($sheet_index)->getColumnDimension('B')->setWidth(20); # value
 
-            $objPhpSpreadsheet->getSheet($sheet_index)->fromArray($sttgs);
+            $objPhpSpreadsheet->getSheet($sheet_index)->fromArray($sttgs, null, 'A1', true);
             $objPhpSpreadsheet->getSheet($sheet_index)->setTitle('settings');
             $objPhpSpreadsheet->getSheet($sheet_index)->getStyle('A1:C1')->applyFromArray(array('font' => array('bold' => true)));
         endif;
@@ -346,7 +355,7 @@ class SpreadsheetReader
         $objPhpSpreadsheet->getSheet(0)->getColumnDimension('D')->setWidth(3);  # optional
         $objPhpSpreadsheet->getSheet(0)->getStyle('D1')->getAlignment()->setWrapText(false);
 
-        $objPhpSpreadsheet->getSheet(0)->fromArray($items);
+        $objPhpSpreadsheet->getSheet(0)->fromArray($items, null, 'A1', true);
         $objPhpSpreadsheet->getSheet(0)->setTitle('survey');
         $objPhpSpreadsheet->getSheet(0)->getStyle('A1:H1')->applyFromArray(array('font' => array('bold' => true)));
 
@@ -452,7 +461,8 @@ class SpreadsheetReader
         header('Content-type: application/json; charset=utf-8');
 
         try {
-            echo json_encode($object, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK);
+            // As written: see exportJSON on JSON_NUMERIC_CHECK.
+            echo json_encode($object, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE);
             exit;
         } catch (Exception $e) {
             formr_log_exception($e, __CLASS__);
@@ -999,11 +1009,13 @@ class SpreadsheetReader
                             // `bot_check 3` is the PoW difficulty (BotCheck::chosenDifficulty
                             // reads the numeric type_options), not a choice-list name; a
                             // list relabelling the widget is `bot_check mylist`.
-                            !($type === 'bot_check' && ctype_digit(trim($typeOptions[1])))
+                            !($type === 'bot_check' && ctype_digit(trim($typeOptions[1]))) &&
+                            // A list already given in a `choice_list` column to
+                            // the left: the token is an option, not a list —
+                            // dropping it lost the option.
+                            (!isset($data[$rowNumber]['choice_list']) || trim((string) $data[$rowNumber]['choice_list']) === '')
                         ) {
-                            if (!isset($data[$rowNumber]['choice_list']) || trim((string) $data[$rowNumber]['choice_list']) === '') {
-                                $data[$rowNumber]['choice_list'] = trim($typeOptions[1]);
-                            }
+                            $data[$rowNumber]['choice_list'] = trim($typeOptions[1]);
                             unset($typeOptions[1]);
                         }
                         // Unconditional: any `type_options` column value is already merged
@@ -1024,8 +1036,10 @@ class SpreadsheetReader
                     } else {
                         $cellValue = null;
                     }
-                } elseif (strpos($colName, 'choice') === 0 && is_formr_truthy($cellValue) && isset($data[$rowNumber])) {
-                    $choiceValue = substr($colName, 6);
+                } elseif (preg_match('/^choice(\d+)$/', $colName, $choiceMatch) && is_formr_truthy($cellValue) && isset($data[$rowNumber])) {
+                    // choice1…choice14 only: a bare prefix match took the
+                    // `choice_list` column for an inline choice named "_list".
+                    $choiceValue = $choiceMatch[1];
                     $this->choices[] = array(
                         'list_name' => $data[$rowNumber]['name'],
                         'name' => $choiceValue,

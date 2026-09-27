@@ -22,13 +22,12 @@
  *     including a small study whose values look numeric but are text
  *     (choice names "01"/"02", a label "007", a value "1.50").
  *
- * Claims that fail because of a reported, unfixed bug go through bug(): they
- * print KNOWN BUG and do not fail the smoke (FIXED once they pass). Today:
- * the sheet export leaves every `optional = 0` blank (a required
- * mc_multiple_button comes back optional); it writes `type options list`
- * while the reader takes a list only right after the type (a text pattern
- * with a message list comes back with an unmatchable pattern); and the JSON
- * download's JSON_NUMERIC_CHECK turns "007" into 7 and "2.50" into 2.5.
+ * What it guards (each was broken until the coverage pass found it): every
+ * `optional = 0` is written to the sheet (fromArray() used to skip zeros, so
+ * a required mc_multiple_button came back optional); the choice list is
+ * written in its own column (appended to `type` it was read as an option,
+ * so a text pattern with a message list got an unmatchable pattern); and
+ * the JSON download keeps numeric-looking text as text ("007", "2.50").
  *
  * Run: docker exec formr_app php /var/www/formr/bin/test_survey_export_roundtrip_smoke.php
  * Creates and removes its own studies and files.
@@ -42,17 +41,6 @@ function ok($cond, string $label, $detail = null): void {
     global $failures;
     echo $cond ? "  \e[32mOK\e[0m  {$label}\n" : "  \e[31mFAIL\e[0m {$label}" . ($detail !== null ? ' — ' . var_export($detail, true) : '') . "\n";
     if (!$cond) { $failures++; }
-}
-
-// A claim that currently fails because of a reported bug: printed, counted
-// apart, and not failing the smoke. Once fixed it prints FIXED — turn it
-// into ok() then.
-$knownBugs = 0;
-function bug($cond, string $label, $detail = null): void {
-    global $knownBugs;
-    echo $cond ? "  \e[32mFIXED\e[0m {$label} (known bug no longer reproduces: make this an ok())\n"
-               : "  \e[33mKNOWN BUG\e[0m {$label}" . ($detail !== null ? ' — ' . var_export($detail, true) : '') . "\n";
-    if (!$cond) { $knownBugs++; }
 }
 
 $owner = $db->execute('SELECT id FROM survey_users ORDER BY id LIMIT 1', [], false, true);
@@ -121,7 +109,8 @@ try {
     $mc = null;
     foreach ($sheet as $r) { if ($r['name'] === 'c_gods') { $mc = $r; } }
     $mcRow = $origItems['c_gods'] ?? null;
-    ok($mc && $mcRow && $mc['type'] === trim(preg_replace('/\s+/', ' ', "mc {$mcRow['type_options']} {$mcRow['choice_list']}")), 'the sheet folds options and choice list into type', [$mc['type'] ?? null, $mcRow]);
+    ok($mc && $mcRow && $mc['type'] === trim(preg_replace('/\s+/', ' ', "mc {$mcRow['type_options']}")) && $mc['choice_list'] === $mcRow['choice_list'],
+        'the sheet writes the type with its options, and the choice list in its own column', [$mc['type'] ?? null, $mc['choice_list'] ?? null, $mcRow]);
 
     // Items whose type options AND choice list are both set (a text pattern
     // with its message list, a range with its end labels): see the bug below.
@@ -147,12 +136,9 @@ try {
             $read[$row['name']] = itemShape($row);
             if ($row['optional'] === null && $origItems[$row['name']]['optional'] === '0') { $blankOptional[] = $row['name']; }
         }
-        // BUG: getSheetsFromArrays writes with PhpSpreadsheet fromArray(), whose
-        // loose null comparison leaves an integer 0 cell empty — so every
-        // `optional = 0` is exported blank and re-read as "the type's default".
-        // (itemShape() maps that blank to '0', so the column check below
-        // passes for types whose default is required.)
-        bug($blankOptional === [], 'optional 0 is written to the sheet', array_slice($blankOptional, 0, 6));
+        // fromArray() compares loosely by default: an integer 0 cell was left
+        // empty and read back as "the type's default".
+        ok($blankOptional === [], 'optional 0 is written to the sheet', array_slice($blankOptional, 0, 6));
         ok(array_keys($read) === array_keys($origItems), 'the same items in the same order', array_values(array_diff(array_keys($origItems), array_keys($read))));
         $diff = $listDiff = [];
         foreach ($origItems as $name => $shape) {
@@ -164,10 +150,7 @@ try {
             }
         }
         ok($diff === [], 'every other column of every item comes back as it was', array_slice($diff, 0, 8));
-        // BUG: the sheet writes `type options list` (getItemsForSheet), the
-        // reader takes a list name only as the FIRST token after the type (and
-        // only if it is an identifier: timezone's '*' lands in type_options).
-        bug($listDiff === [], 'type options and choice list come back in their own columns', $listDiff);
+        ok($listDiff === [], 'type options and choice list come back in their own columns', $listDiff);
         ok(choicesOf($reader->choices) === $origChoices, 'the same choices', array_slice(array_diff($origChoices, choicesOf($reader->choices)), 0, 5));
         $expected = array_map(function ($v) { return trim((string) $v); }, $orig->getSettings());
         ok(($reader->settings['rendering_mode'] ?? null) === 'v2', 'the settings sheet says rendering_mode v2', $reader->settings);
@@ -198,17 +181,26 @@ try {
         if ($k === 'optional') { $optDiff[] = $d; } else { $tableDiff[] = $d; }
     } } }
     ok(count($a) === count($b) && $tableDiff === [], 'with the same item table (optional, type options, choice list aside)', array_slice($tableDiff, 0, 8));
-    // BUG: see "optional 0 is written" above — a required item of a type
-    // that defaults to optional (mc_multiple_button here) comes back optional.
-    bug($optDiff === [], 'every item keeps its optional/required flag', $optDiff);
+    // A required item of a type that defaults to optional (mc_multiple_button
+    // here) stays required.
+    ok($optDiff === [], 'every item keeps its optional/required flag', $optDiff);
     $sheetType = function ($s, $name) { foreach (sheetOf($s) as $r) { if ($r['name'] === $name) { return $r['type']; } } return null; };
     $rendered = function ($s, $name) { $it = $s->getItemsWithChoices(null, ['field' => 'name', 'values' => [$name]])[$name] ?? null; return $it ? $it->render() : ''; };
-    bug(sheetOf($copy) === sheetOf($orig), 'items with options and a list come back unchanged',
-        ['t_pattern' => [$sheetType($orig, 't_pattern'), $sheetType($copy, 't_pattern')], 'n_range' => [$sheetType($orig, 'n_range'), $sheetType($copy, 'n_range')]]);
+    $sheetDiff = [];
+    $copySheet = sheetOf($copy);
+    // An empty cell reads back as '' where the JSON-created original holds
+    // NULL: the same thing for a sheet.
+    foreach (sheetOf($orig) as $i => $row) { foreach ($row as $k => $v) {
+        $w = (isset($copySheet[$i]) && array_key_exists($k, $copySheet[$i])) ? $copySheet[$i][$k] : '(missing)';
+        if ((string) $w !== (string) $v) {
+            $sheetDiff[] = "{$row['name']}.{$k}: " . var_export($v, true) . ' → ' . var_export($w, true);
+        }
+    } }
+    ok($sheetDiff === [], 'items with options and a list come back unchanged', array_slice($sheetDiff, 0, 8));
     preg_match('/pattern="([^"]*)"/', $rendered($orig, 't_pattern'), $pOrig);
     preg_match('/pattern="([^"]*)"/', $rendered($copy, 't_pattern'), $pCopy);
     ok(($pOrig[1] ?? null) === '[0-9]{5}', 'the original pattern item renders pattern [0-9]{5}', $pOrig);
-    bug(($pCopy[1] ?? null) === '[0-9]{5}', 're-uploaded, the pattern item still renders pattern [0-9]{5}', $pCopy[1] ?? null);
+    ok(($pCopy[1] ?? null) === '[0-9]{5}', 're-uploaded, the pattern item still renders pattern [0-9]{5}', $pCopy[1] ?? null);
     $poles = function ($s) use ($rendered) { $h = $rendered($s, 'n_range'); return [strpos($h, 'left pole') !== false, strpos($h, 'right pole') !== false]; };
     ok($poles($orig) === [true, true], 'the original range renders its pole labels', $poles($orig));
     ok($poles($copy) === [true, true], 're-uploaded, the range still renders its pole labels (the item recovers its list from the options)', $poles($copy));
@@ -251,12 +243,10 @@ try {
         }
         $choices = function ($s) { $o = []; foreach ($s->getItems() as $it) { foreach ((array) ($s->getChoices([$it['choice_list']])[$it['choice_list']] ?? []) as $n => $l) { $o[] = $it['name'] . '|' . $n . '|' . $l; } } sort($o); return $o; };
         $choiceDiff = array_values(array_diff($choices($src), $choices($imp)));
-        // BUG: exportItemTableJSON encodes with JSON_NUMERIC_CHECK, which turns
-        // every numeric-looking string into a number ("007" → 7, "2.50" → 2.5).
-        $claim = $what === 'all_widgets' ? 'ok' : 'bug';
+        // Numeric-looking text stays text ("007", "2.50"): no JSON_NUMERIC_CHECK.
         ok(array_keys($got) === array_keys($expect), "{$what}: the same items in the same order", array_keys($got));
-        $claim($diff === [], "{$what}: every column of every item comes back as it was", array_slice($diff, 0, 6));
-        $claim($choiceDiff === [], "{$what}: the same choices per item", array_slice($choiceDiff, 0, 5));
+        ok($diff === [], "{$what}: every column of every item comes back as it was", array_slice($diff, 0, 6));
+        ok($choiceDiff === [], "{$what}: the same choices per item", array_slice($choiceDiff, 0, 5));
     }
 } catch (Throwable $e) {
     echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
@@ -266,5 +256,5 @@ teardown();
 $names = array_filter(array_map(function ($s) { return $s ? $s->name : null; }, $studies));
 $left = $names ? (int) $db->execute('SELECT COUNT(*) AS n FROM survey_studies WHERE name IN ("' . implode('","', $names) . '")', [], false, true)['n'] : 0;
 ok($left === 0 && !is_dir($tmpDir), 'teardown removed every study and file', $left);
-echo "\n" . ($failures ? "\e[31m{$failures} failure(s)\e[0m" : "\e[32mall passed\e[0m") . ($knownBugs ? " \e[33m({$knownBugs} known-bug claim(s) still failing)\e[0m" : '') . "\n";
+echo "\n" . ($failures ? "\e[31m{$failures} failure(s)\e[0m" : "\e[32mall passed\e[0m") . "\n";
 exit($failures ? 1 : 0);

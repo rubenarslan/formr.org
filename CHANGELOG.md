@@ -41,6 +41,12 @@ This release adds **form_v2**, a second survey engine, run by a new **Form** uni
 - **Randomised item orders stay put during a session.** Re-running the ordering (for instance when an item was added to a running survey) re-shuffled the items a participant had already seen.
 - **A `note_iframe` whose R Markdown fails** shows a "temporarily unavailable" placeholder to participants (and the R error to the admin in test sessions) instead of nothing.
 - **Email addresses need a dot in the domain in the browser too** (#327): `name@host` was accepted by the browser and refused by the server after the submit.
+- **Importing a run bundle places its surveys again.** A Survey unit whose survey the bundle created was left out of the run since v1.10.3 (the survey was created, the unit was not placed).
+- **A survey downloaded as a spreadsheet comes back as it was.** Every `0` was written as an empty cell, so a required item came back optional; and the choice list of an item that also has type options was appended to its type, where it was read as an option (a text item's pattern and its message were lost). The list now has its own `choice_list` column.
+- **A `choice_list` column in an uploaded spreadsheet is read as the list name.** It was also read as an inline choice named `_list`.
+- **The JSON survey and run downloads keep numeric-looking text as text** (`007`, `1.50`); they turned it into numbers.
+- **The `.tab` results exports keep an answer with a line break or tab in its row**; such a field is now quoted.
+- **The per-item results view no longer fails on a page past the last one** (or a filter that matches no session).
 - **Installable (PWA) runs: each page is requested from the server once.** The service worker fetched every page and request of the run a second time next to the browser's own request, so each visit to the run link was processed twice.
 - **Installable (PWA) runs cache their styles and scripts for offline use**, as intended; the request to cache them was accepted and nothing was cached.
 - **Only the run's `manifest` is treated as the manifest by the service worker**; pages of a run whose name starts with "manifest" were served from the offline cache.

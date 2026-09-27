@@ -28,13 +28,12 @@
  *     carry the same rows; so does the backup taken before results are
  *     deleted (backupTSV).
  *
- * Claims that fail because of a reported, unfixed bug go through bug(): they
- * print KNOWN BUG and do not fail the smoke (FIXED once they pass). Today:
- * getResultsByItemsPerSession builds `IN ()` when no session matches (a page
- * past the last one → SQL error); the .tab exports use no enclosure, so a
- * multi-line answer splits its row; the wide-read backup writes integer 0s as
- * blanks; and a run bundle's Survey unit with a new study is not placed in
- * the run on import (worked around below by linking the study).
+ * What it guards (each was broken until the coverage pass found it):
+ * getResultsByItemsPerSession with no matching session (it built `IN ()`);
+ * the .tab exports keeping a multi-line answer inside its row (fields were
+ * never quoted); the wide-read backup keeping integer 0s (fromArray() used
+ * to skip them); and a run bundle's Survey unit with a new study being
+ * placed in the run on import.
  *
  * Run: docker exec formr_app php /var/www/formr/bin/test_survey_results_smoke.php
  * Creates and removes its own run, study, sessions and files.
@@ -48,15 +47,6 @@ function ok($cond, string $label, $detail = null): void {
     global $failures;
     echo $cond ? "  \e[32mOK\e[0m  {$label}\n" : "  \e[31mFAIL\e[0m {$label}" . ($detail !== null ? ' — ' . var_export($detail, true) : '') . "\n";
     if (!$cond) { $failures++; }
-}
-// A claim that fails because of a reported, unfixed bug: printed, counted
-// apart, not failing the smoke. Once it passes it prints FIXED.
-$knownBugs = 0;
-function bug($cond, string $label, $detail = null): void {
-    global $knownBugs;
-    echo $cond ? "  \e[32mFIXED\e[0m {$label} (known bug no longer reproduces: make this an ok())\n"
-               : "  \e[33mKNOWN BUG\e[0m {$label}" . ($detail !== null ? ' — ' . var_export($detail, true) : '') . "\n";
-    if (!$cond) { $knownBugs++; }
 }
 /** Flip one setting for the rest of this process (Config has no setter). */
 function setConfig(string $key, $value): void {
@@ -127,16 +117,9 @@ try {
     $study = SurveyStudy::loadByUserAndName($GLOBALS['user'], $studyName);
     $units = $run->getAllUnitIds();
     $unitIds = array_map('intval', array_column($units, 'unit_id'));
-    // BUG (not one of this smoke's claims, found by it): a bundle's Survey
-    // unit whose study is new is created but never placed — createFromFile
-    // builds the unit on `new Run()` and relies on $options['run'], which
-    // RunUnit::UNASSIGNABLE_PROPS has refused since v1.10.3.
-    bug(in_array((int) $study->id, $unitIds, true), 'the imported Survey unit is placed in the run', $units);
-    if (!in_array((int) $study->id, $unitIds, true)) {
-        // Link it the way the run editor does (Add Survey, pick the study).
-        $linked = RunUnitFactory::make($run, ['type' => 'Survey'])->create(['study_id' => $study->id, 'position' => 10, 'description' => 'results smoke']);
-        $unitIds[] = (int) $linked->id;   // the placeholder survey_units row the link leaves behind
-    }
+    // A bundle's Survey unit whose study is new is placed in the run (it was
+    // created but left out once `run` became unassignable from props).
+    ok(in_array((int) $study->id, $unitIds, true), 'the imported Survey unit is placed in the run', $units);
     $survey = RunUnitFactory::make($run, ['id' => (int) $study->id]);
     $study = $survey->surveyStudy;
     ok($survey instanceof Survey && $study && $study->valid && $study->rendering_mode !== 'v2', 'a v1 Survey unit and its study', $study ? $study->rendering_mode : null);
@@ -228,14 +211,12 @@ try {
         $bh = explode("\t", $bl[0] ?? '');
         $bc = null;
         foreach ($bl as $l) { $f = explode("\t", $l); if ($f[0] === $codes['C']) { $bc = array_combine($bh, array_pad($f, count($bh), '')); } }
-        $claim = $mode === 'wide' ? 'bug' : 'ok';
-        // BUG (wide read only): backupTSV builds the sheet with fromArray(),
-        // whose loose null check leaves an integer 0 blank — the wide read
-        // returns INT columns as ints, the long read returns text.
+        // The wide read returns INT columns as ints, which fromArray() used to
+        // leave blank (loose null comparison); the long read returns text.
         $cA = null;
         foreach ($bl as $l) { $f = explode("\t", $l); if ($f[0] === $codes['A']) { $cA = array_combine($bh, array_pad($f, count($bh), '')); } }
         ok($bc !== null && $bc['num'] === '7', "{$mode} backup: C's row is in it", $bc);
-        $claim($cA !== null && $cA['num'] === '0' && $cA['mc1'] === '0', "{$mode} backup: A's 0 answers are kept", $cA ? ['num' => $cA['num'], 'mc1' => $cA['mc1']] : null);
+        ok($cA !== null && $cA['num'] === '0' && $cA['mc1'] === '0', "{$mode} backup: A's 0 answers are kept", $cA ? ['num' => $cA['num'], 'mc1' => $cA['mc1']] : null);
     }
     setConfig('form_v2_long_reads', true);
 
@@ -269,9 +250,9 @@ try {
     // finds no session.
     foreach (['a session filter that matches nothing' => [['session' => 'NOSUCHSESSION'], null], 'a page past the last one' => [null, ['offset' => 40, 'limit' => 20]]] as $what => $args) {
         try { $r = $study->getResultsByItemsPerSession(null, $args[0], $args[1]); $err = null; } catch (Throwable $e) { $r = null; $err = $e->getMessage(); }
-        // BUG: with no matching session the reader builds `IN ()` and MariaDB
-        // refuses the statement (show_itemdisplay?page=N past the end → 500).
-        bug($r === [], "getResultsByItemsPerSession: {$what} returns no rows", $err);
+        // No matching session must not build `IN ()` (show_itemdisplay?page=N
+        // past the end was a 500).
+        ok($r === [], "getResultsByItemsPerSession: {$what} returns no rows", $err);
     }
 
     echo "\n-- an unlinked study --\n";
@@ -293,16 +274,22 @@ try {
     $files[] = $tsv;
     $SPR = new SpreadsheetReader();
     ok($SPR->exportTSV($study->getResults(null, null, null, $runId, true), $study->name, $tsv) === true, 'the run export writes its .tab file');
-    $lines = file($tsv, FILE_IGNORE_NEW_LINES);
-    $header = explode("\t", $lines[0] ?? '');
+    // Read it as TSV (tab-delimited, a field quoted only when it holds a
+    // tab, quote or newline): a row is a record, not a physical line.
+    $records = [];
+    if (($fh = fopen($tsv, 'r')) !== false) {
+        while (($rec = fgetcsv($fh, 0, "\t", '"', '')) !== false) { $records[] = $rec; }
+        fclose($fh);
+    }
+    $header = $records[0] ?? [];
     ok(array_slice($header, 0, 2) === ['session', 'session_id'] && array_slice($header, -5) === $cols, 'header: session metadata and the answer columns', $header);
     $tsvRows = [];
-    foreach (array_slice($lines, 1) as $l) { $f = explode("\t", $l); if (isset($f[0]) && isset($expected[$f[0]])) { $tsvRows[$f[0]] = array_combine($header, array_pad($f, count($header), '')); } }
+    foreach (array_slice($records, 1) as $f) { if (isset($f[0]) && isset($expected[$f[0]])) { $tsvRows[$f[0]] = array_combine($header, array_pad($f, count($header), '')); } }
     ok(count($tsvRows) >= 3 && $tsvRows[$codes['C']]['txt'] === 'gamma' && $tsvRows[$codes['C']]['num'] === '7', "C's row carries its answers", $tsvRows[$codes['C']] ?? null);
-    // BUG: exportTSV writes with an empty enclosure, so an answer holding a
-    // newline or a tab splits its row (A's textarea answer here).
-    bug(count($lines) === 5 && isset($tsvRows[$codes['A']]) && $tsvRows[$codes['A']]['long'] === "line one\nline\ttwo",
-        'a multi-line answer stays inside its row', ['lines' => count($lines), 'A' => $tsvRows[$codes['A']] ?? null]);
+    // An answer holding a newline or a tab stays inside its row (A's
+    // textarea answer here); it split the row when fields were never quoted.
+    ok(count($records) === 5 && isset($tsvRows[$codes['A']]) && $tsvRows[$codes['A']]['long'] === "line one\nline\ttwo",
+        'a multi-line answer stays inside its row', ['records' => count($records), 'A' => $tsvRows[$codes['A']] ?? null]);
 
     // The survey's results and item-display downloads (AdminSurveyController).
     $login = '$GLOBALS["user"] = new User(' . (int) $owner['id'] . '); $s = SurveyStudy::loadById(' . (int) $study->id . '); $spr = new SpreadsheetReader();';
@@ -339,5 +326,5 @@ $left = (int) $db->execute('SELECT COUNT(*) AS n FROM survey_studies WHERE name 
       + ($unitIds ? (int) $db->execute('SELECT COUNT(*) AS n FROM survey_units WHERE id IN (' . implode(',', $unitIds) . ')', [], false, true)['n'] : 0);
 $leftFiles = array_filter($files, 'file_exists');
 ok($left === 0 && !$leftFiles, 'teardown removed the run, units, sessions, study and files', [$left, $leftFiles]);
-echo "\n" . ($failures ? "\e[31m{$failures} failure(s)\e[0m" : "\e[32mall passed\e[0m") . ($knownBugs ? " \e[33m({$knownBugs} known-bug claim(s) still failing)\e[0m" : '') . "\n";
+echo "\n" . ($failures ? "\e[31m{$failures} failure(s)\e[0m" : "\e[32mall passed\e[0m") . "\n";
 exit($failures ? 1 : 0);

@@ -165,8 +165,13 @@ class SurveyStudy extends Model
 
     public function createFromFile($file, $options = [])
     {
-        // Create the corresponding entry in survey_units to get the ID
-        $id = RunUnitFactory::make(new Run(), ['type' => 'Survey'])->create($options)->id;
+        // Create the corresponding entry in survey_units to get the ID. A
+        // run in $options (a run-bundle import) is the one the unit is placed
+        // in; it must go to the constructor — RunUnit::create refuses `run`
+        // from its props (UNASSIGNABLE_PROPS), so on an empty Run the unit
+        // was created but never placed.
+        $run = (isset($options['run']) && $options['run'] instanceof Run) ? $options['run'] : new Run();
+        $id = RunUnitFactory::make($run, ['type' => 'Survey'])->create($options)->id;
         $this->assignProperties($file);
 
         $this->id = $id;
@@ -1277,9 +1282,15 @@ class SurveyStudy extends Model
 
         $results = array();
         while ($row = $get_items->fetch(PDO::FETCH_ASSOC)) {
-            $row["type"] = $row["type"] . " " . $row["type_options"] . " " . $row["choice_list"];
-            unset($row["choice_list"], $row["type_options"]); //FIXME: why unset here?
-            $results[] = $row;
+            // The list goes in its own `choice_list` column, ahead of `type`:
+            // appended to the type cell ("type options list") the reader took
+            // it for an option — and for text-like types it never reads a
+            // list from the type cell at all, so a pattern item lost its
+            // message. `type` keeps the type and its options, as authored.
+            $type = trim($row['type'] . ' ' . (string) $row['type_options']);
+            $list = $row['choice_list'];
+            unset($row['type'], $row['type_options'], $row['choice_list']);
+            $results[] = array('choice_list' => $list, 'type' => $type) + $row;
         }
 
         return $results;
@@ -1750,11 +1761,14 @@ class SurveyStudy extends Model
             $filter_select->limit($paginate['limit'], $paginate['offset']);
         }
         $stmt = $filter_select->statement();
-        $session_ids = '';
+        $session_ids = array();
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $session_ids .= "{$row['session_id']},";
+            $session_ids[] = (int) $row['session_id'];
         }
-        $session_ids = trim($session_ids, ',');
+        // No session matches (a filter that finds nothing, a page past the
+        // last): `IN ()` is a syntax error. Unit session ids start at 1, so
+        // IN (0) matches nothing and the statement/array return stays as is.
+        $session_ids = $session_ids ? implode(',', $session_ids) : '0';
 
         $select = $this->db->select("
 		`survey_run_sessions`.session,
