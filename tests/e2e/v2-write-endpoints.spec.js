@@ -92,8 +92,14 @@ test.describe('/form-sync applies an entry at most once', () => {
         // for any such refusal (a results column too small for an answer,
         // say — what a table created before a column-type fix looks like).
         const table = dbQuery("SELECT results_table FROM survey_studies WHERE name = 'e2e_v2_inputs';")[0].results_table;
-        dbExecRaw(`ALTER TABLE \`${table}\` ADD CONSTRAINT \`e2e_refuse\` CHECK (\`i_zip\` IS NULL OR \`i_zip\` <> '66666');`);
-        const e = entry(ctx, { i_zip: '66666' });
+        // A value no stored row holds: the constraint is checked against the
+        // table's rows when added, and every run stores the one it refused.
+        let refused;
+        do {
+            refused = String(10000 + Math.floor(Math.random() * 90000));
+        } while (dbQuery(`SELECT 1 AS hit FROM \`${table}\` WHERE \`i_zip\` = '${refused}' LIMIT 1;`).length);
+        dbExecRaw(`ALTER TABLE \`${table}\` ADD CONSTRAINT \`e2e_refuse\` CHECK (\`i_zip\` IS NULL OR \`i_zip\` <> '${refused}');`);
+        const e = entry(ctx, { i_zip: refused });
         try {
             const failed = await post(page, ctx.syncUrl, e);
             expect(failed.status, JSON.stringify(failed.body)).toBe(500);
@@ -104,7 +110,7 @@ test.describe('/form-sync applies an entry at most once', () => {
         const resent = await post(page, ctx.syncUrl, e);
         expect(resent.body.status).toBe('ok');
         expect(resent.body.already_applied).toBeUndefined();
-        expect(answer(ctx.unitSessionId, 'i_zip')).toBe('66666');
+        expect(answer(ctx.unitSessionId, 'i_zip')).toBe(refused);
     });
 
     test('a malformed envelope is refused with 400 naming the field; a missing client_ts is fine', async ({ page, baseURL }) => {
