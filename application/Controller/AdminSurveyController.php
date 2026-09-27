@@ -828,9 +828,10 @@ class AdminSurveyController extends AdminController {
 
     /**
      * form_v2 compatibility scan: classify each showif/value expression on the
-     * current study as empty / r-wrapped / JS-OK / needs-r()-wrap. Rendered on
-     * the survey settings page (survey/index) via the "Run v2 compatibility
-     * scan" button — reachable for BOTH engines so authors can check
+     * current study (FormV2CompatScanner's buckets: showifs that work as JS,
+     * need a rewrite or read names not on the form; values; items v2 cannot
+     * run). Rendered on the survey settings page (survey/index) via the
+     * "Run v2 compatibility scan" button — reachable for BOTH engines so authors can check
      * readiness BEFORE upgrading. Reuses FormV2CompatScanner so the admin
      * view and the CLI (bin/form_v2_compat_scan.php) agree.
      */

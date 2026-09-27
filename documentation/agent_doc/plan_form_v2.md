@@ -29,7 +29,7 @@ Phases 0–5 are code-complete on-branch (with gaps noted below). Phases 6 (docs
 | 1 — Single-page AJAX form | ✅ done | FormRenderer, Alpine, BS5, form-page-submit |
 | 2 — Item-type coverage | ✅ done bar A/V smoke | PWA items wired vanilla; only audio/video need in-browser capture smoke |
 | 3 — Client-side showif (JS only) | ✅ done | Alpine-driven; server-side R reaches a showif via a hidden item's `value` |
-| 4 — Page-scoped value + label resolution | ✅ done | r(...) on value (only); label slot for embedded Rmd, choice_label slot for R in choice labels, note_iframe via the label slot; every page (the first included) resolves via /form-render-page when shown; `calculate` is not supported in v2 (`Item::formV2Unsupported`) — a hidden item with the value, or R in the unit that uses it |
+| 4 — Page-scoped value + label resolution | ✅ done | R in `value`; label slot for embedded Rmd, choice_label slot for R in choice labels, note_iframe via the label slot; every page (the first included) resolves via /form-render-page when shown; `calculate` is not supported in v2 (`Item::formV2Unsupported`) — a hidden item with the value, or R in the unit that uses it |
 | 5 — Offline queue | ✅ done bar SW drain + iOS | page-JS enqueue/drain + `offline_mode` flag + file-blob queue (10 MB cap). The SW-side drain is registered but **not implemented** (no `sync` listener); iOS Safari pass still open |
 | 6 — Docs + migration tooling + parity gate | ✅ mostly | admin compat-scanner UI, admin/operator docs (`documentation/form_v2.md`, `form_v2_upgrade.md`) and the v2 example study + run bundle all shipped; the v1↔v2 parity **suite** exists and runs (`tests/e2e/`) — what's still open is the *gate being green* (pwa_high fixture-permission skips + three iOS device skips). See §6 checklist. |
 | Rollout gates | ⬜ open | parity gate, default flip, sunset |
@@ -130,8 +130,8 @@ The Router splits on `-` and camelCases; `form-page-submit` → `formPageSubmitA
 
 ### 3.1 Defaults
 
-- `showif` is **client-side JS, full stop** — not merely "by default". Server emits `data-showif="<js-expr>"` on the wrapper for every item with a non-empty `showif` (v1 only emitted it when the server had hidden the item; FormRenderer forces `data_showif=true` unconditionally so Alpine has something to bind to). The sanctioned way to reach server-side R from a showif is a hidden item with `value: r(...)`, referenced by name from the JS showif.
-- `value` is the **R path**: literal / `'sticky'` (client resolves via `lastAnsweredValue`) / R, bare or `r(...)`-wrapped — either way `FormRenderer` records the (unwrapped) expression in `survey_r_calls` slot='value' and emits `data-fmr-fill-id`. First-page items are resolved inline by the render-time OpenCPU batch; later pages resolve at the page transition via `/form-render-page`.
+- `showif` is **client-side JS, full stop** — not merely "by default". Server emits `data-showif="<js-expr>"` on the wrapper for every item with a non-empty `showif` (v1 only emitted it when the server had hidden the item; FormRenderer forces `data_showif=true` unconditionally so Alpine has something to bind to). The sanctioned way to reach server-side R from a showif is a hidden item whose `value` is that R, referenced by name from the JS showif.
+- `value` is the **R path**: literal / `'sticky'` / R, as written — `FormRenderer` records the expression in `survey_r_calls` slot='value' and emits `data-fmr-fill-id`; every page, the first included, resolves via `/form-render-page` when it is shown.
 - Embedded Rmd in labels is routed through the allowlist too — slot='label', with the FULL label as the expression, deferred to `/form-render-page` for *every* page including the first (§8). (There is no separate `page_body` surface in the survey renderer — item labels are the Rmd surface; the one mention of `page_body` left in the code is a stale comment in `RAllowlistExtractor.php:16`.)
 
 ### 3.2 JS transpile, reused from v1
@@ -152,14 +152,13 @@ The hand-rolled `applyShowifs` + `compileShowif` + `input`/`change` listeners fr
 
 **Naming collision footgun:** an input named `isNA` or `answered` would shadow the helper method. Unlikely in practice but real. If it becomes a problem, move helpers off the component to an Alpine magic (`$helpers.isNA(…)`).
 
-### 3.4 `r(...)` opt-in: allowlist populated at render time
+### 3.4 R in `value`: allowlist populated at render time
 
-Admins reach server-side R through the **`value` column** — bare, or wrapped as `r(complex_score(current(q1), current(q2)))`. (Historically the same wrapper was also accepted on `showif`; that opt-in was removed — see §3.1.) Deviation from the original spec, still true: **the allowlist is populated at render time, not at import.**
+Admins reach server-side R through the **`value` column**, e.g. `complex_score(current(q1), current(q2))`. **The allowlist is populated at render time, not at import.**
 
-- `FormRenderer::processItems` passes each item's `value` through `RAllowlistExtractor::unwrap`; the (unwrapped) expression is UPSERTed into `survey_r_calls` (dedup by `study_id + expr_hash + slot + item_id` — one row per item even for identical expressions, since `/form-render-page` resolves a page's calls via `r.item_id`; id recovered via `LAST_INSERT_ID(id)` on duplicate).
-- The `r()` wrapper must be stripped before OpenCPU sees it (`r()` isn't a function in OpenCPU's base+formr env and one bad entry torches the whole batch for the page).
+- `FormRenderer::processItems` UPSERTs each item's `value`, as written, into `survey_r_calls` (dedup by `study_id + expr_hash + slot + item_id` — one row per item even for identical expressions, since `/form-render-page` resolves a page's calls via `r.item_id`; id recovered via `LAST_INSERT_ID(id)` on duplicate).
 - Resolution is page-scoped and the same on every page: every item gets `$item->value = ''` plus a `data-fmr-fill-id` wrapper attribute, and the client resolves it in the `/form-render-page` batch when the page is shown (on load for the first page). There is no server-side computation: `calculate` items (and other no-input items with an R `value`) are refused for v2 studies (`Item::formV2Unsupported`).
-- Security invariant matches import-time: the server only evaluates expressions already recorded in `survey_r_calls`, keyed by id. Render-time population means the allowlist auto-updates when admins edit the sheet — no schema drift between import and render. Expression-level granularity (every unique `r(...)` gets a row) is the confirmed design choice over function-level allowlisting.
+- Security invariant matches import-time: the server only evaluates expressions already recorded in `survey_r_calls`, keyed by id. Render-time population means the allowlist auto-updates when admins edit the sheet — no schema drift between import and render. Expression-level granularity (every item's expression gets a row) is the confirmed design choice over function-level allowlisting.
 
 ### 3.5 Compatibility scanning
 
@@ -168,7 +167,7 @@ Admins reach server-side R through the **`value` column** — bare, or wrapped a
 - `showif` → `empty` / `js_ok` (v1 transpile yields an expression with no residual R-only tokens) / `needs_js_rewrite` (residual R tokens — ifelse/c/tail/paste/is.na/%in%/%%/NA/`<-` — the client evaluator won't handle; `suggested_fix: rewrite_in_js`)
 - `value` → `empty` / `literal` (numeric) / `r` (everything else, allowlisted and evaluated as R — never flagged)
 
-Heuristic, not a guarantee (the client has a try/catch fallback that preserves the server's render decision on any eval error). Exits 0 if clean, 2 if anything flagged — usable as a CI gate. Informational: doesn't mutate `survey_items.showif`. Run before upgrading an existing v1 study to `rendering_mode='v2'`. The scan logic lives in `application/Spreadsheet/FormV2CompatScanner::scan()` so the admin UI shares it with the CLI. **Known staleness:** the CLI's flagged-row block still prints a `suggested: r(<source>)` line and the header "likely need r(...) wrapping" — left over from the r()-in-showif era, and wrong for showif rows now.
+Heuristic, not a guarantee (the client has a try/catch fallback that preserves the server's render decision on any eval error). Exits 0 if clean, 2 if anything flagged — usable as a CI gate. Informational: doesn't mutate `survey_items.showif`. Run before upgrading an existing v1 study to `rendering_mode='v2'`. The scan logic lives in `application/Spreadsheet/FormV2CompatScanner::scan()` so the admin UI shares it with the CLI.
 
 The original spec proposed a dedicated `showif_js` column + `showif_r_call_id` / `value_r_call_id` pointer columns with a hardened parser at upgrade time. None of that landed; the compat scanner replaces that path. If the hand-rolled regex transpile's failure modes become a real problem, the plan is to revisit in a future phase.
 
@@ -312,7 +311,7 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] Helper stdlib (`isNA`, `answered`, `contains`, `containsWord`, `startsWith`, `endsWith`, `last`) on component
 - [x] v1 transpile reused; `(typeof(X) === 'undefined')` → `isNA(X)` rewrite
 - [x] Comment-stripping + try/catch wrapper for runtime eval
-- [x] `r(...)` wrapper detection at render (`RAllowlistExtractor`)
+- [x] Allowlist recorded at render (`RAllowlistExtractor`)
 - [x] `survey_r_calls` table (`sql/patches/084_survey_r_calls.sql`)
 - [x] Compat scanner (`bin/form_v2_compat_scan.php`) + admin UI (`/admin/survey/<name>/form_v2_compat_scan`)
 - [x] Per-run-session rate-limit on `/form-render-page` (`rcall_per_min`, 30/min, returns 429), DB-backed via `FixedWindowRateLimiter` + patch 095 `formr_rate_limits`
@@ -321,13 +320,13 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 
 ### Phase 4 — Deferred fill for `value`
 - [x] Every page's values, labels and choice labels resolve in one `/form-render-page` batch (`formRenderPageAction` → `RCallService`), which resolves only the calls of items scheduled on that page in this unit session and drops calls the sheet no longer vouches for (`RCallService::callsForPage`, `callRowIsLive`)
-- [x] `r(...)` unwrap on `value`: FormRenderer records + emits `data-fmr-fill-id`. Every item's value is blanked and resolved when its page is shown (first page on load) — one path for all pages
+- [x] R in `value`: FormRenderer records + emits `data-fmr-fill-id`. Every item's value is blanked and resolved when its page is shown (first page on load) — one path for all pages
 - [x] Client fill resolver: set first `input/textarea/select[name]` inside wrapper (only if empty — don't clobber back-nav state), fire input+change. Now driven by the batched `/form-render-page` response, not a per-item POST on load
 - [x] `.fmr-fill-pending` added client-side (classes_wrapper is `protected` on Item — server can't push to it)
 - [x] Bail-out UI on OpenCPU error (`.fmr-fill-error` + inline feedback)
 - [x] `survey_r_call_results` cache with TTL (patch 087, session-scoped by patch 089; 5 min for value, label and choice label — `form_v2_rcall_ttl`; REPLACE on write)
 - [x] Rate limiting (30 calls / 60 s per run-session; see Phase 3 block)
-- [x] Embedded Rmd routed through `r(...)`+fill — `FormRenderer` registers every `needsDynamicLabel` item in `survey_r_calls` slot='label'; client batch-resolves via `POST /{run}/form-render-page` (`RunController::formRenderPageAction`) on initial page load and on every page transition, with patch 087's TTL cache
+- [x] Embedded Rmd routed through the allowlist + fill — `FormRenderer` registers every `needsDynamicLabel` item in `survey_r_calls` slot='label'; client batch-resolves via `POST /{run}/form-render-page` (`RunController::formRenderPageAction`) on initial page load and on every page transition, with patch 087's TTL cache
 
 ### Phase 5 — Offline queue (page-JS MVP)
 - [x] IndexedDB `formrQueue` store
@@ -406,7 +405,7 @@ Nothing here is still open; these are the frozen decisions.
 - `r_call_results` cache table with TTL — patch 087 (session-scoped by patch 089).
 - `showif_js` column on `survey_items` (patch 088). Item.setMoreOptions prefers the cached transpile when set, falls back to live regex for legacy items.
 - File-blob queueing cap is now `$settings['form_v2_offline_blob_max_mb']` (default 10MB). Per-study override is the natural follow-up.
-- Embedded Rmd in labels routed through `r(...)` + `/form-render-page`. FormRenderer registers every `needsDynamicLabel` item under `survey_r_calls` slot='label' and always emits a `data-fmr-label-id` placeholder; the client batch-resolves via `/form-render-page` with the patch 087 cache, on initial page load AND on every page transition. Brief "loading" flicker on the first page where dynamic content sits is the deliberate trade-off for one code path + cache hits on first navigation.
+- Embedded Rmd in labels routed through the allowlist + `/form-render-page`. FormRenderer registers every `needsDynamicLabel` item under `survey_r_calls` slot='label' and always emits a `data-fmr-label-id` placeholder; the client batch-resolves via `/form-render-page` with the patch 087 cache, on initial page load AND on every page transition. Brief "loading" flicker on the first page where dynamic content sits is the deliberate trade-off for one code path + cache hits on first navigation.
 - BS iOS hardening — see `~/.claude/projects/-home-admin-formr-docker-formr-source/memory/reference_browserstack_ios_quirks.md` for the nine concrete bridge limitations and the workaround patterns now codified in `tests/e2e/helpers/test.js` (`bsSafeEvaluate`, worker-scoped page fixture, `clearBrowserState`).
 - Session-expiry modal port — `webroot/assets/form/js/items/expiry-notifier.js`, wired from `main.js` and fed by `templates/run/form_index.php`'s `window.unit_session_expires` injection (mirrors `templates/public/head.php`).
 - New `visual_analog_scale` item type. `application/Model/Item/VisualAnalogScale.php` extends `Range_Item` and pairs the visible slider (no `name`) with a hidden input (carries the form `name`, stays empty until interaction). CSS in `webroot/assets/common/css/custom_item_classes.css` hides the slider thumb until the wrapper goes `.vas-touched` so the participant sees a bare track until they choose a position. Required-validation catches "participant never engaged" via the standard server-side path. Inline 4-line touch listener in the rendered HTML so v1 and v2 both work without bundle wiring.
@@ -425,8 +424,8 @@ Nothing here is still open; these are the frozen decisions.
 
 **Code:**
 - `application/Model/RunUnit/Form.php` — Form unit; extends Survey; strips `study_id` before delegating to `Survey::create`; loads study via `form_study_id`.
-- `application/Spreadsheet/FormRenderer.php` — single-document renderer; overrides `processItems`; r(...) unwrap + allowlist UPSERT.
-- `application/Spreadsheet/RAllowlistExtractor.php` — `r(...)` detection + dedup.
+- `application/Spreadsheet/FormRenderer.php` — single-document renderer; overrides `processItems`; allowlist UPSERT.
+- `application/Spreadsheet/RAllowlistExtractor.php` — allowlist recording + dedup.
 - `application/Controller/RunController.php` — endpoints `formPageSubmitAction`, `formSaveAction`, `formRenderPageAction`, `formSyncAction`, `formBotChallengeAction`, the shared gate `formWriteContext`; the store-a-page path is `application/Services/FormSubmissionService.php`, R evaluation `application/Services/RCallService.php`.
 - `application/Model/RunSession.php` — `executeUnitSession` passthrough for `use_form_v2`.
 - `application/Model/Run.php` — `exec` passthrough for `use_form_v2`.

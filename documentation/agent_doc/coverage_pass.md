@@ -42,8 +42,8 @@ exits, so the `return` after it never counts.
    `FormSubmissionService::mergeUploadedFiles` without files): no spec
    picks a file, live or queued. `all_widgets_v2` has a `file` item that
    the showcase walk leaves empty. → pick a file in the walk, and queue one.
-6. **`value` written as `r(...)`** (`RAllowlistExtractor::unwrap`): the
-   whole unwrap parser ran zero times in any lane. → PHPUnit, pure.
+6. *(dropped: the `r(...)` unwrapping it pointed at was from an earlier v2
+   spec and has been removed.)*
 7. **R failure handling** (`RCallService`): the per-expression retry when a
    batch fails, and the `note_iframe` placeholder when knitting fails, both
    CHANGELOG claims, never ran; neither did the allowlist refusals (a call
@@ -108,3 +108,46 @@ No caller anywhere (grep over application/, templates/, bin/, webroot/):
 
 `Form::load()` never ran either, but `load()` is reached through the parent
 model, so it needs a closer look before it goes.
+
+## Tests written for gaps 1–10
+
+| gap | test | lane |
+| --- | --- | --- |
+| 1, 2 | `tests/e2e/v2-write-endpoints.spec.js` (real `/form-sync` ledger: resend, refusal, failure, envelope; gate: stale, 403, 429, not a v2 Form) and the preview's stale refusal in `v2-preview.spec.js` | e2e |
+| 3, 4 | `tests/e2e/v2-submit-failures.spec.js` (live-submit replies mocked; `missing` routing) | e2e |
+| 5 | `tests/e2e/v2-file-upload.spec.js` (live and queued multipart, file stored) | e2e |
+| 6 | dropped — `r(...)` unwrapping was an earlier spec's; removed from code and docs | — |
+| 7 | `bin/test_form_v2_rcall_smoke.php` (batch retry, note_iframe placeholder, allowlist revocation), `tests/RCallServiceAllowlistTest.php` | smoke, unit |
+| 8 | `bin/test_survey_export_roundtrip_smoke.php` (xlsx/xls/JSON export → re-read → re-upload, settings sheet included) | smoke |
+| 9 | `bin/test_survey_results_smoke.php` (long and wide reads, filters, paging, long-form readers, downloads) | smoke |
+| 10 | `tests/FormV2CompatScannerScanTest.php` | unit |
+
+The smokes record a claim that fails because of a known, unfixed bug as
+`KNOWN BUG` (counted, not fatal) and print `FIXED` once it passes, so they
+can gate a release while the bugs below are open.
+
+## Bugs the new tests found (open)
+
+1. **Run-bundle import leaves new Survey units unplaced** (released,
+   since `b4b3539d`, v1.10.3): `SurveyStudy::createFromFile` builds the unit
+   on `new Run()` and relied on `$options['run']`, which
+   `RunUnit::UNASSIGNABLE_PROPS` now refuses — no `survey_run_units` row, an
+   orphaned `survey_units` row. Existing studies and Form units are fine.
+2. **Sheet export blanks every 0** — `optional = 0` among them, so a
+   required item comes back optional after an xlsx round trip:
+   PhpSpreadsheet `fromArray()` compares loosely by default (`0 != null` is
+   false). Every `fromArray` call in `SpreadsheetReader` needs
+   `$strictNullComparison = true`. The same cause blanks zeros in the
+   pre-deletion backup TSV when `form_v2_long_reads` is off.
+3. **Sheet export loses the choice list of an item with type options**:
+   the type column is written `type options list`, the reader takes a list
+   name only as the first token after the type (a pattern item's message
+   is lost, and its pattern gains the list name).
+4. **The JSON survey download changes numeric-looking text**
+   (`JSON_NUMERIC_CHECK`: `"007"` → `7`, `"1.50"` → `1.5`).
+5. **`getResultsByItemsPerSession` builds `IN ()` when no session matches**
+   (1064), reachable from `show_itemdisplay` with a page past the last one.
+6. **The `.tab` exports split multi-line answers** (`exportTSV` with an
+   empty enclosure).
+7. Fixture only: `e2e_v2_inputs`' results table predated the pattern-item
+   column fix (`i_zip` was `tinyint`); widened on the dev DB.

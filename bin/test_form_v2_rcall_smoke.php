@@ -1,0 +1,184 @@
+#!/usr/bin/php
+<?php
+/**
+ * Live smoke (MariaDB + OpenCPU) for how form_v2's server-side R copes with
+ * failure and revocation (RCallService):
+ *
+ *   - one OpenCPU batch evaluates a page's values; when the batch fails (a
+ *     parse error in one expression fails the whole program) each expression
+ *     is re-evaluated on its own, so the others still resolve and only the
+ *     broken one is missing (reported as an R failure, not a transient one);
+ *     a runtime error inside one expression stays NA for that one alone;
+ *   - a note_iframe whose R Markdown fails to knit resolves to the
+ *     "temporarily unavailable" placeholder, and the failure is not cached;
+ *     one that knits resolves to its iframe;
+ *   - the allowlist: callsForPage returns a call only while its item exists,
+ *     is not soft-deleted and still carries the recorded expression (value or
+ *     label); a call row with no item is never returned. The pure refusals
+ *     (no item anchor, item row gone) are pinned in
+ *     tests/RCallServiceAllowlistTest.php as well.
+ *
+ * Run: docker exec formr_app php /var/www/formr/bin/test_form_v2_rcall_smoke.php
+ * Creates and removes its own run, study and sessions.
+ */
+require_once dirname(__FILE__) . '/../setup.php';
+if (php_sapi_name() !== 'cli') { die("CLI only\n"); }
+
+$db = DB::getInstance();
+$failures = 0;
+function ok($cond, string $label, $detail = null): void {
+    global $failures;
+    echo $cond ? "  \e[32mOK\e[0m  {$label}\n" : "  \e[31mFAIL\e[0m {$label}" . ($detail !== null ? ' — ' . var_export($detail, true) : '') . "\n";
+    if (!$cond) { $failures++; }
+}
+
+$owner = $db->execute('SELECT id FROM survey_users ORDER BY id LIMIT 1', [], false, true);
+if (!$owner) { fwrite(STDERR, "No survey_users row to own the test run.\n"); exit(2); }
+$GLOBALS['user'] = new User((int) $owner['id']);
+
+$suffix = bin2hex(random_bytes(3));
+$runId = $db->insert('survey_runs', [
+    'user_id' => (int) $owner['id'], 'name' => 'rcallsmoke_' . $suffix,
+    'created' => mysql_now(), 'modified' => mysql_now(), 'cron_active' => 0,
+]);
+$run = new Run(null, $runId);
+$studyName = 'rcallsmoke_' . $suffix;
+$item = function ($order, $name, $type, array $extra = []) {
+    return $extra + ['name' => $name, 'type' => $type, 'label' => ucfirst($name), 'order' => $order, 'item_order' => $order, 'optional' => 1];
+};
+$brokenRmd = "Before.\n\n```{r}\nstop('knit boom')\n```\n";
+$goodRmd = "Knitted: `r 40 + 2`";
+$bundle = ['units' => [[
+    'type' => 'Form', 'position' => 10, 'description' => 'rcall smoke',
+    'survey_data' => ['name' => $studyName, 'items' => [
+        $item(1, 'v_ok', 'hidden', ['value' => '1 + 1']),
+        $item(2, 'v_parse', 'hidden', ['value' => '1 +']),         // parse error: fails the batch
+        $item(3, 'v_rt', 'hidden', ['value' => 'stop("boom")']),  // runtime error: NA, alone
+        $item(4, 'v_ok2', 'hidden', ['value' => 'paste0("a", "b")']),
+        $item(5, 'v_edit', 'hidden', ['value' => '3 * 3']),
+        $item(6, 'v_del', 'hidden', ['value' => '4 * 4']),
+        $item(7, 'ifr_bad', 'note_iframe', ['label' => $brokenRmd]),
+        $item(8, 'ifr_ok', 'note_iframe', ['label' => $goodRmd]),
+        $item(9, 'q1', 'text'),
+    ]],
+], [
+    'type' => 'Endpage', 'position' => 20, 'description' => 'end', 'body' => 'Done.',
+]]];
+$study = null; $rs = null; $unitId = null; $unitIds = [];
+function teardown() {
+    global $db, $study, $run, $rs, $unitId, $unitIds;
+    try { if ($rs && $rs->id) { $db->exec('DELETE FROM survey_run_sessions WHERE id = :id', ['id' => $rs->id]); } } catch (Throwable $e) {}
+    try { if ($study && $study->valid) { $db->query('DELETE FROM survey_r_calls WHERE study_id = ' . (int) $study->id); $study->delete(); } } catch (Throwable $e) {}
+    try { if ($run && $run->id) { $run->delete(); } } catch (Throwable $e) {}
+    foreach ($unitIds as $u) { try { $db->exec('DELETE FROM survey_units WHERE id = :id', ['id' => $u]); } catch (Throwable $e) {} }
+}
+// Reach the protected batch evaluator to see which keys failed and why.
+function evaluateBatch(RCallService $svc, array $exprs) {
+    $m = new ReflectionMethod(RCallService::class, 'evaluateBatch');
+    $m->setAccessible(true);
+    return $m->invoke($svc, $exprs, []);
+}
+
+try {
+    echo "== form_v2 R failure handling + allowlist smoke ==\n";
+    ok($run->importUnits(json_encode($bundle)) !== false, 'run bundle imported');
+    $units = $run->getAllUnitIds();
+    $unitIds = array_map('intval', array_column($units, 'unit_id'));
+    $unitId = (int) $units[0]['unit_id'];
+    $form = RunUnitFactory::make($run, ['id' => $unitId]);
+    $study = $form->surveyStudy ?: $form->getStudy(true);
+    ok($study && $study->valid && $study->rendering_mode === 'v2', 'v2 study created', $study ? $study->rendering_mode : null);
+    $ids = [];
+    foreach ((array) $db->execute('SELECT id, name FROM survey_items WHERE study_id = :s', ['s' => $study->id]) as $r) { $ids[$r['name']] = (int) $r['id']; }
+    ok(count($ids) === 9, 'nine items (the broken R was accepted at upload)', array_keys($ids));
+
+    $rsId = $db->insert('survey_run_sessions', ['run_id' => $runId, 'session' => 'RCALLSMOKE' . bin2hex(random_bytes(8)), 'created' => mysql_now(), 'position' => 10]);
+    $rs = new RunSession($db->execute('SELECT session FROM survey_run_sessions WHERE id = :id', ['id' => $rsId], false, true)['session'], $run);
+    $rs->position = 10;
+    $rs->createUnitSession($form);
+    $us = $rs->currentUnitSession;
+    $us->createSurveyStudyRecord();
+    // A participant's request, not a test session: knit errors are fatal
+    // (error=FALSE) exactly as for a real participant.
+    ok(!$rs->isTesting(), 'the run session is a participant, not a tester');
+    Site::getInstance()->setRunSession($rs);
+
+    $renderer = new FormRenderer($study, $us);
+    $renderer->processItems();
+    $renderer->render();
+    $svc = new RCallService($us, $study);
+    $calls = $svc->callsForPage(1);
+    $byName = function (array $slot) {
+        $out = [];
+        foreach ($slot as $cid => $c) { $out[$c['item_name']] = (int) $cid; }
+        ksort($out);
+        return $out;
+    };
+    $valueCalls = $byName($calls['value']);
+    ok(array_keys($valueCalls) === ['v_del', 'v_edit', 'v_ok', 'v_ok2', 'v_parse', 'v_rt'], 'every value is a live call on page 1', array_keys($valueCalls));
+    $labelCalls = $byName($calls['label']);
+    ok(array_keys($labelCalls) === ['ifr_bad', 'ifr_ok'], 'both iframes are live label calls', array_keys($labelCalls));
+
+    echo "\n-- a failing batch is retried one expression at a time --\n";
+    $values = $svc->resolveExpressions($calls['value'], [], 0);
+    $got = function ($name) use ($values, $valueCalls) { return array_key_exists($valueCalls[$name], $values) ? $values[$valueCalls[$name]] : 'ABSENT'; };
+    ok($got('v_ok') === 2, 'v_ok resolves beside a parse error', $got('v_ok'));
+    ok($got('v_ok2') === 'ab', 'v_ok2 resolves beside a parse error', $got('v_ok2'));
+    ok($got('v_edit') === 9 && $got('v_del') === 16, 'the other values resolve too', [$got('v_edit'), $got('v_del')]);
+    ok($got('v_parse') === 'ABSENT', 'the unparseable expression is missing, not blank-filled', $got('v_parse'));
+    ok($got('v_rt') !== 'ABSENT' && RCallService::rResultToScalarString($got('v_rt')) === '', 'a runtime error is NA for that expression alone', $got('v_rt'));
+    $cached = $db->execute('SELECT call_id FROM survey_r_call_results WHERE unit_session_id = :u', ['u' => $us->id]);
+    $cachedIds = array_map('intval', array_column((array) $cached, 'call_id'));
+    ok(!in_array($valueCalls['v_parse'], $cachedIds, true) && in_array($valueCalls['v_ok'], $cachedIds, true), 'resolved values are cached, the failed one is not', $cachedIds);
+
+    $r = evaluateBatch($svc, [1 => '1 + 1', 2 => '1 +', 3 => '2 * 3']);
+    ok($r['results'] === [1 => 2, 3 => 6], 'evaluateBatch: the good keys come back', $r['results']);
+    ok($r['failed'] === [2 => 'r'], 'evaluateBatch: only the broken key failed, as an R (author) error', $r['failed']);
+    $r = evaluateBatch($svc, [5 => '1 +']);
+    ok($r['results'] === [] && $r['failed'] === [5 => 'r'], 'a lone broken expression fails without a retry loop', $r);
+    $r = evaluateBatch($svc, [7 => '7', 8 => 'toupper("x")']);
+    ok($r['results'] === [7 => 7, 8 => 'X'] && $r['failed'] === [], 'a healthy batch resolves in one go', $r);
+
+    echo "\n-- a note_iframe that fails to knit shows the placeholder --\n";
+    $iframeCalls = array_intersect_key($calls['label'], array_flip([$labelCalls['ifr_bad'], $labelCalls['ifr_ok']]));
+    $html = $svc->resolveIframes($iframeCalls, 0);
+    $bad = $html[$labelCalls['ifr_bad']] ?? null;
+    $good = $html[$labelCalls['ifr_ok']] ?? null;
+    ok(is_string($bad) && strpos($bad, 'fmr-iframe-fallback') !== false && strpos($bad, 'temporarily unavailable') !== false, 'the broken document resolves to the placeholder', $bad);
+    ok(is_string($bad) && strpos($bad, 'knit boom') === false && strpos($bad, '<iframe') === false, 'no R error text and no iframe in it', $bad);
+    ok(is_string($good) && preg_match('~<iframe src="[^"]+knit\.html~', $good) === 1, 'the good document resolves to its iframe', $good);
+    $cachedIds = array_map('intval', array_column((array) $db->execute('SELECT call_id FROM survey_r_call_results WHERE unit_session_id = :u', ['u' => $us->id]), 'call_id'));
+    ok(!in_array($labelCalls['ifr_bad'], $cachedIds, true), 'the placeholder is not cached (the next page show retries)');
+    ok(in_array($labelCalls['ifr_ok'], $cachedIds, true), 'the knitted iframe is cached');
+
+    echo "\n-- the allowlist revokes calls whose item changed or went away --\n";
+    $liveIds = function () use ($svc) {
+        $c = $svc->callsForPage(1);
+        return array_map('intval', array_merge(array_keys($c['value']), array_keys($c['label'])));
+    };
+    // A call row with no item anchor (the shape of a legacy row) for an
+    // expression that is also live on an item: never returned.
+    $orphanId = (int) $db->insert('survey_r_calls', ['study_id' => $study->id, 'slot' => 'value', 'item_id' => null, 'expr' => '1 + 1', 'expr_hash' => hash('sha256', 'orphan' . $suffix)]);
+    ok($orphanId > 0 && !in_array($orphanId, $liveIds(), true), 'a call row with no item is not returned');
+    ok(in_array($valueCalls['v_edit'], $liveIds(), true), 'v_edit is live before the edit');
+    $db->exec('UPDATE survey_items SET value = :v WHERE id = :id', ['v' => '5 * 5', 'id' => $ids['v_edit']]);
+    ok(!in_array($valueCalls['v_edit'], $liveIds(), true), 'editing the value revokes the recorded call');
+    $db->exec('UPDATE survey_items SET value = :v WHERE id = :id', ['v' => '', 'id' => $ids['v_edit']]);
+    ok(!in_array($valueCalls['v_edit'], $liveIds(), true), 'so does blanking it');
+    $db->exec('UPDATE survey_items SET deleted = NOW() WHERE id = :id', ['id' => $ids['v_del']]);
+    ok(!in_array($valueCalls['v_del'], $liveIds(), true), 'soft-deleting the item revokes its call');
+    $db->exec('UPDATE survey_items SET label = :l WHERE id = :id', ['l' => 'Knitted: `r 1`', 'id' => $ids['ifr_ok']]);
+    ok(!in_array($labelCalls['ifr_ok'], $liveIds(), true), 'editing a note_iframe document revokes its label call');
+    $still = $liveIds();
+    ok(in_array($valueCalls['v_ok'], $still, true) && in_array($labelCalls['ifr_bad'], $still, true), 'untouched items stay live', $still);
+} catch (Throwable $e) {
+    echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
+    $failures++;
+}
+teardown();
+$left = (int) $db->execute('SELECT COUNT(*) AS n FROM survey_studies WHERE name = :n', ['n' => $studyName], false, true)['n']
+      + (int) $db->execute('SELECT COUNT(*) AS n FROM survey_runs WHERE id = :id', ['id' => $runId], false, true)['n']
+      + ($unitIds ? (int) $db->execute('SELECT COUNT(*) AS n FROM survey_units WHERE id IN (' . implode(',', $unitIds) . ')', [], false, true)['n'] : 0);
+ok($left === 0, 'teardown removed the run, its units and the study', $left);
+echo "\n" . ($failures ? "\e[31m{$failures} failure(s)\e[0m" : "\e[32mall passed\e[0m") . "\n";
+exit($failures ? 1 : 0);

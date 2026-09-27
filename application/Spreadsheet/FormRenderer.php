@@ -124,14 +124,11 @@ class FormRenderer extends SpreadsheetRenderer {
         };
 
         // Step 1: dynamic values. The `value` column carries R that we route
-        // through the allowlist; admins can author it bare or wrapped in r(...)
-        // (the documented bridge into a JS showif, see documentation/form_v2.md
-        // §"Bridging R into a showif"). Item::needsDynamicValue already returns
-        // false for empty / numeric values (those stay literal defaults).
-        //   - Unwrap r(...) before recording. base+formr R has no r()
-        //     function, so leaving the wrapper in survey_r_calls.expr would
-        //     make every OpenCPU eval return NA via tryCatch.
-        //   - Record the (unwrapped) R text in survey_r_calls slot='value'.
+        // through the allowlist (a hidden item's value is also the documented
+        // bridge into a JS showif, see documentation/form_v2.md §"Bridging R
+        // into a showif"). Item::needsDynamicValue already returns false for
+        // empty / numeric values (those stay literal defaults).
+        //   - Record the R text, as written, in survey_r_calls slot='value'.
         //     This is what authorizes the client to invoke it via
         //     /form-render-page — the client never gets the source, only the
         //     call_id. `sticky` is recorded as written and expanded at
@@ -148,8 +145,7 @@ class FormRenderer extends SpreadsheetRenderer {
             }
             $rawValue = trim((string) $item->value);
             if ($rawValue === '') continue;
-            $rExpr = RAllowlistExtractor::unwrap($rawValue) ?? $rawValue;
-            $pendingCalls[] = ['slot' => 'value', 'expr' => $rExpr, 'item_id' => $item->id];
+            $pendingCalls[] = ['slot' => 'value', 'expr' => $rawValue, 'item_id' => $item->id];
             $callTargets[] = [$item, 'data-fmr-fill-id'];
             $item->value = '';
         }

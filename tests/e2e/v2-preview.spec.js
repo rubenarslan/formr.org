@@ -92,3 +92,24 @@ test.describe('Test Survey previews the engine the study is on', () => {
         await expect(row.locator('.fmr-engine-badge')).toContainText('form_v2');
     });
 });
+
+test.describe('the preview write gate', () => {
+    test.beforeAll(async ({ browser }) => { await ensureAdminState(browser); });
+
+    // Same refusal as a participant's form (v2-write-endpoints.spec.js),
+    // through the preview's own gate (RunController::previewWriteContext).
+    test('a preview page rendered for another test session is refused as stale', async ({ page }) => {
+        await page.goto(`${ADMIN_BASE}/admin/survey/${studyOf('v2')}/access`, { waitUntil: 'domcontentloaded' });
+        await v2.waitForBundle(page);
+        const f = await page.evaluate(() => {
+            const form = document.querySelector('form.fmr-form-v2');
+            const state = JSON.parse(form.querySelector('script.fmr-state').textContent);
+            return { submit: form.dataset.submitUrl, usid: Number(state.unit_session_id) };
+        });
+        const res = await page.request.post(f.submit, { data: { page: 1, unit_session_id: f.usid + 100000, data: {} } });
+        expect(res.status()).toBe(409);
+        expect((await res.json()).stale_session).toBe(true);
+        const ok = await page.request.post(f.submit, { data: { page: 1, unit_session_id: f.usid, data: {} } });
+        expect(ok.status(), 'the same write for the right session goes through').toBe(200);
+    });
+});

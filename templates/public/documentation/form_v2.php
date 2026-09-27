@@ -78,7 +78,7 @@
 <p>Two columns of the item table decide what a participant sees and what is pre-filled. On a Form they follow two rules:</p>
 <ol>
     <li><strong><code>showif</code> is JavaScript.</strong> It runs in the participant's browser and is re-evaluated whenever an input changes. Familiar R-flavoured conditions are rewritten to JavaScript for you when you upload the sheet; what cannot be rewritten is listed by the compatibility scan, and the fix is either a JavaScript rewrite or the hidden-item bridge below.</li>
-    <li><strong><code>value</code> is R.</strong> Anything that is not empty or a plain number is sent to R on the server. Writing it bare or wrapped in <code>r(...)</code> means the same thing — the wrapper is stripped before evaluation.</li>
+    <li><strong><code>value</code> is R.</strong> Anything that is not empty or a plain number is sent to R on the server, as written.</li>
 </ol>
 
 <h5>Writing a <code>showif</code></h5>
@@ -123,7 +123,7 @@ showif: last(daily_mood) &gt; 5</pre>
 value: sticky
 value: paste(answered_items, collapse=", ")
 value: sample(c(1,1,1,2,2,2,2), 7)
-value: r(complex_score(current(q1), current(q2)))</pre>
+value: complex_score(current(q1), current(q2))</pre>
 <p>The R source never reaches the browser. When the form is rendered, every dynamic <code>value</code> (and every label or choice label with inline R) is recorded on the server as an <em>allowlisted call</em> for that item; the browser only ever refers to the recorded call and can only supply answers to the study's own items. A participant cannot run R of their own, cannot reach other studies' data, and a call is revoked the moment the item is deleted or its expression changes in the sheet. Expressions that error in R resolve to NA, which arrives in the item as an empty value; a logical arrives as <code>TRUE</code> or <code>FALSE</code>. Results are cached for a few minutes per participant and answer set (see <a href="#form_v2_settings">Instance settings</a>).</p>
 
 <p><strong>Page-scoped resolution.</strong> Dynamic values, labels (containing <code>`r …`</code>), choice labels and <code>note_iframe</code> documents are resolved when the participant reaches their page, in one batched request after the previous page has been stored — so a value on page 2 can depend on answers from page 1. The first page works the same way, so its dynamic content paints a moment after the rest of the page. Keep heavy dynamic content off the first page if that flicker matters.</p>
@@ -138,7 +138,7 @@ value: r(complex_score(current(q1), current(q2)))</pre>
 <table class="table table-condensed">
     <thead><tr><th>name</th><th>type</th><th>showif</th><th>value</th></tr></thead>
     <tbody>
-        <tr><td><code>treat</code></td><td><code>hidden</code></td><td></td><td><code>r(ifelse(demographics$age &gt; 30, 1, 2))</code></td></tr>
+        <tr><td><code>treat</code></td><td><code>hidden</code></td><td></td><td><code>ifelse(demographics$age &gt; 30, 1, 2)</code></td></tr>
         <tr><td><code>older_block</code></td><td><code>note</code></td><td><code>treat == 1</code></td><td></td></tr>
         <tr><td><code>younger_block</code></td><td><code>note</code></td><td><code>treat == 2</code></td><td></td></tr>
     </tbody>

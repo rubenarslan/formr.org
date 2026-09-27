@@ -32,25 +32,26 @@ function creds() {
     return CREDS;
 }
 
+// The password reaches mariadb as MYSQL_PWD, passed through from this
+// process's environment (`-e MYSQL_PWD` without a value): on the command
+// line it would appear in every failed query's error message.
+function mariadbArgs(usr, dbn, flags) {
+    return ['exec', '-i', '-e', 'MYSQL_PWD', 'formr_db', 'mariadb', '-u', usr, dbn, ...flags];
+}
+function withPwd() {
+    return Object.assign({}, process.env, { MYSQL_PWD: creds().pwd });
+}
+
 function dbExecRaw(sql) {
-    const { pwd, usr, dbn } = creds();
-    const out = execFileSync(
-        'docker',
-        ['exec', '-i', 'formr_db', 'mariadb', '-u', usr, `-p${pwd}`, dbn, '-N', '-B'],
-        { input: sql, encoding: 'utf8' }
-    );
-    return out;
+    const { usr, dbn } = creds();
+    return execFileSync('docker', mariadbArgs(usr, dbn, ['-N', '-B']), { input: sql, encoding: 'utf8', env: withPwd() });
 }
 
 // Returns rows as arrays of objects keyed by column name. Tab-delimited
 // row format from `mariadb -B`; first row is the column header.
 function dbQuery(sql) {
-    const { pwd, usr, dbn } = creds();
-    const out = execFileSync(
-        'docker',
-        ['exec', '-i', 'formr_db', 'mariadb', '-u', usr, `-p${pwd}`, dbn, '-B'],
-        { input: sql, encoding: 'utf8' }
-    );
+    const { usr, dbn } = creds();
+    const out = execFileSync('docker', mariadbArgs(usr, dbn, ['-B']), { input: sql, encoding: 'utf8', env: withPwd() });
     const lines = out.split('\n').filter((l) => l.length > 0);
     if (lines.length === 0) return [];
     const cols = lines[0].split('\t');

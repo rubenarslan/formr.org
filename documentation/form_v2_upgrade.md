@@ -16,10 +16,10 @@ nothing extra to run.
 | --- | --- |
 | `082_survey_studies_rendering_mode` | `survey_studies.rendering_mode` ENUM('v1','v2'), **default `v1`** — the per-study engine switch. |
 | `083_survey_units_form_study_id` | `survey_units.form_study_id` (+ index): lets a Form unit reference a SurveyStudy without sharing its primary key the way v1 Survey units do. |
-| `084_survey_r_calls` | New `survey_r_calls` table: the per-study allowlist of `r(...)` expressions the server will evaluate. Raw R never reaches the browser. |
+| `084_survey_r_calls` | New `survey_r_calls` table: the per-study allowlist of the R expressions (dynamic values and labels) the server will evaluate. Raw R never reaches the browser. |
 | `085_survey_form_submissions` | New `survey_form_submissions` table: UUID ledger so an offline-queued page submission that is retried is applied once. |
 | `086_form_v2_survey_study_flags` | `survey_studies.offline_mode` (default 1) and `allow_previous` (default 0). v1 ignores both. |
-| `087_survey_r_call_results` | New `survey_r_call_results` table: memoizes evaluated `r(...)` results. |
+| `087_survey_r_call_results` | New `survey_r_call_results` table: memoizes evaluated R results. |
 | `088_survey_items_showif_js` | `survey_items.showif_js`: caches the R→JS transpile of `showif` at import time. Nullable; items without it re-transpile at request time. |
 | `089_survey_r_call_results_session_scope` | Re-keys that cache on `(call_id, unit_session_id, args_hash)` and adds the cascade FK, closing a cross-participant cache leak. **`TRUNCATE`s the cache table** — that is a cold cache, not participant data. |
 | `090_study_iteration` | `survey_unit_sessions.study_iteration` (+ index) and `survey_studies.last_iteration`: the long-format source of truth for the `iteration` variable. **Needs the backfill in step 3.** |
@@ -186,13 +186,12 @@ referenced by name from the (JS) showif:
 
 ```
 name       type    showif           value
-my_score   hidden                   r(complex_score(current(q1)))
+my_score   hidden                   complex_score(current(q1))
 followup   text    my_score > 0.5
 ```
 
 The hidden item resolves on the server, its scalar is written into the
-input, and the showif reacts to it like to any other answer. (In `value`
-the `r(...)` wrapper is optional — bare R means the same thing.)
+input, and the showif reacts to it like to any other answer.
 
 ### Run the scanner
 

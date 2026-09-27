@@ -14,10 +14,10 @@
  *    lazily at render (RAllowlistExtractor::record) and never deleted — so a
  *    call id alone must not stay evaluable forever. A call is LIVE only if
  *    its item still exists (not soft-deleted) and the item's CURRENT column
- *    content still yields this exact expression (hash compare against the
- *    unwrapped value or the raw label). Editing or removing the
- *    r(...) in the sheet therefore revokes historic call ids instantly, with
- *    no reconciliation pass and no schema change.
+ *    content still yields this exact expression (compared with the item's
+ *    value or label). Editing or removing the R in the sheet therefore
+ *    revokes historic call ids instantly, with no reconciliation pass and
+ *    no schema change.
  *
  * 2. OVERLAY hygiene. Client-sent `answers` are overlaid onto tail(survey, 1)
  *    before evaluation. Keys are restricted to the study's own live item
@@ -86,10 +86,8 @@ class RCallService {
         $expr = trim((string) $row['expr']);
         switch ((string) $row['slot']) {
             case 'value':
-                $raw = trim((string) $row['item_value']);
-                $current = RAllowlistExtractor::unwrap($raw);
-                $current = $current !== null ? $current : $raw;
-                return $current !== '' && trim($current) === $expr;
+                $current = trim((string) $row['item_value']);
+                return $current !== '' && $current === $expr;
             case 'label':
                 return trim((string) $row['item_label']) === $expr;
             case 'choice_label':

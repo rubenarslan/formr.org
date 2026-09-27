@@ -1,101 +1,15 @@
 <?php
 
 /**
- * RAllowlistExtractor — detect `r(...)` wrappers in admin-authored R expressions
- * (form_v2 Phase 3, plan §5.3).
+ * RAllowlistExtractor — records the R a v2 form may have evaluated.
  *
- * An admin opts into server-side R evaluation by wrapping an expression in
- * `r(...)`. At spreadsheet import we strip the wrapper, record the inner R in
- * `survey_r_calls`, and the renderer emits a reference id instead of the raw
- * source — the client never sees R, and the server only evaluates what it
- * pre-recorded.
- *
- * This first pass handles the narrow case "the entire expression is a single
- * top-level r(...)". Admin showifs are usually single expressions, not scripts
- * that mix plain JS with embedded r() calls, so this covers most of the real
- * surface. Labels are not extracted at all: FormRenderer records the whole
- * label text as one allowlisted call (slot='label').
+ * FormRenderer records every dynamic `value` (the item's R, as written),
+ * label and choice label in `survey_r_calls`, and the page carries only the
+ * call id — the client never sees R, and the server only evaluates what it
+ * recorded (RCallService checks each call against the item's current
+ * column content).
  */
 class RAllowlistExtractor {
-
-    /**
-     * Returns the inner R expression if `$expr` is a top-level r(...) wrapper,
-     * or null otherwise. Handles nested parens inside the wrapper (e.g.
-     * `r(foo(bar(baz)))`), whitespace around `r`, and trailing semicolons.
-     */
-    public static function unwrap($expr) {
-        if (!is_string($expr)) {
-            return null;
-        }
-        $trimmed = trim($expr);
-        // Strip an optional trailing semicolon so admins who end their showif
-        // with `;` don't accidentally defeat the detection.
-        if (substr($trimmed, -1) === ';') {
-            $trimmed = rtrim(substr($trimmed, 0, -1));
-        }
-        if (strlen($trimmed) < 4) {
-            return null; // "r()" is the shortest possible, but empty inner isn't useful
-        }
-        // Must start with `r` (case-sensitive — R is case-sensitive, and we
-        // want to avoid matching `R(` used as a variable elsewhere).
-        if ($trimmed[0] !== 'r') {
-            return null;
-        }
-        $rest = ltrim(substr($trimmed, 1));
-        if ($rest === '' || $rest[0] !== '(') {
-            return null;
-        }
-        // Scan for the matching close paren, respecting nested parens and R
-        // string literals. If the close paren isn't the last non-whitespace
-        // character, this isn't a single-top-level-r-wrapper.
-        $depth = 0;
-        $len = strlen($rest);
-        $inString = false;
-        $stringChar = '';
-        $closeIdx = -1;
-        for ($i = 0; $i < $len; $i++) {
-            $ch = $rest[$i];
-            if ($inString) {
-                if ($ch === '\\' && $i + 1 < $len) {
-                    $i++;
-                    continue;
-                }
-                if ($ch === $stringChar) {
-                    $inString = false;
-                }
-                continue;
-            }
-            if ($ch === '"' || $ch === "'") {
-                $inString = true;
-                $stringChar = $ch;
-                continue;
-            }
-            if ($ch === '(') {
-                $depth++;
-            } elseif ($ch === ')') {
-                $depth--;
-                if ($depth === 0) {
-                    $closeIdx = $i;
-                    break;
-                }
-            }
-        }
-        if ($closeIdx < 0) {
-            return null;
-        }
-        // Everything after closeIdx must be whitespace for this to count as a
-        // top-level wrap — otherwise it's `r(x) + y` or similar, which we
-        // don't handle yet.
-        $after = trim(substr($rest, $closeIdx + 1));
-        if ($after !== '') {
-            return null;
-        }
-        $inner = trim(substr($rest, 1, $closeIdx - 1));
-        if ($inner === '') {
-            return null;
-        }
-        return $inner;
-    }
 
     /**
      * Upsert an (study_id, slot, expr, item) record into survey_r_calls.
@@ -103,8 +17,8 @@ class RAllowlistExtractor {
      * row PER ITEM even when expressions are identical, because
      * /form-render-page resolves a page's calls via r.item_id.
      */
-    public static function record(DB $db, $studyId, $slot, $innerExpr, $itemId = null) {
-        return self::upsert($db, $studyId, $slot, $itemId, (string) $innerExpr, hash('sha256', $innerExpr), true);
+    public static function record(DB $db, $studyId, $slot, $expr, $itemId = null) {
+        return self::upsert($db, $studyId, $slot, $itemId, (string) $expr, hash('sha256', (string) $expr), true);
     }
 
     /**

@@ -50,7 +50,7 @@ Once a study is on v2, the same page shows the **Form_v2 settings**:
 ### The two rules
 
 1. **`showif` is JavaScript.** It is evaluated in the participant's browser and re-evaluated on every input change. In v1 the same column held R, so every non-empty showif of a study you are upgrading has to be rewritten — most transpile as-is (`q1 == 1`), the rest need a JS rewrite or the hidden-item bridge below. The compatibility scanner tells you which is which before you switch.
-2. **`value` is R.** Anything that isn't empty, a number, or the `sticky` keyword is evaluated as R on the server. You can write the R bare or wrapped in `r(...)` — both mean the same thing; the wrapper is just the idiom used in the bridge example below.
+2. **`value` is R.** Anything that isn't empty, a number, or the `sticky` keyword is evaluated as R on the server, as written.
 
 ### `showif`: client-side JS
 
@@ -102,7 +102,7 @@ To gate visibility on something only R can compute, put the R in a **hidden item
 
 ```
 name       type    showif           value
-my_score   hidden                   r(complex_score(current(q1)))
+my_score   hidden                   complex_score(current(q1))
 followup   text    my_score > 0.5
 ```
 
