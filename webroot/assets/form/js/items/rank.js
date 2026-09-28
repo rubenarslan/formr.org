@@ -297,21 +297,33 @@ class RankWidget {
         });
     }
 
+    // Near a viewport edge the page keeps scrolling, one step per frame,
+    // for as long as the drag stays there — also when the pointer is held
+    // still (it used to scroll only while the pointer moved).
     autoscroll(pointerY) {
         const h = window.innerHeight;
-        let dy = 0;
-        if (pointerY < AUTOSCROLL_EDGE) dy = -AUTOSCROLL_STEP;
-        else if (pointerY > h - AUTOSCROLL_EDGE) dy = AUTOSCROLL_STEP;
-        if (dy) {
-            window.scrollBy(0, dy);
+        this.scrollDir = pointerY < AUTOSCROLL_EDGE ? -1 : (pointerY > h - AUTOSCROLL_EDGE ? 1 : 0);
+        if (!this.scrollDir || this.scrollFrame) return;
+        const step = () => {
+            if (!this.drag || !this.scrollDir) { this.scrollFrame = null; return; }
+            window.scrollBy(0, this.scrollDir * AUTOSCROLL_STEP);
             // The list moved under a still pointer: keep the slot in step.
-            this.reorderAround(pointerY);
-        }
+            this.reorderAround(this.drag.y);
+            this.scrollFrame = requestAnimationFrame(step);
+        };
+        this.scrollFrame = requestAnimationFrame(step);
+    }
+
+    stopAutoscroll() {
+        this.scrollDir = 0;
+        if (this.scrollFrame) cancelAnimationFrame(this.scrollFrame);
+        this.scrollFrame = null;
     }
 
     endDrag() {
         const d = this.drag;
         this.drag = null;
+        this.stopAutoscroll();
         this.releasePress();
         this.list.insertBefore(d.row, d.placeholder);
         d.placeholder.remove();

@@ -62,7 +62,7 @@ import { initRequestPhone } from './items/request-phone.js';
 import { initAdminPreview } from './items/admin-preview.js';
 import { initExpiryNotifier } from './items/expiry-notifier.js';
 import { initAutoSubmit } from './items/auto-submit.js';
-import { t } from './lib/i18n.js';
+import { t, escapeHtml, iconLabel } from './lib/i18n.js';
 import {
     clearCustomValidity,
     findErrorTarget,
@@ -439,9 +439,11 @@ function initForm() {
         if (!queueBanner) {
             queueBanner = document.createElement('div');
             queueBanner.className = 'alert fmr-queue-banner';
-            queueBanner.setAttribute('role', 'status');
             root.insertBefore(queueBanner, root.firstChild);
         }
+        // A refusal the participant must act on is announced at once
+        // (alert); progress and success politely (status).
+        queueBanner.setAttribute('role', variant === 'danger' ? 'alert' : 'status');
         queueBanner.classList.remove('alert-warning', 'alert-success', 'alert-danger');
         queueBanner.classList.add(variant === 'success' ? 'alert-success'
             : variant === 'danger' ? 'alert-danger' : 'alert-warning');
@@ -1629,12 +1631,12 @@ function initForm() {
         const status = wrapper.querySelector('.status-message');
         const btn = wrapper.querySelector('.add-to-homescreen, button.add-to-homescreen');
         if (hidden) { hidden.value = value; hidden.setCustomValidity(''); }
-        if (status) status.textContent = 'You are using the installed app.';
+        if (status) status.textContent = t('pwa.install.using_installed', 'You are using the installed app.');
         if (btn) {
             btn.disabled = true;
             btn.classList.remove('btn-primary');
             btn.classList.add('btn-success');
-            btn.innerHTML = '<i class="fa fa-check"></i> Installed';
+            btn.innerHTML = iconLabel('fa-check', t('pwa.install.installed', 'Installed'));
         }
         wrapper.closest('.form-group')?.classList.add('formr_answered');
     };
@@ -1675,9 +1677,9 @@ function initForm() {
             });
             pwaInstallEl.addEventListener('pwa-install-fail-event', () => {
                 root.querySelectorAll('.add-to-homescreen-wrapper').forEach((w) => {
-                    setAtsStatus(w, 'not_added', 'Installation didn\'t complete. You can try again or add to home screen manually from your browser menu.');
+                    setAtsStatus(w, 'not_added', t('pwa.install.failed', 'Installation didn\'t complete. You can try again or add to home screen manually from your browser menu.'));
                     const btn = w.querySelector('.add-to-homescreen');
-                    if (btn) btn.innerHTML = '<i class="fa fa-plus-square"></i> Add to Home Screen';
+                    if (btn) btn.innerHTML = iconLabel('fa-plus-square', t('pwa.install.add_button', 'Add to Home Screen'));
                 });
                 try { pwaInstallEl.hideDialog(); } catch (e) {}
             });
@@ -1687,9 +1689,9 @@ function initForm() {
                     if (accepted) {
                         markAddedToHomeScreen(w, 'added');
                     } else {
-                        setAtsStatus(w, 'not_added', 'Install dismissed. You can add the app to your home screen at any time.');
+                        setAtsStatus(w, 'not_added', t('pwa.install.dismissed', 'Install dismissed. You can add the app to your home screen at any time.'));
                         const btn = w.querySelector('.add-to-homescreen');
-                        if (btn) btn.innerHTML = '<i class="fa fa-plus-square"></i> Add to Home Screen';
+                        if (btn) btn.innerHTML = iconLabel('fa-plus-square', t('pwa.install.add_button', 'Add to Home Screen'));
                     }
                 });
             });
@@ -1749,7 +1751,7 @@ function initForm() {
         const required = wrapper.closest('.form-group')?.classList.contains('required');
         const hidden = wrapper.querySelector('input');
         if (required && hidden && !['added', 'already_added'].includes(hidden.value)) {
-            hidden.setCustomValidity('Please add this study to your home screen to continue.');
+            hidden.setCustomValidity(t('pwa.install.required', 'Please add this study to your home screen to continue.'));
         }
         const btn = wrapper.querySelector('button.add-to-homescreen, .add-to-homescreen');
         if (!btn) return;
@@ -1800,7 +1802,7 @@ function initForm() {
                 } else if (!canBeStandAlone) {
                     // No web component AND can't standalone — last resort.
                     setAtsStatus(wrapper, 'no_support',
-                        'Your browser doesn\'t support adding this study to the home screen. Try Safari (iOS), Chrome on Android, or Edge on desktop.');
+                        t('pwa.install.no_support', 'Your browser doesn\'t support adding this study to the home screen. Try Safari (iOS), Chrome on Android, or Edge on desktop.'));
                 } else {
                     prompted = true;
                 }
@@ -1813,11 +1815,11 @@ function initForm() {
             }
 
             if (prompted) {
-                setAtsStatus(wrapper, 'prompted', 'Preparing installation…');
-                btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing…';
+                setAtsStatus(wrapper, 'prompted', t('pwa.install.preparing', 'Preparing installation…'));
+                btn.innerHTML = iconLabel('fa-spinner fa-spin', t('pwa.processing', 'Processing…'));
             } else {
                 setAtsStatus(wrapper, 'not_prompted',
-                    'Your browser hasn\'t offered an install prompt. Try a supported browser (Chrome on Android, Edge on desktop, Safari on iOS).');
+                    t('pwa.install.not_prompted', 'Your browser hasn\'t offered an install prompt. Try a supported browser (Chrome on Android, Edge on desktop, Safari on iOS).'));
             }
         });
     });
@@ -1879,8 +1881,8 @@ function initForm() {
     const sendTestNotification = async (registration) => {
         if (!registration || !registration.showNotification) return false;
         try {
-            await registration.showNotification('Test notification', {
-                body: 'This is a test notification. If you can see this, notifications are working!',
+            await registration.showNotification(t('pwa.push.test_title', 'Test notification'), {
+                body: t('pwa.push.test_body', 'This is a test notification. If you can see this, notifications are working!'),
                 tag: 'fmr-test-notification',
             });
             setTimeout(async () => {
@@ -1898,32 +1900,33 @@ function initForm() {
 
     const renderNotificationHelp = (wrapper) => {
         const ua = navigator.userAgent.toLowerCase();
+        // Translated strings carry the list markup (<ol>/<li>/<strong>).
         let html = '';
         if (/iphone|ipad|ipod/.test(ua)) {
-            html = '<ol><li>Open <strong>Settings</strong> → <strong>Notifications</strong>.</li>'
+            html = t('pwa.push.help_ios', '<ol><li>Open <strong>Settings</strong> → <strong>Notifications</strong>.</li>'
                  + '<li>Find Safari (or your browser) and enable <strong>Allow Notifications</strong>.</li>'
                  + '<li>Make sure <strong>Focus</strong> mode isn\'t blocking notifications.</li>'
                  + '<li>For home-screen apps, check <strong>Settings → Screen Time → Content & Privacy Restrictions</strong>.</li>'
-                 + '<li>Reload this page after changing settings.</li></ol>';
+                 + '<li>Reload this page after changing settings.</li></ol>');
         } else if (/android/.test(ua)) {
-            html = '<ol><li>Open <strong>Settings → Apps</strong>, find your browser.</li>'
+            html = t('pwa.push.help_android', '<ol><li>Open <strong>Settings → Apps</strong>, find your browser.</li>'
                  + '<li>Tap <strong>Notifications</strong> and ensure they\'re <strong>Allowed</strong>.</li>'
                  + '<li>Check that <strong>Do Not Disturb</strong> isn\'t blocking notifications.</li>'
                  + '<li>Some manufacturers have battery-optimization settings that suppress notifications — disable them for your browser.</li>'
                  + '<li>Try installing this study to your home screen for better notification support.</li>'
-                 + '<li>Reload this page after changing settings.</li></ol>';
+                 + '<li>Reload this page after changing settings.</li></ol>');
         } else if (/macintosh/.test(ua)) {
-            html = '<ol><li>Open <strong>System Settings → Notifications</strong>.</li>'
+            html = t('pwa.push.help_mac', '<ol><li>Open <strong>System Settings → Notifications</strong>.</li>'
                  + '<li>Find your browser and ensure <strong>Allow Notifications</strong> is on.</li>'
                  + '<li>Check that <strong>Do Not Disturb</strong> / <strong>Focus</strong> is off.</li>'
-                 + '<li>Reload this page after changing settings.</li></ol>';
+                 + '<li>Reload this page after changing settings.</li></ol>');
         } else if (/windows/.test(ua)) {
-            html = '<ol><li>Open <strong>Settings → System → Notifications</strong>.</li>'
+            html = t('pwa.push.help_windows', '<ol><li>Open <strong>Settings → System → Notifications</strong>.</li>'
                  + '<li>Ensure your browser has notifications turned on.</li>'
                  + '<li>Check that <strong>Focus assist</strong> isn\'t blocking them.</li>'
-                 + '<li>Reload this page after changing settings.</li></ol>';
+                 + '<li>Reload this page after changing settings.</li></ol>');
         } else {
-            html = '<p>Check your operating system\'s notification settings to make sure your browser is allowed to send notifications.</p>';
+            html = '<p>' + escapeHtml(t('pwa.push.help_other', 'Check your operating system\'s notification settings to make sure your browser is allowed to send notifications.')) + '</p>';
         }
         let helpEl = wrapper.querySelector('.fmr-push-help');
         if (!helpEl) {
@@ -1934,7 +1937,7 @@ function initForm() {
         helpEl.innerHTML = html;
         const toggleBtn = wrapper.querySelector('.fmr-push-help-toggle');
         if (toggleBtn) {
-            toggleBtn.textContent = 'Hide troubleshooting tips';
+            toggleBtn.textContent = t('pwa.push.help_hide', 'Hide troubleshooting tips');
             toggleBtn.dataset.fmrShown = '1';
         }
     };
@@ -1947,11 +1950,13 @@ function initForm() {
         const msg = opts.customMessage || '';
         const extra = opts.additionalContent || '';
         const buttons = [];
-        if (showTest) buttons.push('<button type="button" class="btn btn-default fmr-push-test"><i class="fa fa-bell"></i> Test notification</button>');
-        if (showUnsub) buttons.push('<button type="button" class="btn btn-warning fmr-push-unsubscribe"><i class="fa fa-bell-slash"></i> Disable notifications</button>');
-        buttons.push('<button type="button" class="btn btn-link fmr-push-help-toggle">Show troubleshooting tips</button>');
+        if (showTest) buttons.push('<button type="button" class="btn btn-default fmr-push-test">' + iconLabel('fa-bell', t('pwa.push.test_button', 'Test notification')) + '</button>');
+        if (showUnsub) buttons.push('<button type="button" class="btn btn-warning fmr-push-unsubscribe">' + iconLabel('fa-bell-slash', t('pwa.push.disable_button', 'Disable notifications')) + '</button>');
+        buttons.push('<button type="button" class="btn btn-link fmr-push-help-toggle">' + escapeHtml(t('pwa.push.help_show', 'Show troubleshooting tips')) + '</button>');
+        // customMessage is plain text (escaped); additionalContent is markup
+        // built by the caller from translated strings.
         status.innerHTML =
-            (msg ? `<p>${msg}</p>` : '') +
+            (msg ? `<p>${escapeHtml(msg)}</p>` : '') +
             extra +
             `<div class="notification-controls btn-group" role="group">${buttons.join('')}</div>`;
         const testBtn = wrapper.querySelector('.fmr-push-test');
@@ -1964,7 +1969,7 @@ function initForm() {
                 if (toggleBtn.dataset.fmrShown === '1') {
                     const helpEl = wrapper.querySelector('.fmr-push-help');
                     if (helpEl) helpEl.remove();
-                    toggleBtn.textContent = 'Show troubleshooting tips';
+                    toggleBtn.textContent = t('pwa.push.help_show', 'Show troubleshooting tips');
                     toggleBtn.dataset.fmrShown = '';
                 } else {
                     renderNotificationHelp(wrapper);
@@ -1979,7 +1984,7 @@ function initForm() {
         const btn = wrapper.querySelector('button.push-notification-permission');
         const unsubBtn = wrapper.querySelector('.fmr-push-unsubscribe');
         try {
-            if (unsubBtn) unsubBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing…';
+            if (unsubBtn) unsubBtn.innerHTML = iconLabel('fa-spinner fa-spin', t('pwa.processing', 'Processing…'));
             const sub = await registration.pushManager.getSubscription();
             if (sub) await sub.unsubscribe();
             try {
@@ -1991,17 +1996,17 @@ function initForm() {
             } catch (e) { /* server delete is best-effort */ }
             try { localStorage.removeItem('push-notification-subscribed'); } catch (e) {}
             if (hidden) hidden.value = 'permission_denied';
-            if (status) status.innerHTML = '<p>You have unsubscribed from notifications. Click the button to enable them again.</p>';
+            if (status) status.innerHTML = '<p>' + escapeHtml(t('pwa.push.unsubscribed', 'You have unsubscribed from notifications. Click the button to enable them again.')) + '</p>';
             if (btn) {
                 btn.disabled = false;
                 btn.classList.remove('btn-success');
                 btn.classList.add('btn-primary');
-                btn.innerHTML = '<i class="fa fa-bell"></i> Enable Notifications';
+                btn.innerHTML = iconLabel('fa-bell', t('pwa.push.enable_button', 'Enable Notifications'));
             }
             wrapper.closest('.form-group')?.classList.remove('formr_answered');
         } catch (e) {
             console.error('unsubscribe failed', e);
-            if (unsubBtn) unsubBtn.innerHTML = '<i class="fa fa-bell-slash"></i> Disable notifications';
+            if (unsubBtn) unsubBtn.innerHTML = iconLabel('fa-bell-slash', t('pwa.push.disable_button', 'Disable notifications'));
         }
     };
 
@@ -2016,7 +2021,7 @@ function initForm() {
             btn.disabled = true;
             btn.classList.remove('btn-primary');
             btn.classList.add('btn-success');
-            btn.innerHTML = '<i class="fa fa-check"></i> Notifications Enabled';
+            btn.innerHTML = iconLabel('fa-check', t('pwa.push.enabled_button', 'Notifications Enabled'));
         }
         wrapper.closest('.form-group')?.classList.add('formr_answered');
         try { localStorage.setItem('push-notification-subscribed', 'true'); } catch (e) {}
@@ -2046,7 +2051,7 @@ function initForm() {
         const btn = wrapper.querySelector('button.push-notification-permission');
         const required = wrapper.closest('.form-group')?.classList.contains('required');
         if (required && hidden && hidden.value === 'not_requested') {
-            hidden.setCustomValidity('Please complete this required step before continuing.');
+            hidden.setCustomValidity(t('pwa.push.required', 'Please complete this required step before continuing.'));
         }
         if (!btn) return;
 
@@ -2058,10 +2063,10 @@ function initForm() {
             if (hidden) {
                 hidden.value = 'not_supported';
                 if (required) {
-                    hidden.setCustomValidity('Please add this study to your home screen first, then open it from the home screen icon to enable notifications.');
+                    hidden.setCustomValidity(t('pwa.push.ios_install_required', 'Please add this study to your home screen first, then open it from the home screen icon to enable notifications.'));
                 }
             }
-            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert"><strong>Add to Home Screen first.</strong> On iOS, push notifications only work after you install this study to your home screen and open it from there.</div>';
+            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + t('pwa.push.ios_install_first', '<strong>Add to Home Screen first.</strong> On iOS, push notifications only work after you install this study to your home screen and open it from there.') + '</div>';
             btn.disabled = true;
             btn.classList.remove('btn-primary');
             btn.classList.add('btn-default');
@@ -2076,22 +2081,22 @@ function initForm() {
         };
         if (!('Notification' in window) || !('serviceWorker' in navigator)) {
             if (hidden) hidden.value = 'not_supported';
-            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">Sorry, your browser does not support push notifications.</div>';
-            setBlockedValidity('This browser does not support push notifications. Please use a supported browser to continue.');
+            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + escapeHtml(t('pwa.push.unsupported', 'Sorry, your browser does not support push notifications.')) + '</div>';
+            setBlockedValidity(t('pwa.push.unsupported_validity', 'This browser does not support push notifications. Please use a supported browser to continue.'));
             btn.disabled = true;
             return;
         }
         if (!window.vapidPublicKey) {
             if (hidden) hidden.value = 'not_supported';
-            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">Push notifications are not configured for this study.</div>';
-            setBlockedValidity('Push notifications are not configured for this study. Contact the study administrator.');
+            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + escapeHtml(t('pwa.push.not_configured', 'Push notifications are not configured for this study.')) + '</div>';
+            setBlockedValidity(t('pwa.push.not_configured_validity', 'Push notifications are not configured for this study. Contact the study administrator.'));
             btn.disabled = true;
             return;
         }
         if (!isIOSCompatibleVersion()) {
             if (hidden) hidden.value = 'not_supported';
-            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">Sorry, push notifications require iOS 16.4 or later.</div>';
-            setBlockedValidity('Push notifications require iOS 16.4 or later. Please update your device to continue.');
+            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + escapeHtml(t('pwa.push.ios_version', 'Sorry, push notifications require iOS 16.4 or later.')) + '</div>';
+            setBlockedValidity(t('pwa.push.ios_version_validity', 'Push notifications require iOS 16.4 or later. Please update your device to continue.'));
             btn.disabled = true;
             return;
         }
@@ -2112,8 +2117,8 @@ function initForm() {
         } catch (e) {}
         if (!registration || !registration.pushManager) {
             if (hidden) hidden.value = 'not_supported';
-            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">Service worker not registered. Please reload the page and try again.</div>';
-            setBlockedValidity('Service worker is not registered. Reload the page and try again.');
+            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + escapeHtml(t('pwa.push.no_sw', 'Service worker not registered. Please reload the page and try again.')) + '</div>';
+            setBlockedValidity(t('pwa.push.no_sw_validity', 'Service worker is not registered. Reload the page and try again.'));
             btn.disabled = true;
             return;
         }
@@ -2125,7 +2130,7 @@ function initForm() {
             if (existing) {
                 markPushSubscribed(wrapper, existing);
                 renderNotificationControls(wrapper, registration, {
-                    customMessage: 'Push notifications are enabled.',
+                    customMessage: t('pwa.push.enabled', 'Push notifications are enabled.'),
                     showUnsubscribeButton: true,
                 });
                 alreadySubscribed = true;
@@ -2138,7 +2143,7 @@ function initForm() {
                     markPushSubscribed(wrapper, r.subscription);
                     await savePushSubscriptionToServer(r.subscription);
                     renderNotificationControls(wrapper, registration, {
-                        customMessage: 'Push notifications are enabled.',
+                        customMessage: t('pwa.push.enabled', 'Push notifications are enabled.'),
                         showUnsubscribeButton: true,
                     });
                     alreadySubscribed = true;
@@ -2151,18 +2156,18 @@ function initForm() {
         const perm = Notification.permission;
         if (perm === 'denied') {
             if (hidden) hidden.value = 'permission_denied';
-            setBlockedValidity('Notifications are blocked. Enable them in your browser/system settings, then tap the button again.');
+            setBlockedValidity(t('pwa.push.blocked_validity', 'Notifications are blocked. Enable them in your browser/system settings, then tap the button again.'));
             renderNotificationControls(wrapper, registration, {
                 showTestButton: false,
-                customMessage: 'You have declined push notifications. You can enable them in your browser settings, then click the button below.',
+                customMessage: t('pwa.push.declined_retry', 'You have declined push notifications. You can enable them in your browser settings, then click the button below.'),
             });
             btn.classList.remove('btn-primary');
             btn.classList.add('btn-default');
-            btn.innerHTML = '<i class="fa fa-times"></i> Notifications blocked — click after enabling in browser settings';
+            btn.innerHTML = iconLabel('fa-times', t('pwa.push.blocked_retry_button', 'Notifications blocked — click after enabling in browser settings'));
         } else {
             // Default permission state — clear instruction.
-            if (status) status.innerHTML = '<p>Click the button to enable push notifications.</p>';
-            btn.innerHTML = '<i class="fa fa-bell"></i> Enable Notifications';
+            if (status) status.innerHTML = '<p>' + escapeHtml(t('pwa.push.click_to_enable', 'Click the button to enable push notifications.')) + '</p>';
+            btn.innerHTML = iconLabel('fa-bell', t('pwa.push.enable_button', 'Enable Notifications'));
         }
 
         // Step 6: click handler.
@@ -2170,7 +2175,7 @@ function initForm() {
             e.preventDefault();
             if (btn.disabled && !btn.classList.contains('btn-default')) return; // disabled-success state
             const original = btn.innerHTML;
-            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing…';
+            btn.innerHTML = iconLabel('fa-spinner fa-spin', t('pwa.processing', 'Processing…'));
             try {
                 // Re-check existing subscription (participant may have
                 // accepted via another tab).
@@ -2179,7 +2184,7 @@ function initForm() {
                     markPushSubscribed(wrapper, existing);
                     await savePushSubscriptionToServer(existing);
                     renderNotificationControls(wrapper, registration, {
-                        customMessage: 'Push notifications are already enabled.',
+                        customMessage: t('pwa.push.already_enabled', 'Push notifications are already enabled.'),
                         showUnsubscribeButton: true,
                     });
                     return;
@@ -2192,32 +2197,32 @@ function initForm() {
                         detail: { action: 'subscribed', subscription: result.subscription },
                     }));
                     const androidNote = /android/i.test(navigator.userAgent)
-                        ? '<p><strong>Note for Android users:</strong> on some devices, you may need to restart your browser or add this study to your home screen for notifications to work properly.</p>'
+                        ? '<p>' + t('pwa.push.android_note', '<strong>Note for Android users:</strong> on some devices, you may need to restart your browser or add this study to your home screen for notifications to work properly.') + '</p>'
                         : '';
                     renderNotificationControls(wrapper, registration, {
                         customMessage: saved
-                            ? 'Push notifications enabled successfully!'
-                            : 'Push notifications enabled locally — couldn\'t save the subscription on the server. Reload to retry.',
-                        additionalContent: '<p>A test notification was sent. If you didn\'t see it, your system settings might be blocking it.</p>' + androidNote,
+                            ? t('pwa.push.enabled_success', 'Push notifications enabled successfully!')
+                            : t('pwa.push.enabled_not_saved', 'Push notifications enabled locally — couldn\'t save the subscription on the server. Reload to retry.'),
+                        additionalContent: '<p>' + escapeHtml(t('pwa.push.test_sent', 'A test notification was sent. If you didn\'t see it, your system settings might be blocking it.')) + '</p>' + androidNote,
                         showUnsubscribeButton: true,
                     });
                     await sendTestNotification(registration);
                 } else if (result.reason === 'permission_denied') {
                     if (hidden) hidden.value = 'permission_denied';
-                    setBlockedValidity('You declined push notifications. Enable them in your browser/system settings, then reload to try again.');
+                    setBlockedValidity(t('pwa.push.declined_validity', 'You declined push notifications. Enable them in your browser/system settings, then reload to try again.'));
                     btn.classList.remove('btn-primary');
                     btn.classList.add('btn-default');
-                    btn.innerHTML = '<i class="fa fa-times"></i> Notifications blocked';
+                    btn.innerHTML = iconLabel('fa-times', t('pwa.push.blocked_button', 'Notifications blocked'));
                     btn.disabled = true;
                     renderNotificationControls(wrapper, registration, {
                         showTestButton: false,
-                        customMessage: 'You declined push notifications. You can enable them in your browser settings later.',
+                        customMessage: t('pwa.push.declined', 'You declined push notifications. You can enable them in your browser settings later.'),
                     });
                 } else if (result.reason === 'invalid_config') {
                     if (hidden) hidden.value = 'not_supported';
-                    setBlockedValidity('Push notifications are not configured for this study. Contact the study administrator.');
-                    if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">Server configuration error. Please contact the study administrator.</div>';
-                    btn.innerHTML = '<i class="fa fa-exclamation-triangle"></i> Configuration error';
+                    setBlockedValidity(t('pwa.push.not_configured_validity', 'Push notifications are not configured for this study. Contact the study administrator.'));
+                    if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + escapeHtml(t('pwa.push.config_error', 'Server configuration error. Please contact the study administrator.')) + '</div>';
+                    btn.innerHTML = iconLabel('fa-exclamation-triangle', t('pwa.push.config_error_button', 'Configuration error'));
                     btn.disabled = true;
                 } else {
                     if (hidden) hidden.value = 'not_supported';
@@ -2225,18 +2230,20 @@ function initForm() {
                     // refusing to subscribe outside a home-screen-installed
                     // PWA. Surface the install hint either way; on Android /
                     // desktop it's still applicable advice.
-                    setBlockedValidity('We couldn\'t enable push notifications. If you\'re on iOS, make sure you\'ve added this study to your home screen and opened it from there.');
+                    setBlockedValidity(t('pwa.push.failed_validity', 'We couldn\'t enable push notifications. If you\'re on iOS, make sure you\'ve added this study to your home screen and opened it from there.'));
                     const iosHint = isIOSDevice()
-                        ? ' On iOS, push notifications only work after you\'ve added this study to your home screen and opened it from there.'
+                        ? ' ' + escapeHtml(t('pwa.push.failed_ios_hint', 'On iOS, push notifications only work after you\'ve added this study to your home screen and opened it from there.'))
                         : '';
-                    if (status) status.innerHTML = '<div class="alert alert-warning" role="alert"><strong>Couldn\'t enable push notifications.</strong>' + iosHint + ' Please try again later or contact the study administrator.</div>';
-                    btn.innerHTML = '<i class="fa fa-exclamation-triangle"></i> Error — try again';
+                    if (status) status.innerHTML = '<div class="alert alert-warning" role="alert"><strong>' + escapeHtml(t('pwa.push.failed_title', 'Couldn\'t enable push notifications.')) + '</strong>'
+                        + iosHint + ' ' + escapeHtml(t('pwa.push.failed_retry_later', 'Please try again later or contact the study administrator.')) + '</div>';
+                    btn.innerHTML = iconLabel('fa-exclamation-triangle', t('pwa.push.error_button', 'Error — try again'));
                 }
             } catch (err) {
                 console.error('push subscription click failed', err);
                 btn.innerHTML = original;
-                setBlockedValidity('We hit an unexpected error enabling push notifications. Please reload and try again.');
-                if (status) status.innerHTML = '<div class="alert alert-warning" role="alert"><strong>Couldn\'t enable push notifications.</strong> Please reload and try again, or contact the study administrator if this keeps happening.</div>';
+                setBlockedValidity(t('pwa.push.unexpected_validity', 'We hit an unexpected error enabling push notifications. Please reload and try again.'));
+                if (status) status.innerHTML = '<div class="alert alert-warning" role="alert"><strong>' + escapeHtml(t('pwa.push.failed_title', 'Couldn\'t enable push notifications.')) + '</strong> '
+                    + escapeHtml(t('pwa.push.failed_reload', 'Please reload and try again, or contact the study administrator if this keeps happening.')) + '</div>';
             }
         });
     });

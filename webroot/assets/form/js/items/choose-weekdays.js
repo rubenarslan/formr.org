@@ -2,6 +2,7 @@
 // before — not even v1 — so a participant could check all seven boxes on a
 // "choose two weekdays" item and the server stored them all. Revert the
 // third check and explain inline, styled like the other client feedback.
+import { t } from '../lib/i18n.js';
 export function initChooseWeekdays(root) {
     root.addEventListener('change', (e) => {
         const box = e.target;
@@ -18,7 +19,7 @@ export function initChooseWeekdays(root) {
             if (!group.querySelector('.fmr-weekdays-feedback')) {
                 const fb = document.createElement('div');
                 fb.className = 'invalid-feedback fmr-invalid-feedback d-block fmr-weekdays-feedback';
-                fb.textContent = 'Please choose no more than two weekdays.';
+                fb.textContent = t('validation.two_weekdays', 'Please choose no more than two weekdays.');
                 const anchor = group.querySelector('.controls') || group;
                 anchor.appendChild(fb);
             }

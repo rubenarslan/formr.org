@@ -9,6 +9,7 @@
 // (imported by the form bundle entry, main.js) configured with run(). Webpack
 // dedupes the lib so this import shares that same singleton.
 import { showPreferences } from 'vanilla-cookieconsent';
+import { t, iconLabel } from '../lib/i18n.js';
 
 const FUNCTIONAL_COOKIE_NAME = 'formrcookieconsent';
 
@@ -28,12 +29,12 @@ const markAnswered = (wrapper) => {
     const status = wrapper.querySelector('.status-message');
     const btn = wrapper.querySelector('button.request-cookie');
     if (hidden) { hidden.value = 'consent_given'; hidden.setCustomValidity(''); }
-    if (status) status.textContent = 'Functional cookies enabled. You can continue.';
+    if (status) status.textContent = t('pwa.cookie.enabled', 'Functional cookies enabled. You can continue.');
     if (btn) {
         btn.disabled = true;
         btn.classList.remove('btn-primary');
         btn.classList.add('btn-success');
-        btn.innerHTML = '<i class="fa fa-check"></i> Enabled';
+        btn.innerHTML = iconLabel('fa-check', t('pwa.cookie.enabled_button', 'Enabled'));
     }
     wrapper.closest('.form-group')?.classList.add('formr_answered');
 };
@@ -44,7 +45,7 @@ export function initRequestCookie(root) {
         const btn = wrapper.querySelector('button.request-cookie');
         const required = wrapper.closest('.form-group')?.classList.contains('required');
         if (required && hidden) {
-            hidden.setCustomValidity('Please enable functional cookies to continue.');
+            hidden.setCustomValidity(t('pwa.cookie.required', 'Please enable functional cookies to continue.'));
         }
         if (hasFunctionalConsent()) {
             markAnswered(wrapper);

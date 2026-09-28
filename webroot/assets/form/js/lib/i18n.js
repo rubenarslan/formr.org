@@ -19,3 +19,19 @@ export function t(key, fallback, params) {
     }
     return s;
 }
+
+// For a translated string that goes into innerHTML as plain text. (Strings
+// whose translation carries markup — <strong>, the troubleshooting lists —
+// are inserted as-is: the table is ours, never participant data.)
+export function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[c]);
+}
+
+// An icon + translated label for a button's innerHTML: the icon markup stays
+// in the code, only the text comes from the table.
+//   btn.innerHTML = iconLabel('fa-check', t('pwa.install.installed', 'Installed'))
+export function iconLabel(iconClass, text) {
+    return '<i class="fa ' + iconClass + '"></i> ' + escapeHtml(text);
+}

@@ -15,6 +15,7 @@
 // is_desktop / qr_scanned / not_checked.
 
 import QRCodeStyling from 'qr-code-styling';
+import { t, iconLabel } from '../lib/i18n.js';
 
 const MOBILE_UA_RE = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|webOS|IEMobile|Opera Mini/i;
 
@@ -62,12 +63,12 @@ function ensureCopyControl(wrapper, url) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn btn-outline-secondary btn-sm';
-    btn.innerHTML = '<i class="fa fa-copy"></i> Copy link to phone';
+    btn.innerHTML = iconLabel('fa-copy', t('pwa.phone.copy', 'Copy link to phone'));
     btn.addEventListener('click', async () => {
         try {
             await navigator.clipboard.writeText(url);
-            btn.innerHTML = '<i class="fa fa-check"></i> Copied';
-            setTimeout(() => { btn.innerHTML = '<i class="fa fa-copy"></i> Copy link to phone'; }, 2000);
+            btn.innerHTML = iconLabel('fa-check', t('pwa.phone.copied', 'Copied'));
+            setTimeout(() => { btn.innerHTML = iconLabel('fa-copy', t('pwa.phone.copy', 'Copy link to phone')); }, 2000);
         } catch (e) {
             // Fallback: reveal the link so the participant can copy it
             // manually (once — repeated failures must not stack links).
@@ -95,7 +96,7 @@ export function initRequestPhone(root) {
             // Already on a phone — the server marks it answered; mirror that client-side.
             if (hidden && !hidden.value) hidden.value = 'is_phone';
             if (hidden) hidden.setCustomValidity('');
-            if (status) status.textContent = 'You are already on a mobile device. You can continue.';
+            if (status) status.textContent = t('pwa.phone.on_mobile', 'You are already on a mobile device. You can continue.');
             if (group) group.classList.add('formr_answered');
             return;
         }
@@ -112,8 +113,8 @@ export function initRequestPhone(root) {
         if (required) {
             // Hard gate: desktop must move to the phone (where the resumed session
             // auto-answers is_phone). Keep the submit blocked on desktop.
-            if (hidden) hidden.setCustomValidity('Please continue this study on your phone — scan the code above.');
-            if (status) status.textContent = 'Scan this QR code with your phone to continue the study there.';
+            if (hidden) hidden.setCustomValidity(t('pwa.phone.required', 'Please continue this study on your phone — scan the code above.'));
+            if (status) status.textContent = t('pwa.phone.scan_required', 'Scan this QR code with your phone to continue the study there.');
         } else {
             // Optional: let the desktop user proceed; record is_desktop.
             if (hidden) {
@@ -121,7 +122,7 @@ export function initRequestPhone(root) {
                 hidden.setCustomValidity('');
             }
             if (group) group.classList.add('formr_answered');
-            if (status) status.textContent = 'Scan this QR code to continue on your phone, or continue here.';
+            if (status) status.textContent = t('pwa.phone.scan_optional', 'Scan this QR code to continue on your phone, or continue here.');
         }
     });
 }

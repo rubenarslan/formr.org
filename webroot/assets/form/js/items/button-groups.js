@@ -9,6 +9,7 @@
 // Validation feedback for hidden inputs lives in items/validation: the
 // `invalid` event handler renders `.fmr-btn-feedback` next to the visible
 // button group since native tooltips have nowhere to anchor on display:none.
+import { t } from '../lib/i18n.js';
 
 export function initButtonGroups(root) {
     root.querySelectorAll('.form-group.btn-radio, .form-group.btn-checkbox, .form-group.btn-check').forEach((group) => {
@@ -55,7 +56,7 @@ export function initButtonGroups(root) {
                 if (group.querySelector('.fmr-btn-feedback')) return;
                 const fb = document.createElement('div');
                 fb.className = 'invalid-feedback fmr-btn-feedback d-block';
-                fb.textContent = input.validationMessage || 'Please choose an option.';
+                fb.textContent = input.validationMessage || t('validation.pick_option', 'Please pick an option to continue.');
                 const btnGroup = group.querySelector('.btn-group');
                 if (btnGroup) btnGroup.insertAdjacentElement('afterend', fb);
                 else group.appendChild(fb);
