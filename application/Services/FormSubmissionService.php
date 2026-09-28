@@ -255,7 +255,10 @@ class FormSubmissionService {
      * posting it empty (withdrawnNames). The answer goes, in both tables, as
      * if it had never been given — otherwise the old answer would come back
      * on a reload, or stay in the data if they break off. Only rows with a
-     * stored answer change.
+     * stored, non-blank answer change: a field submitted blank (an optional
+     * item left empty) has nothing to withdraw, and clearing its `saved`
+     * stamp would let an R default fill over what the participant left
+     * empty (itemState `saved`).
      *
      * @param string[] $names
      * @return string[] the items whose answer was withdrawn
@@ -275,7 +278,8 @@ class FormSubmissionService {
             $params['n' . $i] = $name;
         }
         $where = '`d`.`session_id` = :sid AND `i`.`study_id` = :study AND `i`.`deleted` IS NULL'
-            . ' AND `i`.`name` IN (' . implode(',', $marks) . ') AND `d`.`saved` IS NOT NULL';
+            . ' AND `i`.`name` IN (' . implode(',', $marks) . ') AND `d`.`saved` IS NOT NULL'
+            . ' AND `d`.`answer` IS NOT NULL AND `d`.`answer` <> \'\'';
         $withdrawn = array_map(function ($row) { return (string) $row['name']; }, (array) $this->db->execute(
             'SELECT DISTINCT `i`.`name` FROM `survey_items_display` `d` JOIN `survey_items` `i` ON `i`.`id` = `d`.`item_id` WHERE ' . $where,
             $params

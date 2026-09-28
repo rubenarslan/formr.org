@@ -1754,6 +1754,43 @@ opts_knit$set(base.url="' . OpenCPU::TEMP_BASE_URL . '")
 }
 
 /**
+ * Knit R Markdown to *Markdown* (not HTML) via OpenCPU: runs the R chunks /
+ * inline `r ...` through knitr but does NOT invoke rmarkdown::render / pandoc.
+ * The caller turns the returned Markdown into HTML PHP-side with ParsedownExtra,
+ * which avoids the pandoc subprocess + temp-file IO that dominate short-label
+ * render cost. Mirrors opencpu_knit2html's session/error contract so callers can
+ * treat the two interchangeably. (form_v2 dynamic labels — issue #608 follow-up.)
+ */
+function opencpu_knit2markdown($source, $return_session = false)
+{
+    // See opencpu_knit: this call owns the local-error note from here on, so
+    // opencpu_last_error() describes this knit, not an earlier call.
+    $GLOBALS['opencpu_local_error'] = null;
+    opencpu_forget_session();
+
+    $params = array('text' => "'" . addslashes($source) . "'");
+    $uri = '/formr/R/formr_knit/json';
+    $session = null;
+    try {
+        $session = OpenCPU::getInstance()->post($uri, $params);
+        if ($return_session === true) {
+            return $session;
+        }
+        if ($session->hasError()) {
+            throw new OpenCPU_Exception(opencpu_debug($session));
+        }
+        return $session->getJSONObject();
+    } catch (OpenCPU_Exception $e) {
+        if ($session === null) {
+            opencpu_note_transport_failure($e);
+        }
+        notify_user_error($e, "There was a problem knitting something using openCPU.");
+        opencpu_log($e);
+        return null;
+    }
+}
+
+/**
  * Knit R markdown to HTML via the formr_inline_render endpoint.
  *
  * Plain HTTP wrapper around the OpenCPU call. Variable injection and
@@ -1769,34 +1806,6 @@ opts_knit$set(base.url="' . OpenCPU::TEMP_BASE_URL . '")
  * @param bool $return_session If true, returns the OpenCPU_Session as-is so the caller can inspect ->hasError() itself.
  * @return OpenCPU_Session|mixed|string|null Knitted output, session, or null on error.
  */
-/**
- * Knit R Markdown to *Markdown* (not HTML) via OpenCPU: runs the R chunks /
- * inline `r ...` through knitr but does NOT invoke rmarkdown::render / pandoc.
- * The caller turns the returned Markdown into HTML PHP-side with ParsedownExtra,
- * which avoids the pandoc subprocess + temp-file IO that dominate short-label
- * render cost. Mirrors opencpu_knit2html's session/error contract so callers can
- * treat the two interchangeably. (form_v2 dynamic labels — issue #608 follow-up.)
- */
-function opencpu_knit2markdown($source, $return_session = false)
-{
-    $params = array('text' => "'" . addslashes($source) . "'");
-    $uri = '/formr/R/formr_knit/json';
-    try {
-        $session = OpenCPU::getInstance()->post($uri, $params);
-        if ($return_session === true) {
-            return $session;
-        }
-        if ($session->hasError()) {
-            throw new OpenCPU_Exception(opencpu_debug($session));
-        }
-        return $session->getJSONObject();
-    } catch (OpenCPU_Exception $e) {
-        notify_user_error($e, "There was a problem knitting something using openCPU.");
-        opencpu_log($e);
-        return null;
-    }
-}
-
 function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1, $return_session = false)
 {
     // See opencpu_knit: this call owns the local-error note from here on.

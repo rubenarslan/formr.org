@@ -66,9 +66,20 @@ class ItemFactory {
 class Item {
 
     /**
-     * Item names that may never be used. Single source of truth: both
-     * Item::validate() (per-item, JSON imports included) and
-     * SpreadsheetReader (per-row, at upload) check against this list.
+     * The helpers a transpiled showif may call in the browser (the fmrForm
+     * component's methods, webroot/assets/form/js/showif/alpine.js). One
+     * list: RESERVED_NAMES reserves them as item names and
+     * FormV2CompatScanner treats them as known identifiers.
+     */
+    const SHOWIF_HELPERS = array('isNA', 'answered', 'contains', 'containsWord', 'startsWith', 'endsWith', 'last');
+
+    /** The wide results table's own columns: never an item name, on any engine. */
+    const RESULT_COLUMN_NAMES = array('session_id', 'created', 'modified', 'ended', 'id', 'study_id', 'iteration');
+
+    /**
+     * Item names that may never be used. Item::validate() (per item, JSON
+     * imports included) checks against this list; SpreadsheetReader (per
+     * row, at upload) checks the RESULT_COLUMN_NAMES part.
      *
      * Two groups:
      *   - results-table / session columns (`id`, `session_id`, `created`,
@@ -83,17 +94,6 @@ class Item {
      *     "keep the server's decision" — those showifs would silently freeze.
      *     `isNA` is on the list because that is what `is.na()` transpiles to.
      */
-    /**
-     * The helpers a transpiled showif may call in the browser (the fmrForm
-     * component's methods, webroot/assets/form/js/showif/alpine.js). One
-     * list: RESERVED_NAMES reserves them as item names and
-     * FormV2CompatScanner treats them as known identifiers.
-     */
-    const SHOWIF_HELPERS = array('isNA', 'answered', 'contains', 'containsWord', 'startsWith', 'endsWith', 'last');
-
-    /** The wide results table's own columns: never an item name, on any engine. */
-    const RESULT_COLUMN_NAMES = array('session_id', 'created', 'modified', 'ended', 'id', 'study_id', 'iteration');
-
     const RESERVED_NAMES = array(
         ...self::RESULT_COLUMN_NAMES,
         ...self::SHOWIF_HELPERS,

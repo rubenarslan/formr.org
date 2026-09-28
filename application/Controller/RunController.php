@@ -696,12 +696,8 @@ class RunController extends Controller {
             $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
             return;
         }
-        $payload = FormSubmissionService::readPayload(
-            isset($_SERVER['CONTENT_TYPE']) ? $_SERVER['CONTENT_TYPE'] : '',
-            file_get_contents('php://input'), $_POST, $_FILES
-        );
+        $payload = $this->readFormPayload();
         if ($payload === null) {
-            $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
             return;
         }
         $context = $this->formWriteContext($payload['unit_session_id']);
@@ -722,6 +718,38 @@ class RunController extends Controller {
             FormSubmissionService::recordSubmitSeq($unitSession->id, $payload['doc'], $payload['seq']);
         }
         $this->sendJsonResponse($this->withRunRedirect($result));
+    }
+
+    /**
+     * The body of a v2 write (FormSubmissionService::readPayload), or null
+     * once the error reply has been sent.
+     *
+     * A body over post_max_size reaches PHP with $_POST and $_FILES empty —
+     * the multipart transport of a page with a large file. Read as-is it is
+     * an empty page, which apply() would store as a success: the answers and
+     * the file gone, every hidden item un-hidden, `final` lost. It is refused
+     * instead, as Survey::getUnitSessionOutput does for v1; a 413 is a 4xx,
+     * so the browser reports it rather than queueing a retry that can never
+     * fit.
+     *
+     * @return array|null
+     */
+    private function readFormPayload() {
+        $limit = (string) ini_get('post_max_size');
+        $max = $limit !== '' ? convertToBytes($limit) : 0;
+        $length = isset($_SERVER['CONTENT_LENGTH']) ? (int) $_SERVER['CONTENT_LENGTH'] : 0;
+        if ($max > 0 && $length > $max) {
+            $this->sendJsonResponse(array('error' => "The upload exceeds the server's maximum size."), 413);
+            return null;
+        }
+        $payload = FormSubmissionService::readPayload(
+            isset($_SERVER['CONTENT_TYPE']) ? $_SERVER['CONTENT_TYPE'] : '',
+            file_get_contents('php://input'), $_POST, $_FILES
+        );
+        if ($payload === null) {
+            $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
+        }
+        return $payload;
     }
 
     /**
@@ -905,12 +933,8 @@ class RunController extends Controller {
             $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
             return;
         }
-        $payload = FormSubmissionService::readPayload(
-            isset($_SERVER['CONTENT_TYPE']) ? $_SERVER['CONTENT_TYPE'] : '',
-            file_get_contents('php://input'), $_POST, $_FILES
-        );
+        $payload = $this->readFormPayload();
         if ($payload === null) {
-            $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
             return;
         }
         $data = $payload['data'];
@@ -976,9 +1000,11 @@ class RunController extends Controller {
         // admin email).
         $posted = $accepted;
         $posted['_item_views'] = $itemViews;
-        $unitSession->updateSurveyStudyRecord($posted, true, true);
+        // quiet: a failed write returns false without a user error — then
+        // nothing was stored, and the page must not be told "Saved".
+        $stored = $unitSession->updateSurveyStudyRecord($posted, true, true);
 
-        $this->sendJsonResponse(array('status' => 'saved'));
+        $this->sendJsonResponse(array('status' => ($stored || $withdrawn) ? 'saved' : 'noop'));
     }
 
     /** @see FormSubmissionService::autosaveEligible() */
@@ -1091,12 +1117,8 @@ class RunController extends Controller {
             $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
             return;
         }
-        $payload = FormSubmissionService::readPayload(
-            isset($_SERVER['CONTENT_TYPE']) ? $_SERVER['CONTENT_TYPE'] : '',
-            file_get_contents('php://input'), $_POST, $_FILES
-        );
+        $payload = $this->readFormPayload();
         if ($payload === null) {
-            $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
             return;
         }
         $envelope = FormSyncPayload::validate(

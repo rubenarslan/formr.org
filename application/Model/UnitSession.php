@@ -1240,11 +1240,16 @@ class UnitSession extends Model {
             return false;
         }
 
-        if (isset($posted["_item_views"]["shown"])) {
-            $posted["_item_views"]["shown"] = array_filter($posted["_item_views"]["shown"]);
-            $posted["_item_views"]["shown_relative"] = array_filter($posted["_item_views"]["shown_relative"]);
-            $posted["_item_views"]["answered"] = array_filter($posted["_item_views"]["answered"]);
-            $posted["_item_views"]["answered_relative"] = array_filter($posted["_item_views"]["answered_relative"]);
+        // The four buckets come as one set from a v1 form, but form_v2 builds
+        // them in the browser (JSON, or multipart where an empty bucket posts
+        // no field at all): a missing or non-array bucket is simply empty,
+        // never a TypeError from array_filter — a 500 the browser would
+        // queue and retry for good.
+        if (isset($posted["_item_views"]["shown"]) && is_array($posted["_item_views"])) {
+            foreach (array('shown', 'shown_relative', 'answered', 'answered_relative') as $bucket) {
+                $posted["_item_views"][$bucket] = (isset($posted["_item_views"][$bucket]) && is_array($posted["_item_views"][$bucket]))
+                    ? array_filter($posted["_item_views"][$bucket]) : array();
+            }
         }
 
         /**

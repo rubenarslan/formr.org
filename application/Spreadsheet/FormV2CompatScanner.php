@@ -186,10 +186,22 @@ class FormV2CompatScanner {
      * @return list<string>
      */
     public static function namesIn($expr) {
-        $code = preg_replace('~/\*.*?\*/|//[^\n]*~s', ' ', (string) $expr);
-        $code = preg_replace('/"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|`[^`]*`/', '""', $code);
+        $code = self::codeOnly($expr);
         preg_match_all('/(?<![\w.$])([A-Za-z_$][A-Za-z0-9_$]*)(?![\w$])(?!\s*\()/', $code, $m);
         return array_values(array_unique($m[1]));
+    }
+
+    /**
+     * $expr without its comments, and with each string literal reduced to
+     * "": what namesIn() and detectRTokens() read, so neither is misled by
+     * text that is not code.
+     *
+     * @param string $expr
+     * @return string
+     */
+    protected static function codeOnly($expr) {
+        $code = preg_replace('~/\*.*?\*/|//[^\n]*~s', ' ', (string) $expr);
+        return preg_replace('/"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|`[^`]*`/', '""', $code);
     }
 
     /**
@@ -202,9 +214,10 @@ class FormV2CompatScanner {
     public static function detectRTokens($expr) {
         $problems = [];
 
-        // Strip JS string literals so tokens inside strings don't trigger
-        // false positives (e.g. `"tail(x, 1)"` in a user-visible label).
-        $code = preg_replace('/"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'/', '""', $expr);
+        // Strip comments and string literals so tokens inside them don't
+        // trigger false positives (e.g. `"tail(x, 1)"` in a user-visible
+        // label, `// NA handling`) — the switch to v2 stops on a finding.
+        $code = self::codeOnly($expr);
 
         if (preg_match('/\b(ifelse|c|nrow|ncol|paste|paste0|sprintf|format|grepl|grep|sub|gsub|is\.null|is\.numeric|is\.character|unlist|lapply|sapply|rev|sort|unique|which|rowSums|colSums)\s*\(/', $code)) {
             $problems[] = 'R-only function call';

@@ -204,23 +204,6 @@ class SurveyStudy extends Model
     }
 
     /**
-     * Materialise a survey from an exported `survey_data` object (a run
-     * bundle's per-unit payload, or the standalone survey JSON upload) and
-     * load its items.
-     *
-     * A study of that name owned by the current user is reused (items
-     * replaced); otherwise it is created. With $options['run'] set, a
-     * Survey unit for the study is also placed in that run — the
-     * behaviour Survey::create relies on. Pass $options['place_unit'] =
-     * false to get the study only: Form::create does, because a Form
-     * places the study through its own survey_units row and must not
-     * leave a stray Survey unit behind.
-     *
-     * @param object $data  {name, items, settings?}
-     * @param array $options
-     * @return SurveyStudy|false the study, or false on failure
-     */
-    /**
      * The settings a new survey may take from its import — a JSON file's
      * "settings", or a spreadsheet's `settings` sheet (the sheet the xlsx
      * export writes) — allowlisted and validated, so every import path
@@ -294,10 +277,6 @@ class SurveyStudy extends Model
     }
 
     /**
-     * Store the importable part of $raw (importableSettings) on this new
-     * survey and say what was taken.
-     */
-    /**
      * The runs that use this study as a classic Survey unit (a v1 Survey
      * unit shares the study's id). While there are any, the study is not
      * put on form_v2 — neither by "Upgrade to form_v2" nor by linking it in
@@ -345,6 +324,10 @@ class SurveyStudy extends Model
         return $settings;
     }
 
+    /**
+     * Store the importable part of $raw (importableSettings) on this new
+     * survey and say what was taken.
+     */
     protected function applyImportedSettings(array $raw)
     {
         $settings = self::engineGate(self::importableSettings($raw));
@@ -360,6 +343,23 @@ class SurveyStudy extends Model
         $this->messages[] = 'Settings taken from the upload: ' . implode(', ', $shown) . '.';
     }
 
+    /**
+     * Materialise a survey from an exported `survey_data` object (a run
+     * bundle's per-unit payload, or the standalone survey JSON upload) and
+     * load its items.
+     *
+     * A study of that name owned by the current user is reused (items
+     * replaced); otherwise it is created. With $options['run'] set, a
+     * Survey unit for the study is also placed in that run — the
+     * behaviour Survey::create relies on. Pass $options['place_unit'] =
+     * false to get the study only: Form::create does, because a Form
+     * places the study through its own survey_units row and must not
+     * leave a stray Survey unit behind.
+     *
+     * @param object $data  {name, items, settings?}
+     * @param array $options
+     * @return SurveyStudy|false the study, or false on failure
+     */
     public static function createFromData($data, $options = [])
     {
         unset($options['survey_data']);
@@ -2080,11 +2080,9 @@ class SurveyStudy extends Model
     {
         $count = array('finished' => 0, 'begun' => 0, 'testers' => 0, 'real_users' => 0);
 
-        if (self::readsLong($this->rendering_mode)) {
-            return $this->getResultCountLong($run_id, $filter, $count);
-        }
-
-        $count = $this->getResultCountWide($run_id, $filter, $count);
+        $count = self::readsLong($this->rendering_mode)
+            ? $this->getResultCountLong($run_id, $filter, $count)
+            : $this->getResultCountWide($run_id, $filter, $count);
 
         if (!$filter && !$run_id) {
             $this->result_count = $count;

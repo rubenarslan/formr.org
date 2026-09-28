@@ -45,6 +45,9 @@ class Notification {
      * host can write it.
      */
     public static function paused(): bool {
+        if (defined('FORMR_UNIT_TESTS')) {
+            return false;
+        }
         $file = APPLICATION_ROOT . '.notifications_paused';
         return is_file($file) && (int) @file_get_contents($file) > time();
     }

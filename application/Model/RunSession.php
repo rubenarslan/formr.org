@@ -630,13 +630,6 @@ class RunSession extends Model {
     }
 
     /**
-     * Admin/API "advance to the next unit": end the current unit session
-     * and moveOn, under the run-session lock. Audit F3 (2026-07): both
-     * callers ran lock-free, and the AJAX variant ended the current unit
-     * WITHOUT advancing — leaving cron-only participants with nothing
-     * current and nothing queued, permanently stalled.
-     */
-    /**
      * form_v2: end a Form's unit session on its final submit and move the run
      * session on (without executing the next unit — the browser's redirect to
      * the run URL does that). Under the run-session lock, from a fresh read,
@@ -675,6 +668,13 @@ class RunSession extends Model {
         }
     }
 
+    /**
+     * Admin/API "advance to the next unit": end the current unit session
+     * and moveOn, under the run-session lock. Audit F3 (2026-07): both
+     * callers ran lock-free, and the AJAX variant ended the current unit
+     * WITHOUT advancing — leaving cron-only participants with nothing
+     * current and nothing queued, permanently stalled.
+     */
     public function forceMoveOn($reason = 'moved') {
         if ($this->ended) {
             alert('This run session has ended; revive it by sending it to a position instead.', 'alert-danger');
