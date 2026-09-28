@@ -381,11 +381,19 @@ function initForm() {
     const unitSessionId = store.unitSessionId;
     // Mark the file inputs whose item has an upload stored (the state block,
     // then every reply): see collectPayload and validation/feedback.js.
+    // A required item's input carries `required`, which an empty file input
+    // always fails natively: lift it while the upload is stored, put it back
+    // once it is not (retracted by a showif, say).
     const markStoredUploads = () => {
         root.querySelectorAll('input[type=file][name]').forEach((inp) => {
             const item = store.items[fieldKey(inp.name).key];
-            if (item && item.answered) inp.dataset.fmrStored = '1';
-            else delete inp.dataset.fmrStored;
+            if (item && item.answered) {
+                inp.dataset.fmrStored = '1';
+                if (inp.required) { inp.dataset.fmrRequired = '1'; inp.required = false; }
+            } else {
+                delete inp.dataset.fmrStored;
+                if (inp.dataset.fmrRequired === '1') { inp.required = true; delete inp.dataset.fmrRequired; }
+            }
         });
     };
     markStoredUploads();
@@ -562,6 +570,9 @@ function initForm() {
         if (res.ok && !body) return 'session';
         if (body && body.drop_entry) return 'drop';
         if (res.status === 429) return 'throttled';
+        // 403 {closed}: the study is not open (Run::admits) — the session is
+        // fine, so retry later rather than asking the participant to sign in.
+        if (res.status === 403 && body && body.closed) return 'server';
         if (res.status === 403) return 'session';
         if (res.status === 400) return 'invalid';
         return 'server';
@@ -1455,7 +1466,9 @@ function initForm() {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                body: JSON.stringify({ data: payload.data, item_views: payload.item_views, unit_session_id: unitSessionId }),
+                // doc + seq: the server drops this autosave if a page submit
+                // of this document numbered above it has already landed.
+                body: JSON.stringify({ data: payload.data, item_views: payload.item_views, unit_session_id: unitSessionId, doc: payload.doc, seq: payload.seq }),
                 keepalive: true,
             });
             const res = await saveInFlightRequest;
@@ -1512,7 +1525,7 @@ function initForm() {
             if (!payload.data || Object.keys(payload.data).length === 0) return;
             savePending = false;
             updateUnloadGuard();
-            const body = JSON.stringify({ data: payload.data, item_views: payload.item_views, unit_session_id: unitSessionId });
+            const body = JSON.stringify({ data: payload.data, item_views: payload.item_views, unit_session_id: unitSessionId, doc: payload.doc, seq: payload.seq });
             try {
                 if (navigator.sendBeacon) {
                     navigator.sendBeacon(saveUrl, new Blob([body], { type: 'application/json' }));
@@ -2307,7 +2320,10 @@ function initForm() {
         initialPageOpened = true;
         const ps = nav();
         const paramPage = Number(new URLSearchParams(window.location.search).get('page'));
-        const initial = (paramPage && ps.isShown(paramPage) && paramPage <= ps.currentPage) ? paramPage : ps.currentPage;
+        // Without allow_previous an earlier page is never offered (the
+        // popstate guard below): a stale `?page=` (a copied or restored URL)
+        // must not reopen a submitted page either.
+        const initial = (paramPage && allowPrevious && ps.isShown(paramPage) && paramPage <= ps.currentPage) ? paramPage : ps.currentPage;
         const idx = pageIndexOf(initial);
         // showPage resolves the deferred values, labels and choice labels of
         // the page we land on. Fire-and-forget: the page is already shown;
@@ -2324,9 +2340,18 @@ function initForm() {
         // Nothing to show on any page (a form of automatic items only —
         // random, ip, get…): send the final submit, which stores them and
         // ends the form, instead of an empty page with a Submit button.
-        if (ps.shownPages.length === 0) submitPage();
+        // Only once the showifs have run (not from the no-Alpine fallback,
+        // where every showif item still reads hidden), and only if it still
+        // holds once the page's R values have arrived — a showif reading one
+        // can reveal items.
+        if (alpineStarted && ps.shownPages.length === 0) {
+            Promise.resolve(pageResolutions.get(landed)).then(() => setTimeout(() => {
+                if (nav().shownPages.length === 0) submitPage();
+            }, 0));
+        }
     };
-    document.addEventListener('alpine:initialized', () => setTimeout(openInitialPage, 0), { once: true });
+    let alpineStarted = false;
+    document.addEventListener('alpine:initialized', () => { alpineStarted = true; setTimeout(openInitialPage, 0); }, { once: true });
     // Should Alpine never start (a broken bundle), still open a page.
     setTimeout(openInitialPage, 3000);
 

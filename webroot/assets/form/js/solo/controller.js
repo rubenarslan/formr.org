@@ -1,4 +1,4 @@
-import { t } from '../lib/i18n.js';
+import { t, escapeHtml } from '../lib/i18n.js';
 // Typeform-style "solo" step controller for form_v2 (layout=solo).
 //
 // Replaces an earlier CSS-scroll-snap skin, which broke down on
@@ -30,10 +30,6 @@ const HIDDEN_TYPES = ['hidden', 'get', 'random', 'referrer', 'ip', 'browser', 's
 // the solo countdown lookup below both read.
 export const SUBMIT_CONTROL_SELECTOR =
     '.item-submit button, .item-submit input[type=submit], button.submit_automatically_after_timeout, [data-fmr-next]';
-
-// Attribute-context escape for the few strings (study-language labels)
-// built into markup here.
-const escAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
 export function initSolo(opts) {
     // pageNav (main.js): which page is the last shown one and where Previous
@@ -507,9 +503,9 @@ export function initSolo(opts) {
             + '<button type="button" class="btn btn-primary fmr-solo-ok">' + t('nav.ok', 'OK') + ' <i class="fa fa-check" aria-hidden="true"></i></button>'
             + '</div>'
             + '<div class="fmr-solo-left">'
-            + '<button type="button" class="fmr-solo-back" aria-label="' + escAttr(t('solo.back_label', 'Go to previous question')) + '">'
+            + '<button type="button" class="fmr-solo-back" aria-label="' + escapeHtml(t('solo.back_label', 'Go to previous question')) + '">'
             + '<i class="fa fa-arrow-up" aria-hidden="true"></i> ' + t('nav.back', 'Back') + '</button>'
-            + '<button type="button" class="fmr-solo-help" aria-label="' + escAttr(t('solo.help_label', 'Show contact and privacy links')) + '" aria-expanded="false">'
+            + '<button type="button" class="fmr-solo-help" aria-label="' + escapeHtml(t('solo.help_label', 'Show contact and privacy links')) + '" aria-expanded="false">'
             + '<i class="fa fa-question" aria-hidden="true"></i></button>'
             + '</div>';
         root.appendChild(navEl);

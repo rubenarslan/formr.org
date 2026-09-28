@@ -1766,8 +1766,6 @@ class Run extends Model
      */
     public function replaceUnits($json_string)
     {
-        $this->importErrors = [];
-
         // Refuse a payload importUnits() would fail on BEFORE the DELETE
         // below. The transaction cannot be relied on to undo a half-done
         // import: DB::beginTransaction/commit are flattened, so the first
@@ -1869,10 +1867,14 @@ class Run extends Model
         }
         $supported = RunUnitFactory::getSupportedUnits();
         $errors = [];
-        foreach ((array) $json->units as $i => $unit) {
+        $n = 0;
+        foreach ((array) $json->units as $unit) {
+            // A counter, not the key: importUnits() also takes `units` as an
+            // object, whose string keys cannot be numbered.
+            $n++;
             $unit = (object) $unit;
             $type = isset($unit->type) ? (string) $unit->type : '';
-            $label = "unit " . ($i + 1) . " (" . ($type ?: '?') . " at position " . ($unit->position ?? '?') . ")";
+            $label = "unit " . $n . " (" . ($type ?: '?') . " at position " . ($unit->position ?? '?') . ")";
             if ($type === 'Endpage') {
                 $type = 'Page';
             }

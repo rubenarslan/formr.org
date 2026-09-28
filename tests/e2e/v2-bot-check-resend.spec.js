@@ -47,6 +47,8 @@ test('a stored page with a passed bot_check can be sent again', async ({ page, b
     const body = await res.json();
     expect(res.status()).toBe(200);
     expect(body.status, JSON.stringify(body.errors || {})).toBe('ok');
+    expect((dbQuery(`SELECT d.answer FROM survey_items_display d JOIN survey_items i ON i.id = d.item_id `
+        + `WHERE d.session_id = ${Number(usid)} AND i.name = 'u_human';`)[0] || {}).answer, 'the resend keeps the passed check').toBe('verified');
 });
 
 // A bot_check the server refuses (a spent or expired token) is put back to

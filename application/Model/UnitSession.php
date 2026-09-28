@@ -1279,6 +1279,11 @@ class UnitSession extends Model {
                 // one-shot token was spent the first time, and the widget
                 // still shows "verified", so it would be refused forever.
                 if ($this->botCheckPassed($items[$item_name])) {
+                    // The display row is written from $posted
+                    // (writeSurveyStudyRecord → getReply): hand it the stored
+                    // marker, or the unvalidated token would store NULL over
+                    // 'verified'.
+                    $posted[$item_name] = 'verified';
                     continue;
                 }
                 $consuming[$item_name] = $item_value;

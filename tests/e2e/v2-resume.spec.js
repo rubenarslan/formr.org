@@ -58,7 +58,10 @@ test.describe('form_v2: reload, offline and Previous agree on the page', () => {
         const saved = page.waitForResponse((r) => /\/form-save\/?$/.test(new URL(r.url()).pathname));
         await page.fill('[name="cp_a"]', '1');
         await page.locator('[name="cp_a"]').blur();
-        await saved;
+        const body = JSON.parse((await saved).request().postData() || '{}');
+        // What orders it against page submits (FormSubmissionService::autosaveIsStale).
+        expect(body.doc, 'the autosave names its document').toMatch(/^[0-9a-f-]{36}$/);
+        expect(body.seq, 'and its write number').toBeGreaterThan(0);
         await reload(page);
         expect(await v2.visiblePageNum(page), 'still page 1').toBe(1);
         expect(await page.inputValue('[name="cp_a"]'), 'the autosaved answer is in its input').toBe('1');
