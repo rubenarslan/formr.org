@@ -45,6 +45,7 @@ const RUNNING_ON_BS = process.env.BROWSERSTACK_AUTOMATION === 'true';
 module.exports = defineConfig({
     testDir: '.',
     globalSetup: require.resolve('./setup/global-setup.js'),
+    globalTeardown: require.resolve('./setup/global-teardown.js'),
     timeout: 120 * 1000,
     expect: { timeout: 15 * 1000 },
     // BS sessions occasionally drop the websocket bridge or the device

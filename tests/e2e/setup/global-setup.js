@@ -28,7 +28,15 @@ const PWA_TEST_RUN = process.env.PWA_TEST_RUN || 'e2e-pwa-h-v1';
 const OUT = path.resolve(__dirname, 'admin-state.json');
 const PWA_CODE_OUT = path.resolve(__dirname, 'pwa-test-code.txt');
 
+// Study-admin notifications are paused for the run (Notification::paused):
+// the fixtures fail on purpose and would mail the run owner. The file holds
+// an expiry, so a run that never reaches global-teardown.js stops pausing
+// after PAUSE_HOURS anyway.
+const PAUSE_FILE = path.resolve(__dirname, '../../../.notifications_paused');
+const PAUSE_HOURS = 4;
+
 module.exports = async () => {
+    fs.writeFileSync(PAUSE_FILE, String(Math.floor(Date.now() / 1000) + PAUSE_HOURS * 3600));
     if (!EMAIL || !PASSWORD) {
         throw new Error('global-setup: FORMR_DEV_ADMIN_EMAIL/PASSWORD missing from .env.dev');
     }

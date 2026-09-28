@@ -36,6 +36,20 @@ class Notification {
     }
 
     /**
+     * Study-admin notifications are paused while the e2e suite runs
+     * (tests/e2e/setup/global-setup.js writes the file, global-teardown.js
+     * removes it): its fixtures fail on purpose and would mail the run
+     * owner once per throttle window. The file holds a unix expiry, so a
+     * crashed run cannot leave them off for good. It sits in the code tree
+     * because the app and both daemons see that, and the test runner on the
+     * host can write it.
+     */
+    public static function paused(): bool {
+        $file = APPLICATION_ROOT . '.notifications_paused';
+        return is_file($file) && (int) @file_get_contents($file) > time();
+    }
+
+    /**
      * Notify the study administrator about an issue
      * 
      * @param UnitSession $unitSession The run session where the issue occurred
@@ -45,6 +59,9 @@ class Notification {
      */
     public function notifyStudyAdmin(UnitSession $unitSession, string $message, string $type = 'error'): bool {
         if (!$unitSession || !$unitSession->runSession || !$unitSession->runSession->getRun()) {
+            return false;
+        }
+        if (self::paused()) {
             return false;
         }
 

@@ -34,6 +34,16 @@ pages register one. The offline queue drains
 page-side, so its specs (`v2-queue-drain`, `pwa-queue-rejection`, seeding
 IndexedDB through `helpers/idbQueue.js`) run in `local-chromium`.
 
+## Admin notifications during e2e
+
+The e2e suite pauses study-admin notifications (`Notification::paused`): its
+fixtures fail on purpose (`rescov-*` runs with broken R, dead SMTP, …) and
+would mail the run owner. `setup/global-setup.js` writes
+`.notifications_paused` at the repo root with an expiry (4 h),
+`setup/global-teardown.js` removes it; a run that dies in between stops
+pausing at the expiry. The app and both daemons read it; a daemon started
+before `Notification::paused` existed needs a restart.
+
 ## Coverage pass
 
 `tests/coverage/run.sh` measures what the unit lane, the smokes and the e2e
