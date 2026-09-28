@@ -230,8 +230,43 @@ function backdateRunSession(runSessionId, minutes) {
     );
 }
 
+// SQL string literal for a value the specs control (names, emails).
+function sqlStr(v) {
+    return `'${String(v).replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;
+}
+
+// The id of the admin account the suite logs in as (FORMR_DEV_ADMIN_EMAIL),
+// resolved once — never a hardcoded id, which differs per host.
+let adminIdCache = null;
+function adminUserId() {
+    if (adminIdCache !== null) return adminIdCache;
+    const email = process.env.FORMR_DEV_ADMIN_EMAIL;
+    if (!email) throw new Error('FORMR_DEV_ADMIN_EMAIL is not set');
+    const row = dbQuery(`SELECT id FROM survey_users WHERE email = ${sqlStr(email)} LIMIT 1`)[0];
+    if (!row) throw new Error(`no survey_users row for ${email}`);
+    adminIdCache = parseInt(row.id, 10);
+    return adminIdCache;
+}
+
+// A study of the suite's admin, by name (names are unique per user only).
+function studyByName(name, cols = 'id, name, results_table, rendering_mode') {
+    return dbQuery(`SELECT ${cols} FROM survey_studies WHERE user_id = ${adminUserId()} AND name = ${sqlStr(name)} ORDER BY id DESC LIMIT 1`)[0] || null;
+}
+
+// The study a run's first Form or Survey unit shows (a Form points at its
+// study through form_study_id; a Survey unit's id is the study's id).
+function studyOfRun(runName, cols = 's.id, s.name, s.results_table, s.rendering_mode') {
+    return dbQuery(`SELECT ${cols} FROM survey_runs r
+        JOIN survey_run_units ru ON ru.run_id = r.id
+        JOIN survey_units u ON u.id = ru.unit_id
+        JOIN survey_studies s ON s.id = IF(u.type = 'Form', u.form_study_id, u.id)
+        WHERE r.name = ${sqlStr(runName)} AND u.type IN ('Form', 'Survey')
+        ORDER BY ru.position LIMIT 1`)[0] || null;
+}
+
 module.exports = {
-    dbQuery, dbExecRaw, dbNow,
+    dbQuery, dbExecRaw, dbNow, sqlStr,
+    adminUserId, studyByName, studyOfRun,
     dbState, dbResultsRow,
     backdateUnitSession, backdateItemsDisplay, backdateRunSession,
     setItemsDisplaySaved, setItemsDisplayCreated,

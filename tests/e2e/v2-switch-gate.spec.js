@@ -23,11 +23,11 @@ function surveyJson(name, items) {
     return Buffer.from(JSON.stringify({ name, settings: {}, items: items.map((it, i) => Object.assign({ order: i + 1, item_order: i + 1 }, it)) }));
 }
 function renderingMode(name) {
-    const row = db.dbQuery(`SELECT rendering_mode FROM survey_studies WHERE name = '${name}'`)[0];
+    const row = db.studyByName(name);
     return row ? row.rendering_mode : null;
 }
 function deleteStudy(name) {
-    const row = db.dbQuery(`SELECT id FROM survey_studies WHERE name = '${name}'`)[0];
+    const row = db.studyByName(name);
     if (!row) return;
     execFileSync('docker', ['exec', 'formr_app', 'php', '-r',
         `require '/var/www/formr/setup.php'; (new SurveyStudy(${parseInt(row.id, 10)}))->delete();`], { encoding: 'utf8' });
@@ -89,14 +89,23 @@ test.describe('switching a study to form_v2', () => {
 
     test('a survey a run uses as a classic Survey is not switched, even when forced', async ({ page }) => {
         // e2e_pwa_low runs as a Survey in e2e-pwa-l-v1: switching it would
-        // change the engine under that run's participants.
-        for (const form of [{ target: 'v2' }, { target: 'v2', force: '1' }]) {
-            const res = await switchTo(page, 'e2e_pwa_low', form);
-            expect(res.ok()).toBeTruthy();
-            const html = await res.text();
-            expect(html).toContain('Not switched');
-            expect(html).toContain('e2e-pwa-l-v1');
-            expect(renderingMode('e2e_pwa_low'), JSON.stringify(form)).toBe('v1');
+        // change the engine under that run's participants. It is a shared
+        // fixture, so a regression that lets the switch through must not
+        // leave it on v2 for every later run.
+        const study = db.studyByName('e2e_pwa_low');
+        expect(study, 'fixture study e2e_pwa_low').toBeTruthy();
+        expect(study.rendering_mode).toBe('v1');
+        try {
+            for (const form of [{ target: 'v2' }, { target: 'v2', force: '1' }]) {
+                const res = await switchTo(page, 'e2e_pwa_low', form);
+                expect(res.ok()).toBeTruthy();
+                const html = await res.text();
+                expect(html).toContain('Not switched');
+                expect(html).toContain('e2e-pwa-l-v1');
+                expect(renderingMode('e2e_pwa_low'), JSON.stringify(form)).toBe('v1');
+            }
+        } finally {
+            db.dbExecRaw(`UPDATE survey_studies SET rendering_mode = 'v1' WHERE id = ${parseInt(study.id, 10)};`);
         }
     });
 });

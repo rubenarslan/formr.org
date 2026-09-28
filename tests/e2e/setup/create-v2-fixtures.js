@@ -42,13 +42,13 @@ async function provision({ run: RUN, study: STUDY, json, after }) {
     }
     const ctx = await request.newContext({ ignoreHTTPSErrors: true, storageState: STATE_PATH });
     try {
-        let study = db.dbQuery(`SELECT id FROM survey_studies WHERE name = '${STUDY}' ORDER BY id DESC LIMIT 1`)[0];
+        let study = db.studyByName(STUDY);
         if (!study) {
             const res = await ctx.post(`${ADMIN_BASE}/admin/survey/add_survey/`, {
                 multipart: { uploaded: { name: `${STUDY}.json`, mimeType: 'application/json', buffer: fs.readFileSync(SURVEY) } },
             });
             if (!res.ok()) throw new Error(`add_survey: HTTP ${res.status()}`);
-            study = db.dbQuery(`SELECT id FROM survey_studies WHERE name = '${STUDY}' ORDER BY id DESC LIMIT 1`)[0];
+            study = db.studyByName(STUDY);
             if (!study) throw new Error('survey upload did not create the study');
         }
         const sid = parseInt(study.id, 10);

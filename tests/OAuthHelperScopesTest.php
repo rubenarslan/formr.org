@@ -56,8 +56,10 @@ SQL);
                 PRIMARY KEY (client_id, run_id)
             )
 SQL);
+        // Its own shape, whatever another test left behind.
+        self::$pdo->exec('DROP TABLE IF EXISTS survey_runs');
         self::$pdo->exec(<<<'SQL'
-            CREATE TABLE IF NOT EXISTS survey_runs (
+            CREATE TABLE survey_runs (
                 id INTEGER PRIMARY KEY,
                 user_id INTEGER NOT NULL,
                 name TEXT
@@ -76,6 +78,13 @@ SQL);
             (1, 7, 'owned_run_a'),
             (2, 7, 'owned_run_b'),
             (99, 8, 'foreign_run')");
+    }
+
+    public static function tearDownAfterClass(): void
+    {
+        foreach (array('survey_runs', 'oauth_client_runs', 'oauth_scopes') as $t) {
+            self::$pdo->exec("DROP TABLE IF EXISTS $t");
+        }
     }
 
     protected function setUp(): void

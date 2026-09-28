@@ -28,7 +28,7 @@
  * See documentation/agent_doc/LOG_STATE_AUDIT.md.
  */
 const { test, expect } = require('./helpers/test');
-const { dbQuery, dbExecRaw } = require('./helpers/db');
+const { dbQuery, dbExecRaw, adminUserId } = require('./helpers/db');
 const { sessionTrace, runExists, recordObserved, enrol } = require('./helpers/results');
 
 const RUN = 'rescov-pages';
@@ -79,7 +79,7 @@ test.describe('result coverage — Survey', () => {
         // it and logs error_survey with the exception text. Renaming the table
         // is the least invasive way to produce a genuine failure — no code path
         // is stubbed, the exception is real.
-        const study = dbQuery(`SELECT results_table FROM survey_studies WHERE name = '${STUDY}' ORDER BY id DESC LIMIT 1;`);
+        const study = dbQuery(`SELECT results_table FROM survey_studies WHERE user_id = ${adminUserId()} AND name = '${STUDY}' ORDER BY id DESC LIMIT 1;`);
         test.skip(!study.length, `study '${STUDY}' is missing — see the fixture recipe above`);
         const table = study[0].results_table;
 

@@ -12,7 +12,7 @@
 const { test, expect, RUNNING_ON_BS } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
-const { dbQuery, dbExecRaw } = require('./helpers/db');
+const { dbQuery, dbExecRaw, adminUserId } = require('./helpers/db');
 const v2 = require('./helpers/v2Form');
 
 const RUN = () => runName('v2_inputs', 'v2');
@@ -22,8 +22,8 @@ test('an expired page says so, in the study language, and offers a reload', asyn
     test.skip(RUNNING_ON_BS, 'sets the study language through the DB; local lane only');
     await freshParticipant(page, RUN(), { baseURL });
     await v2.waitForBundle(page);
-    const lang = dbQuery(`SELECT language FROM survey_studies WHERE name = '${STUDY}';`)[0].language;
-    dbExecRaw(`UPDATE survey_studies SET language = 'de' WHERE name = '${STUDY}';`);
+    const lang = dbQuery(`SELECT language FROM survey_studies WHERE user_id = ${adminUserId()} AND name = '${STUDY}';`)[0].language;
+    dbExecRaw(`UPDATE survey_studies SET language = 'de' WHERE user_id = ${adminUserId()} AND name = '${STUDY}';`);
     try {
         await page.addInitScript(() => { window.unit_session_expires = new Date(Date.now() + 5000).toISOString(); });
         await page.reload({ waitUntil: 'domcontentloaded' });
@@ -33,6 +33,6 @@ test('an expired page says so, in the study language, and offers a reload', asyn
         await expect(modal.locator('.fmr-expiry-modal-title')).toHaveText('Seite abgelaufen');
         await expect(modal.locator('.fmr-expiry-modal-reload')).toContainText('Neu laden');
     } finally {
-        dbExecRaw(`UPDATE survey_studies SET language = '${lang}' WHERE name = '${STUDY}';`);
+        dbExecRaw(`UPDATE survey_studies SET language = '${lang}' WHERE user_id = ${adminUserId()} AND name = '${STUDY}';`);
     }
 });

@@ -6,7 +6,7 @@ const { runName, participantPath } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const v2 = require('./helpers/v2Form');
 const pwa = require('./helpers/pwa');
-const { fillAllVisible } = require('./helpers/widgets');
+const { fillAllVisible, V2_PAGE } = require('./helpers/widgets');
 
 const SUITE = 'pwa_low';
 const VARIANT = 'v2';
@@ -67,7 +67,7 @@ test.describe('PWA low-friction v2', () => {
         expect(page.url(), 'page should be on the participant URL, not about:blank').toContain(`/${run}/`);
 
         await v2.waitForBundle(page);
-        await fillAllVisible(page, page.locator('section.fmr-page:not([hidden])'));
+        await fillAllVisible(page, V2_PAGE);
         // setOffline lives on the context — page-fixture exposes it via page.context().
         const ctx = page.context();
         await ctx.setOffline(true);

@@ -30,9 +30,14 @@ const RUN = () => runName('all_widgets', 'v2');
 // alphabetically ('f' < 's') and left the contradiction behind for
 // solo-layout to find. Pin default before AND after so execution order
 // can't break either suite. workers:1 makes this race-free.
-const STUDY_ID = 1602; // all_widgets — bound to e2e-aw-v2 via survey_units.form_study_id
-test.beforeAll(() => db.dbExecRaw(`UPDATE survey_studies SET layout='default' WHERE id=${STUDY_ID}`));
-test.afterAll(() => db.dbExecRaw(`UPDATE survey_studies SET layout='default' WHERE id=${STUDY_ID}`));
+// The study the run's Form shows (resolved per host, never a hardcoded id).
+const pinDefaultLayout = () => {
+    const study = db.studyOfRun(RUN());
+    if (!study) throw new Error(`no Form/Survey study found for run ${RUN()}`);
+    db.dbExecRaw(`UPDATE survey_studies SET layout='default' WHERE id=${parseInt(study.id, 10)}`);
+};
+test.beforeAll(pinDefaultLayout);
+test.afterAll(pinDefaultLayout);
 
 test.describe('form_v2 spec: a11y group semantics', () => {
 

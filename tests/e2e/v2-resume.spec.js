@@ -20,8 +20,8 @@ const STUDY = 'e2e_crosspage_showif_v2';
 test.describe('form_v2: reload, offline and Previous agree on the page', () => {
     test.skip(RUNNING_ON_BS, 'toggles allow_previous through the DB; local lane only');
 
-    test.beforeAll(() => { db.dbExecRaw(`UPDATE survey_studies SET allow_previous = 1 WHERE name = '${STUDY}'`); });
-    test.afterAll(() => { db.dbExecRaw(`UPDATE survey_studies SET allow_previous = 0 WHERE name = '${STUDY}'`); });
+    test.beforeAll(() => { db.dbExecRaw(`UPDATE survey_studies SET allow_previous = 1 WHERE user_id = ${db.adminUserId()} AND name = '${STUDY}'`); });
+    test.afterAll(() => { db.dbExecRaw(`UPDATE survey_studies SET allow_previous = 0 WHERE user_id = ${db.adminUserId()} AND name = '${STUDY}'`); });
 
     async function progressLabel(page) {
         return page.locator('form.fmr-form-v2 [data-fmr-progress-label]').textContent();
@@ -89,7 +89,7 @@ test.describe('form_v2: reload, offline and Previous agree on the page', () => {
         await saved;
         expect(stored().answer, 'withdrawn from the display table').toBeNull();
         expect(stored().saved).toBeNull();
-        const st = db.dbQuery(`SELECT results_table FROM survey_studies WHERE name = '${STUDY}'`)[0];
+        const st = db.dbQuery(`SELECT results_table FROM survey_studies WHERE user_id = ${db.adminUserId()} AND name = '${STUDY}'`)[0];
         expect(db.dbResultsRow(st.results_table, sid).cp_a, 'and from the results table').toBeNull();
 
         await reload(page);
@@ -251,7 +251,7 @@ test.describe('form_v2: the queue keeps pages in order', () => {
         // The final page's redirect takes the participant past the form.
         await expect.poll(() => page.locator('form.fmr-form-v2').count().catch(() => 1), { timeout: 20000 }).toBe(0);
 
-        const st = db.dbQuery(`SELECT results_table FROM survey_studies WHERE name = '${STUDY}'`)[0];
+        const st = db.dbQuery(`SELECT results_table FROM survey_studies WHERE user_id = ${db.adminUserId()} AND name = '${STUDY}'`)[0];
         const row = db.dbResultsRow(st.results_table, sid);
         expect(row.cp_a, 'page 1 landed').toBe('1');
         expect(row.cp_b, 'page 2 landed').toBe('2');

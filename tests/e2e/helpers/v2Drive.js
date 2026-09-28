@@ -8,10 +8,11 @@ const v2c = require('./v2Complete');
 async function fillScope(page, scopeSelector) {
     // Swallow "execution context destroyed" — a submit can navigate to the next
     // unit mid-fill; the caller's formGone() check handles completion.
-    try {
-        await v2c.solveBotCheckIfPresent(page, scopeSelector);
-        await v2c.fillAll(page, scopeSelector);
-    } catch (e) { /* navigation mid-fill */ }
+    // Separate tries: a bot_check that fails to verify throws, and that must
+    // not skip filling the rest of the scope (the stuck submit is reported by
+    // the driver).
+    try { await v2c.solveBotCheckIfPresent(page, scopeSelector); } catch (e) { /* unverified / navigation */ }
+    try { await v2c.fillAll(page, scopeSelector); } catch (e) { /* navigation mid-fill */ }
 }
 
 async function formGone(page) {
@@ -26,9 +27,13 @@ async function formGone(page) {
 }
 
 // ---- non-solo driver: paged, many items per page ----
+// `pages` is the number of page submits made — counted, not inferred from
+// the loop index, which read one lower when the redirect was seen right after
+// the final submit than when it was seen on the next pass.
 async function driveDefault(page) {
+    let submits = 0;
     for (let p = 0; p < 12; p++) {
-        if (await formGone(page)) return { completed: true, pages: p };
+        if (await formGone(page)) return { completed: true, pages: submits };
         const scope = 'form.fmr-form-v2 section.fmr-page:not([hidden])';
         const before = await v2.visiblePageNum(page).catch(() => null);
         // Two passes: the first answers what's visible; picking a choice can REVEAL
@@ -39,6 +44,7 @@ async function driveDefault(page) {
         await page.waitForTimeout(350);
         await fillScope(page, scope);
         const res = await v2.submitV2(page, { timeout: RUNNING_ON_BS ? 60000 : 12000 });
+        submits++;
         // Detect advancement by the visible page CHANGING (or navigating away), NOT
         // by submitV2's blockedByClient flag: under the BS service worker the
         // form-page-submit POST is intercepted, so waitForResponse never fires and
@@ -46,14 +52,14 @@ async function driveDefault(page) {
         // the next page is already showing. (Solo never hit this — it detects
         // advancement by the step changing.)
         await page.waitForTimeout(RUNNING_ON_BS ? 2500 : 1200);
-        if (await formGone(page)) return { completed: true, pages: p }; // last page redirected to the next unit
+        if (await formGone(page)) return { completed: true, pages: submits }; // last page redirected to the next unit
         const after = await v2.visiblePageNum(page).catch(() => null);
         if (after !== before) continue; // advanced to the next page
 
         // Looks unchanged — but a final-page redirect can still be navigating.
         // Give it one more beat and re-check before declaring a real failure.
         await page.waitForTimeout(RUNNING_ON_BS ? 2000 : 1000);
-        if (await formGone(page)) return { completed: true, pages: p };
+        if (await formGone(page)) return { completed: true, pages: submits };
 
         // Genuinely stuck → a server-validation error or a real client gate.
         const serverErrors = (res.body && res.body.status === 'errors') ? res.body.errors : null;
@@ -74,7 +80,7 @@ async function driveDefault(page) {
             });
             return { sections: sections, alpine: alp ? 'yes' : 'no', unanswered: unanswered };
         }).catch(function (e) { return { error: String(e && e.message || e) }; });
-        return { completed: false, pages: p, serverErrors, errors: await v2.errorMessages(page), diag };
+        return { completed: false, pages: submits, serverErrors, errors: await v2.errorMessages(page), diag };
     }
     return { completed: await formGone(page), pages: 12 };
 }

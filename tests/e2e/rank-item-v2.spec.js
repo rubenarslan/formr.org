@@ -36,9 +36,11 @@ const TOUCH = 'rank_touch';
 const PLAIN_LABELS = ['Apple', 'Banana', 'Cherry', 'Date', 'Elderberry'];
 
 function resultsTable() {
-    const rows = db.dbQuery(`SELECT id FROM survey_studies WHERE name = '${STUDY}' ORDER BY id DESC LIMIT 1`);
-    if (!rows[0]) throw new Error(`study ${STUDY} not found — run the runbook to provision e2e-rank-v2`);
-    return `s${rows[0].id}_${STUDY}`;
+    // survey_studies.results_table, not s<id>_<name>: a renamed study keeps
+    // the table it was created with.
+    const study = db.studyByName(STUDY);
+    if (!study) throw new Error(`study ${STUDY} not found — run the runbook to provision e2e-rank-v2`);
+    return study.results_table;
 }
 
 // The form carries its unit-session id in a hidden input; the results table

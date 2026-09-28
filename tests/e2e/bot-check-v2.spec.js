@@ -31,9 +31,11 @@ const WIDGET = 'altcha-widget';
 const BOX = 'altcha-widget .altcha-checkbox';
 
 function resultsTable() {
-    const rows = db.dbQuery(`SELECT id FROM survey_studies WHERE name = '${STUDY}' ORDER BY id DESC LIMIT 1`);
-    if (!rows[0]) throw new Error(`study ${STUDY} not found — run the runbook to provision e2e-botcheck-v2`);
-    return `s${rows[0].id}_${STUDY}`;
+    // survey_studies.results_table, not s<id>_<name>: a renamed study keeps
+    // the table it was created with.
+    const study = db.studyByName(STUDY);
+    if (!study) throw new Error(`study ${STUDY} not found — run the runbook to provision e2e-botcheck-v2`);
+    return study.results_table;
 }
 
 // Wait for the injected standalone altcha script to define the widget, then a

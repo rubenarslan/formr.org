@@ -26,7 +26,7 @@ function xlsx(name, sheets) {
     return out;
 }
 function study(name) {
-    return db.dbQuery(`SELECT id, rendering_mode FROM survey_studies WHERE name = '${name}'`)[0] || null;
+    return db.dbQuery(`SELECT id, rendering_mode FROM survey_studies WHERE user_id = ${db.adminUserId()} AND name = '${name}'`)[0] || null;
 }
 function deleteStudy(name) {
     const row = study(name);

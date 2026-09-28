@@ -57,7 +57,9 @@ for (const [pathname, u] of union) {
         while (i < end && /\s/.test(code[i])) i++;
         return i < end ? i : -1;
     };
-    const consumer = new SourceMapConsumer(JSON.parse(fs.readFileSync(local + '.map', 'utf8')));
+    // source-map 0.6 constructs synchronously, 0.7+ returns a Promise (and
+    // wants destroy()); awaiting works for both.
+    const consumer = await new SourceMapConsumer(JSON.parse(fs.readFileSync(local + '.map', 'utf8')));
     consumer.eachMapping((m) => {
         if (!m.source || m.originalLine == null) return;
         const src = normalise(m.source);
@@ -75,6 +77,7 @@ for (const [pathname, u] of union) {
         if (!pos.source || !OURS.test(normalise(pos.source))) continue;
         fileFor(normalise(pos.source)).fns.push({ line: pos.line, name: name || '(anonymous)', covered: u.ran[off] === 1 });
     }
+    if (typeof consumer.destroy === 'function') consumer.destroy();
 }
 
 const summary = [];

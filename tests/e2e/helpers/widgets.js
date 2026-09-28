@@ -1,526 +1,274 @@
-// Widget strategies for the all_widgets fixture.
+// The one item filler for e2e specs: answers every item type on a page (v1 or
+// v2) with a known-valid value, in ONE in-page evaluate.
 //
-// Each entry tells the spec how to find an item type's container, fill it
-// with a known-valid value, and (optionally) fill it with a known-invalid
-// value to trigger a server validation error. Specs iterate this table and
-// apply matching strategies to whatever items are present on the visible
-// page; unknown item types are reported as skipped, never failed.
+// Every caller goes through here — fillAllVisible (all-widgets-*, v2-polish,
+// v2-queue-drain, pwa-low-v2, required-gating-e2e) and v2Complete.fillAll
+// (v2-finish / v2-preview drivers). There is deliberately no second, node-side
+// (locator-per-item) strategy table: that copy drifted (it called CSS.escape,
+// which doesn't exist in Node, so its select fillers threw and nobody noticed),
+// and a per-item CDP walk is slow locally and unworkable on BrowserStack iOS.
 //
-// Container selector convention (Item.php:207): every item wraps in
-// `<div class="form-group ... item-<type> ...">`. So `.item-mc_button`
-// reliably targets a McButton item's wrapper, regardless of v1 or v2 page
-// chrome.
+// Container convention (Item.php): every item wraps in
+// `<div class="form-group ... item-<type> ...">`, so `.item-<type>` targets
+// an item's wrapper in both v1 and v2 chrome.
 //
-// Two cross-cutting gotchas baked in here so per-spec code doesn't have
-// to remember them (both documented in formr_source/CLAUDE.md):
-//   - Programmatic `.checked = true` on a radio does NOT auto-uncheck
-//     siblings; clear them first.
-//   - tom-select doesn't react to `.value = …` mutation; use
-//     `select.tomselect?.setValue(...)` and dispatch input/change.
+// Gotchas baked in (formr_source/CLAUDE.md):
+//   - Programmatic `radio.checked = true` doesn't uncheck same-name siblings;
+//     clear them first.
+//   - tom-select doesn't react to `select.value = …`; go through
+//     `select.tomselect` (addItem / createItem) instead.
+//   - Button groups (mc_button, check_button, …) are driven by clicking the
+//     visible `.btn[data-for]`, which does the sibling-clear + btn-checked
+//     toggle. A checkbox group toggles, so an already-answered item is left
+//     alone — the filler is idempotent (v2Drive runs it twice per page).
 
-const NAME_ATTR = 'data-fmr-item-name';
+const { bsSafeEvaluate } = require('./test');
 
-const { bsSafeEvaluate, RUNNING_ON_BS } = require('./test');
+// v2's visible page section — the scope most callers want.
+const V2_PAGE = 'form.fmr-form-v2 section.fmr-page:not([hidden])';
 
-// Set a same-name radio group to a specific value, clearing siblings first.
-async function setRadioGroup(page, name, value) {
-    await bsSafeEvaluate(page, ({ name, value }) => {
-        const inputs = document.querySelectorAll(`input[type=radio][name="${CSS.escape(name)}"]`);
-        inputs.forEach((r) => { r.checked = false; });
-        const target = document.querySelector(`input[type=radio][name="${CSS.escape(name)}"][value="${CSS.escape(value)}"]`);
-        if (target) {
-            target.checked = true;
-            target.dispatchEvent(new Event('input', { bubbles: true }));
-            target.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-    }, { name, value });
-}
+// Name -> value overrides applied after the per-type fill. The two "spend"
+// numbers must sum to exactly 100 or the no_less_than_100 / no_more_than_100
+// block guards bar the final submit. Names absent from the page are ignored.
+const VALUE_OVERRIDES = {
+    the_needy: '40',
+    suffering_animals: '60',
+    teeth: '20',                       // number 0..32
+    creditcard: '4242424242424242',    // valid Luhn (Visa test)
+    // all_widgets_v2 showcase
+    t_pattern: '12345',                // pattern [0-9]{5}
+    t_cc: '4242424242424242',
+    n_teeth: '20',
+    r_needy: '40',
+    r_animals: '60',
+};
 
-async function setCheckbox(page, name, checked) {
-    await bsSafeEvaluate(page, ({ name, checked }) => {
-        // For check items the form has both a hidden 0 and a visible checkbox sharing name.
-        const visible = Array.from(document.querySelectorAll(`input[type=checkbox][name="${CSS.escape(name)}"]`)).pop();
-        if (!visible) return;
-        visible.checked = !!checked;
-        visible.dispatchEvent(new Event('input', { bubbles: true }));
-        visible.dispatchEvent(new Event('change', { bubbles: true }));
-    }, { name, checked });
-}
+// In-page filler. Self-contained (no closure over module scope): it is
+// serialised by page.evaluate / bsSafeEvaluate / locator.evaluate.
+//   fillInPage({ scopeSelector, overrides })   — page.evaluate form
+//   fillInPage(element, { overrides })          — locator.evaluate form
+//   fillInPage({ listTypes: true })             — node-side: the handled types
+// The scope element itself counts as an item when it carries an item-* class
+// (solo layout: `.fmr-solo-current` IS the item).
+// Returns [{ type, name, ok, skipped?, error? }] per item it had a strategy for;
+// ok=false means the strategy found nothing it could set (e.g. no options).
+function fillInPage(a, b) {
+    const isEl = !!(a && typeof a === 'object' && a.nodeType === 1);
+    const opts = (isEl ? b : a) || {};
+    const fire = (el, t) => el.dispatchEvent(new Event(t, { bubbles: true }));
+    const settable = (el) => !!el && !el.disabled;
+    const empty = (el) => String(el.value == null ? '' : el.value).trim() === '';
+    const notViews = (el) => !(el.name || '').startsWith('_item_views');
 
-// Click a button-group entry by its data-for target id (preferred path —
-// avoids the "programmatic .checked doesn't sync siblings" trap).
-async function clickButtonByDataFor(container, inputId) {
-    await container.locator(`[data-for="${inputId}"]`).first().click();
-}
-
-// Pick the first interactive choice in a button-group and click it via the
-// visible button. Works for mc_button / rating_button / check_button.
-async function selectFirstButton(page, container) {
-    const firstInputId = await container.locator('input[type=radio], input[type=checkbox]').first().getAttribute('id');
-    if (firstInputId) {
-        await clickButtonByDataFor(container, firstInputId);
-        return;
+    // Set a text-like field if it is empty and editable.
+    function setText(c, sel, v) {
+        const el = c.querySelector(sel);
+        if (!settable(el) || el.readOnly) return false;
+        if (empty(el)) { el.value = v; fire(el, 'input'); fire(el, 'change'); }
+        return true;
     }
-    // Fallback: just click any visible .btn[data-for]
-    await container.locator('[data-for]').first().click();
-}
-
-async function setTomSelect(page, selector, value) {
-    return bsSafeEvaluate(page, ({ selector, value }) => {
-        const el = document.querySelector(selector);
-        if (!el) return false;
-        if (el.tomselect && typeof el.tomselect.setValue === 'function') {
-            el.tomselect.setValue(value, false);
+    // As setText, but clamp the default into any min/max (the "time <= 12:00"
+    // item, a number range, a "past date") so it can't trip native validation.
+    function setBounded(c, sel, def) {
+        const el = c.querySelector(sel);
+        if (!settable(el) || el.readOnly) return false;
+        if (!empty(el)) return true;
+        let v = def;
+        const min = el.min || el.getAttribute('min');   // attr fallback: year is a text input
+        const max = el.max || el.getAttribute('max');
+        const lt = (x, y) => (el.type === 'number' ? Number(x) < Number(y) : String(x) < String(y));
+        if (min && lt(v, min)) v = min;
+        if (max && lt(max, v)) v = max;
+        el.value = String(v); fire(el, 'input'); fire(el, 'change');
+        return true;
+    }
+    // Ranges always carry a value; set the midpoint and fire input so a VAS
+    // mirrors it into its hidden carrier (what a real slider move does).
+    function setRange(c, sel) {
+        const el = c.querySelector(sel || 'input[type=range]');
+        if (!settable(el)) return false;
+        el.value = String((Number(el.min || 0) + Number(el.max || 100)) / 2);
+        fire(el, 'input'); fire(el, 'change');
+        return true;
+    }
+    function setRadio(c) {
+        const rs = [...c.querySelectorAll('input[type=radio]')];
+        if (rs.some((r) => r.checked)) return true;
+        const t = rs.find((r) => r.value !== '' && !r.disabled);
+        if (!t) return false;
+        rs.forEach((r) => { r.checked = false; });
+        t.checked = true; fire(t, 'input'); fire(t, 'change');
+        return true;
+    }
+    // A check item is a hidden "0" + the visible checkbox sharing its name.
+    function setLastCheckbox(c) {
+        const bs = c.querySelectorAll('input[type=checkbox]');
+        const el = bs[bs.length - 1];
+        if (!settable(el)) return false;
+        if (!el.checked) { el.checked = true; fire(el, 'input'); fire(el, 'change'); }
+        return true;
+    }
+    function setFirstCheckbox(c) {
+        const bs = [...c.querySelectorAll('input[type=checkbox]')];
+        if (bs.some((x) => x.checked)) return true;
+        const t = bs.find((x) => x.value && x.value !== '0' && !x.disabled);
+        if (!t) return false;
+        t.checked = true; fire(t, 'input'); fire(t, 'change');
+        return true;
+    }
+    // Button groups: click the visible .btn[data-for] of the first choice.
+    function clickBtn(c) {
+        const inputs = [...c.querySelectorAll('input[type=radio],input[type=checkbox]')];
+        if (inputs.some((i) => i.checked)) return true;
+        const inp = inputs.find((i) => !i.disabled);
+        if (!inp) return false;
+        const btn = inp.id ? c.querySelector(`[data-for="${inp.id}"]`) : null;
+        if (btn) { btn.click(); return true; }
+        if (inp.type === 'radio') inputs.forEach((r) => { r.checked = false; });
+        inp.checked = true; fire(inp, 'input'); fire(inp, 'change');
+        return true;
+    }
+    // tom-select: an existing option if there is one, else create one
+    // (create-enabled select_or_add). settings.valueField keeps addOption right.
+    function tsPick(ts) {
+        if ((ts.items || []).some((v) => v !== '')) return true;
+        const existing = Object.keys(ts.options || {}).filter((v) => v !== '');
+        if (existing.length) ts.addItem(existing[0], false);
+        else if (ts.settings && ts.settings.create) ts.createItem('Option A', false);
+        else {
+            const d = {};
+            d[ts.settings.valueField] = 'Option A';
+            d[ts.settings.labelField] = 'Option A';
+            ts.addOption(d); ts.addItem('Option A', false);
+        }
+        return true;
+    }
+    function setSelect(c) {
+        const sel = c.querySelector('select');
+        if (sel && sel.disabled) return false;
+        if (sel && sel.tomselect) { tsPick(sel.tomselect); fire(sel, 'input'); fire(sel, 'change'); return true; }
+        if (sel) {
+            if ([...sel.selectedOptions].some((o) => o.value !== '')) return true;
+            const real = [...sel.options].map((o) => o.value).filter((v) => v !== '');
+            if (!real.length) return false;
+            [...sel.options].forEach((o) => { o.selected = o.value === real[0]; });
+            fire(sel, 'input'); fire(sel, 'change');
             return true;
         }
-        // Fall back to native select
-        if (el.tagName === 'SELECT') {
-            const v = Array.isArray(value) ? value : [value];
-            Array.from(el.options).forEach((opt) => { opt.selected = v.includes(opt.value); });
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-            return true;
+        // select_or_add rendered as a text input (tom-select'd or plain)
+        // Named inputs only: v1's select2 inserts its own unnamed search box
+        // before the original, and an input event there opens the dropdown
+        // (its drop-mask then swallows the submit click).
+        const txt = c.querySelector('input.select2add[name]')
+            || [...c.querySelectorAll('input[type=text][name]')].find(notViews);
+        if (!settable(txt)) return false;
+        if (txt.tomselect) return tsPick(txt.tomselect);
+        if (empty(txt)) { txt.value = 'Option A'; fire(txt, 'input'); fire(txt, 'change'); }
+        return true;
+    }
+    // Geopoint: readonly visible field + a hidden value carrier (the one
+    // hidden input that is neither _item_views bookkeeping nor name[]).
+    // Fill both, as a manual entry after a geolocate click would.
+    function setGeo(c) {
+        const vis = c.querySelector('input[type=text]');
+        const carrier = [...c.querySelectorAll('input[type=hidden]')]
+            .find((h) => h.name && notViews(h) && !h.name.endsWith('[]'));
+        if (!vis && !carrier) return false;
+        if (vis && !vis.disabled && empty(vis)) {
+            vis.removeAttribute('readonly');
+            vis.value = 'lat:52.52/long:13.405'; fire(vis, 'input'); fire(vis, 'change');
         }
-        return false;
-    }, { selector, value });
-}
-
-// First non-NA option's value attribute on a multi-choice item. Skips empty
-// strings (used by the placeholder "—" option in select items).
-async function firstChoiceValue(container, kind = 'radio') {
-    const inputs = container.locator(`input[type=${kind}]`);
-    const n = await inputs.count();
-    for (let i = 0; i < n; i++) {
-        const v = await inputs.nth(i).getAttribute('value');
-        if (v != null && v !== '') return v;
+        if (carrier && empty(carrier)) {
+            carrier.value = JSON.stringify({ coords: { latitude: 52.52, longitude: 13.405 } });
+            fire(carrier, 'input'); fire(carrier, 'change');
+        }
+        return true;
     }
-    return null;
-}
 
-// Strategy table. Each entry:
-//   type             — item type from spreadsheet (matches `.item-<type>`)
-//   fillValid(page, c)
-//   fillInvalid(page, c) — optional; omit when the type has no straightforward invalid case
-//                          (Note, Submit, computed, etc.) or when "required + blank" is the only failure
-const WIDGETS = [
-    {
-        type: 'text',
-        async fillValid(page, c) { await c.locator('input[type=text]').first().fill('hello'); },
-        async fillInvalid() { /* leave blank: required-text is the natural invalid case */ },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'textarea',
-        async fillValid(page, c) { await c.locator('textarea').first().fill('multi\nline'); },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'number',
-        async fillValid(page, c) { await c.locator('input[type=number]').first().fill('42'); },
-        async fillInvalid(page, c) {
-            // Force the browser to accept a non-numeric string by switching the
-            // input to text; on submit, the server-side numeric validation rejects.
-            const input = c.locator('input[type=number]').first();
-            await input.evaluate((el) => { el.type = 'text'; });
-            await input.fill('not-a-number');
-        },
-    },
-    {
-        type: 'email',
-        async fillValid(page, c) { await c.locator('input[type=email]').first().fill('test@example.com'); },
-        async fillInvalid(page, c) {
-            const i = c.locator('input[type=email]').first();
-            await i.evaluate((el) => { el.type = 'text'; });
-            await i.fill('not-an-email');
-        },
-    },
-    {
-        type: 'url',
-        async fillValid(page, c) { await c.locator('input[type=url]').first().fill('https://example.com'); },
-        async fillInvalid(page, c) {
-            const i = c.locator('input[type=url]').first();
-            await i.evaluate((el) => { el.type = 'text'; });
-            await i.fill('not a url');
-        },
-    },
-    {
-        type: 'tel',
-        async fillValid(page, c) { await c.locator('input[type=tel]').first().fill('+15551234567'); },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'date',
-        async fillValid(page, c) { await c.locator('input[type=date]').first().fill('2024-06-15'); },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'datetime',
-        async fillValid(page, c) { await c.locator('input[type="datetime-local"], input[type=text]').first().fill('2024-06-15T10:30'); },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'time',
-        async fillValid(page, c) { await c.locator('input[type=time]').first().fill('14:30'); },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'range',
-        async fillValid(page, c) {
-            const input = c.locator('input[type=range]').first();
-            await input.evaluate((el) => {
-                const target = (Number(el.min || 0) + Number(el.max || 100)) / 2;
-                el.value = String(target);
-                el.dispatchEvent(new Event('input', { bubbles: true }));
-                el.dispatchEvent(new Event('change', { bubbles: true }));
-            });
-        },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'visual_analog_scale',
-        // The visible range has no `name`; the inline touch listener
-        // mirrors its value into the sibling hidden input on
-        // `input`/`change`. Setting el.value + dispatching input is
-        // what real participant interaction looks like.
-        async fillValid(page, c) {
-            const input = c.locator('.vas-controls input[type=range].vas-display').first();
-            await input.evaluate((el) => {
-                const target = (Number(el.min || 0) + Number(el.max || 100)) / 2;
-                el.value = String(target);
-                el.dispatchEvent(new Event('input', { bubbles: true }));
-                el.dispatchEvent(new Event('change', { bubbles: true }));
-            });
-        },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'mc',
-        async fillValid(page, c) {
-            const name = await c.locator('input[type=radio]').first().getAttribute('name');
-            const v = await firstChoiceValue(c, 'radio');
-            if (name && v) await setRadioGroup(page, name, v);
-        },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'mc_button',
-        async fillValid(page, c) { await selectFirstButton(page, c); },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'check',
-        async fillValid(page, c) {
-            const name = await c.locator('input[type=checkbox]').first().getAttribute('name');
-            if (name) await setCheckbox(page, name, true);
-        },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'check_button',
-        async fillValid(page, c) { await selectFirstButton(page, c); },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'mc_multiple',
-        async fillValid(page, c) {
-            const boxes = c.locator('input[type=checkbox]');
-            const n = await boxes.count();
-            // Tick the first checkbox (skip a hidden 0 if present)
-            for (let i = 0; i < n; i++) {
-                const v = await boxes.nth(i).getAttribute('value');
-                if (v && v !== '0') {
-                    const name = await boxes.nth(i).getAttribute('name');
-                    await bsSafeEvaluate(page, ({ name, value }) => {
-                        const target = document.querySelector(`input[type=checkbox][name="${CSS.escape(name)}"][value="${CSS.escape(value)}"]`);
-                        if (target) {
-                            target.checked = true;
-                            target.dispatchEvent(new Event('change', { bubbles: true }));
-                        }
-                    }, { name, value: v });
-                    break;
-                }
-            }
-        },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'mc_multiple_button',
-        async fillValid(page, c) { await selectFirstButton(page, c); },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'rating_button',
-        async fillValid(page, c) { await selectFirstButton(page, c); },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'select_one',
-        async fillValid(page, c) {
-            const sel = c.locator('select').first();
-            const id = await sel.getAttribute('id');
-            const selector = id ? `#${CSS.escape(id)}` : 'select';
-            const opts = await sel.locator('option').all();
-            for (const o of opts) {
-                const v = await o.getAttribute('value');
-                if (v) { await setTomSelect(page, selector, v); return; }
-            }
-        },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'select_multiple',
-        async fillValid(page, c) {
-            const sel = c.locator('select').first();
-            const id = await sel.getAttribute('id');
-            const selector = id ? `#${CSS.escape(id)}` : 'select';
-            const opts = await sel.locator('option').all();
-            for (const o of opts) {
-                const v = await o.getAttribute('value');
-                if (v) { await setTomSelect(page, selector, [v]); return; }
-            }
-        },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'sex',
-        async fillValid(page, c) {
-            const name = await c.locator('input[type=radio]').first().getAttribute('name');
-            const v = await firstChoiceValue(c, 'radio');
-            if (name && v) await setRadioGroup(page, name, v);
-        },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'color',
-        async fillValid(page, c) { await c.locator('input[type=color]').first().fill('#336699'); },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'year',
-        async fillValid(page, c) { await c.locator('input[type=number]').first().fill('1990'); },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'month',
-        async fillValid(page, c) { await c.locator('input[type=month], input[type=text]').first().fill('2024-06'); },
-        invalidIsBlank: true,
-    },
-    {
-        type: 'week',
-        async fillValid(page, c) { await c.locator('input[type=week], input[type=text]').first().fill('2024-W24'); },
-        invalidIsBlank: true,
-    },
-];
+    const STRAT = {
+        text: (c) => setText(c, 'input[type=text]', 'hello'),
+        letters: (c) => setText(c, 'input[type=text]', 'hello'),
+        textarea: (c) => setText(c, 'textarea', 'multi\nline'),
+        number: (c) => setBounded(c, 'input[type=number]', 5),
+        email: (c) => setText(c, 'input[type=email]', 'test@example.com'),
+        url: (c) => setText(c, 'input[type=url]', 'https://example.com'),
+        tel: (c) => setText(c, 'input[type=tel]', '+15551234567'),
+        cc: (c) => setText(c, 'input[type=cc],input[type=text]', '4242424242424242'),
+        date: (c) => setBounded(c, 'input[type=date]', '2020-06-15'),
+        datetime: (c) => setBounded(c, 'input[type="datetime-local"],input[type=text]', '2020-06-15T10:30'),
+        time: (c) => setBounded(c, 'input[type=time]', '09:00'),
+        year: (c) => setBounded(c, 'input[type=number],input[type=year],input[type=text]', '1990'),
+        month: (c) => setText(c, 'input[type=month],input[type=text]', '2024-06'),
+        yearmonth: (c) => setText(c, 'input[type=yearmonth],input[type=month],input[type=text]', '2024-06'),
+        week: (c) => setText(c, 'input[type=week],input[type=text]', '2024-W24'),
+        color: (c) => { const el = c.querySelector('input[type=color]'); if (!settable(el)) return false; el.value = '#336699'; fire(el, 'input'); fire(el, 'change'); return true; },
+        range: (c) => setRange(c),
+        range_ticks: (c) => setRange(c),
+        visual_analog_scale: (c) => setRange(c, '.vas-controls input[type=range].vas-display'),
+        mc: setRadio,
+        sex: setRadio,
+        mc_button: clickBtn,
+        check_button: clickBtn,
+        mc_multiple_button: clickBtn,
+        rating_button: clickBtn,
+        check: setLastCheckbox,
+        mc_multiple: setFirstCheckbox,
+        select_one: setSelect,
+        select_multiple: setSelect,
+        select_or_add_one: setSelect,
+        select_or_add_multiple: setSelect,
+        geopoint: setGeo,
+    };
+    if (opts.listTypes) return Object.keys(STRAT);
 
-// Items we deliberately don't try to fill (display-only, ambient, computed,
-// or interactively requiring browser permissions a CI can't grant). The
-// fillAll helper passes over these.
-const NON_INPUT_TYPES = new Set([
-    'note', 'block', 'mc_heading', 'submit', 'cc', 'browser', 'ip',
-    'referrer', 'server', 'get', 'random', 'calculate', 'hidden',
-    'image', 'audio', 'video', 'note_iframe', 'add_to_home_screen',
-    'push_notification', 'request_cookie', 'request_phone', 'timezone',
-    'geopoint',  // requires navigator.geolocation; off the happy path here
-    'file',      // multipart-only; covered by a dedicated upload spec slice
-]);
+    const scope = isEl ? a : (opts.scopeSelector ? document.querySelector(opts.scopeSelector) : document.body);
+    if (!scope) return [{ type: null, ok: false, error: `scope not found: ${opts.scopeSelector}` }];
 
-// Walk the page for every visible `.item-*` wrapper, dispatch to the
-// matching widget filler. Inverted from the original "for each widget
-// type, find containers" because the latter does WIDGETS × items round-
-// trips through CDP and is glacial on a 30-item page (CDP latency × N²).
-//
-// We resolve which items are present in a single page.evaluate, then iterate
-// only the matched ones in node-land. This collapses ~1000 round-trips into
-// ~30. Per-item fillers can still be slow (tom-select, etc.) but those are
-// real work, not framework overhead.
-//
-// Scope can be a Locator (e.g. v2's visible page section) or omitted (whole
-// page). The selector is rooted at scope.
-//
-// On BrowserStack iOS Safari this CDP-per-locator path is unworkable —
-// `locator.fill` and `locator.getAttribute` pipeline several internal
-// calls each, and the BS-Selenium bridge intermittently returns frames
-// Playwright can't parse ("Serialized error must have either an error
-// or a value"). The orphans land on the next CDP boundary (typically
-// the form submit click). `fillAllVisibleInPage` does the entire walk
-// in one bsSafeEvaluate call — DOM mutations only, no CDP round-trips
-// per item — so the bridge sees a single evaluate and one return.
-async function fillAllVisible(page, scope) {
-    if (RUNNING_ON_BS) {
-        const scopeSel = scope && typeof scope.evaluate === 'function'
-            // Locator → use its evaluation context. On BS we can't pass a
-            // Locator handle through bsSafeEvaluate, so resolve the scope
-            // to a CSS selector. v2 is the only caller that passes a
-            // scope; it always uses `form.fmr-form-v2 section.fmr-page:not([hidden])`.
-            ? 'form.fmr-form-v2 section.fmr-page:not([hidden])'
-            : null;
-        return fillAllVisibleInPage(page, scopeSel);
-    }
-    return fillAllVisibleViaLocators(page, scope);
-}
+    const set = new Set();
+    if (/\bitem-[a-z_]+\b/.test(scope.className || '')) set.add(scope);
+    scope.querySelectorAll('[class*="item-"]').forEach((n) => set.add(n));
 
-// Single-evaluate filler used on BrowserStack iOS Safari. All DOM
-// mutations happen in the page; no per-input CDP round-trips. Mirrors
-// the WIDGETS table strategies; if you add a new widget type to the
-// table, also add the same strategy here.
-async function fillAllVisibleInPage(page, scopeSelector) {
-    return bsSafeEvaluate(page, ({ scopeSelector }) => {
-        const root = scopeSelector ? document.querySelector(scopeSelector) : document;
-        if (!root) return [];
-
-        const filled = [];
-        const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
-
-        // The strategies below are ports of the WIDGETS table fillValid
-        // entries to "container element"-form. Keep in sync with the
-        // node-side WIDGETS array above.
-        const STRATEGIES = {
-            text: (c) => { const el = c.querySelector('input[type=text]'); if (el) { el.value = 'hello'; fire(el, 'input'); fire(el, 'change'); } },
-            textarea: (c) => { const el = c.querySelector('textarea'); if (el) { el.value = 'multi\nline'; fire(el, 'input'); fire(el, 'change'); } },
-            number: (c) => { const el = c.querySelector('input[type=number]'); if (el) { el.value = '42'; fire(el, 'input'); fire(el, 'change'); } },
-            email: (c) => { const el = c.querySelector('input[type=email]'); if (el) { el.value = 'test@example.com'; fire(el, 'input'); fire(el, 'change'); } },
-            url: (c) => { const el = c.querySelector('input[type=url]'); if (el) { el.value = 'https://example.com'; fire(el, 'input'); fire(el, 'change'); } },
-            tel: (c) => { const el = c.querySelector('input[type=tel]'); if (el) { el.value = '+15551234567'; fire(el, 'input'); fire(el, 'change'); } },
-            date: (c) => { const el = c.querySelector('input[type=date]'); if (el) { el.value = '2024-06-15'; fire(el, 'input'); fire(el, 'change'); } },
-            datetime: (c) => { const el = c.querySelector('input[type="datetime-local"], input[type=text]'); if (el) { el.value = '2024-06-15T10:30'; fire(el, 'input'); fire(el, 'change'); } },
-            time: (c) => { const el = c.querySelector('input[type=time]'); if (el) { el.value = '14:30'; fire(el, 'input'); fire(el, 'change'); } },
-            color: (c) => { const el = c.querySelector('input[type=color]'); if (el) { el.value = '#336699'; fire(el, 'input'); fire(el, 'change'); } },
-            year: (c) => { const el = c.querySelector('input[type=number]'); if (el) { el.value = '1990'; fire(el, 'input'); fire(el, 'change'); } },
-            month: (c) => { const el = c.querySelector('input[type=month], input[type=text]'); if (el) { el.value = '2024-06'; fire(el, 'input'); fire(el, 'change'); } },
-            week: (c) => { const el = c.querySelector('input[type=week], input[type=text]'); if (el) { el.value = '2024-W24'; fire(el, 'input'); fire(el, 'change'); } },
-            range: (c) => {
-                const el = c.querySelector('input[type=range]');
-                if (!el) return;
-                el.value = String((Number(el.min || 0) + Number(el.max || 100)) / 2);
-                fire(el, 'input'); fire(el, 'change');
-            },
-            visual_analog_scale: (c) => {
-                // Visible range has no `name`; the inline touch listener
-                // mirrors the value into the sibling hidden input on
-                // input/change. Same flow as a participant moving the slider.
-                const el = c.querySelector('.vas-controls input[type=range].vas-display');
-                if (!el) return;
-                el.value = String((Number(el.min || 0) + Number(el.max || 100)) / 2);
-                fire(el, 'input'); fire(el, 'change');
-            },
-            mc: (c) => {
-                const radios = c.querySelectorAll('input[type=radio]');
-                if (!radios.length) return;
-                radios.forEach((r) => { r.checked = false; });
-                const target = Array.from(radios).find((r) => r.value && r.value !== '');
-                if (target) { target.checked = true; fire(target, 'input'); fire(target, 'change'); }
-            },
-            sex: (c) => STRATEGIES.mc(c),
-            mc_button: (c) => {
-                const inp = c.querySelector('input[type=radio], input[type=checkbox]');
-                if (!inp) return;
-                const btn = c.querySelector(`[data-for="${inp.id}"]`);
-                if (btn) btn.click();
-            },
-            check: (c) => {
-                const boxes = c.querySelectorAll('input[type=checkbox]');
-                const visible = boxes[boxes.length - 1];
-                if (!visible) return;
-                visible.checked = true; fire(visible, 'input'); fire(visible, 'change');
-            },
-            check_button: (c) => STRATEGIES.mc_button(c),
-            mc_multiple: (c) => {
-                const boxes = c.querySelectorAll('input[type=checkbox]');
-                const target = Array.from(boxes).find((b) => b.value && b.value !== '0');
-                if (target) { target.checked = true; fire(target, 'change'); }
-            },
-            mc_multiple_button: (c) => STRATEGIES.mc_button(c),
-            rating_button: (c) => STRATEGIES.mc_button(c),
-            select_one: (c) => {
-                const sel = c.querySelector('select');
-                if (!sel) return;
-                const opt = Array.from(sel.options).find((o) => o.value);
-                if (!opt) return;
-                if (sel.tomselect && typeof sel.tomselect.setValue === 'function') {
-                    sel.tomselect.setValue(opt.value, false);
-                } else {
-                    Array.from(sel.options).forEach((o) => { o.selected = o.value === opt.value; });
-                    fire(sel, 'input'); fire(sel, 'change');
-                }
-            },
-            select_multiple: (c) => STRATEGIES.select_one(c),
-        };
-
-        const items = root.querySelectorAll('[class*="item-"]');
-        items.forEach((node) => {
-            const m = (node.className || '').match(/\bitem-([a-z_]+)\b/);
-            if (!m) return;
-            const type = m[1];
-            const fn = STRATEGIES[type];
-            if (!fn) return;
-            try {
-                fn(node);
-                filled.push({ type });
-            } catch (err) {
-                filled.push({ type, error: String(err && err.message || err) });
-            }
-        });
-        return filled;
-    }, { scopeSelector });
-}
-
-async function fillAllVisibleViaLocators(page, scope) {
     const filled = [];
-    const widgetByType = new Map(WIDGETS.map((w) => [w.type, w]));
-    const root = scope || page;
-    // Discover present item types and the count of each, in one round-trip.
-    // Use page.evaluate for the whole-page case (Locator.evaluate requires
-    // an element handle and we don't want to depend on `body` always being a
-    // single match).
-    const presence = scope
-        ? await scope.evaluate((el) => {
-              const items = el.querySelectorAll('[class*="item-"]');
-              const counts = {};
-              items.forEach((node) => {
-                  const m = (node.className || '').match(/\bitem-([a-z_]+)\b/);
-                  if (!m) return;
-                  counts[m[1]] = (counts[m[1]] || 0) + 1;
-              });
-              return counts;
-          })
-        : await page.evaluate(() => {
-              const items = document.querySelectorAll('[class*="item-"]');
-              const counts = {};
-              items.forEach((node) => {
-                  const m = (node.className || '').match(/\bitem-([a-z_]+)\b/);
-                  if (!m) return;
-                  counts[m[1]] = (counts[m[1]] || 0) + 1;
-              });
-              return counts;
-          });
-
-    for (const [type, count] of Object.entries(presence)) {
-        const w = widgetByType.get(type);
-        if (!w) continue;
-        const locators = root.locator(`.item-${type}`);
-        for (let i = 0; i < count; i++) {
-            const c = locators.nth(i);
-            try {
-                // 5s per filler — protects the suite from a hang on a single item.
-                await Promise.race([
-                    w.fillValid(page, c),
-                    new Promise((_, rej) => setTimeout(() => rej(new Error(`fill timeout for ${type}#${i}`)), 5000)),
-                ]);
-                filled.push({ type, index: i });
-            } catch (e) {
-                filled.push({ type, index: i, error: String(e && e.message || e) });
-            }
+    set.forEach((c) => {
+        const type = ((c.className || '').match(/\bitem-([a-z_]+)\b/) || [])[1];
+        const fn = type && STRAT[type];
+        if (!fn) return;
+        const named = c.querySelector('[name]:not([name^="_item_views"])');
+        const name = named ? named.name.replace(/\[\]$/, '') : null;
+        // A showif-hidden item has every answer input disabled (v2's showif
+        // directive) — nothing to answer, and a later pass fills it once a
+        // reveal re-enables it.
+        const answers = [...c.querySelectorAll('input[name],select[name],textarea[name]')].filter(notViews);
+        if (answers.length && answers.every((el) => el.disabled)) {
+            filled.push({ type, name, ok: true, skipped: 'disabled' });
+            return;
         }
-    }
+        try { filled.push({ type, name, ok: !!fn(c) }); }
+        catch (e) { filled.push({ type, name, ok: false, error: String((e && e.message) || e) }); }
+    });
+
+    // Name-based overrides last (the give-100 pair, pattern fields, …).
+    Object.entries(opts.overrides || {}).forEach(([name, value]) => {
+        const el = scope.querySelector(`input[name="${name}"]:not([type=hidden]),input[name="${name}[]"]:not([type=hidden])`);
+        if (!el || el.disabled) return;
+        el.removeAttribute('readonly');
+        el.value = value; fire(el, 'input'); fire(el, 'change');
+        filled.push({ type: 'override', name, ok: true });
+    });
     return filled;
 }
 
-module.exports = {
-    WIDGETS,
-    NON_INPUT_TYPES,
-    fillAllVisible,
-    setRadioGroup,
-    setCheckbox,
-    selectFirstButton,
-    setTomSelect,
-};
+// The item types the filler answers (for "which widgets are on this page?").
+const WIDGET_TYPES = fillInPage({ listTypes: true });
+
+// Fill every item in scope. scope: a CSS selector (default: the whole page),
+// or a Locator (evaluated on its element). One evaluate either way — BS-safe
+// for the selector form.
+async function fillAllVisible(page, scope, { overrides = VALUE_OVERRIDES } = {}) {
+    if (scope && typeof scope === 'object' && typeof scope.evaluate === 'function') {
+        return scope.evaluate(fillInPage, { overrides });
+    }
+    return bsSafeEvaluate(page, fillInPage, { scopeSelector: scope || null, overrides });
+}
+
+module.exports = { V2_PAGE, VALUE_OVERRIDES, WIDGET_TYPES, fillAllVisible };

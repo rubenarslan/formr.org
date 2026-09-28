@@ -54,7 +54,7 @@ test.describe('Test Survey previews the engine the study is on', () => {
         await page.locator('form.fmr-form-v2 section.fmr-page:not([hidden]) [data-fmr-next]').first().click();
         await expect(page.locator('body')).toContainText("You're finished with testing this survey", { timeout: 20000 });
 
-        const results = db.dbQuery(`SELECT results_table FROM survey_studies WHERE name = '${study}'`)[0].results_table;
+        const results = db.dbQuery(`SELECT results_table FROM survey_studies WHERE user_id = ${db.adminUserId()} AND name = '${study}'`)[0].results_table;
         const row = db.dbResultsRow(results, sid);
         expect(row.cp_a).toBe('1');
         expect(row.cp_b).toBe('3');

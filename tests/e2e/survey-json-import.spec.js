@@ -21,7 +21,6 @@ const db = require('./helpers/db');
 const ADMIN_URL = process.env.FORMR_DEV_URL || 'https://formr.researchmixtape.com';
 const ADMIN_STATE = path.resolve(__dirname, 'setup/admin-state.json');
 const FIXTURE = path.resolve(__dirname, '../../documentation/example_surveys/all_widgets.json');
-const ROBOT_ID = 5;          // robot@researchmixtapes.com
 // A throwaway study name — NOT `all_widgets`, which is the persistent name the
 // e2e-aw-v2 fixture study uses for this same robot account. We override the
 // JSON's internal `name` to this before upload so the test never clobbers it.
@@ -31,9 +30,7 @@ const STUDY = 'e2e_json_probe';
 const V2_ONLY = ['bot_check', 'rank'];
 
 function robotStudy() {
-    return db.dbQuery(
-        `SELECT id, results_table FROM survey_studies WHERE user_id = ${ROBOT_ID} AND name = '${STUDY}' ORDER BY id DESC LIMIT 1`,
-    )[0];
+    return db.studyByName(STUDY, 'id, results_table');
 }
 function cleanup() {
     const s = robotStudy();

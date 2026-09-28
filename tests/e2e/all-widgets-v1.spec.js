@@ -8,7 +8,7 @@ const { test, expect } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const v1 = require('./helpers/v1Form');
-const { WIDGETS, fillAllVisible } = require('./helpers/widgets');
+const { WIDGET_TYPES, fillAllVisible } = require('./helpers/widgets');
 
 const RUN = () => runName('all_widgets', 'v1');
 
@@ -28,9 +28,9 @@ test.describe('all_widgets v1', () => {
         expect(page.url()).toContain(`/${run}/`);
 
         const presentTypes = [];
-        for (const w of WIDGETS) {
-            const n = await page.locator(`.item-${w.type}`).count();
-            if (n > 0) presentTypes.push({ type: w.type, count: n });
+        for (const type of WIDGET_TYPES) {
+            const n = await page.locator(`.item-${type}`).count();
+            if (n > 0) presentTypes.push({ type, count: n });
         }
         expect(presentTypes.length, `widget types seen: ${presentTypes.map((p) => p.type).join(', ')}`).toBeGreaterThanOrEqual(8);
     });

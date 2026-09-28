@@ -27,7 +27,7 @@
  * See documentation/agent_doc/LOG_STATE_AUDIT.md.
  */
 const { test, expect } = require('./helpers/test');
-const { dbQuery } = require('./helpers/db');
+const { dbQuery, adminUserId } = require('./helpers/db');
 const { ensureAdminState, STATE_PATH, sendToPosition, nextInRun } = require('./helpers/admin');
 const { sessionRows, sessionTrace, runExists, recordObserved, enrolInOwnContext } = require('./helpers/results');
 
@@ -61,7 +61,7 @@ test.describe('result coverage — admin actions', () => {
     let resultsTable = null;
 
     test.beforeAll(async ({ browser }) => {
-        const st = dbQuery(`SELECT results_table FROM survey_studies WHERE name = '${STUDY}' ORDER BY id DESC LIMIT 1;`);
+        const st = dbQuery(`SELECT results_table FROM survey_studies WHERE user_id = ${adminUserId()} AND name = '${STUDY}' ORDER BY id DESC LIMIT 1;`);
         resultsTable = st.length ? st[0].results_table : null;
         test.skip(!runExists(RUN),
             `fixture run '${RUN}' is missing — rebuild it from `

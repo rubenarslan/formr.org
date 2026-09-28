@@ -21,7 +21,7 @@ const { test, expect, RUNNING_ON_BS } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const { dbExecRaw } = require('./helpers/db');
-const { fillAllVisible } = require('./helpers/widgets');
+const { fillAllVisible, V2_PAGE } = require('./helpers/widgets');
 const v2 = require('./helpers/v2Form');
 const {
     SYNC_ROUTE, isSync, IDB_GET_ALL, IDB_PUT, IDB_CLEAR, currentFormContext, entryFor, seedEntry,
@@ -134,7 +134,7 @@ test.describe('form_v2 offline queue drain', () => {
 
     test('a live submit waits for a running drain and lands after the queued page', async ({ page, baseURL }) => {
         const ctx = await start(page, baseURL);
-        await fillAllVisible(page, page.locator('section.fmr-page:not([hidden])'));
+        await fillAllVisible(page, V2_PAGE);
         const events = [];
         await page.route(SYNC_ROUTE, async (route) => {
             events.push('sync-start');
@@ -155,7 +155,7 @@ test.describe('form_v2 offline queue drain', () => {
 
     test('the drain before a live submit leaves other studies\' entries alone', async ({ page, baseURL }) => {
         const ctx = await start(page, baseURL);
-        await fillAllVisible(page, page.locator('section.fmr-page:not([hidden])'));
+        await fillAllVisible(page, V2_PAGE);
         const foreign = await seedEntry(page, ctx, {
             sync_url: new URL('/e2e-queue-foreign/form-sync/', ctx.syncUrl).toString(), unit_session_id: 1,
         });
@@ -195,7 +195,7 @@ test.describe('form_v2 offline queue drain', () => {
 
     test('a page queued after a waiting final page gives it its newer hidden list', async ({ page, baseURL }) => {
         const ctx = await start(page, baseURL);
-        await fillAllVisible(page, page.locator('section.fmr-page:not([hidden])'));
+        await fillAllVisible(page, V2_PAGE);
         const final = entryFor(ctx, { page: ctx.pageNum + 1, final: true, hidden: [987654], queued_at: 1 });
         await page.evaluate(IDB_PUT, final);
         await mockSync(page, () => ({ status: 503, contentType: 'application/json', body: '{}' }));
@@ -217,7 +217,7 @@ test.describe('form_v2 offline queue drain', () => {
         setOfflineMode(false);
         try {
             const ctx = await start(page, baseURL);
-            await fillAllVisible(page, page.locator('section.fmr-page:not([hidden])'));
+            await fillAllVisible(page, V2_PAGE);
             await mockSync(page, () => ({ status: 503, contentType: 'application/json', body: '{}' }));
             await seedEntry(page, ctx, { page: ctx.pageNum + 1 });
             let alerted = null;

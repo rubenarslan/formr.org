@@ -67,7 +67,7 @@ test.describe('form_v2 inputs', () => {
         const r = await v2.submitV2(page);
         expect(v2.advanced(r.body), JSON.stringify(r.body)).toBeTruthy();
         const sessionId = await v2.unitSessionId(page);
-        const study = db.dbQuery("SELECT results_table FROM survey_studies WHERE name = 'e2e_v2_inputs' ORDER BY id DESC LIMIT 1")[0];
+        const study = db.dbQuery(`SELECT results_table FROM survey_studies WHERE user_id = ${db.adminUserId()} AND name = 'e2e_v2_inputs' ORDER BY id DESC LIMIT 1`)[0];
         const row = db.dbResultsRow(study.results_table, sessionId);
         expect(row.i_mc === null || row.i_mc === '', `i_mc stored as ${JSON.stringify(row.i_mc)}`).toBe(true);
         expect(String(row.i_mc_req)).toBe('2');

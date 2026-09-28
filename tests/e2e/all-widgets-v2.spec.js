@@ -8,7 +8,7 @@ const { test, expect } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const v2 = require('./helpers/v2Form');
-const { WIDGETS, fillAllVisible } = require('./helpers/widgets');
+const { WIDGET_TYPES, fillAllVisible, V2_PAGE } = require('./helpers/widgets');
 
 const RUN = () => runName('all_widgets', 'v2');
 
@@ -32,9 +32,9 @@ test.describe('all_widgets v2', () => {
 
         await v2.waitForBundle(page);
         const presentTypes = [];
-        for (const w of WIDGETS) {
-            const n = await page.locator(`.item-${w.type}`).count();
-            if (n > 0) presentTypes.push({ type: w.type, count: n });
+        for (const type of WIDGET_TYPES) {
+            const n = await page.locator(`.item-${type}`).count();
+            if (n > 0) presentTypes.push({ type, count: n });
         }
         expect(presentTypes.length, `widget types seen: ${presentTypes.map((p) => p.type).join(', ')}`).toBeGreaterThanOrEqual(8);
     });
@@ -45,15 +45,30 @@ test.describe('all_widgets v2', () => {
         expect(page.url(), 'page should be on the participant URL, not about:blank').toContain(`/${run}/`);
 
         await v2.waitForBundle(page);
-        await fillAllVisible(page, page.locator('section.fmr-page:not([hidden])'));
+        const filled = await fillAllVisible(page, V2_PAGE);
+        // Every item the filler has a strategy for must have been answered —
+        // in particular the required selects (time_period, partner), which a
+        // throwing filler used to leave blank without anyone noticing.
+        const failed = filled.filter((f) => !f.ok || f.error);
+        expect(failed, `filler could not answer: ${JSON.stringify(failed)}`).toEqual([]);
+        for (const type of ['select_one', 'select_multiple']) {
+            expect(filled.some((f) => f.type === type), `page 1 should carry a ${type}`).toBe(true);
+        }
+        const unansweredSelects = await page.evaluate((sel) =>
+            [...document.querySelectorAll(`${sel} .item-select_one select, ${sel} .item-select_multiple select`)]
+                .filter((s) => ![...s.selectedOptions].some((o) => o.value !== ''))
+                .map((s) => s.name), V2_PAGE);
+        expect(unansweredSelects, 'selects left blank after fill').toEqual([]);
+
         const { status, body, blockedByClient } = await v2.submitV2(page);
-        // Acceptable outcomes: server responded ok, or client gated the
-        // submit (would mean fillAllVisible left a required field blank).
-        // The latter is a softer pass — we couldn't fill everything but
-        // the form gate is working.
+        // A client-side block means the filler left a required item blank —
+        // a failure, not a soft pass. Name the flagged items.
         if (blockedByClient) {
-            test.info().annotations.push({ type: 'note', description: 'client-side gate fired; some required fields not filled by fillAllVisible' });
-            return;
+            const flagged = await page.evaluate((sel) =>
+                [...document.querySelectorAll(`${sel} .form-group.is-invalid`)]
+                    .map((g) => (g.className.match(/\bitem-([a-z_]+)\b/) || [, '?'])[1]
+                        + ':' + ((g.querySelector('[name]:not([name^="_item_views"])') || {}).name || '?')), V2_PAGE);
+            throw new Error(`submit blocked client-side after fill-all; flagged: ${flagged.join(', ') || '(none marked)'}`);
         }
         expect(status).toBe(200);
         if (body && body.status === 'errors') {

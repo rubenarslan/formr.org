@@ -41,7 +41,13 @@ const RUN = () => runName('all_widgets_solo', 'v2');
 // For the `admin round-trip` test ONLY — it exercises the admin layout-dropdown
 // UI itself (flip + reload + flip back). The participant specs use the two
 // static fixtures and never toggle.
-const STUDY = 'all_widgets';
+// The study the e2e-aw-v2 run's Form shows, resolved from the run (its
+// name differs per host).
+const roundTripStudy = () => {
+    const study = db.studyOfRun(runName('all_widgets', 'v2'));
+    if (!study) throw new Error('no study behind the all_widgets v2 run');
+    return study;
+};
 const ADMIN_URL = process.env.FORMR_DEV_URL || 'https://formr.researchmixtape.com';
 const ADMIN_STATE = path.resolve(__dirname, 'setup/admin-state.json');
 
@@ -463,9 +469,16 @@ test.describe('solo-layout: admin round-trip', () => {
 
     test('Layout dropdown persists across reload', async ({ browser }) => {
         // Uses storageState. Idempotent: starts at default, flips to
-        // solo, asserts, flips back to default, asserts. If something
-        // crashes mid-way, the next test run's afterAll in the solo
-        // describe will reset.
+        // solo, asserts, flips back to default, asserts. The finally puts
+        // the layout back through the DB whatever happened.
+        const study = roundTripStudy();
+        const STUDY = study.name;
+        // Save posts the form and the page reloads with the result: wait for
+        // that POST's response, not a load state the current page already has.
+        const save = (page) => Promise.all([
+            page.waitForResponse((r) => r.request().method() === 'POST' && r.url().includes(`/admin/survey/${STUDY}`)),
+            page.getByRole('button', { name: /save settings/i }).click(),
+        ]);
         const ctx = await browser.newContext({
             storageState: ADMIN_STATE,
             ignoreHTTPSErrors: true,
@@ -477,29 +490,19 @@ test.describe('solo-layout: admin round-trip', () => {
             expect(await page.locator('select[name="layout"]').inputValue()).toBe('default');
 
             await page.locator('select[name="layout"]').selectOption('solo');
-            await Promise.all([
-                page.waitForLoadState('domcontentloaded'),
-                page.getByRole('button', { name: /save settings/i }).click(),
-            ]);
+            await save(page);
             await page.goto(`${ADMIN_URL}/admin/survey/${STUDY}/`, { waitUntil: 'domcontentloaded' });
             expect(await page.locator('select[name="layout"]').inputValue()).toBe('solo');
 
             await page.locator('select[name="layout"]').selectOption('default');
-            await Promise.all([
-                page.waitForLoadState('domcontentloaded'),
-                page.getByRole('button', { name: /save settings/i }).click(),
-            ]);
+            await save(page);
             await page.goto(`${ADMIN_URL}/admin/survey/${STUDY}/`, { waitUntil: 'domcontentloaded' });
             expect(await page.locator('select[name="layout"]').inputValue()).toBe('default');
         } finally {
-            // Best-effort reset so a mid-test failure can't leave all_widgets in
-            // 'solo' and break the default-mode regression test in the same run.
-            try {
-                await page.locator('select[name="layout"]').selectOption('default');
-                await page.getByRole('button', { name: /save settings/i }).click();
-                await page.waitForLoadState('domcontentloaded');
-            } catch (e) { /* best effort */ }
+            // A mid-test failure must not leave the study in 'solo' and break
+            // the default-layout checks of this and later runs.
             await ctx.close().catch(() => {});
+            db.dbExecRaw(`UPDATE survey_studies SET layout = 'default' WHERE id = ${parseInt(study.id, 10)};`);
         }
     });
 

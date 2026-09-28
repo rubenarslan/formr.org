@@ -1,7 +1,14 @@
 # E2E test setup runbook
 
-One-time admin setup that produces six persistent test runs on the dev
-instance, plus `tests/e2e/setup/runs.json` (committed). After this runs once,
+One-time admin setup that produces the six core persistent test runs on the
+dev instance, plus `tests/e2e/setup/runs.json` (committed). `runs.json` lists
+more fixtures than these six: `e2e-dyn-v2`, `e2e-inputs-v2` and `e2e-awv2` are
+created by `setup/create-v2-fixtures.js` during global setup; the solo and
+text-solo runs by `setup/create-solo-fixture.sh` / `create-text-fixture.sh`;
+bot_check, crosspage and rank are uploaded from `e2e_bot_check.xlsx`,
+`e2e_crosspage_showif.csv` and `e2e_rank.json` in `tests/e2e/setup/` and wired
+up the same way as below. `e2e-aw-req-v2` (the all_widgets catalogue with every
+item required) has no provisioning script yet. After this runs once,
 `npm run test:e2e` exercises the runs without needing the admin UI again.
 
 The runbook is written for a human or for the `ui-playwright-tester` agent.
@@ -20,16 +27,21 @@ target name already exists, **skip and verify**, do not duplicate.
 
 ## Outputs
 
-Six runs and one JSON file:
+Six core runs and one JSON file:
 
 | Suite         | Variant | Study name (pick on import)   | Run name        |
 | ------------- | ------- | ----------------------------- | --------------- |
 | `all_widgets` | `v1`    | `e2e_all_widgets`             | `e2e-aw-v1`     |
-| `all_widgets` | `v2`    | `e2e_all_widgets_v2`          | `e2e-aw-v2`     |
+| `all_widgets` | `v2`    | `e2e_all_widgets_v2` (\*)     | `e2e-aw-v2`     |
 | `pwa_high`    | `v1`    | `e2e_pwa_high`                | `e2e-pwa-h-v1`  |
 | `pwa_high`    | `v2`    | `e2e_pwa_high_v2`             | `e2e-pwa-h-v2`  |
 | `pwa_low`     | `v1`    | `e2e_pwa_low`                 | `e2e-pwa-l-v1`  |
 | `pwa_low`     | `v2`    | `e2e_pwa_low_v2`              | `e2e-pwa-l-v2`  |
+
+(\*) The specs find the study behind `e2e-aw-v2` through the run
+(`helpers/db.js` `studyOfRun`), so its name may differ — on the dev instance it
+is `all_widgets`. Study lookups by name are scoped to the suite's admin account
+(`studyByName`), since study names are unique per user only.
 
 **Naming conventions (formr-enforced, learned the hard way):**
 - **Study names** allow underscores (`a-zA-Z0-9_`).
@@ -41,7 +53,7 @@ Six runs and one JSON file:
 ## 0. Login
 
 1. `browser_navigate` to `https://formr.researchmixtape.com/admin/account/login`.
-2. **Dismiss the cookie-consent dialog first.** vanilla-cookieconsent obscures the form. Click `[data-cc="accept-necessary"]`.
+2. **Dismiss the cookie-consent dialog first.** vanilla-cookieconsent obscures the form. Click `#cc-main .cm__btn[data-role="necessary"]` (the banner's buttons carry `data-role`; `helpers/participant.js` `acceptCookieConsent` does this).
 3. Fill `email` + `password` from `.env.dev`. Submit.
 4. Confirm landing on `/admin/run/`.
 5. **The login account must have NO monthly compute limit.** It owns every
@@ -80,12 +92,12 @@ For each `(suite, variant)` pair, do this once.
 If the target name is already taken (you've previously run this), skip the
 import + rename step for that pair.
 
-## 2. Create the runs (six)
+## 2. Create the six core runs
 
 For each `(suite, variant)` pair:
 
 1. Go to `https://formr.researchmixtape.com/admin/run/` and click **"Create a new run"** (or `/admin/run/add/`).
-2. Set the run **name** to the table value (e.g. `e2e_aw_v2`). Title can match.
+2. Set the run **name** to the table value (e.g. `e2e-aw-v2` — hyphens, no underscores). Title can match.
 3. Submit. Land on the run editor (`/admin/run/<name>/`).
 4. **Add the body unit:**
    - **For v1:** click **"Add Survey"**. From the dropdown/picker, choose the corresponding study (e.g. `e2e_all_widgets`).
@@ -117,7 +129,7 @@ The `pwa_high` and `pwa_low` fixtures need the run-level PWA wiring so the
 manifest endpoint, VAPID public key, and apple-touch-icons surface on the
 participant page.
 
-For each of `e2e_pwa_h_v1`, `e2e_pwa_h_v2`, `e2e_pwa_l_v1`, `e2e_pwa_l_v2`:
+For each of `e2e-pwa-h-v1`, `e2e-pwa-h-v2`, `e2e-pwa-l-v1`, `e2e-pwa-l-v2`:
 
 1. Open `/admin/run/<name>/settings` (or whichever tab the run editor exposes for **PWA / Push** settings).
 2. Enable PWA install (toggle / "App installable").
@@ -131,7 +143,7 @@ slice lives under `/admin/run/<name>/pwa` (see `Run::getPwaIconPath` /
 
 ## 4. Emit `runs.json`
 
-After all six runs verify, write **`tests/e2e/setup/runs.json`** with the
+After all six core runs verify, write **`tests/e2e/setup/runs.json`** with the
 exact run names you used:
 
 ```json

@@ -20,7 +20,7 @@
  * See documentation/agent_doc/LOG_STATE_AUDIT.md.
  */
 const { test, expect } = require('./helpers/test');
-const { dbQuery } = require('./helpers/db');
+const { dbQuery, adminUserId } = require('./helpers/db');
 const { runQueueOnce } = require('./helpers/queue');
 const { ensureAdminState, STATE_PATH, ADMIN_BASE, sendToPosition } = require('./helpers/admin');
 const { sessionRows, sessionTrace, runExists, recordObserved, enrolInOwnContext } = require('./helpers/results');
@@ -80,7 +80,7 @@ test.describe('result coverage — expiry and opt-out', () => {
         });
         await page.click('form button[type=submit]');
         await page.waitForLoadState('networkidle');
-        const study = dbQuery(`SELECT expire_after FROM survey_studies WHERE name = 'rescov_expire' ORDER BY id DESC LIMIT 1;`);
+        const study = dbQuery(`SELECT expire_after FROM survey_studies WHERE user_id = ${adminUserId()} AND name = 'rescov_expire' ORDER BY id DESC LIMIT 1;`);
         test.skip(parseInt(study[0].expire_after, 10) !== 1,
             'could not set expire_after through the admin form — the settings '
             + 'allowlist or the form fields changed');

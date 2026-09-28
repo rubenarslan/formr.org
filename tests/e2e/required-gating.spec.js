@@ -83,7 +83,10 @@ function sweepFn(required) {
     }
     const gated = Object.keys(res).filter((t) => res[t].blocked && res[t].message).sort();
     const notGated = Object.keys(res).filter((t) => !(res[t].blocked && res[t].message)).sort();
-    return { gated, notGated, count: Object.keys(res).length };
+    // any block at all, message or not — for the optional sweep, where a
+    // silent block is the worst case
+    const blocked = Object.keys(res).filter((t) => res[t].blocked).sort();
+    return { gated, notGated, blocked, types: Object.keys(res).sort(), count: Object.keys(res).length };
 }
 
 test.describe('required-gating: all item types (validator sweep)', () => {
@@ -99,9 +102,10 @@ test.describe('required-gating: all item types (validator sweep)', () => {
         // Exclude types that always carry a value (can't be empty) — see NEVER_EMPTY.
         const realGaps = r.notGated.filter((t) => !NEVER_EMPTY.includes(t));
         expect(realGaps, `required item types that did NOT block with an error: ${realGaps.join(', ')}`).toEqual([]);
-        // And the previously-broken hidden-value types MUST now gate.
+        // And the previously-broken hidden-value types are in the sweep and gate.
         for (const t of ['geopoint', 'file', 'image', 'audio', 'video', 'visual_analog_scale', 'bot_check']) {
-            if (r.notGated.includes(t)) expect(r.gated, `${t} must gate when required+empty`).toContain(t);
+            expect(r.types, `${t} is in the swept catalogue`).toContain(t);
+            expect(r.gated, `${t} must gate when required+empty`).toContain(t);
         }
     });
 
@@ -112,8 +116,8 @@ test.describe('required-gating: all item types (validator sweep)', () => {
         test.skip(!hasHook, 'bundle lacks the window.fmrValidatePage test hook');
 
         const r = await page.evaluate(sweepFn, false);
-        // "gated" here would mean an OPTIONAL empty item wrongly blocked.
-        expect(r.gated, `optional item types that wrongly blocked when empty: ${r.gated.join(', ')}`).toEqual([]);
+        // Any block of an OPTIONAL empty item is wrong, with or without a message.
+        expect(r.blocked, `optional item types that wrongly blocked when empty: ${r.blocked.join(', ')}`).toEqual([]);
     });
 
 });

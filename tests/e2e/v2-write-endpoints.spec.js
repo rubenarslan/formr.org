@@ -18,7 +18,7 @@
 const { test, expect, RUNNING_ON_BS } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
-const { dbQuery, dbExecRaw } = require('./helpers/db');
+const { dbQuery, dbExecRaw, adminUserId } = require('./helpers/db');
 const v2 = require('./helpers/v2Form');
 const { currentFormContext, mysqlNow } = require('./helpers/idbQueue');
 
@@ -92,7 +92,7 @@ test.describe('/form-sync applies an entry at most once', () => {
         // the failure path. A CHECK constraint refusing one value stands in
         // for any such refusal (a results column too small for an answer,
         // say — what a table created before a column-type fix looks like).
-        const table = dbQuery("SELECT results_table FROM survey_studies WHERE name = 'e2e_v2_inputs';")[0].results_table;
+        const table = dbQuery(`SELECT results_table FROM survey_studies WHERE user_id = ${adminUserId()} AND name = 'e2e_v2_inputs';`)[0].results_table;
         // A value no stored row holds: the constraint is checked against the
         // table's rows when added, and every run stores the one it refused.
         let refused;

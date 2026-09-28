@@ -10,7 +10,7 @@ const { test, expect } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const v2 = require('./helpers/v2Form');
-const { fillAllVisible } = require('./helpers/widgets');
+const { fillAllVisible, V2_PAGE } = require('./helpers/widgets');
 
 const RUN = () => runName('all_widgets', 'v2');
 
@@ -102,17 +102,15 @@ test.describe('v2-polish: validation', () => {
             if (btn) btn.click();
         });
 
-        // Either the friendly copy renders OR a browser native message
-        // contextual to the field. Either is acceptable; assert at least
-        // one of them is present.
+        // The engine's own copy (FormStrings validation.*), not only the
+        // browser's native messages.
         const result = await page.evaluate(() => {
             const msgs = Array.from(document.querySelectorAll('.fmr-form-v2 .fmr-invalid-feedback, .fmr-form-v2 .fmr-btn-feedback')).map((el) => el.textContent.trim());
             return { msgs };
         });
         expect(result.msgs.length).toBeGreaterThan(0);
-        const friendly = result.msgs.some((m) => /need this to continue|pick an option to continue/i.test(m));
-        const nativeMsg = result.msgs.some((m) => m.length > 0);
-        expect(friendly || nativeMsg).toBe(true);
+        const friendly = result.msgs.some((m) => /need this to continue|pick an option to continue|choose a point on the scale|provide your location|add a file to continue|rank the options|verify that you are human/i.test(m));
+        expect(friendly, `messages shown: ${JSON.stringify(result.msgs)}`).toBe(true);
     });
 
     test('only the input gets .is-invalid (not the entire form-group)', async ({ page, baseURL }) => {
@@ -191,7 +189,7 @@ test.describe('v2-polish: save pill on submit', () => {
         await v2.waitForBundle(page);
 
         // Fill the page so it submits cleanly.
-        await fillAllVisible(page, page.locator('section.fmr-page:not([hidden])'));
+        await fillAllVisible(page, V2_PAGE);
 
         // Install a 50ms poll for the pill's state BEFORE the submit fires.
         await page.evaluate(() => {

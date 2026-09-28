@@ -24,7 +24,7 @@ const db = require('./helpers/db');
 const RUN = () => runName('v2_dynamic', 'v2');
 
 function study() {
-    return db.dbQuery("SELECT id, results_table FROM survey_studies WHERE name = 'e2e_v2_dynamic' ORDER BY id DESC LIMIT 1")[0];
+    return db.dbQuery(`SELECT id, results_table FROM survey_studies WHERE user_id = ${db.adminUserId()} AND name = 'e2e_v2_dynamic' ORDER BY id DESC LIMIT 1`)[0];
 }
 
 async function unitSessionId(page) {

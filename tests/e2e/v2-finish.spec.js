@@ -136,7 +136,7 @@ test.describe('v2 survey completes end-to-end', () => {
         const r = await driveDefault(page);
         console.log('SHOWCASE result', JSON.stringify(r));
         expect(r.completed, `${JSON.stringify(r.serverErrors || r.errors || r)}`).toBe(true);
-        expect(r.pages, 'every page was submitted').toBe(4);
+        expect(r.pages, 'every page was submitted, once').toBe(5);
         expect(errors.filter((e) => !/favicon|ERR_INTERNET_DISCONNECTED/.test(e)), 'no console errors or failed requests').toEqual([]);
     });
 });

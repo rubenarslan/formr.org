@@ -31,7 +31,7 @@
  */
 const { execFileSync } = require('node:child_process');
 const { test, expect } = require('./helpers/test');
-const { dbQuery } = require('./helpers/db');
+const { dbQuery, adminUserId } = require('./helpers/db');
 const { runQueueOnce } = require('./helpers/queue');
 const { ensureAdminState, STATE_PATH, ADMIN_BASE } = require('./helpers/admin');
 const { sessionRows, sessionTrace, runExists, recordObserved, enrol, enrolInOwnContext } = require('./helpers/results');
@@ -137,7 +137,7 @@ test.describe('result coverage — daemon and maintenance', () => {
         await adminPage.waitForLoadState('networkidle');
         await admin.close();
 
-        const study = dbQuery(`SELECT expire_after FROM survey_studies WHERE name = 'rescov_expire' ORDER BY id DESC LIMIT 1;`);
+        const study = dbQuery(`SELECT expire_after FROM survey_studies WHERE user_id = ${adminUserId()} AND name = 'rescov_expire' ORDER BY id DESC LIMIT 1;`);
         test.skip(parseInt(study[0].expire_after, 10) !== 1, 'could not set expire_after through the admin form');
 
         // ANSWER page 1, then go quiet. Two things are load-bearing here.

@@ -17,6 +17,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const dotenv = require('dotenv');
 const { chromium } = require('@playwright/test');
+const { acceptCookieConsent } = require('../helpers/consent');
 
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env.dev') });
 
@@ -47,23 +48,20 @@ module.exports = async () => {
     await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
 
     // Cookie consent dialog blocks form inputs (vanilla-cookieconsent).
-    const necessary = page.locator('[data-cc="accept-necessary"]').first();
-    try {
-        await necessary.waitFor({ state: 'visible', timeout: 2000 });
-        await necessary.click();
-        await necessary.waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {});
-    } catch { /* dialog absent — already accepted at some prior point or not shown */ }
+    await acceptCookieConsent(page);
 
     await page.fill('input[name="email"]', EMAIL);
     await page.fill('input[name="password"]', PASSWORD);
+    // Wait for the redirect away from the login page (a load state the login
+    // page already has would resolve before the POST lands).
     await Promise.all([
-        page.waitForLoadState('domcontentloaded'),
+        page.waitForURL((u) => !/\/login\b/.test(u.pathname), { timeout: 20000 }).catch(() => {}),
         page.click('button[type="submit"], input[type="submit"]'),
     ]);
 
     // Sanity-check we're past login (redirected to /admin/ or /admin/run/).
     const url = page.url();
-    if (!/\/admin\/?(\?|$|run|account|survey)/.test(url)) {
+    if (/\/login\b/.test(new URL(url).pathname) || !/\/admin\/?(\?|$|run|account|survey)/.test(url)) {
         throw new Error(`global-setup: login did not land on /admin/* (got ${url}). Check creds in .env.dev.`);
     }
 

@@ -15,16 +15,13 @@ const db = require('./helpers/db');
 
 const ADMIN_URL = process.env.FORMR_DEV_URL || 'https://formr.researchmixtape.com';
 const ADMIN_STATE = path.resolve(__dirname, 'setup/admin-state.json');
-const ROBOT_ID = 5;
 const STUDY = 'e2e_soft_delete';
 
 const CSV_AB = 'type,name,label,optional\ntext,keep_me,Keep me,1\ntext,remove_me,Remove me,1\n';
 const CSV_A = 'type,name,label,optional\ntext,keep_me,Keep me,1\n';
 
 function studyRow() {
-    return db.dbQuery(
-        `SELECT id, results_table FROM survey_studies WHERE user_id = ${ROBOT_ID} AND name = '${STUDY}' ORDER BY id DESC LIMIT 1`,
-    )[0];
+    return db.studyByName(STUDY, 'id, results_table');
 }
 function cleanup() {
     const s = studyRow();

@@ -20,7 +20,7 @@ const path = require('node:path');
 
 const { test, expect } = require('./helpers/test');
 const { adminLogin, dismissConsent } = require('./helpers/admin');
-const { dbQuery } = require('./helpers/db');
+const { dbQuery, adminUserId, sqlStr } = require('./helpers/db');
 const { runName } = require('./helpers/runs');
 
 const ADMIN_URL = (process.env.FORMR_DEV_URL || 'https://formr.researchmixtape.com').replace(/\/+$/, '');
@@ -102,7 +102,7 @@ function studyRow(name) {
     return dbQuery(
         `SELECT s.id, s.rendering_mode, s.layout, s.language, s.offline_mode, ` +
         `(SELECT COUNT(*) FROM survey_items i WHERE i.study_id = s.id AND i.deleted IS NULL) AS items ` +
-        `FROM survey_studies s WHERE s.name = '${name}'`,
+        `FROM survey_studies s WHERE s.user_id = ${adminUserId()} AND s.name = ${sqlStr(name)} ORDER BY s.id DESC LIMIT 1`,
     )[0];
 }
 
