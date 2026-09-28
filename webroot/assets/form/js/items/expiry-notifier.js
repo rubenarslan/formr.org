@@ -10,31 +10,12 @@
 // modal is hand-built (a simple fixed-position overlay) and the activity
 // listeners are bare addEventListener calls.
 
+import { t, escapeHtml } from '../lib/i18n.js';
+
 const FORM_SELECTOR = 'form.fmr-form-v2';
 const ONE_HOUR_MS = 3600 * 1000;
 // setTimeout's max signed 32-bit delay; longer waits silently fire immediately.
 const MAX_TIMEOUT_MS = 2147483647;
-
-const TRANSLATIONS = {
-    de: {
-        'Page expired': 'Session abgelaufen',
-        'This page has become outdated. Please refresh.': 'Diese Seite ist veraltet. Bitte aktualisieren Sie die Seite.',
-        'Reload': 'Neu laden',
-    },
-    fr: {
-        'Page expired': 'Session expirée',
-        'This page has become outdated. Please refresh.': 'Cette page est obsolète. Veuillez rafraîchir.',
-        'Reload': 'Recharger',
-    },
-};
-
-function t(text) {
-    if (window.formrLanguage && typeof window.formrLanguage.translate === 'function') {
-        return window.formrLanguage.translate(text);
-    }
-    const lang = (document.documentElement.lang || '').slice(0, 2).toLowerCase();
-    return (TRANSLATIONS[lang] && TRANSLATIONS[lang][text]) || text;
-}
 
 function showExpiredModal() {
     if (document.querySelector('.fmr-expiry-modal')) return; // idempotent
@@ -46,10 +27,10 @@ function showExpiredModal() {
     overlay.innerHTML = `
         <div class="fmr-expiry-modal-backdrop"></div>
         <div class="fmr-expiry-modal-dialog">
-            <h4 id="fmr-expiry-modal-title" class="fmr-expiry-modal-title">${t('Page expired')}</h4>
-            <p class="fmr-expiry-modal-body">${t('This page has become outdated. Please refresh.')}</p>
+            <h4 id="fmr-expiry-modal-title" class="fmr-expiry-modal-title">${escapeHtml(t('expiry.title', 'Page expired'))}</h4>
+            <p class="fmr-expiry-modal-body">${escapeHtml(t('expiry.body', 'This page has become outdated. Please refresh.'))}</p>
             <button type="button" class="btn btn-primary fmr-expiry-modal-reload">
-                <i class="fa fa-refresh"></i> ${t('Reload')}
+                <i class="fa fa-refresh"></i> ${escapeHtml(t('expiry.reload', 'Reload'))}
             </button>
         </div>
     `;
