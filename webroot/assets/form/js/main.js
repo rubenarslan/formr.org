@@ -76,7 +76,7 @@ import {
     registerXShowif,
     promoteShowifAttributes,
 } from './showif/alpine.js';
-import { initSolo } from './solo/controller.js';
+import { initSolo, SUBMIT_CONTROL_SELECTOR } from './solo/controller.js';
 import { createStore, pageState, readRememberedPage, rememberPage, forgetPage } from './state.mjs';
 import { collectAnswers, fieldKey, isItemHidden, hiddenShowifItemIds } from './lib/inputs.js';
 
@@ -193,25 +193,7 @@ function initForm() {
         const p = pages[i];
         const pageNum = p ? Number(p.dataset.fmrPage) : null;
         if (pageNum) rememberPage(unitSessionId, pageNum);
-        // In solo, the step controller owns progress (per-item, not per-page)
-        // and focus; it re-seats stepping via onPageShown below.
-        if (!isSolo && pageNum) {
-            const { index, total } = nav().progress(pageNum);
-            if (progressBar) {
-                // Interpolate within the study's [from, to] window
-                // (add_percentage_points / displayed_percentage_maximum) so
-                // runs stitching several surveys into one 0–100 bar keep
-                // their coordinated ranges — parity with v1's stretch math.
-                const from = Number(root.dataset.fmrProgressFrom) || 0;
-                const to = Number(root.dataset.fmrProgressTo) || 100;
-                const pct = Math.round(from + (index / Math.max(1, total)) * (to - from));
-                progressBar.style.width = pct + '%';
-                progressBar.setAttribute('aria-valuenow', String(pct));
-            }
-            if (progressLabel) {
-                progressLabel.textContent = t('progress.page_of', 'Page %cur of %total', { cur: index, total });
-            }
-        }
+        updatePageProgress(pageNum);
         if (p) {
             applyNav(p);
             observeItems(p);
@@ -237,6 +219,29 @@ function initForm() {
         }
     };
 
+    // "Page N of M" and the bar. In solo, the step controller owns progress
+    // (per-item, not per-page) and focus; it re-seats stepping via
+    // onPageShown. Called on every page swap and whenever a showif changes
+    // which pages are shown (M changes with it).
+    const updatePageProgress = (pageNum) => {
+        if (isSolo || !pageNum) return;
+        const { index, total } = nav().progress(pageNum);
+        if (progressBar) {
+            // Interpolate within the study's [from, to] window
+            // (add_percentage_points / displayed_percentage_maximum) so
+            // runs stitching several surveys into one 0–100 bar keep
+            // their coordinated ranges — parity with v1's stretch math.
+            const from = Number(root.dataset.fmrProgressFrom) || 0;
+            const to = Number(root.dataset.fmrProgressTo) || 100;
+            const pct = Math.round(from + (index / Math.max(1, total)) * (to - from));
+            progressBar.style.width = pct + '%';
+            progressBar.setAttribute('aria-valuenow', String(pct));
+        }
+        if (progressLabel) {
+            progressLabel.textContent = t('progress.page_of', 'Page %cur of %total', { cur: index, total });
+        }
+    };
+
     // Every page carries the same navigation row (FormRenderer::renderPageNav):
     // Previous is shown only when there is a shown page before this one, and
     // the advance button reads Submit on the last shown page, Next before it
@@ -249,13 +254,18 @@ function initForm() {
         pageEl.querySelectorAll('[data-fmr-nav-label]').forEach((btn) => {
             const label = t(last ? 'nav.submit' : 'nav.next', last ? 'Submit' : 'Next');
             if (btn.tagName === 'INPUT') { btn.value = label; return; }
-            const icon = btn.querySelector('i');
+            // Replace the text only: the button's element children stay — the
+            // icon, and the fuse bar items/auto-submit.js appends to a timed
+            // bare `submit` item (textContent would wipe it).
+            const icon = btn.querySelector(':scope > i');
+            const children = Array.from(btn.children);
             btn.textContent = label + ' ';
-            if (icon) { icon.className = 'fa ' + (last ? 'fa-check' : 'fa-arrow-right'); btn.appendChild(icon); }
+            children.forEach((child) => btn.appendChild(child));
+            if (icon) icon.className = 'fa ' + (last ? 'fa-check' : 'fa-arrow-right');
         });
     };
     // A showif toggle can change which pages are shown (and so which is
-    // last); refresh the page's chrome.
+    // last, and how many there are); refresh the page's chrome.
     // Coalesced to one refresh per frame: a single answer can toggle many
     // showifs, and each refresh snapshots the whole form.
     let navRefreshQueued = false;
@@ -264,7 +274,10 @@ function initForm() {
         navRefreshQueued = true;
         requestAnimationFrame(() => {
             navRefreshQueued = false;
-            if (pages[currentIndex]) applyNav(pages[currentIndex]);
+            const p = pages[currentIndex];
+            if (!p) return;
+            applyNav(p);
+            updatePageProgress(Number(p.dataset.fmrPage));
         });
     });
 
@@ -779,25 +792,27 @@ function initForm() {
     // otherwise. The entry stays in IDB until the page is re-submitted.
     const surfaceNeedsAttention = (entry) => {
         const pageNum = Number(entry.page);
-        const idx = pages.findIndex((p) => Number(p.dataset.fmrPage) === pageNum);
+        const idx = pageIndexOf(pageNum);
         const errors = entry.errors || {};
-        const goToPage = () => {
-            if (idx === -1) return;
-            showPage(idx);
-            try { history.pushState(null, '', `?page=${pageNum}`); } catch (e) { /* noop */ }
+        const markErrors = () => {
             clearCustomValidity(pages[idx]);
             applyErrors(pages[idx], errors);
-            resetBotChecks(root, Object.keys(errors || {}));
+            resetBotChecks(root, Object.keys(errors));
         };
+        // Name the page as the progress label counts it ("Page 2 of 4"):
+        // the stored page number skips pages the showifs leave out.
+        const ps = nav();
+        const shownNum = ps.isShown(pageNum) ? ps.progress(pageNum).index : pageNum;
         const actions = [];
         if (idx !== -1 && idx === currentIndex) {
-            clearCustomValidity(pages[idx]);
-            applyErrors(pages[idx], errors);
-            resetBotChecks(root, Object.keys(errors || {}));
+            markErrors();
         } else if (idx !== -1) {
-            actions.push({ label: t('queue.go_to_page', 'Go to page %page', { page: pageNum }), onClick: goToPage });
+            actions.push({
+                label: t('queue.go_to_page', 'Go to page %page', { page: shownNum }),
+                onClick: async () => { await goToPage(pageNum); markErrors(); },
+            });
         }
-        showQueueBanner(t('queue.needs_attention', 'Your answers for page %page could not be saved: please fix the highlighted answers and submit the page again.', { page: pageNum }), 'danger', actions);
+        showQueueBanner(t('queue.needs_attention', 'Your answers for page %page could not be saved: please fix the highlighted answers and submit the page again.', { page: shownNum }), 'danger', actions);
     };
 
     // --- Page-transition resolver (POST /form-render-page) ---
@@ -988,9 +1003,8 @@ function initForm() {
     // can't be clicked, but the page can still be submitted implicitly (Enter
     // in a text input → the form's `submit` event, solo's onContinue, the
     // all-answered auto-submit), so every submit path consults this gate.
-    // Selector mirrors solo/controller.js's submit-step lookup. Exposed as
+    // SUBMIT_CONTROL_SELECTOR is shared with solo/controller.js. Exposed as
     // `window.fmrCanSubmitPage` (and passed to initSolo as `canSubmitPage`).
-    const SUBMIT_CONTROL_SELECTOR = '.item-submit button, .item-submit input[type=submit], button.submit_automatically_after_timeout, [data-fmr-next]';
     const canSubmitPage = (pageEl) => {
         const p = pageEl || pages[currentIndex];
         if (!p) return false;
@@ -1029,6 +1043,9 @@ function initForm() {
         }
         clearCustomValidity(page);
         if (!validatePageAndShowFeedback(page)) {
+            // The wait above may have raised "Saving…" (no autohide): nothing
+            // is being saved.
+            savePill.classList.remove('is-visible');
             return;
         }
         setSaveState('saving', t('save.saving', 'Saving…'), 0);
@@ -1136,6 +1153,7 @@ function initForm() {
                 ? fileInputs.find((inp) => inp.files[0] && inp.files[0].size > QUEUE_FILE_SIZE_CAP)
                 : null;
             if (!syncUrl || oversizedFile) {
+                savePill.classList.remove('is-visible');
                 console.error('page-submit offline (offline queue disabled or file too large)', netErr || (res && res.status));
                 const msg = oversizedFile
                     ? t('error.too_large', "Submission too large to queue offline (%mb MB, limit %limit MB). Please retry when you're back online.", { mb: (oversizedFile.files[0].size / 1024 / 1024).toFixed(1), limit: QUEUE_FILE_SIZE_CAP_MB })
@@ -1174,6 +1192,7 @@ function initForm() {
             // to the $_FILES entry.
             if (useMultipart) entry.files = files;
             try { await queueAdd(entry); } catch (e) {
+                savePill.classList.remove('is-visible');
                 console.error('enqueue failed', e);
                 window.alert(t('error.queue_failed', 'Your submission could not be queued locally. Please check your connection and try again.'));
                 return;
@@ -1345,6 +1364,13 @@ function initForm() {
         p.then(() => { if (pageResolutions.get(n) === p) pageResolutions.delete(n); });
         return p;
     };
+    // The history URL of a page: the current query with `page` set. The rest
+    // of the query stays (a `?code=` link must remain the resumable link).
+    const pageHref = (pageNum) => {
+        const params = new URLSearchParams(window.location.search);
+        params.set('page', String(pageNum));
+        return '?' + params.toString();
+    };
     const goToPage = async (pageNum) => {
         const idx = pageIndexOf(pageNum);
         if (idx === -1) return;
@@ -1353,7 +1379,7 @@ function initForm() {
             new Promise((done) => setTimeout(done, PAGE_RESOLVE_WAIT_MS)),
         ]);
         showPage(idx);
-        try { history.pushState(null, '', `?page=${pageNum}`); } catch (e) { /* noop */ }
+        try { history.pushState(null, '', pageHref(pageNum)); } catch (e) { /* noop */ }
     };
 
     // Single-flight guard: a rapid double-tap / Enter-repeat on Next must not
@@ -2280,6 +2306,10 @@ function initForm() {
         // the page we land on. Fire-and-forget: the page is already shown;
         // this just fills.
         showPage(idx === -1 ? 0 : idx);
+        // Give the landing entry its page, so browser Back from a later page
+        // returns here (popstate refuses an entry without one).
+        const landed = Number(pages[currentIndex].dataset.fmrPage);
+        if (landed) { try { history.replaceState(null, '', pageHref(landed)); } catch (e) { /* noop */ } }
         // Test-side signal that the form is ready: every listener is attached
         // and the participant is on their page. waitForBundle() in
         // tests/e2e/helpers/v2Form.js polls for window.fmrFormReady.
@@ -2303,7 +2333,7 @@ function initForm() {
         // button deliberately doesn't offer. Re-assert the current page in
         // history and stay put. Same for a page the showifs have emptied.
         if (!p || !ps.isShown(p) || (!allowPrevious && p < cur)) {
-            if (cur) { try { history.pushState(null, '', `?page=${cur}`); } catch (e) { /* noop */ } }
+            if (cur) { try { history.pushState(null, '', pageHref(cur)); } catch (e) { /* noop */ } }
             return;
         }
         const idx = pageIndexOf(p);

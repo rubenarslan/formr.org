@@ -230,6 +230,13 @@ body:has(.fmr-form-v2:not([data-layout="solo"])) .container-fluid > p {
         .btn {
             min-width: 7rem;
         }
+
+        // A right-to-left study (dir="rtl" from FormStrings::dir) reads the
+        // row mirrored: Next points left, Previous right.
+        [dir="rtl"] & .fa-arrow-right,
+        [dir="rtl"] & .fa-arrow-left {
+            transform: scaleX(-1);
+        }
     }
 
     // --- BS3 -> BS5 compat for markup produced by Item::render() ---
@@ -839,6 +846,23 @@ body:has(.fmr-form-v2:not([data-layout="solo"])) .container-fluid > p {
             animation: fmr-spin 0.6s linear infinite;
         }
     }
+    // A pending R choice label (FormRenderer: an empty inline span per
+    // choice) gets a small inline spinner in its own slot — the item-sized
+    // one above, centred on each span, piled up across the choice list.
+    .fmr-choice-label.fmr-fill-pending {
+        display: inline-block;
+        width: 1em;
+        height: 1em;
+        vertical-align: -0.125em;
+        &::after {
+            top: 0;
+            left: 0;
+            width: 1em;
+            height: 1em;
+            margin: 0;
+            border-width: 2px;
+        }
+    }
     .fmr-fill-error .controls {
         color: var(--bs-danger, #dc3545);
     }
@@ -1016,9 +1040,11 @@ body:has(.fmr-form-v2:not([data-layout="solo"])) .container-fluid > p {
             display: flex;
             flex-direction: column;
             gap: 2px;
+            // 24px high: the stacked pair must still be two separable tap
+            // targets (WCAG 2.5.8 minimum target size).
             button {
                 width: 1.7rem;
-                height: 1.2rem;
+                height: 1.5rem;
                 padding: 0;
                 border: 1px solid var(--bs-border-color, #dee2e6);
                 border-radius: 0.25rem;

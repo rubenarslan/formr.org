@@ -32,7 +32,9 @@ async function openFilePage(page, baseURL) {
     await v2.waitForBundle(page);
     const usid = await v2.unitSessionId(page);
     await page.evaluate((id) => window.localStorage.setItem(`fmr:page:${id}`, '5'), usid);
-    await page.reload({ waitUntil: 'domcontentloaded' });
+    // The URL names the landing page (?page=1), which wins over the
+    // remembered one: open the run URL itself.
+    await page.goto(page.url().replace(/[?&]page=\d+/, '').replace(/\?$/, ''), { waitUntil: 'domcontentloaded' });
     await v2.waitForBundle(page);
     await expect.poll(() => v2.visiblePageNum(page), { timeout: 10000 }).toBe(5);
     await page.locator('input[type=file][name="u_file"]').setInputFiles({ name: 'dot.png', mimeType: 'image/png', buffer: PNG });

@@ -11,11 +11,6 @@ import { t } from '../lib/i18n.js';
 // applyErrors() pushes a server response error map onto the same surface so
 // `.fmr-invalid-feedback` is the single rendering path.
 
-// Clear ONLY the customValidity values that `applyErrors` wrote (server-
-// side validation responses). Init-armed customValidity from gating items
-// (AddToHomeScreen, PushNotification, RequestCookie, …) must persist —
-// otherwise the participant can advance past a required gate without
-// completing it. Server-set inputs are tagged with `data-fmr-server-validity`.
 // The message for an invalid field. For a format mismatch the item's `title`
 // wins: it is the author's own wording (a pattern item's first choice, #269)
 // or the server's default for the type (email). Browsers treat `title` as a
@@ -26,6 +21,11 @@ function invalidMessage(el, fallback) {
     return el.validationMessage || fallback;
 }
 
+// Clear ONLY the customValidity values that `applyErrors` wrote (server-
+// side validation responses). Init-armed customValidity from gating items
+// (AddToHomeScreen, PushNotification, RequestCookie, …) must persist —
+// otherwise the participant can advance past a required gate without
+// completing it. Server-set inputs are tagged with `data-fmr-server-validity`.
 export function clearCustomValidity(pageEl) {
     pageEl.querySelectorAll(
         'input[data-fmr-server-validity], select[data-fmr-server-validity], textarea[data-fmr-server-validity]'
@@ -78,8 +78,11 @@ export function applyErrors(pageEl, errors) {
     });
     delete pageEl.dataset.fmrScrolledToError;
 
+    // The banner lists this reply's unplaced errors only: an earlier reply's
+    // must not outlive the submit that fixed them.
+    let banner = pageEl.querySelector('.fmr-error-banner');
+    if (banner && !unplaced.length) banner.remove();
     if (unplaced.length) {
-        let banner = pageEl.querySelector('.fmr-error-banner');
         if (!banner) {
             banner = document.createElement('div');
             banner.className = 'alert alert-danger fmr-error-banner';
@@ -138,10 +141,10 @@ function isAnswered(g) {
 
 // Friendly per-type message for a required-but-unanswered group.
 function requiredMsg(g) {
-    if (g.classList.contains('item-bot_check')) return 'Please verify that you are human to continue.';
-    if (g.classList.contains('item-visual_analog_scale')) return 'Please choose a point on the scale to continue.';
-    if (g.classList.contains('item-geopoint')) return 'Please provide your location to continue.';
-    if (g.matches('.item-file, .item-image, .item-audio, .item-video')) return 'Please add a file to continue.';
+    if (g.classList.contains('item-bot_check')) return t('validation.bot_check', 'Please verify that you are human to continue.');
+    if (g.classList.contains('item-visual_analog_scale')) return t('validation.scale', 'Please choose a point on the scale to continue.');
+    if (g.classList.contains('item-geopoint')) return t('validation.location', 'Please provide your location to continue.');
+    if (g.matches('.item-file, .item-image, .item-audio, .item-video')) return t('validation.file', 'Please add a file to continue.');
     if (g.classList.contains('item-rank')) return t('validation.rank', 'Please rank the options to continue.');
     return t('validation.required', "We'll need this to continue.");
 }
@@ -319,7 +322,7 @@ export function installBlurValidation(root) {
         el.classList.add('is-invalid');
         const fb = document.createElement('div');
         fb.className = 'invalid-feedback fmr-invalid-feedback d-block';
-        fb.textContent = invalidMessage(el, 'Please check this entry.');
+        fb.textContent = invalidMessage(el, t('validation.check_entry', 'Please check this entry.'));
         const anchor = el.closest('.controls, .form-group') || el.parentElement;
         if (anchor && anchor.parentElement) {
             anchor.parentElement.insertBefore(fb, anchor.nextSibling);

@@ -292,9 +292,10 @@
                         <div class="box-body">
                             <?php if ($study->rendering_mode === 'v2'): ?>
                                 <p>This study renders on the <strong>form_v2</strong> engine (single-document form, client-side showifs, offline queue, autosave).</p>
-                                <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" onsubmit="return confirm('Switch this study back to the classic v1 engine? Form units fall through to the v1 pipeline; you can switch back at any time.\n\nPages that participants submitted offline and have not sent yet will be lost: the server no longer accepts them for this survey.');" style="display:inline">
+                                <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" style="display:inline">
                                     <input type="hidden" name="target" value="v1">
-                                    <button type="submit" class="btn btn-default"><i class="fa fa-history"></i> Switch back to v1</button>
+                                    <?php /* data-confirm, not onsubmit: the admin CSP blocks inline handlers (admin-ui.js). */ ?>
+                                    <button type="submit" class="btn btn-default" data-confirm="Switch this study back to the classic v1 engine? Form units fall through to the v1 pipeline; you can switch back at any time.&#10;&#10;Pages that participants submitted offline and have not sent yet will be lost: the server no longer accepts them for this survey."><i class="fa fa-history"></i> Switch back to v1</button>
                                 </form>
                             <?php else: ?>
                                 <p>This study renders on the <strong>classic v1</strong> engine. form_v2 adds per-page AJAX submission, reactive client-side showifs, offline queueing, autosave, and the solo layout.</p>
@@ -303,15 +304,15 @@
                                 <?php elseif ($fmrScanFlagged > 0): ?>
                                     <p class="text-warning"><i class="fa fa-exclamation-triangle"></i> Compatibility scan: <strong><?= (int) $fmrScanFlagged ?></strong> expression(s) need attention (a showif that needs a JS rewrite, or R that must move into a hidden item's <code>value</code>) — <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>">see the full report</a> before upgrading.</p>
                                 <?php endif; ?>
-                                <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" onsubmit="return confirm('Upgrade this study to the form_v2 engine? Only a survey that no run uses as a classic Survey can be upgraded; you can switch back at any time.');" style="display:inline">
+                                <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" style="display:inline">
                                     <input type="hidden" name="target" value="v2">
-                                    <button type="submit" class="btn btn-primary"><i class="fa fa-rocket"></i> Upgrade to form_v2</button>
+                                    <button type="submit" class="btn btn-primary" data-confirm="Upgrade this study to the form_v2 engine? Only a survey that no run uses as a classic Survey can be upgraded; you can switch back at any time."><i class="fa fa-rocket"></i> Upgrade to form_v2</button>
                                 </form>
                                 <?php if ($fmrScanFlagged > 0): ?>
-                                    <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" onsubmit="return confirm('Upgrade although the scan flags showifs? Each flagged showif keeps its item hidden on form_v2. Items v2 cannot run (calculate) still block the switch.');" style="display:inline">
+                                    <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" style="display:inline">
                                         <input type="hidden" name="target" value="v2">
                                         <input type="hidden" name="force" value="1">
-                                        <button type="submit" class="btn btn-warning"><i class="fa fa-exclamation-triangle"></i> Upgrade anyway</button>
+                                        <button type="submit" class="btn btn-warning" data-confirm="Upgrade although the scan flags showifs? Each flagged showif keeps its item hidden on form_v2. Items v2 cannot run (calculate) still block the switch."><i class="fa fa-exclamation-triangle"></i> Upgrade anyway</button>
                                     </form>
                                 <?php endif; ?>
                                 <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>" class="btn btn-default"><i class="fa fa-search"></i> Full compatibility report</a>

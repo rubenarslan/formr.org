@@ -22,7 +22,7 @@
 //      undefined (→ the item keeps its current visibility: hidden, as every
 //      showif item renders) instead of noisily blowing up every keystroke.
 
-import { readField, fieldKey } from '../lib/inputs.js';
+import { readField, fieldKey, isItemHidden } from '../lib/inputs.js';
 
 // Names the `fmrForm` component itself owns.
 //
@@ -260,8 +260,11 @@ export function registerXShowif(Alpine) {
                 // renders `.hidden` (Item::hideByDefaultPendingClient), so an
                 // unknowable showif keeps its item hidden — or, once it was
                 // shown, keeps the current state — instead of flashing visible.
+                // The current state is the showif's own record (isItemHidden),
+                // not the bare class: the admin preview's "Show hidden items"
+                // removes the class for inspection without un-hiding the item.
                 const visible = (result === undefined)
-                    ? !el.classList.contains('hidden')
+                    ? !isItemHidden(el)
                     : !!result;
                 applyVisibility(visible);
             });

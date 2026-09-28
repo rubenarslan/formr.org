@@ -118,6 +118,9 @@ test.describe('form_v2: dynamic content resolves the same way on every page', ()
         await page.fill('[name="d_num"]', '9');
         const r = await v2.submitV2(page);
         expect(v2.advanced(r.body), JSON.stringify(r.body)).toBeTruthy();
+        // The reply comes before the page change (it waits on page 2's R
+        // values): reload once page 2 is showing, as a participant would.
+        await expect.poll(() => v2.visiblePageNum(page), { timeout: 10000 }).toBe(2);
         await page.reload();
         await v2.waitForBundle(page);
         await waitResolved(page, 2);

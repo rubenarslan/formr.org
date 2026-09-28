@@ -22,7 +22,9 @@ test('a stored page with a passed bot_check can be sent again', async ({ page, b
     await v2.waitForBundle(page);
     const usid = await v2.unitSessionId(page);
     await page.evaluate((id) => window.localStorage.setItem(`fmr:page:${id}`, '5'), usid);
-    await page.reload({ waitUntil: 'domcontentloaded' });
+    // The URL names the landing page (?page=1), which wins over the
+    // remembered one: open the run URL itself.
+    await page.goto(page.url().replace(/[?&]page=\d+/, '').replace(/\?$/, ''), { waitUntil: 'domcontentloaded' });
     await v2.waitForBundle(page);
     await expect.poll(() => v2.visiblePageNum(page), { timeout: 10000 }).toBe(5);
     expect(await solveBotCheckIfPresent(page, 'form.fmr-form-v2 section.fmr-page:not([hidden])')).toBe(true);
@@ -56,7 +58,9 @@ test('a refused bot_check resets its widget', async ({ page, baseURL }) => {
     await v2.waitForBundle(page);
     const usid = await v2.unitSessionId(page);
     await page.evaluate((id) => window.localStorage.setItem(`fmr:page:${id}`, '5'), usid);
-    await page.reload({ waitUntil: 'domcontentloaded' });
+    // The URL names the landing page (?page=1), which wins over the
+    // remembered one: open the run URL itself.
+    await page.goto(page.url().replace(/[?&]page=\d+/, '').replace(/\?$/, ''), { waitUntil: 'domcontentloaded' });
     await v2.waitForBundle(page);
     await expect.poll(() => v2.visiblePageNum(page), { timeout: 10000 }).toBe(5);
     const scope = 'form.fmr-form-v2 section.fmr-page:not([hidden])';

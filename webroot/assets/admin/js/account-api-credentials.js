@@ -201,9 +201,8 @@
         var label = $row.data('label');
         // Pre-fetch the current scopes/runs from the row's badge column
         var scopes = $row.find('.api-cred-scopes code').map(function () { return jQuery(this).text(); }).get();
-        // The row only shows a count of runs, not the actual ids — leave runs unselected
-        // and the user can re-pick. (Keeping the previous allowlist would require an extra
-        // round-trip.)
+        // The row shows only a count of runs; its data-run-ids carries the ids, so
+        // the run picker opens with the credential's current allowlist.
         enterRotateMode(clientId, label, scopes, ($row.attr('data-run-ids') || '').split(',').filter(Boolean).map(Number));
     });
     $panel.on('click', '.api-delete-btn', function () {

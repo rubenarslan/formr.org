@@ -26,6 +26,15 @@ import { t } from '../lib/i18n.js';
 // legacy/already-rendered session never seats it as its own blank step.
 const HIDDEN_TYPES = ['hidden', 'get', 'random', 'referrer', 'ip', 'browser', 'server', 'mc_heading'];
 
+// A page's submit controls — the one list main.js's canSubmitPage gate and
+// the solo countdown lookup below both read.
+export const SUBMIT_CONTROL_SELECTOR =
+    '.item-submit button, .item-submit input[type=submit], button.submit_automatically_after_timeout, [data-fmr-next]';
+
+// Attribute-context escape for the few strings (study-language labels)
+// built into markup here.
+const escAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
 export function initSolo(opts) {
     // pageNav (main.js): which page is the last shown one and where Previous
     // goes — derived from the state store (state.mjs pageState), the same
@@ -399,8 +408,6 @@ export function initSolo(opts) {
     // can't drift apart on which controls count. Solo needs the button
     // itself as well, to seat the step that owns the countdown, and keeps
     // its own scan as the fallback for a page rendered without the gate.
-    const SUBMIT_CONTROL_SELECTOR =
-        '.item-submit button, .item-submit input[type=submit], button.submit_automatically_after_timeout, [data-fmr-next]';
     function blockedSubmitButton(pageEl) {
         if (!pageEl) return null;
         const gate = typeof canSubmitPage === 'function' ? canSubmitPage : window.fmrCanSubmitPage;
@@ -500,9 +507,9 @@ export function initSolo(opts) {
             + '<button type="button" class="btn btn-primary fmr-solo-ok">' + t('nav.ok', 'OK') + ' <i class="fa fa-check" aria-hidden="true"></i></button>'
             + '</div>'
             + '<div class="fmr-solo-left">'
-            + '<button type="button" class="fmr-solo-back" aria-label="Go to previous question">'
+            + '<button type="button" class="fmr-solo-back" aria-label="' + escAttr(t('solo.back_label', 'Go to previous question')) + '">'
             + '<i class="fa fa-arrow-up" aria-hidden="true"></i> ' + t('nav.back', 'Back') + '</button>'
-            + '<button type="button" class="fmr-solo-help" aria-label="Show contact and privacy links" aria-expanded="false">'
+            + '<button type="button" class="fmr-solo-help" aria-label="' + escAttr(t('solo.help_label', 'Show contact and privacy links')) + '" aria-expanded="false">'
             + '<i class="fa fa-question" aria-hidden="true"></i></button>'
             + '</div>';
         root.appendChild(navEl);
@@ -667,8 +674,6 @@ export function initSolo(opts) {
         if (target) goTo(target, 'forward');
     });
     // --- keyboard ------------------------------------------------------------
-    // True when the target is a control that consumes the keystroke itself
-    // (free text, dropdowns, tom-select) — we must not hijack those.
     // True when the target is a control that consumes the keystroke itself
     // (free text, dropdowns, tom-select, rank rows, ARIA composite widgets) —
     // we must not hijack those. Note `input[type=range]` (VAS / range /

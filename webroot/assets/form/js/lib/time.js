@@ -28,7 +28,7 @@ export function toMysqlDatetime(value) {
     return d.toISOString().slice(0, 19).replace('T', ' ');
 }
 
-// "0:42" / "1:05" — used by the audio recorder to display recording length.
+// "00:42" / "01:05" — used by the audio recorder to display recording length.
 export function formatDuration(sec) {
     const m = Math.floor(sec / 60).toString().padStart(2, '0');
     const s = Math.floor(sec % 60).toString().padStart(2, '0');

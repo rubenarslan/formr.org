@@ -78,7 +78,7 @@
                                         if ($row['hidden'] === 1) {
                                             $row['shown'] .= "<small><em>not shown</em></small>";
                                         } elseif ($row['hidden'] === null) {
-                                            $row['shown'] .= $row['shown'] . "<small><em>not yet</em></small>";
+                                            $row['shown'] .= "<small><em>not yet</em></small>";
                                         }
 
                                         // escape participant answer via its item (media items pass through)

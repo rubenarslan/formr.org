@@ -31,6 +31,24 @@ test.describe('form_v2: reload, offline and Previous agree on the page', () => {
         await v2.waitForBundle(page);
     }
 
+    test('the browser Back button returns to the first page, and the URL keeps its code', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        // Open with the participant's code in the URL, as a PWA or bookmark
+        // does (window.formr.runResumeUrl is the run URL with ?code=).
+        const resume = await page.evaluate(() => (window.formr && window.formr.runResumeUrl) || '');
+        const code = resume ? new URL(resume).searchParams.get('code') : null;
+        expect(code, 'the page exposes its resumable URL').toBeTruthy();
+        await page.goto(resume, { waitUntil: 'domcontentloaded' });
+        await v2.waitForBundle(page);
+        await page.fill('[name="cp_a"]', '1');
+        await v2.submitV2(page);
+        await expect.poll(() => v2.visiblePageNum(page), { timeout: 10000 }).toBe(2);
+        expect(new URL(page.url()).searchParams.get('code'), 'the page change keeps ?code=').toBe(code);
+        await page.goBack();
+        await expect.poll(() => v2.visiblePageNum(page), { timeout: 10000 }).toBe(1);
+    });
+
     test('a half-filled page comes back as it was', async ({ page, baseURL }) => {
         await freshParticipant(page, RUN(), { baseURL });
         await v2.waitForBundle(page);
