@@ -8,6 +8,8 @@
 //    editable + focused for manual entry, instead of a silent no-op;
 //  - show a transient "locating…" state on the button so the tap registers.
 
+import { t } from '../lib/i18n.js';
+
 const flatStringifyGeo = (pos) => JSON.stringify({
     timestamp: pos.timestamp,
     coords: {
@@ -46,7 +48,7 @@ export function initGeopoint(root) {
             // so make the field editable now and offer manual entry regardless
             // of how the lookup resolves.
             if (visible) {
-                visible.placeholder = 'You can also type your location here';
+                visible.placeholder = t('geo.manual_placeholder', 'You can also type your location here');
                 visible.removeAttribute('readonly');
             }
             const hint = (msg, isError) => {
@@ -67,7 +69,7 @@ export function initGeopoint(root) {
             };
 
             busy(true);
-            hint('Locating…', false);
+            hint(t('geo.locating', 'Locating…'), false);
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     busy(false);
@@ -102,8 +104,8 @@ export function initGeopoint(root) {
                     busy(false);
                     const denied = err && err.code === 1;
                     hint(denied
-                        ? "Location access was blocked — please type your location instead."
-                        : "Couldn't get your location automatically — please type it instead.", true);
+                        ? t('geo.denied', 'Location access was blocked — please type your location instead.')
+                        : t('geo.failed', "Couldn't get your location automatically — please type it instead."), true);
                     if (visible) { try { visible.focus(); } catch (e) { /* noop */ } }
                 },
                 GEO_OPTS,

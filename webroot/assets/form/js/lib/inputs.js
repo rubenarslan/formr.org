@@ -121,3 +121,56 @@ export function hiddenShowifItemIds(scope) {
         })
         .filter((id) => id != null);
 }
+
+// A value the page itself wrote into an input (an R-resolved `value`, a PWA
+// item's stored status) is announced the way a typed answer is — the showif
+// scope and the autosave listen for input/change — but with the events
+// marked `fmrProgrammatic`, so the listeners that act only on a participant's
+// answer (the timed / all-answered auto-submit, solo auto-advance) skip it.
+export function dispatchProgrammatic(inp) {
+    ['input', 'change'].forEach((type) => {
+        const ev = new Event(type, { bubbles: true });
+        ev.fmrProgrammatic = true;
+        inp.dispatchEvent(ev);
+    });
+}
+
+// Write a status into an item's input and announce it (above) — only when it
+// changes, so a status re-established on every load (consent already given,
+// the same push subscription) does not autosave the page each time.
+export function setProgrammaticValue(inp, value) {
+    if (!inp) return;
+    const v = String(value);
+    if (inp.value === v) return;
+    inp.value = v;
+    dispatchProgrammatic(inp);
+}
+
+// A showif disables a hidden item's named controls (its answer is withdrawn)
+// and on reveal re-enables only the ones it disabled itself, recorded in
+// `data-fmr-showif-disabled`. A control the item's own code disabled on
+// purpose — a push button on a browser that cannot push, an installed app's
+// Add-to-Home-Screen button — stays disabled when the item is revealed.
+export function showifControls(wrapper) {
+    return Array.from(wrapper.querySelectorAll('input, select, textarea, button'))
+        .filter((inp) => inp.name && !inp.name.startsWith('_item_views'));
+}
+
+// Before any item code runs: a showif item renders hidden with its controls
+// disabled (Item::hideByDefaultPendingClient), so those are the showif's to
+// re-enable on the first reveal.
+export function claimPendingShowifControls(root) {
+    root.querySelectorAll('[data-showif]').forEach((wrapper) => {
+        showifControls(wrapper).forEach((inp) => {
+            if (inp.disabled) inp.dataset.fmrShowifDisabled = '1';
+        });
+    });
+}
+
+// Item code disabling one of its own controls on purpose: a later showif
+// reveal must leave it disabled.
+export function disableOwnControl(ctrl) {
+    if (!ctrl) return;
+    ctrl.disabled = true;
+    delete ctrl.dataset.fmrShowifDisabled;
+}

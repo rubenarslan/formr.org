@@ -8,6 +8,7 @@
 // the v2 multipart submit picks them up without a separate code path.
 
 import { formatDuration } from '../lib/time.js';
+import { t } from '../lib/i18n.js';
 
 const SETUPS = [
     { selector: '.record_audio', kind: 'audio', constraints: { audio: true, video: false }, mimes: [
@@ -135,14 +136,14 @@ function wireRecorder(container, fileInput, cfg) {
         mimeType = supportedMime();
         if (!mimeType) {
             alert(cfg.kind === 'video'
-                ? 'Your browser does not support video recording in any required format.'
-                : 'Your browser does not support audio recording in any required format.');
+                ? t('recorder.unsupported_video', 'Your browser does not support video recording in any required format.')
+                : t('recorder.unsupported_audio', 'Your browser does not support audio recording in any required format.'));
             return;
         }
         try {
             stream = await navigator.mediaDevices.getUserMedia(cfg.constraints);
         } catch {
-            alert('Permission to record was denied or the device is unavailable.');
+            alert(t('recorder.denied', 'Permission to record was denied or the device is unavailable.'));
             return;
         }
         chunks = [];
@@ -153,7 +154,7 @@ function wireRecorder(container, fileInput, cfg) {
             // the just-acquired stream or the mic indicator stays on.
             teardownStream();
             console.warn('fmr-recorder: MediaRecorder unavailable', err);
-            alert('Recording could not be started on this device.');
+            alert(t('recorder.start_failed', 'Recording could not be started on this device.'));
             return;
         }
         mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };

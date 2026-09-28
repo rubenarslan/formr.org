@@ -10,6 +10,7 @@
 // dedupes the lib so this import shares that same singleton.
 import { showPreferences } from 'vanilla-cookieconsent';
 import { t, iconLabel } from '../lib/i18n.js';
+import { setProgrammaticValue } from '../lib/inputs.js';
 
 const FUNCTIONAL_COOKIE_NAME = 'formrcookieconsent';
 
@@ -28,7 +29,9 @@ const markAnswered = (wrapper) => {
     const hidden = wrapper.querySelector('input');
     const status = wrapper.querySelector('.status-message');
     const btn = wrapper.querySelector('button.request-cookie');
-    if (hidden) { hidden.value = 'consent_given'; hidden.setCustomValidity(''); }
+    // Announced (marked) like a typed answer: showifs and the autosave see
+    // it, the auto-submit / solo auto-advance don't take it for a pick.
+    if (hidden) { hidden.setCustomValidity(''); setProgrammaticValue(hidden, 'consent_given'); }
     if (status) status.textContent = t('pwa.cookie.enabled', 'Functional cookies enabled. You can continue.');
     if (btn) {
         btn.disabled = true;

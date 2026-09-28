@@ -78,7 +78,10 @@ import {
 } from './showif/alpine.js';
 import { initSolo, SUBMIT_CONTROL_SELECTOR } from './solo/controller.js';
 import { createStore, pageState, readRememberedPage, rememberPage, forgetPage } from './state.mjs';
-import { collectAnswers, fieldKey, isItemHidden, hiddenShowifItemIds } from './lib/inputs.js';
+import {
+    collectAnswers, fieldKey, isItemHidden, hiddenShowifItemIds,
+    dispatchProgrammatic, setProgrammaticValue, claimPendingShowifControls, disableOwnControl,
+} from './lib/inputs.js';
 
 function initForm() {
     const root = document.querySelector('.fmr-form-v2');
@@ -86,6 +89,10 @@ function initForm() {
 
     const pages = Array.from(root.querySelectorAll('[data-fmr-page]'));
     if (pages.length === 0) return;
+
+    // First, before any item code disables a control of its own: what the
+    // server rendered disabled in a showif item is the showif's to restore.
+    claimPendingShowifControls(root);
 
     let currentIndex = 0;
     // Solo step controller (layout=solo). Assigned after submitPage is defined;
@@ -969,11 +976,7 @@ function initForm() {
             try {
                 // Marked, so listeners outside this module (the
                 // all-answered auto-submit) can tell it from an answer.
-                ['input', 'change'].forEach((type) => {
-                    const ev = new Event(type, { bubbles: true });
-                    ev.fmrProgrammatic = true;
-                    target.dispatchEvent(ev);
-                });
+                dispatchProgrammatic(target);
             } finally {
                 programmaticFill = false;
             }
@@ -1684,10 +1687,12 @@ function initForm() {
         const hidden = wrapper.querySelector('input');
         const status = wrapper.querySelector('.status-message');
         const btn = wrapper.querySelector('.add-to-homescreen, button.add-to-homescreen');
-        if (hidden) { hidden.value = value; hidden.setCustomValidity(''); }
+        // Announced (marked): a showif over the status and the autosave see
+        // it; the auto-submit / solo auto-advance don't take it for an answer.
+        if (hidden) { hidden.setCustomValidity(''); setProgrammaticValue(hidden, value); }
         if (status) status.textContent = t('pwa.install.using_installed', 'You are using the installed app.');
         if (btn) {
-            btn.disabled = true;
+            disableOwnControl(btn);
             btn.classList.remove('btn-primary');
             btn.classList.add('btn-success');
             btn.innerHTML = iconLabel('fa-check', t('pwa.install.installed', 'Installed'));
@@ -1698,7 +1703,7 @@ function initForm() {
     const setAtsStatus = (wrapper, value, text) => {
         const hidden = wrapper.querySelector('input');
         const status = wrapper.querySelector('.status-message');
-        if (hidden) hidden.value = value;
+        setProgrammaticValue(hidden, value);
         if (text && status) status.textContent = text;
     };
 
@@ -1888,7 +1893,8 @@ function initForm() {
     // --- PWA: PushNotification item ---
     // Subscribe via the SW's pushManager + window.vapidPublicKey, then POST
     // the subscription JSON to /{run}/ajax_save_push_subscription. Hidden
-    // input tracks state across reloads. On iOS this only works inside the
+    // input tracks state across reloads; every write to it goes through
+    // setProgrammaticValue, so showifs and the autosave follow it. On iOS this only works inside the
     // installed PWA (Safari 16.4+); we surface a helpful error message
     // when subscribing fails for that reason.
     const urlBase64ToUint8Array = (base64String) => {
@@ -2056,7 +2062,7 @@ function initForm() {
                 });
             } catch (e) { /* server delete is best-effort */ }
             try { localStorage.removeItem('push-notification-subscribed'); } catch (e) {}
-            if (hidden) hidden.value = 'permission_denied';
+            setProgrammaticValue(hidden, 'permission_denied');
             if (status) status.innerHTML = '<p>' + escapeHtml(t('pwa.push.unsubscribed', 'You have unsubscribed from notifications. Click the button to enable them again.')) + '</p>';
             if (btn) {
                 btn.disabled = false;
@@ -2075,11 +2081,11 @@ function initForm() {
         const hidden = wrapper.querySelector('input[type="text"]');
         const btn = wrapper.querySelector('button.push-notification-permission');
         if (hidden) {
-            hidden.value = JSON.stringify(subscription);
             hidden.setCustomValidity('');
+            setProgrammaticValue(hidden, JSON.stringify(subscription));
         }
         if (btn) {
-            btn.disabled = true;
+            disableOwnControl(btn);
             btn.classList.remove('btn-primary');
             btn.classList.add('btn-success');
             btn.innerHTML = iconLabel('fa-check', t('pwa.push.enabled_button', 'Notifications Enabled'));
@@ -2122,13 +2128,13 @@ function initForm() {
         // install requirement (vs. the generic "complete this step").
         if (isIOSDevice() && !isStandaloneDisplayMode()) {
             if (hidden) {
-                hidden.value = 'not_supported';
+                setProgrammaticValue(hidden, 'not_supported');
                 if (required) {
                     hidden.setCustomValidity(t('pwa.push.ios_install_required', 'Please add this study to your home screen first, then open it from the home screen icon to enable notifications.'));
                 }
             }
             if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + t('pwa.push.ios_install_first', '<strong>Add to Home Screen first.</strong> On iOS, push notifications only work after you install this study to your home screen and open it from there.') + '</div>';
-            btn.disabled = true;
+            disableOwnControl(btn);
             btn.classList.remove('btn-primary');
             btn.classList.add('btn-default');
             return;
@@ -2141,24 +2147,24 @@ function initForm() {
             if (hidden && required) hidden.setCustomValidity(msg);
         };
         if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-            if (hidden) hidden.value = 'not_supported';
+            setProgrammaticValue(hidden, 'not_supported');
             if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + escapeHtml(t('pwa.push.unsupported', 'Sorry, your browser does not support push notifications.')) + '</div>';
             setBlockedValidity(t('pwa.push.unsupported_validity', 'This browser does not support push notifications. Please use a supported browser to continue.'));
-            btn.disabled = true;
+            disableOwnControl(btn);
             return;
         }
         if (!window.vapidPublicKey) {
-            if (hidden) hidden.value = 'not_supported';
+            setProgrammaticValue(hidden, 'not_supported');
             if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + escapeHtml(t('pwa.push.not_configured', 'Push notifications are not configured for this study.')) + '</div>';
             setBlockedValidity(t('pwa.push.not_configured_validity', 'Push notifications are not configured for this study. Contact the study administrator.'));
-            btn.disabled = true;
+            disableOwnControl(btn);
             return;
         }
         if (!isIOSCompatibleVersion()) {
-            if (hidden) hidden.value = 'not_supported';
+            setProgrammaticValue(hidden, 'not_supported');
             if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + escapeHtml(t('pwa.push.ios_version', 'Sorry, push notifications require iOS 16.4 or later.')) + '</div>';
             setBlockedValidity(t('pwa.push.ios_version_validity', 'Push notifications require iOS 16.4 or later. Please update your device to continue.'));
-            btn.disabled = true;
+            disableOwnControl(btn);
             return;
         }
 
@@ -2177,10 +2183,10 @@ function initForm() {
             }
         } catch (e) {}
         if (!registration || !registration.pushManager) {
-            if (hidden) hidden.value = 'not_supported';
+            setProgrammaticValue(hidden, 'not_supported');
             if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + escapeHtml(t('pwa.push.no_sw', 'Service worker not registered. Please reload the page and try again.')) + '</div>';
             setBlockedValidity(t('pwa.push.no_sw_validity', 'Service worker is not registered. Reload the page and try again.'));
-            btn.disabled = true;
+            disableOwnControl(btn);
             return;
         }
 
@@ -2216,7 +2222,7 @@ function initForm() {
         // Step 5: react to current permission state.
         const perm = Notification.permission;
         if (perm === 'denied') {
-            if (hidden) hidden.value = 'permission_denied';
+            setProgrammaticValue(hidden, 'permission_denied');
             setBlockedValidity(t('pwa.push.blocked_validity', 'Notifications are blocked. Enable them in your browser/system settings, then tap the button again.'));
             renderNotificationControls(wrapper, registration, {
                 showTestButton: false,
@@ -2269,24 +2275,24 @@ function initForm() {
                     });
                     await sendTestNotification(registration);
                 } else if (result.reason === 'permission_denied') {
-                    if (hidden) hidden.value = 'permission_denied';
+                    setProgrammaticValue(hidden, 'permission_denied');
                     setBlockedValidity(t('pwa.push.declined_validity', 'You declined push notifications. Enable them in your browser/system settings, then reload to try again.'));
                     btn.classList.remove('btn-primary');
                     btn.classList.add('btn-default');
                     btn.innerHTML = iconLabel('fa-times', t('pwa.push.blocked_button', 'Notifications blocked'));
-                    btn.disabled = true;
+                    disableOwnControl(btn);
                     renderNotificationControls(wrapper, registration, {
                         showTestButton: false,
                         customMessage: t('pwa.push.declined', 'You declined push notifications. You can enable them in your browser settings later.'),
                     });
                 } else if (result.reason === 'invalid_config') {
-                    if (hidden) hidden.value = 'not_supported';
+                    setProgrammaticValue(hidden, 'not_supported');
                     setBlockedValidity(t('pwa.push.not_configured_validity', 'Push notifications are not configured for this study. Contact the study administrator.'));
                     if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + escapeHtml(t('pwa.push.config_error', 'Server configuration error. Please contact the study administrator.')) + '</div>';
                     btn.innerHTML = iconLabel('fa-exclamation-triangle', t('pwa.push.config_error_button', 'Configuration error'));
-                    btn.disabled = true;
+                    disableOwnControl(btn);
                 } else {
-                    if (hidden) hidden.value = 'not_supported';
+                    setProgrammaticValue(hidden, 'not_supported');
                     // Subscription failed — most often this is iOS Safari
                     // refusing to subscribe outside a home-screen-installed
                     // PWA. Surface the install hint either way; on Android /

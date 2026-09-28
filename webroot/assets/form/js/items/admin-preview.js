@@ -5,6 +5,8 @@
 //
 // Bar lives outside `.fmr-form-v2` so we query against document, not root.
 
+import { showifControls } from '../lib/inputs.js';
+
 export function initAdminPreview({ root, getCurrentPage }) {
     const monkeyBar = document.querySelector('.monkey_bar');
     if (!monkeyBar) return;
@@ -18,8 +20,12 @@ export function initAdminPreview({ root, getCurrentPage }) {
             root.querySelectorAll('.form-group, .item').forEach((el) => {
                 el.classList.remove('hidden');
                 el.style.display = '';
-                el.querySelectorAll('input, select, textarea').forEach((i) => {
-                    if (i.disabled) {
+                // Only what the showif disabled (the directive's marker) —
+                // not a control the item disabled itself (an mc heading row,
+                // a push button that can't push). The marker stays: the
+                // showif still holds the item hidden (isItemHidden).
+                showifControls(el).forEach((i) => {
+                    if (i.disabled && i.dataset.fmrShowifDisabled) {
                         i.disabled = false;
                         if (i.tomselect) { try { i.tomselect.enable(); } catch (err) { /* noop */ } }
                     }

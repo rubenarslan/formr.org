@@ -22,7 +22,7 @@
 //      undefined (→ the item keeps its current visibility: hidden, as every
 //      showif item renders) instead of noisily blowing up every keystroke.
 
-import { readField, fieldKey, isItemHidden } from '../lib/inputs.js';
+import { readField, fieldKey, isItemHidden, showifControls } from '../lib/inputs.js';
 
 // Names the `fmrForm` component itself owns.
 //
@@ -226,19 +226,28 @@ export function registerXShowif(Alpine) {
             el.toggleAttribute('data-fmr-hidden', !visible);
             el.style.display = visible ? '' : 'none';
             // `button` included: PWA prompt items (add_to_home_screen,
-            // push_notification) put name+disabled on a <button> — leaving it
-            // out meant a showif-revealed install button stayed disabled
-            // forever (server hides pending-client items WITH disabled).
-            el.querySelectorAll('input, select, textarea, button').forEach((inp) => {
-                if (inp.name && !inp.name.startsWith('_item_views')) {
-                    inp.disabled = !visible;
-                    // tom-select reads its original's `disabled` only at
-                    // init (items/tom-select.js runs before Alpine, while a
-                    // showif item is still rendered disabled) and stays
-                    // locked otherwise: a revealed select could not be opened.
-                    if (inp.tomselect) {
-                        try { if (visible) inp.tomselect.enable(); else inp.tomselect.disable(); } catch (e) { /* noop */ }
-                    }
+            // push_notification) put name+disabled on a <button> (server
+            // hides pending-client items WITH disabled). Only what this
+            // directive disabled comes back on reveal — the marker, set here
+            // or by claimPendingShowifControls for the server's render — so a
+            // button the item's own code disabled (can't push, already
+            // installed) stays disabled.
+            showifControls(el).forEach((inp) => {
+                if (!visible) {
+                    if (inp.disabled) return;   // already off: not ours to restore
+                    inp.disabled = true;
+                    inp.dataset.fmrShowifDisabled = '1';
+                } else {
+                    if (!inp.dataset.fmrShowifDisabled) return;
+                    inp.disabled = false;
+                    delete inp.dataset.fmrShowifDisabled;
+                }
+                // tom-select reads its original's `disabled` only at init
+                // (items/tom-select.js runs before Alpine, while a showif item
+                // is still rendered disabled) and stays locked otherwise: a
+                // revealed select could not be opened.
+                if (inp.tomselect) {
+                    try { if (visible) inp.tomselect.enable(); else inp.tomselect.disable(); } catch (e) { /* noop */ }
                 }
             });
             // Tell layout chrome (the solo step controller) that the step set

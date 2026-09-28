@@ -91,6 +91,20 @@ test.describe('PWA items v2 — install stack', () => {
         expect(state.btn, 'push permission button rendered').toBeTruthy();
         expect(state.hiddenPresent, 'push hidden result input present').toBeTruthy();
         expect(state.vapid, 'VAPID public key exposed for the subscribe path').toBe('string');
+
+        // The item's status write (local-chromium blocks service workers, so
+        // it lands on `not_supported` after Alpine has started) is announced
+        // with input/change: the showif scope holds the written status, not
+        // the rendered `not_requested`.
+        const status = () => page.evaluate(() => {
+            const hidden = document.querySelector('.item-push_notification input[type=text]');
+            const form = document.querySelector('form.fmr-form-v2');
+            const data = form && form._x_dataStack && form._x_dataStack[0];
+            return hidden ? { value: hidden.value, scope: data ? data[hidden.name] : '__no_alpine__' } : null;
+        });
+        await expect.poll(async () => (await status())?.value, { timeout: 25000 }).not.toBe('not_requested');
+        const written = await status();
+        expect(written.scope, 'showif scope follows the status write').toBe(written.value);
     });
 });
 

@@ -100,6 +100,23 @@ test.describe('cross-page showif (prior-page var + current-page var)', () => {
         await page.locator('[name="cp_b"]').blur();
         await expect(page.locator(FOLLOWUP)).toBeVisible();
         await expect.poll(() => alpineValue(page, 'cp_followup')).toBe(42);
+
+        // A reveal re-enables only what the showif disabled (its
+        // data-fmr-showif-disabled marker): a control the item's own code
+        // disabled while hidden (disableOwnControl — a push button that
+        // cannot push) stays disabled.
+        await page.fill('[name="cp_b"]', '4');
+        await page.locator('[name="cp_b"]').blur();
+        await expect(page.locator(FOLLOWUP)).toBeHidden();
+        await bsSafeEvaluate(page, (sel) => {
+            const el = document.querySelector(sel);
+            el.disabled = true;
+            delete el.dataset.fmrShowifDisabled;
+        }, FOLLOWUP);
+        await page.fill('[name="cp_b"]', '3');
+        await page.locator('[name="cp_b"]').blur();
+        await expect(page.locator(FOLLOWUP)).toBeVisible();
+        await expect(page.locator(FOLLOWUP), 'an own-disabled control stays disabled on reveal').toBeDisabled();
     });
 
     test('v1: does NOT reveal live — prior-page var is absent from the page context', async ({ page, baseURL }) => {
