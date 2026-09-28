@@ -63,21 +63,29 @@ class StructureResource extends BaseResource
         $site->renderAlerts();
 
         try {
-            $this->run->replaceUnits($jsonString);
-        } catch (Exception $e) {
+            $imported = $this->run->replaceUnits($jsonString);
+        } catch (Throwable $e) {
             return $this->error(500, 'Import exception: ' . $e->getMessage());
         }
 
         $runUnits = $this->run->getAllUnitIds();
         $actualRunCount = is_array($runUnits) ? count($runUnits) : 0;
         $alertsText = trim(strip_tags($site->renderAlerts()));
+        $importErrors = $this->run->getImportErrors();
 
-        if ($actualRunCount < $expectedCount) {
-            $errorMsg = "Import incomplete: run has $actualRunCount units, expected $expectedCount.";
+        // Decide on replaceUnits()' own verdict first. The unit count alone
+        // is not evidence: a rolled-back import leaves the PREVIOUS
+        // structure in place, which can have exactly the expected count
+        // (a rejected upload then reported 200 "imported").
+        if ($imported === false || $actualRunCount < $expectedCount) {
+            $status = $importErrors ? 400 : 500;
+            $errorMsg = $importErrors
+                ? 'Import failed: ' . implode(' | ', $importErrors)
+                : "Import incomplete: run has $actualRunCount units, expected $expectedCount.";
             if ($alertsText) {
                 $errorMsg .= ' ' . $alertsText;
             }
-            return $this->error(500, $errorMsg);
+            return $this->error($status, $errorMsg);
         }
 
         $payload = ['units_imported' => $actualRunCount];

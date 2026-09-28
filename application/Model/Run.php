@@ -38,6 +38,13 @@ class Run extends Model
     public $user_id = null;
     public $being_serviced = false;
     public $locked = false;
+
+    /**
+     * Why the last importUnits()/replaceUnits() call failed, one entry per
+     * problem, naming the unit ("unit 2 (Branch at position 20): ...").
+     * Protected so Model::assignProperties / save() never touch it.
+     */
+    protected $importErrors = [];
     public $created = null;
     public $modified = null;
     public $errors = array();
@@ -1712,13 +1719,19 @@ class Run extends Model
             unset($unitVars['user_id']);
             $options = array_merge($options, $unitVars);
 
-            $unitObj = RunUnitFactory::make($this, $options);
-
-            if ($unitObj) {
-                $unitObj->create($options);
-                if ($unitObj->valid) {
-                    $createdUnits[$unitObj->position] = $unitObj->displayForRun(Site::getInstance()->renderAlerts());
+            try {
+                $unitObj = RunUnitFactory::make($this, $options);
+                if ($unitObj) {
+                    $unitObj->create($options);
+                    if ($unitObj->valid) {
+                        $createdUnits[$unitObj->position] = $unitObj->displayForRun(Site::getInstance()->renderAlerts());
+                    }
                 }
+            } catch (Throwable $e) {
+                // Name the unit: without this the API caller only sees a
+                // unit-count mismatch and has to bisect the payload.
+                $this->importErrors[] = "unit {$unit->type} at position {$unit->position}: " . $e->getMessage();
+                throw $e;
             }
         }
 
@@ -1753,6 +1766,19 @@ class Run extends Model
      */
     public function replaceUnits($json_string)
     {
+        $this->importErrors = [];
+
+        // Refuse a payload importUnits() would fail on BEFORE the DELETE
+        // below. The transaction cannot be relied on to undo a half-done
+        // import: DB::beginTransaction/commit are flattened, so the first
+        // Survey unit's SurveyStudy::saveUploadedItemsFromReader() commit()
+        // (and any results-table DDL, an implicit commit) makes the DELETE
+        // durable, and a later unit's failure leaves the run truncated.
+        $this->importErrors = $this->preflightImport($json_string);
+        if ($this->importErrors) {
+            return false;
+        }
+
         $this->db->beginTransaction();
 
         try {
@@ -1809,14 +1835,73 @@ class Run extends Model
 
             $this->db->commit();
             return $imported;
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
+            // Throwable, not Exception: a TypeError from item/choice parsing
+            // (e.g. a choice given as an object) otherwise escapes the
+            // rollback and reaches the API dispatcher as a bare 500.
             $this->db->rollBack();
-            // The caller (StructureResource::importStructure) infers failure
-            // from a unit-count mismatch and the alert buffer; log so the
-            // root cause is visible in tmp/logs/errors.log.
+            if (!$this->importErrors) {
+                $this->importErrors[] = $e->getMessage();
+            }
             formr_log_exception($e, __METHOD__);
             return false;
         }
+    }
+
+    /** @return string[] why the last import failed ([] if it did not) */
+    public function getImportErrors()
+    {
+        return $this->importErrors;
+    }
+
+    /**
+     * Checks that need no writes: every unit's type is importable, jump
+     * targets are numeric, inline choices are plain labels. Mirrors the
+     * checks importUnits() would otherwise fail on mid-way.
+     *
+     * @return string[] one message per problem
+     */
+    protected function preflightImport($json_string)
+    {
+        $json = json_decode($json_string);
+        if (json_last_error() !== JSON_ERROR_NONE || empty($json->units)) {
+            return ['Invalid JSON or no units.'];
+        }
+        $supported = RunUnitFactory::getSupportedUnits();
+        $errors = [];
+        foreach ((array) $json->units as $i => $unit) {
+            $unit = (object) $unit;
+            $type = isset($unit->type) ? (string) $unit->type : '';
+            $label = "unit " . ($i + 1) . " (" . ($type ?: '?') . " at position " . ($unit->position ?? '?') . ")";
+            if ($type === 'Endpage') {
+                $type = 'Page';
+            }
+            if (!in_array($type, $supported, true)) {
+                $hint = [
+                    'Branch' => ' Branch is the internal base class; use SkipForward (jump when condition is TRUE) or SkipBackward (loop back).',
+                    'Privacy' => ' Privacy/ToS text is a run setting (privacy, tos), not an importable unit.',
+                ][$type] ?? '';
+                $errors[] = "$label: unsupported unit type '$type'. Importable types: " . implode(', ', $supported) . ".$hint";
+                continue;
+            }
+            if (!isset($unit->position) || !is_numeric($unit->position)) {
+                $errors[] = "$label: position must be numeric.";
+            }
+            if (in_array($type, ['SkipForward', 'SkipBackward'], true)
+                && (!isset($unit->if_true) || !is_numeric($unit->if_true))) {
+                $errors[] = "$label: if_true must be a numeric position.";
+            }
+            if (in_array($type, ['Survey', 'Form'], true) && isset($unit->survey_data->items)) {
+                foreach ((array) $unit->survey_data->items as $item) {
+                    foreach ((array) ($item->choices ?? []) as $key => $choice) {
+                        if (!is_scalar($choice) && $choice !== null) {
+                            $errors[] = "$label: item '" . ($item->name ?? '?') . "', choice '$key' must be a plain label string, not an object.";
+                        }
+                    }
+                }
+            }
+        }
+        return $errors;
     }
 
     protected function setExpireCookieUnits()

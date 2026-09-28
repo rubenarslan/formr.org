@@ -32,6 +32,7 @@ This release adds **form_v2**, a second survey engine, run by a new **Form** uni
 - Example surveys: `documentation/example_surveys/all_widgets_v2.json` (every item type v2 supports), `form_v2_basic.xlsx` with the run bundle `documentation/run_components/Form_v2_Basic.json`, and `pwa_items_default.xlsx` / `pwa_items_solo.xlsx`.
 
 ### Fixes
+- **A run structure upload that cannot be imported is refused before the run is changed.** A `Branch` or `Privacy` unit, a non-numeric jump target or a choice given as an object used to delete the run's current units and answer only "Import incomplete: run has N units, expected M" — or report success when the old structure happened to have as many units. The API now answers 400 and names each unit and what is wrong with it.
 - **An optional `number`, `range` or `visual_analog_scale` answered 0 is stored as 0.** It was stored as missing.
 - **A `week` answer is stored as the ISO week** (`2025-W01`). It was stored as year, month and week (`2024-1201` for 2025-W01, the wrong year whenever week 1 starts in December), and never came back into the input. Answers stored before keep the old form.
 - **A multiple choice's results column fits its largest choice.** Only the smallest was checked, so choices 1, 2, 3 with a 999 "don't know" code got a column too small for 999, and choosing it failed the whole page. Decimal choice codes get a decimal column instead of being rounded.
