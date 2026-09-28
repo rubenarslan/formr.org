@@ -223,9 +223,11 @@ function initForm() {
     // (per-item, not per-page) and focus; it re-seats stepping via
     // onPageShown. Called on every page swap and whenever a showif changes
     // which pages are shown (M changes with it).
-    const updatePageProgress = (pageNum) => {
+    // `ps` (optional): a pageState already taken this frame — see the
+    // showif refresh below, which passes one to both.
+    const updatePageProgress = (pageNum, ps = nav()) => {
         if (isSolo || !pageNum) return;
-        const { index, total } = nav().progress(pageNum);
+        const { index, total } = ps.progress(pageNum);
         if (progressBar) {
             // Interpolate within the study's [from, to] window
             // (add_percentage_points / displayed_percentage_maximum) so
@@ -246,9 +248,8 @@ function initForm() {
     // Previous is shown only when there is a shown page before this one, and
     // the advance button reads Submit on the last shown page, Next before it
     // — an authored submit label (no data-fmr-nav-label) is left alone.
-    const applyNav = (pageEl) => {
+    const applyNav = (pageEl, ps = nav()) => {
         const pageNum = Number(pageEl.dataset.fmrPage);
-        const ps = nav();
         pageEl.querySelectorAll('[data-fmr-prev]').forEach((btn) => { btn.hidden = ps.previousOf(pageNum) == null; });
         const last = ps.isLastShown(pageNum);
         pageEl.querySelectorAll('[data-fmr-nav-label]').forEach((btn) => {
@@ -276,8 +277,9 @@ function initForm() {
             navRefreshQueued = false;
             const p = pages[currentIndex];
             if (!p) return;
-            applyNav(p);
-            updatePageProgress(Number(p.dataset.fmrPage));
+            const ps = nav();   // one snapshot of the form for both
+            applyNav(p, ps);
+            updatePageProgress(Number(p.dataset.fmrPage), ps);
         });
     });
 
@@ -1150,13 +1152,23 @@ function initForm() {
         // and let the participant retry or let that page go.
         if (queuedBehind && !syncUrl) {
             savePill.classList.remove('is-visible');
+            const waiting = t('queue.waiting_first', 'An earlier page is still waiting to be sent. This page can be submitted once it has gone.');
+            // The summary banner carries the waiting page's own actions
+            // (Retry, Discard, Go to page): keep it, and say on top of it why
+            // this page did not go.
             await renderQueueSummary(null);
-            showQueueBanner(t('queue.waiting_first', 'An earlier page is still waiting to be sent. This page can be submitted once it has gone.'), 'warning',
-                [{ label: t('queue.retry', 'Retry now'), onClick: async (btn) => {
+            if (queueBanner && !queueBanner.hidden) {
+                const note = document.createElement('div');
+                note.className = 'fmr-queue-banner-note';
+                note.textContent = waiting;
+                queueBanner.insertBefore(note, queueBanner.firstChild);
+            } else {
+                showQueueBanner(waiting, 'warning', [{ label: t('queue.retry', 'Retry now'), onClick: async (btn) => {
                     btn.disabled = true;
                     try { await queueResetRetry(); } catch (e) { /* drain re-renders */ }
                     drainQueue('own');
                 } }]);
+            }
             return;
         }
         const QUEUE_FILE_SIZE_CAP_MB = (window.formr?.form_v2?.offline_blob_max_mb) || 10;

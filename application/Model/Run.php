@@ -45,6 +45,9 @@ class Run extends Model
      * Protected so Model::assignProperties / save() never touch it.
      */
     protected $importErrors = [];
+    // The import failed on the server's side (a database error), not on the
+    // payload: the API answers 5xx, and the SQL detail stays in the log.
+    protected $importServerFault = false;
     public $created = null;
     public $modified = null;
     public $errors = array();
@@ -1730,7 +1733,8 @@ class Run extends Model
             } catch (Throwable $e) {
                 // Name the unit: without this the API caller only sees a
                 // unit-count mismatch and has to bisect the payload.
-                $this->importErrors[] = "unit {$unit->type} at position {$unit->position}: " . $e->getMessage();
+                $this->importErrors[] = "unit {$unit->type} at position {$unit->position}: "
+                    . ($e instanceof PDOException ? 'a database error occurred' : $e->getMessage());
                 throw $e;
             }
         }
@@ -1838,8 +1842,9 @@ class Run extends Model
             // (e.g. a choice given as an object) otherwise escapes the
             // rollback and reaches the API dispatcher as a bare 500.
             $this->db->rollBack();
+            $this->importServerFault = $e instanceof PDOException;
             if (!$this->importErrors) {
-                $this->importErrors[] = $e->getMessage();
+                $this->importErrors[] = $this->importServerFault ? 'a database error occurred' : $e->getMessage();
             }
             formr_log_exception($e, __METHOD__);
             return false;
@@ -1850,6 +1855,12 @@ class Run extends Model
     public function getImportErrors()
     {
         return $this->importErrors;
+    }
+
+    /** Did the last import fail on the server's side (see $importServerFault)? */
+    public function importFailedOnServer()
+    {
+        return $this->importServerFault;
     }
 
     /**

@@ -78,7 +78,9 @@ class StructureResource extends BaseResource
         // structure in place, which can have exactly the expected count
         // (a rejected upload then reported 200 "imported").
         if ($imported === false || $actualRunCount < $expectedCount) {
-            $status = $importErrors ? 400 : 500;
+            // A problem with the payload is the client's (400); a database
+            // failure is ours (500), and a retry may succeed.
+            $status = ($importErrors && !$this->run->importFailedOnServer()) ? 400 : 500;
             $errorMsg = $importErrors
                 ? 'Import failed: ' . implode(' | ', $importErrors)
                 : "Import incomplete: run has $actualRunCount units, expected $expectedCount.";

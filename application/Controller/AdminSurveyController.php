@@ -705,6 +705,10 @@ class AdminSurveyController extends AdminController {
      *   v1 → v2: set rendering_mode='v2' AND convert every placement of this
      *     study as a plain Survey (survey_run_units.unit_id == study id, the
      *     v1 shared-PK convention) — see convertSurveyPlacementsToForm().
+     *     While form_v2 is an alpha the switch is refused as long as any run
+     *     uses the study as a Survey (SurveyStudy::runsUsingAsSurvey), so
+     *     the conversion finds nothing to convert; it stays for when that
+     *     gate is lifted.
      *
      *   v2 → v1: set rendering_mode='v1' only. Form::getUnitSessionOutput
      *     falls through to the v1 pipeline for non-v2 studies, so no unit
@@ -795,6 +799,10 @@ class AdminSurveyController extends AdminController {
      * placement stay on the study id: they are closed, nothing executes
      * them, and with the study placed more than once they cannot be
      * attributed.
+     *
+     * Currently a no-op in practice: the alpha gate in
+     * switchRenderingModeAction refuses the switch while any Survey
+     * placement exists.
      *
      * @param DB $db
      * @param int $study_id
