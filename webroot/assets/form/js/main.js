@@ -624,7 +624,14 @@ function initForm() {
         let ownMissing = null;
         for (const { url: entrySyncUrl, usid, entries: groupEntries } of groups.values()) {
             const outcome = await drainRunGroup(groupEntries, entrySyncUrl, isOwn(entrySyncUrl, usid));
-            if (outcome === 'offline') return;
+            if (outcome === 'offline') {
+                // A server that can't be reached while the device counts as
+                // online (refused connection, DNS, a captive portal) fires no
+                // `online` event: keep retrying on the timer, or the queue
+                // waits for a reload.
+                scheduleQueueRetry(30 * 1000);
+                return;
+            }
             if (outcome && outcome.redirect) ownRedirect = outcome.redirect;
             if (outcome && outcome.missing) ownMissing = outcome.missing;
         }
@@ -813,6 +820,7 @@ function initForm() {
             clearCustomValidity(pages[idx]);
             applyErrors(pages[idx], errors);
             resetBotChecks(root, Object.keys(errors));
+            if (soloController && idx === currentIndex) soloController.onErrors();
         };
         // Name the page as the progress label counts it ("Page 2 of 4"):
         // the stored page number skips pages the showifs leave out.
@@ -880,7 +888,23 @@ function initForm() {
             }
             return target;
         }
-        if (target.value !== '' || val === '') return null; // already answered / nothing to write
+        // A range always holds a value (the browser's midpoint when nothing
+        // is set), so it counts as empty until the participant has moved it.
+        const empty = target.type === 'range'
+            ? !(wrapper.querySelector('.item_answered') || {}).value
+            : target.value === '';
+        if (!empty || val === '') return null; // already answered / nothing to write
+        if (target.tomselect) {
+            // select_or_add: a tom-select built on a text input does not
+            // follow a written .value — the preset would post unseen.
+            const ts = target.tomselect;
+            const values = ts.settings.maxItems === 1 ? [val] : val.split(/\s*,\s*/).filter(Boolean);
+            values.forEach((v) => {
+                if (!ts.options[v]) ts.addOption({ [ts.settings.valueField]: v, [ts.settings.labelField]: v });
+            });
+            ts.setValue(values, true);
+            return target;
+        }
         target.value = val;
         return target;
     };
@@ -1243,7 +1267,10 @@ function initForm() {
             // next unit is only known once the sync drains and redirects.
             store.markQueued(payload.data, payload.hidden);
             const queuedNext = nav().nextAfter(pageNum);
-            if (queuedNext != null) goToPage(queuedNext);
+            // Awaited, as after a live submit: the single-flight guard must
+            // hold until the next page is shown, or a second tap re-queues
+            // this page.
+            if (queuedNext != null) await goToPage(queuedNext);
             return;
         }
         if (!res.ok) {
@@ -1302,6 +1329,7 @@ function initForm() {
             savePill.classList.remove('is-visible');
             applyErrors(page, body.errors);
             resetBotChecks(root, Object.keys(body.errors || {}));
+            if (soloController) soloController.onErrors();
             return;
         }
         // The server accepted this page: any earlier queued copy of it (e.g. a
@@ -1349,6 +1377,7 @@ function initForm() {
         if (first == null) return false;
         await goToPage(first);
         applyErrors(pages[currentIndex], missing);
+        if (soloController) soloController.onErrors();
         return true;
     };
 
@@ -1768,7 +1797,14 @@ function initForm() {
 
     initInstallStack();
 
-    root.querySelectorAll('.add-to-homescreen-wrapper, .form-group.item-add_to_home_screen').forEach((wrapper) => {
+    // One element per PWA item: its inner wrapper, or the item's form-group
+    // when it has none. The two selectors match both for every item, and
+    // wiring both attached every handler twice (two install modals, two
+    // subscriptions and POSTs per click).
+    const pwaItemWrappers = (wrapperSel, groupSel) => Array.from(root.querySelectorAll(`${wrapperSel}, ${groupSel}`))
+        .filter((el) => !(el.matches(groupSel) && el.querySelector(wrapperSel)));
+
+    pwaItemWrappers('.add-to-homescreen-wrapper', '.form-group.item-add_to_home_screen').forEach((wrapper) => {
         if (isStandaloneDisplayMode()) {
             markAddedToHomeScreen(wrapper, 'already_added');
             return;
@@ -2070,7 +2106,7 @@ function initForm() {
         }
     };
 
-    root.querySelectorAll('.push-notification-wrapper, .form-group.item-push_notification').forEach(async (wrapper) => {
+    pwaItemWrappers('.push-notification-wrapper', '.form-group.item-push_notification').forEach(async (wrapper) => {
         const hidden = wrapper.querySelector('input[type="text"]');
         const status = wrapper.querySelector('.status-message');
         const btn = wrapper.querySelector('button.push-notification-permission');

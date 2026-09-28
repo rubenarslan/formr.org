@@ -53,6 +53,12 @@ export function readField(inp, root) {
         value = checked && !checked.disabled ? checked.value : null;
     } else if (inp.tagName === 'SELECT' && inp.multiple) {
         value = Array.from(inp.selectedOptions).map((o) => o.value);
+    } else if (isArray && inp.tagName !== 'SELECT') {
+        // Several inputs sharing a `name[]` (a rank's rows) answer together,
+        // in document order — one of them alone is not the answer.
+        value = Array.from(scope.querySelectorAll(`input[name="${esc(inp.name)}"], textarea[name="${esc(inp.name)}"]`))
+            .filter((el) => isAnswerInput(el) && el.type !== 'file')
+            .map((el) => el.value);
     } else {
         value = inp.value;
     }
@@ -61,13 +67,14 @@ export function readField(inp, root) {
 
 // Every answer within `scope` as a flat name → value map, in document order
 // with $_POST semantics: array fields accumulate, scalar fields are
-// last-wins, and an input that answers nothing adds no key. A radio or
-// checkbox group is read once, through its first input.
+// last-wins, and an input that answers nothing adds no key. A radio group
+// or a `name[]` group (checkboxes, a rank's rows) is read once, through its
+// first input — readField answers for the whole group.
 export function collectAnswers(scope, root) {
     const out = {};
     const seenGroups = new Set();
     scope.querySelectorAll('input[name], select[name], textarea[name]').forEach((inp) => {
-        if (inp.type === 'radio' || (inp.type === 'checkbox' && inp.name.endsWith('[]'))) {
+        if (inp.type === 'radio' || (inp.name.endsWith('[]') && inp.tagName !== 'SELECT')) {
             if (seenGroups.has(inp.name)) return;
             seenGroups.add(inp.name);
         }

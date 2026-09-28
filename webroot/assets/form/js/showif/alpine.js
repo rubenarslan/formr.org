@@ -232,6 +232,13 @@ export function registerXShowif(Alpine) {
             el.querySelectorAll('input, select, textarea, button').forEach((inp) => {
                 if (inp.name && !inp.name.startsWith('_item_views')) {
                     inp.disabled = !visible;
+                    // tom-select reads its original's `disabled` only at
+                    // init (items/tom-select.js runs before Alpine, while a
+                    // showif item is still rendered disabled) and stays
+                    // locked otherwise: a revealed select could not be opened.
+                    if (inp.tomselect) {
+                        try { if (visible) inp.tomselect.enable(); else inp.tomselect.disable(); } catch (e) { /* noop */ }
+                    }
                 }
             });
             // Tell layout chrome (the solo step controller) that the step set

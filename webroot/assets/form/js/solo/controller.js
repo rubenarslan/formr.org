@@ -275,10 +275,13 @@ export function initSolo(opts) {
         // When a banner pushes a "fitting" step partly below the fold, the doc
         // no longer fits → we DON'T lock → the participant can scroll the input
         // out from under the fixed footer/nav. (This was the iOS overlap bug.)
+        // No seated step (a page with nothing to step through): nothing to
+        // measure, so never lock — the page's content must stay scrollable.
+        if (!el) { document.documentElement.classList.remove('fmr-solo-locked'); return; }
         const usable = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
         let top = 0;
         for (let n = el; n; n = n.offsetParent) top += n.offsetTop;
-        const fits = !el || (top + el.offsetHeight) <= usable + 2;
+        const fits = (top + el.offsetHeight) <= usable + 2;
         document.documentElement.classList.toggle('fmr-solo-locked', fits);
     }
 
@@ -626,6 +629,10 @@ export function initSolo(opts) {
 
     // --- input wiring --------------------------------------------------------
     root.addEventListener('change', (e) => {
+        // A value the page wrote itself (an R-resolved `value`, main.js marks
+        // it) is not the participant's pick: it can land after the step is
+        // seated, and must not advance past a step nobody has seen yet.
+        if (e.fmrProgrammatic) return;
         const t = e.target;
         if (!(t instanceof Element)) return;
         if (t.name && t.name.startsWith('_item_views')) return;
@@ -736,5 +743,17 @@ export function initSolo(opts) {
         }
     });
 
-    return { onPageShown, onContinue, onBack };
+    // Errors the server reported (a rejected page, a final submit's missing
+    // items) are rendered onto their items by main.js — in solo usually a
+    // step other than the seated one, i.e. hidden, so the participant saw
+    // nothing happen. Seat the first flagged step of the current page.
+    function onErrors() {
+        const pageEl = pages[getCurrentIndex()];
+        const bad = pageEl ? firstInvalidStep(pageEl) : null;
+        if (!bad || bad === current) return;
+        const s = steps(pageEl);
+        goTo(bad, s.indexOf(bad) < s.indexOf(current) ? 'back' : 'forward');
+    }
+
+    return { onPageShown, onContinue, onBack, onErrors };
 }

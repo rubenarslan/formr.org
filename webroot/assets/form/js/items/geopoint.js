@@ -77,6 +77,14 @@ export function initGeopoint(root) {
                         visible.value = `lat:${pos.coords.latitude}/long:${pos.coords.longitude}`;
                         visible.setAttribute('readonly', 'readonly');
                     }
+                    // Tell the form, as a typed answer would: the showif
+                    // scope, the autosave and the answered timestamp all
+                    // listen for these.
+                    [hidden, visible].forEach((inp) => {
+                        if (!inp) return;
+                        inp.dispatchEvent(new Event('input', { bubbles: true }));
+                        inp.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
                     // clear any required-gating error now that it's answered
                     controls.querySelectorAll('.is-invalid').forEach((el) => {
                         el.classList.remove('is-invalid');

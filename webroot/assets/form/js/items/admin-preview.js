@@ -19,8 +19,9 @@ export function initAdminPreview({ root, getCurrentPage }) {
                 el.classList.remove('hidden');
                 el.style.display = '';
                 el.querySelectorAll('input, select, textarea').forEach((i) => {
-                    if (i.disabled && i.dataset.fmrShowifDisabled !== '1') {
+                    if (i.disabled) {
                         i.disabled = false;
+                        if (i.tomselect) { try { i.tomselect.enable(); } catch (err) { /* noop */ } }
                     }
                 });
             });
@@ -110,7 +111,8 @@ function fillPageWithMonkey(page) {
                 const opts = Object.keys(select.tomselect.options || {});
                 if (opts.length) select.tomselect.setValue(opts[0]);
             } else if (select.options.length) {
-                select.selectedIndex = Math.max(1, 0);
+                // Skip a leading empty option, if there is a second one.
+                select.selectedIndex = Math.min(1, select.options.length - 1);
                 select.dispatchEvent(new Event('change', { bubbles: true }));
             }
             return;
