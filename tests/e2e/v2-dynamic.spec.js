@@ -126,3 +126,27 @@ test.describe('form_v2: dynamic content resolves the same way on every page', ()
         expect(s.label2).toContain('You picked 9');
     });
 });
+
+// A page is shown after at most PAGE_RESOLVE_WAIT_MS while its R values may
+// still be resolving; a submit must wait for them. Otherwise a hidden bridge
+// item (d_calc_seed = 3 + 4) went out empty, and the late reply filled an
+// input that nothing sends again.
+test('a submit waits for its page\'s R values still in flight', async ({ page, baseURL }) => {
+    test.skip(!!process.env.BROWSERSTACK_AUTOMATION, 'page.route is not available through the BrowserStack bridge');
+    await page.route(/\/form-render-page\/?(\?.*)?$/, async (route) => {
+        // Longer than setting up the page takes, shorter than the submit's
+        // bounded wait (SUBMIT_RESOLVE_WAIT_MS).
+        await new Promise((done) => setTimeout(done, 10000));
+        await route.continue();
+    });
+    await freshParticipant(page, RUN(), { baseURL });
+    await v2.waitForBundle(page);
+    await page.locator('input[name="d_num"]').fill('3');
+    await page.locator('section.fmr-page:not([hidden]) input[name="d_mc"][type=radio]').first().check({ force: true });
+    const [req] = await Promise.all([
+        page.waitForRequest((r) => /\/form-page-submit\/?$/.test(new URL(r.url()).pathname), { timeout: 30000 }),
+        page.locator('section.fmr-page:not([hidden]) [data-fmr-next]').click(),
+    ]);
+    const body = JSON.parse(req.postData() || '{}');
+    expect(body.data && body.data.d_calc_seed, 'the resolved value went with the page').toBe('7');
+});

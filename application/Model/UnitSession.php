@@ -1143,19 +1143,15 @@ class UnitSession extends Model {
         if (!$study) {
             return array();
         }
-        $rows = $this->db->execute(
-            'SELECT i.id, i.study_id, i.name, i.type, i.choice_list, i.type_options, i.optional
-             FROM `survey_items` i
-             LEFT JOIN `survey_items_display` d ON d.item_id = i.id AND d.session_id = :session_id
-             WHERE i.study_id = :study_id AND i.deleted IS NULL
-               AND i.type NOT IN (\'mc_heading\', \'submit\')
-               AND d.answer IS NULL AND (d.hidden IS NULL OR d.hidden = 0)
-             ORDER BY d.page, d.display_order, i.`order`, i.id',
-            array('session_id' => (int) $this->id, 'study_id' => (int) $study->id)
-        );
+        // The state block's rows (FormSubmissionService::stateRows), so the
+        // server can only name an item the browser's store knows.
         $factory = new ItemFactory(array());
         $out = array();
-        foreach ((array) $rows as $row) {
+        foreach (FormSubmissionService::stateRows($this->db, $study->id, $this->id) as $row) {
+            if ($row['answer'] !== null || (int) $row['hidden'] === 1) {
+                continue;
+            }
+            unset($row['answer'], $row['page'], $row['hidden'], $row['saved']);
             $item = $factory->make($row);
             if ($item && FormSubmissionService::isRequired($item) && !$item->formV2Unsupported()) {
                 $out[(string) $row['name']] = $item;

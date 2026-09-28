@@ -46,6 +46,11 @@ class FormRenderer extends SpreadsheetRenderer {
      * and strand the participant after the last in-DOM page.
      */
     protected $applyMaxDisplayedCap = false;
+    // Every load renders every item of every page, shown or not: counting
+    // that as a display would add one to each item per page load. The write
+    // path stamps created/displaycount (UnitSession::writeSurveyStudyRecord)
+    // and the browser records when each item was shown (item_views).
+    protected $countDisplays = false;
 
 
     /** @var bool|null memoized isAuthorFacingSession() */
@@ -375,7 +380,6 @@ class FormRenderer extends SpreadsheetRenderer {
             `survey_items_display`.displaycount,
             `survey_items_display`.session_id,
             `survey_items_display`.display_order,
-            `survey_items_display`.hidden,
             `survey_items_display`.saved,
             `survey_items_display`.answer AS stored_answer,
             `survey_items_display`.answered')
@@ -400,6 +404,13 @@ class FormRenderer extends SpreadsheetRenderer {
         $out = [];
         $this->storedItems = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            // survey_items_display.hidden is deliberately not selected: it
+            // records the showif outcome at the last submit, for the final
+            // required check, and Item::$hidden set from it made
+            // isRendered() drop the item from the document — an item hidden
+            // when an earlier page was submitted (its trigger on a later page
+            // not yet answered) could then never be shown. Every item is
+            // rendered; the browser owns visibility (processItems Step 4).
             $item = $itemFactory->make($row);
             if (!$item) continue;
             if (isset($row['saved'])) {

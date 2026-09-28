@@ -54,6 +54,8 @@ class SpreadsheetRenderer {
      * because its toRender spans the whole document (see the loop comment).
      */
     protected $applyMaxDisplayedCap = true;
+    // Count each render as a display (survey_items_display.displaycount).
+    protected $countDisplays = true;
     protected $progressCounts = [
         'progress' => 0,
         'already_answered' => 0,
@@ -808,7 +810,7 @@ NULL
                 }
             }
 
-            if ($renderedItemIds) {
+            if ($renderedItemIds && $this->countDisplays) {
                 $in = implode(',', $renderedItemIds);
                 $this->db->exec(
                     "UPDATE `survey_items_display`

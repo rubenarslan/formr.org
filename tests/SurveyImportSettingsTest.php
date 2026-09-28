@@ -68,4 +68,21 @@ class SurveyImportSettingsTest extends \PHPUnit\Framework\TestCase {
         $this->assertSame(array('hide_results' => 0, 'expire_after' => 60, 'unlinked' => 1, 'expire_invitation_grace' => null), $out,
             'a JSON null stays where the column is nullable, and is dropped where it is NOT NULL');
     }
+    public function testAFileDeclaringV2ArrivesOnV1WhereForm2IsNotEnabled() {
+        // The one rule every path that creates a survey from a file applies
+        // (admin upload, API, run-bundle import).
+        $prop = new ReflectionProperty('Config', 'config');
+        $prop->setAccessible(true);
+        $saved = (array) $prop->getValue(null);
+        try {
+            Config::initialize(array_merge($saved, array('form_v2_enabled' => false)));
+            $this->assertSame(array('rendering_mode' => 'v1', 'layout' => 'solo'),
+                SurveyStudy::engineGate(array('rendering_mode' => 'v2', 'layout' => 'solo')));
+            Config::initialize(array_merge($saved, array('form_v2_enabled' => true)));
+            $this->assertSame(array('rendering_mode' => 'v2'), SurveyStudy::engineGate(array('rendering_mode' => 'v2')));
+            $this->assertSame(array('use_paging' => 1), SurveyStudy::engineGate(array('use_paging' => 1)), 'no engine, nothing added');
+        } finally {
+            Config::initialize($saved);
+        }
+    }
 }

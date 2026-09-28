@@ -239,12 +239,12 @@ Offline queue is page-JS. The service-worker half is registered but not implemen
 - Drain triggers: the page `online` event, an initial-page-load check and a retry timer. There is no background drain and no POST interception in the SW. A live page submit first drains only its own form's entries (run + unit session); entries queued before the study's offline mode was turned off still drain.
 - Entries carry their own `sync_url` (the queue DB is origin-wide; on path-routed deploys a drain running on another run's page must post each entry back to its own run) and `unit_session_id` (so the server can `drop_entry` when the participant has since advanced to a different Form unit).
 - Server dedupes via `survey_form_submissions.uuid` pre-check + UNIQUE backstop (patch 085), applies through the same `UnitSession::updateSurveyStudyRecord` path as `/form-page-submit`. `/form-sync` accepts both JSON and multipart (queued file uploads).
-- SW is registered unconditionally on v2 runs and served by `RunController::serviceWorkerAction` (scope `/{runName}/`, `Service-Worker-Allowed` header set). It is real and useful — precache + push — just not part of the queue yet.
+- The SW is registered on PWA runs only (a VAPID key, as v1's `pwa-register.js`) and served by `RunController::serviceWorkerAction` (scope `/{runName}/`, `Service-Worker-Allowed` header set): asset precache and push. It takes no part in the queue.
 - Per-study `offline_mode` flag on `survey_studies` (patch 086; admin toggle): when off the form root sets `data-offline-mode="0"` and the client skips IDB persistence + drains nothing — fail loudly instead.
 - File-blob submissions queue too: the enqueue path stashes each `File` under `entry.files[<inputName>]` and strips it out of `entry.data`; the drain rebuilds the multipart body. Cap is `$settings['form_v2_offline_blob_max_mb']` (default 10 MB, surfaced to the page as `window.formr.form_v2.offline_blob_max_mb`); over-cap submissions surface a hard error instead of queueing, because multi-hundred-MB Blobs in IDB can exhaust the per-origin quota and leave the queue undrainable.
 - UUIDs must be RFC 4122 8-4-4-4-12 hex — the server regex-rejects anything else with 400. Client uses `crypto.randomUUID()` with a v4-shape RNG fallback.
 - Drain semantics: success → delete entry; if queue empty AND server returned `redirect`, follow it so the run advances. `drop_entry` (ended session) → drop without retry. Transient failure → stop, leave in place. Validation error → surface `.alert-danger` banner.
-- Timestamps to the server must be MySQL DATETIME format (`YYYY-MM-DD HH:MM:SS`). ISO-8601 with `.sssZ` 500s on `survey_form_submissions.client_ts`.
+- Timestamps to the server must be MySQL DATETIME format (`YYYY-MM-DD HH:MM:SS`). ISO-8601 with `.sssZ` is refused with 400 (`FormSyncPayload`).
 
 ### 5.2 What's not wired yet
 

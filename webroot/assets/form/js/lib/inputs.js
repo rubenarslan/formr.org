@@ -32,7 +32,10 @@ export function isAnswerInput(inp) {
 export function readField(inp, root) {
     if (!isAnswerInput(inp) || inp.type === 'file') return null;
     const { key, isArray } = fieldKey(inp.name);
-    const scope = root || inp.form || document;
+    // A group (radios, a checkbox array, a check's hidden partner) lives in
+    // its item's wrapper: searching that, not the whole form, keeps reading
+    // every answer linear in the form's size.
+    const scope = (inp.closest && inp.closest('.form-group')) || root || inp.form || document;
     const esc = (s) => (window.CSS && CSS.escape ? CSS.escape(s) : s.replace(/["\\]/g, '\\$&'));
     let value;
     if (inp.type === 'checkbox') {
@@ -84,13 +87,17 @@ export function collectAnswers(scope, root) {
     return out;
 }
 
-// Is an item hidden? One definition for every consumer: the `.hidden` class
-// on its wrapper. The server renders every showif item with it (so nothing
-// flashes before Alpine runs) and Alpine toggles it (showif/alpine.js
-// applyVisibility), so a showif that never evaluates — leftover R, a syntax
-// error — reads as hidden here, exactly as the participant sees it.
+// Is an item hidden? One definition for every consumer. The server renders
+// every showif item with the `.hidden` class (so nothing flashes before
+// Alpine runs), so a showif that never evaluates — leftover R, a syntax
+// error — reads as hidden, as the participant sees it. Alpine's directive
+// (showif/alpine.js applyVisibility) toggles the class and records its
+// decision in `data-fmr-hidden`; the admin preview's "Show hidden items"
+// removes only the class, so an item revealed for inspection still counts
+// as hidden and a test submit records what the showif decided.
 export function isItemHidden(wrapper) {
-    return !!(wrapper && wrapper.classList && wrapper.classList.contains('hidden'));
+    return !!(wrapper && wrapper.classList
+        && (wrapper.hasAttribute('data-fmr-hidden') || wrapper.classList.contains('hidden')));
 }
 
 // The ids of the showif items currently hidden within `scope`: what a page

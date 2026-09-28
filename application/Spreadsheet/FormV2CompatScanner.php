@@ -167,16 +167,29 @@ class FormV2CompatScanner {
      * @return list<string>
      */
     public static function namesNotOnForm($expr, array $formNames) {
-        $code = preg_replace('~/\*.*?\*/|//[^\n]*~s', ' ', (string) $expr);
-        $code = preg_replace('/"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|`[^`]*`/', '""', $code);
-        preg_match_all('/(?<![\w.$])([A-Za-z_$][A-Za-z0-9_$]*)(?![\w$])(?!\s*\()/', $code, $m);
         $unknown = [];
-        foreach (array_unique($m[1]) as $name) {
+        foreach (self::namesIn($expr) as $name) {
             if (!isset($formNames[$name]) && !in_array($name, self::JS_KNOWN_NAMES, true)) {
                 $unknown[] = $name;
             }
         }
         return $unknown;
+    }
+
+    /**
+     * The names a showif reads: identifiers outside comments and string
+     * literals, not called as functions, not property accesses. The one
+     * reading for the compatibility scan and for which no-input values the
+     * state block ships (FormSubmissionService::showifNames).
+     *
+     * @param string $expr
+     * @return list<string>
+     */
+    public static function namesIn($expr) {
+        $code = preg_replace('~/\*.*?\*/|//[^\n]*~s', ' ', (string) $expr);
+        $code = preg_replace('/"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|`[^`]*`/', '""', $code);
+        preg_match_all('/(?<![\w.$])([A-Za-z_$][A-Za-z0-9_$]*)(?![\w$])(?!\s*\()/', $code, $m);
+        return array_values(array_unique($m[1]));
     }
 
     /**

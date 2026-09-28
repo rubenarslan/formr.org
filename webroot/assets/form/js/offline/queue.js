@@ -71,9 +71,11 @@ export async function queueSupersede({ sync_url, unit_session_id, page }, keepUu
     let removed = 0;
     for (const e of entries) {
         if (keepUuid && e.uuid === keepUuid) continue;
-        if ((e.sync_url || '') !== (sync_url || '')) continue;
+        // An entry an older bundle stored without a run or unit session
+        // counts as the caller's, as it does for the drain (isOwnEntry).
+        if (e.sync_url && e.sync_url !== sync_url) continue;
         if (Number(e.page) !== Number(page)) continue;
-        if ((e.unit_session_id || 0) !== (unit_session_id || 0)) continue;
+        if (Number(e.unit_session_id) && Number(e.unit_session_id) !== Number(unit_session_id || 0)) continue;
         await db.delete(STORE, e.uuid);
         removed += 1;
     }

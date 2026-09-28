@@ -297,9 +297,24 @@ class SurveyStudy extends Model
      * Store the importable part of $raw (importableSettings) on this new
      * survey and say what was taken.
      */
+    /**
+     * A new survey arrives on form_v2 only where the operator enabled form_v2
+     * authoring: elsewhere a v2 survey could not be placed in any run (Survey
+     * units refuse it, Add Form is hidden). The one rule for every path that
+     * creates a survey from a file — the admin upload, the API, a run-bundle
+     * import; a Form unit in a bundle still puts its survey on v2 itself.
+     */
+    public static function engineGate(array $settings)
+    {
+        if (($settings['rendering_mode'] ?? null) === 'v2' && !Config::get('form_v2_enabled')) {
+            $settings['rendering_mode'] = 'v1';
+        }
+        return $settings;
+    }
+
     protected function applyImportedSettings(array $raw)
     {
-        $settings = self::importableSettings($raw);
+        $settings = self::engineGate(self::importableSettings($raw));
         if (!$settings) {
             return;
         }
@@ -383,7 +398,7 @@ class SurveyStudy extends Model
             // google_file_id through all along (AdminSurveyController:515),
             // so omitting it here never actually closed the hazard.
             $raw_settings = isset($data->settings) ? (array) $data->settings : [];
-            $filtered = self::importableSettings($raw_settings);
+            $filtered = self::engineGate(self::importableSettings($raw_settings));
             $data->settings = array_merge([
                 'maximum_number_displayed' => 0,
                 'displayed_percentage_maximum' => 100,
@@ -529,7 +544,8 @@ class SurveyStudy extends Model
         // the engine decides which items are allowed (formV2Unsupported).
         // An existing survey's settings are never changed by an upload.
         if ($is_new && empty($this->errors)) {
-            if (($reader->settings['rendering_mode'] ?? null) === 'v2' && ($settingsOverride['rendering_mode'] ?? 'v2') === 'v1') {
+            if (($reader->settings['rendering_mode'] ?? null) === 'v2'
+                && (($settingsOverride['rendering_mode'] ?? 'v2') === 'v1' || !Config::get('form_v2_enabled'))) {
                 $this->warnings[] = 'The file declares the form_v2 engine; the survey was created on the classic v1 engine'
                     . (Config::get('form_v2_enabled') ? ', as chosen.' : ', because form_v2 is not enabled on this instance.');
             }

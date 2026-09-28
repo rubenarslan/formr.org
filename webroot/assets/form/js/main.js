@@ -351,6 +351,12 @@ function initForm() {
     try { stateBlock = JSON.parse((root.querySelector('script.fmr-state') || {}).textContent || '{}'); } catch (e) { /* malformed: empty */ }
     const store = createStore(stateBlock);
     const unitSessionId = store.unitSessionId;
+    // Is a queue entry this form's — its run and its unit session? An entry
+    // an older bundle stored without either is. The one test for the drain,
+    // the queue summary and the queued-behind check (queueSupersede in
+    // offline/queue.js applies the same rule).
+    const isOwnEntry = (e) => (e.sync_url || ownSyncUrl) === ownSyncUrl
+        && (!Number(e.unit_session_id) || Number(e.unit_session_id) === (unitSessionId || 0));
 
     // A snapshot of the document for pageState: per page, its items with the
     // live showif result (`.hidden` is what Alpine toggles, showif/alpine.js
@@ -528,7 +534,8 @@ function initForm() {
         // Oldest first. client_ts has one-second resolution, so pages queued
         // within the same second fall back to `queued_at` (ms) — IDB returns
         // entries in uuid order, i.e. at random, and a later page must never
-        // apply first (its calculations would run without the earlier page).
+        // apply first (its hidden-item snapshot is newer, and a final page would end
+        // the form without the earlier one).
         // A final page always goes last within its unit session: it ends the
         // form, and anything applied after it is answered 409 drop_entry —
         // lost. By time alone, a page re-submitted after the final page was
@@ -546,7 +553,7 @@ function initForm() {
         // This form's own entries: its run and its unit session (or none
         // recorded — legacy). Only they may merge into this page's store or
         // move this page on.
-        const isOwn = (url, usid) => url === ownSyncUrl && (!usid || usid === (unitSessionId || 0));
+        const isOwn = (url, usid) => isOwnEntry({ sync_url: url, unit_session_id: usid });
         const groups = new Map();
         entries.forEach((entry) => {
             const url = entry.sync_url || ownSyncUrl;
@@ -683,7 +690,7 @@ function initForm() {
         // Only this unit session's entries hold the redirect back: a leftover
         // from an earlier unit session of the run can never apply, and must
         // not keep the participant on a form the server has ended.
-        const ownUnitSession = (e) => belongsHere(e) && (Number(e.unit_session_id) || 0) === (unitSessionId || 0);
+        const ownUnitSession = isOwnEntry;
         const ownRemaining = remaining.filter(ownUnitSession);
         if (ownRedirect && !ownRemaining.length) {
             window.location.href = ownRedirect;
@@ -773,6 +780,10 @@ function initForm() {
     // No-op for pages without any dynamic items (no data-fmr-fill-id /
     // -label-id placeholders) — short-circuits with no network.
     const PAGE_RESOLVE_WAIT_MS = 800;
+    // A submit waits this long for its page's resolution still in flight
+    // (see resolvePage); after that the page goes as it is, and what could
+    // not be loaded is submitted empty.
+    const SUBMIT_RESOLVE_WAIT_MS = 15000;
     // Write one value into its item — a resolved `value` when its page is
     // shown, or a stored answer at load — and return the input to fire
     // input/change on, or null when nothing was written. Choice items are
@@ -984,6 +995,11 @@ function initForm() {
     const submitPageInner = async () => {
         const page = pages[currentIndex];
         if (!gateSubmit(page)) return;
+        const inFlight = pageResolutions.get(Number(page.dataset.fmrPage));
+        if (inFlight) {
+            setSaveState('saving', t('save.saving', 'Saving…'), 0);
+            await Promise.race([inFlight, new Promise((done) => setTimeout(done, SUBMIT_RESOLVE_WAIT_MS))]);
+        }
         clearCustomValidity(page);
         if (!validatePageAndShowFeedback(page)) {
             return;
@@ -1022,8 +1038,7 @@ function initForm() {
         if (ownSyncUrl) {
             await drainQueue('own');
             const waiting = await queueGetAll().catch(() => []);
-            queuedBehind = waiting.some((e) => (e.sync_url || ownSyncUrl) === ownSyncUrl
-                && (e.unit_session_id || 0) === (unitSessionId || 0) && Number(e.page) !== pageNum);
+            queuedBehind = waiting.some((e) => isOwnEntry(e) && Number(e.page) !== pageNum);
         }
 
         // Let an autosave already on the wire land before this page does
@@ -1261,11 +1276,23 @@ function initForm() {
     // note_iframe's R Markdown, a heavy label) keeps its placeholder and
     // fills in when it arrives. Every page works this way, the first one
     // included.
+    // The page's resolution, kept while in flight: a page is shown after at
+    // most PAGE_RESOLVE_WAIT_MS, and a submit must not go before the R values
+    // it carries (a hidden bridge item's) have arrived — the late reply would
+    // fill an input nothing sends again.
+    const pageResolutions = new Map();
+    const resolvePage = (pageNum) => {
+        const n = Number(pageNum);
+        const p = resolveAndSubstitutePage(n).catch(() => {});
+        pageResolutions.set(n, p);
+        p.then(() => { if (pageResolutions.get(n) === p) pageResolutions.delete(n); });
+        return p;
+    };
     const goToPage = async (pageNum) => {
         const idx = pageIndexOf(pageNum);
         if (idx === -1) return;
         await Promise.race([
-            resolveAndSubstitutePage(pageNum),
+            resolvePage(pageNum),
             new Promise((done) => setTimeout(done, PAGE_RESOLVE_WAIT_MS)),
         ]);
         showPage(idx);
@@ -2197,7 +2224,7 @@ function initForm() {
         // we landed on. Fire-and-forget: the page is already shown; this
         // just fills.
         const initialPageEl = pages[currentIndex];
-        if (initialPageEl) resolveAndSubstitutePage(Number(initialPageEl.dataset.fmrPage));
+        if (initialPageEl) resolvePage(Number(initialPageEl.dataset.fmrPage));
         // Test-side signal that the form is ready: every listener is attached
         // and the participant is on their page. waitForBundle() in
         // tests/e2e/helpers/v2Form.js polls for window.fmrFormReady.

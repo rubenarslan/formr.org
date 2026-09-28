@@ -140,4 +140,11 @@ class FormV2CompatScannerScanTest extends \PHPUnit\Framework\TestCase {
             FormV2CompatScanner::detectRTokens('is.na(survey$q1) || survey$q2 == NA')
         );
     }
+    public function testNamesInReadsOnlyTheNamesAShowifUses() {
+        // Also what decides which no-input values (random, ip, …) the state
+        // block ships (FormSubmissionService::showifNames): words in strings
+        // and comments, function names and property accesses are not names.
+        $this->assertSame(['q1', 'r_ip', 'x'], FormV2CompatScanner::namesIn(
+            "answered(q1) && r_ip == \"a_secret b\" // a_browser\n && x.length > 0 /* a_random */"));
+    }
 }

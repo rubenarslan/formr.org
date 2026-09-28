@@ -326,7 +326,7 @@ reply shape (`v2.advanced`, `v2.unitSessionId`).
 
 ## 7. Follow-up: no `calculate` in v2
 
-Decided after the 2026-09-25 engine review, whose findings on calculate
+Decided on the engine review's findings on calculate
 timing (the next page chosen before its calculations ran, pages with no
 dynamic content never computing theirs, same-batch calculations reading
 each other as NA, render-page storing calculations without a stale-tab

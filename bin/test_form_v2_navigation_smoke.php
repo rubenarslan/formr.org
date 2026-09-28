@@ -169,7 +169,11 @@ try {
     $state = $renderer->stateBlock();
     ok($state['items']['q1']['answered'] === true && $state['items']['q1']['value'] === '2', 'q1 value survives a reload', $state['items']['q1']);
     ok($state['items']['q2']['hidden'] === true && $state['items']['q2']['answered'] === false, 'q2 hidden after reload', $state['items']['q2']);
-    ok(substr_count($renderer->render(), '<section class="fmr-page"') === 3, 'still three pages after answering page 1');
+    $reloaded = $renderer->render();
+    ok(substr_count($reloaded, '<section class="fmr-page"') === 3, 'still three pages after answering page 1');
+    // Recorded hidden is the last submit's showif outcome, not "never show":
+    // the item stays in the document so its showif can reveal it again.
+    ok(preg_match('/name="q2(\[\])?"/', $reloaded) === 1, 'q2, recorded hidden, is still in the document');
 
     echo "\n-- final submit with q3 missing: stored, not ended, names the gap --\n";
     $missing = $us->unansweredRequiredItems();

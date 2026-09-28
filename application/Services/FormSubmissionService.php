@@ -190,12 +190,8 @@ class FormSubmissionService {
                 // position, under the run-session lock (RunSession::
                 // endFormUnitSession); the browser's redirect to the run URL
                 // then executes whatever comes next.
-                $runSession = $this->unitSession->runSession;
-                if ($runSession && !$runSession->endFormUnitSession($this->unitSession)) {
+                if (!$this->unitSession->runSession->endFormUnitSession($this->unitSession)) {
                     throw new RuntimeException('form_v2: could not take the run-session lock to end the form');
-                }
-                if (!$runSession) {
-                    $this->unitSession->end();
                 }
                 $response['complete'] = true;
             }
@@ -402,8 +398,8 @@ class FormSubmissionService {
     }
 
     /**
-     * The identifiers the study's showifs read (a superset: every word-like
-     * token of every showif), as a set.
+     * The names the study's showifs read (FormV2CompatScanner::namesIn), as
+     * a set.
      *
      * @return array<string, true>
      */
@@ -414,10 +410,11 @@ class FormSubmissionService {
             array('sid' => (int) $studyId)
         );
         foreach ((array) $rows as $row) {
-            if (preg_match_all('/[A-Za-z_][A-Za-z0-9_]*/', (string) $row['showif'], $m)) {
-                foreach ($m[0] as $name) {
-                    $names[$name] = true;
-                }
+            // Only names the showif reads — not words in its string literals
+            // or comments: each listed name ships that item's value (random,
+            // ip, …) to the browser.
+            foreach (FormV2CompatScanner::namesIn((string) $row['showif']) as $name) {
+                $names[$name] = true;
             }
         }
         return $names;
