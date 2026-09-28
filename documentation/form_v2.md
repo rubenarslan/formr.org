@@ -169,6 +169,7 @@ When **Offline queue** is on (the default), a page submission that fails — no 
 
 ## Known limitations
 
+- **`modified` in R is the last answer stored**, not the last page view: a form_v2 survey writes nothing when a page is only looked at. Before the first answer it is the time the participant started the survey. For "inactive since" logic, use the answers' own times, or the survey's `created` and `ended`.
 - **No background drain**: see above — the queue is sent by the open page only.
 - **Previous button**: going back reveals the already-rendered page with the answers given so far; it is not refetched from the server. Dynamic values and labels on it are whatever they resolved to the first time. Leave the toggle off unless your design tolerates that. The server does not police it: with the toggle off, the browser hides the way back, nothing more.
 - **Where a participant resumes**: the browser remembers the page it last showed (in `localStorage`, per unit session), so a reload or a reopened tab lands where they were, with every answer given so far in its input. On another browser or after clearing site data there is no memory, and the form opens on the first page that holds an unanswered item; an optional item left blank on a submitted page counts as done.

@@ -1746,7 +1746,11 @@ class UnitSession extends Model {
                     $wideParts[$name] = '`w`.`created` AS `created`';
                     break;
                 case 'modified':
-                    $selectParts[$name] = 'MAX(`sid`.`saved`) AS `modified`';
+                    // The last answer stored — v2 writes nothing on a page
+                    // view, so not the last visit, as the results table's
+                    // `modified` was — and the start of the unit session
+                    // before any answer, rather than NA.
+                    $selectParts[$name] = 'COALESCE(MAX(`sid`.`saved`), MIN(`us`.`created`)) AS `modified`';
                     $wideParts[$name] = '`w`.`modified` AS `modified`';
                     break;
                 case 'ended':
@@ -2026,15 +2030,13 @@ class UnitSession extends Model {
                         ->where(['study_id' => $study_id])
                         ->where("type NOT IN ('mc_heading', 'note', 'submit', 'block', 'note_iframe')")
                         ->where("name != 'iteration'");
-                if (!SurveyStudy::readsLong($rendering_modes[$study_id] ?? null)) {
-                    // Soft-deleting an item (patch 094) keeps its survey_items
-                    // row but drops its wide column, so on the wide path a
-                    // still-referenced name (or a scale base name that
-                    // matches it) would SELECT a column that no longer exists.
-                    // The long read keys on name and still serves those
-                    // answers, so it keeps them.
-                    $items->where('`deleted` IS NULL');
-                }
+                // A soft-deleted item (patch 094) is not part of the survey
+                // any more: its answers stay in the database (and in
+                // exports), but R does not see them — on the wide path its
+                // column is gone, and on the long path it would otherwise
+                // reappear, a scale name (extraversion) picking up a removed
+                // extraversion_3.
+                $items->where('`deleted` IS NULL');
                 $items = $items->fetchAll();
 
                 $variable_names_in_table[$table_name] = array("created", "modified", "ended"); // should avoid modified, sucks for caching

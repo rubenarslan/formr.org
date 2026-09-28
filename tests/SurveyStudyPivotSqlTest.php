@@ -289,4 +289,17 @@ class SurveyStudyPivotSqlTest extends TestCase
         $this->assertStringContainsString('NULL AS `formr_dummy`', $sql);
         $this->assertStringContainsString('ORDER BY RAND()', $sql);
     }
+    public function testAPagePivotsOnlyItsOwnSessions() {
+        list($sql, $bindings) = SurveyStudy::buildPivotSql(7, array(11 => 'q1'), false, true, null,
+            array('offset' => 40, 'limit' => 20, 'order' => 'desc', 'order_by' => 'created'));
+        // The LIMIT sits in the page query, which carries no per-item columns.
+        $this->assertMatchesRegularExpression('/INNER JOIN \(SELECT `us`\.`id` AS `page_id`.*LIMIT 20 OFFSET 40\) `page`/s', $sql);
+        $inner = substr($sql, strpos($sql, '(SELECT `us`.`id` AS `page_id`'));
+        $inner = substr($inner, 0, strpos($inner, ') `page`'));
+        $this->assertStringNotContainsString('CASE WHEN', $inner, 'the page query pivots nothing');
+        $this->assertStringNotContainsString('LIMIT', substr($sql, strpos($sql, ') `page`')), 'no LIMIT after the page join');
+        $this->assertStringContainsString('COALESCE(`us`.`study_iteration`, `page`.`page_rn`)', $sql, 'iteration fallback numbered study-wide');
+        $this->assertSame(7, $bindings[':study_id']);
+        $this->assertSame(7, $bindings[':pivot_study_id']);
+    }
 }

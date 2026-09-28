@@ -1690,11 +1690,12 @@ class SurveyStudy extends Model
         $bindings = array(':study_id' => (int) $studyId);
         $wheres = array('`i`.`study_id` = :study_id');
 
-        $sql = "SELECT $select
-        FROM `survey_items_display` `sid`
+        $from = "FROM `survey_items_display` `sid`
         INNER JOIN `survey_items` `i` ON `i`.`id` = `sid`.`item_id`
         INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `sid`.`session_id`
         LEFT JOIN `survey_run_sessions` `rs` ON `rs`.`id` = `us`.`run_session_id`";
+        $sql = "SELECT $select
+        $from";
 
         if (!$getAll) {
             $wheres[] = '`rs`.`testing` = 1';
@@ -1728,7 +1729,8 @@ class SurveyStudy extends Model
             $having = "\n        HAVING (MIN(`sid`.`created`) <> MAX(`sid`.`saved`) OR MAX(`sid`.`saved`) IS NULL) AND {$endedExpr} IS NULL";
         }
 
-        $sql .= "\n        WHERE " . implode(' AND ', $wheres);
+        $whereSql = "\n        WHERE " . implode(' AND ', $wheres);
+        $sql .= $whereSql;
         // GROUP BY the wide-row identity (one row per unit-session).
         // study_iteration is functionally dependent on us.id (PK), but
         // ONLY_FULL_GROUP_BY can't always prove that across the LEFT
@@ -1755,7 +1757,24 @@ class SurveyStudy extends Model
                 $orderByKey = substr($orderByKey, strrpos($orderByKey, '.') + 1);
             }
             $orderExpr = isset($allowedOrderCols[$orderByKey]) ? $allowedOrderCols[$orderByKey] : '`us`.`id`';
-            $sql .= sprintf("\n        ORDER BY %s %s", $orderExpr, $order);
+            $orderSql = sprintf("\n        ORDER BY %s %s", $orderExpr, $order);
+            $limitSql = sprintf("\n        LIMIT %d OFFSET %d", (int) $paginate['limit'], (int) $paginate['offset']);
+            // A page first, then its rows: the inner query picks the page's
+            // sessions with the same filters and order but none of the
+            // per-item CASE columns, so a results page pivots its sessions,
+            // not the whole study. ROW_NUMBER is taken there, over every
+            // matching session before the LIMIT, so the iteration fallback
+            // stays study-wide.
+            $pageSql = "SELECT `us`.`id` AS `page_id`, ROW_NUMBER() OVER (ORDER BY `us`.`id` ASC) AS `page_rn`
+        $from" . $whereSql . "\n        GROUP BY " . implode(', ', $groupCols) . $having . $orderSql . $limitSql;
+            $pageSelect = str_replace($iterationExpr, 'COALESCE(`us`.`study_iteration`, `page`.`page_rn`)', $select);
+            $sql = "SELECT $pageSelect
+        $from
+        INNER JOIN ($pageSql) `page` ON `page`.`page_id` = `us`.`id`
+        WHERE `i`.`study_id` = :pivot_study_id
+        GROUP BY " . implode(', ', array_merge($groupCols, array('`page`.`page_rn`'))) . $orderSql;
+            $bindings[':pivot_study_id'] = (int) $studyId;
+            return array($sql, $bindings);
         }
 
         if ($paginate && isset($paginate['offset'])) {
@@ -1969,8 +1988,18 @@ class SurveyStudy extends Model
             // Delete results table
             $delete = $this->db->query("TRUNCATE TABLE `{$this->results_table}`");
 
-            // Delete unit sessions/long format results
-            $delete_item_disp = $this->db->delete('survey_unit_sessions', array('unit_id' => $this->id));
+            // Delete unit sessions/long format results. A Survey unit's
+            // sessions carry the study's id (shared primary key), a Form
+            // unit's its own survey_units id, which points at the study
+            // through form_study_id. Their survey_items_display rows go with
+            // them (ON DELETE CASCADE).
+            $this->db->exec(
+                "DELETE FROM `survey_unit_sessions`
+                  WHERE unit_id = :study_id
+                     OR unit_id IN (SELECT `id` FROM `survey_units` WHERE `type` = 'Form' AND `form_study_id` = :form_study_id)",
+                array('study_id' => (int) $this->id, 'form_study_id' => (int) $this->id)
+            );
+            $delete_item_disp = true;
 
             // Reset the write-time rollup so display counts don't keep
             // reporting the deleted rows (and later hooks don't increment on a

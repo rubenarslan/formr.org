@@ -323,6 +323,42 @@ try {
     echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . "\n";
     $failures++;
 }
+echo "\n-- a soft-deleted item is not in the R data --\n";
+try {
+    $cols = function ($tag) use ($us, $study) {
+        $d = $us->getRunData($study->name . '$q2 # ' . $tag);
+        return array_keys((array) ($d['datasets'][$study->name] ?? []));
+    };
+    ok(in_array('q2', $cols('before'), true), 'q2 is in the R data', $cols('before'));
+    $db->exec('UPDATE survey_items SET deleted = NOW() WHERE id = :i', ['i' => $ids['q2']]);
+    try {
+        ok(!in_array('q2', $cols('after'), true), 'deleted: q2 is not', $cols('after'));
+    } finally {
+        $db->exec('UPDATE survey_items SET deleted = NULL WHERE id = :i', ['i' => $ids['q2']]);
+    }
+} catch (Throwable $e) {
+    echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . "\n";
+    $failures++;
+}
+echo "\n-- delete all results removes a v2 study's Form sessions and answers --\n";
+try {
+    // A Form's sessions carry the Form unit's id, not the study's: deleting
+    // by the study id alone left every v2 answer in place.
+    $formSessions = function () use ($db, $unitId) {
+        return (int) $db->execute('SELECT COUNT(*) AS n FROM survey_unit_sessions WHERE unit_id = :u', ['u' => (int) $unitId], false, true)['n'];
+    };
+    $answers = function () use ($db, $study) {
+        return (int) $db->execute('SELECT COUNT(*) AS n FROM survey_items_display d JOIN survey_items i ON i.id = d.item_id WHERE i.study_id = :s', ['s' => (int) $study->id], false, true)['n'];
+    };
+    ok($formSessions() > 0 && $answers() > 0, 'the form has sessions and answers', [$formSessions(), $answers()]);
+    $fresh = new SurveyStudy((int) $study->id);
+    ok($fresh->deleteResults() === true, 'delete reports success', $fresh->errors);
+    ok($formSessions() === 0, "the Form unit's sessions are gone", $formSessions());
+    ok($answers() === 0, 'and their answers', $answers());
+} catch (Throwable $e) {
+    echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . "\n";
+    $failures++;
+}
 try {
     foreach ((array) $db->execute('SELECT unit_id FROM survey_run_units WHERE run_id = :r', ['r' => $runId]) as $u) {
         $db->exec('DELETE FROM survey_run_units WHERE run_id = :r AND unit_id = :u', ['r' => $runId, 'u' => $u['unit_id']]);

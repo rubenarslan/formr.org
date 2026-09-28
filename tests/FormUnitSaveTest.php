@@ -26,6 +26,7 @@ class FormUnitSaveTest extends \PHPUnit\Framework\TestCase {
         $this->dropTables();
         $this->db->exec('CREATE TABLE survey_units (id INTEGER PRIMARY KEY, type TEXT, form_study_id INTEGER, created TEXT, modified TEXT)');
         $this->db->exec('CREATE TABLE survey_run_units (id INTEGER PRIMARY KEY, run_id INTEGER, unit_id INTEGER, position INTEGER, description TEXT)');
+        $this->db->exec('CREATE TABLE IF NOT EXISTS survey_runs (id INTEGER PRIMARY KEY, name TEXT)');
         $this->db->exec('CREATE TABLE survey_studies (id INTEGER PRIMARY KEY, user_id INTEGER, name TEXT, results_table TEXT, unlinked INTEGER DEFAULT 0, rendering_mode TEXT DEFAULT "v1")');
         // Form::create asks the study whether v2 can run it (formV2UnsupportedItems).
         $this->db->exec('CREATE TABLE survey_items (id INTEGER PRIMARY KEY, study_id INTEGER, name TEXT, type TEXT, type_options TEXT, choice_list TEXT, label TEXT, label_parsed TEXT, optional INTEGER, class TEXT, showif TEXT, showif_js TEXT, value TEXT, item_order INTEGER, `order` INTEGER, block_order INTEGER, deleted TEXT)');
