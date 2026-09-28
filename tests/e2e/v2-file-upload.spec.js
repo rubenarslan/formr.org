@@ -88,4 +88,27 @@ test.describe('form_v2 file uploads', () => {
         expect(takeUpload(storedUpload(usid).file), 'the upload is on disk').toBe(true);
         await expect.poll(async () => (await page.evaluate(IDB_GET_ALL)).length, { timeout: 10000 }).toBe(0);
     });
+
+    test('a stored upload survives its page being submitted again without a new file', async ({ page, baseURL }) => {
+        const usid = await openFilePage(page, baseURL);
+        const next = () => page.locator('form.fmr-form-v2 section.fmr-page:not([hidden]) [data-fmr-next]').click();
+        await Promise.all([page.waitForRequest((r) => isWrite(r.url()), { timeout: 15000 }), next()]);
+        await expect.poll(() => storedUpload(usid).answer, { timeout: 15000 }).toMatch(/user_uploaded_files\//);
+        const stored = storedUpload(usid);
+
+        // A reload empties the file input; the page is submitted again. (The
+        // `missing` reply routed to page 1 and put ?page=1 in the URL, which
+        // a reload would honour: open the run URL itself.)
+        await page.evaluate((id) => window.localStorage.setItem(`fmr:page:${id}`, '5'), usid);
+        await page.goto(page.url().replace(/\?.*$/, ''), { waitUntil: 'domcontentloaded' });
+        await v2.waitForBundle(page);
+        await expect.poll(() => v2.visiblePageNum(page), { timeout: 10000 }).toBe(5);
+        await solveBotCheckIfPresent(page, 'form.fmr-form-v2 section.fmr-page:not([hidden])');
+        const [req] = await Promise.all([page.waitForRequest((r) => isWrite(r.url()), { timeout: 15000 }), next()]);
+        const posted = req.postData() || '';
+        expect(posted, 'nothing is posted for the stored upload').not.toMatch(/"u_file"/);
+        await page.waitForTimeout(1500);
+        expect(storedUpload(usid).answer, 'the upload is still stored').toBe(stored.answer);
+        takeUpload(stored.file);
+    });
 });

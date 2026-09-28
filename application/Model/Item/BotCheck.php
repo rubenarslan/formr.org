@@ -160,6 +160,22 @@ class BotCheck_Item extends Item {
     }
 
     /**
+     * What is stored is this item's verdict, never the posted token: the
+     * display row is written from the posted value (UnitSession::
+     * writeSurveyStudyRecord), which for a bot_check is the whole base64
+     * token — stored in survey_items_display.answer it reached long reads
+     * and made a resend of the page look unverified. 'verified' once
+     * validateInput accepted it (or when handed the stored marker), else
+     * nothing.
+     */
+    public function getReply($reply) {
+        if ($this->reply === 'verified' || $reply === 'verified') {
+            return 'verified';
+        }
+        return null;
+    }
+
+    /**
      * Block the submit with $message.
      *
      * The save loop (UnitSession::updateSurveyStudyRecord) detects a failed item

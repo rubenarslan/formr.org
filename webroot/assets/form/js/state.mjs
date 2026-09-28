@@ -61,11 +61,14 @@ export function createStore(block) {
 //   snapshot: [{ page: N, items: [{ name, visible, answerable }] }] in
 //     document order — one entry per <section data-fmr-page>; `visible` is
 //     the live showif result, `answerable` whether the item takes input.
-//   store: createStore()'s result (answered per name).
+//   store: createStore()'s result (answered / saved per name).
 //   remembered: the page the browser last showed (localStorage), or null.
 //   allowPrevious: the study's flag.
 export function pageState(snapshot, store, remembered, allowPrevious) {
-    const answered = (name) => !!(store && store.items[name] && store.items[name].answered);
+    // Stored counts, not only answered: an optional item its page was
+    // submitted with, left empty, is `saved` with no value — without this a
+    // reload on another device reopened the earliest such page.
+    const answered = (name) => !!(store && store.items[name] && (store.items[name].answered || store.items[name].saved));
     const shown = snapshot.filter((p) => p.items.some((it) => it.visible));
     const shownPages = shown.map((p) => p.page);
     const isShown = (n) => shownPages.includes(Number(n));

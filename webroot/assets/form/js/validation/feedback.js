@@ -115,6 +115,9 @@ function isAnswered(g) {
     if (g.querySelector('input[type=radio]:checked, input[type=checkbox]:checked')) return true;
     for (const f of g.querySelectorAll('input[type=file]')) {
         if (f.files && f.files.length) return true;
+        // An upload already stored for this item (main.js marks it from the
+        // state block): a file input cannot show it, but the answer is there.
+        if (f.dataset.fmrStored === '1') return true;
     }
     const named = g.querySelectorAll(
         'input[name]:not([type=hidden]):not([type=radio]):not([type=checkbox]):not([type=file]), textarea[name], select[name]',

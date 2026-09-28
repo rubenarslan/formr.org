@@ -1113,6 +1113,7 @@ class RunController extends Controller {
             return;
         }
         $db->beginTransaction();
+        $claimed = false;
         try {
             $stmt = $db->prepare(
                 'INSERT INTO `survey_form_submissions` (uuid, unit_session_id, page, client_ts) '
@@ -1127,10 +1128,15 @@ class RunController extends Controller {
                 $stmt->bindValue(':cts', $clientTs);
             }
             $stmt->execute();
+            $claimed = true;
             $result = (new FormSubmissionService($unitSession, $study))->apply($payload);
         } catch (Throwable $e) {
             $db->rollBack();
-            if ($e instanceof PDOException && (int) ($e->errorInfo[1] ?? 0) === 1062) {
+            // A duplicate uuid is a race between two drains of the same entry
+            // — but only when the ledger insert itself hit it: a duplicate
+            // key raised while applying the page is a failure like any other,
+            // and answering already_applied would make the browser drop it.
+            if (!$claimed && $e instanceof PDOException && (int) ($e->errorInfo[1] ?? 0) === 1062) {
                 $this->sendJsonResponse(array('status' => 'ok', 'already_applied' => true));
                 return;
             }

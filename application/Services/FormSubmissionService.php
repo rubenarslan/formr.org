@@ -171,10 +171,12 @@ class FormSubmissionService {
             }
             return array('status' => 'errors', 'errors' => $errors);
         }
-        $this->markHiddenItems($payload['hidden']);
+        $retracted = $this->markHiddenItems($payload['hidden']);
 
         $response = array('status' => 'ok');
-        $names = array_keys($payload['data']);
+        // The page's items, and any answer hiding just retracted elsewhere in
+        // the form — the browser's store must not keep that one as answered.
+        $names = array_values(array_unique(array_merge(array_keys($payload['data']), $retracted)));
         if (!empty($payload['final'])) {
             // The page itself is stored either way; `missing` tells the
             // browser which required items still stand between the
@@ -238,7 +240,9 @@ class FormSubmissionService {
             array('sid' => $sid)
         );
 
-        $this->clearResultsColumns(array_map(function ($row) { return (string) $row['name']; }, (array) $retracted));
+        $retractedNames = array_map(function ($row) { return (string) $row['name']; }, (array) $retracted);
+        $this->clearResultsColumns($retractedNames);
+        return $retractedNames;
     }
 
     /**

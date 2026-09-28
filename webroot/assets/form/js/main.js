@@ -183,6 +183,8 @@ function initForm() {
         const changed = (i !== currentIndex);
         pages.forEach((p, idx) => { p.hidden = (idx !== i); });
         currentIndex = i;
+        const shownNum = pages[i] ? Number(pages[i].dataset.fmrPage) : NaN;
+        if (Number.isFinite(shownNum) && !requestedPages.has(shownNum)) resolvePage(shownNum);
         // Let per-item widgets react to leaving a page (e.g. recorders stop
         // a live recording so the mic isn't left hot on an unseen page).
         if (changed) {
@@ -305,8 +307,14 @@ function initForm() {
         // still posts '' so the server stores it as shown-and-left-blank (v1
         // got this for free from the browser's empty $_FILES entry);
         // required-but-empty file items are blocked client-side before this.
+        // A file input cannot be pre-filled: after a reload it is empty even
+        // when the item's upload is stored, and posting '' would store NULL
+        // over it (a re-submit via Previous, missing-item routing, autosave).
+        // So an item with a stored upload posts nothing unless a new file is
+        // chosen.
         pageEl.querySelectorAll('input[type=file][name]:not([disabled])').forEach((inp) => {
             if (inp.files && inp.files.length > 0) return;
+            if (inp.dataset.fmrStored === '1') return;
             const group = inp.closest('.form-group');
             if (group && group.classList.contains('optional')) data[fieldKey(inp.name).key] = '';
         });
@@ -351,6 +359,16 @@ function initForm() {
     try { stateBlock = JSON.parse((root.querySelector('script.fmr-state') || {}).textContent || '{}'); } catch (e) { /* malformed: empty */ }
     const store = createStore(stateBlock);
     const unitSessionId = store.unitSessionId;
+    // Mark the file inputs whose item has an upload stored (the state block,
+    // then every reply): see collectPayload and validation/feedback.js.
+    const markStoredUploads = () => {
+        root.querySelectorAll('input[type=file][name]').forEach((inp) => {
+            const item = store.items[fieldKey(inp.name).key];
+            if (item && item.answered) inp.dataset.fmrStored = '1';
+            else delete inp.dataset.fmrStored;
+        });
+    };
+    markStoredUploads();
     // Is a queue entry this form's — its run and its unit session? An entry
     // an older bundle stored without either is. The one test for the drain,
     // the queue summary and the queued-behind check (queueSupersede in
@@ -1259,7 +1277,7 @@ function initForm() {
     // Merge a submit / sync reply into the store and the showif scope.
     const absorbReply = (body) => {
         if (!body || typeof body !== 'object') return;
-        if (body.items) store.merge(body.items);
+        if (body.items) { store.merge(body.items); markStoredUploads(); }
         const values = {};
         Object.keys(body.items || {}).forEach((name) => { values[name] = body.items[name].value; });
         if (Object.keys(values).length && window.Alpine) {
@@ -1281,8 +1299,13 @@ function initForm() {
     // it carries (a hidden bridge item's) have arrived — the late reply would
     // fill an input nothing sends again.
     const pageResolutions = new Map();
+    // Pages whose resolution this document has asked for: showPage resolves
+    // any other page it opens (browser Back, solo Back, the queue banner's
+    // "Go to page"), so no way onto a page leaves its R content blank.
+    const requestedPages = new Set();
     const resolvePage = (pageNum) => {
         const n = Number(pageNum);
+        requestedPages.add(n);
         const p = resolveAndSubstitutePage(n).catch(() => {});
         pageResolutions.set(n, p);
         p.then(() => { if (pageResolutions.get(n) === p) pageResolutions.delete(n); });
@@ -2219,12 +2242,10 @@ function initForm() {
         const paramPage = Number(new URLSearchParams(window.location.search).get('page'));
         const initial = (paramPage && ps.isShown(paramPage) && paramPage <= ps.currentPage) ? paramPage : ps.currentPage;
         const idx = pageIndexOf(initial);
+        // showPage resolves the deferred values, labels and choice labels of
+        // the page we land on. Fire-and-forget: the page is already shown;
+        // this just fills.
         showPage(idx === -1 ? 0 : idx);
-        // Resolve the deferred values, labels and choice labels of the page
-        // we landed on. Fire-and-forget: the page is already shown; this
-        // just fills.
-        const initialPageEl = pages[currentIndex];
-        if (initialPageEl) resolvePage(Number(initialPageEl.dataset.fmrPage));
         // Test-side signal that the form is ready: every listener is attached
         // and the participant is on their page. waitForBundle() in
         // tests/e2e/helpers/v2Form.js polls for window.fmrFormReady.

@@ -1160,6 +1160,15 @@ class UnitSession extends Model {
         return $out;
     }
 
+    /** Has this unit session already stored a passed check for this bot_check item? */
+    private function botCheckPassed(Item $item) {
+        $row = $this->db->execute(
+            'SELECT answer FROM `survey_items_display` WHERE session_id = :s AND item_id = :i',
+            array('s' => (int) $this->id, 'i' => (int) $item->id), false, true
+        );
+        return $row && $row['answer'] === 'verified';
+    }
+
     /**
      * Save posted survey data to database
      *
@@ -1244,6 +1253,14 @@ class UnitSession extends Model {
             // corrected resubmit — widget still showing "verified" — would be
             // refused as unverified.
             if ($validate && !($item_value instanceof Item) && $items[$item_name] instanceof BotCheck_Item) {
+                // Passed once in this unit session: a resend of its page (the
+                // retry of a submit whose reply was lost or that failed after
+                // storing, a queued copy) is not asked to verify again — the
+                // one-shot token was spent the first time, and the widget
+                // still shows "verified", so it would be refused forever.
+                if ($this->botCheckPassed($items[$item_name])) {
+                    continue;
+                }
                 $consuming[$item_name] = $item_value;
                 continue;
             }

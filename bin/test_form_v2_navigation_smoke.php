@@ -157,7 +157,7 @@ try {
     ok((int) $row('q2')['hidden'] === 1 && $row('q2')['answer'] === null && $row('q2')['saved'] === null, 'q2 cleared in the display table', $row('q2'));
     $wide = $db->execute("SELECT q2 FROM `{$study->results_table}` WHERE session_id = :s", ['s' => $us->id], false, true);
     ok($wide && $wide['q2'] === null, 'q2 cleared in the results table', $wide);
-    ok(!isset($r['items']['q2']) || $r['items']['q2']['answered'] === false, 'reply does not claim q2 answered');
+    ok(isset($r['items']['q2']) && $r['items']['q2']['answered'] === false, 'the reply echoes q2, retracted', $r['items']['q2'] ?? null);
 
     echo "\n-- a hidden id on an item without a showif is ignored --\n";
     $submit(['q1' => '2'], [$ids['q2'], $ids['q3']]);

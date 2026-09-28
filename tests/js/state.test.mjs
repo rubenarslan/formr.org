@@ -37,6 +37,8 @@ test('without memory: first page with a visible answerable item lacking an answe
     assert.equal(pageState(snap, store, null, false).currentPage, 3, 'q2 hidden, q3 answered → page 3');
     const done = createStore(block({ q1: st(true), q3: st(true), q4: st(true) }));
     assert.equal(pageState(snap, done, null, false).currentPage, 3, 'everything answered: last shown page');
+    const skipped = createStore(block({ q1: st(false, { saved: true }), q3: st(false), q4: st(false) }));
+    assert.equal(pageState(snap, skipped, null, false).currentPage, 2, 'q1 left empty but stored with its page: not reopened');
 });
 
 test('a page whose items are all hidden is stepped over', () => {
