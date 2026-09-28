@@ -192,4 +192,42 @@ test.describe('form_v2 offline queue drain', () => {
         const left = (await page.evaluate(IDB_GET_ALL)).map((e) => e.uuid);
         expect(left).toEqual([foreign.uuid]);
     });
+
+    test('a page queued after a waiting final page gives it its newer hidden list', async ({ page, baseURL }) => {
+        const ctx = await start(page, baseURL);
+        await fillAllVisible(page, page.locator('section.fmr-page:not([hidden])'));
+        const final = entryFor(ctx, { page: ctx.pageNum + 1, final: true, hidden: [987654], queued_at: 1 });
+        await page.evaluate(IDB_PUT, final);
+        await mockSync(page, () => ({ status: 503, contentType: 'application/json', body: '{}' }));
+        await page.context().setOffline(true);
+        try {
+            await page.locator('form.fmr-form-v2 section.fmr-page:not([hidden]) [data-fmr-next]').click();
+            await expect.poll(async () => (await page.evaluate(IDB_GET_ALL)).length, { timeout: 10000 }).toBe(2);
+        } finally {
+            await page.context().setOffline(false);
+        }
+        const all = await page.evaluate(IDB_GET_ALL);
+        const revisit = all.find((e) => e.uuid !== final.uuid);
+        const restamped = all.find((e) => e.uuid === final.uuid);
+        expect(revisit.final).toBeFalsy();
+        expect(restamped.hidden, 'the final page carries the newer snapshot').toEqual(revisit.hidden);
+    });
+
+    test('offline mode off: a submit held back by an earlier page says so, without a connection alert', async ({ page, baseURL }) => {
+        setOfflineMode(false);
+        try {
+            const ctx = await start(page, baseURL);
+            await fillAllVisible(page, page.locator('section.fmr-page:not([hidden])'));
+            await mockSync(page, () => ({ status: 503, contentType: 'application/json', body: '{}' }));
+            await seedEntry(page, ctx, { page: ctx.pageNum + 1 });
+            let alerted = null;
+            page.on('dialog', (d) => { alerted = d.message(); d.dismiss().catch(() => {}); });
+            await page.locator('form.fmr-form-v2 section.fmr-page:not([hidden]) [data-fmr-next]').click();
+            await expect(page.locator('.fmr-queue-banner')).toContainText('still waiting to be sent', { timeout: 10000 });
+            expect(alerted).toBeNull();
+            expect(await v2.visiblePageNum(page)).toBe(ctx.pageNum);
+        } finally {
+            setOfflineMode(true);
+        }
+    });
 });

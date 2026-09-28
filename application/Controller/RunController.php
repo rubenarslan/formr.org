@@ -718,6 +718,9 @@ class RunController extends Controller {
             $this->sendJsonResponse(array('error' => 'The page could not be stored.'), 500);
             return;
         }
+        if ($result['status'] === 'ok') {
+            FormSubmissionService::recordSubmitSeq($unitSession->id, $payload['doc'], $payload['seq']);
+        }
         $this->sendJsonResponse($this->withRunRedirect($result));
     }
 
@@ -746,6 +749,13 @@ class RunController extends Controller {
         $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
         if (!$runSession->id) {
             $this->sendJsonResponse(array('error' => 'No active run session'), 403);
+            return null;
+        }
+        // The run's access rule, as for the page (Run::exec): a run closed
+        // while a form was open takes no more answers from it. `closed` lets
+        // the browser reload into the run's service message.
+        if (!$this->run->admits($runSession, $this->user)) {
+            $this->sendJsonResponse(array('error' => 'This study is not open', 'closed' => true), 403);
             return null;
         }
         switch ($rateBucket) {
@@ -934,6 +944,12 @@ class RunController extends Controller {
             return;
         }
         list(, $unitSession, $study) = $context;
+        // Started before a page submit of the same document that has since
+        // landed: its answers are older than the stored ones.
+        if (FormSubmissionService::autosaveIsStale($unitSession->id, $payload['doc'], $payload['seq'])) {
+            $this->sendJsonResponse(array('status' => 'stale'));
+            return;
+        }
 
         // Keep only values that (a) belong to an item this study actually has,
         // (b) belong to an item type that may be autosaved, and (c) pass that
@@ -1165,6 +1181,7 @@ class RunController extends Controller {
             return;
         }
         $db->commit();
+        FormSubmissionService::recordSubmitSeq($unitSession->id, $payload['doc'], $payload['seq']);
         $this->sendJsonResponse($this->withRunRedirect($result));
     }
 

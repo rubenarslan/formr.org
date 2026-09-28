@@ -30,6 +30,7 @@ async function start(page, baseURL) {
     const ctx = await currentFormContext(page);
     ctx.submitUrl = await page.evaluate(() => document.querySelector('form.fmr-form-v2').dataset.submitUrl);
     ctx.renderUrl = ctx.runUrl.replace(/\/?$/, '/') + 'form-render-page';
+    ctx.saveUrl = await page.evaluate(() => document.querySelector('form.fmr-form-v2').dataset.saveUrl);
     return ctx;
 }
 
@@ -173,5 +174,41 @@ test.describe('the v2 write gate refuses what it must', () => {
         const res = await post(page, `${baseURL}/${v1Run}/form-page-submit/`, { page: 1, data: {} });
         expect(res.status).toBe(409);
         expect(res.body.error).toMatch(/not a v2 form/i);
+    });
+});
+
+test.describe('write ordering and access', () => {
+    test.skip(RUNNING_ON_BS, 'drives the server directly');
+
+    test('an autosave started before a page submit of the same document is ignored', async ({ page, baseURL }) => {
+        const ctx = await start(page, baseURL);
+        const doc = crypto.randomUUID();
+        const submit = await post(page, ctx.submitUrl, { page: ctx.pageNum, unit_session_id: ctx.unitSessionId,
+            data: { i_mc_req: '1', i_zip: '22222' }, doc, seq: 5 });
+        expect(submit.body.status).toBe('ok');
+        // The late autosave (numbered 3, sent before the submit) lands now.
+        const stale = await post(page, ctx.saveUrl, { page: ctx.pageNum, unit_session_id: ctx.unitSessionId,
+            data: { i_zip: '11111' }, doc, seq: 3 });
+        expect(stale.body.status).toBe('stale');
+        expect(answer(ctx.unitSessionId, 'i_zip')).toBe('22222');
+        // A later autosave of the same document, or one from another tab, is stored.
+        const later = await post(page, ctx.saveUrl, { page: ctx.pageNum, unit_session_id: ctx.unitSessionId,
+            data: { i_zip: '33333' }, doc, seq: 6 });
+        expect(later.body.status).toBe('saved');
+        expect(answer(ctx.unitSessionId, 'i_zip')).toBe('33333');
+    });
+
+    test('a run closed while a form is open takes no more answers from it', async ({ page, baseURL }) => {
+        const ctx = await start(page, baseURL);
+        const before = dbQuery(`SELECT public FROM survey_runs WHERE name = '${RUN()}';`)[0].public;
+        dbExecRaw(`UPDATE survey_runs SET public = 0 WHERE name = '${RUN()}';`);
+        try {
+            const res = await post(page, ctx.submitUrl, { page: ctx.pageNum, unit_session_id: ctx.unitSessionId, data: { i_zip: '44444' } });
+            expect(res.status).toBe(403);
+            expect(res.body.closed).toBe(true);
+            expect(answer(ctx.unitSessionId, 'i_zip') || null).toBeNull();
+        } finally {
+            dbExecRaw(`UPDATE survey_runs SET public = ${Number(before)} WHERE name = '${RUN()}';`);
+        }
     });
 });

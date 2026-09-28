@@ -288,7 +288,7 @@
                         <div class="box-body">
                             <?php if ($study->rendering_mode === 'v2'): ?>
                                 <p>This study renders on the <strong>form_v2</strong> engine (single-document form, client-side showifs, offline queue, autosave).</p>
-                                <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" onsubmit="return confirm('Switch this study back to the classic v1 engine? Form units fall through to the v1 pipeline; you can switch back at any time.');" style="display:inline">
+                                <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" onsubmit="return confirm('Switch this study back to the classic v1 engine? Form units fall through to the v1 pipeline; you can switch back at any time.\n\nPages that participants submitted offline and have not sent yet will be lost: the server no longer accepts them for this survey.');" style="display:inline">
                                     <input type="hidden" name="target" value="v1">
                                     <button type="submit" class="btn btn-default"><i class="fa fa-history"></i> Switch back to v1</button>
                                 </form>

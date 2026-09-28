@@ -85,6 +85,10 @@ class FormSubmissionService {
             'hidden' => $hidden,
             'final' => !empty($src['final']) && $src['final'] !== 'false' && $src['final'] !== '0',
             'uuid' => isset($src['uuid']) ? (string) $src['uuid'] : '',
+            // The form document that wrote and its write number (main.js
+            // collectPayload): orders an autosave against page submits.
+            'doc' => (isset($src['doc']) && preg_match('/^[A-Za-z0-9-]{1,64}$/', (string) $src['doc'])) ? (string) $src['doc'] : '',
+            'seq' => isset($src['seq']) ? (int) $src['seq'] : 0,
             'client_ts' => isset($src['client_ts']) && $src['client_ts'] !== '' ? (string) $src['client_ts'] : null,
             // raw envelope values for FormSyncPayload's strict checks
             'raw_page' => isset($src['page']) ? $src['page'] : null,
@@ -422,6 +426,34 @@ class FormSubmissionService {
             }
         }
         return $names;
+    }
+
+    /**
+     * Page submits record, per unit session and form document, the highest
+     * write number they carried; an autosave of the same document numbered
+     * below it was started before that submit and lands after it — it would
+     * store older answers over newer ones. (Kept in the PHP session: the
+     * participant's own writes; another tab is another document.)
+     */
+    public static function recordSubmitSeq($unitSessionId, $doc, $seq) {
+        if ($doc === '' || $seq <= 0) {
+            return;
+        }
+        $seen = (array) Session::get('fmr_submit_seq', array());
+        $key = (int) $unitSessionId . ':' . $doc;
+        if (!isset($seen[$key]) || $seen[$key] < $seq) {
+            $seen[$key] = (int) $seq;
+            Session::set('fmr_submit_seq', array_slice($seen, -50, null, true));
+        }
+    }
+
+    public static function autosaveIsStale($unitSessionId, $doc, $seq) {
+        if ($doc === '' || $seq <= 0) {
+            return false;
+        }
+        $seen = (array) Session::get('fmr_submit_seq', array());
+        $key = (int) $unitSessionId . ':' . $doc;
+        return isset($seen[$key]) && $seen[$key] > $seq;
     }
 
     /** Does the item take an answer the participant gives? */

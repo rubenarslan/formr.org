@@ -115,3 +115,18 @@ export function initBotCheck(root) {
     // the participant clicks. The widget upgrades in place once the script runs.
     loadAltcha().then(registerArgon2id);
 }
+
+// The server refused a bot_check (its one-shot token already spent — a
+// resend after a failed store — or expired): put the named widgets back to
+// unverified so the participant verifies again with a fresh challenge,
+// instead of a widget that shows "verified" and is refused every time.
+export function resetBotChecks(root, names) {
+    const wanted = new Set(names || []);
+    root.querySelectorAll('.fmr-botcheck[data-fmr-botcheck]').forEach((wrapper) => {
+        const altcha = wrapper.querySelector('altcha-widget');
+        if (!altcha) return;
+        const itemName = wrapper.getAttribute('data-item') || altcha.getAttribute('name') || '';
+        if (!wanted.has(itemName)) return;
+        try { if (typeof altcha.reset === 'function') altcha.reset(); } catch (e) { /* widget not ready */ }
+    });
+}

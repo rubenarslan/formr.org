@@ -1384,11 +1384,7 @@ class Run extends Model
 
             $runSession = run_session(new RunSession($user->user_code, $this, ['user' => $user]));
 
-            if (($this->getOwner()->user_code == $user->user_code || // owner always has access
-                    $runSession->isTesting()) || // testers always have access
-                ($this->public >= 1 && $runSession->id) || // already enrolled
-                ($this->public >= 2)
-            ) { // anyone with link can access
+            if ($this->admits($runSession, $user)) {
 
                 if ($runSession->id === null) {
                     $runSession->create($user->user_code, (int) $user->created($this));
@@ -1732,6 +1728,21 @@ class Run extends Model
         }
 
         return $createdUnits;
+    }
+
+    /**
+     * May this participant use the run? The owner and testers always; an
+     * enrolled participant while the run is not private (public >= 1);
+     * anyone with the link when it is open (public >= 2). One rule for the
+     * page (exec) and form_v2's write endpoints (RunController::
+     * formWriteContext).
+     */
+    public function admits(RunSession $runSession, $user)
+    {
+        return $this->getOwner()->user_code == $user->user_code // owner always has access
+            || $runSession->isTesting()                          // testers always have access
+            || ($this->public >= 1 && $runSession->id)           // already enrolled
+            || $this->public >= 2;                               // anyone with the link
     }
 
     /**

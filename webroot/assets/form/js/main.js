@@ -44,7 +44,7 @@ import '@khmyznikov/pwa-install';
 import { mysqlDatetime } from './lib/time.js';
 import { genUuid } from './lib/uuid.js';
 import {
-    queueAdd, queueGetAll, queueDelete, queueUpdate, queueSupersede, queueResetRetry,
+    queueAdd, queueGetAll, queueDelete, queueUpdate, queueSupersede, queueRestampFinal, queueResetRetry,
     wipeQueueForRun, buildFormData, normalizeSyncEntry, isTransientFailure,
     entryState, entryIsDue, markRetryFailure, markNeedsAttention,
     STATE_PENDING, STATE_NEEDS_ATTENTION, STATE_BLOCKED,
@@ -52,7 +52,7 @@ import {
 import { initMediaRecorders } from './items/recorders.js';
 import { initButtonGroups } from './items/button-groups.js';
 import { initRadioDeselect } from './items/radio-deselect.js';
-import { initBotCheck } from './items/bot-check.js';
+import { initBotCheck, resetBotChecks } from './items/bot-check.js';
 import { initRank } from './items/rank.js';
 import { initGeopoint } from './items/geopoint.js';
 import { initTomSelects } from './items/tom-select.js';
@@ -290,6 +290,13 @@ function initForm() {
     // controller is initialized further down (after submitPage is defined, so
     // it can drive page submission at page boundaries). See ./solo/controller.js.
 
+    // This document's id and write counter, sent with every autosave and
+    // page submit: the server ignores an autosave numbered below a page
+    // submit of the same document that has already landed (it was started
+    // earlier, so its answers are older — FormSubmissionService::
+    // autosaveIsStale).
+    const formDocId = genUuid();
+    let writeSeq = 0;
     const collectPayload = (pageEl) => {
         // Answers: lib/inputs.js holds the rules (arrays, choice groups, the
         // Check_Item partner, disabled = withdrawn); this only adds what a
@@ -318,7 +325,7 @@ function initForm() {
             const group = inp.closest('.form-group');
             if (group && group.classList.contains('optional')) data[fieldKey(inp.name).key] = '';
         });
-        return { data, item_views: itemViews };
+        return { data, item_views: itemViews, doc: formDocId, seq: ++writeSeq };
     };
 
     // clearCustomValidity / findErrorTarget / applyErrors / validatePageAndShowFeedback /
@@ -780,11 +787,13 @@ function initForm() {
             try { history.pushState(null, '', `?page=${pageNum}`); } catch (e) { /* noop */ }
             clearCustomValidity(pages[idx]);
             applyErrors(pages[idx], errors);
+            resetBotChecks(root, Object.keys(errors || {}));
         };
         const actions = [];
         if (idx !== -1 && idx === currentIndex) {
             clearCustomValidity(pages[idx]);
             applyErrors(pages[idx], errors);
+            resetBotChecks(root, Object.keys(errors || {}));
         } else if (idx !== -1) {
             actions.push({ label: t('queue.go_to_page', 'Go to page %page', { page: pageNum }), onClick: goToPage });
         }
@@ -1106,6 +1115,20 @@ function initForm() {
         // populated by Controller::getJsConfig from
         // $settings['form_v2_offline_blob_max_mb']). Default 10MB. Admins
         // can raise via config/settings.php for long-form audio/video.
+        // Offline mode off, and this page only held back because an earlier
+        // one of this form is still waiting: say so (the connection is fine),
+        // and let the participant retry or let that page go.
+        if (queuedBehind && !syncUrl) {
+            savePill.classList.remove('is-visible');
+            await renderQueueSummary(null);
+            showQueueBanner(t('queue.waiting_first', 'An earlier page is still waiting to be sent. This page can be submitted once it has gone.'), 'warning',
+                [{ label: t('queue.retry', 'Retry now'), onClick: async (btn) => {
+                    btn.disabled = true;
+                    try { await queueResetRetry(); } catch (e) { /* drain re-renders */ }
+                    drainQueue('own');
+                } }]);
+            return;
+        }
         const QUEUE_FILE_SIZE_CAP_MB = (window.formr?.form_v2?.offline_blob_max_mb) || 10;
         const QUEUE_FILE_SIZE_CAP = QUEUE_FILE_SIZE_CAP_MB * 1024 * 1024;
         if (isTransientFailure(netErr, res)) {
@@ -1138,6 +1161,8 @@ function initForm() {
                 item_views: payload.item_views,
                 hidden: payload.hidden,
                 final: payload.final,
+                doc: payload.doc,
+                seq: payload.seq,
                 // MySQL DATETIME rejects ISO-8601 with ".sssZ" — same gotcha as
                 // item_shown timestamps. Use the space-separated format.
                 client_ts: mysqlDatetime(),
@@ -1157,6 +1182,9 @@ function initForm() {
             // (a rejected `needs_attention` one, or a plain re-visit): the old
             // bytes must not drain after — or instead of — the new ones.
             try { await queueSupersede(entry, entry.uuid); } catch (e) { /* best effort */ }
+            if (!entry.final) {
+                try { await queueRestampFinal(entry, entry.hidden); } catch (e) { /* best effort */ }
+            }
             // The `online` event drains it on reconnect; a server error fires
             // no `online` event, so also retry on a timer.
             scheduleQueueRetry(15000);
@@ -1184,6 +1212,11 @@ function initForm() {
                 // continued elsewhere / a new diary entry started). Reload so
                 // the server re-renders the current state.
                 window.alert(t('error.stale_session', 'This form was continued elsewhere or a new entry has started. The page will reload to catch up.'));
+                window.location.reload();
+                return;
+            }
+            if (res.status === 403 && errBody && errBody.closed) {
+                // The study was closed meanwhile: the run's page says so.
                 window.location.reload();
                 return;
             }
@@ -1224,6 +1257,7 @@ function initForm() {
         if (body.status === 'errors' && body.errors) {
             savePill.classList.remove('is-visible');
             applyErrors(page, body.errors);
+            resetBotChecks(root, Object.keys(body.errors || {}));
             return;
         }
         // The server accepted this page: any earlier queued copy of it (e.g. a
@@ -2250,6 +2284,10 @@ function initForm() {
         // and the participant is on their page. waitForBundle() in
         // tests/e2e/helpers/v2Form.js polls for window.fmrFormReady.
         window.fmrFormReady = true;
+        // Nothing to show on any page (a form of automatic items only —
+        // random, ip, get…): send the final submit, which stores them and
+        // ends the form, instead of an empty page with a Submit button.
+        if (ps.shownPages.length === 0) submitPage();
     };
     document.addEventListener('alpine:initialized', () => setTimeout(openInitialPage, 0), { once: true });
     // Should Alpine never start (a broken bundle), still open a page.

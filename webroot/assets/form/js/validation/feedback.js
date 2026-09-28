@@ -36,9 +36,12 @@ export function clearCustomValidity(pageEl) {
 }
 
 export function findErrorTarget(pageEl, name) {
-    let el = pageEl.querySelector(`[name="${CSS.escape(name)}"]`);
-    if (!el) el = pageEl.querySelector(`[name="${CSS.escape(name + '[]')}"]`);
-    return el;
+    // A form control first: a widget element can carry the item's name too
+    // (bot_check's <altcha-widget name=…>), and it has no setCustomValidity.
+    const controls = (n) => `input[name="${CSS.escape(n)}"], select[name="${CSS.escape(n)}"], textarea[name="${CSS.escape(n)}"]`;
+    return pageEl.querySelector(controls(name))
+        || pageEl.querySelector(controls(name + '[]'))
+        || pageEl.querySelector(`[name="${CSS.escape(name)}"]`);
 }
 
 // Apply a server `errors` map to inputs. Items the server can't pin to a
@@ -56,7 +59,7 @@ export function applyErrors(pageEl, errors) {
             return;
         }
         if (!firstErrorEl) firstErrorEl = el;
-        el.setCustomValidity(String(msg));
+        if (typeof el.setCustomValidity === 'function') el.setCustomValidity(String(msg));
         el.dataset.fmrServerValidity = '1';
         el.classList.add('is-invalid');
         const feedback = document.createElement('div');

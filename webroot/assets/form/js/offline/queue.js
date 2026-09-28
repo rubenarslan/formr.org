@@ -82,6 +82,22 @@ export async function queueSupersede({ sync_url, unit_session_id, page }, keepUu
     return removed;
 }
 
+// A final page drains last within its unit session (it ends the form), so a
+// page queued after it — a revisit — lands first. The final entry's `hidden`
+// list is then older than the revisit's and would override what the revisit
+// revealed: give the waiting final page the newer snapshot.
+export async function queueRestampFinal({ sync_url, unit_session_id }, hidden) {
+    const db = await getDb();
+    const entries = (await db.getAll(STORE)) || [];
+    for (const e of entries) {
+        if (!e.final) continue;
+        if (e.sync_url && e.sync_url !== sync_url) continue;
+        if (Number(e.unit_session_id) && Number(e.unit_session_id) !== Number(unit_session_id || 0)) continue;
+        e.hidden = (hidden || []).slice();
+        await db.put(STORE, e);
+    }
+}
+
 // ---- Retry state -----------------------------------------------------------
 //
 // Every entry starts as STATE_PENDING (also the implicit state of entries
@@ -231,6 +247,7 @@ export function buildFormData(entry) {
     if (entry.unit_session_id != null) fd.append('unit_session_id', String(entry.unit_session_id));
     if (entry.client_ts) fd.append('client_ts', entry.client_ts);
     if (entry.final) fd.append('final', '1');
+    if (entry.doc) { fd.append('doc', entry.doc); fd.append('seq', String(entry.seq || 0)); }
     (entry.hidden || []).forEach((id) => fd.append('hidden[]', String(id)));
     const data = entry.data || {};
     Object.keys(data).forEach((k) => {
