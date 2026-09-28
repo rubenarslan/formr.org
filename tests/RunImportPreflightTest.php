@@ -73,6 +73,20 @@ class RunImportPreflightTest extends \PHPUnit\Framework\TestCase {
         $this->assertStringContainsString("item 'q1', choice '1' must be a plain label string", $errors[0]);
     }
 
+    public function testASurveyUnitCannotBringAFormV2Survey(): void {
+        $bundle = ['units' => [
+            ['type' => 'Survey', 'position' => 10, 'survey_data' => ['name' => 'sv2', 'settings' => ['rendering_mode' => 'v2'], 'items' => [
+                ['type' => 'text', 'name' => 'q1'],
+            ]]],
+            ['type' => 'Form', 'position' => 20, 'survey_data' => ['name' => 'fv2', 'settings' => ['rendering_mode' => 'v2'], 'items' => [
+                ['type' => 'text', 'name' => 'q1'],
+            ]]],
+        ]];
+        $errors = $this->preflight($this->makeRun(), $bundle);
+        $this->assertCount(1, $errors, 'the Form unit may carry it');
+        $this->assertStringContainsString("brings the survey 'sv2', which is on form_v2", $errors[0]);
+    }
+
     public function testSkipNeedsNumericJumpTarget(): void {
         $errors = $this->preflight($this->makeRun(), ['units' => [
             ['type' => 'SkipForward', 'position' => 10, 'condition' => 'TRUE', 'if_true' => 'end'],

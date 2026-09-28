@@ -77,6 +77,17 @@
                             </tbody>
                         </table>
 
+                        <?php
+                        // "Upgrade anyway": for when the scan's showif heuristic is
+                        // wrong about one. Items v2 cannot run still block it.
+                        $fmrShowifFlagged = count(array_filter((array) ($report['flagged'] ?? []), function ($f) { return ($f['column'] ?? '') === 'showif'; }));
+                        if ($study->rendering_mode !== 'v2' && Config::get('form_v2_enabled') && $fmrShowifFlagged > 0): ?>
+                            <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" style="margin-bottom: 1em">
+                                <input type="hidden" name="target" value="v2">
+                                <input type="hidden" name="force" value="1">
+                                <button type="submit" class="btn btn-warning" data-confirm="Upgrade although the scan flags showifs? Each flagged showif keeps its item hidden on form_v2. Items v2 cannot run (calculate) still block the switch."><i class="fa fa-exclamation-triangle"></i> Upgrade anyway</button>
+                            </form>
+                        <?php endif; ?>
                         <?php if (!empty($report['flagged'])): ?>
                             <h4 class="text-red">Flagged items</h4>
                             <table class="table table-striped">

@@ -99,5 +99,19 @@ $check('item says "unavailable", not "try again"', strpos((string) $item->error,
 Config::initialize($savedConfig);
 $check('config restored', BotCheckChallenge::available(), true);
 
+// 4) bound to a unit session: a token minted for one is refused in another
+//    (the single-use list is per PHP session; a bot dropping its cookie
+//    must not replay one solved token in every diary entry).
+BotCheckChallenge::bindTo(101);
+$mintUs = BotCheckChallenge::mint();
+$chUs = new Challenge(ChallengeParameters::fromArray($mintUs['parameters']), $mintUs['signature']);
+$solUs = $altcha->solveChallenge(new SolveChallengeOptions(challenge: $chUs, algorithm: $alg, timeout: 25.0));
+BotCheckChallenge::bindTo(202);
+$check('a token minted for another unit session is refused', $solUs ? BotCheckChallenge::verify($payload($mintUs, $solUs->toArray())) : null, false);
+BotCheckChallenge::bindTo(101);
+$check('in its own unit session it verifies', $solUs ? BotCheckChallenge::verify($payload($mintUs, $solUs->toArray())) : null, true);
+BotCheckChallenge::bindTo(null);
+
+
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

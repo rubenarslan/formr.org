@@ -1026,15 +1026,11 @@ class SurveyStudy extends Model
             'result_columns' => array(),
         );
 
-        // Names this v1 study already has (live or soft-deleted): one of them
-        // may be a form_v2 showif helper name from before those were reserved,
-        // and the study must stay re-uploadable (Item::allowLegacyHelperName).
-        $existingNames = array();
-        if ($this->rendering_mode !== 'v2' && $this->id) {
-            foreach ((array) $this->db->select('name')->from('survey_items')->where(array('study_id' => (int) $this->id))->fetchAll() as $existing) {
-                $existingNames[(string) $existing['name']] = true;
-            }
-        }
+        // The form_v2 showif helper names (Item::SHOWIF_HELPERS) are reserved
+        // on v2 only: a v1 study never runs those helpers, and a copy of an
+        // older v1 survey must upload (Item::allowLegacyHelperName). The
+        // switch to v2 and a Form link refuse a study that has one
+        // (formV2UnsupportedItems).
 
         foreach ($reader->survey as $row_number => $row) {
             $item = $itemFactory->make($row);
@@ -1043,7 +1039,7 @@ class SurveyStudy extends Model
                 unset($reader->survey[$row_number]);
                 continue;
             }
-            if (isset($existingNames[(string) $item->name])) {
+            if ($this->rendering_mode !== 'v2') {
                 $item->allowLegacyHelperName();
             }
 
@@ -1052,6 +1048,11 @@ class SurveyStudy extends Model
                 continue;
             }
             if ($this->rendering_mode === 'v2' && ($why = $item->formV2Unsupported())) {
+                $this->errors[] = $why;
+                unset($reader->survey[$row_number]);
+                continue;
+            }
+            if ($this->rendering_mode !== 'v2' && ($why = $item->v1Unsupported())) {
                 $this->errors[] = $why;
                 unset($reader->survey[$row_number]);
                 continue;

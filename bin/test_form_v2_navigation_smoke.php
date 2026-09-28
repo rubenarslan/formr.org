@@ -200,6 +200,10 @@ try {
     $rs2->position = 10;
     ok(!$rs2->getCurrentUnitSession(), 'no current unit session afterwards');
     ok($us->unansweredRequiredItems() === [], 'nothing required left');
+    // (That the next unit is also executed is checked over HTTP in
+    // v2-write-endpoints.spec.js: from the CLI a Page waits for a visitor.)
+    $next = $db->execute('SELECT position FROM survey_run_sessions WHERE id = :id', ['id' => $rsId], false, true);
+    ok((int) $next['position'] === 20, 'the run session moved on to the Endpage', $next);
 } catch (Throwable $e) {
     echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
     $failures++;

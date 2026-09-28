@@ -812,6 +812,7 @@ class RunController extends Controller {
             ) + $extra409, 409);
             return null;
         }
+        BotCheckChallenge::bindTo($unitSession->id);
         return array($runSession, $unitSession, $study);
     }
 
@@ -896,6 +897,7 @@ class RunController extends Controller {
             ) + $extra409, 409);
             return null;
         }
+        BotCheckChallenge::bindTo($unitSession->id);
         return array($unitSession->runSession, $unitSession, $study);
     }
     /**

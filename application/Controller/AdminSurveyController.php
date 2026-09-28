@@ -758,7 +758,7 @@ class AdminSurveyController extends AdminController {
             alert('<strong>Not switched.</strong> This study has items the form_v2 engine cannot run:<ul><li>'
                 . implode('</li><li>', array_map('h', $unsupported)) . '</li></ul>', 'alert-danger');
         } elseif ($showifFindings) {
-            alert('<strong>Not switched.</strong> These showifs would keep their items hidden on form_v2 (rewrite them in JavaScript, or compute the value in a hidden item). If the scan is wrong about them, use "Upgrade anyway".<ul><li>'
+            alert('<strong>Not switched.</strong> These showifs would keep their items hidden on form_v2 (rewrite them in JavaScript, or compute the value in a hidden item). If the scan is wrong about them, use "Upgrade anyway" on the <a href="' . admin_study_url($this->study->name, 'form_v2_compat_scan') . '">compatibility report</a>.<ul><li>'
                 . implode('</li><li>', array_map('h', $showifFindings)) . '</li></ul>', 'alert-danger');
         } elseif ($target === 'v2' && $this->study->rendering_mode !== 'v2') {
             $this->study->adoptFormV2();

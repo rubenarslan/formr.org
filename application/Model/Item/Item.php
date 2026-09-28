@@ -100,12 +100,12 @@ class Item {
     );
 
     /**
-     * A v1 study may have an item named `last`, `answered`, … from before the
-     * showif helper names were reserved. Re-uploading such a study must keep
-     * working, so SurveyStudy::addItems sets this for names a v1 study
-     * already has; validate() then checks only RESULT_COLUMN_NAMES. The
-     * helper names stay reserved for new items and for v2
-     * (SurveyStudy::formV2UnsupportedItems refuses the switch).
+     * The showif helper names (`last`, `answered`, …) are reserved on form_v2
+     * only: a v1 study never runs those helpers, so SurveyStudy::addItems
+     * sets this for every item of a v1 study and validate() then checks only
+     * RESULT_COLUMN_NAMES. On v2 they stay reserved, and the switch to v2 or
+     * a Form link refuses a study that has one
+     * (SurveyStudy::formV2UnsupportedItems).
      *
      * @var bool
      */
@@ -890,6 +890,22 @@ class Item {
         }
         if (!$this->requiresUserInput() && $this->needsDynamicValue()) {
             return "'{$this->name}': a {$this->type} item takes no input, so its R value would be computed only on the server, which the form_v2 engine does not do. Clear its value, or use a hidden item with that value.";
+        }
+        return null;
+    }
+
+    /**
+     * Why this item cannot run on the classic v1 engine, or null. `bot_check`
+     * (its proof-of-work widget ships only in the form_v2 bundle — a
+     * required one could never be answered) and `rank` (v1 would store the
+     * author's order untouched) are form_v2 items. Refused at upload into a
+     * v1 study; the upload form's Engine choice puts a new survey on v2.
+     *
+     * @return string|null
+     */
+    public function v1Unsupported() {
+        if (in_array($this->type, array('bot_check', 'rank'), true)) {
+            return "'{$this->name}': {$this->type} items need the form_v2 engine. Upload the survey with Engine: form_v2 (or switch it to form_v2 first).";
         }
         return null;
     }

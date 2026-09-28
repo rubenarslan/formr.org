@@ -630,9 +630,9 @@ class RunSession extends Model {
     }
 
     /**
-     * form_v2: end a Form's unit session on its final submit and move the run
-     * session on (without executing the next unit — the browser's redirect to
-     * the run URL does that). Under the run-session lock, from a fresh read,
+     * form_v2: end a Form's unit session on its final submit, move the run
+     * session on and execute the next unit (the browser's redirect to the
+     * run URL then shows where the participant is). Under the run-session lock, from a fresh read,
      * like forceTo/forceMoveOn: a queued final page draining while the
      * participant clicks Submit again, or the daemon expiring the Form at the
      * same moment, must not both end it and advance from the same stale
@@ -661,7 +661,13 @@ class RunSession extends Model {
                 return true;
             }
             $current->end();
-            $this->moveOn(false, false);
+            // Execute the next unit here, as v1's submit does (and
+            // forceMoveOn): a participant who closes the tab right after the
+            // final submit must still get the Pause or Email that follows —
+            // left for the redirect, it waited for a visit that may never
+            // come, and the daemon never picked it up. The redirect then only
+            // shows where the participant is.
+            $this->moveOn(false, true);
             return true;
         } finally {
             $this->releaseLock($lock_name);

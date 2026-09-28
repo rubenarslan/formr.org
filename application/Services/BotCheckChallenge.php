@@ -101,6 +101,20 @@ class BotCheckChallenge {
         return null;
     }
 
+    /** @var int|null the unit session a challenge is minted for and verified against */
+    private static $unitSessionId = null;
+
+    /**
+     * Bind challenges to a unit session (RunController's v2 write gates set
+     * it). A minted challenge carries it signed (`data.us`), and a token
+     * minted for another unit session is refused: the single-use list lives
+     * in the PHP session, so without this a bot that drops its cookie could
+     * replay one solved token in every later unit session (each diary entry).
+     */
+    public static function bindTo($unitSessionId) {
+        self::$unitSessionId = $unitSessionId ? (int) $unitSessionId : null;
+    }
+
     /** Stable per-participant binding so a token can't be reused across sessions. */
     public static function subject() {
         $user = class_exists('Site') ? Site::getCurrentUser() : null;
@@ -196,6 +210,9 @@ class BotCheckChallenge {
         // re-bound to another participant; verify() additionally checks it matches
         // the verifying session (defence in depth).
         $data = array('uc' => self::subject());
+        if (self::$unitSessionId) {
+            $data['us'] = (string) self::$unitSessionId;
+        }
         $isArgon = $alg->getAlgorithmName() === 'ARGON2ID';
         // keyPrefix = N leading zero BYTES the derived key must match. This IS the
         // PoW: the client searches counters until its Argon2id(salt, nonce|counter)
@@ -328,6 +345,9 @@ class BotCheckChallenge {
         // replayed by session B even if both are valid Altcha solutions).
         $boundUc = isset($params['data']['uc']) ? (string) $params['data']['uc'] : '';
         if ($boundUc !== self::subject()) return false;
+        // …and this unit session (bindTo), when there is one.
+        $boundUs = isset($params['data']['us']) ? (string) $params['data']['us'] : '';
+        if ($boundUs !== (self::$unitSessionId ? (string) self::$unitSessionId : '')) return false;
 
         // Freshness hygiene (expiry is also enforced inside verifySolution via
         // expiresAt; this rejects clock-skew "issued in the future" tokens).

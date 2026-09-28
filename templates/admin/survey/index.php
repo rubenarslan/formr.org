@@ -271,18 +271,11 @@
                     <?php
                     // Rendering engine switcher. Own <form> (POST to
                     // switch_rendering_mode) — must not nest inside the
-                    // settings form above. The readiness counts come from the
-                    // same scanner as the full report page.
-                    $fmrScanFlagged = null;
+                    // settings form above. The compatibility scan runs on its own
+                    // report page, on demand — not on every view of this page.
                     // Shown for a v1 study only where form_v2 authoring is
                     // enabled: elsewhere there is nothing to switch to.
                     $fmrShowEngineBox = $study->rendering_mode === 'v2' || Config::get('form_v2_enabled');
-                    if ($fmrShowEngineBox && $study->rendering_mode !== 'v2' && class_exists('FormV2CompatScanner')) {
-                        try {
-                            $fmrScanReport = FormV2CompatScanner::scan($study->id);
-                            $fmrScanFlagged = count($fmrScanReport['flagged'] ?? []);
-                        } catch (Exception $e) { $fmrScanFlagged = null; }
-                    }
                     ?>
                     <?php if ($fmrShowEngineBox): ?>
                     <div class="box box-solid">
@@ -299,23 +292,12 @@
                                 </form>
                             <?php else: ?>
                                 <p>This study renders on the <strong>classic v1</strong> engine. form_v2 adds per-page AJAX submission, reactive client-side showifs, offline queueing, autosave, and the solo layout.</p>
-                                <?php if ($fmrScanFlagged === 0): ?>
-                                    <p class="text-success"><i class="fa fa-check"></i> Compatibility scan: all <code>showif</code>/<code>value</code> expressions look v2-ready.</p>
-                                <?php elseif ($fmrScanFlagged > 0): ?>
-                                    <p class="text-warning"><i class="fa fa-exclamation-triangle"></i> Compatibility scan: <strong><?= (int) $fmrScanFlagged ?></strong> expression(s) need attention (a showif that needs a JS rewrite, or R that must move into a hidden item's <code>value</code>) — <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>">see the full report</a> before upgrading.</p>
-                                <?php endif; ?>
+                                <p>Check the survey first: the <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>">compatibility report</a> lists the showifs that need a JavaScript rewrite and the items v2 cannot run, each with the fix.</p>
                                 <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" style="display:inline">
                                     <input type="hidden" name="target" value="v2">
                                     <button type="submit" class="btn btn-primary" data-confirm="Upgrade this study to the form_v2 engine? Only a survey that no run uses as a classic Survey can be upgraded; you can switch back at any time."><i class="fa fa-rocket"></i> Upgrade to form_v2</button>
                                 </form>
-                                <?php if ($fmrScanFlagged > 0): ?>
-                                    <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" style="display:inline">
-                                        <input type="hidden" name="target" value="v2">
-                                        <input type="hidden" name="force" value="1">
-                                        <button type="submit" class="btn btn-warning" data-confirm="Upgrade although the scan flags showifs? Each flagged showif keeps its item hidden on form_v2. Items v2 cannot run (calculate) still block the switch."><i class="fa fa-exclamation-triangle"></i> Upgrade anyway</button>
-                                    </form>
-                                <?php endif; ?>
-                                <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>" class="btn btn-default"><i class="fa fa-search"></i> Full compatibility report</a>
+                                <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>" class="btn btn-default"><i class="fa fa-search"></i> Check form_v2 compatibility</a>
                             <?php endif; ?>
                         </div>
                     </div>

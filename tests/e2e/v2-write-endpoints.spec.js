@@ -212,3 +212,23 @@ test.describe('write ordering and access', () => {
         }
     });
 });
+
+test.describe('the final submit', () => {
+    test.skip(RUNNING_ON_BS, 'drives the server directly');
+
+    test('executes the unit after the form, without waiting for the redirect', async ({ page, baseURL }) => {
+        // A participant who closes the tab right after Submit must still get
+        // what follows (a Pause, an Email); here it is a Page, which ends
+        // once executed for a visitor.
+        const ctx = await start(page, baseURL);
+        const p1 = await post(page, ctx.submitUrl, { page: 1, unit_session_id: ctx.unitSessionId, data: { i_mc_req: '1' } });
+        expect(p1.body.status).toBe('ok');
+        const fin = await post(page, ctx.submitUrl, { page: 2, unit_session_id: ctx.unitSessionId, data: {}, final: true });
+        expect(fin.body.complete, JSON.stringify(fin.body)).toBe(true);
+        // No navigation has happened: page.request does not follow the redirect.
+        const next = dbQuery(`SELECT us.state FROM survey_unit_sessions us JOIN survey_units u ON u.id = us.unit_id `
+            + `WHERE us.run_session_id = (SELECT run_session_id FROM survey_unit_sessions WHERE id = ${Number(ctx.unitSessionId)}) `
+            + `AND u.type = 'Page';`);
+        expect(next.map((r) => r.state)).toEqual(['ENDED']);
+    });
+});

@@ -26,6 +26,9 @@ const ROBOT_ID = 5;          // robot@researchmixtapes.com
 // e2e-aw-v2 fixture study uses for this same robot account. We override the
 // JSON's internal `name` to this before upload so the test never clobbers it.
 const STUDY = 'e2e_json_probe';
+// Types the catalogue carries that a v1 survey refuses (Item::v1Unsupported);
+// the catalogue upload here is a v1 one, so they are left out of it.
+const V2_ONLY = ['bot_check', 'rank'];
 
 function robotStudy() {
     return db.dbQuery(
@@ -58,6 +61,7 @@ test.describe('survey JSON upload (robot seeding)', () => {
         // none, and createFromData must then keep file order (it used to leave
         // item_order NULL, so the render order was whatever MariaDB returned).
         survey.items.forEach((i) => { delete i.order; delete i.item_order; });
+        survey.items = survey.items.filter((i) => !V2_ONLY.includes(i.type));
         const ctx = await request.newContext({ ignoreHTTPSErrors: true, storageState: ADMIN_STATE });
         const res = await ctx.post(`${ADMIN_URL}/admin/survey/add_survey/`, {
             multipart: {
@@ -77,7 +81,7 @@ test.describe('survey JSON upload (robot seeding)', () => {
         const got = new Set(
             db.dbQuery(`SELECT DISTINCT type FROM survey_items WHERE study_id = ${parseInt(study.id, 10)}`).map((r) => r.type),
         );
-        const want = new Set(JSON.parse(fs.readFileSync(FIXTURE, 'utf8')).items.map((i) => i.type));
+        const want = new Set(survey.items.map((i) => i.type));
         const missing = [...want].filter((t) => !got.has(t)).sort();
         expect(missing, `seeded study is missing item types: ${missing.join(', ')}`).toEqual([]);
         expect(got.size, 'expected the full widget catalogue').toBeGreaterThanOrEqual(50);
@@ -87,5 +91,31 @@ test.describe('survey JSON upload (robot seeding)', () => {
         );
         expect(stored.map((r) => r.name)).toEqual(survey.items.map((i) => i.name));
         expect(stored.map((r) => Number(r.item_order))).toEqual(survey.items.map((_, i) => i + 1));
+    });
+    // The v1 engine cannot render a rank or a bot_check: a v1 upload that
+    // carries one is refused, naming the item, and the item is not stored.
+    test('a v1 upload refuses the v2-only item types', async () => {
+        cleanup();
+        const catalogue = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
+        const survey = {
+            name: STUDY,
+            settings: {},
+            items: [
+                { type: 'text', name: 'plain_text', label: 'Text' },
+                ...catalogue.items.filter((i) => V2_ONLY.includes(i.type)).map((i) => { const c = { ...i }; delete c.order; delete c.item_order; return c; }),
+            ],
+        };
+        const ctx = await request.newContext({ ignoreHTTPSErrors: true, storageState: ADMIN_STATE });
+        const res = await ctx.post(`${ADMIN_URL}/admin/survey/add_survey/`, {
+            multipart: { uploaded: { name: `${STUDY}.json`, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(survey)) } },
+        });
+        const html = await res.text();
+        await ctx.dispose();
+        for (const t of V2_ONLY) {
+            expect(html, `the refusal names the ${t} item`).toContain(`${t} items need the form_v2 engine`);
+        }
+        const study = robotStudy();
+        const types = study ? db.dbQuery(`SELECT DISTINCT type FROM survey_items WHERE study_id = ${parseInt(study.id, 10)}`).map((r) => r.type) : [];
+        for (const t of V2_ONLY) expect(types, `no ${t} item stored in a v1 study`).not.toContain(t);
     });
 });

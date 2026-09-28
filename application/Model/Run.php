@@ -1608,6 +1608,10 @@ class Run extends Model
 
         $units = (array) $json->units;
         $createdUnits = [];
+        if ($refused = self::surveyUnitsWithV2Surveys($units)) {
+            alert('<strong>Import refused.</strong> ' . h(implode(' ', $refused)), 'alert-danger');
+            return false;
+        }
 
         foreach ($units as $unitData) {
             // Cast to object to be safe, though json_decode usually returns objects
@@ -1870,6 +1874,28 @@ class Run extends Model
      *
      * @return string[] one message per problem
      */
+    /**
+     * Survey units of a bundle that bring a survey on form_v2 (its settings
+     * say rendering_mode v2). A classic Survey unit renders on v1, where the
+     * survey's JavaScript showifs would be read as R: such a bundle is
+     * refused — the survey belongs in a Form unit.
+     *
+     * @return list<string> one explanation per offending unit
+     */
+    protected static function surveyUnitsWithV2Surveys(array $units)
+    {
+        $out = [];
+        foreach ($units as $unit) {
+            $unit = (object) $unit;
+            $settings = isset($unit->survey_data->settings) ? (object) $unit->survey_data->settings : null;
+            if (($unit->type ?? '') === 'Survey' && $settings && ($settings->rendering_mode ?? null) === 'v2') {
+                $name = $unit->survey_data->name ?? '?';
+                $out[] = "The Survey unit at position " . ($unit->position ?? '?') . " brings the survey '$name', which is on form_v2: put it in a Form unit instead.";
+            }
+        }
+        return $out;
+    }
+
     protected function preflightImport($json_string)
     {
         $json = json_decode($json_string);
@@ -1903,6 +1929,9 @@ class Run extends Model
             if (in_array($type, ['SkipForward', 'SkipBackward'], true)
                 && (!isset($unit->if_true) || !is_numeric($unit->if_true))) {
                 $errors[] = "$label: if_true must be a numeric position.";
+            }
+            if ($type === 'Survey' && ($refused = self::surveyUnitsWithV2Surveys([$unit]))) {
+                $errors[] = "$label: " . $refused[0];
             }
             if (in_array($type, ['Survey', 'Form'], true) && isset($unit->survey_data->items)) {
                 foreach ((array) $unit->survey_data->items as $item) {

@@ -66,6 +66,10 @@ test.describe('switching a study to form_v2', () => {
         expect(html, 'the offending item is named (HTML-escaped)').toMatch(/(?:'|&#0?39;)q2(?:'|&#0?39;)/);
         expect(html, 'the way past it is offered').toContain('Upgrade anyway');
         expect(renderingMode(SHOWIF_STUDY)).toBe('v1');
+        // The way past it lives on the compatibility report (the settings
+        // page no longer runs the scan on every view).
+        const report = await page.request.get(`${ADMIN_BASE}/admin/survey/${SHOWIF_STUDY}/form_v2_compat_scan`);
+        expect(await report.text(), 'the report offers "Upgrade anyway"').toMatch(/name="force" value="1"[\s\S]*Upgrade anyway/);
 
         res = await switchTo(page, SHOWIF_STUDY, { target: 'v2', force: '1' });
         expect(res.ok()).toBeTruthy();

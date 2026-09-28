@@ -1,6 +1,6 @@
 {
     "name": "e2e_rank",
-    "settings": {},
+    "settings": {"rendering_mode": "v2"},
     "items": [
         {
             "type": "note", "name": "intro", "optional": 1,
