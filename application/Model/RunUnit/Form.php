@@ -60,7 +60,15 @@ class Form extends Survey {
         // engine cannot run (Item::formV2Unsupported — calculate items and
         // other server-computed values) is refused here, like a failed
         // import: alerted, and the Form is created unlinked.
-        if ($study_id && ($unsupported = (new SurveyStudy($study_id))->formV2UnsupportedItems())) {
+        // Linking also switches the study for every run that uses it as a
+        // classic Survey: refused while any does (SurveyStudy::runsUsingAsSurvey).
+        $linked = $study_id ? new SurveyStudy($study_id) : null;
+        if ($linked && $linked->rendering_mode !== 'v2' && ($usedBy = $linked->runsUsingAsSurvey())) {
+            alert('<strong>Study not linked to the Form.</strong> It runs as a classic Survey in: <strong>' . implode(', ', array_map('h', $usedBy))
+                . '</strong>; putting it on form_v2 would change the engine for those runs\' participants. Copy the survey (download it, upload it as a new survey) and link the copy.', 'alert-danger');
+            $study_id = null;
+        }
+        if ($study_id && ($unsupported = $linked->formV2UnsupportedItems())) {
             alert('<strong>Study not linked to the Form.</strong> It has items the form_v2 engine cannot run:<ul><li>'
                 . implode('</li><li>', array_map('h', $unsupported)) . '</li></ul>', 'alert-danger');
             $study_id = null;

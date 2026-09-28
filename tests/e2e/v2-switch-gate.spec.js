@@ -82,4 +82,17 @@ test.describe('switching a study to form_v2', () => {
             expect(renderingMode(CALC_STUDY), JSON.stringify(form)).toBe('v1');
         }
     });
+
+    test('a survey a run uses as a classic Survey is not switched, even when forced', async ({ page }) => {
+        // e2e_pwa_low runs as a Survey in e2e-pwa-l-v1: switching it would
+        // change the engine under that run's participants.
+        for (const form of [{ target: 'v2' }, { target: 'v2', force: '1' }]) {
+            const res = await switchTo(page, 'e2e_pwa_low', form);
+            expect(res.ok()).toBeTruthy();
+            const html = await res.text();
+            expect(html).toContain('Not switched');
+            expect(html).toContain('e2e-pwa-l-v1');
+            expect(renderingMode('e2e_pwa_low'), JSON.stringify(form)).toBe('v1');
+        }
+    });
 });

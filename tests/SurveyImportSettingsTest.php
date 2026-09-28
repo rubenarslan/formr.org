@@ -85,4 +85,20 @@ class SurveyImportSettingsTest extends \PHPUnit\Framework\TestCase {
             Config::initialize($saved);
         }
     }
+    public function testV1StudiesReadTheirResultsTableUnlessTheOperatorOptsIn() {
+        $prop = new ReflectionProperty('Config', 'config');
+        $prop->setAccessible(true);
+        $saved = (array) $prop->getValue(null);
+        try {
+            $without = $saved;
+            unset($without['form_v2_long_reads']);
+            Config::initialize($without);
+            $this->assertFalse(SurveyStudy::readsLong('v1'), 'default: a v1 study reads its results table');
+            $this->assertTrue(SurveyStudy::readsLong('v2'));
+            Config::initialize(array_merge($saved, array('form_v2_long_reads' => true)));
+            $this->assertTrue(SurveyStudy::readsLong('v1'), 'opted in');
+        } finally {
+            Config::initialize($saved);
+        }
+    }
 }

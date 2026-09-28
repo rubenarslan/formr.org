@@ -55,25 +55,18 @@ update; restart the app and daemons after editing — step 4.)
 | `form_v2_offline_blob_max_mb` | `10` | Per-file cap for offline queueing. A page with a larger file upload is not queued; the participant is told to retry online. Raise for studies that routinely collect long audio/video. |
 | `form_v2_dual_write_results` | `true` | Controls only the *wide* per-study `survey_NN` write. The long-format write (`survey_items_display`) always happens. Leave on until every consumer you care about (your own scripts, the per-run backup TSV) has moved off the wide tables. |
 
-**`form_v2_long_reads`** — default `true`. A temporary reader-migration
-escape hatch, to be removed after one release. When true, the remaining
-wide-table readers (the OpenCPU R overlay in `UnitSession::getRunData`,
-admin result counts and average time, `getResults` for v1 studies and
-with it the per-run backup TSV) read from the long format —
-`survey_items_display` + `survey_unit_sessions` — for **all** studies,
-not just v2 ones. The long read re-types each column from the item
-definition (integer for `number` items with an integer step and for
-choice items with integer choices, float for fractional steps, string
-otherwise), so R sees the same types it did from the wide table.
-
-Set it `false` to fall back to the legacy wide reads if you find a
-discrepancy in the field. Two consequences of doing that: the R overlay
-for **v2 studies too** goes back to the wide table (only their admin
-counts and `getResults` stay long), so `form_v2_dual_write_results` must
-stay `true` for as long as `form_v2_long_reads` is `false`; and
-soft-deleted items (patch 094) are excluded from the overlay explicitly,
-since the wide table has no notion of them. Once the long read has
-baked, `form_v2_dual_write_results` can be turned off.
+**`form_v2_long_reads`** — default `false`. A form_v2 study always reads
+its answers from the long format — `survey_items_display` +
+`survey_unit_sessions` — for the OpenCPU R overlay
+(`UnitSession::getRunData`), admin result counts and average time, and
+`getResults` (exports, the results page, the per-run backup TSV). A v1
+study reads its own wide results table exactly as before this release,
+unless this is `true`, which opts v1 studies into the long read as well.
+The long read re-types each column from the item definition (integer for
+`number` items with an integer step and for choice items with integer
+choices, float for fractional steps, string otherwise), so R sees the same
+types it did from the wide table. Keep `form_v2_dual_write_results` on:
+v1 studies read the wide table, and it is the fallback for v2's.
 
 ### `bot_check_*` — the proof-of-work human check
 
@@ -98,8 +91,11 @@ enforced in `RunController`).
 
 Patch 090 moves the `iteration` variable off the wide per-study table
 onto `survey_unit_sessions.study_iteration`, adding the columns empty.
-**Historical values are carried across by a script, and until you run it
-`iteration` means something different than it used to.**
+**Historical values are carried across by a script, and until it has run
+`iteration` means something different than it used to.** The docker
+deployment's `update.sh` and `update_formr.sh` run it after every update
+(it is idempotent: it only fills empty values); run it by hand on any other
+install:
 
 ```bash
 docker compose exec formr_app php bin/backfill_study_iteration.php --dry-run  # preview
@@ -239,8 +235,8 @@ is lost in the handover.
 ## 6. Rollback
 
 **Reversible:** the config keys, and the engine choice. Set
-`form_v2_enabled` back to `false`; set `form_v2_long_reads` to `false` to
-return the wide readers to the legacy path; switch an upgraded study back
+`form_v2_enabled` back to `false`; leave `form_v2_long_reads` at `false`
+(the default) and v1 studies read the legacy wide path; switch an upgraded study back
 with **Switch back to v1** on its settings page (that sets
 `rendering_mode='v1'` only — Form units fall through to the classic
 pipeline, and you can switch forward again at any time).
@@ -289,14 +285,14 @@ holds it and reference that name from a plain JS showif. `calculate` items
 (and other no-input items with an R `value`) are not supported in v2 and
 block the switch: replace each with a `hidden` item if the form needs the
 value, or compute it in the unit that uses it (feedback, a Skip unit's R).
-Once the
-switch goes through, open sessions move with the converted run unit, so
-participants who are mid-form continue on v2 from where they are.
+The switch is also refused while any run uses the study as a classic
+Survey (it would change the engine under that run's participants): copy the
+survey and put the copy in a Form unit instead.
 
 **Importing historical results: write the display rows.**
 `bin/import-results.php` generates the SQL that loads a backup file into
 a study. The wide `survey_NN` insert alone is no longer enough: with
-`form_v2_long_reads` on (the default), admin result counts, average
+a v2 study (or `form_v2_long_reads` on), admin result counts, average
 time, `getResults`/the per-run backup TSV and the OpenCPU R overlay all
 read the **long** format — `survey_items_display` — so imported data
 that has no display rows is invisible to them even though the wide table

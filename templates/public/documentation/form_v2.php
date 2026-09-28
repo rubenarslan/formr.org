@@ -268,5 +268,5 @@ value: complex_score(current(q1), current(q2))</pre>
     <li>Fix what it flags: rewrite each flagged showif in JavaScript or bridge it through a hidden item, and replace each <code>calculate</code> item (<a href="#form_v2_calculate">how</a>). Upload the corrected sheet.</li>
     <li>Try the study on v2 before switching it: export it as xlsx, upload the file under a new name with <strong>Engine: form_v2</strong>, and walk through every page with <strong>Test Survey</strong>. Check the flagged items and the R-computed values.</li>
     <li>If the study uses the install or push items, configure the run as an installable app and check that its manifest loads.</li>
-    <li>Click <strong>Upgrade to form_v2</strong> on the study's settings page, then set the <a href="#form_v2_enable">Form_v2 settings</a> (offline queue, Previous button, layout, language, button labels). Participants who are mid-form continue on the Form; <strong>Switch back to v1</strong> undoes the switch at any time.</li>
+    <li>Use the copy in a Form unit and set the <a href="#form_v2_enable">Form_v2 settings</a> (offline queue, Previous button, layout, language, button labels). <strong>Upgrade to form_v2</strong> on the study's settings page works only for a survey that no run uses as a classic Survey; <strong>Switch back to v1</strong> undoes it at any time.</li>
 </ol>

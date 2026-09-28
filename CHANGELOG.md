@@ -19,8 +19,8 @@ This release adds **form_v2**, a second survey engine, run by a new **Form** uni
 - **`calculate` is classic-only.** v2 does no computation of its own: a `calculate` item, or any other item that takes no input but carries R in `value`, is refused at upload into a v2 survey, at the switch to v2 and when a Form unit links the survey. What the form needs goes into a hidden item with the same value; scores for feedback or later units are computed where they are used.
 - **Putting a survey on v2.**
   - *Add Survey* has an **Engine** choice (as the file says / form_v2 / classic v1). A file can say it itself: `"rendering_mode": "v2"` in a JSON file's `settings`, or a row `rendering_mode` | `v2` on a spreadsheet's `settings` sheet.
-  - An existing survey has **Upgrade to form_v2** on its settings page, next to a compatibility-scan summary. The upgrade converts the runs' Survey units for it into Form units, and participants who are mid-form continue on v2. It is refused while the survey has items v2 cannot run, and while the scan flags showifs (**Upgrade anyway** overrides the latter). **Switch back to v1** is always possible.
-  - Adding a Form unit for a survey puts it on v2. A Survey unit no longer accepts a survey on v2 (its picker lists v1 surveys only).
+  - An existing survey has **Upgrade to form_v2** on its settings page, next to a compatibility-scan summary. It is shown where form_v2 is enabled, and refused while any run uses the survey as a classic Survey (copy the survey to try it on v2) or while the survey has items v2 cannot run, and while the scan flags showifs (**Upgrade anyway** overrides the latter). **Switch back to v1** is always possible.
+  - Adding a Form unit for a survey puts it on v2 — refused while a run uses the survey as a classic Survey. A Survey unit no longer accepts a survey on v2 (its picker lists v1 surveys only).
   - Every survey admin page and the survey list show the engine (**form_v2** / **v1**), and **Test Survey** previews a v2 survey exactly as a Form shows it, with a note naming the engine.
 - **Compatibility scan** (`/admin/survey/<name>/form_v2_compat_scan`, and `bin/form_v2_compat_scan.php <study>` for scripts — exit code 2 when anything is flagged): lists the showifs that need a JavaScript rewrite, the names a showif reads that are not on the form, and the items v2 cannot run, each with the fix.
 - **New item types.** `rank` (v2 only): drag-and-drop ranking, by mouse, touch, buttons or keyboard, stored as the choice names in order; `random` shuffles the start, `touch` counts it as answered only once moved. `bot_check` (v2 only): a self-hosted proof-of-work "are you human" check (Altcha, Argon2id), no third party; verified on the server, bound to the session, used once, and refusing everything when the server has no key. `visual_analog_scale` (both engines): a slider with no visible default.
@@ -34,6 +34,7 @@ This release adds **form_v2**, a second survey engine, run by a new **Form** uni
 ### Fixes
 - **A run structure upload that cannot be imported is refused before the run is changed.** A `Branch` or `Privacy` unit, a non-numeric jump target or a choice given as an object used to delete the run's current units and answer only "Import incomplete: run has N units, expected M" — or report success when the old structure happened to have as many units. The API now answers 400 and names each unit and what is wrong with it.
 - **An optional `number`, `range` or `visual_analog_scale` answered 0 is stored as 0.** It was stored as missing.
+- **A `year` answer is stored as the year given.** It was read as a time of day: 1960–1999 were refused, and other years were stored as the current year. Answers stored before keep the old value.
 - **A `week` answer is stored as the ISO week** (`2025-W01`). It was stored as year, month and week (`2024-1201` for 2025-W01, the wrong year whenever week 1 starts in December), and never came back into the input. Answers stored before keep the old form.
 - **A multiple choice's results column fits its largest choice.** Only the smallest was checked, so choices 1, 2, 3 with a 999 "don't know" code got a column too small for 999, and choosing it failed the whole page. Decimal choice codes get a decimal column instead of being rounded.
 - **A text item's maximum length counts characters**, not bytes, so text with umlauts or other non-ASCII letters is no longer refused below the limit.
@@ -53,7 +54,7 @@ This release adds **form_v2**, a second survey engine, run by a new **Form** uni
 - **Only the run's `manifest` is treated as the manifest by the service worker**; pages of a run whose name starts with "manifest" were served from the offline cache.
 
 ### Changes
-- **R reads survey data from the item table** (`form_v2_long_reads`, on by default for all surveys): each answer is typed from its item (numbers are numbers in R), sessions without item rows (imported results) are included, and a session an operator force-moved does not count as completed. The wide results table is still written (`form_v2_dual_write_results`, on by default) and must stay on while long reads are off.
+- **A survey on form_v2 is read from the item table** — the data R sees, exports, the results page, result counts: each answer is typed from its item (numbers are numbers in R), sessions without item rows (imported results) are included, and a session an operator force-moved does not count as completed. A v1 survey reads its own results table, as before; `form_v2_long_reads` (off by default) opts v1 surveys in too. The results table is still written for every survey (`form_v2_dual_write_results`, on by default).
 - New multiple-choice results columns are sized to also fit a choice `0` (a few characters wider); switching a survey to v2 widens older ones.
 - `config-dist/settings.php` documents the form_v2 settings: `form_v2_enabled`, `form_v2_offline_blob_max_mb`, `form_v2_rate_limits` (R calls, writes, beacons and bot-check challenges per minute and session), `form_v2_rcall_ttl`, `bot_check_prefix_bytes`, and the two flags above.
 
@@ -66,7 +67,7 @@ This release adds **form_v2**, a second survey engine, run by a new **Form** uni
 - SQL patch 087: `survey_r_call_results`, the cache of R results.
 - SQL patch 088: `survey_items.showif_js`, a cache of the translated showif, re-derived automatically when the translation changes.
 - SQL patch 089: scopes `survey_r_call_results` to the unit session (and empties it).
-- SQL patch 090: `survey_unit_sessions.study_iteration` and `survey_studies.last_iteration`. Run `bin/backfill_study_iteration.php` once after upgrading.
+- SQL patch 090: `survey_unit_sessions.study_iteration` and `survey_studies.last_iteration`. `bin/backfill_study_iteration.php` numbers existing sessions (the docker deployment's update scripts run it; run it once by hand elsewhere).
 - SQL patch 091: `survey_studies.layout` ENUM('default','solo').
 - SQL patch 092: `survey_studies.option_keys`, reserved (unused).
 - SQL patch 093: `survey_unit_sessions.layout`, the layout each response was collected under.

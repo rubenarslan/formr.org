@@ -721,8 +721,22 @@ class AdminSurveyController extends AdminController {
         }
         $db = DB::getInstance();
 
-        $unsupported = ($target === 'v2' && $this->study->rendering_mode !== 'v2')
-            ? $this->study->formV2UnsupportedItems() : array();
+        $toV2 = $target === 'v2' && $this->study->rendering_mode !== 'v2';
+        // Upgrading switches the engine of every run that uses the study as a
+        // Survey — live runs included. The alpha refuses it while any does:
+        // copy the survey (download it, upload it as a new one) to try v2.
+        if ($toV2 && !Config::get('form_v2_enabled')) {
+            alert('<strong>Not switched.</strong> form_v2 is not enabled on this instance.', 'alert-danger');
+            $this->request->redirect(admin_study_url($this->study->name));
+            return;
+        }
+        if ($toV2 && ($usedBy = $this->study->runsUsingAsSurvey())) {
+            alert('<strong>Not switched.</strong> This survey runs as a classic Survey in: <strong>' . implode(', ', array_map('h', $usedBy))
+                . '</strong>. Switching it would change the engine for those runs\' participants. To try form_v2, copy the survey — download it and upload it as a new survey — and use the copy in a Form unit.', 'alert-danger');
+            $this->request->redirect(admin_study_url($this->study->name));
+            return;
+        }
+        $unsupported = $toV2 ? $this->study->formV2UnsupportedItems() : array();
         // A showif the browser cannot evaluate (leftover R, a name that is not
         // on the form) keeps its item hidden for good, silently — the one
         // place v1 studies break on the way to v2. So the scan's showif

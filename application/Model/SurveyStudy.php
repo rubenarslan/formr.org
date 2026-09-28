@@ -298,6 +298,39 @@ class SurveyStudy extends Model
      * survey and say what was taken.
      */
     /**
+     * The runs that use this study as a classic Survey unit (a v1 Survey
+     * unit shares the study's id). While there are any, the study is not
+     * put on form_v2 — neither by "Upgrade to form_v2" nor by linking it in
+     * a Form unit: that would switch the engine under those runs'
+     * participants. To try v2, the author copies the survey.
+     *
+     * @return list<string> run names
+     */
+    public function runsUsingAsSurvey()
+    {
+        $rows = $this->db->execute(
+            'SELECT DISTINCT r.name FROM `survey_run_units` ru
+             JOIN `survey_units` u ON u.id = ru.unit_id AND u.type = \'Survey\'
+             JOIN `survey_runs` r ON r.id = ru.run_id
+             WHERE ru.unit_id = :sid ORDER BY r.name',
+            array('sid' => (int) $this->id)
+        );
+        return array_map(function ($row) { return (string) $row['name']; }, (array) $rows);
+    }
+
+    /**
+     * Does a study read its answers from the long format
+     * (survey_items_display) — for R, exports, the results page, result
+     * counts and backups? A v2 study always; a v1 study only where the
+     * operator opts in (form_v2_long_reads, off by default), so a v1 study
+     * reads its own results table exactly as before.
+     */
+    public static function readsLong($renderingMode)
+    {
+        return $renderingMode === 'v2' || (bool) Config::get('form_v2_long_reads', false);
+    }
+
+    /**
      * A new survey arrives on form_v2 only where the operator enabled form_v2
      * authoring: elsewhere a v2 survey could not be placed in any run (Survey
      * units refuse it, Add Form is hidden). The one rule for every path that
@@ -626,6 +659,33 @@ class SurveyStudy extends Model
     public static function forgetWideTableColumns($resultsTable)
     {
         unset(self::$wideColumnsCache[(string) $resultsTable]);
+    }
+
+    /**
+     * Drop every cached column list. The cache is meant to live for one
+     * request; a long-running process (the queue daemons) calls this once
+     * per pass, or it would keep a table's columns from before an upload
+     * that dropped or added some.
+     */
+    public static function forgetAllWideTableColumns()
+    {
+        self::$wideColumnsCache = [];
+    }
+
+    /**
+     * Does a blank answer ('') to $item read as NULL in the wide table?
+     *
+     * survey_items_display.answer stores getReply() of the raw posted value;
+     * the wide column stores getReply() of the validated one, and validation
+     * turns a single-valued item's blank reply into NULL. So a long read must
+     * map '' back to NULL for these items, or R sees "" where it saw NA (and a
+     * numeric column turns into character). Multi-valued items (mc_multiple,
+     * select_multiple, …) stored '' in the wide table too, and items that take
+     * no input are saved unvalidated, so both keep their ''.
+     */
+    public static function blankAnswerIsNull(Item $item)
+    {
+        return $item->requiresUserInput() && !$item->acceptsArrayReply();
     }
 
     /**
@@ -966,12 +1026,25 @@ class SurveyStudy extends Model
             'result_columns' => array(),
         );
 
+        // Names this v1 study already has (live or soft-deleted): one of them
+        // may be a form_v2 showif helper name from before those were reserved,
+        // and the study must stay re-uploadable (Item::allowLegacyHelperName).
+        $existingNames = array();
+        if ($this->rendering_mode !== 'v2' && $this->id) {
+            foreach ((array) $this->db->select('name')->from('survey_items')->where(array('study_id' => (int) $this->id))->fetchAll() as $existing) {
+                $existingNames[(string) $existing['name']] = true;
+            }
+        }
+
         foreach ($reader->survey as $row_number => $row) {
             $item = $itemFactory->make($row);
             if (!$item) {
                 $this->errors[] = __("Row %s: Type %s is invalid.", $row_number, array_val($reader->survey[$row_number], 'type'));
                 unset($reader->survey[$row_number]);
                 continue;
+            }
+            if (isset($existingNames[(string) $item->name])) {
+                $item->allowLegacyHelperName();
             }
 
             if (!$this->collectItemValidation($item)) {
@@ -1196,6 +1269,12 @@ class SurveyStudy extends Model
         $factory = new ItemFactory(array());
         $out = array();
         foreach ((array) $this->getItems() as $row) {
+            // A v1 study may keep an item named like a showif helper
+            // (Item::allowLegacyHelperName); on v2 it would shadow the helper.
+            if (in_array((string) $row['name'], Item::SHOWIF_HELPERS, true)) {
+                $out[(string) $row['name']] = "'{$row['name']}' is the name of a form_v2 showif helper, so the item would hide it. Rename the item before moving this study to form_v2.";
+                continue;
+            }
             $item = $factory->make($row);
             if ($item && ($why = $item->formV2Unsupported())) {
                 $out[(string) $item->name] = $why;
@@ -1314,13 +1393,11 @@ class SurveyStudy extends Model
 
     public function getResults($items = null, $filter = null, array $paginate = null, $runId = null, $rstmt = false)
     {
-        // Long-format is the source of truth: pivot survey_items_display
-        // into the wide shape at read time — for ALL studies since the
-        // reader-migration slice (form_v2_long_reads), not just v2. The
-        // wide dual-write stays on for now so the pivot can be validated
-        // against the byte-identical wide row; the config flag is a
-        // temporary escape hatch back to wide reads for one release.
-        if ($this->rendering_mode === 'v2' || Config::get('form_v2_long_reads', true)) {
+        // A v2 study (and a v1 study where form_v2_long_reads opts in) is
+        // read from the long format: survey_items_display pivoted into the
+        // wide shape at read time (readsLong). A v1 study otherwise reads
+        // its own results table, as it always has.
+        if (self::readsLong($this->rendering_mode)) {
             $stmt = $this->pivotedResultsStatement($items, $filter, $paginate, $runId);
             if ($rstmt === true) {
                 return $stmt;
@@ -1332,6 +1409,16 @@ class SurveyStudy extends Model
             return $results;
         }
 
+        return $this->getResultsWide($items, $filter, $paginate, $runId, $rstmt);
+    }
+
+    /**
+     * getResults() read straight from the per-study wide results table: the
+     * legacy read path, and what backupResults() saves before the wide table
+     * is truncated or altered. array() when the table does not exist.
+     */
+    private function getResultsWide($items = null, $filter = null, array $paginate = null, $runId = null, $rstmt = false)
+    {
         if ($this->resultsTableExists()) {
             ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
 
@@ -1463,10 +1550,14 @@ class SurveyStudy extends Model
         $rows = $this->getItems();
         $itemFactory = new ItemFactory(array());
         $scorableById = array();
+        $blankIsNull = array();
         foreach ($rows as $row) {
             $it = $itemFactory->make($row);
             if ($it && $it->isStoredInResultsTable()) {
                 $scorableById[(int) $row['id']] = $it->name;
+                if (self::blankAnswerIsNull($it)) {
+                    $blankIsNull[(int) $row['id']] = true;
+                }
             }
         }
         if ($items) {
@@ -1504,7 +1595,8 @@ class SurveyStudy extends Model
             $get_all,
             $filter,
             $paginate,
-            $runId
+            $runId,
+            $blankIsNull
         );
 
         $stmt = $this->db->prepare($sql);
@@ -1529,6 +1621,9 @@ class SurveyStudy extends Model
      * @param array|null $filter        ['session' => ..., 'results' => ...]
      * @param array|null $paginate      ['offset', 'limit', 'order', 'order_by']
      * @param int|null $runId
+     * @param array $blankIsNullIds  [item_id => true] for items whose blank
+     *                                answer ('') the wide table stored as NULL
+     *                                (see blankAnswerIsNull)
      * @return array{0: string, 1: array<string, mixed>}
      */
     public static function buildPivotSql(
@@ -1538,7 +1633,8 @@ class SurveyStudy extends Model
         $getAll,
         $filter,
         array $paginate = null,
-        $runId = null
+        $runId = null,
+        array $blankIsNullIds = array()
     ) {
         $pivotCols = array();
         foreach ($scorableById as $id => $name) {
@@ -1546,11 +1642,11 @@ class SurveyStudy extends Model
             // (createResultsTable would have failed otherwise). Backtick
             // any stray backticks defensively.
             $safeName = str_replace('`', '``', $name);
-            $pivotCols[] = sprintf(
-                "MAX(CASE WHEN `sid`.`item_id` = %d THEN `sid`.`answer` END) AS `%s`",
-                (int) $id,
-                $safeName
-            );
+            $answer = sprintf("MAX(CASE WHEN `sid`.`item_id` = %d THEN `sid`.`answer` END)", (int) $id);
+            if (isset($blankIsNullIds[$id])) {
+                $answer = "NULLIF({$answer}, '')";
+            }
+            $pivotCols[] = sprintf("%s AS `%s`", $answer, $safeName);
         }
 
         // Iteration: survey_unit_sessions.study_iteration is the long-
@@ -1835,7 +1931,7 @@ class SurveyStudy extends Model
         // results table itself, never the write-time rollup — a stale/partial
         // survey_study_metrics row reading 0 here would DROP real data with no
         // backup. The rollup is for display only (getResultCount).
-        $this->result_count = $this->getResultCountLive();
+        $this->result_count = $this->getResultCountForGate();
         if (($this->result_count["real_users"] + $this->result_count['testers']) > 0) {
             return true;
         } else {
@@ -1847,7 +1943,7 @@ class SurveyStudy extends Model
     {
         // Destructive gate (backup requirement, column-deletion confirmation):
         // live count only, same rationale as hasData().
-        $this->result_count = $this->getResultCountLive();
+        $this->result_count = $this->getResultCountForGate();
         if ($this->result_count["real_users"] > 1) {
             return true;
         } else {
@@ -1860,7 +1956,7 @@ class SurveyStudy extends Model
         // Destructive gate: the "nothing to delete" short-circuit and the
         // backup-size message must reflect the actual table contents, not the
         // rollup (which can be stale or unseeded right after patch 069).
-        $this->result_count = $this->getResultCountLive($run_id);
+        $this->result_count = $this->getResultCountForGate($run_id);
 
         if (array_sum($this->result_count) === 0) {
             return true;
@@ -1905,8 +2001,15 @@ class SurveyStudy extends Model
             }
             $filename = APPLICATION_ROOT . "tmp/backups/results/" . $filename;
 
+            // Back up the store the caller is about to truncate / ALTER. While
+            // the wide table is written (dual-write on) it holds every session,
+            // including legacy ones that have no survey_items_display rows and
+            // so are absent from the long pivot getResults() reads by default.
+            $rows = (Config::get('form_v2_dual_write_results', true) && $this->resultsTableExists())
+                ? $this->getResultsWide($itemNames)
+                : $this->getResults($itemNames);
             $SPR = new SpreadsheetReader();
-            return $SPR->backupTSV($this->getResults($itemNames), $filename);
+            return $SPR->backupTSV($rows, $filename);
         } else { // if we have no real data, no need for backup
             return true;
         }
@@ -1948,10 +2051,49 @@ class SurveyStudy extends Model
     {
         $count = array('finished' => 0, 'begun' => 0, 'testers' => 0, 'real_users' => 0);
 
-        if ($this->rendering_mode === 'v2' || Config::get('form_v2_long_reads', true)) {
+        if (self::readsLong($this->rendering_mode)) {
             return $this->getResultCountLong($run_id, $filter, $count);
         }
 
+        $count = $this->getResultCountWide($run_id, $filter, $count);
+
+        if (!$filter && !$run_id) {
+            $this->result_count = $count;
+        }
+
+        return $count;
+    }
+
+    /**
+     * The count the destructive gates (hasData, hasRealData, deleteResults,
+     * backupResults) decide on. With long reads the live count comes from
+     * survey_items_display, which does not hold every session the wide table
+     * does: legacy rows (imports without display rows, restored backups) are
+     * only in the wide table, and a zero from the long count would let a
+     * re-upload DROP that table without a backup. So while the wide table
+     * exists, each bucket is the larger of the two counts.
+     *
+     * @param int|null $run_id
+     * @return array{finished:int, begun:int, testers:int, real_users:int}
+     */
+    protected function getResultCountForGate($run_id = null)
+    {
+        $count = $this->getResultCountLive($run_id);
+        if ((self::readsLong($this->rendering_mode)) && $this->resultsTableExists()) {
+            $wide = $this->getResultCountWide($run_id, array(), array('finished' => 0, 'begun' => 0, 'testers' => 0, 'real_users' => 0));
+            foreach ($count as $k => $v) {
+                $count[$k] = max((int) $v, (int) (is_array($wide) && isset($wide[$k]) ? $wide[$k] : 0));
+            }
+        }
+        return $count;
+    }
+
+    /**
+     * Result counts read from the per-study wide results table ($count when
+     * the table does not exist).
+     */
+    private function getResultCountWide($run_id, $filter, array $count)
+    {
         if ($this->resultsTableExists()) {
             $results_table = $this->results_table;
             $select = $this->db->select(array(
@@ -1982,10 +2124,6 @@ class SurveyStudy extends Model
             }
 
             $count = $select->fetch();
-        }
-
-        if (!$filter && !$run_id) {
-            $this->result_count = $count;
         }
 
         return $count;

@@ -23,6 +23,8 @@ class LongReadTypesTest extends \PHPUnit\Framework\TestCase {
     protected function setUp(): void {
         $this->db = DB::getInstance();
         $this->dropTables();
+        // The casts memo is static (request-scoped in the app); fixtures differ per test.
+        UnitSession::forgetLongReadCasts();
 
         $this->db->exec('CREATE TABLE survey_items (id INTEGER PRIMARY KEY, study_id INTEGER, type TEXT, choice_list TEXT, type_options TEXT, name TEXT, deleted TEXT)');
         $this->db->exec('CREATE TABLE survey_item_choices (id INTEGER PRIMARY KEY, study_id INTEGER, list_name TEXT, name TEXT, label TEXT)');
@@ -174,5 +176,40 @@ class LongReadTypesTest extends \PHPUnit\Framework\TestCase {
             array('session_id', 'study_id', 'created', 'modified', 'ended', 'iteration', 'age', 'comment')
         );
         $this->assertSame(array(42), $cols['age']);
+    }
+
+    /**
+     * survey_items_display keeps a blank reply as '' (getReply of the raw
+     * post) where the wide column held NULL (validation NULLs it). Served as
+     * '', is.na() turned FALSE and one blank made a numeric column character.
+     */
+    public function testBlankRepliesReadAsNullLikeTheWideTable() {
+        $s = self::STUDY_ID;
+        $sid = self::SESSION_ID;
+        $this->db->exec("UPDATE survey_items_display SET answer = '' WHERE item_id IN (2, 5)");
+        $this->db->exec("INSERT INTO survey_items (id, study_id, type, choice_list, type_options, name, deleted) VALUES (7, $s, 'mc_multiple', 'pet', NULL, 'pets', NULL)");
+        $this->db->exec("INSERT INTO survey_items_display (session_id, item_id, answer, created, saved) VALUES ($sid, 7, '', '2026-02-01 10:00:00', '2026-02-01 10:01:00')");
+
+        $cols = $this->longRead(array('age', 'comment', 'pets'));
+        $this->assertSame(array(null), $cols['age'], 'a blank number is NA, not ""');
+        $this->assertSame(array(null), $cols['comment'], 'a blank optional text is NA, as in the wide column');
+        $this->assertSame(array(''), $cols['pets'], 'a multi-valued item stored "" in the wide table too');
+    }
+
+    /**
+     * A session that began before patch 090 has no study_iteration until the
+     * backfill runs; its wide row has the number the wide read gave R.
+     */
+    public function testPreUpgradeSessionTakesItsIterationFromTheWideRow() {
+        $w = self::WIDE_TABLE;
+        $this->db->exec("CREATE TABLE $w (session_id INTEGER PRIMARY KEY, study_id INTEGER, created TEXT, modified TEXT, ended TEXT, iteration INTEGER, age INTEGER, comment TEXT)");
+        $this->db->exec("INSERT INTO $w (session_id, study_id, created, modified, ended, iteration, age, comment) VALUES (" . self::SESSION_ID . ", " . self::STUDY_ID . ", '2026-02-01 10:00:00', '2026-02-01 10:01:00', NULL, 23, 42, '7')");
+
+        $cols = $this->longReadForRun(
+            array('age', 'iteration'), $w,
+            array('session_id', 'study_id', 'created', 'modified', 'ended', 'iteration', 'age', 'comment')
+        );
+        $this->assertSame(array(23), $cols['iteration']);
+        $this->assertSame(array(42), $cols['age'], 'the join does not fan the session out');
     }
 }

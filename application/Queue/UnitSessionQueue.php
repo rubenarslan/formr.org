@@ -140,6 +140,13 @@ class UnitSessionQueue extends Queue {
     }
 
     protected function processQueue() {
+        // The long-read memos (a results table's columns, item types) are
+        // request-scoped; this process lives across many uploads, so start
+        // every pass from what the database says now. A stale column list
+        // would SELECT a column an upload has since dropped.
+        SurveyStudy::forgetAllWideTableColumns();
+        UnitSession::forgetLongReadCasts();
+
         $sessionsStmt = $this->getSessionsStatement();
 		
 		$this->dbg('Count: ' . $sessionsStmt->rowCount());

@@ -274,13 +274,17 @@
                     // settings form above. The readiness counts come from the
                     // same scanner as the full report page.
                     $fmrScanFlagged = null;
-                    if ($study->rendering_mode !== 'v2' && class_exists('FormV2CompatScanner')) {
+                    // Shown for a v1 study only where form_v2 authoring is
+                    // enabled: elsewhere there is nothing to switch to.
+                    $fmrShowEngineBox = $study->rendering_mode === 'v2' || Config::get('form_v2_enabled');
+                    if ($fmrShowEngineBox && $study->rendering_mode !== 'v2' && class_exists('FormV2CompatScanner')) {
                         try {
                             $fmrScanReport = FormV2CompatScanner::scan($study->id);
                             $fmrScanFlagged = count($fmrScanReport['flagged'] ?? []);
                         } catch (Exception $e) { $fmrScanFlagged = null; }
                     }
                     ?>
+                    <?php if ($fmrShowEngineBox): ?>
                     <div class="box box-solid">
                         <div class="box-header"><h3 class="box-title"><i class="fa fa-wpforms"></i> Rendering engine</h3>
                             <a href="<?= site_url('documentation#form_v2_enable') ?>" target="_blank" class="pull-right hastooltip" title="What switching the engine does, the compatibility scan, and the upgrade checklist"><i class="fa fa-question-circle"></i> Form (v2) guide</a>
@@ -299,7 +303,7 @@
                                 <?php elseif ($fmrScanFlagged > 0): ?>
                                     <p class="text-warning"><i class="fa fa-exclamation-triangle"></i> Compatibility scan: <strong><?= (int) $fmrScanFlagged ?></strong> expression(s) need attention (a showif that needs a JS rewrite, or R that must move into a hidden item's <code>value</code>) — <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>">see the full report</a> before upgrading.</p>
                                 <?php endif; ?>
-                                <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" onsubmit="return confirm('Upgrade this study to the form_v2 engine? Run units using it as a classic Survey are converted to Form units, and participants mid-form continue on v2 from where they are. You can switch back at any time.');" style="display:inline">
+                                <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" onsubmit="return confirm('Upgrade this study to the form_v2 engine? Only a survey that no run uses as a classic Survey can be upgraded; you can switch back at any time.');" style="display:inline">
                                     <input type="hidden" name="target" value="v2">
                                     <button type="submit" class="btn btn-primary"><i class="fa fa-rocket"></i> Upgrade to form_v2</button>
                                 </form>
@@ -314,6 +318,7 @@
                             <?php endif; ?>
                         </div>
                     </div>
+                    <?php endif; ?>
                 </div>
             </div>
             <div class="clear clearfix"></div>

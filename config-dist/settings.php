@@ -394,8 +394,8 @@ $settings['form_v2_enabled'] = false;
 // always taken (it's the source of truth for form_v2's pivoted export
 // and the v1 API's /api/v1/runs/{name}/results endpoint).
 //
-// Leave on (default) until you've verified that downstream consumers
-// you care about have been migrated off the wide path. As of patch 090
+// Leave on (default): v1 studies read the wide table (see
+// form_v2_long_reads below), and it is the fallback for v2's. As of patch 090
 // the readers that still go to the wide table when form_v2_long_reads
 // is false are:
 //   - UnitSession::getRunData (OpenCPU R overlay — tail(survey, 1))
@@ -408,21 +408,16 @@ $settings['form_v2_enabled'] = false;
 // every reader above would go stale.
 $settings['form_v2_dual_write_results'] = true;
 
-// Reader-migration escape hatch (temporary; remove after one release).
-// When true (default), the remaining wide-table readers — the OpenCPU R
-// overlay (UnitSession::getRunData), admin result counts / average-time,
-// getResults for v1 studies (and with it the per-run backup TSV) — read
-// from the long format (survey_items_display + survey_unit_sessions)
-// for ALL studies, v1 and v2 alike. The long read re-types each column
-// from the item definition (number / numeric-choice items come back as
-// numbers, exactly as the typed wide column did), so R code sees the
-// same data either way. Set to false to fall back to the legacy wide
-// reads if a discrepancy is found in the field — that needs
-// form_v2_dual_write_results to be on, and it also sends v2 studies'
-// R overlay back to the wide table (their result counts / getResults
-// stay long). Once this has baked, the wide dual-write itself can be
-// turned off.
-$settings['form_v2_long_reads'] = true;
+// Long-format reads for v1 studies (opt-in). form_v2 studies always read
+// their answers from the long format (survey_items_display +
+// survey_unit_sessions): the OpenCPU R overlay (UnitSession::getRunData),
+// admin result counts / average time, getResults (exports, the results
+// page, the per-run backup TSV). A v1 study reads its own results table,
+// exactly as before this release, unless this is true. The long read
+// re-types each column from the item definition, so R code sees the same
+// data either way; turning it on for v1 is for instances that want one
+// read path — keep form_v2_dual_write_results on either way.
+$settings['form_v2_long_reads'] = false;
 
 // form_v2 offline-queue per-file blob cap (megabytes). Pages with file
 // uploads above this size are NOT queued offline — the participant gets a

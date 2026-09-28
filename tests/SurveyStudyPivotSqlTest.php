@@ -38,6 +38,19 @@ class SurveyStudyPivotSqlTest extends TestCase
         );
     }
 
+    /**
+     * A blank single-valued reply is '' in survey_items_display but was NULL
+     * in the wide column; the listed item ids read it back as NULL.
+     */
+    public function testBlankRepliesOfListedItemsReadAsNull(): void
+    {
+        list($sql, ) = SurveyStudy::buildPivotSql(42, $this->items(), false, true, null, null, null, array(101 => true));
+
+        $this->assertStringContainsString("NULLIF(MAX(CASE WHEN `sid`.`item_id` = 101 THEN `sid`.`answer` END), '') AS `age`", $sql);
+        $this->assertStringContainsString("MAX(CASE WHEN `sid`.`item_id` = 102 THEN `sid`.`answer` END) AS `mood`", $sql);
+        $this->assertStringNotContainsString("NULLIF(MAX(CASE WHEN `sid`.`item_id` = 102", $sql);
+    }
+
     public function testLinkedModeEmitsMetadataAndPivotColumns(): void
     {
         list($sql, $bindings) = SurveyStudy::buildPivotSql(

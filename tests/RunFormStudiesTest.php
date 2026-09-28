@@ -22,7 +22,7 @@ class RunFormStudiesTest extends \PHPUnit\Framework\TestCase {
 
         $this->db->exec('CREATE TABLE survey_run_units (id INTEGER PRIMARY KEY, run_id INTEGER, unit_id INTEGER, position INTEGER)');
         $this->db->exec('CREATE TABLE survey_units (id INTEGER PRIMARY KEY, type TEXT, form_study_id INTEGER)');
-        $this->db->exec('CREATE TABLE survey_studies (id INTEGER PRIMARY KEY, name TEXT, results_table TEXT, unlinked INTEGER DEFAULT 0)');
+        $this->db->exec('CREATE TABLE survey_studies (id INTEGER PRIMARY KEY, name TEXT, results_table TEXT, unlinked INTEGER DEFAULT 0, rendering_mode TEXT DEFAULT \'v1\')');
 
         $r = self::RUN_ID;
         // 20: v1 Survey unit (unit id == study id)

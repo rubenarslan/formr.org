@@ -91,10 +91,29 @@ class Item {
      */
     const SHOWIF_HELPERS = array('isNA', 'answered', 'contains', 'containsWord', 'startsWith', 'endsWith', 'last');
 
+    /** The wide results table's own columns: never an item name, on any engine. */
+    const RESULT_COLUMN_NAMES = array('session_id', 'created', 'modified', 'ended', 'id', 'study_id', 'iteration');
+
     const RESERVED_NAMES = array(
-        'session_id', 'created', 'modified', 'ended', 'id', 'study_id', 'iteration',
+        ...self::RESULT_COLUMN_NAMES,
         ...self::SHOWIF_HELPERS,
     );
+
+    /**
+     * A v1 study may have an item named `last`, `answered`, … from before the
+     * showif helper names were reserved. Re-uploading such a study must keep
+     * working, so SurveyStudy::addItems sets this for names a v1 study
+     * already has; validate() then checks only RESULT_COLUMN_NAMES. The
+     * helper names stay reserved for new items and for v2
+     * (SurveyStudy::formV2UnsupportedItems refuses the switch).
+     *
+     * @var bool
+     */
+    protected $legacyHelperName = false;
+
+    public function allowLegacyHelperName() {
+        $this->legacyHelperName = true;
+    }
 
     public $id = null;
     public $name = null;
@@ -507,8 +526,9 @@ class Item {
             $this->val_errors[] = "'{$this->name}' The variable name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. It needs to start with a letter. You cannot use spaces, dots, or dashes.";
         }
 
-        if (in_array((string)$this->name, self::RESERVED_NAMES, true)) {
-            $this->val_errors[] = "'{$this->name}' is a reserved variable name and cannot be used for an item. Reserved names are: " . implode(', ', self::RESERVED_NAMES) . ".";
+        $reserved = $this->legacyHelperName ? self::RESULT_COLUMN_NAMES : self::RESERVED_NAMES;
+        if (in_array((string)$this->name, $reserved, true)) {
+            $this->val_errors[] = "'{$this->name}' is a reserved variable name and cannot be used for an item. Reserved names are: " . implode(', ', $reserved) . ".";
         }
 
         if (trim($this->type) == '') {

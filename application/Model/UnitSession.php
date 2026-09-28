@@ -980,6 +980,26 @@ class UnitSession extends Model {
         // once instead of guessing from an error message.
         $wideHasIteration = $dualWrite && $study->resultsTableHasIteration();
 
+        // A session that was already under way when patch 090 arrived has no
+        // study_iteration yet but does have its wide row, numbered by the
+        // table's AUTO_INCREMENT. Adopt that number: allocating a fresh one
+        // would give the session two different iterations (the wide row's and
+        // survey_unit_sessions'), and bin/backfill_study_iteration.php only
+        // fills NULLs, so it would never be reconciled.
+        if (!$alreadyAllocated && $wideHasIteration) {
+            $wideIteration = (int) $this->db->findValue(
+                $study->results_table,
+                array('session_id' => $this->id, 'study_id' => $study->id),
+                'iteration'
+            );
+            if ($wideIteration > 0) {
+                $this->db->update('survey_unit_sessions',
+                    array('study_iteration' => $wideIteration),
+                    array('id' => $this->id));
+                $alreadyAllocated = $wideIteration;
+            }
+        }
+
         $sessionStarted = false;
         if (!$alreadyAllocated) {
             // Lazy seed (F2): survey_studies.last_iteration (patch 090) starts at
@@ -1467,16 +1487,16 @@ class UnitSession extends Model {
 
             $results_table = $results_tables[$survey_name];
 
-            // Real studies (numeric id, per-study wide table) read from the
-            // long format (survey_items_display) since the reader-migration
-            // slice — this is what the R overlay evaluates against, and it
-            // must not depend on the wide dual-write. The special pseudo-
-            // tables (survey_unit_sessions/run_sessions/users, externals)
-            // keep the legacy path below. form_v2_long_reads is a temporary
-            // escape hatch back to wide reads.
+            // A v2 study (numeric id, per-study wide table) is read from the
+            // long format (survey_items_display) — what the R overlay
+            // evaluates against, independent of the wide dual-write; a v1
+            // study only where form_v2_long_reads opts in
+            // (SurveyStudy::readsLong). The special pseudo-tables
+            // (survey_unit_sessions/run_sessions/users, externals) and v1
+            // studies otherwise keep the wide path below.
             if (is_numeric($study_id)
                     && !in_array($results_table, get_db_non_session_tables())
-                    && Config::get('form_v2_long_reads', true)) {
+                    && SurveyStudy::readsLong($needed['rendering_modes'][$study_id] ?? null)) {
                 // The wide table and its columns come along so sessions that
                 // pre-date survey_items_display (v1 imports, restored backups)
                 // are UNION ALL-ed back in rather than vanishing from the
@@ -1734,7 +1754,13 @@ class UnitSession extends Model {
                     $wideParts[$name] = '`w`.`ended` AS `ended`';
                     break;
                 case 'iteration':
-                    $selectParts[$name] = 'COALESCE(`us`.`study_iteration`, ROW_NUMBER() OVER (ORDER BY `us`.`id` ASC)) AS `iteration`';
+                    // A session from before patch 090 has no study_iteration
+                    // until bin/backfill_study_iteration.php has run; its wide
+                    // row has the number, so read it there (`wi`, joined
+                    // below) before falling back to a per-result-set count.
+                    $selectParts[$name] = $wideHasIteration
+                        ? 'COALESCE(`us`.`study_iteration`, `wi`.`iteration`, ROW_NUMBER() OVER (ORDER BY `us`.`id` ASC)) AS `iteration`'
+                        : 'COALESCE(`us`.`study_iteration`, ROW_NUMBER() OVER (ORDER BY `us`.`id` ASC)) AS `iteration`';
                     $wideParts[$name] = $wideHasIteration
                         ? 'COALESCE(`us`.`study_iteration`, `w`.`iteration`) AS `iteration`'
                         : 'COALESCE(`us`.`study_iteration`, ROW_NUMBER() OVER (ORDER BY `us`.`id` ASC)) AS `iteration`';
@@ -1764,12 +1790,18 @@ class UnitSession extends Model {
             ? '`sid`.`session_id` = :session_id'
             : '`us`.`run_session_id` = :run_session_id';
 
+        $iterationJoin = $iterationGroup = '';
+        if ($wideHasIteration && in_array('iteration', $names, true)) {
+            // session_id is the wide table's primary key: at most one row.
+            $iterationJoin = "\n            LEFT JOIN `" . str_replace('`', '``', $resultsTable) . "` `wi` ON `wi`.`session_id` = `us`.`id`";
+            $iterationGroup = ', `wi`.`iteration`';
+        }
         $longSql = 'SELECT ' . implode(', ', $selectParts) . ', `us`.`id` AS `formr_sid__`
             FROM `survey_items_display` `sid`
             INNER JOIN `survey_items` `i` ON `i`.`id` = `sid`.`item_id` AND `i`.`study_id` = :study_id
-            INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `sid`.`session_id`
+            INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `sid`.`session_id`' . $iterationJoin . '
             WHERE ' . $where . '
-            GROUP BY `us`.`id`, `us`.`ended`, `us`.`result`, `us`.`study_iteration`';
+            GROUP BY `us`.`id`, `us`.`ended`, `us`.`result`, `us`.`study_iteration`' . $iterationGroup;
 
         if ($useWide) {
             // Distinct placeholder names: the DB layer uses non-emulated
@@ -1830,7 +1862,12 @@ class UnitSession extends Model {
                 if (!isset($columns[$var])) {
                     $columns[$var] = array();
                 }
-                if ($val !== null && isset($casts[$var]) && is_numeric($val)) {
+                if ($val === '' && isset($casts[$var])) {
+                    // A blank reply the wide column stored as NULL (numeric
+                    // columns can hold nothing else; single-valued items were
+                    // NULLed by validation, SurveyStudy::blankAnswerIsNull).
+                    $val = null;
+                } elseif ($val !== null && isset($casts[$var]) && $casts[$var] !== 'string' && is_numeric($val)) {
                     $val = $casts[$var] === 'int' ? (int) $val : (float) $val;
                 }
                 $columns[$var][] = $val;
@@ -1847,11 +1884,13 @@ class UnitSession extends Model {
      * Item::getResultField() would have declared, so items are instantiated
      * through ItemFactory exactly as the upload path does; soft-deleted rows
      * are included because the long read still serves their answers, with
-     * a live row winning over a deleted namesake.
+     * a live row winning over a deleted namesake. 'string' marks a text-typed
+     * column whose blank answer ('') the wide table held as NULL
+     * (SurveyStudy::blankAnswerIsNull); it is not cast.
      *
      * @param int $studyId
      * @param string[] $names
-     * @return array<string, string> [item name => 'int'|'float']
+     * @return array<string, string> [item name => 'int'|'float'|'string']
      */
     protected function getLongReadCasts($studyId, array $names) {
         $itemNames = array_values(array_diff($names, array('created', 'modified', 'ended', 'iteration')));
@@ -1907,9 +1946,20 @@ class UnitSession extends Model {
                 $casts[$row['name']] = 'int';
             } elseif (preg_match('/^(FLOAT|DOUBLE)\b/', $type)) {
                 $casts[$row['name']] = 'float';
+            } elseif (SurveyStudy::blankAnswerIsNull($item)) {
+                $casts[$row['name']] = 'string';
             }
         }
         return self::$longReadCastsCache[$cacheKey] = $casts;
+    }
+
+    /**
+     * Drop the per-request long-read memo. A long-running process (the queue
+     * daemons) calls this once per pass, or it would keep item types from
+     * before an upload that changed them.
+     */
+    public static function forgetLongReadCasts() {
+        self::$longReadCastsCache = array();
     }
 
     /**
@@ -1922,6 +1972,7 @@ class UnitSession extends Model {
 
     protected function getRunDataNeeded($q, $token_add = null) {
         $matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();
+        $rendering_modes = array(); // study id → rendering_mode (SurveyStudy::readsLong)
 
 //		$results = $this->run->getAllLinkedSurveys(); // fixme -> if the last reported email thing is known to work, we can turn this on
         $surveys = $this->runSession->getRun()->getAllSurveys();
@@ -1941,6 +1992,7 @@ class UnitSession extends Model {
             $table_ids[] = $study->id;
             $tables[] = $study->name;
             $results_tables[$study->name] = $study->results_table;
+            $rendering_modes[$study->id] = $study->rendering_mode;
         }
 
         // map table ID to the name that the user sees (because tables in the DB are prefixed with the user ID, so they're unique)
@@ -1949,6 +2001,7 @@ class UnitSession extends Model {
                 $table_ids[] = $res['id'];
                 $tables[] = $res['name']; // FIXME: ID can overwrite the non_user_tables
                 $results_tables[$res['name']] = $res['results_table'];
+                $rendering_modes[$res['id']] = $res['rendering_mode'] ?? null;
             }
         }
 
@@ -1973,7 +2026,7 @@ class UnitSession extends Model {
                         ->where(['study_id' => $study_id])
                         ->where("type NOT IN ('mc_heading', 'note', 'submit', 'block', 'note_iframe')")
                         ->where("name != 'iteration'");
-                if (!Config::get('form_v2_long_reads', true)) {
+                if (!SurveyStudy::readsLong($rendering_modes[$study_id] ?? null)) {
                     // Soft-deleting an item (patch 094) keeps its survey_items
                     // row but drops its wide column, so on the wide path a
                     // still-referenced name (or a scale base name that
@@ -1990,7 +2043,7 @@ class UnitSession extends Model {
                 // when the legacy table actually has the column. One cached
                 // SHOW COLUMNS per table per request via SurveyStudy.
                 $res_table = $results_tables[$table_name];
-                if (Config::get('form_v2_long_reads', true)
+                if (SurveyStudy::readsLong($rendering_modes[$study_id] ?? null)
                         || in_array('iteration', SurveyStudy::wideTableColumns($res_table), true)) {
                     $variable_names_in_table[$table_name][] = "iteration";
                 }
@@ -2018,7 +2071,7 @@ class UnitSession extends Model {
 
         $variables = opencpu_formr_variables($q);
 
-        return compact("matches", "matches_results_tables", "matches_variable_names", "token_add", "variables");
+        return compact("matches", "matches_results_tables", "matches_variable_names", "token_add", "variables", "rendering_modes");
     }
 
 }

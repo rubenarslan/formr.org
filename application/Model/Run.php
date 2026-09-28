@@ -1144,7 +1144,7 @@ class Run extends Model
         // condition, and this join needs the OR.
         $stmt = $this->db->prepare("SELECT DISTINCT
                 COALESCE(`survey_studies`.`results_table`, `survey_studies`.`name`) AS `results_table`,
-                `survey_studies`.`name`, `survey_studies`.`id`
+                `survey_studies`.`name`, `survey_studies`.`id`, `survey_studies`.`rendering_mode`
             FROM `survey_run_units`
             LEFT JOIN `survey_units` ON `survey_units`.`id` = `survey_run_units`.`unit_id`
             INNER JOIN `survey_studies`

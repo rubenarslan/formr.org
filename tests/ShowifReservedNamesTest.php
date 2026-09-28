@@ -57,6 +57,22 @@ class ShowifReservedNamesTest extends \PHPUnit\Framework\TestCase {
         }, Item::RESERVED_NAMES);
     }
 
+    /**
+     * A v1 study may already have an item named like a helper (from before
+     * the names were reserved). SurveyStudy::addItems marks such names, so
+     * re-uploading the study keeps working; the results-table columns stay
+     * forbidden regardless.
+     */
+    public function testAnExistingV1ItemMayKeepAHelperName() {
+        $item = $this->item(array('name' => 'last', 'type' => 'text'));
+        $item->allowLegacyHelperName();
+        $this->assertSame(array(), $item->validate()['val_errors'], 'an existing `last` item must stay uploadable');
+
+        $column = $this->item(array('name' => 'created', 'type' => 'text'));
+        $column->allowLegacyHelperName();
+        $this->assertNotEmpty(preg_grep('/reserved/', $column->validate()['val_errors']), '`created` is never an item name');
+    }
+
     public function testOrdinaryNamesStillValidate() {
         // near-misses: differing case and a legitimate word that merely contains
         // a helper name must stay usable.

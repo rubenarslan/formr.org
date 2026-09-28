@@ -8,11 +8,11 @@
  * (UnitSession::createSurveyStudyRecord / updateSurveyStudyRecord / end), so
  * both the wide results table and survey_items_display hold rows:
  *
- *   - the long read (the default, form_v2_long_reads on) returns one row per
+ *   - the long read (a v2 study, or a v1 study with form_v2_long_reads on) returns one row per
  *     unit session with every stored answer — a 0 kept as "0", a multiple
  *     choice as "1, 2", unanswered as NULL — plus session/ended metadata;
  *     notes and submit buttons are no columns;
- *   - with form_v2_long_reads off, a v1 study reads the wide table instead,
+ *   - with form_v2_long_reads off (the default), a v1 study reads the wide table instead,
  *     and it returns the same answers for the same sessions;
  *   - the session filter (prefix and exact 64-char code), the complete /
  *     incomplete filters, a run id and pagination (limit, offset, order)
@@ -157,7 +157,8 @@ try {
     ];
     ksort($expected);
 
-    echo "\n-- long read (default) --\n";
+    echo "\n-- long read (a v1 study opted in: form_v2_long_reads on) --\n";
+    setConfig('form_v2_long_reads', true);
     $study = SurveyStudy::loadById($study->id);
     $long = $study->getResults();
     ok(count($long) === 4, 'one row per unit session', count($long));
@@ -190,7 +191,7 @@ try {
     $filters('long');
     ok($study->getResults(null, ['results' => 'bogus_saved_filter']) === [], 'long: an unknown saved filter returns nothing rather than wrong rows');
 
-    echo "\n-- wide read (form_v2_long_reads off, v1 study) --\n";
+    echo "\n-- wide read (a v1 study, form_v2_long_reads off: the default) --\n";
     setConfig('form_v2_long_reads', false);
     $wide = $study->getResults();
     ok(count($wide) === 4 && array_key_exists('session', $wide[0]) && !array_key_exists('study_id', $wide[0]), 'one row per session from the wide table (study_id dropped)', array_keys($wide[0] ?? []));
