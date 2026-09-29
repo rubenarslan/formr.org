@@ -1,6 +1,6 @@
 <?php
 header('Content-type: text/html; charset=utf-8');
-// Per-study participant language (survey_studies.language, patch 096),
+// Per-study participant language (survey_studies.language, patch 114),
 // threaded up from Form::getUnitSessionOutput via the use_form_v2 chain.
 // Drives the document language, text direction, and the engine-chrome
 // string table injected as window.fmrStrings below.

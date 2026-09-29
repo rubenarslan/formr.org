@@ -13,7 +13,7 @@ excluded by diffing against the last merged tag). App layer ~14k lines,
 - [x] FormSyncPayload, RAllowlistExtractor, FormV2CompatScanner
 - [x] Item deltas (BotCheck, Rank skimmed) (Rank, BotCheck, VAS, File, Item.php)
 - [x] JS bundle (main.js submit/queue/resolve, offline/queue.js, showif/alpine.js)
-- [x] Patches 082–097 drift tolerance
+- [x] Patches 100–115 drift tolerance
 - [x] Docs vs code (CLAUDE.md form_v2 notes, plan_form_v2.md, form_v2.md)
 
 ## Candidate findings (raw, pre-dedup)
@@ -22,7 +22,7 @@ excluded by diffing against the last merged tag). App layer ~14k lines,
 - main.js:776-787 collectAllAnswers coerces every numeric-looking string via Number() ("07743"→7743, "0x10"→16, " 7"→7) before /form-render-page; RCallService::formatRValue's column-typed quoting then quotes the already-mangled number → text answers reach R retyped. Defeats RCallService.php:225-230 intent.
 - main.js:718-726 deferred value fill writes to the wrapper's FIRST named input; Mc/SelectOne render a hidden placeholder `<input type=hidden value="">` first (Mc.php:56, SelectOne.php:20), Check a hidden value="0" (Check.php:60) → `value`/`sticky` on mc/select/check never preselects the visible control; for optional mc the hidden value is posted silently as an answer.
 - main.js:495 queue drain sorts by second-resolution client_ts; same-second entries fall back to IDB key (random uuid) order → page N+1 can apply before page N; advancePastPage then runs computeCalculations against data missing page N and stores them (saved) permanently; also breaks "rejected page halts later pages" invariant.
-- FormRenderer.php:349-366 getAllUnansweredItems doesn't SELECT survey_items.showif_js → the patch-088 cache (Item.php:313) is never hit on the v2 render path; CLAUDE.md claims v2 "prefers the import-time cached transpile". Every v2 render re-runs the regexes and emits the /*sjv1*/ stamp.
+- FormRenderer.php:349-366 getAllUnansweredItems doesn't SELECT survey_items.showif_js → the patch-106 cache (Item.php:313) is never hit on the v2 render path; CLAUDE.md claims v2 "prefers the import-time cached transpile". Every v2 render re-runs the regexes and emits the /*sjv1*/ stamp.
 - RunController.php:776 / :1311-1315 comments claim "0 (older clients) accepted leniently" / "Older queue entries from before this gate landed" — v2 never shipped, so no older clients exist (memory: describe as it ships); leniency lets any client omit unit_session_id to bypass the stale-tab gate.
 - RunController.php:882-899 formSave doc comment carries dated spec-evolution history ("F1, 2026-09 ... used to call with validate=false").
 - RunController.php:1132-1139 findNextRenderablePage counts rows the renderer never shows: the page's `submit` row (never saved — <button> isn't collected), `mc_heading` (excluded from v2), soft-deleted items. (a) advancePastPage's calc-only skip never fires (docs form_v2.md:121 claim false) → blank page with only Next; (b) when the renderer dropped a page (all answered via autosave then reload, or only deleted items left) server returns next_page the DOM lacks → main.js:1075 nextIdx -1 → falls through, no nav, no error: participant stuck on "Saved".
@@ -32,7 +32,7 @@ excluded by diffing against the last merged tag). App layer ~14k lines,
 - showif/alpine.js:16-19,283-289 comments: "server already resolved" run vars — server no longer evaluates showif.
 - CLAUDE.md "The `value` column is the R path…" bullet says first-page values resolve server-side at render + stale main.js:480-547 refs; contradicts the "v2 runs no R at render" bullet and FormRenderer rule 2.
 - CHANGELOG.md [Unreleased] still narrates v2 evolution with now-false claims (l.42 SW sync handler; l.54-55 first-page server resolve; l.41/48/111 /form-r-call endpoint that no longer exists; l.20 unknown→visible).
-- RunController.php:1686-1688 "DB-keyed bucket (patch 076)" → rate-limit table is patch 095; main.js:357 "pre-patch-051", solo/controller.js:4 "patch-066" stale.
+- RunController.php:1686-1688 "DB-keyed bucket (patch 076)" → rate-limit table is patch 113; main.js:357 "pre-patch-051", solo/controller.js:4 "patch-066" stale.
 - Reuse: RCallService::rTypeForResultField duplicates UnitSession::getLongReadCasts type parse; $_FILES reprojection duplicated formPageSubmit/formSync; hidden-id extraction duplicated.
 - Efficiency: FormRenderer::renderPageNav rebuilds FormStrings::table per page (render() already has $strings).
 - (sweep) RunController.php:1166 markClientHiddenItems `d.saved IS NULL`: an answer autosaved (/form-save) before a showif change hid its item is never retracted — stays in survey_items_display + wide table although alpine.js _onShowifToggled "retracts" it and v1 would store NULL.

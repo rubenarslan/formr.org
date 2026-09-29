@@ -7,7 +7,7 @@ class UnitSession extends Model {
     public $run_unit_id; // survey_run_units.id — Track A: disambiguates same-unit-at-multiple-positions
     public $iteration; // 1-based count of attempts at THIS run_unit_id by THIS run_session
     public $study_iteration; // per-study sequence (wide-table-equivalent "Nth participant to start this study"); allocated via survey_studies.last_iteration
-    public $layout; // paradata: the study layout mode ('default'/'solo') this response was collected under (patch 093)
+    public $layout; // paradata: the study layout mode ('default'/'solo') this response was collected under (patch 111)
     public $run_session_id;
     public $created;
     public $expires;
@@ -886,7 +886,7 @@ class UnitSession extends Model {
      * LIVE item of the study?
      *
      * Both counts use the same predicate as SurveyStudy::getOrderedItemsIds
-     * (`deleted IS NULL`, patch 094). Counting every survey_items row on one
+     * (`deleted IS NULL`, patch 112). Counting every survey_items row on one
      * side and every display row on the other made the two disagree forever
      * after any soft-delete — a deleted item still has its survey_items row
      * (so it was counted as an item) and its display rows survive (so an
@@ -980,7 +980,7 @@ class UnitSession extends Model {
         // once instead of guessing from an error message.
         $wideHasIteration = $dualWrite && $study->resultsTableHasIteration();
 
-        // A session that was already under way when patch 090 arrived has no
+        // A session that was already under way when patch 108 arrived has no
         // study_iteration yet but does have its wide row, numbered by the
         // table's AUTO_INCREMENT. Adopt that number: allocating a fresh one
         // would give the session two different iterations (the wide row's and
@@ -1002,7 +1002,7 @@ class UnitSession extends Model {
 
         $sessionStarted = false;
         if (!$alreadyAllocated) {
-            // Lazy seed (F2): survey_studies.last_iteration (patch 090) starts at
+            // Lazy seed (F2): survey_studies.last_iteration (patch 108) starts at
             // 0 on hosts that pre-date the allocator, while the wide table's
             // AUTO_INCREMENT `iteration` may already be in the thousands. Seed
             // the counter from MAX(wide.iteration) exactly once, on the first
@@ -1020,7 +1020,7 @@ class UnitSession extends Model {
             }
             $iteration = $this->allocateStudyIteration($study->id);
             // Stamp the layout mode this response is collected under (paradata
-            // for measurement equivalence; patch 093). Captured at first render
+            // for measurement equivalence; patch 111). Captured at first render
             // so a later flip of the study's layout doesn't rewrite history.
             $this->db->update('survey_unit_sessions',
                 ['study_iteration' => $iteration, 'layout' => $study->layout],
@@ -1768,7 +1768,7 @@ class UnitSession extends Model {
                     $wideParts[$name] = '`w`.`ended` AS `ended`';
                     break;
                 case 'iteration':
-                    // A session from before patch 090 has no study_iteration
+                    // A session from before patch 108 has no study_iteration
                     // until bin/backfill_study_iteration.php has run; its wide
                     // row has the number, so read it there (`wi`, joined
                     // below) before falling back to a per-result-set count.
@@ -2040,7 +2040,7 @@ class UnitSession extends Model {
                         ->where(['study_id' => $study_id])
                         ->where("type NOT IN ('mc_heading', 'note', 'submit', 'block', 'note_iframe')")
                         ->where("name != 'iteration'");
-                // A soft-deleted item (patch 094) is not part of the survey
+                // A soft-deleted item (patch 112) is not part of the survey
                 // any more: its answers stay in the database (and in
                 // exports), but R does not see them — on the wide path its
                 // column is gone, and on the long path it would otherwise

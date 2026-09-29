@@ -8,7 +8,7 @@ per-response paradata). Read `documentation/form_v2.md` first for the
 admin-facing "what/when"; this doc is the "how/why" for maintainers.
 
 Terminology bridge: the spec calls them **paged** and **scrolling**; formr calls
-them **`solo`** and **`default`** (`survey_studies.layout` ENUM, patch 091). The
+them **`solo`** and **`default`** (`survey_studies.layout` ENUM, patch 109). The
 renderer emits `data-layout="solo|default"` on the `<form>`; everything branches
 off that attribute.
 
@@ -26,22 +26,20 @@ off that attribute.
 | Form/autosave/sync endpoints | `application/Controller/RunController.php` |
 | Per-response write path | `application/Model/UnitSession.php` |
 
-`survey_studies.layout` (`sql/patches/091_survey_studies_layout.sql`) gates the
+`survey_studies.layout` (`sql/patches/109_survey_studies_layout.sql`) gates the
 solo behaviours; `survey_unit_sessions.layout`
-(`sql/patches/093_unit_session_layout.sql`) records the mode per response.
-(The `option_keys`/A·B·C letter-badge feature, `sql/patches/092_survey_studies_option_keys.sql`,
+(`sql/patches/111_unit_session_layout.sql`) records the mode per response.
+(The `option_keys`/A·B·C letter-badge feature, `sql/patches/110_survey_studies_option_keys.sql`,
 was **removed** — solo is a mobile/app view where keyboard shortcuts are
 irrelevant; the `option_keys` column is left dormant in the DB.)
 
-Patch numbers in this document are the post-v1.11.0 ones (082–096). Earlier
-drafts cite 066/068 for the two layout columns; those were pre-renumbering
-slots and no longer exist — 066 and 068 are release-line patches
-(`schema_housekeeping`, `run_metrics_rollup`).
+Patch numbers in this document are form_v2's own range (100 and up; see
+CLAUDE.md, "SQL migrations").
 
 ## Solo (paged) layout — the step controller
 
 `js/solo/controller.js` **replaced** the original CSS scroll-snap skin that
-shipped with the layout column (the patch then numbered 066, now 091).
+shipped with the layout column (patch 109).
 Scroll-snap broke on multi-page forms (nested 100vh scroll containers), had no
 explicit forward/back affordance, auto-advanced on the first `change` of a
 multi-checkbox item, and let the sticky progress bar overlap content.
@@ -226,7 +224,7 @@ The spec's most formr-specific section. Co-locating items on one screen
 (paged/solo) — a real, replicated effect, so the same scale can show different
 reliability/factor structure across modes.
 
-- **Layout recorded per response** — `survey_unit_sessions.layout` (patch 093),
+- **Layout recorded per response** — `survey_unit_sessions.layout` (patch 111),
   stamped from `SurveyStudy.layout` at first render in
   `UnitSession::createSurveyStudyRecord` (captured at start, so a later flip of
   the study's layout doesn't rewrite history). This is paradata, queryable

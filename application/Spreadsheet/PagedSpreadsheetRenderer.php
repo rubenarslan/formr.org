@@ -121,7 +121,7 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
 				survey_items_display.displaycount, survey_items_display.session_id, survey_items_display.display_order, survey_items_display.hidden, survey_items_display.answer as value_validated, survey_items_display.answered, survey_items_display.page');
         $select->from('survey_items');
         $select->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items_display.item_id = survey_items.id');
-        // survey_items.deleted IS NULL: since patch 094 removing an item from a
+        // survey_items.deleted IS NULL: since patch 112 removing an item from a
         // study soft-deletes it instead of DELETEing the row (which used to
         // CASCADE its survey_items_display rows away). Without this filter a
         // participant who was mid-survey when the item was removed still gets it
@@ -182,7 +182,7 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
 
         if (!$pageItems) {
             // Every item that used to be on this page has since been
-            // soft-deleted (patch 094), so there is nothing left to render or
+            // soft-deleted (patch 112), so there is nothing left to render or
             // submit. Walk the participant forward instead of showing them a
             // page with no items and no submit button. getMaxPage() applies the
             // same `deleted IS NULL` filter, so a page beyond it is guaranteed
@@ -231,7 +231,7 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
 
         // If page is not in request then get from DB.
         // The join onto survey_items + `deleted IS NULL` is load-bearing: a
-        // soft-deleted item (patch 094) keeps its survey_items_display row with
+        // soft-deleted item (patch 112) keeps its survey_items_display row with
         // `answered` NULL forever, so without the filter the participant is sent
         // back to the page that item sat on and can never leave it.
         $query = '
@@ -258,7 +258,7 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
 
     protected function getMaxPage() {
         if ($this->maxPage === null) {
-            // Soft-deleted items (patch 094) must not extend the survey: a page
+            // Soft-deleted items (patch 112) must not extend the survey: a page
             // whose items were all removed mid-session would otherwise still be
             // counted, and the participant would be walked into an empty page
             // they can't submit.
@@ -352,7 +352,7 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
 
         $select = $this->db->select('survey_items_display.item_id, survey_items_display.page');
         $select->from('survey_items_display');
-        // Soft-deleted items (patch 094) keep their display row with `answered`
+        // Soft-deleted items (patch 112) keep their display row with `answered`
         // NULL forever — they are never rendered and never posted again — so
         // they must not count as an "empty previous page", or the participant is
         // redirected back to that page on every request.

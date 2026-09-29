@@ -197,7 +197,7 @@ class LongReadTypesTest extends \PHPUnit\Framework\TestCase {
     }
 
     /**
-     * A session that began before patch 090 has no study_iteration until the
+     * A session that began before patch 108 has no study_iteration until the
      * backfill runs; its wide row has the number the wide read gave R.
      */
     public function testPreUpgradeSessionTakesItsIterationFromTheWideRow() {

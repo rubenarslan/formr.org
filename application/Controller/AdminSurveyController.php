@@ -650,7 +650,7 @@ class AdminSurveyController extends AdminController {
             $settings['allow_previous'] = (int) (isset($settings['allow_previous']) && $settings['allow_previous'] === 1);
             $layoutInput = $settings['layout'] ?? 'default';
             $settings['layout'] = in_array($layoutInput, ['default', 'solo'], true) ? $layoutInput : 'default';
-            // BCP 47-ish shape gate (patch 096); anything odd falls back to
+            // BCP 47-ish shape gate (patch 114); anything odd falls back to
             // English rather than erroring — the column only picks a string
             // table + lang/dir attributes.
             $langInput = trim((string) ($settings['language'] ?? 'en'));

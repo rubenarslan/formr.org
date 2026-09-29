@@ -79,7 +79,7 @@ class StudyMetrics {
      * WHERE fragment: `$alias` is a unit session of the study bound to :$param.
      * A Survey session's unit_id IS the study id; a Form session's unit_id is
      * the Form's own survey_units row, which names the study in form_study_id
-     * (patch 083). Binds :$param and :{$param}_form (native prepares cannot
+     * (patch 101). Binds :$param and :{$param}_form (native prepares cannot
      * reuse a placeholder).
      */
     private static function studySessionsSql(string $alias, string $param): string {

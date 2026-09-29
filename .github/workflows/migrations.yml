@@ -102,23 +102,41 @@ jobs:
           # Atlas's default versioned format treats the numeric prefix
           # (everything before the first underscore) as the version, so
           # strip the description for the baseline arg.
-          version=$(git ls-tree --name-only "origin/${{ github.base_ref }}" sql/patches/ \
-            | grep -oE '[0-9]+' \
-            | sort -n \
-            | tail -1)
+          #
+          # Baseline just below the LOWEST version this PR adds, not at
+          # the base branch's highest: a baseline marks everything at or
+          # below it as applied, so a release patch (0xx) merged into
+          # form_v2 (1xx) would otherwise never run here. The base
+          # branch's higher files replay on top; they are guarded
+          # (IF [NOT] EXISTS), so that is a no-op against schema.sql.
+          # --no-renames: a renamed patch counts as added (git would
+          # otherwise report it as R, and --diff-filter=A would drop it).
+          # A PR that adds no patch (lowest_new empty) baselines at the
+          # highest version, as before.
+          base="origin/${{ github.base_ref }}"
+          lowest_new=$(git diff --no-renames --name-only --diff-filter=A "$base...HEAD" -- sql/patches/ \
+            | xargs -rn1 basename | cut -d_ -f1 | sort -n | head -1)
+          # From this checkout, not the base: Atlas refuses a baseline
+          # that is not a file in the directory (a PR that renames
+          # patches leaves the base's highest version without one).
+          version=$(ls sql/patches/ | grep -E '^[0-9]+_' \
+            | cut -d_ -f1 | sort -n | awk -v n="${lowest_new:-999999}" '$1+0 < n+0' | tail -1)
           if [ -z "$version" ]; then
-            echo "No patches on origin/${{ github.base_ref }}; aborting" >&2
+            echo "No patches on $base below ${lowest_new:-the PR's}; aborting" >&2
             exit 1
           fi
-          echo "Baseline at: $version"
+          echo "Lowest new: ${lowest_new:-none}; baseline at: $version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+      # non-linear: the files above the baseline are not all newer than
+      # what it marks applied (a 0xx release patch below form_v2's 1xx).
       - name: Apply new patches on top of baseline
         run: |
           atlas migrate apply \
             --dir file://sql/patches \
             --url "mariadb://root:lint@127.0.0.1:3306/dev" \
-            --baseline "${{ steps.baseline.outputs.version }}"
+            --baseline "${{ steps.baseline.outputs.version }}" \
+            --exec-order non-linear
 
       - name: Validate integrity
         run: atlas migrate validate --dir file://sql/patches

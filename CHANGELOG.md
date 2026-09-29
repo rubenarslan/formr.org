@@ -4,7 +4,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
-This release adds **form_v2**, a second survey engine, run by a new **Form** unit. It is opt-in per survey: nothing changes for existing surveys and runs until a survey is put on v2, and operators enable authoring with `$settings['form_v2_enabled'] = true`. Authors should read `documentation/form_v2.md` (also the "Form (v2)" tab of the in-app documentation); operators `documentation/form_v2_upgrade.md` (patches 082–097, settings, the `study_iteration` backfill, rollback).
+This release adds **form_v2**, a second survey engine, run by a new **Form** unit. It is opt-in per survey: nothing changes for existing surveys and runs until a survey is put on v2, and operators enable authoring with `$settings['form_v2_enabled'] = true`. Authors should read `documentation/form_v2.md` (also the "Form (v2)" tab of the in-app documentation); operators `documentation/form_v2_upgrade.md` (patches 100–115, settings, the `study_iteration` backfill, rollback).
 
 ### Added
 - **The Form unit and the form_v2 engine.** A Form renders its whole survey as one document and moves between pages without a reload; each page is submitted on its own, and the participant sees their page again, with every answer given so far, after a reload or when they come back later (the browser remembers the page; on another device the form opens on the first page with an unanswered item). A survey on v2 only runs as v2 in a Form unit.
@@ -59,23 +59,23 @@ This release adds **form_v2**, a second survey engine, run by a new **Form** uni
 - `config-dist/settings.php` documents the form_v2 settings: `form_v2_enabled`, `form_v2_offline_blob_max_mb`, `form_v2_rate_limits` (R calls, writes, beacons and bot-check challenges per minute and session), `form_v2_rcall_ttl`, `bot_check_prefix_bytes`, and the two flags above.
 
 ### Schema
-- SQL patch 082: `survey_studies.rendering_mode` ENUM('v1','v2'), default `v1`.
-- SQL patch 083: `survey_units.form_study_id`, the survey a Form unit runs.
-- SQL patch 084: `survey_r_calls`, the per-survey allowlist of the R a v2 form may have evaluated.
-- SQL patch 085: `survey_form_submissions`, the offline queue's record of delivered submissions (a resent one is not applied twice).
-- SQL patch 086: `survey_studies.offline_mode` (default 1) and `allow_previous` (default 0).
-- SQL patch 087: `survey_r_call_results`, the cache of R results.
-- SQL patch 088: `survey_items.showif_js`, a cache of the translated showif, re-derived automatically when the translation changes.
-- SQL patch 089: scopes `survey_r_call_results` to the unit session (and empties it).
-- SQL patch 090: `survey_unit_sessions.study_iteration` and `survey_studies.last_iteration`. `bin/backfill_study_iteration.php` numbers existing sessions (the docker deployment's update scripts run it; run it once by hand elsewhere).
-- SQL patch 091: `survey_studies.layout` ENUM('default','solo').
-- SQL patch 092: `survey_studies.option_keys`, reserved (unused).
-- SQL patch 093: `survey_unit_sessions.layout`, the layout each response was collected under.
-- SQL patch 094: `survey_items.deleted`, for items removed on re-upload.
-- SQL patch 095: `formr_rate_limits`, the rate limiter of the v2 endpoints.
-- SQL patch 096: `survey_studies.language`, default `en`.
-- SQL patch 097: `survey_studies.next_button_label` and `submit_button_label`.
-- The tables of patches 084, 085, 087 and 095 are in `sql/schema.sql` for fresh installs. Every patch 082–097 is guarded (`IF [NOT] EXISTS`) and can be replayed.
+- SQL patch 100: `survey_studies.rendering_mode` ENUM('v1','v2'), default `v1`.
+- SQL patch 101: `survey_units.form_study_id`, the survey a Form unit runs.
+- SQL patch 102: `survey_r_calls`, the per-survey allowlist of the R a v2 form may have evaluated.
+- SQL patch 103: `survey_form_submissions`, the offline queue's record of delivered submissions (a resent one is not applied twice).
+- SQL patch 104: `survey_studies.offline_mode` (default 1) and `allow_previous` (default 0).
+- SQL patch 105: `survey_r_call_results`, the cache of R results.
+- SQL patch 106: `survey_items.showif_js`, a cache of the translated showif, re-derived automatically when the translation changes.
+- SQL patch 107: scopes `survey_r_call_results` to the unit session (and empties it).
+- SQL patch 108: `survey_unit_sessions.study_iteration` and `survey_studies.last_iteration`. `bin/backfill_study_iteration.php` numbers existing sessions (the docker deployment's update scripts run it; run it once by hand elsewhere).
+- SQL patch 109: `survey_studies.layout` ENUM('default','solo').
+- SQL patch 110: `survey_studies.option_keys`, reserved (unused).
+- SQL patch 111: `survey_unit_sessions.layout`, the layout each response was collected under.
+- SQL patch 112: `survey_items.deleted`, for items removed on re-upload.
+- SQL patch 113: `formr_rate_limits`, the rate limiter of the v2 endpoints.
+- SQL patch 114: `survey_studies.language`, default `en`.
+- SQL patch 115: `survey_studies.next_button_label` and `submit_button_label`.
+- The tables of patches 102, 103, 105 and 113 are in `sql/schema.sql` for fresh installs. Every patch 100–115 is guarded (`IF [NOT] EXISTS`) and can be replayed.
 
 ## [v1.11.0] - 22.09.2026
 

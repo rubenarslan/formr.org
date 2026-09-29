@@ -363,7 +363,7 @@ function initForm() {
     const renderPageUrl = (runUrl || '').replace(/\/?$/, '/') + 'form-render-page';
     // Admin-controlled per-study flags (SurveyStudy.offline_mode /
     // .allow_previous). Default to on/off respectively when the attribute is
-    // missing (the column defaults, patch 086).
+    // missing (the column defaults, patch 104).
     const offlineModeEnabled = (root.dataset.offlineMode || 'on') !== 'off';
     const allowPrevious = (root.dataset.allowPrevious || 'off') !== 'off';
     // This form's /form-sync endpoint. Entries already on the device are

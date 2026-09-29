@@ -2,7 +2,7 @@
 use PHPUnit\Framework\TestCase;
 
 /**
- * survey_items.showif_js (patch 088) caches Item::setMoreOptions()'s
+ * survey_items.showif_js (patch 106) caches Item::setMoreOptions()'s
  * regex-based R->JS showif transpile so it isn't redone every render. That
  * cache is written only at import time (SurveyStudy::addItems binds
  * :showif_js to $item->js_showif) and, before this fix, was trusted

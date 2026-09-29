@@ -279,7 +279,7 @@ class SurveyStudyPivotSqlTest extends TestCase
     public function testStudyWithoutScorableItemsStillBuildsValidSql(): void
     {
         // A notes-only study, or one whose answer items were all soft-deleted
-        // (patch 094): the unlinked branch used to emit the pivot columns and
+        // (patch 112): the unlinked branch used to emit the pivot columns and
         // nothing else, i.e. `SELECT  FROM …` — a 1064 on the Results page.
         list($sql, ) = SurveyStudy::buildPivotSql(
             42, array(), true, true, null, null, null

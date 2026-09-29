@@ -2,7 +2,7 @@
 
 /**
  * FormStrings — participant-facing UI strings for the form_v2 engine chrome
- * (patch 096). Item labels/choices are authored in the study's language
+ * (patch 114). Item labels/choices are authored in the study's language
  * already; this covers the engine's own strings around them (nav buttons,
  * save pill, offline banners, validation fallbacks, solo hints), which were
  * hardcoded English.
@@ -16,7 +16,7 @@
  * t(key, params) / server get(..., params)).
  *
  * Adding a language = adding one array below. A study can override the
- * navigation wording (studyOverrides(), patch 097 / #322).
+ * navigation wording (studyOverrides(), patch 115 / #322).
  */
 class FormStrings {
 

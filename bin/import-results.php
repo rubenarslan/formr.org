@@ -319,7 +319,7 @@ foreach ($resultsSheet->getRowIterator() as $row) {
 }
 
 // Imported wide rows take their `iteration` from the table's AUTO_INCREMENT,
-// which survey_studies.last_iteration (the live allocator, patch 090) knows
+// which survey_studies.last_iteration (the live allocator, patch 108) knows
 // nothing about — without this resync, the next live participant's allocated
 // iteration collides with an imported row and their survey 500s.
 //

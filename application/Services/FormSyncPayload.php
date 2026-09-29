@@ -33,7 +33,7 @@ class FormSyncPayload {
     /** RFC 4122-ish 8-4-4-4-12 hex. Same expression the endpoint has always used. */
     const UUID_PATTERN = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i';
 
-    /** `survey_form_submissions`.`page` is SMALLINT UNSIGNED NOT NULL (patch 085). */
+    /** `survey_form_submissions`.`page` is SMALLINT UNSIGNED NOT NULL (patch 103). */
     const MAX_PAGE = 65535;
 
     /** MariaDB DATETIME literal, no fractional part, no timezone suffix. */

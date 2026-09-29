@@ -74,7 +74,7 @@ flowchart TB
 
 ### 2.1 Parallel Form RunUnit, `rendering_mode` flag
 
-`Form` and `Survey` coexist. The data model (`survey_studies`, `survey_items`, `survey_item_choices`, `survey_items_display`, per-survey results tables) is shared — v2 writes through the same code paths (`UnitSession::createSurveyStudyRecord`, `UnitSession::updateSurveyStudyRecord`). The per-study `rendering_mode` ENUM (`'v1'` default, `'v2'`; patch 082) is the sole runtime branch.
+`Form` and `Survey` coexist. The data model (`survey_studies`, `survey_items`, `survey_item_choices`, `survey_items_display`, per-survey results tables) is shared — v2 writes through the same code paths (`UnitSession::createSurveyStudyRecord`, `UnitSession::updateSurveyStudyRecord`). The per-study `rendering_mode` ENUM (`'v1'` default, `'v2'`; patch 100) is the sole runtime branch.
 
 Non-goals this project keeps:
 - Admin UI stays Bootstrap 3 / jQuery / select2 / webshim. Only the minimum to create/edit/upgrade v2 forms is added on top of the existing admin stack.
@@ -93,7 +93,7 @@ class Form extends Survey {
 }
 ```
 
-`Form extends Survey` (not `RunUnit`) to inherit the study-wiring machinery (`getStudy`, run-expiry plumbing, etc.). The one v1 behaviour `Form::create` must opt out of is Survey's re-point of `survey_run_units.unit_id` at the study's id — that pattern is why v1 Survey units share their row with their SurveyStudy, but a Form needs its own `survey_units` row (type='Form') so `RunUnitFactory` instantiates `Form` at request time, not `Survey`. `Form::create` strips `study_id` from options before delegating to `Survey::create`, then writes `survey_units.form_study_id` (patch 083) separately. `Form::getStudy` loads via `form_study_id`, not `$this->unit_id`.
+`Form extends Survey` (not `RunUnit`) to inherit the study-wiring machinery (`getStudy`, run-expiry plumbing, etc.). The one v1 behaviour `Form::create` must opt out of is Survey's re-point of `survey_run_units.unit_id` at the study's id — that pattern is why v1 Survey units share their row with their SurveyStudy, but a Form needs its own `survey_units` row (type='Form') so `RunUnitFactory` instantiates `Form` at request time, not `Survey`. `Form::create` strips `study_id` from options before delegating to `Survey::create`, then writes `survey_units.form_study_id` (patch 101) separately. `Form::getStudy` loads via `form_study_id`, not `$this->unit_id`.
 
 Symptom to watch for if this ever breaks: admin UI looks correct, but v2 rendering never fires and the unit acts like a Survey. Check `survey_run_units.unit_id` points at the Form's row, not the study's.
 
@@ -136,9 +136,9 @@ The Router splits on `-` and camelCases; `form-page-submit` → `formPageSubmitA
 
 ### 3.2 JS transpile, reused from v1
 
-`Item::setMoreOptions` (`application/Model/Item/Item.php` ~247-280) runs `$this->showif` through a regex rewrite to produce `$this->js_showif` — or, since patch 088, reuses the transpile cached at import time in `survey_items.showif_js` and skips the regex passes entirely. Covers `==/>/<=/…`, `&/&&`, `|/||`, `FALSE/TRUE`, `%contains%`/`%begins_with%`/`%ends_with%`/`%starts_with%`/`%contains_word%`, `is.na()`, `stringr::str_length()`, `tail(x, 1)`, `current(x)`. Fails silently on anything more complex; the client's try/catch wrapper then returns `undefined`, and on `undefined` the directive **preserves the server's render decision** rather than forcing the item visible (`webroot/assets/form/js/showif/alpine.js:192-197`; NA items are server-rendered `.hidden` via `Item::hideByDefaultPendingClient()`, matching v1's `_hide = true`).
+`Item::setMoreOptions` (`application/Model/Item/Item.php` ~247-280) runs `$this->showif` through a regex rewrite to produce `$this->js_showif` — or, since patch 106, reuses the transpile cached at import time in `survey_items.showif_js` and skips the regex passes entirely. Covers `==/>/<=/…`, `&/&&`, `|/||`, `FALSE/TRUE`, `%contains%`/`%begins_with%`/`%ends_with%`/`%starts_with%`/`%contains_word%`, `is.na()`, `stringr::str_length()`, `tail(x, 1)`, `current(x)`. Fails silently on anything more complex; the client's try/catch wrapper then returns `undefined`, and on `undefined` the directive **preserves the server's render decision** rather than forcing the item visible (`webroot/assets/form/js/showif/alpine.js:192-197`; NA items are server-rendered `.hidden` via `Item::hideByDefaultPendingClient()`, matching v1's `_hide = true`).
 
-v2 reuses this transpile verbatim. The `showif_js` column landed (patch 088); a proper parser (Esprima or hand-rolled) is explicitly not being built (§8). The compat scanner (§3.5) is how admins find expressions the regex mishandles.
+v2 reuses this transpile verbatim. The `showif_js` column landed (patch 106); a proper parser (Esprima or hand-rolled) is explicitly not being built (§8). The compat scanner (§3.5) is how admins find expressions the regex mishandles.
 
 ### 3.3 Alpine-driven reactive evaluator
 
@@ -175,10 +175,10 @@ The original spec proposed a dedicated `showif_js` column + `showif_r_call_id` /
 
 Everything this section used to list has since landed; kept for the record:
 
-- ~~**Rate limiting.**~~ Landed. The R-call endpoints are rate-limited; the limiter is now DB-backed (`FixedWindowRateLimiter`, patch 095 `formr_rate_limits`) rather than the original `$_SESSION` token bucket, because a session-scoped bucket reset on every cookie rotation (re-auth via `?code=`, private-mode re-open) — an indefinite bypass.
-- ~~**Result caching.**~~ Landed as `survey_r_call_results` (patch 087, session-scoped by patch 089) with per-slot TTLs.
+- ~~**Rate limiting.**~~ Landed. The R-call endpoints are rate-limited; the limiter is now DB-backed (`FixedWindowRateLimiter`, patch 113 `formr_rate_limits`) rather than the original `$_SESSION` token bucket, because a session-scoped bucket reset on every cookie rotation (re-auth via `?code=`, private-mode re-open) — an indefinite bypass.
+- ~~**Result caching.**~~ Landed as `survey_r_call_results` (patch 105, session-scoped by patch 107) with per-slot TTLs.
 - ~~**Embedded Rmd in labels.**~~ Landed: `survey_r_calls` slot='label' + `/form-render-page` batch resolution.
-- ~~**Dedicated `showif_js` column.**~~ Landed (patch 088). A **proper parser** remains explicitly not-doing (§8).
+- ~~**Dedicated `showif_js` column.**~~ Landed (patch 106). A **proper parser** remains explicitly not-doing (§8).
 
 ---
 
@@ -238,9 +238,9 @@ Offline queue is page-JS. The service-worker half is registered but not implemen
 - On fetch failure or 5xx from `/form-page-submit`, the JSON payload is persisted and a `.fmr-queue-banner` (warning variant) is shown. The participant advances locally.
 - Drain triggers: the page `online` event, an initial-page-load check and a retry timer. There is no background drain and no POST interception in the SW. A live page submit first drains only its own form's entries (run + unit session); entries queued before the study's offline mode was turned off still drain.
 - Entries carry their own `sync_url` (the queue DB is origin-wide; on path-routed deploys a drain running on another run's page must post each entry back to its own run) and `unit_session_id` (so the server can `drop_entry` when the participant has since advanced to a different Form unit).
-- Server dedupes via `survey_form_submissions.uuid` pre-check + UNIQUE backstop (patch 085), applies through the same `UnitSession::updateSurveyStudyRecord` path as `/form-page-submit`. `/form-sync` accepts both JSON and multipart (queued file uploads).
+- Server dedupes via `survey_form_submissions.uuid` pre-check + UNIQUE backstop (patch 103), applies through the same `UnitSession::updateSurveyStudyRecord` path as `/form-page-submit`. `/form-sync` accepts both JSON and multipart (queued file uploads).
 - The SW is registered on PWA runs only (a VAPID key, as v1's `pwa-register.js`) and served by `RunController::serviceWorkerAction` (scope `/{runName}/`, `Service-Worker-Allowed` header set): asset precache and push. It takes no part in the queue.
-- Per-study `offline_mode` flag on `survey_studies` (patch 086; admin toggle): when off the form root sets `data-offline-mode="0"` and the client skips IDB persistence + drains nothing — fail loudly instead.
+- Per-study `offline_mode` flag on `survey_studies` (patch 104; admin toggle): when off the form root sets `data-offline-mode="0"` and the client skips IDB persistence + drains nothing — fail loudly instead.
 - File-blob submissions queue too: the enqueue path stashes each `File` under `entry.files[<inputName>]` and strips it out of `entry.data`; the drain rebuilds the multipart body. Cap is `$settings['form_v2_offline_blob_max_mb']` (default 10 MB, surfaced to the page as `window.formr.form_v2.offline_blob_max_mb`); over-cap submissions surface a hard error instead of queueing, because multi-hundred-MB Blobs in IDB can exhaust the per-origin quota and leave the queue undrainable.
 - UUIDs must be RFC 4122 8-4-4-4-12 hex — the server regex-rejects anything else with 400. Client uses `crypto.randomUUID()` with a v4-shape RNG fallback.
 - Drain semantics: success → delete entry; if queue empty AND server returned `redirect`, follow it so the run advances. `drop_entry` (ended session) → drop without retry. Transient failure → stop, leave in place. Validation error → surface `.alert-danger` banner.
@@ -264,11 +264,11 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 
 ### Phase 0 — Plumbing
 - [x] `Form` RunUnit class (`application/Model/RunUnit/Form.php`)
-- [x] `rendering_mode` ENUM on `survey_studies` (`sql/patches/082_survey_studies_rendering_mode.sql`)
+- [x] `rendering_mode` ENUM on `survey_studies` (`sql/patches/100_survey_studies_rendering_mode.sql`)
 - [x] `form_v2_enabled` feature flag in `config/settings.php`
 - [x] Admin "Add Form" button gated by flag (fa-wpforms icon)
 - [x] Admin editor template (`templates/admin/run/units/form.php`)
-- [x] `survey_units.form_study_id` (`sql/patches/083_survey_units_form_study_id.sql`)
+- [x] `survey_units.form_study_id` (`sql/patches/101_survey_units_form_study_id.sql`)
 
 ### Phase 1 — Single-page AJAX form
 - [x] Webpack `form` entry → `form.bundle.js`
@@ -289,7 +289,7 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] Multi-chunk `processItems`
 - [x] Geopoint via `navigator.geolocation` (no webshim, no jQuery)
 - [x] Client payload matches PHP `$_POST` semantics
-- [x] "Previous" button opt-in per form (`survey_studies.allow_previous`, patch 086; admin toggle in survey settings)
+- [x] "Previous" button opt-in per form (`survey_studies.allow_previous`, patch 104; admin toggle in survey settings)
 - [x] `history.pushState(?page=N)` verified across back-button + deep-link landings (lookup by `data-fmr-page` match instead of array index)
 - [x] "Not supported in v2" warning for `audio`/`video`/PWA items (soft banner in `FormRenderer::renderUnverifiedTypesNotice`)
 - [x] Inline `.is-invalid` + `.invalid-feedback` driven from server error response
@@ -312,11 +312,11 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] v1 transpile reused; `(typeof(X) === 'undefined')` → `isNA(X)` rewrite
 - [x] Comment-stripping + try/catch wrapper for runtime eval
 - [x] Allowlist recorded at render (`RAllowlistExtractor`)
-- [x] `survey_r_calls` table (`sql/patches/084_survey_r_calls.sql`)
+- [x] `survey_r_calls` table (`sql/patches/102_survey_r_calls.sql`)
 - [x] Compat scanner (`bin/form_v2_compat_scan.php`) + admin UI (`/admin/survey/<name>/form_v2_compat_scan`)
-- [x] Per-run-session rate-limit on `/form-render-page` (`rcall_per_min`, 30/min, returns 429), DB-backed via `FixedWindowRateLimiter` + patch 095 `formr_rate_limits`
-- [x] Dedicated `showif_js` column on `survey_items` (`sql/patches/088_survey_items_showif_js.sql`); `Item::setMoreOptions` prefers the cached transpile when set, falls back to live regex for legacy items
-- ~~Hardened JS transpiler (proper parser)~~ — explicitly not doing; the regex transpile + import-time cache (patch 088) + client try/catch fallback are the chosen design (§8)
+- [x] Per-run-session rate-limit on `/form-render-page` (`rcall_per_min`, 30/min, returns 429), DB-backed via `FixedWindowRateLimiter` + patch 113 `formr_rate_limits`
+- [x] Dedicated `showif_js` column on `survey_items` (`sql/patches/106_survey_items_showif_js.sql`); `Item::setMoreOptions` prefers the cached transpile when set, falls back to live regex for legacy items
+- ~~Hardened JS transpiler (proper parser)~~ — explicitly not doing; the regex transpile + import-time cache (patch 106) + client try/catch fallback are the chosen design (§8)
 
 ### Phase 4 — Deferred fill for `value`
 - [x] Every page's values, labels and choice labels resolve in one `/form-render-page` batch (`formRenderPageAction` → `RCallService`), which resolves only the calls of items scheduled on that page in this unit session and drops calls the sheet no longer vouches for (`RCallService::callsForPage`, `callRowIsLive`)
@@ -324,20 +324,20 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] Client fill resolver: set first `input/textarea/select[name]` inside wrapper (only if empty — don't clobber back-nav state), fire input+change. Now driven by the batched `/form-render-page` response, not a per-item POST on load
 - [x] `.fmr-fill-pending` added client-side (classes_wrapper is `protected` on Item — server can't push to it)
 - [x] Bail-out UI on OpenCPU error (`.fmr-fill-error` + inline feedback)
-- [x] `survey_r_call_results` cache with TTL (patch 087, session-scoped by patch 089; 5 min for value, label and choice label — `form_v2_rcall_ttl`; REPLACE on write)
+- [x] `survey_r_call_results` cache with TTL (patch 105, session-scoped by patch 107; 5 min for value, label and choice label — `form_v2_rcall_ttl`; REPLACE on write)
 - [x] Rate limiting (30 calls / 60 s per run-session; see Phase 3 block)
-- [x] Embedded Rmd routed through the allowlist + fill — `FormRenderer` registers every `needsDynamicLabel` item in `survey_r_calls` slot='label'; client batch-resolves via `POST /{run}/form-render-page` (`RunController::formRenderPageAction`) on initial page load and on every page transition, with patch 087's TTL cache
+- [x] Embedded Rmd routed through the allowlist + fill — `FormRenderer` registers every `needsDynamicLabel` item in `survey_r_calls` slot='label'; client batch-resolves via `POST /{run}/form-render-page` (`RunController::formRenderPageAction`) on initial page load and on every page transition, with patch 105's TTL cache
 
 ### Phase 5 — Offline queue (page-JS MVP)
 - [x] IndexedDB `formrQueue` store
 - [x] `POST /{run}/form-sync` (`RunController::formSyncAction`)
-- [x] `survey_form_submissions` ledger (`sql/patches/085_survey_form_submissions.sql`)
+- [x] `survey_form_submissions` ledger (`sql/patches/103_survey_form_submissions.sql`)
 - [x] UUID dedupe (pre-check + UNIQUE backstop; regex validation)
 - [x] `.fmr-queue-banner` UI (warning/success/danger variants)
 - [x] Drain on `online` event + initial page load
 - [x] Drain semantics (success/drop_entry/transient/validation)
 - [ ] Service-worker interception + Background Sync — not built (the unused page-side hookup was removed). Nothing drains while the tab is closed
-- [x] `offline_mode` opt-out flag on `survey_studies` (patch 086; admin toggle in survey settings; client respects it via the form root's `data-offline-mode`)
+- [x] `offline_mode` opt-out flag on `survey_studies` (patch 104; admin toggle in survey settings; client respects it via the form root's `data-offline-mode`)
 - [x] SW registration on v2 PWA runs (VAPID key present, as v1's `pwa-register.js`; via `/{runName}/service-worker`, scope `/{runName}/`; `Service-Worker-Allowed` header set by `RunController::serviceWorkerAction`)
 - [ ] iOS Safari compatibility pass (Background Sync unavailable; page-JS `online` drain is the fallback). Three iOS-only skips remain in the BS suite — two cache-population, one offline-submit (`setOffline` unimplemented on the BS-Selenium iOS bridge)
 - [x] File-blob queueing + size cap (10 MB default, over-cap submissions surface a hard error; submissions below the cap persist Blob-in-IDB and drain via multipart `/form-sync`)
@@ -390,7 +390,7 @@ Nothing here is still open; these are the frozen decisions.
 
 **P2 — post-GA polish (landed):**
 - **Default-theme polish pass.** Save indicator (top-right pill, aria-live polite — states `saving` / `saved` / `synced` / `offline` surface the existing `/form-page-submit` + `/form-sync` + IDB-queue events without adding new flow). Completion overlay between the last successful POST and the run-level redirect. Sticky progress bar (verified — already in baseline). Modern typography (larger labels, lighter input borders, `:focus-visible` keyboard rings). Softer validation UX (wrapper accent only via `:has(.is-invalid)`; friendlier fallback copy "We'll need this to continue" / "Please pick an option to continue"; auto-scroll-to-first-error was already wired in `feedback.js`). Mobile-only pinned Next button via `position: fixed` on `.fmr-page-nav` at `max-width: 767px` (default layout only — solo opts out). Focus management on page transitions: `showPage()` now moves focus into the new page's heading or first interactive control with a temporary `tabindex="-1"`. Six new SCSS partials (`_modern`, `_validation-soft`, `_floating-next`, `_save-indicator`, `_completion`, in addition to `_solo`). 10-test e2e suite (`tests/e2e/v2-polish.spec.js`).
-- **Solo layout (patch 091).** Per-study `survey_studies.layout ENUM('default','solo')` selectable from the survey settings UI. When set to `solo`, the form root carries `data-layout="solo"` and a **JS step controller** — `webroot/assets/form/js/solo/controller.js`, initialised from `main.js` (`initSolo(...)`) — shows exactly one `.form-group` at a time as `.fmr-solo-current`, with a fixed Back/OK nav, a monotonic top progress bar, per-step validation and fit-lock. `webroot/assets/form/css/_solo.scss` is the skin for that (`.fmr-page > .form-group { display: none }`); it is not itself the mechanism. Auto-advance is per item type (`autoAdvances()`: single-choice radios, single selects, range sliders — never checkboxes or multi-selects). All items stay mounted, so Alpine `x-showif`, validation, the offline queue, and `allow_previous` keep their normal semantics. Authored page boundaries still determine submission units — clicking OK past a page's last step calls the host's `submitPage()`. Deliberately not bundled: per-item auto-save / immediate-commit (separate flag if needed), repaint mode (Alpine `<template x-if>` per item) which is incompatible with showif-references-everywhere, and a per-item `group-with-next` escape hatch (deferred until a real pairing use case emerges).
+- **Solo layout (patch 109).** Per-study `survey_studies.layout ENUM('default','solo')` selectable from the survey settings UI. When set to `solo`, the form root carries `data-layout="solo"` and a **JS step controller** — `webroot/assets/form/js/solo/controller.js`, initialised from `main.js` (`initSolo(...)`) — shows exactly one `.form-group` at a time as `.fmr-solo-current`, with a fixed Back/OK nav, a monotonic top progress bar, per-step validation and fit-lock. `webroot/assets/form/css/_solo.scss` is the skin for that (`.fmr-page > .form-group { display: none }`); it is not itself the mechanism. Auto-advance is per item type (`autoAdvances()`: single-choice radios, single selects, range sliders — never checkboxes or multi-selects). All items stay mounted, so Alpine `x-showif`, validation, the offline queue, and `allow_previous` keep their normal semantics. Authored page boundaries still determine submission units — clicking OK past a page's last step calls the host's `submitPage()`. Deliberately not bundled: per-item auto-save / immediate-commit (separate flag if needed), repaint mode (Alpine `<template x-if>` per item) which is incompatible with showif-references-everywhere, and a per-item `group-with-next` escape hatch (deferred until a real pairing use case emerges).
   - *Superseded (kept for history):* the first cut of this skin was **CSS scroll-snap** — a full-viewport-per-`.form-group` snap container plus a `change`-event handler in `main.js` that scrolled to the next visible item on a 400 ms debounce. It broke on multi-page forms (nested 100vh scroll containers), had no explicit forward/back affordance, auto-advanced on the first `change` of a multi-checkbox item, and let the sticky progress bar overlap content. `js/solo/controller.js` replaced it end-to-end: the shipped code has no scroll-snap and no debounced scrolling — auto-advance is a 450 ms timer that hands over to the next *step* (`controller.js:629-630`), cancellable by a manual OK. Design detail lives in `documentation/agent_doc/form_v2_layout_modes.md`.
 
 **P2 — post-GA polish (open):**
@@ -398,14 +398,14 @@ Nothing here is still open; these are the frozen decisions.
 3. Default-flip new studies to `rendering_mode='v2'` once P1 is closed and the parity gate is reliably green. Today `application/Model/SurveyStudy.php:31` defaults to `'v1'` and `config-dist/settings.php:397` ships `form_v2_enabled = false`; flip after the iOS pass and the SW-side drain/uninstall-wipe land. Keep the column writable so admins can downgrade individual studies.
 
 **Explicitly not doing:**
-- Hardened JS transpiler — the regex transpile in `Item::setMoreOptions` stays. Patch 088 caches its output at import time so per-request cost is gone; the long tail of malformed expressions the regex mishandles is acceptable risk (the client `x-showif` directive's try/catch leaves silently-broken expressions at whatever visibility the server rendered). Replacing the regex with a parser was historical wishful-thinking.
+- Hardened JS transpiler — the regex transpile in `Item::setMoreOptions` stays. Patch 106 caches its output at import time so per-request cost is gone; the long tail of malformed expressions the regex mishandles is acceptable risk (the client `x-showif` directive's try/catch leaves silently-broken expressions at whatever visibility the server rendered). Replacing the regex with a parser was historical wishful-thinking.
 
 **P2 — done (was on this list, now landed):**
 - Bundle module split — `webroot/assets/form/js/main.js` 2453 → 1415 lines, 13 leaf modules under `lib/`, `offline/`, `validation/`, `showif/`, `items/`. `idb` adopted (~6KB) for the queue.
-- `r_call_results` cache table with TTL — patch 087 (session-scoped by patch 089).
-- `showif_js` column on `survey_items` (patch 088). Item.setMoreOptions prefers the cached transpile when set, falls back to live regex for legacy items.
+- `r_call_results` cache table with TTL — patch 105 (session-scoped by patch 107).
+- `showif_js` column on `survey_items` (patch 106). Item.setMoreOptions prefers the cached transpile when set, falls back to live regex for legacy items.
 - File-blob queueing cap is now `$settings['form_v2_offline_blob_max_mb']` (default 10MB). Per-study override is the natural follow-up.
-- Embedded Rmd in labels routed through the allowlist + `/form-render-page`. FormRenderer registers every `needsDynamicLabel` item under `survey_r_calls` slot='label' and always emits a `data-fmr-label-id` placeholder; the client batch-resolves via `/form-render-page` with the patch 087 cache, on initial page load AND on every page transition. Brief "loading" flicker on the first page where dynamic content sits is the deliberate trade-off for one code path + cache hits on first navigation.
+- Embedded Rmd in labels routed through the allowlist + `/form-render-page`. FormRenderer registers every `needsDynamicLabel` item under `survey_r_calls` slot='label' and always emits a `data-fmr-label-id` placeholder; the client batch-resolves via `/form-render-page` with the patch 105 cache, on initial page load AND on every page transition. Brief "loading" flicker on the first page where dynamic content sits is the deliberate trade-off for one code path + cache hits on first navigation.
 - BS iOS hardening — see `~/.claude/projects/-home-admin-formr-docker-formr-source/memory/reference_browserstack_ios_quirks.md` for the nine concrete bridge limitations and the workaround patterns now codified in `tests/e2e/helpers/test.js` (`bsSafeEvaluate`, worker-scoped page fixture, `clearBrowserState`).
 - Session-expiry modal port — `webroot/assets/form/js/items/expiry-notifier.js`, wired from `main.js` and fed by `templates/run/form_index.php`'s `window.unit_session_expires` injection (mirrors `templates/public/head.php`).
 - New `visual_analog_scale` item type. `application/Model/Item/VisualAnalogScale.php` extends `Range_Item` and pairs the visible slider (no `name`) with a hidden input (carries the form `name`, stays empty until interaction). CSS in `webroot/assets/common/css/custom_item_classes.css` hides the slider thumb until the wrapper goes `.vas-touched` so the participant sees a bare track until they choose a position. Required-validation catches "participant never engaged" via the standard server-side path. Inline 4-line touch listener in the rendered HTML so v1 and v2 both work without bundle wiring.
@@ -413,12 +413,12 @@ Nothing here is still open; these are the frozen decisions.
 ---
 
 ## 9. Deferred:
-1. **Showif/value transpile-failure UI with embed playgrounds.** Skip a real parser (Esprima or hand-rolled) — sandboxing isn't a security property here since an admin can already inline arbitrary JS via item labels. Detect failures with a plain `try { new Function('"use strict";' + jsExpr); } catch (e) { /* SyntaxError */ }` at import time, store the result on the `survey_items.showif_js` column, and let `FormV2CompatScanner` surface flagged rows in the admin compat-scan UI with the source, the transpile output, and the error. (Step (a) below — the column plus the import-time transpile — has since landed as patch 088; the parse-check, the embeds and the auto-fix button have not.)
+1. **Showif/value transpile-failure UI with embed playgrounds.** Skip a real parser (Esprima or hand-rolled) — sandboxing isn't a security property here since an admin can already inline arbitrary JS via item labels. Detect failures with a plain `try { new Function('"use strict";' + jsExpr); } catch (e) { /* SyntaxError */ }` at import time, store the result on the `survey_items.showif_js` column, and let `FormV2CompatScanner` surface flagged rows in the admin compat-scan UI with the source, the transpile output, and the error. (Step (a) below — the column plus the import-time transpile — has since landed as patch 106; the parse-check, the embeds and the auto-fix button have not.)
    - For each flagged row, offer two embedded playgrounds the admin can use to debug in place — both use real prefill APIs, not URL params:
      - **CodePen prefill embed** (https://blog.codepen.io/documentation/prefill-embeds/): a per-row `<div data-prefill='{...}'>…<pre data-lang="js">{transpiled JS}</pre>…</div>` plus the CodePen embed script. CodePen renders an interactive iframe with the JS already loaded, alongside a mocked `answers` object derived from the survey's other items. The admin can tweak inputs and re-run.
      - **rdrr.io embed iframe** for R: `<iframe src='https://rdrr.io/snippets/embed/?code=<urlencoded R>'>` — same idea, but for the source-side R expression, so admins can verify what the R version evaluates to before deciding whether to wrap in `r(...)` or rewrite as JS.
    - Add an auto-fix button per flagged row that mutates the item in place and re-runs the scan: for a showif, create a hidden item whose `value` holds the R and rewrite the showif to reference that name.
-   - Order of operations to ship this: (a) `survey_items.showif_js` column + import-time `new Function()` parse-check — column landed (patch 088), parse-check didn't; (b) compat-scan UI extension to render the two embeds; (c) auto-fix button + scanner re-run.
+   - Order of operations to ship this: (a) `survey_items.showif_js` column + import-time `new Function()` parse-check — column landed (patch 106), parse-check didn't; (b) compat-scan UI extension to render the two embeds; (c) auto-fix button + scanner re-run.
 
 ## 10. Appendix: references
 
@@ -435,18 +435,18 @@ Nothing here is still open; these are the frozen decisions.
 - `bin/form_v2_compat_scan.php` — upgrade-readiness classifier.
 
 **SQL:**
-Numbers below are the **current** ones. The form_v2 block has been renumbered more than once as release lines merged ahead of it (076–090 → 078–092 in `05c01a8b`, behind the v1.9.x mail-guard patches; most recently 078–092 → 082–096, behind the v1.10.x patches 078–081) — match by content, never by remembered number.
+form_v2's patches have their own range, 100 and up (CLAUDE.md, "SQL migrations"), so merging a release line into the branch never renumbers them.
 
-- `sql/patches/082_survey_studies_rendering_mode.sql` — `rendering_mode` ENUM
-- `sql/patches/083_survey_units_form_study_id.sql` — Form-specific study reference
-- `sql/patches/084_survey_r_calls.sql` — allowlist table
-- `sql/patches/085_survey_form_submissions.sql` — offline-queue dedupe ledger
-- `sql/patches/086_form_v2_survey_study_flags.sql` — `offline_mode` + `allow_previous`
-- `sql/patches/087_survey_r_call_results.sql` — r-call result cache with TTL (`089_…_session_scope.sql` keys it per session)
-- `sql/patches/088_survey_items_showif_js.sql` — cached JS transpile of `showif`
-- `sql/patches/090_study_iteration.sql` — `survey_unit_sessions.study_iteration` + `survey_studies.last_iteration` (backfill: `bin/backfill_study_iteration.php`)
-- `sql/patches/091_survey_studies_layout.sql` — `layout ENUM('default','solo')` (solo skin)
-- `sql/patches/095_formr_rate_limits.sql` — DB-backed fixed-window buckets behind `FixedWindowRateLimiter` (r-call, form writes, bot challenge)
+- `sql/patches/100_survey_studies_rendering_mode.sql` — `rendering_mode` ENUM
+- `sql/patches/101_survey_units_form_study_id.sql` — Form-specific study reference
+- `sql/patches/102_survey_r_calls.sql` — allowlist table
+- `sql/patches/103_survey_form_submissions.sql` — offline-queue dedupe ledger
+- `sql/patches/104_form_v2_survey_study_flags.sql` — `offline_mode` + `allow_previous`
+- `sql/patches/105_survey_r_call_results.sql` — r-call result cache with TTL (`107_…_session_scope.sql` keys it per session)
+- `sql/patches/106_survey_items_showif_js.sql` — cached JS transpile of `showif`
+- `sql/patches/108_study_iteration.sql` — `survey_unit_sessions.study_iteration` + `survey_studies.last_iteration` (backfill: `bin/backfill_study_iteration.php`)
+- `sql/patches/109_survey_studies_layout.sql` — `layout ENUM('default','solo')` (solo skin)
+- `sql/patches/113_formr_rate_limits.sql` — DB-backed fixed-window buckets behind `FixedWindowRateLimiter` (r-call, form writes, bot challenge)
 
 **Further reading:**
 - `CLAUDE.md` → "form_v2 development notes" — dev/test gotchas: PHP error log routing, Playwright MCP footguns, BS5 `.hidden` specificity, curl-with-cookie-jar fixture uploads, webpack-doesn't-write-identical-bundles, radio-group sibling-uncheck footgun, etc. Not repeated here.

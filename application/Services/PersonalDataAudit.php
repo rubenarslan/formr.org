@@ -196,7 +196,7 @@ class PersonalDataAudit {
         $runs_seen = array();
         // A Survey placement's unit_id IS the study id; a Form placement points
         // at its own survey_units row, which names the study in form_study_id
-        // (patch 083). One pass over both, so a study used only through a Form
+        // (patch 101). One pass over both, so a study used only through a Form
         // is not reported as an unplaced orphan.
         $run_rows = self::rows($db, 'SELECT COALESCE(fu.form_study_id, ru.unit_id) AS study_id, r.id AS run_id, r.name AS run_name, r.public, r.user_id, u.email, u.admin '
                 . 'FROM survey_run_units ru LEFT JOIN survey_units fu ON fu.id = ru.unit_id AND fu.type = \'Form\' '
