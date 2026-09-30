@@ -294,18 +294,19 @@ function initForm() {
     // resolveAndSubstitutePage writes server-computed deferred-fill values —
     // those dispatch input/change for Alpine/showif sync but are not
     // participant answers and must not fake an answered timestamp.
+    // One delegated listener (change bubbles) for every named field.
     let programmaticFill = false;
-    root.querySelectorAll('input[name], select[name], textarea[name]').forEach((inp) => {
-        if (inp.name && inp.name.startsWith('_item_views')) return;
-        inp.addEventListener('change', () => {
-            if (programmaticFill) return;
-            const wrapper = inp.closest('.item');
-            if (!wrapper) return;
-            const ans = wrapper.querySelector('.item_answered');
-            if (ans && !ans.value) ans.value = mysqlDatetime();
-            const ansR = wrapper.querySelector('.item_answered_relative');
-            if (ansR && !ansR.value) ansR.value = String(Math.round(performance.now()));
-        });
+    root.addEventListener('change', (e) => {
+        if (programmaticFill) return;
+        const inp = e.target;
+        if (!inp.matches || !inp.matches('input[name], select[name], textarea[name]')) return;
+        if (inp.name.startsWith('_item_views')) return;
+        const wrapper = inp.closest('.item');
+        if (!wrapper) return;
+        const ans = wrapper.querySelector('.item_answered');
+        if (ans && !ans.value) ans.value = mysqlDatetime();
+        const ansR = wrapper.querySelector('.item_answered_relative');
+        if (ansR && !ansR.value) ansR.value = String(Math.round(performance.now()));
     });
 
     // Solo layout (layout=solo): the Typeform-style one-item-per-screen step
