@@ -1264,6 +1264,27 @@ class RunSession extends Model {
     public function isTestingStudy() {
         return $this->run->isStudyTest() || $this->id === -1;
     }
+
+    /**
+     * Is this session watched by the study's author rather than a
+     * participant? The admin "Test Survey" preview (isTestingStudy), a run
+     * session flagged `testing` ("use run as yourself"), or cron — nobody is
+     * looking, and a notice lands in the admin's log rather than in a
+     * participant's browser. Author-facing diagnostics (R error detail,
+     * spreadsheet validation errors, banners about the study itself) are
+     * shown only then; a participant must never see them.
+     */
+    public function isAuthorFacing() {
+        return $this->isCron() || $this->isTesting() || $this->isTestingStudy();
+    }
+
+    /**
+     * isAuthorFacing() for a run session that may be missing: none means an
+     * admin context (e.g. the overview script page).
+     */
+    public static function authorFacing(RunSession $runSession = null) {
+        return !$runSession || $runSession->isAuthorFacing();
+    }
     
     protected function debug($message = '', $only = false) {
         if (!DEBUG) {

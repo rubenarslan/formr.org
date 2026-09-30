@@ -594,8 +594,7 @@ NULL
      * @return bool
      */
     protected function isDebugViewer() {
-        $run_session = Site::getInstance()->getRunSession();
-        return !$run_session || $run_session->isCron() || $run_session->isTesting();
+        return RunSession::authorFacing(Site::getInstance()->getRunSession());
     }
 
     /**

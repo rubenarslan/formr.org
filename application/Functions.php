@@ -99,14 +99,11 @@ function notify_user_error($error, $public_message = '')
     $message = $date . ': ' . $public_message . "<br>";
 
     // Show the actual error body whenever the viewer isn't a real
-    // participant. That's: cron/queue daemons, test sessions, and
-    // admin contexts that have no run_session at all (e.g. the
-    // OverviewScriptPage render path). The participant-facing case
-    // — a regular run_session that isn't cron and isn't testing —
-    // still gets only the public_message, so internal error text
-    // doesn't leak through a survey page. Matches the same logic
-    // that drives $show_errors='TRUE' in the OpenCPU knit chunks.
-    if (!$run_session || $run_session->isCron() || $run_session->isTesting()) {
+    // participant (RunSession::authorFacing: cron/queue daemons, test and
+    // preview sessions, admin contexts with no run_session at all). A
+    // participant gets only the public_message, so internal error text
+    // doesn't leak through a survey page.
+    if (RunSession::authorFacing($run_session)) {
         if ($error instanceof Exception) {
             $message .= opencpu_redact_secrets($error->getMessage());
         } else {

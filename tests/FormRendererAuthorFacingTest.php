@@ -9,14 +9,16 @@ use PHPUnit\Framework\TestCase;
  * banner used to leak into the participant document, deliberately ungated on
  * the theory that an admin-role check is impossible on the participant
  * subdomain. It is gated on FormRenderer::isAuthorFacingSession() now, which
- * reads the run session (preview / testing / cron) rather than an admin
+ * asks the run session (RunSession::isAuthorFacing: preview / testing /
+ * cron) rather than an admin
  * cookie — so it works across the origin split.
  */
 class FormRendererAuthorFacingTest extends TestCase
 {
     private function renderer($testingStudy, $testing, $cron = false, $layout = 'default')
     {
-        $runSession = $this->createMock(RunSession::class);
+        // Partial: RunSession::isAuthorFacing() itself runs over the stubs.
+        $runSession = $this->createPartialMock(RunSession::class, array('isTestingStudy', 'isTesting', 'isCron', 'getRun'));
         $runSession->method('isTestingStudy')->willReturn($testingStudy);
         $runSession->method('isTesting')->willReturn($testing);
         $runSession->method('isCron')->willReturn($cron);

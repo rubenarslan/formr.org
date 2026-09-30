@@ -52,32 +52,16 @@ class FormRenderer extends SpreadsheetRenderer {
 
     /**
      * Is this render being watched by the study's author rather than by a
-     * participant?
-     *
-     * Two cases count: the admin survey preview (RunSession::isTestingStudy() —
-     * Run::TEST_RUN, or the synthetic id === -1 session) and a run session
-     * flagged `testing` (the "use run as yourself" flow, RunSession::isTesting()).
-     * Cron-driven sessions count too: nobody is looking, but the notice/error
-     * would land in the admin's log rather than in a participant's browser.
-     *
-     * Everything author-facing in the rendered document (spreadsheet validation
-     * errors, the unverified-item-types banner) must be gated on this: the
-     * participant subdomain is a separate origin, so we cannot ask "is an admin
-     * logged in" — but a participant must never be shown study-authoring
+     * participant (RunSession::isAuthorFacing)? Everything author-facing in
+     * the rendered document (spreadsheet validation errors, the
+     * unverified-item-types banner) is gated on this: the participant
+     * subdomain is a separate origin, so we cannot ask "is an admin logged
+     * in" — but a participant must never be shown study-authoring
      * diagnostics either way.
      */
     protected function isAuthorFacingSession() {
-        if ($this->authorFacingSession !== null) {
-            return $this->authorFacingSession;
-        }
-        $this->authorFacingSession = false;
-        $runSession = $this->unitSession ? $this->unitSession->runSession : null;
-        if ($runSession) {
-            $this->authorFacingSession = (bool) (
-                $runSession->isTestingStudy()
-                || $runSession->isTesting()
-                || $runSession->isCron()
-            );
+        if ($this->authorFacingSession === null) {
+            $this->authorFacingSession = RunSession::authorFacing($this->unitSession ? $this->unitSession->runSession : null);
         }
         return $this->authorFacingSession;
     }

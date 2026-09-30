@@ -34,8 +34,7 @@ class NoteIframe_Item extends Note_Item {
             // Show a neutral placeholder to the participant; surface the R
             // error only to test/admin sessions (real participants shouldn't
             // get a page-top error banner for a content item).
-            $run_session = Site::getInstance()->getRunSession();
-            if (!$run_session || $run_session->isCron() || $run_session->isTesting()) {
+            if (RunSession::authorFacing(Site::getInstance()->getRunSession())) {
                 notify_user_error(
                     opencpu_debug($ocpu_session),
                     "A note_iframe item ('{$this->name}') could not be rendered."
