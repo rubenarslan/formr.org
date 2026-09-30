@@ -20,6 +20,7 @@ class RCallServiceFormatTest extends \PHPUnit\Framework\TestCase {
     protected function setUp(): void {
         $this->db = DB::getInstance();
         $this->dropTables();
+        SurveyStudy::forgetColumnTypes();
 
         $this->db->exec('CREATE TABLE survey_items (id INTEGER PRIMARY KEY, study_id INTEGER, type TEXT, choice_list TEXT, type_options TEXT, name TEXT, deleted TEXT)');
         $this->db->exec('CREATE TABLE survey_item_choices (id INTEGER PRIMARY KEY, study_id INTEGER, list_name TEXT, name TEXT, label TEXT)');
@@ -127,8 +128,9 @@ class RCallServiceFormatTest extends \PHPUnit\Framework\TestCase {
     }
 
     /** @dataProvider resultFieldProvider */
-    public function testRTypeForResultField($field, $expected) {
-        $this->assertSame($expected, RCallService::rTypeForResultField('x', $field));
+    public function testColumnKindDecidesTheRType($field, $expected) {
+        $kind = SurveyStudy::columnKind('x', $field);
+        $this->assertSame($expected, ($kind === 'int' || $kind === 'float') ? 'numeric' : 'character');
     }
 
     public static function resultFieldProvider() {

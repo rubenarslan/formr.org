@@ -145,7 +145,7 @@ class UnitSessionQueue extends Queue {
         // every pass from what the database says now. A stale column list
         // would SELECT a column an upload has since dropped.
         SurveyStudy::forgetAllWideTableColumns();
-        UnitSession::forgetLongReadCasts();
+        SurveyStudy::forgetColumnTypes();
 
         $sessionsStmt = $this->getSessionsStatement();
 		

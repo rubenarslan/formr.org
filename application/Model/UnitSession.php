@@ -1894,97 +1894,33 @@ class UnitSession extends Model {
 
     /**
      * Per-column PHP cast that reproduces what PDO returned from the wide
-     * results table: integer column families → int, FLOAT/DOUBLE → float,
-     * everything else (VARCHAR/TEXT/DATE…, and DECIMAL, which PDO also
-     * returns as a string) → untouched. The column type is whatever
-     * Item::getResultField() would have declared, so items are instantiated
-     * through ItemFactory exactly as the upload path does; soft-deleted rows
-     * are included because the long read still serves their answers, with
-     * a live row winning over a deleted namesake. 'string' marks a text-typed
-     * column whose blank answer ('') the wide table held as NULL
-     * (SurveyStudy::blankAnswerIsNull); it is not cast.
+     * results table (SurveyStudy::columnTypes): integer column families →
+     * int, FLOAT/DOUBLE → float, everything else (VARCHAR/TEXT/DATE…, and
+     * DECIMAL, which PDO also returns as a string) → untouched. Soft-deleted
+     * items count too, because the long read still serves their answers.
+     * 'string' marks a text-typed column whose blank answer ('') the wide
+     * table held as NULL (SurveyStudy::blankAnswerIsNull); it is not cast.
      *
      * @param int $studyId
      * @param string[] $names
      * @return array<string, string> [item name => 'int'|'float'|'string']
      */
     protected function getLongReadCasts($studyId, array $names) {
-        $itemNames = array_values(array_diff($names, array('created', 'modified', 'ended', 'iteration')));
-        if (!$itemNames) {
-            return array();
-        }
-
-        // Per-request memo (F7). getRunData is called once per unit render but
-        // asks per study, and a run's R code routinely references the same
-        // study from several units; each miss costs two queries plus an
-        // ItemFactory build of every referenced item. Item definitions change
-        // only through an upload, which is a different request.
-        sort($itemNames);
-        $cacheKey = ((int) $studyId) . ':' . implode(',', $itemNames);
-        if (isset(self::$longReadCastsCache[$cacheKey])) {
-            return self::$longReadCastsCache[$cacheKey];
-        }
-
-        $rows = $this->db->select('id, study_id, type, choice_list, type_options, name, deleted')
-            ->from('survey_items')
-            ->where(array('study_id' => (int) $studyId))
-            ->whereIn('name', $itemNames)
-            ->order(DB::raw('`deleted` IS NULL'), 'DESC')
-            ->order('id', 'DESC')
-            ->fetchAll();
-        if (!$rows) {
-            return self::$longReadCastsCache[$cacheKey] = array();
-        }
-
-        $choiceLists = array();
-        $choiceRows = $this->db->select('list_name, name, label')
-            ->from('survey_item_choices')
-            ->where(array('study_id' => (int) $studyId))
-            ->order('id', 'ASC')
-            ->fetchAll();
-        foreach ($choiceRows as $c) {
-            $choiceLists[$c['list_name']][$c['name']] = $c['label'];
-        }
-
-        $factory = new ItemFactory($choiceLists);
-        $casts = $seen = array();
-        foreach ($rows as $row) {
-            if (isset($seen[$row['name']])) {
+        $types = SurveyStudy::columnTypes($studyId);
+        $casts = array();
+        foreach (array_diff($names, array('created', 'modified', 'ended', 'iteration')) as $name) {
+            if (!isset($types[$name]) || $types[$name]['column'] === null) {
                 continue;
             }
-            $seen[$row['name']] = true;
-            $item = $factory->make($row);
-            if ($item === false || !$item->isStoredInResultsTable() || ($field = $item->getResultField()) === null) {
-                continue;
-            }
-            $type = strtoupper(ltrim(substr($field, strlen("`{$row['name']}` "))));
-            if (preg_match('/^(TINY|SMALL|MEDIUM|BIG)?INT\b/', $type)) {
-                $casts[$row['name']] = 'int';
-            } elseif (preg_match('/^(FLOAT|DOUBLE)\b/', $type)) {
-                $casts[$row['name']] = 'float';
-            } elseif (SurveyStudy::blankAnswerIsNull($item)) {
-                $casts[$row['name']] = 'string';
+            $column = $types[$name]['column'];
+            if ($column === 'int' || $column === 'float') {
+                $casts[$name] = $column;
+            } elseif ($types[$name]['blank_is_null']) {
+                $casts[$name] = 'string';
             }
         }
-        return self::$longReadCastsCache[$cacheKey] = $casts;
+        return $casts;
     }
-
-    /**
-     * Drop the per-request long-read memo. A long-running process (the queue
-     * daemons) calls this once per pass, or it would keep item types from
-     * before an upload that changed them.
-     */
-    public static function forgetLongReadCasts() {
-        self::$longReadCastsCache = array();
-    }
-
-    /**
-     * [study id + referenced names => casts], see getLongReadCasts (F7).
-     * Request-scoped: an upload that changes item types is another request.
-     *
-     * @var array<string, array<string, string>>
-     */
-    private static $longReadCastsCache = array();
 
     protected function getRunDataNeeded($q, $token_add = null) {
         $matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();

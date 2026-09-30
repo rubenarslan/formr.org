@@ -187,7 +187,10 @@ class RCallService {
      * silently retypes columns: a `text` answer of '07743' would land as the
      * number 7743 (leading zero gone, character column coerced) and '1e3' as
      * 1000 — so a reactive r() would disagree with the same expression run
-     * over the saved data. See rTypeForResultField().
+     * over the saved data. The column type is SurveyStudy::columnTypes',
+     * the long read's too: integer and FLOAT/DOUBLE columns arrive as
+     * numbers, everything else — and an item with no results column (note,
+     * an unknown type), which cannot silently retype anything — as character.
      *
      * @return array<string, string> item name => 'numeric'|'character'
      */
@@ -196,67 +199,13 @@ class RCallService {
             return $this->allowedNames;
         }
         $this->allowedNames = array();
-        $stmt = $this->db->prepare(
-            'SELECT `id`, `name`, `type`, `choice_list`, `type_options`
-             FROM `survey_items` WHERE `study_id` = :sid AND `deleted` IS NULL
-             ORDER BY `id` DESC'
-        );
-        $stmt->bindValue(':sid', (int) $this->study->id, PDO::PARAM_INT);
-        $stmt->execute();
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        if (!$rows) {
-            return $this->allowedNames;
-        }
-
-        // Choice lists decide the column type for mc/check families
-        // (numeric choice names → TINYINT, string names → VARCHAR), exactly
-        // as they do on the results-table upload path.
-        $choiceLists = array();
-        $cstmt = $this->db->prepare(
-            'SELECT `list_name`, `name`, `label` FROM `survey_item_choices`
-             WHERE `study_id` = :sid ORDER BY `id` ASC'
-        );
-        $cstmt->bindValue(':sid', (int) $this->study->id, PDO::PARAM_INT);
-        $cstmt->execute();
-        while ($c = $cstmt->fetch(PDO::FETCH_ASSOC)) {
-            $choiceLists[(string) $c['list_name']][(string) $c['name']] = $c['label'];
-        }
-
-        $factory = new ItemFactory($choiceLists);
-        foreach ($rows as $row) {
-            $name = (string) $row['name'];
-            if (isset($this->allowedNames[$name])) {
-                continue; // highest id wins, like UnitSession::getLongReadCasts
+        foreach (SurveyStudy::columnTypes($this->study->id) as $name => $type) {
+            if ($type['live']) {
+                $numeric = $type['column'] === 'int' || $type['column'] === 'float';
+                $this->allowedNames[$name] = $numeric ? 'numeric' : 'character';
             }
-            $item = $factory->make($row);
-            $field = ($item === false || !$item->isStoredInResultsTable())
-                ? null : $item->getResultField();
-            $this->allowedNames[$name] = self::rTypeForResultField($name, $field);
         }
         return $this->allowedNames;
-    }
-
-    /**
-     * Mirror of UnitSession::getLongReadCasts: the wide results table's column
-     * type decides what R sees. Integer families and FLOAT/DOUBLE arrive as
-     * numbers; everything else — VARCHAR/TEXT/DATE/… and DECIMAL, which PDO
-     * hands back as a string — arrives as character. An item with no results
-     * column at all (note, mc_heading, or an unknown type) is not in the frame,
-     * so quote it: character is the shape that cannot silently retype anything.
-     *
-     * @param string $name item name, as prefixed onto the field definition
-     * @param string|null $field the item's getResultField(), e.g. "`age` INT UNSIGNED DEFAULT NULL"
-     * @return string 'numeric'|'character'
-     */
-    public static function rTypeForResultField($name, $field) {
-        if (!is_string($field)) {
-            return 'character';
-        }
-        $type = strtoupper(ltrim(substr($field, strlen("`{$name}` "))));
-        if (preg_match('/^(TINY|SMALL|MEDIUM|BIG)?INT\b/', $type) || preg_match('/^(FLOAT|DOUBLE)\b/', $type)) {
-            return 'numeric';
-        }
-        return 'character';
     }
 
     /**
@@ -636,7 +585,7 @@ class RCallService {
 
     /**
      * One R literal for one answer. $numeric says whether the item's own
-     * column is numeric (see rTypeForResultField) — it is NOT inferred from
+     * column is numeric (see allowedOverlayNames) — it is NOT inferred from
      * the value, because is_numeric() is true for plenty of answers that are
      * stored as text ('07743', '1e3', '+1', ' 7'), and emitting those bare
      * would retype the column and change the value the expression sees.

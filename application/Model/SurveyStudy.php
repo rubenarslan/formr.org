@@ -674,6 +674,98 @@ class SurveyStudy extends Model
     }
 
     /**
+     * The results column of every item of a study, as Item::getResultField()
+     * declares it — what the wide table holds and so what R sees:
+     * name => [
+     *   'live' => not soft-deleted,
+     *   'column' => 'int' | 'float' | 'text', or null (no results column),
+     *   'blank_is_null' => blankAnswerIsNull(),
+     * ].
+     * A live item wins over a soft-deleted namesake, the highest id among
+     * equals. The one reading for the R overlay's allowlist
+     * (RCallService::allowedOverlayNames) and the long read's casts
+     * (UnitSession::getLongReadCasts). Memoized per process: item definitions
+     * change only through an upload, a different request; long-running
+     * processes (the queue daemons) call forgetColumnTypes() each pass.
+     *
+     * @param int $studyId
+     * @return array<string, array{live: bool, column: string|null, blank_is_null: bool}>
+     */
+    public static function columnTypes($studyId)
+    {
+        $studyId = (int) $studyId;
+        if (isset(self::$columnTypesCache[$studyId])) {
+            return self::$columnTypesCache[$studyId];
+        }
+        $db = DB::getInstance();
+        $rows = $db->select('id, study_id, type, choice_list, type_options, name, deleted')
+            ->from('survey_items')
+            ->where(array('study_id' => $studyId))
+            ->order(DB::raw('`deleted` IS NULL'), 'DESC')
+            ->order('id', 'DESC')
+            ->fetchAll();
+        $types = array();
+        if ($rows) {
+            // Choice lists decide the column type for mc/check families
+            // (numeric choice names → TINYINT, string names → VARCHAR), as on
+            // the upload path.
+            $choiceLists = array();
+            foreach ((array) $db->select('list_name, name, label')->from('survey_item_choices')
+                    ->where(array('study_id' => $studyId))->order('id', 'ASC')->fetchAll() as $c) {
+                $choiceLists[$c['list_name']][$c['name']] = $c['label'];
+            }
+            $factory = new ItemFactory($choiceLists);
+            foreach ($rows as $row) {
+                $name = (string) $row['name'];
+                if (isset($types[$name])) {
+                    continue;
+                }
+                $item = $factory->make($row);
+                $field = ($item === false || !$item->isStoredInResultsTable()) ? null : $item->getResultField();
+                $types[$name] = array(
+                    'live' => empty($row['deleted']),
+                    'column' => self::columnKind($name, $field),
+                    'blank_is_null' => $item !== false && self::blankAnswerIsNull($item),
+                );
+            }
+        }
+        return self::$columnTypesCache[$studyId] = $types;
+    }
+
+    public static function forgetColumnTypes()
+    {
+        self::$columnTypesCache = array();
+    }
+
+    /** @var array<int, array> columnTypes() memo */
+    private static $columnTypesCache = array();
+
+    /**
+     * The kind of column a field definition declares: 'int' for the integer
+     * families, 'float' for FLOAT/DOUBLE, 'text' for everything else
+     * (VARCHAR/TEXT/DATE…, and DECIMAL, which PDO hands back as a string),
+     * null for no column.
+     *
+     * @param string $name item name, as prefixed onto the field definition
+     * @param string|null $field e.g. "`age` INT UNSIGNED DEFAULT NULL"
+     * @return string|null
+     */
+    public static function columnKind($name, $field)
+    {
+        if (!is_string($field)) {
+            return null;
+        }
+        $type = strtoupper(ltrim(substr($field, strlen("`{$name}` "))));
+        if (preg_match('/^(TINY|SMALL|MEDIUM|BIG)?INT\b/', $type)) {
+            return 'int';
+        }
+        if (preg_match('/^(FLOAT|DOUBLE)\b/', $type)) {
+            return 'float';
+        }
+        return 'text';
+    }
+
+    /**
      * Does a blank answer ('') to $item read as NULL in the wide table?
      *
      * survey_items_display.answer stores getReply() of the raw posted value;

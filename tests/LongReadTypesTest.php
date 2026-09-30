@@ -23,8 +23,8 @@ class LongReadTypesTest extends \PHPUnit\Framework\TestCase {
     protected function setUp(): void {
         $this->db = DB::getInstance();
         $this->dropTables();
-        // The casts memo is static (request-scoped in the app); fixtures differ per test.
-        UnitSession::forgetLongReadCasts();
+        // The column-type memo is static (request-scoped in the app); fixtures differ per test.
+        SurveyStudy::forgetColumnTypes();
 
         $this->db->exec('CREATE TABLE survey_items (id INTEGER PRIMARY KEY, study_id INTEGER, type TEXT, choice_list TEXT, type_options TEXT, name TEXT, deleted TEXT)');
         $this->db->exec('CREATE TABLE survey_item_choices (id INTEGER PRIMARY KEY, study_id INTEGER, list_name TEXT, name TEXT, label TEXT)');
