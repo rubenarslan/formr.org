@@ -947,7 +947,9 @@ class SpreadsheetReader
 
                 if ($colName == 'name') {
                     if (!$cellValue) {
-                        if (!empty($data[$rowNumber])) {
+                        // Content = a non-blank cell left of `name`; the
+                        // blank cells read so far are no content.
+                        if (array_filter($data[$rowNumber], function ($v) { return $v !== '' && $v !== null; })) {
                             $skippedRows[] = $rowNumber;
                         } else {
                             $emptyRows[] = $rowNumber;
@@ -1086,7 +1088,13 @@ class SpreadsheetReader
             $this->messages[] = __('Empty rows (no variable name): %s', implode(", ", $emptyRows));
         }
 
-        if (!empty($skippedRows)) {
+        if (!$data) {
+            // Nothing to upload: saving would leave the survey with no items
+            // and report success.
+            $this->errors[] = $skippedRows
+                ? __('The survey sheet has no items: no row has a variable name in the <code>name</code> column. Rows %s have content but no name — give each item a name.', implode(", ", $skippedRows))
+                : __('The survey sheet has no items.');
+        } elseif (!empty($skippedRows)) {
             $this->warnings[] = __('Skipped rows (no variable name): %s. Variable name empty, but other columns had content. Double-check that you did not forget to define a variable name for a proper item.', implode(", ", $skippedRows));
         }
 
