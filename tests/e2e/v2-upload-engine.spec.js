@@ -55,7 +55,7 @@ test.describe('uploading a new survey onto form_v2', () => {
         expect(html).toContain('rendering_mode = v2');
         expect(study(name) && study(name).rendering_mode).toBe('v2');
         await page.goto(`${ADMIN_BASE}/admin/survey/${name}`);
-        await expect(page.locator('.content-header .fmr-engine-badge')).toContainText('form_v2');
+        await expect(page.locator('.content-header .fmr-engine-badge')).toContainText('v2');
     });
 
     test('without a settings sheet a spreadsheet arrives on v1', async ({ page }) => {
@@ -85,7 +85,7 @@ test.describe('uploading a new survey onto form_v2', () => {
         const html = await upload(page, xlsx(name, {
             survey: [['type', 'name', 'label', 'value'], ['text', 'q1', 'Q1', ''], ['calculate', 'score', 'score', 'nchar(q1)']],
         }), 'v2');
-        expect(html).toContain('calculate items are not supported by the form_v2 engine');
+        expect(html).toContain('v2 has no calculate items');
         const row = study(name);
         const items = row ? db.dbQuery(`SELECT name FROM survey_items WHERE study_id = ${parseInt(row.id, 10)}`).map((r) => r.name) : [];
         expect(items, 'no items were stored').not.toContain('score');

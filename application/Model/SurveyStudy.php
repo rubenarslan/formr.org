@@ -580,8 +580,8 @@ class SurveyStudy extends Model
         if ($is_new && empty($this->errors)) {
             if (($reader->settings['rendering_mode'] ?? null) === 'v2'
                 && (($settingsOverride['rendering_mode'] ?? 'v2') === 'v1' || !Config::get('form_v2_enabled'))) {
-                $this->warnings[] = 'The file declares the form_v2 engine; the survey was created on the classic v1 engine'
-                    . (Config::get('form_v2_enabled') ? ', as chosen.' : ', because form_v2 is not enabled on this instance.');
+                $this->warnings[] = 'The file is set to v2, but the survey was created on v1'
+                    . (Config::get('form_v2_enabled') ? ', as you chose.' : ', because v2 is not available on this formr server.');
             }
             $this->applyImportedSettings(array_merge($reader->settings, $settingsOverride));
         }
@@ -1355,7 +1355,7 @@ class SurveyStudy extends Model
             // A v1 study may keep an item named like a showif helper
             // (Item::allowLegacyHelperName); on v2 it would shadow the helper.
             if (in_array((string) $row['name'], Item::SHOWIF_HELPERS, true)) {
-                $out[(string) $row['name']] = "'{$row['name']}' is the name of a form_v2 showif helper, so the item would hide it. Rename the item before moving this study to form_v2.";
+                $out[(string) $row['name']] = "'{$row['name']}' is also the name of a v2 showif function, so the item would break showifs that use it. Rename the item before moving the survey to v2.";
                 continue;
             }
             $item = $factory->make($row);

@@ -686,9 +686,9 @@ class FormRenderer extends SpreadsheetRenderer {
         }
         $list = htmlspecialchars(implode(', ', $present), ENT_QUOTES);
         return '<div class="alert alert-warning fmr-unverified-types" role="status">'
-             . '<strong>Heads up:</strong> this form uses '
-             . '<code>' . $list . '</code> '
-             . '— these item types have not yet been end-to-end smoke-tested on form_v2. They render and submit through the same path as File_Item, but capture UX may vary by browser.'
+             . '<strong>Please test:</strong> this survey uses '
+             . '<code>' . $list . '</code>. '
+             . 'These item types are new in v2 and have not been tested on every browser yet. Try recording on the phones and browsers your participants use. Only you see this note.'
              . '</div>';
     }
 

@@ -109,7 +109,7 @@ test.describe('survey JSON upload (robot seeding)', () => {
         const html = await res.text();
         await ctx.dispose();
         for (const t of V2_ONLY) {
-            expect(html, `the refusal names the ${t} item`).toContain(`${t} items need the form_v2 engine`);
+            expect(html, `the refusal names the ${t} item`).toContain(`${t} items only work in v2`);
         }
         const study = robotStudy();
         const types = study ? db.dbQuery(`SELECT DISTINCT type FROM survey_items WHERE study_id = ${parseInt(study.id, 10)}`).map((r) => r.type) : [];

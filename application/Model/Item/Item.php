@@ -871,7 +871,7 @@ class Item {
      */
     public function formV2Unsupported() {
         if (!$this->requiresUserInput() && $this->needsDynamicValue()) {
-            return "'{$this->name}': a {$this->type} item takes no input, so its R value would be computed only on the server, which the form_v2 engine does not do. Clear its value, or use a hidden item with that value.";
+            return "'{$this->name}': in v2, a {$this->type} item cannot have R code as its value. Clear the value, or use a hidden item with that value.";
         }
         return null;
     }
@@ -887,7 +887,7 @@ class Item {
      */
     public function v1Unsupported() {
         if ($this->v2_only) {
-            return "'{$this->name}': {$this->type} items need the form_v2 engine. Upload the survey with Engine: form_v2 (or switch it to form_v2 first).";
+            return "'{$this->name}': {$this->type} items only work in v2. Choose v2 when you upload the survey, or move the survey to v2 first.";
         }
         return null;
     }

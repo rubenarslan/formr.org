@@ -72,11 +72,11 @@ class Form extends Survey {
             return null;
         }
         if ($usedBy = $study->runsUsingAsSurvey()) {
-            return '<strong>Study not linked to the Form.</strong> It runs as a classic Survey in: <strong>' . implode(', ', array_map('h', $usedBy))
-                . '</strong>; putting it on form_v2 would change the engine for those runs\' participants. Copy the survey (download it, upload it as a new survey) and link the copy.';
+            return '<strong>Survey not added to the Form unit.</strong> It is used as a classic Survey in <strong>' . implode(', ', array_map('h', $usedBy))
+                . '</strong>, and moving it to v2 would change it for those runs\' participants too. To try v2, make a copy: download the survey, upload it as a new survey, and add the copy.';
         }
         if ($unsupported = $study->formV2UnsupportedItems()) {
-            return '<strong>Study not linked to the Form.</strong> It has items the form_v2 engine cannot run:<ul><li>'
+            return '<strong>Survey not added to the Form unit.</strong> It has items that v2 cannot run:<ul><li>'
                 . implode('</li><li>', array_map('h', $unsupported)) . '</li></ul>';
         }
         return null;

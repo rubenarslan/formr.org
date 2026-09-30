@@ -98,7 +98,7 @@ class Survey extends RunUnit {
      */
     protected function linkRefusal(SurveyStudy $study) {
         if ($study->rendering_mode === 'v2') {
-            return '<strong>Survey not linked.</strong> <code>' . h($study->name) . '</code> is on the form_v2 engine, which runs in a <strong>Form</strong> unit. Add a Form unit for it instead (or switch the survey back to v1).';
+            return '<strong>Survey not added.</strong> <code>' . h($study->name) . '</code> runs on v2, which needs a <strong>Form</strong> unit. Add a Form unit instead, or switch the survey back to v1.';
         }
         return null;
     }

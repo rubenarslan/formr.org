@@ -107,8 +107,8 @@ class AdminSurveyController extends AdminController {
                             $data->settings = new stdClass();
                         }
                         if (($data->settings->rendering_mode ?? null) === 'v2' && $engine === 'v1') {
-                            alert('The file declares the form_v2 engine; the survey was created on the classic v1 engine'
-                                . (Config::get('form_v2_enabled') ? ', as chosen.' : ', because form_v2 is not enabled on this instance.'), 'alert-warning');
+                            alert('The file is set to v2, but the survey was created on v1'
+                                . (Config::get('form_v2_enabled') ? ', as you chose.' : ', because v2 is not available on this formr server.'), 'alert-warning');
                         }
                         $data->settings->rendering_mode = $engine;
                     }
@@ -720,7 +720,7 @@ class AdminSurveyController extends AdminController {
         // Survey — live runs included. The alpha refuses it while any does:
         // copy the survey (download it, upload it as a new one) to try v2.
         if ($toV2 && !Config::get('form_v2_enabled')) {
-            alert('<strong>Not switched.</strong> form_v2 is not enabled on this instance.', 'alert-danger');
+            alert('<strong>Not switched.</strong> v2 is not available on this formr server.', 'alert-danger');
             $this->request->redirect(admin_study_url($this->study->name));
             return;
         }
@@ -745,14 +745,14 @@ class AdminSurveyController extends AdminController {
             }
         }
         if ($unsupported) {
-            alert('<strong>Not switched.</strong> This study has items the form_v2 engine cannot run:<ul><li>'
+            alert('<strong>Not switched.</strong> This survey has items that v2 cannot run:<ul><li>'
                 . implode('</li><li>', array_map('h', $unsupported)) . '</li></ul>', 'alert-danger');
         } elseif ($showifFindings) {
-            alert('<strong>Not switched.</strong> These showifs would keep their items hidden on form_v2 (rewrite them in JavaScript, or compute the value in a hidden item). If the scan is wrong about them, use "Upgrade anyway" on the <a href="' . admin_study_url($this->study->name, 'form_v2_compat_scan') . '">compatibility report</a>.<ul><li>'
+            alert('<strong>Not switched.</strong> These showifs do not work in v2, so their items would stay hidden. The <a href="' . admin_study_url($this->study->name, 'form_v2_compat_scan') . '">compatibility check</a> shows how to fix them, and lets you move the survey anyway if the check is wrong.<ul><li>'
                 . implode('</li><li>', array_map('h', $showifFindings)) . '</li></ul>', 'alert-danger');
         } elseif ($toV2) {
             $this->study->adoptFormV2();
-            alert('Study switched to the form_v2 engine. Run the compatibility scan to check showif/value expressions.', 'alert-success');
+            alert('The survey now runs on v2. Test it before participants start.', 'alert-success');
         } elseif ($target === 'v1' && $this->study->rendering_mode === 'v2') {
             $this->study->update(['rendering_mode' => 'v1']);
             alert('Study switched back to the v1 engine; its Form units are Survey units again.', 'alert-success');

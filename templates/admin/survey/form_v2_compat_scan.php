@@ -3,7 +3,7 @@
 <div class="content-wrapper">
 
     <section class="content-header">
-        <h1>form_v2 compatibility scan <small><?= htmlspecialchars($study->name) ?> <?= study_engine_badge($study) ?> (ID: <?= (int) $study->id ?>)</small></h1>
+        <h1>v2 compatibility check <small><?= htmlspecialchars($study->name) ?> <?= study_engine_badge($study) ?> (ID: <?= (int) $study->id ?>)</small></h1>
     </section>
 
     <section class="content">
@@ -15,40 +15,37 @@
             <div class="col-md-10">
                 <div class="box box-primary">
                     <div class="box-header with-border">
-                        <h3 class="box-title">Upgrade readiness report</h3>
+                        <h3 class="box-title">Is this survey ready for v2?</h3>
                     </div>
 
                     <div class="box-body">
                         <?php Template::loadChild('public/alerts'); ?>
                         <div class="callout callout-info">
-                            <p>
-                                This report classifies every <code>showif</code> and <code>value</code> expression in your survey under the form_v2 rules. It's the same heuristic used by <code>bin/form_v2_compat_scan.php</code> (CI-friendly; exits non-zero if anything is flagged).
-                            </p>
-                            <ul>
-                                <li><strong>showif is JavaScript, used as written.</strong> Evaluated in the participant's browser, reactive on every input change. An item with a showif starts hidden and is revealed when its showif is true, so a showif the browser can't evaluate keeps its item hidden.
-                                    <ul>
-                                        <li><strong>JS-OK</strong> — no R in it; the browser can evaluate it.</li>
-                                        <li><strong>Needs JS rewrite</strong> — contains R (<code>&amp;</code>, <code>TRUE</code>, <code>%contains%</code>, <code>is.na()</code>, …) that JavaScript can't evaluate. Rewrite in JS, or move the R into a hidden item's <code>value</code> column and reference the field name from the showif.</li>
-                                        <li><strong>Not on the form</strong> — reads a name that isn't an item of this survey (a run variable, another survey's item). The browser only knows this form's items; compute the value in a hidden item's <code>value</code> and reference that item.</li>
-                                    </ul>
-                                </li>
-                                <li><strong>value is R-only.</strong> Any non-empty, non-numeric value is treated as R, allowlisted, and evaluated server-side when its page is shown (every page through <code>/form-render-page</code>). The server does no computation of its own: <code>calculate</code> items, and other items that take no input but carry R in <code>value</code>, are not supported in v2.
-                                    <ul>
-                                        <li><strong>literal</strong> — numeric default; not evaluated.</li>
-                                        <li><strong>R</strong> — admin-authored R; recorded in <code>survey_r_calls</code> and resolved server-side.</li>
-                                    </ul>
-                                </li>
-                            </ul>
+                            <p><strong>What is different in v2.</strong> In v1, a <code>showif</code> is R code that the server runs before it shows a page. In v2, a <code>showif</code> is JavaScript that runs in the participant's browser, so items appear and disappear the moment an answer changes. Many showifs are the same in both, such as <code>age &gt;= 18</code>. Others need small changes:</p>
+                            <table class="table table-condensed" style="max-width: 40em; background: transparent;">
+                                <thead><tr><th>v1 (R)</th><th>v2 (JavaScript)</th></tr></thead>
+                                <tbody>
+                                    <tr><td><code>a == 1 &amp; b == 2</code>, <code>a == 1 | b == 2</code></td><td><code>a == 1 &amp;&amp; b == 2</code>, <code>a == 1 || b == 2</code></td></tr>
+                                    <tr><td><code>TRUE</code>, <code>FALSE</code></td><td><code>true</code>, <code>false</code></td></tr>
+                                    <tr><td><code>is.na(x)</code></td><td><code>isNA(x)</code></td></tr>
+                                    <tr><td><code>x %contains% "a"</code></td><td><code>contains(x, "a")</code></td></tr>
+                                    <tr><td><code>x %in% c(1, 2)</code></td><td><code>x == 1 || x == 2</code></td></tr>
+                                    <tr><td><code>current(x)</code>, <code>tail(x, 1)</code></td><td><code>x</code></td></tr>
+                                </tbody>
+                            </table>
+                            <p>A v2 showif can only use items of this survey, because the browser knows nothing else. To show an item based on another survey or on R code, add a <code>hidden</code> item whose <code>value</code> is that R code, and use the hidden item's name in the showif.</p>
+                            <p><code>value</code>s stay R in v2 and still run on the server, so they need no changes. <code>calculate</code> items do not exist in v2: use a <code>hidden</code> item with the same <code>value</code> instead.</p>
+                            <p>If you move the survey to v2 anyway, an item whose showif does not work in v2 stays hidden.</p>
                         </div>
 
                         <?php if (!empty($report['counts']['unsupported'])): ?>
-                            <p class="text-red"><strong><?= (int) $report['counts']['unsupported'] ?> item(s) the form_v2 engine cannot run</strong> (calculate items, or items that take no input but carry R in <code>value</code>). The switch to v2 is refused until they are replaced — see the flagged rows below.</p>
+                            <p class="text-red"><strong><?= (int) $report['counts']['unsupported'] ?> item(s) that v2 cannot run</strong>, such as <code>calculate</code> items. Replace them before moving the survey to v2 (see the list below).</p>
                         <?php endif; ?>
 
-                        <h4>showif summary</h4>
+                        <h4>showifs</h4>
                         <table class="table table-bordered table-condensed">
                             <thead>
-                                <tr><th>Empty</th><th>JS-OK</th><th>Needs JS rewrite</th><th>Not on the form</th></tr>
+                                <tr><th>None</th><th>Work in v2</th><th>Need a JavaScript rewrite</th><th>Use something not in this survey</th></tr>
                             </thead>
                             <tbody>
                                 <?php $c = $report['counts']['showif']; ?>
@@ -62,10 +59,10 @@
                             </tbody>
                         </table>
 
-                        <h4>value summary</h4>
+                        <h4>values</h4>
                         <table class="table table-bordered table-condensed">
                             <thead>
-                                <tr><th>Empty</th><th>Literal (numeric)</th><th>R (allowlisted, evaluated)</th></tr>
+                                <tr><th>None</th><th>A number</th><th>R code (runs on the server, no change needed)</th></tr>
                             </thead>
                             <tbody>
                                 <?php $c = $report['counts']['value']; ?>
@@ -85,20 +82,20 @@
                             <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" style="margin-bottom: 1em">
                                 <input type="hidden" name="target" value="v2">
                                 <input type="hidden" name="force" value="1">
-                                <button type="submit" class="btn btn-warning" data-confirm="Upgrade although the scan flags showifs? Each flagged showif keeps its item hidden on form_v2. Items v2 cannot run (calculate) still block the switch."><i class="fa fa-exclamation-triangle"></i> Upgrade anyway</button>
+                                <button type="submit" class="btn btn-warning" data-confirm="Move to v2 anyway? Items with a flagged showif will stay hidden in v2 until you fix them. Calculate items still have to be replaced first."><i class="fa fa-exclamation-triangle"></i> Move to v2 anyway</button>
                             </form>
                         <?php endif; ?>
                         <?php if (!empty($report['flagged'])): ?>
-                            <h4 class="text-red">Flagged items</h4>
+                            <h4 class="text-red">What to change</h4>
                             <table class="table table-striped">
                                 <thead>
                                     <tr>
                                         <th>#</th>
                                         <th>Item</th>
                                         <th>Column</th>
-                                        <th>Problems</th>
-                                        <th>Source</th>
-                                        <th>Suggested</th>
+                                        <th>Problem</th>
+                                        <th>As written</th>
+                                        <th>What to do</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -111,11 +108,11 @@
                                             <td><code><?= htmlspecialchars($r['source']) ?></code></td>
                                             <td>
                                                 <?php if ($r['suggested_fix'] === 'bridge_hidden_item'): ?>
-                                                    Add a hidden item whose <code>value</code> computes what the showif needs in R, and reference that item's name from the showif.
+                                                    Add a <code>hidden</code> item whose <code>value</code> computes this in R, and use that item's name in the showif.
                                                 <?php elseif ($r['suggested_fix'] === 'use_hidden'): ?>
-                                                    Replace it: if the form needs the value, use a <code>hidden</code> item with the same <code>value</code>; if feedback or a later unit needs it, compute it in that unit's R from the stored answers.
+                                                    Use a <code>hidden</code> item with the same <code>value</code> instead. If only feedback or a later unit needs the result, compute it there.
                                                 <?php else: ?>
-                                                    Rewrite <code><?= htmlspecialchars($r['source']) ?></code> in JS, or move the R into a hidden field's <code>value</code> and reference its name from the showif.
+                                                    Rewrite it in JavaScript (see the table above), or put the R into a <code>hidden</code> item's <code>value</code> and use that item's name in the showif.
                                                 <?php endif; ?>
                                             </td>
                                         </tr>
@@ -124,12 +121,12 @@
                             </table>
                         <?php else: ?>
                             <div class="callout callout-success">
-                                <p><i class="fa fa-check"></i> No problematic expressions found. This study looks ready for form_v2.</p>
+                                <p><i class="fa fa-check"></i> Nothing to change. This survey is ready for v2.</p>
                             </div>
                         <?php endif; ?>
 
                         <p class="text-muted"><small>
-                            Scan is informational only — it does not mutate <code>survey_items.showif</code> or <code>survey_items.value</code>.
+                            This check changes nothing in your survey. It can miss problems, so test the survey before participants start.
                         </small></p>
                     </div>
                 </div>

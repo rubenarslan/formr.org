@@ -66,10 +66,10 @@ class FormV2CompatScannerScanTest extends \PHPUnit\Framework\TestCase {
         $flagged = $this->flaggedBy($report);
         $this->assertSame(array('run_var/showif', 'to_gone/showif', 'r_tail/showif'), array_keys($flagged));
         $this->assertSame('bridge_hidden_item', $flagged['run_var/showif']['suggested_fix']);
-        $this->assertSame(array('not an item of this form: ran_group'), $flagged['run_var/showif']['problems']);
-        $this->assertSame(array('not an item of this form: gone'), $flagged['to_gone/showif']['problems'], 'a soft-deleted item is not a name the form knows');
+        $this->assertSame(array('not in this survey: ran_group'), $flagged['run_var/showif']['problems']);
+        $this->assertSame(array('not in this survey: gone'), $flagged['to_gone/showif']['problems'], 'a soft-deleted item is not a name the form knows');
         $this->assertSame('rewrite_in_js', $flagged['r_tail/showif']['suggested_fix']);
-        $this->assertSame(array('R-only function call'), $flagged['r_tail/showif']['problems']);
+        $this->assertSame(array('uses an R function'), $flagged['r_tail/showif']['problems']);
         $this->assertSame('tail(q1, 2) == "a"', $flagged['r_tail/showif']['source']);
     }
 
@@ -105,22 +105,22 @@ class FormV2CompatScannerScanTest extends \PHPUnit\Framework\TestCase {
 
     public function testEachRTokenIsReportedOnItsOwn() {
         $cases = array(
-            'tail(q1, 1) > 1' => 'R-only function call',
-            'head(q1, 2) == 1' => 'R-only function call',
-            'current(q1) == 1' => 'R-only function call',
-            'is.na(q1 + 1)' => 'is.na() (use isNA())',
-            'q1 == 1 & q2 == 2' => 'R single & / | (use && / ||)',
-            'q1 == 1 | q2 == 2' => 'R single & / | (use && / ||)',
-            'q1 == TRUE' => 'R TRUE / FALSE (use true / false)',
-            'stringr::str_length(q1) > 2' => 'R namespace :: (e.g. stringr::)',
-            'q1 %contains% "a"' => 'R-only operator (%in%, %contains%, %%, …)',
-            'x <- q1 == 1' => 'R assignment arrow',
-            'q1 == NA' => 'R NA constant',
-            'q1 == NA_real_' => 'R NA constant',
-            'q1 != NA_character_' => 'R NA constant',
-            'survey$q1 == 1' => 'R $-member access',
-            'q1 %in% 1' => 'R-only operator (%in%, %contains%, %%, …)',
-            'ifelse(q1, 1, 2)' => 'R-only function call',
+            'tail(q1, 1) > 1' => 'uses an R function',
+            'head(q1, 2) == 1' => 'uses an R function',
+            'current(q1) == 1' => 'uses an R function',
+            'is.na(q1 + 1)' => 'is.na() is R: use isNA()',
+            'q1 == 1 & q2 == 2' => 'single & or |: use && or ||',
+            'q1 == 1 | q2 == 2' => 'single & or |: use && or ||',
+            'q1 == TRUE' => 'TRUE/FALSE: use true/false',
+            'stringr::str_length(q1) > 2' => 'R package function such as stringr::',
+            'q1 %contains% "a"' => 'R operator such as %in% or %contains%',
+            'x <- q1 == 1' => 'R assignment (<-)',
+            'q1 == NA' => 'NA: use isNA()',
+            'q1 == NA_real_' => 'NA: use isNA()',
+            'q1 != NA_character_' => 'NA: use isNA()',
+            'survey$q1 == 1' => 'survey$item: use just the item name',
+            'q1 %in% 1' => 'R operator such as %in% or %contains%',
+            'ifelse(q1, 1, 2)' => 'uses an R function',
         );
         foreach ($cases as $expr => $problem) {
             $this->assertSame($problem === null ? array() : array($problem), FormV2CompatScanner::detectRTokens($expr), $expr);
@@ -142,7 +142,7 @@ class FormV2CompatScannerScanTest extends \PHPUnit\Framework\TestCase {
 
     public function testSeveralProblemsAreAllListed() {
         $this->assertSame(
-            array('is.na() (use isNA())', 'R NA constant', 'R $-member access'),
+            array('is.na() is R: use isNA()', 'NA: use isNA()', 'survey$item: use just the item name'),
             FormV2CompatScanner::detectRTokens('is.na(survey$q1) || survey$q2 == NA')
         );
     }

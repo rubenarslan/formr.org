@@ -102,7 +102,7 @@ class FormV2CompatScanner {
                 $flag('showif', $raw_showif, $problems, 'rewrite_in_js');
             } elseif ($unknown = self::namesNotOnForm($raw_showif, $formNames)) {
                 $counts['showif']['not_on_form']++;
-                $flag('showif', $raw_showif, ['not an item of this form: ' . implode(', ', $unknown)], 'bridge_hidden_item');
+                $flag('showif', $raw_showif, ['not in this survey: ' . implode(', ', $unknown)], 'bridge_hidden_item');
             } else {
                 $counts['showif']['js_ok']++;
             }
@@ -204,31 +204,31 @@ class FormV2CompatScanner {
         $code = self::codeOnly($expr);
 
         if (preg_match('/\b(ifelse|c|nrow|ncol|paste|paste0|sprintf|format|grepl|grep|sub|gsub|is\.null|is\.numeric|is\.character|unlist|lapply|sapply|rev|sort|unique|which|rowSums|colSums|tail|head|current)\s*\(/', $code)) {
-            $problems[] = 'R-only function call';
+            $problems[] = 'uses an R function';
         }
         if (preg_match('/\bis\.na\s*\(/', $code)) {
-            $problems[] = 'is.na() (use isNA())';
+            $problems[] = 'is.na() is R: use isNA()';
         }
         if (preg_match('/%[A-Za-z_]*%/', $code)) {
-            $problems[] = 'R-only operator (%in%, %contains%, %%, …)';
+            $problems[] = 'R operator such as %in% or %contains%';
         }
         if (preg_match('/(?<![&|])[&|](?![&|])/', $code)) {
-            $problems[] = 'R single & / | (use && / ||)';
+            $problems[] = 'single & or |: use && or ||';
         }
         if (preg_match('/\b(TRUE|FALSE)\b/', $code)) {
-            $problems[] = 'R TRUE / FALSE (use true / false)';
+            $problems[] = 'TRUE/FALSE: use true/false';
         }
         if (preg_match('/[A-Za-z_.][A-Za-z0-9_.]*::/', $code)) {
-            $problems[] = 'R namespace :: (e.g. stringr::)';
+            $problems[] = 'R package function such as stringr::';
         }
         if (preg_match('/<-|->(?!\s*[(a-zA-Z_])/', $code)) {
-            $problems[] = 'R assignment arrow';
+            $problems[] = 'R assignment (<-)';
         }
         if (preg_match('/\bNA\b|\bNA_real_\b|\bNA_character_\b|\bNA_integer_\b/', $code)) {
-            $problems[] = 'R NA constant';
+            $problems[] = 'NA: use isNA()';
         }
         if (preg_match('/[a-zA-Z_][a-zA-Z_0-9]*\$[a-zA-Z_]/', $code)) {
-            $problems[] = 'R $-member access';
+            $problems[] = 'survey$item: use just the item name';
         }
 
         return $problems;

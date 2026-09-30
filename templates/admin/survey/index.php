@@ -59,7 +59,7 @@
                                         <label>Items Per Page</label>
                                         <span class="help-block">
                                             <i class="fa fa-info-circle"></i> Do you want a certain number of items on each page? We prefer specifying pages manually (by adding submit buttons items when we want a pagebreaks) because this gives us greater manual control
-                                            <?php if ($study->rendering_mode === 'v2'): ?><br><strong class="text-muted">v1 engine only — form_v2 ignores this setting (pages come from submit items).</strong><?php endif; ?>
+                                            <?php if ($study->rendering_mode === 'v2'): ?><br><strong class="text-muted">Not used in v2: pages end at submit items.</strong><?php endif; ?>
                                         </span>
                                         <span class="col-md-6 nlp" style="padding-left: 0px;">
                                             <input type="number" class="form-control" name="maximum_number_displayed" value="<?= h($study->maximum_number_displayed) ?>" min="0" />
@@ -71,7 +71,7 @@
                                         <label>Enable Instant Validation</label>
                                         <span class="help-block">
                                             <i class="fa fa-info-circle"></i> Instant validation means that users will be alerted if their survey input is invalid right after entering their information. Otherwise, validation messages will only be shown once the user tries to submit.
-                                            <?php if ($study->rendering_mode === 'v2'): ?><br><strong class="text-muted">v1 engine only — form_v2 always validates on page advance (native browser validation).</strong><?php endif; ?>
+                                            <?php if ($study->rendering_mode === 'v2'): ?><br><strong class="text-muted">Not used in v2: answers are checked when the participant moves to the next page.</strong><?php endif; ?>
                                         </span>
                                         <div class="checkbox">
                                             <label> <input type="checkbox" name="enable_instant_validation" value="1" <?php if ($study->enable_instant_validation) echo 'checked="checked"'; ?>> <strong>Enable</strong> </label>
@@ -166,7 +166,7 @@
                                             By enabling custom dynamic paging, your survey items will be "grouped" in pages depending on how your <i>Submit Items</i> are defined in the items sheet. That is, each page ends at a defined submit button.
                                             Enabling this option nullifies the above "<i><b>Items Per Page</b></i>" setting, which means the number of items on a page will be determined by where <i>Submit Items</i> are placed in your <a href="<?php echo site_url('documentation#sample_survey_sheet'); ?>">items sheet</a>.
                                             <strong class="text-red">You can't change this settings once you select this option.</strong>
-                                            <?php if ($study->rendering_mode === 'v2'): ?><br><strong class="text-muted">v1 engine only — form_v2 always pages at submit items.</strong><?php endif; ?>
+                                            <?php if ($study->rendering_mode === 'v2'): ?><br><strong class="text-muted">Not used in v2: pages always end at submit items.</strong><?php endif; ?>
                                         </span>
                                         <div class="checkbox">
                                             <label> <input type="checkbox" name="use_paging" value="1" <?php if ($study->use_paging) echo 'checked="checked"'; ?>> <strong>Enable Paging</strong> </label>
@@ -174,13 +174,13 @@
                                     </td>
                                 </tr>
                                 <?php if ($study->rendering_mode === 'v2'): ?>
-                                <tr><td colspan="2"><h4>Form_v2 settings</h4></td></tr>
+                                <tr><td colspan="2"><h4>v2 settings</h4></td></tr>
                                 <tr>
                                     <td>
                                         <label>Offline queue</label>
                                         <span class="help-block">
                                             <i class="fa fa-info-circle"></i>
-                                            When enabled, a failed page submission is stored in the participant's browser (IndexedDB) and replayed when connectivity returns. Disable for studies collecting sensitive data that must not persist locally — submissions will then fail hard when offline.
+                                            If a participant loses their connection, the page they submitted is kept on their device and sent automatically once they are back online. Turn this off if answers must not be stored on the participant's device, even briefly. Participants then see an error when they submit while offline.
                                         </span>
                                         <div class="checkbox">
                                             <label> <input type="checkbox" name="offline_mode" value="1" <?php if ($study->offline_mode) echo 'checked="checked"'; ?>> <strong>Enable offline queue</strong> </label>
@@ -190,7 +190,7 @@
                                         <label>Allow "Previous" button</label>
                                         <span class="help-block">
                                             <i class="fa fa-info-circle"></i>
-                                            When enabled, participants can navigate backwards between the form's pages. Off by default — enable only if your study design tolerates re-ordering and back-navigation.
+                                            Lets participants go back to earlier pages and change their answers. Off by default.
                                         </span>
                                         <div class="checkbox">
                                             <label> <input type="checkbox" name="allow_previous" value="1" <?php if ($study->allow_previous) echo 'checked="checked"'; ?>> <strong>Show "Previous" button</strong> </label>
@@ -202,7 +202,7 @@
                                         <label>Layout</label>
                                         <span class="help-block">
                                             <i class="fa fa-info-circle"></i>
-                                            <strong>Default</strong> renders all items on an authored page together (classic survey grid). <strong>Solo</strong> presents one item per screen with auto-scroll on answer — a livelier, Typeform-style cadence that works best on mobile. Authored page boundaries still determine submission units; only the visual rhythm changes.
+                                            <strong>Default</strong> shows all items of a page together. <strong>Solo</strong> shows one item at a time and moves on when it is answered, which works well on phones. Answers are still saved page by page, at your submit items.
                                         </span>
                                         <select name="layout" class="form-control" style="max-width: 22em;">
                                             <option value="default" <?php if ($study->layout !== 'solo') echo 'selected'; ?>>Default — multiple items per page</option>
@@ -215,7 +215,7 @@
                                         <label>Participant language</label>
                                         <span class="help-block">
                                             <i class="fa fa-info-circle"></i>
-                                            BCP 47 tag (e.g. <code>en</code>, <code>de</code>, <code>de-AT</code>). Sets the page's <code>lang</code>/<code>dir</code> attributes and localizes the engine's own strings (buttons, save indicator, offline banners, validation fallbacks). Your item labels are shown as authored. English and German ship built-in; other tags fall back to English strings but still set the correct <code>lang</code> attribute.
+                                            A language code such as <code>en</code> (English), <code>de</code> (German) or <code>de-AT</code> (Austrian German). formr translates its own texts (buttons, messages, error hints) into English and German; for other languages they stay in English. Your item labels are shown as you wrote them. The code also tells browsers and screen readers which language the page is in.
                                         </span>
                                         <input type="text" class="form-control" name="language" value="<?= h($study->language) ?>" list="fmr-language-suggestions" style="max-width: 10em;" maxlength="35" pattern="[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*">
                                         <datalist id="fmr-language-suggestions">
@@ -248,9 +248,9 @@
                                         <label>Compatibility scan</label>
                                         <span class="help-block">
                                             <i class="fa fa-info-circle"></i>
-                                            Classifies every <code>showif</code> as empty / JS-OK / needs a JS rewrite (rewrite it in JS, or move the R into a hidden item's <code>value</code> and reference that name), and every <code>value</code> as empty / literal / R. Run this before rolling out to participants to see which expressions the client-side evaluator can't handle.
+                                            Checks your <code>showif</code>s and <code>value</code>s for anything v2 cannot run, and tells you how to fix it. Run it before participants start.
                                         </span>
-                                        <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>" class="btn btn-default"><i class="fa fa-search"></i> Run v2 compatibility scan</a>
+                                        <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>" class="btn btn-default"><i class="fa fa-search"></i> Check v2 compatibility</a>
                                     </td>
                                 </tr>
                                 <?php endif; ?>
@@ -279,25 +279,25 @@
                     ?>
                     <?php if ($fmrShowEngineBox): ?>
                     <div class="box box-solid">
-                        <div class="box-header"><h3 class="box-title"><i class="fa fa-wpforms"></i> Rendering engine</h3>
-                            <a href="<?= site_url('documentation#form_v2_enable') ?>" target="_blank" class="pull-right hastooltip" title="What switching the engine does, the compatibility scan, and the upgrade checklist"><i class="fa fa-question-circle"></i> Form (v2) guide</a>
+                        <div class="box-header"><h3 class="box-title"><i class="fa fa-wpforms"></i> Survey engine: v1 or v2</h3>
+                            <a href="<?= site_url('documentation#form_v2_enable') ?>" target="_blank" class="pull-right hastooltip" title="What changes with v2, and how to move a survey to it"><i class="fa fa-question-circle"></i> v2 guide</a>
                         </div>
                         <div class="box-body">
                             <?php if ($study->rendering_mode === 'v2'): ?>
-                                <p>This study renders on the <strong>form_v2</strong> engine (single-document form, client-side showifs, offline queue, autosave).</p>
+                                <p>This survey runs on <strong>v2</strong>. Participants see it in a Form unit.</p>
                                 <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" style="display:inline">
                                     <input type="hidden" name="target" value="v1">
                                     <?php /* data-confirm, not onsubmit: the admin CSP blocks inline handlers (admin-ui.js). */ ?>
-                                    <button type="submit" class="btn btn-default" data-confirm="Switch this study back to the classic v1 engine? Form units fall through to the v1 pipeline; you can switch back at any time.&#10;&#10;Pages that participants submitted offline and have not sent yet will be lost: the server no longer accepts them for this survey."><i class="fa fa-history"></i> Switch back to v1</button>
+                                    <button type="submit" class="btn btn-default" data-confirm="Switch this survey back to v1? Every run that shows it in a Form unit will show it as a classic Survey instead. You can switch again at any time.&#10;&#10;Pages that participants submitted while offline and have not sent yet will be lost."><i class="fa fa-history"></i> Switch back to v1</button>
                                 </form>
                             <?php else: ?>
-                                <p>This study renders on the <strong>classic v1</strong> engine. form_v2 adds per-page AJAX submission, reactive client-side showifs, offline queueing, autosave, and the solo layout.</p>
-                                <p>Check the survey first: the <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>">compatibility report</a> lists the showifs that need a JavaScript rewrite and the items v2 cannot run, each with the fix.</p>
+                                <p>This survey runs on the classic <strong>v1</strong> engine. In v2, answers are saved as participants go, items show and hide instantly as they answer, a lost connection does not lose a page, and there is a one-item-at-a-time layout for phones.</p>
+                                <p>Some surveys need changes first, mostly their <code>showif</code>s. The <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>">compatibility check</a> lists what to change.</p>
                                 <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" style="display:inline">
                                     <input type="hidden" name="target" value="v2">
-                                    <button type="submit" class="btn btn-primary" data-confirm="Upgrade this study to the form_v2 engine? Only a survey that no run uses as a classic Survey can be upgraded; you can switch back at any time."><i class="fa fa-rocket"></i> Upgrade to form_v2</button>
+                                    <button type="submit" class="btn btn-primary" data-confirm="Move this survey to v2? This only works while no run uses it as a classic Survey. You can switch back at any time."><i class="fa fa-rocket"></i> Move to v2</button>
                                 </form>
-                                <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>" class="btn btn-default"><i class="fa fa-search"></i> Check form_v2 compatibility</a>
+                                <a href="<?= admin_study_url($study->name, 'form_v2_compat_scan') ?>" class="btn btn-default"><i class="fa fa-search"></i> Check v2 compatibility</a>
                             <?php endif; ?>
                         </div>
                     </div>

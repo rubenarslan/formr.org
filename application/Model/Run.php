@@ -1861,7 +1861,7 @@ class Run extends Model
             $settings = isset($unit->survey_data->settings) ? (object) $unit->survey_data->settings : null;
             if (($unit->type ?? '') === 'Survey' && $settings && ($settings->rendering_mode ?? null) === 'v2') {
                 $name = $unit->survey_data->name ?? '?';
-                $out[] = "The Survey unit at position " . ($unit->position ?? '?') . " brings the survey '$name', which is on form_v2: put it in a Form unit instead.";
+                $out[] = "The Survey unit at position " . ($unit->position ?? '?') . " contains the survey '$name', which runs on v2: use a Form unit for it instead.";
             }
         }
         return $out;

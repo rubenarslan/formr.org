@@ -2,7 +2,7 @@
 //   - items v2 cannot run (calculate, a no-input item with an R value):
 //     always refused, `force` or not;
 //   - showifs the compatibility scan flags (leftover R, names not on the
-//     form): refused unless the author confirms with "Upgrade anyway".
+//     form): refused unless the author confirms with "Move to v2 anyway".
 //
 //   npx playwright test --config tests/e2e/playwright.config.js v2-switch-gate
 //
@@ -64,12 +64,12 @@ test.describe('switching a study to form_v2', () => {
         let html = await res.text();
         expect(html).toContain('Not switched');
         expect(html, 'the offending item is named (HTML-escaped)').toMatch(/(?:'|&#0?39;)q2(?:'|&#0?39;)/);
-        expect(html, 'the way past it is offered').toContain('Upgrade anyway');
+        expect(html, 'the way past it is offered').toContain('move the survey anyway');
         expect(renderingMode(SHOWIF_STUDY)).toBe('v1');
         // The way past it lives on the compatibility report (the settings
         // page no longer runs the scan on every view).
         const report = await page.request.get(`${ADMIN_BASE}/admin/survey/${SHOWIF_STUDY}/form_v2_compat_scan`);
-        expect(await report.text(), 'the report offers "Upgrade anyway"').toMatch(/name="force" value="1"[\s\S]*Upgrade anyway/);
+        expect(await report.text(), 'the report offers "Move to v2 anyway"').toMatch(/name="force" value="1"[\s\S]*Move to v2 anyway/);
 
         res = await switchTo(page, SHOWIF_STUDY, { target: 'v2', force: '1' });
         expect(res.ok()).toBeTruthy();
@@ -82,7 +82,7 @@ test.describe('switching a study to form_v2', () => {
             expect(res.ok()).toBeTruthy();
             const html = await res.text();
             expect(html).toContain('Not switched');
-            expect(html).toContain('calculate items are not supported');
+            expect(html).toContain('v2 has no calculate items');
             expect(renderingMode(CALC_STUDY), JSON.stringify(form)).toBe('v1');
         }
     });

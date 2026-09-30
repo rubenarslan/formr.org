@@ -172,9 +172,9 @@ class SurveyTestController extends Controller {
     public static function previewNote(SurveyStudy $study) {
         $v2 = $study->rendering_mode === 'v2';
         return '<div class="alert alert-info fmr-preview-note" role="note">'
-            . '<strong>Test preview</strong> of <code>' . h($study->name) . '</code> on the '
-            . ($v2 ? '<strong>form_v2</strong> engine (Form unit)' : '<strong>classic v1</strong> engine (Survey unit)')
-            . '. Answers are stored in a test session.</div>';
+            . '<strong>Test preview</strong> of <code>' . h($study->name) . '</code> on '
+            . ($v2 ? '<strong>v2</strong>, as in a Form unit' : '<strong>v1</strong>, as in a Survey unit')
+            . '. Your answers are saved as test data.</div>';
     }
 
     /**

@@ -2,12 +2,11 @@
 
 <div class="alert alert-info" role="alert" style="margin-bottom: 1em;">
     <i class="fa fa-wpforms"></i>
-    <strong>form_v2 (beta):</strong>
-    This unit renders with the new form engine — single-document form with per-page
-    AJAX submission, reactive client-side <code>showif</code>s, autosave, offline
-    queueing, and the optional solo layout. Per-study options (offline queue,
-    Previous button, layout, participant language) live on the survey's settings
-    page. <a href="<?= site_url('documentation#form_v2') ?>" target="_blank" class="alert-link"><i class="fa fa-question-circle"></i> Read the Form (v2) guide</a>.
+    <strong>v2 (beta):</strong>
+    A Form unit shows a survey on v2: answers are saved as participants go, items
+    show and hide instantly, a lost connection does not lose a page, and there is a
+    one-item-at-a-time layout for phones. You set these options on the survey's
+    settings page. <a href="<?= site_url('documentation#form_v2') ?>" target="_blank" class="alert-link"><i class="fa fa-question-circle"></i> v2 guide</a>
 </div>
 
 <?php if ($studies): ?>

@@ -945,9 +945,9 @@ function study_engine_badge($study)
     $mode = is_string($study) ? $study
         : (is_array($study) ? ($study['rendering_mode'] ?? 'v1') : ($study->rendering_mode ?? 'v1'));
     if ($mode === 'v2') {
-        return '<span class="label label-primary fmr-engine-badge" title="Renders on the form_v2 engine: one document, JavaScript showifs, autosave, offline queue. Placed in runs as a Form unit."><i class="fa fa-wpforms"></i> form_v2</span>';
+        return '<span class="label label-primary fmr-engine-badge" title="Runs on v2. Add it to a run with a Form unit."><i class="fa fa-wpforms"></i> v2</span>';
     }
-    return '<span class="label label-default fmr-engine-badge" title="Renders on the classic v1 engine. Placed in runs as a Survey unit.">v1</span>';
+    return '<span class="label label-default fmr-engine-badge" title="Runs on the classic v1 engine. Add it to a run with a Survey unit.">v1</span>';
 }
 
 function admin_study_url($name = '', $action = '', $params = array())

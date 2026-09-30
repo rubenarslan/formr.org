@@ -84,7 +84,7 @@ class RunImportPreflightTest extends \PHPUnit\Framework\TestCase {
         ]];
         $errors = $this->preflight($this->makeRun(), $bundle);
         $this->assertCount(1, $errors, 'the Form unit may carry it');
-        $this->assertStringContainsString("brings the survey 'sv2', which is on form_v2", $errors[0]);
+        $this->assertStringContainsString("contains the survey 'sv2', which runs on v2", $errors[0]);
     }
 
     public function testSkipNeedsNumericJumpTarget(): void {

@@ -20,9 +20,9 @@
             <?php endforeach; ?>
         </select>
         <?php if ($survey && ($survey->rendering_mode ?? 'v1') === 'v2'): ?>
-            <p class="text-danger"><i class="fa fa-exclamation-triangle"></i> This survey is on the <strong>form_v2</strong> engine, which a Survey unit does not run: participants see it on v1, where its JavaScript showifs fail. Replace this unit with a Form unit.</p>
+            <p class="text-danger"><i class="fa fa-exclamation-triangle"></i> This survey runs on <strong>v2</strong>, which a Survey unit cannot show. Replace this unit with a Form unit.</p>
         <?php else: ?>
-            <p class="help-block">Surveys on the form_v2 engine are not listed here: add them with a Form unit.</p>
+            <p class="help-block">Surveys on v2 are not listed here. Add them with a Form unit.</p>
         <?php endif; ?>
 
         <?php if ($survey && $survey->id): ?>

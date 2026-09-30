@@ -29,7 +29,7 @@ test.describe('Test Survey previews the engine the study is on', () => {
         await page.goto(`${ADMIN_BASE}/admin/survey/${study}/access`, { waitUntil: 'domcontentloaded' });
         expect(page.url()).toContain('/survey-test/');
         await v2.waitForBundle(page);
-        await expect(page.locator('.fmr-preview-note')).toContainText('form_v2');
+        await expect(page.locator('.fmr-preview-note')).toContainText('v2');
         expect(await v2.pageCount(page), 'every page of the form is in the document').toBe(2);
         const endpoints = await page.evaluate(() => {
             const f = document.querySelector('form.fmr-form-v2');
@@ -78,18 +78,18 @@ test.describe('Test Survey previews the engine the study is on', () => {
     test('a v1 study still previews on the classic engine, and says so', async ({ page }) => {
         await page.goto(`${ADMIN_BASE}/admin/survey/${studyOf('v1')}/access`, { waitUntil: 'domcontentloaded' });
         expect(page.url()).toContain('/survey-test/');
-        await expect(page.locator('.fmr-preview-note')).toContainText('classic v1');
+        await expect(page.locator('.fmr-preview-note')).toContainText('as in a Survey unit');
         expect(await page.locator('form.fmr-form-v2').count()).toBe(0);
     });
 
     test('the survey admin shows which engine a study is on', async ({ page }) => {
         await page.goto(`${ADMIN_BASE}/admin/survey/${studyOf('v2')}`, { waitUntil: 'domcontentloaded' });
-        await expect(page.locator('.content-header .fmr-engine-badge')).toContainText('form_v2');
+        await expect(page.locator('.content-header .fmr-engine-badge')).toContainText('v2');
         await page.goto(`${ADMIN_BASE}/admin/survey/${studyOf('v1')}`, { waitUntil: 'domcontentloaded' });
         await expect(page.locator('.content-header .fmr-engine-badge')).toContainText('v1');
         await page.goto(`${ADMIN_BASE}/admin/survey/list`, { waitUntil: 'domcontentloaded' });
         const row = page.locator('tr', { has: page.locator(`a[href$="/admin/survey/${studyOf('v2')}"], a[href$="/admin/survey/${studyOf('v2')}/"]`) });
-        await expect(row.locator('.fmr-engine-badge')).toContainText('form_v2');
+        await expect(row.locator('.fmr-engine-badge')).toContainText('v2');
     });
 });
 
