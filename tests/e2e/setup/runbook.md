@@ -240,14 +240,14 @@ import the solver widget).
    items: `intro` (note), `human_check` (**bot_check, required**), `feeling`
    (text), `go` (submit).
 2. Create run `e2e-botcheck-v2`. Add the `e2e_bot_check` survey as a **Form**
-   unit (this sets `survey_units.form_study_id` and flips the study to
+   unit (this points the placement at the study and flips the study to
    `rendering_mode='v2'`), then add a **Stop** unit.
 3. In run settings set a data-retention/expiry date + a privacy policy (public
    runs require both), then toggle **public = 2** ("Anyone with the link").
-4. Verify the Form unit linked: `survey_units.form_study_id` for the run's
-   position-10 unit must equal the `e2e_bot_check` study id, and
-   `survey_studies.rendering_mode` must be `v2`. (The admin "add Form unit"
-   flow occasionally leaves `form_study_id` NULL; if so, set it by hand.)
+4. Verify the Form unit linked: `survey_run_units.unit_id` for the run's
+   position-10 unit must equal the `e2e_bot_check` study id, that
+   `survey_units` row's type must be `Form`, and
+   `survey_studies.rendering_mode` must be `v2`.
 
 Backend mint/verify is unit-tested separately by `bin/bot_check_smoke.php`
 (run: `docker exec formr_app php /var/www/formr/bin/bot_check_smoke.php`).
@@ -291,10 +291,10 @@ participant moves or taps a row).
    `type_options` intact (`random` / `touch` must NOT have been consumed as a
    choice-list name).
 2. Create run `e2e-rank-v2`. Add the `e2e_rank` survey as a **Form** unit
-   (sets `survey_units.form_study_id`, flips the study to
+   (points the placement at the study, flips the study to
    `rendering_mode='v2'`), then add a **Stop** unit.
 3. Set an expiry date, then toggle **public = 2** ("Anyone with the link").
-4. Verify as for bot_check: the position-10 unit's `form_study_id` equals the
+4. Verify as for bot_check: the position-10 unit's `unit_id` equals the
    `e2e_rank` study id and `survey_studies.rendering_mode = 'v2'`.
 
 Scripted equivalent (what was actually used on dev): the admin endpoints are

@@ -1,15 +1,12 @@
 <?php
 
 /**
- * Re-saving a Form unit from the run editor must keep survey_run_units
- * pointing at the Form's own survey_units row.
- *
- * AdminAjaxController::ajaxSaveRunUnit builds the unit with its id, so the
- * constructor's find() loads the study into $surveyStudy (Form::getStudy via
- * form_study_id). Survey::create then reaches its "persist the study link"
- * step, which for a v1 Survey means re-pointing survey_run_units.unit_id at
- * the study id — turning the Form into a v1 Survey unit on every save.
- * Form overrides that step (persistStudyLink) to write the description only.
+ * A Form unit, like a Survey unit, IS its study: linking it re-points
+ * survey_run_units.unit_id at the study id, and the study's survey_units row
+ * carries type 'Form' while the study is on v2 (SurveyStudy::syncUnitType),
+ * which is what makes the factory build a Form on the next request.
+ * AdminAjaxController::ajaxSaveRunUnit builds the unit with its id, so
+ * re-saves run through the same path.
  */
 class FormUnitSaveTest extends \PHPUnit\Framework\TestCase {
 
@@ -24,7 +21,7 @@ class FormUnitSaveTest extends \PHPUnit\Framework\TestCase {
     protected function setUp(): void {
         $this->db = DB::getInstance();
         $this->dropTables();
-        $this->db->exec('CREATE TABLE survey_units (id INTEGER PRIMARY KEY, type TEXT, form_study_id INTEGER, created TEXT, modified TEXT)');
+        $this->db->exec('CREATE TABLE survey_units (id INTEGER PRIMARY KEY, type TEXT, created TEXT, modified TEXT)');
         $this->db->exec('CREATE TABLE survey_run_units (id INTEGER PRIMARY KEY, run_id INTEGER, unit_id INTEGER, position INTEGER, description TEXT)');
         $this->db->exec('CREATE TABLE survey_runs (id INTEGER PRIMARY KEY, name TEXT)');
         $this->db->exec('CREATE TABLE survey_studies (id INTEGER PRIMARY KEY, user_id INTEGER, name TEXT, results_table TEXT, unlinked INTEGER DEFAULT 0, rendering_mode TEXT DEFAULT "v1")');
@@ -32,10 +29,11 @@ class FormUnitSaveTest extends \PHPUnit\Framework\TestCase {
         $this->db->exec('CREATE TABLE survey_items (id INTEGER PRIMARY KEY, study_id INTEGER, name TEXT, type TEXT, type_options TEXT, choice_list TEXT, label TEXT, label_parsed TEXT, optional INTEGER, class TEXT, showif TEXT, showif_js TEXT, value TEXT, item_order INTEGER, `order` INTEGER, block_order INTEGER, deleted TEXT)');
 
         $u = self::USER_ID;
-        // 20: v1 Survey unit (unit id == study id); 30: a study rendered by Forms
-        $this->db->exec("INSERT INTO survey_units (id, type, form_study_id) VALUES (20, 'Survey', NULL)");
+        // Every study's unit row: 20 on v1, 30 on v2, 40 on v1.
+        $this->db->exec("INSERT INTO survey_units (id, type) VALUES (20, 'Survey'), (30, 'Form'), (40, 'Survey')");
         $this->db->exec("INSERT INTO survey_studies (id, user_id, name, results_table, rendering_mode) VALUES
-            (20, $u, 'intro', 's20_intro', 'v1'), (30, $u, 'form_study', 's30_form_study', 'v2')");
+            (20, $u, 'intro', 's20_intro', 'v1'), (30, $u, 'form_study', 's30_form_study', 'v2'),
+            (40, $u, 'other', 's40_other', 'v1')");
 
         $this->savedUser = $GLOBALS['user'] ?? null;
         $user = new User(null, null, []);
@@ -74,42 +72,55 @@ class FormUnitSaveTest extends \PHPUnit\Framework\TestCase {
         return $unit;
     }
 
-    public function testResavingAFormKeepsTheRunUnitOnTheFormRow() {
+    private function unitType(int $id) {
+        return $this->db->findValue('survey_units', ['id' => $id], 'type');
+    }
+
+    public function testLinkingAFormPointsTheRunUnitAtTheStudy() {
         $form = new Form($this->makeRun(), ['type' => 'Form']);
         $form->create(['type' => 'Form', 'position' => 10, 'study_id' => 30]);
-        $form_id = (int) $form->id;
         $run_unit_id = (int) $form->run_unit_id;
-        $this->assertSame($form_id, (int) $this->runUnitRow($run_unit_id)['unit_id']);
+        $this->assertSame(30, (int) $this->runUnitRow($run_unit_id)['unit_id']);
 
-        $saved = $this->resave('Form', $form_id, ['study_id' => 30, 'description' => 'renamed', 'position' => 10]);
-        $this->assertInstanceOf(Form::class, $saved);
+        $saved = $this->resave('Form', 30, ['study_id' => 30, 'description' => 'renamed', 'position' => 10]);
+        $this->assertInstanceOf(Form::class, $saved, 'the study row is type Form');
         $this->assertTrue($saved->valid);
         $this->assertSame(30, (int) $saved->surveyStudy->id, 'find() loaded the study before create() ran');
 
         $row = $this->runUnitRow($run_unit_id);
-        $this->assertSame($form_id, (int) $row['unit_id'], 'survey_run_units must not be re-pointed at the study');
+        $this->assertSame(30, (int) $row['unit_id']);
         $this->assertSame('renamed', $row['description']);
-        $this->assertSame(30, (int) $this->db->findValue('survey_units', ['id' => $form_id], 'form_study_id'));
-        $this->assertSame('Form', $this->db->findValue('survey_units', ['id' => $form_id], 'type'));
+        $this->assertSame('Form', $this->unitType(30));
+    }
 
-        // a second save with no changes is just as harmless
-        $this->resave('Form', $form_id, ['study_id' => 30, 'position' => 10]);
-        $this->assertSame($form_id, (int) $this->runUnitRow($run_unit_id)['unit_id']);
+    public function testLinkingAV1StudyPutsItAndItsUnitRowOnV2() {
+        $form = new Form($this->makeRun(), ['type' => 'Form']);
+        $form->create(['type' => 'Form', 'position' => 10, 'study_id' => 40]);
+        $this->assertSame(40, (int) $this->runUnitRow((int) $form->run_unit_id)['unit_id']);
+        $this->assertSame('v2', $this->db->findValue('survey_studies', ['id' => 40], 'rendering_mode'));
+        $this->assertSame('Form', $this->unitType(40));
     }
 
     public function testResavingAFormCanSwitchItsStudy() {
-        $this->db->exec("INSERT INTO survey_studies (id, user_id, name, results_table) VALUES (40, " . self::USER_ID . ", 'other', 's40_other')");
         $form = new Form($this->makeRun(), ['type' => 'Form']);
         $form->create(['type' => 'Form', 'position' => 10, 'study_id' => 30]);
 
-        $this->resave('Form', (int) $form->id, ['study_id' => 40, 'position' => 10]);
-        $this->assertSame((int) $form->id, (int) $this->runUnitRow((int) $form->run_unit_id)['unit_id']);
-        $this->assertSame(40, (int) $this->db->findValue('survey_units', ['id' => $form->id], 'form_study_id'));
+        $this->resave('Form', 30, ['study_id' => 40, 'position' => 10]);
+        $this->assertSame(40, (int) $this->runUnitRow((int) $form->run_unit_id)['unit_id']);
         $this->assertSame('v2', $this->db->findValue('survey_studies', ['id' => 40], 'rendering_mode'));
+        $this->assertSame('Form', $this->unitType(40));
+    }
+
+    public function testASurveyUnitRefusesAV2Study() {
+        $this->db->exec("INSERT INTO survey_units (id, type) VALUES (21, 'Survey')");
+        $this->db->exec("INSERT INTO survey_run_units (id, run_id, unit_id, position, description) VALUES (100, " . self::RUN_ID . ", 21, 10, 'x')");
+
+        $this->resave('Survey', 21, ['study_id' => 30, 'position' => 10, 'run_unit_id' => 100]);
+        $this->assertSame(21, (int) $this->runUnitRow(100)['unit_id'], 'left unlinked');
     }
 
     public function testResavingASurveyStillRePointsTheRunUnitAtTheStudy() {
-        // the v1 contract Form opts out of: a Survey unit IS its study
+        // a Survey unit IS its study
         $this->db->exec("INSERT INTO survey_units (id, type) VALUES (21, 'Survey')");
         $this->db->exec("INSERT INTO survey_run_units (id, run_id, unit_id, position, description) VALUES (100, " . self::RUN_ID . ", 21, 10, 'x')");
 

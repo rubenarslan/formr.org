@@ -33,9 +33,8 @@ thrashing during the backup window. The wide branch it replaces read
 one row per session from the per-study results table.
 
 **Suggested shape:** drive from `survey_unit_sessions` by unit
-linkage — `us.unit_id IN (SELECT id FROM survey_units WHERE
-form_study_id = :study_id UNION SELECT :study_id)` (v1 quirk: Survey
-unit id = study id; served by the unit_id FK index) — with an
+linkage — `us.unit_id = :study_id` (a Survey or Form unit's id is the
+study id; served by the unit_id FK index) — with an
 `EXISTS(SELECT 1 FROM survey_items_display sid WHERE sid.session_id
 = us.id)` probe. O(#sessions) index probes, no temp table, same
 "session has ≥1 display row" semantics.
@@ -55,12 +54,9 @@ small-table heuristics) degrades to a full `survey_units` scan
 (all units, all users) per study row per R evaluation. On a large
 instance that is seconds of DB time per participant page load.
 
-**Suggested shape:** UNION of two independently-indexed queries (one
-on `survey_run_units.unit_id = survey_studies.id` for the v1 quirk,
-one on `survey_units.form_study_id = survey_studies.id` for Forms);
-UNION DISTINCT on study id also deletes the PHP `dedupeStudyRows`
-pass. At minimum, EXPLAIN the current form on a production-sized
-dataset before shipping.
+**Resolved:** a Form unit shares its study's survey_units row (patch
+116), so the join is the plain, indexed `survey_studies.id =
+survey_run_units.unit_id` again.
 
 ## 3. Push-notification item init runs twice, and the guard sits after the awaits — MEDIUM
 

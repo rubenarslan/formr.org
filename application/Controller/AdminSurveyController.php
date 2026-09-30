@@ -697,23 +697,14 @@ class AdminSurveyController extends AdminController {
     }
 
     /**
-     * Switch a study between the v1 and v2 rendering engines.
-     *
-     * The rendering_mode column alone is only half an upgrade: plain Survey
-     * units never consult it — only Form units branch. So:
-     *
-     *   v1 → v2: set rendering_mode='v2' AND convert every placement of this
-     *     study as a plain Survey (survey_run_units.unit_id == study id, the
-     *     v1 shared-PK convention) — see convertSurveyPlacementsToForm().
-     *     While form_v2 is an alpha the switch is refused as long as any run
-     *     uses the study as a Survey (SurveyStudy::runsUsingAsSurvey), so
-     *     the conversion finds nothing to convert; it stays for when that
-     *     gate is lifted.
-     *
-     *   v2 → v1: set rendering_mode='v1' only. Form::getUnitSessionOutput
-     *     falls through to the v1 pipeline for non-v2 studies, so no unit
-     *     rewrite is needed (and none is attempted — reversible by flipping
-     *     back). Participants mid-form continue on v1 from where they are.
+     * Switch a study between the v1 and v2 rendering engines. Every
+     * placement shares the study's survey_units row, whose type follows the
+     * engine (SurveyStudy::save / adoptFormV2), so the switch moves every
+     * placement at once: v1 → v2 makes them Form units, v2 → v1 Survey units.
+     * Participants mid-form continue on the other engine from where they
+     * are; both read and write the same survey_items_display rows. While
+     * form_v2 is an alpha, v1 → v2 is refused as long as any run uses the
+     * study as a Survey (SurveyStudy::runsUsingAsSurvey).
      */
     private function switchRenderingModeAction() {
         if (!Request::isHTTPPostRequest()) {
@@ -723,7 +714,6 @@ class AdminSurveyController extends AdminController {
         if (!in_array($target, ['v1', 'v2'], true)) {
             formr_error(400, 'Bad Request', 'target must be v1 or v2');
         }
-        $db = DB::getInstance();
 
         $toV2 = $target === 'v2' && $this->study->rendering_mode !== 'v2';
         // Upgrading switches the engine of every run that uses the study as a
@@ -762,90 +752,14 @@ class AdminSurveyController extends AdminController {
                 . implode('</li><li>', array_map('h', $showifFindings)) . '</li></ul>', 'alert-danger');
         } elseif ($toV2) {
             $this->study->adoptFormV2();
-            $converted = self::convertSurveyPlacementsToForm($db, (int) $this->study->id);
-            $note = $converted
-                ? " $converted run unit(s) now use a Form unit; participants mid-form continue on v2 from where they are."
-                : '';
-            alert('Study switched to the form_v2 engine.' . $note . ' Run the compatibility scan to check showif/value expressions.', 'alert-success');
+            alert('Study switched to the form_v2 engine. Run the compatibility scan to check showif/value expressions.', 'alert-success');
         } elseif ($target === 'v1' && $this->study->rendering_mode === 'v2') {
             $this->study->update(['rendering_mode' => 'v1']);
-            alert('Study switched back to the v1 engine (Form units fall through to the classic pipeline).', 'alert-success');
+            alert('Study switched back to the v1 engine; its Form units are Survey units again.', 'alert-success');
         } else {
             alert('Study is already on the requested engine.', 'alert-info');
         }
         $this->request->redirect(admin_study_url($this->study->name));
-    }
-
-    /**
-     * Turn every plain-Survey placement of a study into a Form placement.
-     *
-     * A v1 Survey unit IS its study (shared primary key), so a placement is a
-     * survey_run_units row whose unit_id is the study id. Each such row gets
-     * a fresh survey_units row of type='Form' (form_study_id = study) and is
-     * re-pointed at it. Form-born studies have no such placements, so this
-     * is a no-op for them.
-     *
-     * The placement's unit sessions move with it. RunSession::
-     * getCurrentUnitSession() (and placementHasAnyUnitSession()) match a
-     * session by `unit_id = the unit now at the participant's position`; a
-     * session left on the study id would no longer be found, and execute()
-     * would open a second, empty session for the same placement while the
-     * first dangled open forever. Moved sessions continue on the Form —
-     * i.e. on v2 from where they are; both engines read and write the same
-     * survey_items_display rows. Sessions are attributed to the placement by
-     * run_unit_id (patch 047); legacy rows with run_unit_id NULL by the run
-     * session standing at the placement's position (that is where a live
-     * session must be). Legacy rows of participants who moved past a
-     * placement stay on the study id: they are closed, nothing executes
-     * them, and with the study placed more than once they cannot be
-     * attributed.
-     *
-     * Currently a no-op in practice: the alpha gate in
-     * switchRenderingModeAction refuses the switch while any Survey
-     * placement exists.
-     *
-     * @param DB $db
-     * @param int $study_id
-     * @return int number of placements converted
-     */
-    public static function convertSurveyPlacementsToForm(DB $db, $study_id) {
-        $study_id = (int) $study_id;
-        $placements = $db->select('survey_run_units.id, survey_run_units.run_id, survey_run_units.position')
-            ->from('survey_run_units')
-            ->leftJoin('survey_units', 'survey_units.id = survey_run_units.unit_id')
-            ->where('survey_run_units.unit_id = :study_id')
-            ->where("survey_units.type = 'Survey'")
-            ->bindParams(['study_id' => $study_id])
-            ->fetchAll();
-
-        $converted = 0;
-        foreach ((array) $placements as $ru) {
-            $form_id = (int) $db->insert('survey_units', [
-                'type' => 'Form',
-                'form_study_id' => $study_id,
-                'created' => mysql_now(),
-                'modified' => mysql_now(),
-            ]);
-            $db->update('survey_run_units', ['unit_id' => $form_id], ['id' => (int) $ru['id']]);
-            $db->exec(
-                'UPDATE survey_unit_sessions SET unit_id = :form_id
-                 WHERE unit_id = :study_id AND (
-                     run_unit_id = :run_unit_id
-                     OR (run_unit_id IS NULL AND run_session_id IN (
-                         SELECT id FROM survey_run_sessions WHERE run_id = :run_id AND position = :position
-                     ))
-                 )',
-                [
-                    'form_id' => $form_id,
-                    'study_id' => $study_id,
-                    'run_unit_id' => (int) $ru['id'],
-                    'run_id' => (int) $ru['run_id'],
-                    'position' => (int) $ru['position'],
-                ]
-            );
-            $converted++;
-        }
-        return $converted;
     }
 
     /**

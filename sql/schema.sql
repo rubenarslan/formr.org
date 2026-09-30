@@ -609,10 +609,8 @@ CREATE TABLE `survey_units` (
   `created` datetime DEFAULT NULL,
   `modified` datetime DEFAULT NULL,
   `type` varchar(20) DEFAULT NULL,
-  `form_study_id` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `type` (`type`),
-  KEY `form_study_id` (`form_study_id`)
+  KEY `type` (`type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `survey_unit_sessions` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,

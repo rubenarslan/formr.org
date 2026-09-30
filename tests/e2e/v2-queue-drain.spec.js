@@ -61,8 +61,8 @@ async function reloadAndDrain(page) {
 }
 
 const setOfflineMode = (on) => dbExecRaw(
-    'UPDATE survey_studies s JOIN survey_units u ON u.form_study_id = s.id '
-    + 'JOIN survey_run_units ru ON ru.unit_id = u.id JOIN survey_runs r ON r.id = ru.run_id '
+    'UPDATE survey_studies s '
+    + 'JOIN survey_run_units ru ON ru.unit_id = s.id JOIN survey_runs r ON r.id = ru.run_id '
     + `SET s.offline_mode = ${on ? 1 : 0} WHERE r.name = '${RUN()}';`);
 
 test.describe('form_v2 offline queue drain', () => {

@@ -72,8 +72,8 @@ async function provision({ run: RUN, study: STUDY, json, after }) {
 
         db.dbExecRaw(`UPDATE survey_runs SET public = 2, expiresOn = DATE_ADD(NOW(), INTERVAL 5 YEAR) WHERE id = ${rid}`);
         if (after) db.dbExecRaw(after(sid));
-        const linked = db.dbQuery(`SELECT u.form_study_id, s.rendering_mode FROM survey_units u JOIN survey_studies s ON s.id = u.form_study_id WHERE u.id = ${parseInt(form.unit_id, 10)}`)[0];
-        if (!linked || parseInt(linked.form_study_id, 10) !== sid || linked.rendering_mode !== 'v2') {
+        const linked = db.dbQuery(`SELECT ru.unit_id, u.type, s.rendering_mode FROM survey_run_units ru JOIN survey_units u ON u.id = ru.unit_id JOIN survey_studies s ON s.id = ru.unit_id WHERE ru.id = ${parseInt(form.run_unit_id, 10)}`)[0];
+        if (!linked || parseInt(linked.unit_id, 10) !== sid || linked.type !== 'Form' || linked.rendering_mode !== 'v2') {
             throw new Error(`Form unit not linked as v2: ${JSON.stringify(linked)}`);
         }
         console.log(`create-v2-fixtures: run ${RUN} (id ${rid}) → Form → study ${STUDY} (id ${sid}), v2.`);

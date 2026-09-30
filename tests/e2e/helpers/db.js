@@ -253,13 +253,13 @@ function studyByName(name, cols = 'id, name, results_table, rendering_mode') {
     return dbQuery(`SELECT ${cols} FROM survey_studies WHERE user_id = ${adminUserId()} AND name = ${sqlStr(name)} ORDER BY id DESC LIMIT 1`)[0] || null;
 }
 
-// The study a run's first Form or Survey unit shows (a Form points at its
-// study through form_study_id; a Survey unit's id is the study's id).
+// The study a run's first Form or Survey unit shows (the unit's id is the
+// study's id).
 function studyOfRun(runName, cols = 's.id, s.name, s.results_table, s.rendering_mode') {
     return dbQuery(`SELECT ${cols} FROM survey_runs r
         JOIN survey_run_units ru ON ru.run_id = r.id
         JOIN survey_units u ON u.id = ru.unit_id
-        JOIN survey_studies s ON s.id = IF(u.type = 'Form', u.form_study_id, u.id)
+        JOIN survey_studies s ON s.id = u.id
         WHERE r.name = ${sqlStr(runName)} AND u.type IN ('Form', 'Survey')
         ORDER BY ru.position LIMIT 1`)[0] || null;
 }

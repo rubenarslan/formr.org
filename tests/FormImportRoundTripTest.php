@@ -2,10 +2,10 @@
 
 /**
  * A run bundle exported "with survey details" must round-trip a Form unit:
- * Run::export ships the Form's study (resolved through the dialog's
- * study_id or survey_units.form_study_id) and Form::create materialises it
- * via SurveyStudy::createFromData with place_unit=false — study only, no
- * stray Survey unit — then links it through form_study_id. The v2 engine
+ * Run::export ships the Form's study (its unit_id is the study id, as for a
+ * Survey) and Form::create materialises it via SurveyStudy::createFromData
+ * with place_unit=false — study only, no stray Survey unit — then links it
+ * like a chosen study, which puts it on v2. The v2 engine
  * settings travel in getSettings() and are validated on the way back in.
  *
  * Item saving needs MySQL DDL, so the full import runs only against a live
@@ -23,14 +23,14 @@ class FormImportRoundTripTest extends \PHPUnit\Framework\TestCase {
     protected function setUp(): void {
         $this->db = DB::getInstance();
         $this->dropTables();
-        $this->db->exec('CREATE TABLE survey_units (id INTEGER PRIMARY KEY, type TEXT, form_study_id INTEGER, created TEXT, modified TEXT)');
+        $this->db->exec('CREATE TABLE survey_units (id INTEGER PRIMARY KEY, type TEXT, created TEXT, modified TEXT)');
         $this->db->exec('CREATE TABLE survey_run_units (id INTEGER PRIMARY KEY, run_id INTEGER, unit_id INTEGER, position INTEGER, description TEXT)');
         $this->db->exec('CREATE TABLE survey_runs (id INTEGER PRIMARY KEY, name TEXT)');
         $this->db->exec('CREATE TABLE survey_studies (id INTEGER PRIMARY KEY, user_id INTEGER, name TEXT, results_table TEXT, unlinked INTEGER DEFAULT 0, rendering_mode TEXT DEFAULT "v1")');
         $this->db->exec('CREATE TABLE survey_items (id INTEGER PRIMARY KEY, study_id INTEGER, type TEXT, choice_list TEXT, type_options TEXT, name TEXT, label TEXT, label_parsed TEXT, optional INTEGER, class TEXT, showif TEXT, showif_js TEXT, value TEXT, block_order TEXT, item_order INTEGER, deleted TEXT)');
         $this->db->exec('CREATE TABLE survey_item_choices (id INTEGER PRIMARY KEY, study_id INTEGER, list_name TEXT, name TEXT, label TEXT, label_parsed TEXT)');
 
-        $this->db->exec("INSERT INTO survey_units (id, type, form_study_id) VALUES (20, 'Survey', NULL), (31, 'Form', 30)");
+        $this->db->exec("INSERT INTO survey_units (id, type) VALUES (20, 'Survey'), (30, 'Survey')");
         $this->db->exec("INSERT INTO survey_studies (id, user_id, name, results_table) VALUES
             (20, " . self::USER_ID . ", 'intro', 's20_intro'), (30, " . self::USER_ID . ", 'form_study', 's30_form_study')");
 
@@ -59,12 +59,6 @@ class FormImportRoundTripTest extends \PHPUnit\Framework\TestCase {
         return $run;
     }
 
-    private function exportedStudyId(object $unit): int {
-        $m = new ReflectionMethod(Run::class, 'exportedStudyId');
-        $m->setAccessible(true);
-        return $m->invoke($this->makeRun(), $unit);
-    }
-
     private static function validate(array $settings): array {
         $m = new ReflectionMethod(SurveyStudy::class, 'validateEngineSettings');
         $m->setAccessible(true);
@@ -73,30 +67,6 @@ class FormImportRoundTripTest extends \PHPUnit\Framework\TestCase {
 
     private function runUnitRows(): array {
         return $this->db->select('unit_id, run_id, position')->from('survey_run_units')->fetchAll();
-    }
-
-    // ---- export side --------------------------------------------------
-
-    public function testSurveyUnitExportsItsOwnId() {
-        $this->assertSame(20, $this->exportedStudyId((object) ['type' => 'Survey', 'unit_id' => 20]));
-    }
-
-    public function testFormUnitExportsDialogStudyId() {
-        // run.js serialize() posts the dialog's study_id select alongside unit_id
-        $this->assertSame(30, $this->exportedStudyId((object) ['type' => 'Form', 'unit_id' => 31, 'study_id' => '30']));
-    }
-
-    public function testFormUnitFallsBackToFormStudyId() {
-        // exportRunStructureAction builds units server-side, without the dialog fields
-        $this->assertSame(30, $this->exportedStudyId((object) ['type' => 'Form', 'unit_id' => 31]));
-        $this->assertSame(30, $this->exportedStudyId((object) ['type' => 'Form', 'unit_id' => 31, 'study_id' => '']));
-        $this->assertSame(30, $this->exportedStudyId((object) ['type' => 'Form', 'unit_id' => 31, 'study_id' => 'x']));
-    }
-
-    public function testFormUnitWithoutStudyExportsNothing() {
-        $this->db->exec("INSERT INTO survey_units (id, type, form_study_id) VALUES (32, 'Form', NULL)");
-        $this->assertSame(0, $this->exportedStudyId((object) ['type' => 'Form', 'unit_id' => 32]));
-        $this->assertSame(0, $this->exportedStudyId((object) ['type' => 'Form', 'unit_id' => 999]));
     }
 
     public function testGetSettingsCarriesEngineSettings() {
@@ -185,18 +155,18 @@ class FormImportRoundTripTest extends \PHPUnit\Framework\TestCase {
         $form = new Form($this->makeRun(), ['type' => 'Form']);
         $form->create(['type' => 'Form', 'position' => 50, 'study_id' => 30]);
         $this->assertTrue($form->valid);
-        $this->assertSame(30, (int) $this->db->findValue('survey_units', ['id' => $form->id], 'form_study_id'));
         $this->assertSame('v2', $this->db->findValue('survey_studies', ['id' => 30], 'rendering_mode'));
+        $this->assertSame('Form', $this->db->findValue('survey_units', ['id' => 30], 'type'));
         $this->assertSame('form_study', $form->description, 'description defaults to the study name');
         $rows = $this->runUnitRows();
         $this->assertCount(1, $rows);
-        $this->assertSame((int) $form->id, (int) $rows[0]['unit_id'], 'the run points at the Form row, not the study');
+        $this->assertSame(30, (int) $rows[0]['unit_id'], 'the run points at the study, as for a Survey');
 
         // another user's study: Form is created but stays unlinked
         $this->db->exec("INSERT INTO survey_studies (id, user_id, name, results_table) VALUES (60, 99, 'theirs', 's60_theirs')");
         $other = new Form($this->makeRun(), ['type' => 'Form']);
         $other->create(['type' => 'Form', 'position' => 60, 'study_id' => 60]);
-        $this->assertNull($this->db->findValue('survey_units', ['id' => $other->id], 'form_study_id'));
+        $this->assertNotSame(60, (int) $this->db->findValue('survey_run_units', ['id' => $other->run_unit_id], 'unit_id'));
         $this->assertSame('v1', $this->db->findValue('survey_studies', ['id' => 60], 'rendering_mode'));
     }
 }

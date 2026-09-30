@@ -74,7 +74,7 @@ try {
 
     // Create two transient unit definitions and place them at positions
     // 10 and 20 — so `getRunUnitIdAtPosition($position)` resolves them.
-    // survey_units columns are minimal: id, created, modified, type, form_study_id.
+    // survey_units columns are minimal: id, created, modified, type.
     $unit1Id = $db->insert('survey_units', ['type' => 'Pause',  'created' => mysql_now(), 'modified' => mysql_now()]);
     $unit2Id = $db->insert('survey_units', ['type' => 'Survey', 'created' => mysql_now(), 'modified' => mysql_now()]);
     $artefacts['unit_ids'] = [$unit1Id, $unit2Id];

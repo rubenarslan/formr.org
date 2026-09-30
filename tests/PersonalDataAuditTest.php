@@ -13,7 +13,7 @@ class PersonalDataAuditTest extends PHPUnit\Framework\TestCase {
         'survey_studies' => 'id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, name TEXT, results_table TEXT, created TEXT, modified TEXT',
         'survey_items' => 'id INTEGER PRIMARY KEY AUTOINCREMENT, study_id INTEGER, type TEXT, name TEXT, label TEXT, `order` INTEGER DEFAULT 0',
         'survey_runs' => 'id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, name TEXT, public INTEGER DEFAULT 0',
-        'survey_units' => 'id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, form_study_id INTEGER',
+        'survey_units' => 'id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT',
         'survey_run_units' => 'id INTEGER PRIMARY KEY AUTOINCREMENT, run_id INTEGER, unit_id INTEGER, position INTEGER DEFAULT 0',
         'survey_run_sessions' => 'id INTEGER PRIMARY KEY AUTOINCREMENT, run_id INTEGER, testing INTEGER DEFAULT 0',
         'survey_study_metrics' => 'study_id INTEGER PRIMARY KEY, finished INTEGER DEFAULT 0, testers INTEGER DEFAULT 0, real_users INTEGER DEFAULT 0',
@@ -182,11 +182,11 @@ class PersonalDataAuditTest extends PHPUnit\Framework\TestCase {
     public function testAStudyPlacedOnlyThroughAFormIsNotAnOrphan() {
         $this->seed();
         $db = DB::getInstance();
-        // A v2 Form unit has its own survey_units row and names its study in
-        // form_study_id; the placement's unit_id is the Form, not the study.
-        $db->insert('survey_units', array('id' => 600, 'type' => 'Form', 'form_study_id' => 11));
+        // A v2 study's unit row is type 'Form'; its placement's unit_id is
+        // the study id, as for a Survey.
+        $db->update('survey_units', array('type' => 'Form'), array('id' => 11));
         $db->insert('survey_runs', array('id' => 102, 'user_id' => 2, 'name' => 'bob_form_run', 'public' => 1));
-        $db->insert('survey_run_units', array('run_id' => 102, 'unit_id' => 600, 'position' => 10));
+        $db->insert('survey_run_units', array('run_id' => 102, 'unit_id' => 11, 'position' => 10));
         $report = PersonalDataAudit::report();
         $bob = $report['admins'][2];
         $this->assertSame(array(), $bob['orphan_surveys']);

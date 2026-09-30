@@ -60,7 +60,7 @@ This release adds **form_v2**, a second survey engine, run by a new **Form** uni
 
 ### Schema
 - SQL patch 100: `survey_studies.rendering_mode` ENUM('v1','v2'), default `v1`.
-- SQL patch 101: `survey_units.form_study_id`, the survey a Form unit runs.
+- SQL patch 101: `survey_units.form_study_id` (dropped again by patch 116).
 - SQL patch 102: `survey_r_calls`, the per-survey allowlist of the R a v2 form may have evaluated.
 - SQL patch 103: `survey_form_submissions`, the offline queue's record of delivered submissions (a resent one is not applied twice).
 - SQL patch 104: `survey_studies.offline_mode` (default 1) and `allow_previous` (default 0).
@@ -75,7 +75,8 @@ This release adds **form_v2**, a second survey engine, run by a new **Form** uni
 - SQL patch 113: `formr_rate_limits`, the rate limiter of the v2 endpoints.
 - SQL patch 114: `survey_studies.language`, default `en`.
 - SQL patch 115: `survey_studies.next_button_label` and `submit_button_label`.
-- The tables of patches 102, 103, 105 and 113 are in `sql/schema.sql` for fresh installs. Every patch 100–115 is guarded (`IF [NOT] EXISTS`) and can be replayed.
+- SQL patch 116: a Form unit shares its survey's unit row, as a Survey unit does (the row's type is `Form` while the survey is on v2); moves existing Form placements and sessions onto it and drops `survey_units.form_study_id`.
+- The tables of patches 102, 103, 105 and 113 are in `sql/schema.sql` for fresh installs. Every patch 100–115 is guarded (`IF [NOT] EXISTS`) and can be replayed; 116 moves data once.
 
 ## [v1.11.0] - 22.09.2026
 

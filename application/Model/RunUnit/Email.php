@@ -121,18 +121,14 @@ class Email extends RunUnit {
     }
     
     protected function getPotentialRecipientFields() {
-        // Walk from the run's units to their studies. A v1 Survey unit IS its
-        // study (survey_run_units.unit_id = survey_studies.id); a Form unit
-        // (Survey::TYPES) has its own survey_units row and names the study in
-        // survey_units.form_study_id. DISTINCT: a study placed twice in the
-        // run must not list its email item twice.
+        // Walk from the run's units to their studies: a Survey or Form unit
+        // IS its study (survey_run_units.unit_id = survey_studies.id).
+        // DISTINCT: a study placed twice in the run must not list its email
+        // item twice.
         $stmt = $this->db->prepare("
             SELECT DISTINCT survey_studies.name AS survey, survey_items.name AS item
             FROM survey_run_units
-                INNER JOIN survey_units ON survey_units.id = survey_run_units.unit_id
-                    AND survey_units.type IN ('Survey', 'Form')
-                INNER JOIN survey_studies ON survey_studies.id = CASE survey_units.type
-                    WHEN 'Form' THEN survey_units.form_study_id ELSE survey_units.id END
+                INNER JOIN survey_studies ON survey_studies.id = survey_run_units.unit_id
                 INNER JOIN survey_items ON survey_items.study_id = survey_studies.id
             WHERE survey_run_units.run_id = :run_id AND survey_items.type = 'email'"
         );

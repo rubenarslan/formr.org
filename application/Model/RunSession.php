@@ -1058,9 +1058,7 @@ class RunSession extends Model {
         
         if (!$recipient_field || $recipient_field === $mostrecent) {
             // Both survey-pipeline unit types (Survey::TYPES): a Form unit's
-            // session carries the Form row as unit_id, and its items hang off
-            // the session the same way a v1 Survey's do — the study itself
-            // need not be resolved here.
+            // items hang off the session the same way a v1 Survey's do.
             $recent_email_query = "
                 SELECT survey_items_display.answer AS email FROM survey_unit_sessions
                 LEFT JOIN survey_units ON survey_units.id = survey_unit_sessions.unit_id AND survey_units.type IN ('Survey', 'Form')

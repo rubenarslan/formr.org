@@ -62,14 +62,9 @@ class Survey extends RunUnit {
                     (int) $options['study_id'],
                     (int) $this->run->user_id
             )) {
-                // A study on the form_v2 engine only runs as v2 in a Form
-                // unit; a Survey unit would render it on v1, where its
-                // JavaScript showifs are read as R and their items stay
-                // hidden. Refused like any bad link: alerted, left unlinked.
-                // (Form extends Survey but never passes study_id here.)
                 $candidate = new SurveyStudy((int) $options['study_id']);
-                if ($candidate->valid && $candidate->rendering_mode === 'v2') {
-                    alert('<strong>Survey not linked.</strong> <code>' . h($candidate->name) . '</code> is on the form_v2 engine, which runs in a <strong>Form</strong> unit. Add a Form unit for it instead (or switch the survey back to v1).', 'alert-danger');
+                if ($candidate->valid && ($refusal = $this->linkRefusal($candidate))) {
+                    alert($refusal, 'alert-danger');
                 } else {
                     $this->unit_id = (int) $options['study_id'];
                     $this->surveyStudy = $this->getStudy(true);
@@ -77,11 +72,13 @@ class Survey extends RunUnit {
             }
         }
 
-        if (empty($options['description']) && $this->surveyStudy) {
-            $options['description'] = $this->surveyStudy->name ?? 'Survey Name';
-        }
-
-        if ($this->surveyStudy) {
+        // Only a study that exists: find() gives an unlinked unit a
+        // placeholder SurveyStudy (its own id, no row), and persisting that
+        // would point the placement at nothing.
+        if ($this->surveyStudy && $this->surveyStudy->valid) {
+            if (empty($options['description'])) {
+                $options['description'] = $this->surveyStudy->name ?? 'Survey Name';
+            }
             $this->persistStudyLink($options['description']);
         }
 
@@ -91,12 +88,27 @@ class Survey extends RunUnit {
     }
 
     /**
-     * Write the run unit's link to its study. A v1 Survey unit shares the
-     * study's primary key, so linking means re-pointing
-     * survey_run_units.unit_id at the study id. Subclasses that keep their
-     * own survey_units row (Form, via form_study_id) override this: the
-     * re-point must never run for them, or the run unit silently turns into
-     * a v1 Survey on every save.
+     * Why $study may not be linked to this unit (alert HTML), or null. A
+     * study on the form_v2 engine only runs as v2 in a Form unit; a Survey
+     * unit would render it on v1, where its JavaScript showifs are read as R
+     * and their items stay hidden. Refused like any bad link: alerted, left
+     * unlinked. Form overrides this with its own rules.
+     *
+     * @return string|null
+     */
+    protected function linkRefusal(SurveyStudy $study) {
+        if ($study->rendering_mode === 'v2') {
+            return '<strong>Survey not linked.</strong> <code>' . h($study->name) . '</code> is on the form_v2 engine, which runs in a <strong>Form</strong> unit. Add a Form unit for it instead (or switch the survey back to v1).';
+        }
+        return null;
+    }
+
+    /**
+     * Write the run unit's link to its study. A Survey (or Form) unit shares
+     * the study's primary key, so linking means re-pointing
+     * survey_run_units.unit_id at the study id; the study's survey_units row
+     * carries the unit type (SurveyStudy::save keeps it in step with
+     * rendering_mode).
      *
      * @param string $description
      */
@@ -109,6 +121,7 @@ class Survey extends RunUnit {
                 ['description' => $description, 'unit_id' => $this->surveyStudy->id],
                 ['id' => $this->run_unit_id, 'run_id' => $this->run->id]
         );
+        $this->description = $description;
     }
 
     public function displayForRun($prepend = '') {

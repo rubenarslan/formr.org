@@ -3,10 +3,10 @@
 // Before the fix a run exported "with survey details" shipped a Form unit
 // as a bare skeleton (Run::export only attached survey_data for Survey
 // units, and Run::importUnits had no Form case), so a shared bundle lost
-// the study behind every v2 form. Now the export resolves the Form's study
-// (dialog study_id → survey_units.form_study_id) and the import
+// the study behind every v2 form. Now the export ships the Form's study (a
+// Form unit's id is its study's id, as for a Survey) and the import
 // materialises it via SurveyStudy::createFromData(place_unit=false) and
-// links it through form_study_id — study only, no stray Survey unit.
+// links it — study only, no stray Survey unit.
 //
 // Source: the persistent e2e-rank-v2 run (Form → e2e_rank, then a Page).
 // The bundle's study is renamed before import so the test proves a NEW
@@ -108,7 +108,7 @@ function studyRow(name) {
 
 function runUnits(name) {
     return dbQuery(
-        `SELECT ru.position, u.id AS unit_id, u.type, u.form_study_id, ru.description ` +
+        `SELECT ru.position, u.id AS unit_id, u.type, ru.description ` +
         `FROM survey_run_units ru JOIN survey_units u ON u.id = ru.unit_id ` +
         `JOIN survey_runs r ON r.id = ru.run_id WHERE r.name = '${name}' ORDER BY ru.position`,
     );
@@ -125,7 +125,7 @@ test.describe('Form unit export/import round-trip', () => {
         const sourceUnits = runUnits(SOURCE_RUN);
         const sourceForm = sourceUnits.find((u) => u.type === 'Form');
         expect(sourceForm, `${SOURCE_RUN} needs a Form unit — see tests/e2e/setup/runbook.md`).toBeTruthy();
-        const sourceStudyName = dbQuery(`SELECT name FROM survey_studies WHERE id = ${sourceForm.form_study_id}`)[0].name;
+        const sourceStudyName = dbQuery(`SELECT name FROM survey_studies WHERE id = ${sourceForm.unit_id}`)[0].name;
         const sourceStudy = studyRow(sourceStudyName);
 
         await adminLogin(page);
@@ -159,7 +159,7 @@ test.describe('Form unit export/import round-trip', () => {
             const units = runUnits(targetRun);
             expect(units.map((u) => u.type)).toEqual(sourceUnits.map((u) => u.type)); // no stray Survey unit
             const form = units.find((u) => u.type === 'Form');
-            expect(Number(form.form_study_id)).toBe(Number(created.id));
+            expect(Number(form.unit_id)).toBe(Number(created.id));
             expect(form.description, 'the bundle description wins over the study-name default').toBe(sourceForm.description);
 
             // and the run editor shows the study selected in the Form's dropdown
@@ -196,7 +196,7 @@ test.describe('Form unit export/import round-trip', () => {
             const units = runUnits(targetRun);
             // the legacy 'Endpage' export type imports as a Page (Run::importUnits)
             expect(units.map((u) => u.type)).toEqual(fixture.units.map((u) => (u.type === 'Endpage' ? 'Page' : u.type)));
-            expect(Number(units.find((u) => u.type === 'Form').form_study_id)).toBe(Number(created.id));
+            expect(Number(units.find((u) => u.type === 'Form').unit_id)).toBe(Number(created.id));
             // no import errors surfaced on the run page
             await page.goto(`${ADMIN_URL}/admin/run/${targetRun}`, { waitUntil: 'domcontentloaded' });
             await expect(page.locator('.run_units .alert-danger')).toHaveCount(0);

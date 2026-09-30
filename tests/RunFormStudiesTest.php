@@ -1,13 +1,9 @@
 <?php
 
 /**
- * Run::getAllSurveys() / getAllLinkedSurveys() must see the study behind a
- * Form unit. A v1 Survey unit shares its id with its survey_studies row, so
- * the historical join was `survey_studies.id = survey_run_units.unit_id`;
- * a Form unit (form_v2) has its own survey_units row and points at the
- * study through survey_units.form_study_id (patch 101), which that join
- * never matched — so R saw "object not found" for a Form's data in later
- * units, and the run's export/API skipped the study.
+ * Run::getAllSurveys() / getAllLinkedSurveys() list the study behind every
+ * Survey and Form unit: both share their id with the survey_studies row, so
+ * the placement's unit_id is the study id (patch 116).
  */
 class RunFormStudiesTest extends \PHPUnit\Framework\TestCase {
 
@@ -21,20 +17,20 @@ class RunFormStudiesTest extends \PHPUnit\Framework\TestCase {
         $this->dropTables();
 
         $this->db->exec('CREATE TABLE survey_run_units (id INTEGER PRIMARY KEY, run_id INTEGER, unit_id INTEGER, position INTEGER)');
-        $this->db->exec('CREATE TABLE survey_units (id INTEGER PRIMARY KEY, type TEXT, form_study_id INTEGER)');
+        $this->db->exec('CREATE TABLE survey_units (id INTEGER PRIMARY KEY, type TEXT)');
         $this->db->exec('CREATE TABLE survey_studies (id INTEGER PRIMARY KEY, name TEXT, results_table TEXT, unlinked INTEGER DEFAULT 0, rendering_mode TEXT DEFAULT \'v1\')');
 
         $r = self::RUN_ID;
         // 20: v1 Survey unit (unit id == study id)
-        // 31: Form unit rendering study 30
+        // 30: Form unit (study 30, on v2)
         // 32: a Page — no study
         // 41: v1 Survey unit for an unlinked study
-        $this->db->exec("INSERT INTO survey_units (id, type, form_study_id) VALUES
-            (20, 'Survey', NULL), (31, 'Form', 30), (32, 'Page', NULL), (41, 'Survey', NULL)");
+        $this->db->exec("INSERT INTO survey_units (id, type) VALUES
+            (20, 'Survey'), (30, 'Form'), (32, 'Page'), (41, 'Survey')");
         $this->db->exec("INSERT INTO survey_studies (id, name, results_table, unlinked) VALUES
             (20, 'intro', 's20_intro', 0), (30, 'form_study', NULL, 0), (41, 'old', 's41_old', 1)");
         $this->db->exec("INSERT INTO survey_run_units (id, run_id, unit_id, position) VALUES
-            (100, $r, 20, 10), (101, $r, 31, 20), (102, $r, 32, 30), (103, $r, 41, 40),
+            (100, $r, 20, 10), (101, $r, 30, 20), (102, $r, 32, 30), (103, $r, 41, 40),
             (200, 2, 20, 10)");
     }
 
@@ -76,7 +72,7 @@ class RunFormStudiesTest extends \PHPUnit\Framework\TestCase {
     }
 
     public function testStudyPlacedTwiceIsListedOnce() {
-        $this->db->exec("INSERT INTO survey_run_units (id, run_id, unit_id, position) VALUES (104, " . self::RUN_ID . ", 31, 50)");
+        $this->db->exec("INSERT INTO survey_run_units (id, run_id, unit_id, position) VALUES (104, " . self::RUN_ID . ", 30, 50)");
         $this->assertSame(array(20, 30, 41), self::ids($this->makeRun()->getAllSurveys()));
     }
 }

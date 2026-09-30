@@ -354,25 +354,16 @@ abstract class ApiBase
     /**
      * SQL predicate: `survey_studies`.`id` is placed in one of $runIds.
      *
-     * A v1 Survey unit shares its id with survey_studies.id, so its
-     * placement is survey_run_units.unit_id itself. A Form unit
-     * (form_v2) has its own survey_units row and names the study in
-     * survey_units.form_study_id (patch 101) — the id-only join missed
-     * those, so restricted clients could neither list nor read a study
-     * that only ran as a Form. Same rule as Run::getAllSurveys.
-     * $runIds are cast to int, so the string is safe to inline.
+     * A Survey or Form unit shares its id with survey_studies.id, so its
+     * placement is survey_run_units.unit_id itself. $runIds are cast to
+     * int, so the string is safe to inline.
      */
     protected static function placedStudiesSql(array $runIds)
     {
         $in = implode(',', array_map('intval', $runIds));
         return "`survey_studies`.`id` IN (
             SELECT `survey_run_units`.`unit_id` FROM `survey_run_units`
-             WHERE `survey_run_units`.`run_id` IN ($in)
-            UNION
-            SELECT `survey_units`.`form_study_id` FROM `survey_run_units`
-             INNER JOIN `survey_units` ON `survey_units`.`id` = `survey_run_units`.`unit_id`
-             WHERE `survey_run_units`.`run_id` IN ($in)
-               AND `survey_units`.`form_study_id` IS NOT NULL)";
+             WHERE `survey_run_units`.`run_id` IN ($in))";
     }
 
     /**

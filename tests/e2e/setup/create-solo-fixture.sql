@@ -11,9 +11,9 @@
 SET @src_run    := (SELECT id FROM survey_runs WHERE name = 'e2e-aw-v2' LIMIT 1);
 SET @old_form   := (SELECT u.id FROM survey_units u JOIN survey_run_units ru ON ru.unit_id = u.id WHERE ru.run_id = @src_run AND u.type = 'Form' LIMIT 1);
 SET @old_page   := (SELECT u.id FROM survey_units u JOIN survey_run_units ru ON ru.unit_id = u.id WHERE ru.run_id = @src_run AND u.type = 'Page' LIMIT 1);
-SET @src_study  := (SELECT form_study_id FROM survey_units WHERE id = @old_form);
+SET @src_study  := @old_form; -- a Form unit's id is its study's id
 
--- 1a. study-anchor Survey unit FIRST: survey_studies.id is FK'd to
+-- 1a. study-anchor unit FIRST: survey_studies.id is FK'd to
 -- survey_units.id (legacy shared-primary-key quirk), so the study's id must be
 -- an existing survey_units row. Clone the anchor unit, then give the study its id.
 CREATE TEMPORARY TABLE t AS SELECT * FROM survey_units WHERE id = @src_study;
@@ -52,12 +52,8 @@ UPDATE t SET id = 0, study_id = @new_study;
 INSERT INTO survey_item_choices SELECT * FROM t;
 DROP TEMPORARY TABLE t;
 
--- 4. Form unit (repointed at the new study)
-CREATE TEMPORARY TABLE t AS SELECT * FROM survey_units WHERE id = @old_form;
-UPDATE t SET id = 0, form_study_id = @new_study;
-INSERT INTO survey_units SELECT * FROM t;
-SET @new_form := LAST_INSERT_ID();
-DROP TEMPORARY TABLE t;
+-- 4. Form unit: a Form unit IS its study (the anchor row cloned in 1a)
+SET @new_form := @new_study;
 
 -- 5. trailing Page unit (verbatim)
 CREATE TEMPORARY TABLE t AS SELECT * FROM survey_units WHERE id = @old_page;

@@ -76,11 +76,7 @@ class SurveyResource extends BaseResource
             ->where(['user_id' => $this->user->id]);
         if (!empty($allowed)) {
             // Restricted clients see only surveys that appear as units in
-            // one of their allowlisted runs. A v1 Survey unit shares its
-            // id with survey_studies.id; a Form unit (form_v2) has its
-            // own survey_units row and names the study in
-            // survey_units.form_study_id (patch 101). Same placement
-            // rule as Run::getAllSurveys and clientMayAccessSurvey.
+            // one of their allowlisted runs (ApiBase::placedStudiesSql).
             $select->where(self::placedStudiesSql($allowed));
         }
 

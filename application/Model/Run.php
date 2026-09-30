@@ -1122,14 +1122,9 @@ class Run extends Model
 
     /**
      * Every SurveyStudy placed in this run, one row per study
-     * (results_table, name, id). A legacy v1 Survey unit shares its id with
-     * its study (survey_studies.id is an FK onto that survey_units row), so
-     * `survey_studies.id = survey_run_units.unit_id` finds those; a v2 Form
-     * unit has its own survey_units row and points at its study through
-     * survey_units.form_study_id (patch 101), which the study-id match can
-     * never hit — before this join every Form study was invisible here, so
-     * R code in a Branch/Pause/Email after a Form got "object not found",
-     * and run-level export / the API results listing skipped it.
+     * (results_table, name, id, rendering_mode). A Survey or Form unit shares
+     * its id with its study (survey_studies.id is an FK onto that
+     * survey_units row), so the placement's unit_id is the study id.
      */
     public function getAllSurveys()
     {
@@ -1143,16 +1138,11 @@ class Run extends Model
 
     private function selectRunSurveys($extraWhere)
     {
-        // Raw SQL: DB_Select's join parser only accepts a single `a = b`
-        // condition, and this join needs the OR.
         $stmt = $this->db->prepare("SELECT DISTINCT
                 COALESCE(`survey_studies`.`results_table`, `survey_studies`.`name`) AS `results_table`,
                 `survey_studies`.`name`, `survey_studies`.`id`, `survey_studies`.`rendering_mode`
             FROM `survey_run_units`
-            LEFT JOIN `survey_units` ON `survey_units`.`id` = `survey_run_units`.`unit_id`
-            INNER JOIN `survey_studies`
-                ON `survey_studies`.`id` = `survey_run_units`.`unit_id`
-                OR `survey_studies`.`id` = `survey_units`.`form_study_id`
+            INNER JOIN `survey_studies` ON `survey_studies`.`id` = `survey_run_units`.`unit_id`
             WHERE `survey_run_units`.`run_id` = :run_id" . $extraWhere);
         $stmt->bindValue(':run_id', (int) $this->id, PDO::PARAM_INT);
         $stmt->execute();
@@ -1490,11 +1480,11 @@ class Run extends Model
         foreach ($units as $i => &$unit) {
             if ($inc_survey && in_array($unit->type, ['Survey', 'Form'], true)) {
                 // The export dialog posts the unit list from the browser, so
-                // `unit_id` (and a Form's `study_id`) is caller-supplied:
-                // attach items only for a study the run's owner actually owns.
-                // Without this check any admin could read another user's item
-                // table by editing the POST.
-                $study_id = $this->exportedStudyId($unit);
+                // `unit_id` (a Survey or Form unit's study id) is
+                // caller-supplied: attach items only for a study the run's
+                // owner actually owns. Without this check any admin could read
+                // another user's item table by editing the POST.
+                $study_id = (int) $unit->unit_id;
                 if ($this->isOwnedBy('survey_studies', $study_id, $this->user_id)) {
                     $survey = SurveyStudy::loadById($study_id);
                     $unit->survey_data = $SPR->exportItemTableJSON($survey, true);
@@ -1538,24 +1528,6 @@ class Run extends Model
             'files' => $files,
         );
         return $export;
-    }
-
-    /**
-     * The SurveyStudy an exported unit stands for. A Survey unit shares its
-     * id with the study, so unit_id is the study id; a Form unit has its own
-     * survey_units row and points at the study via form_study_id (patch 101).
-     * The admin export dialog also serialises the Form dialog's study_id
-     * select, which is used when present; exportStructure() doesn't set it.
-     */
-    private function exportedStudyId($unit)
-    {
-        if ($unit->type !== 'Form') {
-            return (int) $unit->unit_id;
-        }
-        if (!empty($unit->study_id) && is_numeric($unit->study_id)) {
-            return (int) $unit->study_id;
-        }
-        return (int) $this->db->findValue('survey_units', ['id' => (int) ($unit->unit_id ?? 0), 'type' => 'Form'], 'form_study_id');
     }
 
     public function exportStructure()

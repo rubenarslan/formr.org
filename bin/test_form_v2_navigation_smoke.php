@@ -273,7 +273,7 @@ try {
     ok($w === ['mm'] && $colLen() === 10, 'moving to v2 widens it', [$w, $colLen()]);
     ok($zeroStudy->widenMultipleChoiceColumns() === [], 'and never twice');
 
-    $zRow = $db->execute('SELECT ru.unit_id, ru.position FROM survey_run_units ru JOIN survey_units u ON u.id = ru.unit_id WHERE ru.run_id = :r AND u.form_study_id = :s',
+    $zRow = $db->execute('SELECT ru.unit_id, ru.position FROM survey_run_units ru WHERE ru.run_id = :r AND ru.unit_id = :s',
         ['r' => $runId, 's' => $zeroStudy->id], false, true);
     $zUnit = RunUnitFactory::make($run, ['id' => (int) $zRow['unit_id']]);
     $zrsId = $db->insert('survey_run_sessions', ['run_id' => $runId, 'session' => 'NAVSMOKE' . bin2hex(random_bytes(8)), 'created' => mysql_now(), 'position' => (int) $zRow['position']]);
@@ -321,7 +321,7 @@ try {
     ok($calcStudy && $calcStudy->rendering_mode === 'v1', 'but not switched to v2', $calcStudy ? $calcStudy->rendering_mode : null);
     $unsupported = $calcStudy ? $calcStudy->formV2UnsupportedItems() : [];
     ok(array_keys($unsupported) === ['c_score'], 'the calculate is what blocks it', array_keys($unsupported));
-    $linked = $db->execute('SELECT COUNT(*) AS n FROM survey_units WHERE form_study_id = :s', ['s' => $calcStudy ? $calcStudy->id : 0], false, true);
+    $linked = $db->execute('SELECT COUNT(*) AS n FROM survey_run_units WHERE run_id = :r AND unit_id = :s', ['r' => $runId, 's' => $calcStudy ? $calcStudy->id : 0], false, true);
     ok((int) $linked['n'] === 0, 'no Form unit points at it');
 } catch (Throwable $e) {
     echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . "\n";

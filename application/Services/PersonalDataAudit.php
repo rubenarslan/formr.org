@@ -194,14 +194,11 @@ class PersonalDataAudit {
         $admins = array();
         $placed = array();
         $runs_seen = array();
-        // A Survey placement's unit_id IS the study id; a Form placement points
-        // at its own survey_units row, which names the study in form_study_id
-        // (patch 101). One pass over both, so a study used only through a Form
-        // is not reported as an unplaced orphan.
-        $run_rows = self::rows($db, 'SELECT COALESCE(fu.form_study_id, ru.unit_id) AS study_id, r.id AS run_id, r.name AS run_name, r.public, r.user_id, u.email, u.admin '
-                . 'FROM survey_run_units ru LEFT JOIN survey_units fu ON fu.id = ru.unit_id AND fu.type = \'Form\' '
+        // A Survey or Form placement's unit_id IS the study id.
+        $run_rows = self::rows($db, 'SELECT ru.unit_id AS study_id, r.id AS run_id, r.name AS run_name, r.public, r.user_id, u.email, u.admin '
+                . 'FROM survey_run_units ru '
                 . 'JOIN survey_runs r ON r.id = ru.run_id JOIN survey_users u ON u.id = r.user_id '
-                . 'WHERE ru.unit_id IN (%s) OR fu.form_study_id IN (%s) ORDER BY u.email, r.name, ru.position', $study_ids);
+                . 'WHERE ru.unit_id IN (%s) ORDER BY u.email, r.name, ru.position', $study_ids);
         $run_ids = array_values(array_unique(array_map(function ($r) { return (int) $r['run_id']; }, $run_rows)));
         $sessions = self::countsByRun($db, 'SELECT run_id, COUNT(*) AS n FROM survey_run_sessions WHERE COALESCE(testing, 0) = 0 AND run_id IN (%s) GROUP BY run_id', $run_ids);
         $email_units = self::countsByRun($db, 'SELECT ru.run_id, COUNT(*) AS n FROM survey_run_units ru JOIN survey_units un ON un.id = ru.unit_id '

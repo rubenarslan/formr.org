@@ -93,7 +93,7 @@ class Form extends Survey {
 }
 ```
 
-`Form extends Survey` (not `RunUnit`) to inherit the study-wiring machinery (`getStudy`, run-expiry plumbing, etc.). The one v1 behaviour `Form::create` must opt out of is Survey's re-point of `survey_run_units.unit_id` at the study's id — that pattern is why v1 Survey units share their row with their SurveyStudy, but a Form needs its own `survey_units` row (type='Form') so `RunUnitFactory` instantiates `Form` at request time, not `Survey`. `Form::create` strips `study_id` from options before delegating to `Survey::create`, then writes `survey_units.form_study_id` (patch 101) separately. `Form::getStudy` loads via `form_study_id`, not `$this->unit_id`.
+`Form extends Survey` (not `RunUnit`) to inherit the study-wiring machinery (`getStudy`, the link re-point, run-expiry plumbing, etc.). Like a Survey unit, a Form unit IS its study: linking re-points `survey_run_units.unit_id` at the study's id, and the study's `survey_units` row carries type `'Form'` while the study is on v2 (`SurveyStudy::syncUnitType`), so `RunUnitFactory` instantiates `Form` at request time. `Form::create` adds only what is Form-specific: materialising an imported `survey_data` study without placing a Survey unit, `linkRefusal` (studies placed as a Survey, items v2 cannot run), and `adoptFormV2()` on a new link.
 
 Symptom to watch for if this ever breaks: admin UI looks correct, but v2 rendering never fires and the unit acts like a Survey. Check `survey_run_units.unit_id` points at the Form's row, not the study's.
 
@@ -268,7 +268,7 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] `form_v2_enabled` feature flag in `config/settings.php`
 - [x] Admin "Add Form" button gated by flag (fa-wpforms icon)
 - [x] Admin editor template (`templates/admin/run/units/form.php`)
-- [x] `survey_units.form_study_id` (`sql/patches/101_survey_units_form_study_id.sql`)
+- [x] Form units share their study's `survey_units` row, type `'Form'` while the study is on v2 (`sql/patches/116_form_shares_study_row.sql`; replaces patch 101's `form_study_id`)
 
 ### Phase 1 — Single-page AJAX form
 - [x] Webpack `form` entry → `form.bundle.js`
@@ -423,7 +423,7 @@ Nothing here is still open; these are the frozen decisions.
 ## 10. Appendix: references
 
 **Code:**
-- `application/Model/RunUnit/Form.php` — Form unit; extends Survey; strips `study_id` before delegating to `Survey::create`; loads study via `form_study_id`.
+- `application/Model/RunUnit/Form.php` — Form unit; extends Survey and shares its study's unit row; linking puts the study on v2.
 - `application/Spreadsheet/FormRenderer.php` — single-document renderer; overrides `processItems`; allowlist UPSERT.
 - `application/Spreadsheet/RAllowlistExtractor.php` — allowlist recording + dedup.
 - `application/Controller/RunController.php` — endpoints `formPageSubmitAction`, `formSaveAction`, `formRenderPageAction`, `formSyncAction`, `formBotChallengeAction`, the shared gate `formWriteContext`; the store-a-page path is `application/Services/FormSubmissionService.php`, R evaluation `application/Services/RCallService.php`.
@@ -438,7 +438,7 @@ Nothing here is still open; these are the frozen decisions.
 form_v2's patches have their own range, 100 and up (CLAUDE.md, "SQL migrations"), so merging a release line into the branch never renumbers them.
 
 - `sql/patches/100_survey_studies_rendering_mode.sql` — `rendering_mode` ENUM
-- `sql/patches/101_survey_units_form_study_id.sql` — Form-specific study reference
+- `sql/patches/116_form_shares_study_row.sql` — Form units share their study's unit row (drops patch 101's `form_study_id`)
 - `sql/patches/102_survey_r_calls.sql` — allowlist table
 - `sql/patches/103_survey_form_submissions.sql` — offline-queue dedupe ledger
 - `sql/patches/104_form_v2_survey_study_flags.sql` — `offline_mode` + `allow_previous`

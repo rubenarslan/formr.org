@@ -8,14 +8,14 @@ steps 1 and 3 even if you never enable v2. For what form_v2 *is*, see
 
 ## 1. Schema migrations (100–115)
 
-Sixteen new patches in `sql/patches/`. On the docker deployment they are
+Seventeen new patches in `sql/patches/`. On the docker deployment they are
 mirrored into `mysql/atlas/migrations/` and applied by `./update.sh`;
 nothing extra to run.
 
 | Patch | What it does |
 | --- | --- |
 | `100_survey_studies_rendering_mode` | `survey_studies.rendering_mode` ENUM('v1','v2'), **default `v1`** — the per-study engine switch. |
-| `101_survey_units_form_study_id` | `survey_units.form_study_id` (+ index): lets a Form unit reference a SurveyStudy without sharing its primary key the way v1 Survey units do. |
+| `101_survey_units_form_study_id` | `survey_units.form_study_id` (+ index). Dropped again by 116. |
 | `102_survey_r_calls` | New `survey_r_calls` table: the per-study allowlist of the R expressions (dynamic values and labels) the server will evaluate. Raw R never reaches the browser. |
 | `103_survey_form_submissions` | New `survey_form_submissions` table: UUID ledger so an offline-queued page submission that is retried is applied once. |
 | `104_form_v2_survey_study_flags` | `survey_studies.offline_mode` (default 1) and `allow_previous` (default 0). v1 ignores both. |
@@ -30,8 +30,9 @@ nothing extra to run.
 | `113_formr_rate_limits` | New `formr_rate_limits` table: DB-backed fixed-window buckets, replacing a limiter that lived in `$_SESSION` and reset on cookie rotation. |
 | `114_survey_studies_language` | `survey_studies.language` (BCP 47, default `en`): drives `<html lang>` / `dir="rtl"` and the v2 client's UI strings. |
 | `115_survey_studies_button_labels` | `survey_studies.next_button_label` / `submit_button_label` (NULL = the built-in wording): the study's own Next / Submit button text in v2. |
+| `116_form_shares_study_row` | A Form unit shares its study's `survey_units` row, as a Survey unit does; the row's type is `Form` while the study is on v2. Moves existing Form placements and unit sessions onto the study's row, deletes the Form rows, drops `form_study_id`. Data moves once; not meant to be replayed. |
 
-**All sixteen are drift-tolerant** — every DDL statement carries an
+**Patches 100–115 are drift-tolerant** — every DDL statement carries an
 `IF NOT EXISTS` / `IF EXISTS` guard, so a host that was hand-patched
 ahead of the release re-runs them cleanly instead of dying mid-file on a
 duplicate column or index.

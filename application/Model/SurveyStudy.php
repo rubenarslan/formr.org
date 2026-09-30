@@ -277,8 +277,9 @@ class SurveyStudy extends Model
     }
 
     /**
-     * The runs that use this study as a classic Survey unit (a v1 Survey
-     * unit shares the study's id). While there are any, the study is not
+     * The runs that use this study as a classic Survey unit (the study's
+     * survey_units row is type 'Survey' while it is on v1, and every
+     * placement shares that row). While there are any, the study is not
      * put on form_v2 — neither by "Upgrade to form_v2" nor by linking it in
      * a Form unit: that would switch the engine under those runs'
      * participants. To try v2, the author copies the survey.
@@ -944,12 +945,8 @@ class SurveyStudy extends Model
                JOIN `survey_unit_sessions` s ON s.id = d.session_id
               SET d.`hidden` = NULL
               WHERE d.item_id IN ($ids) AND d.`hidden` IS NOT NULL AND d.`saved` IS NULL
-                AND (s.unit_id = :study_id
-                     OR s.unit_id IN (SELECT `id` FROM `survey_units` WHERE `type` = 'Form' AND `form_study_id` = :form_study_id))
-                AND s.ended IS NULL AND s.expired IS NULL",
-            // A Form's sessions carry the Form's own survey_units id, which
-            // points at this study through form_study_id (patch 101).
-            array('study_id' => (int) $this->id, 'form_study_id' => (int) $this->id)
+                AND s.unit_id = :study_id AND s.ended IS NULL AND s.expired IS NULL",
+            array('study_id' => (int) $this->id)
         );
         if ($reset > 0) {
             $names = implode(', ', array_map(function ($name) {
@@ -1296,7 +1293,32 @@ class SurveyStudy extends Model
     {
         $this->db->update('survey_studies', array('rendering_mode' => 'v2'), array('id' => (int) $this->id));
         $this->rendering_mode = 'v2';
+        $this->syncUnitType();
         $this->widenMultipleChoiceColumns();
+    }
+
+    public function save()
+    {
+        $saved = parent::save();
+        $this->syncUnitType();
+        return $saved;
+    }
+
+    /**
+     * A study IS its unit: every placement's survey_run_units.unit_id is the
+     * study id, and the RunUnit factory instantiates by that survey_units
+     * row's type. So the type follows the engine — 'Form' on v2, 'Survey'
+     * on v1 — and every placement switches with the study.
+     */
+    protected function syncUnitType()
+    {
+        if (!$this->id) {
+            return;
+        }
+        $this->db->exec(
+            "UPDATE `survey_units` SET `type` = :type WHERE `id` = :id AND `type` IN ('Survey', 'Form')",
+            array('type' => $this->rendering_mode === 'v2' ? 'Form' : 'Survey', 'id' => (int) $this->id)
+        );
     }
 
     /**
@@ -1989,16 +2011,12 @@ class SurveyStudy extends Model
             // Delete results table
             $delete = $this->db->query("TRUNCATE TABLE `{$this->results_table}`");
 
-            // Delete unit sessions/long format results. A Survey unit's
-            // sessions carry the study's id (shared primary key), a Form
-            // unit's its own survey_units id, which points at the study
-            // through form_study_id. Their survey_items_display rows go with
-            // them (ON DELETE CASCADE).
+            // Delete unit sessions/long format results. A Survey or Form
+            // unit's sessions carry the study's id (shared primary key).
+            // Their survey_items_display rows go with them (ON DELETE CASCADE).
             $this->db->exec(
-                "DELETE FROM `survey_unit_sessions`
-                  WHERE unit_id = :study_id
-                     OR unit_id IN (SELECT `id` FROM `survey_units` WHERE `type` = 'Form' AND `form_study_id` = :form_study_id)",
-                array('study_id' => (int) $this->id, 'form_study_id' => (int) $this->id)
+                "DELETE FROM `survey_unit_sessions` WHERE unit_id = :study_id",
+                array('study_id' => (int) $this->id)
             );
             $delete_item_disp = true;
 
