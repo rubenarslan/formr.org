@@ -469,7 +469,7 @@ class FormRenderer extends SpreadsheetRenderer {
                 }
                 if (!empty($this->validatedItems[$item->name])) {
                     $item->value_validated = $this->validatedItems[$item->name]->value_validated;
-                } elseif (isset($this->storedAnswers[$item->name]) && self::rendersStoredAnswer($item)) {
+                } elseif (isset($this->storedAnswers[$item->name]) && $item->rendersStoredAnswer()) {
                     // A stored answer is rendered by the item itself, the way
                     // v1 re-renders a page after a validation error: a slider
                     // at its value, a rank in its order, the ticked boxes.
@@ -510,16 +510,6 @@ class FormRenderer extends SpreadsheetRenderer {
         $html .= $this->renderV2Footer();
         $html .= '</div>';
         return $html;
-    }
-
-    /**
-     * Can this item show its stored answer as a preset? Uploads cannot (a
-     * file input takes no value), a bot_check's stored marker is not a
-     * token, and a submit button has no answer.
-     */
-    protected static function rendersStoredAnswer(Item $item) {
-        return !($item instanceof File_Item) && !($item instanceof BotCheck_Item)
-            && $item->type !== 'submit' && $item->save_in_results_table;
     }
 
     /**

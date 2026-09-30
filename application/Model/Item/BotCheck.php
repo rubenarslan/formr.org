@@ -36,6 +36,16 @@
  */
 class BotCheck_Item extends Item {
 
+    // Validating spends the one-shot token; the widget ships only in the
+    // form_v2 bundle.
+    protected $validation_has_side_effects = true;
+    protected $v2_only = true;
+
+    // Its stored marker ('verified') is not a token the widget can take.
+    public function rendersStoredAnswer() {
+        return false;
+    }
+
     public $type = 'bot_check';
     public $no_user_input_required = false;
     public $hasChoices = false;

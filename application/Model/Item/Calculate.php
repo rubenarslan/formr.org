@@ -11,4 +11,8 @@ class Calculate_Item extends Item {
         return $this->render_input();
     }
 
+    public function formV2Unsupported() {
+        return "'{$this->name}': calculate items are not supported by the form_v2 engine. Use a hidden item with the same value (it is resolved when its page is shown and submitted with it), or compute the value where it is used (a later unit's R, feedback).";
+    }
+
 }

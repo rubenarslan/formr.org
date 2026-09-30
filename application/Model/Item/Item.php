@@ -146,6 +146,46 @@ class Item {
     public function acceptsArrayReply() {
         return (bool) $this->accepts_array_reply;
     }
+
+    /**
+     * Validating a reply has side effects: a bot_check spends its one-shot
+     * token, an upload is moved into place. Such an item is judged once, at
+     * a submit, after everything else posted has passed
+     * (UnitSession::updateSurveyStudyRecord), and never on autosave
+     * (FormSubmissionService::autosaveEligible).
+     */
+    protected $validation_has_side_effects = false;
+
+    public function validationHasSideEffects() {
+        return (bool) $this->validation_has_side_effects;
+    }
+
+    /** Only the form_v2 engine can run this item type (v1Unsupported). */
+    protected $v2_only = false;
+
+    /**
+     * Can the form show this item's stored answer as a preset when it is
+     * rendered again? Not an upload (a file input takes no value), a
+     * bot_check (its stored marker is not a token) or a submit button.
+     */
+    public function rendersStoredAnswer() {
+        return (bool) $this->save_in_results_table;
+    }
+
+    /**
+     * A stored answer (survey_items_display.answer) in the shape the live
+     * inputs produce, for the form_v2 state block: a multi-valued reply is
+     * stored joined by ", " and goes back as an array.
+     *
+     * @param string|null $answer
+     * @return mixed
+     */
+    public function storedValueForClient($answer) {
+        if ($answer !== null && $this->acceptsArrayReply()) {
+            return ($answer === '') ? array() : explode(', ', (string) $answer);
+        }
+        return $answer;
+    }
     /**
      * Set on the items of a form_v2 study when they are made
      * (SurveyStudy::getItemsWithChoices). v2 stores a multiple choice's
@@ -830,9 +870,6 @@ class Item {
      * @return string|null
      */
     public function formV2Unsupported() {
-        if ($this->type === 'calculate') {
-            return "'{$this->name}': calculate items are not supported by the form_v2 engine. Use a hidden item with the same value (it is resolved when its page is shown and submitted with it), or compute the value where it is used (a later unit's R, feedback).";
-        }
         if (!$this->requiresUserInput() && $this->needsDynamicValue()) {
             return "'{$this->name}': a {$this->type} item takes no input, so its R value would be computed only on the server, which the form_v2 engine does not do. Clear its value, or use a hidden item with that value.";
         }
@@ -849,7 +886,7 @@ class Item {
      * @return string|null
      */
     public function v1Unsupported() {
-        if (in_array($this->type, array('bot_check', 'rank'), true)) {
+        if ($this->v2_only) {
             return "'{$this->name}': {$this->type} items need the form_v2 engine. Upload the survey with Engine: form_v2 (or switch it to form_v2 first).";
         }
         return null;

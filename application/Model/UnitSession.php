@@ -1272,18 +1272,20 @@ class UnitSession extends Model {
             if (!isset($items[$item_name])) {
                 continue;
             }
-            // A bot_check's validation BURNS its one-shot token. Judge it only
-            // once everything else posted has passed: an unrelated error on the
-            // same page would otherwise spend the token, and the participant's
-            // corrected resubmit — widget still showing "verified" — would be
-            // refused as unverified.
-            if ($validate && !($item_value instanceof Item) && $items[$item_name] instanceof BotCheck_Item) {
-                // Passed once in this unit session: a resend of its page (the
-                // retry of a submit whose reply was lost or that failed after
-                // storing, a queued copy) is not asked to verify again — the
-                // one-shot token was spent the first time, and the widget
-                // still shows "verified", so it would be refused forever.
-                if ($this->botCheckPassed($items[$item_name])) {
+            // Validation with side effects (Item::validationHasSideEffects: a
+            // bot_check BURNS its one-shot token, an upload is moved into
+            // place) runs only once everything else posted has passed: an
+            // unrelated error on the same page would otherwise spend the
+            // token, and the participant's corrected resubmit — widget still
+            // showing "verified" — would be refused as unverified.
+            if ($validate && !($item_value instanceof Item) && $items[$item_name]->validationHasSideEffects()) {
+                // A bot_check passed once in this unit session: a resend of
+                // its page (the retry of a submit whose reply was lost or that
+                // failed after storing, a queued copy) is not asked to verify
+                // again — the one-shot token was spent the first time, and
+                // the widget still shows "verified", so it would be refused
+                // forever.
+                if ($items[$item_name] instanceof BotCheck_Item && $this->botCheckPassed($items[$item_name])) {
                     // The display row is written from $posted
                     // (writeSurveyStudyRecord → getReply): hand it the stored
                     // marker, or the unvalidated token would store NULL over

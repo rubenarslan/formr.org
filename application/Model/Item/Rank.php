@@ -30,6 +30,9 @@
  */
 class Rank_Item extends Item {
 
+    // v1 would store the author's order untouched.
+    protected $v2_only = true;
+
     public $type = 'rank';
     public $input_attributes = array('type' => 'hidden');
     public $mysql_field = 'VARCHAR (255) DEFAULT NULL';

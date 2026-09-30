@@ -322,16 +322,14 @@ class FormSubmissionService {
     }
 
     /**
-     * Item types the autosave path must never touch. bot_check: its value is a
-     * one-shot proof-of-work token that verify() BURNS, so validating it on
-     * autosave would consume it before the real submit (and it must only ever
-     * be judged at submit). File uploads: the JSON autosave can't carry bytes
-     * anyway, and File_Item::validateInput moves the upload — an arbitrary
-     * string posted under a file item's name must not be persisted as if it
-     * were one.
+     * Items the autosave path must never touch: those whose validation has
+     * side effects (Item::validationHasSideEffects). A bot_check's one-shot
+     * token would be spent before the real submit; an upload can't travel in
+     * the JSON autosave anyway, and an arbitrary string posted under a file
+     * item's name must not be persisted as if it were one.
      */
     public static function autosaveEligible(Item $item) {
-        return !($item instanceof BotCheck_Item || $item instanceof File_Item);
+        return !$item->validationHasSideEffects();
     }
 
     /**
@@ -557,13 +555,7 @@ class FormSubmissionService {
         // this block — and only if a showif needs it. A random assignment or
         // an IP address has no business in the page source otherwise.
         $private = !self::isAnswerable($item) && $showifNames !== null && !isset($showifNames[(string) $item->name]);
-        if ($private || $item instanceof File_Item || !$item->save_in_results_table) {
-            $value = null;
-        } elseif ($answer !== null && $item->acceptsArrayReply() && !($item instanceof Geopoint_Item)) {
-            $value = ($answer === '') ? array() : explode(', ', (string) $answer);
-        } else {
-            $value = $answer;
-        }
+        $value = ($private || !$item->save_in_results_table) ? null : $item->storedValueForClient($answer);
         return array(
             'id' => (int) $row['id'],
             'page' => isset($row['page']) ? (int) $row['page'] : 1,

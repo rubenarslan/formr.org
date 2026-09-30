@@ -3,6 +3,11 @@
 class Geopoint_Item extends Item {
     protected $accepts_array_reply = true;
 
+    // Posted as an array, stored as one string (getReply): it goes back as is.
+    public function storedValueForClient($answer) {
+        return $answer;
+    }
+
 
     public $type = 'geopoint';
     public $input_attributes = array('type' => 'text', 'readonly');

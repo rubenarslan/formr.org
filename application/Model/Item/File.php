@@ -2,6 +2,18 @@
 
 class File_Item extends Item {
     protected $accepts_array_reply = true;
+    // Validating an upload moves it into place.
+    protected $validation_has_side_effects = true;
+
+    // A file input takes no value, and an upload's path is not shipped to
+    // the browser.
+    public function rendersStoredAnswer() {
+        return false;
+    }
+
+    public function storedValueForClient($answer) {
+        return null;
+    }
 
 
     public $type = 'file';
