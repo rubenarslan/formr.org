@@ -968,7 +968,9 @@ class SurveyStudy extends Model
                     throw new Exception("Results table name conflict. This shouldn't happen. Please alert the formr admins");
                 }
                 // step 2
-                $this->messages[] = "The results table '{$this->results_table}' was newly created, because there were no results and test sessions.";
+                if (!$this->is_new) {
+                    $this->messages[] = "The results table was created anew, because it held no results or test sessions yet.";
+                }
                 // if there is no results table or no existing data at all, drop table, create anew
                 // i.e. where possible prefer nuclear option
                 $new_syntax = $this->getResultsTableSyntax($result_columns);
@@ -2442,8 +2444,6 @@ class SurveyStudy extends Model
             self::forgetWideTableColumns($this->results_table);
             $this->messages[] = "<strong>The results table was modified.</strong>";
             $this->messages = array_merge($this->messages, $actions);
-        } else {
-            $this->messages[] = "The results table did not need to be modified.";
         }
 
         return true;

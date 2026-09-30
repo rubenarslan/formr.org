@@ -20,6 +20,8 @@ class SpreadsheetReader
     public $messages = array();
     public $errors = array();
     public $warnings = array();
+    /** @var string[] headed columns of either sheet that formr does not read */
+    private $ignoredColumns = array();
     public $survey = array();
     public $choices = array();
     /**
@@ -608,7 +610,7 @@ class SpreadsheetReader
     {
         ini_set('max_execution_time', 360);
 
-        $this->errors = $this->messages = $this->warnings = array();
+        $this->errors = $this->messages = $this->warnings = $this->ignoredColumns = array();
         if (!file_exists($filepath)) {
             $this->errors[] = 'Item table file does not exist';
             return;
@@ -667,6 +669,15 @@ class SpreadsheetReader
             if (!$this->errors) {
                 $this->readSurveySheet($surveySheet);
             }
+            if (!$this->errors) {
+                // One line on what was read; problems are warnings of their own.
+                $lists = count(array_unique(array_column($this->choices, 'list_name')));
+                $items = count($this->survey);
+                $ignored = array_unique(array_filter(array_map('strval', $this->ignoredColumns), 'strlen'));
+                $this->messages[] = ($items === 1 ? __('Read 1 item') : __('Read %d items', $items))
+                    . ($lists ? ($lists === 1 ? __(' and 1 choice list') : __(' and %d choice lists', $lists)) : '') . '.'
+                    . ($ignored ? ' ' . __('Columns formr does not use were ignored: %s.', implode(', ', $ignored)) : '');
+            }
         } catch (\Throwable $e) {
             // Widened from PhpSpreadsheet\Exception to \Throwable so TypeErrors
             // and other reader internals surface as a graceful error rather than
@@ -690,6 +701,37 @@ class SpreadsheetReader
             formr_log_exception($e, __CLASS__, $filepath);
             return;
         }
+    }
+
+    /**
+     * A row's values in the columns of interest (column number => name), as
+     * the row loops read them: normalised and trimmed strings.
+     *
+     * @return array<string, string>
+     */
+    private static function rowValues(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $worksheet, $rowNumber, array $columns)
+    {
+        $values = array();
+        foreach ($columns as $colNumber => $colName) {
+            $cell = $worksheet->getCell(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colNumber) . $rowNumber);
+            $values[$colName] = trim(hardTrueFalse(Normalizer::normalize((string) $cell->getValue(), Normalizer::FORM_C)));
+        }
+        return $values;
+    }
+
+    /**
+     * "Row 3 <singular>" / "Rows 3, 5 <plural>", naming at most ten rows.
+     */
+    private static function rowList(array $rows, $singular, $plural)
+    {
+        if (count($rows) === 1) {
+            return __('Row %s %s', reset($rows), $singular);
+        }
+        $shown = implode(', ', array_slice($rows, 0, 10));
+        if (count($rows) > 10) {
+            $shown = __('%s and %d more', $shown, count($rows) - 10);
+        }
+        return __('Rows %s %s', $shown, $plural);
     }
 
     private function readChoicesSheet(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $worksheet)
@@ -731,14 +773,11 @@ class SpreadsheetReader
             return false;
         }
 
-        if ($skippedColumns) {
-            $this->warnings[] = sprintf('Choices worksheet "%s" <strong>skipped</strong> columns: %s', $worksheet->getTitle(), implode(", ", $skippedColumns));
-        }
-        $this->messages[] = sprintf('Choices worksheet "%s" <strong>used</strong> columns: %s', $worksheet->getTitle(), implode(", ", $columns));
+        $this->ignoredColumns = array_merge($this->ignoredColumns, array_values($skippedColumns));
 
         $data = array();
         $choiceNames = array();
-        $inheritedListNames = array();
+        $skippedRows = array();
 
         // Iterate only up to the last column of interest. The end column must be
         // computed once, outside the row loop: getHighestDataColumn() scans the
@@ -756,6 +795,11 @@ class SpreadsheetReader
             }
             if ($rowNumber > $rowCount)
                 break;
+            // A blank row (a spreadsheet app's trailing rows, a spacer) is no
+            // choice and nothing to report.
+            if (!array_filter(self::rowValues($worksheet, $rowNumber, $columns), 'strlen')) {
+                continue;
+            }
 
             $data[$rowNumber] = array();
             $cellIterator = $row->getCellIterator('A', $endColumn);
@@ -780,15 +824,12 @@ class SpreadsheetReader
                     }
 
                     if (!$cellValue && !isset($lastListName)) {
-                        $this->warnings[] = __('Skipping Row %s of choices sheet', $rowNumber);
+                        $skippedRows[] = $rowNumber;
                         unset($data[$rowNumber]);
                         continue 2;
                     } elseif (!$cellValue && isset($lastListName)) {
+                        // An empty list name continues the list above.
                         $cellValue = $lastListName;
-                        if (!isset($inheritedListNames[$cellValue])) {
-                            $inheritedListNames[$cellValue] = array();
-                        }
-                        $inheritedListNames[$cellValue][] = $rowNumber;
                     }
 
                     if (!in_array($cellValue, $this->existing_choice_lists)) {
@@ -803,14 +844,7 @@ class SpreadsheetReader
                     $lastListName = $cellValue;
                 } elseif ($colName == 'name') {
                     if (!is_formr_truthy($cellValue)) {
-                        $this->warnings[] = __("Skipping Row %s of choices sheet: Choice name empty, but content in other columns.", $rowNumber);
-                        if (isset($inheritedListNames[$data[$rowNumber]['list_name']])) {
-                            // remove this row from bookmarks
-                            $bmk = &$inheritedListNames[$data[$rowNumber]['list_name']];
-                            if (($key = array_search($rowNumber, $bmk)) !== false) {
-                                unset($bmk[$key]);
-                            }
-                        }
+                        $skippedRows[] = $rowNumber;
                         unset($data[$rowNumber]);
                         continue 2;
                     }
@@ -846,13 +880,8 @@ class SpreadsheetReader
             $choiceNames[$row['list_name']][$row['name']] = $row['label'];
         }
 
-        // Announce rows that inherited list_names
-        $msgs = array();
-        foreach ($inheritedListNames as $name => $rows) {
-            $msgs[] = $rows ? sprintf("%s: This list name was assigned to rows %s - %s automatically, because they had an empty list name and followed in this list.", $name, min($rows), max($rows)) : null;
-        }
-        if ($msgs = array_filter($msgs)) {
-            $this->messages[] = '<ul><li>' . implode('</li><li>', $msgs) . '</li></ul>';
+        if ($skippedRows) {
+            $this->warnings[] = __('Choices sheet: %s.', self::rowList($skippedRows, 'has no list name or no choice name, so it was skipped', 'have no list name or no choice name, so they were skipped'));
         }
 
         $this->choices = $data;
@@ -860,7 +889,6 @@ class SpreadsheetReader
 
     private function readSurveySheet(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $worksheet)
     {
-        $callStartTime = microtime(true);
         // non-allowed columns will be ignored, allows to specify auxiliary information if needed
 
         $skippedColumns = $columns = array();
@@ -877,13 +905,13 @@ class SpreadsheetReader
             $colCount = 30;
         }
 
-        $blankColCount = 0; // why should this be set to 1 by default? 
         for ($i = 1; $i <= $colCount; $i++) {
             $cellCoordinate = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i) . '1';
             $colName = mb_strtolower((string)$worksheet->getCell($cellCoordinate)->getValue());
 
+            // A column without a heading is not read (a Google Sheet always
+            // has 26 of them).
             if (!$colName) {
-                $blankColCount++;
                 continue;
             }
             if (in_array($colName, $this->survey_columns)) {
@@ -898,14 +926,9 @@ class SpreadsheetReader
             }
         }
 
-        if ($blankColCount) {
-            $this->warnings[] = __('Your survey sheet appears to contain %d columns without names (given in the first row).', $blankColCount);
-        }
-        if ($skippedColumns) {
-            $this->warnings[] = __('These survey sheet columns were <strong>skipped</strong>: %s', implode(', ', $skippedColumns));
-        }
+        $this->ignoredColumns = array_merge($this->ignoredColumns, array_values($skippedColumns));
 
-        $data = $skippedRows = $emptyRows = $variableNames = array();
+        $data = $skippedRows = $variableNames = array();
 
         // Iterate only up to the last column of interest (≤ the 30-column cap),
         // computed once outside the row loop: getHighestDataColumn() scans the
@@ -923,6 +946,16 @@ class SpreadsheetReader
             }
             if ($rowNumber > $rowCount)
                 break;
+            // A row without a variable name is no item. It is worth a warning
+            // only if it looks like one (a type or a label): anything else —
+            // a blank row, a column filled down past the items — is not.
+            $values = self::rowValues($worksheet, $rowNumber, $columns);
+            if (($values['name'] ?? '') === '') {
+                if (($values['type'] ?? '') !== '' || ($values['label'] ?? '') !== '') {
+                    $skippedRows[] = $rowNumber;
+                }
+                continue;
+            }
 
             $data[$rowNumber] = array();
             $cellIterator = $row->getCellIterator('A', $endColumn);
@@ -946,17 +979,7 @@ class SpreadsheetReader
                 $cellValue = trim(hardTrueFalse(Normalizer::normalize((string)$cell->getValue(), Normalizer::FORM_C)));
 
                 if ($colName == 'name') {
-                    if (!$cellValue) {
-                        // Content = a non-blank cell left of `name`; the
-                        // blank cells read so far are no content.
-                        if (array_filter($data[$rowNumber], function ($v) { return $v !== '' && $v !== null; })) {
-                            $skippedRows[] = $rowNumber;
-                        } else {
-                            $emptyRows[] = $rowNumber;
-                        }
-                        unset($data[$rowNumber]);
-                        continue 2; // Skip row with no item name
-                    } elseif (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]{1,64}$/', $cellValue)) {
+                    if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]{1,64}$/', $cellValue)) {
                         $this->errors[] = __("The variable name '%s' is invalid. It has to be between 1 and 64 characters. It needs to start with a letter and can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.", $cellValue);
                     }
 
@@ -1080,22 +1103,15 @@ class SpreadsheetReader
             }
         } // Rows Loop
 
-        $callEndTime = microtime(true);
-        $callTime = $callEndTime - $callStartTime;
-        $this->messages[] = 'Survey <abbr title="Call time to read survey sheet was ' . sprintf('%.4f', $callTime) . ' seconds">worksheet</abbr> - ' . $worksheet->getTitle() . ' (' . count($data) . ' non-empty rows, ' . $colCount . ' columns). These columns were <strong>used</strong>: ' . implode(", ", $columns);
-
-        if (!empty($emptyRows)) {
-            $this->messages[] = __('Empty rows (no variable name): %s', implode(", ", $emptyRows));
-        }
-
         if (!$data) {
             // Nothing to upload: saving would leave the survey with no items
             // and report success.
             $this->errors[] = $skippedRows
-                ? __('The survey sheet has no items: no row has a variable name in the <code>name</code> column. Rows %s have content but no name — give each item a name.', implode(", ", $skippedRows))
+                ? __('The survey sheet has no items: no row has a variable name in the <code>name</code> column. %s — give each item a name.', self::rowList($skippedRows, 'looks like an item but has no name', 'look like items but have no name'))
                 : __('The survey sheet has no items.');
-        } elseif (!empty($skippedRows)) {
-            $this->warnings[] = __('Skipped rows (no variable name): %s. Variable name empty, but other columns had content. Double-check that you did not forget to define a variable name for a proper item.', implode(", ", $skippedRows));
+        } elseif ($skippedRows) {
+            $this->warnings[] = self::rowList($skippedRows, 'looks like an item but has no name, so it was skipped', 'look like items but have no name, so they were skipped')
+                . '. ' . __('Give each item a name in the <code>name</code> column.');
         }
 
         $this->survey = $data;
