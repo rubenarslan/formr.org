@@ -45,7 +45,8 @@ async function provision({ run: RUN, study: STUDY, json, after }) {
         let study = db.studyByName(STUDY);
         if (!study) {
             const res = await ctx.post(`${ADMIN_BASE}/admin/survey/add_survey/`, {
-                multipart: { uploaded: { name: `${STUDY}.json`, mimeType: 'application/json', buffer: fs.readFileSync(SURVEY) } },
+                // Engine v2: the survey's engine decides that its unit is a Form.
+                multipart: { engine: 'v2', uploaded: { name: `${STUDY}.json`, mimeType: 'application/json', buffer: fs.readFileSync(SURVEY) } },
             });
             if (!res.ok()) throw new Error(`add_survey: HTTP ${res.status()}`);
             study = db.studyByName(STUDY);
@@ -59,12 +60,12 @@ async function provision({ run: RUN, study: STUDY, json, after }) {
         if (!run) throw new Error('add_run did not create the run');
         const rid = parseInt(run.id, 10);
 
-        res = await ctx.post(`${ADMIN_BASE}/admin/run/${RUN}/ajax_create_run_unit?type=Form&position=10`, { headers: AJAX });
+        res = await ctx.post(`${ADMIN_BASE}/admin/run/${RUN}/ajax_create_run_unit?type=Survey&position=10`, { headers: AJAX });
         if (!res.ok()) throw new Error(`create Form unit: HTTP ${res.status()}`);
         const form = db.dbQuery(`SELECT id AS run_unit_id, unit_id FROM survey_run_units WHERE run_id = ${rid} AND position = 10`)[0];
         res = await ctx.post(`${ADMIN_BASE}/admin/run/${RUN}/ajax_save_run_unit`, {
             headers: AJAX,
-            form: { unit_id: form.unit_id, run_unit_id: form.run_unit_id, type: 'Form', position: 10, study_id: sid },
+            form: { unit_id: form.unit_id, run_unit_id: form.run_unit_id, type: 'Survey', position: 10, study_id: sid },
         });
         if (!res.ok()) throw new Error(`link Form to study: HTTP ${res.status()}`);
         res = await ctx.post(`${ADMIN_BASE}/admin/run/${RUN}/ajax_create_run_unit?type=Page&position=20`, { headers: AJAX });

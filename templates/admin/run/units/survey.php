@@ -1,5 +1,16 @@
 <?php echo $prepend; ?>
 
+<?php if ($survey && ($survey->rendering_mode ?? 'v1') === 'v2'): ?>
+<div class="alert alert-info" role="alert" style="margin-bottom: 1em;">
+    <i class="fa fa-wpforms"></i>
+    <strong>v2 (beta):</strong>
+    this survey runs on v2: answers are saved as participants go, items show and
+    hide instantly, a lost connection does not lose a page, and there is a
+    one-item-at-a-time layout for phones. You set these options on the survey's
+    settings page. <a href="<?= site_url('documentation#form_v2') ?>" target="_blank" class="alert-link"><i class="fa fa-question-circle"></i> v2 guide</a>
+</div>
+<?php endif; ?>
+
 <?php if ($studies): ?>
 
     <div class="form-group">
@@ -8,22 +19,11 @@
             <?php
             foreach ($studies as $study):
                 $study = (object) $study;
-                $isCurrent = $survey && $survey->id == $study->id;
-                // form_v2 studies run in a Form unit (Survey::create refuses
-                // them); only one already placed here is still listed.
-                if (($study->rendering_mode ?? 'v1') === 'v2' && !$isCurrent) {
-                    continue;
-                }
-                $selected = $isCurrent ? 'selected = "selected"' : '';
+                $selected = ($survey && $survey->id == $study->id) ? 'selected = "selected"' : '';
                 ?>
-                <option value="<?= $study->id ?>" <?= $selected ?>><?= $study->name ?></option>
+                <option value="<?= $study->id ?>" <?= $selected ?>><?= h($study->name) ?><?= ($study->rendering_mode ?? 'v1') === 'v2' ? ' (v2)' : '' ?></option>
             <?php endforeach; ?>
         </select>
-        <?php if ($survey && ($survey->rendering_mode ?? 'v1') === 'v2'): ?>
-            <p class="text-danger"><i class="fa fa-exclamation-triangle"></i> This survey runs on <strong>v2</strong>, which a Survey unit cannot show. Replace this unit with a Form unit.</p>
-        <?php else: ?>
-            <p class="help-block">Surveys on v2 are not listed here. Add them with a Form unit.</p>
-        <?php endif; ?>
 
         <?php if ($survey && $survey->id): ?>
             <p>

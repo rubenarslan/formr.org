@@ -101,7 +101,7 @@ For each `(suite, variant)` pair:
 3. Submit. Land on the run editor (`/admin/run/<name>/`).
 4. **Add the body unit:**
    - **For v1:** click **"Add Survey"**. From the dropdown/picker, choose the corresponding study (e.g. `e2e_all_widgets`).
-   - **For v2:** click **"Add Form (form_v2, beta)"**. Choose the v2 study (e.g. `e2e_all_widgets_v2`). `Form::create` will set `survey_studies.rendering_mode='v2'` on the study automatically.
+   - **For v2:** the study must already be on v2 (uploaded with **Engine: v2**, or **Move to v2** on its settings page). Click **"Add Survey"** and choose it (listed as e.g. `e2e_all_widgets_v2 (v2)`); the unit is a Form because the study is on v2.
 5. **Add a Stop unit** at the end (click **"Add Stop"**). This is load-bearing:
    - Without a Stop, the participant session dangles after the form ("Oops, creator forgot a Stop"), and v2 POST endpoints 409 because `getCurrentUnitSession()` filters ended sessions.
 6. Verify the run page lists the body unit and Stop unit.
@@ -239,9 +239,9 @@ import the solver widget).
    The study name is derived from the filename → `e2e_bot_check`. It has four
    items: `intro` (note), `human_check` (**bot_check, required**), `feeling`
    (text), `go` (submit).
-2. Create run `e2e-botcheck-v2`. Add the `e2e_bot_check` survey as a **Form**
-   unit (this points the placement at the study and flips the study to
-   `rendering_mode='v2'`), then add a **Stop** unit.
+2. Create run `e2e-botcheck-v2`. Put the `e2e_bot_check` survey on v2
+   (**Move to v2** on its settings page), add it with **Add Survey** (it is a
+   Form unit because the survey is on v2), then add a **Stop** unit.
 3. In run settings set a data-retention/expiry date + a privacy policy (public
    runs require both), then toggle **public = 2** ("Anyone with the link").
 4. Verify the Form unit linked: `survey_run_units.unit_id` for the run's
@@ -266,8 +266,8 @@ page 2: `cp_b` + `cp_followup` with showif `cp_a == 1 && cp_b == 3`).
    `e2e_crosspage_showif` (for v1) and `e2e_crosspage_showif_v2` (for v2).
 2. Create run **`e2e-crosspage-v1`**: **Add Survey** → `e2e_crosspage_showif`,
    then **Add Stop**.
-3. Create run **`e2e-crosspage-v2`**: **Add Form (form_v2, beta)** →
-   `e2e_crosspage_showif_v2` (this flips that study to `rendering_mode='v2'`),
+3. Create run **`e2e-crosspage-v2`**: put `e2e_crosspage_showif_v2` on v2
+   (**Move to v2** on its settings page), then **Add Survey** → that study,
    then **Add Stop**.
 4. Make both runs reachable for a fresh participant the same way the other
    fixtures are (public / link-accessible), and verify
@@ -290,9 +290,8 @@ participant moves or taps a row).
    (`e2e_rank`). Check the item list shows the three `rank` rows with their
    `type_options` intact (`random` / `touch` must NOT have been consumed as a
    choice-list name).
-2. Create run `e2e-rank-v2`. Add the `e2e_rank` survey as a **Form** unit
-   (points the placement at the study, flips the study to
-   `rendering_mode='v2'`), then add a **Stop** unit.
+2. Create run `e2e-rank-v2`. Put the `e2e_rank` survey on v2 (**Move to v2**
+   on its settings page), add it with **Add Survey**, then add a **Stop** unit.
 3. Set an expiry date, then toggle **public = 2** ("Anyone with the link").
 4. Verify as for bot_check: the position-10 unit's `unit_id` equals the
    `e2e_rank` study id and `survey_studies.rendering_mode = 'v2'`.

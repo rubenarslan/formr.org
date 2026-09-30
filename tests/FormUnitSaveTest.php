@@ -93,30 +93,30 @@ class FormUnitSaveTest extends \PHPUnit\Framework\TestCase {
         $this->assertSame('Form', $this->unitType(30));
     }
 
-    public function testLinkingAV1StudyPutsItAndItsUnitRowOnV2() {
+    public function testLinkingAV1StudyKeepsItOnV1() {
         $form = new Form($this->makeRun(), ['type' => 'Form']);
         $form->create(['type' => 'Form', 'position' => 10, 'study_id' => 40]);
         $this->assertSame(40, (int) $this->runUnitRow((int) $form->run_unit_id)['unit_id']);
-        $this->assertSame('v2', $this->db->findValue('survey_studies', ['id' => 40], 'rendering_mode'));
-        $this->assertSame('Form', $this->unitType(40));
+        $this->assertSame('v1', $this->db->findValue('survey_studies', ['id' => 40], 'rendering_mode'), 'only the survey settings change the engine');
+        $this->assertSame('Survey', $this->unitType(40));
     }
 
-    public function testResavingAFormCanSwitchItsStudy() {
+    public function testResavingCanSwitchToAStudyOnTheOtherEngine() {
         $form = new Form($this->makeRun(), ['type' => 'Form']);
         $form->create(['type' => 'Form', 'position' => 10, 'study_id' => 30]);
 
-        $this->resave('Form', 30, ['study_id' => 40, 'position' => 10]);
+        $saved = $this->resave('Survey', 30, ['study_id' => 40, 'position' => 10]);
         $this->assertSame(40, (int) $this->runUnitRow((int) $form->run_unit_id)['unit_id']);
-        $this->assertSame('v2', $this->db->findValue('survey_studies', ['id' => 40], 'rendering_mode'));
-        $this->assertSame('Form', $this->unitType(40));
+        $this->assertNotInstanceOf(Form::class, RunUnitFactory::make($this->makeRun(), ['id' => 40]), 'a v1 study places a Survey');
     }
 
-    public function testASurveyUnitRefusesAV2Study() {
+    public function testASurveyUnitLinksAV2Study() {
         $this->db->exec("INSERT INTO survey_units (id, type) VALUES (21, 'Survey')");
         $this->db->exec("INSERT INTO survey_run_units (id, run_id, unit_id, position, description) VALUES (100, " . self::RUN_ID . ", 21, 10, 'x')");
 
         $this->resave('Survey', 21, ['study_id' => 30, 'position' => 10, 'run_unit_id' => 100]);
-        $this->assertSame(21, (int) $this->runUnitRow(100)['unit_id'], 'left unlinked');
+        $this->assertSame(30, (int) $this->runUnitRow(100)['unit_id']);
+        $this->assertInstanceOf(Form::class, RunUnitFactory::make($this->makeRun(), ['id' => 30]), 'the study row makes it a Form');
     }
 
     public function testResavingASurveyStillRePointsTheRunUnitAtTheStudy() {

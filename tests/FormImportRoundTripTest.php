@@ -135,38 +135,31 @@ class FormImportRoundTripTest extends \PHPUnit\Framework\TestCase {
      * import path, where createFromData places a Survey unit for an
      * existing study.
      */
-    public function testASurveyUnitRefusesAStudyOnV2() {
+    public function testASurveyUnitLinksAStudyOnEitherEngine() {
+        // A v2 study's unit row is type 'Form', so its placement is a Form.
         $this->db->exec("UPDATE survey_studies SET rendering_mode = 'v2' WHERE id = 20");
+        $this->db->exec("UPDATE survey_units SET type = 'Form' WHERE id = 20");
         $survey = new Survey($this->makeRun(), ['type' => 'Survey']);
         $survey->create(['type' => 'Survey', 'position' => 70, 'study_id' => 20]);
-        $this->assertNull($survey->surveyStudy, 'not linked');
-        $this->assertNotSame(20, (int) $survey->unit_id);
-        foreach ($this->runUnitRows() as $row) {
-            $this->assertNotSame(20, (int) $row['unit_id'], 'no run unit points at the v2 study');
-        }
-
-        $this->db->exec("UPDATE survey_studies SET rendering_mode = 'v1' WHERE id = 20");
-        $v1 = new Survey($this->makeRun(), ['type' => 'Survey']);
-        $v1->create(['type' => 'Survey', 'position' => 80, 'study_id' => 20]);
-        $this->assertSame(20, (int) $v1->unit_id, 'a v1 study still links');
+        $this->assertSame(20, (int) $survey->unit_id);
+        $this->assertInstanceOf(Form::class, RunUnitFactory::make($this->makeRun(), ['id' => 20]));
+        $this->assertSame('v2', $this->db->findValue('survey_studies', ['id' => 20], 'rendering_mode'), 'linking leaves the engine alone');
     }
 
-    public function testFormLinksStudyOnlyWhenRunOwnerOwnsIt() {
-        $form = new Form($this->makeRun(), ['type' => 'Form']);
-        $form->create(['type' => 'Form', 'position' => 50, 'study_id' => 30]);
-        $this->assertTrue($form->valid);
-        $this->assertSame('v2', $this->db->findValue('survey_studies', ['id' => 30], 'rendering_mode'));
-        $this->assertSame('Form', $this->db->findValue('survey_units', ['id' => 30], 'type'));
-        $this->assertSame('form_study', $form->description, 'description defaults to the study name');
+    public function testLinkingKeepsTheEngineAndNeedsTheRunOwnersStudy() {
+        $unit = new Survey($this->makeRun(), ['type' => 'Survey']);
+        $unit->create(['type' => 'Survey', 'position' => 50, 'study_id' => 30]);
+        $this->assertTrue($unit->valid);
+        $this->assertSame('v1', $this->db->findValue('survey_studies', ['id' => 30], 'rendering_mode'), 'only the survey settings change the engine');
+        $this->assertSame('form_study', $unit->description, 'description defaults to the study name');
         $rows = $this->runUnitRows();
         $this->assertCount(1, $rows);
-        $this->assertSame(30, (int) $rows[0]['unit_id'], 'the run points at the study, as for a Survey');
+        $this->assertSame(30, (int) $rows[0]['unit_id'], 'the run points at the study');
 
-        // another user's study: Form is created but stays unlinked
+        // another user's study: the unit is created but stays unlinked
         $this->db->exec("INSERT INTO survey_studies (id, user_id, name, results_table) VALUES (60, 99, 'theirs', 's60_theirs')");
-        $other = new Form($this->makeRun(), ['type' => 'Form']);
-        $other->create(['type' => 'Form', 'position' => 60, 'study_id' => 60]);
+        $other = new Survey($this->makeRun(), ['type' => 'Survey']);
+        $other->create(['type' => 'Survey', 'position' => 60, 'study_id' => 60]);
         $this->assertNotSame(60, (int) $this->db->findValue('survey_run_units', ['id' => $other->run_unit_id], 'unit_id'));
-        $this->assertSame('v1', $this->db->findValue('survey_studies', ['id' => 60], 'rendering_mode'));
     }
 }

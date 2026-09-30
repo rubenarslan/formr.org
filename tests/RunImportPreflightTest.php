@@ -73,7 +73,8 @@ class RunImportPreflightTest extends \PHPUnit\Framework\TestCase {
         $this->assertStringContainsString("item 'q1', choice '1' must be a plain label string", $errors[0]);
     }
 
-    public function testASurveyUnitCannotBringAFormV2Survey(): void {
+    public function testASurveyOrFormUnitMayBringAV2Survey(): void {
+        // The survey's own settings decide its engine; the unit type follows.
         $bundle = ['units' => [
             ['type' => 'Survey', 'position' => 10, 'survey_data' => ['name' => 'sv2', 'settings' => ['rendering_mode' => 'v2'], 'items' => [
                 ['type' => 'text', 'name' => 'q1'],
@@ -82,9 +83,7 @@ class RunImportPreflightTest extends \PHPUnit\Framework\TestCase {
                 ['type' => 'text', 'name' => 'q1'],
             ]]],
         ]];
-        $errors = $this->preflight($this->makeRun(), $bundle);
-        $this->assertCount(1, $errors, 'the Form unit may carry it');
-        $this->assertStringContainsString("contains the survey 'sv2', which runs on v2", $errors[0]);
+        $this->assertSame(array(), $this->preflight($this->makeRun(), $bundle));
     }
 
     public function testSkipNeedsNumericJumpTarget(): void {

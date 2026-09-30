@@ -62,13 +62,10 @@ class Survey extends RunUnit {
                     (int) $options['study_id'],
                     (int) $this->run->user_id
             )) {
-                $candidate = new SurveyStudy((int) $options['study_id']);
-                if ($candidate->valid && ($refusal = $this->linkRefusal($candidate))) {
-                    alert($refusal, 'alert-danger');
-                } else {
-                    $this->unit_id = (int) $options['study_id'];
-                    $this->surveyStudy = $this->getStudy(true);
-                }
+                // Any engine: the study's own unit row says whether the
+                // placement is a Survey or a Form (SurveyStudy::syncUnitType).
+                $this->unit_id = (int) $options['study_id'];
+                $this->surveyStudy = $this->getStudy(true);
             }
         }
 
@@ -87,20 +84,9 @@ class Survey extends RunUnit {
         return $this;
     }
 
-    /**
-     * Why $study may not be linked to this unit (alert HTML), or null. A
-     * study on the form_v2 engine only runs as v2 in a Form unit; a Survey
-     * unit would render it on v1, where its JavaScript showifs are read as R
-     * and their items stay hidden. Refused like any bad link: alerted, left
-     * unlinked. Form overrides this with its own rules.
-     *
-     * @return string|null
-     */
-    protected function linkRefusal(SurveyStudy $study) {
-        if ($study->rendering_mode === 'v2') {
-            return '<strong>Survey not added.</strong> <code>' . h($study->name) . '</code> runs on v2, which needs a <strong>Form</strong> unit. Add a Form unit instead, or switch the survey back to v1.';
-        }
-        return null;
+    /** Survey and Form units share one dialog: the engine is the survey's. */
+    public function getTemplatePath($tpl = null) {
+        return parent::getTemplatePath($tpl ?? 'survey');
     }
 
     /**

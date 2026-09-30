@@ -51,7 +51,7 @@ update; restart the app and daemons after editing — step 4.)
 
 | Key | Default | Change it when |
 | --- | --- | --- |
-| `form_v2_enabled` | `false` | You want admins to be able to author v2 forms. It gates the two ways to start a study on v2: the "Add Form (form_v2, beta)" button in the run editor (`AdminRunController::getUnitAddButtons`) and the **Engine** choice on "Add a new survey" (`AdminSurveyController::addSurveyAction`). Existing Form units and studies already on v2 keep loading and running regardless. |
+| `form_v2_enabled` | `false` | You want admins to be able to author v2 forms. It gates the two ways to put a survey on v2: the **Engine** choice on "Add a new survey" (`AdminSurveyController::addSurveyAction`) and **Move to v2** on a survey's settings page. Surveys already on v2 keep loading and running regardless. (There is no separate Form button: a run's *Add Survey* unit links a survey on either engine.) |
 | `form_v2_rcall_ttl` | `['value' => 300, 'label' => 300, 'choice_label' => 300]` (seconds) | Per-slot TTL of the `survey_r_call_results` cache (a slot not listed falls back to its built-in default, 60 s for an unknown one). Values, labels and choice labels resolve once per page show. Lower them if authors complain that edited R takes too long to take effect; raise to cut OpenCPU load. |
 | `form_v2_rate_limits` | `['rcall_per_min' => 30, 'write_per_min' => 90, 'beacon_per_min' => 10, 'bot_challenge_per_min' => 20]` | Per fixed 60-second window. `rcall` covers `/form-render-page` (it triggers OpenCPU work); `write` covers `/form-page-submit`, `/form-save`, `/form-sync`; `beacon` covers the unauthenticated `/pwa-beacon`; `bot_challenge` covers `/form-bot-challenge` (one mint per `bot_check` render). Buckets are keyed by run session (beacon by IP). Raise these for fast-typing diary studies with many reactive showifs. The limiter **fails open** if `formr_rate_limits` is missing, so a half-applied patch 113 cannot lock participants out. |
 | `form_v2_offline_blob_max_mb` | `10` | Per-file cap for offline queueing. A page with a larger file upload is not queued; the participant is told to retry online. Raise for studies that routinely collect long audio/video. |
@@ -166,8 +166,8 @@ afterwards.)
 
 `rendering_mode` defaults to `v1`, so **no existing study changes
 behaviour** after the upgrade. `form_v2_enabled` doesn't switch any study
-over either — it only offers the ways in: the "Add Form" button in the run
-editor and the Engine choice on "Add a new survey".
+over either — it only offers the ways in: the Engine choice on "Add a new
+survey" and **Move to v2** on a survey's settings page.
 
 ### The one authoring rule that changes
 
@@ -201,9 +201,9 @@ Two equivalent entry points — the CLI
 docker compose exec formr_app php bin/form_v2_compat_scan.php <study_id|study_name>
 ```
 
-or, in the admin UI, the survey's settings page → **Run v2 compatibility
-scan**; the same page's "Rendering engine" box shows the flagged count
-next to the **Upgrade to form_v2** button. The scan is read-only (it
+or, in the admin UI, the survey's settings page → **Check v2
+compatibility**, next to **Move to v2** in the "Survey engine: v1 or v2"
+box. The scan is read-only (it
 never rewrites `survey_items`) and the CLI exits 0 when nothing is
 flagged, 2 otherwise, so it works as a CI gate.
 
@@ -224,17 +224,14 @@ hidden and only the browser reveals it, so at runtime a showif the client
 can't evaluate keeps its item hidden for every participant. The upgrade
 button therefore refuses while any showif is flagged; the scan is a
 heuristic, so an author who is sure a finding is wrong can confirm it with
-**Upgrade anyway**. Unsupported items block the switch without that
+**Move to v2 anyway**. Unsupported items block the switch without that
 override. See [form_v2.md](form_v2.md) § "Authoring
-`showif` and `value`" for the full authoring rules. Upgrading
+`showif` and `value`" for the full authoring rules. Moving a survey
 (`AdminSurveyController::switchRenderingModeAction`) sets
-`rendering_mode='v2'` and re-points every run unit that referenced the
-study as a plain Survey at a freshly created Form unit — and moves that
-placement's unit sessions across with it
-(`convertSurveyPlacementsToForm`), so **participants who are mid-form
-continue on v2 from where they are** rather than finishing on v1. Both
-engines read and write the same `survey_items_display` rows, so nothing
-is lost in the handover.
+`rendering_mode='v2'`, which also makes the survey's `survey_units` row
+type `Form` (`SurveyStudy::syncUnitType`), so every placement of the
+survey becomes a Form unit at once. The switch is refused while any run
+uses the survey as a classic Survey.
 
 ## 6. Rollback
 
@@ -242,8 +239,8 @@ is lost in the handover.
 `form_v2_enabled` back to `false`; leave `form_v2_long_reads` at `false`
 (the default) and v1 studies read the legacy wide path; switch an upgraded study back
 with **Switch back to v1** on its settings page (that sets
-`rendering_mode='v1'` only — Form units fall through to the classic
-pipeline, and you can switch forward again at any time).
+`rendering_mode='v1'`, and the survey's placements are Survey units again;
+you can switch forward again at any time).
 
 **Not reversible by flipping a flag:** migrations 100–115, which Atlas
 has applied and which stay applied. The deployment repo's

@@ -24,16 +24,15 @@ What participants notice:
 
 `documentation/example_surveys/all_widgets_v2.json` has every item type v2 supports (the PWA items are in `pwa_items_default.xlsx`), grouped into five pages, with JavaScript showifs, a random group, hidden items computed in R, dynamic labels and a `block` guard. Upload it under "Add a new survey" (it declares `"rendering_mode": "v2"` in its settings, so it arrives on v2) and click **Test Survey**.
 
-## Enabling form_v2 for a study
+## Putting a survey on v2
 
-There are three ways in, all from the admin UI. None touches your items. A study on v2 renders with the Form engine only inside a **Form** unit: placed in a classic Survey unit it still renders through the v1 pipeline, so add it to a run with **Add Form**.
+There are three ways in, all from the admin UI. None touches your items. A survey on either engine is added to a run with **Add Survey**; its list marks v2 surveys with *(v2)*, and a unit shows its survey on the survey's engine (a v2 survey's unit is a Form unit). Linking a survey never changes its engine.
 
-- **Upload a new survey on v2**: on "Add a new survey", pick **Engine: form_v2** (offered once the operator has set `form_v2_enabled`), or let the file say so — `"rendering_mode": "v2"` in a JSON file's `settings`, or a row `rendering_mode` | `v2` on a spreadsheet's `settings` sheet (columns `item` and `value`; the xlsx export writes this sheet, so an exported v2 survey comes back on v2). Items v2 cannot run (`calculate`) are refused at upload. A choice on the form wins over the file.
+- **Upload a new survey on v2**: on "Add a new survey", pick **Engine: v2** (offered once the operator has set `form_v2_enabled`), or let the file say so — `"rendering_mode": "v2"` in a JSON file's `settings`, or a row `rendering_mode` | `v2` on a spreadsheet's `settings` sheet (columns `item` and `value`; the xlsx export writes this sheet, so an exported v2 survey comes back on v2). Items v2 cannot run (`calculate`) are refused at upload. A choice on the form wins over the file.
 
-- **New study**: in the run editor, "Add Form (form_v2, beta)" creates a Form unit for the study you pick and switches that study to the v2 engine. The button only appears when the operator has set `$settings['form_v2_enabled'] = true`; studies already on v2 keep rendering on v2 regardless of that flag.
-- **Existing study**: on the survey's settings page (`/admin/survey/<name>`) the "Rendering engine" box shows a compatibility-scan summary and an **Upgrade to form_v2** button. The box is shown where the operator enabled form_v2 (`form_v2_enabled`). The upgrade is refused while any run uses the study as a classic Survey — switching it would change the engine under that run's participants; to try v2 with a study that is in use, copy it (download it and upload it as a new survey) and use the copy in a Form unit. Linking a study in a Form unit is refused on the same condition. The upgrade is also refused while the study has items v2 cannot run (`calculate`), and while the scan flags showifs — each of those would keep its item hidden for good; fix them, or, if the scan is wrong about one, use **Upgrade anyway**. **Switch back to v1** is next to it and is safe at any time — a Form unit whose study is on v1 simply renders through the classic pipeline.
+- **Existing study**: on the survey's settings page (`/admin/survey/<name>`) the "Survey engine: v1 or v2" box has **Move to v2** and **Check v2 compatibility**. The box is shown where the operator enabled v2 (`form_v2_enabled`). The upgrade is refused while any run uses the study as a classic Survey — switching it would change the engine under that run's participants; to try v2 with a study that is in use, copy it (download it and upload it as a new survey) and use the copy in a Form unit. Linking a study in a Form unit is refused on the same condition. The upgrade is also refused while the study has items v2 cannot run (`calculate`), and while the scan flags showifs — each of those would keep its item hidden for good; fix them, or, if the scan is wrong about one, use **Move to v2 anyway**. **Switch back to v1** is next to it and is safe at any time — a Form unit whose study is on v1 simply renders through the classic pipeline.
 
-Every survey admin page shows the engine next to the study's name (**form_v2** or **v1**), as does the survey list. **Test Survey** previews the study on its engine: a v2 study is shown exactly as a Form unit shows it to participants — one document, JavaScript showifs, per-page submits, autosave — with a note at the top saying which engine the preview uses. The preview's answers go to a test session, as for v1.
+Every survey admin page shows the engine next to the study's name (**v2** or **v1**), as does the survey list. **Test Survey** previews the study on its engine: a v2 study is shown exactly as a Form unit shows it to participants — one document, JavaScript showifs, per-page submits, autosave — with a note at the top saying which engine the preview uses. The preview's answers go to a test session, as for v1.
 
 Once a study is on v2, the same page shows the **Form_v2 settings**:
 
@@ -140,7 +139,7 @@ Before upgrading a v1 study, run the scanner. It classifies every expression:
 
 Two ways to run it:
 
-- **Admin UI** (recommended): the survey settings page (`/admin/survey/<name>`) shows the flagged count next to the **Upgrade to form_v2** button; **Run v2 compatibility scan** opens the full report with source, transpiled output, and the suggested fix per item.
+- **Admin UI** (recommended): the survey settings page (`/admin/survey/<name>`) shows the flagged count has **Check v2 compatibility**, which opens the full report with source, transpiled output, and the suggested fix per item.
 - **CLI**: `php bin/form_v2_compat_scan.php <study_id|study_name>`. Exits 0 if clean, 2 if anything is flagged — usable as a CI gate.
 
 The scan is advisory and changes nothing. But take the showif flags seriously: at runtime a showif the browser can't evaluate leaves its item hidden, for every participant.
@@ -196,8 +195,8 @@ Beyond the rendering model:
 2. For every flagged item: rewrite the showif in JS, or move the R into a hidden item's `value` and reference that item from the showif. Re-upload the sheet.
 3. Decide the per-study settings — offline queue, Previous button, layout, language, button labels (they appear on the settings page once the study is on v2).
 4. If the study uses install or push, configure the run as installable and verify `/{run}/manifest` responds.
-5. Try the study on v2 before switching it — until the switch, "Use as yourself" and **Test Survey** still show v1: export the survey as xlsx, upload the file under a new name with **Engine: form_v2**, and walk every page with **Test Survey**; check flagged items and dynamic values behave as expected.
-6. Use the copy in a Form unit. **Upgrade to form_v2** on the survey settings page works only for a survey that no run uses as a classic Survey; **Switch back to v1** undoes it at any time.
+5. Try the study on v2 before switching it — until the switch, "Use as yourself" and **Test Survey** still show v1: export the survey as xlsx, upload the file under a new name with **Engine: v2**, and walk every page with **Test Survey**; check flagged items and dynamic values behave as expected.
+6. Add the copy to your run. **Move to v2** on the survey settings page works only for a survey that no run uses as a classic Survey; **Switch back to v1** undoes it at any time.
 
 ## See also
 

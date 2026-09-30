@@ -1,9 +1,9 @@
-<h3>Form (v2) — the new survey engine</h3><hr />
+<h3>v2, the new survey engine</h3><hr />
 
 <p class="lead">A <strong>Form</strong> unit shows a survey as one JavaScript-rendered document: pages are submitted in the background, <code>showif</code>s react instantly, answers are autosaved, and a page that cannot reach the server is queued and replayed later. It is opt-in per study and lives next to the classic <strong>Survey</strong> unit, which keeps working unchanged.</p>
 
 <div class="alert alert-info">
-    <strong>The one authoring rule that changes:</strong> in a Form, <code>showif</code> is evaluated <em>in the participant's browser as JavaScript</em>. Server-side R goes into the <code>value</code> column, and a hidden item's <code>value</code> is how you feed an R result into a showif. Everything else — the spreadsheet format, item types (except <code>calculate</code>, which a Form does not run), R elsewhere in the run — stays as it was. See <a href="#form_v2_showif">showif and value</a>.
+    <strong>The one authoring rule that changes:</strong> in v2, <code>showif</code> is evaluated <em>in the participant's browser as JavaScript</em>. Server-side R goes into the <code>value</code> column, and a hidden item's <code>value</code> is how you feed an R result into a showif. Everything else — the spreadsheet format, item types (except <code>calculate</code>, which a Form does not run), R elsewhere in the run — stays as it was. See <a href="#form_v2_showif">showif and value</a>.
 </div>
 
 <ul class="list-inline" id="form_v2_toc">
@@ -33,32 +33,28 @@
 
 <p><strong>For participants</strong> the form feels like an app: no flicker between pages, instant follow-up questions, and resilience on flaky connections. <strong>For your data</strong> the item table, item names and results are the same, with a few differences covered in <a href="#form_v2_data">Data &amp; results</a>.</p>
 
-<p><strong>When to use it:</strong> for any new study. For a study that is already collecting data, keep it on the Survey unit until you have run the <a href="#form_v2_scan">compatibility scan</a>, fixed what it flags, and walked through the upgraded study yourself — see the <a href="#form_v2_upgrade">upgrade checklist</a>. Participants who are mid-form when you switch continue on the Form from where they are.</p>
+<p><strong>When to use it:</strong> for any new study. For a study that is already collecting data, keep it on v1 until you have run the <a href="#form_v2_scan">compatibility scan</a>, fixed what it flags, and walked through the upgraded study yourself — see the <a href="#form_v2_upgrade">upgrade checklist</a>. Participants who are mid-form when you switch continue on the Form from where they are.</p>
 
-<h4 id="form_v2_enable"><i class="fa fa-fw fa-toggle-on"></i> Enabling Form (v2) for a study</h4>
+<h4 id="form_v2_enable"><i class="fa fa-fw fa-toggle-on"></i> Putting a survey on v2</h4>
 
-<p>Every study has a <strong>rendering engine</strong> (<code>v1</code>, the classic Survey pipeline, or <code>v2</code>, the Form engine). A new study is on v1 unless its upload says otherwise. A study on v2 is shown with the Form engine only inside a <strong>Form</strong> unit — placed in a classic Survey unit it still renders on v1 — so add it to your run with <strong>Add Form</strong>. There are four ways to put a study on v2, all from the admin interface; none of them changes your items:</p>
+<p>Every survey runs on one of two engines: <strong>v1</strong>, the classic one, or <strong>v2</strong>. A new survey is on v1 unless you choose otherwise. You add a survey to a run the same way on either engine, with <strong>Add Survey</strong>; its list of surveys marks v2 surveys with <em>(v2)</em>, and the unit shows the survey on the survey's engine. There are three ways to put a survey on v2; none of them changes your items:</p>
 
 <dl class="dl-horizontal dl-wider">
     <dt>Upload it on v2</dt>
     <dd>
-        On <strong>Add a new survey</strong>, pick <strong>Engine: form_v2</strong> (offered when the instance administrator has enabled <code>form_v2_enabled</code>), or let the file say so: <code>"rendering_mode": "v2"</code> in a JSON file's <code>settings</code>, or a row <code>rendering_mode</code> | <code>v2</code> on a spreadsheet's <code>settings</code> sheet (columns <code>item</code> and <code>value</code> — the sheet the xlsx export writes, so an exported v2 survey comes back on v2). A choice on the form wins over the file. Items v2 cannot run (<code>calculate</code>, see <a href="#form_v2_calculate">below</a>) are refused at upload.
+        On <strong>Add a new survey</strong>, choose <strong>Engine: v2</strong> (offered when the administrator of your formr server has enabled v2). A survey exported from formr remembers its engine, so an exported v2 survey comes back on v2. Items v2 cannot run (<code>calculate</code>, see <a href="#form_v2_calculate">below</a>) are refused at upload.
     </dd>
-    <dt>Add a Form unit</dt>
+    <dt>Move an existing survey</dt>
     <dd>
-        In the run editor, <strong>Add Form (form_v2, beta)</strong> creates a Form unit; picking a study in its dropdown and saving links the study to the unit <em>and</em> switches that study to the v2 engine. A study with items v2 cannot run is not linked. The button only appears if the instance administrator has enabled <code>form_v2_enabled</code> (see <a href="#form_v2_settings">Instance settings</a>); Form units that already exist keep working whether or not that setting is on.
-    </dd>
-    <dt>Upgrade an existing study</dt>
-    <dd>
-        On the study's settings page (<strong>Surveys → <em>your study</em></strong>) the <strong>Rendering engine</strong> box shows a compatibility summary and an <strong>Upgrade to form_v2</strong> button. Upgrading sets the study to v2 and converts every run unit that uses the study as a classic Survey — in any run, including other people's — into a Form unit pointing at the same study. Sessions that are already inside such a unit move with it: those participants continue on the Form from where they are (both engines read and write the same answers). The upgrade is refused while the study has items v2 cannot run, and while the <a href="#form_v2_scan">compatibility scan</a> flags showifs; if you are sure the scan is wrong about a showif, <strong>Upgrade anyway</strong> switches regardless.
+        On the survey's settings page (<strong>Surveys → <em>your survey</em></strong>), the box <strong>Survey engine: v1 or v2</strong> has <strong>Move to v2</strong> and a <a href="#form_v2_scan">compatibility check</a>. Moving is refused while a run uses the survey as a classic Survey (to try v2, upload a copy), while the survey has items v2 cannot run, and while the check flags showifs. If you are sure the check is wrong about a showif, <strong>Move to v2 anyway</strong> on the check's page moves the survey regardless.
     </dd>
     <dt>Import the example bundle</dt>
     <dd>
-        The run editor's <strong>Import</strong> button accepts <code>documentation/run_components/Form_v2_Basic.json</code> from the formr repository: a Form unit plus an end page. The Form embeds the tiny <code>form_v2_basic</code> study (a multiple-choice item with a JavaScript showif on a follow-up, a <code>rank random touch</code>, a <code>visual_analog_scale</code>, a <code>bot_check</code> and one submit), so a single import creates the study under your account (reusing a same-named study if you have one), links it and stamps it v2. Your own runs export the same way: tick <em>Include survey items</em> and each Form's study travels with the bundle.
+        The run editor's <strong>Import</strong> button accepts <code>documentation/run_components/Form_v2_Basic.json</code> from the formr repository: a v2 survey plus an end page. The bundle contains the small <code>form_v2_basic</code> survey (a multiple-choice item with a JavaScript showif on a follow-up, a <code>rank random touch</code>, a <code>visual_analog_scale</code>, a <code>bot_check</code> and one submit), so one import creates the survey on v2 under your account and adds it to the run. Your own runs export the same way: tick <em>Include survey items</em> and each survey travels with the bundle, engine included.
     </dd>
 </dl>
 
-<p><strong>Switch back to v1</strong>, next to the upgrade button, is safe at any time: it only changes the study's engine, and a Form unit whose study is on v1 simply renders through the classic pipeline. You can switch forward again later.</p>
+<p><strong>Switch back to v1</strong> is possible at any time. It changes only the survey's engine; every run that shows the survey then shows it on v1. You can move it to v2 again later.</p>
 
 <p>Once a study is on v2, its settings page gains a <strong>Form_v2 settings</strong> block:</p>
 <table class="table table-condensed table-striped">
@@ -73,9 +69,9 @@
 </table>
 <p>Three classic settings are ignored on v2 and say so on the page: the maximum number of items per page and the "use paging" option (pages always come from your <code>submit</code> items) and "instant validation" (the browser always validates on page advance).</p>
 
-<h4 id="form_v2_showif"><i class="fa fa-fw fa-code"></i> <code>showif</code> and <code>value</code> in a Form</h4>
+<h4 id="form_v2_showif"><i class="fa fa-fw fa-code"></i> <code>showif</code> and <code>value</code> in v2</h4>
 
-<p>Two columns of the item table decide what a participant sees and what is pre-filled. On a Form they follow two rules:</p>
+<p>Two columns of the item table decide what a participant sees and what is pre-filled. In v2 they follow two rules:</p>
 <ol>
     <li><strong><code>showif</code> is JavaScript.</strong> It runs in the participant's browser, as written, and is re-evaluated whenever an input changes. A v1 showif is R, so the compatibility scan lists every one that still contains R; the fix is a JavaScript rewrite or the hidden-item bridge below.</li>
     <li><strong><code>value</code> is R.</strong> Anything that is not empty or a plain number is sent to R on the server, as written.</li>
@@ -127,7 +123,7 @@ value: complex_score(current(q1), current(q2))</pre>
 <p>The R source never reaches the browser. When the form is rendered, every dynamic <code>value</code> (and every label or choice label with inline R) is recorded on the server as an <em>allowlisted call</em> for that item; the browser only ever refers to the recorded call and can only supply answers to the study's own items. A participant cannot run R of their own, cannot reach other studies' data, and a call is revoked the moment the item is deleted or its expression changes in the sheet. Expressions that error in R resolve to NA, which arrives in the item as an empty value; a logical arrives as <code>TRUE</code> or <code>FALSE</code>. Results are cached for a few minutes per participant and answer set (see <a href="#form_v2_settings">Instance settings</a>).</p>
 
 <p><strong>Page-scoped resolution.</strong> Dynamic values, labels (containing <code>`r …`</code>), choice labels and <code>note_iframe</code> documents are resolved when the participant reaches their page, in one batched request after the previous page has been stored — so a value on page 2 can depend on answers from page 1. The first page works the same way, so its dynamic content paints a moment after the rest of the page. Keep heavy dynamic content off the first page if that flicker matters.</p>
-<p id="form_v2_calculate"><strong><code>calculate</code> items are not supported.</strong> A Form runs R only for what a page shows; it does no computation of its own. A study with a <code>calculate</code> item — or any other item that takes no input but carries R in <code>value</code>, such as a <code>server</code> item with a value — cannot be uploaded on v2, switched to v2 or linked to a Form unit; the compatibility scan lists these items. Replace each one by what it was for:</p>
+<p id="form_v2_calculate"><strong><code>calculate</code> items are not supported.</strong> v2 runs R only for what a page shows; it does no computation of its own. A study with a <code>calculate</code> item — or any other item that takes no input but carries R in <code>value</code>, such as a <code>server</code> item with a value — cannot be uploaded on v2, switched to v2 or linked to a Form unit; the compatibility scan lists these items. Replace each one by what it was for:</p>
 <ul>
     <li><strong>the form needs the value</strong> (a showif, a pre-filled answer, a random assignment the next page branches on): a <code>hidden</code> item with the same <code>value</code> — see <a href="#form_v2_bridge">below</a>;</li>
     <li><strong>feedback or a later unit needs it</strong> (a score on the end page, eligibility for a Skip unit, a payment code): compute it there, in that unit's R, from the stored answers.</li>
@@ -152,9 +148,9 @@ value: complex_score(current(q1), current(q2))</pre>
 
 <h4 id="form_v2_scan"><i class="fa fa-fw fa-search"></i> The compatibility scan</h4>
 
-<p>Before you move an existing study to the Form engine, scan it. The scan reads every non-empty <code>showif</code> and <code>value</code> of the study and sorts them into buckets, and lists the items v2 cannot run at all. It changes nothing — it is a report. Two ways to run it:</p>
+<p>Before you move an existing survey to v2, check it. The check reads every <code>showif</code> and <code>value</code> of the survey, sorts them into the groups below, and lists the items v2 cannot run. It changes nothing in your survey. Two ways to run it:</p>
 <ul>
-    <li><strong>Admin interface:</strong> on the study's settings page. While the study is still on v1, the <em>Rendering engine</em> box shows the number of flagged expressions next to <strong>Upgrade to form_v2</strong> and a <strong>Full compatibility report</strong> button; once it is on v2, the <em>Form_v2 settings</em> block has a <strong>Run v2 compatibility scan</strong> button. The report lists, per item, the source and the suggested fix.</li>
+    <li><strong>In formr:</strong> the survey's settings page has a <strong>Check v2 compatibility</strong> button, in the <strong>Survey engine: v1 or v2</strong> box while the survey is on v1 and under <strong>v2 settings</strong> once it is on v2. The page lists each item to change, what is wrong and how to fix it.</li>
     <li><strong>Command line</strong> (instance administrators): <code>php bin/form_v2_compat_scan.php &lt;study_id|study_name&gt;</code> prints the same report and exits with status 0 if the study is clean and 2 if anything is flagged, so it can gate a deployment.</li>
 </ul>
 
@@ -233,11 +229,11 @@ value: complex_score(current(q1), current(q2))</pre>
 
 <h4 id="form_v2_items"><i class="fa fa-fw fa-plus-square"></i> New item types</h4>
 <ul>
-    <li><strong><code>rank</code></strong> — the participant orders the choices by drag and drop, buttons or keyboard. Form (v2) units only.</li>
-    <li><strong><code>bot_check</code></strong> — a proof-of-work human check that runs on your own formr server, with no third party involved. Form (v2) units only.</li>
+    <li><strong><code>rank</code></strong> — the participant orders the choices by drag and drop, buttons or keyboard. v2 only.</li>
+    <li><strong><code>bot_check</code></strong> — a proof-of-work human check that runs on your own formr server, with no third party involved. v2 only.</li>
     <li><strong><code>visual_analog_scale</code></strong> — a slider without a visible default; works in classic surveys too.</li>
 </ul>
-<p>All three are described in the <a href="<?= site_url('documentation#available_items') ?>">item types</a> reference. <code>calculate</code> is the one item type a Form does not run (<a href="#form_v2_calculate">see above</a>).</p>
+<p>All three are described in the <a href="<?= site_url('documentation#available_items') ?>">item types</a> reference. <code>calculate</code> is the one item type v2 does not run (<a href="#form_v2_calculate">see above</a>).</p>
 
 <h4 id="form_v2_data"><i class="fa fa-fw fa-table"></i> Data &amp; results</h4>
 <p>A Form stores answers where a classic survey does, under the same item names: the results table, the exports and R elsewhere in the run (<code>study_name$item</code>) work unchanged. The differences:</p>
@@ -254,7 +250,7 @@ value: complex_score(current(q1), current(q2))</pre>
 <table class="table table-condensed table-striped">
     <thead><tr><th>Setting</th><th>Default</th><th>What it does</th></tr></thead>
     <tbody>
-        <tr><td><code>form_v2_enabled</code></td><td><code>false</code></td><td>Shows <strong>Add Form (form_v2, beta)</strong> in the run editor and the <strong>Engine</strong> choice on <strong>Add a new survey</strong>. Studies already on v2 and existing Form units keep working without it.</td></tr>
+        <tr><td><code>form_v2_enabled</code></td><td><code>false</code></td><td>Offers v2: the <strong>Engine</strong> choice on <strong>Add a new survey</strong> and <strong>Move to v2</strong> on a survey's settings page. Surveys already on v2 keep working without it.</td></tr>
         <tr><td><code>form_v2_rate_limits</code></td><td>30 / 90 / 10 / 20 per minute</td><td>Per participant session: page resolutions (they run R), writes (page submits, autosaves, queue replays), the unauthenticated PWA beacon (per IP), and <code>bot_check</code> challenges.</td></tr>
         <tr><td><code>form_v2_rcall_ttl</code></td><td>300&nbsp;s</td><td>How long a resolved value, label or choice label is reused for the same participant and the same answers.</td></tr>
         <tr><td><code>form_v2_offline_blob_max_mb</code></td><td>10</td><td>Largest file a page may carry into the offline queue.</td></tr>
@@ -264,9 +260,9 @@ value: complex_score(current(q1), current(q2))</pre>
 
 <h4 id="form_v2_upgrade"><i class="fa fa-fw fa-list-ol"></i> Upgrade checklist for a running study</h4>
 <ol>
-    <li>Run the <a href="#form_v2_scan">compatibility scan</a>.</li>
+    <li>Run the <a href="#form_v2_scan">compatibility check</a>.</li>
     <li>Fix what it flags: rewrite each flagged showif in JavaScript or bridge it through a hidden item, and replace each <code>calculate</code> item (<a href="#form_v2_calculate">how</a>). Upload the corrected sheet.</li>
-    <li>Try the study on v2 before switching it: export it as xlsx, upload the file under a new name with <strong>Engine: form_v2</strong>, and walk through every page with <strong>Test Survey</strong>. Check the flagged items and the R-computed values.</li>
+    <li>Try the study on v2 before switching it: export it as xlsx, upload the file under a new name with <strong>Engine: v2</strong>, and walk through every page with <strong>Test Survey</strong>. Check the flagged items and the R-computed values.</li>
     <li>If the study uses the install or push items, configure the run as an installable app and check that its manifest loads.</li>
-    <li>Use the copy in a Form unit and set the <a href="#form_v2_enable">Form_v2 settings</a> (offline queue, Previous button, layout, language, button labels). <strong>Upgrade to form_v2</strong> on the study's settings page works only for a survey that no run uses as a classic Survey; <strong>Switch back to v1</strong> undoes it at any time.</li>
+    <li>Add the copy to your run and set its <strong>v2 settings</strong> (offline queue, Previous button, layout, language, button labels). <strong>Move to v2</strong> on the settings page works only for a survey that no run uses as a classic Survey; <strong>Switch back to v1</strong> undoes it at any time.</li>
 </ol>

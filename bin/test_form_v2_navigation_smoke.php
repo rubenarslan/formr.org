@@ -304,7 +304,7 @@ try {
     $failures++;
 }
 
-echo "\n-- a study with a calculate item is not linked to a Form --\n";
+echo "\n-- a Form unit's survey with a calculate item: its items are refused, as on a v2 upload --\n";
 $calcStudy = null;
 try {
     $calcName = 'navsmoke_calc_' . $suffix;
@@ -318,11 +318,9 @@ try {
     $run->importUnits(json_encode($calcBundle));
     $calcStudy = SurveyStudy::loadByUserAndName($GLOBALS['user'], $calcName);
     ok($calcStudy && $calcStudy->valid, 'the study itself was created');
-    ok($calcStudy && $calcStudy->rendering_mode === 'v1', 'but not switched to v2', $calcStudy ? $calcStudy->rendering_mode : null);
-    $unsupported = $calcStudy ? $calcStudy->formV2UnsupportedItems() : [];
-    ok(array_keys($unsupported) === ['c_score'], 'the calculate is what blocks it', array_keys($unsupported));
-    $linked = $db->execute('SELECT COUNT(*) AS n FROM survey_run_units WHERE run_id = :r AND unit_id = :s', ['r' => $runId, 's' => $calcStudy ? $calcStudy->id : 0], false, true);
-    ok((int) $linked['n'] === 0, 'no Form unit points at it');
+    ok($calcStudy && $calcStudy->rendering_mode === 'v2', 'on v2, as its Form unit says', $calcStudy ? $calcStudy->rendering_mode : null);
+    $calcItems = $db->execute('SELECT COUNT(*) AS n FROM survey_items WHERE study_id = :s', ['s' => $calcStudy ? $calcStudy->id : 0], false, true);
+    ok((int) $calcItems['n'] === 0, 'its item table was refused (calculate)', $calcItems);
 } catch (Throwable $e) {
     echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . "\n";
     $failures++;

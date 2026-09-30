@@ -96,13 +96,13 @@
         <div id="form_unit" class="panel-collapse collapse form_unit">
             <div class="panel-body">
                 <p>
-                    A Form unit does what a Survey unit does — it asks the questions defined in a study's item table — but renders them with the new <strong>form (v2) engine</strong>: the whole survey is loaded once as a single document, pages are submitted in the background without a reload, <code>showif</code>s react instantly in the browser, answers are autosaved, and a page that cannot reach the server is queued and replayed once the participant is back online. It also offers a one-item-per-screen "solo" layout and localized buttons.
+                    A Form unit does what a Survey unit does — it asks the questions defined in a study's item table — but on the new <strong>v2</strong> engine: pages change without reloading, <code>showif</code>s react instantly in the browser, answers are saved as participants go, and a page submitted without a connection is kept on the device and sent once the participant is back online. It also offers a one-item-per-screen "solo" layout and localized buttons.
                 </p>
                 <p>
-                    The unit appears as <strong>Add Form (form_v2, beta)</strong> in the run editor once the instance administrator has enabled it. Choosing a study in the Form unit switches that study to the v2 engine; alternatively, upload a new survey on v2, or upgrade an existing study from its settings page, which converts the Survey units using it into Form units. A study on v2 renders with the new engine only inside a Form unit. In R (run conditions, other surveys' labels) a Form's data is reached exactly like a survey's: <code>study_name$item</code>.
+                    There is no separate button for it: add the survey with <strong>Add Survey</strong>, and if the survey is on v2 (marked <em>(v2)</em> in the list) the unit is a Form. To put a survey on v2, upload it on v2 or move it on its settings page. In R (run conditions, other surveys' labels) a Form's data is reached exactly like a survey's: <code>study_name$item</code>.
                 </p>
                 <p>
-                    The one authoring rule that changes: in a Form, <code>showif</code> is JavaScript, evaluated in the participant's browser; R belongs in the <code>value</code> column, and a hidden item's <code>value</code> is how an R result gets into a showif. Everything else — spreadsheet format, item types (except <code>calculate</code>, which a Form does not run), R elsewhere in the run — stays the same. Read the full <a href="<?= site_url('documentation#form_v2') ?>">Form (v2) guide</a> before switching a study that is already collecting data.
+                    The one authoring rule that changes: in a Form, <code>showif</code> is JavaScript, evaluated in the participant's browser; R belongs in the <code>value</code> column, and a hidden item's <code>value</code> is how an R result gets into a showif. Everything else — spreadsheet format, item types (except <code>calculate</code>, which a Form does not run), R elsewhere in the run — stays the same. Read the full <a href="<?= site_url('documentation#form_v2') ?>">v2 guide</a> before switching a study that is already collecting data.
                 </p>
             </div>
         </div>

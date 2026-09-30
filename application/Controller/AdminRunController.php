@@ -756,12 +756,6 @@ class AdminRunController extends AdminController
             ),
         );
 
-        if (Config::get('form_v2_enabled', false)) {
-            $buttons['Form'] = array(
-                'title' => 'Add Form (v2, beta)',
-                'icon' => 'fa-wpforms',
-            );
-        }
 
         $buttons += array(
             'External' => array(
