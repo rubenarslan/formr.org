@@ -1060,70 +1060,57 @@ class RunController extends Controller {
         }
         list(, $unitSession, $study) = $context;
 
-        // Dedup pre-check: a uuid we already persisted is a cheap, safe retry.
-        // The uuid is unique-indexed, so a race between two drains of the same
-        // entry is caught by the INSERT below; the transaction keeps the
-        // ledger row and the answers together.
+        // The ledger row is a claim, taken before the page is applied and
+        // released if applying does not complete: a uuid in the ledger means
+        // "applied, or being applied by another drain of the same entry",
+        // and a retry is answered already_applied. The claim cannot share a
+        // transaction with the answers: the final page's end (the
+        // run-session lock) comes after their commit, and a uuid committed
+        // with them but before a failed end would make every retry skip the
+        // end. Re-applying a released entry is safe.
         $db = DB::getInstance();
-        $existing = $db->select('id')->from('survey_form_submissions')
-            ->where('uuid = :uuid')->bindParams(array('uuid' => $uuid))->fetch();
-        if ($existing) {
+        if ($db->entry_exists('survey_form_submissions', array('uuid' => $uuid))) {
             $this->sendJsonResponse(array('status' => 'ok', 'already_applied' => true));
             return;
         }
-        $db->beginTransaction();
-        $claimed = false;
         try {
-            $stmt = $db->prepare(
-                'INSERT INTO `survey_form_submissions` (uuid, unit_session_id, page, client_ts) '
-                . 'VALUES (:uuid, :usid, :page, :cts)'
-            );
-            $stmt->bindValue(':uuid', $uuid);
-            $stmt->bindValue(':usid', (int) $unitSession->id, PDO::PARAM_INT);
-            $stmt->bindValue(':page', (int) $payload['page'], PDO::PARAM_INT);
-            if ($clientTs === null) {
-                $stmt->bindValue(':cts', null, PDO::PARAM_NULL);
-            } else {
-                $stmt->bindValue(':cts', $clientTs);
-            }
-            $stmt->execute();
-            $claimed = true;
-            $result = (new FormSubmissionService($unitSession, $study))->apply($payload);
-        } catch (Throwable $e) {
-            $db->rollBack();
-            // A duplicate uuid is a race between two drains of the same entry
-            // — but only when the ledger insert itself hit it: a duplicate
-            // key raised while applying the page is a failure like any other,
-            // and answering already_applied would make the browser drop it.
-            if (!$claimed && $e instanceof PDOException && (int) ($e->errorInfo[1] ?? 0) === 1062) {
+            $db->insert('survey_form_submissions', array(
+                'uuid' => $uuid,
+                'unit_session_id' => (int) $unitSession->id,
+                'page' => (int) $payload['page'],
+                'client_ts' => $clientTs,
+            ));
+        } catch (PDOException $e) {
+            if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
+                // Another drain of the same entry claimed it first.
                 $this->sendJsonResponse(array('status' => 'ok', 'already_applied' => true));
                 return;
             }
-            // The rollback cannot be relied on to drop this entry's uuid:
-            // UnitSession::writeSurveyStudyRecord commits the connection's
-            // transaction (DB::beginTransaction nests as a no-op), so a
-            // failure after the answers were written — the final page's
-            // run-session lock timing out, say — would leave the uuid
-            // recorded, and the retry would be answered `already_applied`
-            // without ever ending the form. Re-applying is safe.
+            throw $e;
+        }
+        $release = function () use ($db, $uuid) {
             try {
-                $db->exec('DELETE FROM `survey_form_submissions` WHERE `uuid` = :uuid', array('uuid' => $uuid));
+                $db->delete('survey_form_submissions', array('uuid' => $uuid));
             } catch (Throwable $cleanup) {
                 formr_log_exception($cleanup, __METHOD__);
             }
+        };
+        try {
+            $result = (new FormSubmissionService($unitSession, $study))->apply($payload);
+        } catch (Throwable $e) {
+            $release();
             formr_log_exception($e, __METHOD__);
             $this->sendJsonResponse(array('error' => 'The page could not be stored.'), 500);
             return;
         }
         if ($result['status'] !== 'ok') {
-            // Drop the uuid claim so the participant can fix the errors and
-            // re-drain the same entry; leaving it would make the retry look
-            // already-applied and silently discard the answers.
-            $db->rollBack();
+            // Release so the participant can fix the errors and re-drain the
+            // same entry; a kept claim would make the retry look applied and
+            // silently discard the answers.
+            $release();
             $this->sendJsonResponse($result);
             return;
         }
-        $db->commit();
         FormSubmissionService::recordSubmitSeq($unitSession->id, $payload['doc'], $payload['seq']);
         $this->sendJsonResponse($this->withRunRedirect($result));
     }
