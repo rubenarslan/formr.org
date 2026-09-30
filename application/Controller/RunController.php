@@ -994,7 +994,7 @@ class RunController extends Controller {
         $posted['_item_views'] = $itemViews;
         // quiet: a failed write returns false without a user error — then
         // nothing was stored, and the page must not be told "Saved".
-        $stored = $unitSession->updateSurveyStudyRecord($posted, true, true);
+        $stored = $unitSession->updateSurveyStudyRecord($posted, true, true, $items);
 
         $this->sendJsonResponse(array('status' => ($stored || $withdrawn) ? 'saved' : 'noop'));
     }

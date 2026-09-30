@@ -159,7 +159,7 @@ class FormSubmissionService {
      *   {status:'errors', errors: name => message}
      */
     public function apply(array $payload) {
-        $this->unitSession->createSurveyStudyRecord();
+        $this->unitSession->ensureSurveyStudyRecord();
         $posted = $payload['data'];
         $posted['_item_views'] = $payload['item_views'];
         if (!$this->unitSession->updateSurveyStudyRecord($posted, true)) {
@@ -218,33 +218,46 @@ class FormSubmissionService {
      * @param int[] $hiddenIds
      */
     public function markHiddenItems(array $hiddenIds) {
-        $hiddenIds = array_values(array_unique(array_filter(array_map('intval', $hiddenIds))));
+        $hidden = array_flip(array_filter(array_map('intval', $hiddenIds)));
         $sid = (int) $this->unitSession->id;
-        $join = 'FROM `survey_items_display` `d` JOIN `survey_items` `i` ON `i`.`id` = `d`.`item_id`';
-        $showif = '`d`.`session_id` = :sid
+        // The session's showif-bearing, live items: one read, then the
+        // writes go by key, and only for the rows that change.
+        $rows = $this->db->execute(
+            'SELECT `d`.`item_id`, `i`.`name`, `d`.`hidden`, `d`.`saved`
+             FROM `survey_items_display` `d` JOIN `survey_items` `i` ON `i`.`id` = `d`.`item_id`
+             WHERE `d`.`session_id` = :sid
                AND `i`.`showif` IS NOT NULL AND TRIM(`i`.`showif`) != \'\'
-               AND `i`.`deleted` IS NULL';
-        $idList = $hiddenIds ? implode(',', $hiddenIds) : '0';
+               AND `i`.`deleted` IS NULL',
+            array('sid' => $sid)
+        );
+        $hide = $show = $retractedNames = array();
+        foreach ((array) $rows as $row) {
+            $id = (int) $row['item_id'];
+            if (isset($hidden[$id])) {
+                $hide[] = $id;
+                if ($row['saved'] !== null) {
+                    $retractedNames[] = (string) $row['name'];
+                }
+            } elseif ((int) $row['hidden'] === 1) {
+                $show[] = $id;
+            }
+        }
+        if ($hide) {
+            $this->db->exec(
+                'UPDATE `survey_items_display` SET `hidden` = 1, `answer` = NULL, `saved` = NULL'
+                . ' WHERE `session_id` = :sid AND `item_id` IN (' . implode(',', $hide) . ')',
+                array('sid' => $sid)
+            );
+        }
+        if ($show) {
+            $this->db->exec(
+                'UPDATE `survey_items_display` SET `hidden` = 0'
+                . ' WHERE `session_id` = :sid AND `item_id` IN (' . implode(',', $show) . ')',
+                array('sid' => $sid)
+            );
+        }
 
-        $retracted = $this->db->execute(
-            'SELECT DISTINCT `i`.`name` ' . $join . ' WHERE ' . $showif
-            . ' AND `d`.`item_id` IN (' . $idList . ') AND `d`.`saved` IS NOT NULL',
-            array('sid' => $sid)
-        );
-        $this->db->exec(
-            'UPDATE `survey_items_display` `d` JOIN `survey_items` `i` ON `i`.`id` = `d`.`item_id`'
-            . ' SET `d`.`hidden` = 1, `d`.`answer` = NULL, `d`.`saved` = NULL'
-            . ' WHERE ' . $showif . ' AND `d`.`item_id` IN (' . $idList . ')',
-            array('sid' => $sid)
-        );
-        $this->db->exec(
-            'UPDATE `survey_items_display` `d` JOIN `survey_items` `i` ON `i`.`id` = `d`.`item_id`'
-            . ' SET `d`.`hidden` = 0'
-            . ' WHERE ' . $showif . ' AND `d`.`hidden` = 1 AND `d`.`item_id` NOT IN (' . $idList . ')',
-            array('sid' => $sid)
-        );
-
-        $retractedNames = array_map(function ($row) { return (string) $row['name']; }, (array) $retracted);
+        $retractedNames = array_values(array_unique($retractedNames));
         $this->clearResultsColumns($retractedNames);
         return $retractedNames;
     }

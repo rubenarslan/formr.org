@@ -987,6 +987,31 @@ class UnitSession extends Model {
      * @return boolean
      * @throws Exception
      */
+    /**
+     * createSurveyStudyRecord() for a write to a unit session whose page was
+     * rendered: the render has created its record (the iteration, the
+     * results row, the display rows), so all that is left to do is what
+     * createSurveyStudyRecord does on a revisit — bump the results row's
+     * `modified`. Anything missing gets the full setup.
+     */
+    public function ensureSurveyStudyRecord() {
+        $row = $this->db->execute(
+            'SELECT `study_iteration`, EXISTS(SELECT 1 FROM `survey_items_display` WHERE `session_id` = :sid_d) AS `has_rows`
+             FROM `survey_unit_sessions` WHERE `id` = :sid',
+            array('sid' => (int) $this->id, 'sid_d' => (int) $this->id), false, true
+        );
+        if (!$row || empty($row['study_iteration']) || empty($row['has_rows'])) {
+            $this->createSurveyStudyRecord();
+            return;
+        }
+        $this->study_iteration = (int) $row['study_iteration'];
+        $study = $this->runUnit->surveyStudy;
+        if (Config::get('form_v2_dual_write_results', true) && $study->results_table) {
+            $this->db->update($study->results_table, array('modified' => mysql_now()),
+                array('session_id' => (int) $this->id, 'study_id' => (int) $study->id));
+        }
+    }
+
     public function createSurveyStudyRecord() {
         /** @var SurveyStudy $study */
         $study = $this->runUnit->surveyStudy;
@@ -1234,11 +1259,14 @@ class UnitSession extends Model {
      *
      * @param array $posted An array of posted answers
      * @param bool $validate Should items be validated before posted?
+     * @param bool $quiet a failed write returns false without a user error
+     * @param Item[]|null $items name => item for the posted names, when the
+     *   caller has them already (SurveyStudy::getItemsWithChoices)
      * 
      * @return boolean Returns TRUE if all data was successfully validated and saved or FALSE otherwise
      * @throws Exception
      */
-    public function updateSurveyStudyRecord($posted, $validate = true, $quiet = false) {
+    public function updateSurveyStudyRecord($posted, $validate = true, $quiet = false, array $items = null) {
         // Audit F2 (2026-07): never write answers into a terminal unit
         // session. The ended-run-session branch of RunSession::execute()
         // re-dispatches the last unit session for display; a back-button
@@ -1298,10 +1326,12 @@ class UnitSession extends Model {
          * This should help avoid inconsistencies or having notes and headings spread across pages
          */
         // Get items from database that are related to what is being posted
-        $items = $study->getItemsWithChoices(null, array(
-            'field' => 'name',
-            'values' => array_keys($posted),
-        ));
+        if ($items === null) {
+            $items = $study->getItemsWithChoices(null, array(
+                'field' => 'name',
+                'values' => array_keys($posted),
+            ));
+        }
         // (On a v2 study the items come with formV2 set: getItemsWithChoices.)
 
         // Validate items and if any fails return user to same page with all unanswered items and error messages
