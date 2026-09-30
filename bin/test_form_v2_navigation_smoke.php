@@ -189,7 +189,7 @@ try {
 
     echo "\n-- a GET does not complete the form --\n";
     $out = $form->getUnitSessionOutput($us);
-    ok(empty($out['end_session']) && !empty($out['content']) && !empty($out['use_form_v2']), 'render, not end_session', array_keys($out));
+    ok(empty($out['end_session']) && !empty($out['content']) && !empty($out['form_v2']), 'render, not end_session', array_keys($out));
 
     echo "\n-- final submit with q3 answered: ended --\n";
     $r = $submit(['q3' => 'done'], [$ids['q2']], true, 2);

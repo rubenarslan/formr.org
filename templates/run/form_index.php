@@ -1,10 +1,11 @@
 <?php
 header('Content-type: text/html; charset=utf-8');
-// Per-study participant language (survey_studies.language, patch 114),
-// threaded up from Form::getUnitSessionOutput via the use_form_v2 chain.
-// Drives the document language, text direction, and the engine-chrome
-// string table injected as window.fmrStrings below.
-$formLanguage = !empty($form_language) ? (string) $form_language : 'en';
+// The v2 page state from Form::getUnitSessionOutput ($form_v2): the
+// study's participant language (survey_studies.language, patch 114) drives
+// the document language and text direction, and its string table is
+// injected as window.fmrStrings below.
+$formV2 = !empty($form_v2) && is_array($form_v2) ? $form_v2 : array();
+$formLanguage = !empty($formV2['language']) ? (string) $formV2['language'] : 'en';
 $formDir = FormStrings::dir($formLanguage);
 ?><!DOCTYPE html>
 <html lang="<?php echo htmlspecialchars($formLanguage, ENT_QUOTES); ?>" dir="<?php echo $formDir; ?>" class="no_js">
@@ -78,7 +79,7 @@ $formDir = FormStrings::dir($formLanguage);
             window.formr = <?php echo !empty($jsConfig) ? json_encode($jsConfig) : '{}'; ?>;
             // Engine-chrome strings in the study's language (FormStrings;
             // English fallback key-by-key). Read by the bundle's lib/i18n.js.
-            window.fmrStrings = <?php echo json_encode(!empty($form_strings) && is_array($form_strings) ? $form_strings : FormStrings::table($formLanguage), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP); ?>;
+            window.fmrStrings = <?php echo json_encode(!empty($formV2['strings']) && is_array($formV2['strings']) ? $formV2['strings'] : FormStrings::table($formLanguage), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP); ?>;
             // bot_check (Altcha): same-origin URL of the self-hosted memory-hard
             // Argon2id Web Worker, copied next to the form bundle by webpack.
             // Resolved against the active build/dev-build dir so it always matches

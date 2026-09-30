@@ -155,7 +155,7 @@ class SurveyTestController extends Controller {
             run_url(Run::TEST_RUN), $surveyTestUrl, $run_vars['run_content']
         );
 
-        if (!empty($run_vars['use_form_v2'])) {
+        if (!empty($run_vars['form_v2'])) {
             // The v2 page (run/form_index) reads the run for its PWA head.
             $this->run = $testRun;
             $this->setView('run/form_index', $run_vars);

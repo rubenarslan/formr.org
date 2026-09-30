@@ -142,7 +142,7 @@ class RunController extends Controller {
         // form_v2 units render through a minimal standalone view that loads only
         // the form bundle. Falls through to run/index.php for Survey units and all
         // other unit types.
-        $view = !empty($run_vars['use_form_v2']) ? 'run/form_index' : 'run/index';
+        $view = !empty($run_vars['form_v2']) ? 'run/form_index' : 'run/index';
 
         $this->setView($view, array_merge($run_vars, $asset_vars));
 

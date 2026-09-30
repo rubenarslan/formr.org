@@ -1458,9 +1458,7 @@ class Run extends Model
             'run_session' => $runSession,
             'run_content' => $run_content,
             'redirect' => array_val($output, 'redirect'),
-            'use_form_v2' => !empty($output['use_form_v2']),
-            'form_language' => array_val($output, 'form_language'),
-            'form_strings' => array_val($output, 'form_strings'),
+            'form_v2' => array_val($output, 'form_v2'),
             'run' => $this,
         );
     }

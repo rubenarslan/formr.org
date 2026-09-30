@@ -44,8 +44,8 @@ What's live vs. gated:
 ```mermaid
 flowchart TB
   subgraph page["form_v2 page load"]
-    A[Run::exec] -->|use_form_v2 true| B[RunSession::executeUnitSession]
-    B -->|use_form_v2 true| C[RunController::indexAction]
+    A[Run::exec] -->|form_v2| B[RunSession::executeUnitSession]
+    B -->|form_v2| C[RunController::indexAction]
     C -->|view=run/form_index| D[FormRenderer::render]
     D -->|data-fmr-fill-id| E[survey_r_calls lookup]
     D -->|data-fmr-label-id| E
@@ -97,9 +97,9 @@ class Form extends Survey {
 
 Symptom to watch for if this ever breaks: admin UI looks correct, but v2 rendering never fires and the unit acts like a Survey. Check `survey_run_units.unit_id` points at the Form's row, not the study's.
 
-### 2.3 `use_form_v2` passthrough chain
+### 2.3 `form_v2` passthrough chain
 
-`Form::getUnitSessionOutput` → `RunSession::executeUnitSession` → `Run::exec` → `RunController::indexAction`. Each layer returns a fixed-shape dict and drops keys it doesn't know; every layer needs an explicit `use_form_v2` passthrough for the view-picker in `indexAction` to pick `templates/run/form_index.php` over the v1 body renderer. Any future v2-only flag propagating up the same path will need the same treatment.
+`Form::getUnitSessionOutput` → `RunSession::executeUnitSession` → `Run::exec` → `RunController::indexAction`. Each layer returns a fixed-shape dict and drops keys it doesn't know, so the v2 page state travels as one array under `form_v2` (`language`, `strings`) that every layer passes whole; its presence makes `indexAction` pick `templates/run/form_index.php` over the v1 body renderer. Future v2 page state goes inside that array.
 
 ### 2.4 Single-page rendering + AJAX page-submit
 
@@ -274,7 +274,7 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] `FormRenderer` (`application/Spreadsheet/FormRenderer.php`)
 - [x] `Form::getUnitSessionOutput` branches on `rendering_mode='v2'`
 - [x] `templates/run/form_index.php`
-- [x] `use_form_v2` passthrough through `RunSession::executeUnitSession` + `Run::exec` + `RunController::indexAction`
+- [x] `form_v2` passthrough through `RunSession::executeUnitSession` + `Run::exec` + `RunController::indexAction`
 - [x] `POST /{runName}/form-page-submit` (`RunController::formPageSubmitAction`)
 - [x] `<section data-fmr-page>` + vanilla JS nav
 - [x] Per-page submit + native Constraint Validation
@@ -422,8 +422,8 @@ Nothing here is still open; these are the frozen decisions.
 - `application/Spreadsheet/FormRenderer.php` — single-document renderer; overrides `processItems`; allowlist UPSERT.
 - `application/Spreadsheet/RAllowlistExtractor.php` — allowlist recording + dedup.
 - `application/Controller/RunController.php` — endpoints `formPageSubmitAction`, `formSaveAction`, `formRenderPageAction`, `formSyncAction`, `formBotChallengeAction`, the shared gate `formWriteContext`; the store-a-page path is `application/Services/FormSubmissionService.php`, R evaluation `application/Services/RCallService.php`.
-- `application/Model/RunSession.php` — `executeUnitSession` passthrough for `use_form_v2`.
-- `application/Model/Run.php` — `exec` passthrough for `use_form_v2`.
+- `application/Model/RunSession.php` — `executeUnitSession` passthrough for `form_v2`.
+- `application/Model/Run.php` — `exec` passthrough for `form_v2`.
 - `webroot/assets/form/js/main.js` — form bundle (Alpine, showif, page submit, offline queue, page resolution).
 - `webroot/assets/form/css/form.scss` — BS5 + `.js_hidden` re-assertion + scoped styles.
 - `templates/run/form_index.php` — v2 participant view.

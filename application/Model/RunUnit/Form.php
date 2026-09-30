@@ -121,14 +121,15 @@ class Form extends Survey {
 
             return [
                 'content' => $renderer->render(),
-                'use_form_v2' => true,
-                // Participant-page language (patch 114): threads up the same
-                // fixed-shape-dict chain as use_form_v2 (RunSession::
-                // executeUnitSession → Run::exec → RunController) so
-                // form_index.php can set <html lang/dir> + window.fmrStrings.
-                'form_language' => FormStrings::studyLanguage($study),
-                // …and the study's own navigation wording on top (#322).
-                'form_strings' => FormStrings::forStudy($study),
+                // The v2 page's own state, passed whole through
+                // RunSession::executeUnitSession and Run::exec; its presence
+                // makes the controller render run/form_index, which reads it
+                // for <html lang/dir> and window.fmrStrings (the study's
+                // language, patch 114, and its own navigation wording, #322).
+                'form_v2' => [
+                    'language' => FormStrings::studyLanguage($study),
+                    'strings' => FormStrings::forStudy($study),
+                ],
             ];
         } catch (Exception $e) {
             formr_log_exception($e, __CLASS__ . '-' . $e->getCode());

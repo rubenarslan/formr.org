@@ -512,14 +512,8 @@ class RunSession extends Model {
         
         if (isset($result['content'])) {
             $out = ['body' => $result['content']];
-            if (!empty($result['use_form_v2'])) {
-                $out['use_form_v2'] = true;
-            }
-            if (!empty($result['form_language'])) {
-                $out['form_language'] = $result['form_language'];
-            }
-            if (!empty($result['form_strings'])) {
-                $out['form_strings'] = $result['form_strings'];
+            if (!empty($result['form_v2'])) {
+                $out['form_v2'] = $result['form_v2'];
             }
             return $out;
         }
