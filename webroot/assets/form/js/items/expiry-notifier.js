@@ -17,6 +17,30 @@ const ONE_HOUR_MS = 3600 * 1000;
 // setTimeout's max signed 32-bit delay; longer waits silently fire immediately.
 const MAX_TIMEOUT_MS = 2147483647;
 
+// Throttle for the silent auto-reload, shared with v1's ExpiryNotifier (same
+// localStorage key and window, so a v1 and a v2 tab of the origin share it).
+// An idle PWA and a browser tab otherwise reload at the same moment and race
+// for the run-session lock (the AMOR 2026-05-09 duplicate Email + Push
+// deliveries). RunSession::execute's reload after taking the lock is the
+// primary guard; this is belt-and-braces on the client.
+const RELOAD_THROTTLE_KEY = 'expiryNotifierLastReloadAt';
+const RELOAD_THROTTLE_MS = 30 * 1000;
+
+function shouldThrottleReload(now) {
+    try {
+        const last = parseInt(localStorage.getItem(RELOAD_THROTTLE_KEY) || '0', 10);
+        return last > 0 && (now - last) < RELOAD_THROTTLE_MS;
+    } catch (_) {
+        return false;
+    }
+}
+
+function recordReload(now) {
+    try {
+        localStorage.setItem(RELOAD_THROTTLE_KEY, String(now));
+    } catch (_) { /* private mode / quota */ }
+}
+
 function showExpiredModal() {
     if (document.querySelector('.fmr-expiry-modal')) return; // idempotent
     const overlay = document.createElement('div');
@@ -62,11 +86,14 @@ export function initExpiryNotifier() {
     });
 
     const handleExpiry = () => {
-        const inactivityMs = Date.now() - lastActivity;
+        const now = Date.now();
+        const inactivityMs = now - lastActivity;
         const hasForm = document.querySelector(FORM_SELECTOR);
         if (!hasForm && inactivityMs > ONE_HOUR_MS) {
             // Participant has long since wandered off and there's nothing
             // to lose — silent reload (matches v1's behaviour).
+            if (shouldThrottleReload(now)) return;
+            recordReload(now);
             window.location.reload();
             return;
         }
