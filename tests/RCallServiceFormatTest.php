@@ -77,38 +77,48 @@ class RCallServiceFormatTest extends \PHPUnit\Framework\TestCase {
         $this->assertStringStartsWith(".fmr.overlay", RCallService::overlayStatements('s', 'list()'));
     }
 
+    /**
+     * The overlay's values as R receives them: the JSON inside the
+     * jsonlite::fromJSON("...") string literal, unescaped and decoded.
+     */
+    private function values(array $answers): array {
+        $r = $this->overlay($answers);
+        $this->assertSame(1, preg_match('~^lapply\(jsonlite::fromJSON\("((?:[^"\\\\]|\\\\.)*)", simplifyVector = FALSE\), function\(v\) if \(is\.null\(v\)\) NA else v\)$~', $r, $m), $r);
+        $decoded = json_decode(preg_replace('~\\\\(.)~s', '$1', $m[1]), true);
+        $this->assertIsArray($decoded, $r);
+        return $decoded;
+    }
+
     public function testTextAnswersStayStringsEvenWhenTheyLookNumeric() {
-        $r = $this->overlay(array('code' => '07743', 'comment' => '1e3'));
-        $this->assertStringContainsString('code = "07743"', $r, 'leading zero must survive; text column is character');
-        $this->assertStringContainsString('comment = "1e3"', $r, 'scientific notation in a textarea is text, not 1000');
+        $v = $this->values(array('code' => '07743', 'comment' => '1e3'));
+        $this->assertSame('07743', $v['code'], 'leading zero must survive; text column is character');
+        $this->assertSame('1e3', $v['comment'], 'scientific notation in a textarea is text, not 1000');
     }
 
     public function testNumberItemsAreNumeric() {
-        $r = $this->overlay(array('age' => '3', 'liking' => '4'));
-        $this->assertStringContainsString('age = 3', $r);
-        $this->assertStringNotContainsString('age = "3"', $r);
-        $this->assertStringContainsString('liking = 4', $r, 'rating_button stores a TINYINT');
+        $v = $this->values(array('age' => '3', 'liking' => '4'));
+        $this->assertSame(3, $v['age']);
+        $this->assertSame(4, $v['liking'], 'rating_button stores a TINYINT');
     }
 
     public function testChoiceColumnTypeDecidesNotTheAnswer() {
-        $r = $this->overlay(array('mood' => '3', 'pet' => 'cat', 'pets' => array('cat', 'dog')));
-        $this->assertStringContainsString('mood = 3', $r, 'mc with numeric choice names → TINYINT → numeric');
-        $this->assertStringContainsString('pet = "cat"', $r, 'mc with string choice names → VARCHAR → character');
-        $this->assertStringContainsString('pets = "cat, dog"', $r, 'multi-select keeps the ", "-joined stored shape');
+        $v = $this->values(array('mood' => '3', 'pet' => 'cat', 'pets' => array('cat', 'dog')));
+        $this->assertSame(3, $v['mood'], 'mc with numeric choice names → TINYINT → numeric');
+        $this->assertSame('cat', $v['pet'], 'mc with string choice names → VARCHAR → character');
+        $this->assertSame('cat, dog', $v['pets'], 'multi-select keeps the ", "-joined stored shape');
     }
 
     public function testDecimalNumberMatchesTheLongReadWhichLeavesItAString() {
         // UnitSession::getLongReadCasts casts INT-family and FLOAT/DOUBLE only;
         // DECIMAL comes back from PDO as a string, so the frame holds character.
-        $r = $this->overlay(array('weight' => '70.5'));
-        $this->assertStringContainsString('weight = "70.5"', $r);
+        $v = $this->values(array('weight' => '70.5'));
+        $this->assertSame('70.5', $v['weight']);
     }
 
     public function testNullAndEmptyStayNA() {
-        $r = $this->overlay(array('age' => null, 'code' => '', 'pets' => array()));
-        $this->assertStringContainsString('age = NA', $r);
-        $this->assertStringContainsString('code = NA', $r);
-        $this->assertStringContainsString('pets = NA', $r);
+        // JSON null; the lapply turns it into NA (a data.frame cell can't hold NULL).
+        $v = $this->values(array('age' => null, 'code' => '', 'pets' => array()));
+        $this->assertSame(array('age' => null, 'code' => null, 'pets' => null), $v);
     }
 
     public function testDisallowedNamesAreStillDropped() {
@@ -116,15 +126,28 @@ class RCallServiceFormatTest extends \PHPUnit\Framework\TestCase {
         $this->assertSame('list()', $r);
     }
 
-    public function testStringsAreEscaped() {
-        $r = $this->overlay(array('code' => 'a"b\\c'));
-        $this->assertStringContainsString('code = "a\"b\\\\c"', $r);
+    public function testStringsRoundTrip() {
+        $v = $this->values(array('code' => 'a"b\\c', 'comment' => "zwölf ünd 'quotes'"));
+        $this->assertSame('a"b\\c', $v['code']);
+        $this->assertSame("zwölf ünd 'quotes'", $v['comment']);
     }
 
-    public function testItemsWithNoResultsColumnAreQuoted() {
+    /**
+     * The knitted paths put the overlay inside an R Markdown chunk, and knitr
+     * finds a chunk's end line by line before R parses it: a newline and a
+     * ``` line in an answer must not reach the document as such.
+     */
+    public function testAnswersCannotEndTheChunk() {
+        $payload = "x\n```\n\n```{r}\ncat('INJECTED')\n```\r\n\u{2028}";
+        $r = $this->overlay(array('comment' => $payload));
+        $this->assertSame(1, preg_match('~^[\x20-\x7e]+$~', $r), 'one line of printable ASCII: ' . $r);
+        $this->assertSame($payload, $this->values(array('comment' => $payload))['comment']);
+    }
+
+    public function testItemsWithNoResultsColumnAreStrings() {
         // A note has no column in the frame; character can't retype anything.
-        $r = $this->overlay(array('intro' => '5'));
-        $this->assertStringContainsString('intro = "5"', $r);
+        $v = $this->values(array('intro' => '5'));
+        $this->assertSame('5', $v['intro']);
     }
 
     /** @dataProvider resultFieldProvider */
@@ -148,14 +171,16 @@ class RCallServiceFormatTest extends \PHPUnit\Framework\TestCase {
         );
     }
 
-    public function testFormatRValueDefaultsToCharacter() {
-        $this->assertSame('"07743"', RCallService::formatRValue('07743'));
-        // Bare in R source, 07743 parses as the number 7743 — which is what a
-        // numeric column would have stored anyway.
-        $this->assertSame('07743', RCallService::formatRValue('07743', true));
-        $this->assertSame('"12"', RCallService::formatRValue(12));
-        $this->assertSame('12', RCallService::formatRValue(12, true));
-        $this->assertSame('NA', RCallService::formatRValue(null, true));
-        $this->assertSame('TRUE', RCallService::formatRValue(true));
+    public function testOverlayValueDefaultsToCharacter() {
+        $this->assertSame('07743', RCallService::overlayValue('07743'));
+        // As a number, 07743 is 7743 — which is what a numeric column would
+        // have stored anyway.
+        $this->assertSame(7743, RCallService::overlayValue('07743', true));
+        $this->assertSame(1000.0, RCallService::overlayValue('1e3', true));
+        $this->assertSame('12', RCallService::overlayValue(12));
+        $this->assertSame(12, RCallService::overlayValue(12, true));
+        $this->assertNull(RCallService::overlayValue(null, true));
+        $this->assertTrue(RCallService::overlayValue(true));
+        $this->assertNull(RCallService::overlayValue('1e400', true), 'no Inf in JSON');
     }
 }

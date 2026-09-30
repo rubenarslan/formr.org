@@ -23,7 +23,8 @@
  *    before evaluation. Keys are restricted to the study's own live item
  *    names — without that, a participant could spoof admin-computed columns
  *    (eligibility flags, scores) or plumbing fields (session_id) into the
- *    evaluation row.
+ *    evaluation row. Values reach R as data only: one JSON string that
+ *    jsonlite parses (formatROverlay), never as R literals of their own.
  *
  * 3. RESULT CACHE (survey_r_call_results, patches 105 + 107) keyed on
  *    (call_id, unit_session_id, sha256(normalized answers)) with per-slot
@@ -209,12 +210,6 @@ class RCallService {
     }
 
     /**
-     * Build an R `list(name = value, ...)` literal from client answers. Keys
-     * must be syntactically safe AND belong to the study (see class doc), and
-     * each value is formatted as its own column's R type — never by guessing
-     * from the string.
-     */
-    /**
      * The R statements that put the browser's answers onto the survey
      * frame's last row — the one way the participant's in-flight answers
      * reach R, for values (runBatch) and labels (resolveLabels) alike.
@@ -232,9 +227,24 @@ class RCallService {
              . $indent . "}\n";
     }
 
+    /**
+     * The R value of the overlay: a named list built from client answers.
+     * Keys must be syntactically safe AND belong to the study (see class
+     * doc), and each value takes its own column's type (overlayValue) —
+     * never a type guessed from the string.
+     *
+     * The answers travel as one JSON string that jsonlite parses, as
+     * opencpu_define_vars passes the stored data. json_encode escapes every
+     * control and non-ASCII character, so the literal is one line of
+     * printable ASCII whatever the participant typed: the knitted paths put
+     * it inside a chunk, and a raw newline followed by a ``` line would end
+     * that chunk early.
+     *
+     * @return string an R expression
+     */
     public function formatROverlay(array $answers) {
         $allowed = $this->allowedOverlayNames();
-        $parts = array();
+        $values = array();
         foreach ($answers as $key => $val) {
             if (!is_string($key) || !preg_match('/^[A-Za-z][A-Za-z0-9_]*$/', $key)) {
                 continue;
@@ -242,9 +252,15 @@ class RCallService {
             if (!isset($allowed[$key])) {
                 continue;
             }
-            $parts[] = $key . ' = ' . self::formatRValue($val, $allowed[$key] === 'numeric');
+            $values[$key] = self::overlayValue($val, $allowed[$key] === 'numeric');
         }
-        return 'list(' . implode(', ', $parts) . ')';
+        $json = $values ? json_encode($values, JSON_INVALID_UTF8_SUBSTITUTE) : false;
+        if ($json === false) {
+            return 'list()';
+        }
+        // JSON null is R NULL, which a data.frame cell can't take; NA can.
+        return 'lapply(jsonlite::fromJSON("' . str_replace(array('\\', '"'), array('\\\\', '\"'), $json) . '", simplifyVector = FALSE), '
+             . 'function(v) if (is.null(v)) NA else v)';
     }
 
     // ------------------------------------------------------------------
@@ -634,24 +650,23 @@ class RCallService {
     // ------------------------------------------------------------------
 
     /**
-     * One R literal for one answer. $numeric says whether the item's own
-     * column is numeric (see allowedOverlayNames) — it is NOT inferred from
-     * the value, because is_numeric() is true for plenty of answers that are
-     * stored as text ('07743', '1e3', '+1', ' 7'), and emitting those bare
-     * would retype the column and change the value the expression sees.
+     * One answer as the overlay's JSON carries it: null (NA in R), a bool, a
+     * number or a string. $numeric says whether the item's own column is
+     * numeric (see allowedOverlayNames) — it is NOT inferred from the value,
+     * because is_numeric() is true for plenty of answers that are stored as
+     * text ('07743', '1e3', '+1', ' 7'), and sending those as numbers would
+     * retype the column and change the value the expression sees.
      *
-     * Defaults to character: quoting can never silently retype a column, so a
-     * caller that doesn't know the item type gets the safe shape.
+     * Defaults to character: a string can never silently retype a column, so
+     * a caller that doesn't know the item type gets the safe shape.
      *
      * @param mixed $v
      * @param bool $numeric true only for items whose results column is INT-family/FLOAT/DOUBLE
+     * @return string|int|float|bool|null
      */
-    public static function formatRValue($v, $numeric = false) {
-        if ($v === null || $v === '') return 'NA';
-        if (is_bool($v)) return $v ? 'TRUE' : 'FALSE';
-        if (is_int($v) || is_float($v)) {
-            return $numeric ? (string) $v : '"' . (string) $v . '"';
-        }
+    public static function overlayValue($v, $numeric = false) {
+        if ($v === null || $v === '') return null;
+        if (is_bool($v)) return $v;
         if (is_array($v)) {
             // The survey data.frame stores multi-selects as ", "-joined strings
             // (McMultiple/SelectMultiple::getReply), and the overlay assigns
@@ -663,13 +678,15 @@ class RCallService {
                 if ($part === null || $part === '') continue;
                 $vals[] = (string) $part;
             }
-            if (empty($vals)) return 'NA';
-            return self::formatRValue(implode(', ', $vals), $numeric);
+            if (empty($vals)) return null;
+            return self::overlayValue(implode(', ', $vals), $numeric);
         }
-        if ($numeric && is_numeric($v)) return (string) $v;
-        // String: R double-quoted, escape backslash and double-quote.
-        $s = str_replace(array('\\', '"'), array('\\\\', '\"'), (string) $v);
-        return '"' . $s . '"';
+        if ($numeric && is_numeric($v)) {
+            // JSON has no Inf; an answer that overflows a double is no number.
+            $n = $v + 0;
+            return is_finite($n) ? $n : null;
+        }
+        return (string) $v;
     }
 
     /**

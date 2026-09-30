@@ -12,6 +12,10 @@
  *   - a note_iframe whose R Markdown fails to knit resolves to the
  *     "temporarily unavailable" placeholder, and the failure is not cached;
  *     one that knits resolves to its iframe;
+ *   - the participant's answers reach every R path (values, labels,
+ *     note_iframe documents) as data: an answer that looks like R Markdown
+ *     (a newline, then a ``` line and a chunk of its own) arrives exactly as
+ *     typed and none of it runs;
  *   - the allowlist: callsForPage returns a call only while its item exists,
  *     is not soft-deleted and still carries the recorded expression (value or
  *     label); a call row with no item is never returned. The pure refusals
@@ -60,6 +64,11 @@ $bundle = ['units' => [[
         $item(7, 'ifr_bad', 'note_iframe', ['label' => $brokenRmd]),
         $item(8, 'ifr_ok', 'note_iframe', ['label' => $goodRmd]),
         $item(9, 'q1', 'text'),
+        $item(10, 'n1', 'number'),
+        $item(11, 'v_echo', 'hidden', ['value' => 'q1']),
+        $item(12, 'v_num', 'hidden', ['value' => 'n1 * 2']),
+        $item(13, 'lbl_echo', 'note', ['label' => 'Said: `r q1`']),
+        $item(14, 'ifr_echo', 'note_iframe', ['label' => 'Echo: `r q1`']),
     ]],
 ], [
     'type' => 'Endpage', 'position' => 20, 'description' => 'end', 'body' => 'Done.',
@@ -90,7 +99,7 @@ try {
     ok($study && $study->valid && $study->rendering_mode === 'v2', 'v2 study created', $study ? $study->rendering_mode : null);
     $ids = [];
     foreach ((array) $db->execute('SELECT id, name FROM survey_items WHERE study_id = :s', ['s' => $study->id]) as $r) { $ids[$r['name']] = (int) $r['id']; }
-    ok(count($ids) === 9, 'nine items (the broken R was accepted at upload)', array_keys($ids));
+    ok(count($ids) === 14, 'fourteen items (the broken R was accepted at upload)', array_keys($ids));
 
     $rsId = $db->insert('survey_run_sessions', ['run_id' => $runId, 'session' => 'RCALLSMOKE' . bin2hex(random_bytes(8)), 'created' => mysql_now(), 'position' => 10]);
     $rs = new RunSession($db->execute('SELECT session FROM survey_run_sessions WHERE id = :id', ['id' => $rsId], false, true)['session'], $run);
@@ -115,9 +124,9 @@ try {
         return $out;
     };
     $valueCalls = $byName($calls['value']);
-    ok(array_keys($valueCalls) === ['v_del', 'v_edit', 'v_ok', 'v_ok2', 'v_parse', 'v_rt'], 'every value is a live call on page 1', array_keys($valueCalls));
+    ok(array_keys($valueCalls) === ['v_del', 'v_echo', 'v_edit', 'v_num', 'v_ok', 'v_ok2', 'v_parse', 'v_rt'], 'every value is a live call on page 1', array_keys($valueCalls));
     $labelCalls = $byName($calls['label']);
-    ok(array_keys($labelCalls) === ['ifr_bad', 'ifr_ok'], 'both iframes are live label calls', array_keys($labelCalls));
+    ok(array_keys($labelCalls) === ['ifr_bad', 'ifr_echo', 'ifr_ok', 'lbl_echo'], 'the iframes and the dynamic label are live label calls', array_keys($labelCalls));
 
     echo "\n-- a failing batch is retried one expression at a time --\n";
     $values = $svc->resolveExpressions($calls['value'], [], 0);
@@ -150,6 +159,23 @@ try {
     $cachedIds = array_map('intval', array_column((array) $db->execute('SELECT call_id FROM survey_r_call_results WHERE unit_session_id = :u', ['u' => $us->id]), 'call_id'));
     ok(!in_array($labelCalls['ifr_bad'], $cachedIds, true), 'the placeholder is not cached (the next page show retries)');
     ok(in_array($labelCalls['ifr_ok'], $cachedIds, true), 'the knitted iframe is cached');
+
+    echo "\n-- answers reach R as data, also when they look like R Markdown --\n";
+    $payload = "said \"hi\" \\ then\n```\n\n```{r}\ncat('INJECTED', 6 * 7)\n```\n";
+    $answers = ['q1' => $payload, 'n1' => '21'];
+    $only = function (array $slot, array $callIds) { return array_intersect_key($slot, array_flip($callIds)); };
+    $values = $svc->resolveExpressions($only($calls['value'], [$valueCalls['v_echo'], $valueCalls['v_num']]), $answers, 0);
+    $echo = $values[$valueCalls['v_echo']] ?? null;
+    ok($echo === $payload, 'a value sees the answer exactly as typed', $echo);
+    ok(($values[$valueCalls['v_num']] ?? null) === 42, 'a number item is a number in R', $values[$valueCalls['v_num']] ?? null);
+    $labels = $svc->resolveLabels($only($calls['label'], [$labelCalls['lbl_echo']]), $answers, 0);
+    $lbl = $labels[$labelCalls['lbl_echo']] ?? null;
+    ok(is_string($lbl) && strpos($lbl, 'INJECTED') !== false && strpos($lbl, 'INJECTED 42') === false, 'a dynamic label shows the answer and runs none of it', $lbl);
+    $html = $svc->resolveIframes($only($calls['label'], [$labelCalls['ifr_echo']]), $answers, 0);
+    $ifr = $html[$labelCalls['ifr_echo']] ?? null;
+    ok(is_string($ifr) && preg_match('~<iframe src="([^"]+knit\.html)~', $ifr, $src) === 1, 'the note_iframe knits with the answers overlaid', $ifr);
+    $doc = isset($src[1]) ? @file_get_contents(html_entity_decode($src[1])) : false;
+    ok(is_string($doc) && strpos($doc, 'INJECTED') !== false && strpos($doc, 'INJECTED 42') === false, 'its document shows the answer and runs none of it', is_string($doc) ? strlen($doc) . ' bytes' : $doc);
 
     echo "\n-- the allowlist revokes calls whose item changed or went away --\n";
     $liveIds = function () use ($svc) {
