@@ -260,31 +260,63 @@ class RCallService {
         return hash('sha256', json_encode(self::normalizeAnswersForHash($answers), JSON_UNESCAPED_UNICODE));
     }
 
-    /** @return array<int, mixed> call_id => cached result (fresh entries only) */
-    protected function cachedResults(array $callIds, $argsHash, $ttl) {
+    /**
+     * The cache key of one expression's result: a hash of the answers it can
+     * read, so answering something else does not throw the result away. An
+     * expression reads the answers it names. One that names the survey
+     * itself (nrow(survey), survey$x, tail(survey, 1)) reads the whole
+     * frame, and so can the run's own R functions (custom_r), which name
+     * nothing here — both key on every answer. Words in strings count as
+     * names too: that can only make a key stricter.
+     */
+    protected function answersKey($expr, array $answers) {
+        if ($answers && !$this->readsWholeFrame($expr)) {
+            preg_match_all('/[A-Za-z][A-Za-z0-9_]*/', (string) $expr, $m);
+            $answers = array_intersect_key($answers, array_flip($m[0]));
+        }
+        return self::argsHash($answers);
+    }
+
+    protected function readsWholeFrame($expr) {
+        if ($this->runHasCustomR === null) {
+            $run = $this->unitSession->runSession ? $this->unitSession->runSession->getRun() : null;
+            $this->runHasCustomR = $run && trim((string) $run->getCustomRFunctions()) !== '';
+        }
+        return $this->runHasCustomR
+            || preg_match('/(?<![A-Za-z0-9_.])' . preg_quote($this->surveyName, '/') . '(?![A-Za-z0-9_])/', (string) $expr);
+    }
+
+    /** @var bool|null memoized: the run defines its own R functions */
+    protected $runHasCustomR = null;
+
+    /**
+     * @param array<int, string> $hashes call_id => the cache key of its result
+     * @return array<int, mixed> call_id => cached result (fresh entries only)
+     */
+    protected function cachedResults(array $hashes, $ttl) {
         $results = array();
-        if (!$callIds) {
+        if (!$hashes) {
             return $results;
         }
         $now = time();
-        $placeholders = implode(',', array_fill(0, count($callIds), '?'));
+        $placeholders = implode(',', array_fill(0, count($hashes), '?'));
         $stmt = $this->db->prepare(
-            "SELECT call_id, result_json, UNIX_TIMESTAMP(created_at) AS ts
+            "SELECT call_id, args_hash, result_json, UNIX_TIMESTAMP(created_at) AS ts
              FROM survey_r_call_results
-             WHERE call_id IN ($placeholders) AND unit_session_id = ? AND args_hash = ?"
+             WHERE call_id IN ($placeholders) AND unit_session_id = ?"
         );
         $i = 1;
-        foreach ($callIds as $cid) {
+        foreach (array_keys($hashes) as $cid) {
             $stmt->bindValue($i++, (int) $cid, PDO::PARAM_INT);
         }
-        $stmt->bindValue($i++, (int) $this->unitSession->id, PDO::PARAM_INT);
-        $stmt->bindValue($i, $argsHash);
+        $stmt->bindValue($i, (int) $this->unitSession->id, PDO::PARAM_INT);
         $stmt->execute();
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            if (($now - (int) $row['ts']) >= $ttl) continue;
+            $cid = (int) $row['call_id'];
+            if ($row['args_hash'] !== $hashes[$cid] || ($now - (int) $row['ts']) >= $ttl) continue;
             $decoded = json_decode((string) $row['result_json'], true);
             if (is_array($decoded) && array_key_exists('result', $decoded)) {
-                $results[(int) $row['call_id']] = $decoded['result'];
+                $results[$cid] = $decoded['result'];
             }
         }
         return $results;
@@ -339,24 +371,24 @@ class RCallService {
         if (empty($calls) || $this->surveyName === '') {
             return array();
         }
-        $argsHash = self::argsHash($answers);
-        $results = $this->cachedResults(array_keys($calls), $argsHash, $ttl);
-        $misses = array_diff_key($calls, $results);
-        if (empty($misses)) {
-            return $results;
-        }
-
-        $exprs = array();
-        foreach ($misses as $callId => $entry) {
+        $exprs = $hashes = array();
+        foreach ($calls as $callId => $entry) {
             $exprs[(int) $callId] = $this->expandValueExpr(
                 (string) $entry['expr'],
                 isset($entry['item_name']) ? (string) $entry['item_name'] : ''
             );
+            $hashes[(int) $callId] = $this->answersKey($exprs[(int) $callId], $answers);
         }
-        $evaluated = $this->evaluateBatch($exprs, $answers);
+        $results = $this->cachedResults($hashes, $ttl);
+        $misses = array_diff_key($exprs, $results);
+        if (empty($misses)) {
+            return $results;
+        }
+
+        $evaluated = $this->evaluateBatch($misses, $answers);
         foreach ($evaluated['results'] as $cid => $val) {
             $results[$cid] = $val;
-            $this->writeCache($cid, $argsHash, $val);
+            $this->writeCache($cid, $hashes[$cid], $val);
         }
         self::evictStale();
         return $results;
@@ -481,8 +513,11 @@ class RCallService {
         if (empty($calls) || $this->surveyName === '') {
             return array();
         }
-        $argsHash = self::argsHash($answers);
-        $results = $this->cachedResults(array_keys($calls), $argsHash, $ttl);
+        $hashes = array();
+        foreach ($calls as $callId => $entry) {
+            $hashes[(int) $callId] = $this->answersKey((string) $entry['expr'], $answers);
+        }
+        $results = $this->cachedResults($hashes, $ttl);
         $misses = array_diff_key($calls, $results);
         if (empty($misses)) {
             return $results;
@@ -526,7 +561,7 @@ class RCallService {
                 $html = trim($parts[$idx]);
             }
             $results[$cid] = $html;
-            $this->writeCache($cid, $argsHash, $html);
+            $this->writeCache($cid, $hashes[$cid], $html);
         }
         return $results;
     }
@@ -546,8 +581,9 @@ class RCallService {
         if (empty($calls) || $this->surveyName === '') {
             return array();
         }
+        // A knitted document takes no answers.
         $argsHash = self::argsHash(array());
-        $results = $this->cachedResults(array_keys($calls), $argsHash, $ttl);
+        $results = $this->cachedResults(array_fill_keys(array_keys($calls), $argsHash), $ttl);
         foreach (array_diff_key($calls, $results) as $callId => $entry) {
             $source = (string) $entry['expr'];
             $started = hrtime(true);
