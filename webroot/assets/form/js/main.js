@@ -1604,7 +1604,7 @@ function initForm() {
     // --- Reactive showif via Alpine (Phase 3) ---
     // The Alpine `fmrForm` component + `x-showif` directive are registered
     // once at module load (showif/alpine.js). This call promotes the
-    // server-emitted `data-showif="<transpiled-js>"` attribute to `x-showif`
+    // server-emitted `data-showif="<showif js>"` attribute to `x-showif`
     // and adds `x-data="fmrForm"` on the root form.
     promoteShowifAttributes(root);
 

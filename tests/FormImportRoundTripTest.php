@@ -27,7 +27,7 @@ class FormImportRoundTripTest extends \PHPUnit\Framework\TestCase {
         $this->db->exec('CREATE TABLE survey_run_units (id INTEGER PRIMARY KEY, run_id INTEGER, unit_id INTEGER, position INTEGER, description TEXT)');
         $this->db->exec('CREATE TABLE survey_runs (id INTEGER PRIMARY KEY, name TEXT)');
         $this->db->exec('CREATE TABLE survey_studies (id INTEGER PRIMARY KEY, user_id INTEGER, name TEXT, results_table TEXT, unlinked INTEGER DEFAULT 0, rendering_mode TEXT DEFAULT "v1")');
-        $this->db->exec('CREATE TABLE survey_items (id INTEGER PRIMARY KEY, study_id INTEGER, type TEXT, choice_list TEXT, type_options TEXT, name TEXT, label TEXT, label_parsed TEXT, optional INTEGER, class TEXT, showif TEXT, showif_js TEXT, value TEXT, block_order TEXT, item_order INTEGER, deleted TEXT)');
+        $this->db->exec('CREATE TABLE survey_items (id INTEGER PRIMARY KEY, study_id INTEGER, type TEXT, choice_list TEXT, type_options TEXT, name TEXT, label TEXT, label_parsed TEXT, optional INTEGER, class TEXT, showif TEXT, value TEXT, block_order TEXT, item_order INTEGER, deleted TEXT)');
         $this->db->exec('CREATE TABLE survey_item_choices (id INTEGER PRIMARY KEY, study_id INTEGER, list_name TEXT, name TEXT, label TEXT, label_parsed TEXT)');
 
         $this->db->exec("INSERT INTO survey_units (id, type) VALUES (20, 'Survey'), (30, 'Survey')");

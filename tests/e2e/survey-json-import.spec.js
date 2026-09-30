@@ -6,7 +6,7 @@
 // (robot@researchmixtapes.com — the FORMR_DEV_ADMIN account global-setup logs
 // in as) and asserts every catalogued item type lands in the new study. That
 // exercises the whole import path end to end: the `.json` allowlist, the
-// export-field stripping (showif_js), the `*` wildcard choice list (timezone),
+// export-only-field stripping, the `*` wildcard choice list (timezone),
 // and every form_v2 item type's choice/validation requirements.
 //
 // Hermetic: deletes the robot-owned `all_widgets` study before and after, so it

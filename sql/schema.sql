@@ -242,7 +242,6 @@ CREATE TABLE `survey_items` (
   `optional` tinyint(4) DEFAULT NULL,
   `class` varchar(255) DEFAULT NULL,
   `showif` mediumtext DEFAULT NULL,
-  `showif_js` text DEFAULT NULL,
   `value` mediumtext DEFAULT NULL,
   `block_order` varchar(4) DEFAULT NULL,
   `item_order` smallint(6) DEFAULT NULL,

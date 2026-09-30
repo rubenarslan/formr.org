@@ -134,18 +134,16 @@ The Router splits on `-` and camelCases; `form-page-submit` → `formPageSubmitA
 - `value` is the **R path**: literal / `'sticky'` / R, as written — `FormRenderer` records the expression in `survey_r_calls` slot='value' and emits `data-fmr-fill-id`; every page, the first included, resolves via `/form-render-page` when it is shown.
 - Embedded Rmd in labels is routed through the allowlist too — slot='label', with the FULL label as the expression, deferred to `/form-render-page` for *every* page including the first (§8). (There is no separate `page_body` surface in the survey renderer — item labels are the Rmd surface; the one mention of `page_body` left in the code is a stale comment in `RAllowlistExtractor.php:16`.)
 
-### 3.2 JS transpile, reused from v1
+### 3.2 showif is JavaScript, used as written
 
-`Item::setMoreOptions` (`application/Model/Item/Item.php` ~247-280) runs `$this->showif` through a regex rewrite to produce `$this->js_showif` — or, since patch 106, reuses the transpile cached at import time in `survey_items.showif_js` and skips the regex passes entirely. Covers `==/>/<=/…`, `&/&&`, `|/||`, `FALSE/TRUE`, `%contains%`/`%begins_with%`/`%ends_with%`/`%starts_with%`/`%contains_word%`, `is.na()`, `stringr::str_length()`, `tail(x, 1)`, `current(x)`. Fails silently on anything more complex; the client's try/catch wrapper then returns `undefined`, and on `undefined` the directive **preserves the server's render decision** rather than forcing the item visible (`webroot/assets/form/js/showif/alpine.js:192-197`; NA items are server-rendered `.hidden` via `Item::hideByDefaultPendingClient()`, matching v1's `_hide = true`).
-
-v2 reuses this transpile verbatim. The `showif_js` column landed (patch 106); a proper parser (Esprima or hand-rolled) is explicitly not being built (§8). The compat scanner (§3.5) is how admins find expressions the regex mishandles.
+`FormRenderer::getStudyItems` calls `Item::useVerbatimShowif()` on every item, so the showif column reaches the browser exactly as the author wrote it. v1's regex R→JS translation (`Item::showifToJs`: `&`, `TRUE`, `%contains%`, `is.na()`, `current(x)`, …) is v1's live preview only and plays no part in v2. An expression the browser cannot evaluate makes the client's try/catch return `undefined`, and on `undefined` the directive **preserves the server's render decision** rather than forcing the item visible (NA items are server-rendered `.hidden` via `Item::hideByDefaultPendingClient()`, matching v1's `_hide = true`). The compat scanner (§3.5) is how admins find showifs that still contain R.
 
 ### 3.3 Alpine-driven reactive evaluator
 
 The hand-rolled `applyShowifs` + `compileShowif` + `input`/`change` listeners from Phase 3's first iteration was ~80 lines of custom reactivity. It was replaced by:
 
 - **`Alpine.data('fmrForm', …)`** on the form root. `init()` walks `input[name]`, `select[name]`, `textarea[name]` under `$root`, seeds one reactive top-level field per input name, and listens for `input`/`change` events calling `_syncInput(e.target)`. `_syncInput` normalizes types: empty/unchecked → `null`, numeric-shaped strings → `Number(v)`, multi-checkbox/multi-select → arrays. Disabled inputs are skipped so a hidden-by-showif region doesn't overwrite prior values. Helper methods are exposed on the component: `isNA`, `answered`, `contains`, `containsWord`, `startsWith`, `endsWith`, `last` — mirrors of R-package functions that matter on the client.
-- **`Alpine.directive('showif', …)`** strips `//` and `/* */` comments first (v1's `//js_only` marker otherwise swallows the wrapping closing paren → SyntaxError at `new AsyncFunction()` time), rewrites `(typeof(X) === 'undefined')` → `isNA(X)` (v1's transpile treats NA as undefined, but `collectAnswers` normalizes empty to `null`), wraps runtime eval in `(function(){try{return (expr)}catch(e){return undefined}})()` so ReferenceError on run-level (`ran_group`) or future-page (`puppy`) variables silently falls back to undefined rather than spamming console every keystroke — and `undefined` means "keep whatever the server rendered" (`!el.classList.contains('hidden')`), not "show it". The server has already resolved server-only vars like `ran_group` to shown/pruned, so preserving its decision is the correct default; forcing visible was the iOS-Safari flash-of-hidden-content bug. `effect()` handles dep-tracking and re-run.
+- **`Alpine.directive('showif', …)`** strips `//` and `/* */` comments first (a trailing comment such as v1's `//js_only` marker otherwise swallows the wrapping closing paren → SyntaxError at `new AsyncFunction()` time), wraps runtime eval in `(function(){try{return (expr)}catch(e){return undefined}})()` so ReferenceError on run-level (`ran_group`) or future-page (`puppy`) variables silently falls back to undefined rather than spamming console every keystroke — and `undefined` means "keep whatever the server rendered" (`!el.classList.contains('hidden')`), not "show it". The server has already resolved server-only vars like `ran_group` to shown/pruned, so preserving its decision is the correct default; forcing visible was the iOS-Safari flash-of-hidden-content bug. `effect()` handles dep-tracking and re-run.
 - **Client-side attribute promotion**: the server emits `data-showif`; the bundle walks `[data-showif]` on init, copies the value to `x-showif`, removes `data-showif`, and sets `x-data="fmrForm"` on the root form. Alpine picks up the promoted attributes. No server changes needed.
 
 `collectAnswers` stays as a separate DOM-reading helper for the submit and `/form-render-page` payloads — Alpine state and `collectAnswers` agree at event dispatch time (both read the same DOM); reusing Alpine state cross-scope would require grabbing `root._x_dataStack[0]`, which is fragile.
@@ -164,12 +162,12 @@ Admins reach server-side R through the **`value` column**, e.g. `complex_score(c
 
 `bin/form_v2_compat_scan.php <study_id|study_name>` classifies every non-empty `showif` / `value` in a study as:
 
-- `showif` → `empty` / `js_ok` (v1 transpile yields an expression with no residual R-only tokens) / `needs_js_rewrite` (residual R tokens — ifelse/c/tail/paste/is.na/%in%/%%/NA/`<-` — the client evaluator won't handle; `suggested_fix: rewrite_in_js`)
+- `showif` → `empty` / `js_ok` (no R in it) / `needs_js_rewrite` (R the browser won't evaluate — R-only calls incl. `current`/`tail`, `is.na`, `%…%` operators, single `&`/`|`, `TRUE`/`FALSE`, `::`, `NA`, `<-`, `$`; `suggested_fix: rewrite_in_js`) / `not_on_form`
 - `value` → `empty` / `literal` (numeric) / `r` (everything else, allowlisted and evaluated as R — never flagged)
 
 Heuristic, not a guarantee (the client has a try/catch fallback that preserves the server's render decision on any eval error). Exits 0 if clean, 2 if anything flagged — usable as a CI gate. Informational: doesn't mutate `survey_items.showif`. Run before upgrading an existing v1 study to `rendering_mode='v2'`. The scan logic lives in `application/Spreadsheet/FormV2CompatScanner::scan()` so the admin UI shares it with the CLI.
 
-The original spec proposed a dedicated `showif_js` column + `showif_r_call_id` / `value_r_call_id` pointer columns with a hardened parser at upgrade time. None of that landed; the compat scanner replaces that path. If the hand-rolled regex transpile's failure modes become a real problem, the plan is to revisit in a future phase.
+The original spec proposed a dedicated `showif_js` column + `showif_r_call_id` / `value_r_call_id` pointer columns with a hardened parser at upgrade time. None of that is part of the design: a v2 showif is JavaScript, and the compat scanner finds the ones that are not.
 
 ### 3.6 What's still open in this area
 
@@ -178,7 +176,6 @@ Everything this section used to list has since landed; kept for the record:
 - ~~**Rate limiting.**~~ Landed. The R-call endpoints are rate-limited; the limiter is now DB-backed (`FixedWindowRateLimiter`, patch 113 `formr_rate_limits`) rather than the original `$_SESSION` token bucket, because a session-scoped bucket reset on every cookie rotation (re-auth via `?code=`, private-mode re-open) — an indefinite bypass.
 - ~~**Result caching.**~~ Landed as `survey_r_call_results` (patch 105, session-scoped by patch 107) with per-slot TTLs.
 - ~~**Embedded Rmd in labels.**~~ Landed: `survey_r_calls` slot='label' + `/form-render-page` batch resolution.
-- ~~**Dedicated `showif_js` column.**~~ Landed (patch 106). A **proper parser** remains explicitly not-doing (§8).
 
 ---
 
@@ -309,14 +306,13 @@ Checklist tied to files. Each box is "is there code for this on-branch", not "ha
 - [x] `data-showif` forced on every item with non-empty `showif` (FormRenderer)
 - [x] Alpine `fmrForm` component + `x-showif` directive + attribute promotion
 - [x] Helper stdlib (`isNA`, `answered`, `contains`, `containsWord`, `startsWith`, `endsWith`, `last`) on component
-- [x] v1 transpile reused; `(typeof(X) === 'undefined')` → `isNA(X)` rewrite
+- [x] showif used as written (`Item::useVerbatimShowif`); no R translation for v2
 - [x] Comment-stripping + try/catch wrapper for runtime eval
 - [x] Allowlist recorded at render (`RAllowlistExtractor`)
 - [x] `survey_r_calls` table (`sql/patches/102_survey_r_calls.sql`)
 - [x] Compat scanner (`bin/form_v2_compat_scan.php`) + admin UI (`/admin/survey/<name>/form_v2_compat_scan`)
 - [x] Per-run-session rate-limit on `/form-render-page` (`rcall_per_min`, 30/min, returns 429), DB-backed via `FixedWindowRateLimiter` + patch 113 `formr_rate_limits`
-- [x] Dedicated `showif_js` column on `survey_items` (`sql/patches/106_survey_items_showif_js.sql`); `Item::setMoreOptions` prefers the cached transpile when set, falls back to live regex for legacy items
-- ~~Hardened JS transpiler (proper parser)~~ — explicitly not doing; the regex transpile + import-time cache (patch 106) + client try/catch fallback are the chosen design (§8)
+- ~~R→JS translation for v2 (regex or parser)~~ — not doing: a v2 showif is JavaScript; the compat scanner + client try/catch fallback are the chosen design (§8)
 
 ### Phase 4 — Deferred fill for `value`
 - [x] Every page's values, labels and choice labels resolve in one `/form-render-page` batch (`formRenderPageAction` → `RCallService`), which resolves only the calls of items scheduled on that page in this unit session and drops calls the sheet no longer vouches for (`RCallService::callsForPage`, `callRowIsLive`)
@@ -398,12 +394,11 @@ Nothing here is still open; these are the frozen decisions.
 3. Default-flip new studies to `rendering_mode='v2'` once P1 is closed and the parity gate is reliably green. Today `application/Model/SurveyStudy.php:31` defaults to `'v1'` and `config-dist/settings.php:397` ships `form_v2_enabled = false`; flip after the iOS pass and the SW-side drain/uninstall-wipe land. Keep the column writable so admins can downgrade individual studies.
 
 **Explicitly not doing:**
-- Hardened JS transpiler — the regex transpile in `Item::setMoreOptions` stays. Patch 106 caches its output at import time so per-request cost is gone; the long tail of malformed expressions the regex mishandles is acceptable risk (the client `x-showif` directive's try/catch leaves silently-broken expressions at whatever visibility the server rendered). Replacing the regex with a parser was historical wishful-thinking.
+- An R→JS translator for v2 showifs — a v2 showif is JavaScript, used as written; v1's regex translation stays v1's. A broken expression is caught by the compat scanner before the switch, and at runtime the `x-showif` directive's try/catch leaves it at whatever visibility the server rendered.
 
 **P2 — done (was on this list, now landed):**
 - Bundle module split — `webroot/assets/form/js/main.js` 2453 → 1415 lines, 13 leaf modules under `lib/`, `offline/`, `validation/`, `showif/`, `items/`. `idb` adopted (~6KB) for the queue.
 - `r_call_results` cache table with TTL — patch 105 (session-scoped by patch 107).
-- `showif_js` column on `survey_items` (patch 106). Item.setMoreOptions prefers the cached transpile when set, falls back to live regex for legacy items.
 - File-blob queueing cap is now `$settings['form_v2_offline_blob_max_mb']` (default 10MB). Per-study override is the natural follow-up.
 - Embedded Rmd in labels routed through the allowlist + `/form-render-page`. FormRenderer registers every `needsDynamicLabel` item under `survey_r_calls` slot='label' and always emits a `data-fmr-label-id` placeholder; the client batch-resolves via `/form-render-page` with the patch 105 cache, on initial page load AND on every page transition. Brief "loading" flicker on the first page where dynamic content sits is the deliberate trade-off for one code path + cache hits on first navigation.
 - BS iOS hardening — see `~/.claude/projects/-home-admin-formr-docker-formr-source/memory/reference_browserstack_ios_quirks.md` for the nine concrete bridge limitations and the workaround patterns now codified in `tests/e2e/helpers/test.js` (`bsSafeEvaluate`, worker-scoped page fixture, `clearBrowserState`).
@@ -413,12 +408,12 @@ Nothing here is still open; these are the frozen decisions.
 ---
 
 ## 9. Deferred:
-1. **Showif/value transpile-failure UI with embed playgrounds.** Skip a real parser (Esprima or hand-rolled) — sandboxing isn't a security property here since an admin can already inline arbitrary JS via item labels. Detect failures with a plain `try { new Function('"use strict";' + jsExpr); } catch (e) { /* SyntaxError */ }` at import time, store the result on the `survey_items.showif_js` column, and let `FormV2CompatScanner` surface flagged rows in the admin compat-scan UI with the source, the transpile output, and the error. (Step (a) below — the column plus the import-time transpile — has since landed as patch 106; the parse-check, the embeds and the auto-fix button have not.)
+1. **Showif/value transpile-failure UI with embed playgrounds.** Skip a real parser (Esprima or hand-rolled) — sandboxing isn't a security property here since an admin can already inline arbitrary JS via item labels. Detect failures with a plain `try { new Function('"use strict";' + jsExpr); } catch (e) { /* SyntaxError */ }` and let `FormV2CompatScanner` surface flagged rows in the admin compat-scan UI with the source and the error.
    - For each flagged row, offer two embedded playgrounds the admin can use to debug in place — both use real prefill APIs, not URL params:
-     - **CodePen prefill embed** (https://blog.codepen.io/documentation/prefill-embeds/): a per-row `<div data-prefill='{...}'>…<pre data-lang="js">{transpiled JS}</pre>…</div>` plus the CodePen embed script. CodePen renders an interactive iframe with the JS already loaded, alongside a mocked `answers` object derived from the survey's other items. The admin can tweak inputs and re-run.
+     - **CodePen prefill embed** (https://blog.codepen.io/documentation/prefill-embeds/): a per-row `<div data-prefill='{...}'>…<pre data-lang="js">{showif JS}</pre>…</div>` plus the CodePen embed script. CodePen renders an interactive iframe with the JS already loaded, alongside a mocked `answers` object derived from the survey's other items. The admin can tweak inputs and re-run.
      - **rdrr.io embed iframe** for R: `<iframe src='https://rdrr.io/snippets/embed/?code=<urlencoded R>'>` — same idea, but for the source-side R expression, so admins can verify what the R version evaluates to before deciding whether to wrap in `r(...)` or rewrite as JS.
    - Add an auto-fix button per flagged row that mutates the item in place and re-runs the scan: for a showif, create a hidden item whose `value` holds the R and rewrite the showif to reference that name.
-   - Order of operations to ship this: (a) `survey_items.showif_js` column + import-time `new Function()` parse-check — column landed (patch 106), parse-check didn't; (b) compat-scan UI extension to render the two embeds; (c) auto-fix button + scanner re-run.
+   - Order of operations to ship this: (a) the `new Function()` parse-check in the scanner; (b) compat-scan UI extension to render the two embeds; (c) auto-fix button + scanner re-run.
 
 ## 10. Appendix: references
 
@@ -443,7 +438,7 @@ form_v2's patches have their own range, 100 and up (CLAUDE.md, "SQL migrations")
 - `sql/patches/103_survey_form_submissions.sql` — offline-queue dedupe ledger
 - `sql/patches/104_form_v2_survey_study_flags.sql` — `offline_mode` + `allow_previous`
 - `sql/patches/105_survey_r_call_results.sql` — r-call result cache with TTL (`107_…_session_scope.sql` keys it per session)
-- `sql/patches/106_survey_items_showif_js.sql` — cached JS transpile of `showif`
+- `sql/patches/117_drop_survey_items_showif_js.sql` — drops patch 106's `survey_items.showif_js`
 - `sql/patches/108_study_iteration.sql` — `survey_unit_sessions.study_iteration` + `survey_studies.last_iteration` (backfill: `bin/backfill_study_iteration.php`)
 - `sql/patches/109_survey_studies_layout.sql` — `layout ENUM('default','solo')` (solo skin)
 - `sql/patches/113_formr_rate_limits.sql` — DB-backed fixed-window buckets behind `FixedWindowRateLimiter` (r-call, form writes, bot challenge)
@@ -451,6 +446,6 @@ form_v2's patches have their own range, 100 and up (CLAUDE.md, "SQL migrations")
 **Further reading:**
 - `CLAUDE.md` → "form_v2 development notes" — dev/test gotchas: PHP error log routing, Playwright MCP footguns, BS5 `.hidden` specificity, curl-with-cookie-jar fixture uploads, webpack-doesn't-write-identical-bundles, radio-group sibling-uncheck footgun, etc. Not repeated here.
 - `application/Model/SurveyStudy.php` — item CRUD, results-table schema migration, spreadsheet import.
-- `application/Model/Item/Item.php` — 796-line base; showif transpile (cached-column preference + regex fallback) in `setMoreOptions`, ~247-280.
+- `application/Model/Item/Item.php` — base class; v1's showif translation in `showifToJs`, v2's `useVerbatimShowif`.
 - `application/Services/OpenCPU.php` — R client.
 - `CHANGELOG.md` — v0.25.1 context (iOS push, CSRF removal, cookie consent).

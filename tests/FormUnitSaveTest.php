@@ -26,7 +26,7 @@ class FormUnitSaveTest extends \PHPUnit\Framework\TestCase {
         $this->db->exec('CREATE TABLE survey_runs (id INTEGER PRIMARY KEY, name TEXT)');
         $this->db->exec('CREATE TABLE survey_studies (id INTEGER PRIMARY KEY, user_id INTEGER, name TEXT, results_table TEXT, unlinked INTEGER DEFAULT 0, rendering_mode TEXT DEFAULT "v1")');
         // Form::create asks the study whether v2 can run it (formV2UnsupportedItems).
-        $this->db->exec('CREATE TABLE survey_items (id INTEGER PRIMARY KEY, study_id INTEGER, name TEXT, type TEXT, type_options TEXT, choice_list TEXT, label TEXT, label_parsed TEXT, optional INTEGER, class TEXT, showif TEXT, showif_js TEXT, value TEXT, item_order INTEGER, `order` INTEGER, block_order INTEGER, deleted TEXT)');
+        $this->db->exec('CREATE TABLE survey_items (id INTEGER PRIMARY KEY, study_id INTEGER, name TEXT, type TEXT, type_options TEXT, choice_list TEXT, label TEXT, label_parsed TEXT, optional INTEGER, class TEXT, showif TEXT, value TEXT, item_order INTEGER, `order` INTEGER, block_order INTEGER, deleted TEXT)');
 
         $u = self::USER_ID;
         // Every study's unit row: 20 on v1, 30 on v2, 40 on v1.

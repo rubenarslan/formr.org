@@ -263,14 +263,6 @@ work items above; the second is separate work, listed so it isn't lost.
 
 ### Inherently dual, kept (and pinned)
 
-- **`is.na()` has two JavaScript spellings** because there are two
-  evaluators with different scopes: Item.php transpiles it to
-  `(typeof(X) === 'undefined')` for v1's `showIf` (scope = answered
-  inputs only; `with(context)` makes `typeof` the only safe test), and
-  alpine.js rewrites that to `isNA(X)` for the fmrForm scope (every field
-  defined, `null` when unanswered). Making v1 use `isNA` would change how
-  its evaluator treats names absent from its scope; `ShowifReservedNamesTest::testTheIsNaTranspileIsWhatTheClientRewrites`
-  keeps the two regexes matching.
 - Required-field hint (client) vs `validateInput` (server); autosave
   eligibility (client skips files, server skips files + bot_check); the
   solo layout's hand-kept list of non-step item types vs the server's
@@ -348,7 +340,7 @@ calculations on page show or at the final submit, read "none".
   settle (`alpine:initialized` + a macrotask); `fmrFormReady` is set then.
 - One definition of hidden: the wrapper's `.hidden` class
   (`lib/inputs.js isItemHidden` / `hiddenShowifItemIds`); every showif
-  item carries `data-showif`, even one that did not transpile.
+  item carries `data-showif`, even one the browser cannot evaluate.
 - One required rule: `FormSubmissionService::isRequired`.
 - The final submit ends the form under the run-session lock
   (`RunSession::endFormUnitSession`).

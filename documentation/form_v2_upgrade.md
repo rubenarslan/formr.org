@@ -8,7 +8,7 @@ steps 1 and 3 even if you never enable v2. For what form_v2 *is*, see
 
 ## 1. Schema migrations (100–115)
 
-Seventeen new patches in `sql/patches/`. On the docker deployment they are
+Eighteen new patches in `sql/patches/`. On the docker deployment they are
 mirrored into `mysql/atlas/migrations/` and applied by `./update.sh`;
 nothing extra to run.
 
@@ -20,7 +20,7 @@ nothing extra to run.
 | `103_survey_form_submissions` | New `survey_form_submissions` table: UUID ledger so an offline-queued page submission that is retried is applied once. |
 | `104_form_v2_survey_study_flags` | `survey_studies.offline_mode` (default 1) and `allow_previous` (default 0). v1 ignores both. |
 | `105_survey_r_call_results` | New `survey_r_call_results` table: memoizes evaluated R results. |
-| `106_survey_items_showif_js` | `survey_items.showif_js`: caches the R→JS transpile of `showif` at import time. Nullable; items without it re-transpile at request time. |
+| `106_survey_items_showif_js` | `survey_items.showif_js`. Dropped again by 117. |
 | `107_survey_r_call_results_session_scope` | Re-keys that cache on `(call_id, unit_session_id, args_hash)` and adds the cascade FK, closing a cross-participant cache leak. **`TRUNCATE`s the cache table** — that is a cold cache, not participant data. |
 | `108_study_iteration` | `survey_unit_sessions.study_iteration` (+ index) and `survey_studies.last_iteration`: the long-format source of truth for the `iteration` variable. **Needs the backfill in step 3.** |
 | `109_survey_studies_layout` | `survey_studies.layout` ENUM('default','solo') — the v2 presentation skin. |
@@ -31,6 +31,7 @@ nothing extra to run.
 | `114_survey_studies_language` | `survey_studies.language` (BCP 47, default `en`): drives `<html lang>` / `dir="rtl"` and the v2 client's UI strings. |
 | `115_survey_studies_button_labels` | `survey_studies.next_button_label` / `submit_button_label` (NULL = the built-in wording): the study's own Next / Submit button text in v2. |
 | `116_form_shares_study_row` | A Form unit shares its study's `survey_units` row, as a Survey unit does; the row's type is `Form` while the study is on v2. Moves existing Form placements and unit sessions onto the study's row, deletes the Form rows, drops `form_study_id`. Data moves once; not meant to be replayed. |
+| `117_drop_survey_items_showif_js` | Drops `survey_items.showif_js`: a v2 showif is JavaScript used as written, and v1 translates its R showifs on each render. |
 
 **Patches 100–115 are drift-tolerant** — every DDL statement carries an
 `IF NOT EXISTS` / `IF EXISTS` guard, so a host that was hand-patched
@@ -174,8 +175,10 @@ editor and the Engine choice on "Add a new survey".
 the participant's browser and re-evaluated on every input change. In v1
 the same column held R evaluated on the server, so **every non-empty
 showif in the study has to be rewritten as JavaScript** — this is the
-work an upgrade actually costs you. Most transpile unchanged (`q1 == 1`,
-`age > 40`); the scanner below lists the ones that don't.
+work an upgrade actually costs you. Many are valid JavaScript already
+(`q1 == 1`, `age > 40`); the scanner below lists the ones that still
+contain R (`&`, `TRUE`, `%contains%`, `is.na()`, …). The column is used
+as written — nothing is translated.
 
 Server-side R lives in the `value` column, and the supported way to gate
 visibility on an R result is a **hidden item whose `value` is the R**,
@@ -210,8 +213,8 @@ column — the same names the admin report and `form_v2.md` use:
 | Column | Bucket | Flagged? | What to do |
 | --- | --- | --- | --- |
 | `showif` | **empty** | no | Nothing — no expression. |
-| `showif` | **JS-OK** (`js_ok`) | no | Nothing — the R→JS transpile came out clean. |
-| `showif` | **needs JS rewrite** (`needs_js_rewrite`, fix `rewrite_in_js`) | yes | The transpiled expression still contains R-only tokens — an R-only function call (`ifelse`, `c(`, `paste`, `grepl`, `unlist`, …), `tail`/`head` with a non-1 argument, an untranspiled `is.na()`, `%in%` / `%%`, an assignment arrow, an `NA` constant, or R `$`-member access. Rewrite the expression in JS (the helpers `isNA`, `answered`, `contains`, `containsWord`, `startsWith`, `endsWith`, `last` are in scope), **or** move the R into a hidden item's `value` and test that item's name. |
+| `showif` | **JS-OK** (`js_ok`) | no | Nothing — no R in it. |
+| `showif` | **needs JS rewrite** (`needs_js_rewrite`, fix `rewrite_in_js`) | yes | The showif contains R — an R-only function call (`ifelse`, `c(`, `paste`, `grepl`, `current`, `tail`, …), `is.na()`, an infix operator (`%in%`, `%contains%`, `%%`, …), a single `&` / `|`, `TRUE` / `FALSE`, a namespace (`stringr::`), an assignment arrow, an `NA` constant, or R `$`-member access. Rewrite the expression in JS (the helpers `isNA`, `answered`, `contains`, `containsWord`, `startsWith`, `endsWith`, `last` are in scope), **or** move the R into a hidden item's `value` and test that item's name. |
 | `showif` | **not on the form** (`not_on_form`, fix `bridge_hidden_item`) | yes | The showif reads a name that is not an item of this form — a run variable such as `ran_group`, or another survey's item. The browser knows only the form's own items, so the showif can never become true. Compute the value in a hidden item's `value` and reference that item. |
 | `type` | **not supported in v2** (`unsupported`, fix `use_hidden`) | yes, **blocks the switch** | A `calculate` item, or another item that takes no input but carries R in `value` (`Item::formV2Unsupported`). Replace it with a `hidden` item if the form needs the value, or compute it in the R of the unit that uses it. |
 | `value` | **empty** / **literal** (numeric, kept as-is) / **R** (everything else, evaluated server-side) | no | Nothing. `value` is never flagged — every non-empty, non-numeric entry is allowlisted and evaluated as R, `sticky` included. |

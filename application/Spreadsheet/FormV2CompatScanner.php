@@ -26,7 +26,7 @@ class FormV2CompatScanner {
      *         unsupported: int,
      *         value: array{empty:int, literal:int, r:int}
      *     },
-     *     flagged: list<array{id:int, name:string, type:string, column:string, source:string, transpiled:string, problems:list<string>, suggested_fix:string}>,
+     *     flagged: list<array{id:int, name:string, type:string, column:string, source:string, problems:list<string>, suggested_fix:string}>,
      *     itemCount: int
      * }
      */
@@ -47,7 +47,7 @@ class FormV2CompatScanner {
         }
 
         $counts = [
-            // showif is JS-only: R that doesn't transpile cleanly is
+            // showif is JavaScript, used as written: one with R in it is
             // `needs_js_rewrite` (rewrite it in JS, or move the R into a
             // hidden item's value and reference that name).
             // `not_on_form`: names the browser has no value for (bridge them
@@ -76,14 +76,13 @@ class FormV2CompatScanner {
             } catch (Throwable $e) {
                 $typed = null;
             }
-            $flag = function ($column, $source, $transpiled, $problems, $fix) use (&$flagged, $row) {
+            $flag = function ($column, $source, $problems, $fix) use (&$flagged, $row) {
                 $flagged[] = [
                     'id' => (int) $row['id'],
                     'name' => (string) $row['name'],
                     'type' => (string) $row['type'],
                     'column' => $column,
                     'source' => $source,
-                    'transpiled' => $transpiled,
                     'problems' => $problems,
                     'suggested_fix' => $fix,
                 ];
@@ -92,23 +91,20 @@ class FormV2CompatScanner {
             // ---- the item itself ----
             if ($typed && ($why = $typed->formV2Unsupported())) {
                 $counts['unsupported']++;
-                $flag('type', $raw_value, '', [$why], 'use_hidden');
+                $flag('type', $raw_value, [$why], 'use_hidden');
             }
 
             // ---- showif ----
             if ($raw_showif === '') {
                 $counts['showif']['empty']++;
+            } elseif ($problems = self::detectRTokens($raw_showif)) {
+                $counts['showif']['needs_js_rewrite']++;
+                $flag('showif', $raw_showif, $problems, 'rewrite_in_js');
+            } elseif ($unknown = self::namesNotOnForm($raw_showif, $formNames)) {
+                $counts['showif']['not_on_form']++;
+                $flag('showif', $raw_showif, ['not an item of this form: ' . implode(', ', $unknown)], 'bridge_hidden_item');
             } else {
-                $transpiled = $typed && isset($typed->js_showif) ? (string) $typed->js_showif : $raw_showif;
-                if ($problems = self::detectRTokens($transpiled)) {
-                    $counts['showif']['needs_js_rewrite']++;
-                    $flag('showif', $raw_showif, $transpiled, $problems, 'rewrite_in_js');
-                } elseif ($unknown = self::namesNotOnForm($transpiled, $formNames)) {
-                    $counts['showif']['not_on_form']++;
-                    $flag('showif', $raw_showif, $transpiled, ['not an item of this form: ' . implode(', ', $unknown)], 'bridge_hidden_item');
-                } else {
-                    $counts['showif']['js_ok']++;
-                }
+                $counts['showif']['js_ok']++;
             }
 
             // ---- value (R-only — every non-empty, non-numeric value is R) ----
@@ -132,7 +128,7 @@ class FormV2CompatScanner {
     }
 
     /**
-     * Identifiers a transpiled showif may use besides the form's item names:
+     * Identifiers a showif may use besides the form's item names:
      * JavaScript's own, plus the fmrForm helpers (Item::SHOWIF_HELPERS).
      */
     const JS_KNOWN_NAMES = [
@@ -143,7 +139,7 @@ class FormV2CompatScanner {
     ];
 
     /**
-     * The names a (transpiled) showif reads that are not items of this form.
+     * The names a showif reads that are not items of this form.
      * The browser only knows the form's own items (answers saved on earlier
      * pages included), so such a showif can never become true there.
      * Function calls are left to detectRTokens(); property accesses (`.length`)
@@ -192,8 +188,9 @@ class FormV2CompatScanner {
     }
 
     /**
-     * Scan a (possibly-transpiled) expression for tokens that won't evaluate
-     * in the client-side JS showif runtime.
+     * Scan a showif for R that won't evaluate as JavaScript in the browser.
+     * A v2 showif is used as written, so every R idiom counts — also the
+     * ones v1's live preview translates (Item::showifToJs).
      *
      * @param string $expr
      * @return list<string>
@@ -206,17 +203,23 @@ class FormV2CompatScanner {
         // label, `// NA handling`) — the switch to v2 stops on a finding.
         $code = self::codeOnly($expr);
 
-        if (preg_match('/\b(ifelse|c|nrow|ncol|paste|paste0|sprintf|format|grepl|grep|sub|gsub|is\.null|is\.numeric|is\.character|unlist|lapply|sapply|rev|sort|unique|which|rowSums|colSums)\s*\(/', $code)) {
+        if (preg_match('/\b(ifelse|c|nrow|ncol|paste|paste0|sprintf|format|grepl|grep|sub|gsub|is\.null|is\.numeric|is\.character|unlist|lapply|sapply|rev|sort|unique|which|rowSums|colSums|tail|head|current)\s*\(/', $code)) {
             $problems[] = 'R-only function call';
         }
-        if (preg_match('/\b(tail|head)\s*\(/', $code) && !preg_match('/\b(tail|head)\s*\([^)]*,\s*1\s*\)/', $code)) {
-            $problems[] = 'tail/head with non-1 arg';
-        }
         if (preg_match('/\bis\.na\s*\(/', $code)) {
-            $problems[] = 'is.na() did not transpile';
+            $problems[] = 'is.na() (use isNA())';
         }
-        if (preg_match('/%in%|%%/', $code)) {
-            $problems[] = 'R-only operator (%in% / %%)';
+        if (preg_match('/%[A-Za-z_]*%/', $code)) {
+            $problems[] = 'R-only operator (%in%, %contains%, %%, …)';
+        }
+        if (preg_match('/(?<![&|])[&|](?![&|])/', $code)) {
+            $problems[] = 'R single & / | (use && / ||)';
+        }
+        if (preg_match('/\b(TRUE|FALSE)\b/', $code)) {
+            $problems[] = 'R TRUE / FALSE (use true / false)';
+        }
+        if (preg_match('/[A-Za-z_.][A-Za-z0-9_.]*::/', $code)) {
+            $problems[] = 'R namespace :: (e.g. stringr::)';
         }
         if (preg_match('/<-|->(?!\s*[(a-zA-Z_])/', $code)) {
             $problems[] = 'R assignment arrow';

@@ -77,21 +77,21 @@
 
 <p>Two columns of the item table decide what a participant sees and what is pre-filled. On a Form they follow two rules:</p>
 <ol>
-    <li><strong><code>showif</code> is JavaScript.</strong> It runs in the participant's browser and is re-evaluated whenever an input changes. Familiar R-flavoured conditions are rewritten to JavaScript for you when you upload the sheet; what cannot be rewritten is listed by the compatibility scan, and the fix is either a JavaScript rewrite or the hidden-item bridge below.</li>
+    <li><strong><code>showif</code> is JavaScript.</strong> It runs in the participant's browser, as written, and is re-evaluated whenever an input changes. A v1 showif is R, so the compatibility scan lists every one that still contains R; the fix is a JavaScript rewrite or the hidden-item bridge below.</li>
     <li><strong><code>value</code> is R.</strong> Anything that is not empty or a plain number is sent to R on the server, as written.</li>
 </ol>
 
 <h5>Writing a <code>showif</code></h5>
-<p>Every item of the form is available under its name as a live variable, and the usual R-flavoured showifs are rewritten to JavaScript for you when you upload the sheet. So <code>mood == 3</code>, <code>age &gt;= 18 &amp;&amp; consent == 1</code> or <code>pets %contains% "cat"</code> work exactly as before. These rewrites are applied:</p>
+<p>Every item of the form is available under its name as a live variable, so <code>mood == 3</code> or <code>age &gt;= 18 &amp;&amp; consent == 1</code> work as they are. The R idioms of a v1 showif have to be rewritten:</p>
 <table class="table table-condensed table-striped">
-    <thead><tr><th>You write (R-style)</th><th>What runs in the browser</th></tr></thead>
+    <thead><tr><th>v1 (R)</th><th>v2 (JavaScript)</th></tr></thead>
     <tbody>
         <tr><td><code>current(x)</code>, <code>tail(x, 1)</code></td><td><code>x</code> — the current answer</td></tr>
         <tr><td>single <code>&amp;</code> / <code>|</code>, <code>TRUE</code> / <code>FALSE</code></td><td><code>&amp;&amp;</code> / <code>||</code>, <code>true</code> / <code>false</code></td></tr>
-        <tr><td><code>x %contains% "s"</code></td><td><code>x.toString().indexOf("s") &gt; -1</code></td></tr>
-        <tr><td><code>x %contains_word% "s"</code></td><td>a whole-word match on <code>x</code></td></tr>
-        <tr><td><code>x %begins_with% "s"</code>, <code>x %starts_with% "s"</code></td><td><code>x.toString().indexOf("s") === 0</code></td></tr>
-        <tr><td><code>x %ends_with% "s"</code></td><td><code>x.toString().endsWith("s")</code></td></tr>
+        <tr><td><code>x %contains% "s"</code></td><td><code>contains(x, "s")</code></td></tr>
+        <tr><td><code>x %contains_word% "s"</code></td><td><code>containsWord(x, "s")</code></td></tr>
+        <tr><td><code>x %begins_with% "s"</code>, <code>x %starts_with% "s"</code></td><td><code>startsWith(x, "s")</code></td></tr>
+        <tr><td><code>x %ends_with% "s"</code></td><td><code>endsWith(x, "s")</code></td></tr>
         <tr><td><code>stringr::str_length(x)</code></td><td><code>x.length</code></td></tr>
         <tr><td><code>is.na(x)</code></td><td><code>isNA(x)</code></td></tr>
     </tbody>
@@ -154,7 +154,7 @@ value: complex_score(current(q1), current(q2))</pre>
 
 <p>Before you move an existing study to the Form engine, scan it. The scan reads every non-empty <code>showif</code> and <code>value</code> of the study and sorts them into buckets, and lists the items v2 cannot run at all. It changes nothing — it is a report. Two ways to run it:</p>
 <ul>
-    <li><strong>Admin interface:</strong> on the study's settings page. While the study is still on v1, the <em>Rendering engine</em> box shows the number of flagged expressions next to <strong>Upgrade to form_v2</strong> and a <strong>Full compatibility report</strong> button; once it is on v2, the <em>Form_v2 settings</em> block has a <strong>Run v2 compatibility scan</strong> button. The report lists, per item, the source, the transpiled JavaScript and the suggested fix.</li>
+    <li><strong>Admin interface:</strong> on the study's settings page. While the study is still on v1, the <em>Rendering engine</em> box shows the number of flagged expressions next to <strong>Upgrade to form_v2</strong> and a <strong>Full compatibility report</strong> button; once it is on v2, the <em>Form_v2 settings</em> block has a <strong>Run v2 compatibility scan</strong> button. The report lists, per item, the source and the suggested fix.</li>
     <li><strong>Command line</strong> (instance administrators): <code>php bin/form_v2_compat_scan.php &lt;study_id|study_name&gt;</code> prints the same report and exits with status 0 if the study is clean and 2 if anything is flagged, so it can gate a deployment.</li>
 </ul>
 
@@ -162,8 +162,8 @@ value: complex_score(current(q1), current(q2))</pre>
     <thead><tr><th>Column</th><th>Bucket</th><th>Meaning</th><th>What to do</th></tr></thead>
     <tbody>
         <tr><td rowspan="4"><code>showif</code></td><td><em>empty</em></td><td>no expression</td><td>—</td></tr>
-        <tr><td><em>JS-OK</em></td><td>transpiles to JavaScript without leftover R</td><td>nothing; test it in the browser anyway</td></tr>
-        <tr><td><em>needs JS rewrite</em> (flagged, fix: <em>rewrite in JS</em>)</td><td>the transpiled expression still contains R-only pieces: function calls such as <code>ifelse</code>, <code>c</code>, <code>paste</code>, <code>grepl</code>, <code>sprintf</code>, <code>unique</code>, <code>which</code>, …; <code>tail</code>/<code>head</code> with an argument other than <code>1</code>; an <code>is.na()</code> that did not transpile; <code>%in%</code> or <code>%%</code>; the assignment arrow <code>&lt;-</code>; a bare <code>NA</code>; or <code>$</code> member access like <code>survey$item</code></td><td>Rewrite it with JavaScript operators and the <a href="#form_v2_showif">helpers</a>: <code>x %in% c(1,2)</code> becomes <code>[1,2].includes(x)</code> or <code>x == 1 || x == 2</code>; <code>ifelse(a, b, c)</code> becomes <code>a ? b : c</code>; <code>is.na(x)</code> becomes <code>isNA(x)</code>; <code>survey$item</code> becomes just <code>item</code> if it is on the form. If the logic genuinely needs R (data from another survey, a function from your R package), move it into a hidden item's <code>value</code> and test that item's name in the showif — see <a href="#form_v2_bridge">Bridging R into a showif</a>.</td></tr>
+        <tr><td><em>JS-OK</em></td><td>no R in it</td><td>nothing; test it in the browser anyway</td></tr>
+        <tr><td><em>needs JS rewrite</em> (flagged, fix: <em>rewrite in JS</em>)</td><td>the showif contains R: function calls such as <code>ifelse</code>, <code>c</code>, <code>paste</code>, <code>grepl</code>, <code>current</code>, <code>tail</code>, …; <code>is.na()</code>; an infix operator such as <code>%in%</code> or <code>%contains%</code>; a single <code>&amp;</code> or <code>|</code>; <code>TRUE</code>/<code>FALSE</code>; a namespace such as <code>stringr::</code>; the assignment arrow <code>&lt;-</code>; a bare <code>NA</code>; or <code>$</code> member access like <code>survey$item</code></td><td>Rewrite it with JavaScript operators and the <a href="#form_v2_showif">helpers</a>: <code>x %in% c(1,2)</code> becomes <code>[1,2].includes(x)</code> or <code>x == 1 || x == 2</code>; <code>ifelse(a, b, c)</code> becomes <code>a ? b : c</code>; <code>is.na(x)</code> becomes <code>isNA(x)</code>; <code>survey$item</code> becomes just <code>item</code> if it is on the form. If the logic genuinely needs R (data from another survey, a function from your R package), move it into a hidden item's <code>value</code> and test that item's name in the showif — see <a href="#form_v2_bridge">Bridging R into a showif</a>.</td></tr>
         <tr><td><em>not on the form</em> (flagged)</td><td>the showif reads a name that isn't an item of this survey — a run variable such as <code>ran_group</code>, or another survey's item. The browser only knows this form's items, so the item would stay hidden</td><td>compute the value in a hidden item's <code>value</code> on this form and reference that item — see <a href="#form_v2_bridge">Bridging R into a showif</a></td></tr>
         <tr><td><code>type</code></td><td><em>not supported in v2</em> (flagged, blocks the switch)</td><td>a <code>calculate</code> item, or another item that takes no input but carries R in <code>value</code></td><td>replace it as described under <a href="#form_v2_calculate"><code>calculate</code> items are not supported</a></td></tr>
         <tr><td rowspan="3"><code>value</code></td><td><em>empty</em></td><td>no default</td><td>—</td></tr>

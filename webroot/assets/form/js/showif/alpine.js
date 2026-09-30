@@ -2,21 +2,16 @@
 //
 // Replaces the hand-rolled showif evaluator from Phase 3's first iteration.
 // `fmrForm` reactivises one top-level field per named input; `x-showif`
-// runs transpiled JS expressions through Alpine's effect() so dep-tracking
+// runs the showif, JavaScript as the author wrote it, through Alpine's
+// effect() so dep-tracking
 // and re-evaluation are free. Server emits `data-showif`; the bundle
 // promotes that to `x-showif` at init (see registerAttributePromotion).
 //
-// The directive is robustness-hardened in three places:
-//   1. Strip `//` and `/* */` comments first — v1's `//js_only` marker
-//      otherwise swallows our wrapping closing paren and produces
-//      SyntaxError at `new AsyncFunction()` time.
-//   2. Rewrite `(typeof(X) === 'undefined')` → `isNA(X)`. Item.php's one
-//      transpile spells `is.na()` for v1's evaluator, whose scope holds only
-//      answered inputs (so `typeof` works there); this scope defines every
-//      field (`null` when unanswered), so the same test has to be `isNA()`.
-//      Two evaluators, two spellings — the pair is pinned by
-//      tests/ShowifReservedNamesTest.php.
-//   3. Wrap runtime eval in `(function(){try{return (expr)}catch(e){return undefined}})()`
+// The directive is robustness-hardened in two places:
+//   1. Strip `//` and `/* */` comments first — a trailing comment (v1's
+//      `//js_only` marker, say) otherwise swallows our wrapping closing
+//      paren and produces SyntaxError at `new AsyncFunction()` time.
+//   2. Wrap runtime eval in `(function(){try{return (expr)}catch(e){return undefined}})()`
 //      so ReferenceErrors on names the browser doesn't know (a run variable
 //      like `ran_group`, another survey's item) silently fall back to
 //      undefined (→ the item keeps its current visibility: hidden, as every
@@ -26,7 +21,7 @@ import { readField, fieldKey, isItemHidden, showifControls } from '../lib/inputs
 
 // Names the `fmrForm` component itself owns.
 //
-// Item values and these helpers share ONE object — the transpiled showif
+// Item values and these helpers share ONE object — the showif
 // references item names bare (`q1 == 2`), so they have to be top-level fields
 // on the component. An item named `answered` (or `contains`, `last`, `isNA` —
 // the name `is.na()` is rewritten into at :148) would therefore overwrite the
@@ -214,11 +209,7 @@ export function registerXShowif(Alpine) {
     Alpine.directive('showif', (el, { expression }, { evaluateLater, effect }) => {
         const cleaned = stripComments(expression || '').trim();
         if (!cleaned) return;
-        const rewritten = cleaned.replace(
-            /\(\s*typeof\(\s*([A-Za-z0-9_'"]+)\s*\)\s*===\s*['"]undefined['"]\s*\)/g,
-            'isNA($1)'
-        );
-        const safe = `(function(){try{return (${rewritten})}catch(e){return undefined}})()`;
+        const safe = `(function(){try{return (${cleaned})}catch(e){return undefined}})()`;
 
         const applyVisibility = (visible) => {
             const changed = el.classList.contains('hidden') === !!visible;

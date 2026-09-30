@@ -8,7 +8,7 @@ This release adds **form_v2**, a second survey engine, run by a new **Form** uni
 
 ### Added
 - **The Form unit and the form_v2 engine.** A Form renders its whole survey as one document and moves between pages without a reload; each page is submitted on its own, and the participant sees their page again, with every answer given so far, after a reload or when they come back later (the browser remembers the page; on another device the form opens on the first page with an unanswered item). A survey on v2 only runs as v2 in a Form unit.
-  - **`showif` is JavaScript**, evaluated in the browser as the participant answers, with the helpers `isNA`, `answered`, `contains`, `containsWord`, `startsWith`, `endsWith` and `last`. v1 showifs that use only comparisons and the formr operators (`%contains%`, `is.na()`, `current()`, …) are translated as they are; anything that needs R goes into a hidden item whose `value` computes it, referenced by name from the showif. A showif the browser cannot evaluate keeps its item hidden.
+  - **`showif` is JavaScript**, evaluated in the browser as the participant answers, with the helpers `isNA`, `answered`, `contains`, `containsWord`, `startsWith`, `endsWith` and `last`. It is used as written: the R idioms of a v1 showif (`&`, `TRUE`, `%contains%`, `is.na()`, `current()`, …) are rewritten in JavaScript, and anything that needs R goes into a hidden item whose `value` computes it, referenced by name from the showif. A showif the browser cannot evaluate keeps its item hidden.
   - **`value` is R**, resolved when the item's page is shown, against the answers given so far — the same for labels with inline R, R in choice labels and `note_iframe` documents. The R source never reaches the browser: it is recorded in a per-study allowlist and the page only knows call ids. Results are cached per unit session.
   - **Autosave** stores answers as they are given (at most every 20 s, and when the page is left), so a participant who breaks off leaves partial data; clearing a field or deselecting a choice withdraws the answer stored before.
   - **Offline queue**: a page submit that fails for lack of network or a server error is kept in the browser (IndexedDB) and sent when the connection returns or the study is reopened, in order; the participant carries on meanwhile. Files up to `form_v2_offline_blob_max_mb` (10 MB) are queued too. Nothing is sent while the tab is closed. Per survey, *Enable offline queue* (on by default) turns it off for studies whose answers must not be stored on the device; answers queued before it was turned off are still sent.
@@ -65,7 +65,7 @@ This release adds **form_v2**, a second survey engine, run by a new **Form** uni
 - SQL patch 103: `survey_form_submissions`, the offline queue's record of delivered submissions (a resent one is not applied twice).
 - SQL patch 104: `survey_studies.offline_mode` (default 1) and `allow_previous` (default 0).
 - SQL patch 105: `survey_r_call_results`, the cache of R results.
-- SQL patch 106: `survey_items.showif_js`, a cache of the translated showif, re-derived automatically when the translation changes.
+- SQL patch 106: `survey_items.showif_js` (dropped again by patch 117).
 - SQL patch 107: scopes `survey_r_call_results` to the unit session (and empties it).
 - SQL patch 108: `survey_unit_sessions.study_iteration` and `survey_studies.last_iteration`. `bin/backfill_study_iteration.php` numbers existing sessions (the docker deployment's update scripts run it; run it once by hand elsewhere).
 - SQL patch 109: `survey_studies.layout` ENUM('default','solo').
@@ -76,7 +76,8 @@ This release adds **form_v2**, a second survey engine, run by a new **Form** uni
 - SQL patch 114: `survey_studies.language`, default `en`.
 - SQL patch 115: `survey_studies.next_button_label` and `submit_button_label`.
 - SQL patch 116: a Form unit shares its survey's unit row, as a Survey unit does (the row's type is `Form` while the survey is on v2); moves existing Form placements and sessions onto it and drops `survey_units.form_study_id`.
-- The tables of patches 102, 103, 105 and 113 are in `sql/schema.sql` for fresh installs. Every patch 100–115 is guarded (`IF [NOT] EXISTS`) and can be replayed; 116 moves data once.
+- SQL patch 117: drops `survey_items.showif_js`.
+- The tables of patches 102, 103, 105 and 113 are in `sql/schema.sql` for fresh installs. Every patch 100–117 but 116 is guarded (`IF [NOT] EXISTS`) and can be replayed; 116 moves data once.
 
 ## [v1.11.0] - 22.09.2026
 

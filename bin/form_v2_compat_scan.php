@@ -7,14 +7,13 @@
  * Usage:
  *   php bin/form_v2_compat_scan.php <study_id|study_name>
  *
- * showif buckets (showifs are JS-only in form_v2):
+ * showif buckets (in form_v2 a showif is JavaScript, used as written):
  *   - empty            — no expression
- *   - JS-OK            — the v1 transpile (Item.php regex pass) yields an
- *                        expression that looks like valid JS with no
- *                        residual R-only tokens
- *   - needs JS rewrite — residual R tokens the client evaluator won't
- *                        handle; rewrite in JS, or move the R into a
- *                        hidden item's `value` and reference that name
+ *   - JS-OK            — no R in it
+ *   - needs JS rewrite — contains R (&, TRUE, %contains%, is.na(), …) the
+ *                        browser can't evaluate; rewrite in JS, or move the
+ *                        R into a hidden item's `value` and reference that
+ *                        name
  *   - not on the form  — reads a name that is not an item of this form
  *                        (a run variable, another survey's item); bridge
  *                        it through a hidden item
@@ -63,9 +62,6 @@ if (!empty($report['flagged'])) {
         echo sprintf("  item %s %-20s [%s] %s\n",
             $r['id'], $r['name'], $r['column'], implode(', ', $r['problems']));
         echo "    source:     {$r['source']}\n";
-        if ($r['transpiled'] !== '' && $r['transpiled'] !== $r['source']) {
-            echo "    transpiled: {$r['transpiled']}\n";
-        }
         $fixes = [
             'rewrite_in_js' => 'rewrite the showif in JS (or move the R into a hidden item\'s `value`)',
             'bridge_hidden_item' => 'compute the value in a hidden item\'s `value` (R) and reference that item from the showif',

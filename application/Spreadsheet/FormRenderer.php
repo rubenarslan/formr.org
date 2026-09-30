@@ -206,9 +206,8 @@ class FormRenderer extends SpreadsheetRenderer {
         // Step 4: visibility belongs to the client. Every item with a showif
         // renders hidden (and its inputs disabled) until Alpine evaluates the
         // showif, which then reveals it — so nothing flashes visible or blocks
-        // the page before the bundle has run. A showif that did not transpile
-        // leaves its item hidden: unknown means not shown (it still carries the
-        // empty attribute, so the browser reports it hidden like any other).
+        // the page before the bundle has run. A showif the browser cannot
+        // evaluate leaves its item hidden: unknown means not shown.
         //
         // Submit-type items are page boundaries AND the page's advance control;
         // they stay in $items and render as the page's big button, and are kept
@@ -375,7 +374,6 @@ class FormRenderer extends SpreadsheetRenderer {
             `survey_items`.optional,
             `survey_items`.class,
             `survey_items`.showif,
-            `survey_items`.showif_js,
             `survey_items`.value,
             `survey_items_display`.displaycount,
             `survey_items_display`.session_id,
@@ -413,6 +411,7 @@ class FormRenderer extends SpreadsheetRenderer {
             // rendered; the browser owns visibility (processItems Step 4).
             $item = $itemFactory->make($row);
             if (!$item) continue;
+            $item->useVerbatimShowif();
             if (isset($row['saved'])) {
                 $this->storedItems[$item->name] = true;
                 if ($row['stored_answer'] !== null) {

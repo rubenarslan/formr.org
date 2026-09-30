@@ -21,7 +21,7 @@ class FormV2CompatScannerScanTest extends \PHPUnit\Framework\TestCase {
         $this->db->exec('CREATE TABLE survey_items (
             id INTEGER PRIMARY KEY, study_id INTEGER, name TEXT, type TEXT,
             choice_list TEXT, type_options TEXT, label TEXT, label_parsed TEXT,
-            optional INTEGER DEFAULT 1, class TEXT, showif TEXT, showif_js TEXT,
+            optional INTEGER DEFAULT 1, class TEXT, showif TEXT,
             value TEXT, "order" INTEGER, item_order INTEGER, block_order TEXT,
             deleted TEXT DEFAULT NULL)');
     }
@@ -55,7 +55,7 @@ class FormV2CompatScannerScanTest extends \PHPUnit\Framework\TestCase {
         $this->seed(array(
             array('q1', 'text'),
             array('ok_js', 'text', 'q1 == "a"'),
-            array('ok_isna', 'text', '!is.na(q1)'),                 // transpiles to typeof
+            array('ok_isna', 'text', '!isNA(q1)'),
             array('run_var', 'text', 'ran_group == 2'),              // not an item of the form
             array('to_gone', 'text', 'gone == 1'),                   // names a soft-deleted item
             array('r_tail', 'text', 'tail(q1, 2) == "a"'),
@@ -69,7 +69,7 @@ class FormV2CompatScannerScanTest extends \PHPUnit\Framework\TestCase {
         $this->assertSame(array('not an item of this form: ran_group'), $flagged['run_var/showif']['problems']);
         $this->assertSame(array('not an item of this form: gone'), $flagged['to_gone/showif']['problems'], 'a soft-deleted item is not a name the form knows');
         $this->assertSame('rewrite_in_js', $flagged['r_tail/showif']['suggested_fix']);
-        $this->assertSame(array('tail/head with non-1 arg'), $flagged['r_tail/showif']['problems']);
+        $this->assertSame(array('R-only function call'), $flagged['r_tail/showif']['problems']);
         $this->assertSame('tail(q1, 2) == "a"', $flagged['r_tail/showif']['source']);
     }
 
@@ -105,15 +105,21 @@ class FormV2CompatScannerScanTest extends \PHPUnit\Framework\TestCase {
 
     public function testEachRTokenIsReportedOnItsOwn() {
         $cases = array(
-            'tail(q1, 3) > 1' => 'tail/head with non-1 arg',
-            'head(q1, 2) == 1' => 'tail/head with non-1 arg',
-            'is.na(q1 + 1)' => 'is.na() did not transpile',
+            'tail(q1, 1) > 1' => 'R-only function call',
+            'head(q1, 2) == 1' => 'R-only function call',
+            'current(q1) == 1' => 'R-only function call',
+            'is.na(q1 + 1)' => 'is.na() (use isNA())',
+            'q1 == 1 & q2 == 2' => 'R single & / | (use && / ||)',
+            'q1 == 1 | q2 == 2' => 'R single & / | (use && / ||)',
+            'q1 == TRUE' => 'R TRUE / FALSE (use true / false)',
+            'stringr::str_length(q1) > 2' => 'R namespace :: (e.g. stringr::)',
+            'q1 %contains% "a"' => 'R-only operator (%in%, %contains%, %%, …)',
             'x <- q1 == 1' => 'R assignment arrow',
             'q1 == NA' => 'R NA constant',
             'q1 == NA_real_' => 'R NA constant',
             'q1 != NA_character_' => 'R NA constant',
             'survey$q1 == 1' => 'R $-member access',
-            'q1 %in% 1' => 'R-only operator (%in% / %%)',
+            'q1 %in% 1' => 'R-only operator (%in%, %contains%, %%, …)',
             'ifelse(q1, 1, 2)' => 'R-only function call',
         );
         foreach ($cases as $expr => $problem) {
@@ -123,11 +129,11 @@ class FormV2CompatScannerScanTest extends \PHPUnit\Framework\TestCase {
 
     public function testJavaScriptAndStringLiteralsAreNotFlagged() {
         foreach (array(
-            'tail(q1, 1) == 2',                     // the one form the transpiler reduces
             'q1 == "NA" || q2 == \'tail(x, 3)\'',   // tokens inside strings
             'q1 === "survey$q1"',
             'q1 > 1 && q2 !== null',
-            '/*sjv1*/ (typeof(q1) === \'undefined\')',
+            '(typeof(q1) === \'undefined\') // TRUE & FALSE in a comment',
+            'q1 == true && !isNA(q2)',
             'answered(q1) && contains(q2, "x <- y")',
         ) as $expr) {
             $this->assertSame(array(), FormV2CompatScanner::detectRTokens($expr), $expr);
@@ -136,7 +142,7 @@ class FormV2CompatScannerScanTest extends \PHPUnit\Framework\TestCase {
 
     public function testSeveralProblemsAreAllListed() {
         $this->assertSame(
-            array('is.na() did not transpile', 'R NA constant', 'R $-member access'),
+            array('is.na() (use isNA())', 'R NA constant', 'R $-member access'),
             FormV2CompatScanner::detectRTokens('is.na(survey$q1) || survey$q2 == NA')
         );
     }

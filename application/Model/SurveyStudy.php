@@ -999,21 +999,14 @@ class SurveyStudy extends Model
         ];
 
         // Prepare SQL statement for adding items.
-        //
-        // `showif_js` (patch 106) caches the v1 regex transpile of `showif`
-        // so per-request renders skip the work and admin tooling can reason
-        // about the produced JS (compat scanner, future hardened parser).
-        // The Item property holding the transpile is `js_showif` (legacy
-        // name); the column is `showif_js`. Bound separately below the
-        // generic loop because the property/column names differ.
-        $UPDATES = implode(', ', get_duplicate_update_string(array_merge($definedColumns, ['showif_js'])));
+        $UPDATES = implode(', ', get_duplicate_update_string($definedColumns));
         // Re-uploading a name that was soft-deleted (patch 112) revives it: clear
         // the marker on upsert so an item that reappears in the sheet is live
         // again, and its preserved survey_items_display answers re-enter the form.
         $UPDATES .= ', `deleted` = NULL';
         $addStmt = $this->db->prepare(
-            "INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, showif_js, value, `block_order`,`item_order`, `order`)
-			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :showif_js, :value, :block_order, :item_order, :order)
+            "INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `block_order`,`item_order`, `order`)
+			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :value, :block_order, :item_order, :order)
 			ON DUPLICATE KEY UPDATE $UPDATES"
         );
         $addStmt->bindParam(":study_id", $this->id);
@@ -1067,8 +1060,6 @@ class SurveyStudy extends Model
             foreach ($definedColumns as $param) {
                 $addStmt->bindValue(":$param", $item->$param);
             }
-            // js_showif → showif_js column (see addItems comment block).
-            $addStmt->bindValue(":showif_js", $item->js_showif);
 
             $result_field = $item->getResultField();
             $ret['new_items'][$item->name] = $result_field;
@@ -1365,10 +1356,8 @@ class SurveyStudy extends Model
     public function getItems($columns = null, $whereIn = null, $includeDeleted = false)
     {
         if ($columns === null) {
-            // showif_js (patch 106) is the cached transpile of `showif`. Item.php
-            // uses it to skip per-request regex work when populated.
             // `deleted` (patch 112) is the soft-delete marker.
-            $columns = "id, study_id, type, choice_list, type_options, name, label, label_parsed, optional, class, showif, showif_js, value, block_order,item_order, deleted";
+            $columns = "id, study_id, type, choice_list, type_options, name, label, label_parsed, optional, class, showif, value, block_order,item_order, deleted";
         }
 
         $select = $this->db->select($columns);

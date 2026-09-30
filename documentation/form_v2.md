@@ -49,7 +49,7 @@ Once a study is on v2, the same page shows the **Form_v2 settings**:
 
 ### The two rules
 
-1. **`showif` is JavaScript.** It is evaluated in the participant's browser and re-evaluated on every input change. In v1 the same column held R, so every non-empty showif of a study you are upgrading has to be rewritten — most transpile as-is (`q1 == 1`), the rest need a JS rewrite or the hidden-item bridge below. The compatibility scanner tells you which is which before you switch.
+1. **`showif` is JavaScript.** It is evaluated in the participant's browser, as written, and re-evaluated on every input change. In v1 the same column held R, so every non-empty showif of a study you are upgrading has to be checked — many are valid JavaScript already (`q1 == 1`), the rest need a JS rewrite or the hidden-item bridge below. The compatibility scanner tells you which is which before you switch.
 2. **`value` is R.** Anything that isn't empty, a number, or the `sticky` keyword is evaluated as R on the server, as written.
 
 ### `showif`: client-side JS
@@ -65,7 +65,7 @@ Each item's name is available as a reactive variable, and a small helper library
 | `startsWith(s, p)`, `endsWith(s, p)` | `String(s).startsWith(p)` / `.endsWith(p)` |
 | `last(arr)` | last element, or the value as-is for non-arrays |
 
-The R-isms a v1 showif typically uses are rewritten to JS for you: comparison operators, `&&`/`||`, the formr infix operators (`%contains%`, `%begins_with%`, `%starts_with%`, `%ends_with%`, `%contains_word%`), `is.na()`, `tail(x, 1)`, `current(x)`, `stringr::str_length()`. So `mc_polytheism == 2` works unchanged.
+The R-isms of a v1 showif are not translated: `&`/`|` become `&&`/`||`, `TRUE`/`FALSE` become `true`/`false`, `current(x)` and `tail(x, 1)` become `x`, `%contains%` / `%begins_with%` / `%starts_with%` / `%ends_with%` / `%contains_word%` become `contains` / `startsWith` / `endsWith` / `containsWord`, `is.na(x)` becomes `isNA(x)`, `stringr::str_length(x)` becomes `x.length`. Comparisons such as `mc_polytheism == 2` work unchanged.
 
 ```
 showif: mc_polytheism == 2
@@ -131,8 +131,8 @@ Before upgrading a v1 study, run the scanner. It classifies every expression:
 
 **`showif`**
 - **empty** — no expression
-- **JS-OK** — transpiles to JavaScript cleanly
-- **needs JS rewrite** — residual R-only tokens (`ifelse`, `c(`, `%in%`, `<-`, …): rewrite in JS, or move the R into a hidden item's `value` and reference that name
+- **JS-OK** — no R in it
+- **needs JS rewrite** — contains R (`&`, `TRUE`, `%contains%`, `is.na(`, `ifelse`, `c(`, `%in%`, `<-`, …): rewrite in JS, or move the R into a hidden item's `value` and reference that name
 - **not on the form** — reads a name that isn't an item of this survey (`ran_group`, another survey's item): compute it in a hidden item's `value` and reference that item
 
 **`value`**

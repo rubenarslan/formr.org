@@ -25,10 +25,10 @@
                                 This report classifies every <code>showif</code> and <code>value</code> expression in your survey under the form_v2 rules. It's the same heuristic used by <code>bin/form_v2_compat_scan.php</code> (CI-friendly; exits non-zero if anything is flagged).
                             </p>
                             <ul>
-                                <li><strong>showif is JS-only.</strong> Evaluated in the participant's browser, reactive on every input change. An item with a showif starts hidden and is revealed when its showif is true, so a showif the browser can't evaluate keeps its item hidden.
+                                <li><strong>showif is JavaScript, used as written.</strong> Evaluated in the participant's browser, reactive on every input change. An item with a showif starts hidden and is revealed when its showif is true, so a showif the browser can't evaluate keeps its item hidden.
                                     <ul>
-                                        <li><strong>JS-OK</strong> — transpiles cleanly to JS the client evaluator understands.</li>
-                                        <li><strong>Needs JS rewrite</strong> — residual R tokens the client can't handle. Rewrite in JS, or move the R into a hidden item's <code>value</code> column and reference the field name from the showif.</li>
+                                        <li><strong>JS-OK</strong> — no R in it; the browser can evaluate it.</li>
+                                        <li><strong>Needs JS rewrite</strong> — contains R (<code>&amp;</code>, <code>TRUE</code>, <code>%contains%</code>, <code>is.na()</code>, …) that JavaScript can't evaluate. Rewrite in JS, or move the R into a hidden item's <code>value</code> column and reference the field name from the showif.</li>
                                         <li><strong>Not on the form</strong> — reads a name that isn't an item of this survey (a run variable, another survey's item). The browser only knows this form's items; compute the value in a hidden item's <code>value</code> and reference that item.</li>
                                     </ul>
                                 </li>
@@ -98,7 +98,6 @@
                                         <th>Column</th>
                                         <th>Problems</th>
                                         <th>Source</th>
-                                        <th>Transpiled</th>
                                         <th>Suggested</th>
                                     </tr>
                                 </thead>
@@ -110,7 +109,6 @@
                                             <td><code><?= htmlspecialchars($r['column']) ?></code></td>
                                             <td><?= htmlspecialchars(implode(', ', $r['problems'])) ?></td>
                                             <td><code><?= htmlspecialchars($r['source']) ?></code></td>
-                                            <td><?php if ($r['transpiled'] === ''): ?><em class="text-muted">—</em><?php elseif ($r['transpiled'] !== $r['source']): ?><code><?= htmlspecialchars($r['transpiled']) ?></code><?php else: ?><em class="text-muted">(same as source)</em><?php endif; ?></td>
                                             <td>
                                                 <?php if ($r['suggested_fix'] === 'bridge_hidden_item'): ?>
                                                     Add a hidden item whose <code>value</code> computes what the showif needs in R, and reference that item's name from the showif.

@@ -126,27 +126,6 @@ class Item {
     public $class = null;
     public $showif = null;
     public $js_showif = null;
-    // Cached v1 transpile of `showif`, populated at import time and persisted
-    // in the survey_items.showif_js column (patch 106). When set, the regex
-    // transpile in setMoreOptions is skipped — both for performance (~12 regex
-    // passes saved per item per request) and so admin tooling can reason about
-    // a stable transpile output. Property name differs from the legacy
-    // js_showif on purpose: db column = property name, legacy field stays for
-    // backwards compat.
-    public $showif_js = null;
-
-    // Bump this whenever the R->JS transpile regexes in setMoreOptions()
-    // below change (added/removed/reworded a preg_replace). It's embedded
-    // as a leading `/*sjv<N>*/` JS comment in the value setMoreOptions()
-    // writes back into $this->js_showif after a live re-transpile -- the
-    // only value SurveyStudy::addItems() ever persists into
-    // survey_items.showif_js (it binds :showif_js to $item->js_showif at
-    // import time; see SurveyStudy.php ~685-734). Without this, a fixed
-    // transpiler is inert for every already-imported study until someone
-    // re-uploads it, because the cache-hit branch below returns the old
-    // cached JS unconditionally. See stampShowifJs()/parseShowifJsCache().
-    const SHOWIF_JS_VERSION = 1;
-
     public $value = null; // syntax for sticky value
     public $value_validated = null;
     public $order = null;
@@ -360,78 +339,44 @@ class Item {
         }
 
         if ($this->showif) {
-            // Prefer the import-time cached transpile (survey_items.showif_js,
-            // patch 106) when present AND stamped with the current
-            // SHOWIF_JS_VERSION — saves the dozen-or-so regex passes below,
-            // and gives admin tooling a stable output to introspect. A cache
-            // with no stamp at all (legacy row, written before this
-            // versioning existed) or a stamp below the current version is
-            // treated as stale, not as a match — falls through to a live
-            // re-transpile instead of serving output from a since-fixed
-            // transpiler forever.
-            if ($this->showif_js !== null && $this->showif_js !== '') {
-                $cached = self::parseShowifJsCache($this->showif_js);
-                if ($cached !== null && $cached['version'] === self::SHOWIF_JS_VERSION) {
-                    $this->js_showif = $cached['js'];
-                    if (strstr($this->showif, "//js_only") !== false) {
-                        $this->setVisibility(array(null));
-                    }
-                    return;
-                }
-            }
-            // primitive R to JS translation
-            $this->js_showif = preg_replace("/current\(\s*(\w+)\s*\)/", "$1", $this->showif); // remove current function
-            $this->js_showif = preg_replace("/tail\(\s*(\w+)\s*, 1\)/", "$1", $this->js_showif); // remove current function, JS evaluation is always in session			
-            // all other R functions may break
-            $this->js_showif = preg_replace("/(^|[^&])(\&)([^&]|$)/", "$1&$3", $this->js_showif); // & operators, only single ones need to be doubled
-            $this->js_showif = preg_replace("/(^|[^|])(\|)([^|]|$)/", "$1|$3", $this->js_showif); // | operators, only single ones need to be doubled
-            $this->js_showif = preg_replace("/FALSE/", "false", $this->js_showif); // uppercase, R, FALSE, to lowercase, JS, false
-            $this->js_showif = preg_replace("/TRUE/", "true", $this->js_showif); // uppercase, R, TRUE, to lowercase, JS, true
-            $quoted_string = "([\"'])((\\\\{2})*|(.*?[^\\\\](\\\\{2})*))\\1";
-            $this->js_showif = preg_replace("/\s*\%contains\%\s*" . $quoted_string . "/", ".toString().indexOf($1$2$1) > -1", $this->js_showif);
-            $this->js_showif = preg_replace("/\s*\%contains_word\%\s*" . $quoted_string . "/", ".toString().match(/\\b$2\\b/) !== null", $this->js_showif);
-            $this->js_showif = preg_replace("/\s*\%begins_with\%\s*" . $quoted_string . "/", ".toString().indexOf($1$2$1) === 0", $this->js_showif);
-            $this->js_showif = preg_replace("/\s*\%starts_with\%\s*" . $quoted_string . "/", ".toString().indexOf($1$2$1) === 0", $this->js_showif);
-            $this->js_showif = preg_replace("/\s*\%ends_with\%\s*" . $quoted_string . "/", ".toString().endsWith($1$2$1)", $this->js_showif);
-            $this->js_showif = preg_replace("/\s*stringr::str_length\(([a-zA-Z0-9_'\"]+)\)/", "$1.length", $this->js_showif);
-            $this->js_showif = preg_replace("/\s*is.na\(([a-zA-Z0-9_'\"]+)\)/", "(typeof($1) === 'undefined')", $this->js_showif);
-
-            if ($this->showif && strstr($this->showif, "//js_only") !== false) {
+            $this->js_showif = self::showifToJs($this->showif);
+            if (strstr($this->showif, "//js_only") !== false) {
                 $this->setVisibility(array(null));
             }
-
-            // Stamp the freshly transpiled JS with the current version so
-            // that if this Item gets persisted next (SurveyStudy::addItems
-            // binds :showif_js to $item->js_showif at import time), the
-            // cache it writes carries a version future requests can trust.
-            // The stamp is an inert leading JS comment: both showif
-            // evaluators strip comments before eval'ing (v2's x-showif
-            // directive; v1's Survey.prototype.showIf in survey.js), so
-            // this doesn't change runtime behaviour — it only means a
-            // render that had to re-transpile (not yet backed by a
-            // current-version cache) shows the stamp in admin-facing
-            // surfaces (item title tooltip, compat-scan report) until the
-            // study is re-uploaded and the cache-hit branch above strips it
-            // again.
-            $this->js_showif = self::stampShowifJs($this->js_showif);
         }
     }
 
-    // Wrap a freshly transpiled JS showif with a leading version comment.
-    // Pairs with parseShowifJsCache() below.
-    private static function stampShowifJs($js) {
-        return '/*sjv' . self::SHOWIF_JS_VERSION . '*/' . $js;
+    /**
+     * v1's live preview of an R showif: a regex translation of the common R
+     * idioms into JS (survey.js evaluates it; the server evaluates the R).
+     * Anything else passes through and fails in JS. form_v2 does not use it
+     * — there a showif IS JavaScript (useVerbatimShowif).
+     */
+    public static function showifToJs($showif) {
+        $js = preg_replace("/current\(\s*(\w+)\s*\)/", "$1", $showif); // remove current function
+        $js = preg_replace("/tail\(\s*(\w+)\s*, 1\)/", "$1", $js); // remove current function, JS evaluation is always in session
+        // all other R functions may break
+        $js = preg_replace("/(^|[^&])(\&)([^&]|$)/", "$1&$3", $js); // & operators, only single ones need to be doubled
+        $js = preg_replace("/(^|[^|])(\|)([^|]|$)/", "$1|$3", $js); // | operators, only single ones need to be doubled
+        $js = preg_replace("/FALSE/", "false", $js); // uppercase, R, FALSE, to lowercase, JS, false
+        $js = preg_replace("/TRUE/", "true", $js); // uppercase, R, TRUE, to lowercase, JS, true
+        $quoted_string = "([\"'])((\\\\{2})*|(.*?[^\\\\](\\\\{2})*))\\1";
+        $js = preg_replace("/\s*\%contains\%\s*" . $quoted_string . "/", ".toString().indexOf($1$2$1) > -1", $js);
+        $js = preg_replace("/\s*\%contains_word\%\s*" . $quoted_string . "/", ".toString().match(/\\b$2\\b/) !== null", $js);
+        $js = preg_replace("/\s*\%begins_with\%\s*" . $quoted_string . "/", ".toString().indexOf($1$2$1) === 0", $js);
+        $js = preg_replace("/\s*\%starts_with\%\s*" . $quoted_string . "/", ".toString().indexOf($1$2$1) === 0", $js);
+        $js = preg_replace("/\s*\%ends_with\%\s*" . $quoted_string . "/", ".toString().endsWith($1$2$1)", $js);
+        $js = preg_replace("/\s*stringr::str_length\(([a-zA-Z0-9_'\"]+)\)/", "$1.length", $js);
+        $js = preg_replace("/\s*is.na\(([a-zA-Z0-9_'\"]+)\)/", "(typeof($1) === 'undefined')", $js);
+        return $js;
     }
 
-    // Parse a cached survey_items.showif_js value produced by
-    // stampShowifJs(). Returns null (never a version) when $cached carries
-    // no recognisable stamp at all, so callers always treat an unstamped
-    // legacy cache as stale rather than silently trusting it.
-    private static function parseShowifJsCache($cached) {
-        if (preg_match('/^\/\*sjv(\d+)\*\/(.*)$/s', $cached, $m)) {
-            return array('version' => (int) $m[1], 'js' => $m[2]);
-        }
-        return null;
+    /**
+     * form_v2: the showif column is JavaScript, used as written — no R
+     * translation (FormRenderer calls this on every item it renders).
+     */
+    public function useVerbatimShowif() {
+        $this->js_showif = trim((string) $this->showif) !== '' ? (string) $this->showif : null;
     }
 
     public function refresh($options = array(), $properties = array()) {
