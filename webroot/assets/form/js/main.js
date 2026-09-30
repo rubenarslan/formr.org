@@ -890,26 +890,35 @@ function initForm() {
         target.value = val;
         return target;
     };
-    const resolveAndSubstitutePage = async (pageNum) => {
-        const targetPage = pages.find((p) => Number(p.dataset.fmrPage) === Number(pageNum));
-        if (!targetPage) return;
+    const pageByNum = (pageNum) => pages.find((p) => Number(p.dataset.fmrPage) === Number(pageNum));
+    const hasDynamicContent = (targetPage) => !!(targetPage
+        && targetPage.querySelector('[data-fmr-fill-id], [data-fmr-label-id], [data-fmr-choice-id]'));
+    // The POST behind a page's resolution, against the answers as they are
+    // now. Resolves {res, body}; rejects on a network failure.
+    const fetchPageResolution = async (pageNum) => {
+        const res = await fetch(renderPageUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ page: Number(pageNum), answers: collectAllAnswers() }),
+        });
+        return { res, body: await res.json().catch(() => null) };
+    };
+    // `fetched`: a fetchPageResolution already under way for this page.
+    const resolveAndSubstitutePage = async (pageNum, fetched = null) => {
+        const targetPage = pageByNum(pageNum);
+        if (!hasDynamicContent(targetPage)) return;
         const fillItems = targetPage.querySelectorAll('[data-fmr-fill-id]');
         const labelItems = targetPage.querySelectorAll('[data-fmr-label-id]');
         const choiceSpans = targetPage.querySelectorAll('[data-fmr-choice-id]');
-        if (fillItems.length === 0 && labelItems.length === 0 && choiceSpans.length === 0) return;
         // Mark items pending while we wait — visual feedback.
         fillItems.forEach((el) => el.classList.add('fmr-fill-pending'));
         labelItems.forEach((el) => el.classList.add('fmr-fill-pending'));
         const settleChoices = () => choiceSpans.forEach((el) => el.classList.remove('fmr-fill-pending'));
         let body;
         try {
-            const res = await fetch(renderPageUrl, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ page: Number(pageNum), answers: collectAllAnswers() }),
-            });
-            body = await res.json().catch(() => null);
+            let res;
+            ({ res, body } = await (fetched || fetchPageResolution(pageNum)));
             if (!res.ok || !body) {
                 fillItems.forEach((el) => el.classList.remove('fmr-fill-pending'));
                 labelItems.forEach((el) => el.classList.remove('fmr-fill-pending'));
@@ -1073,6 +1082,18 @@ function initForm() {
             { page: pageNum, unit_session_id: unitSessionId, hidden: hiddenItemIds(), final: nextPage == null },
             collectPayload(page)
         );
+        // The next page's R content does not depend on this submit's reply
+        // (it resolves against the answers posted now): fetch it alongside
+        // the POST, so the page transition waits for the slower of the two
+        // rather than for both in turn. It is written into the page only if
+        // the reply leads there — after a rejected submit, values resolved
+        // from the rejected answers must not stick in the next page's inputs.
+        let nextFetch = null;
+        if (nextPage != null && hasDynamicContent(pageByNum(nextPage))) {
+            nextFetch = fetchPageResolution(nextPage);
+            nextFetch.catch(() => {}); // unused → no unhandled rejection
+        }
+        const fetchedFor = (n) => (nextFetch && Number(n) === Number(nextPage) ? nextFetch : null);
 
         // If this page has a file input with a selected file, switch to
         // FormData/multipart. File bytes can't ride in JSON, and the server
@@ -1228,7 +1249,7 @@ function initForm() {
             // Awaited, as after a live submit: the single-flight guard must
             // hold until the next page is shown, or a second tap re-queues
             // this page.
-            if (queuedNext != null) await goToPage(queuedNext);
+            if (queuedNext != null) await goToPage(queuedNext, fetchedFor(queuedNext));
             return;
         }
         if (!res.ok) {
@@ -1317,7 +1338,7 @@ function initForm() {
         }
         const next = nav().nextAfter(pageNum);
         if (next != null) {
-            await goToPage(next);
+            await goToPage(next, fetchedFor(next));
             return;
         }
         // Nothing follows and the server did not end the form: the document
@@ -1368,10 +1389,10 @@ function initForm() {
     // any other page it opens (browser Back, solo Back, the queue banner's
     // "Go to page"), so no way onto a page leaves its R content blank.
     const requestedPages = new Set();
-    const resolvePage = (pageNum) => {
+    const resolvePage = (pageNum, fetched = null) => {
         const n = Number(pageNum);
         requestedPages.add(n);
-        const p = resolveAndSubstitutePage(n).catch(() => {});
+        const p = resolveAndSubstitutePage(n, fetched).catch(() => {});
         pageResolutions.set(n, p);
         p.then(() => { if (pageResolutions.get(n) === p) pageResolutions.delete(n); });
         return p;
@@ -1383,11 +1404,13 @@ function initForm() {
         params.set('page', String(pageNum));
         return '?' + params.toString();
     };
-    const goToPage = async (pageNum) => {
+    // `fetched`: this page's fetchPageResolution, already under way (a
+    // submit starts the next page's alongside its POST).
+    const goToPage = async (pageNum, fetched = null) => {
         const idx = pageIndexOf(pageNum);
         if (idx === -1) return;
         await Promise.race([
-            resolvePage(pageNum),
+            resolvePage(pageNum, fetched),
             new Promise((done) => setTimeout(done, PAGE_RESOLVE_WAIT_MS)),
         ]);
         showPage(idx);
