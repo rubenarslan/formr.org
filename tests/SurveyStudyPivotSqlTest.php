@@ -66,7 +66,9 @@ class SurveyStudyPivotSqlTest extends TestCase
         $this->assertStringContainsString('`rs`.`session` AS `session`', $sql);
         $this->assertStringContainsString('`us`.`id` AS `session_id`', $sql);
         $this->assertStringContainsString("MIN(`sid`.`created`) AS `created`", $sql);
-        $this->assertStringContainsString("MAX(`sid`.`saved`) AS `modified`", $sql);
+        // The last answer stored, else the unit session's start (never NA),
+        // as the R read has it (UnitSession::longColumnSql).
+        $this->assertStringContainsString("COALESCE(MAX(`sid`.`saved`), MIN(`us`.`created`)) AS `modified`", $sql);
         // `ended` is not the raw column: an operator force-move stamps
         // survey_unit_sessions.ended but is not a completion (F4).
         $this->assertStringContainsString(

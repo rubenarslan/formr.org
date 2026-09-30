@@ -49,6 +49,46 @@ class UnitSession extends Model {
     }
 
     /**
+     * The long-format pivot's column expressions — one row per unit session
+     * `us`, aggregated over its survey_items_display rows `sid` — shared by
+     * the results/export pivot (SurveyStudy::buildPivotSql) and the R read
+     * (getSurveyDataLong), so both report the same values:
+     *   created   — the first display row;
+     *   modified  — the last answer stored (v2 writes nothing on a page
+     *               view), else the unit session's start, never NA — as the
+     *               results table's `modified` was;
+     *   ended     — completedEndedSql();
+     *   iteration — study_iteration (patch 108), else a 1..N sequence per
+     *               result set until bin/backfill_study_iteration.php has run.
+     *
+     * @param string $column created|modified|ended|iteration
+     * @return string
+     */
+    public static function longColumnSql($column) {
+        switch ($column) {
+            case 'created': return 'MIN(`sid`.`created`)';
+            case 'modified': return 'COALESCE(MAX(`sid`.`saved`), MIN(`us`.`created`))';
+            case 'ended': return self::completedEndedSql('us');
+            case 'iteration': return 'COALESCE(`us`.`study_iteration`, ROW_NUMBER() OVER (ORDER BY `us`.`id` ASC))';
+        }
+        throw new InvalidArgumentException("No long column '$column'");
+    }
+
+    /**
+     * One item's answer in the long-format pivot: the display row matching
+     * $match (an SQL condition on `sid` / `i`), with a blank answer read as
+     * NULL where the results table held NULL (SurveyStudy::blankAnswerIsNull).
+     *
+     * @param string $match
+     * @param bool $blankIsNull
+     * @return string
+     */
+    public static function longAnswerSql($match, $blankIsNull) {
+        $answer = "MAX(CASE WHEN {$match} THEN `sid`.`answer` END)";
+        return $blankIsNull ? "NULLIF({$answer}, '')" : $answer;
+    }
+
+    /**
      * The `result` this request's logResult() wrote, or null if this request
      * logged nothing. NOT a column — load() hydrates `result`/`result_log`
      * from an EARLIER pass, and end() must be able to tell the two apart.
@@ -1509,16 +1549,13 @@ class UnitSession extends Model {
             if (is_numeric($study_id)
                     && !in_array($results_table, get_db_non_session_tables())
                     && SurveyStudy::readsLong($needed['rendering_modes'][$study_id] ?? null)) {
-                // The wide table and its columns come along so sessions that
-                // pre-date survey_items_display (v1 imports, restored backups)
-                // are UNION ALL-ed back in rather than vanishing from the
-                // INNER JOIN; [] when the table is gone, which turns the union
-                // off. One cached SHOW COLUMNS per table per request.
+                // The wide table comes along only for the iteration of
+                // sessions not yet backfilled (patch 108); one cached SHOW
+                // COLUMNS per table per request.
                 $datasets['datasets'][$survey_name] = $this->getSurveyDataLong(
                     (int) $study_id,
                     isset($matches_variable_names[$survey_name]) ? $matches_variable_names[$survey_name] : array(),
-                    $results_table,
-                    SurveyStudy::wideTableColumns($results_table)
+                    in_array('iteration', SurveyStudy::wideTableColumns($results_table), true) ? $results_table : null
                 );
                 continue;
             }
@@ -1706,90 +1743,43 @@ class UnitSession extends Model {
     /**
      * Long-format replacement for getRunData's per-study wide read: pivot
      * survey_items_display into the same column-arrays shape the R overlay
-     * expects. Column sourcing mirrors SurveyStudy::buildPivotSql —
-     * created = MIN(sid.created), modified = MAX(sid.saved), ended = us.ended,
-     * iteration = us.study_iteration (ROW_NUMBER fallback pre-backfill),
-     * answers = MAX(CASE) keyed by item NAME (name, not id, so a soft-deleted-
-     * then-recreated item under the same name keeps contributing its old
-     * sessions' answers, like the single wide column did).
+     * expects. The column expressions are the export's (longColumnSql,
+     * longAnswerSql); answers are keyed by item NAME (name, not id, so a
+     * soft-deleted-then-recreated item under the same name keeps
+     * contributing its old sessions' answers, like the single wide column
+     * did).
      *
-     * Row set = unit sessions that have display rows for this study (display
-     * rows and the wide row are created by the same createSurveyStudyRecord
-     * call, so the row counts match the wide table's) — one row per session,
-     * ordered by unit-session id ASC (the wide table's PK order, which
-     * tail(survey, 1) depends on).
+     * Row set = unit sessions that have display rows for this study — one row
+     * per session, ordered by unit-session id ASC (the wide table's PK order,
+     * which tail(survey, 1) depends on). Sessions stored only in the wide
+     * table (results imported without display rows, before 2019) are not
+     * read; their study's wide table and its export still hold them.
      *
-     * `ended` (F4): the wide column was only stamped by real completions —
-     * UnitSession::end($reason, $completes = false), the operator force-move
-     * path, leaves it NULL while it does stamp survey_unit_sessions.ended.
-     * So the long read must not hand back us.ended verbatim; it uses
-     * completedEndedSql(), which yields NULL when `result` records an
-     * operator end. R's `!is.na(survey$ended)` therefore keeps meaning "the
-     * participant finished", as in v1.
-     *
-     * Legacy wide-only sessions (F3): rows written before survey_items_display
-     * carried every answer (pre-2019 imports, bin/import-results.php without
-     * --include-itemsdisplay, hand-restored backups) have a wide row but no
-     * display rows and would vanish from the INNER JOIN. When the caller
-     * passes the study's wide table and its column list, those sessions are
-     * UNION ALL-ed in from the wide table (only sessions with NO display rows,
-     * so nothing is double-counted; a session with display rows is always
-     * served from the long side). The wide half reads `ended` straight from
-     * the wide column, which is v1 semantics by construction. The union is
-     * chosen over a whole-table fallback so mixed studies (a v1 import plus
-     * live v2 sessions) return one consistent data frame.
+     * A session from before patch 108 has no study_iteration until
+     * bin/backfill_study_iteration.php has run; when $wideIterationTable (the
+     * study's results table, if it has an `iteration` column) is given, its
+     * wide row supplies the number before the per-result-set count does.
      *
      * @param int $studyId
      * @param string[] $names referenced variable names (meta + item names)
-     * @param string|null $resultsTable wide table to union legacy sessions from (null: long only)
-     * @param string[]|null $wideColumns its column names (SurveyStudy::wideTableColumns); empty/null: long only
+     * @param string|null $wideIterationTable
      * @return array<string, array> column-arrays: [var => [v1, v2, ...]]
      */
-    protected function getSurveyDataLong($studyId, array $names, $resultsTable = null, array $wideColumns = null) {
-        $useWide = $resultsTable !== null && $resultsTable !== '' && !empty($wideColumns);
-        $wideHasIteration = $useWide && in_array('iteration', $wideColumns, true);
-
-        $selectParts = $wideParts = array();
+    protected function getSurveyDataLong($studyId, array $names, $wideIterationTable = null) {
+        $types = SurveyStudy::columnTypes($studyId);
+        $useWideIteration = $wideIterationTable !== null && $wideIterationTable !== '' && in_array('iteration', $names, true);
+        $selectParts = array();
         foreach ($names as $name) {
             $safe = str_replace('`', '``', $name);
-            switch ($name) {
-                case 'created':
-                    $selectParts[$name] = 'MIN(`sid`.`created`) AS `created`';
-                    $wideParts[$name] = '`w`.`created` AS `created`';
-                    break;
-                case 'modified':
-                    // The last answer stored — v2 writes nothing on a page
-                    // view, so not the last visit, as the results table's
-                    // `modified` was — and the start of the unit session
-                    // before any answer, rather than NA.
-                    $selectParts[$name] = 'COALESCE(MAX(`sid`.`saved`), MIN(`us`.`created`)) AS `modified`';
-                    $wideParts[$name] = '`w`.`modified` AS `modified`';
-                    break;
-                case 'ended':
-                    $selectParts[$name] = self::completedEndedSql('us') . ' AS `ended`';
-                    $wideParts[$name] = '`w`.`ended` AS `ended`';
-                    break;
-                case 'iteration':
-                    // A session from before patch 108 has no study_iteration
-                    // until bin/backfill_study_iteration.php has run; its wide
-                    // row has the number, so read it there (`wi`, joined
-                    // below) before falling back to a per-result-set count.
-                    $selectParts[$name] = $wideHasIteration
-                        ? 'COALESCE(`us`.`study_iteration`, `wi`.`iteration`, ROW_NUMBER() OVER (ORDER BY `us`.`id` ASC)) AS `iteration`'
-                        : 'COALESCE(`us`.`study_iteration`, ROW_NUMBER() OVER (ORDER BY `us`.`id` ASC)) AS `iteration`';
-                    $wideParts[$name] = $wideHasIteration
-                        ? 'COALESCE(`us`.`study_iteration`, `w`.`iteration`) AS `iteration`'
-                        : 'COALESCE(`us`.`study_iteration`, ROW_NUMBER() OVER (ORDER BY `us`.`id` ASC)) AS `iteration`';
-                    break;
-                default:
-                    // Item names are validated as identifiers at upload;
-                    // escape defensively anyway.
-                    $quoted = str_replace("'", "''", $name);
-                    $selectParts[$name] = "MAX(CASE WHEN `i`.`name` = '{$quoted}' THEN `sid`.`answer` END) AS `{$safe}`";
-                    // A soft-deleted item's wide column is dropped; NULL then.
-                    $wideParts[$name] = ($useWide && in_array($name, $wideColumns, true))
-                        ? "`w`.`{$safe}` AS `{$safe}`"
-                        : "NULL AS `{$safe}`";
+            if ($name === 'iteration' && $useWideIteration) {
+                $selectParts[$name] = 'COALESCE(`us`.`study_iteration`, `wi`.`iteration`, ROW_NUMBER() OVER (ORDER BY `us`.`id` ASC)) AS `iteration`';
+            } elseif (in_array($name, array('created', 'modified', 'ended', 'iteration'), true)) {
+                $selectParts[$name] = self::longColumnSql($name) . " AS `{$safe}`";
+            } else {
+                // Item names are validated as identifiers at upload;
+                // escape defensively anyway.
+                $quoted = str_replace("'", "''", $name);
+                $selectParts[$name] = self::longAnswerSql("`i`.`name` = '{$quoted}'", !empty($types[$name]['blank_is_null'])) . " AS `{$safe}`";
             }
         }
         if (!$selectParts) {
@@ -1797,7 +1787,6 @@ class UnitSession extends Model {
             // the row COUNT still matters, so emit one dummy row per session
             // exactly like the wide read's "NULL AS formr_dummy".
             $selectParts[] = 'NULL AS `formr_dummy`';
-            $wideParts[] = 'NULL AS `formr_dummy`';
         }
 
         $runSession = $this->runSession;
@@ -1807,51 +1796,25 @@ class UnitSession extends Model {
             : '`us`.`run_session_id` = :run_session_id';
 
         $iterationJoin = $iterationGroup = '';
-        if ($wideHasIteration && in_array('iteration', $names, true)) {
+        if ($useWideIteration) {
             // session_id is the wide table's primary key: at most one row.
-            $iterationJoin = "\n            LEFT JOIN `" . str_replace('`', '``', $resultsTable) . "` `wi` ON `wi`.`session_id` = `us`.`id`";
+            $iterationJoin = "\n            LEFT JOIN `" . str_replace('`', '``', $wideIterationTable) . "` `wi` ON `wi`.`session_id` = `us`.`id`";
             $iterationGroup = ', `wi`.`iteration`';
         }
-        $longSql = 'SELECT ' . implode(', ', $selectParts) . ', `us`.`id` AS `formr_sid__`
+        $sql = 'SELECT ' . implode(', ', $selectParts) . '
             FROM `survey_items_display` `sid`
             INNER JOIN `survey_items` `i` ON `i`.`id` = `sid`.`item_id` AND `i`.`study_id` = :study_id
             INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `sid`.`session_id`' . $iterationJoin . '
             WHERE ' . $where . '
-            GROUP BY `us`.`id`, `us`.`ended`, `us`.`result`, `us`.`study_iteration`' . $iterationGroup;
-
-        if ($useWide) {
-            // Distinct placeholder names: the DB layer uses non-emulated
-            // prepares, which forbid binding one name twice.
-            $wideWhere = $testingScope
-                ? '`w`.`session_id` = :session_id_w'
-                : '`us`.`run_session_id` = :run_session_id_w';
-            $wideTable = str_replace('`', '``', $resultsTable);
-            $wideSql = 'SELECT ' . implode(', ', $wideParts) . ', `us`.`id` AS `formr_sid__`
-                FROM `' . $wideTable . '` `w`
-                INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `w`.`session_id`
-                WHERE ' . $wideWhere . '
-                  AND NOT EXISTS (SELECT 1 FROM `survey_items_display` `sid2` WHERE `sid2`.`session_id` = `w`.`session_id`)';
-            // Halves are unparenthesised (SQLite rejects parenthesised
-            // compound members); neither carries ORDER BY, so that is legal
-            // on MariaDB too. The outer ORDER BY on the hidden id column
-            // restores the wide PK order across both halves.
-            $sql = 'SELECT * FROM (' . $longSql . ' UNION ALL ' . $wideSql . ') `u` ORDER BY `u`.`formr_sid__` ASC';
-        } else {
-            $sql = $longSql . ' ORDER BY `us`.`id` ASC';
-        }
+            GROUP BY `us`.`id`, `us`.`ended`, `us`.`result`, `us`.`study_iteration`' . $iterationGroup . '
+            ORDER BY `us`.`id` ASC';
 
         $stmt = $this->db->prepare($sql);
         $stmt->bindValue(':study_id', (int) $studyId, PDO::PARAM_INT);
         if ($testingScope) {
             $stmt->bindValue(':session_id', $this->id);
-            if ($useWide) {
-                $stmt->bindValue(':session_id_w', $this->id);
-            }
         } else {
             $stmt->bindValue(':run_session_id', $runSession->id);
-            if ($useWide) {
-                $stmt->bindValue(':run_session_id_w', $runSession->id);
-            }
         }
         $stmt->execute();
 
@@ -1871,19 +1834,16 @@ class UnitSession extends Model {
 
         $columns = array();
         while ($res = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            // Ordering helper only (it restores the wide PK order across the
-            // union's two halves) — never a variable of the data frame.
-            unset($res['formr_sid__']);
             foreach ($res as $var => $val) {
                 if (!isset($columns[$var])) {
                     $columns[$var] = array();
                 }
                 if ($val === '' && isset($casts[$var])) {
-                    // A blank reply the wide column stored as NULL (numeric
-                    // columns can hold nothing else; single-valued items were
-                    // NULLed by validation, SurveyStudy::blankAnswerIsNull).
+                    // A numeric column can hold no blank: the wide table had
+                    // NULL (single-valued items' blanks are NULLed in the
+                    // query already, longAnswerSql).
                     $val = null;
-                } elseif ($val !== null && isset($casts[$var]) && $casts[$var] !== 'string' && is_numeric($val)) {
+                } elseif ($val !== null && isset($casts[$var]) && is_numeric($val)) {
                     $val = $casts[$var] === 'int' ? (int) $val : (float) $val;
                 }
                 $columns[$var][] = $val;
@@ -1898,25 +1858,18 @@ class UnitSession extends Model {
      * int, FLOAT/DOUBLE → float, everything else (VARCHAR/TEXT/DATE…, and
      * DECIMAL, which PDO also returns as a string) → untouched. Soft-deleted
      * items count too, because the long read still serves their answers.
-     * 'string' marks a text-typed column whose blank answer ('') the wide
-     * table held as NULL (SurveyStudy::blankAnswerIsNull); it is not cast.
      *
      * @param int $studyId
      * @param string[] $names
-     * @return array<string, string> [item name => 'int'|'float'|'string']
+     * @return array<string, string> [item name => 'int'|'float']
      */
     protected function getLongReadCasts($studyId, array $names) {
         $types = SurveyStudy::columnTypes($studyId);
         $casts = array();
         foreach (array_diff($names, array('created', 'modified', 'ended', 'iteration')) as $name) {
-            if (!isset($types[$name]) || $types[$name]['column'] === null) {
-                continue;
-            }
-            $column = $types[$name]['column'];
+            $column = isset($types[$name]) ? $types[$name]['column'] : null;
             if ($column === 'int' || $column === 'float') {
                 $casts[$name] = $column;
-            } elseif ($types[$name]['blank_is_null']) {
-                $casts[$name] = 'string';
             }
         }
         return $casts;

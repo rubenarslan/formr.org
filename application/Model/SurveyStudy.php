@@ -1746,22 +1746,15 @@ class SurveyStudy extends Model
             // (createResultsTable would have failed otherwise). Backtick
             // any stray backticks defensively.
             $safeName = str_replace('`', '``', $name);
-            $answer = sprintf("MAX(CASE WHEN `sid`.`item_id` = %d THEN `sid`.`answer` END)", (int) $id);
-            if (isset($blankIsNullIds[$id])) {
-                $answer = "NULLIF({$answer}, '')";
-            }
+            $answer = UnitSession::longAnswerSql(sprintf('`sid`.`item_id` = %d', (int) $id), isset($blankIsNullIds[$id]));
             $pivotCols[] = sprintf("%s AS `%s`", $answer, $safeName);
         }
 
-        // Iteration: survey_unit_sessions.study_iteration is the long-
-        // form source of truth (patch 108). COALESCE to ROW_NUMBER()
-        // covers any session row whose study_iteration is NULL — pre-
-        // 108 sessions whose backfill hasn't run yet, or non-Survey
-        // unit_sessions that somehow ended up here. The ROW_NUMBER()
-        // fallback is a 1..N sequence per result set, not byte-equal
-        // to a historical wide.iteration; the backfill closes that
-        // gap once it's run.
-        $iterationExpr = "COALESCE(`us`.`study_iteration`, ROW_NUMBER() OVER (ORDER BY `us`.`id` ASC))";
+        // The column expressions are the R read's too (UnitSession::
+        // longColumnSql). The iteration's ROW_NUMBER() fallback, for sessions
+        // whose study_iteration backfill hasn't run, is a 1..N sequence per
+        // result set, not byte-equal to a historical wide.iteration.
+        $iterationExpr = UnitSession::longColumnSql('iteration');
 
         // `ended` (F4): survey_unit_sessions.ended is stamped when an OPERATOR
         // force-moves someone out of a survey too, while the wide column it
@@ -1783,8 +1776,8 @@ class SurveyStudy extends Model
                 "`rs`.`session` AS `session`",
                 "`us`.`id` AS `session_id`",
                 "$iterationExpr AS `iteration`",
-                "MIN(`sid`.`created`) AS `created`",
-                "MAX(`sid`.`saved`) AS `modified`",
+                UnitSession::longColumnSql('created') . " AS `created`",
+                UnitSession::longColumnSql('modified') . " AS `modified`",
                 "$endedExpr AS `ended`",
                 "`us`.`expired` AS `expired`",
             ), $pivotCols);
