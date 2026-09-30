@@ -141,7 +141,7 @@ try {
 
     echo "\n-- a note_iframe that fails to knit shows the placeholder --\n";
     $iframeCalls = array_intersect_key($calls['label'], array_flip([$labelCalls['ifr_bad'], $labelCalls['ifr_ok']]));
-    $html = $svc->resolveIframes($iframeCalls, 0);
+    $html = $svc->resolveIframes($iframeCalls, array(), 0);
     $bad = $html[$labelCalls['ifr_bad']] ?? null;
     $good = $html[$labelCalls['ifr_ok']] ?? null;
     ok(is_string($bad) && strpos($bad, 'fmr-iframe-fallback') !== false && strpos($bad, 'temporarily unavailable') !== false, 'the broken document resolves to the placeholder', $bad);

@@ -533,8 +533,11 @@ class RCallService {
         // Overlay the latest answers onto the survey frame via a hidden knitr
         // chunk (getRunData returns a structured array for opencpu_define_vars;
         // we can't append raw R to it) — the same statements runBatch uses.
+        // Then the overlaid last row is attached for bare names
+        // (reattachStatement).
         $prelude = empty($answers) ? '' : "```{r overlay,echo=FALSE,results='hide',message=FALSE,warning=FALSE}\n"
             . self::overlayStatements($this->surveyName, $this->formatROverlay($answers))
+            . $this->reattachStatement()
             . "```\n";
 
         $started = hrtime(true);
@@ -570,25 +573,34 @@ class RCallService {
     /**
      * Knit note_iframe items: their label is a whole R Markdown document,
      * rendered by OpenCPU into an HTML file the item frames. Resolved like any
-     * other dynamic label — when the item's page is reached, against the answers
-     * persisted by then — so it can show what the participant entered on
-     * earlier pages. Cached per unit session.
+     * other dynamic label — when the item's page is reached, with the latest
+     * answers overlaid on the stored ones — so it can show what the
+     * participant entered on earlier pages, also before those answers are
+     * stored. Cached per unit session under the answers it names.
      *
      * @param array<int, array{expr:string, item_name?:string}> $calls
      * @return array<int, string> call id => the item's label HTML
      */
-    public function resolveIframes(array $calls, $ttl) {
+    public function resolveIframes(array $calls, array $answers, $ttl) {
         if (empty($calls) || $this->surveyName === '') {
             return array();
         }
-        // A knitted document takes no answers.
-        $argsHash = self::argsHash(array());
-        $results = $this->cachedResults(array_fill_keys(array_keys($calls), $argsHash), $ttl);
+        $hashes = array();
+        foreach ($calls as $callId => $entry) {
+            $hashes[(int) $callId] = $this->answersKey((string) $entry['expr'], $answers);
+        }
+        $results = $this->cachedResults($hashes, $ttl);
         foreach (array_diff_key($calls, $results) as $callId => $entry) {
             $source = (string) $entry['expr'];
             $started = hrtime(true);
             try {
-                $vars = $this->unitSession->getRunData($source, $this->study->name);
+                // The document's settings chunk: the run's data with the
+                // frame's last row attached, then the answers overlaid and
+                // the overlaid row attached over it (see resolveLabels).
+                $vars = opencpu_define_vars($this->unitSession->getRunData($source, $this->study->name), $this->study->name);
+                if ($answers) {
+                    $vars .= "\n" . self::overlayStatements($this->surveyName, $this->formatROverlay($answers)) . $this->reattachStatement();
+                }
                 $session = opencpu_knit_iframe($source, $vars, true, $this->study->name);
             } finally {
                 $this->unitSession->addExecutionTime((hrtime(true) - $started) / 1e9);
@@ -596,7 +608,7 @@ class RCallService {
             if ($session && !$session->hasError()) {
                 $html = NoteIframe_Item::iframeHtml($session);
                 $results[(int) $callId] = $html;
-                $this->writeCache((int) $callId, $argsHash, $html);
+                $this->writeCache((int) $callId, $hashes[(int) $callId], $html);
             } else {
                 $name = isset($entry['item_name']) ? $entry['item_name'] : '?';
                 formr_log("note_iframe '{$name}': knit failed: " . (string) opencpu_last_error());
@@ -604,6 +616,17 @@ class RCallService {
             }
         }
         return $results;
+    }
+
+    /**
+     * R that attaches the survey frame's (overlaid) last row. The knit
+     * settings chunk attaches a copy of it for bare names (`r d_num`) before
+     * any overlay runs; attached again after the overlay, the new copy masks
+     * the old one, or a knit made before the answers are stored reads the
+     * stored ones.
+     */
+    protected function reattachStatement() {
+        return "if (exists('{$this->surveyName}') && nrow({$this->surveyName}) > 0) attach(tail({$this->surveyName}, 1), warn.conflicts = FALSE)\n";
     }
 
     // ------------------------------------------------------------------

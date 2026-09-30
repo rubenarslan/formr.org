@@ -1270,7 +1270,7 @@ class RunController extends Controller {
         $knitted = $service->resolveLabels($labelCalls + $calls['choice_label'], $answers,
             min(RCallService::ttlForSlot('label'), RCallService::ttlForSlot('choice_label')));
         $labels = array_intersect_key($knitted, $labelCalls)
-                + $service->resolveIframes($iframeCalls, RCallService::ttlForSlot('label'));
+                + $service->resolveIframes($iframeCalls, $answers, RCallService::ttlForSlot('label'));
         $choiceLabels = array_intersect_key($knitted, $calls['choice_label']);
 
         $valuesOut = array();
