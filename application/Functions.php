@@ -1688,22 +1688,36 @@ function shortcut_without_opencpu($code, $data)
  */
 function opencpu_knit($code, $return_format = 'json', $self_contained = 1, $return_session = false)
 {
+    return opencpu_post_knit('/knitr/R/knit/' . $return_format, array('text' => "'" . addslashes($code) . "'"),
+        $return_format, $return_session, "There was a problem dynamically knitting something using openCPU.");
+}
+
+/**
+ * The shared envelope of the knit calls: POST to $uri, and either hand back
+ * the session ($return_session, for callers that inspect ->hasError()
+ * themselves) or its result; on an error, note it, tell the user $message
+ * and return null.
+ *
+ * @return OpenCPU_Session|mixed|null
+ */
+function opencpu_post_knit($uri, array $params, $return_format, $return_session, $message)
+{
     // This call's outcome must be what opencpu_last_error() reports — never
     // a predecessor's note (X3): knit paths used to leave the global alone,
     // so a stale "expression is empty" from an earlier evaluate survived.
     $GLOBALS['opencpu_local_error'] = null;
     opencpu_forget_session();
 
-    $params = array('text' => "'" . addslashes($code) . "'");
-    $uri = '/knitr/R/knit/' . $return_format;
-
     $session = null;
     try {
         $session = OpenCPU::getInstance()->post($uri, $params);
+        // Callers asking for the raw session expect to inspect ->hasError()
+        // themselves (e.g. RunUnit::getParsedBody distinguishes "server
+        // down" from "R error" by exactly this check). Return early before
+        // the throw-on-error branch so a session-or-null contract is kept.
         if ($return_session === true) {
             return $session;
         }
-
         if ($session->hasError()) {
             throw new OpenCPU_Exception(opencpu_debug($session));
         }
@@ -1712,7 +1726,7 @@ function opencpu_knit($code, $return_format = 'json', $self_contained = 1, $retu
         if ($session === null) {
             opencpu_note_transport_failure($e);
         }
-        notify_user_error($e, "There was a problem dynamically knitting something using openCPU.");
+        notify_user_error($e, $message);
         opencpu_log($e);
         return null;
     }
@@ -1763,31 +1777,8 @@ opts_knit$set(base.url="' . OpenCPU::TEMP_BASE_URL . '")
  */
 function opencpu_knit2markdown($source, $return_session = false)
 {
-    // See opencpu_knit: this call owns the local-error note from here on, so
-    // opencpu_last_error() describes this knit, not an earlier call.
-    $GLOBALS['opencpu_local_error'] = null;
-    opencpu_forget_session();
-
-    $params = array('text' => "'" . addslashes($source) . "'");
-    $uri = '/formr/R/formr_knit/json';
-    $session = null;
-    try {
-        $session = OpenCPU::getInstance()->post($uri, $params);
-        if ($return_session === true) {
-            return $session;
-        }
-        if ($session->hasError()) {
-            throw new OpenCPU_Exception(opencpu_debug($session));
-        }
-        return $session->getJSONObject();
-    } catch (OpenCPU_Exception $e) {
-        if ($session === null) {
-            opencpu_note_transport_failure($e);
-        }
-        notify_user_error($e, "There was a problem knitting something using openCPU.");
-        opencpu_log($e);
-        return null;
-    }
+    return opencpu_post_knit('/formr/R/formr_knit/json', array('text' => "'" . addslashes($source) . "'"),
+        'json', $return_session, "There was a problem knitting something using openCPU.");
 }
 
 /**
@@ -1808,37 +1799,9 @@ function opencpu_knit2markdown($source, $return_session = false)
  */
 function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1, $return_session = false)
 {
-    // See opencpu_knit: this call owns the local-error note from here on.
-    $GLOBALS['opencpu_local_error'] = null;
-    opencpu_forget_session();
-
-    $params = array('text' => "'" . addslashes($source) . "'", 'self_contained' => $self_contained);
-    $uri = '/formr/R/formr_inline_render/' . $return_format;
-    $session = null;
-    try {
-        $session = OpenCPU::getInstance()->post($uri, $params);
-
-        // Callers asking for the raw session expect to inspect ->hasError()
-        // themselves (e.g. RunUnit::getParsedBody distinguishes "server
-        // down" from "R error" by exactly this check). Return early before
-        // the throw-on-error branch so a session-or-null contract is kept.
-        if ($return_session === true) {
-            return $session;
-        }
-
-        if ($session->hasError()) {
-            throw new OpenCPU_Exception(opencpu_debug($session));
-        }
-
-        return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
-    } catch (OpenCPU_Exception $e) {
-        if ($session === null) {
-            opencpu_note_transport_failure($e);
-        }
-        notify_user_error($e, "There was a problem dynamically knitting something to HTML using openCPU.");
-        opencpu_log($e);
-        return null;
-    }
+    return opencpu_post_knit('/formr/R/formr_inline_render/' . $return_format,
+        array('text' => "'" . addslashes($source) . "'", 'self_contained' => $self_contained),
+        $return_format, $return_session, "There was a problem dynamically knitting something to HTML using openCPU.");
 }
 
 /**
@@ -2080,6 +2043,32 @@ function opencpu_string_key_parsing($strings)
 }
 
 /**
+ * Knit several R Markdown strings in one OpenCPU call, against the data the
+ * unit session's run sees: joined with OpenCPU::STRING_DELIMITER, knitted,
+ * and split again. $prelude (a hidden chunk) goes before the first string.
+ * $to 'html' renders through pandoc, which turns the delimiter into
+ * STRING_DELIMITER_PARSED; 'markdown' leaves it as it was.
+ *
+ * @param string[] $sources
+ * @param OpenCPU_Session|null $session set to the knit's session
+ * @return string[]|null the knitted strings, in order; null if the knit failed
+ */
+function opencpu_knit_strings(UnitSession $unitSession, $studyName, array $sources, $to = 'html', $prelude = '', &$session = null)
+{
+    $markdown = $prelude . implode(OpenCPU::STRING_DELIMITER, $sources);
+    $variables = $unitSession->getRunData($markdown, $studyName);
+    $session = opencpu_knitdisplay($markdown, $variables, true, $studyName, $to);
+    if (!$session || $session->hasError()) {
+        return null;
+    }
+    $knitted = $session->getJSONObject();
+    if (!is_string($knitted)) {
+        return null;
+    }
+    return explode($to === 'html' ? OpenCPU::STRING_DELIMITER_PARSED : OpenCPU::STRING_DELIMITER, $knitted);
+}
+
+/**
  * Parse a bulk of strings in ocpu
  *
  * @param UnitSession $unitSession Unit session containing the data needed
@@ -2089,14 +2078,10 @@ function opencpu_string_key_parsing($strings)
 function opencpu_multistring_parse(UnitSession $unitSession, array $string_templates)
 {
     $survey = $unitSession->runUnit->surveyStudy;
-    $markdown = implode(OpenCPU::STRING_DELIMITER, $string_templates);
-    $opencpu_vars = $unitSession->getRunData($markdown, $survey->name);
-    $session = opencpu_knitdisplay($markdown, $opencpu_vars, true, $survey->name);
+    $strings = opencpu_knit_strings($unitSession, $survey->name, $string_templates, 'html', '', $session);
 
-    if ($session && !$session->hasError()) {
+    if ($strings !== null) {
         print_hidden_opencpu_debug_message($session, "OpenCPU debugger for dynamic values and showifs.");
-        $parsed_strings = $session->getJSONObject();
-        $strings = explode(OpenCPU::STRING_DELIMITER_PARSED, $parsed_strings);
         $strings = array_map("remove_tag_wrapper", $strings);
         return opencpu_string_key_parsing($strings);
     } else {

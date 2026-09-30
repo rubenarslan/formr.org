@@ -494,48 +494,39 @@ class RCallService {
         foreach ($orderedCallIds as $cid) {
             $sources[] = (string) $misses[$cid]['expr'];
         }
-        $markdown = implode(OpenCPU::STRING_DELIMITER, $sources);
 
         // Overlay the latest answers onto the survey frame via a hidden knitr
         // chunk (getRunData returns a structured array for opencpu_define_vars;
         // we can't append raw R to it) — the same statements runBatch uses.
-        if (!empty($answers)) {
-            $markdown = "```{r overlay,echo=FALSE,results='hide',message=FALSE,warning=FALSE}\n"
-                      . self::overlayStatements($this->surveyName, $this->formatROverlay($answers))
-                      . "```\n"
-                      . $markdown;
-        }
+        $prelude = empty($answers) ? '' : "```{r overlay,echo=FALSE,results='hide',message=FALSE,warning=FALSE}\n"
+            . self::overlayStatements($this->surveyName, $this->formatROverlay($answers))
+            . "```\n";
 
         $started = hrtime(true);
         try {
-            $opencpu_vars = $this->unitSession->getRunData($markdown, $this->study->name);
-            $session = opencpu_knitdisplay($markdown, $opencpu_vars, true, $this->study->name, 'markdown');
+            $parts = opencpu_knit_strings($this->unitSession, $this->study->name, $sources, 'markdown', $prelude);
         } finally {
             $this->unitSession->addExecutionTime((hrtime(true) - $started) / 1e9);
         }
-        if ($session && !$session->hasError()) {
-            $knitted = $session->getJSONObject();
-            if (is_string($knitted)) {
-                $parts = explode(OpenCPU::STRING_DELIMITER, $knitted);
-                $parsedown = (new ParsedownExtra())->setBreaksEnabled(true)->setUrlsLinked(true);
-                foreach ($orderedCallIds as $idx => $cid) {
-                    if (!isset($parts[$idx])) continue;
-                    // Strip a single wrapping <p> so a dynamic label renders
-                    // inline like a static one. Log-only on failure — this
-                    // runs during PARTICIPANT rendering, so author-facing
-                    // alert()s must not reach the participant's session.
-                    try {
-                        $html = remove_tag_wrapper($parsedown->text(trim($parts[$idx])));
-                    } catch (\Throwable $e) {
-                        formr_log_exception($e, 'PARSEDOWN.TEXT (dynamic label)');
-                        $html = trim($parts[$idx]);
-                    }
-                    $results[$cid] = $html;
-                    $this->writeCache($cid, $argsHash, $html);
-                }
-            }
-        } else {
+        if ($parts === null) {
             formr_log('RCallService::resolveLabels OpenCPU error: ' . (string) opencpu_last_error());
+            return $results;
+        }
+        $parsedown = (new ParsedownExtra())->setBreaksEnabled(true)->setUrlsLinked(true);
+        foreach ($orderedCallIds as $idx => $cid) {
+            if (!isset($parts[$idx])) continue;
+            // Strip a single wrapping <p> so a dynamic label renders inline
+            // like a static one. Log-only on failure — this runs during
+            // PARTICIPANT rendering, so author-facing alert()s must not reach
+            // the participant's session.
+            try {
+                $html = remove_tag_wrapper($parsedown->text(trim($parts[$idx])));
+            } catch (\Throwable $e) {
+                formr_log_exception($e, 'PARSEDOWN.TEXT (dynamic label)');
+                $html = trim($parts[$idx]);
+            }
+            $results[$cid] = $html;
+            $this->writeCache($cid, $argsHash, $html);
         }
         return $results;
     }
