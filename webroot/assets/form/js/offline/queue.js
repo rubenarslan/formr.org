@@ -2,7 +2,7 @@
 //
 // One database (`formrQueue`), one object store (`queue`), keyPath `uuid`
 // (server's dedupe key), single index `client_ts` for ordered drain. Replaces
-// the hand-rolled `openQueueDB` / `idbTx` / queueAdd-Get-Delete promise
+// the hand-rolled `openQueueDB` / `idbTx` / queuePut-Get-Delete promise
 // wrappers with `idb` (Jake Archibald's tiny IDB wrapper) so the surface
 // stays small and we don't maintain custom IDB plumbing.
 //
@@ -31,7 +31,12 @@ function getDb() {
     return dbPromise;
 }
 
-export async function queueAdd(entry) {
+// Store an entry, or overwrite a stored one in place (same keyPath). The drain
+// uses the overwrite to persist retry bookkeeping (`attempts`,
+// `next_retry_at`, `state`, `errors`) so backoff survives a reload — the drain
+// runs on every load and every `online` event, and without persisted state a
+// permanently-rejected entry is re-POSTed on each of them.
+export async function queuePut(entry) {
     const db = await getDb();
     await db.put(STORE, entry);
     return entry;
@@ -47,15 +52,14 @@ export async function queueDelete(uuid) {
     await db.delete(STORE, uuid);
 }
 
-// Overwrite a stored entry in place (same keyPath). Used by the drain to
-// persist retry bookkeeping (`attempts`, `next_retry_at`, `state`, `errors`)
-// so backoff survives a reload — the drain runs on every load and every
-// `online` event, and without persisted state a permanently-rejected entry
-// is re-POSTed on each of them.
-export async function queueUpdate(entry) {
-    const db = await getDb();
-    await db.put(STORE, entry);
-    return entry;
+// Does a queue entry belong to `owner` ({sync_url, unit_session_id})? The one
+// rule for the drain, the queue summary, the queued-behind check and the
+// helpers below. An entry an older bundle stored without a run or unit
+// session counts as the owner's. `anyUnitSession` matches on the run alone.
+export function entryBelongsTo(e, { sync_url, unit_session_id }, { anyUnitSession = false } = {}) {
+    if ((e.sync_url || sync_url) !== sync_url) return false;
+    return anyUnitSession || !Number(e.unit_session_id)
+        || Number(e.unit_session_id) === Number(unit_session_id || 0);
 }
 
 // Delete every entry that targets the same page of the same unit session as
@@ -71,11 +75,8 @@ export async function queueSupersede({ sync_url, unit_session_id, page }, keepUu
     let removed = 0;
     for (const e of entries) {
         if (keepUuid && e.uuid === keepUuid) continue;
-        // An entry an older bundle stored without a run or unit session
-        // counts as the caller's, as it does for the drain (isOwnEntry).
-        if (e.sync_url && e.sync_url !== sync_url) continue;
         if (Number(e.page) !== Number(page)) continue;
-        if (Number(e.unit_session_id) && Number(e.unit_session_id) !== Number(unit_session_id || 0)) continue;
+        if (!entryBelongsTo(e, { sync_url, unit_session_id })) continue;
         await db.delete(STORE, e.uuid);
         removed += 1;
     }
@@ -90,9 +91,7 @@ export async function queueRestampFinal({ sync_url, unit_session_id }, hidden) {
     const db = await getDb();
     const entries = (await db.getAll(STORE)) || [];
     for (const e of entries) {
-        if (!e.final) continue;
-        if (e.sync_url && e.sync_url !== sync_url) continue;
-        if (Number(e.unit_session_id) && Number(e.unit_session_id) !== Number(unit_session_id || 0)) continue;
+        if (!e.final || !entryBelongsTo(e, { sync_url, unit_session_id })) continue;
         e.hidden = (hidden || []).slice();
         await db.put(STORE, e);
     }
@@ -166,13 +165,12 @@ export function markNeedsAttention(entry, errors, now = Date.now()) {
 // Manual "Retry": clear the bookkeeping so the next drain POSTs the entry
 // again. Applies to blocked and backoff-pending entries; needs_attention ones
 // are left alone (only a re-submit of the page can fix those).
-export async function queueResetRetry(filter) {
+export async function queueResetRetry() {
     const db = await getDb();
     const entries = (await db.getAll(STORE)) || [];
     let reset = 0;
     for (const e of entries) {
         if (entryState(e) === STATE_NEEDS_ATTENTION) continue;
-        if (typeof filter === 'function' && !filter(e)) continue;
         if (!e.attempts && !e.next_retry_at && entryState(e) === STATE_PENDING) continue;
         e.state = STATE_PENDING;
         e.attempts = 0;
@@ -182,15 +180,6 @@ export async function queueResetRetry(filter) {
         reset += 1;
     }
     return reset;
-}
-
-// Wipe every queued entry. Used on logout / account deletion / SW unregister
-// so plaintext answers don't persist on the participant's device beyond their
-// participant relationship with the run. The objectStore stays in place
-// (cheaper than dropping the database and re-creating); only the rows go.
-export async function wipeQueue() {
-    const db = await getDb();
-    await db.clear(STORE);
 }
 
 // Wipe only the entries belonging to one run. The queue DB is origin-wide, so
@@ -282,4 +271,21 @@ export function buildFormData(entry) {
 // 4xx is a real "server said no" — don't queue, bubble up.
 export function isTransientFailure(err, res) {
     return (err != null) || (res && res.status >= 500 && res.status < 600);
+}
+
+// POST one v2 write (a live page submit or a queued entry): multipart via
+// buildFormData when it carries files, JSON otherwise. Resolves {res, body};
+// throws on network failure.
+export async function postWrite(url, payload) {
+    const multipart = !!(payload.files && Object.keys(payload.files).length);
+    const headers = { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' };
+    if (!multipart) headers['Content-Type'] = 'application/json';
+    const res = await fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers,
+        body: multipart ? buildFormData(payload) : JSON.stringify(payload),
+    });
+    const body = await res.json().catch(() => null);
+    return { res, body };
 }

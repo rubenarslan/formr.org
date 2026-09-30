@@ -168,6 +168,21 @@ class Form extends Survey {
     }
 
     /**
+     * The linked study if it renders in v2, else null. The one rule for "is
+     * this a v2 form": it picks the renderer here and gates the form_v2
+     * endpoints (RunController::formV2Study), so the two cannot disagree.
+     *
+     * @return SurveyStudy|null
+     */
+    public function v2Study() {
+        $study = $this->surveyStudy;
+        if (!$study || empty($study->id)) {
+            $study = $this->getStudy(true);
+        }
+        return ($study && !empty($study->id) && $study->rendering_mode === 'v2') ? $study : null;
+    }
+
+    /**
      * Override Survey's rendering to branch on rendering_mode. When the linked
      * SurveyStudy is v2-rendered, the FormRenderer emits a single-document HTML
      * layout and GET-only output (POSTs for v2 forms go through the
@@ -175,9 +190,8 @@ class Form extends Survey {
      * to the legacy Survey pipeline unchanged.
      */
     public function getUnitSessionOutput(UnitSession $unitSession) {
-        $study = $this->surveyStudy ?: $this->getStudy(true);
-        $v2 = $study && isset($study->rendering_mode) && $study->rendering_mode === 'v2';
-        if (!$v2) {
+        $study = $this->v2Study();
+        if (!$study) {
             return parent::getUnitSessionOutput($unitSession);
         }
 
@@ -197,9 +211,9 @@ class Form extends Survey {
                 // fixed-shape-dict chain as use_form_v2 (RunSession::
                 // executeUnitSession → Run::exec → RunController) so
                 // form_index.php can set <html lang/dir> + window.fmrStrings.
-                'form_language' => !empty($study->language) ? $study->language : 'en',
+                'form_language' => FormStrings::studyLanguage($study),
                 // …and the study's own navigation wording on top (#322).
-                'form_strings' => FormStrings::table(!empty($study->language) ? $study->language : 'en', FormStrings::studyOverrides($study)),
+                'form_strings' => FormStrings::forStudy($study),
             ];
         } catch (Exception $e) {
             formr_log_exception($e, __CLASS__ . '-' . $e->getCode());

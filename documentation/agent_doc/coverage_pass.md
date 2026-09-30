@@ -101,8 +101,6 @@ exits, so the `return` after it never counts.
 
 No caller anywhere (grep over application/, templates/, bin/, webroot/):
 
-- `offline/queue.js` `wipeQueue()` (only `wipeQueueForRun` is used).
-- `RCallService::rResultToBool`.
 - `Item::refresh`, `Item::hasBeenRendered`, `Item::hasBeenViewed`,
   `Item::evaluateDynamicValue`.
 

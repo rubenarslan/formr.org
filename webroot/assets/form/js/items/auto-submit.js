@@ -12,6 +12,8 @@
 // v1 armed on window load (one page per document); v2 arms when a page becomes
 // current and disarms when the participant leaves it, so timed pages measure
 // exposure to THAT page, not document age.
+import { isItemHidden } from '../lib/inputs.js';
+
 export function initAutoSubmit({ root, pages, getCurrentIndex, submitPage }) {
     let timers = [];
     let allAnsweredArmed = false;
@@ -64,8 +66,7 @@ export function initAutoSubmit({ root, pages, getCurrentIndex, submitPage }) {
     // the submit item itself don't need answers; showif-hidden items don't
     // block (their inputs are disabled and they may never appear).
     const answerableGroups = (page) => Array.from(page.querySelectorAll('.form-group'))
-        .filter((g) => !g.classList.contains('hidden')
-            && !g.hasAttribute('data-fmr-hidden')
+        .filter((g) => !isItemHidden(g)
             && !g.classList.contains('item-note')
             && !g.classList.contains('item-note_iframe')
             && !g.classList.contains('item-block')

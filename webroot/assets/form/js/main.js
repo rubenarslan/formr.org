@@ -44,8 +44,8 @@ import '@khmyznikov/pwa-install';
 import { mysqlDatetime } from './lib/time.js';
 import { genUuid } from './lib/uuid.js';
 import {
-    queueAdd, queueGetAll, queueDelete, queueUpdate, queueSupersede, queueRestampFinal, queueResetRetry,
-    wipeQueueForRun, buildFormData, normalizeSyncEntry, isTransientFailure,
+    queuePut, queueGetAll, queueDelete, queueSupersede, queueRestampFinal, queueResetRetry, entryBelongsTo, postWrite,
+    wipeQueueForRun, normalizeSyncEntry, isTransientFailure,
     entryState, entryIsDue, markRetryFailure, markNeedsAttention,
     STATE_PENDING, STATE_NEEDS_ATTENTION, STATE_BLOCKED,
 } from './offline/queue.js';
@@ -76,7 +76,7 @@ import {
     registerXShowif,
     promoteShowifAttributes,
 } from './showif/alpine.js';
-import { initSolo, SUBMIT_CONTROL_SELECTOR } from './solo/controller.js';
+import { initSolo, blockedSubmitControl } from './solo/controller.js';
 import { createStore, pageState, readRememberedPage, rememberPage, forgetPage } from './state.mjs';
 import {
     collectAnswers, fieldKey, isItemHidden, hiddenShowifItemIds,
@@ -406,12 +406,11 @@ function initForm() {
         });
     };
     markStoredUploads();
-    // Is a queue entry this form's — its run and its unit session? An entry
-    // an older bundle stored without either is. The one test for the drain,
-    // the queue summary and the queued-behind check (queueSupersede in
-    // offline/queue.js applies the same rule).
-    const isOwnEntry = (e) => (e.sync_url || ownSyncUrl) === ownSyncUrl
-        && (!Number(e.unit_session_id) || Number(e.unit_session_id) === (unitSessionId || 0));
+    // Is a queue entry this form's — its run and its unit session
+    // (entryBelongsTo)? `belongsHere`: this run's, any unit session.
+    const ownKey = { sync_url: ownSyncUrl, unit_session_id: unitSessionId };
+    const isOwnEntry = (e) => entryBelongsTo(e, ownKey);
+    const belongsHere = (e) => entryBelongsTo(e, ownKey, { anyUnitSession: true });
 
     // A snapshot of the document for pageState: per page, its items with the
     // live showif result (`.hidden` is what Alpine toggles, showif/alpine.js
@@ -526,33 +525,11 @@ function initForm() {
 
     // Post one entry to its run's /form-sync. Throws on network failure
     // (caller treats that as "still offline"); resolves {res, body}.
-    const postQueueEntry = async (entry, entrySyncUrl) => {
-        const hasFiles = entry.files && Object.keys(entry.files).length > 0;
-        let res;
-        if (hasFiles) {
-            // Multipart drain — the same request builder as a live submit.
-            res = await fetch(entrySyncUrl, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-                body: buildFormData(normalizeSyncEntry(entry)),
-            });
-        } else {
-            res = await fetch(entrySyncUrl, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                // normalizeSyncEntry, not the raw entry: /form-sync 400s a
-                // client_ts that isn't a MySQL DATETIME (it used to 500 at
-                // INSERT time, after the answers were already applied — the
-                // client then retried and double-wrote). A 400 blocks the
-                // entry, so one stored by an older bundle is fixed up here.
-                body: JSON.stringify(normalizeSyncEntry(entry)),
-            });
-        }
-        const body = await res.json().catch(() => null);
-        return { res, body };
-    };
+    // normalizeSyncEntry, not the raw entry: /form-sync 400s a client_ts that
+    // isn't a MySQL DATETIME (it used to 500 at INSERT time, after the answers
+    // were already applied — the client then retried and double-wrote). A 400
+    // blocks the entry, so one stored by an older bundle is fixed up here.
+    const postQueueEntry = (entry, entrySyncUrl) => postWrite(entrySyncUrl, normalizeSyncEntry(entry));
 
     // Classify a /form-sync response into a drain outcome. Every shape
     // RunController::formSyncAction can answer with is named here:
@@ -613,12 +590,11 @@ function initForm() {
         // This form's own entries: its run and its unit session (or none
         // recorded — legacy). Only they may merge into this page's store or
         // move this page on.
-        const isOwn = (url, usid) => isOwnEntry({ sync_url: url, unit_session_id: usid });
         const groups = new Map();
         entries.forEach((entry) => {
             const url = entry.sync_url || ownSyncUrl;
             const usid = Number(entry.unit_session_id) || 0;
-            if (!url || (ownOnly && !isOwn(url, usid))) return;
+            if (!url || (ownOnly && !isOwnEntry({ sync_url: url, unit_session_id: usid }))) return;
             const key = url + '#' + usid;
             if (!groups.has(key)) groups.set(key, { url, usid, entries: [] });
             groups.get(key).entries.push(entry);
@@ -630,7 +606,7 @@ function initForm() {
         let ownRedirect = null;
         let ownMissing = null;
         for (const { url: entrySyncUrl, usid, entries: groupEntries } of groups.values()) {
-            const outcome = await drainRunGroup(groupEntries, entrySyncUrl, isOwn(entrySyncUrl, usid));
+            const outcome = await drainRunGroup(groupEntries, entrySyncUrl, isOwnEntry({ sync_url: entrySyncUrl, unit_session_id: usid }));
             if (outcome === 'offline') {
                 // A server that can't be reached while the device counts as
                 // online (refused connection, DNS, a captive portal) fires no
@@ -711,7 +687,7 @@ function initForm() {
                 // rolled back). KEEP the answers; the participant fixes the
                 // page and re-submits it, which supersedes this entry.
                 markNeedsAttention(entry, body.errors);
-                await queueUpdate(entry).catch(() => {});
+                await queuePut(entry).catch(() => {});
                 break;
             }
             if (outcome === 'throttled') break; // 429: retry the run later, no attempt counted
@@ -723,7 +699,7 @@ function initForm() {
                 // later page must not land (or end the form) without it. The
                 // banner offers Retry and Discard.
                 markRetryFailure(entry, { reason: 'invalid', status, message, permanent: true });
-                await queueUpdate(entry).catch(() => {});
+                await queuePut(entry).catch(() => {});
                 break;
             }
             if (outcome === 'session') {
@@ -733,14 +709,14 @@ function initForm() {
                 for (const e of groupEntries) {
                     if (!entryIsDue(e)) continue;
                     markRetryFailure(e, { reason: 'session', status, message });
-                    await queueUpdate(e).catch(() => {});
+                    await queuePut(e).catch(() => {});
                 }
                 break;
             }
             // 5xx / unexpected: back this entry off and leave the rest of the
             // run for the next drain (a sick server won't take them either).
             markRetryFailure(entry, { reason: 'server', status, message });
-            await queueUpdate(entry).catch(() => {});
+            await queuePut(entry).catch(() => {});
             break;
         }
         return (redirect || missing) ? { redirect, missing } : null;
@@ -753,12 +729,10 @@ function initForm() {
     const renderQueueSummary = async (ownRedirect) => {
         let remaining;
         try { remaining = await queueGetAll(); } catch (e) { return; }
-        const belongsHere = (e) => (e.sync_url || ownSyncUrl) === ownSyncUrl;
         // Only this unit session's entries hold the redirect back: a leftover
         // from an earlier unit session of the run can never apply, and must
         // not keep the participant on a form the server has ended.
-        const ownUnitSession = isOwnEntry;
-        const ownRemaining = remaining.filter(ownUnitSession);
+        const ownRemaining = remaining.filter(isOwnEntry);
         if (ownRedirect && !ownRemaining.length) {
             window.location.href = ownRedirect;
             return;
@@ -788,10 +762,10 @@ function initForm() {
         if (attention.length) {
             // Its errors are rendered onto this page's items, so only an
             // entry of this unit session qualifies.
-            const own = attention.find(ownUnitSession);
+            const own = attention.find(isOwnEntry);
             // One of an earlier unit session of this run (a previous diary
             // entry) can never apply — the participant can only let it go.
-            const stale = attention.filter((e) => belongsHere(e) && !ownUnitSession(e));
+            const stale = attention.filter((e) => belongsHere(e) && !isOwnEntry(e));
             if (own) surfaceNeedsAttention(own);
             else if (stale.length) showQueueBanner(t('queue.needs_attention_stale', 'A page from an earlier visit to this study could not be saved and can no longer be sent.'), 'danger', [discardAction(stale)]);
             else showQueueBanner(t('queue.needs_attention_other_run', 'A queued submission for another study on this device was rejected. Open that study to fix it.'), 'danger');
@@ -968,8 +942,9 @@ function initForm() {
             const stored = storedName ? store.items[storedName] : null;
             const participantFacing = !!wrapper.querySelector('input[name]:not([type=hidden]):not([name^="_item_views"]), select[name], textarea[name]');
             // `saved`, not `answered`: an emptied field or a deselected
-            // choice is stored with no value (answered: false).
-            if (stored && (stored.saved || stored.answered) && participantFacing) return;
+            // choice is stored with no value (answered: false; answered
+            // implies saved).
+            if (stored && stored.saved && participantFacing) return;
             const target = setInputValue(wrapper, valuesMap[id]);
             if (!target) return;
             programmaticFill = true;
@@ -1045,33 +1020,30 @@ function initForm() {
     // can't be clicked, but the page can still be submitted implicitly (Enter
     // in a text input → the form's `submit` event, solo's onContinue, the
     // all-answered auto-submit), so every submit path consults this gate.
-    // SUBMIT_CONTROL_SELECTOR is shared with solo/controller.js. Exposed as
-    // `window.fmrCanSubmitPage` (and passed to initSolo as `canSubmitPage`).
+    // blockedSubmitControl is shared with solo/controller.js. Exposed as
+    // `window.fmrCanSubmitPage`.
     const canSubmitPage = (pageEl) => {
         const p = pageEl || pages[currentIndex];
-        if (!p) return false;
-        const controls = Array.from(p.querySelectorAll(SUBMIT_CONTROL_SELECTOR));
-        return !controls.some((btn) => btn.disabled);
+        return !!p && !blockedSubmitControl(p);
     };
     // Refuse + draw the eye to the still-disabled button (the fuse bar shows
     // how long is left). Returns true when the submit may proceed.
     const gateSubmit = (pageEl) => {
-        if (canSubmitPage(pageEl)) return true;
         const p = pageEl || pages[currentIndex];
-        const btn = p && Array.from(p.querySelectorAll(SUBMIT_CONTROL_SELECTOR)).find((b) => b.disabled);
-        if (btn) {
-            // Web Animations shake — no stylesheet dependency.
-            try {
-                if (typeof btn.animate === 'function') {
-                    btn.animate([
-                        { transform: 'translateX(0)' }, { transform: 'translateX(-5px)' },
-                        { transform: 'translateX(5px)' }, { transform: 'translateX(-3px)' },
-                        { transform: 'translateX(0)' },
-                    ], { duration: 320, easing: 'ease-out' });
-                }
-                btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            } catch (e) { /* noop */ }
-        }
+        if (!p) return false;
+        const btn = blockedSubmitControl(p);
+        if (!btn) return true;
+        // Web Animations shake — no stylesheet dependency.
+        try {
+            if (typeof btn.animate === 'function') {
+                btn.animate([
+                    { transform: 'translateX(0)' }, { transform: 'translateX(-5px)' },
+                    { transform: 'translateX(5px)' }, { transform: 'translateX(-3px)' },
+                    { transform: 'translateX(0)' },
+                ], { duration: 320, easing: 'ease-out' });
+            }
+            btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch (e) { /* noop */ }
         return false;
     };
 
@@ -1137,29 +1109,11 @@ function initForm() {
             ]);
         }
 
-        let res, netErr;
+        let res, resBody, netErr;
         if (queuedBehind) {
             netErr = new Error('queued behind an earlier page');
         } else try {
-            if (useMultipart) {
-                res = await fetch(submitUrl, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-                    body: buildFormData(Object.assign({ files }, payload)),
-                });
-            } else {
-                res = await fetch(submitUrl, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify(payload),
-                });
-            }
+            ({ res, body: resBody } = await postWrite(submitUrl, useMultipart ? Object.assign({ files }, payload) : payload));
         } catch (e) {
             netErr = e;
         }
@@ -1243,7 +1197,7 @@ function initForm() {
             // server's $_POST['data'] doesn't get a stringified File next
             // to the $_FILES entry.
             if (useMultipart) entry.files = files;
-            try { await queueAdd(entry); } catch (e) {
+            try { await queuePut(entry); } catch (e) {
                 savePill.classList.remove('is-visible');
                 console.error('enqueue failed', e);
                 window.alert(t('error.queue_failed', 'Your submission could not be queued locally. Please check your connection and try again.'));
@@ -1280,7 +1234,7 @@ function initForm() {
             console.error('page-submit HTTP', res.status);
             // Drop the saving pill — error UI takes over.
             savePill.classList.remove('is-visible');
-            const errBody = await res.json().catch(() => null);
+            const errBody = resBody;
             if (errBody && errBody.stale_session) {
                 // This page was rendered for an earlier unit session (form
                 // continued elsewhere / a new diary entry started). Reload so
@@ -1313,7 +1267,7 @@ function initForm() {
         // A 200 that was redirected to a login/consent page (session expiry on
         // deployments where auth redirects instead of 403ing) parses as null
         // below — both cases mean "this tab's session is no longer valid".
-        const body = await res.json().catch(() => null);
+        const body = resBody;
         if (!body) {
             savePill.classList.remove('is-visible');
             console.error('page-submit: unparseable response body', res.redirected ? `(redirected to ${res.url})` : '');
@@ -1463,7 +1417,7 @@ function initForm() {
     const SAVE_MIN_INTERVAL = 20000;
     // How long a page submit waits for an autosave already on the wire.
     const AUTOSAVE_WAIT_MS = 5000;
-    let lastSaveAt = 0, saveTimer = null, savePending = false, saveInFlight = false;
+    let lastSaveAt = 0, saveTimer = null, savePending = false;
     // The in-flight autosave request (resolves once the server has replied,
     // i.e. written). A page submit waits for it: an autosave sent before the
     // participant's last edit and landing after the submit would overwrite
@@ -1476,43 +1430,42 @@ function initForm() {
     // Back instant whenever there's nothing at risk. The pagehide/sendBeacon
     // path still saves the data if they leave anyway, so this is purely the
     // user-facing prompt.
-    let unloadGuarded = false;
+    // (add/removeEventListener with the same function are idempotent.)
     const beforeUnloadGuard = (e) => { e.preventDefault(); e.returnValue = ''; return ''; };
     const updateUnloadGuard = () => {
-        if (savePending && !unloadGuarded) {
-            window.addEventListener('beforeunload', beforeUnloadGuard);
-            unloadGuarded = true;
-        } else if (!savePending && unloadGuarded) {
-            window.removeEventListener('beforeunload', beforeUnloadGuard);
-            unloadGuarded = false;
-        }
+        if (savePending) window.addEventListener('beforeunload', beforeUnloadGuard);
+        else window.removeEventListener('beforeunload', beforeUnloadGuard);
+    };
+    // The JSON body of an autosave of the current page, or null when it has
+    // no answers. doc + seq: the server drops this autosave if a page submit
+    // of this document numbered above it has already landed.
+    const autosaveBody = () => {
+        const page = pages[currentIndex];
+        const payload = page ? collectPayload(page) : null;
+        if (!payload || !payload.data || Object.keys(payload.data).length === 0) return null;
+        return JSON.stringify({ data: payload.data, item_views: payload.item_views, unit_session_id: unitSessionId, doc: payload.doc, seq: payload.seq });
     };
     const flushPersist = async () => {
         if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-        if (!savePending || saveInFlight || !saveUrl) return;
+        if (!savePending || saveInFlightRequest || !saveUrl) return;
         // A page submit on the wire carries every answer of this page; an
         // autosave sent now would land after it — into a form its final
         // submit has ended. It stays pending: cancelled if the submit
         // succeeds, sent with the next change (or the pagehide beacon) if not.
         if (pageSubmitInFlight) return;
-        const page = pages[currentIndex];
-        if (!page) return;
-        const payload = collectPayload(page);
-        if (!payload.data || Object.keys(payload.data).length === 0) {
-            savePending = false; updateUnloadGuard(); return;   // nothing to save — don't strand the guard
-        }
+        const body = autosaveBody();
         savePending = false;
-        updateUnloadGuard();   // flush starting; keepalive completes the in-flight send
-        saveInFlight = true;
+        // Nothing to save: don't strand the guard. Otherwise the flush is
+        // starting, and keepalive completes the in-flight send.
+        updateUnloadGuard();
+        if (body === null) return;
         lastSaveAt = Date.now();
         try {
             saveInFlightRequest = fetch(saveUrl, {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                // doc + seq: the server drops this autosave if a page submit
-                // of this document numbered above it has already landed.
-                body: JSON.stringify({ data: payload.data, item_views: payload.item_views, unit_session_id: unitSessionId, doc: payload.doc, seq: payload.seq }),
+                body,
                 keepalive: true,
             });
             const res = await saveInFlightRequest;
@@ -1526,7 +1479,7 @@ function initForm() {
                 if (body && body.status === 'saved') setSaveState('saved', t('save.saved', 'Saved'));
             }
         } catch (e) { /* best-effort; explicit submit + offline queue are the net */ }
-        finally { saveInFlight = false; saveInFlightRequest = null; }
+        finally { saveInFlightRequest = null; }
     };
     // A page submit carries every answer of its page, so an autosave still
     // waiting for its throttle window is superseded — and must not go out
@@ -1563,13 +1516,10 @@ function initForm() {
         // sendBeacon survives unload where fetch may not; fall back to a keepalive flush.
         const beaconFlush = () => {
             if (!savePending || !saveUrl) return;
-            const page = pages[currentIndex];
-            if (!page) return;
-            const payload = collectPayload(page);
-            if (!payload.data || Object.keys(payload.data).length === 0) return;
+            const body = autosaveBody();
+            if (body === null) return;
             savePending = false;
             updateUnloadGuard();
-            const body = JSON.stringify({ data: payload.data, item_views: payload.item_views, unit_session_id: unitSessionId, doc: payload.doc, seq: payload.seq });
             try {
                 if (navigator.sendBeacon) {
                     navigator.sendBeacon(saveUrl, new Blob([body], { type: 'application/json' }));
@@ -1597,9 +1547,6 @@ function initForm() {
             showPage,
             submitPage,
             validate: validatePageAndShowFeedback,
-            // Minimum-exposure gate (disabled submit button): the controller
-            // should consult this before treating Enter/OK as a page submit.
-            canSubmitPage,
             pageNav: {
                 isLastPage: (pageEl) => nav().isLastShown(Number(pageEl.dataset.fmrPage)),
                 previousPageIndex: (pageEl) => {

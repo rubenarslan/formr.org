@@ -6,7 +6,7 @@ import { createStore, pageState } from '../../webroot/assets/form/js/state.mjs';
 
 const it = (name, o = {}) => Object.assign({ name, visible: true, answerable: true }, o);
 const block = (items) => ({ unit_session_id: 7, items });
-const st = (answered, extra = {}) => Object.assign({ id: 1, page: 1, required: true, answered, value: answered ? 'x' : null, hidden: false }, extra);
+const st = (answered, extra = {}) => Object.assign({ id: 1, page: 1, required: true, answered, saved: answered, value: answered ? 'x' : null, hidden: false }, extra);
 
 const snap = [
     { page: 1, items: [it('q1'), it('q2', { visible: false })] },

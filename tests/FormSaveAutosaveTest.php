@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
  * RunController::formSaveAction used to call the save with validate=false, which
  * persisted unverified bot_check tokens, out-of-range numbers, unknown choices
  * and arbitrary strings under file items. It now filters the posted answers
- * through RunController::filterAutosaveAnswers() (validate on a clone, drop
+ * through FormSubmissionService::filterAutosaveAnswers() (validate on a clone, drop
  * failures, skip ineligible types) and saves with validate=true.
  */
 class FormSaveAutosaveTest extends TestCase
@@ -34,15 +34,15 @@ class FormSaveAutosaveTest extends TestCase
 
     public function testBotCheckAndUploadsAreNeverAutosaved()
     {
-        $this->assertFalse(RunController::autosaveEligible($this->item('BotCheck_Item', 'h', array('type' => 'bot_check'))));
-        $this->assertFalse(RunController::autosaveEligible($this->item('File_Item', 'f', array('type' => 'file'))));
-        $this->assertFalse(RunController::autosaveEligible($this->item('Image_Item', 'i', array('type' => 'image'))));
-        $this->assertFalse(RunController::autosaveEligible($this->item('Audio_Item', 'a', array('type' => 'audio'))));
-        $this->assertFalse(RunController::autosaveEligible($this->item('Video_Item', 'v', array('type' => 'video'))));
+        $this->assertFalse(FormSubmissionService::autosaveEligible($this->item('BotCheck_Item', 'h', array('type' => 'bot_check'))));
+        $this->assertFalse(FormSubmissionService::autosaveEligible($this->item('File_Item', 'f', array('type' => 'file'))));
+        $this->assertFalse(FormSubmissionService::autosaveEligible($this->item('Image_Item', 'i', array('type' => 'image'))));
+        $this->assertFalse(FormSubmissionService::autosaveEligible($this->item('Audio_Item', 'a', array('type' => 'audio'))));
+        $this->assertFalse(FormSubmissionService::autosaveEligible($this->item('Video_Item', 'v', array('type' => 'video'))));
 
-        $this->assertTrue(RunController::autosaveEligible($this->item('Text_Item', 't', array('type' => 'text'))));
-        $this->assertTrue(RunController::autosaveEligible($this->item('Number_Item', 'n', array('type' => 'number'))));
-        $this->assertTrue(RunController::autosaveEligible($this->item('Mc_Item', 'm', array('type' => 'mc', 'choices' => array(1 => 'a')))));
+        $this->assertTrue(FormSubmissionService::autosaveEligible($this->item('Text_Item', 't', array('type' => 'text'))));
+        $this->assertTrue(FormSubmissionService::autosaveEligible($this->item('Number_Item', 'n', array('type' => 'number'))));
+        $this->assertTrue(FormSubmissionService::autosaveEligible($this->item('Mc_Item', 'm', array('type' => 'mc', 'choices' => array(1 => 'a')))));
     }
 
     public function testInvalidAndIneligibleAnswersAreDropped()
@@ -59,7 +59,7 @@ class FormSaveAutosaveTest extends TestCase
         );
         $items = $this->fixtureItems();
         $items['mood2'] = $items['mood'];
-        $accepted = RunController::filterAutosaveAnswers($posted, $items);
+        $accepted = FormSubmissionService::filterAutosaveAnswers($posted, $items);
         $this->assertSame(array('note' => 'fine'), $accepted);
     }
 
@@ -70,15 +70,15 @@ class FormSaveAutosaveTest extends TestCase
         $posted = array('age' => 3, 'mood' => '2', 'note' => 'hello', 'flag' => true);
         $items = $this->fixtureItems();
         $items['flag'] = $this->item('Check_Item', 'flag', array('type' => 'check'));
-        $accepted = RunController::filterAutosaveAnswers($posted, $items);
+        $accepted = FormSubmissionService::filterAutosaveAnswers($posted, $items);
         $this->assertSame(array('age' => '3', 'mood' => '2', 'note' => 'hello', 'flag' => '1'), $accepted);
     }
 
     public function testNestedStructuresAreRefused()
     {
         $items = $this->fixtureItems();
-        $this->assertSame(array(), RunController::filterAutosaveAnswers(array('note' => array('a' => array('b'))), $items));
-        $this->assertSame(array(), RunController::filterAutosaveAnswers(array('age' => array(1, 2)), $items));
+        $this->assertSame(array(), FormSubmissionService::filterAutosaveAnswers(array('note' => array('a' => array('b'))), $items));
+        $this->assertSame(array(), FormSubmissionService::filterAutosaveAnswers(array('age' => array(1, 2)), $items));
     }
 
     public function testValueShapeMustMatchTheItemsInput()
@@ -88,11 +88,11 @@ class FormSaveAutosaveTest extends TestCase
             'type' => 'mc_multiple', 'choices' => array(1 => 'a', 2 => 'b', 3 => 'c'),
         ));
         // scalar under an array item, array under a scalar item: both dropped
-        $this->assertSame(array(), RunController::filterAutosaveAnswers(array('tags' => '1', 'note' => array('x')), $items));
+        $this->assertSame(array(), FormSubmissionService::filterAutosaveAnswers(array('tags' => '1', 'note' => array('x')), $items));
         // the right shape, with JSON ints coerced to $_POST strings
-        $this->assertSame(array('tags' => array('1', '3')), RunController::filterAutosaveAnswers(array('tags' => array(1, 3)), $items));
+        $this->assertSame(array('tags' => array('1', '3')), FormSubmissionService::filterAutosaveAnswers(array('tags' => array(1, 3)), $items));
         // an unknown choice inside the array still fails validation
-        $this->assertSame(array(), RunController::filterAutosaveAnswers(array('tags' => array(1, 9)), $items));
+        $this->assertSame(array(), FormSubmissionService::filterAutosaveAnswers(array('tags' => array(1, 9)), $items));
     }
 
     public function testEmptyValuesAreNotAutosaved()
@@ -102,16 +102,16 @@ class FormSaveAutosaveTest extends TestCase
         $items = $this->fixtureItems();
         $items['note']->optional = true;
         $posted = array('note' => '', 'age' => null, 'mood' => array());
-        $this->assertSame(array(), RunController::filterAutosaveAnswers($posted, $items));
+        $this->assertSame(array(), FormSubmissionService::filterAutosaveAnswers($posted, $items));
     }
 
     public function testEmptyAndUnknownPayloadsYieldNothing()
     {
         $items = $this->fixtureItems();
-        $this->assertSame(array(), RunController::filterAutosaveAnswers(array(), $items));
-        $this->assertSame(array(), RunController::filterAutosaveAnswers(array('ghost' => 1), $items));
-        $this->assertSame(array(), RunController::filterAutosaveAnswers(array('note' => 'x'), array()));
-        $this->assertSame(array(), RunController::filterAutosaveAnswers(array('note' => 'x'), array('note' => 'not an item')));
+        $this->assertSame(array(), FormSubmissionService::filterAutosaveAnswers(array(), $items));
+        $this->assertSame(array(), FormSubmissionService::filterAutosaveAnswers(array('ghost' => 1), $items));
+        $this->assertSame(array(), FormSubmissionService::filterAutosaveAnswers(array('note' => 'x'), array()));
+        $this->assertSame(array(), FormSubmissionService::filterAutosaveAnswers(array('note' => 'x'), array('note' => 'not an item')));
     }
 
     public function testFilteringDoesNotTouchTheStudysItemObjects()
@@ -119,7 +119,7 @@ class FormSaveAutosaveTest extends TestCase
         // The real save (and the later submit) reuse these objects; the probe
         // must be a clone so a rejected autosave attempt leaves no error/reply.
         $items = $this->fixtureItems();
-        RunController::filterAutosaveAnswers(array('age' => 99, 'mood' => 7, 'note' => 'ok'), $items);
+        FormSubmissionService::filterAutosaveAnswers(array('age' => 99, 'mood' => 7, 'note' => 'ok'), $items);
         foreach ($items as $name => $item) {
             $this->assertEmpty($item->error, "{$name}: error was set by the probe");
             $this->assertNull($item->reply, "{$name}: reply was set by the probe");

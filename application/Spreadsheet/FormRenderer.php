@@ -40,18 +40,6 @@
  */
 class FormRenderer extends SpreadsheetRenderer {
 
-    /**
-     * v1's items-per-page cap must not apply: toRender spans ALL pages here,
-     * so the inherited per-request break would truncate the whole document
-     * and strand the participant after the last in-DOM page.
-     */
-    protected $applyMaxDisplayedCap = false;
-    // Every load renders every item of every page, shown or not: counting
-    // that as a display would add one to each item per page load. The write
-    // path stamps created/displaycount (UnitSession::writeSurveyStudyRecord)
-    // and the browser records when each item was shown (item_views).
-    protected $countDisplays = false;
-
 
     /** @var bool|null memoized isAuthorFacingSession() */
     protected $authorFacingSession = null;
@@ -94,6 +82,21 @@ class FormRenderer extends SpreadsheetRenderer {
         return $this->authorFacingSession;
     }
 
+    /**
+     * v1's version caps a request at maximum_number_displayed items and counts
+     * each render as a display. Neither applies here: toRender spans ALL pages
+     * (the cap would truncate the document and strand the participant after
+     * the last in-DOM page), and every load renders every item, shown or not.
+     * The write path stamps created/displaycount
+     * (UnitSession::writeSurveyStudyRecord) and the browser records when each
+     * item was shown (item_views).
+     */
+    protected function getRenderedStudyItems() {
+        return array_values(array_filter($this->toRender, function ($item) {
+            return $item->isRendered();
+        }));
+    }
+
     public function processItems() {
         $items = $this->getStudyItems();
         if (!$items) {
@@ -123,10 +126,6 @@ class FormRenderer extends SpreadsheetRenderer {
             }
         }
         $items = $this->processAutomaticItems($items);
-        $pageMap = $this->fetchPageMap();
-        $itemPageOf = function ($item) use ($pageMap) {
-            return isset($pageMap[(int) $item->id]) ? (int) $pageMap[(int) $item->id] : 1;
-        };
 
         // Step 1: dynamic values. The `value` column carries R that we route
         // through the allowlist (a hidden item's value is also the documented
@@ -208,7 +207,8 @@ class FormRenderer extends SpreadsheetRenderer {
         // renders hidden (and its inputs disabled) until Alpine evaluates the
         // showif, which then reveals it — so nothing flashes visible or blocks
         // the page before the bundle has run. A showif that did not transpile
-        // leaves its item hidden: unknown means not shown.
+        // leaves its item hidden: unknown means not shown (it still carries the
+        // empty attribute, so the browser reports it hidden like any other).
         //
         // Submit-type items are page boundaries AND the page's advance control;
         // they stay in $items and render as the page's big button, and are kept
@@ -225,11 +225,11 @@ class FormRenderer extends SpreadsheetRenderer {
         $answerablePages = [];
         foreach ($items as $item) {
             if ($item && $item->type !== 'submit') {
-                $answerablePages[$itemPageOf($item)] = true;
+                $answerablePages[$this->pageOf($item)] = true;
             }
         }
         foreach ($items as $name => $item) {
-            if ($item && $item->type === 'submit' && !isset($answerablePages[$itemPageOf($item)])) {
+            if ($item && $item->type === 'submit' && !isset($answerablePages[$this->pageOf($item)])) {
                 unset($items[$name]);
             }
         }
@@ -443,21 +443,6 @@ class FormRenderer extends SpreadsheetRenderer {
     protected static $unverifiedTypes = ['audio', 'video'];
 
     public function render($form_action = null, $form_append = null) {
-        // Emit data-showif on every item with a showif expression, so the client
-        // runtime can re-evaluate on each input change. v1 only set data_showif
-        // when the server hid the item; v2 wants reactive visibility without a
-        // round-trip. An item whose showif produced no transpiled js_showif
-        // stays hidden (processItems Step 4): unknown means not shown.
-        // A showif that did not transpile still carries the (empty)
-        // attribute: the browser then reports its item as hidden, like any
-        // other showif item it hides, instead of the server waiting for an
-        // answer to an item nobody can see.
-        foreach ($this->renderedItems as $item) {
-            if (trim((string) $item->showif) !== '') {
-                $item->data_showif = true;
-            }
-        }
-
         $itemsByPage = $this->groupByPage($this->renderedItems);
 
         $html = '<div class="fmr-form-v2-outer study-' . (int) $this->study->id . '">';
@@ -468,8 +453,7 @@ class FormRenderer extends SpreadsheetRenderer {
         // (pageState in webroot/assets/form/js/state.js), which buttons a
         // page gets and whether its advance button reads Next or Submit.
         $isSolo = (($this->study->layout ?? 'default') === 'solo');
-        $lang = !empty($this->study->language) ? $this->study->language : 'en';
-        $strings = FormStrings::table($lang, FormStrings::studyOverrides($this->study));
+        $strings = FormStrings::forStudy($this->study);
         foreach ($itemsByPage as $pageNum => $pageItems) {
             $html .= sprintf('<section class="fmr-page" data-fmr-page="%d" hidden>', (int) $pageNum);
 
@@ -551,10 +535,9 @@ class FormRenderer extends SpreadsheetRenderer {
      * @return array<int, Item[]>
      */
     protected function groupByPage(array $items) {
-        $pageMap = $this->fetchPageMap();
         $out = [];
         foreach ($items as $item) {
-            $p = isset($pageMap[(int) $item->id]) ? (int) $pageMap[(int) $item->id] : 1;
+            $p = $this->pageOf($item);
             if (!isset($out[$p])) {
                 $out[$p] = [];
             }
@@ -565,6 +548,12 @@ class FormRenderer extends SpreadsheetRenderer {
         }
         ksort($out);
         return $out;
+    }
+
+    /** The page an item is on (survey_items_display.page; 1 when unrecorded). */
+    protected function pageOf(Item $item) {
+        $pageMap = $this->fetchPageMap();
+        return isset($pageMap[(int) $item->id]) ? $pageMap[(int) $item->id] : 1;
     }
 
     /** @var array<int, int>|null memoized item_id => page (queried by both processItems and groupByPage per render) */
@@ -672,19 +661,9 @@ class FormRenderer extends SpreadsheetRenderer {
      * @return array{unit_session_id:int, items: array<string, array>}
      */
     public function stateBlock() {
-        $rows = FormSubmissionService::stateRows($this->db, $this->study->id, $this->unitSession->id);
-        $showifNames = FormSubmissionService::showifNames($this->db, (int) $this->study->id);
-        $factory = new ItemFactory([]);
-        $items = [];
-        foreach ($rows as $row) {
-            $item = $factory->make($row);
-            if ($item) {
-                $items[(string) $row['name']] = FormSubmissionService::itemState($item, $row, $showifNames);
-            }
-        }
         return [
             'unit_session_id' => (int) $this->unitSession->id,
-            'items' => $items,
+            'items' => FormSubmissionService::stateFor($this->db, $this->study->id, $this->unitSession->id),
         ];
     }
 

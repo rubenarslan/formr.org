@@ -1,4 +1,5 @@
 import { t } from '../lib/i18n.js';
+import { isItemHidden } from '../lib/inputs.js';
 // Native Constraint Validation feedback rendering for v2.
 //
 // v1 used webshim to surface consistent inline messages. v2 has neither
@@ -35,6 +36,21 @@ export function clearCustomValidity(pageEl) {
     });
 }
 
+// An inline `.fmr-invalid-feedback` row with `msg`, placed after the field's
+// `.controls` / `.form-group` (or right after the field).
+function insertFeedback(el, msg) {
+    const fb = document.createElement('div');
+    fb.className = 'invalid-feedback fmr-invalid-feedback d-block';
+    fb.textContent = msg;
+    const anchor = el.closest('.controls, .form-group') || el.parentElement;
+    if (anchor && anchor.parentElement) {
+        anchor.parentElement.insertBefore(fb, anchor.nextSibling);
+    } else {
+        el.insertAdjacentElement('afterend', fb);
+    }
+    return fb;
+}
+
 export function findErrorTarget(pageEl, name) {
     // A form control first: a widget element can carry the item's name too
     // (bot_check's <altcha-widget name=…>), and it has no setCustomValidity.
@@ -58,25 +74,15 @@ export function applyErrors(pageEl, errors) {
             unplaced.push({ name, msg: String(msg) });
             return;
         }
-        if (!firstErrorEl) firstErrorEl = el;
         if (typeof el.setCustomValidity === 'function') el.setCustomValidity(String(msg));
         el.dataset.fmrServerValidity = '1';
         el.classList.add('is-invalid');
-        const feedback = document.createElement('div');
-        feedback.className = 'invalid-feedback fmr-invalid-feedback d-block';
-        feedback.textContent = String(msg);
-        const anchor = el.closest('.controls, .form-group') || el.parentElement;
-        if (anchor && anchor.parentElement) {
-            anchor.parentElement.insertBefore(feedback, anchor.nextSibling);
-        } else {
-            el.insertAdjacentElement('afterend', feedback);
-        }
-        if (!pageEl.dataset.fmrScrolledToError) {
-            pageEl.dataset.fmrScrolledToError = '1';
+        insertFeedback(el, String(msg));
+        if (!firstErrorEl) {
+            firstErrorEl = el;
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     });
-    delete pageEl.dataset.fmrScrolledToError;
 
     // The banner lists this reply's unplaced errors only: an earlier reply's
     // must not outlive the submit that fixed them.
@@ -155,14 +161,13 @@ export function validatePageAndShowFeedback(pageEl) {
     pageEl.querySelectorAll('.fmr-invalid-feedback').forEach((el) => el.remove());
     // Reset stale validation state on BOTH descendants AND pageEl itself. In the
     // solo layout `validate(current)` passes a single `.form-group` as pageEl, so
-    // any `is-invalid` / `fmr-has-client-error` (a within-pass dedup flag) that
-    // landed on that form-group survives `querySelectorAll` (descendants only)
-    // and, on the next attempt, makes the offenders loop `return` early before
-    // rendering feedback — i.e. an invalid required field silently blocks with no
-    // message on the 2nd OK. Clearing pageEl too closes that leak.
-    pageEl.classList.remove('is-invalid', 'fmr-has-client-error');
-    pageEl.querySelectorAll('.is-invalid, .fmr-has-client-error')
-        .forEach((el) => el.classList.remove('is-invalid', 'fmr-has-client-error'));
+    // an `is-invalid` on that form-group survives `querySelectorAll`
+    // (descendants only) and, on the next attempt, makes the unanswered loop
+    // `return` early before rendering feedback — i.e. an invalid required field
+    // silently blocks with no message on the 2nd OK. Clearing pageEl too
+    // closes that leak.
+    pageEl.classList.remove('is-invalid');
+    pageEl.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
 
     const fields = Array.from(pageEl.querySelectorAll('input[name], select[name], textarea[name]'))
         .filter((el) => !el.disabled && !el.name.startsWith('_item_views'));
@@ -186,7 +191,7 @@ export function validatePageAndShowFeedback(pageEl) {
         ? [pageEl]
         : Array.from(pageEl.querySelectorAll('.form-group'));
     const unanswered = scope.filter((g) => g.classList.contains('required')
-        && !g.classList.contains('hidden') && g.offsetParent !== null
+        && !isItemHidden(g) && g.offsetParent !== null
         // A submit item carries `required` (it's not "optional") but is a button,
         // not an answerable field — it can never be "answered", so excluding it
         // here mirrors the server's required check (UnitSession excludes 'submit')
@@ -197,10 +202,13 @@ export function validatePageAndShowFeedback(pageEl) {
     if (offenders.length === 0 && unanswered.length === 0) return true;
 
     let firstFocusTarget = null;
+    const seen = new Set();   // one message per wrapper
     offenders.forEach((el) => {
         const wrapper = el.closest('.form-group') || el.parentElement;
-        if (wrapper && wrapper.classList.contains('fmr-has-client-error')) return;
-        if (wrapper) wrapper.classList.add('fmr-has-client-error');
+        if (wrapper) {
+            if (seen.has(wrapper)) return;
+            seen.add(wrapper);
+        }
 
         // A `block` item is a display-only guard (e.g. "you can't spend > $100")
         // enforced by a hidden required checkbox that can't be ticked. Its own
@@ -250,19 +258,9 @@ export function validatePageAndShowFeedback(pageEl) {
         }
 
         el.classList.add('is-invalid');
-        const fb = document.createElement('div');
-        fb.className = 'invalid-feedback fmr-invalid-feedback d-block';
-        fb.textContent = invalidMessage(el, t('validation.required', "We'll need this to continue."));
-        const anchor = el.closest('.controls, .form-group') || el.parentElement;
-        if (anchor && anchor.parentElement) {
-            anchor.parentElement.insertBefore(fb, anchor.nextSibling);
-        } else {
-            el.insertAdjacentElement('afterend', fb);
-        }
+        insertFeedback(el, invalidMessage(el, t('validation.required', "We'll need this to continue.")));
         if (!firstFocusTarget) firstFocusTarget = el;
     });
-
-    pageEl.querySelectorAll('.fmr-has-client-error').forEach((el) => el.classList.remove('fmr-has-client-error'));
 
     unanswered.forEach((g) => {
         if (g.classList.contains('is-invalid')) return;
@@ -320,15 +318,7 @@ export function installBlurValidation(root) {
         // Invalid + non-empty → show the inline message next to the field.
         if (wrapper && wrapper.querySelector('.fmr-invalid-feedback')) return; // already shown
         el.classList.add('is-invalid');
-        const fb = document.createElement('div');
-        fb.className = 'invalid-feedback fmr-invalid-feedback d-block';
-        fb.textContent = invalidMessage(el, t('validation.check_entry', 'Please check this entry.'));
-        const anchor = el.closest('.controls, .form-group') || el.parentElement;
-        if (anchor && anchor.parentElement) {
-            anchor.parentElement.insertBefore(fb, anchor.nextSibling);
-        } else {
-            el.insertAdjacentElement('afterend', fb);
-        }
+        insertFeedback(el, invalidMessage(el, t('validation.check_entry', 'Please check this entry.')));
     });
 }
 
@@ -339,7 +329,7 @@ export function installFeedbackClearer(root) {
         const wrapper = e.target.closest('.form-group');
         if (!wrapper) return;
         wrapper.querySelectorAll('.fmr-invalid-feedback, .fmr-btn-feedback').forEach((el) => el.remove());
-        wrapper.classList.remove('is-invalid', 'fmr-has-client-error');
+        wrapper.classList.remove('is-invalid');
         wrapper.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
         if (e.target.dataset?.fmrServerValidity) {
             try { e.target.setCustomValidity(''); } catch {}

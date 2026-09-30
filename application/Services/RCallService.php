@@ -618,17 +618,13 @@ class RCallService {
                 $this->unitSession->addExecutionTime((hrtime(true) - $started) / 1e9);
             }
             if ($session && !$session->hasError()) {
-                $files = $session->getFiles('knit.html');
-                $src = isset($files['knit.html']) ? (string) $files['knit.html'] : '';
-                $html = '<div class="rmarkdown_iframe"><iframe src="' . h($src) . '">'
-                      . '<p>Your browser does not support iframes.</p></iframe></div>';
+                $html = NoteIframe_Item::iframeHtml($session);
                 $results[(int) $callId] = $html;
                 $this->writeCache((int) $callId, $argsHash, $html);
             } else {
                 $name = isset($entry['item_name']) ? $entry['item_name'] : '?';
                 formr_log("note_iframe '{$name}': knit failed: " . (string) opencpu_last_error());
-                $results[(int) $callId] = '<div class="alert alert-warning fmr-iframe-fallback">'
-                    . h(_('This content is temporarily unavailable.')) . '</div>';
+                $results[(int) $callId] = NoteIframe_Item::fallbackHtml();
             }
         }
         return $results;
@@ -695,15 +691,5 @@ class RCallService {
             return self::rResultToScalarString(reset($result));
         }
         return (string) $result;
-    }
-
-    public static function rResultToBool($result) {
-        if (is_bool($result)) return $result;
-        if (is_int($result) || is_float($result)) return ((float) $result) != 0.0;
-        if (is_string($result)) {
-            $l = strtolower(trim($result));
-            return $l === 'true' || $l === 't' || $l === '1';
-        }
-        return (bool) $result;
     }
 }

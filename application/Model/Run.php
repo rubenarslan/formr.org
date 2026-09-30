@@ -1760,10 +1760,11 @@ class Run extends Model
      */
     public function admits(RunSession $runSession, $user)
     {
-        return $this->getOwner()->user_code == $user->user_code // owner always has access
+        // Free checks first: the owner check loads a User.
+        return ($this->public >= 1 && $runSession->id)           // already enrolled
+            || $this->public >= 2                                // anyone with the link
             || $runSession->isTesting()                          // testers always have access
-            || ($this->public >= 1 && $runSession->id)           // already enrolled
-            || $this->public >= 2;                               // anyone with the link
+            || $this->getOwner()->user_code == $user->user_code; // owner always has access
     }
 
     /**

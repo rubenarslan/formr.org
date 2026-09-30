@@ -100,7 +100,7 @@ foreach ($studies as $study) {
     // asserts it matches /^[A-Za-z0-9_]+$/.
     $safeWide = str_replace('`', '``', $resultsTable);
 
-    $hasIterationCol = backfillHasIterationColumn($db, $resultsTable);
+    $hasIterationCol = in_array('iteration', SurveyStudy::wideTableColumns($resultsTable), true);
 
     $result = $hasIterationCol
         ? backfillFromWideIteration($db, $safeWide, $studyId, $lastIteration, $dryRun)
@@ -125,22 +125,6 @@ foreach ($studies as $study) {
 
 echo "\n$tag Done. processed=$processed skipped_no_table=$skippedNoTable "
     . "skipped_nothing_to_do=$skippedNothingToDo rows_backfilled=$totalRowsBackfilled\n";
-
-/**
- * Does `$table` (unquoted identifier, already validated by
- * DB::table_exists()) have an `iteration` column? Queried via
- * information_schema rather than SHOW COLUMNS because DB::query()
- * only fetchAll()s statements that literally start with "select" —
- * SHOW COLUMNS would come back as a bare PDOStatement instead.
- */
-function backfillHasIterationColumn($db, $table) {
-    $rows = $db->query(
-        'SELECT COUNT(*) AS n FROM information_schema.COLUMNS '
-        . 'WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ' . $db->quote($table)
-        . " AND COLUMN_NAME = 'iteration'"
-    );
-    return isset($rows[0]['n']) && (int) $rows[0]['n'] > 0;
-}
 
 /**
  * Has-iteration-column path: copy w.iteration into any NULL

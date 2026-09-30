@@ -620,7 +620,7 @@ class UnitSession extends Model {
         // createSurveyStudyRecord, so their rows need the expired stamp as well —
         // gating on 'Survey' alone left every Form row expired=NULL forever.
         // surveyStudy: see end() — no study once identity is forgotten.
-        if (in_array($unit->type, ['Survey', 'Form'], true) && $unit->surveyStudy && Config::get('form_v2_dual_write_results', true)) {
+        if ($unit instanceof Survey && $unit->surveyStudy && Config::get('form_v2_dual_write_results', true)) {
             $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `expired` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
 			$params = ['session_id' => $this->id, 'study_id' => $unit->surveyStudy->id];
 			try {
@@ -660,7 +660,7 @@ class UnitSession extends Model {
     public function end($reason = null, $completes = true) {
         $unit = $this->runUnit;
 
-        if ($unit->type == "Survey" || $unit->type == "Form" || $unit->type == "External") {
+        if ($unit instanceof Survey || $unit->type == "External") {
             // 'Form' included on both levels: v2 Forms dual-write the wide table
             // (see expire()) and end like a Survey. They also record
             // 'survey_ended' — not a Form-specific value — so downstream
@@ -689,7 +689,7 @@ class UnitSession extends Model {
             // escapes (no catch here, unlike expire()) — a 500 on every
             // participant request, and the daemon re-picks the queued row
             // on every pass because removeItem() is never reached.
-            if (($unit->type == "Survey" || $unit->type == "Form") && $completes && $unit->surveyStudy && Config::get('form_v2_dual_write_results', true)) {
+            if ($unit instanceof Survey && $completes && $unit->surveyStudy && Config::get('form_v2_dual_write_results', true)) {
                 $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
                 $params = array('session_id' => $this->id, 'study_id' => $unit->surveyStudy->id);
                 $this->db->exec($query, $params);
@@ -713,7 +713,7 @@ class UnitSession extends Model {
             // records one of those results. A new operator path with a fresh
             // reason would silently count as a completion in R / exports —
             // make that loud rather than let it drift.
-            if (!$completes && ($unit->type == "Survey" || $unit->type == "Form")
+            if (!$completes && $unit instanceof Survey
                     && !in_array($this->result, self::OPERATOR_END_RESULTS, true)) {
                 formr_log(sprintf(
                     'UnitSession::end(): session %d ended with completes=false but result "%s" is not in OPERATOR_END_RESULTS (%s); long reads will treat it as a completion. Add the result to UnitSession::OPERATOR_END_RESULTS.',
@@ -767,7 +767,7 @@ class UnitSession extends Model {
         // (counts + geometric-mean duration, audit SQ-10/SQ-11) must keep being
         // fed when the wide table is no longer written. Self-guarded. No
         // surveyStudy: see the dual-write block above (identity forgotten).
-        if ($ended === 1 && $completes && ($unit->type == "Survey" || $unit->type == "Form") && $unit->surveyStudy) {
+        if ($ended === 1 && $completes && $unit instanceof Survey && $unit->surveyStudy) {
             StudyMetrics::recordCompletion(
                 (int) $unit->surveyStudy->id, $this->runSession->testing ?? null, (int) $this->id
             );

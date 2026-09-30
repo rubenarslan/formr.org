@@ -235,31 +235,6 @@ class BotCheckChallenge {
     }
 
     /**
-     * Decode the client payload. The Altcha widget submits a base64-encoded JSON
-     * {challenge:{parameters,signature}, solution:{counter,derivedKey}}. We also
-     * accept already-decoded arrays / raw JSON for the smoke test + robustness.
-     *
-     * @return array{challenge:array,solution:array}|null
-     */
-    protected static function decodePayload($token) {
-        if (is_array($token)) {
-            $arr = $token;
-        } else {
-            $s = (string) $token;
-            if ($s === '') return null;
-            $decoded = base64_decode($s, true);
-            $json = ($decoded !== false) ? json_decode($decoded, true) : null;
-            if (!is_array($json)) {
-                $json = json_decode($s, true); // maybe it was raw JSON
-            }
-            $arr = is_array($json) ? $json : null;
-        }
-        if (!is_array($arr) || !isset($arr['challenge'], $arr['solution'])) return null;
-        if (!is_array($arr['challenge']) || !is_array($arr['solution'])) return null;
-        return $arr;
-    }
-
-    /**
      * Verify a client token. Returns true only if the Altcha signature + PoW
      * solution verify AND the challenge is bound to the current participant AND
      * it's fresh. The signature (recomputed from our secret over the canonical
@@ -299,7 +274,7 @@ class BotCheckChallenge {
             );
             return false;
         }
-        $arr = self::decodePayload($token);
+        $arr = AltchaChallenge::decodePayload($token);
         if ($arr === null) return false;
 
         $params = isset($arr['challenge']['parameters']) && is_array($arr['challenge']['parameters'])

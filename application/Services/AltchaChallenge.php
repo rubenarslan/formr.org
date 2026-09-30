@@ -122,7 +122,7 @@ class AltchaChallenge implements RegistrationChallenge {
         if ($altcha === null) {
             return true; // can't sign -> can't challenge; don't lock people out
         }
-        $arr = $this->decodePayload($request->str(self::FIELD));
+        $arr = self::decodePayload($request->str(self::FIELD));
         if ($arr === null) {
             return false;
         }
@@ -165,16 +165,25 @@ class AltchaChallenge implements RegistrationChallenge {
         return true;
     }
 
-    /** The widget submits base64-encoded JSON {challenge, solution}. */
-    protected function decodePayload($token) {
-        $s = (string) $token;
-        if ($s === '') {
-            return null;
-        }
-        $decoded = base64_decode($s, true);
-        $json = ($decoded !== false) ? json_decode($decoded, true) : null;
-        if (!is_array($json)) {
-            $json = json_decode($s, true);
+    /**
+     * The widget submits base64-encoded JSON {challenge, solution}; raw JSON
+     * and an already-decoded array are accepted too (BotCheckChallenge).
+     *
+     * @return array{challenge:array,solution:array}|null
+     */
+    public static function decodePayload($token) {
+        if (is_array($token)) {
+            $json = $token;
+        } else {
+            $s = (string) $token;
+            if ($s === '') {
+                return null;
+            }
+            $decoded = base64_decode($s, true);
+            $json = ($decoded !== false) ? json_decode($decoded, true) : null;
+            if (!is_array($json)) {
+                $json = json_decode($s, true);
+            }
         }
         if (!is_array($json) || !isset($json['challenge'], $json['solution'])
             || !is_array($json['challenge']) || !is_array($json['solution'])) {

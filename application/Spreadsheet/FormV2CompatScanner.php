@@ -71,54 +71,41 @@ class FormV2CompatScanner {
             $raw_showif = trim((string) ($row['showif'] ?? ''));
             $raw_value = trim((string) ($row['value'] ?? ''));
 
-            // ---- the item itself ----
             try {
                 $typed = $itemFactory->make($row);
             } catch (Throwable $e) {
                 $typed = null;
             }
-            if ($typed && ($why = $typed->formV2Unsupported())) {
-                $counts['unsupported']++;
+            $flag = function ($column, $source, $transpiled, $problems, $fix) use (&$flagged, $row) {
                 $flagged[] = [
                     'id' => (int) $row['id'],
                     'name' => (string) $row['name'],
                     'type' => (string) $row['type'],
-                    'column' => 'type',
-                    'source' => $raw_value,
-                    'transpiled' => '',
-                    'problems' => [$why],
-                    'suggested_fix' => 'use_hidden',
+                    'column' => $column,
+                    'source' => $source,
+                    'transpiled' => $transpiled,
+                    'problems' => $problems,
+                    'suggested_fix' => $fix,
                 ];
+            };
+
+            // ---- the item itself ----
+            if ($typed && ($why = $typed->formV2Unsupported())) {
+                $counts['unsupported']++;
+                $flag('type', $raw_value, '', [$why], 'use_hidden');
             }
 
             // ---- showif ----
             if ($raw_showif === '') {
                 $counts['showif']['empty']++;
             } else {
-                $transpiled = $raw_showif;
-                $item = null;
-                try {
-                    $item = $itemFactory->make($row);
-                    $transpiled = $item && isset($item->js_showif) ? (string) $item->js_showif : $raw_showif;
-                } catch (Throwable $e) { /* keep $raw_showif */ }
-                $flag = function ($problems, $fix) use (&$flagged, $row, $raw_showif, $transpiled) {
-                    $flagged[] = [
-                        'id' => (int) $row['id'],
-                        'name' => (string) $row['name'],
-                        'type' => (string) $row['type'],
-                        'column' => 'showif',
-                        'source' => $raw_showif,
-                        'transpiled' => $transpiled,
-                        'problems' => $problems,
-                        'suggested_fix' => $fix,
-                    ];
-                };
+                $transpiled = $typed && isset($typed->js_showif) ? (string) $typed->js_showif : $raw_showif;
                 if ($problems = self::detectRTokens($transpiled)) {
                     $counts['showif']['needs_js_rewrite']++;
-                    $flag($problems, 'rewrite_in_js');
+                    $flag('showif', $raw_showif, $transpiled, $problems, 'rewrite_in_js');
                 } elseif ($unknown = self::namesNotOnForm($transpiled, $formNames)) {
                     $counts['showif']['not_on_form']++;
-                    $flag(['not an item of this form: ' . implode(', ', $unknown)], 'bridge_hidden_item');
+                    $flag('showif', $raw_showif, $transpiled, ['not an item of this form: ' . implode(', ', $unknown)], 'bridge_hidden_item');
                 } else {
                     $counts['showif']['js_ok']++;
                 }

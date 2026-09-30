@@ -342,6 +342,16 @@ class FormStrings {
         return $out;
     }
 
+    /** A study's participant language (patch 114); 'en' when unset. */
+    public static function studyLanguage(SurveyStudy $study) {
+        return !empty($study->language) ? (string) $study->language : 'en';
+    }
+
+    /** The string table a study's participants see: its language plus its own wording. */
+    public static function forStudy(SurveyStudy $study) {
+        return self::table(self::studyLanguage($study), self::studyOverrides($study));
+    }
+
     /** One string, with %token replacement. */
     public static function get($language, $key, array $params = array()) {
         $table = self::table($language);

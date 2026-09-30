@@ -84,9 +84,9 @@ Seven participant-reported solo bugs, all fixed and e2e-covered:
 4. `select_one`/range didn't auto-advance → added to `autoAdvances()`.
 5. Run footer rendered as a stray "page" under each step → pinned above the nav
    (`body:has([data-layout=solo]) .container-fluid > p { position:fixed }`).
-6. Invalid (out-of-range) values blocked silently on the 2nd attempt → a stale
-   `fmr-has-client-error` dedup flag leaked across validation passes; see
-   *Validation* below.
+6. Invalid (out-of-range) values blocked silently on the 2nd attempt → a
+   within-pass dedup marker left on the DOM leaked across validation passes;
+   see *Validation* below.
 7. `block` item showed a generic "check this box" complaint → its own red
    message is the explanation; also suppressed the misfiring "Choose all that
    apply" hint and contained the full-bleed `alert-danger` into a centred card.
@@ -151,12 +151,12 @@ keyboard), so it now sets `inputmode="numeric"`.
 - **On blur** (`installBlurValidation`): surfaces **format** errors (bad email,
   out-of-range) when a *filled* field loses focus; deliberately does NOT nag about
   empty-required on blur (kept for submit) — per-field nagging is a breakoff driver.
-- **Stale-flag fix (solo bug #6)**: `fmr-has-client-error` is a within-pass dedup
-  flag. In solo, `validate(current)` passes a single `.form-group` as `pageEl`, so
-  the flag landed on `pageEl` itself and survived `querySelectorAll()` (descendants
-  only) → the next attempt `return`ed early before rendering feedback (invalid
-  field blocked silently). Fix: reset `is-invalid` + `fmr-has-client-error` on
-  `pageEl` *and* descendants at the top of each pass, and clear the flag on input.
+- **Per-pass state stays local (solo bug #6)**: which groups a pass already
+  reported (a `Set`) and the first error to scroll to are locals of the pass,
+  never marks on the DOM. In solo, `validate(current)` passes a single
+  `.form-group` as `pageEl`; a mark on `pageEl` itself would survive
+  `querySelectorAll()` (descendants only) and silence the next attempt. Each
+  pass still resets `is-invalid` on `pageEl` *and* its descendants.
 - **Double-submit guard**: `submitPage` is wrapped in a single-flight guard
   (`pageSubmitInFlight`) so a rapid double-tap / Enter-repeat can't fire two POSTs
   (covers default Next + the Enter-submit path; solo also guards in the controller).

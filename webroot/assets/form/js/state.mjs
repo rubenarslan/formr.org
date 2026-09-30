@@ -65,10 +65,10 @@ export function createStore(block) {
 //   remembered: the page the browser last showed (localStorage), or null.
 //   allowPrevious: the study's flag.
 export function pageState(snapshot, store, remembered, allowPrevious) {
-    // Stored counts, not only answered: an optional item its page was
-    // submitted with, left empty, is `saved` with no value — without this a
-    // reload on another device reopened the earliest such page.
-    const answered = (name) => !!(store && store.items[name] && (store.items[name].answered || store.items[name].saved));
+    // Stored, not answered: an optional item its page was submitted with,
+    // left empty, is `saved` with no value (answered implies saved) — testing
+    // `answered` reopened the earliest such page on another device's reload.
+    const answered = (name) => !!(store && store.items[name] && store.items[name].saved);
     const shown = snapshot.filter((p) => p.items.some((it) => it.visible));
     const shownPages = shown.map((p) => p.page);
     const isShown = (n) => shownPages.includes(Number(n));

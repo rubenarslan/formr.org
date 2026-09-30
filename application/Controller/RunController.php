@@ -786,12 +786,7 @@ class RunController extends Controller {
             $this->sendJsonResponse(array('error' => 'This study is not open', 'closed' => true), 403);
             return null;
         }
-        switch ($rateBucket) {
-            case 'rcall': $allowed = $this->rcallRateAllowed((int) $runSession->id); break;
-            case 'bot': $allowed = $this->botChallengeRateAllowed((int) $runSession->id); break;
-            default: $allowed = $this->formWriteRateAllowed((int) $runSession->id);
-        }
-        if (!$allowed) {
+        if (!$this->rateAllowed($rateBucket, (int) $runSession->id)) {
             $this->sendJsonResponse(array('error' => 'Rate limit exceeded'), 429);
             return null;
         }
@@ -877,12 +872,7 @@ class RunController extends Controller {
         $unitSession = $this->previewContext['unitSession'];
         $study = $this->formV2Study($unitSession ? $unitSession->runUnit : null);
         $bucketId = -1 * (int) ($unitSession ? $unitSession->id : 0);
-        switch ($rateBucket) {
-            case 'rcall': $allowed = $this->rcallRateAllowed($bucketId); break;
-            case 'bot': $allowed = $this->botChallengeRateAllowed($bucketId); break;
-            default: $allowed = $this->formWriteRateAllowed($bucketId);
-        }
-        if (!$allowed) {
+        if (!$this->rateAllowed($rateBucket, $bucketId)) {
             $this->sendJsonResponse(array('error' => 'Rate limit exceeded'), 429);
             return null;
         }
@@ -921,7 +911,7 @@ class RunController extends Controller {
      * saved, not an error: autosave is best-effort), and items whose
      * validation has side effects or must only ever be judged at submit —
      * bot_check, file/image/audio/video uploads — are never autosaved at all
-     * (see autosaveEligible()). Otherwise anyone could persist an unverified
+     * (see FormSubmissionService::autosaveEligible()). Otherwise anyone could persist an unverified
      * bot_check token, an out-of-range choice or an arbitrary file string.
      *
      * An autosaved item gets `survey_items_display.saved` stamped like a
@@ -989,7 +979,7 @@ class RunController extends Controller {
         // autosave stored before; the rest are answers to store.
         $withdrawn = (new FormSubmissionService($unitSession, $study))
             ->withdrawAnswers(FormSubmissionService::withdrawnNames($data, $items));
-        $accepted = self::filterAutosaveAnswers($clean, $items);
+        $accepted = FormSubmissionService::filterAutosaveAnswers($clean, $items);
         if (!$accepted) {
             $this->sendJsonResponse(array('status' => $withdrawn ? 'saved' : 'noop'));
             return;
@@ -1009,64 +999,6 @@ class RunController extends Controller {
         $this->sendJsonResponse(array('status' => ($stored || $withdrawn) ? 'saved' : 'noop'));
     }
 
-    /** @see FormSubmissionService::autosaveEligible() */
-    public static function autosaveEligible(Item $item) {
-        return FormSubmissionService::autosaveEligible($item);
-    }
-
-    /**
-     * The subset of $data (name => value) that autosave may persist: only
-     * names that resolve to an eligible item AND whose value passes that
-     * item's validateInput(). Validation runs on a clone so the study's item
-     * objects (and the later real save) aren't left holding this attempt's
-     * reply/error state.
-     *
-     * @param array $data posted name => value
-     * @param array $items name => Item, from SurveyStudy::getItemsWithChoices
-     * @return array name => value
-     */
-    public static function filterAutosaveAnswers(array $data, array $items) {
-        $accepted = array();
-        foreach ($data as $name => $value) {
-            if (!isset($items[$name]) || !($items[$name] instanceof Item)) {
-                continue;
-            }
-            $item = $items[$name];
-            if (!self::autosaveEligible($item)) {
-                continue;
-            }
-            // $_POST semantics: a form submit only ever yields strings (or
-            // arrays of strings), and the validators assume that — Mc_Item's
-            // choice check is `is_string($reply) && !in_array(...)`, so a JSON
-            // integer 7 would sail past `mc` with choices 1..2. Normalise before
-            // probing so the JSON autosave can't reach a laxer path than submit.
-            $value = FormSubmissionService::postScalar($value);
-            // Nothing to persist for a cleared/empty field — and stamping
-            // `saved` on an empty optional item would drop it from the next
-            // render. Only real answers are autosaved.
-            if ($value === null || $value === '' || $value === array()) {
-                continue;
-            }
-            // An array only belongs to an item whose input is `<name>[]`
-            // (mc_multiple, select_multiple, rank, …). Scalar validators aren't
-            // written for arrays (Number_Item's trim() throws), and a scalar
-            // under an array item is equally malformed.
-            $inputName = isset($item->input_attributes['name']) ? (string) $item->input_attributes['name'] : $name;
-            $wantsArray = substr($inputName, -2) === '[]';
-            if (is_array($value) !== $wantsArray) {
-                continue;
-            }
-            $probe = clone $item;
-            $probe->error = null;
-            $probe->validateInput($value);
-            if ($probe->error) {
-                continue;
-            }
-            $accepted[$name] = $value;
-        }
-        return $accepted;
-    }
-
     /**
      * The SurveyStudy behind $runUnit if — and only if — the form_v2 endpoints
      * may serve it: a Form unit whose study renders in v2. Only
@@ -1079,20 +1011,7 @@ class RunController extends Controller {
      * @return SurveyStudy|null
      */
     private function formV2Study($runUnit) {
-        if (!($runUnit instanceof Form)) {
-            return null;
-        }
-        $study = $runUnit->surveyStudy;
-        if (!$study || empty($study->id)) {
-            $study = $runUnit->getStudy(true);
-        }
-        if (!$study || empty($study->id)) {
-            return null;
-        }
-        if (!isset($study->rendering_mode) || $study->rendering_mode !== 'v2') {
-            return null;
-        }
-        return $study;
+        return $runUnit instanceof Form ? $runUnit->v2Study() : null;
     }
 
     /**
@@ -1359,9 +1278,13 @@ class RunController extends Controller {
         $labelCalls = array_diff_key($calls['label'], $iframeCalls);
 
         $values = $service->resolveExpressions($calls['value'], $answers, RCallService::ttlForSlot('value'));
-        $labels = $service->resolveLabels($labelCalls, $answers, RCallService::ttlForSlot('label'))
+        // Labels and choice labels share one knit (call ids are unique across
+        // slots); the stricter of the two TTLs governs its cache.
+        $knitted = $service->resolveLabels($labelCalls + $calls['choice_label'], $answers,
+            min(RCallService::ttlForSlot('label'), RCallService::ttlForSlot('choice_label')));
+        $labels = array_intersect_key($knitted, $labelCalls)
                 + $service->resolveIframes($iframeCalls, RCallService::ttlForSlot('label'));
-        $choiceLabels = $service->resolveLabels($calls['choice_label'], $answers, RCallService::ttlForSlot('choice_label'));
+        $choiceLabels = array_intersect_key($knitted, $calls['choice_label']);
 
         $valuesOut = array();
         foreach ($values as $callId => $val) {
@@ -1387,44 +1310,32 @@ class RunController extends Controller {
     }
 
     /**
-     * Shared fill/render-page budget: one bucket per run session so a
-     * hostile client can't multiply its budget by alternating endpoints.
-     * 30/min default is generous for a participant typing through every
-     * debounce window of a long form; override via
-     * $settings['form_v2_rate_limits']['rcall_per_min'].
+     * Per-run-session budgets for the v2 endpoints, each its own bucket so a
+     * burst on one can never eat another's budget:
+     * - 'rcall' (form-render-page): one bucket for all R resolution, so a
+     *   hostile client can't multiply its budget by alternating endpoints;
+     *   30/min is generous for a participant paging through a long form.
+     * - 'write' (form-page-submit, form-save, form-sync): wide headroom —
+     *   autosave is client-throttled to 1/20s and a fast participant submits
+     *   well under a page a second — but it stops a scripted client from
+     *   hammering DB writes indefinitely.
+     * - 'bot' (/form-bot-challenge): one mint per bot_check item, fetched
+     *   only on click; 20/min is far more than any human produces while
+     *   bounding a scripted client to something that can't be used as a free
+     *   HMAC-minting oracle.
+     * - 'beacon' (/pwa-beacon): unauthenticated, keyed by IP.
+     * Override via $settings['form_v2_rate_limits'][<config key>].
      */
-    private function rcallRateAllowed($runSessionId) {
-        $limits = Config::get('form_v2_rate_limits', array());
-        $max = isset($limits['rcall_per_min']) ? (int) $limits['rcall_per_min'] : 30;
-        return FixedWindowRateLimiter::allow('rcall:' . (int) $runSessionId, $max, 60);
-    }
-
-    /**
-     * Budget for the v2 write endpoints (form-page-submit, form-save,
-     * form-sync). Wide headroom — autosave is client-throttled to 1/20s and a
-     * fast participant submits well under a page a second — but it stops a
-     * scripted client from hammering DB writes indefinitely.
-     */
-    private function formWriteRateAllowed($runSessionId) {
-        $limits = Config::get('form_v2_rate_limits', array());
-        $max = isset($limits['write_per_min']) ? (int) $limits['write_per_min'] : 90;
-        return FixedWindowRateLimiter::allow('formwrite:' . (int) $runSessionId, $max, 60);
-    }
-
-    /**
-     * Budget for minting bot_check challenges (/form-bot-challenge). A
-     * participant needs one mint per bot_check item, and the widget is
-     * auto="off" so it only fetches on click — 20/min is far more than any
-     * human produces, while still bounding a scripted client to something that
-     * can't be used as a free HMAC-minting oracle. Own bucket rather than
-     * sharing `formwrite`, so a burst of challenge fetches can never eat a
-     * participant's page-submit budget (or vice versa). Override via
-     * $settings['form_v2_rate_limits']['bot_challenge_per_min'].
-     */
-    private function botChallengeRateAllowed($runSessionId) {
-        $limits = Config::get('form_v2_rate_limits', array());
-        $max = isset($limits['bot_challenge_per_min']) ? (int) $limits['bot_challenge_per_min'] : 20;
-        return FixedWindowRateLimiter::allow('botchallenge:' . (int) $runSessionId, $max, 60);
+    private function rateAllowed($bucket, $id) {
+        static $buckets = array(
+            'rcall' => array('rcall', 'rcall_per_min', 30),
+            'write' => array('formwrite', 'write_per_min', 90),
+            'bot' => array('botchallenge', 'bot_challenge_per_min', 20),
+            'beacon' => array('beacon', 'beacon_per_min', 10),
+        );
+        list($prefix, $key, $default) = isset($buckets[$bucket]) ? $buckets[$bucket] : $buckets['write'];
+        $max = (int) Config::get('form_v2_rate_limits.' . $key, $default);
+        return FixedWindowRateLimiter::allow($prefix . ':' . $id, $max, 60);
     }
 
     /**
@@ -1447,10 +1358,8 @@ class RunController extends Controller {
         }
         // Unauthenticated endpoint — rate limit per IP so it can't be used to
         // flood formr_log / disk. Fail-open like the other buckets.
-        $limits = Config::get('form_v2_rate_limits', array());
-        $beaconMax = isset($limits['beacon_per_min']) ? (int) $limits['beacon_per_min'] : 10;
         $ip = isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : 'unknown';
-        if (!FixedWindowRateLimiter::allow('beacon:' . $ip, $beaconMax, 60)) {
+        if (!$this->rateAllowed('beacon', $ip)) {
             http_response_code(429);
             return;
         }

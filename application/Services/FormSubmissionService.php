@@ -334,6 +334,59 @@ class FormSubmissionService {
         return !($item instanceof BotCheck_Item || $item instanceof File_Item);
     }
 
+    /**
+     * The subset of $data (name => value) that autosave may persist: only
+     * names that resolve to an eligible item AND whose value passes that
+     * item's validateInput(). Validation runs on a clone so the study's item
+     * objects (and the later real save) aren't left holding this attempt's
+     * reply/error state.
+     *
+     * @param array $data posted name => value
+     * @param array $items name => Item, from SurveyStudy::getItemsWithChoices
+     * @return array name => value
+     */
+    public static function filterAutosaveAnswers(array $data, array $items) {
+        $accepted = array();
+        foreach ($data as $name => $value) {
+            if (!isset($items[$name]) || !($items[$name] instanceof Item)) {
+                continue;
+            }
+            $item = $items[$name];
+            if (!self::autosaveEligible($item)) {
+                continue;
+            }
+            // $_POST semantics: a form submit only ever yields strings (or
+            // arrays of strings), and the validators assume that — Mc_Item's
+            // choice check is `is_string($reply) && !in_array(...)`, so a JSON
+            // integer 7 would sail past `mc` with choices 1..2. Normalise before
+            // probing so the JSON autosave can't reach a laxer path than submit.
+            $value = self::postScalar($value);
+            // Nothing to persist for a cleared/empty field — and stamping
+            // `saved` on an empty optional item would drop it from the next
+            // render. Only real answers are autosaved.
+            if ($value === null || $value === '' || $value === array()) {
+                continue;
+            }
+            // An array only belongs to an item whose input is `<name>[]`
+            // (mc_multiple, select_multiple, rank, …). Scalar validators aren't
+            // written for arrays (Number_Item's trim() throws), and a scalar
+            // under an array item is equally malformed.
+            $inputName = isset($item->input_attributes['name']) ? (string) $item->input_attributes['name'] : $name;
+            $wantsArray = substr($inputName, -2) === '[]';
+            if (is_array($value) !== $wantsArray) {
+                continue;
+            }
+            $probe = clone $item;
+            $probe->error = null;
+            $probe->validateInput($value);
+            if ($probe->error) {
+                continue;
+            }
+            $accepted[$name] = $value;
+        }
+        return $accepted;
+    }
+
     /** Set the named columns of this session's wide results row to NULL. */
     protected function clearResultsColumns(array $names) {
         if (!$names || !Config::get('form_v2_dual_write_results', true)) {
@@ -365,11 +418,22 @@ class FormSubmissionService {
         if (!$names) {
             return array();
         }
-        $rows = self::stateRows($this->db, (int) $this->study->id, (int) $this->unitSession->id, $names);
-        $showifNames = self::showifNames($this->db, (int) $this->study->id);
+        return self::stateFor($this->db, (int) $this->study->id, (int) $this->unitSession->id, $names);
+    }
+
+    /**
+     * Per item name, its state-block entry (itemState) for this unit session:
+     * the page's state block (FormRenderer::stateBlock, every item) and a
+     * reply's `items` (storedState, the named ones).
+     *
+     * @param string[]|null $names null = every item
+     * @return array<string, array>
+     */
+    public static function stateFor(DB $db, $studyId, $unitSessionId, array $names = null) {
+        $showifNames = self::showifNames($db, (int) $studyId);
         $factory = new ItemFactory(array());
         $out = array();
-        foreach ((array) $rows as $row) {
+        foreach (self::stateRows($db, $studyId, $unitSessionId, $names) as $row) {
             $item = $factory->make($row);
             if ($item) {
                 $out[(string) $row['name']] = self::itemState($item, $row, $showifNames);

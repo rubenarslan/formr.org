@@ -1,4 +1,5 @@
 import { t, escapeHtml } from '../lib/i18n.js';
+import { isItemHidden } from '../lib/inputs.js';
 // Typeform-style "solo" step controller for form_v2 (layout=solo).
 //
 // Replaces an earlier CSS-scroll-snap skin, which broke down on
@@ -28,14 +29,24 @@ const HIDDEN_TYPES = ['hidden', 'get', 'random', 'referrer', 'ip', 'browser', 's
 
 // A page's submit controls — the one list main.js's canSubmitPage gate and
 // the solo countdown lookup below both read.
-export const SUBMIT_CONTROL_SELECTOR =
+const SUBMIT_CONTROL_SELECTOR =
     '.item-submit button, .item-submit input[type=submit], button.submit_automatically_after_timeout, [data-fmr-next]';
+
+// The page's first still-disabled submit control (a minimum-exposure
+// countdown), or null when the page may be submitted.
+export function blockedSubmitControl(pageEl) {
+    if (!pageEl) return null;
+    for (const b of pageEl.querySelectorAll(SUBMIT_CONTROL_SELECTOR)) {
+        if (b.disabled) return b;
+    }
+    return null;
+}
 
 export function initSolo(opts) {
     // pageNav (main.js): which page is the last shown one and where Previous
     // goes — derived from the state store (state.mjs pageState), the same
     // rule the default layout uses.
-    const { root, pages, getCurrentIndex, showPage, submitPage, validate, canSubmitPage, pageNav } = opts;
+    const { root, pages, getCurrentIndex, showPage, submitPage, validate, pageNav } = opts;
 
     let current = null;          // the active step element (.form-group)
     let pendingGoLast = false;   // next onPageShown should land on the last step (back-nav)
@@ -60,9 +71,9 @@ export function initSolo(opts) {
     }
     function isNavigable(el) {
         if (!el) return false;
-        // `.hidden` is the showif signal (alpine.js toggles it); `[hidden]`
-        // guards a not-yet-shown page section's children defensively.
-        if (el.classList.contains('hidden') || el.hasAttribute('hidden')) return false;
+        // isItemHidden is the showif signal; `[hidden]` guards a not-yet-shown
+        // page section's children defensively.
+        if (isItemHidden(el) || el.hasAttribute('hidden')) return false;
         for (const t of HIDDEN_TYPES) {
             if (el.classList.contains('item-' + t)) return false;
         }
@@ -401,21 +412,10 @@ export function initSolo(opts) {
     // the button itself: solo advances on Enter, ArrowDown, choice auto-advance
     // and the footer OK, none of which touch the button.
     //
-    // "May this page be submitted?" is main.js's call — it gates the paged
-    // engine's submit paths from the same selector list (passed in as
-    // `canSubmitPage`, also on window.fmrCanSubmitPage), so the two engines
-    // can't drift apart on which controls count. Solo needs the button
-    // itself as well, to seat the step that owns the countdown, and keeps
-    // its own scan as the fallback for a page rendered without the gate.
-    function blockedSubmitButton(pageEl) {
-        if (!pageEl) return null;
-        const gate = typeof canSubmitPage === 'function' ? canSubmitPage : window.fmrCanSubmitPage;
-        if (typeof gate === 'function' && gate(pageEl)) return null;
-        for (const b of pageEl.querySelectorAll(SUBMIT_CONTROL_SELECTOR)) {
-            if (b.disabled) return b;
-        }
-        return null;
-    }
+    // "May this page be submitted?" is blockedSubmitControl, the rule main.js's
+    // canSubmitPage gate reads too, so the two engines can't drift apart on
+    // which controls count. Solo needs the button itself as well, to seat
+    // the step that owns the countdown.
     // Keep the participant on this page, seated on the step that owns the
     // countdown so the fuse bar explains why OK did nothing. A disabled button
     // is not focusable, so seating its step is the strongest cue available.
@@ -449,7 +449,7 @@ export function initSolo(opts) {
             return;
         }
         // Minimum exposure time not elapsed → don't submit, stay here.
-        const blocker = blockedSubmitButton(pageEl);
+        const blocker = blockedSubmitControl(pageEl);
         if (blocker) { showSubmitCountdown(pageEl, blocker); return; }
         // Page boundary → a real submit (POST + OpenCPU resolve). Show a loading
         // cue if it runs longer than a moment, and guard against double-submit.
@@ -650,7 +650,7 @@ export function initSolo(opts) {
         // boundary; don't even arm the timer while a minimum-exposure submit
         // button is still disabled (onContinue would refuse anyway, but arming
         // it would leave a stale advance queued behind the participant).
-        if (!nextStep(current) && blockedSubmitButton(pages[getCurrentIndex()])) return;
+        if (!nextStep(current) && blockedSubmitControl(pages[getCurrentIndex()])) return;
         clearTimeout(advanceTimer);
         advanceTimer = setTimeout(onContinue, 450);
     });
@@ -660,9 +660,18 @@ export function initSolo(opts) {
     // condition the participant fixed via Back), re-seat on the nearest
     // navigable neighbour — forward first — instead of leaving an invisible
     // current step that needs a blind OK to escape.
+    // The nav/progress refresh is coalesced to one per frame (like main.js's):
+    // one answer can toggle many showifs, and each refresh snapshots the form.
+    let chromeRefreshQueued = false;
     root.addEventListener('fmr:showif-toggled', (e) => {
-        updateNav();
-        updateProgress();
+        if (!chromeRefreshQueued) {
+            chromeRefreshQueued = true;
+            requestAnimationFrame(() => {
+                chromeRefreshQueued = false;
+                updateNav();
+                updateProgress();
+            });
+        }
         if (!current || transitioning) return;
         if (e.target !== current || isNavigable(current)) return;
         const groups = directGroups(pages[getCurrentIndex()]);
