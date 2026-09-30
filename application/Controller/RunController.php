@@ -1246,6 +1246,11 @@ class RunController extends Controller {
             return;
         }
         list(, $unitSession, $study) = $context;
+        // Release the PHP session lock before the OpenCPU work: the browser
+        // fetches the next page's content alongside the page submit, and
+        // with the lock held the submit would wait for this request's R.
+        // Nothing below writes the session.
+        Session::over();
 
         $service = new RCallService($unitSession, $study);
 
