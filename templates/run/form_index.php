@@ -15,27 +15,8 @@ $formDir = FormStrings::dir($formLanguage);
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="description" content="<?php echo htmlspecialchars($meta['description']); ?>">
-        <?php
-        // PWA wiring (form_v2): manifest link + Apple icons + standalone
-        // metas, mirroring templates/public/head.php so v2 forms with
-        // configured PWA assets behave the same way as v1.
-        $pwaIconBaseUrl = null;
-        if ($run instanceof Run) {
-            $iconPathVal = $run->getPwaIconPath();
-            if ($iconPathVal) {
-                $iconRoot = APPLICATION_ROOT . 'webroot/' . $iconPathVal;
-                if (is_dir($iconRoot)) {
-                    $pwaIconBaseUrl = asset_url(trim($iconPathVal, '/') . '/', false);
-                }
-            }
-        }
-        $hasManifest = ($run instanceof Run) && $run->getManifestJSONPath();
-        $faviconUrl = ($pwaIconBaseUrl && file_exists($iconRoot . 'favicon.png'))
-            ? $pwaIconBaseUrl . 'favicon.png'
-            : site_url('favicon.ico');
-        $vapidPublicKey = ($run instanceof Run) ? $run->getVapidPublicKey() : null;
-        ?>
-        <link rel="icon" href="<?php echo $faviconUrl; ?>">
+        <?php Template::loadChild('public/pwa_head', array('run' => $run)); ?>
+        <?php $vapidPublicKey = ($run instanceof Run) ? $run->getVapidPublicKey() : null; ?>
         <?php
         // Form bundle paths. Prefer webroot/assets/dev-build/ when it has
         // BOTH the JS and the extracted CSS — webpack's
@@ -52,28 +33,6 @@ $formDir = FormStrings::dir($formLanguage);
         if (is_file(APPLICATION_ROOT . 'webroot/assets/' . $formBundleCss)):
         ?>
             <link rel="stylesheet" href="<?php echo asset_url($formBundleCss); ?>">
-        <?php endif; ?>
-        <?php if ($hasManifest): ?>
-            <link rel="manifest" href="<?php echo run_url($run->name) . 'manifest'; ?>">
-            <?php if ($pwaIconBaseUrl): ?>
-                <link rel="apple-touch-icon" href="<?php echo $pwaIconBaseUrl . 'apple-touch-icon.png'; ?>">
-                <link rel="apple-touch-icon" sizes="152x152" href="<?php echo $pwaIconBaseUrl . 'apple-touch-icon-152x152.png'; ?>">
-                <link rel="apple-touch-icon" sizes="167x167" href="<?php echo $pwaIconBaseUrl . 'apple-touch-icon-167x167.png'; ?>">
-                <link rel="apple-touch-icon" sizes="192x192" href="<?php echo $pwaIconBaseUrl . 'apple-touch-icon-192x192.png'; ?>">
-            <?php else: ?>
-                <?php // No custom icon set uploaded — fall back to the same
-                      // default icon the manifest uses, so iOS "Add to Home
-                      // Screen" gets an app icon instead of a page snapshot. ?>
-                <link rel="apple-touch-icon" href="<?php echo asset_url('pwa/icon.png', false); ?>">
-            <?php endif; ?>
-            <meta name="mobile-web-app-capable" content="yes">
-            <meta name="apple-mobile-web-app-capable" content="yes">
-            <meta name="application-name" content="<?php echo h($run->name); ?>">
-            <meta name="apple-mobile-web-app-title" content="<?php echo h($run->title ?: $run->name); ?>">
-            <meta name="theme-color" content="#2196F3">
-            <meta name="msapplication-navbutton-color" content="#2196F3">
-            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-            <meta name="msapplication-starturl" content="<?php echo run_url($run->name); ?>">
         <?php endif; ?>
         <script>
             window.formr = <?php echo !empty($jsConfig) ? json_encode($jsConfig) : '{}'; ?>;
