@@ -49,7 +49,9 @@ test.describe('PWA items v2 — install stack', () => {
         expect(wiring.factory, 'window.AddToHomeScreen must be the global factory').toBe('function');
         expect(wiring.installBtn, 'install button rendered').toBeGreaterThan(0);
         if (wiring.pwaInstallEls > 0) {
-            expect(wiring.manifestUrl, 'pwa-install uses the run manifest, not the /manifest.json root probe').toMatch(/\/manifest\/?$/);
+            // The run's manifest, personalised with ?code= like v1's (the iOS
+            // session-recovery fix; templates/public/pwa_head.php).
+            expect(wiring.manifestUrl, 'pwa-install uses the run manifest, not the /manifest.json root probe').toMatch(/\/manifest\/?(\?code=[^&]+)?$/);
         }
         expect(consoleErrors.filter((t) => /AddToHomeScreen|is not a function/.test(t)),
             'no AddToHomeScreen init TypeError').toEqual([]);
