@@ -914,9 +914,11 @@ function initForm() {
         return { res, body: await res.json().catch(() => null) };
     };
     // `fetched`: a fetchPageResolution already under way for this page.
+    // Resolves true once the page holds its resolved content (or has none),
+    // false when the request failed.
     const resolveAndSubstitutePage = async (pageNum, fetched = null) => {
         const targetPage = pageByNum(pageNum);
-        if (!hasDynamicContent(targetPage)) return;
+        if (!hasDynamicContent(targetPage)) return true;
         const fillItems = targetPage.querySelectorAll('[data-fmr-fill-id]');
         const labelItems = targetPage.querySelectorAll('[data-fmr-label-id]');
         const choiceSpans = targetPage.querySelectorAll('[data-fmr-choice-id]');
@@ -933,7 +935,7 @@ function initForm() {
                 labelItems.forEach((el) => el.classList.remove('fmr-fill-pending'));
                 settleChoices();
                 console.warn('form-render-page failed', res.status, body);
-                return;
+                return false;
             }
         } catch (e) {
             // Network failure — leave placeholders in place and let the
@@ -943,7 +945,7 @@ function initForm() {
             labelItems.forEach((el) => el.classList.remove('fmr-fill-pending'));
             settleChoices();
             console.warn('form-render-page network error', e);
-            return;
+            return false;
         }
         const valuesMap = (body && body.values) || {};
         const follows = new Set(((body && body.follows) || []).map(String));
@@ -1017,6 +1019,7 @@ function initForm() {
                 });
             });
         });
+        return true;
     };
 
     // Read the current state of every named form input as a flat map. Used
@@ -1076,7 +1079,11 @@ function initForm() {
     const submitPageInner = async () => {
         const page = pages[currentIndex];
         if (!gateSubmit(page)) return;
-        const inFlight = pageResolutions.get(Number(page.dataset.fmrPage));
+        // A page whose resolution failed asks once more before it goes, so
+        // its R values are not submitted empty when the server is back.
+        const ownNum = Number(page.dataset.fmrPage);
+        if (!requestedPages.has(ownNum) && hasDynamicContent(page)) resolvePage(ownNum);
+        const inFlight = pageResolutions.get(ownNum);
         if (inFlight) {
             setSaveState('saving', t('save.saving', 'Saving…'), 0);
             await Promise.race([inFlight, new Promise((done) => setTimeout(done, SUBMIT_RESOLVE_WAIT_MS))]);
@@ -1416,9 +1423,15 @@ function initForm() {
     const resolvePage = (pageNum, fetched = null) => {
         const n = Number(pageNum);
         requestedPages.add(n);
-        const p = resolveAndSubstitutePage(n, fetched).catch(() => {});
+        const p = resolveAndSubstitutePage(n, fetched).catch(() => false);
         pageResolutions.set(n, p);
-        p.then(() => { if (pageResolutions.get(n) === p) pageResolutions.delete(n); });
+        p.then((ok) => {
+            if (pageResolutions.get(n) === p) pageResolutions.delete(n);
+            // A failed resolution (offline, a 5xx, a refused request) is not
+            // done: the page's next showing, its submit or reconnecting asks
+            // again — or its R values would go out empty.
+            if (!ok && !pageResolutions.has(n)) requestedPages.delete(n);
+        });
         return p;
     };
     // The history URL of a page: the current query with `page` set. The rest
@@ -1627,8 +1640,14 @@ function initForm() {
     }
 
     // Drain triggers: browser-reported connectivity change + initial load (in
-    // case the tab was reloaded with entries still pending).
-    window.addEventListener('online', () => { drainQueue(); });
+    // case the tab was reloaded with entries still pending). Back online,
+    // the shown page also gets the R content a failed resolution left out.
+    window.addEventListener('online', () => {
+        drainQueue();
+        const shown = pages[currentIndex];
+        const shownNum = shown ? Number(shown.dataset.fmrPage) : NaN;
+        if (pageShown && Number.isFinite(shownNum) && !requestedPages.has(shownNum)) resolvePage(shownNum);
+    });
     drainQueue();
 
     // Service worker + add_to_home_screen / push_notification items.
