@@ -1338,6 +1338,8 @@ class UnitSession extends Model {
         // This loop also accumulates potential update data
         $update_data = array();
         $consuming = array();
+        // Only tokens this write spends are given back below.
+        BotCheckChallenge::keepPendingBurns();
         foreach ($posted as $item_name => $item_value) {
             if (!isset($items[$item_name])) {
                 continue;
@@ -1374,12 +1376,22 @@ class UnitSession extends Model {
             }
         }
 
+        // A bot_check verified above burned its token; if nothing gets stored
+        // (an upload beside it failed, or the write below does), the
+        // resubmit must be able to verify the same token again.
         if (!empty($this->errors)) {
+            BotCheckChallenge::releasePendingBurns();
             $this->validatedStudyItems = $items;
             return false;
         }
 
-        return $this->writeSurveyStudyRecord($posted, $items, $update_data, $study, $quiet);
+        $written = $this->writeSurveyStudyRecord($posted, $items, $update_data, $study, $quiet);
+        if ($written) {
+            BotCheckChallenge::keepPendingBurns();
+        } else {
+            BotCheckChallenge::releasePendingBurns();
+        }
+        return $written;
     }
 
     /**

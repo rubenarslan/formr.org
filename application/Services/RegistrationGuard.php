@@ -91,6 +91,13 @@ class RegistrationGuard {
         return isset($burned[(string) $id]);
     }
 
+    /** Forget a burn whose use did not take effect (BotCheckChallenge::releasePendingBurns). */
+    public static function unburn($id) {
+        $burned = self::burnList();
+        unset($burned[(string) $id]);
+        Session::set(self::BURN_SESSION_KEY, $burned);
+    }
+
     /** The burn list with expired entries dropped (bounds its size to live tokens). */
     protected static function burnList() {
         $burned = Session::get(self::BURN_SESSION_KEY, array());
