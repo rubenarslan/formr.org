@@ -405,25 +405,44 @@ class RCallService {
      * @param array<int, array{expr:string}> $calls
      */
     public function resolveExpressions(array $calls, array $answers, $ttl) {
-        if (empty($calls) || $this->surveyName === '') {
-            return array();
+        $plan = $this->planExpressions($calls, $answers, $ttl);
+        if ($plan['request'] === null) {
+            return $plan['results'];
         }
-        $exprs = $hashes = array();
+        $sent = $this->send(array('values' => $plan['request']));
+        return $this->completeExpressions($plan, $sent['values'], $answers);
+    }
+
+    /**
+     * resolveExpressions up to OpenCPU: the cached results, and the batch
+     * request for the rest (null when every result is cached).
+     */
+    protected function planExpressions(array $calls, array $answers, $ttl) {
+        $plan = array('results' => array(), 'hashes' => array(), 'misses' => array(), 'request' => null);
+        if (empty($calls) || $this->surveyName === '') {
+            return $plan;
+        }
+        $exprs = array();
         foreach ($calls as $callId => $entry) {
             $itemName = isset($entry['item_name']) ? (string) $entry['item_name'] : '';
             $exprs[(int) $callId] = $this->expandValueExpr((string) $entry['expr'], $itemName);
-            $hashes[(int) $callId] = $this->valueKey((string) $entry['expr'], $itemName, $exprs[(int) $callId], $answers);
+            $plan['hashes'][(int) $callId] = $this->valueKey((string) $entry['expr'], $itemName, $exprs[(int) $callId], $answers);
         }
-        $results = $this->cachedResults($hashes, $ttl);
-        $misses = array_diff_key($exprs, $results);
-        if (empty($misses)) {
-            return $results;
+        $plan['results'] = $this->cachedResults($plan['hashes'], $ttl);
+        $plan['misses'] = array_diff_key($exprs, $plan['results']);
+        if ($plan['misses']) {
+            $plan['request'] = $this->batchRequest($plan['misses'], $answers);
         }
+        return $plan;
+    }
 
-        $evaluated = $this->evaluateBatch($misses, $answers);
+    /** resolveExpressions once OpenCPU answered the batch ($sent: send()'s entry). */
+    protected function completeExpressions(array $plan, array $sent, array $answers) {
+        $results = $plan['results'];
+        $evaluated = $this->evaluateBatch($plan['misses'], $answers, $sent);
         foreach ($evaluated['results'] as $cid => $val) {
             $results[$cid] = $val;
-            $this->writeCache($cid, $hashes[$cid], $val);
+            $this->writeCache($cid, $plan['hashes'][$cid], $val);
         }
         // Day-old rows are dead weight, but a DELETE on every page show is
         // write amplification: sweep on a sample of misses, as
@@ -471,17 +490,20 @@ class RCallService {
      * so one author typo cannot blank every other value on the page.
      *
      * @param array<int, string> $exprs key => R expression
+     * @param array|null $sent send()'s entry for this batch, if already sent
      * @return array{results: array<int, mixed>, failed: array<int, string>}
      *   results: key => R result (length-1 vectors unwrapped); failed: key =>
      *   'r' (R refused the expression itself: an author error) or 'transient'
      *   (OpenCPU unreachable: worth retrying later)
      */
-    protected function evaluateBatch(array $exprs, array $answers) {
+    protected function evaluateBatch(array $exprs, array $answers, array $sent = null) {
         $out = array('results' => array(), 'failed' => array());
         if (!$exprs || $this->surveyName === '') {
             return $out;
         }
-        list($session, $transient) = $this->runBatch($exprs, $answers);
+        // $sent: OpenCPU's answer to this batch, when it went out with
+        // others (resolvePage); else it is sent now.
+        list($session, $transient) = $sent !== null ? $this->batchOutcome($sent) : $this->runBatch($exprs, $answers);
         if ($session) {
             $batched = $session->getJSONObject();
             foreach (is_array($batched) ? $batched : array() as $key => $val) {
@@ -517,6 +539,15 @@ class RCallService {
      *   leaves a local error behind (opencpu_note_transport_failure).
      */
     protected function runBatch(array $exprs, array $answers) {
+        $sent = $this->send(array('batch' => $this->batchRequest($exprs, $answers)));
+        return $this->batchOutcome($sent['batch']);
+    }
+
+    /**
+     * The OpenCPU request of one batch: each expression in its own list entry,
+     * evaluated against tail(survey, 1) with the answers overlaid.
+     */
+    protected function batchRequest(array $exprs, array $answers) {
         $listEntries = array();
         foreach ($exprs as $key => $expr) {
             // The key is an int, so the backtick-quoted name is safe; expr is
@@ -538,19 +569,98 @@ class RCallService {
               . "  ))\n"
               . "})()\n";
 
-        $started = hrtime(true);
-        try {
-            $variables = $this->unitSession->getRunData($code, $this->surveyName);
-            $session = opencpu_evaluate($code, $variables, 'json', null, true);
-        } finally {
-            // Participant-driven reactive R counts against the owner's
-            // compute budget like any unit execution (issue #608).
-            $this->unitSession->addExecutionTime((hrtime(true) - $started) / 1e9);
-        }
+        return $this->charged(function () use ($code) {
+            return opencpu_evaluate_request($code, $this->unitSession->getRunData($code, $this->surveyName), 'json', null);
+        });
+    }
+
+    /** runBatch's verdict on OpenCPU's answer ($sent: send()'s entry). */
+    protected function batchOutcome(array $sent) {
+        $session = opencpu_evaluate_outcome($sent['session'], $sent['failure'], 'json', true);
         if ($session && !$session->hasError()) {
             return array($session, false);
         }
-        return array(null, !empty($GLOBALS['opencpu_local_error']));
+        // No session at all: the transport failed, worth retrying later.
+        return array(null, $sent['session'] === null);
+    }
+
+    /**
+     * Send OpenCPU requests at once (opencpu_post_many). Their time counts
+     * against the owner's compute budget, as a unit's R does (issue #608):
+     * each request's, summed, not the wall time they took together.
+     *
+     * @param array $requests key => opencpu_*_request()
+     * @return array key => ['session', 'failure', 'seconds']
+     */
+    protected function send(array $requests) {
+        $sent = opencpu_post_many($requests);
+        $seconds = 0.0;
+        foreach ($sent as $entry) {
+            $seconds += $entry['seconds'];
+        }
+        $this->unitSession->addExecutionTime($seconds);
+        return $sent;
+    }
+
+    /** $build()'s result, the time it takes charged to the compute budget too. */
+    protected function charged(callable $build) {
+        $started = hrtime(true);
+        try {
+            return $build();
+        } finally {
+            $this->unitSession->addExecutionTime((hrtime(true) - $started) / 1e9);
+        }
+    }
+
+    /** What went wrong with a request (send()'s entry), for the log. */
+    protected static function failureText(array $sent) {
+        if ($sent['failure'] !== null) {
+            return opencpu_redact_secrets($sent['failure']->getMessage());
+        }
+        return $sent['session'] ? (string) opencpu_redact_secrets($sent['session']->getError()) : '';
+    }
+
+    /**
+     * Everything R puts on a page, its OpenCPU requests sent at once: the
+     * values in one batch, labels and choice labels in one knit, each
+     * note_iframe in its own. A page waits for the slowest of them, not for
+     * their sum (values, labels and two iframes used to be four calls in a
+     * row).
+     *
+     * @param array $calls callsForPage()'s result
+     * @return array{values: array, labels: array, choices: array} call id => result
+     */
+    public function resolvePage(array $calls, array $answers) {
+        // A note_iframe's "label" is a whole R Markdown document knitted to
+        // its own HTML file; every other label is inline markdown.
+        $iframeCalls = array_filter($calls['label'], function ($call) {
+            return $call['item_type'] === 'note_iframe';
+        });
+        $labelCalls = array_diff_key($calls['label'], $iframeCalls);
+
+        $values = $this->planExpressions($calls['value'], $answers, self::ttlForSlot('value'));
+        // Labels and choice labels share one knit (call ids are unique across
+        // slots); the stricter of the two TTLs governs its cache.
+        $knit = $this->planLabels($labelCalls + $calls['choice_label'], $answers,
+            min(self::ttlForSlot('label'), self::ttlForSlot('choice_label')));
+        $iframes = $this->planIframes($iframeCalls, $answers, self::ttlForSlot('label'));
+
+        $requests = $iframes['requests'];
+        if ($values['request'] !== null) {
+            $requests['values'] = $values['request'];
+        }
+        if ($knit['request'] !== null) {
+            $requests['labels'] = $knit['request'];
+        }
+        $sent = $requests ? $this->send($requests) : array();
+
+        $valueResults = $values['request'] !== null ? $this->completeExpressions($values, $sent['values'], $answers) : $values['results'];
+        $knitted = $knit['request'] !== null ? $this->completeLabels($knit, $sent['labels']) : $knit['results'];
+        return array(
+            'values' => $valueResults,
+            'labels' => array_intersect_key($knitted, $labelCalls) + $this->completeIframes($iframes, $sent),
+            'choices' => array_intersect_key($knitted, $calls['choice_label']),
+        );
     }
 
     /**
@@ -563,23 +673,36 @@ class RCallService {
      * @return array<int, string> call_id => html
      */
     public function resolveLabels(array $calls, array $answers, $ttl) {
+        $plan = $this->planLabels($calls, $answers, $ttl);
+        if ($plan['request'] === null) {
+            return $plan['results'];
+        }
+        $sent = $this->send(array('labels' => $plan['request']));
+        return $this->completeLabels($plan, $sent['labels']);
+    }
+
+    /**
+     * resolveLabels up to OpenCPU: the cached results, and the knit of the
+     * rest (null when every label is cached).
+     */
+    protected function planLabels(array $calls, array $answers, $ttl) {
+        $plan = array('results' => array(), 'hashes' => array(), 'order' => array(), 'request' => null);
         if (empty($calls) || $this->surveyName === '') {
-            return array();
+            return $plan;
         }
-        $hashes = array();
         foreach ($calls as $callId => $entry) {
-            $hashes[(int) $callId] = $this->answersKey((string) $entry['expr'], $answers);
+            $plan['hashes'][(int) $callId] = $this->answersKey((string) $entry['expr'], $answers);
         }
-        $results = $this->cachedResults($hashes, $ttl);
-        $misses = array_diff_key($calls, $results);
+        $plan['results'] = $this->cachedResults($plan['hashes'], $ttl);
+        $misses = array_diff_key($calls, $plan['results']);
         if (empty($misses)) {
-            return $results;
+            return $plan;
         }
 
         // Order matters — results map back by index → call_id.
-        $orderedCallIds = array_keys($misses);
+        $plan['order'] = array_keys($misses);
         $sources = array();
-        foreach ($orderedCallIds as $cid) {
+        foreach ($plan['order'] as $cid) {
             $sources[] = (string) $misses[$cid]['expr'];
         }
 
@@ -593,18 +716,23 @@ class RCallService {
             . $this->reattachStatement()
             . "```\n";
 
-        $started = hrtime(true);
-        try {
-            $parts = opencpu_knit_strings($this->unitSession, $this->study->name, $sources, 'markdown', $prelude);
-        } finally {
-            $this->unitSession->addExecutionTime((hrtime(true) - $started) / 1e9);
-        }
+        $plan['request'] = $this->charged(function () use ($sources, $prelude) {
+            return opencpu_knit_strings_request($this->unitSession, $this->study->name, $sources, 'markdown', $prelude);
+        });
+        return $plan;
+    }
+
+    /** resolveLabels once OpenCPU answered the knit ($sent: send()'s entry). */
+    protected function completeLabels(array $plan, array $sent) {
+        $results = $plan['results'];
+        $session = opencpu_knit_outcome($sent['session'], $sent['failure'], 'json', true, $plan['request']['message']);
+        $parts = opencpu_knit_strings_result($session, 'markdown');
         if ($parts === null) {
-            formr_log('RCallService::resolveLabels OpenCPU error: ' . (string) opencpu_last_error());
+            formr_log('RCallService::resolveLabels OpenCPU error: ' . self::failureText($sent));
             return $results;
         }
         $parsedown = (new ParsedownExtra())->setBreaksEnabled(true)->setUrlsLinked(true);
-        foreach ($orderedCallIds as $idx => $cid) {
+        foreach ($plan['order'] as $idx => $cid) {
             if (!isset($parts[$idx])) continue;
             // Strip a single wrapping <p> so a dynamic label renders inline
             // like a static one. Log-only on failure — this runs during
@@ -617,7 +745,7 @@ class RCallService {
                 $html = trim($parts[$idx]);
             }
             $results[$cid] = $html;
-            $this->writeCache($cid, $hashes[$cid], $html);
+            $this->writeCache($cid, $plan['hashes'][$cid], $html);
         }
         return $results;
     }
@@ -635,18 +763,27 @@ class RCallService {
      * @return array<int, string> call id => the item's label HTML
      */
     public function resolveIframes(array $calls, array $answers, $ttl) {
+        $plan = $this->planIframes($calls, $answers, $ttl);
+        return $this->completeIframes($plan, $plan['requests'] ? $this->send($plan['requests']) : array());
+    }
+
+    /**
+     * resolveIframes up to OpenCPU: the cached frames, and a knit for each of
+     * the others, keyed 'iframe:<call id>'.
+     */
+    protected function planIframes(array $calls, array $answers, $ttl) {
+        $plan = array('results' => array(), 'hashes' => array(), 'misses' => array(), 'requests' => array());
         if (empty($calls) || $this->surveyName === '') {
-            return array();
+            return $plan;
         }
-        $hashes = array();
         foreach ($calls as $callId => $entry) {
-            $hashes[(int) $callId] = $this->answersKey((string) $entry['expr'], $answers);
+            $plan['hashes'][(int) $callId] = $this->answersKey((string) $entry['expr'], $answers);
         }
-        $results = $this->cachedResults($hashes, $ttl);
-        foreach (array_diff_key($calls, $results) as $callId => $entry) {
+        $plan['results'] = $this->cachedResults($plan['hashes'], $ttl);
+        $plan['misses'] = array_diff_key($calls, $plan['results']);
+        foreach ($plan['misses'] as $callId => $entry) {
             $source = (string) $entry['expr'];
-            $started = hrtime(true);
-            try {
+            $plan['requests']['iframe:' . (int) $callId] = $this->charged(function () use ($source, $answers) {
                 // The document's settings chunk: the run's data with the
                 // frame's last row attached, then the answers overlaid and
                 // the overlaid row attached over it (see resolveLabels).
@@ -654,17 +791,25 @@ class RCallService {
                 if ($answers) {
                     $vars .= "\n" . self::overlayStatements($this->surveyName, $this->formatROverlay($answers)) . $this->reattachStatement();
                 }
-                $session = opencpu_knit_iframe($source, $vars, true, $this->study->name);
-            } finally {
-                $this->unitSession->addExecutionTime((hrtime(true) - $started) / 1e9);
-            }
+                return opencpu_knit_iframe_request($source, $vars, $this->study->name);
+            });
+        }
+        return $plan;
+    }
+
+    /** resolveIframes once OpenCPU answered ($sent: send()'s entries). */
+    protected function completeIframes(array $plan, array $sent) {
+        $results = $plan['results'];
+        foreach ($plan['misses'] as $callId => $entry) {
+            $answer = $sent['iframe:' . (int) $callId];
+            $session = opencpu_knit_outcome($answer['session'], $answer['failure'], 'json', true, $plan['requests']['iframe:' . (int) $callId]['message']);
             if ($session && !$session->hasError()) {
                 $html = NoteIframe_Item::iframeHtml($session);
                 $results[(int) $callId] = $html;
-                $this->writeCache((int) $callId, $hashes[(int) $callId], $html);
+                $this->writeCache((int) $callId, $plan['hashes'][(int) $callId], $html);
             } else {
                 $name = isset($entry['item_name']) ? $entry['item_name'] : '?';
-                formr_log("note_iframe '{$name}': knit failed: " . (string) opencpu_last_error());
+                formr_log("note_iframe '{$name}': knit failed: " . self::failureText($answer));
                 $results[(int) $callId] = NoteIframe_Item::fallbackHtml();
             }
         }

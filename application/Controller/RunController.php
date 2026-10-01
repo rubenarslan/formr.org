@@ -1236,21 +1236,11 @@ class RunController extends Controller {
             return;
         }
 
-        // A note_iframe's "label" is a whole R Markdown document knitted to its
-        // own HTML file; every other label is inline markdown.
-        $iframeCalls = array_filter($calls['label'], function ($call) {
-            return $call['item_type'] === 'note_iframe';
-        });
-        $labelCalls = array_diff_key($calls['label'], $iframeCalls);
-
-        $values = $service->resolveExpressions($calls['value'], $answers, RCallService::ttlForSlot('value'));
-        // Labels and choice labels share one knit (call ids are unique across
-        // slots); the stricter of the two TTLs governs its cache.
-        $knitted = $service->resolveLabels($labelCalls + $calls['choice_label'], $answers,
-            min(RCallService::ttlForSlot('label'), RCallService::ttlForSlot('choice_label')));
-        $labels = array_intersect_key($knitted, $labelCalls)
-                + $service->resolveIframes($iframeCalls, $answers, RCallService::ttlForSlot('label'));
-        $choiceLabels = array_intersect_key($knitted, $calls['choice_label']);
+        // Values, labels and every note_iframe at once (RCallService::resolvePage).
+        $resolved = $service->resolvePage($calls, $answers);
+        $values = $resolved['values'];
+        $labels = $resolved['labels'];
+        $choiceLabels = $resolved['choices'];
 
         $valuesOut = $follows = array();
         foreach ($values as $callId => $val) {
