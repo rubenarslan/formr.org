@@ -42,13 +42,19 @@ if ($argc < 2) {
 $arg = $argv[1];
 $db = DB::getInstance();
 
-$study = is_numeric($arg)
-    ? $db->findRow('survey_studies', ['id' => (int) $arg])
-    : $db->findRow('survey_studies', ['name' => $arg]);
-if (!$study) {
+// Study names are unique per owner only: a name two owners use is ambiguous.
+$matches = is_numeric($arg)
+    ? $db->select('*')->from('survey_studies')->where(['id' => (int) $arg])->fetchAll()
+    : $db->select('*')->from('survey_studies')->where(['name' => $arg])->fetchAll();
+if (!$matches) {
     fwrite(STDERR, "Study not found: {$arg}\n");
     exit(1);
 }
+if (count($matches) > 1) {
+    fwrite(STDERR, "Several studies are named '{$arg}' (ids " . implode(', ', array_column($matches, 'id')) . "); pass the id instead.\n");
+    exit(1);
+}
+$study = $matches[0];
 
 $report = FormV2CompatScanner::scan((int) $study['id']);
 
