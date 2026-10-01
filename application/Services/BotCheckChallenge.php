@@ -115,27 +115,6 @@ class BotCheckChallenge {
         self::$unitSessionId = $unitSessionId ? (int) $unitSessionId : null;
     }
 
-    /** @var string[] burn ids verify() spent on the write in progress */
-    private static $pendingBurns = array();
-
-    /**
-     * The write a verified token was spent on stored nothing (another item
-     * failed validation, or the transaction failed): give the token back, so
-     * the resubmit of the same page — the widget still shows "verified" — is
-     * not refused as a replay. A token still yields at most one stored answer.
-     */
-    public static function releasePendingBurns() {
-        foreach (self::$pendingBurns as $burnId) {
-            RegistrationGuard::unburn($burnId);
-        }
-        self::$pendingBurns = array();
-    }
-
-    /** The write a verified token was spent on is stored: the burn stands. */
-    public static function keepPendingBurns() {
-        self::$pendingBurns = array();
-    }
-
     /** Stable per-participant binding so a token can't be reused across sessions. */
     public static function subject() {
         $user = class_exists('Site') ? Site::getCurrentUser() : null;
@@ -284,8 +263,11 @@ class BotCheckChallenge {
      * @param mixed $token the widget's base64 payload (or decoded array)
      * @param BotCheck_Item|null $item the item being validated; sets the
      *        difficulty floor (see expectedPrefixBytes()). null = config default.
+     * @param string|null $burnId set to the burn a verified token got, which
+     *        BotCheck_Item::finishSideEffects gives back if its page is not stored
      */
-    public static function verify($token, $item = null) {
+    public static function verify($token, $item = null, &$burnId = null) {
+        $burnId = null;
         $altcha = self::altcha();
         if ($altcha === null) {
             formr_log(
@@ -356,11 +338,11 @@ class BotCheckChallenge {
         // the challenge; once a solution for it has passed, the same token is
         // refused for the rest of its life. Burn BEFORE returning true so the
         // caller can't observe an accepted-but-not-yet-burned window.
-        $burnId = self::BURN_PREFIX . (string) $challenge->signature;
-        if (RegistrationGuard::isBurned($burnId)) return false;
+        $id = self::BURN_PREFIX . (string) $challenge->signature;
+        if (RegistrationGuard::isBurned($id)) return false;
         $expires = isset($params['expiresAt']) ? (int) $params['expiresAt'] : time() + self::ttl();
-        RegistrationGuard::burn($burnId, $expires);
-        self::$pendingBurns[] = $burnId;
+        RegistrationGuard::burn($id, $expires);
+        $burnId = $id;
         return true;
     }
 

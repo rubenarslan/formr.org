@@ -91,7 +91,7 @@ class RegistrationGuard {
         return isset($burned[(string) $id]);
     }
 
-    /** Forget a burn whose use did not take effect (BotCheckChallenge::releasePendingBurns). */
+    /** Forget a burn whose use did not take effect (BotCheck_Item::finishSideEffects). */
     public static function unburn($id) {
         $burned = self::burnList();
         unset($burned[(string) $id]);

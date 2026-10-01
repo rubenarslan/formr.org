@@ -46,6 +46,33 @@ class BotCheck_Item extends Item {
         return false;
     }
 
+    /** @var string|null the burn of the token this reply verified (validateInput) */
+    private $burnId = null;
+
+    /**
+     * A check passed once in this unit session stands: a resend of its page
+     * (the retry of a submit whose reply was lost or that failed after
+     * storing, a queued copy) is not asked to verify again. Its one-shot
+     * token was spent the first time, and the widget still shows
+     * "verified", so it would be refused forever.
+     */
+    public function settledAnswer(UnitSession $unitSession) {
+        return $unitSession->storedAnswer($this) === 'verified' ? 'verified' : null;
+    }
+
+    /**
+     * The page this token was verified for was not stored (another item
+     * failed, or the write did): give the token back, so the resubmit, its
+     * widget still showing "verified", is not refused as a replay. A token
+     * still yields at most one stored answer.
+     */
+    public function finishSideEffects($stored) {
+        if (!$stored && $this->burnId !== null) {
+            RegistrationGuard::unburn($this->burnId);
+        }
+        $this->burnId = null;
+    }
+
     public $type = 'bot_check';
     public $no_user_input_required = false;
     public $hasChoices = false;
@@ -155,7 +182,7 @@ class BotCheck_Item extends Item {
         // Store a compact marker, not the (large) base64 token. The token only
         // needs to verify here; persisting it adds no value and would bloat the
         // result column. $this carries the difficulty floor (`bot_check N`).
-        if (BotCheckChallenge::verify($reply, $this)) {
+        if (BotCheckChallenge::verify($reply, $this, $this->burnId)) {
             $this->reply = 'verified';
             return 'verified';
         }

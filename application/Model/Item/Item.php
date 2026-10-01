@@ -160,6 +160,25 @@ class Item {
         return (bool) $this->validation_has_side_effects;
     }
 
+    /**
+     * The answer to store instead of validating this reply again: one the
+     * unit session already holds that settles the item (BotCheck_Item: a
+     * check passed once). null validates the reply as usual. Asked of an
+     * item whose validation has side effects, before it runs.
+     */
+    public function settledAnswer(UnitSession $unitSession) {
+        return null;
+    }
+
+    /**
+     * After a write that validated this item's reply with side effects:
+     * $stored says whether the page was stored. An item whose page was not
+     * stored undoes what its validation did (BotCheck_Item gives its token
+     * back).
+     */
+    public function finishSideEffects($stored) {
+    }
+
     /** Only the form_v2 engine can run this item type (v1Unsupported). */
     protected $v2_only = false;
 

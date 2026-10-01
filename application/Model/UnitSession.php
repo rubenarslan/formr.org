@@ -1262,13 +1262,13 @@ class UnitSession extends Model {
         return $out;
     }
 
-    /** Has this unit session already stored a passed check for this bot_check item? */
-    private function botCheckPassed(Item $item) {
+    /** What this unit session has stored for an item (survey_items_display.answer), or null. */
+    public function storedAnswer(Item $item) {
         $row = $this->db->execute(
             'SELECT answer FROM `survey_items_display` WHERE session_id = :s AND item_id = :i',
             array('s' => (int) $this->id, 'i' => (int) $item->id), false, true
         );
-        return $row && $row['answer'] === 'verified';
+        return $row ? $row['answer'] : null;
     }
 
     /**
@@ -1346,8 +1346,6 @@ class UnitSession extends Model {
         // This loop also accumulates potential update data
         $update_data = array();
         $consuming = array();
-        // Only tokens this write spends are given back below.
-        BotCheckChallenge::keepPendingBurns();
         foreach ($posted as $item_name => $item_value) {
             if (!isset($items[$item_name])) {
                 continue;
@@ -1359,18 +1357,13 @@ class UnitSession extends Model {
             // token, and the participant's corrected resubmit — widget still
             // showing "verified" — would be refused as unverified.
             if ($validate && !($item_value instanceof Item) && $items[$item_name]->validationHasSideEffects()) {
-                // A bot_check passed once in this unit session: a resend of
-                // its page (the retry of a submit whose reply was lost or that
-                // failed after storing, a queued copy) is not asked to verify
-                // again — the one-shot token was spent the first time, and
-                // the widget still shows "verified", so it would be refused
-                // forever.
-                if ($items[$item_name] instanceof BotCheck_Item && $this->botCheckPassed($items[$item_name])) {
-                    // The display row is written from $posted
-                    // (writeSurveyStudyRecord → getReply): hand it the stored
-                    // marker, or the unvalidated token would store NULL over
-                    // 'verified'.
-                    $posted[$item_name] = 'verified';
+                // An answer this unit session already holds may settle the
+                // item (Item::settledAnswer). The display row is written from
+                // $posted (writeSurveyStudyRecord → getReply): it gets the
+                // stored answer, not the reply that was not validated.
+                $settled = $items[$item_name]->settledAnswer($this);
+                if ($settled !== null) {
+                    $posted[$item_name] = $settled;
                     continue;
                 }
                 $consuming[$item_name] = $item_value;
@@ -1378,27 +1371,25 @@ class UnitSession extends Model {
             }
             $this->validatePostedItem($item_name, $item_value, $items, $update_data, $validate, $study);
         }
+        $sideEffects = array();
         if (empty($this->errors)) {
             foreach ($consuming as $item_name => $item_value) {
                 $this->validatePostedItem($item_name, $item_value, $items, $update_data, $validate, $study);
+                $sideEffects[] = $items[$item_name];
             }
         }
 
-        // A bot_check verified above burned its token; if nothing gets stored
-        // (an upload beside it failed, or the write below does), the
-        // resubmit must be able to verify the same token again.
+        // The side effects of a validation above stand only if the page is
+        // stored (Item::finishSideEffects: a bot_check's spent token is
+        // given back when an upload beside it failed, or the write does).
         if (!empty($this->errors)) {
-            BotCheckChallenge::releasePendingBurns();
+            foreach ($sideEffects as $item) { $item->finishSideEffects(false); }
             $this->validatedStudyItems = $items;
             return false;
         }
 
         $written = $this->writeSurveyStudyRecord($posted, $items, $update_data, $study, $quiet);
-        if ($written) {
-            BotCheckChallenge::keepPendingBurns();
-        } else {
-            BotCheckChallenge::releasePendingBurns();
-        }
+        foreach ($sideEffects as $item) { $item->finishSideEffects((bool) $written); }
         return $written;
     }
 

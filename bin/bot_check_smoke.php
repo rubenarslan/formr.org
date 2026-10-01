@@ -113,5 +113,54 @@ $check('in its own unit session it verifies', $solUs ? BotCheckChallenge::verify
 BotCheckChallenge::bindTo(null);
 
 
+// 5) a token verified for a page that was not stored is given back
+//    (BotCheck_Item::finishSideEffects): the upload beside it failed, and the
+//    resend of the page, its widget still "verified", must verify again. A
+//    token still yields one stored answer.
+$db = DB::getInstance();
+$owner = $db->execute('SELECT id FROM survey_users ORDER BY id LIMIT 1', [], false, true);
+$GLOBALS['user'] = new User((int) $owner['id']);
+$sfx = bin2hex(random_bytes(3));
+$runId = $db->insert('survey_runs', ['user_id' => (int) $owner['id'], 'name' => 'botsmoke_' . $sfx,
+    'created' => mysql_now(), 'modified' => mysql_now(), 'cron_active' => 0]);
+$run = new Run(null, $runId);
+$study = null; $code = null;
+try {
+    $run->importUnits(json_encode(['units' => [
+        ['type' => 'Form', 'position' => 10, 'description' => 'bot', 'survey_data' => ['name' => 'botsmoke_' . $sfx, 'items' => [
+            ['name' => 'human', 'type' => 'bot_check', 'label' => 'Human', 'order' => 1, 'item_order' => 1],
+            ['name' => 'upload', 'type' => 'file', 'label' => 'Upload', 'optional' => 1, 'order' => 2, 'item_order' => 2],
+            ['name' => 's1', 'type' => 'submit', 'label' => '', 'order' => 3, 'item_order' => 3],
+        ]]],
+        ['type' => 'Endpage', 'position' => 20, 'description' => 'end', 'body' => 'Done.'],
+    ]]));
+    $form = RunUnitFactory::make($run, ['id' => (int) $run->getAllUnitIds()[0]['unit_id']]);
+    $study = $form->v2Study();
+    $code = 'BOTSMOKE' . bin2hex(random_bytes(8));
+    $db->insert('survey_run_sessions', ['run_id' => $runId, 'session' => $code, 'created' => mysql_now(), 'position' => 10]);
+    $rs = new RunSession($code, $run);
+    $rs->position = 10;
+    $rs->createUnitSession($form);
+    $us = $rs->currentUnitSession;
+    $us->createSurveyStudyRecord();
+    BotCheckChallenge::bindTo($us->id);
+    $m5 = BotCheckChallenge::mint();
+    $s5 = $altcha->solveChallenge(new SolveChallengeOptions(
+        challenge: new Challenge(ChallengeParameters::fromArray($m5['parameters']), $m5['signature']), algorithm: $alg, timeout: 25.0));
+    $token = $s5 ? $payload($m5, $s5->toArray()) : '';
+    $failedUpload = ['name' => 'x.png', 'type' => 'image/png', 'tmp_name' => '', 'error' => UPLOAD_ERR_PARTIAL, 'size' => 0];
+    $check('a page whose upload fails is not stored', $us->updateSurveyStudyRecord(['human' => $token, 'upload' => $failedUpload], true, true), false);
+    $check('its token is given back: the resend is stored', $us->updateSurveyStudyRecord(['human' => $token], true, true), true);
+    $stored = $db->execute('SELECT d.answer FROM survey_items_display d JOIN survey_items i ON i.id = d.item_id WHERE d.session_id = :s AND i.name = :n',
+        ['s' => $us->id, 'n' => 'human'], true);
+    $check('stored as verified', $stored, 'verified');
+    $check('and now the token is spent', BotCheckChallenge::verify($token), false);
+} finally {
+    BotCheckChallenge::bindTo(null);
+    try { if ($code) { $db->exec('DELETE FROM survey_run_sessions WHERE session = :c', ['c' => $code]); } } catch (Throwable $e) {}
+    try { if ($study && $study->valid) { $study->delete(); } } catch (Throwable $e) {}
+    try { $run->delete(); } catch (Throwable $e) {}
+}
+
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);
