@@ -1374,6 +1374,10 @@ class Run extends Model
 
     public function exec(User $user)
     {
+        // The one way a participant's page (or a survey preview) reaches the
+        // engine: what it posted is a submission, for the unit session its
+        // form names (PageSubmission).
+        PageSubmission::capture();
         if (!$this->valid) {
             formr_error(404, 'Not Found', __("Run '%s' is broken or does not exist.", $this->name), 'Study Not Found');
             return false;

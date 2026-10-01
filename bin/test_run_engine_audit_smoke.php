@@ -135,11 +135,20 @@ try {
     $expiredUS->id = $survUS->id;
     $expiredUS->expired = mysql_now();
     ok($expiredUS->updateSurveyStudyRecord(['some_item' => 1]) === false, 'expired session refuses answer write (F2)');
-    // F13: a POST whose hidden session_id != this session is rejected
+    // F13: a page's POST is a submission only for the unit session its
+    // hidden session_id names (PageSubmission, captured by Run::exec)
     $liveUS = new UnitSession($sess, $survRunUnit);
     $liveUS->id = $survUS->id;   // ended/expired stay null
-    ok($liveUS->updateSurveyStudyRecord(['session_id' => $survUS->id + 999999, 'x' => 1]) === false,
-        'mismatched session_id POST rejected (F13)');
+    $_SERVER['REQUEST_METHOD'] = 'POST';
+    $_POST = ['session_id' => (string) ($survUS->id + 999999), 'x' => '1'];
+    PageSubmission::capture();
+    ok(PageSubmission::forUnitSession($liveUS) === null, 'mismatched session_id POST is no submission for this session (F13)');
+    $_POST['session_id'] = (string) $survUS->id;
+    PageSubmission::capture();
+    ok(PageSubmission::forUnitSession($liveUS) !== null, 'its own session_id is (F13)');
+    $_SERVER['REQUEST_METHOD'] = 'GET';
+    $_POST = array();
+    PageSubmission::forget();
 
     // ── F17/F18: Shuffle idempotent + stable per participant ─────────────
     echo "\n== F17/F18: Shuffle idempotency + stability ==\n";

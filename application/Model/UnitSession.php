@@ -1295,20 +1295,11 @@ class UnitSession extends Model {
             return false;
         }
 
-        // Audit F13 (2026-07): bind the POST to the unit session it was
-        // rendered for. The form carries a hidden session_id
-        // (SpreadsheetRenderer); in a looping/diary run a back-button
-        // resubmit of iteration N's still-open form would otherwise be
-        // written into iteration N+1's freshly-created session (item
-        // names match, validation passes) — silently duplicating old
-        // answers into the new iteration. A mismatch means the form is
-        // stale; reject the write. (Legacy forms without the hidden
-        // field, or non-numeric values, skip the check.) Checked before
-        // touching surveyStudy so a stale POST is cheap to reject.
-        if (isset($posted['session_id']) && is_numeric($posted['session_id'])
-                && (int) $posted['session_id'] !== (int) $this->id) {
-            return false;
-        }
+        // Which unit session a write is for is decided before it gets here:
+        // a v1 page's POST only for the unit session its form names
+        // (PageSubmission — a back-button resubmit of a diary's iteration N
+        // is not written into iteration N+1), a v2 write by its endpoint's
+        // gate (RunController::formWriteContext).
 
         // One write, one verdict: a validation failure from an earlier call on
         // this object (the smokes drive several pages through one UnitSession)

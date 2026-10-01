@@ -162,8 +162,6 @@ return [
                               'how'  => 'forceTo() — the admin send-to-position button'],
 
     // ---- Dead code --------------------------------------------------
-    'security_token_error' => ['unit' => 'Survey',  'reach' => 'dead',
-                               'why' => '$ignore_post is passed by value and set nowhere; left over from the v0.25.1 CSRF removal'],
     'privacy_tos_consent'  => ['unit' => 'Privacy', 'reach' => 'dead',
                                'why' => 'Privacy is not in SupportedUnits and survey_privacy exists in no schema file'],
 ];

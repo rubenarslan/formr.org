@@ -71,7 +71,9 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
      *
      */
     public function getPostedItems() {
-        if (!Request::isHTTPPostRequest() || $this->request->getParam(self::FMR_PAGE_ELEMENT) != $this->getCurrentPage()) {
+        // Called with this unit session's submission only (Survey,
+        // PageSubmission); it must be for the page being shown.
+        if ($this->request->getParam(self::FMR_PAGE_ELEMENT) != $this->getCurrentPage()) {
             throw new Exception('Invalid Survey Page');
         }
 

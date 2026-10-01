@@ -282,6 +282,17 @@ templating engine — short tags + `htmlspecialchars` + helpers from
   (`RegistrationGuard`, v1.9.0): it is a bot-friction timestamp
   (signed, session-bound, single-use) on an *unauthenticated* form,
   not a CSRF token, and it must not spread to authenticated forms.
+- **A POST is a submission only for the unit session it names.**
+  The engine runs units inside whatever request moves the run session:
+  a participant's page, a v2 endpoint (the final submit runs the next
+  unit), the admin's send-to-position, the API's execute/advance, and
+  every unit a cascade reaches. `Run::exec` (participant pages and
+  survey previews) records the POST in `PageSubmission`; a unit gets it
+  through `PageSubmission::forUnitSession()` only when the form's hidden
+  `session_id` names that unit session. Units never read `$_POST`,
+  `$_FILES` or the request method themselves — that is how a paged
+  survey reached by send-to-position logged `error_survey`, and how a
+  request's fields could be stored as a next survey's answers.
 - **`Crypto` reads a key from `formr-crypto.key/`.** Breaking the
   key breaks decryption of at-rest data — treat like a database.
 - **`expire_cookie` on a run drives `Session::setSessionLifetime`
