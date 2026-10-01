@@ -51,6 +51,15 @@ class FormRenderer extends SpreadsheetRenderer {
     protected $storedAnswers = [];
 
     /**
+     * @var array[]|null the state block's rows (FormSubmissionService::stateRows'
+     *   shape), and the showifs of the study's items, read by getStudyItems
+     *   with the items: stateBlock() builds from them instead of querying again
+     */
+    protected $stateRows = null;
+    /** @var string[] */
+    protected $showifs = [];
+
+    /**
      * Is this render being watched by the study's author rather than by a
      * participant (RunSession::isAuthorFacing)? Everything author-facing in
      * the rendered document (spreadsheet validation errors, the
@@ -109,7 +118,15 @@ class FormRenderer extends SpreadsheetRenderer {
                 unset($items[$name]);
             }
         }
+        $drawn = array();
+        foreach ($items as $name => $item) {
+            if ($item && !$item->requiresUserInput() && !$item->needsDynamicValue()) {
+                $drawn[] = $name;
+            }
+        }
         $items = $this->processAutomaticItems($items);
+        // Stored just now, after getStudyItems read their state (stateBlock).
+        $this->refreshStateRows($drawn);
 
         // Step 1: dynamic values. The `value` column carries R that we route
         // through the allowlist (a hidden item's value is also the documented
@@ -364,7 +381,9 @@ class FormRenderer extends SpreadsheetRenderer {
             `survey_items_display`.display_order,
             `survey_items_display`.saved,
             `survey_items_display`.answer AS stored_answer,
-            `survey_items_display`.answered')
+            `survey_items_display`.answered,
+            `survey_items_display`.page AS display_page,
+            `survey_items_display`.hidden AS display_hidden')
             ->from('survey_items')
             ->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
             // mc_heading is the disabled header row of an mc matrix (constant
@@ -385,7 +404,22 @@ class FormRenderer extends SpreadsheetRenderer {
         $itemFactory = new ItemFactory([]);
         $out = [];
         $this->storedItems = [];
+        $this->stateRows = [];
+        $this->showifs = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            // The display row's page and hidden flag are for the state block
+            // only: Item::$hidden must not be set (below).
+            $state = [
+                'id' => $row['id'], 'study_id' => $row['study_id'], 'name' => $row['name'],
+                'type' => $row['type'], 'choice_list' => $row['choice_list'],
+                'type_options' => $row['type_options'], 'optional' => $row['optional'],
+                'answer' => $row['stored_answer'], 'page' => $row['display_page'],
+                'hidden' => $row['display_hidden'], 'saved' => $row['saved'],
+            ];
+            unset($row['display_page'], $row['display_hidden']);
+            if ((string) $row['showif'] !== '') {
+                $this->showifs[] = (string) $row['showif'];
+            }
             // survey_items_display.hidden is deliberately not selected: it
             // records the showif outcome at the last submit, for the final
             // required check, and Item::$hidden set from it made
@@ -395,6 +429,9 @@ class FormRenderer extends SpreadsheetRenderer {
             // rendered; the browser owns visibility (processItems Step 4).
             $item = $itemFactory->make($row);
             if (!$item) continue;
+            if ($row['type'] !== 'submit') {
+                $this->stateRows[] = $state;
+            }
             // The items of a v2 study (SurveyStudy::getItemsWithChoices):
             // e.g. a choice list written in one cell is split at ";".
             $item->formV2 = true;
@@ -636,10 +673,43 @@ class FormRenderer extends SpreadsheetRenderer {
      *
      * @return array{unit_session_id:int, items: array<string, array>}
      */
+    /**
+     * Read the state rows of these items again: processItems stored them
+     * (automatic items drawn on the first render) after getStudyItems read
+     * them.
+     *
+     * @param string[] $names
+     */
+    protected function refreshStateRows(array $names) {
+        if (!$names || $this->stateRows === null) {
+            return;
+        }
+        $fresh = array();
+        foreach (FormSubmissionService::stateRows($this->db, $this->study->id, $this->unitSession->id, $names) as $row) {
+            $fresh[$row['name']] = $row;
+        }
+        foreach ($this->stateRows as $i => $row) {
+            if (isset($fresh[$row['name']])) {
+                $this->stateRows[$i] = $fresh[$row['name']];
+            }
+        }
+    }
+
     public function stateBlock() {
+        if ($this->stateRows === null) {
+            $items = FormSubmissionService::stateFor($this->db, $this->study->id, $this->unitSession->id);
+        } else {
+            // In page order, as stateRows sorts them (a missing page first);
+            // within a page the query's display order stands (a stable sort).
+            $rows = $this->stateRows;
+            usort($rows, function ($a, $b) {
+                return ($a['page'] === null ? -1 : (int) $a['page']) <=> ($b['page'] === null ? -1 : (int) $b['page']);
+            });
+            $items = FormSubmissionService::stateFromRows($rows, FormSubmissionService::showifNamesIn($this->showifs));
+        }
         return [
             'unit_session_id' => (int) $this->unitSession->id,
-            'items' => FormSubmissionService::stateFor($this->db, $this->study->id, $this->unitSession->id),
+            'items' => $items,
         ];
     }
 

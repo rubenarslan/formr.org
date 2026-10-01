@@ -553,10 +553,20 @@ class FormSubmissionService {
      * @return array<string, array>
      */
     public static function stateFor(DB $db, $studyId, $unitSessionId, array $names = null) {
-        $showifNames = self::showifNames($db, (int) $studyId);
+        return self::stateFromRows(self::stateRows($db, $studyId, $unitSessionId, $names), self::showifNames($db, (int) $studyId));
+    }
+
+    /**
+     * The state of the items in $rows (stateRows' shape), given the names the
+     * study's showifs read. FormRenderer::stateBlock passes the rows it read
+     * with the items it renders.
+     *
+     * @param array<string, true> $showifNames
+     */
+    public static function stateFromRows(array $rows, array $showifNames) {
         $factory = new ItemFactory(array());
         $out = array();
-        foreach (self::stateRows($db, $studyId, $unitSessionId, $names) as $row) {
+        foreach ($rows as $row) {
             $item = $factory->make($row);
             if ($item) {
                 $out[(string) $row['name']] = self::itemState($item, $row, $showifNames);
@@ -603,16 +613,25 @@ class FormSubmissionService {
      * @return array<string, true>
      */
     public static function showifNames(DB $db, $studyId) {
-        $names = array();
         $rows = $db->execute(
             'SELECT showif FROM `survey_items` WHERE study_id = :sid AND deleted IS NULL AND showif IS NOT NULL AND showif <> \'\'',
             array('sid' => (int) $studyId)
         );
-        foreach ((array) $rows as $row) {
-            // Only names the showif reads — not words in its string literals
-            // or comments: each listed name ships that item's value (random,
-            // ip, …) to the browser.
-            foreach (FormV2CompatScanner::namesIn((string) $row['showif']) as $name) {
+        return self::showifNamesIn(array_column((array) $rows, 'showif'));
+    }
+
+    /**
+     * The names these showifs read, as a set. Only names the showif reads —
+     * not words in its string literals or comments: each listed name ships
+     * that item's value (random, ip, …) to the browser.
+     *
+     * @param string[] $showifs
+     * @return array<string, true>
+     */
+    public static function showifNamesIn(array $showifs) {
+        $names = array();
+        foreach ($showifs as $showif) {
+            foreach (FormV2CompatScanner::namesIn((string) $showif) as $name) {
                 $names[$name] = true;
             }
         }
