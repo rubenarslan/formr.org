@@ -72,14 +72,7 @@ class BotCheck_Item extends Item {
      * type, classes). Choices are restored afterwards for rendering.
      */
     public function validate() {
-        $choices = $this->choices;
-        $choiceList = $this->choice_list;
-        $this->choices = array();
-        $this->choice_list = null;
-        $result = parent::validate();
-        $this->choices = $choices;
-        $this->choice_list = $choiceList;
-        return $result;
+        return $this->validateIgnoringChoices();
     }
 
     protected function render_input() {

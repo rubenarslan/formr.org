@@ -532,6 +532,23 @@ class Item {
     }
 
     /**
+     * validate() without its "this type doesn't have choices" check, for
+     * items whose choices are not answer options but text (a pattern item's
+     * mismatch message, a bot_check's relabelling). The choices are restored
+     * afterwards for rendering.
+     */
+    protected function validateIgnoringChoices() {
+        $choices = $this->choices;
+        $choiceList = $this->choice_list;
+        $this->choices = array();
+        $this->choice_list = null;
+        $result = self::validate();
+        $this->choices = $choices;
+        $this->choice_list = $choiceList;
+        return $result;
+    }
+
+    /**
      * Reject a non-scalar reply on an item whose input is a single value.
      *
      * A client can post `name[]=x` against any item; the string functions

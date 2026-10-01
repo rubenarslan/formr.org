@@ -49,20 +49,13 @@ class Text_Item extends Item {
     /**
      * A pattern item's choices are its mismatch message (patternMessage), not
      * answer options, so the base check "this type doesn't have choices" must
-     * not reject them. Same approach as BotCheck_Item::validate().
+     * not reject them (Item::validateIgnoringChoices, as BotCheck_Item does).
      */
     public function validate() {
         if (!isset($this->input_attributes['pattern'])) {
             return parent::validate();
         }
-        $choices = $this->choices;
-        $choiceList = $this->choice_list;
-        $this->choices = array();
-        $this->choice_list = null;
-        $result = parent::validate();
-        $this->choices = $choices;
-        $this->choice_list = $choiceList;
-        return $result;
+        return $this->validateIgnoringChoices();
     }
 
     public function validateInput($reply) {
