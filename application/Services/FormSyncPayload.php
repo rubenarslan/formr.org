@@ -114,9 +114,11 @@ class FormSyncPayload {
      * broken payload and should be told so at the door — not coerced into a
      * plausible-looking timestamp that misdates the paradata.
      *
+     * Also FormSubmissionService::itemViews' check of the paradata stamps.
+     *
      * @return string|null|false  the literal, null when absent, false when invalid
      */
-    private static function datetimeOrFalse($value) {
+    public static function datetimeOrFalse($value) {
         if ($value === null || $value === '') {
             return null;
         }

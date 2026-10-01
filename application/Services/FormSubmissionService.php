@@ -129,9 +129,7 @@ class FormSubmissionService {
                 if ($relative) {
                     $ok = is_numeric($value) && is_finite((float) $value);
                 } else {
-                    $ok = (bool) preg_match(FormSyncPayload::DATETIME_PATTERN, $value, $m)
-                        && (int) $m[1] >= 1000 && checkdate((int) $m[2], (int) $m[3], (int) $m[1])
-                        && (int) $m[4] <= 23 && (int) $m[5] <= 59 && (int) $m[6] <= 59;
+                    $ok = $value !== '' && FormSyncPayload::datetimeOrFalse($value) !== false;
                 }
                 if ($ok) {
                     $out[$bucket][(int) $itemId] = $value;
