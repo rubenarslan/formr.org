@@ -80,7 +80,10 @@ export function applyErrors(pageEl, errors) {
         insertFeedback(el, String(msg));
         if (!firstErrorEl) {
             firstErrorEl = el;
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // A choice item's first named input is its hidden placeholder,
+            // which has no box to scroll to: scroll to its item instead.
+            const scrollTo = el.type === 'hidden' ? (el.closest('.form-group') || el) : el;
+            scrollTo.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     });
 
@@ -190,8 +193,12 @@ export function validatePageAndShowFeedback(pageEl) {
     const scope = (pageEl.matches && pageEl.matches('.form-group'))
         ? [pageEl]
         : Array.from(pageEl.querySelectorAll('.form-group'));
+    // Rendered, or a solo step waiting off screen (solo shows one step at a
+    // time; its page-level check must still reach the others).
+    const soloStep = (g) => !!(g.parentElement && g.parentElement.matches('.fmr-page')
+        && g.closest('.fmr-form-v2[data-layout="solo"]'));
     const unanswered = scope.filter((g) => g.classList.contains('required')
-        && !isItemHidden(g) && g.offsetParent !== null
+        && !isItemHidden(g) && (g.offsetParent !== null || soloStep(g))
         // A submit item carries `required` (it's not "optional") but is a button,
         // not an answerable field — it can never be "answered", so excluding it
         // here mirrors the server's required check (UnitSession excludes 'submit')
