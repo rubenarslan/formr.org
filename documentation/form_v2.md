@@ -107,7 +107,9 @@ followup   text    my_score > 0.5
 
 The hidden field is resolved on the server; the resolved scalar is written into the input, and the showif reacts to it like to any other answer. You can read the resolved value while testing, and several showifs can reuse `my_score` without paying the OpenCPU cost again. The value is stored with its page like an answer.
 
-A hidden item resolves when its page is shown, against the answers of earlier pages — its own page's answers are still empty then. It is posted by the browser, so a participant (or a bot) can change it, and it is submitted empty if the page's dynamic content could not be loaded (network, rate limit, offline). Nothing on the form is secret: a value participants must not see (their experimental condition, say) belongs outside the form, for example in an earlier survey of the run, and must not be referenced from a showif.
+A hidden item resolves when its page is shown, against the answers of earlier pages — its own page's answers are still empty then. If its R names another item of this survey, it is computed again whenever its page is resolved again — after the participant went back and changed that answer, say — and the new result replaces the old one. Any other value is computed once and kept: `sticky` and earlier entries, another survey's data, a value that names only itself, a `sample()` — so a random assignment is not drawn again on every revisit.
+
+A hidden item is posted by the browser, so a participant (or a bot) can change it, and it is submitted empty if the page's dynamic content could not be loaded (network, rate limit, offline). Nothing on the form is secret: a value participants must not see (their experimental condition, say) belongs outside the form, for example in an earlier survey of the run, and must not be referenced from a showif.
 
 ### Page-scoped resolution
 

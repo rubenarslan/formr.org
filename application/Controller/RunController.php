@@ -1248,9 +1248,13 @@ class RunController extends Controller {
                 + $service->resolveIframes($iframeCalls, $answers, RCallService::ttlForSlot('label'));
         $choiceLabels = array_intersect_key($knitted, $calls['choice_label']);
 
-        $valuesOut = array();
+        $valuesOut = $follows = array();
         foreach ($values as $callId => $val) {
             $valuesOut[(string) $callId] = RCallService::rResultToScalarString($val);
+            $call = $calls['value'][$callId];
+            if ($service->valueFollowsAnswers($call['expr'], isset($call['item_name']) ? $call['item_name'] : '')) {
+                $follows[] = (string) $callId;
+            }
         }
         $labelsOut = array();
         foreach ($labels as $callId => $html) {
@@ -1268,7 +1272,9 @@ class RunController extends Controller {
             );
         }
 
-        $this->sendJsonResponse(array('values' => $valuesOut, 'labels' => $labelsOut, 'choices' => $choicesOut));
+        // `follows`: the value calls whose R reads the form's answers
+        // (RCallService::valueFollowsAnswers).
+        $this->sendJsonResponse(array('values' => $valuesOut, 'follows' => $follows, 'labels' => $labelsOut, 'choices' => $choicesOut));
     }
 
     /**

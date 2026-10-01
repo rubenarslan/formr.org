@@ -881,6 +881,14 @@ function initForm() {
         target.value = val;
         return target;
     };
+    // A `hidden` item's one input, set to `raw`; null when it already holds it.
+    const replaceHiddenValue = (wrapper, raw) => {
+        const val = raw == null ? '' : String(raw);
+        const inp = wrapper.querySelector('input[name]:not([name^="_item_views"])');
+        if (!inp || inp.value === val) return null;
+        inp.value = val;
+        return inp;
+    };
     const pageByNum = (pageNum) => pages.find((p) => Number(p.dataset.fmrPage) === Number(pageNum));
     const hasDynamicContent = (targetPage) => !!(targetPage
         && targetPage.querySelector('[data-fmr-fill-id], [data-fmr-label-id], [data-fmr-choice-id]'));
@@ -928,6 +936,7 @@ function initForm() {
             return;
         }
         const valuesMap = (body && body.values) || {};
+        const follows = new Set(((body && body.follows) || []).map(String));
         const labelsMap = (body && body.labels) || {};
         // Substitute values (setInputValue). Don't clobber a value the
         // participant already gave (back-nav case).
@@ -946,7 +955,13 @@ function initForm() {
             // choice is stored with no value (answered: false; answered
             // implies saved).
             if (stored && stored.saved && participantFacing) return;
-            const target = setInputValue(wrapper, valuesMap[id]);
+            // A `hidden` item's result that reads the answers replaces what
+            // the item holds: it is computed, not given, and must follow an
+            // answer changed since. Anything else fills only an empty input,
+            // so a random draw is not drawn again on every revisit.
+            const target = (wrapper.classList.contains('item-hidden') && follows.has(String(id)))
+                ? replaceHiddenValue(wrapper, valuesMap[id])
+                : setInputValue(wrapper, valuesMap[id]);
             if (!target) return;
             programmaticFill = true;
             try {

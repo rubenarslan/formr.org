@@ -302,6 +302,27 @@ class RCallService {
             || preg_match('/(?<![A-Za-z0-9_.])' . preg_quote($this->surveyName, '/') . '(?![A-Za-z0-9_])/', (string) $expr);
     }
 
+    /**
+     * Does a `value` expression read answers the participant can still change
+     * on this form: does it, as written, name another item of this survey?
+     * Then the browser writes each new result over what a `hidden` item
+     * already holds (main.js resolveAndSubstitutePage); any other result is
+     * kept once given. Earlier entries cannot change, so `sticky` (this
+     * item's last earlier answer) does not follow, nor does a value that
+     * names only itself (`ifelse(is.na(x), sample(1:2, 1), x)`), another
+     * survey, or nothing at all (a `sample()`) — none is drawn again on a
+     * revisit. Words in strings count, as in answersKey.
+     */
+    public function valueFollowsAnswers($expr, $itemName) {
+        if (trim((string) $expr) === 'sticky') {
+            return false;
+        }
+        preg_match_all('/[A-Za-z][A-Za-z0-9_]*/', (string) $expr, $m);
+        $names = array_flip($m[0]);
+        unset($names[(string) $itemName]);
+        return (bool) array_intersect_key($this->allowedOverlayNames(), $names);
+    }
+
     /** @var bool|null memoized: the run defines its own R functions */
     protected $runHasCustomR = null;
 
@@ -389,11 +410,9 @@ class RCallService {
         }
         $exprs = $hashes = array();
         foreach ($calls as $callId => $entry) {
-            $exprs[(int) $callId] = $this->expandValueExpr(
-                (string) $entry['expr'],
-                isset($entry['item_name']) ? (string) $entry['item_name'] : ''
-            );
-            $hashes[(int) $callId] = $this->answersKey($exprs[(int) $callId], $answers);
+            $itemName = isset($entry['item_name']) ? (string) $entry['item_name'] : '';
+            $exprs[(int) $callId] = $this->expandValueExpr((string) $entry['expr'], $itemName);
+            $hashes[(int) $callId] = $this->valueKey((string) $entry['expr'], $itemName, $exprs[(int) $callId], $answers);
         }
         $results = $this->cachedResults($hashes, $ttl);
         $misses = array_diff_key($exprs, $results);
@@ -413,6 +432,19 @@ class RCallService {
             self::evictStale();
         }
         return $results;
+    }
+
+    /**
+     * The cache key of a `value` call (answersKey of its expansion). `sticky`
+     * reads earlier entries, which do not change, and this item's own
+     * answer: its expansion names the survey, which would key it on every
+     * answer and evaluate it again after each one.
+     */
+    protected function valueKey($expr, $itemName, $expanded, array $answers) {
+        if (trim((string) $expr) === 'sticky') {
+            return self::argsHash(array_intersect_key($answers, array((string) $itemName => true)));
+        }
+        return $this->answersKey($expanded, $answers);
     }
 
     /**
