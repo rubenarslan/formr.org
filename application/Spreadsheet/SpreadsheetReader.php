@@ -437,7 +437,9 @@ class SpreadsheetReader
         $filename = $study->name;
 
         foreach ($items as $i => $val) {
-            unset($items[$i]['id'], $items[$i]['study_id']);
+            // `deleted` (patch 112) is internal: getItems() returns live items
+            // only, and an import on a host without the column rejects it.
+            unset($items[$i]['id'], $items[$i]['study_id'], $items[$i]['deleted']);
             if (isset($val["choice_list"]) && isset($choices[$val["choice_list"]])) {
                 $items[$i]["choices"] = $choices[$val["choice_list"]];
                 $items[$i]["choice_list"] = $items[$i]["name"];
