@@ -47,7 +47,7 @@ class SurveyTestController extends Controller {
         // /survey-test/<token>/form-page-submit etc.: a v2 form's own
         // endpoints, for the preview's test session (formV2Endpoint).
         if ($page !== null && isset(RunController::FORM_V2_PREVIEW_ACTIONS[$page])) {
-            return $this->formV2Endpoint($token, (string) $page, $studyName, $userId, $expired, $expires);
+            return $this->formV2Endpoint($token, (string) $page, $studyName, $userId, $expires);
         }
 
         // Paged surveys (use_paging) navigate by a URL page segment:
@@ -184,7 +184,7 @@ class SurveyTestController extends Controller {
      * in flight in this browser's /survey-test/ session can be written to —
      * the GET that renders the form starts it.
      */
-    private function formV2Endpoint($token, $action, $studyName, $userId, $expired, $expires) {
+    private function formV2Endpoint($token, $action, $studyName, $userId, $expires) {
         $json = function ($body, $status) {
             header('Content-Type: application/json');
             http_response_code($status);
