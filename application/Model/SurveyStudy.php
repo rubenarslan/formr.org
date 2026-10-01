@@ -520,7 +520,7 @@ class SurveyStudy extends Model
         }
         if (array_key_exists('language', $settings)) {
             $lang = trim((string) $settings['language']);
-            if (preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', $lang)) {
+            if (self::isLanguageTag($lang)) {
                 $settings['language'] = $lang;
             } else {
                 unset($settings['language']);
@@ -532,6 +532,15 @@ class SurveyStudy extends Model
             }
         }
         return $settings;
+    }
+
+    /**
+     * A study language (patch 114): a BCP 47-shaped tag. The one check for
+     * the admin settings form and imports.
+     */
+    public static function isLanguageTag($tag)
+    {
+        return is_string($tag) && (bool) preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', $tag);
     }
 
     /**

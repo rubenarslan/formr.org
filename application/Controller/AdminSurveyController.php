@@ -654,7 +654,7 @@ class AdminSurveyController extends AdminController {
             // English rather than erroring — the column only picks a string
             // table + lang/dir attributes.
             $langInput = trim((string) ($settings['language'] ?? 'en'));
-            $settings['language'] = preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', $langInput) ? $langInput : 'en';
+            $settings['language'] = SurveyStudy::isLanguageTag($langInput) ? $langInput : 'en';
             // Custom navigation wording (#322); empty = built-in.
             foreach (['next_button_label', 'submit_button_label'] as $key) {
                 $settings[$key] = SurveyStudy::normalizeButtonLabel($settings[$key] ?? null);
