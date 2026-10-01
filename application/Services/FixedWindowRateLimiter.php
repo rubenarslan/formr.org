@@ -34,13 +34,17 @@ class FixedWindowRateLimiter {
             // Single atomic statement. Assignment order is load-bearing:
             // `count` is computed against the OLD window_start (MySQL
             // evaluates ODKU assignments left to right), THEN window_start
-            // advances if the window rolled over.
+            // advances if the window rolled over. The comparison adds to the
+            // UNSIGNED window_start instead of subtracting from now: a
+            // window_start a moment ahead of this request's clock (another
+            // worker rolled the window first) made `now - window_start`
+            // negative, an out-of-range error (1690) for UNSIGNED.
             $stmt = $db->prepare(
                 'INSERT INTO `formr_rate_limits` (bucket_key, window_start, count)
                  VALUES (:k, :now, 1)
                  ON DUPLICATE KEY UPDATE
-                     count = IF(:now2 - window_start >= :win, 1, count + 1),
-                     window_start = IF(:now3 - window_start >= :win2, :now4, window_start)'
+                     count = IF(window_start + :win <= :now2, 1, count + 1),
+                     window_start = IF(window_start + :win2 <= :now3, :now4, window_start)'
             );
             $stmt->bindValue(':k', $bucketKey);
             $stmt->bindValue(':now', $now, PDO::PARAM_INT);
