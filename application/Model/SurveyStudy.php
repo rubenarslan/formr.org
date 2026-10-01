@@ -332,6 +332,12 @@ class SurveyStudy extends Model
     protected function applyImportedSettings(array $raw)
     {
         $settings = self::engineGate(self::importableSettings($raw));
+        // A survey created from a Google Sheet is linked to that sheet
+        // (createFromFile); the `settings` tab an export wrote names the
+        // sheet of the survey it was exported from, which must not replace it.
+        if (!empty($this->google_file_id)) {
+            unset($settings['google_file_id']);
+        }
         if (!$settings) {
             return;
         }
