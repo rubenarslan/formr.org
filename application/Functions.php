@@ -1614,6 +1614,27 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
         return current($result);
     }
 
+    $request = opencpu_evaluate_request($code, $variables, $return_format, $context);
+    $session = $failure = null;
+    try {
+        $session = OpenCPU::getInstance()->post($request['uri'], $request['params']);
+    } catch (OpenCPU_Exception $e) {
+        $failure = $e;
+    } finally {
+        opencpu_cleanup($request);
+    }
+    return opencpu_evaluate_outcome($session, $failure, $return_format, $return_session);
+}
+
+/**
+ * The request opencpu_evaluate sends: the code in a closure after the run's
+ * prelude and variables. Its `cleanup` (a temporary API token) runs once
+ * the request is answered (opencpu_cleanup, opencpu_post_many).
+ *
+ * @return array{uri: string, params: array, cleanup: callable|null}
+ */
+function opencpu_evaluate_request($code, $variables = null, $return_format = 'json', $context = null)
+{
     $temp_token_to_delete = opencpu_prepare_api_access($code, $variables);
 
     $r_variables = is_string($variables) ? $variables : opencpu_define_vars($variables, $context);
@@ -1627,11 +1648,20 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 	' . $code . '
 })() }'];
 
-    $uri = '/base/R/identity/' . $return_format;
-    $session = null;
-    try {
-        $session = OpenCPU::getInstance()->post($uri, $params);
+    return array('uri' => '/base/R/identity/' . $return_format, 'params' => $params,
+        'cleanup' => opencpu_token_cleanup($temp_token_to_delete));
+}
 
+/**
+ * What opencpu_evaluate returns for its request's answer: the session or its
+ * result, or null once the error is reported.
+ */
+function opencpu_evaluate_outcome(OpenCPU_Session $session = null, OpenCPU_Exception $failure = null, $return_format = 'json', $return_session = false)
+{
+    try {
+        if ($failure !== null) {
+            throw $failure;
+        }
         if ($session->hasError()) {
             throw new OpenCPU_Exception(opencpu_debug($session));
         } else {
@@ -1646,9 +1676,47 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
         notify_user_error($e, "There was a computational error.");
         opencpu_log($e);
         return null;
+    }
+}
+
+/** A temporary API token's deletion, as a request's `cleanup`. */
+function opencpu_token_cleanup($token)
+{
+    return $token ? function () use ($token) {
+        OAuthHelper::getInstance()->deleteAccessToken($token);
+    } : null;
+}
+
+/** Run a request's cleanup (opencpu_*_request) once it is answered. */
+function opencpu_cleanup(array $request)
+{
+    if (!empty($request['cleanup'])) {
+        ($request['cleanup'])();
+    }
+}
+
+/**
+ * Send several opencpu_*_request()s to OpenCPU at once (OpenCPU::postMany)
+ * and run their cleanups. Each answer goes to the request's own outcome
+ * function (opencpu_evaluate_outcome, opencpu_knit_outcome).
+ *
+ * @param array $requests key => request
+ * @return array key => ['session' => OpenCPU_Session|null,
+ *   'failure' => OpenCPU_Exception|null, 'seconds' => float]
+ */
+function opencpu_post_many(array $requests)
+{
+    $GLOBALS['opencpu_local_error'] = null;
+    opencpu_forget_session();
+    $calls = array();
+    foreach ($requests as $key => $request) {
+        $calls[$key] = array($request['uri'], $request['params']);
+    }
+    try {
+        return $calls ? OpenCPU::getInstance()->postMany($calls) : array();
     } finally {
-        if ($temp_token_to_delete) {
-            OAuthHelper::getInstance()->deleteAccessToken($temp_token_to_delete);
+        foreach ($requests as $request) {
+            opencpu_cleanup($request);
         }
     }
 }
@@ -1705,9 +1773,26 @@ function opencpu_post_knit($uri, array $params, $return_format, $return_session,
     $GLOBALS['opencpu_local_error'] = null;
     opencpu_forget_session();
 
-    $session = null;
+    $session = $failure = null;
     try {
         $session = OpenCPU::getInstance()->post($uri, $params);
+    } catch (OpenCPU_Exception $e) {
+        $failure = $e;
+    }
+    return opencpu_knit_outcome($session, $failure, $return_format, $return_session, $message);
+}
+
+/**
+ * What a knit returns for its request's answer (opencpu_post_knit,
+ * opencpu_knit_iframe): the session or its result, or null once the error
+ * is reported with $message.
+ */
+function opencpu_knit_outcome(OpenCPU_Session $session = null, OpenCPU_Exception $failure = null, $return_format = 'json', $return_session = false, $message = '')
+{
+    try {
+        if ($failure !== null) {
+            throw $failure;
+        }
         // Callers asking for the raw session expect to inspect ->hasError()
         // themselves (e.g. RunUnit::getParsedBody distinguishes "server
         // down" from "R error" by exactly this check). Return early before
@@ -1774,8 +1859,15 @@ opts_knit$set(base.url="' . OpenCPU::TEMP_BASE_URL . '")
  */
 function opencpu_knit2markdown($source, $return_session = false)
 {
-    return opencpu_post_knit('/formr/R/formr_knit/json', array('text' => "'" . addslashes($source) . "'"),
-        'json', $return_session, "There was a problem knitting something using openCPU.");
+    $call = opencpu_knit2markdown_call($source);
+    return opencpu_post_knit($call['uri'], $call['params'], 'json', $return_session, $call['message']);
+}
+
+/** The request opencpu_knit2markdown sends. */
+function opencpu_knit2markdown_call($source)
+{
+    return array('uri' => '/formr/R/formr_knit/json', 'params' => array('text' => "'" . addslashes($source) . "'"),
+        'message' => "There was a problem knitting something using openCPU.");
 }
 
 /**
@@ -1796,9 +1888,16 @@ function opencpu_knit2markdown($source, $return_session = false)
  */
 function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1, $return_session = false)
 {
-    return opencpu_post_knit('/formr/R/formr_inline_render/' . $return_format,
-        array('text' => "'" . addslashes($source) . "'", 'self_contained' => $self_contained),
-        $return_format, $return_session, "There was a problem dynamically knitting something to HTML using openCPU.");
+    $call = opencpu_knit2html_call($source, $return_format, $self_contained);
+    return opencpu_post_knit($call['uri'], $call['params'], $return_format, $return_session, $call['message']);
+}
+
+/** The request opencpu_knit2html sends. */
+function opencpu_knit2html_call($source, $return_format = 'json', $self_contained = 1)
+{
+    return array('uri' => '/formr/R/formr_inline_render/' . $return_format,
+        'params' => array('text' => "'" . addslashes($source) . "'", 'self_contained' => $self_contained),
+        'message' => "There was a problem dynamically knitting something to HTML using openCPU.");
 }
 
 /**
@@ -1825,6 +1924,27 @@ function opencpu_knit_iframe($source, $variables = null, $return_session = false
     $GLOBALS['opencpu_local_error'] = null;
     opencpu_forget_session();
 
+    $request = opencpu_knit_iframe_request($source, $variables, $context, $description, $footer_text);
+    $session = $failure = null;
+    try {
+        $session = OpenCPU::getInstance()->post($request['uri'], $request['params']);
+    } catch (OpenCPU_Exception $e) {
+        $failure = $e;
+    } finally {
+        opencpu_cleanup($request);
+    }
+    return opencpu_knit_outcome($session, $failure, 'json', $return_session, $request['message']);
+}
+
+/**
+ * The request opencpu_knit_iframe sends: the document after a settings chunk
+ * with the run's prelude and variables. Its `cleanup` (a temporary API
+ * token) runs once the request is answered.
+ *
+ * @return array{uri: string, params: array, message: string, cleanup: callable|null}
+ */
+function opencpu_knit_iframe_request($source, $variables = null, $context = null, $description = '', $footer_text = '')
+{
     $temp_token_to_delete = opencpu_prepare_api_access($source, $variables);
 
     if (!is_string($variables)) {
@@ -1882,35 +2002,28 @@ opts_chunk$set(warning=' . $show_warnings . ',message=' . $show_warnings . ',err
 
     $params = array('text' => "'" . addslashes($source) . "'");
 
-    $uri = '/formr/R/formr_render/';
-
-    $session = null;
-    try {
-        $session = OpenCPU::getInstance()->post($uri, $params);
-        if ($return_session === true) {
-            return $session;
-        }
-
-        if ($session->hasError()) {
-            throw new OpenCPU_Exception(opencpu_debug($session));
-        }
-
-        return $session->getJSONObject();
-    } catch (OpenCPU_Exception $e) {
-        if ($session === null) {
-            opencpu_note_transport_failure($e);
-        }
-        notify_user_error($e, "There was a computational error.");
-        opencpu_log($e);
-        return null;
-    } finally {
-        if ($temp_token_to_delete) {
-            OAuthHelper::getInstance()->deleteAccessToken($temp_token_to_delete);
-        }
-    }
+    return array('uri' => '/formr/R/formr_render/', 'params' => $params,
+        'message' => "There was a computational error.",
+        'cleanup' => opencpu_token_cleanup($temp_token_to_delete));
 }
 
 function opencpu_knitdisplay($source, $variables = null, $return_session = false, $context = null, $to = 'html')
+{
+    $request = opencpu_knitdisplay_request($source, $variables, $context, $to);
+    try {
+        return opencpu_post_knit($request['uri'], $request['params'], 'json', $return_session, $request['message']);
+    } finally {
+        opencpu_cleanup($request);
+    }
+}
+
+/**
+ * The request opencpu_knitdisplay sends: the source after a settings chunk
+ * with the run's prelude and variables, knitted to markdown or HTML.
+ *
+ * @return array{uri: string, params: array, message: string, cleanup: callable|null}
+ */
+function opencpu_knitdisplay_request($source, $variables = null, $context = null, $to = 'html')
 {
     // Bridge formr_api_authenticate() before stringifying $variables so the
     // .formr$ assignments land inside the settings chunk below, after
@@ -1941,15 +2054,9 @@ opts_knit$set(base.url="' . OpenCPU::TEMP_BASE_URL . '")
 ' .
         $source;
 
-    try {
-        return $to === 'markdown'
-            ? opencpu_knit2markdown($source, $return_session)
-            : opencpu_knit2html($source, 'json', 0, $return_session);
-    } finally {
-        if ($temp_token_to_delete) {
-            OAuthHelper::getInstance()->deleteAccessToken($temp_token_to_delete);
-        }
-    }
+    $call = $to === 'markdown' ? opencpu_knit2markdown_call($source) : opencpu_knit2html_call($source, 'json', 0);
+    $call['cleanup'] = opencpu_token_cleanup($temp_token_to_delete);
+    return $call;
 }
 
 function opencpu_knitadmin($source, $variables = null, $return_session = false)
@@ -2052,9 +2159,28 @@ function opencpu_string_key_parsing($strings)
  */
 function opencpu_knit_strings(UnitSession $unitSession, $studyName, array $sources, $to = 'html', $prelude = '', &$session = null)
 {
+    $request = opencpu_knit_strings_request($unitSession, $studyName, $sources, $to, $prelude);
+    try {
+        $session = opencpu_post_knit($request['uri'], $request['params'], 'json', true, $request['message']);
+    } finally {
+        opencpu_cleanup($request);
+    }
+    return opencpu_knit_strings_result($session, $to);
+}
+
+/** The request opencpu_knit_strings sends (for opencpu_post_many). */
+function opencpu_knit_strings_request(UnitSession $unitSession, $studyName, array $sources, $to = 'html', $prelude = '')
+{
     $markdown = $prelude . implode(OpenCPU::STRING_DELIMITER, $sources);
-    $variables = $unitSession->getRunData($markdown, $studyName);
-    $session = opencpu_knitdisplay($markdown, $variables, true, $studyName, $to);
+    return opencpu_knitdisplay_request($markdown, $unitSession->getRunData($markdown, $studyName), $studyName, $to);
+}
+
+/**
+ * The knitted strings in a knit's session, in order; null if the knit
+ * failed.
+ */
+function opencpu_knit_strings_result(OpenCPU_Session $session = null, $to = 'html')
+{
     if (!$session || $session->hasError()) {
         return null;
     }

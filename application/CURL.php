@@ -89,6 +89,68 @@ class CURL {
      * @return string content
      */
     public static function HttpRequest($url, $params = array(), $method = self::HTTP_METHOD_GET, $options = array(), &$info = null) {
+        list($curl, $options) = self::prepareRequest($url, $params, $method, $options);
+        $res = curl_exec($curl);
+        $info = curl_getinfo($curl);
+
+        if ($res === false) {
+            $error = curl_error($curl);
+            curl_close($curl);
+            throw new Exception("cURL error: {$error} in {$info['total_time']}");
+        }
+        curl_close($curl);
+        return self::responseBody($res, $info, $options);
+    }
+
+    /**
+     * Several requests at once (curl_multi), each set up as HttpRequest sets
+     * up one. A request that fails is reported in its entry, not thrown, so
+     * the others' answers stand.
+     *
+     * @param array $requests key => [url, params, method, options]
+     * @return array key => ['body' => string|null, 'info' => array, 'error' => string|null]
+     */
+    public static function HttpRequestMany(array $requests) {
+        $multi = curl_multi_init();
+        $handles = $setups = array();
+        foreach ($requests as $key => $r) {
+            list($curl, $options) = self::prepareRequest($r[0], isset($r[1]) ? $r[1] : array(),
+                isset($r[2]) ? $r[2] : self::HTTP_METHOD_GET, isset($r[3]) ? $r[3] : array());
+            curl_multi_add_handle($multi, $curl);
+            $handles[$key] = $curl;
+            $setups[$key] = $options;
+        }
+        do {
+            $status = curl_multi_exec($multi, $running);
+            if ($running && curl_multi_select($multi, 1.0) === -1) {
+                usleep(1000);
+            }
+        } while ($running && $status === CURLM_OK);
+        $codes = array();
+        while ($msg = curl_multi_info_read($multi)) {
+            $codes[spl_object_id($msg['handle'])] = $msg['result'];
+        }
+
+        $out = array();
+        foreach ($handles as $key => $curl) {
+            $info = curl_getinfo($curl);
+            $code = isset($codes[spl_object_id($curl)]) ? $codes[spl_object_id($curl)] : CURLE_OK;
+            if ($code !== CURLE_OK || $status !== CURLM_OK) {
+                $error = curl_error($curl) ?: curl_strerror($code);
+                $out[$key] = array('body' => null, 'info' => $info, 'error' => "cURL error: {$error} in {$info['total_time']}");
+            } else {
+                $body = self::responseBody((string) curl_multi_getcontent($curl), $info, $setups[$key]);
+                $out[$key] = array('body' => $body, 'info' => $info, 'error' => null);
+            }
+            curl_multi_remove_handle($multi, $curl);
+            curl_close($curl);
+        }
+        curl_multi_close($multi);
+        return $out;
+    }
+
+    /** A cURL handle set up for one request (HttpRequest, HttpRequestMany), and its options. */
+    private static function prepareRequest($url, $params, $method, $options) {
         static $have_curl;
         if ($have_curl === null) {
             $have_curl = extension_loaded('curl');
@@ -136,25 +198,18 @@ class CURL {
         }
         $options[CURLOPT_URL] = $url;
         curl_setopt_array($curl, $options);
-//		curl_setopt($curl, CURLOPT_HTTPHEADER,array("Expect:"));
-        $res = curl_exec($curl);
-        $info = curl_getinfo($curl);
+        return array($curl, $options);
+    }
 
-        if ($res === false) {
-            $error = curl_error($curl);
-            curl_close($curl);
-            throw new Exception("cURL error: {$error} in {$info['total_time']}");
-        }
-        curl_close($curl);
-
-        // convert to array in case of headers wanted
-        $return = $res;
+    /** A response's body, its headers moved into $info when they were asked for. */
+    private static function responseBody($res, &$info, array $options) {
         if (!empty($options[CURLOPT_HEADER])) {
+            // chopHttpHeaders cuts its argument down too: keep the response.
+            $response = $res;
             $info[self::RESPONSE_HEADERS] = self::chopHttpHeaders($res, $info);
-            $return = substr($return, $info['header_size']);
+            return substr($response, $info['header_size']);
         }
-
-        return $return;
+        return $res;
     }
 
     /**
