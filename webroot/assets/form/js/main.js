@@ -525,11 +525,12 @@ function initForm() {
     // Classify a /form-sync response into a drain outcome. Every shape
     // RunController::formSyncAction can answer with is named here:
     //   applied   200 {status:'ok', items, redirect?} / {already_applied}
-    //   errors    200 {status:'errors', errors:{name: msg}} — the server rolled
-    //             the ledger row back and applied NOTHING; the entry must be
-    //             kept and the participant has to fix the page.
+    //   errors    200 {status:'errors', errors:{name: msg}} — the server
+    //             applied and recorded NOTHING; the entry must be kept and
+    //             the participant has to fix the page.
     //   drop      409 {drop_entry:true} — session ended / different unit.
-    //   throttled 429 — retry the run later, don't count an attempt.
+    //   throttled 429 — the rate limit, or another request applying this
+    //             entry: retry the run later, don't count an attempt.
     //   session   403 "No active run session", or a 200 that isn't JSON (an
     //             auth redirect to a login page) — session gone for this run.
     //   invalid   400 envelope error — permanent for this entry.
@@ -674,8 +675,8 @@ function initForm() {
                 continue;
             }
             if (outcome === 'errors') {
-                // Validation failure: the server applied nothing (ledger row
-                // rolled back). KEEP the answers; the participant fixes the
+                // Validation failure: the server applied and recorded
+                // nothing. KEEP the answers; the participant fixes the
                 // page and re-submits it, which supersedes this entry.
                 markNeedsAttention(entry, body.errors);
                 await queuePut(entry).catch(() => {});

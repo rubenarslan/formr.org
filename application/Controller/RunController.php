@@ -1024,9 +1024,9 @@ class RunController extends Controller {
      * Accepts one queued submission. Idempotent via `survey_form_submissions.uuid`:
      * a retry with the same uuid returns `{status:'ok', already_applied:true}`
      * without re-applying. Otherwise the same gates and the same apply path as
-     * form-page-submit, with the uuid recorded in the same transaction as the
-     * answers, so a failure can never leave answers applied with no uuid row
-     * (which is what made the client retry into a double-apply). The envelope
+     * form-page-submit; the uuid is recorded once the page is applied
+     * (FormSubmissionService::applyQueued), and a request applying the same
+     * entry at that moment is answered 429, which the queue retries. The envelope
      * (uuid / page / unit_session_id / client_ts — every field that lands in a
      * typed ledger column) is validated by FormSyncPayload before any state
      * change; a bad value is a 400, never a 500 halfway through. 409 replies
@@ -1060,54 +1060,24 @@ class RunController extends Controller {
         }
         list(, $unitSession, $study) = $context;
 
-        // The ledger row is a claim, taken before the page is applied and
-        // released if applying does not complete: a uuid in the ledger means
-        // "applied, or being applied by another drain of the same entry",
-        // and a retry is answered already_applied. The claim cannot share a
-        // transaction with the answers: the final page's end (the
-        // run-session lock) comes after their commit, and a uuid committed
-        // with them but before a failed end would make every retry skip the
-        // end. Re-applying a released entry is safe.
-        $db = DB::getInstance();
-        if ($db->entry_exists('survey_form_submissions', array('uuid' => $uuid))) {
-            $this->sendJsonResponse(array('status' => 'ok', 'already_applied' => true));
-            return;
-        }
+        // Once per entry (FormSubmissionService::applyQueued): an entry
+        // refused for validation errors, or one whose write failed, is not
+        // recorded, so the participant's corrected resend or the retry
+        // applies it.
         try {
-            $db->insert('survey_form_submissions', array(
-                'uuid' => $uuid,
-                'unit_session_id' => (int) $unitSession->id,
-                'page' => (int) $payload['page'],
-                'client_ts' => $clientTs,
-            ));
-        } catch (PDOException $e) {
-            if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
-                // Another drain of the same entry claimed it first.
-                $this->sendJsonResponse(array('status' => 'ok', 'already_applied' => true));
-                return;
-            }
-            throw $e;
-        }
-        $release = function () use ($db, $uuid) {
-            try {
-                $db->delete('survey_form_submissions', array('uuid' => $uuid));
-            } catch (Throwable $cleanup) {
-                formr_log_exception($cleanup, __METHOD__);
-            }
-        };
-        try {
-            $result = (new FormSubmissionService($unitSession, $study))->apply($payload);
+            $result = (new FormSubmissionService($unitSession, $study))->applyQueued($uuid, $clientTs, $payload);
         } catch (Throwable $e) {
-            $release();
             formr_log_exception($e, __METHOD__);
             $this->sendJsonResponse(array('error' => 'The page could not be stored.'), 500);
             return;
         }
-        if ($result['status'] !== 'ok') {
-            // Release so the participant can fix the errors and re-drain the
-            // same entry; a kept claim would make the retry look applied and
-            // silently discard the answers.
-            $release();
+        if ($result['status'] === 'busy') {
+            // Another request is applying this entry. A 429 keeps it queued
+            // and counts no attempt; the browser retries it later.
+            $this->sendJsonResponse(array('error' => 'This page is being saved by another request'), 429);
+            return;
+        }
+        if ($result['status'] !== 'ok' || !empty($result['already_applied'])) {
             $this->sendJsonResponse($result);
             return;
         }

@@ -5,8 +5,9 @@
  * (/form-page-submit) or from the offline queue (/form-sync).
  *
  * The controller actions keep the gates (method, session, rate limit,
- * stale-tab check, the sync ledger); everything after the gates is here:
- * reading the request into one shape (readPayload), storing the answers,
+ * stale-tab check); everything after the gates is here: reading the
+ * request into one shape (readPayload), applying a queued entry once
+ * (applyQueued), storing the answers,
  * recording which items the browser hides, and — on the final page — the
  * required check and ending the unit session. The reply carries the stored
  * state of the items just written, in the same shape as the page's state
@@ -16,6 +17,9 @@
  * documentation/agent_doc/plan_form_v2_navigation_state.md.
  */
 class FormSubmissionService {
+
+    /** Seconds a sync waits while another request applies the same entry. */
+    const SYNC_LOCK_WAIT = 5;
 
     /** @var UnitSession */
     protected $unitSession;
@@ -245,6 +249,69 @@ class FormSubmissionService {
         }
         $response['items'] = $this->storedState($names);
         return $response;
+    }
+
+    /**
+     * Apply one entry of the offline queue (/form-sync) at most once.
+     *
+     * One entry can arrive more than once at the same time: the queue is
+     * shared by every tab of the origin, and they all drain when the
+     * connection comes back. A named lock on the uuid lets one request
+     * through at a time. The uuid is written to survey_form_submissions only
+     * once the page has been applied, including, on a final page, the end of
+     * the form: a uuid written before a failed end would make every retry
+     * skip the end. So a uuid in the ledger means "applied", and a request
+     * that dies part way (a PHP fatal, a container restart, a lost database
+     * connection) leaves nothing behind: its lock goes with its connection,
+     * and the retry applies the page again. Applying it again is safe; a
+     * unit session's entries drain in order.
+     *
+     * @return array apply()'s reply; {status:'ok', already_applied:true} when
+     *   the uuid is in the ledger; {status:'busy'} when another request held
+     *   the lock for $lockWait seconds.
+     */
+    public function applyQueued($uuid, $clientTs, array $payload, $lockWait = self::SYNC_LOCK_WAIT) {
+        $lock = 'form_sync_' . $uuid;
+        $stmt = $this->db->prepare('SELECT GET_LOCK(:name, :wait)');
+        $stmt->bindValue('name', $lock);
+        // A string: PDO::PARAM_INT would truncate a fractional wait to 0.
+        $stmt->bindValue('wait', (string) $lockWait);
+        $stmt->execute();
+        if ((int) $stmt->fetchColumn() !== 1) {
+            return array('status' => 'busy');
+        }
+        try {
+            if ($this->db->entry_exists('survey_form_submissions', array('uuid' => $uuid))) {
+                return array('status' => 'ok', 'already_applied' => true);
+            }
+            $result = $this->apply($payload);
+            if ($result['status'] === 'ok') {
+                $this->recordApplied($uuid, $clientTs, (int) $payload['page']);
+            }
+            return $result;
+        } finally {
+            try {
+                $this->db->prepare('SELECT RELEASE_LOCK(:name)')->execute(array('name' => $lock));
+            } catch (Throwable $e) {
+                // The connection is gone, and its lock went with it.
+                formr_log_exception($e, __METHOD__);
+            }
+        }
+    }
+
+    private function recordApplied($uuid, $clientTs, $page) {
+        try {
+            $this->db->insert('survey_form_submissions', array(
+                'uuid' => $uuid,
+                'unit_session_id' => (int) $this->unitSession->id,
+                'page' => $page,
+                'client_ts' => $clientTs,
+            ));
+        } catch (Throwable $e) {
+            // The page is stored. Without its row a resend applies it again,
+            // which is safe; failing a write that landed is not.
+            formr_log_exception($e, __METHOD__);
+        }
     }
 
     /**
