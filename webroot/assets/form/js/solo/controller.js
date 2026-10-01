@@ -43,9 +43,10 @@ export function blockedSubmitControl(pageEl) {
 }
 
 export function initSolo(opts) {
-    // pageNav (main.js): which page is the last shown one and where Previous
-    // goes — derived from the state store (state.mjs pageState), the same
-    // rule the default layout uses.
+    // pageNav(pageEl) (main.js): {isLast, previousIndex} — whether the page
+    // is the last shown one, and the index Previous goes to (-1: none) —
+    // derived from the state store (state.mjs pageState), the same rule the
+    // default layout uses.
     const { root, pages, getCurrentIndex, showPage, submitPage, validate, pageNav } = opts;
 
     let current = null;          // the active step element (.form-group)
@@ -96,8 +97,9 @@ export function initSolo(opts) {
         }
         return null;
     }
-    function isLastPage() { return pageNav.isLastPage(pages[getCurrentIndex()]); }
-    function isTerminal(el) { return !nextStep(el) && isLastPage(); }
+    // Where the current page stands (pageNav: one snapshot of the whole form).
+    function pageHere() { return pageNav(pages[getCurrentIndex()]); }
+    function isTerminal(el) { return !nextStep(el) && pageHere().isLast; }
     function isSubmitStep(el) { return !!el && el.classList.contains('item-submit'); }
 
     // A `submit` item is a page boundary. In solo it would otherwise be a blank
@@ -478,7 +480,7 @@ export function initSolo(opts) {
         if (transitioning) return;
         const prv = prevStep(current);
         if (prv) { goTo(prv, 'back'); return; }
-        const prevIdx = pageNav.previousPageIndex(pages[getCurrentIndex()]);
+        const prevIdx = pageHere().previousIndex;
         if (prevIdx !== -1) {
             pendingGoLast = true;
             showPage(prevIdx);     // host updates currentIndex + fires onPageShown
@@ -503,11 +505,11 @@ export function initSolo(opts) {
         navEl.innerHTML =
             '<div class="fmr-solo-advance">'
             + '<span class="fmr-solo-hint" aria-hidden="true"></span>'
-            + '<button type="button" class="btn btn-primary fmr-solo-ok">' + t('nav.ok', 'OK') + ' <i class="fa fa-check" aria-hidden="true"></i></button>'
+            + '<button type="button" class="btn btn-primary fmr-solo-ok">' + escapeHtml(t('nav.ok', 'OK')) + ' <i class="fa fa-check" aria-hidden="true"></i></button>'
             + '</div>'
             + '<div class="fmr-solo-left">'
             + '<button type="button" class="fmr-solo-back" aria-label="' + escapeHtml(t('solo.back_label', 'Go to previous question')) + '">'
-            + '<i class="fa fa-arrow-up" aria-hidden="true"></i> ' + t('nav.back', 'Back') + '</button>'
+            + '<i class="fa fa-arrow-up" aria-hidden="true"></i> ' + escapeHtml(t('nav.back', 'Back')) + '</button>'
             + '<button type="button" class="fmr-solo-help" aria-label="' + escapeHtml(t('solo.help_label', 'Show contact and privacy links')) + '" aria-expanded="false">'
             + '<i class="fa fa-question" aria-hidden="true"></i></button>'
             + '</div>';
@@ -578,9 +580,13 @@ export function initSolo(opts) {
     }
     function updateNav() {
         if (!navEl) buildNav();
-        const canBack = !!prevStep(current) || pageNav.previousPageIndex(pages[getCurrentIndex()]) !== -1;
+        // The page's standing is asked for at most once per refresh, and only
+        // on its first or last step (a snapshot walks the whole form).
+        let here = null;
+        const page = () => here || (here = pageHere());
+        const canBack = !!prevStep(current) || page().previousIndex !== -1;
         backBtn.style.visibility = canBack ? '' : 'hidden';
-        const terminal = isTerminal(current);
+        const terminal = !nextStep(current) && page().isLast;
         // #4: single-choice steps advance on pick, so hide OK (Typeform-style).
         // Keep it on the terminal step (explicit Submit) and on an already-
         // answered step reached via Back, so the participant can move on
@@ -593,9 +599,10 @@ export function initSolo(opts) {
             || (isRadioChoice(current) && !terminal && !hasSelection(current)
                 && !!current.querySelector('input[type=radio][required]'));
         okBtn.style.display = hideOk ? 'none' : '';
+        // Text, not markup: nav.submit can be the study's own label.
         okBtn.innerHTML = terminal
-            ? t('nav.submit', 'Submit') + ' <i class="fa fa-paper-plane" aria-hidden="true"></i>'
-            : t('nav.ok', 'OK') + ' <i class="fa fa-check" aria-hidden="true"></i>';
+            ? escapeHtml(t('nav.submit', 'Submit')) + ' <i class="fa fa-paper-plane" aria-hidden="true"></i>'
+            : escapeHtml(t('nav.ok', 'OK')) + ' <i class="fa fa-check" aria-hidden="true"></i>';
         hintEl.textContent = hintFor(current);
     }
     function updateProgress() {
@@ -733,7 +740,8 @@ export function initSolo(opts) {
                 return;
             }
             if (t.closest && t.closest('.ts-wrapper')) return;
-            if (t.tagName === 'BUTTON') return;   // the button activates itself
+            // A button or link activates itself (a link in a note, say).
+            if (t.closest && t.closest('button, a[href]')) return;
             e.preventDefault();
             onContinue(true);
             return;

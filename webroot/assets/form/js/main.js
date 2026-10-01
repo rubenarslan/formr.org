@@ -195,9 +195,10 @@ function initForm() {
         const p = pages[i];
         const pageNum = p ? Number(p.dataset.fmrPage) : null;
         if (pageNum) rememberPage(unitSessionId, pageNum);
-        updatePageProgress(pageNum);
+        const ps = nav();   // one snapshot of the form for both
+        updatePageProgress(pageNum, ps);
         if (p) {
-            applyNav(p);
+            applyNav(p, ps);
             observeItems(p);
             if (isSolo) {
                 if (soloController) soloController.onPageShown(p);
@@ -1653,13 +1654,19 @@ function initForm() {
             getCurrentIndex: () => currentIndex,
             showPage,
             submitPage,
-            validate: validatePageAndShowFeedback,
-            pageNav: {
-                isLastPage: (pageEl) => nav().isLastShown(Number(pageEl.dataset.fmrPage)),
-                previousPageIndex: (pageEl) => {
-                    const prev = nav().previousOf(Number(pageEl.dataset.fmrPage));
-                    return prev == null ? -1 : pageIndexOf(prev);
-                },
+            // Clear a server-set error first, as the page submit does: solo
+            // validates every step on OK, and a fix that fires no `input` on
+            // the flagged control (a re-recorded file) would leave the step
+            // invalid for good.
+            validate: (el) => { clearCustomValidity(el); return validatePageAndShowFeedback(el); },
+            // Where a page stands, from one snapshot of the form: whether it
+            // is the last shown page, and the index of the page Previous
+            // goes to (-1: none).
+            pageNav: (pageEl) => {
+                const ps = nav();
+                const num = Number(pageEl.dataset.fmrPage);
+                const prev = ps.previousOf(num);
+                return { isLast: ps.isLastShown(num), previousIndex: prev == null ? -1 : pageIndexOf(prev) };
             },
         });
     }
