@@ -119,8 +119,8 @@ export function initAutoSubmit({ root, pages, getCurrentIndex, submitPage }) {
         });
     });
 
+    // Every page as it is shown, the first one included: main.js showPage
+    // announces the page the participant lands on, so the clock starts when
+    // that page appears, whichever it is.
     document.addEventListener('fmr:pagechange', () => arm(pages[getCurrentIndex()]));
-    // Initial page: showPage(0) at init doesn't dispatch fmr:pagechange
-    // (index didn't change), so arm explicitly.
-    arm(pages[getCurrentIndex()]);
 }

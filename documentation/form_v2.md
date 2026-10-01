@@ -109,6 +109,8 @@ The hidden field is resolved on the server; the resolved scalar is written into 
 
 A hidden item resolves when its page is shown, against the answers of earlier pages — its own page's answers are still empty then. If its R names another item of this survey, it is computed again whenever its page is resolved again — after the participant went back and changed that answer, say — and the new result replaces the old one. Any other value is computed once and kept: `sticky` and earlier entries, another survey's data, a value that names only itself, a `sample()` — so a random assignment is not drawn again on every revisit.
 
+**A page of nothing but hidden items is never shown.** Its values are computed against the answers given so far and stored with the submit of the last shown page before it — so hidden items after the final submit button are computed from every answer and stored with the final page. Hidden items before the first shown page are computed when the form opens (their values can decide which pages show) and stored with the first page's submit.
+
 A hidden item is posted by the browser, so a participant (or a bot) can change it, and it is submitted empty if the page's dynamic content could not be loaded (network, rate limit, offline). Nothing on the form is secret: a value participants must not see (their experimental condition, say) belongs outside the form, for example in an earlier survey of the run, and must not be referenced from a showif.
 
 ### Page-scoped resolution

@@ -75,3 +75,31 @@ test('store: merge a reply, mark a queued submission, expose values', () => {
     assert.equal(store.items.q1.hidden, false);
     assert.deepEqual(store.values(), { q1: null, q2: ['a', 'b'] });
 });
+
+test('a page of hidden items is never shown and rides with a shown page', () => {
+    const calc = (name) => it(name, { visible: false, automatic: true });
+    const s = [
+        { page: 1, items: [calc('group')] },
+        { page: 2, items: [it('q1')] },
+        { page: 3, items: [calc('score')] },
+        { page: 4, items: [it('q2', { visible: false })] },
+        { page: 5, items: [it('q3')] },
+        { page: 6, items: [calc('total'), it('gone', { visible: false })] },
+    ];
+    const ps = pageState(s, createStore(block({})), null, true);
+    assert.deepEqual(ps.shownPages, [2, 5]);
+    assert.deepEqual(ps.automaticPages, [1, 3, 6]);
+    assert.deepEqual(ps.ridersOf(2), [1, 3], 'leading pages go with the first shown page');
+    assert.deepEqual(ps.ridersOf(5), [6], 'trailing pages go with the final submit');
+    assert.equal(ps.nextAfter(5), null, 'a trailing hidden page does not make page 5 non-final');
+    assert.equal(ps.currentPage, 2);
+});
+
+test('nothing shown: every automatic page rides with the first page', () => {
+    const calc = (name) => it(name, { visible: false, automatic: true });
+    const s = [{ page: 1, items: [calc('a')] }, { page: 2, items: [calc('b')] }];
+    const ps = pageState(s, createStore(block({})), null, false);
+    assert.deepEqual(ps.shownPages, []);
+    assert.equal(ps.currentPage, 1);
+    assert.deepEqual(ps.ridersOf(1), [2], 'page 1 is submitted itself');
+});

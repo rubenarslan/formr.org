@@ -3,6 +3,7 @@
 // study placed as a Form in its own run, followed by a Stop page.
 //   v2_dynamic  e2e_v2_dynamic.json → run e2e-dyn-v2     (v2-dynamic.spec.js)
 //   v2_inputs   e2e_v2_inputs.json  → run e2e-inputs-v2  (v2-inputs.spec.js)
+//   v2_hidden   e2e_v2_hidden.json  → run e2e-hidden-v2  (v2-hidden-pages.spec.js)
 //   all_widgets_v2  documentation/example_surveys/all_widgets_v2.json
 //                   → run e2e-awv2    (v2-finish.spec.js)
 // Idempotent: a fixture whose run already exists is skipped. Uses the robot
@@ -22,6 +23,11 @@ const FIXTURES = [
         run: 'e2e-inputs-v2', study: 'e2e_v2_inputs', json: 'e2e_v2_inputs.json',
         // #322: the study's own navigation wording
         after: (sid) => `UPDATE survey_studies SET next_button_label = 'Onward', submit_button_label = 'Finish now' WHERE id = ${sid}`,
+    },
+    {
+        run: 'e2e-hidden-v2', study: 'e2e_v2_hidden', json: 'e2e_v2_hidden.json',
+        // Previous: the spec changes an earlier answer.
+        after: (sid) => `UPDATE survey_studies SET allow_previous = 1 WHERE id = ${sid}`,
     },
     // The committed example itself, not a copy: the walk-through test keeps
     // the showcase honest.

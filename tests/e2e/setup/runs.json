@@ -36,6 +36,9 @@
   "v2_inputs": {
     "v2": { "run": "e2e-inputs-v2", "study": "e2e_v2_inputs" }
   },
+  "v2_hidden": {
+    "v2": { "run": "e2e-hidden-v2", "study": "e2e_v2_hidden" }
+  },
   "all_widgets_v2": {
     "v2": { "run": "e2e-awv2", "study": "all_widgets_v2" }
   }

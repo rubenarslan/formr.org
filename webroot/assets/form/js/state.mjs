@@ -58,9 +58,11 @@ export function createStore(block) {
 
 // Which page to show, from a snapshot of the document.
 //
-//   snapshot: [{ page: N, items: [{ name, visible, answerable }] }] in
-//     document order — one entry per <section data-fmr-page>; `visible` is
-//     the live showif result, `answerable` whether the item takes input.
+//   snapshot: [{ page: N, items: [{ name, visible, answerable, automatic }] }]
+//     in document order — one entry per <section data-fmr-page>; `visible`
+//     is the live showif result, `answerable` whether the item takes input,
+//     `automatic` an item with nothing to show whose value is still stored
+//     (a `hidden` item its showif does not hide).
 //   store: createStore()'s result (answered / saved per name).
 //   remembered: the page the browser last showed (localStorage), or null.
 //   allowPrevious: the study's flag.
@@ -80,6 +82,20 @@ export function pageState(snapshot, store, remembered, allowPrevious) {
         const open = shown.find((p) => p.items.some((it) => it.visible && it.answerable && !answered(it.name)));
         current = open ? open.page : (shownPages.length ? shownPages[shownPages.length - 1] : (snapshot[0] ? snapshot[0].page : null));
     }
+    // A page with nothing to show but values to store — `hidden` items, the
+    // v2 stand-in for `calculate` — is never shown. It goes with a shown
+    // page's submit: the last shown page before it, else the first one after
+    // it, else (nothing is shown at all) the form's first page.
+    const automaticPages = snapshot
+        .filter((p) => !p.items.some((it) => it.visible) && p.items.some((it) => it.automatic))
+        .map((p) => p.page);
+    const hostOf = (q) => {
+        const before = shownPages.filter((n) => n < q);
+        if (before.length) return before[before.length - 1];
+        const after = shownPages.find((n) => n > q);
+        if (after != null) return after;
+        return snapshot[0] ? snapshot[0].page : null;
+    };
     const nextAfter = (p) => {
         const later = shownPages.filter((n) => n > Number(p));
         return later.length ? later[0] : null;
@@ -95,6 +111,9 @@ export function pageState(snapshot, store, remembered, allowPrevious) {
         isShown,
         nextAfter,
         previousOf,
+        automaticPages,
+        // The automatic pages a submit of page p carries.
+        ridersOf: (p) => automaticPages.filter((q) => q !== Number(p) && hostOf(q) === Number(p)),
         isFirstShown: (p) => shownPages.length > 0 && shownPages[0] === Number(p),
         isLastShown: (p) => shownPages.length > 0 && shownPages[shownPages.length - 1] === Number(p),
         // Position of a page among the shown ones: {index (1-based), total}.

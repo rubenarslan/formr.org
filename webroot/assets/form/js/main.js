@@ -85,6 +85,10 @@ function initForm() {
     claimPendingShowifControls(root);
 
     let currentIndex = 0;
+    // No page has been shown yet: the first showPage announces its page
+    // (fmr:pagechange) even when it is index 0, so per-page widgets (the
+    // timed auto-submit) arm on the page the participant actually lands on.
+    let pageShown = false;
     // Solo step controller (layout=solo). Assigned after submitPage is defined;
     // showPage() calls its onPageShown hook so a page swap re-seats stepping.
     let soloController = null;
@@ -177,7 +181,8 @@ function initForm() {
     };
 
     const showPage = (i) => {
-        const changed = (i !== currentIndex);
+        const changed = (i !== currentIndex) || !pageShown;
+        pageShown = true;
         pages.forEach((p, idx) => { p.hidden = (idx !== i); });
         currentIndex = i;
         const shownNum = pages[i] ? Number(pages[i].dataset.fmrPage) : NaN;
@@ -407,7 +412,9 @@ function initForm() {
     // live showif result (`.hidden` is what Alpine toggles, showif/alpine.js
     // applyVisibility) and whether they take input (the server's word, from
     // the state block: a rank item's inputs are all type=hidden, a note's
-    // is too). A submit item is the page's button, not content.
+    // is too). A submit item is the page's button, not content. A `hidden`
+    // item is never visible, whatever its showif says; unless the showif
+    // hides it, it is automatic: its value is stored with a page submit.
     const itemNameOf = (wrapper) => {
         const inp = wrapper.querySelector('input[name]:not([name^="_item_views"]), select[name], textarea[name]');
         if (!inp) return null;
@@ -419,10 +426,13 @@ function initForm() {
             .filter((el) => !el.classList.contains('item-submit'))
             .map((el) => {
                 const name = itemNameOf(el);
+                const typeHidden = el.classList.contains('item-hidden');
+                const showifHidden = (el.hasAttribute('x-showif') || el.hasAttribute('data-showif')) && isItemHidden(el);
                 return {
                     name,
-                    visible: !isItemHidden(el),
+                    visible: !typeHidden && !isItemHidden(el),
                     answerable: !!(name && store.items[name] && store.items[name].answerable),
+                    automatic: typeHidden && !!name && !showifHidden,
                 };
             }),
     }));
@@ -1080,7 +1090,11 @@ function initForm() {
         }
         setSaveState('saving', t('save.saving', 'Saving…'), 0);
         const pageNum = Number(page.dataset.fmrPage) || (currentIndex + 1);
-        const nextPage = nav().nextAfter(pageNum);
+        // The automatic pages this submit carries, computed from the answers
+        // just given — before the next page is chosen, which they can move.
+        await settleAutomaticPages((ps) => ps.ridersOf(pageNum));
+        const settled = nav();
+        const nextPage = settled.nextAfter(pageNum);
         // `hidden`: every item the form hides right now, all pages. `final`:
         // no shown page follows this one, so the server may end the form
         // once every required item is answered.
@@ -1088,6 +1102,10 @@ function initForm() {
             { page: pageNum, unit_session_id: unitSessionId, hidden: hiddenItemIds(), final: nextPage == null },
             collectPayload(page)
         );
+        settled.ridersOf(pageNum).forEach((n) => {
+            const rider = pageByNum(n);
+            if (rider) Object.assign(payload.data, collectAnswers(rider, root));
+        });
         // The next page's R content does not depend on this submit's reply
         // (it resolves against the answers posted now): fetch it alongside
         // the POST, so the page transition waits for the slower of the two
@@ -1422,6 +1440,27 @@ function initForm() {
         showPage(idx);
         try { history.pushState(null, '', pageHref(pageNum)); } catch (e) { /* noop */ }
     };
+    // Resolve the R values of the automatic pages `pick` names (pageState:
+    // ridersOf, automaticPages) against the answers as they are now, until
+    // it names no page not yet resolved: a value can flip a showif, which
+    // moves the next shown page and with it the pages riding along. Bounded
+    // like a submit's own wait; a slow server sends what has arrived.
+    const settleAutomaticPages = async (pick) => {
+        const done = new Set();
+        const deadline = Date.now() + SUBMIT_RESOLVE_WAIT_MS;
+        for (;;) {
+            const due = pick(nav()).filter((n) => !done.has(n) && hasDynamicContent(pageByNum(n)));
+            const left = deadline - Date.now();
+            if (!due.length || left <= 0) return;
+            due.forEach((n) => done.add(n));
+            await Promise.race([
+                Promise.all(due.map((n) => resolvePage(n))),
+                new Promise((ok) => setTimeout(ok, left)),
+            ]);
+            // The showifs reading those values re-run asynchronously.
+            await new Promise((ok) => setTimeout(ok, 0));
+        }
+    };
 
     // Single-flight guard: a rapid double-tap / Enter-repeat on Next must not
     // fire two page POSTs. Solo already guards via the controller's
@@ -1648,10 +1687,24 @@ function initForm() {
     // and its first evaluations have settled (they resolve asynchronously);
     // choosing earlier would see every showif item as hidden and step over
     // a page made of them.
+    //
+    // Automatic pages before the first shown page (all of them when none is
+    // shown) whose values are not stored yet are resolved first: their
+    // values can decide which pages show (a random group a later showif
+    // reads).
+    const automaticStored = (n) => Array.from(pageByNum(n).querySelectorAll('.item-hidden')).every((el) => {
+        const name = itemNameOf(el);
+        return !name || !!(store.items[name] && store.items[name].saved);
+    });
+    const leadingAutomatic = (ps) => {
+        const first = ps.shownPages.length ? ps.shownPages[0] : Infinity;
+        return ps.automaticPages.filter((n) => n < first && !automaticStored(n));
+    };
     let initialPageOpened = false;
-    const openInitialPage = () => {
+    const openInitialPage = async () => {
         if (initialPageOpened) return;
         initialPageOpened = true;
+        if (alpineStarted) await settleAutomaticPages(leadingAutomatic);
         const ps = nav();
         const paramPage = Number(new URLSearchParams(window.location.search).get('page'));
         // Without allow_previous an earlier page is never offered (the
