@@ -1518,6 +1518,10 @@ function initForm() {
     // How long a page submit waits for an autosave already on the wire.
     const AUTOSAVE_WAIT_MS = 5000;
     let lastSaveAt = 0, saveTimer = null, savePending = false;
+    // The page the pending change was made on. The flush can come after the
+    // participant has left it (Previous, solo Back, browser Back), and must
+    // still save that page, not the one on screen.
+    let savePage = null;
     // The in-flight autosave request (resolves once the server has replied,
     // i.e. written). A page submit waits for it: an autosave sent before the
     // participant's last edit and landing after the submit would overwrite
@@ -1536,11 +1540,12 @@ function initForm() {
         if (savePending) window.addEventListener('beforeunload', beforeUnloadGuard);
         else window.removeEventListener('beforeunload', beforeUnloadGuard);
     };
-    // The JSON body of an autosave of the current page, or null when it has
-    // no answers. doc + seq: the server drops this autosave if a page submit
-    // of this document numbered above it has already landed.
+    // The JSON body of an autosave of the page the pending change was made on
+    // (the current page when none is recorded), or null when it has no
+    // answers. doc + seq: the server drops this autosave if a page submit of
+    // this document numbered above it has already landed.
     const autosaveBody = () => {
-        const page = pages[currentIndex];
+        const page = savePage || pages[currentIndex];
         const payload = page ? collectPayload(page) : null;
         if (!payload || !payload.data || Object.keys(payload.data).length === 0) return null;
         return JSON.stringify({ data: payload.data, item_views: payload.item_views, unit_session_id: unitSessionId, doc: payload.doc, seq: payload.seq });
@@ -1555,6 +1560,7 @@ function initForm() {
         if (pageSubmitInFlight) return;
         const body = autosaveBody();
         savePending = false;
+        savePage = null;
         // Nothing to save: don't strand the guard. Otherwise the flush is
         // starting, and keepalive completes the in-flight send.
         updateUnloadGuard();
@@ -1588,6 +1594,7 @@ function initForm() {
     const cancelPendingAutosave = () => {
         if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
         savePending = false;
+        savePage = null;
         updateUnloadGuard();
     };
     const schedulePersist = () => {
@@ -1610,22 +1617,22 @@ function initForm() {
             if (!(t instanceof Element) || !t.name) return;
             if (t.name.startsWith('_item_views')) return;   // tracking inputs, not answers
             if (t.type === 'file') return;                  // files ride the explicit submit
+            savePage = t.closest('[data-fmr-page]') || savePage;
             schedulePersist();
         });
         // A breakoff right before leaving must not lose the last unsaved change.
-        // sendBeacon survives unload where fetch may not; fall back to a keepalive flush.
+        // sendBeacon survives unload where fetch may not; fall back to a keepalive
+        // flush (which needs the change still pending, so it goes first).
         const beaconFlush = () => {
             if (!savePending || !saveUrl) return;
+            if (!navigator.sendBeacon) { flushPersist(); return; }
             const body = autosaveBody();
             if (body === null) return;
             savePending = false;
+            savePage = null;
             updateUnloadGuard();
             try {
-                if (navigator.sendBeacon) {
-                    navigator.sendBeacon(saveUrl, new Blob([body], { type: 'application/json' }));
-                } else {
-                    flushPersist();
-                }
+                navigator.sendBeacon(saveUrl, new Blob([body], { type: 'application/json' }));
             } catch (e) { /* noop */ }
         };
         window.addEventListener('pagehide', beaconFlush);
