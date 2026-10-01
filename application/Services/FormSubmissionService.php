@@ -198,7 +198,7 @@ class FormSubmissionService {
      * items and end the unit session. A validation failure writes nothing and returns the errors.
      *
      * @param array $payload from readPayload
-     * @return array {status:'ok', items, complete?, missing?} or
+     * @return array {status:'ok', items, complete?, redirect?, missing?} or
      *   {status:'errors', errors: name => message}
      */
     public function apply(array $payload) {
@@ -238,11 +238,17 @@ class FormSubmissionService {
                 // End the unit session and move the run session to its next
                 // position, under the run-session lock (RunSession::
                 // endFormUnitSession); the browser's redirect to the run URL
-                // then executes whatever comes next.
-                if (!$this->unitSession->runSession->endFormUnitSession($this->unitSession)) {
+                // then shows whatever comes next — or, when the next unit
+                // sends the participant elsewhere (an External's address, a
+                // paged survey's first page), goes there.
+                $redirect = null;
+                if (!$this->unitSession->runSession->endFormUnitSession($this->unitSession, $redirect)) {
                     throw new RuntimeException('form_v2: could not take the run-session lock to end the form');
                 }
                 $response['complete'] = true;
+                if ($redirect !== null) {
+                    $response['redirect'] = $redirect;
+                }
             }
         }
         $response['items'] = $this->storedState($names);

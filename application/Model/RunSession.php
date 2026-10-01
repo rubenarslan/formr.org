@@ -634,9 +634,13 @@ class RunSession extends Model {
      * session is no longer the current one — someone else ended it — this is
      * a no-op.
      *
+     * @param string|null $redirect set to where the next unit sends the
+     *   participant (an External's address, a paged survey's first page),
+     *   null when it sends them nowhere
      * @return bool false only when the lock could not be taken
      */
-    public function endFormUnitSession(UnitSession $unitSession) {
+    public function endFormUnitSession(UnitSession $unitSession, &$redirect = null) {
+        $redirect = null;
         if ($this->isTestingStudy()) {
             // A "Test Survey" preview: a dummy run session with no position
             // to move and nothing another process could race.
@@ -659,9 +663,16 @@ class RunSession extends Model {
             // forceMoveOn): a participant who closes the tab right after the
             // final submit must still get the Pause or Email that follows —
             // left for the redirect, it waited for a visit that may never
-            // come, and the daemon never picked it up. The redirect then only
-            // shows where the participant is.
-            $this->moveOn(false, true);
+            // come, and the daemon never picked it up. This request is not
+            // that unit's page: it runs as on a page load (PageSubmission).
+            // The redirect then only shows where the participant is — unless
+            // the next unit itself redirects (an External's address, a paged
+            // survey's first page): that is handed back, as Run::exec hands
+            // it to the browser on a v1 page.
+            $output = $this->moveOn(false, true);
+            if (is_array($output) && !empty($output['redirect'])) {
+                $redirect = (string) $output['redirect'];
+            }
             return true;
         } finally {
             $this->releaseLock($lock_name);

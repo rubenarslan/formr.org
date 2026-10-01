@@ -813,13 +813,17 @@ class RunController extends Controller {
 
     /**
      * A completed form's reply sends the browser back to the run URL, where
-     * Run::exec advances past the ended unit session.
+     * Run::exec shows the unit the run moved on to — or to where that unit
+     * sends the participant (an External's address, a paged survey's first
+     * page; set by FormSubmissionService::apply).
      */
     private function withRunRedirect(array $result) {
-        if (!empty($result['complete'])) {
-            $result['redirect'] = $this->previewContext !== null
-                ? $this->previewContext['runUrl']
-                : run_url($this->run->name);
+        if ($this->previewContext !== null) {
+            if (!empty($result['complete'])) {
+                $result['redirect'] = $this->previewContext['runUrl'];
+            }
+        } elseif (!empty($result['complete']) && empty($result['redirect'])) {
+            $result['redirect'] = run_url($this->run->name);
         }
         return $result;
     }
