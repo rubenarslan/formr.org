@@ -32,14 +32,30 @@ class SelectOrAddOne_Item extends Item {
         $this->classes_input[] = 'form-control';
     }
 
-    public function setChoices($choices) {
-        $this->choices = $choices;
-        // Hack to split choices if comma separated and have only one element
-        // ASSUMPTION: choices are not suppose to have commas (weirdo)
-        $choice = current($this->choices);
-        if (count($this->choices) == 1 && strpos($choice, ',') !== false) {
-            $this->choices = explode(',', $choice);
+    /**
+     * A choice list written in one cell: a list whose single entry holds the
+     * separator is that many choices. v2 separates with ";", the separator
+     * of a multiple answer (items/tom-select.js), so a choice may hold a
+     * comma; v1 separates with ",".
+     *
+     * @param array $choices the list as stored
+     * @param bool $formV2 the study's engine
+     * @return array
+     */
+    public static function unpackChoices(array $choices, $formV2) {
+        $choice = (string) reset($choices);
+        $separator = $formV2 ? ';' : ',';
+        if (count($choices) !== 1 || strpos($choice, $separator) === false) {
+            return $choices;
         }
+        if (!$formV2) {
+            return explode(',', $choice);
+        }
+        return array_values(array_filter(array_map('trim', explode(';', $choice)), 'strlen'));
+    }
+
+    public function setChoices($choices) {
+        $this->choices = self::unpackChoices((array) $choices, $this->formV2);
         $for_select2 = array();
 
         foreach ($this->choices AS $option) {

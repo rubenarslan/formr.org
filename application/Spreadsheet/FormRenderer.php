@@ -395,6 +395,9 @@ class FormRenderer extends SpreadsheetRenderer {
             // rendered; the browser owns visibility (processItems Step 4).
             $item = $itemFactory->make($row);
             if (!$item) continue;
+            // The items of a v2 study (SurveyStudy::getItemsWithChoices):
+            // e.g. a choice list written in one cell is split at ";".
+            $item->formV2 = true;
             $item->useVerbatimShowif();
             if (isset($row['saved'])) {
                 $this->storedItems[$item->name] = true;

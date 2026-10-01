@@ -41,6 +41,9 @@
                         <?php if (!empty($report['counts']['unsupported'])): ?>
                             <p class="text-red"><strong><?= (int) $report['counts']['unsupported'] ?> item(s) that v2 cannot run</strong>, such as <code>calculate</code> items. Replace them before moving the survey to v2 (see the list below).</p>
                         <?php endif; ?>
+                        <?php if (!empty($report['counts']['comma_lists'])): ?>
+                            <p class="text-red"><strong><?= (int) $report['counts']['comma_lists'] ?> choice list(s) written in one cell with commas.</strong> v2 separates such a list with semicolons, so each would become a single choice (see the list below).</p>
+                        <?php endif; ?>
 
                         <h4>showifs</h4>
                         <table class="table table-bordered table-condensed">
@@ -76,13 +79,16 @@
 
                         <?php
                         // "Upgrade anyway": for when the scan's showif heuristic is
-                        // wrong about one. Items v2 cannot run still block it.
-                        $fmrShowifFlagged = count(array_filter((array) ($report['flagged'] ?? []), function ($f) { return ($f['column'] ?? '') === 'showif'; }));
+                        // wrong about one, or a one-cell comma list is meant as one
+                        // choice. Items v2 cannot run still block it.
+                        $fmrShowifFlagged = count(array_filter((array) ($report['flagged'] ?? []), function ($f) {
+                            return ($f['column'] ?? '') === 'showif' || ($f['suggested_fix'] ?? '') === 'pack_with_semicolons';
+                        }));
                         if ($study->rendering_mode !== 'v2' && Config::get('form_v2_enabled') && $fmrShowifFlagged > 0): ?>
                             <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" style="margin-bottom: 1em">
                                 <input type="hidden" name="target" value="v2">
                                 <input type="hidden" name="force" value="1">
-                                <button type="submit" class="btn btn-warning" data-confirm="Move to v2 anyway? Items with a flagged showif will stay hidden in v2 until you fix them. Calculate items still have to be replaced first."><i class="fa fa-exclamation-triangle"></i> Move to v2 anyway</button>
+                                <button type="submit" class="btn btn-warning" data-confirm="Move to v2 anyway? Items with a flagged showif will stay hidden in v2 until you fix them, and a flagged one-cell list becomes a single choice. Calculate items still have to be replaced first."><i class="fa fa-exclamation-triangle"></i> Move to v2 anyway</button>
                             </form>
                         <?php endif; ?>
                         <?php if (!empty($report['flagged'])): ?>
@@ -109,6 +115,10 @@
                                             <td>
                                                 <?php if ($r['suggested_fix'] === 'bridge_hidden_item'): ?>
                                                     Add a <code>hidden</code> item whose <code>value</code> computes this in R, and use that item's name in the showif.
+                                                <?php elseif ($r['suggested_fix'] === 'pack_with_semicolons'): ?>
+                                                    If the cell lists several choices, separate them with semicolons (<code>red;green;blue</code>) or give each its own row. If it is one choice, nothing to do.
+                                                <?php elseif ($r['suggested_fix'] === 'edit_choices'): ?>
+                                                    Remove the semicolons from the choices in this choice list.
                                                 <?php elseif ($r['suggested_fix'] === 'use_hidden'): ?>
                                                     Use a <code>hidden</code> item with the same <code>value</code> instead. If only feedback or a later unit needs the result, compute it there.
                                                 <?php else: ?>

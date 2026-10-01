@@ -742,11 +742,16 @@ class AdminSurveyController extends AdminController {
         // place v1 studies break on the way to v2. So the scan's showif
         // findings stop the switch too, unless the author confirms them
         // (`force`: the scan is a heuristic and can be wrong).
-        $showifFindings = array();
+        // A choice list written in one cell with commas stops it the same way:
+        // v2 splits such a list at semicolons, so it would become one choice
+        // — unless it is one (`Berlin, Germany`), which the author confirms.
+        $showifFindings = $listFindings = array();
         if (!$unsupported && $toV2 && empty($_POST['force'])) {
             foreach (FormV2CompatScanner::scan((int) $this->study->id)['flagged'] as $f) {
                 if ($f['column'] === 'showif') {
                     $showifFindings[] = "'{$f['name']}': " . implode('; ', $f['problems']);
+                } elseif ($f['suggested_fix'] === 'pack_with_semicolons') {
+                    $listFindings[] = "'{$f['name']}': " . implode('; ', $f['problems']);
                 }
             }
         }
@@ -756,6 +761,9 @@ class AdminSurveyController extends AdminController {
         } elseif ($showifFindings) {
             alert('<strong>Not switched.</strong> These showifs do not work in v2, so their items would stay hidden. The <a href="' . admin_study_url($this->study->name, 'form_v2_compat_scan') . '">compatibility check</a> shows how to fix them, and lets you move the survey anyway if the check is wrong.<ul><li>'
                 . implode('</li><li>', array_map('h', $showifFindings)) . '</li></ul>', 'alert-danger');
+        } elseif ($listFindings) {
+            alert('<strong>Not switched.</strong> These choice lists are written in one cell with commas. v2 separates such a list with semicolons, so each would become a single choice. The <a href="' . admin_study_url($this->study->name, 'form_v2_compat_scan') . '">compatibility check</a> shows how to fix them, and lets you move the survey anyway if a cell is meant as one choice.<ul><li>'
+                . implode('</li><li>', array_map('h', $listFindings)) . '</li></ul>', 'alert-danger');
         } elseif ($toV2) {
             $this->study->adoptFormV2();
             alert('The survey now runs on v2. Test it before participants start.', 'alert-success');

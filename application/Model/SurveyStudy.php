@@ -1353,7 +1353,8 @@ class SurveyStudy extends Model
      */
     public function formV2UnsupportedItems()
     {
-        $factory = new ItemFactory(array());
+        // With the choice lists: some rules read an item's choices.
+        $factory = new ItemFactory($this->getChoices());
         $out = array();
         foreach ((array) $this->getItems() as $row) {
             // A v1 study may keep an item named like a showif helper

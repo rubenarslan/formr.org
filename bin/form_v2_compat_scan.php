@@ -72,6 +72,8 @@ if (!empty($report['flagged'])) {
             'rewrite_in_js' => 'rewrite the showif in JS (or move the R into a hidden item\'s `value`)',
             'bridge_hidden_item' => 'compute the value in a hidden item\'s `value` (R) and reference that item from the showif',
             'use_hidden' => 'replace it: a `hidden` item with the same `value` if the form needs it, else compute it in the R of the unit that uses it',
+            'edit_choices' => 'remove the semicolons from the choices in this choice list',
+            'pack_with_semicolons' => 'if the cell lists several choices, separate them with semicolons (red;green;blue) or give each its own row; if it is one choice, nothing to do',
         ];
         echo "    fix:        " . ($fixes[$r['suggested_fix']] ?? $r['suggested_fix']) . "\n\n";
     }
@@ -88,6 +90,7 @@ echo "    JS-OK:                  {$cs['js_ok']}\n";
 echo "    needs JS rewrite:       {$cs['needs_js_rewrite']}\n";
 echo "    not on the form:        {$cs['not_on_form']}\n";
 echo "  not supported in v2:      {$report['counts']['unsupported']}  (blocks the switch)\n";
+echo "  one-cell comma lists:     {$report['counts']['comma_lists']}\n";
 
 $cv = $report['counts']['value'];
 echo "  value (" . array_sum($cv) . " items, R-only):\n";

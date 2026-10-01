@@ -44,7 +44,7 @@ import { initRadioDeselect } from './items/radio-deselect.js';
 import { initBotCheck, resetBotChecks } from './items/bot-check.js';
 import { initRank } from './items/rank.js';
 import { initGeopoint } from './items/geopoint.js';
-import { initTomSelects } from './items/tom-select.js';
+import { initTomSelects, splitMultiple } from './items/tom-select.js';
 import { initChooseWeekdays } from './items/choose-weekdays.js';
 import { initRequestCookie } from './items/request-cookie.js';
 import { initPwaItems } from './items/pwa.js';
@@ -871,7 +871,7 @@ function initForm() {
             // select_or_add: a tom-select built on a text input does not
             // follow a written .value — the preset would post unseen.
             const ts = target.tomselect;
-            const values = ts.settings.maxItems === 1 ? [val] : val.split(/\s*,\s*/).filter(Boolean);
+            const values = ts.settings.maxItems === 1 ? [val] : splitMultiple(val);
             values.forEach((v) => {
                 if (!ts.options[v]) ts.addOption({ [ts.settings.valueField]: v, [ts.settings.labelField]: v });
             });

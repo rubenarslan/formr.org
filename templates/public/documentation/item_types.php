@@ -253,7 +253,7 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         select_or_add_multiple <br><i>choice_list, maxType, <br>maxChoose</i>
     </dt>
     <dd>
-        like select_multiple and select_or_add_one, allows users to add options not given. <i>maxChoose</i> can be used to place an upper limit on the number of chooseable options.
+        like select_multiple and select_or_add_one, allows users to add options not given. <i>maxChoose</i> can be used to place an upper limit on the number of chooseable options. In a v2 survey, the answers are stored joined by a semicolon (<code>Berlin, Germany;Paris</code>, <code>strsplit(x, ";")</code> in R), so a choice must not contain one; the classic engine joins them by commas. Both select_or_add types also take their whole choice list in one cell, separated by semicolons in v2 (<code>red;green;blue</code>) and by commas in the classic engine.
     </dd>
     <dt>
         rank <br><i>choice_list, random, touch</i>

@@ -24,18 +24,35 @@ class FormV2CompatScannerScanTest extends \PHPUnit\Framework\TestCase {
             optional INTEGER DEFAULT 1, class TEXT, showif TEXT,
             value TEXT, "order" INTEGER, item_order INTEGER, block_order TEXT,
             deleted TEXT DEFAULT NULL)');
+        $this->db->exec('DROP TABLE IF EXISTS survey_item_choices');
+        $this->db->exec('CREATE TABLE survey_item_choices (
+            id INTEGER PRIMARY KEY, study_id INTEGER, list_name TEXT, name TEXT,
+            label TEXT, label_parsed TEXT)');
+        $this->db->exec('DROP TABLE IF EXISTS survey_studies');
+        $this->db->exec("CREATE TABLE survey_studies (id INTEGER PRIMARY KEY, rendering_mode TEXT DEFAULT 'v1')");
+        $this->db->exec('INSERT INTO survey_studies (id) VALUES (' . self::STUDY_ID . ')');
     }
 
     protected function tearDown(): void {
-        $this->db->exec('DROP TABLE IF EXISTS survey_items');
+        foreach (array('survey_items', 'survey_item_choices', 'survey_studies') as $t) {
+            $this->db->exec("DROP TABLE IF EXISTS $t");
+        }
     }
 
+    private function seedChoices(array $choices): void {
+        $stmt = $this->db->pdo()->prepare('INSERT INTO survey_item_choices (study_id, list_name, name, label) VALUES (:study, :list, :name, :label)');
+        foreach ($choices as $c) {
+            $stmt->execute(array(':study' => self::STUDY_ID, ':list' => $c[0], ':name' => $c[1], ':label' => $c[2]));
+        }
+    }
+
+    /** Rows: name, type, showif, value, deleted, choice_list. */
     private function seed(array $rows, $studyId = self::STUDY_ID): void {
-        $stmt = $this->db->pdo()->prepare('INSERT INTO survey_items (study_id, name, type, showif, value, "order", deleted)
-            VALUES (:study, :name, :type, :showif, :value, :ord, :deleted)');
+        $stmt = $this->db->pdo()->prepare('INSERT INTO survey_items (study_id, name, type, choice_list, showif, value, "order", deleted)
+            VALUES (:study, :name, :type, :list, :showif, :value, :ord, :deleted)');
         foreach (array_values($rows) as $i => $r) {
             $stmt->execute(array(
-                ':study' => $studyId, ':name' => $r[0], ':type' => $r[1],
+                ':study' => $studyId, ':name' => $r[0], ':type' => $r[1], ':list' => $r[5] ?? null,
                 ':showif' => $r[2] ?? null, ':value' => $r[3] ?? null,
                 ':ord' => $i + 1, ':deleted' => !empty($r[4]) ? '2026-09-01 10:00:00' : null,
             ));
@@ -101,6 +118,51 @@ class FormV2CompatScannerScanTest extends \PHPUnit\Framework\TestCase {
         $flagged = $this->flaggedBy($report);
         $this->assertSame(array('score/type'), array_keys($flagged));
         $this->assertSame('use_hidden', $flagged['score/type']['suggested_fix']);
+    }
+
+    public function testASemicolonInASelectOrAddMultipleChoiceIsFlagged() {
+        $this->seed(array(
+            array('places', 'select_or_add_multiple', null, null, false, 'places'),
+            array('cities', 'select_or_add_multiple', null, null, false, 'cities'),
+        ));
+        $this->seedChoices(array(array('places', '1', 'Berlin; Germany'), array('places', '2', 'Paris'),
+            array('cities', '1', 'Berlin, Germany'), array('cities', '2', 'Rome')));
+        $report = FormV2CompatScanner::scan(self::STUDY_ID);
+        $this->assertSame(1, $report['counts']['unsupported'], 'a comma is fine; the semicolon separates answers');
+        $flagged = $this->flaggedBy($report);
+        $this->assertSame(array('places/choice_list'), array_keys($flagged));
+        $this->assertSame('edit_choices', $flagged['places/choice_list']['suggested_fix']);
+        $this->assertStringContainsString('Berlin; Germany', $flagged['places/choice_list']['problems'][0]);
+    }
+
+    public function testAOneCellListIsSplitAtSemicolonsInV2() {
+        $this->seed(array(
+            array('colours', 'select_or_add_multiple', null, null, false, 'colours'),
+            array('city', 'select_or_add_one', null, null, false, 'city'),
+            array('packed', 'select_or_add_multiple', null, null, false, 'packed'),
+        ));
+        $this->seedChoices(array(array('colours', '1', 'red,green,blue'), array('city', '1', 'Berlin, Germany'),
+            array('packed', '1', 'red;green, light;blue')));
+        $report = FormV2CompatScanner::scan(self::STUDY_ID);
+        $this->assertSame(0, $report['counts']['unsupported'], 'a one-cell list with semicolons is a list, not a choice with one');
+        $this->assertSame(2, $report['counts']['comma_lists']);
+        $flagged = $this->flaggedBy($report);
+        $this->assertSame(array('colours/choice_list', 'city/choice_list'), array_keys($flagged));
+        $this->assertSame('pack_with_semicolons', $flagged['colours/choice_list']['suggested_fix']);
+        $this->assertStringContainsString('into 3 choices', $flagged['colours/choice_list']['problems'][0]);
+
+        $this->db->exec("UPDATE survey_studies SET rendering_mode = 'v2'");
+        $report = FormV2CompatScanner::scan(self::STUDY_ID);
+        $this->assertSame(0, $report['counts']['comma_lists'], 'on v2 a lone "Berlin, Germany" is one choice, as meant');
+        $this->assertSame(array(), $report['flagged']);
+    }
+
+    public function testUnpackChoicesByEngine() {
+        $this->assertSame(array('red', 'green'), SelectOrAddOne_Item::unpackChoices(array(1 => 'red,green'), false));
+        $this->assertSame(array(1 => 'red,green'), SelectOrAddOne_Item::unpackChoices(array(1 => 'red,green'), true));
+        $this->assertSame(array('Berlin, Germany', 'Paris'), SelectOrAddOne_Item::unpackChoices(array(1 => 'Berlin, Germany; Paris;'), true));
+        $two = array(1 => 'a;b', 2 => 'c');
+        $this->assertSame($two, SelectOrAddOne_Item::unpackChoices($two, true), 'only a single entry is a one-cell list');
     }
 
     public function testEachRTokenIsReportedOnItsOwn() {

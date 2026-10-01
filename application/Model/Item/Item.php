@@ -188,9 +188,11 @@ class Item {
     }
     /**
      * Set on the items of a form_v2 study when they are made
-     * (SurveyStudy::getItemsWithChoices). v2 stores a multiple choice's
-     * value "0" (replyValues); v1 keeps dropping it, as it always has, so
-     * results of running v1 studies do not change shape.
+     * (SurveyStudy::getItemsWithChoices, FormRenderer). v2 stores a multiple
+     * choice's value "0" (replyValues); v1 keeps dropping it, as it always
+     * has, so results of running v1 studies do not change shape. A choice
+     * list written in one cell is split at ";" in v2, at "," in v1
+     * (SelectOrAddOne_Item::unpackChoices).
      */
     public $formV2 = false;
 

@@ -13,6 +13,12 @@
 
 import TomSelect from 'tom-select';
 
+// select_or_add_multiple joins its entries with ";", not v1's ",": a choice
+// may contain a comma (a place, "Berlin, Germany"); a semicolon is refused
+// at upload instead (SelectOrAddMultiple_Item::formV2Unsupported).
+export const MULTIPLE_DELIMITER = ';';
+export const splitMultiple = (raw) => String(raw).split(/[;\n]/).map((s) => s.trim()).filter(Boolean);
+
 export function initTomSelects(root) {
     initPlainSelects(root);
     initSelectOrAdd(root);
@@ -51,11 +57,13 @@ function initSelectOrAdd(root) {
             wrapper.classList.contains('ratgeber_class') ||
             wrapper.classList.contains('cant_add_choice')
         ));
-        // Seed pre-existing values (back-nav / fill). v1 multi stored as
-        // comma-separated; v1 multi getReply re-joined with \n server-side.
+        // Seed pre-existing values (back-nav / fill). A multiple answer is
+        // its entries joined by MULTIPLE_DELIMITER (the input's value, so
+        // what is posted and stored); "\n" is how the server joins an
+        // array reply (SelectOrAddMultiple_Item::getReply).
         const existingRaw = inp.value || '';
         const items = existingRaw
-            ? (multiple ? existingRaw.split(/[,\n]/).map((s) => s.trim()).filter(Boolean) : [existingRaw.trim()])
+            ? (multiple ? splitMultiple(existingRaw) : [existingRaw.trim()])
             : [];
         items.forEach((val) => {
             if (!options.some((o) => o.id === val)) options.push({ id: val, text: val });
@@ -71,6 +79,9 @@ function initSelectOrAdd(root) {
                 persist: false,
                 openOnFocus: true, // focusing the control opens the dropdown (single AND multiple)
                 maxItems: multiple ? (maxItems > 0 ? maxItems : null) : 1,
+                delimiter: multiple ? MULTIPLE_DELIMITER : ',',
+                // An entry with the delimiter in it would come back as two.
+                createFilter: multiple ? (input) => !input.includes(MULTIPLE_DELIMITER) : null,
                 plugins: multiple ? ['remove_button'] : [],
                 maxOptions: 500,
                 onInitialize() {
@@ -86,24 +97,18 @@ function initSelectOrAdd(root) {
     });
 }
 
-// v1 packs comma-separated choice strings into single {id,text} entries;
-// flatten so each comma-separated token becomes its own option and
-// tom-select can search them individually.
+// The choices as tom-select options. A list written in one cell arrives
+// already split (SelectOrAddOne_Item::unpackChoices, at ";" in v2), so every
+// entry is one choice, commas and all.
 function parseChoices(inp) {
     const out = [];
     try {
         const raw = inp.dataset.select2add;
         if (raw) {
             const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-            // Only a lone entry is a packed list (SelectOrAddOne_Item::
-            // setChoices' own rule); splitting every entry broke a real
-            // choice like "Berlin, Germany" into two options.
-            const packed = parsed.length === 1;
             parsed.forEach((opt) => {
-                (packed ? String(opt.id || '').split(',') : [String(opt.id || '')]).forEach((tok) => {
-                    const trimmed = tok.trim();
-                    if (trimmed) out.push({ id: trimmed, text: trimmed });
-                });
+                const choice = String(opt.id || '').trim();
+                if (choice) out.push({ id: choice, text: choice });
             });
         }
     } catch (e) {

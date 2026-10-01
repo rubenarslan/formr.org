@@ -181,6 +181,7 @@ When **Offline queue** is on (the default), a page submission that fails — no 
 Beyond the rendering model:
 
 - **A choice value `0` is stored in multiple-choice answers.** In `mc_multiple`, `mc_multiple_button`, `select_multiple` and `select_or_add_multiple`, v1 drops a ticked choice whose value is `0` (ticking 0 and 2 stores `2`); v2 stores `0, 2`. Switching a study to v2 widens those results columns where they were sized without the `0`. Studies on v1 keep storing as before.
+- **`select_or_add_multiple` separates its answers with semicolons** (`Berlin, Germany;Paris`), so a choice may contain a comma. A choice containing a semicolon is refused when the survey is uploaded to v2 or switched to it. A `select_or_add_one` or `select_or_add_multiple` choice list written in one cell is split at semicolons too (`red;green;blue`). v1 keeps separating both with commas; the compatibility check flags a v1 list written in one cell with commas, which would be a single choice on v2.
 - **Clearing an answer withdraws it.** When a participant empties a field or deselects a choice, the next autosave removes the answer stored earlier (from both the item table and the results table), so it neither comes back after a reload nor stays in the data if they break off.
 
 - **New item types**: `rank` (drag-to-order list) and `bot_check` (a proof-of-work human check, ALTCHA-style, no third party). Both are v2-only. `visual_analog_scale` renders on both engines. See `templates/public/documentation/item_types.php` for the item reference.

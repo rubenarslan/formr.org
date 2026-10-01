@@ -38,7 +38,15 @@ class FormV2CompatScanner {
             ->order('`order`', 'asc')
             ->fetchAll();
 
-        $itemFactory = new ItemFactory([]);
+        // With the choice lists: a rule can read an item's choices
+        // (SelectOrAddMultiple_Item::formV2Unsupported).
+        $choiceLists = [];
+        foreach ((array) $db->select('list_name, name, label')->from('survey_item_choices')
+                ->where(['study_id' => (int) $studyId])->order('id', 'ASC')->fetchAll() as $c) {
+            $choiceLists[$c['list_name']][$c['name']] = $c['label'];
+        }
+        $itemFactory = new ItemFactory($choiceLists);
+        $onV2 = $db->findValue('survey_studies', ['id' => (int) $studyId], 'rendering_mode') === 'v2';
         $formNames = [];
         foreach ((array) $items as $row) {
             if (empty($row['deleted'])) {
@@ -57,6 +65,11 @@ class FormV2CompatScanner {
             // and other server-computed values). The switch to v2 refuses a
             // study with any of these.
             'unsupported' => 0,
+            // select_or_add choice lists written in one cell with commas: v1
+            // splits them at the commas, v2 at semicolons
+            // (SelectOrAddOne_Item::unpackChoices). Only counted on v1, where
+            // the switch would turn the list into one choice.
+            'comma_lists' => 0,
             // value is R-only — every non-empty, non-numeric value is
             // routed through the allowlist as R. Buckets describe how the
             // entry will be handled, not whether it's valid.
@@ -91,7 +104,23 @@ class FormV2CompatScanner {
             // ---- the item itself ----
             if ($typed && ($why = $typed->formV2Unsupported())) {
                 $counts['unsupported']++;
-                $flag('type', $raw_value, [$why], 'use_hidden');
+                if ($typed->type === 'select_or_add_multiple') {
+                    // A choice with a semicolon; this type takes input, so
+                    // the value rule never applies to it.
+                    $flag('choice_list', (string) $row['choice_list'], [$why], 'edit_choices');
+                } else {
+                    $flag('type', $raw_value, [$why], 'use_hidden');
+                }
+            } elseif (!$onV2 && $typed instanceof SelectOrAddOne_Item) {
+                $choices = (array) $typed->choices;
+                $only = (string) reset($choices);
+                if (count($choices) === 1 && strpos($only, ',') !== false && strpos($only, ';') === false) {
+                    $counts['comma_lists']++;
+                    $flag('choice_list', (string) $row['choice_list'], [
+                        'v1 splits this one-cell list at its commas into ' . count(explode(',', $only))
+                        . ' choices; v2 splits at semicolons, so it would be a single choice',
+                    ], 'pack_with_semicolons');
+                }
             }
 
             // ---- showif ----
