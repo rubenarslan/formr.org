@@ -749,15 +749,11 @@ class AdminRunController extends AdminController
 
     private function getUnitAddButtons()
     {
-        $buttons = array(
+        return array(
             'Survey' => array(
                 'title' => 'Add Survey',
                 'icon' => 'fa-pencil-square',
             ),
-        );
-
-
-        $buttons += array(
             'External' => array(
                 'title' => 'Add External Link',
                 'icon' => 'fa-external-link-square',
@@ -795,7 +791,5 @@ class AdminRunController extends AdminController
                 'icon' => 'fa-stop',
             ),
         );
-
-        return $buttons;
     }
 }
