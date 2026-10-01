@@ -312,10 +312,10 @@ class SurveyStudy extends Model
 
     /**
      * A new survey arrives on form_v2 only where the operator enabled form_v2
-     * authoring: elsewhere a v2 survey could not be placed in any run (Survey
-     * units refuse it, Add Form is hidden). The one rule for every path that
-     * creates a survey from a file — the admin upload, the API, a run-bundle
-     * import; a Form unit in a bundle still puts its survey on v2 itself.
+     * authoring. The one rule for every path that creates a survey from a
+     * file — the admin upload, the API, a run-bundle import (a Form unit in a
+     * bundle included: Run::importUnits asks for v2 through its settings, and
+     * this gate decides).
      */
     public static function engineGate(array $settings)
     {
@@ -359,9 +359,7 @@ class SurveyStudy extends Model
      * replaced); otherwise it is created. With $options['run'] set, a
      * Survey unit for the study is also placed in that run — the
      * behaviour Survey::create relies on. Pass $options['place_unit'] =
-     * false to get the study only: Form::create does, because a Form
-     * places the study through its own survey_units row and must not
-     * leave a stray Survey unit behind.
+     * false to get the study only, with no unit placed in any run.
      *
      * @param object $data  {name, items, settings?}
      * @param array $options

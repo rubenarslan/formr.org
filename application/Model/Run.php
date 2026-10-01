@@ -1620,13 +1620,11 @@ class Run extends Model
             //                  $options['survey_data']->settings is
             //                  allowlisted in SurveyStudy::createFromData
             //                  (987cfba8).
-            //   Form         — $options['study_id'] is gated by the same
-            //                  isOwnedBy check in Form::create (it does not
-            //                  inherit Survey's: it must keep its own
-            //                  survey_units row). survey_data goes through
-            //                  the same SurveyStudy::createFromData allowlist
-            //                  as Survey, with place_unit=false so the study
-            //                  is materialised but only the Form places it.
+            //   Form         — a Survey unit whose study is on v2: Form has
+            //                  no create() of its own, so study_id and
+            //                  survey_data take exactly the Survey path
+            //                  above (Survey::create's isOwnedBy check, the
+            //                  createFromData allowlist + engineGate).
             //   Email        — $options['account_id'] is gated by
             //                  Email::create's isOwnedBy check (5783f101).
             //   Pause, Page, External, Shuffle, Branch, Privacy,
