@@ -81,7 +81,7 @@ class FormSubmissionService {
             'page' => isset($src['page']) ? (int) $src['page'] : 1,
             'unit_session_id' => isset($src['unit_session_id']) ? (int) $src['unit_session_id'] : 0,
             'data' => $data,
-            'item_views' => (isset($src['item_views']) && is_array($src['item_views'])) ? $src['item_views'] : array(),
+            'item_views' => self::itemViews(isset($src['item_views']) ? $src['item_views'] : null),
             'hidden' => $hidden,
             'final' => !empty($src['final']) && $src['final'] !== 'false' && $src['final'] !== '0',
             'uuid' => isset($src['uuid']) ? (string) $src['uuid'] : '',
@@ -94,6 +94,47 @@ class FormSubmissionService {
             'raw_page' => isset($src['page']) ? $src['page'] : null,
             'raw_unit_session_id' => isset($src['unit_session_id']) ? $src['unit_session_id'] : null,
         );
+    }
+
+    /**
+     * The item-view paradata (bucket => item id => value) as the display
+     * columns take it: `shown`/`answered` a MariaDB DATETIME literal,
+     * `*_relative` a number. Anything else is dropped (the write then stamps
+     * the time itself, UnitSession::writeSurveyStudyRecord): a value the
+     * column refuses would fail the whole page's write, a 5xx the browser
+     * queues and retries with the same value for good.
+     *
+     * @param mixed $views
+     * @return array<string, array<int, string>>
+     */
+    public static function itemViews($views) {
+        $out = array();
+        if (!is_array($views)) {
+            return $out;
+        }
+        foreach (array('shown', 'answered', 'shown_relative', 'answered_relative') as $bucket) {
+            if (!isset($views[$bucket]) || !is_array($views[$bucket])) {
+                continue;
+            }
+            $relative = substr($bucket, -9) === '_relative';
+            foreach ($views[$bucket] as $itemId => $value) {
+                if (!is_scalar($value) || !preg_match('/^\d+$/', (string) $itemId)) {
+                    continue;
+                }
+                $value = (string) $value;
+                if ($relative) {
+                    $ok = is_numeric($value) && is_finite((float) $value);
+                } else {
+                    $ok = (bool) preg_match(FormSyncPayload::DATETIME_PATTERN, $value, $m)
+                        && (int) $m[1] >= 1000 && checkdate((int) $m[2], (int) $m[3], (int) $m[1])
+                        && (int) $m[4] <= 23 && (int) $m[5] <= 59 && (int) $m[6] <= 59;
+                }
+                if ($ok) {
+                    $out[$bucket][(int) $itemId] = $value;
+                }
+            }
+        }
+        return $out;
     }
 
     /**
