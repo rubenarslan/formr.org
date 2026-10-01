@@ -73,8 +73,7 @@ class Rank_Item extends Item {
 
     /** The answer is a ", "-joined list of keys, so size the column for all of them. */
     protected function chooseResultFieldBasedOnChoices() {
-        $max = implode(", ", array_keys($this->choices));
-        $this->mysql_field = 'VARCHAR (' . max(1, strlen($max)) . ') DEFAULT NULL';
+        $this->mysql_field = 'VARCHAR (' . self::joinedChoicesLength(array_keys($this->choices)) . ') DEFAULT NULL';
     }
 
     protected function choiceKeys() {
