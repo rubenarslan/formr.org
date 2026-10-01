@@ -16,6 +16,7 @@ import '@khmyznikov/pwa-install';
 
 import { t, escapeHtml, iconLabel } from '../lib/i18n.js';
 import { setProgrammaticValue, disableOwnControl } from '../lib/inputs.js';
+import { readManifest, largeIconSrc } from '../lib/manifest.js';
 
 /**
  * @param {{root: HTMLFormElement, runUrl: string}} ctx the form and its run URL
@@ -165,18 +166,10 @@ export function initPwaItems({ root, runUrl }) {
         // 2. AddToHomeScreen modal — read manifest for app name + icon
         let appName = document.title;
         let appIconUrl = '/apple-touch-icon.png';
-        if (manifestLink) {
-            try {
-                const res = await fetch(manifestLink.href);
-                if (res.ok) {
-                    const m = await res.json();
-                    appName = m.name || m.short_name || appName;
-                    if (Array.isArray(m.icons) && m.icons.length) {
-                        const big = m.icons.find((ic) => ic.sizes && (ic.sizes.includes('192x192') || ic.sizes.includes('512x512')));
-                        appIconUrl = (big && big.src) || appIconUrl;
-                    }
-                }
-            } catch (e) { /* fall back to defaults */ }
+        const m = await readManifest();
+        if (m) {
+            appName = m.name || m.short_name || appName;
+            appIconUrl = largeIconSrc(m) || appIconUrl;
         }
         try {
             // assetUrl points at the bundled add-to-homescreen image assets
@@ -312,12 +305,15 @@ export function initPwaItems({ root, runUrl }) {
         return arr;
     };
 
+    // A run action's URL: runUrl may come with or without its trailing slash.
+    const runEndpoint = (action) => (runUrl || '').replace(/\/?$/, '/') + action;
+
     const savePushSubscriptionToServer = async (subscription) => {
         if (!runUrl) return false;
         const fd = new FormData();
         fd.append('subscription', JSON.stringify(subscription));
         try {
-            const res = await fetch(runUrl + 'ajax_save_push_subscription', {
+            const res = await fetch(runEndpoint('ajax_save_push_subscription'), {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
@@ -461,7 +457,7 @@ export function initPwaItems({ root, runUrl }) {
             const sub = await registration.pushManager.getSubscription();
             if (sub) await sub.unsubscribe();
             try {
-                await fetch((runUrl || '').replace(/\/?$/, '/') + 'ajax_delete_push_subscription', {
+                await fetch(runEndpoint('ajax_delete_push_subscription'), {
                     method: 'POST',
                     credentials: 'same-origin',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },

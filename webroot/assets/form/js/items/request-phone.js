@@ -16,6 +16,7 @@
 
 import QRCodeStyling from 'qr-code-styling';
 import { t, iconLabel } from '../lib/i18n.js';
+import { readManifest, largeIconSrc } from '../lib/manifest.js';
 
 const MOBILE_UA_RE = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|webOS|IEMobile|Opera Mini/i;
 
@@ -27,18 +28,9 @@ function resumeUrl() {
 }
 
 async function logoUrlFromManifest() {
-    try {
-        const link = document.querySelector('link[rel="manifest"]');
-        if (!link) return null;
-        const res = await fetch(link.href);
-        if (!res.ok) return null;
-        const m = await res.json();
-        if (Array.isArray(m.icons) && m.icons.length) {
-            const big = m.icons.find((ic) => ic.sizes && (ic.sizes.includes('192x192') || ic.sizes.includes('512x512')));
-            return (big && big.src) || (m.icons[0] && m.icons[0].src) || null;
-        }
-    } catch (e) { /* no logo */ }
-    return null;
+    const m = await readManifest();
+    if (!m) return null;
+    return largeIconSrc(m) || (Array.isArray(m.icons) && m.icons[0] && m.icons[0].src) || null;
 }
 
 function renderQR(container, url, logoUrl) {
