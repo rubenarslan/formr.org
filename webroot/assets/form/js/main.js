@@ -69,7 +69,7 @@ import {
 import { initSolo, blockedSubmitControl } from './solo/controller.js';
 import { createStore, pageState, readRememberedPage, rememberPage, forgetPage } from './state.mjs';
 import {
-    collectAnswers, fieldKey, isItemHidden, hiddenShowifItemIds,
+    collectAnswers, fieldKey, isAnswerInput, isItemHidden, hiddenShowifItemIds,
     dispatchProgrammatic, claimPendingShowifControls,
 } from './lib/inputs.js';
 
@@ -1401,8 +1401,20 @@ function initForm() {
     const absorbReply = (body) => {
         if (!body || typeof body !== 'object') return;
         if (body.items) { store.merge(body.items); markStoredUploads(); }
+        // A name an enabled input answers keeps that input's value, as at
+        // load: the participant may have changed it since this write (a
+        // queued page drained after a revisit, an edit while the submit was
+        // on the wire), and the showifs — and the hidden list the next
+        // submit posts — must follow the screen. The reply seeds the rest:
+        // items without an input, answers retracted by hiding.
+        const live = new Set();
+        root.querySelectorAll('input[name], select[name], textarea[name]').forEach((inp) => {
+            if (isAnswerInput(inp)) live.add(fieldKey(inp.name).key);
+        });
         const values = {};
-        Object.keys(body.items || {}).forEach((name) => { values[name] = body.items[name].value; });
+        Object.keys(body.items || {}).forEach((name) => {
+            if (!live.has(name)) values[name] = body.items[name].value;
+        });
         if (Object.keys(values).length && window.Alpine) {
             try { window.Alpine.$data(root)._seed(values); } catch (e) { /* noop */ }
         }
