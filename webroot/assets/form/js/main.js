@@ -707,8 +707,10 @@ function initForm() {
             if (outcome === 'session') {
                 // No run session for this run: every entry of the run fails
                 // the same way, so back them all off together instead of
-                // burning one attempt per entry per drain.
-                for (const e of groupEntries) {
+                // burning one attempt per entry per drain. From this entry
+                // on: the ones before it were applied or dropped this pass,
+                // and putting them back would resurrect deleted entries.
+                for (const e of groupEntries.slice(groupEntries.indexOf(entry))) {
                     if (!entryIsDue(e)) continue;
                     markRetryFailure(e, { reason: 'session', status, message });
                     await queuePut(e).catch(() => {});
@@ -742,7 +744,11 @@ function initForm() {
         if (!remaining.length) {
             setSaveState('synced', t('save.synced', 'Synced'), 2500);
             showQueueBanner(t('queue.all_sent', 'All queued submissions have been sent.'), 'success');
-            setTimeout(hideQueueBanner, 3000);
+            // Only this success note: a banner shown meanwhile (a page
+            // queued, a refusal) must stay.
+            setTimeout(() => {
+                if (queueBanner && queueBanner.dataset.queueState === 'success') hideQueueBanner();
+            }, 3000);
             return;
         }
         const retryAction = { label: t('queue.retry', 'Retry now'), onClick: async (btn) => {
@@ -1640,15 +1646,16 @@ function initForm() {
     }
 
     // Drain triggers: browser-reported connectivity change + initial load (in
-    // case the tab was reloaded with entries still pending). Back online,
-    // the shown page also gets the R content a failed resolution left out.
+    // case the tab was reloaded with entries still pending; started by
+    // openInitialPage, so what it surfaces lands on the page that is shown).
+    // Back online, the shown page also gets the R content a failed
+    // resolution left out.
     window.addEventListener('online', () => {
         drainQueue();
         const shown = pages[currentIndex];
         const shownNum = shown ? Number(shown.dataset.fmrPage) : NaN;
         if (pageShown && Number.isFinite(shownNum) && !requestedPages.has(shownNum)) resolvePage(shownNum);
     });
-    drainQueue();
 
     // Service worker + add_to_home_screen / push_notification items.
     initPwaItems({ root, runUrl });
@@ -1739,6 +1746,9 @@ function initForm() {
         // returns here (popstate refuses an entry without one).
         const landed = Number(pages[currentIndex].dataset.fmrPage);
         if (landed) { try { history.replaceState(null, '', pageHref(landed)); } catch (e) { /* noop */ } }
+        // Pages left in the queue by an earlier visit: sent now that the
+        // participant is on their page, which a rejected one is shown on.
+        drainQueue();
         // Test-side signal that the form is ready: every listener is attached
         // and the participant is on their page. waitForBundle() in
         // tests/e2e/helpers/v2Form.js polls for window.fmrFormReady.
@@ -1797,6 +1807,9 @@ function initForm() {
         if (!a) return;
         let url;
         try { url = new URL(a.href, window.location.href); } catch { return; }
+        // This origin's logout only: the queue is this origin's, and a link
+        // to another site's bare /logout would read as "every run".
+        if (url.origin !== window.location.origin) return;
         // /<run>/logout on path-routed deploys, bare /logout on subdomain ones.
         if (!/(?:^|\/)logout\/?$/.test(url.pathname)) return;
         // Scope the wipe to the run being logged out: the queue DB is origin-
