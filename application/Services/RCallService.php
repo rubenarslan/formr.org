@@ -406,7 +406,12 @@ class RCallService {
             $results[$cid] = $val;
             $this->writeCache($cid, $hashes[$cid], $val);
         }
-        self::evictStale();
+        // Day-old rows are dead weight, but a DELETE on every page show is
+        // write amplification: sweep on a sample of misses, as
+        // FixedWindowRateLimiter does.
+        if (mt_rand(1, 20) === 1) {
+            self::evictStale();
+        }
         return $results;
     }
 
