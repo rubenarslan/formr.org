@@ -1087,11 +1087,21 @@ class UnitSession extends Model {
             // Stamp the layout mode this response is collected under (paradata
             // for measurement equivalence; patch 111). Captured at first render
             // so a later flip of the study's layout doesn't rewrite history.
-            $this->db->update('survey_unit_sessions',
-                ['study_iteration' => $iteration, 'layout' => $study->layout],
-                ['id' => $this->id]);
+            // Only while unstamped: two first renders of one unit session
+            // (a double load) both allocate, and the second stamp would give
+            // the session another iteration than the wide row the first one
+            // writes. The one that lost keeps the stamped value.
+            $stamped = $this->db->exec(
+                'UPDATE `survey_unit_sessions` SET `study_iteration` = :iteration, `layout` = :layout
+                 WHERE `id` = :id AND `study_iteration` IS NULL',
+                array('iteration' => $iteration, 'layout' => $study->layout, 'id' => (int) $this->id)
+            );
+            if ($stamped) {
+                $sessionStarted = true;
+            } else {
+                $iteration = (int) $this->db->findValue('survey_unit_sessions', array('id' => $this->id), 'study_iteration');
+            }
             $this->study_iteration = $iteration;
-            $sessionStarted = true;
         } else {
             $iteration = $alreadyAllocated;
             $this->study_iteration = $iteration;
@@ -1114,12 +1124,19 @@ class UnitSession extends Model {
                 if ($wideHasIteration) {
                     $entry['iteration'] = $iteration;
                 }
+                $iterationTaken = false;
                 try {
                     $this->db->insert($study->results_table, $entry);
                 } catch (Exception $e) {
-                    if (!$wideHasIteration || strpos($e->getMessage(), "for key 'iteration'") === false) {
+                    // A concurrent first render of this unit session may have
+                    // inserted the row since the check above: then it is there.
+                    $rowAppeared = $this->db->entry_exists($study->results_table, array('session_id' => $this->id, 'study_id' => $study->id));
+                    if (!$rowAppeared && (!$wideHasIteration || strpos($e->getMessage(), "for key 'iteration'") === false)) {
                         throw $e;
                     }
+                    $iterationTaken = !$rowAppeared;
+                }
+                if ($iterationTaken) {
                     // survey_studies.last_iteration lags the wide table:
                     // rows were seeded outside the allocator (e.g.
                     // bin/import-results.php inserts via AUTO_INCREMENT and
