@@ -23,7 +23,16 @@ class SelectOrAddMultiple_Item extends SelectOrAddOne_Item {
     }
 
     protected function chooseResultFieldBasedOnChoices() {
-        
+
+    }
+
+    /**
+     * One text input carries the whole answer (entries joined by ";" in v2,
+     * by line breaks from v1), so the state block gets the stored string as
+     * is — not split at ", ", which would cut an entry like "Berlin, Germany".
+     */
+    public function storedValueForClient($answer) {
+        return $answer;
     }
 
 }
