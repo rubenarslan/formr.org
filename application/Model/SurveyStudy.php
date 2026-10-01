@@ -1367,6 +1367,26 @@ class SurveyStudy extends Model
     }
 
     /**
+     * The items that keep this study off the classic v1 engine
+     * (Item::v1Unsupported: bot_check, rank), as name => reason — the rule
+     * the upload into a v1 study applies, for the switch back to v1.
+     *
+     * @return array<string, string>
+     */
+    public function v1UnsupportedItems()
+    {
+        $factory = new ItemFactory($this->getChoices());
+        $out = array();
+        foreach ((array) $this->getItems() as $row) {
+            $item = $factory->make($row);
+            if ($item && ($why = $item->v1Unsupported())) {
+                $out[(string) $item->name] = $why;
+            }
+        }
+        return $out;
+    }
+
+    /**
      * Put this study on the form_v2 engine: the one way a study gets there
      * after it exists (the admin switch, a Form unit linking it). Besides the
      * flag, the multiple-choice columns of an older results table are

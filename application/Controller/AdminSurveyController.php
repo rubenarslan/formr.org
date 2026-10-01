@@ -731,6 +731,12 @@ class AdminSurveyController extends AdminController {
             return;
         }
         $unsupported = $toV2 ? $this->study->formV2UnsupportedItems() : array();
+        // The way back has its own rule: items only v2 can run (bot_check,
+        // rank: Item::v1Unsupported) are refused at upload into a v1 study,
+        // and a switch must not bring them there either — a required
+        // bot_check could never be answered on v1.
+        $toV1 = $target === 'v1' && $this->study->rendering_mode === 'v2';
+        $v1Unsupported = $toV1 ? $this->study->v1UnsupportedItems() : array();
         // A showif the browser cannot evaluate (leftover R, a name that is not
         // on the form) keeps its item hidden for good, silently — the one
         // place v1 studies break on the way to v2. So the scan's showif
@@ -753,7 +759,10 @@ class AdminSurveyController extends AdminController {
         } elseif ($toV2) {
             $this->study->adoptFormV2();
             alert('The survey now runs on v2. Test it before participants start.', 'alert-success');
-        } elseif ($target === 'v1' && $this->study->rendering_mode === 'v2') {
+        } elseif ($v1Unsupported) {
+            alert('<strong>Not switched.</strong> This survey has items that only v2 can run:<ul><li>'
+                . implode('</li><li>', array_map('h', $v1Unsupported)) . '</li></ul>', 'alert-danger');
+        } elseif ($toV1) {
             $this->study->update(['rendering_mode' => 'v1']);
             alert('Study switched back to the v1 engine; its Form units are Survey units again.', 'alert-success');
         } else {
