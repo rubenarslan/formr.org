@@ -126,7 +126,7 @@ class RCallService {
              INNER JOIN `survey_items_display` d ON d.item_id = r.item_id
              LEFT JOIN `survey_items` i ON i.id = r.item_id
              WHERE r.study_id = :study_id
-               AND r.slot IN ("value", "label", "choice_label")
+               AND r.slot IN (\'value\', \'label\', \'choice_label\')
                AND d.session_id = :session_id
                AND d.page = :page'
         );
