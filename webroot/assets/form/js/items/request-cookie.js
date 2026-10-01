@@ -25,13 +25,24 @@ const hasFunctionalConsent = () => {
     }
 };
 
+// The answers RequestCookie_Item stores: consent that was already there when
+// the page was rendered (the server writes it into the input), and consent
+// given on this page.
+const CONSENT_VALUES = ['functional_cookie', 'consent_given'];
+
 const markAnswered = (wrapper) => {
     const hidden = wrapper.querySelector('input');
     const status = wrapper.querySelector('.status-message');
     const btn = wrapper.querySelector('button.request-cookie');
     // Announced (marked) like a typed answer: showifs and the autosave see
-    // it, the auto-submit / solo auto-advance don't take it for a pick.
-    if (hidden) { hidden.setCustomValidity(''); setProgrammaticValue(hidden, 'consent_given'); }
+    // it, the auto-submit / solo auto-advance don't take it for a pick. An
+    // answer the input already holds stays: rewriting the server's
+    // 'functional_cookie' would change the answer, and autosave it, on
+    // every load.
+    if (hidden) {
+        hidden.setCustomValidity('');
+        if (!CONSENT_VALUES.includes(hidden.value)) setProgrammaticValue(hidden, 'consent_given');
+    }
     if (status) status.textContent = t('pwa.cookie.enabled', 'Functional cookies enabled. You can continue.');
     if (btn) {
         btn.disabled = true;
