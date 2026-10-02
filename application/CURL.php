@@ -111,42 +111,49 @@ class CURL {
      * @return array key => ['body' => string|null, 'info' => array, 'error' => string|null]
      */
     public static function HttpRequestMany(array $requests) {
-        $multi = curl_multi_init();
+        // Every request is set up before any is sent: a malformed one
+        // throws here, with nothing attached to a multi handle yet.
         $handles = $setups = array();
         foreach ($requests as $key => $r) {
-            list($curl, $options) = self::prepareRequest($r[0], isset($r[1]) ? $r[1] : array(),
+            list($handles[$key], $setups[$key]) = self::prepareRequest($r[0], isset($r[1]) ? $r[1] : array(),
                 isset($r[2]) ? $r[2] : self::HTTP_METHOD_GET, isset($r[3]) ? $r[3] : array());
-            curl_multi_add_handle($multi, $curl);
-            $handles[$key] = $curl;
-            $setups[$key] = $options;
         }
-        do {
-            $status = curl_multi_exec($multi, $running);
-            if ($running && curl_multi_select($multi, 1.0) === -1) {
-                usleep(1000);
+        $multi = curl_multi_init();
+        try {
+            foreach ($handles as $curl) {
+                curl_multi_add_handle($multi, $curl);
             }
-        } while ($running && $status === CURLM_OK);
-        $codes = array();
-        while ($msg = curl_multi_info_read($multi)) {
-            $codes[spl_object_id($msg['handle'])] = $msg['result'];
-        }
+            do {
+                $status = curl_multi_exec($multi, $running);
+                if ($running && curl_multi_select($multi, 1.0) === -1) {
+                    usleep(1000);
+                }
+            } while ($running && $status === CURLM_OK);
+            $codes = array();
+            while ($msg = curl_multi_info_read($multi)) {
+                $codes[spl_object_id($msg['handle'])] = $msg['result'];
+            }
 
-        $out = array();
-        foreach ($handles as $key => $curl) {
-            $info = curl_getinfo($curl);
-            $code = isset($codes[spl_object_id($curl)]) ? $codes[spl_object_id($curl)] : CURLE_OK;
-            if ($code !== CURLE_OK || $status !== CURLM_OK) {
-                $error = curl_error($curl) ?: curl_strerror($code);
-                $out[$key] = array('body' => null, 'info' => $info, 'error' => "cURL error: {$error} in {$info['total_time']}");
-            } else {
-                $body = self::responseBody((string) curl_multi_getcontent($curl), $info, $setups[$key]);
-                $out[$key] = array('body' => $body, 'info' => $info, 'error' => null);
+            $out = array();
+            foreach ($handles as $key => $curl) {
+                $info = curl_getinfo($curl);
+                $code = isset($codes[spl_object_id($curl)]) ? $codes[spl_object_id($curl)] : CURLE_OK;
+                if ($code !== CURLE_OK || $status !== CURLM_OK) {
+                    $error = curl_error($curl) ?: curl_strerror($code);
+                    $out[$key] = array('body' => null, 'info' => $info, 'error' => "cURL error: {$error} in {$info['total_time']}");
+                } else {
+                    $body = self::responseBody((string) curl_multi_getcontent($curl), $info, $setups[$key]);
+                    $out[$key] = array('body' => $body, 'info' => $info, 'error' => null);
+                }
             }
-            curl_multi_remove_handle($multi, $curl);
-            curl_close($curl);
+            return $out;
+        } finally {
+            foreach ($handles as $curl) {
+                curl_multi_remove_handle($multi, $curl);
+                curl_close($curl);
+            }
+            curl_multi_close($multi);
         }
-        curl_multi_close($multi);
-        return $out;
     }
 
     /** A cURL handle set up for one request (HttpRequest, HttpRequestMany), and its options. */
