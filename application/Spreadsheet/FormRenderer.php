@@ -404,9 +404,16 @@ class FormRenderer extends SpreadsheetRenderer {
         $itemFactory = new ItemFactory([]);
         $out = [];
         $this->storedItems = [];
+        $this->storedAnswers = [];
         $this->stateRows = [];
         $this->showifs = [];
+        // The page of every item this render can show (fetchPageMap): read
+        // here with the items rather than queried again.
+        $this->pageMapCache = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            if ($row['display_page'] !== null) {
+                $this->pageMapCache[(int) $row['id']] = (int) $row['display_page'];
+            }
             // The display row's page and hidden flag are for the state block
             // only: Item::$hidden must not be set (below).
             $state = [
