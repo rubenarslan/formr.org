@@ -115,6 +115,13 @@ function notify_user_error($error, $public_message = '')
 
 function print_hidden_opencpu_debug_message($ocpu_req, $public_message = '')
 {
+    // The message is an alert, kept in the PHP session. Once the session is
+    // closed (form_v2's form-render-page releases it before its OpenCPU
+    // work, Session::over) it can no longer be kept, so don't build it:
+    // opencpu_debug() makes several requests of its own to OpenCPU.
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        return;
+    }
     $run_session = Site::getInstance()->getRunSession();
     if ($run_session && !$run_session->isCron() && $run_session->isTesting()) {
         $date = date('Y-m-d H:i:s');
