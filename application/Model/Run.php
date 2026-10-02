@@ -1897,13 +1897,19 @@ class Run extends Model
         $supported = RunUnitFactory::getSupportedUnits();
         $errors = [];
         $n = 0;
+        // A payload value as message text: a malformed one (an object where
+        // a string belongs) is the client's mistake to be told about (400),
+        // not an Error thrown while describing it (500).
+        $text = function ($value) {
+            return is_scalar($value) ? (string) $value : '?';
+        };
         foreach ((array) $json->units as $unit) {
             // A counter, not the key: importUnits() also takes `units` as an
             // object, whose string keys cannot be numbered.
             $n++;
             $unit = (object) $unit;
-            $type = isset($unit->type) ? (string) $unit->type : '';
-            $label = "unit " . $n . " (" . ($type ?: '?') . " at position " . ($unit->position ?? '?') . ")";
+            $type = isset($unit->type) ? $text($unit->type) : '';
+            $label = "unit " . $n . " (" . ($type ?: '?') . " at position " . $text($unit->position ?? '?') . ")";
             if ($type === 'Endpage') {
                 $type = 'Page';
             }
@@ -1924,9 +1930,12 @@ class Run extends Model
             }
             if (in_array($type, ['Survey', 'Form'], true) && isset($unit->survey_data->items)) {
                 foreach ((array) $unit->survey_data->items as $item) {
+                    if (!is_object($item)) {
+                        continue;
+                    }
                     foreach ((array) ($item->choices ?? []) as $key => $choice) {
                         if (!is_scalar($choice) && $choice !== null) {
-                            $errors[] = "$label: item '" . ($item->name ?? '?') . "', choice '$key' must be a plain label string, not an object.";
+                            $errors[] = "$label: item '" . $text($item->name ?? '?') . "', choice '$key' must be a plain label string, not an object.";
                         }
                     }
                 }

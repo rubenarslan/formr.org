@@ -48,6 +48,25 @@ class RunImportPreflightTest extends \PHPUnit\Framework\TestCase {
         return $m->invoke($run, json_encode($structure));
     }
 
+    public function testMalformedValuesAreReportedNotThrown(): void {
+        // Objects where strings belong (an API client's mistake) must come
+        // back as messages — a 400 — not crash the check (a 500).
+        $errors = $this->preflight($this->makeRun(), ['units' => [
+            ['type' => ['nested' => 'Page'], 'position' => 10],
+            ['type' => 'Page', 'position' => ['x' => 1]],
+            ['type' => 'Survey', 'position' => 30, 'survey_data' => ['items' => [
+                'not an item',
+                ['name' => ['x' => 1], 'choices' => ['1' => ['label' => 'one']]],
+            ]]],
+        ]]);
+        $this->assertCount(3, $errors, implode("\n", $errors));
+        foreach ($errors as $error) {
+            $this->assertIsString($error);
+        }
+        $this->assertStringContainsString('unit 2 (Page at position ?): position must be numeric', $errors[1]);
+        $this->assertStringContainsString("item '?', choice '1' must be a plain label string", $errors[2]);
+    }
+
     public function testBranchUnitIsRefusedBeforeExistingUnitsAreTouched(): void {
         $run = $this->makeRun();
         $json = json_encode(['units' => [
