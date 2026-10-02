@@ -1,5 +1,7 @@
 window.formr = window.formr || {};
 
+// UTC, whatever the participant's time zone; the server stores it in its
+// own (client_time in application/Functions.php).
 export function mysql_datetime() {
 	return (new Date()).toISOString().slice(0, 19).replace('T', ' ');
 }

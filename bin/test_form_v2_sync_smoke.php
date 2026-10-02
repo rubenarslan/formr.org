@@ -6,7 +6,8 @@
  * request that dies part way leaves nothing that stops the retry.
  *
  *   - an entry is applied and recorded; sent again, it is answered
- *     already_applied and changes nothing;
+ *     already_applied and changes nothing; the browser's times (UTC) are
+ *     stored in the server's time zone;
  *   - an entry refused for validation errors is not recorded; the corrected
  *     resend applies;
  *   - while another connection holds the entry's lock the sync answers busy
@@ -126,9 +127,19 @@ try {
 
     echo "\n-- applied once --\n";
     $uuids[] = $u1 = $newUuid();
-    $r = $svc->applyQueued($u1, '2026-10-01 10:00:00', $page(['q1' => 'first']));
+    // The browser's times are UTC: stored in the server's zone (client_time).
+    $q1Id = (int) $db->execute('SELECT id FROM survey_items WHERE study_id = :s AND name = :n', ['s' => $study->id, 'n' => 'q1'], true);
+    $first = $page(['q1' => 'first']);
+    $first['item_views'] = ['shown' => [$q1Id => '2026-10-01 10:00:00'], 'shown_relative' => [$q1Id => '1200.5'],
+        'answered' => [$q1Id => '2026-10-01 10:00:07'], 'answered_relative' => [$q1Id => '8200.25']];
+    $r = $svc->applyQueued($u1, '2026-10-01 10:00:00', $first);
     ok($r['status'] === 'ok' && empty($r['already_applied']), 'the entry applies', $r);
     ok($answer('q1') === 'first' && $ledger($u1) === 1, 'answer stored, entry recorded');
+    $view = $db->execute('SELECT shown, answered FROM survey_items_display WHERE session_id = :s AND item_id = :i', ['s' => $us->id, 'i' => $q1Id], false, true);
+    ok($view && $view['shown'] === client_time('2026-10-01 10:00:00') && $view['answered'] === client_time('2026-10-01 10:00:07'),
+        "the item's view times are in the server's zone", [$view, client_time('2026-10-01 10:00:00')]);
+    ok($db->execute('SELECT client_ts FROM survey_form_submissions WHERE uuid = :u', ['u' => $u1], true) === client_time('2026-10-01 10:00:00'),
+        "so is the entry's client_ts");
     $r = $svc->applyQueued($u1, '2026-10-01 10:00:00', $page(['q1' => 'changed']));
     ok($r === ['status' => 'ok', 'already_applied' => true], 'sent again: already_applied', $r);
     ok($answer('q1') === 'first', 'and nothing changed', $answer('q1'));

@@ -98,9 +98,13 @@ try {
     request('GET', [], true);
     (new RunSession($code, $runA))->execute();
     $usId = (int) $unitSessionsOf($code)[0]['id'];
-    request('POST', ['session_id' => (string) $usId, 'q1' => 'given'], true);
+    $q1Id = (int) $db->execute('SELECT id FROM survey_items WHERE study_id = :s AND name = :n', ['s' => $plain->id, 'n' => 'q1'], true);
+    request('POST', ['session_id' => (string) $usId, 'q1' => 'given',
+        '_item_views' => ['shown' => [$q1Id => '2026-10-01 10:00:00'], 'shown_relative' => [$q1Id => '900.5']]], true);
     (new RunSession($code, $runA))->execute();
     ok($answer($plain, $usId, 'q1') === 'given', "the page's own POST is stored");
+    ok($db->execute('SELECT shown FROM survey_items_display WHERE session_id = :s AND item_id = :i', ['s' => $usId, 'i' => $q1Id], true)
+        === client_time('2026-10-01 10:00:00'), "the browser's view time (UTC) in the server's zone");
     request('POST', ['session_id' => (string) ($usId + 1000000), 'q1' => 'stale'], true);
     $out = (new RunSession($code, $runA))->execute();
     ok($answer($plain, $usId, 'q1') === 'given', "a stale tab's POST (another unit session) stores nothing");

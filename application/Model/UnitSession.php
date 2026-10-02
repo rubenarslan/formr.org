@@ -1477,17 +1477,22 @@ class UnitSession extends Model {
                     $item = $items[$name];
                 }
 
-                if (isset($posted["_item_views"]["shown"][$item->id], $posted["_item_views"]["shown_relative"][$item->id])) {
-                    $shown = $posted["_item_views"]["shown"][$item->id];
+                // The browser's times are UTC; they are stored in the
+                // server's time zone, as `saved` and the fallbacks below are
+                // (client_time). One that isn't a timestamp counts as missing.
+                $shown = isset($posted["_item_views"]["shown"][$item->id], $posted["_item_views"]["shown_relative"][$item->id])
+                    ? client_time($posted["_item_views"]["shown"][$item->id]) : null;
+                if ($shown !== null) {
                     $shown_relative = $posted["_item_views"]["shown_relative"][$item->id];
                 } else {
                     $shown = mysql_now();
                     $shown_relative = null; // and where this is null, performance.now wasn't available
                 }
 
-                if (isset($posted["_item_views"]["answered"][$item->id], // separately to "shown" because of items like "note"
-                                $posted["_item_views"]["answered_relative"][$item->id])) {
-                    $answered = $posted["_item_views"]["answered"][$item->id];
+                $answered = isset($posted["_item_views"]["answered"][$item->id], // separately to "shown" because of items like "note"
+                                $posted["_item_views"]["answered_relative"][$item->id])
+                    ? client_time($posted["_item_views"]["answered"][$item->id]) : null;
+                if ($answered !== null) {
                     $answered_relative = $posted["_item_views"]["answered_relative"][$item->id];
                 } else {
                     $answered = $shown; // this way we can identify items where JS time failed because answered and show time are exactly identical

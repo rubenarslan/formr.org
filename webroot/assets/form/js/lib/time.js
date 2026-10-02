@@ -3,7 +3,8 @@
 // `mysqlDatetime()` is the canonical format for any timestamp the server
 // will land in a MariaDB DATETIME column (item-views, queued client_ts,
 // etc.). ISO-8601 with `.sssZ` 500s on `survey_form_submissions.client_ts`
-// — that bug was the canary; this helper is the fix.
+// — that bug was the canary; this helper is the fix. It is UTC, whatever the
+// participant's time zone; the server stores it in its own (client_time).
 
 export function mysqlDatetime() {
     return new Date().toISOString().slice(0, 19).replace('T', ' ');

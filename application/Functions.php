@@ -834,6 +834,28 @@ function mysql_now()
 }
 
 /**
+ * A timestamp the browser sent, in the server's time zone like every other
+ * timestamp formr stores (mysql_now). Browsers send UTC, `YYYY-MM-DD
+ * HH:MM:SS` from Date#toISOString (v1's mysql_datetime in
+ * common/js/main.js, v2's mysqlDatetime in form/js/lib/time.js), whatever
+ * the participant's own time zone.
+ *
+ * @param mixed $value
+ * @return string|null null when $value is not such a timestamp
+ */
+function client_time($value)
+{
+    if (!is_string($value) || !preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $value)) {
+        return null;
+    }
+    $time = DateTime::createFromFormat('!Y-m-d H:i:s', $value, new DateTimeZone('UTC'));
+    if ($time === false || $time->format('Y-m-d H:i:s') !== $value) {
+        return null; // out of range, e.g. 2026-02-30 or 24:00:00
+    }
+    return $time->setTimezone(new DateTimeZone(date_default_timezone_get()))->format('Y-m-d H:i:s');
+}
+
+/**
  * Returns formatted strings equivalent to expressions like NOW() + INTERVAL 2 DAY
  *
  * @param string A string defining an interval accepted by PHP's strtotime() function

@@ -309,7 +309,8 @@ class FormSubmissionService {
                 'uuid' => $uuid,
                 'unit_session_id' => (int) $this->unitSession->id,
                 'page' => $page,
-                'client_ts' => $clientTs,
+                // The browser's UTC, in the server's time zone (client_time).
+                'client_ts' => $clientTs !== null ? client_time($clientTs) : null,
             ));
         } catch (Throwable $e) {
             // The page is stored. Without its row a resend applies it again,
