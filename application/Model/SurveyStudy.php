@@ -1180,7 +1180,11 @@ class SurveyStudy extends Model
 
     public function getItemsWithChoices($columns = null, $whereIn = null)
     {
-        if ($this->resultsTableExists()) {
+        // The wide table is only required while it is written: with
+        // form_v2_dual_write_results off the answers go to
+        // survey_items_display alone (as createSurveyStudyRecord allows),
+        // and an empty item list would make every write store nothing.
+        if ($this->resultsTableExists() || !Config::get('form_v2_dual_write_results', true)) {
             $choice_lists = $this->getChoices();
             $itemFactory = new ItemFactory($choice_lists);
 
