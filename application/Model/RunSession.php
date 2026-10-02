@@ -464,10 +464,19 @@ class RunSession extends Model {
         } elseif (isset($result['queue'])) {
             $this->debug('QUEUE');
             $this->currentUnitSession->queue();
-            return [
+            $out = [
                 'body' => array_val($result, 'content'),
                 'redirect' => array_val($result, 'redirect')
             ];
+            // A Form whose study has an access window (expire_after /
+            // expire_invitation_after) is queued on every render: its v2
+            // page state must reach the controller here too, or the page is
+            // rendered by run/index without the form bundle — every page
+            // section stays hidden.
+            if (!empty($result['form_v2'])) {
+                $out['form_v2'] = $result['form_v2'];
+            }
+            return $out;
         }
 
         if (!empty($result['wait_opencpu']) || !empty($result['wait_user'])) {
