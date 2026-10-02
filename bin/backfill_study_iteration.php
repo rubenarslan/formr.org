@@ -67,15 +67,16 @@ $db = DB::getInstance();
 $tag = $dryRun ? '[dry-run]' : '[apply]';
 echo "$tag Backfilling study_iteration from wide results tables\n";
 
-$where = ['valid' => 1];
+// Every study, whatever its `valid` column says: SurveyStudy::createFromFile
+// long left that column NULL (it set the flag only after saving), so a
+// `valid = 1` filter skipped about half the studies. A study without a
+// results table is skipped below.
+$select = $db->select('id, name, results_table, last_iteration')
+    ->from('survey_studies');
 if ($onlyStudyId !== null) {
-    $where['id'] = $onlyStudyId;
+    $select->where(['id' => $onlyStudyId]);
 }
-
-$studies = $db->select('id, name, results_table, last_iteration')
-    ->from('survey_studies')
-    ->where($where)
-    ->fetchAll();
+$studies = $select->fetchAll();
 
 $skippedNoTable = 0;
 $skippedNothingToDo = 0;
