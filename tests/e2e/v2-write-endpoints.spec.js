@@ -145,6 +145,24 @@ test.describe('the v2 write gate refuses what it must', () => {
         expect(answer(ctx.unitSessionId, 'i_zip') || null, 'nothing stored').toBeNull();
     });
 
+    test('a write that names no unit session is refused, not applied to the current one', async ({ page, baseURL }) => {
+        // Without it, a write from an earlier entry would land in whatever
+        // form is current: the next diary entry, say.
+        const ctx = await start(page, baseURL);
+        const submit = await post(page, ctx.submitUrl, { page: ctx.pageNum, data: { i_zip: '12345' } });
+        expect(submit.status, JSON.stringify(submit.body)).toBe(409);
+        expect(submit.body.stale_session).toBe(true);
+        const save = await post(page, ctx.saveUrl, { data: { i_zip: '12345' }, item_views: {} });
+        expect(save.status, JSON.stringify(save.body)).toBe(409);
+        const queued = entry(ctx, { i_zip: '12345' });
+        delete queued.unit_session_id;
+        const sync = await post(page, ctx.syncUrl, queued);
+        expect(sync.status).toBe(400);
+        expect(sync.body.field).toBe('unit_session_id');
+        expect(answer(ctx.unitSessionId, 'i_zip') || null, 'nothing stored').toBeNull();
+        expect(ledger(queued.uuid)).toHaveLength(0);
+    });
+
     test('a write without a run session is refused with 403', async ({ page, baseURL, playwright }) => {
         const ctx = await start(page, baseURL);
         const anon = await playwright.request.newContext({ baseURL, ignoreHTTPSErrors: true });

@@ -42,7 +42,9 @@ class FormSyncPayload {
     /**
      * @param mixed $uuid          raw `uuid` from the JSON body / $_POST
      * @param mixed $page          raw `page` (absent → 1, the historic default)
-     * @param mixed $unitSessionId raw `unit_session_id` (absent → 0 = "old client, don't gate")
+     * @param mixed $unitSessionId raw `unit_session_id`: required, the unit
+     *        session the entry was queued in (RunController::formWriteContext
+     *        refuses it for any other)
      * @param mixed $clientTs      raw `client_ts` (absent / '' / null → stored NULL)
      * @return array{ok:bool, error?:string, field?:string, uuid?:string, page?:int, unit_session_id?:int, client_ts?:?string}
      */
@@ -59,6 +61,11 @@ class FormSyncPayload {
         $parsedUsid = self::intOrNull($unitSessionId, 0);
         if ($parsedUsid === null || $parsedUsid < 0) {
             return self::fail('unit_session_id', 'Malformed unit_session_id');
+        }
+        // Without it the entry would be applied to whatever form is current
+        // when it drains, the next diary entry say.
+        if ($parsedUsid === 0) {
+            return self::fail('unit_session_id', 'Missing unit_session_id');
         }
 
         $parsedTs = self::datetimeOrFalse($clientTs);

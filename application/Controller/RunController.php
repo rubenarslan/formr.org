@@ -758,7 +758,10 @@ class RunController extends Controller {
      * error reply and returns null when a gate fails; otherwise
      * [$runSession, $unitSession, $study].
      *
-     * @param int $claimedUnitSessionId 0 = not claimed
+     * @param int|null $claimedUnitSessionId the unit session a write was
+     *   made in (its page's state block): anything else, a missing one (0)
+     *   included, is refused as stale; null for a request that writes no
+     *   answers (the bot_check mint, form-render-page)
      * @param array $extra409 keys merged into every 409 reply (the sync
      *   endpoint adds drop_entry so the queue stops retrying the entry)
      * @param string $rateBucket 'write' (form writes), 'rcall' (R calls) or
@@ -797,7 +800,7 @@ class RunController extends Controller {
             $this->sendJsonResponse(array('error' => 'Current unit is not a v2 form') + $extra409, 409);
             return null;
         }
-        if ((int) $claimedUnitSessionId > 0 && (int) $claimedUnitSessionId !== (int) $unitSession->id) {
+        if ($claimedUnitSessionId !== null && (int) $claimedUnitSessionId !== (int) $unitSession->id) {
             $this->sendJsonResponse(array(
                 'error' => 'This form was rendered for a different session (continued elsewhere or a new entry started). Reload to continue.',
                 'stale_session' => true,
@@ -881,7 +884,7 @@ class RunController extends Controller {
             $this->sendJsonResponse(array('error' => 'No current unit session') + $extra409, 409);
             return null;
         }
-        if ((int) $claimedUnitSessionId > 0 && (int) $claimedUnitSessionId !== (int) $unitSession->id) {
+        if ($claimedUnitSessionId !== null && (int) $claimedUnitSessionId !== (int) $unitSession->id) {
             $this->sendJsonResponse(array(
                 'error' => 'This preview was rendered for a different test session. Reload to continue.',
                 'stale_session' => true,
@@ -1128,7 +1131,7 @@ class RunController extends Controller {
         // session, so this costs no legitimate caller anything. A "Test
         // Survey" preview reaches it through /survey-test/<token>/ with the
         // preview's unit session (dispatchFormV2Preview).
-        $context = $this->formWriteContext(0, array(), 'bot');
+        $context = $this->formWriteContext(null, array(), 'bot');
         if (!$context) {
             return;
         }
@@ -1212,7 +1215,7 @@ class RunController extends Controller {
         $answers = (isset($payload['answers']) && is_array($payload['answers'])) ? $payload['answers'] : array();
 
         // The r-call rate bucket: page resolutions are OpenCPU calls.
-        $context = $this->formWriteContext(0, array(), 'rcall');
+        $context = $this->formWriteContext(null, array(), 'rcall');
         if (!$context) {
             return;
         }

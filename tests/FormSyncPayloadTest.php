@@ -142,13 +142,26 @@ class FormSyncPayloadTest extends TestCase
         }
     }
 
-    /** Older clients omit page / unit_session_id; keep their lenient defaults. */
-    public function testOmittedOptionalScalarsKeepHistoricDefaults()
+    /** An omitted page is page 1; client_ts is optional. */
+    public function testOmittedPageDefaultsToOne()
     {
-        $out = FormSyncPayload::validate(self::UUID, null, null, null);
+        $out = FormSyncPayload::validate(self::UUID, null, 77, null);
         $this->assertTrue($out['ok']);
         $this->assertSame(1, $out['page']);
-        $this->assertSame(0, $out['unit_session_id'], '0 = "unknown", the endpoint does not gate on it');
+    }
+
+    /**
+     * An entry must name the unit session it was queued in: without one it
+     * would be applied to whatever form is current when it drains (the next
+     * diary entry, say), as nothing else ties it to its own.
+     */
+    public function testAMissingUnitSessionIdIsRefused()
+    {
+        foreach (array(null, '', 0, '0') as $missing) {
+            $out = $this->validate(array('unit_session_id' => $missing));
+            $this->assertFalse($out['ok'], var_export($missing, true));
+            $this->assertSame('unit_session_id', $out['field']);
+        }
     }
 
     public function testMalformedUnitSessionIdIsRefused()
