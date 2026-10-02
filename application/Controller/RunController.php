@@ -735,10 +735,7 @@ class RunController extends Controller {
      * @return array|null
      */
     private function readFormPayload() {
-        $limit = (string) ini_get('post_max_size');
-        $max = $limit !== '' ? convertToBytes($limit) : 0;
-        $length = isset($_SERVER['CONTENT_LENGTH']) ? (int) $_SERVER['CONTENT_LENGTH'] : 0;
-        if ($max > 0 && $length > $max) {
+        if (PageSubmission::bodyExceedsPostMaxSize()) {
             $this->sendJsonResponse(array('error' => "The upload exceeds the server's maximum size."), 413);
             return null;
         }

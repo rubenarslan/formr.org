@@ -33,10 +33,25 @@ class PageSubmission {
         if (!Request::isHTTPPostRequest()) {
             return;
         }
-        $length = isset($_SERVER['CONTENT_LENGTH']) ? (int) $_SERVER['CONTENT_LENGTH'] : 0;
-        self::$oversized = $length > convertToBytes(ini_get('post_max_size'));
+        self::$oversized = self::bodyExceedsPostMaxSize();
         self::$fields = $_POST;
         self::$files = $_FILES;
+    }
+
+    /**
+     * Did this request's body exceed post_max_size, so that PHP dropped
+     * $_POST and $_FILES? A limit of 0 (or unset) means no limit.
+     *
+     * @param string|null $limit post_max_size; null: this PHP's
+     * @param int|null $length the body's length; null: this request's
+     */
+    public static function bodyExceedsPostMaxSize($limit = null, $length = null) {
+        $limit = trim((string) ($limit === null ? ini_get('post_max_size') : $limit));
+        $max = $limit !== '' ? convertToBytes($limit) : 0;
+        if ($length === null) {
+            $length = isset($_SERVER['CONTENT_LENGTH']) ? (int) $_SERVER['CONTENT_LENGTH'] : 0;
+        }
+        return $max > 0 && $length > $max;
     }
 
     /** No page submission in this request (and none recorded by an earlier capture). */
