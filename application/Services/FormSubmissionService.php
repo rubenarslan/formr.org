@@ -559,7 +559,9 @@ class FormSubmissionService {
      * @return array<string, array>
      */
     public static function stateFor(DB $db, $studyId, $unitSessionId, array $names = null) {
-        return self::stateFromRows(self::stateRows($db, $studyId, $unitSessionId, $names), self::showifNames($db, (int) $studyId));
+        return self::stateFromRows(self::stateRows($db, $studyId, $unitSessionId, $names), function () use ($db, $studyId) {
+            return self::showifNames($db, (int) $studyId);
+        });
     }
 
     /**
@@ -567,16 +569,26 @@ class FormSubmissionService {
      * study's showifs read. FormRenderer::stateBlock passes the rows it read
      * with the items it renders.
      *
-     * @param array<string, true> $showifNames
+     * The names only decide whether a no-input item's value (random, ip, …)
+     * is shipped, so a callable is asked for them only when such an item is
+     * among the rows: a page submit's reply, made of the page's inputs,
+     * reads no showif at all.
+     *
+     * @param array<string, true>|callable $showifNames
      */
-    public static function stateFromRows(array $rows, array $showifNames) {
+    public static function stateFromRows(array $rows, $showifNames) {
         $factory = new ItemFactory(array());
+        $names = is_callable($showifNames) ? null : (array) $showifNames;
         $out = array();
         foreach ($rows as $row) {
             $item = $factory->make($row);
-            if ($item) {
-                $out[(string) $row['name']] = self::itemState($item, $row, $showifNames);
+            if (!$item) {
+                continue;
             }
+            if ($names === null && !self::isAnswerable($item)) {
+                $names = (array) $showifNames();
+            }
+            $out[(string) $row['name']] = self::itemState($item, $row, $names === null ? array() : $names);
         }
         return $out;
     }
