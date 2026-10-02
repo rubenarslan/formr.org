@@ -1748,6 +1748,27 @@ class SurveyStudy extends Model
     }
 
     /**
+     * The results filter's session condition on `rs`.`session`, for the long
+     * reads (buildPivotSql, getResultCountLong): a full 64-character code
+     * matches exactly, anything shorter as a prefix — with LIKE's wildcards
+     * in it taken literally, as DB_Select::like() does on the wide path.
+     *
+     * @param string $session
+     * @param array $bindings named placeholders, added to
+     * @return string the SQL condition
+     */
+    private static function longSessionFilter($session, array &$bindings)
+    {
+        $session = (string) $session;
+        if (strlen($session) == 64) {
+            $bindings[':session_eq'] = $session;
+            return '`rs`.`session` = :session_eq';
+        }
+        $bindings[':session_like'] = addcslashes($session, '%_\\') . '%';
+        return '`rs`.`session` LIKE :session_like';
+    }
+
+    /**
      * Build the pivot SQL and named-placeholder bindings.
      *
      * Pure function: no DB access, no $this. Extracted so the SQL shape
@@ -1838,14 +1859,7 @@ class SurveyStudy extends Model
             $bindings[':run_id'] = (int) $runId;
         }
         if (!empty($filter['session'])) {
-            $session = $filter['session'];
-            if (strlen($session) == 64) {
-                $wheres[] = '`rs`.`session` = :session_eq';
-                $bindings[':session_eq'] = $session;
-            } else {
-                $wheres[] = '`rs`.`session` LIKE :session_like';
-                $bindings[':session_like'] = $session . '%';
-            }
+            $wheres[] = self::longSessionFilter($filter['session'], $bindings);
         }
 
         // Canonical results filters, translated from the wide-column SQL in
@@ -2301,14 +2315,7 @@ class SurveyStudy extends Model
             $bindings[':run_id'] = (int) $run_id;
         }
         if (!empty($filter['session'])) {
-            $session = $filter['session'];
-            if (strlen($session) == 64) {
-                $wheres[] = '`rs`.`session` = :session_eq';
-                $bindings[':session_eq'] = $session;
-            } else {
-                $wheres[] = '`rs`.`session` LIKE :session_like';
-                $bindings[':session_like'] = $session . '%';
-            }
+            $wheres[] = self::longSessionFilter($filter['session'], $bindings);
         }
         // Canonical results filters, long semantics (see buildPivotSql) —
         // including the same operator-force-move rule for `ended` (F4), so the

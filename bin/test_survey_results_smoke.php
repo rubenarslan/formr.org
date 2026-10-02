@@ -14,7 +14,8 @@
  *     notes and submit buttons are no columns;
  *   - with form_v2_long_reads off (the default), a v1 study reads the wide table instead,
  *     and it returns the same answers for the same sessions;
- *   - the session filter (prefix and exact 64-char code), the complete /
+ *   - the session filter (prefix and exact 64-char code, its % and _ taken
+ *     literally), the complete /
  *     incomplete filters, a run id and pagination (limit, offset, order)
  *     narrow both reads the same way; an unknown saved filter returns nothing;
  *   - getResultCount counts finished / begun / testers / real users;
@@ -175,9 +176,17 @@ try {
     ok(array_map('intval', $count) == ['finished' => 1, 'begun' => 2, 'testers' => 1, 'real_users' => 3], 'counts: 1 finished, 2 begun, 1 tester, 3 real users', $count);
 
     // The same filters, run id and pagination against both reads.
-    $filters = function (string $mode) use ($study, $codes, $runId, $cols) {
+    $filters = function (string $mode) use ($study, $codes, $runId, $cols, $suffix) {
         $s = function ($rows) { $c = array_column($rows, 'session'); sort($c); return $c; };
         $ids = function (array $keys) use ($codes) { $c = array_map(function ($k) use ($codes) { return $codes[$k]; }, $keys); sort($c); return $c; };
+        // LIKE's wildcards in a session filter are characters to match: every
+        // code here shares the prefix 'RS<suffix>', none has a '_' after it
+        // and none starts with '%'.
+        $wild = 'RS' . $suffix . '_';
+        ok($study->getResults(null, ['session' => $wild]) === [] && $study->getResults(null, ['session' => '%']) === [],
+            "{$mode}: a session filter's % and _ are taken literally", $s($study->getResults(null, ['session' => $wild])));
+        ok(array_sum(array_map('intval', $study->getResultCountLive(null, ['session' => $wild]))) === 0,
+            "{$mode}: in the counts too", $study->getResultCountLive(null, ['session' => $wild]));
         ok($s($study->getResults(null, ['session' => substr($codes['A'], 0, 9)])) === $ids(['A']), "{$mode}: a session prefix filters to that session");
         ok($s($study->getResults(null, ['session' => $codes['C']])) === $ids(['C']), "{$mode}: an exact 64-character code filters to that session");
         ok($s($study->getResults(null, ['results' => 'complete'])) === $ids(['A', 'C']), "{$mode}: complete = the ended sessions", $s($study->getResults(null, ['results' => 'complete'])));
