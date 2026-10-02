@@ -115,6 +115,13 @@ class AdminSurveyController extends AdminController {
                     if (($created = SurveyStudy::createFromData($data, array('user_id' => $this->user->id)))) {
                         alert('<strong>Success!</strong> New survey created from JSON!', 'alert-success');
                         $redirect = admin_study_url($created->name, 'show_item_table');
+                    } elseif (($orphan = SurveyStudy::loadByUserAndName($this->user, $data->name)) && $orphan->valid) {
+                        // createFromData creates the survey before it loads the
+                        // items, so a refused item table leaves it behind, empty
+                        // — and a second try is refused above as a duplicate
+                        // name. Say so and go to it, as the spreadsheet path does.
+                        alert('<strong>Bugger!</strong> The survey "' . h($orphan->name) . '" was created, but its items could not be imported (see the messages above). Upload a corrected item table here, or delete the survey and upload the JSON again.', 'alert-danger');
+                        $redirect = admin_study_url($orphan->name, 'upload_items');
                     } else {
                         alert('<strong>Bugger!</strong> The survey JSON could not be imported. See the messages above.', 'alert-danger');
                         $redirect = 'admin/survey';

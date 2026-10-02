@@ -115,4 +115,30 @@ test.describe('survey JSON upload (robot seeding)', () => {
         const types = study ? db.dbQuery(`SELECT DISTINCT type FROM survey_items WHERE study_id = ${parseInt(study.id, 10)}`).map((r) => r.type) : [];
         for (const t of V2_ONLY) expect(types, `no ${t} item stored in a v1 study`).not.toContain(t);
     });
+    // createFromData creates the survey before it imports the items, so a
+    // refused item table leaves the survey behind, empty. The admin is told
+    // and taken to its item upload, as on the spreadsheet path — not to the
+    // survey list, where uploading the file again was refused as a duplicate
+    // name and the empty survey was never pointed out.
+    test('a survey whose items are refused is pointed out and opened for a new item table', async () => {
+        cleanup();
+        const survey = {
+            name: STUDY,
+            settings: { rendering_mode: 'v2' },
+            items: [
+                { type: 'text', name: 'q1', label: 'q1', optional: 1 },
+                { type: 'calculate', name: 'score', label: 'score', value: 'nchar(q1)' },
+            ],
+        };
+        const ctx = await request.newContext({ ignoreHTTPSErrors: true, storageState: ADMIN_STATE });
+        const res = await ctx.post(`${ADMIN_URL}/admin/survey/add_survey/`, {
+            multipart: { uploaded: { name: `${STUDY}.json`, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(survey)) } },
+        });
+        const html = await res.text();
+        const landed = new URL(res.url()).pathname;
+        await ctx.dispose();
+        expect(robotStudy(), 'the survey row exists, without items').toBeTruthy();
+        expect(landed, 'taken to its item upload').toMatch(new RegExp(`/admin/survey/${STUDY}/upload_items/?$`));
+        expect(html).toContain(`The survey "${STUDY}" was created, but its items could not be imported`);
+    });
 });
