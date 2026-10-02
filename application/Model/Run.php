@@ -241,10 +241,44 @@ class Run extends Model
         }
     }
 
+    /**
+     * Take the run's units with it: its placements and special units (the
+     * service message, reminder email, overview script) and the units
+     * themselves, whose own tables and unit sessions cascade. A unit is kept
+     * when it is a survey (its row is its study's, patch 116, and the study
+     * outlives the run) or when another run still uses it.
+     */
     public function deleteUnits()
     {
+        $id = array('id' => (int) $this->id);
+        $units = array_merge(
+            array_column((array) $this->db->execute('SELECT unit_id FROM survey_run_units WHERE run_id = :id', $id), 'unit_id'),
+            array_column((array) $this->db->execute('SELECT id FROM survey_run_special_units WHERE run_id = :id', $id), 'id'),
+            array_values(array_filter((array) $this->db->execute(
+                'SELECT reminder_email, service_message, overview_script, deactivated_page FROM survey_runs WHERE id = :id', $id, false, true)))
+        );
         $this->db->delete('survey_run_special_units', array('run_id' => $this->id));
         $this->db->delete('survey_run_units', array('run_id' => $this->id));
+        // The run row's own references to its units (older runs): one
+        // cascades to the run, two would block deleting the unit.
+        $this->db->exec('UPDATE survey_runs SET reminder_email = NULL, service_message = NULL, overview_script = NULL, deactivated_page = NULL WHERE id = :id', $id);
+
+        foreach (array_chunk(array_values(array_unique(array_map('intval', array_filter($units)))), 500) as $chunk) {
+            $marks = $params = array();
+            foreach ($chunk as $i => $unitId) {
+                $marks[] = ':u' . $i;
+                $params['u' . $i] = $unitId;
+            }
+            $this->db->exec(
+                'DELETE FROM survey_units WHERE id IN (' . implode(',', $marks) . ')
+                   AND type NOT IN (\'Survey\', \'Form\')
+                   AND NOT EXISTS (SELECT 1 FROM survey_studies s WHERE s.id = survey_units.id)
+                   AND NOT EXISTS (SELECT 1 FROM survey_run_units ru WHERE ru.unit_id = survey_units.id)
+                   AND NOT EXISTS (SELECT 1 FROM survey_run_special_units su WHERE su.id = survey_units.id)
+                   AND NOT EXISTS (SELECT 1 FROM survey_runs r WHERE survey_units.id IN (r.reminder_email, r.service_message, r.overview_script, r.deactivated_page))',
+                $params
+            );
+        }
     }
 
     public function togglePublic($public)
