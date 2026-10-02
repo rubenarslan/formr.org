@@ -177,6 +177,23 @@ try {
     $doc = isset($src[1]) ? @file_get_contents(html_entity_decode($src[1])) : false;
     ok(is_string($doc) && strpos($doc, 'INJECTED') !== false && strpos($doc, 'INJECTED 42') === false, 'its document shows the answer and runs none of it', is_string($doc) ? strlen($doc) . ' bytes' : $doc);
 
+    echo "\n-- requests sent together each keep their own answer --\n";
+    // resolvePage sends a page's values, labels and iframes at once
+    // (OpenCPU::postMany): each session reports its own call, not whichever
+    // one finished last.
+    $sent = OpenCPU::getInstance()->postMany([
+        'a' => ['/base/R/identity/json', ['x' => '1 + 1']],
+        'b' => ['/base/R/identity/json', ['x' => '2 * 3']],
+    ]);
+    ok($sent['a']['session'] && $sent['a']['session']->getJSONObject() === 2 && $sent['b']['session'] && $sent['b']['session']->getJSONObject() === 6,
+        'both answer, each with its own result');
+    foreach (['a', 'b'] as $k) {
+        $sess = $sent[$k]['session'];
+        $headers = $sess ? (array) $sess->getResponseHeaders() : [];
+        ok($sess && isset($headers['X-Ocpu-Session']) && $headers['X-Ocpu-Session'] === $sess->getKey() && !$sess->hasError(),
+            "{$k}: its response headers are its own call's", [$headers['X-Ocpu-Session'] ?? null, $sess ? $sess->getKey() : null]);
+    }
+
     echo "\n-- the allowlist revokes calls whose item changed or went away --\n";
     $liveIds = function () use ($svc) {
         $c = $svc->callsForPage(1);

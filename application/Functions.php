@@ -2383,8 +2383,7 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json')
             $reponse_headers = $session->getResponseHeaders();
             $debug['Response Headers'] = pre_htmlescape(print_r($reponse_headers, 1));
 
-            $reponse_info = $session->caller()->getRequestInfo();
-            $debug['Request Headers'] = pre_htmlescape(print_r($reponse_info['request_header'], 1));
+            $debug['Request Headers'] = pre_htmlescape(print_r($session->getRequestInfo('request_header'), 1));
         } catch (Exception $e) {
             $debug['Response'] = 'An error occured: ' . $e->getMessage();
         }

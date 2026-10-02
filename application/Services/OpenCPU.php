@@ -497,8 +497,26 @@ class OpenCPU_Session {
         return $this->ocpu;
     }
 
+    /**
+     * The response headers of the call that opened this session — its own,
+     * like getRequest() and hasError(), not the instance's last call's
+     * (postMany opens several sessions at once).
+     */
     public function getResponseHeaders() {
-        return $this->caller()->getResponseHeaders();
+        if (isset($this->info[CURL::RESPONSE_HEADERS])) {
+            return $this->info[CURL::RESPONSE_HEADERS];
+        } elseif (isset($this->info['raw_header'])) {
+            return http_parse_headers($this->info['raw_header']);
+        }
+        return null;
+    }
+
+    /** The cURL info of the call that opened this session (http_code, request_header, …). */
+    public function getRequestInfo($item = null) {
+        if ($item === null) {
+            return $this->info;
+        }
+        return isset($this->info[$item]) ? $this->info[$item] : null;
     }
 
     public function getPublicUrl() {
