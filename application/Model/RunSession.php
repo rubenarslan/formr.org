@@ -464,19 +464,9 @@ class RunSession extends Model {
         } elseif (isset($result['queue'])) {
             $this->debug('QUEUE');
             $this->currentUnitSession->queue();
-            $out = [
-                'body' => array_val($result, 'content'),
-                'redirect' => array_val($result, 'redirect')
-            ];
             // A Form whose study has an access window (expire_after /
-            // expire_invitation_after) is queued on every render: its v2
-            // page state must reach the controller here too, or the page is
-            // rendered by run/index without the form bundle — every page
-            // section stays hidden.
-            if (!empty($result['form_v2'])) {
-                $out['form_v2'] = $result['form_v2'];
-            }
-            return $out;
+            // expire_invitation_after) is queued on every render.
+            return $this->unitPage($result, ['redirect' => array_val($result, 'redirect')]);
         }
 
         if (!empty($result['wait_opencpu']) || !empty($result['wait_user'])) {
@@ -520,17 +510,32 @@ class RunSession extends Model {
         }
         
         if (isset($result['content'])) {
-            $out = ['body' => $result['content']];
-            if (!empty($result['form_v2'])) {
-                $out['form_v2'] = $result['form_v2'];
-            }
-            return $out;
+            return $this->unitPage($result);
         }
 
         return $this->moveOn();
 
         //alert('Error: Premature study end.', "alert-danger");
         //return ['body' => 'FORMR_END'];
+    }
+
+    /**
+     * The page of the unit just executed, from its result: its content, and
+     * everything that decides how it is rendered — form_v2, the v2 page
+     * state that makes RunController use run/form_index with the form
+     * bundle (without it run/index shows the form's markup with every page
+     * hidden). Every branch of executeUnitSession that shows the unit's own
+     * page builds it here.
+     *
+     * @param array $result the unit's output (RunUnit::getUnitSessionOutput)
+     * @param array $extra further keys of the page (a queue's redirect)
+     */
+    private function unitPage(array $result, array $extra = []) {
+        $page = ['body' => array_val($result, 'content')] + $extra;
+        if (!empty($result['form_v2'])) {
+            $page['form_v2'] = $result['form_v2'];
+        }
+        return $page;
     }
 
     public function getUnitIdAtPosition($position) {
