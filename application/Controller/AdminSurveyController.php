@@ -112,12 +112,9 @@ class AdminSurveyController extends AdminController {
                         }
                         $data->settings->rendering_mode = $engine;
                     }
-                    if (SurveyStudy::createFromData($data, array('user_id' => $this->user->id))) {
+                    if (($created = SurveyStudy::createFromData($data, array('user_id' => $this->user->id)))) {
                         alert('<strong>Success!</strong> New survey created from JSON!', 'alert-success');
-                        $created = SurveyStudy::loadByUserAndName($this->user, $data->name);
-                        $redirect = ($created && $created->valid)
-                            ? admin_study_url($created->name, 'show_item_table')
-                            : 'admin/survey';
+                        $redirect = admin_study_url($created->name, 'show_item_table');
                     } else {
                         alert('<strong>Bugger!</strong> The survey JSON could not be imported. See the messages above.', 'alert-danger');
                         $redirect = 'admin/survey';
