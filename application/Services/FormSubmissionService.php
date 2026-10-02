@@ -336,7 +336,7 @@ class FormSubmissionService {
         // The session's showif-bearing, live items: one read, then the
         // writes go by key, and only for the rows that change.
         $rows = $this->db->execute(
-            'SELECT `d`.`item_id`, `i`.`name`, `d`.`hidden`, `d`.`saved`, `d`.`answer`
+            'SELECT `d`.`item_id`, `i`.`name`, `d`.`hidden`, `d`.`saved`, `d`.`answer`, `d`.`answered`
              FROM `survey_items_display` `d` JOIN `survey_items` `i` ON `i`.`id` = `d`.`item_id`
              WHERE `d`.`session_id` = :sid
                AND `i`.`showif` IS NOT NULL AND TRIM(`i`.`showif`) != \'\'
@@ -349,7 +349,7 @@ class FormSubmissionService {
             if (isset($hidden[$id])) {
                 // Every submit posts the whole form's hidden list: a row
                 // already hidden with nothing stored has nothing to change.
-                if ((int) $row['hidden'] !== 1 || $row['saved'] !== null || $row['answer'] !== null) {
+                if ((int) $row['hidden'] !== 1 || $row['saved'] !== null || $row['answer'] !== null || $row['answered'] !== null) {
                     $hide[] = $id;
                 }
                 if ($row['saved'] !== null) {
@@ -361,7 +361,8 @@ class FormSubmissionService {
         }
         if ($hide) {
             $this->db->exec(
-                'UPDATE `survey_items_display` SET `hidden` = 1, `answer` = NULL, `saved` = NULL'
+                // As withdrawAnswers: no answer, so no time it was given.
+                'UPDATE `survey_items_display` SET `hidden` = 1, `answer` = NULL, `saved` = NULL, `answered` = NULL, `answered_relative` = NULL'
                 . ' WHERE `session_id` = :sid AND `item_id` IN (' . implode(',', $hide) . ')',
                 array('sid' => $sid)
             );

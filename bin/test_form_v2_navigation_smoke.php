@@ -132,7 +132,7 @@ try {
         return $service->apply(['page' => $page, 'unit_session_id' => 0, 'data' => $data, 'item_views' => [], 'hidden' => $hidden, 'final' => $final]);
     };
     $row = function ($name) use ($db, $us, $ids) {
-        return $db->execute('SELECT answer, saved, hidden FROM survey_items_display WHERE session_id = :s AND item_id = :i', ['s' => $us->id, 'i' => $ids[$name]], false, true);
+        return $db->execute('SELECT answer, saved, hidden, answered, answered_relative FROM survey_items_display WHERE session_id = :s AND item_id = :i', ['s' => $us->id, 'i' => $ids[$name]], false, true);
     };
 
     echo "\n-- page 1: validation error writes nothing --\n";
@@ -151,10 +151,12 @@ try {
     $r = $submit(['q1' => '1', 'q2' => 'because'], []);
     ok($r['status'] === 'ok' && $r['items']['q2']['value'] === 'because' && $r['items']['q2']['hidden'] === false, 'q2 stored and unhidden', $r['items']['q2'] ?? null);
     ok((int) $row('q2')['hidden'] === 0 && $row('q2')['answer'] === 'because', 'q2 row: hidden 0, answer kept');
+    ok($row('q2')['answered'] !== null, 'q2 has the time it was answered');
 
     echo "\n-- hide again: the answer is retracted --\n";
     $r = $submit(['q1' => '2'], [$ids['q2']]);
     ok((int) $row('q2')['hidden'] === 1 && $row('q2')['answer'] === null && $row('q2')['saved'] === null, 'q2 cleared in the display table', $row('q2'));
+    ok($row('q2')['answered'] === null && $row('q2')['answered_relative'] === null, 'and so is the time it was answered, as when an answer is withdrawn', $row('q2'));
     $wide = $db->execute("SELECT q2 FROM `{$study->results_table}` WHERE session_id = :s", ['s' => $us->id], false, true);
     ok($wide && $wide['q2'] === null, 'q2 cleared in the results table', $wide);
     ok(isset($r['items']['q2']) && $r['items']['q2']['answered'] === false, 'the reply echoes q2, retracted', $r['items']['q2'] ?? null);
