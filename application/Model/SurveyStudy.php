@@ -1406,6 +1406,33 @@ class SurveyStudy extends Model
     }
 
     /**
+     * The select_or_add items whose choice list is written in one cell with
+     * semicolons (`red;green;blue`), as name => why: v2 splits such a cell at
+     * ";", v1 at "," (SelectOrAddOne_Item::unpackChoices), so on v1 it would
+     * not be split. The way back's counterpart of the comma lists the
+     * compatibility scan flags on the way to v2 (pack_with_semicolons).
+     *
+     * @return array<string, string>
+     */
+    public function semicolonListItems()
+    {
+        $lists = $this->getChoices();
+        $factory = new ItemFactory(array());
+        $out = array();
+        foreach ((array) $this->getItems() as $row) {
+            $item = $factory->make($row);
+            if (!($item instanceof SelectOrAddOne_Item)) {
+                continue;
+            }
+            $choices = isset($lists[$row['choice_list']]) ? array_values((array) $lists[$row['choice_list']]) : array();
+            if (count($choices) === 1 && strpos((string) $choices[0], ';') !== false) {
+                $out[(string) $item->name] = "'{$item->name}': the cell \"{$choices[0]}\" lists its choices with semicolons; v1 separates them with commas, so it would be a single choice";
+            }
+        }
+        return $out;
+    }
+
+    /**
      * Put this study on the form_v2 engine: the one way a study gets there
      * after it exists (the admin switch, a Form unit linking it). Besides the
      * flag, the multiple-choice columns of an older results table are

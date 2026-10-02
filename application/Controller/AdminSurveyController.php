@@ -741,6 +741,10 @@ class AdminSurveyController extends AdminController {
         // bot_check could never be answered on v1.
         $toV1 = $target === 'v1' && $this->study->rendering_mode === 'v2';
         $v1Unsupported = $toV1 ? $this->study->v1UnsupportedItems() : array();
+        // And a choice list written in one cell with semicolons, which v1
+        // would not split (it splits at commas), stops it unless confirmed,
+        // as a comma list does on the way to v2.
+        $v1ListFindings = ($toV1 && !$v1Unsupported && empty($_POST['force'])) ? $this->study->semicolonListItems() : array();
         // A showif the browser cannot evaluate (leftover R, a name that is not
         // on the form) keeps its item hidden for good, silently — the one
         // place v1 studies break on the way to v2. So the scan's showif
@@ -774,6 +778,12 @@ class AdminSurveyController extends AdminController {
         } elseif ($v1Unsupported) {
             alert('<strong>Not switched.</strong> This survey has items that only v2 can run:<ul><li>'
                 . implode('</li><li>', array_map('h', $v1Unsupported)) . '</li></ul>', 'alert-danger');
+        } elseif ($v1ListFindings) {
+            alert('<strong>Not switched.</strong> These choice lists are written in one cell with semicolons. v1 separates such a list with commas, so each would become a single choice. Give each choice its own row, or switch anyway if a cell is meant as one choice.<ul><li>'
+                . implode('</li><li>', array_map('h', $v1ListFindings)) . '</li></ul>'
+                . '<form method="post" action="' . admin_study_url($this->study->name, 'switch_rendering_mode') . '">'
+                . '<input type="hidden" name="target" value="v1"><input type="hidden" name="force" value="1">'
+                . '<button type="submit" class="btn btn-warning btn-sm"><i class="fa fa-exclamation-triangle"></i> Switch to v1 anyway</button></form>', 'alert-danger');
         } elseif ($toV1) {
             $this->study->update(['rendering_mode' => 'v1']);
             alert('Study switched back to the v1 engine; its Form units are Survey units again.', 'alert-success');

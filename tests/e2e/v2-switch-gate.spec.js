@@ -140,4 +140,30 @@ test.describe('switching a study to form_v2', () => {
             db.dbExecRaw(`UPDATE survey_studies SET rendering_mode = 'v1' WHERE id = ${parseInt(study.id, 10)};`);
         }
     });
+
+    test('a one-cell semicolon list stops the switch back to v1 until the author confirms it', async ({ page }) => {
+        // v2 splits a one-cell list at semicolons, v1 at commas: on v1 this
+        // cell would be one choice.
+        const name = `e2e_gate_v1list_${SUFFIX}`;
+        const json = { name, settings: { rendering_mode: 'v2' }, items: [
+            { type: 'select_or_add_one', name: 'colour', label: 'colour', optional: 1, choice_list: 'colours', choices: { 1: 'red;green;blue' }, order: 1, item_order: 1 },
+        ] };
+        await page.request.post(`${ADMIN_BASE}/admin/survey/add_survey/`, {
+            multipart: { uploaded: { name: `${name}.json`, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(json)) } },
+        });
+        try {
+            expect(renderingMode(name), 'created on v2').toBe('v2');
+            let res = await switchTo(page, name, { target: 'v1' });
+            const html = await res.text();
+            expect(html).toContain('Not switched');
+            expect(html).toContain('written in one cell with semicolons');
+            expect(html, 'the way past it is offered').toContain('Switch to v1 anyway');
+            expect(renderingMode(name)).toBe('v2');
+            res = await switchTo(page, name, { target: 'v1', force: '1' });
+            expect(res.ok()).toBeTruthy();
+            expect(renderingMode(name), 'confirmed: switched').toBe('v1');
+        } finally {
+            deleteStudy(name);
+        }
+    });
 });
