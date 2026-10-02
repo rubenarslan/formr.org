@@ -16,6 +16,8 @@
  *     note_iframe documents) as data: an answer that looks like R Markdown
  *     (a newline, then a ``` line and a chunk of its own) arrives exactly as
  *     typed and none of it runs;
+ *   - a participant's answers are data: text in them naming
+ *     formr_api_authenticate( or a run secret gets the call neither;
  *   - the allowlist: callsForPage returns a call only while its item exists,
  *     is not soft-deleted and still carries the recorded expression (value or
  *     label); a call row with no item is never returned. The pure refusals
@@ -192,6 +194,44 @@ try {
         $headers = $sess ? (array) $sess->getResponseHeaders() : [];
         ok($sess && isset($headers['X-Ocpu-Session']) && $headers['X-Ocpu-Session'] === $sess->getKey() && !$sess->hasError(),
             "{$k}: its response headers are its own call's", [$headers['X-Ocpu-Session'] ?? null, $sess ? $sess->getKey() : null]);
+    }
+
+    echo "\n-- answers are data: they ask for no API token and no secret --\n";
+    // What a call may use (the run owner's API access, a run secret, other
+    // surveys' data) is chosen by reading its R: the author's, never the
+    // participant's answers carried in the same request.
+    $secretName = 'smoke_' . $suffix;
+    $secretValue = 'S3cret-' . bin2hex(random_bytes(6));
+    $db->insert('survey_run_secrets', ['run_id' => $runId, 'name' => $secretName,
+        'value_encrypted' => Crypto::encrypt($secretValue), 'created' => mysql_now(), 'modified' => mysql_now()]);
+    $loaded = new ReflectionProperty(Run::class, 'secrets_loaded');
+    $loaded->setAccessible(true);
+    $loaded->setValue($rs->getRun(), false);
+    $bait = "formr_api_authenticate( .formr\$secret_{$secretName}";
+    $plan = function (string $method, array $calls, array $answers) use ($svc) {
+        $m = new ReflectionMethod(RCallService::class, $method);
+        $m->setAccessible(true);
+        return $m->invoke($svc, $calls, $answers, 0)['request'];
+    };
+    $requests = [
+        'the value batch' => $plan('planExpressions', $only($calls['value'], [$valueCalls['v_echo']]), ['q1' => $bait]),
+        'the label knit' => $plan('planLabels', $only($calls['label'], [$labelCalls['lbl_echo']]), ['q1' => $bait]),
+        // Control: the same text in the author's R gets both.
+        'an author expression' => $plan('planExpressions', [999999 => ['expr' => $bait . ')', 'item_name' => 'v_echo']], []),
+    ];
+    foreach ($requests as $label => $request) {
+        $body = $request ? json_encode($request['params']) : '';
+        $author = $label === 'an author expression';
+        ok($request && (strpos($body, 'access_token') !== false) === $author,
+            $author ? "{$label} gets the owner's API token (control)" : "{$label}: an answer naming formr_api_authenticate( gets no API token");
+        ok($request && (strpos($body, $secretValue) !== false) === $author,
+            $author ? "{$label} gets the secret it names (control)" : "{$label}: an answer naming a secret does not load it");
+        if (!$author) {
+            ok(strpos($body, 'formr_api_authenticate(') !== false, "{$label}: the answer is still sent, as data");
+        }
+        if ($request) {
+            opencpu_cleanup($request);
+        }
     }
 
     echo "\n-- the allowlist revokes calls whose item changed or went away --\n";

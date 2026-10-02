@@ -1662,13 +1662,17 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
  *
  * @return array{uri: string, params: array, cleanup: callable|null}
  */
-function opencpu_evaluate_request($code, $variables = null, $return_format = 'json', $context = null)
+function opencpu_evaluate_request($code, $variables = null, $return_format = 'json', $context = null, $scan = null)
 {
-    $temp_token_to_delete = opencpu_prepare_api_access($code, $variables);
+    // $scan: the text read for formr_api_authenticate() and secret
+    // references, when $code also carries data (participants' answers)
+    // that must not ask for either.
+    $scan = $scan === null ? $code : $scan;
+    $temp_token_to_delete = opencpu_prepare_api_access($scan, $variables);
 
     $r_variables = is_string($variables) ? $variables : opencpu_define_vars($variables, $context);
 
-    $r_prelude = opencpu_run_prelude($code);
+    $r_prelude = opencpu_run_prelude($scan);
 
     $params = ['x' => '{
 (function() {
@@ -2052,12 +2056,14 @@ function opencpu_knitdisplay($source, $variables = null, $return_session = false
  *
  * @return array{uri: string, params: array, message: string, cleanup: callable|null}
  */
-function opencpu_knitdisplay_request($source, $variables = null, $context = null, $to = 'html')
+function opencpu_knitdisplay_request($source, $variables = null, $context = null, $to = 'html', $scan = null)
 {
+    // $scan: as in opencpu_evaluate_request.
+    $scan = $scan === null ? $source : $scan;
     // Bridge formr_api_authenticate() before stringifying $variables so the
     // .formr$ assignments land inside the settings chunk below, after
     // library(formr) and before the user's chunks run.
-    $temp_token_to_delete = opencpu_prepare_api_access($source, $variables);
+    $temp_token_to_delete = opencpu_prepare_api_access($scan, $variables);
     if (!is_string($variables)) {
         $variables = opencpu_define_vars($variables, $context);
     }
@@ -2071,7 +2077,7 @@ function opencpu_knitdisplay_request($source, $variables = null, $context = null
         $show_warnings = 'TRUE';
     }
 
-    $r_prelude = opencpu_run_prelude($source);
+    $r_prelude = opencpu_run_prelude($scan);
 
     $source = '```{r settings,warning=' . $show_warnings . ',message=' . $show_warnings . ',error=' . $show_errors . ',echo=F}
 library(knitr); library(formr)
@@ -2198,10 +2204,13 @@ function opencpu_knit_strings(UnitSession $unitSession, $studyName, array $sourc
 }
 
 /** The request opencpu_knit_strings sends (for opencpu_post_many). */
-function opencpu_knit_strings_request(UnitSession $unitSession, $studyName, array $sources, $to = 'html', $prelude = '')
+function opencpu_knit_strings_request(UnitSession $unitSession, $studyName, array $sources, $to = 'html', $prelude = '', $scanPrelude = null)
 {
     $markdown = $prelude . implode(OpenCPU::STRING_DELIMITER, $sources);
-    return opencpu_knitdisplay_request($markdown, $unitSession->getRunData($markdown, $studyName), $studyName, $to);
+    // What the data, API access and secrets are chosen by: the prelude
+    // without the data it carries ($scanPrelude), when it carries some.
+    $scan = ($scanPrelude === null ? $prelude : $scanPrelude) . implode(OpenCPU::STRING_DELIMITER, $sources);
+    return opencpu_knitdisplay_request($markdown, $unitSession->getRunData($scan, $studyName), $studyName, $to, $scan);
 }
 
 /**

@@ -562,15 +562,22 @@ class RCallService {
         // The browser's answers land on the survey frame first (the same
         // statements the label path knits), so `survey$x` and a bare `x`
         // inside with() see the same values.
-        $code = "(function() {\n"
-              . self::overlayStatements($this->surveyName, $this->formatROverlay($answers), '  ')
-              . "  with(tail({$this->surveyName}, 1), list(\n"
-              . "    " . implode(",\n    ", $listEntries) . "\n"
-              . "  ))\n"
-              . "})()\n";
+        $program = function ($overlayR) use ($listEntries) {
+            return "(function() {\n"
+                 . self::overlayStatements($this->surveyName, $overlayR, '  ')
+                 . "  with(tail({$this->surveyName}, 1), list(\n"
+                 . "    " . implode(",\n    ", $listEntries) . "\n"
+                 . "  ))\n"
+                 . "})()\n";
+        };
+        $code = $program($this->formatROverlay($answers));
+        // The data loaded, API access and secrets are chosen by reading the
+        // code: the author's, never the participant's answers in it (text
+        // naming another survey, formr_api_authenticate( or a secret).
+        $scan = $program($this->formatROverlay(array()));
 
-        return $this->charged(function () use ($code) {
-            return opencpu_evaluate_request($code, $this->unitSession->getRunData($code, $this->surveyName), 'json', null);
+        return $this->charged(function () use ($code, $scan) {
+            return opencpu_evaluate_request($code, $this->unitSession->getRunData($scan, $this->surveyName), 'json', null, $scan);
         });
     }
 
@@ -711,13 +718,19 @@ class RCallService {
         // we can't append raw R to it) — the same statements runBatch uses.
         // Then the overlaid last row is attached for bare names
         // (reattachStatement).
-        $prelude = empty($answers) ? '' : "```{r overlay,echo=FALSE,results='hide',message=FALSE,warning=FALSE}\n"
-            . self::overlayStatements($this->surveyName, $this->formatROverlay($answers))
-            . $this->reattachStatement()
-            . "```\n";
+        $chunk = function ($overlayR) {
+            return "```{r overlay,echo=FALSE,results='hide',message=FALSE,warning=FALSE}\n"
+                . self::overlayStatements($this->surveyName, $overlayR)
+                . $this->reattachStatement()
+                . "```\n";
+        };
+        $prelude = empty($answers) ? '' : $chunk($this->formatROverlay($answers));
+        // Read for data, API access and secrets without the answers in it
+        // (see batchRequest).
+        $scanPrelude = empty($answers) ? '' : $chunk($this->formatROverlay(array()));
 
-        $plan['request'] = $this->charged(function () use ($sources, $prelude) {
-            return opencpu_knit_strings_request($this->unitSession, $this->study->name, $sources, 'markdown', $prelude);
+        $plan['request'] = $this->charged(function () use ($sources, $prelude, $scanPrelude) {
+            return opencpu_knit_strings_request($this->unitSession, $this->study->name, $sources, 'markdown', $prelude, $scanPrelude);
         });
         return $plan;
     }
