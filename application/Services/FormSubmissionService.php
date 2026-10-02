@@ -336,7 +336,7 @@ class FormSubmissionService {
         // The session's showif-bearing, live items: one read, then the
         // writes go by key, and only for the rows that change.
         $rows = $this->db->execute(
-            'SELECT `d`.`item_id`, `i`.`name`, `d`.`hidden`, `d`.`saved`
+            'SELECT `d`.`item_id`, `i`.`name`, `d`.`hidden`, `d`.`saved`, `d`.`answer`
              FROM `survey_items_display` `d` JOIN `survey_items` `i` ON `i`.`id` = `d`.`item_id`
              WHERE `d`.`session_id` = :sid
                AND `i`.`showif` IS NOT NULL AND TRIM(`i`.`showif`) != \'\'
@@ -347,7 +347,11 @@ class FormSubmissionService {
         foreach ((array) $rows as $row) {
             $id = (int) $row['item_id'];
             if (isset($hidden[$id])) {
-                $hide[] = $id;
+                // Every submit posts the whole form's hidden list: a row
+                // already hidden with nothing stored has nothing to change.
+                if ((int) $row['hidden'] !== 1 || $row['saved'] !== null || $row['answer'] !== null) {
+                    $hide[] = $id;
+                }
                 if ($row['saved'] !== null) {
                     $retractedNames[] = (string) $row['name'];
                 }
