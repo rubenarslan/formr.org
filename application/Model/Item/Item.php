@@ -789,6 +789,18 @@ class Item {
         return true;
     }
 
+    /**
+     * Is this item's value R (not empty, not a number)? Unlike
+     * needsDynamicValue(), which prepares the item for rendering on the way
+     * (trims the value, sets a numeric default, drops the preset of an empty
+     * one), this only reads: for checks of items that are then rendered or
+     * judged (formV2Unsupported).
+     */
+    public function hasDynamicValue() {
+        $value = trim((string) $this->value);
+        return is_formr_truthy($value) && !is_numeric($value);
+    }
+
     public function evaluateDynamicValue(SurveyStudy $survey) {
         
     }
@@ -908,7 +920,7 @@ class Item {
      * @return string|null
      */
     public function formV2Unsupported() {
-        if (!$this->requiresUserInput() && $this->needsDynamicValue()) {
+        if (!$this->requiresUserInput() && $this->hasDynamicValue()) {
             return "'{$this->name}': in v2, a {$this->type} item cannot have R code as its value. Clear the value, or use a hidden item with that value.";
         }
         return null;

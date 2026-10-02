@@ -56,4 +56,9 @@ class Get_Item extends Item {
         return false;
     }
 
+    // Its value names the URL parameter to read, not R.
+    public function hasDynamicValue() {
+        return false;
+    }
+
 }
