@@ -4,6 +4,9 @@
  * Live-MariaDB smoke for bin/backfill_study_iteration.php and the `valid`
  * column it once filtered on.
  *
+ *   - a survey created from a file (SurveyStudy::createFromFile, the plain
+ *     spreadsheet upload) stores valid = 1 — it stayed NULL, the flag being
+ *     set only after the row was saved;
  *   - the backfill fills a study's historical sessions (study_iteration
  *     NULL) from its wide table's iteration, whatever its `valid` column
  *     says: a dry run counts them, the real run fills them and raises
@@ -36,6 +39,10 @@ $backfill = function (string $args) {
 };
 try {
     echo "== study iteration backfill smoke ==\n";
+    $fromFile = new SurveyStudy();
+    ok($fromFile->createFromFile(['name' => "backfillfile_{$suffix}.xlsx"]), 'a survey created from a file');
+    ok((string) $db->execute('SELECT valid FROM survey_studies WHERE id = :id', ['id' => $fromFile->id], true) === '1', 'stores valid = 1');
+
     $run->importUnits(json_encode(['units' => [
         ['type' => 'Survey', 'position' => 10, 'description' => 's', 'survey_data' => ['name' => "backfillsmoke_{$suffix}", 'items' => [
             ['name' => 'q1', 'type' => 'text', 'label' => 'Q1', 'optional' => 1, 'order' => 1, 'item_order' => 1],

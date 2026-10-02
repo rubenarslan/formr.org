@@ -197,8 +197,9 @@ class SurveyStudy extends Model
             return false;
         }
         $this->results_table = $results_table;
-        $this->save();
+        // Before save(), so the row records it too (it stayed NULL otherwise).
         $this->valid = true;
+        $this->save();
 
         return true;
     }
