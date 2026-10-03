@@ -970,9 +970,17 @@ class UnitSession extends Model {
      * @return int the new iteration value
      */
     public function allocateStudyIteration($studyId) {
+        // Never at or below a number a session of this study already holds.
+        // The counter can fall behind those (seeded from a wide table that
+        // lacks rows, a counter reset), and the wide table's UNIQUE key does
+        // not see a session without a wide row: allocating from the counter
+        // alone handed such a session's number out again.
         $this->db->exec(
-            'UPDATE `survey_studies` SET `last_iteration` = LAST_INSERT_ID(`last_iteration` + 1) WHERE `id` = :study_id',
-            ['study_id' => (int) $studyId]
+            'UPDATE `survey_studies`
+                SET `last_iteration` = LAST_INSERT_ID(GREATEST(`last_iteration`,
+                    (SELECT COALESCE(MAX(`study_iteration`), 0) FROM `survey_unit_sessions` WHERE `unit_id` = :sessions_of)) + 1)
+              WHERE `id` = :study_id',
+            ['study_id' => (int) $studyId, 'sessions_of' => (int) $studyId]
         );
         // DB::query() returns fetchAll() rows for SELECTs (not a PDOStatement),
         // so index into the result array directly.

@@ -1,0 +1,84 @@
+#!/usr/bin/php
+<?php
+/**
+ * Live-MariaDB smoke for the per-study iteration (survey_unit_sessions.
+ * study_iteration, survey_studies.last_iteration, the wide table's
+ * `iteration`): one number per session of a study, never handed out twice.
+ *
+ *   - a counter behind a number a session already holds (a session without
+ *     a wide row, which the wide table's UNIQUE key does not see) still
+ *     allocates above it.
+ *
+ * Run: docker exec formr_app php /var/www/formr/bin/test_study_iteration_smoke.php
+ * Creates and removes its own run, study and sessions.
+ */
+require_once dirname(__FILE__) . '/../setup.php';
+if (php_sapi_name() !== 'cli') { die("CLI only\n"); }
+
+$db = DB::getInstance();
+$failures = 0;
+function ok($cond, string $label, $detail = null): void {
+    global $failures;
+    echo $cond ? "  \e[32mOK\e[0m  {$label}\n" : "  \e[31mFAIL\e[0m {$label}" . ($detail !== null ? ' — ' . var_export($detail, true) : '') . "\n";
+    if (!$cond) { $failures++; }
+}
+$owner = $db->execute('SELECT id FROM survey_users ORDER BY id LIMIT 1', [], false, true);
+if (!$owner) { fwrite(STDERR, "No survey_users row to own the test run.\n"); exit(2); }
+$GLOBALS['user'] = new User((int) $owner['id']);
+
+$suffix = bin2hex(random_bytes(3));
+$runId = $db->insert('survey_runs', ['user_id' => (int) $owner['id'], 'name' => 'itersmoke_' . $suffix,
+    'created' => mysql_now(), 'modified' => mysql_now(), 'cron_active' => 0]);
+$run = new Run(null, $runId);
+$study = null; $codes = [];
+$start = function () use ($db, $runId, &$codes, &$survey) {
+    $code = 'ITERSMOKE' . bin2hex(random_bytes(8));
+    $codes[] = $code;
+    $db->insert('survey_run_sessions', ['run_id' => $runId, 'session' => $code, 'created' => mysql_now(), 'position' => 10]);
+    $rs = new RunSession($code, new Run(null, $runId));
+    $rs->position = 10;
+    $rs->createUnitSession($survey);
+    $rs->currentUnitSession->createSurveyStudyRecord();
+    return (int) $rs->currentUnitSession->id;
+};
+$iteration = function (int $usId) use ($db) {
+    return (int) $db->execute('SELECT study_iteration FROM survey_unit_sessions WHERE id = :id', ['id' => $usId], true);
+};
+try {
+    echo "== study iteration smoke ==\n";
+    $run->importUnits(json_encode(['units' => [
+        ['type' => 'Survey', 'position' => 10, 'description' => 's', 'survey_data' => ['name' => "itersmoke_{$suffix}", 'items' => [
+            ['name' => 'q1', 'type' => 'text', 'label' => 'Q1', 'optional' => 1, 'order' => 1, 'item_order' => 1],
+        ]]],
+        ['type' => 'Endpage', 'position' => 20, 'description' => 'end', 'body' => 'Done.'],
+    ]]));
+    $survey = RunUnitFactory::make($run, ['id' => (int) $run->getAllUnitIds()[0]['unit_id']]);
+    $study = $survey->surveyStudy;
+    $duplicates = function () use ($db, $study) {
+        return (int) $db->execute('SELECT COUNT(*) FROM (SELECT study_iteration FROM survey_unit_sessions
+            WHERE unit_id = :s AND study_iteration IS NOT NULL GROUP BY study_iteration HAVING COUNT(*) > 1) d', ['s' => $study->id], true);
+    };
+
+    echo "\n-- a counter behind a number a session holds --\n";
+    $a = $start(); $b = $start(); $c = $start();
+    ok([$iteration($a), $iteration($b), $iteration($c)] === [1, 2, 3], 'sessions numbered 1, 2, 3', [$iteration($a), $iteration($b), $iteration($c)]);
+    // c keeps its number but has no wide row, and the counter fell behind it.
+    $db->exec("DELETE FROM `{$study->results_table}` WHERE session_id = :s", ['s' => $c]);
+    $db->exec('UPDATE survey_studies SET last_iteration = 2 WHERE id = :id', ['id' => $study->id]);
+    $d = $start();
+    ok($iteration($d) === 4, 'the next session gets 4, not the 3 a session holds', $iteration($d));
+    ok($duplicates() === 0, 'no number is held twice');
+    ok((int) $db->execute('SELECT last_iteration FROM survey_studies WHERE id = :id', ['id' => $study->id], true) === 4, 'the counter caught up');
+} catch (Throwable $e) {
+    echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";
+    $failures++;
+}
+try {
+    foreach ($codes as $c) { $db->exec('DELETE FROM survey_run_sessions WHERE session = :c', ['c' => $c]); }
+    if ($study && $study->valid) { $study->delete(); }
+    $run->delete();
+} catch (Throwable $e) {
+    echo "  teardown: " . $e->getMessage() . "\n";
+}
+echo "\n" . ($failures ? "\e[31m{$failures} failure(s)\e[0m" : "\e[32mall passed\e[0m") . "\n";
+exit($failures ? 1 : 0);
