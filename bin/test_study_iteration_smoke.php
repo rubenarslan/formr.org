@@ -7,7 +7,10 @@
  *
  *   - a counter behind a number a session already holds (a session without
  *     a wide row, which the wide table's UNIQUE key does not see) still
- *     allocates above it.
+ *     allocates above it;
+ *   - a second session cannot take a number another holds (patch 118's
+ *     key), and a session from before patch 108 whose wide row's number is
+ *     taken gets a fresh one instead of an error.
  *
  * Run: docker exec formr_app php /var/www/formr/bin/test_study_iteration_smoke.php
  * Creates and removes its own run, study and sessions.
@@ -31,7 +34,8 @@ $runId = $db->insert('survey_runs', ['user_id' => (int) $owner['id'], 'name' => 
     'created' => mysql_now(), 'modified' => mysql_now(), 'cron_active' => 0]);
 $run = new Run(null, $runId);
 $study = null; $codes = [];
-$start = function () use ($db, $runId, &$codes, &$survey) {
+$codeOf = [];
+$start = function () use ($db, $runId, &$codes, &$survey, &$codeOf) {
     $code = 'ITERSMOKE' . bin2hex(random_bytes(8));
     $codes[] = $code;
     $db->insert('survey_run_sessions', ['run_id' => $runId, 'session' => $code, 'created' => mysql_now(), 'position' => 10]);
@@ -39,6 +43,7 @@ $start = function () use ($db, $runId, &$codes, &$survey) {
     $rs->position = 10;
     $rs->createUnitSession($survey);
     $rs->currentUnitSession->createSurveyStudyRecord();
+    $codeOf[(int) $rs->currentUnitSession->id] = $code;
     return (int) $rs->currentUnitSession->id;
 };
 $iteration = function (int $usId) use ($db) {
@@ -69,6 +74,24 @@ try {
     ok($iteration($d) === 4, 'the next session gets 4, not the 3 a session holds', $iteration($d));
     ok($duplicates() === 0, 'no number is held twice');
     ok((int) $db->execute('SELECT last_iteration FROM survey_studies WHERE id = :id', ['id' => $study->id], true) === 4, 'the counter caught up');
+
+    echo "\n-- one number per session --\n";
+    $refused = false;
+    try {
+        $db->exec('UPDATE survey_unit_sessions SET study_iteration = :n WHERE id = :id', ['n' => $iteration($a), 'id' => $b]);
+    } catch (PDOException $e) {
+        $refused = (int) ($e->errorInfo[1] ?? 0) === 1062;
+    }
+    ok($refused, 'a second session cannot take a number another holds');
+    // A session from before patch 108: no number of its own yet, and the
+    // number its wide row carries (3) is held by c.
+    $e = $start();
+    $db->exec('UPDATE survey_unit_sessions SET study_iteration = NULL WHERE id = :id', ['id' => $e]);
+    $db->exec("UPDATE `{$study->results_table}` SET iteration = 3 WHERE session_id = :s", ['s' => $e]);
+    $us = (new RunSession($codeOf[$e], new Run(null, $runId)))->getCurrentUnitSession();
+    $us->createSurveyStudyRecord();
+    ok($iteration($e) > 4 && $iteration($e) !== $iteration($c), 'a session whose wide number is taken gets a fresh one', $iteration($e));
+    ok($duplicates() === 0, 'still no number held twice');
 } catch (Throwable $e) {
     echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";
     $failures++;

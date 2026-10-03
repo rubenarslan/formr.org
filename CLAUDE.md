@@ -174,6 +174,10 @@ UPDATE` over a bare `INSERT` so a re-run cannot double-write.
   allocation has started; a study is skipped only when it has no NULL
   rows left and its `last_iteration` is already caught up. (No `--force`
   — it was removed along with the old `last_iteration > 0` skip.)
+  A `study_iteration` belongs to one session of its study (patch 118's
+  UNIQUE `(unit_id, study_iteration)`), and `allocateStudyIteration`
+  allocates above every number a session of the study holds, not only
+  above the counter.
 - `bin/gen_pwa_items_xlsx.php` — regenerates the committed
   `documentation/example_surveys/pwa_items_{default,solo}.xlsx` pair
   (byte-identical sheets; `layout` is a study setting, not a column,

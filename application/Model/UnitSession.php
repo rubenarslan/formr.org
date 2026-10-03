@@ -1066,10 +1066,20 @@ class UnitSession extends Model {
                 'iteration'
             );
             if ($wideIteration > 0) {
-                $this->db->update('survey_unit_sessions',
-                    array('study_iteration' => $wideIteration),
-                    array('id' => $this->id));
-                $alreadyAllocated = $wideIteration;
+                try {
+                    $this->db->update('survey_unit_sessions',
+                        array('study_iteration' => $wideIteration),
+                        array('id' => $this->id));
+                    $alreadyAllocated = $wideIteration;
+                } catch (PDOException $e) {
+                    // Another session of the study already holds that number
+                    // (patch 118's key): this one gets a fresh one below, and
+                    // its wide row keeps the old.
+                    if ((int) ($e->errorInfo[1] ?? 0) !== 1062) {
+                        throw $e;
+                    }
+                    formr_log("study_iteration: wide iteration {$wideIteration} of unit session {$this->id} is held by another session; allocating a new one");
+                }
             }
         }
 
@@ -1099,11 +1109,25 @@ class UnitSession extends Model {
             // (a double load) both allocate, and the second stamp would give
             // the session another iteration than the wide row the first one
             // writes. The one that lost keeps the stamped value.
-            $stamped = $this->db->exec(
-                'UPDATE `survey_unit_sessions` SET `study_iteration` = :iteration, `layout` = :layout
-                 WHERE `id` = :id AND `study_iteration` IS NULL',
-                array('iteration' => $iteration, 'layout' => $study->layout, 'id' => (int) $this->id)
-            );
+            $stamp = function ($iteration) use ($study) {
+                return $this->db->exec(
+                    'UPDATE `survey_unit_sessions` SET `study_iteration` = :iteration, `layout` = :layout
+                     WHERE `id` = :id AND `study_iteration` IS NULL',
+                    array('iteration' => $iteration, 'layout' => $study->layout, 'id' => (int) $this->id)
+                );
+            };
+            try {
+                $stamped = $stamp($iteration);
+            } catch (PDOException $e) {
+                // Taken meanwhile by a write outside the allocator (the
+                // backfill numbering history): patch 118's key refuses it;
+                // the next allocation is above it.
+                if ((int) ($e->errorInfo[1] ?? 0) !== 1062) {
+                    throw $e;
+                }
+                $iteration = $this->allocateStudyIteration($study->id);
+                $stamped = $stamp($iteration);
+            }
             if ($stamped) {
                 $sessionStarted = true;
             } else {
