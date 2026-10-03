@@ -30,7 +30,10 @@
  *       via a JOIN with the wide table on session_id, copying
  *       w.iteration — only rows currently NULL
  *       (`WHERE us.study_iteration IS NULL`), so an already-allocated
- *       value (live or a prior backfill run) is never overwritten.
+ *       value (live or a prior backfill run) is never overwritten — and
+ *       only where no other session of the study holds that number
+ *       (patch 118). A session whose wide number is taken is numbered
+ *       above everything on record instead, in its wide row too.
  *   3b. No `iteration` column: there is no historical value to copy,
  *       so NULL study_iteration rows matched to a wide row
  *       (session_id join) are numbered sequentially in wide.created
@@ -118,6 +121,9 @@ foreach ($studies as $study) {
 
     $label = $dryRun ? 'rows_to_backfill' : 'rows_backfilled';
     $mode = $hasIterationCol ? '' : ' (no iteration column; sequential)';
+    if (!empty($result['renumbered'])) {
+        $mode .= " ({$result['renumbered']} numbered anew: their wide iteration is held by another session)";
+    }
     printf("  study %5d %-40s %s=%d last_iteration %d->%d%s\n",
         $studyId, $name, $label, $wouldUpdate, $lastIteration, $newIteration, $mode);
     $totalRowsBackfilled += $wouldUpdate;
@@ -137,21 +143,33 @@ echo "\n$tag Done. processed=$processed skipped_no_table=$skippedNoTable "
  * @return array{rows:int, newLastIteration:int}
  */
 function backfillFromWideIteration($db, $safeWide, $studyId, $lastIteration, $dryRun) {
-    $countRows = $db->query("SELECT COUNT(*) AS n FROM `{$safeWide}` `w`
+    $studyId = (int) $studyId;
+    // The numbers sessions of this study hold (patch 118 keeps them to one
+    // session each). A wide iteration among them is not copied: its session
+    // is numbered above everything instead, in its wide row too.
+    // Wrapped in a derived table, so MariaDB reads it before the UPDATE
+    // below changes survey_unit_sessions.
+    $taken = "SELECT `t`.`si` FROM (SELECT `study_iteration` AS `si` FROM `survey_unit_sessions`
+        WHERE `unit_id` = {$studyId} AND `study_iteration` IS NOT NULL) `t`";
+    $counts = $db->query("SELECT COALESCE(SUM(`w`.`iteration` NOT IN ({$taken})), 0) AS `copy`,
+            COALESCE(SUM(`w`.`iteration` IN ({$taken})), 0) AS `clash`
+        FROM `{$safeWide}` `w`
         INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `w`.`session_id`
         WHERE `us`.`study_iteration` IS NULL AND `w`.`iteration` IS NOT NULL");
-    $wouldUpdate = isset($countRows[0]['n']) ? (int) $countRows[0]['n'] : 0;
+    $toCopy = isset($counts[0]['copy']) ? (int) $counts[0]['copy'] : 0;
+    $clashes = isset($counts[0]['clash']) ? (int) $counts[0]['clash'] : 0;
 
     $maxRows = $db->query("SELECT COALESCE(MAX(`iteration`), 0) AS max_iter FROM `{$safeWide}`");
     $maxIter = isset($maxRows[0]['max_iter']) ? (int) $maxRows[0]['max_iter'] : 0;
     $newLastIteration = max($lastIteration, $maxIter);
 
     if ($dryRun) {
-        return ['rows' => $wouldUpdate, 'newLastIteration' => $newLastIteration];
+        return ['rows' => $toCopy + $clashes, 'renumbered' => $clashes,
+            'newLastIteration' => $newLastIteration + $clashes];
     }
 
     // Run the UPDATE and the last_iteration bump together even when
-    // $wouldUpdate is 0: a study can have nothing left to backfill but
+    // nothing is copied: a study can have nothing left to backfill but
     // still have last_iteration lagging the wide table's max (drift —
     // requirement 4), and that only gets fixed if this transaction
     // actually runs.
@@ -164,9 +182,39 @@ function backfillFromWideIteration($db, $safeWide, $studyId, $lastIteration, $dr
             SET `us`.`study_iteration` = `w`.`iteration`
             WHERE `us`.`study_iteration` IS NULL
               AND `w`.`iteration` IS NOT NULL
+              AND `w`.`iteration` NOT IN ({$taken})
         ");
         $rowsUpdated = $updateStmt->rowCount();
 
+        // What is left unnumbered with a wide iteration had theirs taken:
+        // above every number on record, in the order they began, in both
+        // tables (the wide key stays unique: above its max too).
+        $renumbered = 0;
+        if ($clashes > 0) {
+            $baseRows = $db->query("SELECT GREATEST(
+                    (SELECT `last_iteration` FROM `survey_studies` WHERE `id` = {$studyId}),
+                    (SELECT COALESCE(MAX(`study_iteration`), 0) FROM `survey_unit_sessions` WHERE `unit_id` = {$studyId}),
+                    (SELECT COALESCE(MAX(`iteration`), 0) FROM `{$safeWide}`)) AS `base`");
+            $base = isset($baseRows[0]['base']) ? (int) $baseRows[0]['base'] : 0;
+            $renumberStmt = $db->query("
+                UPDATE `survey_unit_sessions` AS `us`
+                INNER JOIN `{$safeWide}` AS `w` ON `w`.`session_id` = `us`.`id`
+                INNER JOIN (
+                    SELECT `w2`.`session_id`, ROW_NUMBER() OVER (ORDER BY `w2`.`created`, `w2`.`session_id`) AS `n`
+                      FROM `{$safeWide}` `w2`
+                      INNER JOIN `survey_unit_sessions` `us2` ON `us2`.`id` = `w2`.`session_id`
+                     WHERE `us2`.`study_iteration` IS NULL AND `w2`.`iteration` IS NOT NULL
+                ) `r` ON `r`.`session_id` = `w`.`session_id`
+                SET `us`.`study_iteration` = {$base} + `r`.`n`, `w`.`iteration` = {$base} + `r`.`n`
+            ");
+            $renumbered = (int) ($renumberStmt->rowCount() / 2);
+            $rowsUpdated += $renumbered;
+        }
+
+        $maxRows = $db->query("SELECT GREATEST(COALESCE((SELECT MAX(`iteration`) FROM `{$safeWide}`), 0),
+                COALESCE((SELECT MAX(`study_iteration`) FROM `survey_unit_sessions` WHERE `unit_id` = {$studyId}), 0)) AS `max_iter`");
+        $maxIter = isset($maxRows[0]['max_iter']) ? (int) $maxRows[0]['max_iter'] : $maxIter;
+        $newLastIteration = max($lastIteration, $maxIter);
         // $maxIter is interpolated as an int on purpose: a bound param
         // arrives as a string, and GREATEST() with any string argument
         // compares as strings ('3' > '10').
@@ -178,10 +226,10 @@ function backfillFromWideIteration($db, $safeWide, $studyId, $lastIteration, $dr
     } catch (Exception $e) {
         $db->rollBack();
         fprintf(STDERR, "study %d: FAILED — %s\n", $studyId, $e->getMessage());
-        return ['rows' => 0, 'newLastIteration' => $lastIteration];
+        return ['rows' => 0, 'renumbered' => 0, 'newLastIteration' => $lastIteration];
     }
 
-    return ['rows' => $rowsUpdated, 'newLastIteration' => $newLastIteration];
+    return ['rows' => $rowsUpdated, 'renumbered' => $renumbered, 'newLastIteration' => $newLastIteration];
 }
 
 /**

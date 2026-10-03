@@ -10,7 +10,9 @@
  *   - the backfill fills a study's historical sessions (study_iteration
  *     NULL) from its wide table's iteration, whatever its `valid` column
  *     says: a dry run counts them, the real run fills them and raises
- *     last_iteration.
+ *     last_iteration;
+ *   - a wide iteration another session of the study holds is not copied:
+ *     that session is numbered above everything, in its wide row too.
  *
  * Run: docker exec formr_app php /var/www/formr/bin/test_study_iteration_backfill_smoke.php
  * Creates and removes its own run, studies and sessions.
@@ -93,6 +95,21 @@ try {
     ok(strpos($out, 'rows_backfilled=3') !== false, 'the backfill fills them', trim($out));
     ok($sessions() === $before, 'each with its wide iteration', [$sessions(), $before]);
     ok((int) $db->execute('SELECT last_iteration FROM survey_studies WHERE id = :id', ['id' => $study->id], true) === max($before), 'last_iteration is raised to the highest');
+
+    echo "\n-- a wide number another session holds is not copied --\n";
+    // x holds 3 with no wide row; y has no number, and its wide row carries 3.
+    [$x, $y] = [$ids[2], $ids[1]];
+    $db->exec("DELETE FROM `{$study->results_table}` WHERE session_id = :s", ['s' => $x]);
+    $db->exec('UPDATE survey_unit_sessions SET study_iteration = NULL WHERE id = :id', ['id' => $y]);
+    $db->exec("UPDATE `{$study->results_table}` SET iteration = 3 WHERE session_id = :s", ['s' => $y]);
+    $out = $backfill("--study={$study->id}");
+    $yIteration = (int) $db->execute('SELECT study_iteration FROM survey_unit_sessions WHERE id = :id', ['id' => $y], true);
+    $yWide = (int) $db->execute("SELECT iteration FROM `{$study->results_table}` WHERE session_id = :s", ['s' => $y], true);
+    ok(strpos($out, '1 numbered anew') !== false, 'the backfill says so', trim($out));
+    ok($yIteration > 3 && $yWide === $yIteration, 'y is numbered above the rest, in its wide row too', [$yIteration, $yWide]);
+    ok((int) $db->execute('SELECT study_iteration FROM survey_unit_sessions WHERE id = :id', ['id' => $x], true) === 3, 'x keeps 3');
+    ok((int) $db->execute('SELECT COUNT(*) FROM (SELECT 1 FROM survey_unit_sessions WHERE unit_id = :s AND study_iteration IS NOT NULL
+        GROUP BY study_iteration HAVING COUNT(*) > 1) d', ['s' => $study->id], true) === 0, 'no number is held twice');
 } catch (Throwable $e) {
     echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";
     $failures++;
