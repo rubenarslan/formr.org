@@ -10,7 +10,10 @@
  *     allocates above it;
  *   - a second session cannot take a number another holds (patch 118's
  *     key), and a session from before patch 108 whose wide row's number is
- *     taken gets a fresh one instead of an error.
+ *     taken gets a fresh one instead of an error;
+ *   - a re-upload that gives a table from before 2024-07 its iteration
+ *     column keeps every number: sessions numbered since patch 108 carry
+ *     theirs into the wide table, older ones are numbered after them.
  *
  * Run: docker exec formr_app php /var/www/formr/bin/test_study_iteration_smoke.php
  * Creates and removes its own run, study and sessions.
@@ -33,7 +36,7 @@ $suffix = bin2hex(random_bytes(3));
 $runId = $db->insert('survey_runs', ['user_id' => (int) $owner['id'], 'name' => 'itersmoke_' . $suffix,
     'created' => mysql_now(), 'modified' => mysql_now(), 'cron_active' => 0]);
 $run = new Run(null, $runId);
-$study = null; $codes = [];
+$study = null; $codes = []; $oldStudy = null; $run2 = null;
 $codeOf = [];
 $start = function () use ($db, $runId, &$codes, &$survey, &$codeOf) {
     $code = 'ITERSMOKE' . bin2hex(random_bytes(8));
@@ -92,14 +95,62 @@ try {
     $us->createSurveyStudyRecord();
     ok($iteration($e) > 4 && $iteration($e) !== $iteration($c), 'a session whose wide number is taken gets a fresh one', $iteration($e));
     ok($duplicates() === 0, 'still no number held twice');
+
+    echo "\n-- a re-upload adds an old table's iteration column without renumbering --\n";
+    $runId2 = $db->insert('survey_runs', ['user_id' => (int) $owner['id'], 'name' => 'itersmokeold_' . $suffix,
+        'created' => mysql_now(), 'modified' => mysql_now(), 'cron_active' => 0]);
+    $run2 = new Run(null, $runId2);
+    $run2->importUnits(json_encode(['units' => [
+        ['type' => 'Survey', 'position' => 10, 'description' => 's', 'survey_data' => ['name' => "itersmokeold_{$suffix}", 'items' => [
+            ['name' => 'q1', 'type' => 'text', 'label' => 'Q1', 'optional' => 1, 'order' => 1, 'item_order' => 1],
+        ]]],
+        ['type' => 'Endpage', 'position' => 20, 'description' => 'end', 'body' => 'Done.'],
+    ]]));
+    $old = RunUnitFactory::make($run2, ['id' => (int) $run2->getAllUnitIds()[0]['unit_id']]);
+    $oldStudy = $old->surveyStudy;
+    $t = $oldStudy->results_table;
+    // A table from before 2024-07: no iteration column.
+    $db->query("ALTER TABLE `{$t}` DROP INDEX IF EXISTS `iteration`, DROP COLUMN IF EXISTS `iteration`");
+    SurveyStudy::forgetWideTableColumns($t);
+    $startOld = function () use ($db, $runId2, &$codes, $old) {
+        $code = 'ITERSMOKE' . bin2hex(random_bytes(8));
+        $codes[] = $code;
+        $db->insert('survey_run_sessions', ['run_id' => $runId2, 'session' => $code, 'created' => mysql_now(), 'position' => 10]);
+        $rs = new RunSession($code, new Run(null, $runId2));
+        $rs->position = 10;
+        $rs->createUnitSession($old);
+        $rs->currentUnitSession->createSurveyStudyRecord();
+        return (int) $rs->currentUnitSession->id;
+    };
+    $wideOf = function (int $usId) use ($db, $t) {
+        return (int) $db->execute("SELECT iteration FROM `{$t}` WHERE session_id = :s", ['s' => $usId], true);
+    };
+    // Two sessions from before patch 108 (no number), the counter as patch
+    // 108 found it, then two sessions numbered since.
+    $h1 = $startOld(); $h2 = $startOld();
+    $db->exec("UPDATE survey_unit_sessions SET study_iteration = NULL WHERE id IN ({$h1}, {$h2})");
+    $db->exec('UPDATE survey_studies SET last_iteration = 0 WHERE id = :id', ['id' => $oldStudy->id]);
+    $p1 = $startOld(); $p2 = $startOld();
+    ok([$iteration($p1), $iteration($p2)] === [1, 2], 'the sessions since patch 108 are numbered 1 and 2', [$iteration($p1), $iteration($p2)]);
+    $alter = new ReflectionMethod(SurveyStudy::class, 'alterResultsTable');
+    $alter->setAccessible(true);
+    $alter->invoke(new SurveyStudy($oldStudy->id), [], []);
+    ok([$wideOf($p1), $wideOf($p2)] === [1, 2], 'their wide rows carry those numbers', [$wideOf($p1), $wideOf($p2)]);
+    ok([$wideOf($h1), $wideOf($h2)] === [3, 4] && [$iteration($h1), $iteration($h2)] === [3, 4],
+        'the older sessions are numbered after them, in both places', [$wideOf($h1), $wideOf($h2), $iteration($h1), $iteration($h2)]);
+    $col = $db->execute("SHOW COLUMNS FROM `{$t}` LIKE 'iteration'", [], false, true);
+    ok($col && stripos((string) $col['Extra'], 'auto_increment') !== false && $col['Null'] === 'NO', 'the column is NOT NULL AUTO_INCREMENT', $col);
+    $n = $startOld();
+    ok($iteration($n) === 5 && $wideOf($n) === 5, 'the next session gets 5, in both places', [$iteration($n), $wideOf($n)]);
 } catch (Throwable $e) {
     echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";
     $failures++;
 }
 try {
     foreach ($codes as $c) { $db->exec('DELETE FROM survey_run_sessions WHERE session = :c', ['c' => $c]); }
-    if ($study && $study->valid) { $study->delete(); }
+    foreach ([$study, $oldStudy] as $s) { if ($s && $s->valid) { $s->delete(); } }
     $run->delete();
+    if ($run2) { $run2->delete(); }
 } catch (Throwable $e) {
     echo "  teardown: " . $e->getMessage() . "\n";
 }

@@ -2458,6 +2458,43 @@ class SurveyStudy extends Model
      * @param array $deleteItems
      * @return bool;
      */
+    /**
+     * Give a wide table from before 2024-07 its `iteration` column without
+     * renumbering anyone. A session numbered since patch 108 brings its
+     * study_iteration into its wide row; the other rows are numbered above
+     * every number handed out, in the order they began, and their sessions
+     * get the same number. Only then does the column become AUTO_INCREMENT
+     * UNIQUE, as getResultsTableSyntax() defines it. Adding it as
+     * AUTO_INCREMENT straight away numbered every existing row 1..N, so a
+     * session numbered since patch 108 had one iteration in the wide table
+     * and another in study_iteration, and the backfill then gave the older
+     * sessions numbers those sessions held.
+     */
+    private function addIterationColumn()
+    {
+        $table = str_replace('`', '``', $this->results_table);
+        $id = (int) $this->id;
+        $this->db->query("ALTER TABLE `{$table}` ADD COLUMN IF NOT EXISTS `iteration` INT UNSIGNED NULL");
+        $this->db->query("UPDATE `{$table}` `w` JOIN `survey_unit_sessions` `us` ON `us`.`id` = `w`.`session_id`
+            SET `w`.`iteration` = `us`.`study_iteration`
+            WHERE `us`.`study_iteration` IS NOT NULL AND `w`.`iteration` IS NULL");
+        $base = (int) $this->db->execute("SELECT GREATEST(
+                (SELECT COALESCE(MAX(`last_iteration`), 0) FROM `survey_studies` WHERE `id` = {$id}),
+                (SELECT COALESCE(MAX(`study_iteration`), 0) FROM `survey_unit_sessions` WHERE `unit_id` = {$id}),
+                (SELECT COALESCE(MAX(`iteration`), 0) FROM `{$table}`))", array(), true);
+        $this->db->query("UPDATE `{$table}` `w`
+            JOIN (SELECT `session_id`, ROW_NUMBER() OVER (ORDER BY `created`, `session_id`) AS `n`
+                    FROM `{$table}` WHERE `iteration` IS NULL) `r` ON `r`.`session_id` = `w`.`session_id`
+            SET `w`.`iteration` = {$base} + `r`.`n`");
+        $this->db->query("UPDATE `survey_unit_sessions` `us` JOIN `{$table}` `w` ON `w`.`session_id` = `us`.`id`
+            SET `us`.`study_iteration` = `w`.`iteration`
+            WHERE `us`.`study_iteration` IS NULL AND `us`.`unit_id` = {$id}");
+        $this->db->query("ALTER TABLE `{$table}` MODIFY `iteration` INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE");
+        $this->db->query("UPDATE `survey_studies`
+            SET `last_iteration` = GREATEST(`last_iteration`, (SELECT COALESCE(MAX(`iteration`), 0) FROM `{$table}`))
+            WHERE `id` = {$id}");
+    }
+
     private function alterResultsTable(array $newItems, array $deleteItems)
     {
         $actions = $toAdd = $toDelete = array();
@@ -2470,12 +2507,12 @@ class SurveyStudy extends Model
         // Legacy-host heal (F2): a wide table created before 2024-07 has no
         // `iteration` column. Add it here, on the one code path that already
         // ALTERs this table (a re-upload by the study owner), rather than at
-        // request time for a participant. Same definition as
-        // getResultsTableSyntax(); AUTO_INCREMENT backfills existing rows in
-        // session_id order. Idempotent via IF NOT EXISTS.
-        if ($existingColumns && !isset($existingColumns['iteration'])) {
-            $this->db->query("ALTER TABLE `{$this->results_table}` ADD COLUMN IF NOT EXISTS `iteration` INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE");
-            $actions[] = "Added the missing `iteration` column.";
+        // request time for a participant. Also when an earlier attempt added
+        // the column but stopped before it became AUTO_INCREMENT.
+        if ($existingColumns && (!isset($existingColumns['iteration'])
+                || stripos((string) $existingColumns['iteration']['Extra'], 'auto_increment') === false)) {
+            $this->addIterationColumn();
+            $actions[] = "Added the missing `iteration` column, keeping each session's number.";
             self::forgetWideTableColumns($this->results_table);
         }
 
