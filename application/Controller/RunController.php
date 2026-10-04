@@ -1246,7 +1246,8 @@ class RunController extends Controller {
         foreach ($values as $callId => $val) {
             $valuesOut[(string) $callId] = RCallService::rResultToScalarString($val);
             $call = $calls['value'][$callId];
-            if ($service->valueFollowsAnswers($call['expr'], isset($call['item_name']) ? $call['item_name'] : '')) {
+            if ($service->valueFollowsAnswers($call['expr'], isset($call['item_name']) ? $call['item_name'] : '')
+                    && $service->answersChangedFor($callId)) {
                 $follows[] = (string) $callId;
             }
         }
@@ -1267,7 +1268,8 @@ class RunController extends Controller {
         }
 
         // `follows`: the value calls whose R reads the form's answers
-        // (RCallService::valueFollowsAnswers).
+        // (RCallService::valueFollowsAnswers) and was evaluated for answers
+        // that changed since (answersChangedFor).
         $this->sendJsonResponse(array('values' => $valuesOut, 'follows' => $follows, 'labels' => $labelsOut, 'choices' => $choicesOut));
     }
 

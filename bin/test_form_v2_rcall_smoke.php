@@ -179,6 +179,25 @@ try {
     $doc = isset($src[1]) ? @file_get_contents(html_entity_decode($src[1])) : false;
     ok(is_string($doc) && strpos($doc, 'INJECTED') !== false && strpos($doc, 'INJECTED 42') === false, 'its document shows the answer and runs none of it', is_string($doc) ? strlen($doc) . ' bytes' : $doc);
 
+    echo "\n-- a following value replaces the input only for changed answers --\n";
+    // v_num (n1 * 2) reads another item, so a new result replaces what the
+    // hidden item holds — but only when the answers changed since its last
+    // result: evaluated again for the same answers (the cache expired), a
+    // draw among them would be drawn anew.
+    $num = $valueCalls['v_num'];
+    $db->exec('DELETE FROM survey_r_call_results WHERE call_id = :c AND unit_session_id = :u', ['c' => $num, 'u' => $us->id]);
+    $changed = function (array $answers) use ($us, $study, $calls, $only, $num) {
+        $request = new RCallService($us, $study);
+        $request->resolveExpressions($only($calls['value'], [$num]), $answers, 300);
+        return $request->answersChangedFor($num);
+    };
+    ok($changed(['n1' => '3']) === true, 'the first result replaces');
+    ok($changed(['n1' => '3']) === false, 'the same answers, cached: no');
+    $db->exec('UPDATE survey_r_call_results SET created_at = NOW() - INTERVAL 1 HOUR WHERE call_id = :c AND unit_session_id = :u', ['c' => $num, 'u' => $us->id]);
+    ok($changed(['n1' => '3']) === false, 'the same answers, evaluated again after the cache expired: no');
+    ok($changed(['n1' => '4']) === true, 'other answers: yes');
+    ok($changed(['n1' => '3']) === true, 'and back to the earlier ones: yes again');
+
     echo "\n-- requests sent together each keep their own answer --\n";
     // resolvePage sends a page's values, labels and iframes at once
     // (OpenCPU::postMany): each session reports its own call, not whichever

@@ -329,6 +329,26 @@ class RCallService {
     /** @var bool|null memoized: the run defines its own R functions */
     protected $runHasCustomR = null;
 
+    /** @var array<int, string> call_id => the answers key of its newest cached result, as this request found it */
+    protected $latestKeys = array();
+
+    /** @var array<int, string> call_id => the answers key this request evaluates it for */
+    protected $currentKeys = array();
+
+    /**
+     * Was this value call evaluated for other answers than its last result
+     * in this unit session was? A result that follows the answers
+     * (valueFollowsAnswers) replaces what a hidden item holds only then:
+     * evaluated again for the same answers — its cached result expired —
+     * a sample() among them would be drawn again and the participant's draw
+     * replaced mid-form.
+     */
+    public function answersChangedFor($callId) {
+        $callId = (int) $callId;
+        return !isset($this->latestKeys[$callId], $this->currentKeys[$callId])
+            || $this->latestKeys[$callId] !== $this->currentKeys[$callId];
+    }
+
     /**
      * @param array<int, string> $hashes call_id => the cache key of its result
      * @return array<int, mixed> call_id => cached result (fresh entries only)
@@ -341,7 +361,7 @@ class RCallService {
         $now = time();
         $placeholders = implode(',', array_fill(0, count($hashes), '?'));
         $stmt = $this->db->prepare(
-            "SELECT call_id, args_hash, result_json, UNIX_TIMESTAMP(created_at) AS ts
+            "SELECT id, call_id, args_hash, result_json, UNIX_TIMESTAMP(created_at) AS ts
              FROM survey_r_call_results
              WHERE call_id IN ($placeholders) AND unit_session_id = ?"
         );
@@ -351,14 +371,23 @@ class RCallService {
         }
         $stmt->bindValue($i, (int) $this->unitSession->id, PDO::PARAM_INT);
         $stmt->execute();
+        $newest = array();
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $cid = (int) $row['call_id'];
+            $order = array((int) $row['ts'], (int) $row['id']);
+            if (!isset($newest[$cid]) || $order > $newest[$cid][0]) {
+                $newest[$cid] = array($order, (string) $row['args_hash']);
+            }
             if ($row['args_hash'] !== $hashes[$cid] || ($now - (int) $row['ts']) >= $ttl) continue;
             $decoded = json_decode((string) $row['result_json'], true);
             if (is_array($decoded) && array_key_exists('result', $decoded)) {
                 $results[$cid] = $decoded['result'];
             }
         }
+        foreach ($newest as $cid => $found) {
+            $this->latestKeys[$cid] = $found[1];
+        }
+        $this->currentKeys = $hashes + $this->currentKeys;
         return $results;
     }
 
