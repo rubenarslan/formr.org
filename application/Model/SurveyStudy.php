@@ -2294,6 +2294,12 @@ class SurveyStudy extends Model
         // DISPLAY ONLY: bounded staleness is acceptable here. Anything that
         // gates deletion or other destructive changes must use
         // getResultCountLive() instead.
+        // A filter left blank filters nothing (the results page always sends
+        // `session` and `results`); for a v2 study the live count groups
+        // every display row of the study.
+        $filter = array_filter((array) $filter, function ($value) {
+            return $value !== null && $value !== '';
+        });
         if (!$filter && !$run_id) {
             if ($this->result_count !== null) {
                 return $this->result_count;
