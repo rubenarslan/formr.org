@@ -160,7 +160,8 @@ Defaults (constants in `BotCheckChallenge`, each overridable via `Config`):
 | --- | --- | --- | --- |
 | Memory | `DEFAULT_MEMORY_COST` | 4096 KiB (4 MiB) | `bot_check_argon_memory` |
 | Iterations | `DEFAULT_TIME_COST` | 1 | `bot_check_argon_time` |
-| Prefix bytes (PoW length) | `DEFAULT_PREFIX_BYTES` | 1 (~256 expected hashes) | `bot_check_prefix_bytes` |
+| Prefix bytes (PoW length) | `PREFIX_BYTES` | 1 (~256 expected hashes), fixed | — |
+| Difficulty (memory multiplier) | `DEFAULT_DIFFICULTY` | 1, clamped to 1..3 | `bot_check_difficulty` |
 | Key length | `DEFAULT_KEY_LENGTH` | 16 bytes | — |
 | Challenge TTL | `TTL` | 86400 s (24 h) | `bot_check_ttl` |
 | HMAC secret | — | derived from the at-rest crypto key | `bot_check_secret` |
@@ -171,9 +172,13 @@ median ~0.3 s across the widget's parallel workers; in-browser WASM a few× slow
 (sub-second to ~2 s on a normal device).
 
 **Per-item difficulty is a server decision.** `bot_check N` in the spreadsheet
-(`type_options`) maps to prefix bytes 1..3 via `BotCheck_Item::chosenDifficulty()`;
-without it `Config('bot_check_prefix_bytes')` applies, and
-`BotCheckChallenge::expectedPrefixBytes()` clamps anything outside 1..3. The
+(`type_options`) is the difficulty 1..3 via `BotCheck_Item::chosenDifficulty()`;
+without it `Config('bot_check_difficulty')` applies, and
+`BotCheckChallenge::expectedDifficulty()` clamps anything outside 1..3. N
+multiplies `memoryCost` (N × 4 MiB per hash by default), so the work grows
+linearly; the 1-byte prefix, ~256 expected hashes, is the same for every N (a
+longer prefix multiplies the hashes by 256 per byte: three bytes are ~16.7M,
+hours in a browser). The
 client never sends a difficulty: the challenge URL carries the item **name**
 (`?item=<name>`), `RunController::formBotChallengeAction` looks that item up in
 the participant's current study and mints for it, and `verify()` re-derives the
@@ -223,7 +228,7 @@ deliberate fix for the old custom gate's high-variance timing.
 | --- | --- | --- |
 | PoW | hand-rolled hash search | Altcha's audited PoW + widget |
 | Algorithm | SHA-based, fixed | Argon2id (memory-hard) w/ SHA-256 fallback |
-| Timing variance | high (unbounded search) | bounded (prefix-byte, ~256/byte) |
+| Timing variance | high (unbounded search) | bounded (a 1-byte prefix, ~256 hashes) |
 | Widget/UX | bespoke DOM + JS | maintained `<altcha-widget>` (a11y, i18n) |
 | Maintenance | all ours | library tracks browser/PoW changes |
 | GDPR posture | self-hosted | self-hosted (unchanged — still no PII off-box) |

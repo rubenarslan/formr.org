@@ -112,6 +112,18 @@ BotCheckChallenge::bindTo(101);
 $check('in its own unit session it verifies', $solUs ? BotCheckChallenge::verify($payload($mintUs, $solUs->toArray())) : null, true);
 BotCheckChallenge::bindTo(null);
 
+// 8) a harder item asks for more memory per hash, not for more hashes: a
+//    `bot_check 2` is solved like the default, in about twice the time (as a
+//    2-byte prefix it was ~65,536 hashes, minutes in a browser).
+$hard = new BotCheck_Item(['type' => 'bot_check', 'name' => 'human', 'type_options' => '2']);
+$mintHard = BotCheckChallenge::mint($hard);
+$check('bot_check 2 keeps a one-byte prefix', $mintHard['parameters']['keyPrefix'] ?? null, '00');
+$chHard = new Challenge(ChallengeParameters::fromArray($mintHard['parameters']), $mintHard['signature']);
+$started = microtime(true);
+$solHard = $altcha->solveChallenge(new SolveChallengeOptions(challenge: $chHard, algorithm: $alg, timeout: 25.0));
+echo sprintf("  (bot_check 2 solved in %.1f s)\n", microtime(true) - $started);
+$check('bot_check 2 is solved and verifies for its item', $solHard ? BotCheckChallenge::verify($payload($mintHard, $solHard->toArray()), $hard) : null, true);
+
 // 7) a challenge minted before the operator lowered bot_check_ttl still
 //    verifies: its expiry is signed into it.
 $mintTtl = BotCheckChallenge::mint();

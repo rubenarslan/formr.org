@@ -65,7 +65,7 @@ This release adds **form_v2**, a second survey engine, run by a new **Form** uni
 - **A survey on form_v2 is read from the item table** — the data R sees, exports, the results page, result counts: each answer is typed from its item (numbers are numbers in R), a session an operator force-moved does not count as completed, and R and the export agree on every column (`modified` is the last answer stored, else the start of the session). Sessions that exist only in the results table (results imported before 2019 without item rows) are not read; the results-table export still has them. A v1 survey reads its own results table, as before; `form_v2_long_reads` (off by default) opts v1 surveys in too. The results table is still written for every survey (`form_v2_dual_write_results`, on by default).
 - New multiple-choice results columns are sized to also fit a choice `0` (a few characters wider); switching a survey to v2 widens older ones.
 - Saving a page reads only the choice lists of the items it stores, not the survey's whole choice table.
-- `config-dist/settings.php` documents the form_v2 settings: `form_v2_enabled`, `form_v2_offline_blob_max_mb`, `form_v2_rate_limits` (R calls, writes, beacons and bot-check challenges per minute and session), `form_v2_rcall_ttl`, `bot_check_prefix_bytes`, and the two flags above.
+- `config-dist/settings.php` documents the form_v2 settings: `form_v2_enabled`, `form_v2_offline_blob_max_mb`, `form_v2_rate_limits` (R calls, writes, beacons and bot-check challenges per minute and session), `form_v2_rcall_ttl`, `bot_check_difficulty`, and the two flags above.
 
 ### Schema
 - SQL patch 100: `survey_studies.rendering_mode` ENUM('v1','v2'), default `v1`.

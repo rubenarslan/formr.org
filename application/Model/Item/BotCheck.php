@@ -18,8 +18,9 @@
  * challenge fresh in form_v2 (which renders every page into one document at
  * load), so it can't go stale before a participant reaches a later page.
  *
- * Spreadsheet usage:  type = `bot_check`  (optionally `bot_check 2` to set the
- * PoW prefix-byte difficulty, 1..3). Leave the item required (the default) so a
+ * Spreadsheet usage:  type = `bot_check`  (optionally `bot_check 2` or `3` for
+ * two or three times the proof of work: BotCheckChallenge::expectedDifficulty).
+ * Leave the item required (the default) so a
  * failed/missing token blocks the page submit; an `optional` bot_check may be
  * skipped (stored NULL), but a token that IS submitted is always verified.
  *
@@ -83,7 +84,7 @@ class BotCheck_Item extends Item {
     }
 
     /**
-     * The `N` of `bot_check N` (PoW prefix bytes), or null when the sheet left
+     * The `N` of `bot_check N` (the PoW difficulty), or null when the sheet left
      * it unset. This is the study-authored difficulty; BotCheckChallenge reads
      * it at mint AND verify time, so it can't be lowered from the client.
      */

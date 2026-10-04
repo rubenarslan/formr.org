@@ -58,7 +58,7 @@ class BotCheckFailClosedTest extends TestCase
         $this->reconfigure(array(
             'bot_check_secret' => str_repeat('k', 48),
             'bot_check_argon_memory' => 256, // KiB, the floor memoryCost() accepts
-            'bot_check_prefix_bytes' => 1,
+            'bot_check_difficulty' => 1,
         ));
     }
 

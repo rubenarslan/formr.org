@@ -472,11 +472,12 @@ $settings['form_v2_rcall_ttl'] = array(
 // challenges; participants just get a fresh one).
 // $settings['bot_check_secret'] = '';
 
-// Proof-of-work length: how many leading bytes of the derived key the client
-// must match (~256 expected hashes per byte). 1..3; out-of-range values clamp.
-// An item can override per-question with `bot_check N` in its type column —
-// the server always decides, never the request.
-// $settings['bot_check_prefix_bytes'] = 1;
+// Proof-of-work difficulty, 1..3: how many times bot_check_argon_memory each
+// hash takes (~256 hashes are expected at any difficulty), so 2 is about twice
+// the work of 1. Out-of-range values clamp. An item can override per-question
+// with `bot_check N` in its type column — the server always decides, never
+// the request.
+// $settings['bot_check_difficulty'] = 1;
 
 // Argon2id memory cost in KiB. This is what makes the work memory-hard
 // (GPU/ASIC-resistant). The server only ever computes ONE verification hash

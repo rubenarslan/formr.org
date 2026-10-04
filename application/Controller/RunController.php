@@ -1102,11 +1102,9 @@ class RunController extends Controller {
      *
      * The difficulty is the SERVER's call: `item` names a bot_check item of the
      * current unit session's (v2) study, and its `bot_check N` type_options —
-     * not anything else in the request — set the PoW prefix bytes. (An earlier
-     * version took `?difficulty=` from the query string and signed whatever it
-     * was given, so `?difficulty=1` downgraded a `bot_check 3` to a 1-byte
-     * prefix; verify() now re-derives the floor from the item as well, so even
-     * a genuinely signed easier challenge is refused at submit.)
+     * not anything else in the request — set the PoW difficulty. verify()
+     * re-derives the floor from the item as well, so even a genuinely signed
+     * easier challenge is refused at submit.
      *
      * The <altcha-widget challenge="…/form-bot-challenge"> fetches this lazily
      * when it mounts (NOT at form render), so the challenge is fresh when the

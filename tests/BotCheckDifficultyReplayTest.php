@@ -13,10 +13,12 @@ use AltchaOrg\Altcha\SolveChallengeOptions;
  *
  * F2: the mint endpoint used to take `?difficulty=` from the query string and
  * sign whatever it was given, and verify() only checked the HMAC over what was
- * minted — so `?difficulty=1` downgraded a `bot_check 3` to a 1-byte prefix.
- * Now mint() derives the prefix from the item's type_options (or Config), a
- * caller-supplied number is ignored, and verify() re-derives the same floor
- * and refuses a genuinely signed but easier challenge.
+ * minted — so `?difficulty=1` downgraded a `bot_check 3` to the easiest
+ * challenge. Now mint() derives the difficulty from the item's type_options
+ * (or Config), a caller-supplied number is ignored, and verify() re-derives
+ * the same floor and refuses a genuinely signed but easier challenge. The
+ * difficulty multiplies the Argon2id memory per hash (the 1-byte prefix
+ * stays): linear work, where each extra prefix byte multiplied it by 256.
  *
  * F3: verify() never consumed a token, so one solved PoW replayed for the
  * whole TTL (24h) — every bot_check the participant met again in that window
@@ -37,7 +39,7 @@ class BotCheckDifficultyReplayTest extends TestCase
         Config::initialize(array_merge($this->savedConfig, array(
             'bot_check_secret' => str_repeat('k', 48),
             'bot_check_argon_memory' => 256, // KiB, the floor memoryCost() accepts
-            'bot_check_prefix_bytes' => 1,
+            'bot_check_difficulty' => 1,
         )));
     }
 
@@ -75,25 +77,47 @@ class BotCheckDifficultyReplayTest extends TestCase
 
     // ---- F2: difficulty comes from the item / config, never the caller ------
 
-    public function testExpectedPrefixBytesComesFromTheItemThenConfigAndClamps()
+    public function testExpectedDifficultyComesFromTheItemThenConfigAndClamps()
     {
-        $this->assertSame(1, BotCheckChallenge::expectedPrefixBytes(null), 'config default');
-        $this->assertSame(1, BotCheckChallenge::expectedPrefixBytes($this->item()), 'no type_options → config');
-        $this->assertSame(3, BotCheckChallenge::expectedPrefixBytes($this->item('3')), '`bot_check 3`');
-        $this->assertSame(2, BotCheckChallenge::expectedPrefixBytes($this->item('2')));
-        $this->assertSame(3, BotCheckChallenge::expectedPrefixBytes($this->item('9')), 'clamped to MAX');
-        $this->assertSame(1, BotCheckChallenge::expectedPrefixBytes($this->item('0')), 'clamped to default');
-        $this->assertSame(1, BotCheckChallenge::expectedPrefixBytes($this->item('mylist')), 'a choice-list name is not a difficulty');
+        $this->assertSame(1, BotCheckChallenge::expectedDifficulty(null), 'config default');
+        $this->assertSame(1, BotCheckChallenge::expectedDifficulty($this->item()), 'no type_options → config');
+        $this->assertSame(3, BotCheckChallenge::expectedDifficulty($this->item('3')), '`bot_check 3`');
+        $this->assertSame(2, BotCheckChallenge::expectedDifficulty($this->item('2')));
+        $this->assertSame(3, BotCheckChallenge::expectedDifficulty($this->item('9')), 'clamped to MAX');
+        $this->assertSame(1, BotCheckChallenge::expectedDifficulty($this->item('0')), 'clamped to default');
+        $this->assertSame(1, BotCheckChallenge::expectedDifficulty($this->item('mylist')), 'a choice-list name is not a difficulty');
+    }
+
+    /** The work a challenge asks for: Argon2id memory, or SHA-256 iterations without sodium. */
+    private function work(array $mint)
+    {
+        $p = $mint['parameters'];
+        return BotCheckChallenge::argon2idAvailable() ? (int) $p['memoryCost'] : (int) $p['cost'];
     }
 
     public function testMintIgnoresACallerSuppliedNumber()
     {
         // The old signature was mint($difficulty); a number must no longer be
         // honoured in either direction.
-        $this->assertSame('00', BotCheckChallenge::mint(3)['parameters']['keyPrefix'], 'a bare 3 is not an item');
-        $this->assertSame('00', BotCheckChallenge::mint('1')['parameters']['keyPrefix']);
-        $this->assertSame('00', BotCheckChallenge::mint()['parameters']['keyPrefix']);
-        $this->assertSame('000000', BotCheckChallenge::mint($this->item('3'))['parameters']['keyPrefix'], 'the item decides');
+        $base = $this->work(BotCheckChallenge::mint());
+        $this->assertSame($base, $this->work(BotCheckChallenge::mint(3)), 'a bare 3 is not an item');
+        $this->assertSame($base, $this->work(BotCheckChallenge::mint('1')));
+        $this->assertSame(3 * $base, $this->work(BotCheckChallenge::mint($this->item('3'))), 'the item decides');
+    }
+
+    /**
+     * Difficulty scales the work per hash, linearly; the prefix — the number
+     * of hashes to expect, 256 per byte — stays one byte. A `bot_check 3` used
+     * to ask for a 3-byte prefix: ~16.7M hashes, hours in a browser.
+     */
+    public function testDifficultyMultipliesTheWorkPerHashNotTheNumberOfHashes()
+    {
+        $base = $this->work(BotCheckChallenge::mint());
+        foreach (array('1' => 1, '2' => 2, '3' => 3) as $option => $n) {
+            $mint = BotCheckChallenge::mint($this->item($option));
+            $this->assertSame('00', $mint['parameters']['keyPrefix'], "bot_check {$option}: one prefix byte");
+            $this->assertSame($n * $base, $this->work($mint), "bot_check {$option}: {$n} × the work");
+        }
     }
 
     public function testATokenMintedAtALowerDifficultyIsRefusedForAHarderItem()
@@ -122,7 +146,7 @@ class BotCheckDifficultyReplayTest extends TestCase
         Config::initialize(array_merge($this->savedConfig, array(
             'bot_check_secret' => str_repeat('k', 48),
             'bot_check_argon_memory' => 512,
-            'bot_check_prefix_bytes' => 1,
+            'bot_check_difficulty' => 1,
         )));
         $this->assertFalse(BotCheckChallenge::verify($token), 'minted at 256 KiB, floor is now 512 KiB');
     }

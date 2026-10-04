@@ -56,29 +56,31 @@ class BotCheckChallenge {
     // page left open for a while still verifies. Override via Config('bot_check_ttl').
     const TTL = 86400; // 24 hours
 
-    // Argon2id difficulty knobs. keyPrefix length (bytes) drives the expected
-    // number of PoW attempts (~128 per byte on average); cost/memoryCost drive
-    // the per-attempt work. Defaults target ~a few hundred ms on a normal device
-    // with the widget's parallel workers, while staying genuinely memory-hard.
-    // 4 MiB memory + 1-byte prefix (~256 expected hashes). Native median ~0.3s
-    // across the widget's 4 parallel workers; in-browser WASM is a few× slower,
-    // so a normal device lands in the sub-second-to-~2s range — comfortably "a
-    // few hundred ms"-ish without being trivial, and genuinely memory-hard
-    // (4 MiB resists GPU/ASIC fan-out). Bump bot_check_argon_memory for a harder
-    // gate. The SERVER only ever does ONE verification hash (~7ms), so raising
-    // memory costs the attacker, not us.
-    const DEFAULT_MEMORY_COST = 4096;  // KiB (4 MiB) — memory-hard, GPU/ASIC-resistant
+    // Argon2id difficulty knobs. The derived key must start with one zero
+    // byte (PREFIX_BYTES), which a hash meets with probability 1/256: ~256
+    // attempts are expected, whatever the difficulty. Each attempt is one
+    // Argon2id hash over memoryCost KiB; the difficulty N multiplies that
+    // memory, so the work grows linearly with N (N × 4 MiB per hash by
+    // default) and stays memory-hard. (A longer prefix multiplies the work
+    // by 256 per byte: a 3-byte prefix was ~16.7M hashes, hours in a
+    // browser.) N = 1, 4 MiB: native median ~0.3s across the widget's 4
+    // parallel workers; in-browser WASM is a few× slower, so a normal device
+    // lands in the sub-second-to-~2s range, and N = 3 about three times that.
+    // The SERVER only ever does ONE verification hash (~7ms per 4 MiB), so
+    // raising memory costs the attacker, not us.
+    const DEFAULT_MEMORY_COST = 4096;  // KiB (4 MiB) per difficulty step — memory-hard, GPU/ASIC-resistant
     const DEFAULT_TIME_COST   = 1;     // Argon2 iterations (passes)
     const DEFAULT_PARALLELISM = 1;     // sodium's pwhash uses 1; echoed for the widget
-    const DEFAULT_PREFIX_BYTES = 1;    // leading bytes the derived key must match
+    const PREFIX_BYTES        = 1;     // leading zero bytes the derived key must match
     const DEFAULT_KEY_LENGTH  = 16;    // derived-key length in bytes
-    const SHA_COST            = 100000; // SHA-256 iterations when sodium is missing
+    const SHA_COST            = 100000; // SHA-256 iterations per difficulty step when sodium is missing
 
-    // `bot_check N` (type_options on the item) sets the prefix bytes when 1..3;
-    // out-of-range values clamp (see expectedPrefixBytes()). Without it the
+    // `bot_check N` (type_options on the item) sets the difficulty when 1..3;
+    // out-of-range values clamp (see expectedDifficulty()). Without it the
     // Config knob applies.
-    const MIN_PREFIX_BYTES = 1;
-    const MAX_PREFIX_BYTES = 3;
+    const DEFAULT_DIFFICULTY = 1;
+    const MIN_DIFFICULTY = 1;
+    const MAX_DIFFICULTY = 3;
 
     /** Session key of the burn list (single-use tokens), shared with RegistrationGuard. */
     const BURN_PREFIX = 'botcheck:';
@@ -150,9 +152,10 @@ class BotCheckChallenge {
     }
 
     /**
-     * Difficulty: prefix bytes (PoW attempt count). The SERVER decides this —
+     * Difficulty N, 1..3: how many times the base work a challenge asks for
+     * (memoryCost(), or SHA_COST without sodium). The SERVER decides this —
      * from the item's `bot_check N` type_options when the sheet sets one, else
-     * from Config('bot_check_prefix_bytes') — never from anything the client
+     * from Config('bot_check_difficulty') — never from anything the client
      * sends. mint() and verify() both go through here, so a challenge minted at
      * a lower difficulty than the item demands (an old/foreign mint, a tampered
      * request to the mint endpoint) fails verify() even though its signature is
@@ -161,19 +164,20 @@ class BotCheckChallenge {
      * @param BotCheck_Item|null $item the study's item row, or null for the
      *        configured default (a mint without an item).
      */
-    public static function expectedPrefixBytes($item = null) {
-        $n = (int) Config::get('bot_check_prefix_bytes', self::DEFAULT_PREFIX_BYTES);
+    public static function expectedDifficulty($item = null) {
+        $n = (int) Config::get('bot_check_difficulty', self::DEFAULT_DIFFICULTY);
         if ($item instanceof BotCheck_Item) {
             $chosen = $item->chosenDifficulty();
             if ($chosen !== null) {
                 $n = (int) $chosen;
             }
         }
-        if ($n < self::MIN_PREFIX_BYTES) return self::DEFAULT_PREFIX_BYTES;
-        if ($n > self::MAX_PREFIX_BYTES) return self::MAX_PREFIX_BYTES;
+        if ($n < self::MIN_DIFFICULTY) return self::DEFAULT_DIFFICULTY;
+        if ($n > self::MAX_DIFFICULTY) return self::MAX_DIFFICULTY;
         return $n;
     }
 
+    /** Argon2id memory per hash at difficulty 1, in KiB (bot_check_argon_memory). */
     protected static function memoryCost() {
         $m = (int) Config::get('bot_check_argon_memory', self::DEFAULT_MEMORY_COST);
         return $m >= 256 ? $m : self::DEFAULT_MEMORY_COST; // KiB; sodium min ~256
@@ -196,7 +200,7 @@ class BotCheckChallenge {
      * the v3 widget consumes the nested form directly.)
      *
      * @param BotCheck_Item|null $item the bot_check item this challenge is for;
-     *        its type_options set the difficulty (see expectedPrefixBytes()).
+     *        its type_options set the difficulty (see expectedDifficulty()).
      *        Anything that is not a BotCheck_Item is ignored — the difficulty
      *        is never taken from a caller-supplied number.
      * @return array<string,mixed>|null  null when the server can't sign.
@@ -214,18 +218,20 @@ class BotCheckChallenge {
             $data['us'] = (string) self::$unitSessionId;
         }
         $isArgon = $alg->getAlgorithmName() === 'ARGON2ID';
-        // keyPrefix = N leading zero BYTES the derived key must match. This IS the
-        // PoW: the client searches counters until its Argon2id(salt, nonce|counter)
-        // begins with that prefix (~256 expected attempts per byte). The HMAC
-        // signature pins keyPrefix/cost/memoryCost so a bot can't lower it, and
-        // verify() re-derives the same floor from the item, so a genuinely
+        $n = self::expectedDifficulty($item);
+        // keyPrefix = one leading zero BYTE the derived key must match. This IS
+        // the PoW: the client searches counters until its Argon2id(salt,
+        // nonce|counter) begins with it (~256 expected attempts); the
+        // difficulty multiplies the memory each attempt takes. The HMAC
+        // signature pins keyPrefix/cost/memoryCost so a bot can't lower them,
+        // and verify() re-derives the same floor from the item, so a genuinely
         // signed but too-easy challenge is refused too.
         $opts = new CreateChallengeOptions(
             algorithm: $alg,
-            cost: $isArgon ? self::timeCost() : self::SHA_COST,
+            cost: $isArgon ? self::timeCost() : self::SHA_COST * $n,
             keyLength: self::DEFAULT_KEY_LENGTH,
-            keyPrefix: str_repeat('00', self::expectedPrefixBytes($item)),
-            memoryCost: $isArgon ? self::memoryCost() : null,
+            keyPrefix: str_repeat('00', self::PREFIX_BYTES),
+            memoryCost: $isArgon ? self::memoryCost() * $n : null,
             parallelism: $isArgon ? self::DEFAULT_PARALLELISM : null,
             expiresAt: time() + self::ttl(),
             data: $data
@@ -262,7 +268,7 @@ class BotCheckChallenge {
      *
      * @param mixed $token the widget's base64 payload (or decoded array)
      * @param BotCheck_Item|null $item the item being validated; sets the
-     *        difficulty floor (see expectedPrefixBytes()). null = config default.
+     *        difficulty floor (see expectedDifficulty()). null = config default.
      * @param string|null $burnId set to the burn a verified token got, which
      *        BotCheck_Item::finishSideEffects gives back if its page is not stored
      */
@@ -346,22 +352,24 @@ class BotCheckChallenge {
 
     /**
      * The minted parameters must be at least as hard as what mint() would
-     * issue right now for $item: prefix bytes from the item/config, and the
-     * per-attempt cost knobs from Config. All of these are signature-pinned,
-     * so this is about WHICH genuine challenge is being presented, not forgery.
+     * issue right now for $item: the prefix, and the per-attempt cost — the
+     * Config knobs times the item's difficulty. All of these are
+     * signature-pinned, so this is about WHICH genuine challenge is being
+     * presented, not forgery.
      *
      * @param array<string,mixed> $params
      */
     protected static function meetsDifficultyFloor(array $params, $algName, $item) {
         $keyPrefix = isset($params['keyPrefix']) ? (string) $params['keyPrefix'] : '';
         if ($keyPrefix === '' || strlen($keyPrefix) % 2 !== 0 || !ctype_xdigit($keyPrefix)) return false;
-        if (strlen($keyPrefix) / 2 < self::expectedPrefixBytes($item)) return false;
+        if (strlen($keyPrefix) / 2 < self::PREFIX_BYTES) return false;
 
+        $n = self::expectedDifficulty($item);
         $cost = isset($params['cost']) ? (int) $params['cost'] : 0;
         if ($algName === 'ARGON2ID') {
             $memory = isset($params['memoryCost']) ? (int) $params['memoryCost'] : 0;
-            if ($memory < self::memoryCost() || $cost < self::timeCost()) return false;
-        } elseif ($cost < self::SHA_COST) {
+            if ($memory < self::memoryCost() * $n || $cost < self::timeCost()) return false;
+        } elseif ($cost < self::SHA_COST * $n) {
             return false;
         }
         return true;
