@@ -476,13 +476,21 @@ class RCallService {
             $results[$cid] = $val;
             $this->writeCache($cid, $plan['hashes'][$cid], $val);
         }
-        // Day-old rows are dead weight, but a DELETE on every page show is
-        // write amplification: sweep on a sample of misses, as
-        // FixedWindowRateLimiter does.
+        self::sweepSometimes();
+        return $results;
+    }
+
+    /**
+     * After writing results: day-old rows are dead weight, but a DELETE on
+     * every page show is write amplification — sweep on a sample of misses,
+     * as FixedWindowRateLimiter does. Every path that writes the cache
+     * (values, labels, note_iframes) sweeps, or a study with dynamic labels
+     * but few dynamic values grew the table without bound.
+     */
+    protected static function sweepSometimes() {
         if (mt_rand(1, 20) === 1) {
             self::evictStale();
         }
-        return $results;
     }
 
     /**
@@ -799,6 +807,7 @@ class RCallService {
             $results[$cid] = $html;
             $this->writeCache($cid, $plan['hashes'][$cid], $html);
         }
+        self::sweepSometimes();
         return $results;
     }
 
@@ -864,6 +873,9 @@ class RCallService {
                 formr_log("note_iframe '{$name}': knit failed: " . self::failureText($answer));
                 $results[(int) $callId] = NoteIframe_Item::fallbackHtml();
             }
+        }
+        if ($plan['misses']) {
+            self::sweepSometimes();
         }
         return $results;
     }
