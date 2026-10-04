@@ -1664,7 +1664,12 @@ class UnitSession extends Model {
                     }
                     if (($key = array_search('type', $matches_variable_names[$survey_name])) !== false) {
                         unset($matches_variable_names[$survey_name][$key]);
-                        $variables[] = '`survey_units`.`type`';
+                        // A Form is a Survey on the v2 engine, and its row's
+                        // type follows the study's engine for every session,
+                        // past ones included (SurveyStudy::syncUnitType): R
+                        // sees 'Survey' either way, so a study's history reads
+                        // the same after a switch (as result = 'survey_ended').
+                        $variables[] = "IF(`survey_units`.`type` = 'Form', 'Survey', `survey_units`.`type`) AS `type`";
                     }
                 }
 

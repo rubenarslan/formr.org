@@ -104,6 +104,20 @@ try {
         }
     }
 
+    echo "\n-- R sees a Form's sessions as a Survey's --\n";
+    // Its unit row's type is 'Form' while the study is on v2, for every
+    // session of the study; R code filtering type == "Survey" must not
+    // change meaning when a study is switched.
+    $typeCode = 'PAGELOAD' . bin2hex(random_bytes(8));
+    $codes[] = $typeCode;
+    $db->insert('survey_run_sessions', ['run_id' => $runId, 'session' => $typeCode, 'created' => mysql_now(), 'position' => 10]);
+    (new RunSession($typeCode, new Run(null, $runId)))->execute();
+    $typed = (new RunSession($typeCode, new Run(null, $runId)))->getCurrentUnitSession();
+    $data = $typed->getRunData('nrow(survey_unit_sessions[survey_unit_sessions$type == "Survey", ])', $study->name);
+    // (A data set goes to R by column.)
+    $types = array_values(array_unique((array) ($data['datasets']['survey_unit_sessions']['type'] ?? [])));
+    ok($types === ['Survey'], 'survey_unit_sessions$type is "Survey"', $types);
+
     echo "\n-- a render that loses a deadlock is retried --\n";
     $db->update('survey_studies', ['expire_after' => null, 'expire_invitation_after' => null], ['id' => $study->id]);
     $code = 'PAGELOAD' . bin2hex(random_bytes(8));
