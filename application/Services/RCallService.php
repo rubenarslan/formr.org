@@ -549,7 +549,10 @@ class RCallService {
             }
             return $out;
         }
-        formr_log('RCallService::evaluateBatch OpenCPU error: ' . (string) opencpu_last_error());
+        // Sent along with other requests (resolvePage), the batch's own entry
+        // says what went wrong; opencpu_last_error() names whichever request
+        // was built last.
+        formr_log('RCallService::evaluateBatch OpenCPU error: ' . ($sent !== null ? self::failureText($sent) : (string) opencpu_last_error()));
         if ($transient || count($exprs) === 1) {
             foreach ($exprs as $key => $_) {
                 $out['failed'][$key] = $transient ? 'transient' : 'r';
