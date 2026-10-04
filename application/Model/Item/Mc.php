@@ -17,7 +17,10 @@ class Mc_Item extends Item {
     public function validateInput($reply) {
         if (!($this->optional && $reply == '') && !empty($this->choices) && // check
                 ( is_scalar($reply) && !in_array((string) $reply, array_keys($this->choices)) ) || // mc
-                ( is_array($reply) && ($diff = array_diff($reply, array_keys($this->choices))) && !empty($diff) && current($diff) !== '' ) // mc_multiple
+                // mc_multiple: the hidden '' every form posts first (so an
+                // empty selection is sent at all) is no choice; any other
+                // unknown value is, wherever it comes.
+                ( is_array($reply) && ($diff = array_diff(array_filter($reply, function ($v) { return $v !== ''; }), array_keys($this->choices))) )
         ) { // invalid multiple choice answer 
             if (isset($diff)) {
                 $problem = $diff;
