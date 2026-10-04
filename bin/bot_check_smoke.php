@@ -112,6 +112,15 @@ BotCheckChallenge::bindTo(101);
 $check('in its own unit session it verifies', $solUs ? BotCheckChallenge::verify($payload($mintUs, $solUs->toArray())) : null, true);
 BotCheckChallenge::bindTo(null);
 
+// 7) a challenge minted before the operator lowered bot_check_ttl still
+//    verifies: its expiry is signed into it.
+$mintTtl = BotCheckChallenge::mint();
+$chTtl = new Challenge(ChallengeParameters::fromArray($mintTtl['parameters']), $mintTtl['signature']);
+$solTtl = $altcha->solveChallenge(new SolveChallengeOptions(challenge: $chTtl, algorithm: $alg, timeout: 25.0));
+Config::initialize(array_merge($savedConfig, ['bot_check_ttl' => 3600]));
+$check('a challenge minted before bot_check_ttl was lowered verifies', $solTtl ? BotCheckChallenge::verify($payload($mintTtl, $solTtl->toArray())) : null, true);
+Config::initialize($savedConfig);
+
 
 // 5) a token verified for a page that was not stored is given back
 //    (BotCheck_Item::finishSideEffects): the upload beside it failed, and the

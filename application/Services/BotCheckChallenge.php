@@ -327,12 +327,10 @@ class BotCheckChallenge {
         $boundUs = isset($params['data']['us']) ? (string) $params['data']['us'] : '';
         if ($boundUs !== (self::$unitSessionId ? (string) self::$unitSessionId : '')) return false;
 
-        // Freshness hygiene (expiry is also enforced inside verifySolution via
-        // expiresAt; this rejects clock-skew "issued in the future" tokens).
-        if (isset($params['expiresAt'])) {
-            $iat = (int) $params['expiresAt'] - self::ttl();
-            if (time() - $iat < -120) return false;
-        }
+        // Freshness is the signed expiresAt, which verifySolution enforces. (A
+        // mint time derived from it and the configured TTL refused every
+        // outstanding challenge as "issued in the future" once the TTL was
+        // lowered.)
 
         // Single use. The signature (over salt + nonce + expiry + data) names
         // the challenge; once a solution for it has passed, the same token is
