@@ -205,7 +205,9 @@ class SurveyTestController extends Controller {
         $data = $slot;
         $data['id'] = $slot['unit_id'];
         $runUnit = $testRun->testStudyUnit($data);
-        $runSession = new RunSession(null, $testRun);
+        // The preview's own test session code (Run::testStudy keeps it in the
+        // slot): R reads it as user_id / .formr$login_code, as on its pages.
+        $runSession = new RunSession(isset($slot['test_code']) ? $slot['test_code'] : null, $testRun);
         $unitSession = new UnitSession($runSession, $runUnit, array('id' => (int) $slot['unit_session_id'], 'load' => true));
         $runSession->currentUnitSession = $unitSession;
 

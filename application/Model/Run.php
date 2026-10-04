@@ -1376,11 +1376,15 @@ class Run extends Model
         }
 
         $runUnit = $this->testStudyUnit($data);
-        $runSession = RunSession::getTestSession($this);
+        // One code for the whole preview (the test run stores no run
+        // session), so R reads the same user_id on every page and in a v2
+        // form's endpoints (SurveyTestController::formV2Endpoint).
+        $runSession = RunSession::getTestSession($this, isset($data['test_code']) ? $data['test_code'] : null);
         $output = null;
         if (!isset($data['unit_session_id'])) {
             $runSession->createUnitSession($runUnit);
             $data['unit_session_id'] = $runSession->currentUnitSession->id;
+            $data['test_code'] = $runSession->session;
             Session::set($this->testStudyKey(), $data);
         } else {
             $unitSession = new UnitSession($runSession, $runUnit, ['id' => $data['unit_session_id'], 'load' => true]);

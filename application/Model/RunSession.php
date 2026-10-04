@@ -1256,11 +1256,17 @@ class RunSession extends Model {
         return false;
     }
     
-    public static function getTestSession(Run $run) {
-        $animal_name = AnimalName::haikunate(["tokenLength" => 0, "delimiter" => "",]) . "XXX";
-        $animal_name = str_replace(" ", "", $animal_name);
-        $test_code = crypto_token(48 - floor(3 / 4 * strlen($animal_name)));
-        $test_code = $animal_name . substr($test_code, 0, 64 - strlen($animal_name));
+    /**
+     * @param string|null $test_code a test session's code to go on with (a
+     *   survey preview keeps its code across its requests); a new one if null
+     */
+    public static function getTestSession(Run $run, $test_code = null) {
+        if (!is_string($test_code) || $test_code === '') {
+            $animal_name = AnimalName::haikunate(["tokenLength" => 0, "delimiter" => "",]) . "XXX";
+            $animal_name = str_replace(" ", "", $animal_name);
+            $test_code = crypto_token(48 - floor(3 / 4 * strlen($animal_name)));
+            $test_code = $animal_name . substr($test_code, 0, 64 - strlen($animal_name));
+        }
         $run_session = new RunSession($test_code, $run);
         $run_session->create($test_code, true);
 

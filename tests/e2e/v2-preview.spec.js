@@ -12,6 +12,8 @@ const { ADMIN_BASE, STATE_PATH, ensureAdminState } = require('./helpers/admin');
 const v2 = require('./helpers/v2Form');
 const db = require('./helpers/db');
 const { driveDefault } = require('./helpers/v2Drive');
+const { provisioner } = require('./helpers/provision');
+const { request } = require('@playwright/test');
 
 test.use({ storageState: STATE_PATH });
 
@@ -111,5 +113,35 @@ test.describe('the preview write gate', () => {
         expect((await res.json()).stale_session).toBe(true);
         const ok = await page.request.post(f.submit, { data: { page: 1, unit_session_id: f.usid, data: {} } });
         expect(ok.status(), 'the same write for the right session goes through').toBe(200);
+    });
+});
+
+// R in the preview reads the preview's own test session, as R for a
+// participant reads theirs: user_id is its code, not empty.
+test.describe('R in the preview', () => {
+    const prov = provisioner();
+    const SFX = Date.now().toString(36);
+    const name = `e2e_prevcode_${SFX}`;
+    let admin;
+    test.beforeAll(async ({ browser }) => {
+        await ensureAdminState(browser);
+        admin = await request.newContext({ ignoreHTTPSErrors: true, storageState: STATE_PATH });
+        await prov.uploadStudy(admin, { engine: 'v2', json: { name, settings: {}, items: [
+            { type: 'note', name: 'pc_note', label: 'CODE[`r user_id`]' },
+            { type: 'submit', name: 'pc_send', label: 'Send' },
+        ] } });
+    });
+    test.afterAll(async () => {
+        if (admin) {
+            await prov.cleanup(admin);
+            await admin.dispose();
+        }
+    });
+
+    test('sees the test session code as user_id', async ({ page }) => {
+        await page.goto(`${ADMIN_BASE}/admin/survey/${name}/access`, { waitUntil: 'domcontentloaded' });
+        await v2.waitForBundle(page);
+        // A test code: 64 characters of the user_code rule, not empty.
+        await expect(page.locator('form.fmr-form-v2')).toContainText(/CODE\[[A-Za-z0-9+_~-]{64}\]/, { timeout: 15000 });
     });
 });
