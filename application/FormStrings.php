@@ -332,11 +332,13 @@ class FormStrings {
      */
     public static function studyOverrides($study) {
         $out = array();
-        if ($study && !empty($study->next_button_label)) {
+        // Set means not NULL and not blank: "0" is a label
+        // (SurveyStudy::normalizeButtonLabel keeps it).
+        if ($study && (string) $study->next_button_label !== '') {
             $out['nav.next'] = (string) $study->next_button_label;
             $out['nav.continue'] = (string) $study->next_button_label;
         }
-        if ($study && !empty($study->submit_button_label)) {
+        if ($study && (string) $study->submit_button_label !== '') {
             $out['nav.submit'] = (string) $study->submit_button_label;
         }
         return $out;
