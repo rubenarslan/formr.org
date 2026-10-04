@@ -1084,6 +1084,10 @@ class UnitSession extends Model {
         }
 
         $sessionStarted = false;
+        // Nothing of this session existed when this request looked: it starts
+        // now, in whichever request creates its results row (below), which
+        // need not be the one that wins the number.
+        $freshSession = !$alreadyAllocated;
         if (!$alreadyAllocated) {
             // Lazy seed (F2): survey_studies.last_iteration (patch 108) starts at
             // 0 on hosts that pre-date the allocator, while the wide table's
@@ -1157,8 +1161,10 @@ class UnitSession extends Model {
                     $entry['iteration'] = $iteration;
                 }
                 $iterationTaken = false;
+                $inserted = false;
                 try {
                     $this->db->insert($study->results_table, $entry);
+                    $inserted = true;
                 } catch (Exception $e) {
                     // A concurrent first render of this unit session may have
                     // inserted the row since the check above: then it is there.
@@ -1188,9 +1194,15 @@ class UnitSession extends Model {
                     $this->study_iteration = $iteration;
                     $entry['iteration'] = $iteration;
                     $this->db->insert($study->results_table, $entry);
+                    $inserted = true;
                 }
 
-                if ($sessionStarted) {
+                // Of two first loads of one unit session (a double click, a
+                // restored tab), one wins the number and the other may create
+                // the row first; the one that creates it records the start,
+                // so it is recorded once. A session from before patch 108
+                // already has its row (or adopted its number) and none does.
+                if ($inserted && $freshSession) {
                     $this->result = 'survey_started';
                     $this->logResult();
                     // Write-time hook (audit SQ-11): form_v2's dual-write path

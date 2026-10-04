@@ -17,6 +17,8 @@
  *   - and where that table's `iteration` column held an item's answers
  *     (the name was allowed then), the re-upload that deletes the item
  *     replaces the column instead of numbering the answers;
+ *   - of two first loads of one session, the one that creates its results
+ *     row records the start, also when the other won the number;
  *   - "Delete results" numbers the next session 1 again.
  *
  * Run: docker exec formr_app php /var/www/formr/bin/test_study_iteration_smoke.php
@@ -32,6 +34,24 @@ function ok($cond, string $label, $detail = null): void {
     echo $cond ? "  \e[32mOK\e[0m  {$label}\n" : "  \e[31mFAIL\e[0m {$label}" . ($detail !== null ? ' — ' . var_export($detail, true) : '') . "\n";
     if (!$cond) { $failures++; }
 }
+/**
+ * A first load of a unit session that a concurrent first load overtakes:
+ * between this request's allocation and its stamp, the other one stamps
+ * its own number ($between), as a double click or a restored tab does.
+ */
+class OvertakenUnitSession extends UnitSession {
+    public $between;
+    public function allocateStudyIteration($studyId) {
+        $n = parent::allocateStudyIteration($studyId);
+        if ($this->between) {
+            $between = $this->between;
+            $this->between = null;
+            $between();
+        }
+        return $n;
+    }
+}
+
 $owner = $db->execute('SELECT id FROM survey_users ORDER BY id LIMIT 1', [], false, true);
 if (!$owner) { fwrite(STDERR, "No survey_users row to own the test run.\n"); exit(2); }
 $GLOBALS['user'] = new User((int) $owner['id']);
@@ -193,6 +213,28 @@ try {
         JOIN survey_unit_sessions us ON us.id = w.session_id WHERE w.session_id IN (" . implode(',', $answered) . ")");
     ok(count($pairs) === 2 && !array_filter($pairs, function ($p) { return (string) $p['si'] !== (string) $p['wi']; }),
         "each session's wide iteration is its study_iteration, not the item's answer", $pairs);
+
+    echo "\n-- two first loads of one session record its start once --\n";
+    // The other load wins the number but this one creates the results row:
+    // the start must still be recorded, by the one that creates the row.
+    $code = 'ITERSMOKE' . bin2hex(random_bytes(8));
+    $codes[] = $code;
+    $db->insert('survey_run_sessions', ['run_id' => $runId, 'session' => $code, 'created' => mysql_now(), 'position' => 10]);
+    $rs = new RunSession($code, new Run(null, $runId));
+    $rs->position = 10;
+    $rs->createUnitSession($survey);
+    $raced = (int) $rs->currentUnitSession->id;
+    $late = new OvertakenUnitSession($rs, $survey, ['id' => $raced, 'load' => true]);
+    $late->between = function () use ($db, $rs, $survey, $raced, $study) {
+        $other = new UnitSession($rs, $survey, ['id' => $raced, 'load' => true]);
+        $db->exec('UPDATE survey_unit_sessions SET study_iteration = :n WHERE id = :id AND study_iteration IS NULL',
+            ['n' => $other->allocateStudyIteration($study->id), 'id' => $raced]);
+    };
+    $late->createSurveyStudyRecord();
+    $row = $db->execute('SELECT result, study_iteration FROM survey_unit_sessions WHERE id = :id', ['id' => $raced], false, true);
+    ok($row['result'] === 'survey_started', 'the start is recorded', $row);
+    ok((int) $db->execute("SELECT iteration FROM `{$study->results_table}` WHERE session_id = :s", ['s' => $raced], true) === (int) $row['study_iteration'],
+        'the results row carries the number the other load won');
 
     echo "\n-- deleting the results starts the numbering again --\n";
     $cleared = new SurveyStudy($study->id);
