@@ -786,6 +786,13 @@ class RunController extends Controller {
             $this->sendJsonResponse(array('error' => 'This study is not open', 'closed' => true), 403);
             return null;
         }
+        // What a page load does for its participant (indexAction, Run::exec):
+        // slide the session cookie by the run's expire_cookie, and note the
+        // activity. A v2 form is one page load whose answers all come here,
+        // so a form filled in for longer than expire_cookie lost its cookie,
+        // and so its run session, half way.
+        Session::setSessionLifetime($this->run->expire_cookie);
+        $runSession->setLastAccess();
         if (!$this->rateAllowed($rateBucket, (int) $runSession->id)) {
             $this->sendJsonResponse(array('error' => 'Rate limit exceeded'), 429);
             return null;

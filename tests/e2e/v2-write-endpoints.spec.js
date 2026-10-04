@@ -216,6 +216,24 @@ test.describe('write ordering and access', () => {
         expect(answer(ctx.unitSessionId, 'i_zip')).toBe('33333');
     });
 
+    // A v2 form is one page load; its answers all go to these endpoints. Each
+    // write slides the session cookie by the run's expire_cookie and notes
+    // the activity, as a page load does — or a form filled in for longer than
+    // expire_cookie lost its session half way.
+    test('a write keeps the session alive, as a page load does', async ({ page, baseURL }) => {
+        const ctx = await start(page, baseURL);
+        const lastAccess = () => dbQuery(`SELECT rs.last_access FROM survey_run_sessions rs JOIN survey_unit_sessions us ON us.run_session_id = rs.id `
+            + `WHERE us.id = ${Number(ctx.unitSessionId)};`)[0].last_access;
+        dbExecRaw(`UPDATE survey_run_sessions rs JOIN survey_unit_sessions us ON us.run_session_id = rs.id `
+            + `SET rs.last_access = '2020-01-01 00:00:00' WHERE us.id = ${Number(ctx.unitSessionId)};`);
+        const res = await page.request.post(ctx.saveUrl, { data: { page: ctx.pageNum, unit_session_id: ctx.unitSessionId, data: { i_zip: '55555' } },
+            headers: { Accept: 'application/json' } });
+        expect(res.status()).toBe(200);
+        const cookies = res.headersArray().filter((h) => h.name.toLowerCase() === 'set-cookie').map((h) => h.value);
+        expect(cookies.some((c) => c.startsWith('formr_session=')), cookies.join(' | ')).toBeTruthy();
+        expect(String(lastAccess()) > '2020-01-01 00:00:00').toBeTruthy();
+    });
+
     test('a run closed while a form is open takes no more answers from it', async ({ page, baseURL }) => {
         const ctx = await start(page, baseURL);
         const before = dbQuery(`SELECT public FROM survey_runs WHERE name = '${RUN()}';`)[0].public;
