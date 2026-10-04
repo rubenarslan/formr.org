@@ -4,7 +4,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
-This release adds **form_v2**, a second survey engine, run by a new **Form** unit. It is opt-in per survey: nothing changes for existing surveys and runs until a survey is put on v2, and operators enable authoring with `$settings['form_v2_enabled'] = true`. Authors should read `documentation/form_v2.md` (also the "Form (v2)" tab of the in-app documentation); operators `documentation/form_v2_upgrade.md` (patches 100–118, settings, the `study_iteration` backfill, rollback).
+This release adds **form_v2**, a second survey engine, run by a new **Form** unit. It is opt-in per survey: nothing changes for existing surveys and runs until a survey is put on v2, and operators enable authoring with `$settings['form_v2_enabled'] = true`. Authors should read `documentation/form_v2.md` (also the "Form (v2)" tab of the in-app documentation); operators `documentation/form_v2_upgrade.md` (patches 100–119, settings, the `study_iteration` backfill, rollback).
 
 ### Added
 - **The v2 survey engine.** A survey on v2 renders as one document and moves between pages without a reload; each page is submitted on its own, and the participant sees their page again, with every answer given so far, after a reload or when they come back later (the browser remembers the page; on another device the form opens on the first page with an unanswered item). It is added to a run like any survey; the run shows it in a Form unit.
@@ -81,7 +81,8 @@ This release adds **form_v2**, a second survey engine, run by a new **Form** uni
 - SQL patch 116: a Form unit shares its survey's unit row, as a Survey unit does (the row's type is `Form` while the survey is on v2); moves existing Form placements and sessions onto it and drops `survey_units.form_study_id`.
 - SQL patch 117: drops `survey_items.showif_js`.
 - SQL patch 118: UNIQUE `(unit_id, study_iteration)` on `survey_unit_sessions`, after renumbering sessions that shared a number within their study.
-- The tables of patches 102, 103, 105 and 113 are in `sql/schema.sql` for fresh installs. Every patch 100–118 but 116 is guarded (`IF [NOT] EXISTS`, or a no-op once applied) and can be replayed; 116 moves data once.
+- SQL patch 119: `survey_r_calls.expr` and `survey_r_call_results.result_json` as MEDIUMTEXT, the size of the labels they hold.
+- The tables of patches 102, 103, 105 and 113 are in `sql/schema.sql` for fresh installs. Every patch 100–119 but 116 is guarded (`IF [NOT] EXISTS`, or a no-op once applied) and can be replayed; 116 moves data once.
 
 ## [v1.11.0] - 22.09.2026
 

@@ -9,7 +9,9 @@
  *
  * A survey with an access window (expire_after, expire_invitation_after) is
  * queued on every page load until its deadline, a separate branch of
- * RunSession::executeUnitSession; each of those loads is checked too.
+ * RunSession::executeUnitSession; each of those loads is checked too. The
+ * form carries a dynamic label longer than 64 KiB, which its R-call
+ * allowlist must store whole (patch 119) or no page renders.
  *
  * Run: docker exec formr_app php /var/www/formr/bin/test_form_v2_page_load_smoke.php
  * Creates and removes its own run, study and sessions.
@@ -41,6 +43,10 @@ try {
     ok($run->importUnits(json_encode(['units' => [
         ['type' => 'Form', 'position' => 10, 'description' => 'form', 'survey_data' => ['name' => 'pageloadsmoke_' . $suffix, 'items' => [
             $item(1, 'q1', 'text'), $item(2, 's1', 'submit'), $item(3, 'q2', 'text'),
+            // A dynamic label longer than 64 KiB (an R Markdown page with
+            // inline CSS, say): its source is recorded whole as an R call.
+            ['name' => 'big', 'type' => 'note', 'label' => str_repeat('Lorem ipsum dolor sit amet. ', 2600) . '`r 1 + 1`',
+                'order' => 4, 'item_order' => 4, 'optional' => 1],
         ]]],
         ['type' => 'Endpage', 'position' => 20, 'description' => 'end', 'body' => 'Done.'],
     ]])) !== false, 'run imported');
@@ -61,6 +67,9 @@ try {
         ok(is_array($out) && !empty($out['form_v2']), "{$label}: the result carries the v2 page state", is_array($out) ? array_keys($out) : $out);
         ok(is_array($out) && strpos((string) ($out['body'] ?? ''), 'class="fmr-form-v2 ') !== false, "{$label}: and the form itself");
     };
+    $bigLabel = function () use ($db, &$study) {
+        return (int) $db->execute("SELECT MAX(LENGTH(expr)) FROM survey_r_calls WHERE study_id = :s AND slot = 'label'", ['s' => $study->id], true);
+    };
     foreach ($windows as $label => [$settings, $submitFirst]) {
         echo "\n-- {$label} --\n";
         $db->update('survey_studies', $settings, ['id' => $study->id]);
@@ -68,6 +77,7 @@ try {
         $codes[] = $code;
         $db->insert('survey_run_sessions', ['run_id' => $runId, 'session' => $code, 'created' => mysql_now(), 'position' => 10]);
         $load($code, 'first load');
+        ok($bigLabel() > 65535, 'the dynamic label over 64 KiB is recorded whole', $bigLabel());
         if ($submitFirst) {
             // Invited a while ago, page 1 submitted now: the participant has started.
             $db->exec('UPDATE survey_unit_sessions us JOIN survey_run_sessions rs ON rs.id = us.run_session_id
