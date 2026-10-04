@@ -70,6 +70,14 @@ class Form extends Survey {
                 ],
             ];
         } catch (Exception $e) {
+            // A deadlock or lock wait among concurrent first renders (the
+            // iteration, the display rows, the R-call allowlist): render once
+            // more, as Survey does, instead of a blank page.
+            if ($this->db->retryTransaction($e) && $this->retryOutput) {
+                $this->retryOutput = false;
+                sleep(rand(1, 4));
+                return $this->getUnitSessionOutput($unitSession);
+            }
             formr_log_exception($e, __CLASS__ . '-' . $e->getCode());
             $this->db->logLastStatement($e);
             return [

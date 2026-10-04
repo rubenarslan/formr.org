@@ -26,6 +26,17 @@ function ok($cond, string $label, $detail = null): void {
     echo $cond ? "  \e[32mOK\e[0m  {$label}\n" : "  \e[31mFAIL\e[0m {$label}" . ($detail !== null ? ' — ' . var_export($detail, true) : '') . "\n";
     if (!$cond) { $failures++; }
 }
+/** A first render that loses a deadlock once, as concurrent first renders can. */
+class DeadlockedOnceUnitSession extends UnitSession {
+    public $deadlocks = 1;
+    public function createSurveyStudyRecord() {
+        if ($this->deadlocks-- > 0) {
+            throw new PDOException('SQLSTATE[40001]: Serialization failure: 1213 Deadlock found when trying to get lock; try restarting transaction');
+        }
+        return parent::createSurveyStudyRecord();
+    }
+}
+
 $owner = $db->execute('SELECT id FROM survey_users ORDER BY id LIMIT 1', [], false, true);
 if (!$owner) { fwrite(STDERR, "No survey_users row to own the test run.\n"); exit(2); }
 $GLOBALS['user'] = new User((int) $owner['id']);
@@ -92,6 +103,18 @@ try {
             ok($queued > 0, 'the unit session is queued for its deadline (the branch under test)', $queued);
         }
     }
+
+    echo "\n-- a render that loses a deadlock is retried --\n";
+    $db->update('survey_studies', ['expire_after' => null, 'expire_invitation_after' => null], ['id' => $study->id]);
+    $code = 'PAGELOAD' . bin2hex(random_bytes(8));
+    $codes[] = $code;
+    $db->insert('survey_run_sessions', ['run_id' => $runId, 'session' => $code, 'created' => mysql_now(), 'position' => 10]);
+    $rs = new RunSession($code, new Run(null, $runId));
+    $rs->position = 10;
+    $rs->createUnitSession($form);
+    $deadlocked = new DeadlockedOnceUnitSession($rs, $form, ['id' => (int) $rs->currentUnitSession->id, 'load' => true]);
+    $out = RunUnitFactory::make(new Run(null, $runId), ['id' => (int) $form->id])->getUnitSessionOutput($deadlocked);
+    ok(!empty($out['form_v2']) && strpos((string) ($out['content'] ?? ''), 'fmr-form-v2') !== false, 'the form renders on the second try', array_keys((array) $out));
 } catch (Throwable $e) {
     echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";
     $failures++;
