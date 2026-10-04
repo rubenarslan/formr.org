@@ -29,11 +29,11 @@ const STUDY = 'e2e_json_probe';
 // the catalogue upload here is a v1 one, so they are left out of it.
 const V2_ONLY = ['bot_check', 'rank'];
 
-function robotStudy() {
-    return db.studyByName(STUDY, 'id, results_table');
+function robotStudy(name = STUDY) {
+    return db.studyByName(name, 'id, results_table');
 }
-function cleanup() {
-    const s = robotStudy();
+function cleanup(name = STUDY) {
+    const s = robotStudy(name);
     if (!s) return;
     const rt = /^[a-zA-Z0-9_]+$/.test(s.results_table || '') ? s.results_table : null;
     db.dbExecRaw(
@@ -114,6 +114,36 @@ test.describe('survey JSON upload (robot seeding)', () => {
         const study = robotStudy();
         const types = study ? db.dbQuery(`SELECT DISTINCT type FROM survey_items WHERE study_id = ${parseInt(study.id, 10)}`).map((r) => r.type) : [];
         for (const t of V2_ONLY) expect(types, `no ${t} item stored in a v1 study`).not.toContain(t);
+    });
+    // A JSON survey is named by its "name", not by its file: the file may
+    // carry the name of a survey the admin has (the one it was exported
+    // from) or one that is no survey name at all (a browser's "(1)").
+    test('a JSON upload is named by its "name", whatever the file is called', async () => {
+        cleanup();
+        const copy = `${STUDY}_copy`;
+        cleanup(copy);
+        const upload = async (fileName, surveyName) => {
+            const ctx = await request.newContext({ ignoreHTTPSErrors: true, storageState: ADMIN_STATE });
+            const survey = { name: surveyName, settings: {}, items: [{ type: 'text', name: 'q1', label: 'Q1', optional: 1 }] };
+            const res = await ctx.post(`${ADMIN_URL}/admin/survey/add_survey/`, {
+                multipart: { uploaded: { name: fileName, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(survey)) } },
+            });
+            const html = await res.text();
+            await ctx.dispose();
+            return html;
+        };
+        try {
+            await upload(`${STUDY}.json`, STUDY);
+            expect(robotStudy(), 'the original survey exists').toBeTruthy();
+            await upload(`${STUDY}.json`, copy);
+            expect(robotStudy(copy), 'its copy, uploaded under the original file name, is created').toBeTruthy();
+            cleanup(copy);
+            await upload(`${STUDY} (1).json`, copy);
+            expect(robotStudy(copy), 'and under a name no survey could have').toBeTruthy();
+        } finally {
+            cleanup(copy);
+            cleanup();
+        }
     });
     // The refusal of an unusable file name quotes the name: as text. A
     // Google Sheet's title arrives as the file name, so it is not the

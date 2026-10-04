@@ -179,8 +179,14 @@ class AdminSurveyController extends AdminController {
             return false;
         }
         
+        // A spreadsheet names the survey by its file name. A JSON export
+        // names it by its "name", which the JSON path checks (validity, and
+        // that this user has no survey of that name), so its file name may be
+        // anything: `pilot.json` renamed inside to pilot_copy, or a browser's
+        // `pilot (1).json`.
+        $isJson = $fileExtension === 'json';
         $name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", basename($file['name']));
-        if (!SurveyStudy::isValidName((string) $name)) {
+        if (!$isJson && !SurveyStudy::isValidName((string) $name)) {
             alert("<strong>Error:</strong> The study name (the name of the file or Google sheet you uploaded, \"" . h((string) $file['name']) . "\") can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.
                     The name has to be at least 3, at most 65 characters long. It needs to start with a letter. No dots, no spaces, no dashes, no umlauts please. 
                     The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>, but they will be ignored.", 'alert-danger');
@@ -193,7 +199,7 @@ class AdminSurveyController extends AdminController {
             return false;
         }
         
-        if ($this->fdb->entry_exists('survey_studies', array('name' => $name, 'user_id' => $this->user->id)) && $editing === false) {
+        if (!$isJson && $this->fdb->entry_exists('survey_studies', array('name' => $name, 'user_id' => $this->user->id)) && $editing === false) {
             alert(__("<strong>Error:</strong> The survey name %s is already taken.", h($name)), 'alert-danger');
             return false;
         }
