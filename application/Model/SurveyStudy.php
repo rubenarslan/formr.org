@@ -2504,6 +2504,17 @@ class SurveyStudy extends Model
         // just for safety checking that there is something to be deleted (in case of aborted earlier tries)
         $existingColumns = $this->db->getTableDefinition($this->results_table, 'Field');
 
+        // Before 2024-07 an item could be named `iteration` (the reader
+        // refuses the name since), so a table that old may hold that item's
+        // answers in an `iteration` column. A re-upload deletes the item; its
+        // column goes first, so the heal below adds the real one instead of
+        // numbering the answers.
+        if (isset($existingColumns['iteration']) && isset($deleteItems['iteration'])) {
+            $this->db->query("ALTER TABLE `{$this->results_table}` DROP `iteration`");
+            unset($existingColumns['iteration'], $deleteItems['iteration']);
+            $actions[] = "Deleted columns: iteration.";
+        }
+
         // Legacy-host heal (F2): a wide table created before 2024-07 has no
         // `iteration` column. Add it here, on the one code path that already
         // ALTERs this table (a re-upload by the study owner), rather than at

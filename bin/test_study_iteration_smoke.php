@@ -13,7 +13,10 @@
  *     taken gets a fresh one instead of an error;
  *   - a re-upload that gives a table from before 2024-07 its iteration
  *     column keeps every number: sessions numbered since patch 108 carry
- *     theirs into the wide table, older ones are numbered after them.
+ *     theirs into the wide table, older ones are numbered after them;
+ *   - and where that table's `iteration` column held an item's answers
+ *     (the name was allowed then), the re-upload that deletes the item
+ *     replaces the column instead of numbering the answers.
  *
  * Run: docker exec formr_app php /var/www/formr/bin/test_study_iteration_smoke.php
  * Creates and removes its own run, study and sessions.
@@ -36,7 +39,7 @@ $suffix = bin2hex(random_bytes(3));
 $runId = $db->insert('survey_runs', ['user_id' => (int) $owner['id'], 'name' => 'itersmoke_' . $suffix,
     'created' => mysql_now(), 'modified' => mysql_now(), 'cron_active' => 0]);
 $run = new Run(null, $runId);
-$study = null; $codes = []; $oldStudy = null; $run2 = null;
+$study = null; $codes = []; $oldStudy = null; $run2 = null; $itemStudy = null; $run3 = null;
 $codeOf = [];
 $start = function () use ($db, $runId, &$codes, &$survey, &$codeOf) {
     $code = 'ITERSMOKE' . bin2hex(random_bytes(8));
@@ -142,15 +145,63 @@ try {
     ok($col && stripos((string) $col['Extra'], 'auto_increment') !== false && $col['Null'] === 'NO', 'the column is NOT NULL AUTO_INCREMENT', $col);
     $n = $startOld();
     ok($iteration($n) === 5 && $wideOf($n) === 5, 'the next session gets 5, in both places', [$iteration($n), $wideOf($n)]);
+
+    echo "\n-- an old table whose survey had an item named iteration --\n";
+    // Before 2024-07 `iteration` was an allowed item name: its answers sit
+    // in an `iteration` column of their own. A re-upload deletes the item
+    // (the name is refused now); the column must go, and the real one come.
+    $runId3 = $db->insert('survey_runs', ['user_id' => (int) $owner['id'], 'name' => 'itersmokeitem_' . $suffix,
+        'created' => mysql_now(), 'modified' => mysql_now(), 'cron_active' => 0]);
+    $run3 = new Run(null, $runId3);
+    $run3->importUnits(json_encode(['units' => [
+        ['type' => 'Survey', 'position' => 10, 'description' => 's', 'survey_data' => ['name' => "itersmokeitem_{$suffix}", 'items' => [
+            ['name' => 'q1', 'type' => 'text', 'label' => 'Q1', 'optional' => 1, 'order' => 1, 'item_order' => 1],
+        ]]],
+        ['type' => 'Endpage', 'position' => 20, 'description' => 'end', 'body' => 'Done.'],
+    ]]));
+    $itemUnit = RunUnitFactory::make($run3, ['id' => (int) $run3->getAllUnitIds()[0]['unit_id']]);
+    $itemStudy = $itemUnit->surveyStudy;
+    $t3 = $itemStudy->results_table;
+    $db->query("ALTER TABLE `{$t3}` DROP INDEX IF EXISTS `iteration`, DROP COLUMN IF EXISTS `iteration`");
+    $db->query("ALTER TABLE `{$t3}` ADD COLUMN `iteration` VARCHAR(255) NULL DEFAULT NULL");
+    SurveyStudy::forgetWideTableColumns($t3);
+    $answered = [];
+    foreach (['yes', 'no'] as $answer) {
+        $code = 'ITERSMOKE' . bin2hex(random_bytes(8));
+        $codes[] = $code;
+        $db->insert('survey_run_sessions', ['run_id' => $runId3, 'session' => $code, 'created' => mysql_now(), 'position' => 10]);
+        $rs = new RunSession($code, new Run(null, $runId3));
+        $rs->position = 10;
+        $rs->createUnitSession($itemUnit);
+        $rs->currentUnitSession->createSurveyStudyRecord();
+        $usId = (int) $rs->currentUnitSession->id;
+        $db->exec("UPDATE `{$t3}` SET `iteration` = :a WHERE session_id = :s", ['a' => $answer, 's' => $usId]);
+        $answered[] = $usId;
+    }
+    $healed = true;
+    try {
+        $alter->invoke(new SurveyStudy($itemStudy->id), [], ['iteration' => 'iteration VARCHAR(255) NULL DEFAULT NULL']);
+    } catch (Throwable $e) {
+        $healed = $e->getMessage();
+    }
+    ok($healed === true, 'the re-upload goes through', $healed);
+    SurveyStudy::forgetWideTableColumns($t3);
+    $col = $db->execute("SHOW COLUMNS FROM `{$t3}` LIKE 'iteration'", [], false, true);
+    ok($col && stripos((string) $col['Extra'], 'auto_increment') !== false, 'the table has the real iteration column', $col);
+    $pairs = (array) $db->execute("SELECT us.study_iteration AS si, w.iteration AS wi FROM `{$t3}` w
+        JOIN survey_unit_sessions us ON us.id = w.session_id WHERE w.session_id IN (" . implode(',', $answered) . ")");
+    ok(count($pairs) === 2 && !array_filter($pairs, function ($p) { return (string) $p['si'] !== (string) $p['wi']; }),
+        "each session's wide iteration is its study_iteration, not the item's answer", $pairs);
 } catch (Throwable $e) {
     echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";
     $failures++;
 }
 try {
     foreach ($codes as $c) { $db->exec('DELETE FROM survey_run_sessions WHERE session = :c', ['c' => $c]); }
-    foreach ([$study, $oldStudy] as $s) { if ($s && $s->valid) { $s->delete(); } }
+    foreach ([$study, $oldStudy, $itemStudy] as $s) { if ($s && $s->valid) { $s->delete(); } }
     $run->delete();
     if ($run2) { $run2->delete(); }
+    if ($run3) { $run3->delete(); }
 } catch (Throwable $e) {
     echo "  teardown: " . $e->getMessage() . "\n";
 }
