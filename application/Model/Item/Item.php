@@ -507,6 +507,12 @@ class Item {
                 // Checked first: a decimal code of any size needs a FLOAT
                 // (150.5 must not land in the SMALLINT branch below).
                 $this->mysql_field = str_replace("TINYINT", "FLOAT", $this->mysql_field);
+            } elseif (abs($min) > 2147483647 OR abs($max) > 2147483647) {
+                $this->mysql_field = str_replace("TINYINT", "BIGINT", $this->mysql_field);
+            } elseif (abs($min) > 8388607 OR abs($max) > 8388607) {
+                // A "refused" 99999999 or a date code 20260101 needs an INT
+                // (signed MEDIUMINT ends at 8,388,607).
+                $this->mysql_field = str_replace("TINYINT", "INT", $this->mysql_field);
             } elseif (abs($min) > 32767 OR abs($max) > 32767) {
                 $this->mysql_field = str_replace("TINYINT", "MEDIUMINT", $this->mysql_field);
             } elseif (abs($min) > 126 OR abs($max) > 126) {
