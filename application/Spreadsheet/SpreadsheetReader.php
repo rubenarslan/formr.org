@@ -12,6 +12,8 @@ class SpreadsheetReader
      * instead. Real survey/choices sheets are far smaller than this.
      */
     const MAX_DATA_ROWS = 50000;
+    /** Rows of a `settings` sheet read at most (readSettingsSheet). */
+    const MAX_SETTINGS_ROWS = 1000;
 
     private $choices_columns = array('list_name', 'name', 'label');
     private $survey_columns = array('name', 'type', 'type_options', 'choice_list', 'label', 'optional', 'class', 'showif', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14', 'value', 'order', 'block_order', 'item_order');
@@ -599,7 +601,16 @@ class SpreadsheetReader
      */
     protected function readSettingsSheet($sheet)
     {
-        foreach ($sheet->toArray(null, true, false, false) as $i => $row) {
+        // A settings sheet is a short list of name/value rows. Its first two
+        // columns of at most MAX_SETTINGS_ROWS rows are read: a stray cell
+        // far down (what MAX_DATA_ROWS guards on the other sheets) made
+        // toArray() build every row up to it — a memory fatal no catch can
+        // stop, and this sheet is read first.
+        $rows = min((int) $sheet->getHighestDataRow(), self::MAX_SETTINGS_ROWS);
+        if ($rows < 1) {
+            return;
+        }
+        foreach ($sheet->rangeToArray('A1:B' . $rows, null, true, false, false) as $i => $row) {
             $name = trim((string) ($row[0] ?? ''));
             if ($name === '' || ($i === 0 && strtolower($name) === 'item')) {
                 continue;

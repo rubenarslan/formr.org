@@ -102,6 +102,27 @@ class SpreadsheetReaderRowCapTest extends TestCase
         $this->assertStringNotContainsString('Survey Sheet', $joined);
     }
 
+    /**
+     * The settings sheet is read first, and was read whole: a stray cell far
+     * down it made toArray() build every row up to it — 268 MB and seven
+     * seconds for this two-column sheet, a memory fatal for a wider one — and
+     * the stray cell came back as a setting. Only the first rows are read
+     * now, and the settings in them still are.
+     */
+    public function testAStrayCellFarDownTheSettingsSheetIsNotRead()
+    {
+        $path = $this->bloatedWorkbook(array(
+            'survey' => $this->surveyRows(),
+            'settings' => array(array('item', 'value'), array('use_paging', '1')),
+        ), 'settings');
+        $reader = new SpreadsheetReader();
+        $reader->readItemTableFile($path);
+
+        $this->assertSame(array(), $reader->errors);
+        $this->assertSame(array('use_paging' => '1'), $reader->settings);
+        $this->assertNotEmpty($reader->survey);
+    }
+
     public function testStrayCellOnSurveySheetIsRefused()
     {
         $path = $this->bloatedWorkbook(array(
