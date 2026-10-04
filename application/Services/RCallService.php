@@ -567,8 +567,16 @@ class RCallService {
             }
             return $out;
         }
+        // Each expression on its own, all sent at once (as resolvePage sends a
+        // page's requests): one author typo must not blank every other value,
+        // nor make the page wait for twenty calls in a row.
+        $requests = array();
         foreach ($exprs as $key => $expr) {
-            $single = $this->evaluateBatch(array($key => $expr), $answers);
+            $requests['one:' . (int) $key] = $this->batchRequest(array($key => $expr), $answers);
+        }
+        $each = $this->send($requests);
+        foreach ($exprs as $key => $expr) {
+            $single = $this->evaluateBatch(array($key => $expr), $answers, $each['one:' . (int) $key]);
             $out['results'] += $single['results'];
             $out['failed'] += $single['failed'];
         }
