@@ -124,13 +124,15 @@ class Email extends RunUnit {
         // Walk from the run's units to their studies: a Survey or Form unit
         // IS its study (survey_run_units.unit_id = survey_studies.id).
         // DISTINCT: a study placed twice in the run must not list its email
-        // item twice.
+        // item twice. An item removed from the survey (soft-deleted, patch
+        // 112) is no column R sees any more: as recipient it is always NULL.
         $stmt = $this->db->prepare("
             SELECT DISTINCT survey_studies.name AS survey, survey_items.name AS item
             FROM survey_run_units
                 INNER JOIN survey_studies ON survey_studies.id = survey_run_units.unit_id
                 INNER JOIN survey_items ON survey_items.study_id = survey_studies.id
-            WHERE survey_run_units.run_id = :run_id AND survey_items.type = 'email'"
+            WHERE survey_run_units.run_id = :run_id AND survey_items.type = 'email'
+              AND survey_items.deleted IS NULL"
         );
         
         // fixme: if the last reported email thing is known to work, show only linked email addresses here.
