@@ -146,7 +146,7 @@ value: complex_score(current(q1), current(q2))</pre>
 <p>Nothing on the form is secret: every answer this form stores is readable in the participant's browser, because showifs can use it. A value participants must not be able to see (their experimental condition, say) belongs outside the form, for example in an earlier survey of the run, and must not be referenced from a showif.</p>
 
 <h5 id="form_v2_reserved">Reserved item names</h5>
-<p>These names are rejected when you upload a sheet, on every engine: <code>session_id</code>, <code>created</code>, <code>modified</code>, <code>ended</code>, <code>id</code>, <code>study_id</code>, <code>iteration</code> (columns of the results), and <code>isNA</code>, <code>answered</code>, <code>contains</code>, <code>containsWord</code>, <code>startsWith</code>, <code>endsWith</code>, <code>last</code> (the showif helpers).</p>
+<p>These names are rejected when you upload a sheet, on every engine: <code>session_id</code>, <code>created</code>, <code>modified</code>, <code>ended</code>, <code>expired</code>, <code>id</code>, <code>study_id</code>, <code>iteration</code> (columns of the results; in any capitalization, <code>Created</code> too, except <code>id</code>), and <code>isNA</code>, <code>answered</code>, <code>contains</code>, <code>containsWord</code>, <code>startsWith</code>, <code>endsWith</code>, <code>last</code> (the showif helpers) and <code>init</code>.</p>
 
 <h4 id="form_v2_scan"><i class="fa fa-fw fa-search"></i> The compatibility scan</h4>
 
