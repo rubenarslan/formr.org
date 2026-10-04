@@ -255,9 +255,7 @@ class FormRenderer extends SpreadsheetRenderer {
      * The allowlist is a pure function of the study definition, so the steady
      * state is "every row already exists": this does ONE SELECT per study
      * (memoized for the request) and writes only rows that are genuinely
-     * missing — where the old per-item RAllowlistExtractor::record() upserted,
-     * and bumped `modified` on, one row per dynamic item on every participant
-     * render.
+     * missing, so a steady-state render writes nothing.
      *
      * @param array<int, array{slot:string, expr:string, item_id:int|null}> $calls
      * @return array<int, int> same keys as $calls => call id

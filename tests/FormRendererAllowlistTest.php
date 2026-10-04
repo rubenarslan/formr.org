@@ -6,11 +6,9 @@ use PHPUnit\Framework\TestCase;
  * RAllowlistExtractor::ensure — the bulk allowlist path used by FormRenderer.
  *
  * survey_r_calls is a pure function of the study definition (one row per
- * dynamic value / label item), but the renderer used to call record() — an
- * unconditional upsert that also bumps `modified` — once per dynamic item on
- * EVERY participant render. ensure() replaces that with one SELECT per study
- * plus an INSERT for genuinely missing rows only, so a steady-state render
- * performs zero writes.
+ * dynamic value / label item), and every participant render asks for it:
+ * ensure() does one SELECT per study plus an INSERT for genuinely missing
+ * rows only, so a steady-state render performs zero writes.
  *
  * The DB is mocked rather than seeded: the statements under test are MariaDB-
  * specific (INSERT ... ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)) and
@@ -139,7 +137,7 @@ class FormRendererAllowlistTest extends TestCase
         );
     }
 
-    public function testEnsureInsertDoesNotBumpModifiedButRecordStillDoes()
+    public function testEnsureInsertDoesNotBumpModified()
     {
         $db = $this->dbMock(array(), array(31));
         RAllowlistExtractor::ensure($db, 42, array(
@@ -148,10 +146,6 @@ class FormRendererAllowlistTest extends TestCase
         $insert = $this->sqls[1];
         $this->assertStringContainsString('LAST_INSERT_ID(id)', $insert);
         $this->assertStringNotContainsString('modified', $insert);
-
-        $db2 = $this->dbMock(array(), array(31));
-        RAllowlistExtractor::record($db2, 42, 'value', 'nrow(x)', 11);
-        $this->assertStringContainsString('modified = CURRENT_TIMESTAMP', $this->sqls[0]);
     }
 
     public function testEnsureWithNoCallsTouchesNothing()

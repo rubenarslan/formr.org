@@ -11,7 +11,7 @@
  * Three concerns live here:
  *
  * 1. ALLOWLIST with implicit revocation. survey_r_calls rows are created
- *    lazily at render (RAllowlistExtractor::record) and never deleted — so a
+ *    lazily at render (RAllowlistExtractor::ensure) and never deleted — so a
  *    call id alone must not stay evaluable forever. A call is LIVE only if
  *    its item still exists (not soft-deleted) and the item's CURRENT column
  *    content still yields this exact expression (compared with the item's

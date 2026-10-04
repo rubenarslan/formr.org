@@ -12,19 +12,10 @@
 class RAllowlistExtractor {
 
     /**
-     * Upsert an (study_id, slot, expr, item) record into survey_r_calls.
-     * Returns the id. Dedups by (study_id, expr_hash, slot, item_id) — one
+     * Cache/lookup key for one allowlist row. item_id is part of the key
+     * because the UNIQUE index is (study_id, expr_hash, slot, item_id) — one
      * row PER ITEM even when expressions are identical, because
      * /form-render-page resolves a page's calls via r.item_id.
-     */
-    public static function record(DB $db, $studyId, $slot, $expr, $itemId = null) {
-        return self::upsert($db, $studyId, $slot, $itemId, (string) $expr, hash('sha256', (string) $expr), true);
-    }
-
-    /**
-     * Cache/lookup key for one allowlist row. item_id is part of the key
-     * because the UNIQUE index is (study_id, expr_hash, slot, item_id) —
-     * identical expressions on two items are two rows on purpose (see record).
      */
     public static function callKey($slot, $itemId, $exprHash) {
         return (string) $slot . '|' . ($itemId === null ? '' : (int) $itemId) . '|' . (string) $exprHash;
@@ -52,17 +43,15 @@ class RAllowlistExtractor {
     }
 
     /**
-     * Bulk variant of record() for the hot render path: ONE SELECT for the
+     * Record a render's calls (FormRenderer::ensureRCalls): ONE SELECT for the
      * whole study, then an INSERT only for rows that are actually missing.
      *
-     * record() upserts unconditionally, so it wrote (and bumped `modified` on)
-     * one row per dynamic item on EVERY participant render — pure write
-     * amplification, since the allowlist is a function of the study definition,
-     * not of the session. ensure() leaves existing rows untouched: no
-     * `modified` bump, so a steady-state render does zero writes. The
-     * per-missing-row INSERT still carries `ON DUPLICATE KEY UPDATE id =
-     * LAST_INSERT_ID(id)` so a concurrent render that inserted the same row
-     * between our SELECT and INSERT yields its id instead of an error.
+     * The allowlist is a function of the study definition, not of the
+     * session, so existing rows are left untouched and a steady-state render
+     * does zero writes. The per-missing-row INSERT carries `ON DUPLICATE KEY
+     * UPDATE id = LAST_INSERT_ID(id)` so a concurrent render that inserted
+     * the same row between our SELECT and INSERT yields its id instead of an
+     * error.
      *
      * @param array<int|string, array{slot:string, expr:string, item_id?:int|null}> $calls
      * @return array<string, int> callKey => id (one entry per distinct call)
@@ -87,24 +76,21 @@ class RAllowlistExtractor {
                 continue;
             }
             list($slot, $itemId, $expr, $hash) = $spec;
-            $out[$key] = self::upsert($db, $studyId, $slot, $itemId, $expr, $hash, false);
+            $out[$key] = self::upsert($db, $studyId, $slot, $itemId, $expr, $hash);
         }
         return $out;
     }
 
     /**
      * INSERT ... ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id) recovers the
-     * existing row's id in one roundtrip. $touchModified keeps record()'s
-     * historic semantics (bump `modified` on every call) while ensure()'s
-     * only-missing path never touches an existing row.
+     * existing row's id in one roundtrip, without touching the row.
      */
-    protected static function upsert(DB $db, $studyId, $slot, $itemId, $expr, $hash, $touchModified) {
-        $modifiedClause = $touchModified ? ', modified = CURRENT_TIMESTAMP' : '';
+    protected static function upsert(DB $db, $studyId, $slot, $itemId, $expr, $hash) {
         $stmt = $db->prepare("
             INSERT INTO `survey_r_calls` (study_id, slot, item_id, expr, expr_hash)
             VALUES (:study_id, :slot, :item_id, :expr, :expr_hash)
             ON DUPLICATE KEY UPDATE
-                id = LAST_INSERT_ID(id){$modifiedClause}
+                id = LAST_INSERT_ID(id)
         ");
         $stmt->bindValue(':study_id', (int) $studyId, PDO::PARAM_INT);
         $stmt->bindValue(':slot', (string) $slot, PDO::PARAM_STR);
