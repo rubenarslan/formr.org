@@ -292,22 +292,26 @@ The switch is also refused while any run uses the study as a classic
 Survey (it would change the engine under that run's participants): copy the
 survey and put the copy in a Form unit instead.
 
-**Importing historical results: write the display rows.**
-`bin/import-results.php` generates the SQL that loads a backup file into
-a study. The wide `survey_NN` insert alone is no longer enough: with
-a v2 study (or `form_v2_long_reads` on), admin result counts, average
-time, `getResults`/the per-run backup TSV and the OpenCPU R overlay all
-read the **long** format — `survey_items_display` — so imported data
-that has no display rows is invisible to them even though the wide table
-is populated. Pass `--include-itemsdisplay` so the generated SQL also
-inserts into `survey_items_display`:
+**Importing historical results.**
+`bin/import-results.php` loads a results export (CSV, TSV, XLSX or XLS, as
+the admin's export writes it) back into a run. Each row becomes a session
+of the survey at its place in the run, as a participant's would be: its
+display rows (`survey_items_display`, which the admin result views,
+exports and R read), its results row, a study iteration from the study's
+counter, and the row's times. Participants not yet in the run are added
+to it as ended. The path is inside the container, so copy the file in
+first, and check it with `--dry-run`:
 
 ```bash
+docker compose cp results.csv formr_app:/var/www/formr/tmp/results.csv
 docker compose exec formr_app php bin/import-results.php \
-  --survey-id=<sid> --run-id=<rid> --backup-file=<path> --include-itemsdisplay
+  --run=<run> --survey=<survey> --file=tmp/results.csv [--position=<n>] --dry-run
 ```
 
-Both inserts are `ON DUPLICATE KEY UPDATE`, so re-running the generated
-SQL is safe. If you imported without the flag before upgrading, re-run
-the import with it (or the imported rows will keep showing as missing in
-the admin result views).
+The import is all or nothing. It stops before writing anything when a
+column is not an item of the survey, a code is not a participant code, or
+a time is not `YYYY-MM-DD HH:MM:SS`; a value the database refuses rolls
+back every row. A row is skipped when its participant already has a
+session of the survey at that place with the same start time, so a file
+can be imported again. A row that is neither ended nor expired becomes an
+unfinished session that is never resumed.

@@ -1,336 +1,352 @@
 #!/usr/bin/php
 <?php
 /**
- * Manual import of formr exported results
- * Export file must be in CSV format
- * 
+ * Import a survey's exported results into a run.
+ *
+ * Reads a results file as the admin's export writes it (CSV, German CSV, TSV,
+ * XLSX or XLS: a header row of `session`, the system columns and one column
+ * per item, then one row per survey session) and stores each row as a session
+ * of the survey at its place in the run, the way a participant's would be:
+ *
+ *   - the participant (`session`, their code) is found in the run, or added
+ *     to it as an ended participant at the survey's position;
+ *   - the survey session gets its study iteration from the study's counter,
+ *     its display rows and its results row (UnitSession::
+ *     createSurveyStudyRecord), then the row's answers and times: `created`,
+ *     `modified` (when the answers were stored), `ended`, `expired`;
+ *   - a row neither ended nor expired is an unfinished session that nobody
+ *     resumes (queued -9, SUPERSEDED), so an import can never take over a
+ *     participant's live session.
+ *
+ * The file is checked as a whole first; nothing is written when a column is
+ * not an item of the survey, a code is not a participant code or a time is
+ * not a time. Then every row is written in one transaction: all or nothing.
+ * A row whose participant already has a session of the survey at that place
+ * started at the same time is skipped, so a file can be imported again.
+ * The study's first-visit allocations wait while the transaction runs.
  */
 require_once dirname(__FILE__) . '/../setup.php';
 
-function quoteCols($db, $cols) {
-    foreach ($cols as $i => $col) {
-        $cols[$i] = DB::quoteCol($col);
-    }
-    return $cols;
-}
+const IMPORT_SYSTEM_COLUMNS = array('session', 'session_id', 'study_id', 'iteration', 'created', 'modified', 'ended', 'expired');
 
-function quoteVals($db, $vals) {
-    foreach ($vals as $i => $val) {
-        $vals[$i] = $db->quote($val);
-    }
-    return $vals;
-}
+function import_help() {
+    echo <<<'TXT'
+Import a survey's exported results (CSV, TSV, XLSX, XLS) into a run.
 
-function help() {
-    echo "
-		Import results of a study into a run. Results should referably be in CSV format.
-		This script generates an SQL file that can then be ran against the respective formr database.
-		Usage:
-			php ./import-results.php [options]
-			Example: php ./import-results.php --survey-id=<sid> --run-id=<rid> --backup-file=<file-path>
-				 php ./import-results.php --survey-id=87 --run-id=29 --backup-file=\"/var/www/formr.org/tmp/backups/results/xxxxx.xlsx\"
-		Options:
-			-h: Prints this help message
-			--survey-id  : Numeric ID of the survey to which you want to import data
-			--run-id     : Numeric ID of the run to which you want to import data
-			--position   : Position of the UNIT ID in the run
-			--backup-file: Asolute path to the backup results file
-			--skip-itemsdisplay: Omit the survey_items_display rows. Almost never right: since
-			                     form_v2 the app READS answers from survey_items_display (long
-			                     reads), so a wide-table-only import is invisible to R data
-			                     frames, admin results and exports. Only use it when the rows
-			                     already exist. (--include-itemsdisplay is the old name for the
-			                     behaviour that is now the default; it is still accepted.)
-			
-	";
+Usage:
+  php bin/import-results.php --run=<name|id> --survey=<name|id> --file=<path> [--position=<n>] [--dry-run]
+
+Options:
+  --run       the run (name or numeric id); --run-id also works
+  --survey    the survey (name or numeric id), placed in the run; --survey-id also works
+  --file      the results file, as the admin's export writes it; --backup-file also works
+  --position  the survey's position in the run; needed only when it is placed more than once
+  --dry-run   check the file and say what would be imported, write nothing
+  -h, --help  this text
+
+TXT;
     exit(0);
 }
 
-function quit($msg = '', $code = 1) {
-    if ($code > 0) {
-        $msg = "Error($code): $msg";
-    }
-    echo "\n$msg\n";
-    exit($code);
+function import_fail($message) {
+    fwrite(STDERR, "import-results: {$message}\n");
+    exit(1);
 }
 
-function collectVars() {
-    $opts = getopt('h', array('survey-id:', 'run-id:', 'backup-file:', 'include-itemsdisplay', 'skip-itemsdisplay', 'help'));
-    if (isset($opts['h']) || isset($opts['help'])) {
-        return help();
+/** The options, strictly: an unknown option or a missing value is an error. */
+function import_options(array $argv) {
+    $takesValue = array('run' => 'run', 'run-id' => 'run', 'survey' => 'survey', 'survey-id' => 'survey',
+        'file' => 'file', 'backup-file' => 'file', 'position' => 'position');
+    $opts = array('dry-run' => false);
+    for ($i = 1; $i < count($argv); $i++) {
+        $arg = $argv[$i];
+        if ($arg === '-h' || $arg === '--help') {
+            import_help();
+        }
+        if ($arg === '--dry-run') {
+            $opts['dry-run'] = true;
+            continue;
+        }
+        if (!preg_match('/^--([a-z-]+)(?:=(.*))?$/s', $arg, $m) || !isset($takesValue[$m[1]])) {
+            import_fail("unknown option '{$arg}' (see --help)");
+        }
+        $value = isset($m[2]) ? $m[2] : (isset($argv[$i + 1]) ? $argv[++$i] : null);
+        if ($value === null || trim($value) === '') {
+            import_fail("--{$m[1]} needs a value");
+        }
+        $opts[$takesValue[$m[1]]] = trim($value);
     }
-
-    if (!isset($opts['survey-id'])) {
-        quit("Missing option 'survey-id'");
+    foreach (array('run', 'survey', 'file') as $required) {
+        if (!isset($opts[$required])) {
+            import_fail("--{$required} is required (see --help)");
+        }
     }
-
-    if (!isset($opts['run-id'])) {
-        quit("Missing option 'run-id'");
+    if (isset($opts['position']) && !preg_match('/^-?\d+$/', $opts['position'])) {
+        import_fail('--position must be a number');
     }
-
-    if (!isset($opts['position'])) {
-        quit("You need to specify the position of the Run unit to which the survey is attached");
-    }
-
-    if (!isset($opts['backup-file'])) {
-        quit("Missing option 'backup-file'");
-    }
-    $backupFile = trim($opts['backup-file']);
-    if (!file_exists($backupFile)) {
-        quit("The backup-file provided does not exist");
-    }
-
-    return array(
-        'runId' => (int) $opts['run-id'],
-        'studyId' => (int) $opts['survey-id'],
-        'position' => (int) $opts['position'],
-        'backupFile' => $backupFile,
-        'sqlBackupFile' => $backupFile . '.sql',
-        // Default ON (F3): the long read (survey_items_display) is what R,
-        // the results table and exports see since form_v2. An import without
-        // these rows lands in the wide table only and is invisible there —
-        // which is how the review found sessions "vanishing". The old
-        // --include-itemsdisplay flag is now the default and kept as a no-op
-        // so existing runbooks keep working.
-        'inlcudeItemsDisplay' => !isset($opts['skip-itemsdisplay']),
-    );
+    return $opts;
 }
 
-function itemsDisplayCols($item_id, $session_id, $created, $answer) {
-    if (!$item_id || !$session_id || !$created) {
+/**
+ * A time as the export writes it ('2026-09-01 10:00:00'), or as a
+ * spreadsheet program may have turned it into a date cell. Null for an empty
+ * cell, false for one that is not a time.
+ */
+function import_datetime($value, $spreadsheet) {
+    if ($value === null || (is_string($value) && trim($value) === '')) {
         return null;
     }
-
-    // Simulate shown and answered times from created time
-    $shown = $created;
-    $answered = strtotime('+5 minutes', $created);
-    $saved = strtotime('+5 minutes', $answered);
-
-    return array(
-        'item_id' => $item_id,
-        'session_id' => $session_id,
-        'answer' => $answer,
-        'created' => mysql_datetime($created),
-        'saved' => mysql_datetime($saved),
-        'shown' => mysql_datetime($shown),
-        'shown_relative' => NULL,
-        'answered' => mysql_datetime($answered),
-        'answered_relative' => NULL,
-        'displaycount' => 1,
-        'display_order' => NULL, // FIX ME
-        'hidden' => 0, // FIX-ME
-    );
+    if ($spreadsheet && (is_int($value) || is_float($value))) {
+        return \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float) $value)->format('Y-m-d H:i:s');
+    }
+    // The export's own format only: 01/09/2026 is a different day in
+    // different countries.
+    $value = trim((string) $value);
+    if (!preg_match('/^(\d{4}-\d{2}-\d{2})(?:[ T]\d{2}:\d{2}(?::\d{2})?)?$/', $value, $m)
+            || ($time = strtotime($value)) === false || date('Y-m-d', $time) !== $m[1]) {
+        return false;
+    }
+    return date('Y-m-d H:i:s', $time);
 }
 
-$vars = collectVars();
-extract($vars);
-$sysColumns = array('session', 'session_id', 'study_id', 'created', 'modified', 'ended', 'expired');
-$dateColumns = array('created', 'modified', 'ended', 'expired');
-$exclColumns = array('session');
+/** An answer as stored: text, a number written without a float's noise, NULL for an empty cell. */
+function import_answer($value) {
+    if ($value === null || $value === '') {
+        return null;
+    }
+    if (is_bool($value)) {
+        return $value ? '1' : '0';
+    }
+    if (is_float($value) && floor($value) == $value && abs($value) < 1e15) {
+        return (string) (int) $value;
+    }
+    return (string) $value;
+}
+
+/**
+ * The file's rows, checked: per row its sheet line, participant code, times
+ * and answers. Stops with every problem listed before anything is written.
+ */
+function import_read(array $opts, array $items, array $deleted) {
+    $file = $opts['file'];
+    if (!is_file($file) || !is_readable($file)) {
+        import_fail("cannot read {$file}");
+    }
+    try {
+        $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader(\PhpOffice\PhpSpreadsheet\IOFactory::identify($file));
+        $reader->setReadDataOnly(true);
+        $rows = $reader->load($file)->getSheet(0)->toArray(null, false, false, false);
+    } catch (Throwable $e) {
+        import_fail("cannot read {$file}: " . $e->getMessage());
+    }
+    // A CSV cell is text; a spreadsheet's may be a date (import_datetime).
+    $spreadsheet = !($reader instanceof \PhpOffice\PhpSpreadsheet\Reader\Csv);
+    $header = array_map(function ($h) { return trim((string) $h); }, (array) array_shift($rows));
+    while ($header && end($header) === '') {
+        array_pop($header);
+    }
+    if (!in_array('session', $header, true)) {
+        import_fail('the file has no `session` column (the participant code)');
+    }
+    if (($blank = array_search('', $header, true)) !== false) {
+        import_fail('column ' . ($blank + 1) . ' has no name');
+    }
+    $unknown = array_diff($header, IMPORT_SYSTEM_COLUMNS, array_keys($items));
+    if ($unknown) {
+        $gone = array_intersect($unknown, $deleted);
+        import_fail('not items of the survey: ' . implode(', ', $unknown)
+            . ($gone ? ' (' . implode(', ', $gone) . ' deleted from it: leave those columns out)' : ''));
+    }
+    if (count($header) !== count(array_unique($header))) {
+        import_fail('columns appear twice: ' . implode(', ', array_unique(array_diff_assoc($header, array_unique($header)))));
+    }
+
+    $codeRule = Config::get('user_code_regular_expression');
+    $records = $errors = array();
+    foreach ($rows as $i => $cells) {
+        $line = $i + 2;
+        $row = array();
+        foreach ($header as $c => $name) {
+            $row[$name] = isset($cells[$c]) ? $cells[$c] : null;
+        }
+        if (!array_filter($row, function ($v) { return $v !== null && trim((string) $v) !== ''; })) {
+            continue;
+        }
+        $code = trim((string) $row['session']);
+        if (!preg_match($codeRule, $code)) {
+            $errors[] = "row {$line}: '{$code}' is not a participant code";
+        }
+        $times = array();
+        foreach (array('created', 'modified', 'ended', 'expired') as $column) {
+            $time = isset($row[$column]) ? import_datetime($row[$column], $spreadsheet) : null;
+            if ($time === false) {
+                $errors[] = "row {$line}: {$column} '{$row[$column]}' is not a time (YYYY-MM-DD HH:MM:SS)";
+            }
+            $times[$column] = $time ?: null;
+        }
+        $answers = array();
+        foreach (array_intersect($header, array_keys($items)) as $name) {
+            $answers[$name] = import_answer($row[$name]);
+        }
+        $records[] = array('line' => $line, 'code' => $code, 'times' => $times, 'answers' => $answers);
+    }
+    if ($errors) {
+        import_fail("nothing was imported:\n  " . implode("\n  ", $errors));
+    }
+    return $records;
+}
+
+/**
+ * Store one row as a session of the survey at $placement. False when the
+ * participant already has a session there that started at the same time.
+ *
+ * @param array $added run session id => [first start, last activity] of the
+ *   participants this import adds to the run
+ */
+function import_row(DB $db, Run $run, RunUnit $runUnit, SurveyStudy $study, array $placement, array $items, array $wideColumns, array $record, $source, array &$added) {
+    $t = $record['times'];
+    $start = $t['created'] ?: mysql_now();
+    $runSession = new RunSession($record['code'], $run);
+    if (!$runSession->id) {
+        if (!$runSession->create($record['code']) || !$runSession->id) {
+            throw new RuntimeException("could not add participant {$record['code']} to the run");
+        }
+        $added[$runSession->id] = array($start, $start);
+    } elseif ($db->entry_exists('survey_unit_sessions', array('run_session_id' => $runSession->id, 'run_unit_id' => $placement['id'], 'created' => $start))) {
+        return false;
+    }
+
+    $iteration = 1 + (int) $db->execute(
+        'SELECT COALESCE(MAX(`iteration`), 0) FROM `survey_unit_sessions` WHERE `run_session_id` = :rs AND `run_unit_id` = :ru',
+        array('rs' => $runSession->id, 'ru' => $placement['id']), true
+    );
+    $id = (int) $db->insert('survey_unit_sessions', array(
+        'unit_id' => $study->id, 'run_unit_id' => $placement['id'], 'iteration' => $iteration,
+        'run_session_id' => $runSession->id, 'created' => $start, 'queued' => 0,
+        'state' => UnitSessionQueue::STATE_PENDING,
+    ));
+    // The study iteration, the display rows and the results row, as a
+    // participant's first visit makes them.
+    (new UnitSession($runSession, $runUnit, array('id' => $id, 'load' => true)))->createSurveyStudyRecord();
+
+    $stored = $t['modified'] ?: ($t['ended'] ?: ($t['expired'] ?: $start));
+    $db->update('survey_items_display', array('created' => $start), array('session_id' => $id));
+    $display = array();
+    foreach ($record['answers'] as $name => $answer) {
+        if ($answer !== null) {
+            $display[$items[$name]] = array('answer' => $answer);
+        }
+    }
+    if ($display) {
+        $db->batchUpdateByKey('survey_items_display', 'item_id', $display,
+            array('saved' => $stored, 'displaycount' => 1, 'hidden' => 0), array('session_id' => $id));
+    }
+    if ($wideColumns) {
+        $wide = array('created' => $start, 'modified' => $stored, 'ended' => $t['ended'], 'expired' => $t['ended'] ? null : $t['expired']);
+        foreach ($record['answers'] as $name => $answer) {
+            if (in_array($name, $wideColumns, true)) {
+                $wide[$name] = $answer;
+            }
+        }
+        $db->update($study->results_table, $wide, array('session_id' => $id, 'study_id' => $study->id));
+    }
+
+    // Its end. An unfinished session is one nobody resumes: the participant
+    // may be live at this place in the run, and their current session is the
+    // newest open one there (RunSession::getCurrentUnitSession).
+    $log = 'imported from ' . $source;
+    if ($t['ended']) {
+        $db->update('survey_unit_sessions', array('ended' => $t['ended'], 'state' => UnitSessionQueue::STATE_ENDED,
+            'result' => 'survey_ended', 'result_log' => $log), array('id' => $id));
+        StudyMetrics::recordCompletion((int) $study->id, $runSession->testing, $id);
+    } elseif ($t['expired']) {
+        $db->update('survey_unit_sessions', array('expired' => $t['expired'], 'state' => UnitSessionQueue::STATE_EXPIRED,
+            'result' => 'expired', 'result_log' => $log), array('id' => $id));
+    } else {
+        $db->update('survey_unit_sessions', array('queued' => UnitSessionQueue::QUEUED_SUPERCEDED,
+            'state' => UnitSessionQueue::STATE_SUPERSEDED, 'result_log' => $log), array('id' => $id));
+    }
+    if (isset($added[$runSession->id])) {
+        $last = $t['ended'] ?: ($t['expired'] ?: $stored);
+        $added[$runSession->id] = array(min($added[$runSession->id][0], $start), max($added[$runSession->id][1], $last));
+    }
+    return true;
+}
+
+$opts = import_options($argv);
 $db = DB::getInstance();
 
-$runName = $db->findValue('survey_runs', array('id' => $runId), 'name');
-$run = new Run($db, $runName);
-if (!$run->valid) {
-    quit('Invalid run. ID: ' . $runId);
+$run = ctype_digit($opts['run']) ? new Run(null, (int) $opts['run']) : new Run($opts['run']);
+if (!$run->valid || $run->id <= 0) {
+    import_fail("no run '{$opts['run']}'");
 }
-$survey = Survey::loadById($studyId);
-if (!$survey->name || !$survey->id) {
-    quit('Invalid survey. ID: ' . $studyId);
+$study = ctype_digit($opts['survey'])
+    ? SurveyStudy::loadById((int) $opts['survey'])
+    : SurveyStudy::loadByUserAndName(new User((int) $run->user_id), $opts['survey']);
+if (!$study->valid || !$study->id) {
+    import_fail("no survey '{$opts['survey']}'" . (ctype_digit($opts['survey']) ? '' : " of the run's owner"));
 }
-
-$surveyRunUnit = $db->findRow('survey_run_units', array('unit_id' => $studyId, 'run_id' => $runId));
-if (!$surveyRunUnit) {
-    quit("The specified survey is not referenced in the run. Please check your study if the run '{$run->name}' has a survey unit with value '{$survey->name}'");
+$placements = $db->execute(
+    'SELECT `id`, `position` FROM `survey_run_units` WHERE `run_id` = :run AND `unit_id` = :study ORDER BY `position`',
+    array('run' => $run->id, 'study' => $study->id)
+);
+if (isset($opts['position'])) {
+    $placements = array_values(array_filter($placements, function ($p) use ($opts) { return (int) $p['position'] === (int) $opts['position']; }));
 }
-
-$surveyItems = array();
-foreach ($survey->getItems('id, name') as $item) {
-    $surveyItems[$item['name']] = $item;
+if (count($placements) !== 1) {
+    import_fail($placements
+        ? "survey '{$study->name}' is placed in run '{$run->name}' more than once: name its --position (" . implode(', ', array_column($placements, 'position')) . ')'
+        : "survey '{$study->name}' is not placed in run '{$run->name}'" . (isset($opts['position']) ? " at position {$opts['position']}" : ''));
 }
-
-// OPEN results sheet
-try {
-    echo "\nReading backup file '", $backupFile, "' ...\n";
-    //  Identify the type of $inputFileName 
-    $fileType = \PhpOffice\PhpSpreadsheet\IOFactory::identify($backupFile);
-    //  Create a new Reader of the type that has been identified 
-    $objReader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader($fileType);
-    //  Load $inputFileName to a \PhpOffice\PhpSpreadsheet\Spreadsheet Object 
-    ///  Advise the Reader that we only want to load cell data 
-    $objReader->setReadDataOnly(true);
-
-    // Load $inputFileName to a \PhpOffice\PhpSpreadsheet\Spreadsheet Object
-    $objPhpSpreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($backupFile);
-
-    // Get sheet
-    $resultsSheet = $objPhpSpreadsheet->getSheet(0);
-} catch (\PhpOffice\PhpSpreadsheet\Exception $e) {
-    formr_log_exception($e, __CLASS__, $backupFile);
-    quit("Error occured while loading backup file: \n" . $e->getMessage());
+$placement = array('id' => (int) $placements[0]['id'], 'position' => (int) $placements[0]['position']);
+$runUnit = RunUnitFactory::make($run, array('id' => $study->id));
+if (!($runUnit instanceof Survey) || !$runUnit->surveyStudy || (int) $runUnit->surveyStudy->id !== (int) $study->id) {
+    import_fail("the unit at position {$placement['position']} is not survey '{$study->name}'");
 }
 
-// Read columns
-$columns = array();
-$nrColumns = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($resultsSheet->getHighestDataColumn());
-$nrRows = $resultsSheet->getHighestDataRow();
-echo "\nColumns: {$nrColumns}, Rows: {$nrRows} \n";
-for ($i = 1; $i <= $nrColumns; $i++) {
-    $columns[] = trim($resultsSheet->getCellByColumnAndRow($i, 1)->getValue());
-}
-
-// Validate columns of backup sheet to ensure all are in survey items sheet
-$badCols = array();
-foreach ($columns as $col) {
-    if (!isset($surveyItems[$col]) && !in_array($col, $sysColumns)) {
-        $badCols[] = $col;
-    }
-}
-if ($badCols) {
-    quit('Invalid Column(s) in results sheet: ' . implode(', ', $badCols));
-}
-
-// Empty sql backup file
-if (file_exists($sqlBackupFile)) {
-    rename($sqlBackupFile, $sqlBackupFile . '.formrbk');
-}
-file_put_contents($sqlBackupFile, '');
-
-// Read rows and insert each entry after reading to prvent overload
-$processed = 0;
-$fp = fopen($sqlBackupFile, 'wb');
-if (!$fp) {
-    quit('Unable to open sql file for writing');
-}
-
-foreach ($resultsSheet->getRowIterator() as $row) {
-    $rowNr = $row->getRowIndex();
-    // Read only data rows
-    if ($rowNr > $nrRows) {
-        break;
-    }
-
-    // Heading names
-    if ($rowNr == 1) {
-        continue;
-    }
-
-    $cellIterator = $row->getCellIterator();
-    $cellIterator->setIterateOnlyExistingCells(false); // Loop all cells, even if it is not set
-    $runSession = null;
-    $entry = array();
-    foreach ($cellIterator as $cell) {
-        if (is_null($cell)) {
-            continue;
-        }
-
-        $colIndex = $cell->columnIndexFromString($cell->getColumn());
-        if (!array_key_exists($colIndex, $columns)) {
-            continue;
-        }
-        $column = $columns[$colIndex];
-        $value = trim($cell->getValue());
-        if (!is_formr_truthy($value)) {
-            $value = null;
-        } elseif (in_array($column, $dateColumns)) {
-            $value = mysql_datetime(\PhpOffice\PhpSpreadsheet\Shared\Date::excelToTimestamp($value));
-        }
-
-        if (!in_array($column, $exclColumns)) {
-            $entry[$column] = $value;
-        }
-
-        if ($value && $runSession === null && $column == 'session') {
-            $value = ltrim($value, '=');
-            $runSession = new RunSession($db, $runId, null, $value, $run);
-            // Create a fake session and end it if it doesn't exist (maybe set a flag to enable this in command
-            if ($runSession->id <= 0) {
-                $runSession->create($value);
-                $runSession->runTo($position, $studyId);
-                $unitSession = $runSession->getCurrentUnit();
-                $entry['session_id'] = $unitSession['session_id'];
-                $runSession->end();
-            } else {
-                $unitSession = new UnitSession($db, $runSession->id, $studyId);
-                $entry['session_id'] = $unitSession->create();
-            }
-        }
-    }
-
-    if ($entry && $runSession && $runSession->id > 0) {
-        $entry['study_id'] = $studyId;
-        $newline = "\n\n/*NEW ROW: Inserting data for run-session: " . $runSession->session . "*/";
-        echo $newline;
-        fwrite($fp, $newline);
-
-        $unitSession = array(
-            'id' => $entry['session_id'],
-            'unit_id' => $studyId,
-            'run_session_id' => $runSession->id,
-            'created' => $entry['created'],
-            'ended' => $entry['ended'],
-        );
-
-        // Insert unit session entry
-        $unitSessionCols = quoteCols($db, array_keys($unitSession));
-        $unitSessionVals = quoteVals($db, array_values($unitSession));
-        $sql = "\nINSERT INTO `survey_unit_sessions` (" . implode(', ', $unitSessionCols) . ") VALUES (" . implode(', ', $unitSessionVals) . ") ON DUPLICATE KEY UPDATE id=VALUES(id);";
-        fwrite($fp, $sql);
-
-        // Insert results table entry
-        $resultCols = quoteCols($db, array_keys($entry));
-        $resultVals = quoteVals($db, array_values($entry));
-        array_walk($resultCols, array('DB', 'quoteCol'));
-        array_walk($resultVals, array($db, 'quote'));
-        $sql = "\nINSERT INTO `{$survey->results_table}` (" . implode(', ', $resultCols) . ") VALUES (" . implode(', ', $resultVals) . ") ON DUPLICATE KEY UPDATE session_id=VALUES(session_id);";
-        fwrite($fp, $sql);
-
-        // Insert to items display table
-        foreach ($entry as $itemName => $itemValue) {
-            if (!isset($surveyItems[$itemName])) {
-                continue;
-            }
-
-            $item_id = array_val($surveyItems[$itemName], 'id');
-            $session_id = $entry['session_id'];
-            $created = strtotime($entry['created']);
-
-            if (!empty($inlcudeItemsDisplay) && ($itemsDisplay = itemsDisplayCols($item_id, $session_id, $created, $itemValue))) {
-                $displayCols = quoteCols($db, array_keys($itemsDisplay));
-                $displayVals = quoteVals($db, array_values($itemsDisplay));
-                array_walk($displayCols, array('DB', 'quoteCol'));
-                array_walk($displayVals, array($db, 'quote'));
-                $sql = "\nINSERT INTO `survey_items_display` (" . implode(', ', $displayCols) . ") VALUES (" . implode(', ', $displayVals) . ") ON DUPLICATE KEY UPDATE session_id=VALUES(session_id);";
-                fwrite($fp, $sql);
-            }
-        }
-
-        $processed++;
-        if ($processed % 100 == 0) {
-            echo "\n sleeping for 2 seconds...";
-            sleep(2);
-        }
+$items = $deleted = array();
+foreach ($study->getItems('id, name, deleted', null, true) as $item) {
+    if ($item['deleted'] === null) {
+        $items[$item['name']] = (int) $item['id'];
     } else {
-        $sess = !empty($runSession->session) ? $runSession->session : null;
-        $missing = "\n\n/* missing entry - unit session_id : {$entry['session_id']}; session: {$sess} */";
-        echo $missing;
-        fwrite($fp, $missing);
+        $deleted[] = $item['name'];
     }
 }
+$records = import_read($opts, $items, $deleted);
+$where = "survey '{$study->name}' in run '{$run->name}' at position {$placement['position']}";
 
-// Imported wide rows take their `iteration` from the table's AUTO_INCREMENT,
-// which survey_studies.last_iteration (the live allocator, patch 108) knows
-// nothing about — without this resync, the next live participant's allocated
-// iteration collides with an imported row and their survey 500s.
-//
-// Wide tables created before 2024-07 have no `iteration` column (F2); the
-// statement would then fail with 1054 halfway through the generated file, so
-// skip it — with no wide iterations to collide with, the allocator's counter
-// is already authoritative.
-if (in_array('iteration', SurveyStudy::wideTableColumns($survey->results_table), true)) {
-    $sql = "\nUPDATE `survey_studies` SET `last_iteration` = GREATEST(`last_iteration`, (SELECT COALESCE(MAX(`iteration`), 0) FROM `{$survey->results_table}`)) WHERE `id` = " . (int) $studyId . ";";
-    fwrite($fp, $sql);
+if ($opts['dry-run']) {
+    $codes = array_unique(array_column($records, 'code'));
+    $known = $codes ? count($db->select('id')->from('survey_run_sessions')
+        ->where(array('run_id' => $run->id))->whereIn('session', $codes)->fetchAll()) : 0;
+    echo 'Would import ' . count($records) . " row(s) of {$where}; " . (count($codes) - $known)
+        . " participant(s) are not in the run yet and would be added. Nothing was written.\n";
+    exit(0);
 }
-fclose($fp);
 
-quit("Rows processed: {$processed}\n SQL file: {$sqlBackupFile}", 0);
+$wideColumns = Config::get('form_v2_dual_write_results', true) && $study->results_table
+    ? SurveyStudy::wideTableColumns($study->results_table) : array();
+$added = array();
+$imported = $skipped = 0;
+$line = null;
+$db->beginTransaction();
+try {
+    foreach ($records as $record) {
+        $line = $record['line'];
+        import_row($db, $run, $runUnit, $study, $placement, $items, $wideColumns, $record, basename($opts['file']), $added) ? $imported++ : $skipped++;
+    }
+    $line = null;
+    // The participants this import added: ended, at the survey, spanning
+    // their sessions.
+    foreach ($added as $runSessionId => $span) {
+        $db->update('survey_run_sessions', array('created' => $span[0], 'ended' => $span[1], 'position' => $placement['position']),
+            array('id' => $runSessionId));
+    }
+    $db->commit();
+} catch (Throwable $e) {
+    $db->rollBack();
+    formr_log_exception($e, 'import-results');
+    import_fail(($line ? "row {$line}: " : '') . $e->getMessage() . ' — nothing was imported');
+}
+echo "Imported {$imported} session(s) of {$where}; " . count($added) . ' participant(s) added to the run'
+    . ($skipped ? "; {$skipped} row(s) skipped, imported before" : '') . ".\n";

@@ -1179,8 +1179,8 @@ class UnitSession extends Model {
                 }
                 if ($iterationTaken) {
                     // survey_studies.last_iteration lags the wide table:
-                    // rows were seeded outside the allocator (e.g.
-                    // bin/import-results.php inserts via AUTO_INCREMENT and
+                    // rows were seeded outside the allocator (a table
+                    // restored or filled by hand, through AUTO_INCREMENT,
                     // never bumps the counter), so our allocated value
                     // collides. Self-heal: resync the counter to the wide
                     // max, re-allocate, restamp the session, retry once.

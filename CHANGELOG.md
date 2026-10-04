@@ -59,6 +59,7 @@ This release adds **form_v2**, a second survey engine, run by a new **Form** uni
 - **A choice code above 8,388,607 gets a results column that holds it** (a "refused" `99999999`, a date code `20260101`): the column stopped at MEDIUMINT, and choosing such an option failed the page.
 - **An `mc_multiple` or `select_multiple` refuses a choice it does not offer.** Its check stopped at the empty placeholder every form sends first, so any value after it was stored.
 - **The results table's own column names are refused as item names in any capitalization** (`Created`, `Iteration`, …), and `expired` too. Such a name passed the check and then failed creating or changing the results table, with an SQL error instead of a message.
+- **`bin/import-results.php` imports again.** It had stopped at its option check since before 1.11.0, and its run and session calls were outdated. It now stores each row of a results export as a session of the survey, as a participant's would be: display rows, results row, study iteration, the row's times. The import is all or nothing, `--dry-run` checks a file first, and rows already imported are skipped. The options are `--run`, `--survey`, `--file` and `--position` (the old `--run-id`, `--survey-id` and `--backup-file` still work).
 - **A `geopoint` hidden by a showif no longer blocks its page.** Its extra hidden input was not disabled with the item, so a required geopoint the participant could not see was reported missing.
 
 ### Changes
