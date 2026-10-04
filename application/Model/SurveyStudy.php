@@ -740,6 +740,9 @@ class SurveyStudy extends Model
                     'live' => empty($row['deleted']),
                     'column' => self::columnKind($name, $field),
                     'blank_is_null' => $item !== false && self::blankAnswerIsNull($item),
+                    // The participant gives its value (not the server: a
+                    // random draw, the IP, a URL parameter, …).
+                    'input' => $item !== false && $item->requiresUserInput(),
                 );
             }
         }

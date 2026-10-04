@@ -179,9 +179,12 @@ class RCallService {
 
     /**
      * Names a participant may overlay, mapped to the R type the survey frame
-     * carries for them: the study's live item names. Anything else (other
-     * studies' columns, admin-computed values persisted earlier, plumbing
-     * fields like session_id) is dropped before code-gen.
+     * carries for them: the names of the study's live items that take the
+     * participant's input. Anything else (other studies' columns,
+     * admin-computed values persisted earlier, plumbing fields like
+     * session_id, and what the server assigns — a `random` condition, the
+     * IP, a URL parameter: the browser never sends those, and R must read
+     * them as stored) is dropped before code-gen.
      *
      * The type matters because the overlay is assigned into the frame the
      * expression sees. Formatting by value shape instead of by column type
@@ -201,7 +204,7 @@ class RCallService {
         }
         $this->allowedNames = array();
         foreach (SurveyStudy::columnTypes($this->study->id) as $name => $type) {
-            if ($type['live']) {
+            if ($type['live'] && $type['input']) {
                 $numeric = $type['column'] === 'int' || $type['column'] === 'float';
                 $this->allowedNames[$name] = $numeric ? 'numeric' : 'character';
             }

@@ -37,7 +37,9 @@ class RCallServiceFormatTest extends \PHPUnit\Framework\TestCase {
             (8, $s, 'rating_button',  NULL,   '1,5',       'liking',    NULL),
             (9, $s, 'note',           NULL,   NULL,        'intro',     NULL),
             (10, $s, 'text',          NULL,   NULL,        'gone',      '2026-01-01 00:00:00'),
-            (11, $s, 'text',          NULL,   NULL,        'elsewhere', NULL)");
+            (11, $s, 'text',          NULL,   NULL,        'elsewhere', NULL),
+            (12, $s, 'random',        NULL,   '1,2',       'cond',      NULL),
+            (13, $s, 'ip',            NULL,   NULL,        'ip_address', NULL)");
         // `elsewhere` belongs to another study: not overlayable at all.
         $this->db->exec("UPDATE survey_items SET study_id = 411 WHERE id = 11");
         $this->db->exec("INSERT INTO survey_item_choices (study_id, list_name, name, label) VALUES
@@ -124,6 +126,16 @@ class RCallServiceFormatTest extends \PHPUnit\Framework\TestCase {
     public function testDisallowedNamesAreStillDropped() {
         $r = $this->overlay(array('session_id' => 'abc', 'gone' => 'x', 'elsewhere' => 'y', 'bad-name' => 'z'));
         $this->assertSame('list()', $r);
+    }
+
+    /**
+     * What the server assigns is read as stored: a participant posting
+     * {"cond": 2} to form-render-page must not see the other arm's labels,
+     * nor have a hidden value computed (and submitted) for it.
+     */
+    public function testServerAssignedItemsCannotBeOverlaid() {
+        $this->assertSame('list()', $this->overlay(array('cond' => '2', 'ip_address' => '10.0.0.1')));
+        $this->assertSame(array('code' => 'x'), $this->values(array('cond' => '2', 'code' => 'x')));
     }
 
     public function testStringsRoundTrip() {
