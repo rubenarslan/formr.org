@@ -262,48 +262,54 @@ function backfillFromWideIteration($db, $safeWide, $studyId, $lastIteration, $dr
 /**
  * No-iteration-column path (pre-2024-07 wide tables): there is no
  * historical value to copy, so NULL study_iteration rows matched to a
- * wide row (session_id join) are numbered sequentially in
- * wide.created order, starting just above the highest study_iteration
- * already allocated for this study — either through a matching wide
- * row, or (if dual-write was ever off) survey_studies.last_iteration
- * itself — so newly-assigned historical numbers can never collide
- * with numbers already handed out live.
+ * wide row (session_id join) are numbered sequentially in wide.created
+ * order, above every number a session of this study holds (with a wide row
+ * or without one: a session started while dual-write was off has none) and
+ * above survey_studies.last_iteration — read when the numbers are given,
+ * inside the transaction, not when the script started. One statement, and
+ * only rows still NULL: a session numbered since (its participant came
+ * back) keeps its number.
  *
  * @return array{rows:int, newLastIteration:int}
  */
 function backfillSequentially($db, $safeWide, $studyId, $lastIteration, $dryRun) {
-    $rows = $db->query("SELECT `us`.`id` AS session_pk FROM `{$safeWide}` `w`
+    $studyId = (int) $studyId;
+    $base = function () use ($db, $studyId) {
+        $rows = $db->query("SELECT GREATEST(
+                COALESCE((SELECT `last_iteration` FROM `survey_studies` WHERE `id` = {$studyId}), 0),
+                (SELECT COALESCE(MAX(`study_iteration`), 0) FROM `survey_unit_sessions` WHERE `unit_id` = {$studyId})) AS `base`");
+        return isset($rows[0]['base']) ? (int) $rows[0]['base'] : 0;
+    };
+    $countRows = $db->query("SELECT COUNT(*) AS `n` FROM `{$safeWide}` `w`
         INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `w`.`session_id`
-        WHERE `us`.`study_iteration` IS NULL
-        ORDER BY `w`.`created` ASC, `w`.`session_id` ASC");
-    $toAssign = array_map(function ($r) { return (int) $r['session_pk']; }, $rows);
-    $count = count($toAssign);
-
-    $maxRows = $db->query("SELECT COALESCE(MAX(`us`.`study_iteration`), 0) AS max_iter FROM `{$safeWide}` `w`
-        INNER JOIN `survey_unit_sessions` `us` ON `us`.`id` = `w`.`session_id`");
-    $existingMax = isset($maxRows[0]['max_iter']) ? (int) $maxRows[0]['max_iter'] : 0;
-    $start = max($existingMax, $lastIteration);
-    $newLastIteration = $start + $count;
+        WHERE `us`.`study_iteration` IS NULL");
+    $count = isset($countRows[0]['n']) ? (int) $countRows[0]['n'] : 0;
 
     if ($dryRun) {
-        return ['rows' => $count, 'newLastIteration' => $newLastIteration];
+        return ['rows' => $count, 'newLastIteration' => max($lastIteration, $base() + $count)];
     }
 
-    // Run the assignment loop and the last_iteration bump together even
-    // when $count is 0: a study can have nothing left to backfill but
-    // still have last_iteration lagging already-allocated study_iteration
-    // values (drift — requirement 4), and that only gets fixed if this
-    // transaction actually runs.
+    // Run the numbering and the last_iteration bump together even when
+    // $count is 0: a study can have nothing left to backfill but still have
+    // last_iteration lagging already-allocated study_iteration values
+    // (drift — requirement 4), and that only gets fixed if this transaction
+    // actually runs.
     $db->beginTransaction();
     try {
-        $next = $start + 1;
-        foreach ($toAssign as $sessionPk) {
-            $db->update('survey_unit_sessions',
-                ['study_iteration' => $next],
-                ['id' => $sessionPk]);
-            $next++;
-        }
-
+        $start = $base();
+        // Wrapped in a derived table, so MariaDB reads it before the UPDATE
+        // changes survey_unit_sessions.
+        $stmt = $db->query("UPDATE `survey_unit_sessions` `us`
+            INNER JOIN (
+                SELECT `w`.`session_id`, ROW_NUMBER() OVER (ORDER BY `w`.`created`, `w`.`session_id`) AS `n`
+                  FROM `{$safeWide}` `w`
+                  INNER JOIN `survey_unit_sessions` `us2` ON `us2`.`id` = `w`.`session_id`
+                 WHERE `us2`.`study_iteration` IS NULL
+            ) `r` ON `r`.`session_id` = `us`.`id`
+            SET `us`.`study_iteration` = {$start} + `r`.`n`
+            WHERE `us`.`study_iteration` IS NULL");
+        $rows = $stmt->rowCount();
+        $newLastIteration = max($lastIteration, $base());
         $db->exec(
             "UPDATE `survey_studies` SET `last_iteration` = GREATEST(`last_iteration`, {$newLastIteration}) WHERE `id` = :id",
             ['id' => $studyId]
@@ -315,5 +321,5 @@ function backfillSequentially($db, $safeWide, $studyId, $lastIteration, $dryRun)
         return ['rows' => 0, 'newLastIteration' => $lastIteration, 'failed' => true];
     }
 
-    return ['rows' => $count, 'newLastIteration' => $newLastIteration];
+    return ['rows' => $rows, 'newLastIteration' => $newLastIteration];
 }

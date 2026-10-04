@@ -14,7 +14,10 @@
  *   - a wide iteration another session of the study holds is not copied:
  *     that session is numbered above everything, in its wide row too;
  *   - a study whose backfill fails is rolled back and makes the run exit 1
- *     (the deploy scripts warn on it).
+ *     (the deploy scripts warn on it);
+ *   - a table without the iteration column (before 2024-07) has its
+ *     sessions numbered in the order they began, above every number a
+ *     session of the study holds, results row or not.
  *
  * Run: docker exec formr_app php /var/www/formr/bin/test_study_iteration_backfill_smoke.php
  * Creates and removes its own run, studies and sessions.
@@ -127,6 +130,30 @@ try {
     ok($exit === 1 && strpos($out, 'failed=1') !== false, 'the run exits 1 and counts the study as failed', [$exit, trim($out)]);
     ok($db->execute('SELECT study_iteration FROM survey_unit_sessions WHERE id = :id', ['id' => $y], true) === null, 'and the study is rolled back');
     $db->query("ALTER TABLE `{$study->results_table}` MODIFY `iteration` INT UNSIGNED NOT NULL AUTO_INCREMENT");
+
+    echo "\n-- a table from before 2024-07 (no iteration column) --\n";
+    // Its sessions have no number yet; one session started with dual-write
+    // off holds 1 and has no results row, and the counter is behind it.
+    $db->query("ALTER TABLE `{$study->results_table}` DROP INDEX IF EXISTS `iteration`, DROP COLUMN IF EXISTS `iteration`");
+    $db->exec("UPDATE survey_unit_sessions SET study_iteration = NULL WHERE id IN ({$marks})");
+    $code = 'BACKFILL' . bin2hex(random_bytes(8));
+    $codes[] = $code;
+    $db->insert('survey_run_sessions', ['run_id' => $runId, 'session' => $code, 'created' => mysql_now(), 'position' => 10]);
+    $rs = new RunSession($code, $run);
+    $rs->position = 10;
+    $rs->createUnitSession($survey);
+    $live = (int) $rs->currentUnitSession->id;
+    $db->exec('UPDATE survey_unit_sessions SET study_iteration = 1 WHERE id = :id', ['id' => $live]);
+    $db->exec('UPDATE survey_studies SET last_iteration = 0 WHERE id = :id', ['id' => $study->id]);
+    // (x lost its results row above: no history, so no number until its
+    // next page load.)
+    $out = $backfill("--study={$study->id}", $exit);
+    ok($exit === 0 && strpos($out, 'rows_backfilled=2') !== false, 'the two sessions with a results row are numbered', [$exit, trim($out)]);
+    $numbers = $sessions();
+    ok([$numbers[$ids[0]], $numbers[$ids[1]], $numbers[$x]] === [2, 3, null],
+        'above the 1 a session without a results row holds, in the order they began', $numbers);
+    ok((int) $db->execute('SELECT study_iteration FROM survey_unit_sessions WHERE id = :id', ['id' => $live], true) === 1, 'which keeps it');
+    ok((int) $db->execute('SELECT last_iteration FROM survey_studies WHERE id = :id', ['id' => $study->id], true) === 3, 'and the counter is raised to 3');
 } catch (Throwable $e) {
     echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";
     $failures++;
