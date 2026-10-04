@@ -21,6 +21,9 @@ class FormSubmissionService {
     /** Seconds a sync waits while another request applies the same entry. */
     const SYNC_LOCK_WAIT = 5;
 
+    /** How many of a tab's earlier documents a write may name (claimWrite). */
+    const PREV_DOCS = 5;
+
     /** @var UnitSession */
     protected $unitSession;
     /** @var SurveyStudy */
@@ -93,11 +96,27 @@ class FormSubmissionService {
             // collectPayload): orders an autosave against page submits.
             'doc' => (isset($src['doc']) && preg_match('/^[A-Za-z0-9-]{1,64}$/', (string) $src['doc'])) ? (string) $src['doc'] : '',
             'seq' => isset($src['seq']) ? (int) $src['seq'] : 0,
+            // The version of the form the document was rendered at, and the
+            // documents its tab showed before it (claimWrite); base is null
+            // when the request names none.
+            'base' => (isset($src['base']) && is_scalar($src['base']) && preg_match('/^\d{1,10}$/', (string) $src['base'])) ? (int) $src['base'] : null,
+            'prev' => self::docIds(isset($src['prev']) ? $src['prev'] : null),
             'client_ts' => isset($src['client_ts']) && $src['client_ts'] !== '' ? (string) $src['client_ts'] : null,
             // raw envelope values for FormSyncPayload's strict checks
             'raw_page' => isset($src['page']) ? $src['page'] : null,
             'raw_unit_session_id' => isset($src['unit_session_id']) ? $src['unit_session_id'] : null,
         );
+    }
+
+    /** At most PREV_DOCS document ids (main.js formDocId), the malformed left out. */
+    public static function docIds($ids) {
+        $out = array();
+        foreach (is_array($ids) ? $ids : array() as $id) {
+            if (is_string($id) && preg_match('/^[A-Za-z0-9-]{1,64}$/', $id) && count($out) < self::PREV_DOCS) {
+                $out[] = $id;
+            }
+        }
+        return array_values(array_unique($out));
     }
 
     /**
@@ -197,11 +216,28 @@ class FormSubmissionService {
      * and, when the browser says this was the last page, check the required
      * items and end the unit session. A validation failure writes nothing and returns the errors.
      *
+     * A page from a document that has not seen the latest write of the form
+     * (claimWrite) is refused — {status:'stale'}, nothing written — and the
+     * document reloads. A page from the offline queue ($queued) has no
+     * document left to reload: its answers are stored, but not its hidden
+     * list, which was taken from a view of the form that is out of date
+     * (`stale` in the reply).
+     *
      * @param array $payload from readPayload
-     * @return array {status:'ok', items, complete?, redirect?, missing?} or
-     *   {status:'errors', errors: name => message}
+     * @param bool $queued the page comes from the offline queue (applyQueued)
+     * @return array {status:'ok', items, stale?, complete?, redirect?,
+     *   missing?}, {status:'errors', errors: name => message} or
+     *   {status:'stale'}
      */
-    public function apply(array $payload) {
+    public function apply(array $payload, $queued = false) {
+        $current = $this->claimWrite(isset($payload['doc']) ? $payload['doc'] : '', isset($payload['base']) ? $payload['base'] : null,
+            isset($payload['prev']) ? $payload['prev'] : array());
+        if (!$current) {
+            if (!$queued) {
+                return array('status' => 'stale');
+            }
+            $this->countStaleWrite();
+        }
         $this->unitSession->ensureSurveyStudyRecord();
         $posted = $payload['data'];
         $posted['_item_views'] = $payload['item_views'];
@@ -224,9 +260,12 @@ class FormSubmissionService {
             }
             return array('status' => 'errors', 'errors' => $errors);
         }
-        $retracted = $this->markHiddenItems($payload['hidden']);
+        $retracted = $current ? $this->markHiddenItems($payload['hidden']) : array();
 
         $response = array('status' => 'ok');
+        if (!$current) {
+            $response['stale'] = true;
+        }
         // The page's items, and any answer hiding just retracted elsewhere in
         // the form — the browser's store must not keep that one as answered.
         $names = array_values(array_unique(array_merge(array_keys($payload['data']), $retracted)));
@@ -289,7 +328,7 @@ class FormSubmissionService {
             if ($this->db->entry_exists('survey_form_submissions', array('uuid' => $uuid))) {
                 return array('status' => 'ok', 'already_applied' => true);
             }
-            $result = $this->apply($payload);
+            $result = $this->apply($payload, true);
             if ($result['status'] === 'ok') {
                 $this->recordApplied($uuid, $clientTs, (int) $payload['page']);
             }
@@ -655,6 +694,72 @@ class FormSubmissionService {
             }
         }
         return $names;
+    }
+
+    /**
+     * Count a write of this unit session for a form document — or refuse it,
+     * when the document has not seen the latest write. A form can be open in
+     * more than one document (two tabs, the installed app and a browser
+     * tab), and each acts on its own view of it: a page submit records which
+     * items its showifs hide and clears their answers, an autosave withdraws
+     * the answers of the fields it shows empty. A view that predates a write
+     * made elsewhere would undo that write. So every write is counted
+     * (survey_unit_sessions.form_version) and names its document (form_doc);
+     * a document carries the version it was rendered at (`base`, from the
+     * state block), and it may write while nothing has been written since,
+     * or while the latest write was its own — its own writes it has seen —
+     * or its tab's: a page reloaded, or gone back to, is rendered before
+     * what its predecessor still had on the wire lands (the autosave sent on
+     * pagehide, a page submit), and that is the tab's own, not another
+     * tab's (`prev`, the documents the tab showed before, main.js).
+     *
+     * @param string $doc the document (main.js formDocId); '' for none
+     * @param int|null $base the version the document was rendered at; null
+     *   — a request that is not the form's, which carries no version — is
+     *   neither checked nor counted
+     * @param string[] $prev the documents its tab showed before it (docIds)
+     * @return bool whether the write may go ahead
+     */
+    public function claimWrite($doc, $base, array $prev = array()) {
+        if ($base === null) {
+            return true;
+        }
+        $doc = (string) $doc;
+        $params = array('id' => (int) $this->unitSession->id, 'doc' => $doc !== '' ? $doc : null,
+            'base' => (int) $base, 'same' => $doc);
+        $own = array(':same');
+        foreach (self::docIds($prev) as $i => $id) {
+            $own[] = ':prev' . $i;
+            $params['prev' . $i] = $id;
+        }
+        return $this->db->exec(
+            'UPDATE `survey_unit_sessions` SET `form_version` = `form_version` + 1, `form_doc` = :doc'
+            . ' WHERE `id` = :id AND (`form_version` = :base OR `form_doc` IN (' . implode(', ', $own) . '))',
+            $params
+        ) > 0;
+    }
+
+    /**
+     * Count a queued page applied from an out-of-date view (apply): no
+     * document's view includes it, its own document's included.
+     */
+    protected function countStaleWrite() {
+        $this->db->exec(
+            'UPDATE `survey_unit_sessions` SET `form_version` = `form_version` + 1, `form_doc` = NULL WHERE `id` = :id',
+            array('id' => (int) $this->unitSession->id)
+        );
+    }
+
+    /**
+     * The version of the form a document rendered now starts from
+     * (claimWrite). Read before the stored answers the document is rendered
+     * with, so that it never claims to have seen a write they lack.
+     */
+    public static function formVersion(DB $db, $unitSessionId) {
+        return (int) $db->execute(
+            'SELECT `form_version` FROM `survey_unit_sessions` WHERE `id` = :id',
+            array('id' => (int) $unitSessionId), true
+        );
     }
 
     /**

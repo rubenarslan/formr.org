@@ -175,6 +175,7 @@ When **Offline queue** is on (the default), a page submission that fails — no 
 - **`modified` in R is the last answer stored**, not the last page view: a form_v2 survey writes nothing when a page is only looked at. Before the first answer it is the time the participant started the survey. For "inactive since" logic, use the answers' own times, or the survey's `created` and `ended`.
 - **No background drain**: see above — the queue is sent by the open page only.
 - **Previous button**: going back reveals the already-rendered page with the answers given so far; it is not refetched from the server. Dynamic values and labels on it are whatever they resolved to the first time. Leave the toggle off unless your design tolerates that. The server does not police it: with the toggle off, the browser hides the way back, nothing more.
+- **One form in two tabs** (or windows, or the installed app and a browser tab): each tab acts on what it shows, so a tab that has not seen answers given in another is not allowed to store anything. When the participant goes on in it, it says the form was continued elsewhere and reloads, showing what was saved there; what they had just typed in that tab is not kept. A page queued offline in such a tab is still sent, and its answers stored.
 - **Where a participant resumes**: the browser remembers the page it last showed (in `localStorage`, per unit session), so a reload or a reopened tab lands where they were, with every answer given so far in its input. On another browser or after clearing site data there is no memory, and the form opens on the first page that holds an unanswered item; an optional item left blank on a submitted page counts as done.
 - **Range slider**: v1's floating value tooltip came from the `webshim` plugin, which v2 doesn't ship. `range` / `range_ticks` render as a native slider with side labels; the participant sees their position on the thumb only. `visual_analog_scale` is the v2-native answer for "no default" rating items.
 - **Solo layout**: auto-advance fires on the first commit of single-choice radios, single selects and range sliders. Checkboxes, multi-selects and free-text items never auto-advance — the participant uses the Next button.
@@ -205,7 +206,7 @@ Beyond the rendering model:
 
 ## See also
 
-- `form_v2_upgrade.md` — instance upgrade: migrations 100–119, settings, the backfill step, rollback.
+- `form_v2_upgrade.md` — instance upgrade: migrations 100–120, settings, the backfill step, rollback.
 - `agent_doc/form_v2_layout_modes.md` — the solo layout design.
 - `agent_doc/plan_form_v2.md` — engine design and remaining work (for engineers).
 - `CLAUDE.md` § "form_v2 development notes" — code-level gotchas.

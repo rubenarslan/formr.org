@@ -55,6 +55,8 @@ class FormRenderer extends SpreadsheetRenderer {
     protected $stateRows = null;
     /** @var string[] */
     protected $showifs = [];
+    /** @var int|null the version of the form the state rows show (FormSubmissionService::formVersion) */
+    protected $formVersion = null;
 
     /**
      * Is this render being watched by the study's author rather than by a
@@ -88,6 +90,9 @@ class FormRenderer extends SpreadsheetRenderer {
     }
 
     public function processItems() {
+        // Before the items and their stored answers: the document must not
+        // claim a write they lack (FormSubmissionService::claimWrite).
+        $this->formVersion = FormSubmissionService::formVersion($this->db, $this->unitSession->id);
         $items = $this->getStudyItems();
         if (!$items) {
             $this->toRender = [];
@@ -659,20 +664,6 @@ class FormRenderer extends SpreadsheetRenderer {
     }
 
     /**
-     * The state the browser needs to own navigation: the unit session and,
-     * per item, its page, whether it is required, what has been stored for
-     * it and whether it is recorded as hidden. The browser fills inputs and
-     * the showif scope from `value`, and picks the page to open from
-     * `answered` / `required` / `hidden` (state.js pageState). Multi-value
-     * answers arrive as arrays, the shape the live inputs produce; an
-     * upload's stored path is not shipped (`value` null, `answered` true),
-     * nor the value of an item without an input that no showif reads.
-     * Every item is listed, so the browser's copy of the data is complete
-     * and the same after a reload as before it.
-     *
-     * @return array{unit_session_id:int, items: array<string, array>}
-     */
-    /**
      * Read the state rows of these items again: processItems stored them
      * (automatic items drawn on the first render) after getStudyItems read
      * them.
@@ -711,8 +702,25 @@ class FormRenderer extends SpreadsheetRenderer {
         return ($row && $row['saved'] !== null) ? $row : null;
     }
 
+    /**
+     * The state the browser needs to own navigation: the unit session and,
+     * per item, its page, whether it is required, what has been stored for
+     * it and whether it is recorded as hidden. The browser fills inputs and
+     * the showif scope from `value`, and picks the page to open from
+     * `answered` / `required` / `hidden` (state.js pageState). Multi-value
+     * answers arrive as arrays, the shape the live inputs produce; an
+     * upload's stored path is not shipped (`value` null, `answered` true),
+     * nor the value of an item without an input that no showif reads.
+     * Every item is listed, so the browser's copy of the data is complete
+     * and the same after a reload as before it. `version` is the version of
+     * the form this is (FormSubmissionService::claimWrite): every write the
+     * document makes carries it.
+     *
+     * @return array{unit_session_id:int, version:int, items: array<string, array>}
+     */
     public function stateBlock() {
         if ($this->stateRows === null) {
+            $this->formVersion = FormSubmissionService::formVersion($this->db, $this->unitSession->id);
             $items = FormSubmissionService::stateFor($this->db, $this->study->id, $this->unitSession->id);
         } else {
             // In page order, as stateRows sorts them (a missing page first);
@@ -725,6 +733,7 @@ class FormRenderer extends SpreadsheetRenderer {
         }
         return [
             'unit_session_id' => (int) $this->unitSession->id,
+            'version' => (int) $this->formVersion,
             'items' => $items,
         ];
     }

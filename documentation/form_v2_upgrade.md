@@ -6,9 +6,9 @@ the schema and the `iteration` variable change for everyone, so read
 steps 1 and 3 even if you never enable v2. For what form_v2 *is*, see
 [form_v2.md](form_v2.md).
 
-## 1. Schema migrations (100–119)
+## 1. Schema migrations (100–120)
 
-Twenty new patches in `sql/patches/`. On the docker deployment they are
+Twenty-one new patches in `sql/patches/`. On the docker deployment they are
 mirrored into `mysql/atlas/migrations/` and applied by `./update.sh`;
 nothing extra to run.
 
@@ -34,8 +34,9 @@ nothing extra to run.
 | `117_drop_survey_items_showif_js` | Drops `survey_items.showif_js`: a v2 showif is JavaScript used as written, and v1 translates its R showifs on each render. |
 | `118_unique_study_iteration` | UNIQUE `(unit_id, study_iteration)` on `survey_unit_sessions`: one number per session of a study. Sessions that share a number are renumbered first (the earliest keeps it, later ones go above the study's highest), and `last_iteration` is raised past them. Replays as a no-op once no duplicates are left. |
 | `119_r_calls_mediumtext` | `survey_r_calls.expr` and `survey_r_call_results.result_json` become MEDIUMTEXT, like the item labels they hold: a dynamic label or note_iframe over 64 KiB no longer stops the form from rendering. |
+| `120_form_version` | `survey_unit_sessions.form_version` and `form_doc`: how many v2 writes a form has had, and which open document (tab, window, installed app) made the latest. A document that has not seen the latest write is refused and reloads, so a second, older tab of a form cannot clear answers given in the first. |
 
-**Patches 100–119 but 116 are drift-tolerant** — every DDL statement carries an
+**Patches 100–120 but 116 are drift-tolerant** — every DDL statement carries an
 `IF NOT EXISTS` / `IF EXISTS` guard, so a host that was hand-patched
 ahead of the release re-runs them cleanly instead of dying mid-file on a
 duplicate column or index.
@@ -244,7 +245,7 @@ with **Switch back to v1** on its settings page (that sets
 `rendering_mode='v1'`, and the survey's placements are Survey units again;
 you can switch forward again at any time).
 
-**Not reversible by flipping a flag:** migrations 100–119, which Atlas
+**Not reversible by flipping a flag:** migrations 100–120, which Atlas
 has applied and which stay applied. The deployment repo's
 `./db_atlas_down.sh` can compute and run a reversal, but treat it as a
 deliberate, review-the-plan-first, back-up-first operation — and note

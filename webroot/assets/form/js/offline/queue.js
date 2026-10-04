@@ -225,7 +225,8 @@ export function normalizeSyncEntry(entry) {
 
 // The multipart shape of a v2 write, for a live submit and for a queued
 // entry alike (FormSubmissionService::readPayload reads both): the envelope
-// (page, unit_session_id, final, and for the queue uuid + client_ts),
+// (page, unit_session_id, final, doc, seq, base, prev[], and for the queue
+// uuid + client_ts),
 // data[name] / data[name][], item_views[bucket][id], hidden[] and
 // files[name] for each File beside the answers. One builder, so the two
 // transports cannot drift apart.
@@ -237,6 +238,8 @@ export function buildFormData(entry) {
     if (entry.client_ts) fd.append('client_ts', entry.client_ts);
     if (entry.final) fd.append('final', '1');
     if (entry.doc) { fd.append('doc', entry.doc); fd.append('seq', String(entry.seq || 0)); }
+    if (entry.base != null) fd.append('base', String(entry.base));
+    (entry.prev || []).forEach((d) => fd.append('prev[]', d));
     (entry.hidden || []).forEach((id) => fd.append('hidden[]', String(id)));
     const data = entry.data || {};
     Object.keys(data).forEach((k) => {

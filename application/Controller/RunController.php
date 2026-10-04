@@ -717,6 +717,10 @@ class RunController extends Controller {
             $this->sendJsonResponse(array('error' => 'The page could not be stored.'), 500);
             return;
         }
+        if ($result['status'] === 'stale') {
+            $this->sendJsonResponse($this->staleDocumentReply(), 409);
+            return;
+        }
         if ($result['status'] === 'ok') {
             FormSubmissionService::recordSubmitSeq($unitSession->id, $payload['doc'], $payload['seq']);
         }
@@ -832,6 +836,19 @@ class RunController extends Controller {
         }
         BotCheckChallenge::bindTo($unitSession->id);
         return array($runSession, $unitSession, $study, $onV2);
+    }
+
+    /**
+     * The 409 for a write from a document that has not seen the latest
+     * write of its form (FormSubmissionService::claimWrite): another tab or
+     * window has written since it was rendered. Nothing was stored; the
+     * browser reloads it.
+     */
+    private function staleDocumentReply() {
+        return array(
+            'error' => 'This form was continued in another tab or window. Reload to continue.',
+            'stale_document' => true,
+        );
     }
 
     /**
@@ -995,7 +1012,8 @@ class RunController extends Controller {
         }
 
         // Same gates as form-page-submit, including the stale-tab one. Autosave
-        // is best-effort, so the client treats a 409 as non-fatal.
+        // is best-effort, so the client treats a 409 as non-fatal — except
+        // stale_document (claimWrite, below), on which it reloads.
         $context = $this->formWriteContext($payload['unit_session_id'], array(), 'write', true);
         if (!$context) {
             return;
@@ -1018,9 +1036,20 @@ class RunController extends Controller {
         ));
         // An emptied field or a deselected choice withdraws the answer
         // autosave stored before; the rest are answers to store.
-        $withdrawn = (new FormSubmissionService($unitSession, $study))
-            ->withdrawAnswers(FormSubmissionService::withdrawnNames($data, $items));
+        $withdraw = FormSubmissionService::withdrawnNames($data, $items);
         $accepted = FormSubmissionService::filterAutosaveAnswers($clean, $items);
+        if (!$withdraw && !$accepted) {
+            $this->sendJsonResponse(array('status' => 'noop'));
+            return;
+        }
+        $service = new FormSubmissionService($unitSession, $study);
+        // A document that has not seen the latest write would withdraw the
+        // answers given since in another tab: it is refused, and reloads.
+        if (!$service->claimWrite($payload['doc'], $payload['base'], $payload['prev'])) {
+            $this->sendJsonResponse($this->staleDocumentReply(), 409);
+            return;
+        }
+        $withdrawn = $service->withdrawAnswers($withdraw);
         if (!$accepted) {
             $this->sendJsonResponse(array('status' => $withdrawn ? 'saved' : 'noop'));
             return;
@@ -1071,7 +1100,9 @@ class RunController extends Controller {
      * typed ledger column) is validated by FormSyncPayload before any state
      * change; a bad value is a 400, never a 500 halfway through. 409 replies
      * carry drop_entry so the queue stops retrying an entry that can never
-     * apply (session ended, participant moved on to another Form).
+     * apply (session ended, participant moved on to another Form). A page
+     * whose document has not seen the latest write of the form is stored
+     * without its hidden list (FormSubmissionService::apply, `stale`).
      */
     public function formSyncAction() {
         if (!Request::isHTTPPostRequest()) {

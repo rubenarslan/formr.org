@@ -4,7 +4,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
-This release adds **form_v2**, a second survey engine, run by a new **Form** unit. It is opt-in per survey: nothing changes for existing surveys and runs until a survey is put on v2, and operators enable authoring with `$settings['form_v2_enabled'] = true`. Authors should read `documentation/form_v2.md` (also the "Form (v2)" tab of the in-app documentation); operators `documentation/form_v2_upgrade.md` (patches 100–119, settings, the `study_iteration` backfill, rollback).
+This release adds **form_v2**, a second survey engine, run by a new **Form** unit. It is opt-in per survey: nothing changes for existing surveys and runs until a survey is put on v2, and operators enable authoring with `$settings['form_v2_enabled'] = true`. Authors should read `documentation/form_v2.md` (also the "Form (v2)" tab of the in-app documentation); operators `documentation/form_v2_upgrade.md` (patches 100–120, settings, the `study_iteration` backfill, rollback).
 
 ### Added
 - **The v2 survey engine.** A survey on v2 renders as one document and moves between pages without a reload; each page is submitted on its own, and the participant sees their page again, with every answer given so far, after a reload or when they come back later (the browser remembers the page; on another device the form opens on the first page with an unanswered item). It is added to a run like any survey; the run shows it in a Form unit.
@@ -12,6 +12,7 @@ This release adds **form_v2**, a second survey engine, run by a new **Form** uni
   - **`value` is R**, resolved when the item's page is shown, against the answers given so far — the same for labels with inline R, R in choice labels and `note_iframe` documents. The R source never reaches the browser: it is recorded in a per-study allowlist and the page only knows call ids. Results are cached per unit session.
   - **Autosave** stores answers as they are given (at most every 20 s, and when the page is left), so a participant who breaks off leaves partial data; clearing a field or deselecting a choice withdraws the answer stored before.
   - **Offline queue**: a page submit that fails for lack of network or a server error is kept in the browser (IndexedDB) and sent when the connection returns or the study is reopened, in order; the participant carries on meanwhile. Files up to `form_v2_offline_blob_max_mb` (10 MB) are queued too. Nothing is sent while the tab is closed. Per survey, *Enable offline queue* (on by default) turns it off for studies whose answers must not be stored on the device; answers queued before it was turned off are still sent.
+  - **One form in two tabs**: a tab, window or installed app that has not seen answers given in another stores nothing; it says so and reloads with what was saved there. A page it queued offline is still stored, without its record of which items it hid.
   - **The last page ends the form** once every required item is answered; a required item still open elsewhere (revealed after its page was submitted) takes the participant there.
   - Survey settings for v2: **Previous button** (off by default), **Layout** — *default* or *solo*, one item per screen with auto-advance and keyboard support, the layout stamped on each response — **Participant language** for the engine's own wording (English and German built in), and **Button labels** for the survey's own Next / Submit wording (#322).
   - Required items are checked in the browser for every item type before a page is sent (the server checks again), with the messages shown next to the item; a pattern item's first choice is the message shown when the input does not match (#269). An optional single choice can be cleared by clicking the picked option again (#377).
@@ -89,7 +90,8 @@ This release adds **form_v2**, a second survey engine, run by a new **Form** uni
 - SQL patch 117: drops `survey_items.showif_js`.
 - SQL patch 118: UNIQUE `(unit_id, study_iteration)` on `survey_unit_sessions`, after renumbering sessions that shared a number within their study.
 - SQL patch 119: `survey_r_calls.expr` and `survey_r_call_results.result_json` as MEDIUMTEXT, the size of the labels they hold.
-- The tables of patches 102, 103, 105 and 113 are in `sql/schema.sql` for fresh installs. Every patch 100–119 but 116 is guarded (`IF [NOT] EXISTS`, or a no-op once applied) and can be replayed; 116 moves data once.
+- SQL patch 120: `survey_unit_sessions.form_version` and `form_doc`, so a v2 form open in two tabs takes no write from a tab that has not seen the other's.
+- The tables of patches 102, 103, 105 and 113 are in `sql/schema.sql` for fresh installs. Every patch 100–120 but 116 is guarded (`IF [NOT] EXISTS`, or a no-op once applied) and can be replayed; 116 moves data once.
 
 ## [v1.11.0] - 22.09.2026
 

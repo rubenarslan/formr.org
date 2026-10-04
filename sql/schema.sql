@@ -629,6 +629,8 @@ CREATE TABLE `survey_unit_sessions` (
   `state` enum('PENDING','RUNNING','WAITING_USER','WAITING_TIMER','ENDED','EXPIRED','SUPERSEDED') DEFAULT NULL,
   `idempotency_key` varchar(128) DEFAULT NULL,
   `execution_time` decimal(12,3) unsigned DEFAULT NULL COMMENT 'Cumulative wall-clock seconds in UnitSession::execute(), incl. OpenCPU (issue #608)',
+  `form_version` int(10) unsigned NOT NULL DEFAULT 0 COMMENT 'form_v2 writes stored (FormSubmissionService::claimWrite)',
+  `form_doc` varchar(64) DEFAULT NULL COMMENT 'form_v2 document that made the latest write',
   PRIMARY KEY (`id`),
   UNIQUE KEY `idemp_unit_session` (`idempotency_key`),
   UNIQUE KEY `idx_run_unit_iter` (`run_session_id`,`run_unit_id`,`iteration`),

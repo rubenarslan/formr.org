@@ -313,7 +313,11 @@ function initForm() {
     // page submit: the server ignores an autosave numbered below a page
     // submit of the same document that has already landed (it was started
     // earlier, so its answers are older — FormSubmissionService::
-    // autosaveIsStale).
+    // autosaveIsStale). With them goes the version of the form the document
+    // was rendered at (formBase, from the state block below): a write from a
+    // document that has not seen the latest one — made in another tab or
+    // window — is refused, and the document reloads
+    // (FormSubmissionService::claimWrite).
     const formDocId = genUuid();
     let writeSeq = 0;
     const collectPayload = (pageEl) => {
@@ -344,7 +348,7 @@ function initForm() {
             const group = inp.closest('.form-group');
             if (group && group.classList.contains('optional')) data[fieldKey(inp.name).key] = '';
         });
-        return { data, item_views: itemViews, doc: formDocId, seq: ++writeSeq };
+        return { data, item_views: itemViews, doc: formDocId, base: formBase, prev: formPrev, seq: ++writeSeq };
     };
 
     // clearCustomValidity / findErrorTarget / applyErrors / validatePageAndShowFeedback /
@@ -385,6 +389,32 @@ function initForm() {
     try { stateBlock = JSON.parse((root.querySelector('script.fmr-state') || {}).textContent || '{}'); } catch (e) { /* malformed: empty */ }
     const store = createStore(stateBlock);
     const unitSessionId = store.unitSessionId;
+    // Fixed for the document's life: its own writes it has seen.
+    const formBase = Number.isInteger(stateBlock.version) ? stateBlock.version : null;
+    // The documents this tab showed before this one (a reload, Back, a
+    // restored tab), newest first, kept per unit session in sessionStorage,
+    // which is the tab's own. What they still had on the wire when they went
+    // (the autosave sent on pagehide, a page submit) lands after this page
+    // was rendered; it is this tab's, not another's, so it does not make this
+    // document stale. A duplicated tab copies sessionStorage, and so counts
+    // as a continuation of its original.
+    let formPrev = [];
+    try {
+        const tabDocsKey = 'fmr-docs-' + unitSessionId;
+        const stored = JSON.parse(window.sessionStorage.getItem(tabDocsKey) || '[]');
+        formPrev = (Array.isArray(stored) ? stored : []).filter((d) => typeof d === 'string').slice(0, 5);
+        window.sessionStorage.setItem(tabDocsKey, JSON.stringify([formDocId].concat(formPrev).slice(0, 5)));
+    } catch (e) { formPrev = []; }
+    // Reload this document, once, saying `message` first when given: it is
+    // out of date, and the server renders what is stored.
+    let reloading = false;
+    const reloadPage = (message) => {
+        if (reloading) return;
+        reloading = true;
+        if (message) window.alert(message);
+        window.location.reload();
+    };
+    const staleDocumentMessage = () => t('error.stale_document', 'This form was continued in another tab or window. The page will reload to show what was saved there.');
     // Mark the file inputs whose item has an upload stored (the state block,
     // then every reply): see collectPayload and validation/feedback.js.
     // A required item's input carries `required`, which an empty file input
@@ -608,6 +638,7 @@ function initForm() {
         }
         let ownRedirect = null;
         let ownMissing = null;
+        let ownOutdated = false;
         for (const { url: entrySyncUrl, usid, entries: groupEntries } of groups.values()) {
             const outcome = await drainRunGroup(groupEntries, entrySyncUrl, isOwnEntry({ sync_url: entrySyncUrl, unit_session_id: usid }));
             if (outcome === 'offline') {
@@ -620,9 +651,15 @@ function initForm() {
             }
             if (outcome && outcome.redirect) ownRedirect = outcome.redirect;
             if (outcome && outcome.missing) ownMissing = outcome.missing;
+            if (outcome && outcome.outdated) ownOutdated = true;
         }
         await renderQueueSummary(ownRedirect);
-        if (ownMissing && !ownRedirect) await routeToMissing(ownMissing);
+        if (ownRedirect) return;
+        if (ownOutdated) {
+            reloadPage(null);
+            return;
+        }
+        if (ownMissing) await routeToMissing(ownMissing);
     };
 
     // Drain one group (a run's entries for one unit session) oldest-first.
@@ -631,6 +668,7 @@ function initForm() {
     const drainRunGroup = async (groupEntries, entrySyncUrl, isOwnForm) => {
         let redirect = null;
         let missing = null;
+        let outdated = false;
         for (const entry of groupEntries) {
             if (!entryIsDue(entry)) {
                 // An entry that cannot go yet — rejected, backing off or
@@ -654,6 +692,13 @@ function initForm() {
                 // The stored state of what just landed — for this form's
                 // showifs.
                 if (isOwnForm) absorbReply(body);
+                // A page this document did not write (another tab's, or an
+                // earlier visit's), or one stored without its hidden list
+                // because another document wrote first (`stale`): this
+                // document's view of the form no longer matches what is
+                // stored, and it reloads once the queue is through.
+                if (isOwnForm && body && !body.already_applied
+                    && (body.stale || (entry.doc && entry.doc !== formDocId))) outdated = true;
                 // If the drain applied the final page of the form, the server
                 // returns a redirect so Run::exec can advance. Taken by
                 // renderQueueSummary once nothing else is pending for THIS run
@@ -724,7 +769,7 @@ function initForm() {
             await queuePut(entry).catch(() => {});
             break;
         }
-        return (redirect || missing) ? { redirect, missing } : null;
+        return (redirect || missing || outdated) ? { redirect, missing, outdated } : null;
     };
 
     // After a drain: take this run's redirect if its queue is clear, else
@@ -1167,6 +1212,8 @@ function initForm() {
         let queuedBehind = false;
         if (ownSyncUrl) {
             await drainQueue('own');
+            // The drain found this document out of date and is reloading it.
+            if (reloading) return;
             const waiting = await queueGetAll().catch(() => []);
             queuedBehind = waiting.some((e) => isOwnEntry(e) && Number(e.page) !== pageNum);
         }
@@ -1258,6 +1305,8 @@ function initForm() {
                 hidden: payload.hidden,
                 final: payload.final,
                 doc: payload.doc,
+                base: payload.base,
+                prev: payload.prev,
                 seq: payload.seq,
                 // MySQL DATETIME rejects ISO-8601 with ".sssZ" — same gotcha as
                 // item_shown timestamps. Use the space-separated format.
@@ -1307,6 +1356,13 @@ function initForm() {
             // Drop the saving pill — error UI takes over.
             savePill.classList.remove('is-visible');
             const errBody = resBody;
+            if (errBody && errBody.stale_document) {
+                // Another tab or window has written this form since this
+                // page was rendered; nothing was stored. Its answers would
+                // undo what was saved there.
+                reloadPage(staleDocumentMessage());
+                return;
+            }
             if (errBody && errBody.stale_session) {
                 // This page was rendered for an earlier unit session (form
                 // continued elsewhere / a new diary entry started). Reload so
@@ -1568,7 +1624,7 @@ function initForm() {
         const page = savePage || pages[currentIndex];
         const payload = page ? collectPayload(page) : null;
         if (!payload || !payload.data || Object.keys(payload.data).length === 0) return null;
-        return JSON.stringify({ data: payload.data, item_views: payload.item_views, unit_session_id: unitSessionId, doc: payload.doc, seq: payload.seq });
+        return JSON.stringify({ data: payload.data, item_views: payload.item_views, unit_session_id: unitSessionId, doc: payload.doc, base: payload.base, prev: payload.prev, seq: payload.seq });
     };
     const flushPersist = async () => {
         if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
@@ -1599,8 +1655,13 @@ function initForm() {
             // returns {status:'noop'} — still 200 — when nothing was written, so
             // gate on status==='saved' to avoid claiming a save that didn't happen).
             // Failures stay silent: the explicit page-submit + offline queue are
-            // the durable path.
-            if (res && res.ok) {
+            // the durable path. Except one: another tab or window has written
+            // the form since this page was rendered. Its page submit would be
+            // refused as well, so it reloads now, not after a page of answers.
+            if (res && res.status === 409) {
+                const body = await res.json().catch(() => null);
+                if (body && body.stale_document) reloadPage(staleDocumentMessage());
+            } else if (res && res.ok) {
                 const body = await res.json().catch(() => null);
                 if (body && body.status === 'saved') setSaveState('saved', t('save.saved', 'Saved'));
             }
