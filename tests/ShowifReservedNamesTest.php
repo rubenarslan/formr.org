@@ -73,6 +73,23 @@ class ShowifReservedNamesTest extends \PHPUnit\Framework\TestCase {
         $this->assertNotEmpty(preg_grep('/reserved/', $column->validate()['val_errors']), '`created` is never an item name');
     }
 
+    /**
+     * MariaDB column names are not case-sensitive: `Created` or `Iteration`
+     * is the results table's own column, and `expired` is one too. Each
+     * passed validation and then failed the CREATE/ALTER TABLE with
+     * "Duplicate column name" — after the item rows were committed. `ID` is
+     * no column of the table and stays usable (a participant id).
+     */
+    public function testResultsTableColumnsAreReservedInAnyCase() {
+        foreach (array('Created', 'ITERATION', 'Session_Id', 'Ended', 'expired', 'Expired') as $name) {
+            $item = $this->item(array('name' => $name, 'type' => 'text'));
+            $item->allowLegacyHelperName();
+            $this->assertNotEmpty(preg_grep('/reserved/', $item->validate()['val_errors']), "'$name' must be rejected");
+            $this->assertTrue(Item::isResultColumnName($name), $name);
+        }
+        $this->assertSame(array(), $this->item(array('name' => 'ID', 'type' => 'text'))->validate()['val_errors']);
+    }
+
     public function testOrdinaryNamesStillValidate() {
         // near-misses: differing case and a legitimate word that merely contains
         // a helper name must stay usable.

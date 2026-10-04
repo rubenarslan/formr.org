@@ -990,7 +990,7 @@ class SpreadsheetReader
                     // Item::validate() at SurveyStudy::addItems, which knows
                     // whether the study already has such an item (see
                     // Item::allowLegacyHelperName).
-                    if (in_array($cellValue, Item::RESULT_COLUMN_NAMES, true)) {
+                    if (Item::isResultColumnName($cellValue)) {
                         $this->errors[] = __("Row %s: variable name '%s' is not permitted.", $rowNumber, $cellValue);
                     }
 

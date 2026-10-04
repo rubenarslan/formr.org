@@ -73,8 +73,22 @@ class Item {
      */
     const SHOWIF_HELPERS = array('isNA', 'answered', 'contains', 'containsWord', 'startsWith', 'endsWith', 'last');
 
-    /** The wide results table's own columns: never an item name, on any engine. */
-    const RESULT_COLUMN_NAMES = array('session_id', 'created', 'modified', 'ended', 'id', 'study_id', 'iteration');
+    /**
+     * The wide results table's own columns (SurveyStudy::getResultsTableSyntax).
+     * MariaDB compares column names without regard to case, so `Created` is
+     * the `created` column as well.
+     */
+    const RESULTS_TABLE_COLUMNS = array('session_id', 'study_id', 'iteration', 'created', 'modified', 'ended', 'expired');
+
+    /** Never an item name, on any engine: the results table's columns, and `id`. */
+    const RESULT_COLUMN_NAMES = array(...self::RESULTS_TABLE_COLUMNS, 'id');
+
+    /** Is $name one of RESULT_COLUMN_NAMES — a results table column in any case? */
+    public static function isResultColumnName($name) {
+        $name = (string) $name;
+        return in_array($name, self::RESULT_COLUMN_NAMES, true)
+            || in_array(strtolower($name), self::RESULTS_TABLE_COLUMNS, true);
+    }
 
     /**
      * Item names that may never be used. Item::validate() (per item, JSON
@@ -83,8 +97,9 @@ class Item {
      *
      * Two groups:
      *   - results-table / session columns (`id`, `session_id`, `created`,
-     *     `modified`, `ended`, `study_id`, `iteration`) — an item of that name
-     *     would collide with the wide results table's own columns.
+     *     `modified`, `ended`, `expired`, `study_id`, `iteration`, in any case
+     *     but `id`) — an item of that name would collide with the wide
+     *     results table's own columns.
      *   - the JS helpers the form_v2 showif evaluator exposes
      *     (webroot/assets/form/js/showif/alpine.js). Item values are top-level
      *     fields on the same Alpine component as those helpers, because the
@@ -533,7 +548,7 @@ class Item {
         }
 
         $reserved = $this->legacyHelperName ? self::RESULT_COLUMN_NAMES : self::RESERVED_NAMES;
-        if (in_array((string)$this->name, $reserved, true)) {
+        if (in_array((string)$this->name, $reserved, true) || self::isResultColumnName($this->name)) {
             $this->val_errors[] = "'{$this->name}' is a reserved variable name and cannot be used for an item. Reserved names are: " . implode(', ', $reserved) . ".";
         }
 
