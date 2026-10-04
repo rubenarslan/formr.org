@@ -181,7 +181,7 @@ class AdminSurveyController extends AdminController {
         
         $name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", basename($file['name']));
         if (!SurveyStudy::isValidName((string) $name)) {
-            alert("<strong>Error:</strong> The study name (the name of the file or Google sheet you uploaded, \"".(string)$file['name']."\") can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.
+            alert("<strong>Error:</strong> The study name (the name of the file or Google sheet you uploaded, \"" . h((string) $file['name']) . "\") can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.
                     The name has to be at least 3, at most 65 characters long. It needs to start with a letter. No dots, no spaces, no dashes, no umlauts please. 
                     The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>, but they will be ignored.", 'alert-danger');
             return false;

@@ -115,6 +115,20 @@ test.describe('survey JSON upload (robot seeding)', () => {
         const types = study ? db.dbQuery(`SELECT DISTINCT type FROM survey_items WHERE study_id = ${parseInt(study.id, 10)}`).map((r) => r.type) : [];
         for (const t of V2_ONLY) expect(types, `no ${t} item stored in a v1 study`).not.toContain(t);
     });
+    // The refusal of an unusable file name quotes the name: as text. A
+    // Google Sheet's title arrives as the file name, so it is not the
+    // admin's own to vouch for.
+    test('a file name with markup is shown as text in the refusal', async () => {
+        const ctx = await request.newContext({ ignoreHTTPSErrors: true, storageState: ADMIN_STATE });
+        const res = await ctx.post(`${ADMIN_URL}/admin/survey/add_survey/`, {
+            // (No "/": PHP keeps only what follows the last one of a file name.)
+            multipart: { uploaded: { name: '<img id=fmrinjected src=x>.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('x') } },
+        });
+        const html = await res.text();
+        await ctx.dispose();
+        expect(html).toContain('&lt;img id=fmrinjected src=x&gt;.xlsx');
+        expect(html).not.toContain('<img id=fmrinjected');
+    });
     // createFromData creates the survey before it imports the items, so a
     // refused item table leaves the survey behind, empty. The admin is told
     // and taken to its item upload, as on the spreadsheet path — not to the
