@@ -12,7 +12,9 @@
  *     says: a dry run counts them, the real run fills them and raises
  *     last_iteration;
  *   - a wide iteration another session of the study holds is not copied:
- *     that session is numbered above everything, in its wide row too.
+ *     that session is numbered above everything, in its wide row too;
+ *   - a study whose backfill fails is rolled back and makes the run exit 1
+ *     (the deploy scripts warn on it).
  *
  * Run: docker exec formr_app php /var/www/formr/bin/test_study_iteration_backfill_smoke.php
  * Creates and removes its own run, studies and sessions.
@@ -114,6 +116,17 @@ try {
     ok((int) $db->execute('SELECT study_iteration FROM survey_unit_sessions WHERE id = :id', ['id' => $x], true) === 3, 'x keeps 3');
     ok((int) $db->execute('SELECT COUNT(*) FROM (SELECT 1 FROM survey_unit_sessions WHERE unit_id = :s AND study_iteration IS NOT NULL
         GROUP BY study_iteration HAVING COUNT(*) > 1) d', ['s' => $study->id], true) === 0, 'no number is held twice');
+
+    echo "\n-- a study the backfill cannot fill fails the run --\n";
+    // The same clash again, but renumbering y overflows its wide column.
+    $db->exec('UPDATE survey_unit_sessions SET study_iteration = NULL WHERE id = :id', ['id' => $y]);
+    $db->exec("UPDATE `{$study->results_table}` SET iteration = 3 WHERE session_id = :s", ['s' => $y]);
+    $db->query("ALTER TABLE `{$study->results_table}` MODIFY `iteration` TINYINT UNSIGNED NOT NULL AUTO_INCREMENT");
+    $db->exec('UPDATE survey_studies SET last_iteration = 300 WHERE id = :id', ['id' => $study->id]);
+    $out = $backfill("--study={$study->id}", $exit);
+    ok($exit === 1 && strpos($out, 'failed=1') !== false, 'the run exits 1 and counts the study as failed', [$exit, trim($out)]);
+    ok($db->execute('SELECT study_iteration FROM survey_unit_sessions WHERE id = :id', ['id' => $y], true) === null, 'and the study is rolled back');
+    $db->query("ALTER TABLE `{$study->results_table}` MODIFY `iteration` INT UNSIGNED NOT NULL AUTO_INCREMENT");
 } catch (Throwable $e) {
     echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";
     $failures++;

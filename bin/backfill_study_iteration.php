@@ -51,7 +51,9 @@
  *      when it self-heals).
  *
  * A study only counts as "skipped, nothing to do" when BOTH (3) found
- * no NULL rows to fill AND (4) found last_iteration already caught up.
+ * no NULL rows to fill AND (4) found last_iteration already caught up. A
+ * study whose transaction fails is rolled back, counted as failed, and the
+ * script exits 1.
  *
  * Usage:
  *   docker exec formr_app php bin/backfill_study_iteration.php
@@ -100,6 +102,7 @@ $studies = $select->fetchAll();
 
 $skippedNoTable = 0;
 $skippedNothingToDo = 0;
+$failed = 0;
 $processed = 0;
 $totalRowsBackfilled = 0;
 
@@ -127,6 +130,12 @@ foreach ($studies as $study) {
         ? backfillFromWideIteration($db, $safeWide, $studyId, $lastIteration, $dryRun)
         : backfillSequentially($db, $safeWide, $studyId, $lastIteration, $dryRun);
 
+    if (!empty($result['failed'])) {
+        // Rolled back and reported on STDERR; counted, and the exit status
+        // says so (the deploy scripts warn on it).
+        $failed++;
+        continue;
+    }
     $wouldUpdate = $result['rows'];
     $newIteration = $result['newLastIteration'];
     $nothingToDo = ($wouldUpdate === 0 && $newIteration <= $lastIteration);
@@ -148,7 +157,8 @@ foreach ($studies as $study) {
 }
 
 echo "\n$tag Done. processed=$processed skipped_no_table=$skippedNoTable "
-    . "skipped_nothing_to_do=$skippedNothingToDo rows_backfilled=$totalRowsBackfilled\n";
+    . "skipped_nothing_to_do=$skippedNothingToDo failed=$failed rows_backfilled=$totalRowsBackfilled\n";
+exit($failed ? 1 : 0);
 
 /**
  * Has-iteration-column path: copy w.iteration into any NULL
@@ -243,7 +253,7 @@ function backfillFromWideIteration($db, $safeWide, $studyId, $lastIteration, $dr
     } catch (Exception $e) {
         $db->rollBack();
         fprintf(STDERR, "study %d: FAILED — %s\n", $studyId, $e->getMessage());
-        return ['rows' => 0, 'renumbered' => 0, 'newLastIteration' => $lastIteration];
+        return ['rows' => 0, 'renumbered' => 0, 'newLastIteration' => $lastIteration, 'failed' => true];
     }
 
     return ['rows' => $rowsUpdated, 'renumbered' => $renumbered, 'newLastIteration' => $newLastIteration];
@@ -302,7 +312,7 @@ function backfillSequentially($db, $safeWide, $studyId, $lastIteration, $dryRun)
     } catch (Exception $e) {
         $db->rollBack();
         fprintf(STDERR, "study %d: FAILED — %s\n", $studyId, $e->getMessage());
-        return ['rows' => 0, 'newLastIteration' => $lastIteration];
+        return ['rows' => 0, 'newLastIteration' => $lastIteration, 'failed' => true];
     }
 
     return ['rows' => $count, 'newLastIteration' => $newLastIteration];
