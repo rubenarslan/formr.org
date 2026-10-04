@@ -323,6 +323,7 @@ class FormRenderer extends SpreadsheetRenderer {
         }
         $rows = $this->study->getChoices(array_values(array_unique($lists)), null);
         $byList = [];
+        $rawByList = [];
         $dynamicByList = [];
         foreach ((array) $rows as $row) {
             if (!isset($row['list_name'], $row['name'])) {
@@ -331,6 +332,7 @@ class FormRenderer extends SpreadsheetRenderer {
             $parsed = $row['label_parsed'] ?? null;
             $byList[$row['list_name']][$row['name']] =
                 ($parsed !== null && $parsed !== '') ? $parsed : $row['label'];
+            $rawByList[$row['list_name']][$row['name']] = $row['label'];
             if ($parsed === null && trim((string) $row['label']) !== '') {
                 $dynamicByList[$row['list_name']][(string) $row['name']] = (string) $row['label'];
             }
@@ -341,7 +343,12 @@ class FormRenderer extends SpreadsheetRenderer {
                 continue;
             }
             if (isset($byList[$item->choice_list])) {
-                $list = array_filter($byList[$item->choice_list], 'is_formr_truthy');
+                // A select_or_add's choices are the answers it offers, shown
+                // as text by tom-select and split at ";" on v2
+                // (SelectOrAddOne_Item::unpackChoices): its labels as written,
+                // not as HTML, whose entities (&amp;) hold a ";" of their own.
+                $source = $item instanceof SelectOrAddOne_Item ? $rawByList : $byList;
+                $list = array_filter($source[$item->choice_list], 'is_formr_truthy');
                 $items[$name]->setChoices($list);
                 foreach ($dynamicByList[$item->choice_list] ?? [] as $value => $label) {
                     if (isset($list[$value])) {
