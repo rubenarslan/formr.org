@@ -68,6 +68,25 @@ class SurveyImportSettingsTest extends \PHPUnit\Framework\TestCase {
         $this->assertSame(array('hide_results' => 0, 'expire_after' => 60, 'unlinked' => 1, 'expire_invitation_grace' => null), $out,
             'a JSON null stays where the column is nullable, and is dropped where it is NOT NULL');
     }
+    /**
+     * A value outside what the settings form allows, or the column holds, is
+     * dropped: under STRICT_ALL_TABLES the save failed with "Out of range"
+     * after the survey row existed, and in-range nonsense (200 %) was stored.
+     */
+    public function testOutOfRangeSettingsAreDropped() {
+        $out = SurveyStudy::importableSettings(array(
+            'expire_after' => -1,
+            'displayed_percentage_maximum' => 300,
+            'add_percentage_points' => '200',
+            'maximum_number_displayed' => 3001,
+            'expire_invitation_grace' => '-5',
+            'use_paging' => 2,
+            'expire_invitation_after' => 1440,
+            'hide_results' => true,
+        ));
+        $this->assertSame(array('expire_invitation_after' => 1440, 'hide_results' => 1), $out);
+    }
+
     public function testAFileDeclaringV2ArrivesOnV1WhereForm2IsNotEnabled() {
         // The one rule every path that creates a survey from a file applies
         // (admin upload, API, run-bundle import).

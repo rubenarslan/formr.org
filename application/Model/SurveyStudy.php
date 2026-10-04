@@ -238,10 +238,23 @@ class SurveyStudy extends Model
         // exported NULL (or a FALSE cell) as '', and '' or any other
         // non-integer is an error for an INT column under STRICT_ALL_TABLES —
         // so re-uploading an exported xlsx failed. Such a value is dropped
-        // (the column default applies), like an invalid engine setting.
-        foreach (array('maximum_number_displayed', 'displayed_percentage_maximum', 'add_percentage_points',
-                'expire_after', 'expire_invitation_after', 'expire_invitation_grace',
-                'enable_instant_validation', 'unlinked', 'hide_results', 'use_paging') as $key) {
+        // (the column default applies), like an invalid engine setting; so
+        // is one outside what the settings form allows (or, without a limit
+        // there, what the unsigned column holds): STRICT refuses -1 and 300 %
+        // too, after the survey has been created.
+        $ranges = array(
+            'maximum_number_displayed' => array(0, 3000),
+            'displayed_percentage_maximum' => array(1, 100),
+            'add_percentage_points' => array(0, 100),
+            'expire_after' => array(0, 3153600),
+            'expire_invitation_after' => array(0, 4294967295),
+            'expire_invitation_grace' => array(0, 4294967295),
+            'enable_instant_validation' => array(0, 1),
+            'unlinked' => array(0, 1),
+            'hide_results' => array(0, 1),
+            'use_paging' => array(0, 1),
+        );
+        foreach ($ranges as $key => $range) {
             if (!array_key_exists($key, $filtered)) {
                 continue;
             }
@@ -254,7 +267,8 @@ class SurveyStudy extends Model
                 }
             } elseif (is_bool($v)) {
                 $filtered[$key] = (int) $v;
-            } elseif (is_int($v) || (is_string($v) && preg_match('/^\s*-?\d+\s*$/', $v))) {
+            } elseif ((is_int($v) || (is_string($v) && preg_match('/^\s*-?\d+\s*$/', $v)))
+                    && (int) $v >= $range[0] && (int) $v <= $range[1]) {
                 $filtered[$key] = (int) $v;
             } else {
                 unset($filtered[$key]);
