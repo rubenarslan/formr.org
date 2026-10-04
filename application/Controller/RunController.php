@@ -1328,9 +1328,12 @@ class RunController extends Controller {
             return;
         }
         // Unauthenticated endpoint — rate limit per IP so it can't be used to
-        // flood formr_log / disk. Fail-open like the other buckets.
-        $ip = isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : 'unknown';
-        if (!$this->rateAllowed('beacon', $ip)) {
+        // flood formr_log / disk. Fail-open like the other buckets. An IPv6
+        // client owns its whole /64 and could send each beacon from a new
+        // address: those are counted per /64 (MailGuardService::subnetKey).
+        $ip = MailGuardService::clientIp();
+        $bucket = ($ip !== null && strpos($ip, ':') !== false) ? MailGuardService::subnetKey($ip) : ($ip ?: 'unknown');
+        if (!$this->rateAllowed('beacon', $bucket)) {
             http_response_code(429);
             return;
         }
