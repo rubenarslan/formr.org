@@ -115,6 +115,34 @@ try {
     $deadlocked = new DeadlockedOnceUnitSession($rs, $form, ['id' => (int) $rs->currentUnitSession->id, 'load' => true]);
     $out = RunUnitFactory::make(new Run(null, $runId), ['id' => (int) $form->id])->getUnitSessionOutput($deadlocked);
     ok(!empty($out['form_v2']) && strpos((string) ($out['content'] ?? ''), 'fmr-form-v2') !== false, 'the form renders on the second try', array_keys((array) $out));
+
+    echo "\n-- a finished form in a run without a Stop is not shown again --\n";
+    $runId2 = $db->insert('survey_runs', ['user_id' => (int) $owner['id'], 'name' => 'pageloadsmoke2_' . $suffix,
+        'created' => mysql_now(), 'modified' => mysql_now(), 'cron_active' => 0]);
+    $run2 = new Run(null, $runId2);
+    $run2->importUnits(json_encode(['units' => [
+        ['type' => 'Form', 'position' => 10, 'description' => 'form', 'survey_data' => ['name' => 'pageloadsmoke2_' . $suffix, 'items' => [
+            $item(1, 'q1', 'text'),
+        ]]],
+    ]]));
+    $lone = RunUnitFactory::make($run2, ['id' => (int) $run2->getAllUnitIds()[0]['unit_id']]);
+    $loneStudy = $lone->v2Study();
+    $code = 'PAGELOAD' . bin2hex(random_bytes(8));
+    $codes[] = $code;
+    $db->insert('survey_run_sessions', ['run_id' => $runId2, 'session' => $code, 'created' => mysql_now(), 'position' => 10]);
+    $first = (new RunSession($code, new Run(null, $runId2)))->execute();
+    ok(strpos((string) ($first['body'] ?? ''), 'fmr-form-v2') !== false, 'the form is shown');
+    $us = (new RunSession($code, new Run(null, $runId2)))->getCurrentUnitSession();
+    $r = (new FormSubmissionService($us, $loneStudy))->apply(['page' => 1, 'unit_session_id' => 0, 'data' => ['q1' => 'x'], 'item_views' => [], 'hidden' => [], 'final' => true]);
+    ok(!empty($r['complete']), 'and finished', $r);
+    // A later visit: the run session has ended (no unit after the form), and
+    // RunSession::execute re-runs its last unit session for display — the
+    // web branch, which the CLI cannot take, so it is called as it does.
+    $rs2 = new RunSession($code, new Run(null, $runId2));
+    ok((bool) $rs2->ended, 'the run session ended with the form');
+    $again = RunUnitFactory::make(new Run(null, $runId2), ['id' => (int) $lone->id])
+        ->getUnitSessionOutput(new UnitSession($rs2, null, ['id' => (int) $us->id, 'load' => true]));
+    ok(strpos((string) ($again['content'] ?? ''), 'fmr-form-v2') === false, 'a later visit does not show it as if it took answers', array_keys((array) $again));
 } catch (Throwable $e) {
     echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";
     $failures++;
@@ -122,7 +150,9 @@ try {
 try {
     foreach ($codes as $c) { $db->exec('DELETE FROM survey_run_sessions WHERE session = :c', ['c' => $c]); }
     if ($study && $study->valid) { $study->delete(); }
+    if (!empty($loneStudy) && $loneStudy->valid) { $loneStudy->delete(); }
     $run->delete();
+    if (!empty($run2)) { $run2->delete(); }
 } catch (Throwable $e) {
     echo "  teardown: " . $e->getMessage() . "\n";
 }

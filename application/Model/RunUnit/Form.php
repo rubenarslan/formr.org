@@ -47,6 +47,13 @@ class Form extends Survey {
         if (!$study) {
             return parent::getUnitSessionOutput($unitSession);
         }
+        // A Form that has ended (or expired) takes no answers. It is shown
+        // again only where a run has no Stop after it (RunSession::execute's
+        // ended branch re-runs the last unit): render nothing rather than a
+        // form whose every write is refused.
+        if ($unitSession->ended !== null || $unitSession->expired !== null) {
+            return ['content' => ''];
+        }
 
         try {
             $unitSession->createSurveyStudyRecord();
