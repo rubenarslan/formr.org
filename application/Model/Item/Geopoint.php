@@ -28,11 +28,13 @@ class Geopoint_Item extends Item {
     }
 
     protected function render_prepended() {
+        // Disabled with the item when a showif hides it, like the visible
+        // input: neither is then submitted (or found missing).
         $ret = '
-			<input type="hidden" name="%s" value="" />
+			<input type="hidden" name="%s" value=""%s />
 			<div class="input-group">
 		';
-        return sprintf($ret, $this->name);
+        return sprintf($ret, $this->name, empty($this->input_attributes['disabled']) ? '' : ' disabled');
     }
 
     protected function render_appended() {

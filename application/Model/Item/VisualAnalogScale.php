@@ -66,6 +66,11 @@ class VisualAnalogScale_Item extends Range_Item {
         if (!empty($this->input_attributes['required'])) {
             $hiddenAttrs['required'] = 'required';
         }
+        // An item rendered hidden (a showif) is disabled, so it is neither
+        // submitted nor validated: this is the input that would be.
+        if (!empty($this->input_attributes['disabled'])) {
+            $hiddenAttrs['disabled'] = 'disabled';
+        }
         if ($isTouched) {
             $hiddenAttrs['value'] = $this->value_validated;
         }
