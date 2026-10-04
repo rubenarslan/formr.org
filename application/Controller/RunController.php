@@ -700,11 +700,14 @@ class RunController extends Controller {
         if ($payload === null) {
             return;
         }
-        $context = $this->formWriteContext($payload['unit_session_id']);
+        $context = $this->formWriteContext($payload['unit_session_id'], array(), 'write', true);
         if (!$context) {
             return;
         }
-        list(, $unitSession, $study) = $context;
+        list(, $unitSession, $study, $onV2) = $context;
+        if (!$onV2) {
+            $payload['final'] = false;
+        }
         try {
             $result = (new FormSubmissionService($unitSession, $study))->apply($payload);
         } catch (Throwable $e) {
@@ -717,7 +720,7 @@ class RunController extends Controller {
         if ($result['status'] === 'ok') {
             FormSubmissionService::recordSubmitSeq($unitSession->id, $payload['doc'], $payload['seq']);
         }
-        $this->sendJsonResponse($this->withRunRedirect($result));
+        $this->sendJsonResponse($onV2 ? $this->withRunRedirect($result) : $this->leftV2Reply($result));
     }
 
     /**
@@ -768,7 +771,7 @@ class RunController extends Controller {
      *   'bot' (bot_check challenges)
      * @return array|null
      */
-    private function formWriteContext($claimedUnitSessionId, array $extra409 = array(), $rateBucket = 'write') {
+    private function formWriteContext($claimedUnitSessionId, array $extra409 = array(), $rateBucket = 'write', $acceptLeftV2 = false) {
         if ($this->previewContext !== null) {
             return $this->previewWriteContext($claimedUnitSessionId, $extra409, $rateBucket);
         }
@@ -803,6 +806,19 @@ class RunController extends Controller {
             return null;
         }
         $study = $this->formV2Study($unitSession->runUnit);
+        $onV2 = true;
+        if (!$study && $acceptLeftV2 && $claimedUnitSessionId !== null
+                && (int) $claimedUnitSessionId === (int) $unitSession->id
+                && $unitSession->runUnit instanceof Survey
+                && $unitSession->runUnit->surveyStudy && $unitSession->runUnit->surveyStudy->valid) {
+            // The survey was switched back to v1 while this page was open, or
+            // while its pages waited in the offline queue. The unit session is
+            // still the one the page was rendered for, and both engines keep
+            // its answers in the same rows: they are stored, and the
+            // participant continues on v1 (the caller sends them there).
+            $study = $unitSession->runUnit->surveyStudy;
+            $onV2 = false;
+        }
         if (!$study) {
             $this->sendJsonResponse(array('error' => 'Current unit is not a v2 form') + $extra409, 409);
             return null;
@@ -815,7 +831,21 @@ class RunController extends Controller {
             return null;
         }
         BotCheckChallenge::bindTo($unitSession->id);
-        return array($runSession, $unitSession, $study);
+        return array($runSession, $unitSession, $study, $onV2);
+    }
+
+    /**
+     * A v2 page written for a unit session whose survey has gone back to v1
+     * (formWriteContext's $onV2 false): its answers are stored, but it ends
+     * nothing — v1 ends a survey itself once every item is answered — and
+     * the reply sends the browser to the run URL, where v1 shows the rest.
+     */
+    private function leftV2Reply(array $result) {
+        if ($result['status'] === 'ok') {
+            $result['redirect'] = run_url($this->run->name);
+            $result['engine_changed'] = true;
+        }
+        return $result;
     }
 
     /**
@@ -899,7 +929,7 @@ class RunController extends Controller {
             return null;
         }
         BotCheckChallenge::bindTo($unitSession->id);
-        return array($unitSession->runSession, $unitSession, $study);
+        return array($unitSession->runSession, $unitSession, $study, true);
     }
     /**
      * form_v2: incremental ("autosave") persistence.
@@ -966,7 +996,7 @@ class RunController extends Controller {
 
         // Same gates as form-page-submit, including the stale-tab one. Autosave
         // is best-effort, so the client treats a 409 as non-fatal.
-        $context = $this->formWriteContext($payload['unit_session_id']);
+        $context = $this->formWriteContext($payload['unit_session_id'], array(), 'write', true);
         if (!$context) {
             return;
         }
@@ -1064,11 +1094,14 @@ class RunController extends Controller {
         $payload['page'] = $envelope['page'];
         $payload['unit_session_id'] = $envelope['unit_session_id'];
 
-        $context = $this->formWriteContext($payload['unit_session_id'], array('drop_entry' => true));
+        $context = $this->formWriteContext($payload['unit_session_id'], array('drop_entry' => true), 'write', true);
         if (!$context) {
             return;
         }
-        list(, $unitSession, $study) = $context;
+        list(, $unitSession, $study, $onV2) = $context;
+        if (!$onV2) {
+            $payload['final'] = false;
+        }
 
         // Once per entry (FormSubmissionService::applyQueued): an entry
         // refused for validation errors, or one whose write failed, is not
@@ -1092,7 +1125,7 @@ class RunController extends Controller {
             return;
         }
         FormSubmissionService::recordSubmitSeq($unitSession->id, $payload['doc'], $payload['seq']);
-        $this->sendJsonResponse($this->withRunRedirect($result));
+        $this->sendJsonResponse($onV2 ? $this->withRunRedirect($result) : $this->leftV2Reply($result));
     }
 
     /**

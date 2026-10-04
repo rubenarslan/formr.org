@@ -1374,6 +1374,13 @@ function initForm() {
         // The reply carries the stored state of what was just written: merge
         // it into the store and hand the values to the showif scope.
         absorbReply(body);
+        if (body.redirect && body.engine_changed) {
+            // The survey went back to v1 while this page was open: the page
+            // is stored, and the run URL shows the rest on v1.
+            forgetPage(unitSessionId);
+            window.location.href = body.redirect;
+            return;
+        }
         if (body.redirect) {
             // Last page just landed — pause briefly so the participant sees
             // the completion beat instead of an abrupt jump to the end-page.
