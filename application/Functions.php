@@ -859,7 +859,11 @@ function client_time($value)
     if ($time === false || $time->format('Y-m-d H:i:s') !== $value) {
         return null; // out of range, e.g. 2026-02-30 or 24:00:00
     }
-    return $time->setTimezone(new DateTimeZone(date_default_timezone_get()))->format('Y-m-d H:i:s');
+    $local = $time->setTimezone(new DateTimeZone(date_default_timezone_get()))->format('Y-m-d H:i:s');
+    // What a DATETIME column takes (years 1000 to 9999), checked after the
+    // conversion: 9999-12-31 23:30 UTC is in the year 10000 east of UTC, and
+    // a column that refuses it fails the whole page write.
+    return preg_match('/^[1-9]\d{3}-/', $local) ? $local : null;
 }
 
 /**

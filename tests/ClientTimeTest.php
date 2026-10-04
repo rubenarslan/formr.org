@@ -37,6 +37,17 @@ class ClientTimeTest extends TestCase {
         $this->assertSame('2026-07-01 06:00:00', client_time('2026-07-01 10:00:00'));
     }
 
+    /**
+     * Only what a DATETIME column holds, in the server's zone: a page write
+     * with a value the column refuses fails as a whole (and the offline
+     * queue retries it for good).
+     */
+    public function testOnlyYearsADatetimeHoldsAfterConversion() {
+        $this->assertNull(client_time('9999-12-31 23:30:00'), 'the year 10000 in Berlin');
+        $this->assertNull(client_time('0999-06-01 10:00:00'));
+        $this->assertSame('9999-12-31 22:00:00', client_time('9999-12-31 21:00:00'));
+    }
+
     public function testAnythingElseIsNotATimestamp() {
         foreach (array(null, '', 12, array('2026-07-01 10:00:00'), '2026-07-01T10:00:00.000Z', '2026-07-01 10:00',
                        '2026-02-30 10:00:00', '2026-07-01 24:00:00', '2026-13-01 10:00:00', ' 2026-07-01 10:00:00') as $value) {
