@@ -7,6 +7,7 @@
  *   - its placements' units, its special units (the service message
  *     Run::create adds, an overview script) and their unit sessions go;
  *   - a survey stays: its unit row is its study's, which outlives the run;
+ *     a Survey unit never linked to one goes;
  *   - a unit another run still places stays, until that run is deleted;
  *   - an older run whose survey_runs row names one of its units (here the
  *     overview script, a foreign key that would block the delete) is
@@ -55,6 +56,9 @@ try {
     $study = RunUnitFactory::make($runA, ['id' => $placed[10]])->surveyStudy;
     $service = (int) $db->execute("SELECT id FROM survey_run_special_units WHERE run_id = :r AND type = 'ServiceMessagePage'", ['r' => $runA->id], true);
     ok($service > 0, 'run A has its service message');
+    // A Survey unit added but never linked to a survey: its unit row has no study.
+    $unlinked = (int) RunUnitFactory::make($runA, ['type' => 'Survey'])->create(['type' => 'Survey', 'position' => 50, 'description' => 'never linked'])->id;
+    ok($unlinked > 0 && !$exists('survey_studies', $unlinked), 'run A has an unlinked survey unit');
     $overview = RunUnitFactory::make($runA, RunUnit::getDefaults('OverviewScriptPage'))->create();
     $overviewId = (int) $overview->id;
     // An older run's own column naming a unit (ON DELETE NO ACTION).
@@ -78,6 +82,7 @@ try {
     ok(!$exists('survey_units', $overviewId), 'its overview script is gone, though the run row named it');
     ok(!$exists('survey_unit_sessions', $pauseSession), 'its unit sessions are gone');
     ok($exists('survey_units', $placed[10]) && $exists('survey_studies', $placed[10]), 'its survey stays, unit row and study');
+    ok(!$exists('survey_units', $unlinked), 'its unlinked survey unit is gone: it has no study to stay with');
     ok($exists('survey_units', $placed[30]) && $exists('survey_externals', $placed[30]), 'the External run B places stays');
 
     echo "\n-- delete run B --\n";

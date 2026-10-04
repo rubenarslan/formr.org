@@ -269,9 +269,10 @@ class Run extends Model
                 $marks[] = ':u' . $i;
                 $params['u' . $i] = $unitId;
             }
+            // A survey's unit row is its study's (patch 116) and stays with
+            // it; a Survey or Form unit that was never linked has none.
             $this->db->exec(
                 'DELETE FROM survey_units WHERE id IN (' . implode(',', $marks) . ')
-                   AND type NOT IN (\'Survey\', \'Form\')
                    AND NOT EXISTS (SELECT 1 FROM survey_studies s WHERE s.id = survey_units.id)
                    AND NOT EXISTS (SELECT 1 FROM survey_run_units ru WHERE ru.unit_id = survey_units.id)
                    AND NOT EXISTS (SELECT 1 FROM survey_run_special_units su WHERE su.id = survey_units.id)
