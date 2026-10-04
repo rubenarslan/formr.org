@@ -1080,7 +1080,7 @@ class RunSession extends Model {
             // items hang off the session the same way a v1 Survey's do.
             $recent_email_query = "
                 SELECT survey_items_display.answer AS email FROM survey_unit_sessions
-                LEFT JOIN survey_units ON survey_units.id = survey_unit_sessions.unit_id AND survey_units.type IN ('Survey', 'Form')
+                LEFT JOIN survey_units ON survey_units.id = survey_unit_sessions.unit_id AND survey_units.type IN (" . Survey::typesSql() . ")
                 LEFT JOIN survey_run_units ON survey_run_units.unit_id = survey_units.id
                 LEFT JOIN survey_items_display ON survey_items_display.session_id = survey_unit_sessions.id
                 LEFT JOIN survey_items ON survey_items.id = survey_items_display.item_id

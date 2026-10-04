@@ -1519,7 +1519,7 @@ class Run extends Model
         $SPR = new SpreadsheetReader();
         // Save run units
         foreach ($units as $i => &$unit) {
-            if ($inc_survey && in_array($unit->type, ['Survey', 'Form'], true)) {
+            if ($inc_survey && in_array($unit->type, Survey::TYPES, true)) {
                 // The export dialog posts the unit list from the browser, so
                 // `unit_id` (a Survey or Form unit's study id) is
                 // caller-supplied: attach items only for a study the run's
@@ -1933,7 +1933,7 @@ class Run extends Model
                 && (!isset($unit->if_true) || !is_numeric($unit->if_true))) {
                 $errors[] = "$label: if_true must be a numeric position.";
             }
-            if (in_array($type, ['Survey', 'Form'], true) && isset($unit->survey_data->items)) {
+            if (in_array($type, Survey::TYPES, true) && isset($unit->survey_data->items)) {
                 foreach ((array) $unit->survey_data->items as $item) {
                     if (!is_object($item)) {
                         continue;

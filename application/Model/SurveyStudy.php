@@ -1525,7 +1525,7 @@ class SurveyStudy extends Model
             return;
         }
         $this->db->exec(
-            "UPDATE `survey_units` SET `type` = :type WHERE `id` = :id AND `type` IN ('Survey', 'Form')",
+            "UPDATE `survey_units` SET `type` = :type WHERE `id` = :id AND `type` IN (" . Survey::typesSql() . ")",
             array('type' => $this->rendering_mode === 'v2' ? 'Form' : 'Survey', 'id' => (int) $this->id)
         );
     }

@@ -188,7 +188,7 @@ try {
          JOIN survey_runs r ON r.id = rs.run_id
          WHERE us.queued = 0 AND us.ended IS NULL AND us.expired IS NULL
            AND us.expires IS NOT NULL AND us.expires < NOW()
-           AND u.type IN ('Survey', 'Form')
+           AND u.type IN (" . Survey::typesSql() . ")
            AND rs.ended IS NULL AND r.cron_active = 1{$runWhere}
          ORDER BY us.id ASC
          LIMIT {$limit}", []

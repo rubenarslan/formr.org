@@ -15,6 +15,11 @@ class Survey extends RunUnit {
      */
     const TYPES = ['Survey', 'Form'];
 
+    /** TYPES as the list of an SQL `IN (…)`: constants, safe to interpolate. */
+    public static function typesSql() {
+        return "'" . implode("', '", self::TYPES) . "'";
+    }
+
     /**
      * Survey study assigned to the Survey unit
      *
