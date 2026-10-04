@@ -276,12 +276,7 @@ class FormSubmissionService {
      */
     public function applyQueued($uuid, $clientTs, array $payload, $lockWait = self::SYNC_LOCK_WAIT) {
         $lock = 'form_sync_' . $uuid;
-        $stmt = $this->db->prepare('SELECT GET_LOCK(:name, :wait)');
-        $stmt->bindValue('name', $lock);
-        // A string: PDO::PARAM_INT would truncate a fractional wait to 0.
-        $stmt->bindValue('wait', (string) $lockWait);
-        $stmt->execute();
-        if ((int) $stmt->fetchColumn() !== 1) {
+        if (!$this->db->getLock($lock, $lockWait)) {
             return array('status' => 'busy');
         }
         try {
@@ -295,7 +290,7 @@ class FormSubmissionService {
             return $result;
         } finally {
             try {
-                $this->db->prepare('SELECT RELEASE_LOCK(:name)')->execute(array('name' => $lock));
+                $this->db->releaseLock($lock);
             } catch (Throwable $e) {
                 // The connection is gone, and its lock went with it.
                 formr_log_exception($e, __METHOD__);

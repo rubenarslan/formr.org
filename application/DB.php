@@ -689,6 +689,27 @@ class DB {
         return $filtered;
     }
 
+    /**
+     * Take a MariaDB named lock for this connection, waiting up to $timeout
+     * seconds (decimals allowed). TRUE when it is held.
+     */
+    public function getLock($name, $timeout) {
+        $stmt = $this->prepare('SELECT GET_LOCK(:name, :timeout)');
+        $stmt->bindValue('name', (string) $name);
+        // Audit (2026-07): bind as string — PDO::PARAM_INT truncated a
+        // fractional wait (the queue's configured 0.1 s) to 0.
+        $stmt->bindValue('timeout', (string) $timeout);
+        $stmt->execute();
+        return (int) $stmt->fetchColumn() === 1;
+    }
+
+    /** Release a named lock this connection holds (getLock). */
+    public function releaseLock($name) {
+        $stmt = $this->prepare('SELECT RELEASE_LOCK(:name)');
+        $stmt->bindValue('name', (string) $name);
+        $stmt->execute();
+    }
+
     public function retryTransaction(Exception $e) {
         return strstr($e->getMessage(), 'try restarting transaction') !== false;
     }

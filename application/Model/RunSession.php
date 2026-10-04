@@ -1346,13 +1346,7 @@ class RunSession extends Model {
     }
 
     protected function acquireLock($name, $timeout = 1) {
-        $stmt = $this->db->prepare('SELECT GET_LOCK(:name, :timeout) AS l');
-        $stmt->bindValue('name',    $name);
-        // Audit (2026-07): bind as string — PDO::PARAM_INT truncated the
-        // queue's configured 0.1 s timeout to 0. GET_LOCK accepts decimals.
-        $stmt->bindValue('timeout', (string) $timeout);
-        $stmt->execute();
-        return (int)$stmt->fetchColumn() === 1;
+        return $this->db->getLock($name, $timeout);
     }
 
     /**
@@ -1361,9 +1355,7 @@ class RunSession extends Model {
      * @param string $name
      */
     protected function releaseLock($name) {
-        $stmt = $this->db->prepare('SELECT RELEASE_LOCK(:name)');
-        $stmt->bindValue('name', $name);
-        $stmt->execute();
+        $this->db->releaseLock($name);
     }
 
 }
