@@ -1234,7 +1234,7 @@ function opencpu_get($location, $return_format = 'json', $return_session = false
 function opencpu_prepare_api_access($code, &$variables)
 {
     // Bridge participates in: opencpu_knit_iframe, opencpu_knit2html
-    // wrappers (knitdisplay / knitadmin / knit_email).
+    // wrappers (knitdisplay_request / knitadmin / knit_email).
     // NOT participating: opencpu_knit_plaintext / opencpu_evaluate.
     // Plaintext rendering is for short string interpolation (email
     // subjects, push titles, item label_parsed); live API authentication
@@ -1887,20 +1887,14 @@ opts_knit$set(base.url="' . OpenCPU::TEMP_BASE_URL . '")
 }
 
 /**
- * Knit R Markdown to *Markdown* (not HTML) via OpenCPU: runs the R chunks /
- * inline `r ...` through knitr but does NOT invoke rmarkdown::render / pandoc.
- * The caller turns the returned Markdown into HTML PHP-side with ParsedownExtra,
- * which avoids the pandoc subprocess + temp-file IO that dominate short-label
- * render cost. Mirrors opencpu_knit2html's session/error contract so callers can
- * treat the two interchangeably. (form_v2 dynamic labels — issue #608 follow-up.)
+ * The request that knits R Markdown to *Markdown* (not HTML) via OpenCPU: it
+ * runs the R chunks / inline `r ...` through knitr but does NOT invoke
+ * rmarkdown::render / pandoc. The caller turns the returned Markdown into HTML
+ * PHP-side with ParsedownExtra (RCallService), which avoids the pandoc
+ * subprocess + temp-file IO that dominate short-label render cost; it has
+ * opencpu_knit2html_call's shape, so a caller can take either. (form_v2
+ * dynamic labels — issue #608 follow-up.)
  */
-function opencpu_knit2markdown($source, $return_session = false)
-{
-    $call = opencpu_knit2markdown_call($source);
-    return opencpu_post_knit($call['uri'], $call['params'], 'json', $return_session, $call['message']);
-}
-
-/** The request opencpu_knit2markdown sends. */
 function opencpu_knit2markdown_call($source)
 {
     return array('uri' => '/formr/R/formr_knit/json', 'params' => array('text' => "'" . addslashes($source) . "'"),
@@ -1912,7 +1906,7 @@ function opencpu_knit2markdown_call($source)
  *
  * Plain HTTP wrapper around the OpenCPU call. Variable injection and
  * formr_api_authenticate() bridging are the caller's job — each of
- * opencpu_knitdisplay / opencpu_knitadmin / opencpu_knit_email bakes
+ * opencpu_knitdisplay_request / opencpu_knitadmin / opencpu_knit_email bakes
  * its own settings chunk (with library(formr) + $variables) and runs
  * opencpu_prepare_api_access before doing so, which is the only ordering
  * where the injected .formr$ assignments can resolve.
@@ -2044,19 +2038,11 @@ opts_chunk$set(warning=' . $show_warnings . ',message=' . $show_warnings . ',err
         'cleanup' => opencpu_token_cleanup($temp_token_to_delete));
 }
 
-function opencpu_knitdisplay($source, $variables = null, $return_session = false, $context = null, $to = 'html')
-{
-    $request = opencpu_knitdisplay_request($source, $variables, $context, $to);
-    try {
-        return opencpu_post_knit($request['uri'], $request['params'], 'json', $return_session, $request['message']);
-    } finally {
-        opencpu_cleanup($request);
-    }
-}
-
 /**
- * The request opencpu_knitdisplay sends: the source after a settings chunk
- * with the run's prelude and variables, knitted to markdown or HTML.
+ * The knit request for text a participant sees: the source after a settings
+ * chunk with the run's prelude and variables, knitted to markdown or HTML.
+ * Sent alone or with others (opencpu_post_many); its `cleanup` runs once it is
+ * answered.
  *
  * @return array{uri: string, params: array, message: string, cleanup: callable|null}
  */
