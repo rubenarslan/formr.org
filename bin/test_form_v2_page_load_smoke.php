@@ -58,6 +58,9 @@ try {
             // inline CSS, say): its source is recorded whole as an R call.
             ['name' => 'big', 'type' => 'note', 'label' => str_repeat('Lorem ipsum dolor sit amet. ', 2600) . '`r 1 + 1`',
                 'order' => 4, 'item_order' => 4, 'optional' => 1],
+            // A submit button labelled in R: the author's words, written in
+            // by the browser when the page resolves.
+            ['name' => 's2', 'type' => 'submit', 'label' => 'Weiter zu Teil `r 1 + 1`', 'order' => 5, 'item_order' => 5],
         ]]],
         ['type' => 'Endpage', 'position' => 20, 'description' => 'end', 'body' => 'Done.'],
     ]])) !== false, 'run imported');
@@ -89,6 +92,13 @@ try {
         $db->insert('survey_run_sessions', ['run_id' => $runId, 'session' => $code, 'created' => mysql_now(), 'position' => 10]);
         $load($code, 'first load');
         ok($bigLabel() > 65535, 'the dynamic label over 64 KiB is recorded whole', $bigLabel());
+        $submitButton = function () use ($code, $runId) {
+            $out = (new RunSession($code, new Run(null, $runId)))->execute();
+            return preg_match('~<div[^>]*data-fmr-label-id="\d+"[^>]*>(?:(?!</div>).)*?<button[^>]*name="s2"[^>]*>~s', (string) ($out['body'] ?? ''), $m) ? $m[0] : null;
+        };
+        $button = $submitButton();
+        ok($button !== null && strpos($button, 'data-fmr-nav-label') === false,
+            'a submit labelled in R awaits its label, not the navigation wording', $button);
         if ($submitFirst) {
             // Invited a while ago, page 1 submitted now: the participant has started.
             $db->exec('UPDATE survey_unit_sessions us JOIN survey_run_sessions rs ON rs.id = us.run_session_id

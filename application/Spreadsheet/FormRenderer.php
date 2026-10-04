@@ -528,7 +528,12 @@ class FormRenderer extends SpreadsheetRenderer {
                         && trim(strip_tags((string) $item->label_parsed)) === '') {
                     $item->label_parsed = htmlspecialchars($strings['nav.next'], ENT_QUOTES);
                     $item->input_attributes['value'] = $item->label_parsed;
-                    $item->input_attributes['data-fmr-nav-label'] = '1';
+                    // A label still to come from R is the author's: the
+                    // navigation wording only holds its place until the
+                    // browser writes it in (data-fmr-label-id).
+                    if (!isset($item->parent_attributes['data-fmr-label-id'])) {
+                        $item->input_attributes['data-fmr-nav-label'] = '1';
+                    }
                 }
                 if (isset($item->type) && $item->type === 'submit' && !$isSolo) {
                     $item->input_attributes['data-fmr-next'] = '1';

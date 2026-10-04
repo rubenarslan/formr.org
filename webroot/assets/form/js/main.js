@@ -1001,7 +1001,19 @@ function initForm() {
             if (!(id in labelsMap)) return;
             const html = labelsMap[id];
             const labelEl = wrapper.querySelector('.control-label, label.control-label');
-            if (labelEl) labelEl.innerHTML = html;
+            if (labelEl) {
+                labelEl.innerHTML = html;
+                return;
+            }
+            // A submit item has no label element: its label is its button's
+            // text. What scripts added to the button (a timed submit's fuse,
+            // items/auto-submit.js) stays.
+            const btn = wrapper.querySelector('button[type="submit"]');
+            if (btn) {
+                const kept = Array.from(btn.querySelectorAll(':scope > .submit_fuse_box'));
+                btn.innerHTML = html + ' ';
+                kept.forEach((el) => btn.appendChild(el));
+            }
         });
         // Substitute R in choice labels. Radio/checkbox/button labels carry a
         // placeholder span; an <option> can't hold markup, so options (and a
