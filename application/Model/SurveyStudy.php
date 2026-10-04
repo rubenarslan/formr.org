@@ -812,6 +812,29 @@ class SurveyStudy extends Model
         return in_array('iteration', self::wideTableColumns($this->results_table), true);
     }
 
+    /**
+     * The highest iteration the results table has handed out: its largest
+     * `iteration`, or what its AUTO_INCREMENT went past, whichever is
+     * higher. Rows deleted from the top (a deleted participant) leave the
+     * second above the first, and v1.11.0, which numbered by AUTO_INCREMENT,
+     * never gave their numbers out again. 0 without the column.
+     *
+     * @return int
+     */
+    public function resultsTableHighWater()
+    {
+        if (!$this->resultsTableHasIteration()) {
+            return 0;
+        }
+        $table = str_replace('`', '``', $this->results_table);
+        return (int) $this->db->execute(
+            "SELECT GREATEST((SELECT COALESCE(MAX(`iteration`), 0) FROM `{$table}`),
+                (SELECT COALESCE(MAX(`AUTO_INCREMENT`), 1) - 1 FROM information_schema.TABLES
+                  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t))",
+            array('t' => (string) $this->results_table), true
+        );
+    }
+
     protected function toArray()
     {
         return [

@@ -1092,17 +1092,16 @@ class UnitSession extends Model {
             // Lazy seed (F2): survey_studies.last_iteration (patch 108) starts at
             // 0 on hosts that pre-date the allocator, while the wide table's
             // AUTO_INCREMENT `iteration` may already be in the thousands. Seed
-            // the counter from MAX(wide.iteration) exactly once, on the first
-            // allocation, so allocated values never collide with historic rows.
-            // Guarded by `last_iteration = 0` in the WHERE so a concurrent first
-            // allocation can't double-seed; a table without the column has no
-            // history to seed from.
-            if ($wideHasIteration && (int) $study->last_iteration === 0) {
+            // the counter from the table's high-water mark exactly once, on the
+            // first allocation, so allocated values never repeat a historic
+            // one — also of rows deleted since. Guarded by `last_iteration = 0`
+            // in the WHERE so a concurrent first allocation can't double-seed;
+            // a table without the column has no history to seed from.
+            if ($wideHasIteration && (int) $study->last_iteration === 0
+                    && ($highWater = $study->resultsTableHighWater()) > 0) {
                 $this->db->exec(
-                    "UPDATE `survey_studies`
-                     SET `last_iteration` = (SELECT COALESCE(MAX(`iteration`), 0) FROM `{$study->results_table}`)
-                     WHERE `id` = :id AND `last_iteration` = 0",
-                    array('id' => $study->id)
+                    'UPDATE `survey_studies` SET `last_iteration` = :seed WHERE `id` = :id AND `last_iteration` = 0',
+                    array('seed' => $highWater, 'id' => $study->id)
                 );
             }
             $iteration = $this->allocateStudyIteration($study->id);

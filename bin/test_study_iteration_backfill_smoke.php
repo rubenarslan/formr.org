@@ -10,7 +10,7 @@
  *   - the backfill fills a study's historical sessions (study_iteration
  *     NULL) from its wide table's iteration, whatever its `valid` column
  *     says: a dry run counts them, the real run fills them and raises
- *     last_iteration;
+ *     last_iteration — past a deleted participant's number as well;
  *   - a wide iteration another session of the study holds is not copied:
  *     that session is numbered above everything, in its wide row too;
  *   - a study whose backfill fails is rolled back and makes the run exit 1
@@ -89,6 +89,17 @@ try {
     };
     $before = $wide();
     ok(count($before) === 3 && count(array_unique($before)) === 3, 'three sessions, each with its wide iteration', $before);
+    // A fourth participant, deleted since: the table's AUTO_INCREMENT went
+    // past the highest number left.
+    $code = 'BACKFILL' . bin2hex(random_bytes(8));
+    $codes[] = $code;
+    $db->insert('survey_run_sessions', ['run_id' => $runId, 'session' => $code, 'created' => mysql_now(), 'position' => 10]);
+    $rs = new RunSession($code, $run);
+    $rs->position = 10;
+    $rs->createUnitSession($survey);
+    $rs->currentUnitSession->createSurveyStudyRecord();
+    $deletedNumber = (int) $rs->currentUnitSession->study_iteration;
+    $db->exec('DELETE FROM survey_unit_sessions WHERE id = :id', ['id' => (int) $rs->currentUnitSession->id]);
 
     // Their history: no study_iteration yet, and a study whose `valid` column is NULL.
     $db->exec("UPDATE survey_unit_sessions SET study_iteration = NULL WHERE id IN ({$marks})");
@@ -103,7 +114,8 @@ try {
     $out = $backfill("--study={$study->id}");
     ok(strpos($out, 'rows_backfilled=3') !== false, 'the backfill fills them', trim($out));
     ok($sessions() === $before, 'each with its wide iteration', [$sessions(), $before]);
-    ok((int) $db->execute('SELECT last_iteration FROM survey_studies WHERE id = :id', ['id' => $study->id], true) === max($before), 'last_iteration is raised to the highest');
+    ok((int) $db->execute('SELECT last_iteration FROM survey_studies WHERE id = :id', ['id' => $study->id], true) === $deletedNumber
+        && $deletedNumber > max($before), 'last_iteration is raised past the deleted participant\'s number too', [$deletedNumber, max($before)]);
 
     echo "\n-- a wide number another session holds is not copied --\n";
     // x holds 3 with no wide row; y has no number, and its wide row carries 3.

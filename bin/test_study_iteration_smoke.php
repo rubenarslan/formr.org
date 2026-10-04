@@ -19,7 +19,9 @@
  *     replaces the column instead of numbering the answers;
  *   - of two first loads of one session, the one that creates its results
  *     row records the start, also when the other won the number;
- *   - "Delete results" numbers the next session 1 again.
+ *   - "Delete results" numbers the next session 1 again;
+ *   - seeding a counter at 0 skips the numbers of rows deleted from the top
+ *     of the results table, as its AUTO_INCREMENT did.
  *
  * Run: docker exec formr_app php /var/www/formr/bin/test_study_iteration_smoke.php
  * Creates and removes its own run, study and sessions.
@@ -242,6 +244,15 @@ try {
     ok((int) $db->execute('SELECT last_iteration FROM survey_studies WHERE id = :id', ['id' => $study->id], true) === 0, 'the counter is back at 0');
     $first = $start();
     ok($iteration($first) === 1, 'the next session is number 1, as the truncated table numbered it', $iteration($first));
+
+    echo "\n-- a number deleted before patch 108 is not handed out again --\n";
+    // The counter as patch 108 found it (0), after the participant holding
+    // the highest number was deleted: the table's AUTO_INCREMENT went past it.
+    $second = $start(); $third = $start();
+    $db->exec('DELETE FROM survey_unit_sessions WHERE id = :id', ['id' => $third]);
+    $db->exec('UPDATE survey_studies SET last_iteration = 0 WHERE id = :id', ['id' => $study->id]);
+    $next = $start();
+    ok([$iteration($second), $iteration($next)] === [2, 4], 'the next session gets 4, not the deleted 3', [$iteration($second), $iteration($next)]);
 } catch (Throwable $e) {
     echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";
     $failures++;

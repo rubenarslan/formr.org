@@ -172,6 +172,20 @@ function lockCounter($db, $studyId) {
     $db->query('SELECT `last_iteration` FROM `survey_studies` WHERE `id` = ' . (int) $studyId . ' FOR UPDATE');
 }
 
+/**
+ * The highest iteration a results table has handed out: its largest
+ * `iteration`, or what its AUTO_INCREMENT went past (rows deleted from the
+ * top), whichever is higher — as SurveyStudy::resultsTableHighWater, which
+ * UnitSession seeds the counter from. Their numbers are not given out again.
+ */
+function wideHighWater($db, $safeWide) {
+    $table = $db->quote(str_replace('``', '`', $safeWide));
+    $rows = $db->query("SELECT GREATEST((SELECT COALESCE(MAX(`iteration`), 0) FROM `{$safeWide}`),
+            (SELECT COALESCE(MAX(`AUTO_INCREMENT`), 1) - 1 FROM information_schema.TABLES
+              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = {$table})) AS `hw`");
+    return isset($rows[0]['hw']) ? (int) $rows[0]['hw'] : 0;
+}
+
 /** Is the study's counter below a number its sessions (or its results table, $wideMax) hold? */
 function counterBehind($db, $studyId, $wideMax) {
     $studyId = (int) $studyId;
@@ -206,8 +220,7 @@ function backfillFromWideIteration($db, $safeWide, $studyId, $lastIteration, $dr
     $toCopy = isset($counts[0]['copy']) ? (int) $counts[0]['copy'] : 0;
     $clashes = isset($counts[0]['clash']) ? (int) $counts[0]['clash'] : 0;
 
-    $maxRows = $db->query("SELECT COALESCE(MAX(`iteration`), 0) AS max_iter FROM `{$safeWide}`");
-    $maxIter = isset($maxRows[0]['max_iter']) ? (int) $maxRows[0]['max_iter'] : 0;
+    $maxIter = wideHighWater($db, $safeWide);
     $newLastIteration = max($lastIteration, $maxIter);
 
     if ($dryRun) {
@@ -249,7 +262,7 @@ function backfillFromWideIteration($db, $safeWide, $studyId, $lastIteration, $dr
             $baseRows = $db->query("SELECT GREATEST(
                     (SELECT `last_iteration` FROM `survey_studies` WHERE `id` = {$studyId}),
                     (SELECT COALESCE(MAX(`study_iteration`), 0) FROM `survey_unit_sessions` WHERE `unit_id` = {$studyId}),
-                    (SELECT COALESCE(MAX(`iteration`), 0) FROM `{$safeWide}`)) AS `base`");
+                    " . wideHighWater($db, $safeWide) . ") AS `base`");
             $base = isset($baseRows[0]['base']) ? (int) $baseRows[0]['base'] : 0;
             $renumberStmt = $db->query("
                 UPDATE `survey_unit_sessions` AS `us`
@@ -266,7 +279,7 @@ function backfillFromWideIteration($db, $safeWide, $studyId, $lastIteration, $dr
             $rowsUpdated += $renumbered;
         }
 
-        $maxRows = $db->query("SELECT GREATEST(COALESCE((SELECT MAX(`iteration`) FROM `{$safeWide}`), 0),
+        $maxRows = $db->query("SELECT GREATEST(" . wideHighWater($db, $safeWide) . ",
                 COALESCE((SELECT MAX(`study_iteration`) FROM `survey_unit_sessions` WHERE `unit_id` = {$studyId}), 0)) AS `max_iter`");
         $maxIter = isset($maxRows[0]['max_iter']) ? (int) $maxRows[0]['max_iter'] : $maxIter;
         $newLastIteration = max($lastIteration, $maxIter);
