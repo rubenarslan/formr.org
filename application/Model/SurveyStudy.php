@@ -518,7 +518,7 @@ class SurveyStudy extends Model
      * @param array $settings allowlisted settings from createFromData
      * @return array
      */
-    private static function validateEngineSettings(array $settings)
+    public static function validateEngineSettings(array $settings)
     {
         if (array_key_exists('rendering_mode', $settings) && !in_array($settings['rendering_mode'], ['v1', 'v2'], true)) {
             unset($settings['rendering_mode']);

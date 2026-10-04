@@ -656,19 +656,15 @@ class AdminSurveyController extends AdminController {
         // v1 renderer doesn't read. offline_mode defaults to 1 (opt-out),
         // allow_previous defaults to 0 (opt-in).
         if ($this->study->rendering_mode === 'v2') {
-            $settings['offline_mode'] = (int) (isset($settings['offline_mode']) && $settings['offline_mode'] === 1);
-            $settings['allow_previous'] = (int) (isset($settings['allow_previous']) && $settings['allow_previous'] === 1);
-            $layoutInput = $settings['layout'] ?? 'default';
-            $settings['layout'] = in_array($layoutInput, ['default', 'solo'], true) ? $layoutInput : 'default';
-            // BCP 47-ish shape gate (patch 114); anything odd falls back to
-            // English rather than erroring — the column only picks a string
-            // table + lang/dir attributes.
-            $langInput = trim((string) ($settings['language'] ?? 'en'));
-            $settings['language'] = SurveyStudy::isLanguageTag($langInput) ? $langInput : 'en';
-            // Custom navigation wording (#322); empty = built-in.
-            foreach (['next_button_label', 'submit_button_label'] as $key) {
-                $settings[$key] = SurveyStudy::normalizeButtonLabel($settings[$key] ?? null);
-            }
+            // The rules an import applies (SurveyStudy::validateEngineSettings),
+            // with the form's fallbacks: an unchecked box posts nothing and is
+            // off; a layout or language it cannot use (BCP 47-ish, patch 114)
+            // is the default rather than an error; an empty label is the
+            // built-in wording (#322).
+            $settings = SurveyStudy::validateEngineSettings(array_merge(array(
+                'offline_mode' => 0, 'allow_previous' => 0,
+                'next_button_label' => null, 'submit_button_label' => null,
+            ), $settings)) + array('layout' => 'default', 'language' => 'en');
         } else {
             unset($settings['offline_mode'], $settings['allow_previous'], $settings['layout'], $settings['language'],
                 $settings['next_button_label'], $settings['submit_button_label']);
