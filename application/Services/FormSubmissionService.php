@@ -207,6 +207,12 @@ class FormSubmissionService {
         $posted['_item_views'] = $payload['item_views'];
         if (!$this->unitSession->updateSurveyStudyRecord($posted, true)) {
             $errors = is_array($this->unitSession->errors) ? $this->unitSession->errors : array();
+            if (!$errors && ($this->unitSession->ended !== null || $this->unitSession->expired !== null)) {
+                // Ended or expired meanwhile (UnitSession::writeSurveyStudyRecord):
+                // nothing is stored, and the retry the browser makes of a 5xx
+                // is refused by the gate as no longer current (drop_entry).
+                throw new RuntimeException('form_v2: the unit session ended or expired before the page was stored');
+            }
             if (!$errors) {
                 // Not a validation failure (the write itself failed: a value
                 // too long for its column, a deadlock). There is nothing for

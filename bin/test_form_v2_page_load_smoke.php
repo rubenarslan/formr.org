@@ -114,6 +114,25 @@ try {
         }
     }
 
+    echo "\n-- a page stored after its unit session expired is refused --\n";
+    // The daemon expires the unit session between the gate's read and the
+    // write (it holds the run-session lock, which the v2 endpoints don't).
+    $lateCode = 'PAGELOAD' . bin2hex(random_bytes(8));
+    $codes[] = $lateCode;
+    $db->insert('survey_run_sessions', ['run_id' => $runId, 'session' => $lateCode, 'created' => mysql_now(), 'position' => 10]);
+    (new RunSession($lateCode, new Run(null, $runId)))->execute();
+    $late = (new RunSession($lateCode, new Run(null, $runId)))->getCurrentUnitSession();
+    $db->exec('UPDATE survey_unit_sessions SET expired = NOW() WHERE id = :id', ['id' => (int) $late->id]);
+    $refused = null;
+    try {
+        (new FormSubmissionService($late, $study))->apply(['page' => 1, 'unit_session_id' => 0, 'data' => ['q1' => 'too late'], 'item_views' => [], 'hidden' => [], 'final' => false]);
+    } catch (RuntimeException $e) {
+        $refused = $e->getMessage();
+    }
+    ok($refused !== null && strpos($refused, 'ended or expired') !== false, 'the write is refused', $refused);
+    ok($db->execute("SELECT d.answer FROM survey_items_display d JOIN survey_items i ON i.id = d.item_id WHERE d.session_id = :s AND i.name = 'q1'",
+        ['s' => (int) $late->id], true) === null, 'and nothing is stored in it');
+
     echo "\n-- R sees a Form's sessions as a Survey's --\n";
     // Its unit row's type is 'Form' while the study is on v2, for every
     // session of the study; R code filtering type == "Survey" must not

@@ -1510,6 +1510,23 @@ class UnitSession extends Model {
         try {
             $this->db->beginTransaction();
 
+            // updateSurveyStudyRecord checked this object, read before; the
+            // queue daemon may have expired (or the admin ended) the unit
+            // session since, under the run-session lock, which the v2 write
+            // endpoints do not take. Read it again, holding its row until
+            // this write commits: no answers land in a terminal unit session.
+            $forUpdate = $this->db->pdo()->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $now = $this->db->execute('SELECT `ended`, `expired` FROM `survey_unit_sessions` WHERE `id` = :id' . $forUpdate,
+                array('id' => (int) $this->id), false, true);
+            if (!$now || $now['ended'] !== null || $now['expired'] !== null) {
+                $this->db->rollBack();
+                if ($now) {
+                    $this->ended = $now['ended'];
+                    $this->expired = $now['expired'];
+                }
+                return false;
+            }
+
             // accumulate the item_display write for each posted item
             foreach ($posted as $name => $value) {
                 if (!isset($items[$name])) {
