@@ -119,6 +119,8 @@
                                                     If the cell lists several choices, separate them with semicolons (<code>red;green;blue</code>) or give each its own row. If it is one choice, nothing to do.
                                                 <?php elseif ($r['suggested_fix'] === 'edit_choices'): ?>
                                                     Remove the semicolons from the choices in this choice list.
+                                                <?php elseif ($r['suggested_fix'] === 'rename_item'): ?>
+                                                    Rename the item, and the showifs and R that use it: the v2 form uses this name itself.
                                                 <?php elseif ($r['suggested_fix'] === 'use_hidden'): ?>
                                                     Use a <code>hidden</code> item with the same <code>value</code> instead. If only feedback or a later unit needs the result, compute it there.
                                                 <?php else: ?>

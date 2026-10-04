@@ -120,6 +120,25 @@ class FormV2CompatScannerScanTest extends \PHPUnit\Framework\TestCase {
         $this->assertSame('use_hidden', $flagged['score/type']['suggested_fix']);
     }
 
+    /**
+     * The scan applies the switch's own rule: a v1 study may have an item
+     * named like a member of the v2 form (a showif helper, init), which the
+     * switch refuses — the scan said nothing and exited 0, and even counted
+     * `last > 2` as valid JavaScript.
+     */
+    public function testAnItemNamedLikeAFormMemberIsFlaggedToRename() {
+        $this->seed(array(
+            array('last', 'number'),
+            array('init', 'text'),
+            array('q1', 'text', 'last > 2'),
+        ));
+        $report = FormV2CompatScanner::scan(self::STUDY_ID);
+        $this->assertSame(2, $report['counts']['unsupported']);
+        $renamed = array_values(array_filter($report['flagged'], function ($f) { return $f['suggested_fix'] === 'rename_item'; }));
+        $this->assertSame(array('last', 'init'), array_column($renamed, 'name'));
+        $this->assertSame('name', $renamed[0]['column']);
+    }
+
     public function testASemicolonInASelectOrAddMultipleChoiceIsFlagged() {
         $this->seed(array(
             array('places', 'select_or_add_multiple', null, null, false, 'places'),

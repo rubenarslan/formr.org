@@ -1412,18 +1412,30 @@ class SurveyStudy extends Model
         $factory = new ItemFactory($this->getChoices());
         $out = array();
         foreach ((array) $this->getItems() as $row) {
-            // A v1 study may keep an item named like a showif helper
-            // (Item::allowLegacyHelperName); on v2 it would shadow the helper.
-            if (in_array((string) $row['name'], Item::FORM_COMPONENT_NAMES, true)) {
-                $out[(string) $row['name']] = "'{$row['name']}' is a name the v2 form uses itself (a showif function, or init), so the item would break showifs that use it. Rename the item before moving the survey to v2.";
-                continue;
-            }
-            $item = $factory->make($row);
-            if ($item && ($why = $item->formV2Unsupported())) {
-                $out[(string) $item->name] = $why;
+            if (($why = self::formV2UnsupportedReason((string) $row['name'], $factory->make($row)))) {
+                $out[(string) $row['name']] = $why;
             }
         }
         return $out;
+    }
+
+    /**
+     * Why an item cannot be on v2, or null — the one rule for the switch
+     * (formV2UnsupportedItems) and the compatibility scan
+     * (FormV2CompatScanner). Its name: a v1 study may keep an item named like
+     * a member of the v2 form (Item::allowLegacyHelperName), which on v2
+     * would shadow it. Or its type (Item::formV2Unsupported).
+     *
+     * @param string $name
+     * @param Item|false|null $item
+     * @return string|null
+     */
+    public static function formV2UnsupportedReason($name, $item)
+    {
+        if (in_array((string) $name, Item::FORM_COMPONENT_NAMES, true)) {
+            return "'{$name}' is a name the v2 form uses itself (a showif function, or init), so the item would break showifs that use it. Rename the item before moving the survey to v2.";
+        }
+        return ($item && ($why = $item->formV2Unsupported())) ? $why : null;
     }
 
     /**

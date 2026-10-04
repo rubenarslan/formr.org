@@ -102,9 +102,12 @@ class FormV2CompatScanner {
             };
 
             // ---- the item itself ----
-            if ($typed && ($why = $typed->formV2Unsupported())) {
+            // The rule the switch to v2 applies (SurveyStudy::formV2UnsupportedReason).
+            if (($why = SurveyStudy::formV2UnsupportedReason((string) $row['name'], $typed))) {
                 $counts['unsupported']++;
-                if ($typed->type === 'select_or_add_multiple') {
+                if (in_array((string) $row['name'], Item::FORM_COMPONENT_NAMES, true)) {
+                    $flag('name', (string) $row['name'], [$why], 'rename_item');
+                } elseif ($typed && $typed->type === 'select_or_add_multiple') {
                     // A choice with a semicolon; this type takes input, so
                     // the value rule never applies to it.
                     $flag('choice_list', (string) $row['choice_list'], [$why], 'edit_choices');
