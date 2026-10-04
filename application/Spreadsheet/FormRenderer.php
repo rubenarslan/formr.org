@@ -44,11 +44,8 @@ class FormRenderer extends SpreadsheetRenderer {
     /** @var bool|null memoized isAuthorFacingSession() */
     protected $authorFacingSession = null;
 
-    /** @var array<string, true> item name => the session has stored a value for it (getStudyItems) */
-    protected $storedItems = [];
-
-    /** @var array<string, string> item name => its stored answer, as stored (getStudyItems) */
-    protected $storedAnswers = [];
+    /** @var array<string, array>|null stateRows by item name (stored()); rebuilt after they change */
+    protected $stateByName = null;
 
     /**
      * @var array[]|null the state block's rows (FormSubmissionService::stateRows'
@@ -114,7 +111,7 @@ class FormRenderer extends SpreadsheetRenderer {
         // re-roll on each reload). Already-stored ones are simply not
         // rendered.
         foreach ($items as $name => $item) {
-            if ($item && !$item->requiresUserInput() && !$item->needsDynamicValue() && isset($this->storedItems[$name])) {
+            if ($item && !$item->requiresUserInput() && !$item->needsDynamicValue() && $this->stored($name) !== null) {
                 unset($items[$name]);
             }
         }
@@ -367,7 +364,6 @@ class FormRenderer extends SpreadsheetRenderer {
      * SpreadsheetRenderer::getNextStudyItems without its progress filters.
      */
     protected function getStudyItems() {
-        $this->unanswered = [];
         $stmt = $this->db->select('
             `survey_items`.id,
             `survey_items`.study_id,
@@ -408,9 +404,8 @@ class FormRenderer extends SpreadsheetRenderer {
 
         $itemFactory = new ItemFactory([]);
         $out = [];
-        $this->storedItems = [];
-        $this->storedAnswers = [];
         $this->stateRows = [];
+        $this->stateByName = null;
         $this->showifs = [];
         // The page of every item this render can show (fetchPageMap): read
         // here with the items rather than queried again.
@@ -448,19 +443,6 @@ class FormRenderer extends SpreadsheetRenderer {
             // e.g. a choice list written in one cell is split at ";".
             $item->formV2 = true;
             $item->useVerbatimShowif();
-            if (isset($row['saved'])) {
-                $this->storedItems[$item->name] = true;
-                if ($row['stored_answer'] !== null) {
-                    $this->storedAnswers[$item->name] = (string) $row['stored_answer'];
-                }
-            }
-            // $this->unanswered feeds v1's getStudyProgress() only; v2's
-            // completion is the final submit's required check
-            // (UnitSession::unansweredRequiredItems). Kept in step with v1's
-            // exclusions so the inherited render helpers see the same shape.
-            if (!in_array($item->type, array('block', 'blank', 'submit'), true)) {
-                $this->unanswered[$item->name] = $item;
-            }
             $out[$item->name] = $item;
         }
         return $out;
@@ -505,12 +487,12 @@ class FormRenderer extends SpreadsheetRenderer {
                 }
                 if (!empty($this->validatedItems[$item->name])) {
                     $item->value_validated = $this->validatedItems[$item->name]->value_validated;
-                } elseif (isset($this->storedAnswers[$item->name]) && $item->rendersStoredAnswer()) {
+                } elseif (($stored = $this->stored($item->name)) && $stored['answer'] !== null && $item->rendersStoredAnswer()) {
                     // A stored answer is rendered by the item itself, the way
                     // v1 re-renders a page after a validation error: a slider
                     // at its value, a rank in its order, the ticked boxes.
                     // The browser only reads the inputs.
-                    $item->value_validated = $this->storedAnswers[$item->name];
+                    $item->value_validated = (string) $stored['answer'];
                 }
                 // A submit item renders as the page's big centred button. In
                 // non-solo, tag it data-fmr-next so main.js routes its click
@@ -710,6 +692,23 @@ class FormRenderer extends SpreadsheetRenderer {
                 $this->stateRows[$i] = $fresh[$row['name']];
             }
         }
+        $this->stateByName = null;
+    }
+
+    /**
+     * What this unit session has stored for an item: its state row
+     * (stateRows: `answer`, `saved`, …), or null while nothing is (`saved`
+     * unset). The one record of stored answers this render keeps.
+     */
+    protected function stored($name) {
+        if ($this->stateByName === null) {
+            $this->stateByName = array();
+            foreach ((array) $this->stateRows as $row) {
+                $this->stateByName[(string) $row['name']] = $row;
+            }
+        }
+        $row = isset($this->stateByName[$name]) ? $this->stateByName[$name] : null;
+        return ($row && $row['saved'] !== null) ? $row : null;
     }
 
     public function stateBlock() {
