@@ -589,14 +589,18 @@ class RCallService {
             // evaluates a `value` (SpreadsheetRenderer): a trailing `# comment`
             // must not swallow the closing brace, and a `return()` must end
             // this expression, not the whole batch.
-            $listEntries[] = sprintf("`%d` = tryCatch({\n(function() {\n%s\n})()\n}, error = function(e) NA)", (int) $key, (string) $expr);
+            $listEntries[] = sprintf("`%d` = .fmr.na(tryCatch({\n(function() {\n%s\n})()\n}, error = function(e) NA))", (int) $key, (string) $expr);
         }
         // The browser's answers land on the survey frame first (the same
         // statements the label path knits), so `survey$x` and a bare `x`
         // inside with() see the same values.
+        // A missing number (NA_real_, NaN: a score over an unanswered item)
+        // goes to JSON as the string "NA"; as logical NA it is null, which
+        // the browser fills as nothing (rResultToScalarString), not "NA".
         $program = function ($overlayR) use ($listEntries) {
             return "(function() {\n"
                  . self::overlayStatements($this->surveyName, $overlayR, '  ')
+                 . "  .fmr.na <- function(v) if (is.numeric(v) && length(v) == 1 && is.na(v)) NA else v\n"
                  . "  with(tail({$this->surveyName}, 1), list(\n"
                  . "    " . implode(",\n    ", $listEntries) . "\n"
                  . "  ))\n"

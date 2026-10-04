@@ -179,6 +179,13 @@ try {
     $doc = isset($src[1]) ? @file_get_contents(html_entity_decode($src[1])) : false;
     ok(is_string($doc) && strpos($doc, 'INJECTED') !== false && strpos($doc, 'INJECTED 42') === false, 'its document shows the answer and runs none of it', is_string($doc) ? strlen($doc) . ' bytes' : $doc);
 
+    echo "\n-- a missing number is no value, not the text NA --\n";
+    $na = evaluateBatch($svc, [1 => 'NA_real_', 2 => 'mean(c(1, NA))', 3 => 'NaN', 4 => '1.5', 5 => '"NA"']);
+    ok(array_key_exists(1, $na['results']) && $na['results'][1] === null && $na['results'][2] === null && $na['results'][3] === null,
+        'NA_real_, a mean over NA and NaN come back as nothing', $na['results']);
+    ok(RCallService::rResultToScalarString($na['results'][2]) === '' && $na['results'][4] === 1.5 && $na['results'][5] === 'NA',
+        'a number stays a number, and the string "NA" stays a string', $na['results']);
+
     echo "\n-- a following value replaces the input only for changed answers --\n";
     // v_num (n1 * 2) reads another item, so a new result replaces what the
     // hidden item holds — but only when the answers changed since its last
