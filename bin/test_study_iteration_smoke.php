@@ -21,7 +21,10 @@
  *     row records the start, also when the other won the number;
  *   - "Delete results" numbers the next session 1 again;
  *   - seeding a counter at 0 skips the numbers of rows deleted from the top
- *     of the results table, as its AUTO_INCREMENT did.
+ *     of the results table, as its AUTO_INCREMENT did;
+ *   - with form_v2_dual_write_results off the results table is still read:
+ *     a session from before patch 108 keeps its number, a new one is
+ *     numbered above them all.
  *
  * Run: docker exec formr_app php /var/www/formr/bin/test_study_iteration_smoke.php
  * Creates and removes its own run, study and sessions.
@@ -52,6 +55,14 @@ class OvertakenUnitSession extends UnitSession {
         }
         return $n;
     }
+}
+
+function setConfig(string $key, $value): void {
+    $p = new ReflectionProperty(Config::class, 'config');
+    $p->setAccessible(true);
+    $all = $p->getValue();
+    $all[$key] = $value;
+    Config::initialize($all);
 }
 
 $owner = $db->execute('SELECT id FROM survey_users ORDER BY id LIMIT 1', [], false, true);
@@ -253,6 +264,28 @@ try {
     $db->exec('UPDATE survey_studies SET last_iteration = 0 WHERE id = :id', ['id' => $study->id]);
     $next = $start();
     ok([$iteration($second), $iteration($next)] === [2, 4], 'the next session gets 4, not the deleted 3', [$iteration($second), $iteration($next)]);
+
+    echo "\n-- with form_v2_dual_write_results off, the results table's history counts --\n";
+    // Before patch 108: no session has a number yet and the counter is at 0,
+    // while the results table numbered them all.
+    $wide = function (int $usId) use ($db, $study) {
+        return (int) $db->execute("SELECT iteration FROM `{$study->results_table}` WHERE session_id = :s", ['s' => $usId], true);
+    };
+    $historic = $start();
+    $historicNumber = $wide($historic);
+    $db->exec('UPDATE survey_unit_sessions SET study_iteration = NULL WHERE unit_id = :s', ['s' => $study->id]);
+    $db->exec('UPDATE survey_studies SET last_iteration = 0 WHERE id = :id', ['id' => $study->id]);
+    $highest = (int) $db->execute("SELECT MAX(iteration) FROM `{$study->results_table}`", [], true);
+    setConfig('form_v2_dual_write_results', false);
+    try {
+        $fresh = $start();
+        ok($iteration($fresh) > $highest, 'a new session is numbered above the results table, not 1', [$iteration($fresh), $highest]);
+        $back = (new RunSession($codeOf[$historic], new Run(null, $runId)))->getCurrentUnitSession();
+        $back->createSurveyStudyRecord();
+        ok($iteration($historic) === $historicNumber, 'a session from before patch 108 keeps its number', [$iteration($historic), $historicNumber]);
+    } finally {
+        setConfig('form_v2_dual_write_results', true);
+    }
 } catch (Throwable $e) {
     echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";
     $failures++;

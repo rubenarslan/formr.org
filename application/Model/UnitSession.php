@@ -1050,8 +1050,12 @@ class UnitSession extends Model {
         // Legacy-host guard (F2): wide tables created before 2024-07 (commit
         // 89383543) have no `iteration` column. SurveyStudy owns the probe
         // (cached per request) so every writer below asks the same question
-        // once instead of guessing from an error message.
-        $wideHasIteration = $dualWrite && $study->resultsTableHasIteration();
+        // once instead of guessing from an error message. The column's
+        // history (a session's number from before patch 108, the counter's
+        // seed) is read whether or not the table is still written
+        // (form_v2_dual_write_results); only writing it depends on that.
+        $wideHistory = $study->resultsTableHasIteration();
+        $wideHasIteration = $dualWrite && $wideHistory;
 
         // A session that was already under way when patch 108 arrived has no
         // study_iteration yet but does have its wide row, numbered by the
@@ -1059,7 +1063,7 @@ class UnitSession extends Model {
         // would give the session two different iterations (the wide row's and
         // survey_unit_sessions'), and bin/backfill_study_iteration.php only
         // fills NULLs, so it would never be reconciled.
-        if (!$alreadyAllocated && $wideHasIteration) {
+        if (!$alreadyAllocated && $wideHistory) {
             $wideIteration = (int) $this->db->findValue(
                 $study->results_table,
                 array('session_id' => $this->id, 'study_id' => $study->id),
@@ -1097,7 +1101,7 @@ class UnitSession extends Model {
             // one — also of rows deleted since. Guarded by `last_iteration = 0`
             // in the WHERE so a concurrent first allocation can't double-seed;
             // a table without the column has no history to seed from.
-            if ($wideHasIteration && (int) $study->last_iteration === 0
+            if ($wideHistory && (int) $study->last_iteration === 0
                     && ($highWater = $study->resultsTableHighWater()) > 0) {
                 $this->db->exec(
                     'UPDATE `survey_studies` SET `last_iteration` = :seed WHERE `id` = :id AND `last_iteration` = 0',
