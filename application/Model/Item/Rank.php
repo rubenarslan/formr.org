@@ -71,6 +71,23 @@ class Rank_Item extends Item {
         $this->input_attributes['name'] = $this->name . '[]';
     }
 
+    /**
+     * The answer lists the choice names separated by commas (getReply) and is
+     * read back split at them (normalizeReply), so a name holding a comma
+     * would come back in pieces: the ranking lost on a revisit, extra entries
+     * in the stored order.
+     */
+    public function validate() {
+        $commas = array_filter(array_map('strval', array_keys($this->choices)), function ($key) {
+            return strpos($key, ',') !== false;
+        });
+        if ($commas) {
+            $this->val_errors[] = __("'%s': the choice names of a rank item cannot contain a comma (%s), because its answer lists them separated by commas.",
+                $this->name, h(implode('; ', $commas)));
+        }
+        return parent::validate();
+    }
+
     /** The answer is a ", "-joined list of keys, so size the column for all of them. */
     protected function chooseResultFieldBasedOnChoices() {
         $this->mysql_field = 'VARCHAR (' . self::joinedChoicesLength(array_keys($this->choices)) . ') DEFAULT NULL';

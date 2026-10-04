@@ -37,6 +37,14 @@ class RankItemTest extends TestCase
         $this->assertFalse(Rank_Item::isOptionKeyword('fruits'));
     }
 
+    public function testAChoiceNameWithACommaIsRefused()
+    {
+        $item = $this->make(array('choices' => array('Berlin, DE' => 'Berlin', 'Paris' => 'Paris')));
+        $errors = $item->validate()['val_errors'];
+        $this->assertNotEmpty(preg_grep('/cannot contain a comma \(Berlin, DE\)/', $errors), implode(' | ', $errors));
+        $this->assertSame(array(), $this->make()->validate()['val_errors']);
+    }
+
     public function testValidOrderIsAcceptedAndStoredJoined()
     {
         $item = $this->make();
