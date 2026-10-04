@@ -83,6 +83,16 @@ function teardown() {
     try { if ($run && $run->id) { $run->delete(); } } catch (Throwable $e) {}
     foreach ($unitIds as $u) { try { $db->exec('DELETE FROM survey_units WHERE id = :id', ['id' => $u]); } catch (Throwable $e) {} }
 }
+/** Counts the charges against the compute budget (each is two writes). */
+class CountingUnitSession extends UnitSession {
+    public $charges = 0;
+    public $charged = 0.0;
+    public function addExecutionTime(float $seconds) {
+        $this->charges++;
+        $this->charged += $seconds;
+        parent::addExecutionTime($seconds);
+    }
+}
 // Reach the protected batch evaluator to see which keys failed and why.
 function evaluateBatch(RCallService $svc, array $exprs) {
     $m = new ReflectionMethod(RCallService::class, 'evaluateBatch');
@@ -204,6 +214,12 @@ try {
     ok($changed(['n1' => '3']) === false, 'the same answers, evaluated again after the cache expired: no');
     ok($changed(['n1' => '4']) === true, 'other answers: yes');
     ok($changed(['n1' => '3']) === true, 'and back to the earlier ones: yes again');
+
+    echo "\n-- a page's R is charged once --\n";
+    $db->exec('DELETE FROM survey_r_call_results WHERE unit_session_id = :u', ['u' => $us->id]);
+    $counting = new CountingUnitSession($rs, $form, ['id' => (int) $us->id, 'load' => true]);
+    (new RCallService($counting, $study))->resolvePage($calls, []);
+    ok($counting->charges === 1 && $counting->charged > 0, 'values, labels and iframes resolved with one charge', [$counting->charges, $counting->charged]);
 
     echo "\n-- requests sent together each keep their own answer --\n";
     // resolvePage sends a page's values, labels and iframes at once

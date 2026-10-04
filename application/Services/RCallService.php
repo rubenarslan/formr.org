@@ -437,12 +437,16 @@ class RCallService {
      * @param array<int, array{expr:string}> $calls
      */
     public function resolveExpressions(array $calls, array $answers, $ttl) {
-        $plan = $this->planExpressions($calls, $answers, $ttl);
-        if ($plan['request'] === null) {
-            return $plan['results'];
+        try {
+            $plan = $this->planExpressions($calls, $answers, $ttl);
+            if ($plan['request'] === null) {
+                return $plan['results'];
+            }
+            $sent = $this->send(array('values' => $plan['request']));
+            return $this->completeExpressions($plan, $sent['values'], $answers);
+        } finally {
+            $this->chargeTime();
         }
-        $sent = $this->send(array('values' => $plan['request']));
-        return $this->completeExpressions($plan, $sent['values'], $answers);
     }
 
     /**
@@ -656,11 +660,9 @@ class RCallService {
      */
     protected function send(array $requests) {
         $sent = opencpu_post_many($requests);
-        $seconds = 0.0;
         foreach ($sent as $entry) {
-            $seconds += $entry['seconds'];
+            $this->uncharged += $entry['seconds'];
         }
-        $this->unitSession->addExecutionTime($seconds);
         return $sent;
     }
 
@@ -670,8 +672,23 @@ class RCallService {
         try {
             return $build();
         } finally {
-            $this->unitSession->addExecutionTime((hrtime(true) - $started) / 1e9);
+            $this->uncharged += (hrtime(true) - $started) / 1e9;
         }
+    }
+
+    /** @var float compute seconds this resolution spent, not yet charged */
+    protected $uncharged = 0.0;
+
+    /**
+     * Charge what a resolution spent (send(), charged()) once, at its end:
+     * each charge is an UPDATE of the participant's unit session and an
+     * upsert of the run's monthly row, and a page with values, labels and
+     * note_iframes used to charge five times or more.
+     */
+    protected function chargeTime() {
+        $seconds = $this->uncharged;
+        $this->uncharged = 0.0;
+        $this->unitSession->addExecutionTime($seconds);
     }
 
     /** What went wrong with a request (send()'s entry), for the log. */
@@ -693,36 +710,40 @@ class RCallService {
      * @return array{values: array, labels: array, choices: array} call id => result
      */
     public function resolvePage(array $calls, array $answers) {
-        // A note_iframe's "label" is a whole R Markdown document knitted to
-        // its own HTML file; every other label is inline markdown.
-        $iframeCalls = array_filter($calls['label'], function ($call) {
-            return $call['item_type'] === 'note_iframe';
-        });
-        $labelCalls = array_diff_key($calls['label'], $iframeCalls);
+        try {
+            // A note_iframe's "label" is a whole R Markdown document knitted to
+            // its own HTML file; every other label is inline markdown.
+            $iframeCalls = array_filter($calls['label'], function ($call) {
+                return $call['item_type'] === 'note_iframe';
+            });
+            $labelCalls = array_diff_key($calls['label'], $iframeCalls);
 
-        $values = $this->planExpressions($calls['value'], $answers, self::ttlForSlot('value'));
-        // Labels and choice labels share one knit (call ids are unique across
-        // slots); the stricter of the two TTLs governs its cache.
-        $knit = $this->planLabels($labelCalls + $calls['choice_label'], $answers,
-            min(self::ttlForSlot('label'), self::ttlForSlot('choice_label')));
-        $iframes = $this->planIframes($iframeCalls, $answers, self::ttlForSlot('label'));
+            $values = $this->planExpressions($calls['value'], $answers, self::ttlForSlot('value'));
+            // Labels and choice labels share one knit (call ids are unique across
+            // slots); the stricter of the two TTLs governs its cache.
+            $knit = $this->planLabels($labelCalls + $calls['choice_label'], $answers,
+                min(self::ttlForSlot('label'), self::ttlForSlot('choice_label')));
+            $iframes = $this->planIframes($iframeCalls, $answers, self::ttlForSlot('label'));
 
-        $requests = $iframes['requests'];
-        if ($values['request'] !== null) {
-            $requests['values'] = $values['request'];
+            $requests = $iframes['requests'];
+            if ($values['request'] !== null) {
+                $requests['values'] = $values['request'];
+            }
+            if ($knit['request'] !== null) {
+                $requests['labels'] = $knit['request'];
+            }
+            $sent = $requests ? $this->send($requests) : array();
+
+            $valueResults = $values['request'] !== null ? $this->completeExpressions($values, $sent['values'], $answers) : $values['results'];
+            $knitted = $knit['request'] !== null ? $this->completeLabels($knit, $sent['labels']) : $knit['results'];
+            return array(
+                'values' => $valueResults,
+                'labels' => array_intersect_key($knitted, $labelCalls) + $this->completeIframes($iframes, $sent),
+                'choices' => array_intersect_key($knitted, $calls['choice_label']),
+            );
+        } finally {
+            $this->chargeTime();
         }
-        if ($knit['request'] !== null) {
-            $requests['labels'] = $knit['request'];
-        }
-        $sent = $requests ? $this->send($requests) : array();
-
-        $valueResults = $values['request'] !== null ? $this->completeExpressions($values, $sent['values'], $answers) : $values['results'];
-        $knitted = $knit['request'] !== null ? $this->completeLabels($knit, $sent['labels']) : $knit['results'];
-        return array(
-            'values' => $valueResults,
-            'labels' => array_intersect_key($knitted, $labelCalls) + $this->completeIframes($iframes, $sent),
-            'choices' => array_intersect_key($knitted, $calls['choice_label']),
-        );
     }
 
     /**
@@ -735,12 +756,16 @@ class RCallService {
      * @return array<int, string> call_id => html
      */
     public function resolveLabels(array $calls, array $answers, $ttl) {
-        $plan = $this->planLabels($calls, $answers, $ttl);
-        if ($plan['request'] === null) {
-            return $plan['results'];
+        try {
+            $plan = $this->planLabels($calls, $answers, $ttl);
+            if ($plan['request'] === null) {
+                return $plan['results'];
+            }
+            $sent = $this->send(array('labels' => $plan['request']));
+            return $this->completeLabels($plan, $sent['labels']);
+        } finally {
+            $this->chargeTime();
         }
-        $sent = $this->send(array('labels' => $plan['request']));
-        return $this->completeLabels($plan, $sent['labels']);
     }
 
     /**
@@ -832,8 +857,12 @@ class RCallService {
      * @return array<int, string> call id => the item's label HTML
      */
     public function resolveIframes(array $calls, array $answers, $ttl) {
-        $plan = $this->planIframes($calls, $answers, $ttl);
-        return $this->completeIframes($plan, $plan['requests'] ? $this->send($plan['requests']) : array());
+        try {
+            $plan = $this->planIframes($calls, $answers, $ttl);
+            return $this->completeIframes($plan, $plan['requests'] ? $this->send($plan['requests']) : array());
+        } finally {
+            $this->chargeTime();
+        }
     }
 
     /**
