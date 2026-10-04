@@ -61,9 +61,26 @@
 
 require_once dirname(__FILE__) . '/../setup.php';
 
-$opts = getopt('', ['dry-run', 'study::']);
-$dryRun = isset($opts['dry-run']);
-$onlyStudyId = isset($opts['study']) ? (int) $opts['study'] : null;
+// Read strictly. getopt() took `--study 42` (with a space) as no study and
+// skipped what it did not know, so a mistyped `--dryrun` ran for real.
+$dryRun = false;
+$onlyStudyId = null;
+$args = array_slice($argv, 1);
+for ($i = 0; $i < count($args); $i++) {
+    if ($args[$i] === '--dry-run') {
+        $dryRun = true;
+    } elseif (preg_match('/^--study(?:=(.*))?$/', $args[$i], $m)) {
+        $value = isset($m[1]) ? $m[1] : (string) ($args[++$i] ?? '');
+        if (!ctype_digit($value)) {
+            fwrite(STDERR, "--study takes a survey id, not '{$value}'.\n");
+            exit(2);
+        }
+        $onlyStudyId = (int) $value;
+    } else {
+        fwrite(STDERR, "Unknown argument '{$args[$i]}'. Usage: backfill_study_iteration.php [--dry-run] [--study=ID]\n");
+        exit(2);
+    }
+}
 
 $db = DB::getInstance();
 

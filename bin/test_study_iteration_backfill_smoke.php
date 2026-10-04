@@ -36,8 +36,9 @@ $fromFile = null; $study = null; $codes = [];
 $runId = $db->insert('survey_runs', ['user_id' => (int) $owner['id'], 'name' => 'backfillsmoke_' . $suffix,
     'created' => mysql_now(), 'modified' => mysql_now(), 'cron_active' => 0]);
 $run = new Run(null, $runId);
-$backfill = function (string $args) {
-    return (string) shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/backfill_study_iteration.php') . ' ' . $args . ' 2>&1');
+$backfill = function (string $args, &$exit = null) {
+    exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/backfill_study_iteration.php') . ' ' . $args . ' 2>&1', $out, $exit);
+    return implode("\n", $out);
 };
 try {
     echo "== study iteration backfill smoke ==\n";
@@ -88,8 +89,11 @@ try {
     $db->exec("UPDATE survey_unit_sessions SET study_iteration = NULL WHERE id IN ({$marks})");
     $db->exec('UPDATE survey_studies SET valid = NULL, last_iteration = 0 WHERE id = :id', ['id' => $study->id]);
 
-    $dry = $backfill("--study={$study->id} --dry-run");
-    ok(strpos($dry, 'rows_to_backfill=3') !== false, 'the dry run counts the three sessions', trim($dry));
+    $typo = $backfill("--study={$study->id} --dryrun", $exit);
+    ok($exit !== 0 && strpos($typo, 'Unknown argument') !== false, 'a mistyped --dry-run is refused, not run for real', [$exit, trim($typo)]);
+    ok(array_filter($sessions(), function ($v) { return $v !== null; }) === [], 'and changes nothing');
+    $dry = $backfill("--study {$study->id} --dry-run");
+    ok(strpos($dry, 'rows_to_backfill=3') !== false, 'the dry run (--study with a space) counts the three sessions', trim($dry));
     ok(array_filter($sessions(), function ($v) { return $v !== null; }) === [], 'and changes nothing');
     $out = $backfill("--study={$study->id}");
     ok(strpos($out, 'rows_backfilled=3') !== false, 'the backfill fills them', trim($out));
