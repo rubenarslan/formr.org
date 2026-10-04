@@ -90,6 +90,20 @@ class ShowifReservedNamesTest extends \PHPUnit\Framework\TestCase {
         $this->assertSame(array(), $this->item(array('name' => 'ID', 'type' => 'text'))->validate()['val_errors']);
     }
 
+    /**
+     * `init` is the Alpine component's own method: the browser never writes
+     * a field of that name (alpine.js RESERVED_FIELD_NAMES), so on v2 a
+     * showif `init == 1` compared the method and stayed false for good.
+     */
+    public function testInitIsReservedOnV2Only() {
+        $this->assertContains('init', Item::RESERVED_NAMES);
+        $item = $this->item(array('name' => 'init', 'type' => 'text'));
+        $this->assertNotEmpty(preg_grep('/reserved/', $item->validate()['val_errors']));
+        $v1 = $this->item(array('name' => 'init', 'type' => 'text'));
+        $v1->allowLegacyHelperName();
+        $this->assertSame(array(), $v1->validate()['val_errors'], 'a v1 study may keep it');
+    }
+
     public function testOrdinaryNamesStillValidate() {
         // near-misses: differing case and a legitimate word that merely contains
         // a helper name must stay usable.

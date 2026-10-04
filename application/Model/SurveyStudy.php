@@ -1150,7 +1150,7 @@ class SurveyStudy extends Model
             'result_columns' => array(),
         );
 
-        // The form_v2 showif helper names (Item::SHOWIF_HELPERS) are reserved
+        // The form_v2 showif helper names (Item::FORM_COMPONENT_NAMES) are reserved
         // on v2 only: a v1 study never runs those helpers, and a copy of an
         // older v1 survey must upload (Item::allowLegacyHelperName). The
         // switch to v2 and a Form link refuse a study that has one
@@ -1400,8 +1400,8 @@ class SurveyStudy extends Model
         foreach ((array) $this->getItems() as $row) {
             // A v1 study may keep an item named like a showif helper
             // (Item::allowLegacyHelperName); on v2 it would shadow the helper.
-            if (in_array((string) $row['name'], Item::SHOWIF_HELPERS, true)) {
-                $out[(string) $row['name']] = "'{$row['name']}' is also the name of a v2 showif function, so the item would break showifs that use it. Rename the item before moving the survey to v2.";
+            if (in_array((string) $row['name'], Item::FORM_COMPONENT_NAMES, true)) {
+                $out[(string) $row['name']] = "'{$row['name']}' is a name the v2 form uses itself (a showif function, or init), so the item would break showifs that use it. Rename the item before moving the survey to v2.";
                 continue;
             }
             $item = $factory->make($row);

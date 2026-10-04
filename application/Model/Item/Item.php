@@ -111,8 +111,17 @@ class Item {
      */
     const RESERVED_NAMES = array(
         ...self::RESULT_COLUMN_NAMES,
-        ...self::SHOWIF_HELPERS,
+        ...self::FORM_COMPONENT_NAMES,
     );
+
+    /**
+     * What a v2 item's value would shadow on the form's Alpine component
+     * (alpine.js RESERVED_FIELD_NAMES, which never writes such a field): the
+     * showif helpers and the component's own init(). A showif reading an
+     * item of such a name reads the method instead. Reserved on v2 only
+     * (legacyHelperName).
+     */
+    const FORM_COMPONENT_NAMES = array(...self::SHOWIF_HELPERS, 'init');
 
     /**
      * The showif helper names (`last`, `answered`, …) are reserved on form_v2
