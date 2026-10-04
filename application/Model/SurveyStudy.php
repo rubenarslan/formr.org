@@ -1226,10 +1226,17 @@ class SurveyStudy extends Model
         // survey_items_display alone (as createSurveyStudyRecord allows),
         // and an empty item list would make every write store nothing.
         if ($this->resultsTableExists() || !Config::get('form_v2_dual_write_results', true)) {
-            $choice_lists = $this->getChoices();
-            $itemFactory = new ItemFactory($choice_lists);
-
             $raw_items = $this->getItems($columns, $whereIn);
+            // Only the choice lists these items use: every autosave, page
+            // submit and sync asks for one or two items, and a study's whole
+            // choice table (a 3,000-entry occupation list) was read each time.
+            $lists = array();
+            foreach ((array) $raw_items as $row) {
+                if (!empty($row['choice_list'])) {
+                    $lists[(string) $row['choice_list']] = true;
+                }
+            }
+            $itemFactory = new ItemFactory($lists ? $this->getChoices(array_keys($lists)) : array());
 
             $items = array();
             foreach ($raw_items as $row) {
