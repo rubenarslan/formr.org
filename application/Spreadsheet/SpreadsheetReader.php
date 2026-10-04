@@ -726,6 +726,12 @@ class SpreadsheetReader
     {
         $values = array();
         foreach ($columns as $colNumber => $colName) {
+            // Of two columns with one heading, the first counts, as in the
+            // cell loop that reads the row (a choices table pasted beside the
+            // items brings a second `name` and `label`).
+            if (array_key_exists($colName, $values)) {
+                continue;
+            }
             $cell = $worksheet->getCell(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colNumber) . $rowNumber);
             $values[$colName] = trim(hardTrueFalse(Normalizer::normalize((string) $cell->getValue(), Normalizer::FORM_C)));
         }

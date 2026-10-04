@@ -81,4 +81,29 @@ class SpreadsheetReaderNoItemsTest extends TestCase
         $this->assertSame(array(), $reader->warnings);
         $this->assertSame(array('Read 1 item and 1 choice list. Columns formr does not use were ignored: explanations.'), $reader->messages);
     }
+    /**
+     * Of two columns with one heading — a choices table pasted beside the
+     * items brings a second `name` and `label` — the first counts. The row
+     * was kept or skipped by the last one, while the first became the
+     * item's name: items below the end of the side table vanished.
+     */
+    public function testTheFirstOfTwoNameColumnsDecides()
+    {
+        $reader = $this->read(array(
+            'survey' => array(
+                array('type', 'name', 'label', 'list_name', 'name', 'label'),
+                array('mc yesno', 'q1', 'First', 'yesno', '1', 'Yes'),
+                array('text', 'q2', 'Second', 'yesno', '0', 'No'),
+                array('text', 'q3', 'Third', '', '', ''),
+                array('text', 'q4', 'Fourth', '', '', ''),
+            ),
+            'choices' => array(
+                array('list_name', 'name', 'label'),
+                array('yesno', '1', 'Yes'),
+                array('yesno', '0', 'No'),
+            ),
+        ));
+        $this->assertSame(array('q1', 'q2', 'q3', 'q4'), array_values(array_map(function ($row) { return $row['name']; }, $reader->survey)),
+            print_r($reader->errors, true));
+    }
 }
