@@ -1330,6 +1330,7 @@ class SurveyStudy extends Model
         if ($this->deleteResults()) {
             $drop = $this->db->query("DROP TABLE IF EXISTS `{$this->results_table}` ;");
             $drop->execute();
+            $this->restartIterations();
         } else {
             // If we aren't allowed to delete results, usually we return false.
             // However, checking if the table exists and returning true would be safer here,
@@ -2175,6 +2176,7 @@ class SurveyStudy extends Model
                 array('study_id' => (int) $this->id)
             );
             $delete_item_disp = true;
+            $this->restartIterations();
 
             // Reset the write-time rollup so display counts don't keep
             // reporting the deleted rows (and later hooks don't increment on a
@@ -2189,6 +2191,19 @@ class SurveyStudy extends Model
             $this->errors[] = __("Backup of %s result rows failed. Deletion cancelled.", array_sum($this->result_count));
             return false;
         }
+    }
+
+    /**
+     * Number the study's sessions from 1 again, as the results table's
+     * AUTO_INCREMENT did when "Delete results" truncated it or a re-upload
+     * recreated it: `iteration` counts the responses to the survey. A
+     * session that is still there keeps its number, and the allocator never
+     * hands out one a session holds (UnitSession::allocateStudyIteration).
+     */
+    private function restartIterations()
+    {
+        $this->db->update('survey_studies', array('last_iteration' => 0), array('id' => (int) $this->id));
+        $this->last_iteration = 0;
     }
 
     public function backupResults($itemNames = null)

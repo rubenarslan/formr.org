@@ -16,7 +16,8 @@
  *     theirs into the wide table, older ones are numbered after them;
  *   - and where that table's `iteration` column held an item's answers
  *     (the name was allowed then), the re-upload that deletes the item
- *     replaces the column instead of numbering the answers.
+ *     replaces the column instead of numbering the answers;
+ *   - "Delete results" numbers the next session 1 again.
  *
  * Run: docker exec formr_app php /var/www/formr/bin/test_study_iteration_smoke.php
  * Creates and removes its own run, study and sessions.
@@ -192,6 +193,13 @@ try {
         JOIN survey_unit_sessions us ON us.id = w.session_id WHERE w.session_id IN (" . implode(',', $answered) . ")");
     ok(count($pairs) === 2 && !array_filter($pairs, function ($p) { return (string) $p['si'] !== (string) $p['wi']; }),
         "each session's wide iteration is its study_iteration, not the item's answer", $pairs);
+
+    echo "\n-- deleting the results starts the numbering again --\n";
+    $cleared = new SurveyStudy($study->id);
+    ok($cleared->deleteResults() === true, 'the results are deleted', $cleared->errors);
+    ok((int) $db->execute('SELECT last_iteration FROM survey_studies WHERE id = :id', ['id' => $study->id], true) === 0, 'the counter is back at 0');
+    $first = $start();
+    ok($iteration($first) === 1, 'the next session is number 1, as the truncated table numbered it', $iteration($first));
 } catch (Throwable $e) {
     echo "  \e[31mEXCEPTION\e[0m " . get_class($e) . ': ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";
     $failures++;
