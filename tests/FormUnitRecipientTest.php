@@ -23,7 +23,7 @@ class FormUnitRecipientTest extends \PHPUnit\Framework\TestCase {
         $this->db->exec('CREATE TABLE survey_units (id INTEGER PRIMARY KEY, type TEXT)');
         $this->db->exec('CREATE TABLE survey_run_units (id INTEGER PRIMARY KEY, run_id INTEGER, unit_id INTEGER, position INTEGER)');
         $this->db->exec('CREATE TABLE survey_studies (id INTEGER PRIMARY KEY, name TEXT)');
-        $this->db->exec('CREATE TABLE survey_items (id INTEGER PRIMARY KEY, study_id INTEGER, type TEXT, name TEXT)');
+        $this->db->exec('CREATE TABLE survey_items (id INTEGER PRIMARY KEY, study_id INTEGER, type TEXT, name TEXT, deleted TEXT DEFAULT NULL)');
         $this->db->exec('CREATE TABLE survey_unit_sessions (id INTEGER PRIMARY KEY, run_session_id INTEGER, unit_id INTEGER, run_unit_id INTEGER)');
         $this->db->exec('CREATE TABLE survey_items_display (id INTEGER PRIMARY KEY, session_id INTEGER, item_id INTEGER, answer TEXT, answered TEXT)');
 
