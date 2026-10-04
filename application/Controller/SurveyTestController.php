@@ -214,7 +214,6 @@ class SurveyTestController extends Controller {
         return (new RunController($this->site))->dispatchFormV2Preview($action, array(
             'run' => $testRun,
             'unitSession' => $unitSession,
-            'study' => $study,
             'runUrl' => site_url('survey-test/' . $token),
         ));
     }

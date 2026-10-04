@@ -840,7 +840,7 @@ class RunController extends Controller {
      * unit session comes from the preview's own session slot, not from a
      * participant's run session. Set by dispatchFormV2Preview.
      *
-     * @var array{run: Run, unitSession: UnitSession, study: SurveyStudy, runUrl: string}|null
+     * @var array{run: Run, unitSession: UnitSession, runUrl: string}|null
      */
     private $previewContext = null;
 
@@ -860,7 +860,7 @@ class RunController extends Controller {
      * preview exercises the same code as a real run.
      *
      * @param string $action a key of FORM_V2_PREVIEW_ACTIONS
-     * @param array $context run (the TEST_RUN), unitSession, study, runUrl
+     * @param array $context run (the TEST_RUN), unitSession, runUrl
      *   (where a completed form redirects: the preview URL)
      */
     public function dispatchFormV2Preview($action, array $context) {
