@@ -632,6 +632,7 @@ CREATE TABLE `survey_unit_sessions` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `idemp_unit_session` (`idempotency_key`),
   UNIQUE KEY `idx_run_unit_iter` (`run_session_id`,`run_unit_id`,`iteration`),
+  UNIQUE KEY `uq_study_iteration` (`unit_id`,`study_iteration`),
   KEY `session_uq` (`created`,`run_session_id`,`unit_id`),
   KEY `fk_survey_sessions_survey_units1_idx` (`unit_id`),
   KEY `ended` (`ended`),
