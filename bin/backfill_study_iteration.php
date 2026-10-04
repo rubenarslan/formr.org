@@ -161,6 +161,26 @@ echo "\n$tag Done. processed=$processed skipped_no_table=$skippedNoTable "
 exit($failed ? 1 : 0);
 
 /**
+ * Take the study's counter row first, as UnitSession::allocateStudyIteration
+ * does (its UPDATE locks the row, then reads the sessions' numbers). Updating
+ * the sessions first and the counter last was the opposite order: a
+ * participant starting the study meanwhile could deadlock with the backfill.
+ * Holding it also keeps new numbers from being handed out until the
+ * study's history is numbered.
+ */
+function lockCounter($db, $studyId) {
+    $db->query('SELECT `last_iteration` FROM `survey_studies` WHERE `id` = ' . (int) $studyId . ' FOR UPDATE');
+}
+
+/** Is the study's counter below a number its sessions (or its results table, $wideMax) hold? */
+function counterBehind($db, $studyId, $wideMax) {
+    $studyId = (int) $studyId;
+    $rows = $db->query("SELECT GREATEST({$wideMax}, (SELECT COALESCE(MAX(`study_iteration`), 0) FROM `survey_unit_sessions` WHERE `unit_id` = {$studyId}))
+            > COALESCE((SELECT `last_iteration` FROM `survey_studies` WHERE `id` = {$studyId}), 0) AS `behind`");
+    return !empty($rows[0]['behind']);
+}
+
+/**
  * Has-iteration-column path: copy w.iteration into any NULL
  * us.study_iteration matched by session_id, then raise
  * survey_studies.last_iteration to the wide table's max. Never
@@ -195,6 +215,13 @@ function backfillFromWideIteration($db, $safeWide, $studyId, $lastIteration, $dr
             'newLastIteration' => $newLastIteration + $clashes];
     }
 
+    // Nothing to copy and a counter that is not behind: leave the study
+    // alone. The transaction below locks rows of a live table, on every
+    // deploy.
+    if ($toCopy + $clashes === 0 && !counterBehind($db, $studyId, $maxIter)) {
+        return ['rows' => 0, 'renumbered' => 0, 'newLastIteration' => $lastIteration];
+    }
+
     // Run the UPDATE and the last_iteration bump together even when
     // nothing is copied: a study can have nothing left to backfill but
     // still have last_iteration lagging the wide table's max (drift —
@@ -202,6 +229,7 @@ function backfillFromWideIteration($db, $safeWide, $studyId, $lastIteration, $dr
     // actually runs.
     $db->beginTransaction();
     try {
+        lockCounter($db, $studyId);
         // DB::query() returns a PDOStatement for non-SELECT (UPDATE here).
         $updateStmt = $db->query("
             UPDATE `survey_unit_sessions` AS `us`
@@ -289,6 +317,10 @@ function backfillSequentially($db, $safeWide, $studyId, $lastIteration, $dryRun)
         return ['rows' => $count, 'newLastIteration' => max($lastIteration, $base() + $count)];
     }
 
+    if ($count === 0 && !counterBehind($db, $studyId, 0)) {
+        return ['rows' => 0, 'newLastIteration' => $lastIteration];
+    }
+
     // Run the numbering and the last_iteration bump together even when
     // $count is 0: a study can have nothing left to backfill but still have
     // last_iteration lagging already-allocated study_iteration values
@@ -296,6 +328,7 @@ function backfillSequentially($db, $safeWide, $studyId, $lastIteration, $dryRun)
     // actually runs.
     $db->beginTransaction();
     try {
+        lockCounter($db, $studyId);
         $start = $base();
         // Wrapped in a derived table, so MariaDB reads it before the UPDATE
         // changes survey_unit_sessions.
