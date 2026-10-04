@@ -127,9 +127,8 @@ class Item {
      * The showif helper names (`last`, `answered`, …) are reserved on form_v2
      * only: a v1 study never runs those helpers, so SurveyStudy::addItems
      * sets this for every item of a v1 study and validate() then checks only
-     * RESULT_COLUMN_NAMES. On v2 they stay reserved, and the switch to v2 or
-     * a Form link refuses a study that has one
-     * (SurveyStudy::formV2UnsupportedItems).
+     * RESULT_COLUMN_NAMES. On v2 they stay reserved, and the switch to v2
+     * refuses a study that has one (SurveyStudy::formV2UnsupportedItems).
      *
      * @var bool
      */
@@ -944,8 +943,8 @@ class Item {
      * `value` — has no place in v2. What the form needs is a `hidden` item
      * with the same `value` (resolved when its page is shown and submitted
      * with it); a score or group for feedback or later units belongs in the
-     * R of those units. One rule, used by the upload, the switch to v2, the
-     * Form unit's study link and the compatibility scan.
+     * R of those units. One rule, used by the upload into a v2 study, the
+     * switch to v2 and the compatibility scan.
      *
      * @return string|null
      */

@@ -1013,11 +1013,10 @@ class RunController extends Controller {
     /**
      * The SurveyStudy behind $runUnit if — and only if — the form_v2 endpoints
      * may serve it: a Form unit whose study renders in v2. Only
-     * Form::getUnitSessionOutput renders v2; a plain Survey unit renders v1
-     * whatever its study's rendering_mode says (a Form linked to a study that
-     * is also placed as a Survey flips the study to v2 without touching that
-     * placement). v1 pages submit through RunController::indexAction and must
-     * not be reachable through the v2 AJAX paths, which skip v1's own gating.
+     * Form::getUnitSessionOutput renders v2 (a placement is a Form while its
+     * study is on v2: SurveyStudy::syncUnitType). v1 pages submit through
+     * RunController::indexAction and must not be reachable through the v2
+     * AJAX paths, which skip v1's own gating.
      *
      * @return SurveyStudy|null
      */

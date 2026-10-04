@@ -294,9 +294,8 @@ class SurveyStudy extends Model
     /**
      * The runs that use this study as a classic Survey unit (the study's
      * survey_units row is type 'Survey' while it is on v1, and every
-     * placement shares that row). While there are any, the study is not
-     * put on form_v2 — neither by "Upgrade to form_v2" nor by linking it in
-     * a Form unit: that would switch the engine under those runs'
+     * placement shares that row). While there are any, "Upgrade to form_v2"
+     * refuses the study: it would switch the engine under those runs'
      * participants. To try v2, the author copies the survey.
      *
      * @return list<string> run names
@@ -1167,8 +1166,7 @@ class SurveyStudy extends Model
         // The form_v2 showif helper names (Item::FORM_COMPONENT_NAMES) are reserved
         // on v2 only: a v1 study never runs those helpers, and a copy of an
         // older v1 survey must upload (Item::allowLegacyHelperName). The
-        // switch to v2 and a Form link refuse a study that has one
-        // (formV2UnsupportedItems).
+        // switch to v2 refuses a study that has one (formV2UnsupportedItems).
 
         foreach ($reader->survey as $row_number => $row) {
             $item = $itemFactory->make($row);
@@ -1494,7 +1492,7 @@ class SurveyStudy extends Model
 
     /**
      * Put this study on the form_v2 engine: the one way a study gets there
-     * after it exists (the admin switch, a Form unit linking it). Besides the
+     * after it exists (the admin switch). Besides the
      * flag, the multiple-choice columns of an older results table are
      * widened — v2 stores a choice value "0" that v1 dropped
      * (Item::replyValues), and a column sized without it could not hold a
