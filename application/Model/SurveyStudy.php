@@ -1547,7 +1547,7 @@ class SurveyStudy extends Model
         ) as $col) {
             $current[(string) $col['COLUMN_NAME']] = $col;
         }
-        $widened = array();
+        $widened = $modify = array();
         foreach ((array) $this->getItemsWithChoices() as $item) {
             if (!($item instanceof McMultiple_Item || $item instanceof SelectMultiple_Item)) {
                 continue;
@@ -1559,9 +1559,13 @@ class SurveyStudy extends Model
                 continue;
             }
             if ((int) $m[1] > (int) $current[$name]['CHARACTER_MAXIMUM_LENGTH']) {
-                $this->db->query("ALTER TABLE `{$this->results_table}` MODIFY `{$name}` VARCHAR(" . (int) $m[1] . ") DEFAULT NULL");
+                $modify[] = "MODIFY `{$name}` VARCHAR(" . (int) $m[1] . ") DEFAULT NULL";
                 $widened[] = $name;
             }
+        }
+        // One ALTER: each copies the whole table and holds its lock.
+        if ($modify) {
+            $this->db->query("ALTER TABLE `{$this->results_table}` " . implode(', ', $modify));
         }
         return $widened;
     }
