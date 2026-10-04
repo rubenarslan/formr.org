@@ -212,8 +212,17 @@ class FormV2CompatScanner {
      * @return string
      */
     protected static function codeOnly($expr) {
-        $code = preg_replace('~/\*.*?\*/|//[^\n]*~s', ' ', (string) $expr);
-        return preg_replace('/"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|`[^`]*`/', '""', $code);
+        // One pass, left to right, as a tokenizer reads it: whichever starts
+        // first wins, so a `//` inside a string ("https://…") is string, not
+        // a comment that would swallow the rest of the line, and quotes in a
+        // comment open no string.
+        return preg_replace_callback(
+            '~"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|`[^`]*`|/\*.*?\*/|//[^\n]*~s',
+            function ($m) {
+                return $m[0][0] === '/' ? ' ' : '""';
+            },
+            (string) $expr
+        );
     }
 
     /**

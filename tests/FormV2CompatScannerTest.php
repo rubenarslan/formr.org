@@ -36,4 +36,21 @@ class FormV2CompatScannerTest extends TestCase
         // an unknown *function* is detectRTokens()' business, not a name
         $this->assertSame(array(), $this->unknown('ifelse(q1, 1, 2)'));
     }
+
+    /**
+     * A `//` inside a string is text, not a comment: the names after it on
+     * the same line are still read. namesIn() also decides which no-input
+     * values the v2 state block ships (FormSubmissionService::showifNames),
+     * so a URL before `ran_group` used to withhold ran_group from the
+     * browser and keep the item hidden for everyone.
+     */
+    public function testAStringHoldingSlashesHidesNothingAfterIt()
+    {
+        $expr = 'q1 == "https://partner.example.org" || ran_group == 2';
+        $this->assertSame(array('q1', 'ran_group'), FormV2CompatScanner::namesIn($expr));
+        $this->assertSame(array('ran_group'), $this->unknown($expr));
+        $this->assertContains('TRUE/FALSE: use true/false', FormV2CompatScanner::detectRTokens('q1 == "a//b" || TRUE'));
+        // …and a quote inside a comment opens no string.
+        $this->assertSame(array('q1', 'q2'), FormV2CompatScanner::namesIn("q1 == 1 // it's\n|| q2 == 2"));
+    }
 }
