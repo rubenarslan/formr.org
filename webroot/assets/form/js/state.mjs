@@ -76,8 +76,16 @@ export function pageState(snapshot, store, remembered, allowPrevious) {
     const isShown = (n) => shownPages.includes(Number(n));
 
     let current = null;
+    const items = (store && store.items) || {};
     if (remembered != null && isShown(remembered)) {
         current = Number(remembered);
+    } else if (!Object.keys(items).some((name) => items[name].answerable !== false && answered(name))) {
+        // Nothing answered yet: a fresh form opens on its first shown page,
+        // whatever it holds. The rule below looks for an answer to give and
+        // would step over an opening page of notes (an introduction, the
+        // consent text), which takes no answer and is never stored. Items
+        // stored without the participant (ip, random, …) don't count.
+        current = shownPages.length ? shownPages[0] : (snapshot[0] ? snapshot[0].page : null);
     } else {
         const open = shown.find((p) => p.items.some((it) => it.visible && it.answerable && !answered(it.name)));
         current = open ? open.page : (shownPages.length ? shownPages[shownPages.length - 1] : (snapshot[0] ? snapshot[0].page : null));

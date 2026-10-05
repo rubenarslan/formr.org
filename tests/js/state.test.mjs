@@ -41,6 +41,20 @@ test('without memory: first page with a visible answerable item lacking an answe
     assert.equal(pageState(snap, skipped, null, false).currentPage, 2, 'q1 left empty but stored with its page: not reopened');
 });
 
+test('a fresh form opens on its first page, a page of notes included', () => {
+    const s = [
+        { page: 1, items: [it('intro', { answerable: false })] },
+        { page: 2, items: [it('q1')] },
+    ];
+    // An automatic item (ip, random) is stored at the first render.
+    const fresh = createStore(block({
+        intro: st(false, { answerable: false }), ip: st(true, { answerable: false }), q1: st(false, { page: 2, answerable: true }),
+    }));
+    assert.equal(pageState(s, fresh, null, false).currentPage, 1, 'the introduction is shown');
+    const started = createStore(block({ intro: st(false, { answerable: false }), q1: st(true, { page: 2, answerable: true }) }));
+    assert.equal(pageState(s, started, null, false).currentPage, 2, 'once something is answered: the first open page');
+});
+
 test('a page whose items are all hidden is stepped over', () => {
     const s = [
         { page: 1, items: [it('q1')] },
