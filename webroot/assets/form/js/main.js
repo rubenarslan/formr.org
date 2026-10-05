@@ -431,6 +431,11 @@ function initForm() {
                 delete inp.dataset.fmrStored;
                 if (inp.dataset.fmrRequired === '1') { inp.required = true; delete inp.dataset.fmrRequired; }
             }
+            // The showif scope reads a stored upload as answered: tell it
+            // (at load the scope is not running yet and reads it itself).
+            if (window.Alpine) {
+                try { window.Alpine.$data(root)._syncInput(inp); } catch (e) { /* not started */ }
+            }
         });
     };
     markStoredUploads();

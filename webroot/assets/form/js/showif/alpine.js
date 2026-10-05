@@ -173,6 +173,17 @@ export function registerFmrForm(Alpine) {
         },
 
         _syncInput(inp) {
+            if (inp && inp.type === 'file' && inp.name) {
+                // An upload is no answer readField reads (its bytes ride the
+                // multipart path), but a showif may ask about it — say
+                // answered(photo): the chosen file's name, true once one is
+                // stored (main.js markStoredUploads), else nothing.
+                const key = fieldKey(inp.name).key;
+                if (RESERVED_FIELD_NAMES.has(key)) return;
+                this[key] = inp.disabled ? null
+                    : (inp.files && inp.files.length ? inp.files[0].name : (inp.dataset.fmrStored === '1' ? true : null));
+                return;
+            }
             // lib/inputs.js reads the input against its group (radio /
             // checkbox array / Check_Item partner) exactly as the submit
             // does; here the answer is also typed for arithmetic.

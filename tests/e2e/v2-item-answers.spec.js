@@ -1,6 +1,6 @@
 // What v2 stores for items whose answer is not one plain input: the ticked
 // choices of an mc_multiple, a check_button, a revealed scale, a PWA item's
-// status, a recording, an R preset, … Each case submits through the browser and
+// status, a recording, an R preset, an upload in a showif, … Each case submits through the browser and
 // reads the stored answer back. Everything is created here and deleted in
 // afterAll: one study, one run.
 
@@ -25,11 +25,16 @@ const ITEMS = [
     { type: 'visual_analog_scale', name: 'vs_scale', label: 'How much?', optional: 1, showif: 'vs_gate == 1', choice_list: 'poles', choices: { 1: 'none', 2: 'a lot' } },
     { type: 'add_to_home_screen', name: 'ia_home', label: 'Install it', optional: 1 },
     { type: 'file', name: 'ia_voice', label: 'Say something', optional: 1, class: 'record_audio' },
+    { type: 'file', name: 'ia_photo', label: 'A photo', optional: 1 },
     { type: 'visual_analog_scale', name: 'vr_scale', label: 'Preset in R', optional: 1, value: '40 + 30', choice_list: 'poles', choices: { 1: 'none', 2: 'a lot' } },
     { type: 'submit', name: 'ia_s1', label: 'Next' },
     { type: 'text', name: 'ia_p2', label: 'Page two', optional: 1 },
+    { type: 'text', name: 'ia_photo_note', label: 'About your photo', optional: 1, showif: 'answered(ia_photo)' },
     { type: 'submit', name: 'ia_s2', label: 'Done' },
 ];
+
+// A 1×1 PNG.
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
 
 const stored = (usid, name) => {
     const rows = dbQuery(`SELECT d.answer FROM survey_items_display d JOIN survey_items i ON i.id = d.item_id `
@@ -140,6 +145,20 @@ test.describe('form_v2: what an item stores', () => {
         const { status, body } = await v2.submitV2(page, { timeout: 20000 });
         expect(status, JSON.stringify(body)).toBe(200);
         expect(stored(usid, 'ia_voice') || '', 'the recording is stored with its page').not.toBe('');
+    });
+
+    test('an upload counts as answered in a showif, chosen and once stored', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN, { baseURL });
+        await v2.waitForBundle(page);
+        await page.locator('input[name="ia_photo"]').setInputFiles({ name: 'photo.png', mimeType: 'image/png', buffer: PNG });
+        await page.locator('input[name="ia_req[]"][value="1"]').check({ force: true });
+        const { status, body } = await v2.submitV2(page, { timeout: 20000 });
+        expect(status, JSON.stringify(body)).toBe(200);
+        const note = page.locator('.form-group:has([name="ia_photo_note"])');
+        await expect(note, 'answered(ia_photo) after choosing a file').toBeVisible();
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await v2.waitForBundle(page);
+        await expect(note, 'and from the stored upload after a reload').toBeVisible();
     });
 
     test("a home-screen item comes back with its stored status", async ({ page, baseURL }) => {
