@@ -34,6 +34,16 @@ $formDir = FormStrings::dir($formLanguage);
         ?>
             <link rel="stylesheet" href="<?php echo asset_url($formBundleCss); ?>">
         <?php endif; ?>
+        <?php
+        // The run's own CSS and JS (its settings), as on every other page of
+        // the run: RunController::filterAssets registers them under the run's
+        // name. The other groups are the v1 bundle's, not this page's. After
+        // the form's, so the run's styles override them.
+        $runAssets = isset($run) && $run instanceof Run ? (string) $run->name : '';
+        if ($runAssets !== '' && !empty($css[$runAssets])) {
+            print_stylesheets($css[$runAssets], $runAssets);
+        }
+        ?>
         <script>
             window.formr = <?php echo !empty($jsConfig) ? json_encode($jsConfig) : '{}'; ?>;
             // Engine-chrome strings in the study's language (FormStrings;
@@ -103,5 +113,6 @@ $formDir = FormStrings::dir($formLanguage);
         </div>
 
         <script src="<?php echo asset_url($formBundleDir . '/js/form.bundle.js'); ?>"></script>
+        <?php if ($runAssets !== '' && !empty($js[$runAssets])) { print_scripts($js[$runAssets], $runAssets); } ?>
     </body>
 </html>
