@@ -77,27 +77,28 @@ function wireRecorder(container, fileInput, cfg) {
     if (previewEl) widget.appendChild(previewEl);
     (container.querySelector('.controls-inner') || container).appendChild(widget);
 
-    let mediaRecorder = null;
-    let stream = null;
-    let chunks = [];
+    // The recording under way: its own stream, recorder and chunks, so a
+    // re-take started while the last one is still being finished (its audio
+    // decoded) is neither stopped nor emptied by that one's cleanup.
+    let current = null;
     let blob = null;
-    let mimeType = '';
     let blobUrl = null;
     // Resolves finishRecordings' wait once the stopped recording is attached.
     let onAttached = null;
 
     const supportedMime = () => cfg.mimes.find((m) => MediaRecorder.isTypeSupported(m)) || '';
-
-    const teardownStream = () => {
-        if (stream) {
-            stream.getTracks().forEach((t) => t.stop());
-            stream = null;
-        }
-        mediaRecorder = null;
+    const recording = () => !!(current && current.recorder.state === 'recording');
+    const stopRecording = () => {
+        current.recorder.stop();
+        recordBtn.querySelector('i').className = `fa fa-${cfg.kind === 'video' ? 'video-camera' : 'microphone'}`;
     };
 
-    const onStop = async () => {
-        blob = new Blob(chunks, { type: mimeType });
+    const onStop = async (rec) => {
+        rec.stream.getTracks().forEach((tr) => tr.stop());
+        if (current === rec) current = null;
+        const { mimeType } = rec;
+        const recBlob = new Blob(rec.chunks, { type: mimeType });
+        blob = recBlob;
         if (blobUrl) URL.revokeObjectURL(blobUrl);
         blobUrl = URL.createObjectURL(blob);
 
@@ -122,17 +123,21 @@ function wireRecorder(container, fileInput, cfg) {
             // One short-lived AudioContext per decode, always closed — iOS
             // caps concurrent contexts at ~4-6 and never GCs unclosed ones.
             let ctx = null;
+            let length = '';
             try {
                 const AudioCtor = window.AudioContext || window.webkitAudioContext;
                 ctx = new AudioCtor();
-                const buf = await blob.arrayBuffer();
+                const buf = await recBlob.arrayBuffer();
                 const decoded = await ctx.decodeAudioData(buf);
-                lengthEl.textContent = ` ${formatDuration(decoded.duration)}`;
+                length = ` ${formatDuration(decoded.duration)}`;
             } catch {
-                lengthEl.textContent = '';
+                length = '';
             } finally {
                 if (ctx) { try { await ctx.close(); } catch { /* already closed */ } }
             }
+            // Replaced (a newer recording) or deleted while it was decoded.
+            if (blob !== recBlob) return;
+            lengthEl.textContent = length;
         } else if (previewEl) {
             previewEl.src = blobUrl;
             previewEl.style.display = '';
@@ -140,51 +145,51 @@ function wireRecorder(container, fileInput, cfg) {
 
         playBtn.disabled = false;
         deleteBtn.disabled = false;
-        teardownStream();
     };
 
     recordBtn.addEventListener('click', async () => {
-        if (mediaRecorder && mediaRecorder.state === 'recording') {
-            mediaRecorder.stop();
-            recordBtn.querySelector('i').className = `fa fa-${cfg.kind === 'video' ? 'video-camera' : 'microphone'}`;
+        if (recording()) {
+            stopRecording();
             return;
         }
-        mimeType = supportedMime();
+        const mimeType = supportedMime();
         if (!mimeType) {
             alert(cfg.kind === 'video'
                 ? t('recorder.unsupported_video', 'Your browser does not support video recording in any required format.')
                 : t('recorder.unsupported_audio', 'Your browser does not support audio recording in any required format.'));
             return;
         }
+        let stream;
         try {
             stream = await navigator.mediaDevices.getUserMedia(cfg.constraints);
         } catch {
             alert(t('recorder.denied', 'Permission to record was denied or the device is unavailable.'));
             return;
         }
-        chunks = [];
+        let recorder;
         try {
-            mediaRecorder = new MediaRecorder(stream, { mimeType });
+            recorder = new MediaRecorder(stream, { mimeType });
         } catch (err) {
             // Ctor can throw (e.g. mimeType raced a device change) — release
             // the just-acquired stream or the mic indicator stays on.
-            teardownStream();
+            stream.getTracks().forEach((tr) => tr.stop());
             console.warn('fmr-recorder: MediaRecorder unavailable', err);
             alert(t('recorder.start_failed', 'Recording could not be started on this device.'));
             return;
         }
-        mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
-        mediaRecorder.onstop = onStop;
-        mediaRecorder.start();
+        const rec = { recorder, stream, mimeType, chunks: [] };
+        recorder.ondataavailable = (e) => { if (e.data && e.data.size) rec.chunks.push(e.data); };
+        recorder.onstop = () => onStop(rec);
+        current = rec;
+        recorder.start();
         recordBtn.querySelector('i').className = 'fa fa-stop';
     });
 
     container.fmrFinishRecording = () => {
-        if (!mediaRecorder || mediaRecorder.state !== 'recording') return null;
+        if (!recording()) return null;
         return new Promise((resolve) => {
             onAttached = resolve;
-            mediaRecorder.stop();
-            recordBtn.querySelector('i').className = `fa fa-${cfg.kind === 'video' ? 'video-camera' : 'microphone'}`;
+            stopRecording();
         });
     };
 
@@ -192,10 +197,7 @@ function wireRecorder(container, fileInput, cfg) {
     // the partial recording) so the mic/camera isn't left hot on a page the
     // participant has moved away from.
     document.addEventListener('fmr:pagechange', () => {
-        if (mediaRecorder && mediaRecorder.state === 'recording') {
-            mediaRecorder.stop();
-            recordBtn.querySelector('i').className = `fa fa-${cfg.kind === 'video' ? 'video-camera' : 'microphone'}`;
-        }
+        if (recording()) stopRecording();
     });
 
     playBtn.addEventListener('click', () => {
@@ -210,7 +212,6 @@ function wireRecorder(container, fileInput, cfg) {
     });
 
     deleteBtn.addEventListener('click', () => {
-        chunks = [];
         blob = null;
         if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
         fileInput.value = '';
