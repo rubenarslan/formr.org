@@ -643,6 +643,11 @@ export function initSolo(opts) {
         const t = e.target;
         if (!(t instanceof Element)) return;
         if (t.name && t.name.startsWith('_item_views')) return;
+        // A visual analog scale's script re-announces every movement of its
+        // slider as a change of its hidden input, mid-drag included: a
+        // finger held still for a moment was taken for a pick. The slider's
+        // own change, on release, advances.
+        if (t.type === 'hidden' && t.closest('.vas-controls')) return;
         if (!current || !current.contains(t)) return;
         if (!autoAdvances(current)) return;
         // Un-picking an optional single choice (#377) is not a commit: stay
