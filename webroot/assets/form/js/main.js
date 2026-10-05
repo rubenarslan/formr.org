@@ -941,13 +941,9 @@ function initForm() {
             const wanted = choices[0].name.endsWith('[]') ? val.split(/\s*,\s*/) : [val];
             const hits = choices.filter((el) => wanted.includes(el.value)
                 || (el.type === 'checkbox' && !el.name.endsWith('[]') && /^(1|true)$/i.test(val)));
-            hits.forEach((el) => {
-                el.checked = true;
-                if (el.id) {
-                    wrapper.querySelectorAll(`.btn[data-for="${CSS.escape(el.id)}"]`)
-                        .forEach((btn) => btn.classList.add('btn-checked'));
-                }
-            });
+            // A button group's buttons follow the change fired on the input
+            // returned (items/button-groups.js).
+            hits.forEach((el) => { el.checked = true; });
             return hits[0] || null;
         }
         const target = named.find((el) => el.type !== 'hidden') || named[0];

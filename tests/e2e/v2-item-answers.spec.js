@@ -1,5 +1,5 @@
 // What v2 stores for items whose answer is not one plain input: the ticked
-// choices of an mc_multiple, a check_button, a revealed scale, a PWA item's
+// choices of an mc_multiple, a check_button, a button group, a revealed scale, a PWA item's
 // status, a recording, an R preset, an upload in a showif, a stored
 // location, a rank dragged by touch, a long answer's autosave, … Each case submits through the browser and
 // reads the stored answer back. Everything is created here and deleted in
@@ -22,6 +22,7 @@ const ITEMS = [
     { type: 'mc_multiple', name: 'ia_req', label: 'Pick at least one', choice_list: 'abc', choices: ABC },
     { type: 'mc_multiple', name: 'ia_untouched', label: 'Leave me', optional: 1, choice_list: 'abc', choices: ABC },
     { type: 'check_button', name: 'ia_check', label: 'Agree', optional: 1 },
+    { type: 'mc_button', name: 'ia_btn', label: 'Pick one', optional: 1, value: '1 + 1', choice_list: 'abc', choices: ABC },
     { type: 'mc', name: 'vs_gate', label: 'Rate it?', optional: 1, choice_list: 'yn', choices: { 1: 'yes', 2: 'no' } },
     { type: 'visual_analog_scale', name: 'vs_scale', label: 'How much?', optional: 1, showif: 'vs_gate == 1', choice_list: 'poles', choices: { 1: 'none', 2: 'a lot' } },
     { type: 'add_to_home_screen', name: 'ia_home', label: 'Install it', optional: 1 },
@@ -117,6 +118,24 @@ test.describe('form_v2: what an item stores', () => {
         const { status, body } = await v2.submitV2(page);
         expect(status, JSON.stringify(body)).toBe(200);
         expect(stored(usid, 'ia_check')).toBe('1');
+    });
+
+    test('a button group says which button is pressed, preset in R or tapped', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN, { baseURL });
+        await v2.waitForBundle(page);
+        // The inputs are display:none, out of the accessibility tree: the
+        // buttons carry the state.
+        const choice = page.locator('.form-group:has(input[name="ia_btn"]) .btn[data-for]');
+        await expect(choice.nth(1), 'B, the R preset').toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
+        await expect(choice.nth(0)).toHaveAttribute('aria-pressed', 'false');
+        await choice.nth(2).click();
+        await expect(choice.nth(2)).toHaveAttribute('aria-pressed', 'true');
+        await expect(choice.nth(1)).toHaveAttribute('aria-pressed', 'false');
+        await expect(choice.nth(1)).not.toHaveClass(/btn-checked/);
+        const tick = page.locator('.item-check_button .btn[data-for]').first();
+        await expect(tick).toHaveAttribute('aria-pressed', 'false');
+        await tick.click();
+        await expect(tick).toHaveAttribute('aria-pressed', 'true');
     });
 
     test('a visual analog scale revealed by its showif can be answered', async ({ page, baseURL }) => {

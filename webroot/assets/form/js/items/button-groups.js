@@ -11,6 +11,19 @@
 // button group since native tooltips have nowhere to anchor on display:none.
 import { t } from '../lib/i18n.js';
 
+// The buttons show their inputs' state, to the eye (.btn-checked) and to
+// assistive technology (aria-pressed): the inputs are display:none, out of
+// the accessibility tree. Every input's change brings the buttons along, so
+// a value set from outside (an R preset, the admin's fill) shows too.
+const reflect = (group) => {
+    group.querySelectorAll('.btn[data-for]').forEach((btn) => {
+        const input = group.querySelector(`#${CSS.escape(btn.getAttribute('data-for') || '')}`);
+        const on = !!(input && input.checked);
+        btn.classList.toggle('btn-checked', on);
+        btn.setAttribute('aria-pressed', String(on));
+    });
+};
+
 export function initButtonGroups(root) {
     root.querySelectorAll('.form-group.btn-radio, .form-group.btn-checkbox, .form-group.btn-check').forEach((group) => {
         if (group.dataset.fmrButtonGroupInit === '1') return;
@@ -23,9 +36,6 @@ export function initButtonGroups(root) {
             const input = group.querySelector(`#${CSS.escape(inputId)}`);
             if (!input) return;
 
-            // Initial sync: visible button reflects input state.
-            if (input.checked) btn.classList.add('btn-checked');
-
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 if (isRadio) {
@@ -34,14 +44,9 @@ export function initButtonGroups(root) {
                     // touched it once could never leave it unanswered again.
                     const deselect = input.checked && !input.required;
                     group.querySelectorAll('input[type=radio]').forEach((r) => { r.checked = false; });
-                    group.querySelectorAll('.btn[data-for]').forEach((b) => b.classList.remove('btn-checked'));
-                    if (!deselect) {
-                        input.checked = true;
-                        btn.classList.add('btn-checked');
-                    }
+                    if (!deselect) input.checked = true;
                 } else {
                     input.checked = !input.checked;
-                    btn.classList.toggle('btn-checked', input.checked);
                 }
                 input.dispatchEvent(new Event('change', { bubbles: true }));
                 input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -62,8 +67,10 @@ export function initButtonGroups(root) {
                 else group.appendChild(fb);
             });
             input.addEventListener('change', () => {
+                reflect(group);
                 group.querySelectorAll('.fmr-btn-feedback').forEach((el) => el.remove());
             });
         });
+        reflect(group);
     });
 }
