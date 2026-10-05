@@ -2,44 +2,17 @@
 //
 // When `window.unit_session_expires` is populated and the wall clock crosses
 // it, surface a "Page expired" modal so the participant doesn't keep filling
-// stale data into a dead session. Reload-on-click; if there's no form on the
-// page (e.g. participant got bounced to a thank-you / endpage) AND they've
-// been idle for more than an hour, silently reload.
+// stale data into a dead session. Reload-on-click. (v1's silent reload of an
+// idle page without a form has no v2 counterpart: the bundle runs only on a
+// page with its form.)
 //
 // Vanilla port. v1 used jQuery + bootstrap_modal; v2 has neither, so the
-// modal is hand-built (a simple fixed-position overlay) and the activity
-// listeners are bare addEventListener calls.
+// modal is hand-built (a simple fixed-position overlay).
 
 import { t, escapeHtml } from '../lib/i18n.js';
 
-const FORM_SELECTOR = 'form.fmr-form-v2';
-const ONE_HOUR_MS = 3600 * 1000;
 // setTimeout's max signed 32-bit delay; longer waits silently fire immediately.
 const MAX_TIMEOUT_MS = 2147483647;
-
-// Throttle for the silent auto-reload, shared with v1's ExpiryNotifier (same
-// localStorage key and window, so a v1 and a v2 tab of the origin share it).
-// An idle PWA and a browser tab otherwise reload at the same moment and race
-// for the run-session lock (the AMOR 2026-05-09 duplicate Email + Push
-// deliveries). RunSession::execute's reload after taking the lock is the
-// primary guard; this is belt-and-braces on the client.
-const RELOAD_THROTTLE_KEY = 'expiryNotifierLastReloadAt';
-const RELOAD_THROTTLE_MS = 30 * 1000;
-
-function shouldThrottleReload(now) {
-    try {
-        const last = parseInt(localStorage.getItem(RELOAD_THROTTLE_KEY) || '0', 10);
-        return last > 0 && (now - last) < RELOAD_THROTTLE_MS;
-    } catch (_) {
-        return false;
-    }
-}
-
-function recordReload(now) {
-    try {
-        localStorage.setItem(RELOAD_THROTTLE_KEY, String(now));
-    } catch (_) { /* private mode / quota */ }
-}
 
 function showExpiredModal() {
     if (document.querySelector('.fmr-expiry-modal')) return; // idempotent
@@ -76,27 +49,6 @@ export function updateExpiry(deadline) {
 }
 
 export function initExpiryNotifier() {
-    let lastActivity = Date.now();
-    const activityEvents = ['mousemove', 'keydown', 'scroll', 'touchstart'];
-    activityEvents.forEach((evt) => {
-        window.addEventListener(evt, () => { lastActivity = Date.now(); }, { passive: true });
-    });
-
-    const handleExpiry = () => {
-        const now = Date.now();
-        const inactivityMs = now - lastActivity;
-        const hasForm = document.querySelector(FORM_SELECTOR);
-        if (!hasForm && inactivityMs > ONE_HOUR_MS) {
-            // Participant has long since wandered off and there's nothing
-            // to lose — silent reload (matches v1's behaviour).
-            if (shouldThrottleReload(now)) return;
-            recordReload(now);
-            window.location.reload();
-            return;
-        }
-        showExpiredModal();
-    };
-
     let timer = null;
     armExpiry = (deadline) => {
         if (timer) { clearTimeout(timer); timer = null; }
@@ -109,7 +61,7 @@ export function initExpiryNotifier() {
             return;
         }
         const delay = Math.max(expiryMs - Date.now(), 0);
-        if (delay < MAX_TIMEOUT_MS) timer = setTimeout(handleExpiry, delay);
+        if (delay < MAX_TIMEOUT_MS) timer = setTimeout(showExpiredModal, delay);
     };
     armExpiry(window.unit_session_expires);
 }
