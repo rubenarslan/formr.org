@@ -1372,25 +1372,17 @@ function initForm() {
             // queue DB is origin-wide, so on path-routed deploys a drain
             // running on another run's page must post the entry to the run
             // it belongs to, not its own sync endpoint.
-            const entry = {
+            // The page's write as it was posted, plus what the queue needs.
+            const entry = Object.assign({}, payload, {
                 uuid: genUuid(),
-                page: pageNum,
-                unit_session_id: unitSessionId,
                 sync_url: syncUrl,
                 data: Object.assign({}, payload.data),
-                item_views: payload.item_views,
-                hidden: payload.hidden,
-                final: payload.final,
-                doc: payload.doc,
-                base: payload.base,
-                prev: payload.prev,
-                seq: payload.seq,
                 // MySQL DATETIME rejects ISO-8601 with ".sssZ" — same gotcha as
                 // item_shown timestamps. Use the space-separated format.
                 client_ts: mysqlDatetime(),
                 // Drain order within one client_ts second (see drainQueueInner).
                 queued_at: Date.now(),
-            };
+            });
             // The File objects live beside `data`, never in it, so the
             // server's $_POST['data'] doesn't get a stringified File next
             // to the $_FILES entry.
@@ -1716,7 +1708,7 @@ function initForm() {
         const page = savePage || pages[currentIndex];
         const payload = page ? collectPayload(page) : null;
         if (!payload || !payload.data || Object.keys(payload.data).length === 0) return null;
-        return JSON.stringify({ data: payload.data, item_views: payload.item_views, unit_session_id: unitSessionId, doc: payload.doc, base: payload.base, prev: payload.prev, seq: payload.seq });
+        return JSON.stringify(Object.assign({ unit_session_id: unitSessionId }, payload));
     };
     const flushPersist = async () => {
         if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
