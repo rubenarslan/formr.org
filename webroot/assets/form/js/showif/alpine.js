@@ -58,15 +58,21 @@ export function isNA(v) {
         || (typeof v === 'number' && isNaN(v));
 }
 
+// Was `needle` ticked (an array: an mc_multiple, a select_multiple), or is
+// it in the text? Ticked choices compare as text, as the text branch does:
+// the scope holds numeric choices as numbers, and the documented rewrite of
+// v1's `x %contains% "2"` is `contains(x, "2")`.
+export function contains(haystack, needle) {
+    if (isNA(haystack)) return false;
+    if (Array.isArray(haystack)) return haystack.some((h) => h === needle || String(h) === String(needle));
+    return String(haystack).indexOf(String(needle)) > -1;
+}
+
 export function registerFmrForm(Alpine) {
     Alpine.data('fmrForm', () => ({
         isNA(v) { return isNA(v); },
         answered(v) { return !this.isNA(v); },
-        contains(haystack, needle) {
-            if (this.isNA(haystack)) return false;
-            if (Array.isArray(haystack)) return haystack.includes(needle);
-            return String(haystack).indexOf(String(needle)) > -1;
-        },
+        contains(haystack, needle) { return contains(haystack, needle); },
         containsWord(haystack, word) {
             if (this.isNA(haystack)) return false;
             const re = new RegExp('\\b' + String(word).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
