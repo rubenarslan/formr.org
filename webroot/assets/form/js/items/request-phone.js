@@ -17,8 +17,7 @@
 import QRCodeStyling from 'qr-code-styling';
 import { t, iconLabel } from '../lib/i18n.js';
 import { readManifest, largeIconSrc } from '../lib/manifest.js';
-
-const MOBILE_UA_RE = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|webOS|IEMobile|Opera Mini/i;
+import { isMobileDevice } from '../../../common/js/platform.js';
 
 // Resumable run URL (study origin + ?code=), injected by templates/run/form_index.php.
 // Fall back to the current location so a missing global still produces a usable QR.
@@ -77,7 +76,7 @@ function ensureCopyControl(wrapper, url) {
 }
 
 export function initRequestPhone(root) {
-    const isMobile = MOBILE_UA_RE.test(navigator.userAgent);
+    const isMobile = isMobileDevice();
     root.querySelectorAll('.request-phone-wrapper').forEach((wrapper) => {
         const hidden = wrapper.querySelector('input');
         const status = wrapper.querySelector('.status-message');
@@ -85,8 +84,10 @@ export function initRequestPhone(root) {
         const required = group ? group.classList.contains('required') : false;
 
         if (isMobile) {
-            // Already on a phone — the server marks it answered; mirror that client-side.
-            if (hidden && !hidden.value) hidden.value = 'is_phone';
+            // Already on a phone — the server marks it answered; mirror that
+            // client-side. An iPad asking for the desktop site looked like a
+            // desktop to the server, which rendered `not_checked`.
+            if (hidden && (!hidden.value || hidden.value === 'not_checked')) hidden.value = 'is_phone';
             if (hidden) hidden.setCustomValidity('');
             if (status) status.textContent = t('pwa.phone.on_mobile', 'You are already on a mobile device. You can continue.');
             if (group) group.classList.add('formr_answered');

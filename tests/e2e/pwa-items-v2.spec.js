@@ -11,7 +11,7 @@
 // Local-chromium covers this wiring. The actual SW registration + push subscribe
 // + native install banner are [BS-only] (local-chromium blocks service workers).
 
-const { test, expect } = require('./helpers/test');
+const { test, expect, RUNNING_ON_BS } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const v2 = require('./helpers/v2Form');
@@ -208,5 +208,31 @@ test.describe('PWA items v2 — cookie + phone', () => {
         expect(r.resumeUrl, 'carries the participant code so the phone resumes the same session').toMatch(/[?&]code=/);
         expect(r.qrRendered, 'QR svg rendered on desktop').toBeTruthy();
         expect(r.copyBtn, 'copy-link control present').toBeTruthy();
+    });
+});
+
+// iPadOS Safari asks for the desktop site: a Mac's user agent, with touch.
+const IPAD_DESKTOP_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15';
+
+test.describe('PWA items v2 — an iPad', () => {
+    test.skip(RUNNING_ON_BS, 'emulates an iPad in Chromium');
+    test.use({ userAgent: IPAD_DESKTOP_UA });
+    test.beforeEach(async ({ page }) => {
+        await page.addInitScript(() => Object.defineProperty(Navigator.prototype, 'maxTouchPoints', { get: () => 5 }));
+    });
+
+    test('push_notification: an iPad is asked to add the study to its home screen first', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN(), { baseURL });
+        await v2.waitForBundle(page);
+        test.skip((await page.locator('form.fmr-form-v2 .item-push_notification').count()) === 0, 'no push item in fixture');
+        await expect(page.locator('.item-push_notification .status-message')).toContainText('Add to Home Screen first', { timeout: 10000 });
+    });
+
+    test('request_phone: an iPad is a phone, so it shows no QR code', async ({ page, baseURL }) => {
+        await freshParticipant(page, AW_RUN, { baseURL });
+        await v2.waitForBundle(page);
+        test.skip((await page.locator('form.fmr-form-v2 .request-phone-wrapper').count()) === 0, 'no request_phone in fixture');
+        await expect(page.locator('.request-phone-wrapper input').first()).toHaveValue('is_phone');
+        await expect(page.locator('.request-phone-wrapper .qr-code-container svg')).toHaveCount(0);
     });
 });

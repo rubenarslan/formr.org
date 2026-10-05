@@ -17,6 +17,7 @@ import '@khmyznikov/pwa-install';
 import { t, escapeHtml, iconLabel } from '../lib/i18n.js';
 import { setProgrammaticValue, disableOwnControl } from '../lib/inputs.js';
 import { readManifest, largeIconSrc } from '../lib/manifest.js';
+import { isIOSDevice, isIOSPushCapable } from '../../../common/js/platform.js';
 
 /**
  * @param {{root: HTMLFormElement, runUrl: string}} ctx the form and its run URL
@@ -75,7 +76,6 @@ export function initPwaItems({ root, runUrl }) {
         window.matchMedia('(display-mode: standalone)').matches
         || window.matchMedia('(display-mode: fullscreen)').matches
         || window.navigator.standalone === true;
-    const isIOSDevice = () => /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
@@ -360,14 +360,6 @@ export function initPwaItems({ root, runUrl }) {
     // not-standalone, denied-at-init recovery, etc.) — keeping the same
     // surface area means admins authoring with v1 fixtures get identical
     // participant UX in v2.
-    const isIOSCompatibleVersion = () => {
-        if (!isIOSDevice()) return true;
-        const m = navigator.userAgent.match(/OS (\d+)_(\d+)/);
-        if (!m) return false;
-        const major = parseInt(m[1], 10), minor = parseInt(m[2], 10);
-        return major > 16 || (major === 16 && minor >= 4);
-    };
-
     const sendTestNotification = async (registration) => {
         if (!registration || !registration.showNotification) return false;
         try {
@@ -392,7 +384,7 @@ export function initPwaItems({ root, runUrl }) {
         const ua = navigator.userAgent.toLowerCase();
         // Translated strings carry the list markup (<ol>/<li>/<strong>).
         let html = '';
-        if (/iphone|ipad|ipod/.test(ua)) {
+        if (isIOSDevice()) {
             html = t('pwa.push.help_ios', '<ol><li>Open <strong>Settings</strong> → <strong>Notifications</strong>.</li>'
                  + '<li>Find Safari (or your browser) and enable <strong>Allow Notifications</strong>.</li>'
                  + '<li>Make sure <strong>Focus</strong> mode isn\'t blocking notifications.</li>'
@@ -583,7 +575,7 @@ export function initPwaItems({ root, runUrl }) {
             disableOwnControl(btn);
             return;
         }
-        if (!isIOSCompatibleVersion()) {
+        if (!isIOSPushCapable()) {
             setProgrammaticValue(hidden, 'not_supported');
             if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + escapeHtml(t('pwa.push.ios_version', 'Sorry, push notifications require iOS 16.4 or later.')) + '</div>';
             setBlockedValidity(t('pwa.push.ios_version_validity', 'Push notifications require iOS 16.4 or later. Please update your device to continue.'));
