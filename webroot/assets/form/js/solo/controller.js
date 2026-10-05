@@ -19,14 +19,6 @@ import { isItemHidden } from '../lib/inputs.js';
 // Inner helpers are `function` declarations (hoisted) so the public surface can
 // sit up top and the file reads in narrative order.
 
-// Item types that render no participant-visible UI (pure hidden inputs filled
-// server-side). They must never become their own blank screen.
-// `mc_heading` is the disabled header row of an mc matrix (constant hidden
-// value, save_in_results_table=false). It's filtered out of the v2 pipeline
-// server-side (FormRenderer::getStudyItems); listed here too so a
-// legacy/already-rendered session never seats it as its own blank step.
-const HIDDEN_TYPES = ['hidden', 'get', 'random', 'referrer', 'ip', 'browser', 'server', 'mc_heading'];
-
 // A page's submit controls — the one list main.js's canSubmitPage gate and
 // the solo countdown lookup below both read.
 const SUBMIT_CONTROL_SELECTOR =
@@ -75,10 +67,10 @@ export function initSolo(opts) {
         // isItemHidden is the showif signal; `[hidden]` guards a not-yet-shown
         // page section's children defensively.
         if (isItemHidden(el) || el.hasAttribute('hidden')) return false;
-        for (const t of HIDDEN_TYPES) {
-            if (el.classList.contains('item-' + t)) return false;
-        }
-        return true;
+        // The `hidden` item type shows nothing: never a blank step of its
+        // own. (Items that take no input — get, random, ip, … — and an mc
+        // matrix's heading row are not in a v2 document at all.)
+        return !el.classList.contains('item-hidden');
     }
     function steps(pageEl) { return directGroups(pageEl).filter(isNavigable); }
     function nextStep(el) {

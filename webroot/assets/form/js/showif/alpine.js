@@ -5,7 +5,7 @@
 // runs the showif, JavaScript as the author wrote it, through Alpine's
 // effect() so dep-tracking
 // and re-evaluation are free. Server emits `data-showif`; the bundle
-// promotes that to `x-showif` at init (see registerAttributePromotion).
+// promotes that to `x-showif` at init (see promoteShowifAttributes).
 //
 // The directive is robustness-hardened in two places:
 //   1. Strip `//` and `/* */` comments first — a trailing comment (v1's
@@ -23,13 +23,13 @@ import { readField, fieldKey, isItemHidden, showifControls } from '../lib/inputs
 //
 // Item values and these helpers share ONE object — the showif
 // references item names bare (`q1 == 2`), so they have to be top-level fields
-// on the component. An item named `answered` (or `contains`, `last`, `isNA` —
-// the name `is.na()` is rewritten into at :148) would therefore overwrite the
-// method it shadows. The eval wrapper then swallows the resulting TypeError,
-// the expression yields `undefined`, and the directive PRESERVES the current
-// visibility — i.e. every showif on the page that calls that helper freezes at
-// whatever the server rendered. So we simply never write a field whose key is
-// one of ours: the study degrades to "this one item isn't reactive" instead.
+// on the component. An item named `answered` (or `contains`, `last`, `isNA`)
+// would therefore overwrite the method it shadows. The eval wrapper then
+// swallows the resulting TypeError, the expression yields `undefined`, and the
+// directive PRESERVES the current visibility — i.e. every showif on the page
+// that calls that helper freezes at whatever the server rendered. So we simply
+// never write a field whose key is one of ours: the study degrades to "this
+// one item isn't reactive" instead.
 // New uploads can't get into that state at all — the server rejects these as
 // item names (`Item::RESERVED_NAMES`, application/Model/Item/Item.php).
 //
