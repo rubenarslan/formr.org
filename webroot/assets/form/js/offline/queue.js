@@ -130,9 +130,8 @@ export async function queueRestampFinal({ sync_url, unit_session_id }, hidden) {
 
 // ---- Retry state -----------------------------------------------------------
 //
-// Every entry starts as STATE_PENDING (also the implicit state of entries
-// written by older bundles, which carry no `state` at all). The drain moves it
-// to:
+// Every entry starts as STATE_PENDING, which an entry carries implicitly:
+// none is written with a `state`. The drain moves it to:
 //   - STATE_NEEDS_ATTENTION: the server applied nothing and answered
 //     `{status:'errors', errors}` — the participant has to fix the page and
 //     re-submit it (which supersedes this entry). Never auto-retried: the same
