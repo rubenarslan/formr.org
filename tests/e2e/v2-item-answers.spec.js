@@ -1,7 +1,7 @@
 // What v2 stores for items whose answer is not one plain input: the ticked
 // choices of an mc_multiple, a check_button, a revealed scale, a PWA item's
 // status, a recording, an R preset, an upload in a showif, a stored
-// location, … Each case submits through the browser and
+// location, a rank dragged by touch, … Each case submits through the browser and
 // reads the stored answer back. Everything is created here and deleted in
 // afterAll: two studies, two runs.
 
@@ -27,6 +27,7 @@ const ITEMS = [
     { type: 'add_to_home_screen', name: 'ia_home', label: 'Install it', optional: 1 },
     { type: 'file', name: 'ia_voice', label: 'Say something', optional: 1, class: 'record_audio' },
     { type: 'file', name: 'ia_photo', label: 'A photo', optional: 1 },
+    { type: 'rank', name: 'ia_rank', label: 'Order these', optional: 1, choice_list: 'abc', choices: ABC },
     { type: 'visual_analog_scale', name: 'vr_scale', label: 'Preset in R', optional: 1, value: '40 + 30', choice_list: 'poles', choices: { 1: 'none', 2: 'a lot' } },
     { type: 'submit', name: 'ia_s1', label: 'Next' },
     { type: 'text', name: 'ia_p2', label: 'Page two', optional: 1 },
@@ -192,6 +193,28 @@ test.describe('form_v2: what an item stores', () => {
         const { status, body, blockedByClient } = await v2.submitV2(page);
         expect(blockedByClient, 'the required check sees the stored location').toBe(false);
         expect(status, JSON.stringify(body)).toBe(200);
+    });
+
+    test('a rank row held under a finger follows it', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN, { baseURL });
+        await v2.waitForBundle(page);
+        const row = page.locator('.fmr-rank .fmr-rank-item').first();
+        // A touch pressed on the row's body (not its handle), held past the
+        // hold time, then moved 20 px down.
+        const drag = await row.evaluate(async (el) => {
+            const r = el.getBoundingClientRect();
+            const x = r.left + r.width / 2;
+            const y = r.top + r.height / 2;
+            const ev = (type, cy) => new PointerEvent(type, { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: x, clientY: cy, bubbles: true });
+            el.dispatchEvent(ev('pointerdown', y));
+            await new Promise((done) => setTimeout(done, 400));
+            document.dispatchEvent(ev('pointermove', y + 20));
+            const out = { lifted: el.classList.contains('fmr-rank-dragging'), top: el.style.top, expected: r.top + 20 };
+            document.dispatchEvent(ev('pointerup', y + 20));
+            return out;
+        });
+        expect(drag.lifted).toBe(true);
+        expect(parseFloat(drag.top), `top ${drag.top}`).toBeCloseTo(drag.expected, 0);
     });
 
     test("a home-screen item comes back with its stored status", async ({ page, baseURL }) => {

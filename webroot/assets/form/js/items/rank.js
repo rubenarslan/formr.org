@@ -189,7 +189,11 @@ class RankWidget {
         } else {
             // Row body: hold to lift. Scrolling before the hold cancels the press.
             this.press.timer = setTimeout(() => {
-                if (this.press && !this.drag) this.startDrag(row, this.press);
+                // startDrag reads where the pointer is as an event would
+                // give it; the press keeps x/y. Handed over as is, the offset
+                // was NaN and the lifted row never followed the finger.
+                const p = this.press;
+                if (p && !this.drag) this.startDrag(row, { clientY: p.y, pointerId: p.id });
             }, TOUCH_HOLD_MS);
         }
     }
