@@ -1,8 +1,9 @@
 // What v2 stores for items whose answer is not one plain input: the ticked
 // choices of an mc_multiple, a check_button, a revealed scale, a PWA item's
-// status, a recording, an R preset, an upload in a showif, … Each case submits through the browser and
+// status, a recording, an R preset, an upload in a showif, a stored
+// location, … Each case submits through the browser and
 // reads the stored answer back. Everything is created here and deleted in
-// afterAll: one study, one run.
+// afterAll: two studies, two runs.
 
 const { request } = require('@playwright/test');
 const { test, expect, RUNNING_ON_BS } = require('./helpers/test');
@@ -36,6 +37,16 @@ const ITEMS = [
 // A 1×1 PNG.
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
 
+// A required geopoint gets its own form: it would hold up the others.
+const GEO_NAME = `e2e_itemgeo_${SFX}`;
+const GEO_RUN = `e2e-itemgeo-${SFX}`;
+const GEO_ITEMS = [
+    { type: 'geopoint', name: 'gp_loc', label: 'Where are you?' },
+    { type: 'submit', name: 'gp_s1', label: 'Next' },
+    { type: 'text', name: 'gp_p2', label: 'Page two', optional: 1 },
+    { type: 'submit', name: 'gp_s2', label: 'Done' },
+];
+
 const stored = (usid, name) => {
     const rows = dbQuery(`SELECT d.answer FROM survey_items_display d JOIN survey_items i ON i.id = d.item_id `
         + `WHERE d.session_id = ${Number(usid)} AND i.name = '${name}';`);
@@ -53,6 +64,8 @@ test.describe('form_v2: what an item stores', () => {
         admin = await request.newContext({ ignoreHTTPSErrors: true, storageState: STATE_PATH });
         const study = await prov.uploadStudy(admin, { engine: 'v2', json: { name: NAME, items: ITEMS } });
         await prov.createRun(admin, RUN, [{ type: 'Survey', studyId: study.id }, { type: 'Page', body: `END_${SFX}` }]);
+        const geo = await prov.uploadStudy(admin, { engine: 'v2', json: { name: GEO_NAME, items: GEO_ITEMS } });
+        await prov.createRun(admin, GEO_RUN, [{ type: 'Survey', studyId: geo.id }, { type: 'Page', body: `END_${SFX}` }]);
     });
 
     test.afterAll(async () => {
@@ -159,6 +172,26 @@ test.describe('form_v2: what an item stores', () => {
         await page.reload({ waitUntil: 'domcontentloaded' });
         await v2.waitForBundle(page);
         await expect(note, 'and from the stored upload after a reload').toBeVisible();
+    });
+
+    test('a stored location answers a required geopoint after a reload', async ({ page, baseURL }) => {
+        await freshParticipant(page, GEO_RUN, { baseURL });
+        await v2.waitForBundle(page);
+        const usid = await v2.unitSessionId(page);
+        // As the geolocator leaves it; the autosave stores it.
+        const saved = page.waitForResponse((r) => /\/form-save\/?$/.test(new URL(r.url()).pathname));
+        await page.locator('input[name="gp_loc[]"]').evaluate((el) => {
+            el.value = 'lat:52.5/long:13.4';
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        expect((await (await saved).json()).status).toBe('saved');
+        expect(stored(usid, 'gp_loc')).toBe('lat:52.5/long:13.4');
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await v2.waitForBundle(page);
+        const { status, body, blockedByClient } = await v2.submitV2(page);
+        expect(blockedByClient, 'the required check sees the stored location').toBe(false);
+        expect(status, JSON.stringify(body)).toBe(200);
     });
 
     test("a home-screen item comes back with its stored status", async ({ page, baseURL }) => {

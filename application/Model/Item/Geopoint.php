@@ -29,12 +29,16 @@ class Geopoint_Item extends Item {
 
     protected function render_prepended() {
         // Disabled with the item when a showif hides it, like the visible
-        // input: neither is then submitted (or found missing).
+        // input: neither is then submitted (or found missing). It carries the
+        // stored answer, as the visible field does: the browser's required
+        // check reads the hidden carrier, not the readonly field, and found a
+        // stored location missing after a reload.
         $ret = '
-			<input type="hidden" name="%s" value=""%s />
+			<input type="hidden" name="%s" value="%s"%s />
 			<div class="input-group">
 		';
-        return sprintf($ret, $this->name, empty($this->input_attributes['disabled']) ? '' : ' disabled');
+        $stored = ($this->value_validated !== null && !is_array($this->value_validated)) ? (string) $this->value_validated : '';
+        return sprintf($ret, $this->name, h($stored), empty($this->input_attributes['disabled']) ? '' : ' disabled');
     }
 
     protected function render_appended() {
