@@ -141,6 +141,24 @@ test.describe('form_v2 offline queue drain', () => {
         await expect(page.locator('.fmr-queue-banner')).toContainText('still waiting to be sent');
     });
 
+    test("a page another unit session's upload cannot get through does not hold this form's", async ({ page, baseURL }) => {
+        const ctx = await start(page, baseURL);
+        // An earlier unit session's page, first in line, whose upload dies on
+        // the way; this form's own page behind it.
+        const stuck = entryFor(ctx, { unit_session_id: ctx.unitSessionId - 1, client_ts: '2026-01-01 09:00:00', queued_at: 1 });
+        const own = entryFor(ctx, { client_ts: '2026-01-01 10:00:00', queued_at: 2 });
+        await page.evaluate(IDB_PUT, [stuck, own]);
+        const posted = [];
+        await page.route(SYNC_ROUTE, async (route) => {
+            const body = JSON.parse(route.request().postData() || '{}');
+            if (body.uuid === stuck.uuid) return route.abort('failed');
+            posted.push(body.uuid);
+            return route.fulfill(OK);
+        });
+        await reloadAndDrain(page);
+        await expect.poll(() => posted, { timeout: 10000 }).toContain(own.uuid);
+    });
+
     test('a page too large for the server is held at once, not retried for an hour', async ({ page, baseURL }) => {
         const ctx = await start(page, baseURL);
         await seedEntry(page, ctx);

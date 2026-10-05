@@ -657,6 +657,7 @@ function initForm() {
         let ownRedirect = null;
         let ownMissing = null;
         let ownOutdated = false;
+        let unreachable = false;
         for (const { url: entrySyncUrl, usid, entries: groupEntries } of groups.values()) {
             const outcome = await drainRunGroup(groupEntries, entrySyncUrl, isOwnEntry({ sync_url: entrySyncUrl, unit_session_id: usid }));
             if (outcome === 'offline') {
@@ -664,13 +665,21 @@ function initForm() {
                 // online (refused connection, DNS, a captive portal) fires no
                 // `online` event: keep retrying on the timer, or the queue
                 // waits for a reload.
-                scheduleQueueRetry(30 * 1000);
-                return;
+                unreachable = true;
+                // Offline as the device knows it: nothing else gets through
+                // either. Otherwise this group's page failed on its own (an
+                // upload dying mid-body on a flaky line), and the other
+                // groups — this form's own pages among them — still go.
+                if (navigator.onLine === false) break;
+                continue;
             }
             if (outcome && outcome.redirect) ownRedirect = outcome.redirect;
             if (outcome && outcome.missing) ownMissing = outcome.missing;
             if (outcome && outcome.outdated) ownOutdated = true;
         }
+        if (unreachable) scheduleQueueRetry(30 * 1000);
+        // The offline banner stays while a page could not be sent.
+        if (unreachable && !ownRedirect && !ownOutdated) return;
         await renderQueueSummary(ownRedirect);
         if (ownRedirect) return;
         if (ownOutdated) {
