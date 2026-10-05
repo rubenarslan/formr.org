@@ -289,7 +289,7 @@
                                 <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" style="display:inline">
                                     <input type="hidden" name="target" value="v1">
                                     <?php /* data-confirm, not onsubmit: the admin CSP blocks inline handlers (admin-ui.js). */ ?>
-                                    <button type="submit" class="btn btn-default" data-confirm="Switch this survey back to v1? Every run that shows it in a Form unit will show it as a classic Survey instead. You can switch again at any time.&#10;&#10;Pages that participants submitted while offline and have not sent yet will be lost."><i class="fa fa-history"></i> Switch back to v1</button>
+                                    <button type="submit" class="btn btn-default" data-confirm="Switch this survey back to v1? Every run that shows it in a Form unit will show it as a classic Survey instead. You can switch again at any time.&#10;&#10;Participants in the middle of it keep their answers, pages their browser still sends from the v2 form included, and go on with the classic Survey."><i class="fa fa-history"></i> Switch back to v1</button>
                                 </form>
                             <?php else: ?>
                                 <p>This survey runs on the classic <strong>v1</strong> engine. In v2, answers are saved as participants go, items show and hide instantly as they answer, a lost connection does not lose a page, and there is a one-item-at-a-time layout for phones.</p>

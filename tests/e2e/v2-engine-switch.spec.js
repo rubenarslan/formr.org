@@ -60,6 +60,11 @@ test.describe('a v2 form whose survey goes back to v1', () => {
 
     test('stores its queued and its open pages, and the participant goes on on v1', async ({ page, baseURL }) => {
         await toEngine('v2');
+        // What the switch-back confirmation promises is what follows.
+        const settings = await (await admin.get(`${ADMIN_BASE}/admin/survey/${NAME}`)).text();
+        const confirm = (settings.match(/data-confirm="(Switch this survey back to v1[^"]*)"/) || [])[1] || '';
+        expect(confirm).toContain('keep their answers');
+        expect(confirm).not.toContain('lost');
         await freshParticipant(page, RUN, { baseURL });
         await v2.waitForBundle(page);
         const ctx = await currentFormContext(page);
