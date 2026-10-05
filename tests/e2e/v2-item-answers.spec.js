@@ -1,5 +1,6 @@
 // What v2 stores for items whose answer is not one plain input: the ticked
-// choices of an mc_multiple, a check_button, a revealed scale, … Each case submits through the browser and
+// choices of an mc_multiple, a check_button, a revealed scale, a PWA item's
+// status, … Each case submits through the browser and
 // reads the stored answer back. Everything is created here and deleted in
 // afterAll: one study, one run.
 
@@ -22,7 +23,10 @@ const ITEMS = [
     { type: 'check_button', name: 'ia_check', label: 'Agree', optional: 1 },
     { type: 'mc', name: 'vs_gate', label: 'Rate it?', optional: 1, choice_list: 'yn', choices: { 1: 'yes', 2: 'no' } },
     { type: 'visual_analog_scale', name: 'vs_scale', label: 'How much?', optional: 1, showif: 'vs_gate == 1', choice_list: 'poles', choices: { 1: 'none', 2: 'a lot' } },
-    { type: 'submit', name: 'ia_s1', label: 'Done' },
+    { type: 'add_to_home_screen', name: 'ia_home', label: 'Install it', optional: 1 },
+    { type: 'submit', name: 'ia_s1', label: 'Next' },
+    { type: 'text', name: 'ia_p2', label: 'Page two', optional: 1 },
+    { type: 'submit', name: 'ia_s2', label: 'Done' },
 ];
 
 const stored = (usid, name) => {
@@ -110,5 +114,23 @@ test.describe('form_v2: what an item stores', () => {
         const { status, body } = await v2.submitV2(page);
         expect(status, JSON.stringify(body)).toBe(200);
         expect(Number(stored(usid, 'vs_scale'))).toBeGreaterThan(0);
+    });
+
+    test("a home-screen item comes back with its stored status", async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN, { baseURL });
+        await v2.waitForBundle(page);
+        const usid = await v2.unitSessionId(page);
+        const status = page.locator('input[name="ia_home"]');
+        // As the install handler records it.
+        await status.evaluate((el) => { el.value = 'added'; });
+        await page.locator('input[name="ia_req[]"][value="1"]').check({ force: true });
+        const { status: code, body } = await v2.submitV2(page);
+        expect(code, JSON.stringify(body)).toBe(200);
+        expect(stored(usid, 'ia_home')).toBe('added');
+        // Rendered again with what is stored, not the default the next
+        // autosave of page 1 would store over it.
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await v2.waitForBundle(page);
+        expect(await status.inputValue()).toBe('added');
     });
 });
