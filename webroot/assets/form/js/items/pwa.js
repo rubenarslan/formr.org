@@ -152,12 +152,16 @@ export function initPwaItems({ root, runUrl }) {
                 root.querySelectorAll('.add-to-homescreen-wrapper').forEach((w) => markAddedToHomeScreen(w, 'added'));
                 try { pwaInstallEl.hideDialog(); } catch (e) {}
             });
+            // Not installed: the item says why, and offers the button again.
+            const markNotAdded = (w, message) => {
+                setAtsStatus(w, 'not_added', message);
+                const btn = w.querySelector('.add-to-homescreen');
+                if (btn) btn.innerHTML = iconLabel('fa-plus-square', t('pwa.install.add_button', 'Add to Home Screen'));
+            };
             pwaInstallEl.addEventListener('pwa-install-fail-event', () => {
                 spendInstallPrompt();
                 root.querySelectorAll('.add-to-homescreen-wrapper').forEach((w) => {
-                    setAtsStatus(w, 'not_added', t('pwa.install.failed', 'Installation didn\'t complete. You can try again or add to home screen manually from your browser menu.'));
-                    const btn = w.querySelector('.add-to-homescreen');
-                    if (btn) btn.innerHTML = iconLabel('fa-plus-square', t('pwa.install.add_button', 'Add to Home Screen'));
+                    markNotAdded(w, t('pwa.install.failed', 'Installation didn\'t complete. You can try again or add to home screen manually from your browser menu.'));
                 });
                 try { pwaInstallEl.hideDialog(); } catch (e) {}
             });
@@ -168,9 +172,7 @@ export function initPwaItems({ root, runUrl }) {
                     if (accepted) {
                         markAddedToHomeScreen(w, 'added');
                     } else {
-                        setAtsStatus(w, 'not_added', t('pwa.install.dismissed', 'Install dismissed. You can add the app to your home screen at any time.'));
-                        const btn = w.querySelector('.add-to-homescreen');
-                        if (btn) btn.innerHTML = iconLabel('fa-plus-square', t('pwa.install.add_button', 'Add to Home Screen'));
+                        markNotAdded(w, t('pwa.install.dismissed', 'Install dismissed. You can add the app to your home screen at any time.'));
                     }
                 });
             });
@@ -537,49 +539,45 @@ export function initPwaItems({ root, runUrl }) {
         }
         if (!btn) return;
 
-        // Step 1: iOS-but-not-standalone — push only works inside the
-        // installed PWA. Tell the participant + disable the button + reword
-        // the gating customValidity so the inline-error path explains the
-        // install requirement (vs. the generic "complete this step").
-        if (isIOSDevice() && !isStandaloneDisplayMode()) {
-            if (hidden) {
-                setProgrammaticValue(hidden, 'not_supported');
-                if (required) {
-                    hidden.setCustomValidity(t('pwa.push.ios_install_required', 'Please add this study to your home screen first, then open it from the home screen icon to enable notifications.'));
-                }
-            }
-            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + t('pwa.push.ios_install_first', '<strong>Add to Home Screen first.</strong> On iOS, push notifications only work after you install this study to your home screen and open it from there.') + '</div>';
+        // A blocker also overrides the gating customValidity, so the
+        // inline-feedback path on Next click names it instead of the generic
+        // "complete this step".
+        const setBlockedValidity = (msg) => {
+            if (hidden && required) hidden.setCustomValidity(msg);
+        };
+        // Push cannot work here: the item answers not_supported, says why
+        // (`html`: our own markup), and its button is off.
+        const cannotPush = (html, validity) => {
+            setProgrammaticValue(hidden, 'not_supported');
+            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + html + '</div>';
+            setBlockedValidity(validity);
             disableOwnControl(btn);
+        };
+
+        // Step 1: iOS-but-not-standalone — push only works inside the
+        // installed PWA, which the message and the validity explain.
+        if (isIOSDevice() && !isStandaloneDisplayMode()) {
+            cannotPush(t('pwa.push.ios_install_first', '<strong>Add to Home Screen first.</strong> On iOS, push notifications only work after you install this study to your home screen and open it from there.'),
+                t('pwa.push.ios_install_required', 'Please add this study to your home screen first, then open it from the home screen icon to enable notifications.'));
             btn.classList.remove('btn-primary');
             btn.classList.add('btn-default');
             return;
         }
 
-        // Step 2: capability checks. Each blocker also overrides the
-        // gating customValidity so the inline-feedback path on Next click
-        // names the actual blocker instead of the generic "complete this step".
-        const setBlockedValidity = (msg) => {
-            if (hidden && required) hidden.setCustomValidity(msg);
-        };
+        // Step 2: capability checks.
         if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-            setProgrammaticValue(hidden, 'not_supported');
-            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + escapeHtml(t('pwa.push.unsupported', 'Sorry, your browser does not support push notifications.')) + '</div>';
-            setBlockedValidity(t('pwa.push.unsupported_validity', 'This browser does not support push notifications. Please use a supported browser to continue.'));
-            disableOwnControl(btn);
+            cannotPush(escapeHtml(t('pwa.push.unsupported', 'Sorry, your browser does not support push notifications.')),
+                t('pwa.push.unsupported_validity', 'This browser does not support push notifications. Please use a supported browser to continue.'));
             return;
         }
         if (!window.vapidPublicKey) {
-            setProgrammaticValue(hidden, 'not_supported');
-            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + escapeHtml(t('pwa.push.not_configured', 'Push notifications are not configured for this study.')) + '</div>';
-            setBlockedValidity(t('pwa.push.not_configured_validity', 'Push notifications are not configured for this study. Contact the study administrator.'));
-            disableOwnControl(btn);
+            cannotPush(escapeHtml(t('pwa.push.not_configured', 'Push notifications are not configured for this study.')),
+                t('pwa.push.not_configured_validity', 'Push notifications are not configured for this study. Contact the study administrator.'));
             return;
         }
         if (!isIOSPushCapable()) {
-            setProgrammaticValue(hidden, 'not_supported');
-            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + escapeHtml(t('pwa.push.ios_version', 'Sorry, push notifications require iOS 16.4 or later.')) + '</div>';
-            setBlockedValidity(t('pwa.push.ios_version_validity', 'Push notifications require iOS 16.4 or later. Please update your device to continue.'));
-            disableOwnControl(btn);
+            cannotPush(escapeHtml(t('pwa.push.ios_version', 'Sorry, push notifications require iOS 16.4 or later.')),
+                t('pwa.push.ios_version_validity', 'Push notifications require iOS 16.4 or later. Please update your device to continue.'));
             return;
         }
 
@@ -598,10 +596,8 @@ export function initPwaItems({ root, runUrl }) {
             }
         } catch (e) {}
         if (!registration || !registration.pushManager) {
-            setProgrammaticValue(hidden, 'not_supported');
-            if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + escapeHtml(t('pwa.push.no_sw', 'Service worker not registered. Please reload the page and try again.')) + '</div>';
-            setBlockedValidity(t('pwa.push.no_sw_validity', 'Service worker is not registered. Reload the page and try again.'));
-            disableOwnControl(btn);
+            cannotPush(escapeHtml(t('pwa.push.no_sw', 'Service worker not registered. Please reload the page and try again.')),
+                t('pwa.push.no_sw_validity', 'Service worker is not registered. Reload the page and try again.'));
             return;
         }
 
@@ -701,11 +697,9 @@ export function initPwaItems({ root, runUrl }) {
                         customMessage: t('pwa.push.declined', 'You declined push notifications. You can enable them in your browser settings later.'),
                     });
                 } else if (result.reason === 'invalid_config') {
-                    setProgrammaticValue(hidden, 'not_supported');
-                    setBlockedValidity(t('pwa.push.not_configured_validity', 'Push notifications are not configured for this study. Contact the study administrator.'));
-                    if (status) status.innerHTML = '<div class="alert alert-warning" role="alert">' + escapeHtml(t('pwa.push.config_error', 'Server configuration error. Please contact the study administrator.')) + '</div>';
+                    cannotPush(escapeHtml(t('pwa.push.config_error', 'Server configuration error. Please contact the study administrator.')),
+                        t('pwa.push.not_configured_validity', 'Push notifications are not configured for this study. Contact the study administrator.'));
                     btn.innerHTML = iconLabel('fa-exclamation-triangle', t('pwa.push.config_error_button', 'Configuration error'));
-                    disableOwnControl(btn);
                 } else {
                     setProgrammaticValue(hidden, 'not_supported');
                     // Subscription failed — most often this is iOS Safari
