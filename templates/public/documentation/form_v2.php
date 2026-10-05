@@ -224,7 +224,7 @@ value: complex_score(current(q1), current(q2))</pre>
 <h5>Limits and lifetime</h5>
 <ul>
     <li>Uploaded files are queued too, but a single file larger than the instance limit (<code>form_v2_offline_blob_max_mb</code>, 10&nbsp;MB by default) is refused with <em>Submission too large to queue offline…</em>; the participant has to retry that page online.</li>
-    <li>Queued answers are plain text on the participant's device. Following a <strong>logout</strong> link in the run wipes that run's queue, including unsent entries; other runs' queues on the same device are left alone.</li>
+    <li>Queued answers are plain text on the participant's device. Logging out of the run (<em>Delete Session Now / Logout</em> on its settings page, or its <code>logout</code> address) deletes that run's queue on the device, including unsent entries; other runs' queues on the same device are left alone. Uninstalling the app does not.</li>
     <li>The queue is per browser: a participant who switches devices before syncing takes the unsent pages with the old device.</li>
     <li>With <strong>Offline queue</strong> off, a failed submission shows an error and the participant stays on the page.</li>
 </ul>

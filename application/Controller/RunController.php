@@ -259,7 +259,10 @@ class RunController extends Controller {
                 $url = admin_run_url($this->run->name, 'create_new_test_code');
             }
         }
-        formr_error(200, 'OK', $text, $hint, $url, 'Start New Session');
+        // The page deletes the run's offline queue on the device (the
+        // run's path: on a study subdomain, the whole origin's).
+        $runPath = rtrim((string) parse_url(run_url($this->run->name), PHP_URL_PATH), '/') . '/';
+        formr_error(200, 'OK', $text, $hint, $url, 'Start New Session', array('wipe_queue' => $runPath));
     }
 
     protected function monkeyBarAction($action = '') {

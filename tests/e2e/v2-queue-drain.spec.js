@@ -262,6 +262,23 @@ test.describe('form_v2 offline queue drain', () => {
         expect(left).toEqual([foreign.uuid]);
     });
 
+    test('the logout page deletes this run\'s queue, wherever the logout came from', async ({ page, baseURL }) => {
+        const ctx = await start(page, baseURL);
+        const own = entryFor(ctx, { page: ctx.pageNum });
+        const foreign = entryFor(ctx, { sync_url: new URL('/e2e-queue-foreign/form-sync/', ctx.syncUrl).toString(), unit_session_id: 1 });
+        await page.evaluate(IDB_PUT, [own, foreign]);
+        // The participant's logout link is on the run's settings page, which
+        // loads no form bundle.
+        await page.goto(ctx.runUrl.replace(/\/?$/, '/') + 'settings', { waitUntil: 'domcontentloaded' });
+        await Promise.all([
+            page.waitForURL((u) => /\/logout\/?$/.test(u.pathname), { timeout: 10000 }),
+            page.getByRole('link', { name: /Delete Session Now/ }).click(),
+        ]);
+        await expect(page.getByText('Session Ended')).toBeVisible();
+        await expect.poll(async () => (await page.evaluate(IDB_GET_ALL)).map((e) => e.uuid), { timeout: 10000 })
+            .toEqual([foreign.uuid]);
+    });
+
     test('a page queued after a waiting final page gives it its newer hidden list', async ({ page, baseURL }) => {
         const ctx = await start(page, baseURL);
         await fillAllVisible(page, V2_PAGE);

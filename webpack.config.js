@@ -23,6 +23,8 @@ module.exports = (env, argv) => {
             frontend: './webroot/assets/site/js/main.js',
             admin: './webroot/assets/admin/js/main.js',
             form: './webroot/assets/form/js/main.js',
+            // The participant's logout page: deletes the run's offline queue.
+            logout: './webroot/assets/form/js/logout.js',
         },
         output: {
             filename: 'js/[name].bundle.js',

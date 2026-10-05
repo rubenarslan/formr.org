@@ -177,7 +177,7 @@ function session_over($site, $user)
     return true;
 }
 
-function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could not be processed', $hint = null, $link = null, $link_text = null)
+function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could not be processed', $hint = null, $link = null, $link_text = null, $vars = array())
 {
     $code = $code ? $code : 500;
     $text = str_replace(APPLICATION_ROOT, '', $text);
@@ -194,13 +194,13 @@ function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could
         exit;
     }
 
-    $view = new View('public/error', array(
+    $view = new View('public/error', array_merge($vars, array(
         'code' => $code,
         'title' => $hint ? $hint : $title,
         'text' => $text,
         'link' => $link,
         'link_text' => $link_text,
-    ));
+    )));
 
     $response = new Response();
     $response->setStatusCode($code, $title)->setContent($view->render())->send();

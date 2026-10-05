@@ -1993,9 +1993,9 @@ function initForm() {
     initExpiryNotifier();
 
     // Logout-link click handler: wipe the offline queue before navigating.
-    // This is the only wipe: the service worker's fetch handler is GET-only
-    // and never sees /<run>/logout, so a participant who reaches logout from
-    // outside the form bundle (or uninstalls the PWA) is not covered.
+    // The logout page wipes it too (logout.js), however the participant got
+    // there; this covers a logout link on a form page followed offline, when
+    // that page cannot load. Uninstalling the PWA wipes nothing.
     document.addEventListener('click', (e) => {
         const a = e.target.closest && e.target.closest('a[href]');
         if (!a) return;
