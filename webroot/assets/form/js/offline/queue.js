@@ -62,6 +62,25 @@ export async function queuePut(entry) {
     });
 }
 
+// Go over every entry in one readwrite transaction: `edit(entry)` returns
+// 'delete', true (changed in place: put back) or false (left alone).
+// Resolves to the number of entries deleted or put back.
+async function editEntries(edit) {
+    return onDb(async (db) => {
+        const tx = db.transaction(STORE, 'readwrite');
+        const entries = (await tx.store.getAll()) || [];
+        let edited = 0;
+        for (const e of entries) {
+            const outcome = edit(e);
+            if (outcome === 'delete') tx.store.delete(e.uuid);
+            else if (outcome) tx.store.put(e);
+            if (outcome) edited += 1;
+        }
+        await tx.done;
+        return edited;
+    });
+}
+
 export async function queueGetAll() {
     return onDb(async (db) => {
         return (await db.getAll(STORE)) || [];
@@ -90,17 +109,10 @@ export function entryBelongsTo(e, { sync_url, unit_session_id }, { anyUnitSessio
 // copy would wedge the run's queue behind an error the participant already
 // fixed. `sync_url` scopes the match to one run (the DB is origin-wide).
 export async function queueSupersede({ sync_url, unit_session_id, page }, keepUuid) {
-    return onDb(async (db) => {
-        const entries = (await db.getAll(STORE)) || [];
-        let removed = 0;
-        for (const e of entries) {
-            if (keepUuid && e.uuid === keepUuid) continue;
-            if (Number(e.page) !== Number(page)) continue;
-            if (!entryBelongsTo(e, { sync_url, unit_session_id })) continue;
-            await db.delete(STORE, e.uuid);
-            removed += 1;
-        }
-        return removed;
+    return editEntries((e) => {
+        if (keepUuid && e.uuid === keepUuid) return false;
+        if (Number(e.page) !== Number(page)) return false;
+        return entryBelongsTo(e, { sync_url, unit_session_id }) ? 'delete' : false;
     });
 }
 
@@ -109,13 +121,10 @@ export async function queueSupersede({ sync_url, unit_session_id, page }, keepUu
 // list is then older than the revisit's and would override what the revisit
 // revealed: give the waiting final page the newer snapshot.
 export async function queueRestampFinal({ sync_url, unit_session_id }, hidden) {
-    return onDb(async (db) => {
-        const entries = (await db.getAll(STORE)) || [];
-        for (const e of entries) {
-            if (!e.final || !entryBelongsTo(e, { sync_url, unit_session_id })) continue;
-            e.hidden = (hidden || []).slice();
-            await db.put(STORE, e);
-        }
+    return editEntries((e) => {
+        if (!e.final || !entryBelongsTo(e, { sync_url, unit_session_id })) return false;
+        e.hidden = (hidden || []).slice();
+        return true;
     });
 }
 
@@ -188,20 +197,14 @@ export function markNeedsAttention(entry, errors, now = Date.now()) {
 // again. Applies to blocked and backoff-pending entries; needs_attention ones
 // are left alone (only a re-submit of the page can fix those).
 export async function queueResetRetry() {
-    return onDb(async (db) => {
-        const entries = (await db.getAll(STORE)) || [];
-        let reset = 0;
-        for (const e of entries) {
-            if (entryState(e) === STATE_NEEDS_ATTENTION) continue;
-            if (!e.attempts && !e.next_retry_at && entryState(e) === STATE_PENDING) continue;
-            e.state = STATE_PENDING;
-            e.attempts = 0;
-            e.next_retry_at = null;
-            delete e.last_error;
-            await db.put(STORE, e);
-            reset += 1;
-        }
-        return reset;
+    return editEntries((e) => {
+        if (entryState(e) === STATE_NEEDS_ATTENTION) return false;
+        if (!e.attempts && !e.next_retry_at && entryState(e) === STATE_PENDING) return false;
+        e.state = STATE_PENDING;
+        e.attempts = 0;
+        e.next_retry_at = null;
+        delete e.last_error;
+        return true;
     });
 }
 
@@ -212,19 +215,14 @@ export async function queueResetRetry() {
 // sync_url pathname. An entry whose run cannot be read is wiped too:
 // plaintext answers must not outlive a logout that might be theirs.
 export async function wipeQueueForRun(runPathPrefix) {
-    return onDb(async (db) => {
-        const entries = (await db.getAll(STORE)) || [];
-        for (const entry of entries) {
-            let belongs = true;
-            if (entry.sync_url) {
-                try {
-                    belongs = new URL(entry.sync_url, self.location.href).pathname.indexOf(runPathPrefix) === 0;
-                } catch (e) { belongs = true; }
-            }
-            if (belongs) {
-                await db.delete(STORE, entry.uuid);
-            }
+    return editEntries((entry) => {
+        let belongs = true;
+        if (entry.sync_url) {
+            try {
+                belongs = new URL(entry.sync_url, self.location.href).pathname.indexOf(runPathPrefix) === 0;
+            } catch (e) { belongs = true; }
         }
+        return belongs ? 'delete' : false;
     });
 }
 
