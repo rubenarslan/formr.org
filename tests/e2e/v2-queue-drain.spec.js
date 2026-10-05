@@ -221,6 +221,25 @@ test.describe('form_v2 offline queue drain', () => {
         expect(restamped.hidden, 'the final page carries the newer snapshot').toEqual(revisit.hidden);
     });
 
+    test('a page is queued after the browser closed the queue\'s database connection', async ({ page, baseURL }) => {
+        const ctx = await start(page, baseURL);
+        // The load-time drain has opened the connection; the browser now
+        // closes it under the page (as WebKit does to a backgrounded app).
+        await expect.poll(() => page.evaluate(() => indexedDB.databases().then((d) => d.some((x) => x.name === 'formrQueue'))), { timeout: 10000 }).toBe(true);
+        const cdp = await page.context().newCDPSession(page);
+        await cdp.send('Storage.clearDataForOrigin', { origin: new URL(ctx.syncUrl).origin, storageTypes: 'indexeddb' });
+        await fillAllVisible(page, V2_PAGE);
+        let alerted = null;
+        page.on('dialog', (d) => { alerted = d.message(); d.dismiss().catch(() => {}); });
+        await mockSync(page, () => ({ status: 503, contentType: 'application/json', body: '{}' }));
+        await page.route((u) => SUBMIT_RE.test(u.pathname), (route) => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }));
+        await page.locator('form.fmr-form-v2 section.fmr-page:not([hidden]) [data-fmr-next]').click();
+        await expect(page.locator('.fmr-queue-banner')).toBeVisible({ timeout: 10000 });
+        expect(alerted, 'no "could not be queued locally"').toBeNull();
+        expect((await page.evaluate(IDB_GET_ALL)).length).toBe(1);
+        await page.unroute((u) => SUBMIT_RE.test(u.pathname)).catch(() => {});
+    });
+
     test('offline mode off: a submit held back by an earlier page says so, without a connection alert', async ({ page, baseURL }) => {
         setOfflineMode(false);
         try {

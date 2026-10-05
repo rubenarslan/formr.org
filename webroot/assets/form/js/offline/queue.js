@@ -26,9 +26,29 @@ function getDb() {
                     store.createIndex('client_ts', 'client_ts');
                 }
             },
+            // The browser closed the connection (storage eviction, WebKit
+            // after the installed app was in the background).
+            terminated() { dbPromise = null; },
         });
+        // A failed open is not kept either: the next call tries again.
+        dbPromise.catch(() => { dbPromise = null; });
     }
     return dbPromise;
+}
+
+// Run one queue operation on the connection — and once more on a new one
+// when the old one turns out to be closed. WebKit can drop the connection of
+// an installed app that was in the background without a close event; every
+// call then failed (InvalidStateError) until a reload, and a page the
+// participant sent offline could not be queued.
+async function onDb(op) {
+    try {
+        return await op(await getDb());
+    } catch (err) {
+        if (!err || !['InvalidStateError', 'UnknownError', 'TransactionInactiveError'].includes(err.name)) throw err;
+        dbPromise = null;
+        return op(await getDb());
+    }
 }
 
 // Store an entry, or overwrite a stored one in place (same keyPath). The drain
@@ -37,19 +57,22 @@ function getDb() {
 // runs on every load and every `online` event, and without persisted state a
 // permanently-rejected entry is re-POSTed on each of them.
 export async function queuePut(entry) {
-    const db = await getDb();
-    await db.put(STORE, entry);
-    return entry;
+    return onDb(async (db) => {
+        await db.put(STORE, entry);
+        return entry;
+    });
 }
 
 export async function queueGetAll() {
-    const db = await getDb();
-    return (await db.getAll(STORE)) || [];
+    return onDb(async (db) => {
+        return (await db.getAll(STORE)) || [];
+    });
 }
 
 export async function queueDelete(uuid) {
-    const db = await getDb();
-    await db.delete(STORE, uuid);
+    return onDb(async (db) => {
+        await db.delete(STORE, uuid);
+    });
 }
 
 // Does a queue entry belong to `owner` ({sync_url, unit_session_id})? The one
@@ -70,17 +93,18 @@ export function entryBelongsTo(e, { sync_url, unit_session_id }, { anyUnitSessio
 // copy would wedge the run's queue behind an error the participant already
 // fixed. `sync_url` scopes the match to one run (the DB is origin-wide).
 export async function queueSupersede({ sync_url, unit_session_id, page }, keepUuid) {
-    const db = await getDb();
-    const entries = (await db.getAll(STORE)) || [];
-    let removed = 0;
-    for (const e of entries) {
-        if (keepUuid && e.uuid === keepUuid) continue;
-        if (Number(e.page) !== Number(page)) continue;
-        if (!entryBelongsTo(e, { sync_url, unit_session_id })) continue;
-        await db.delete(STORE, e.uuid);
-        removed += 1;
-    }
-    return removed;
+    return onDb(async (db) => {
+        const entries = (await db.getAll(STORE)) || [];
+        let removed = 0;
+        for (const e of entries) {
+            if (keepUuid && e.uuid === keepUuid) continue;
+            if (Number(e.page) !== Number(page)) continue;
+            if (!entryBelongsTo(e, { sync_url, unit_session_id })) continue;
+            await db.delete(STORE, e.uuid);
+            removed += 1;
+        }
+        return removed;
+    });
 }
 
 // A final page drains last within its unit session (it ends the form), so a
@@ -88,13 +112,14 @@ export async function queueSupersede({ sync_url, unit_session_id, page }, keepUu
 // list is then older than the revisit's and would override what the revisit
 // revealed: give the waiting final page the newer snapshot.
 export async function queueRestampFinal({ sync_url, unit_session_id }, hidden) {
-    const db = await getDb();
-    const entries = (await db.getAll(STORE)) || [];
-    for (const e of entries) {
-        if (!e.final || !entryBelongsTo(e, { sync_url, unit_session_id })) continue;
-        e.hidden = (hidden || []).slice();
-        await db.put(STORE, e);
-    }
+    return onDb(async (db) => {
+        const entries = (await db.getAll(STORE)) || [];
+        for (const e of entries) {
+            if (!e.final || !entryBelongsTo(e, { sync_url, unit_session_id })) continue;
+            e.hidden = (hidden || []).slice();
+            await db.put(STORE, e);
+        }
+    });
 }
 
 // ---- Retry state -----------------------------------------------------------
@@ -166,20 +191,21 @@ export function markNeedsAttention(entry, errors, now = Date.now()) {
 // again. Applies to blocked and backoff-pending entries; needs_attention ones
 // are left alone (only a re-submit of the page can fix those).
 export async function queueResetRetry() {
-    const db = await getDb();
-    const entries = (await db.getAll(STORE)) || [];
-    let reset = 0;
-    for (const e of entries) {
-        if (entryState(e) === STATE_NEEDS_ATTENTION) continue;
-        if (!e.attempts && !e.next_retry_at && entryState(e) === STATE_PENDING) continue;
-        e.state = STATE_PENDING;
-        e.attempts = 0;
-        e.next_retry_at = null;
-        delete e.last_error;
-        await db.put(STORE, e);
-        reset += 1;
-    }
-    return reset;
+    return onDb(async (db) => {
+        const entries = (await db.getAll(STORE)) || [];
+        let reset = 0;
+        for (const e of entries) {
+            if (entryState(e) === STATE_NEEDS_ATTENTION) continue;
+            if (!e.attempts && !e.next_retry_at && entryState(e) === STATE_PENDING) continue;
+            e.state = STATE_PENDING;
+            e.attempts = 0;
+            e.next_retry_at = null;
+            delete e.last_error;
+            await db.put(STORE, e);
+            reset += 1;
+        }
+        return reset;
+    });
 }
 
 // Wipe only the entries belonging to one run. The queue DB is origin-wide, so
@@ -190,19 +216,20 @@ export async function queueResetRetry() {
 // run — they're wiped too, keeping the pre-scoping security posture (plaintext
 // answers must not outlive a logout that might be theirs).
 export async function wipeQueueForRun(runPathPrefix) {
-    const db = await getDb();
-    const entries = (await db.getAll(STORE)) || [];
-    for (const entry of entries) {
-        let belongs = true;
-        if (entry.sync_url) {
-            try {
-                belongs = new URL(entry.sync_url, self.location.href).pathname.indexOf(runPathPrefix) === 0;
-            } catch (e) { belongs = true; }
+    return onDb(async (db) => {
+        const entries = (await db.getAll(STORE)) || [];
+        for (const entry of entries) {
+            let belongs = true;
+            if (entry.sync_url) {
+                try {
+                    belongs = new URL(entry.sync_url, self.location.href).pathname.indexOf(runPathPrefix) === 0;
+                } catch (e) { belongs = true; }
+            }
+            if (belongs) {
+                await db.delete(STORE, entry.uuid);
+            }
         }
-        if (belongs) {
-            await db.delete(STORE, entry.uuid);
-        }
-    }
+    });
 }
 
 // Normalise a stored entry's envelope before it goes on the wire.
