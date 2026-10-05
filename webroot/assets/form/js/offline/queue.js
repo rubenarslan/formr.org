@@ -35,6 +35,18 @@ function getDb() {
     return dbPromise;
 }
 
+// Whether this origin holds a queue database at all (a device that only
+// ever showed classic surveys has none), where the browser can say so;
+// otherwise assumed. Opening one to look would create it.
+export async function queueDatabaseExists() {
+    if (typeof indexedDB === 'undefined' || typeof indexedDB.databases !== 'function') return true;
+    try {
+        return (await indexedDB.databases()).some((d) => d.name === DB_NAME);
+    } catch (e) {
+        return true;
+    }
+}
+
 // Run one queue operation on the connection — and once more on a new one
 // when the old one turns out to be closed. WebKit can drop the connection of
 // an installed app that was in the background without a close event; every

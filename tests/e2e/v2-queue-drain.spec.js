@@ -279,6 +279,16 @@ test.describe('form_v2 offline queue drain', () => {
             .toEqual([foreign.uuid]);
     });
 
+    test('the logout page of a run that never queued leaves no database behind', async ({ page, baseURL }) => {
+        // A classic run: no form bundle, so no queue was ever opened here.
+        const { url } = await freshParticipant(page, runName('pwa_high', 'v1'), { baseURL });
+        await page.goto(url.replace(/\?.*$/, '').replace(/\/?$/, '/') + 'logout', { waitUntil: 'load' });
+        await expect(page.getByText('Session Ended')).toBeVisible();
+        await page.waitForTimeout(1000);
+        const names = await page.evaluate(async () => (await indexedDB.databases()).map((d) => d.name));
+        expect(names).not.toContain('formrQueue');
+    });
+
     test('a page queued after a waiting final page gives it its newer hidden list', async ({ page, baseURL }) => {
         const ctx = await start(page, baseURL);
         await fillAllVisible(page, V2_PAGE);

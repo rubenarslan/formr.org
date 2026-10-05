@@ -5,7 +5,13 @@
 // The database belongs to the origin, which on a path-routed study domain
 // every run shares, so the run's own entries go (wipeQueueForRun); on a
 // study subdomain that is all of them.
-import { wipeQueueForRun } from './offline/queue.js';
+import { queueDatabaseExists, wipeQueueForRun } from './offline/queue.js';
 
 const scope = document.querySelector('[data-fmr-wipe-queue]');
-if (scope) wipeQueueForRun(scope.dataset.fmrWipeQueue).catch(() => {});
+if (scope) {
+    // Without a database there is nothing to delete, and wiping would
+    // create one.
+    queueDatabaseExists()
+        .then((exists) => (exists ? wipeQueueForRun(scope.dataset.fmrWipeQueue) : null))
+        .catch(() => {});
+}
