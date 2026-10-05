@@ -997,8 +997,10 @@ function initForm() {
         return inp;
     };
     const pageByNum = (pageNum) => pages.find((p) => Number(p.dataset.fmrPage) === Number(pageNum));
+    // A select's R choice labels are found by their item: the placeholder
+    // inside an <option> is dropped by most HTML parsers.
     const hasDynamicContent = (targetPage) => !!(targetPage
-        && targetPage.querySelector('[data-fmr-fill-id], [data-fmr-label-id], [data-fmr-choice-id]'));
+        && targetPage.querySelector('[data-fmr-fill-id], [data-fmr-label-id], [data-fmr-choice-id], [data-fmr-choice-item]'));
     // The POST behind a page's resolution, against the answers as they are
     // now. Resolves {res, body}; rejects on a network failure.
     const fetchPageResolution = async (pageNum) => {
