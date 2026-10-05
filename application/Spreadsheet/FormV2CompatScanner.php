@@ -160,6 +160,20 @@ class FormV2CompatScanner {
     }
 
     /**
+     * May the author move the study to v2 over this finding ("Move to v2
+     * anyway", `force`)? A showif the heuristic flagged, which can be wrong,
+     * and a choice list written in one cell with commas, which can be meant
+     * as one choice. Every other finding blocks the switch.
+     *
+     * @param array $finding One of scan()'s `flagged`.
+     * @return bool
+     */
+    public static function overridable(array $finding) {
+        return ($finding['column'] ?? '') === 'showif'
+            || ($finding['suggested_fix'] ?? '') === 'pack_with_semicolons';
+    }
+
+    /**
      * Identifiers a showif may use besides the form's item names:
      * JavaScript's own, plus the fmrForm helpers (Item::SHOWIF_HELPERS).
      */

@@ -81,9 +81,7 @@
                         // "Upgrade anyway": for when the scan's showif heuristic is
                         // wrong about one, or a one-cell comma list is meant as one
                         // choice. Items v2 cannot run still block it.
-                        $fmrShowifFlagged = count(array_filter((array) ($report['flagged'] ?? []), function ($f) {
-                            return ($f['column'] ?? '') === 'showif' || ($f['suggested_fix'] ?? '') === 'pack_with_semicolons';
-                        }));
+                        $fmrShowifFlagged = count(array_filter((array) ($report['flagged'] ?? []), array('FormV2CompatScanner', 'overridable')));
                         if ($study->rendering_mode !== 'v2' && Config::get('form_v2_enabled') && $fmrShowifFlagged > 0): ?>
                             <form method="post" action="<?= admin_study_url($study->name, 'switch_rendering_mode') ?>" style="margin-bottom: 1em">
                                 <input type="hidden" name="target" value="v2">

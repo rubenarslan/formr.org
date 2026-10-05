@@ -758,10 +758,14 @@ class AdminSurveyController extends AdminController {
         $showifFindings = $listFindings = array();
         if (!$unsupported && $toV2 && empty($_POST['force'])) {
             foreach (FormV2CompatScanner::scan((int) $this->study->id)['flagged'] as $f) {
+                if (!FormV2CompatScanner::overridable($f)) {
+                    continue;
+                }
+                $finding = "'{$f['name']}': " . implode('; ', $f['problems']);
                 if ($f['column'] === 'showif') {
-                    $showifFindings[] = "'{$f['name']}': " . implode('; ', $f['problems']);
-                } elseif ($f['suggested_fix'] === 'pack_with_semicolons') {
-                    $listFindings[] = "'{$f['name']}': " . implode('; ', $f['problems']);
+                    $showifFindings[] = $finding;
+                } else {
+                    $listFindings[] = $finding;
                 }
             }
         }

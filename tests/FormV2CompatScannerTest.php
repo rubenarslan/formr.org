@@ -53,4 +53,14 @@ class FormV2CompatScannerTest extends TestCase
         // …and a quote inside a comment opens no string.
         $this->assertSame(array('q1', 'q2'), FormV2CompatScanner::namesIn("q1 == 1 // it's\n|| q2 == 2"));
     }
+
+    public function testOnlyAShowifOrAOneCellCommaListCanBeOverridden()
+    {
+        $this->assertTrue(FormV2CompatScanner::overridable(array('column' => 'showif', 'suggested_fix' => 'rewrite_in_js')));
+        $this->assertTrue(FormV2CompatScanner::overridable(array('column' => 'showif', 'suggested_fix' => 'bridge_hidden_item')));
+        $this->assertTrue(FormV2CompatScanner::overridable(array('column' => 'choices', 'suggested_fix' => 'pack_with_semicolons')));
+        $this->assertFalse(FormV2CompatScanner::overridable(array('column' => 'type', 'suggested_fix' => 'use_hidden')));
+        $this->assertFalse(FormV2CompatScanner::overridable(array('column' => 'choices', 'suggested_fix' => 'edit_choices')));
+        $this->assertFalse(FormV2CompatScanner::overridable(array('column' => 'name', 'suggested_fix' => 'rename_item')));
+    }
 }
