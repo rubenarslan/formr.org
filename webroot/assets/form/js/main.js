@@ -1449,26 +1449,24 @@ function initForm() {
                 // This page was rendered for an earlier unit session (form
                 // continued elsewhere / a new diary entry started). Reload so
                 // the server re-renders the current state.
-                window.alert(t('error.stale_session', 'This form was continued elsewhere or a new entry has started. The page will reload to catch up.'));
-                window.location.reload();
+                reloadPage(t('error.stale_session', 'This form was continued elsewhere or a new entry has started. The page will reload to catch up.'));
                 return;
             }
             if (res.status === 403 && errBody && errBody.closed) {
                 // The study was closed meanwhile: the run's page says so.
-                window.location.reload();
+                reloadPage();
                 return;
             }
             if (res.status === 403) {
                 // Run session gone — most likely the login session expired.
-                window.alert(t('error.session_expired', 'Your session has expired. The page will reload so you can continue.'));
-                window.location.reload();
+                reloadPage(t('error.session_expired', 'Your session has expired. The page will reload so you can continue.'));
                 return;
             }
             if (res.status === 409) {
                 // The form is no longer the current unit (it ended — perhaps
                 // a queued final page landed first — or the run moved on).
                 // The server knows where the participant is: go there.
-                window.location.href = runUrl || window.location.pathname;
+                leavePage(runUrl || window.location.pathname);
                 return;
             }
             window.alert(t('error.generic', 'Sorry, something went wrong. Please try again.'));
@@ -1482,8 +1480,7 @@ function initForm() {
             savePill.classList.remove('is-visible');
             console.error('page-submit: unparseable response body', res.redirected ? `(redirected to ${res.url})` : '');
             if (res.redirected) {
-                window.alert(t('error.session_expired', 'Your session has expired. The page will reload so you can continue.'));
-                window.location.reload();
+                reloadPage(t('error.session_expired', 'Your session has expired. The page will reload so you can continue.'));
                 return;
             }
             // 200 with an unparseable body (proxy mangling, dev-mode xdebug
@@ -1522,7 +1519,7 @@ function initForm() {
             // The survey went back to v1 while this page was open: the page
             // is stored, and the run URL shows the rest on v1.
             forgetPage(unitSessionId);
-            window.location.href = body.redirect;
+            leavePage(body.redirect);
             return;
         }
         if (body.redirect) {
@@ -1530,7 +1527,7 @@ function initForm() {
             // the completion beat instead of an abrupt jump to the end-page.
             forgetPage(unitSessionId);
             showCompletion(t('completion.next_step', 'Thanks — sending you to the next step…'));
-            setTimeout(() => { window.location.href = body.redirect; }, 600);
+            setTimeout(() => leavePage(body.redirect), 600);
             return;
         }
         setSaveState('saved', t('save.saved', 'Saved'));
@@ -1545,7 +1542,7 @@ function initForm() {
         // Nothing follows and the server did not end the form: the document
         // and the server disagree (the form's items changed since it was
         // rendered). Reload and let the server render the current state.
-        window.location.href = runUrl || window.location.pathname;
+        leavePage(runUrl || window.location.pathname);
     };
 
     // The final page is stored, but a required item elsewhere is still

@@ -69,6 +69,29 @@ test.describe('a live page submit that does not succeed', () => {
         });
     }
 
+    test('a reload it forces asks no "leave site?" for a change still to be saved', async ({ page, baseURL }) => {
+        await start(page, baseURL);
+        let release;
+        const held = new Promise((r) => { release = r; });
+        await page.route(SUBMIT_ROUTE, async (route) => { await held; await route.fulfill(reply(403, { error: 'No active run session' })); });
+        // The alert is acknowledged; a "leave site?" prompt is answered Stay,
+        // as a participant may, which would strand them on a dead page.
+        const dialogs = [];
+        page.on('dialog', async (d) => { dialogs.push(d.type()); await (d.type() === 'beforeunload' ? d.dismiss() : d.accept()); });
+        const loads = [];
+        page.on('load', () => loads.push(page.url()));
+        await page.locator(`${VISIBLE_PAGE} [data-fmr-next]`).click();
+        // While the page is on the wire, the participant changes an answer.
+        await page.waitForTimeout(300);
+        const email = page.locator(`${VISIBLE_PAGE} input[name="i_email"]`);
+        await email.click();
+        await email.fill('late@example.org');
+        await email.blur();
+        release();
+        await expect.poll(() => loads.length, { timeout: 10000 }).toBeGreaterThanOrEqual(1);
+        expect(dialogs).toEqual(['alert']);
+    });
+
     test('409 without stale_session: goes to the run URL', async ({ page, baseURL }) => {
         await start(page, baseURL);
         await mockSubmit(page, reply(409, { error: 'No current unit session' }));
