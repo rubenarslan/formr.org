@@ -49,13 +49,18 @@ function coerceField(v) {
     return isNaN(n) ? v : n;
 }
 
+// Is a showif value missing? An array is missing when every entry is: an
+// untouched geopoint reads [''] (its text box) and an untouched touch-mode
+// rank ['', '', ''] (its rows), which coerceField makes [null] / [null, …].
+export function isNA(v) {
+    return v === null || v === undefined || v === ''
+        || (Array.isArray(v) && v.every(isNA))
+        || (typeof v === 'number' && isNaN(v));
+}
+
 export function registerFmrForm(Alpine) {
     Alpine.data('fmrForm', () => ({
-        isNA(v) {
-            return v === null || v === undefined || v === ''
-                || (Array.isArray(v) && v.length === 0)
-                || (typeof v === 'number' && isNaN(v));
-        },
+        isNA(v) { return isNA(v); },
         answered(v) { return !this.isNA(v); },
         contains(haystack, needle) {
             if (this.isNA(haystack)) return false;
