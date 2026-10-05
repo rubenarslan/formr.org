@@ -734,6 +734,9 @@ export function initSolo(opts) {
         // reliable signal, and it's the general rule that keeps us out of every
         // widget's arrow/Enter semantics without enumerating them.
         if (e.defaultPrevented) return;
+        // A key that belongs to an input method's composition (Enter accepts
+        // a Japanese or Chinese conversion; Safari reports keyCode 229).
+        if (e.isComposing || e.keyCode === 229) return;
 
         // Enter advances: single-line inputs, choice steps, and statement
         // screens alike. Textareas keep Enter = newline (Ctrl/Cmd+Enter

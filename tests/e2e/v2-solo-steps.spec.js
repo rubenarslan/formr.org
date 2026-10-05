@@ -76,6 +76,21 @@ test.describe('form_v2 solo steps', () => {
         await page.waitForTimeout(800);
         await expect(seated(page).locator('[name="ss_text"]'), 'still on the second step').toBeVisible();
     });
+    test('Enter that accepts an input method conversion does not move on', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN, { baseURL });
+        await v2.waitForBundle(page);
+        const slider = seated(page).locator('.vas-display');
+        await slider.evaluate((r) => { r.value = '30'; r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); });
+        const text = seated(page).locator('[name="ss_text"]');
+        await expect(text).toBeVisible({ timeout: 3000 });
+        await text.fill('にほんご');
+        await text.evaluate((el) => el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true, cancelable: true })));
+        await page.waitForTimeout(800);
+        await expect(seated(page).locator('[name="ss_text"]'), 'still on the text step').toBeVisible();
+        // The Enter after the conversion does move on.
+        await text.press('Enter');
+        await expect(seated(page).locator('[name="ss_last"]')).toBeVisible({ timeout: 3000 });
+    });
     test('a page that sends itself with a required step unanswered shows that step', async ({ page, baseURL }) => {
         await page.clock.install();
         await freshParticipant(page, TIMED_RUN, { baseURL });
