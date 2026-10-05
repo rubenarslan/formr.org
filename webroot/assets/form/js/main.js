@@ -34,7 +34,7 @@ import { mysqlDatetime } from './lib/time.js';
 import { genUuid } from './lib/uuid.js';
 import {
     queuePut, queueGetAll, queueDelete, queueSupersede, queueRestampFinal, queueResetRetry, entryBelongsTo, postWrite,
-    wipeQueueForRun, normalizeSyncEntry, isTransientFailure,
+    wipeQueueForRun, isTransientFailure,
     entryState, entryIsDue, markRetryFailure, markNeedsAttention,
     STATE_PENDING, STATE_NEEDS_ATTENTION, STATE_BLOCKED,
 } from './offline/queue.js';
@@ -566,11 +566,7 @@ function initForm() {
 
     // Post one entry to its run's /form-sync. Throws on network failure
     // (caller treats that as "still offline"); resolves {res, body}.
-    // normalizeSyncEntry, not the raw entry: /form-sync 400s a client_ts that
-    // isn't a MySQL DATETIME (it used to 500 at INSERT time, after the answers
-    // were already applied — the client then retried and double-wrote). A 400
-    // blocks the entry, so one stored by an older bundle is fixed up here.
-    const postQueueEntry = (entry, entrySyncUrl) => postWrite(entrySyncUrl, normalizeSyncEntry(entry));
+    const postQueueEntry = (entry, entrySyncUrl) => postWrite(entrySyncUrl, entry);
 
     // Classify a /form-sync response into a drain outcome. Every shape
     // RunController::formSyncAction can answer with is named here:
@@ -630,14 +626,12 @@ function initForm() {
         // (expired session, validation error) must not head-of-line block
         // another run's entries on this origin, and an entry left over from
         // an earlier unit session of this run (a previous diary entry — the
-        // server can only drop it) must not block the current one. Legacy
-        // entries without sync_url belong to this form.
-        // This form's own entries: its run and its unit session (or none
-        // recorded — legacy). Only they may merge into this page's store or
-        // move this page on.
+        // server can only drop it) must not block the current one.
+        // This form's own entries: its run and its unit session. Only they
+        // may merge into this page's store or move this page on.
         const groups = new Map();
         entries.forEach((entry) => {
-            const url = entry.sync_url || ownSyncUrl;
+            const url = entry.sync_url;
             const usid = Number(entry.unit_session_id) || 0;
             if (!url || (ownOnly && !isOwnEntry({ sync_url: url, unit_session_id: usid }))) return;
             const key = url + '#' + usid;

@@ -10,7 +10,6 @@
 // don't care that the underlying mechanism is IDB.
 
 import { openDB } from 'idb';
-import { toMysqlDatetime } from '../lib/time.js';
 
 const DB_NAME = 'formrQueue';
 const STORE = 'queue';
@@ -77,12 +76,10 @@ export async function queueDelete(uuid) {
 
 // Does a queue entry belong to `owner` ({sync_url, unit_session_id})? The one
 // rule for the drain, the queue summary, the queued-behind check and the
-// helpers below. An entry an older bundle stored without a run or unit
-// session counts as the owner's. `anyUnitSession` matches on the run alone.
+// helpers below. `anyUnitSession` matches on the run alone.
 export function entryBelongsTo(e, { sync_url, unit_session_id }, { anyUnitSession = false } = {}) {
-    if ((e.sync_url || sync_url) !== sync_url) return false;
-    return anyUnitSession || !Number(e.unit_session_id)
-        || Number(e.unit_session_id) === Number(unit_session_id || 0);
+    if (e.sync_url !== sync_url) return false;
+    return anyUnitSession || Number(e.unit_session_id) === Number(unit_session_id || 0);
 }
 
 // Delete every entry that targets the same page of the same unit session as
@@ -212,9 +209,8 @@ export async function queueResetRetry() {
 // on path-routed deploys (study.example.com/<run>/) logging out of run B must
 // not destroy run A's still-undrained answers. `runPathPrefix` is the run's
 // path with trailing slash (e.g. "/mystudy/"); entries are matched on their
-// sync_url pathname. Legacy entries without sync_url can't be attributed to a
-// run — they're wiped too, keeping the pre-scoping security posture (plaintext
-// answers must not outlive a logout that might be theirs).
+// sync_url pathname. An entry whose run cannot be read is wiped too:
+// plaintext answers must not outlive a logout that might be theirs.
 export async function wipeQueueForRun(runPathPrefix) {
     return onDb(async (db) => {
         const entries = (await db.getAll(STORE)) || [];
@@ -230,24 +226,6 @@ export async function wipeQueueForRun(runPathPrefix) {
             }
         }
     });
-}
-
-// Normalise a stored entry's envelope before it goes on the wire.
-//
-// `/form-sync` validates uuid / page / unit_session_id / client_ts strictly and
-// answers 400 — which the drain treats as permanent (the entry is blocked until
-// a manual Retry) — so a value an older bundle happened to store in a different
-// shape must be fixed here rather than stranding the answers. Only the envelope
-// is touched; `data`,
-// `item_views` and `files` are passed through untouched.
-export function normalizeSyncEntry(entry) {
-    const out = Object.assign({}, entry);
-    out.page = Number(out.page);
-    if (!Number.isFinite(out.page) || out.page < 1) out.page = 1;
-    out.page = Math.round(out.page);
-    const ts = toMysqlDatetime(out.client_ts);
-    if (ts === null) delete out.client_ts; else out.client_ts = ts;
-    return out;
 }
 
 // The multipart shape of a v2 write, for a live submit and for a queued
