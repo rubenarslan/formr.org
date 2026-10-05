@@ -67,6 +67,10 @@ test.describe('form_v2: what an item stores', () => {
         expect(stored(usid, 'ia_multi')).toBe('2');
         expect(stored(usid, 'ia_req')).toBe('1');
         expect(stored(usid, 'ia_untouched') || null).toBeNull();
+        // When it was answered: the browser's stamp, posted with the page.
+        const [times] = dbQuery(`SELECT d.answered_relative FROM survey_items_display d JOIN survey_items i ON i.id = d.item_id `
+            + `WHERE d.session_id = ${Number(usid)} AND i.name = 'ia_multi';`);
+        expect(times.answered_relative, 'answered_relative of a ticked item').not.toBeNull();
     });
 
     test('a check_button can be seen and tapped, and stores its tick', async ({ page, baseURL }) => {

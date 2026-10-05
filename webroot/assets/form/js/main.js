@@ -297,7 +297,8 @@ function initForm() {
         const inp = e.target;
         if (!inp.matches || !inp.matches('input[name], select[name], textarea[name]')) return;
         if (inp.name.startsWith('_item_views')) return;
-        const wrapper = inp.closest('.item');
+        // The item's wrapper (Item::render: `form-group … item-<type>`).
+        const wrapper = inp.closest('.form-group');
         if (!wrapper) return;
         const ans = wrapper.querySelector('.item_answered');
         if (ans && !ans.value) ans.value = mysqlDatetime();
