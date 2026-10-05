@@ -1,5 +1,5 @@
 import { t } from '../lib/i18n.js';
-import { isItemHidden } from '../lib/inputs.js';
+import { isItemHidden, itemAnswered } from '../lib/inputs.js';
 // Native Constraint Validation feedback rendering for v2.
 //
 // v1 used webshim to surface consistent inline messages. v2 has neither
@@ -119,35 +119,6 @@ export function applyErrors(pageEl, errors) {
     }
 }
 
-// Has a required group been "answered"? Many item types own their value in an
-// input native Constraint Validation can't see — a hidden carrier (bot_check
-// token, VAS slider value, geopoint coords, audio/video/file recordings) or a
-// readonly field (geopoint) — so checkValidity never flags a required-but-empty
-// one. This generic check covers them uniformly: a real answer is a checked
-// option, a chosen file, a non-empty visible (non-readonly) named field, or a
-// non-empty value-carrier hidden input.
-function isAnswered(g) {
-    if (g.querySelector('input[type=radio]:checked, input[type=checkbox]:checked')) return true;
-    for (const f of g.querySelectorAll('input[type=file]')) {
-        if (f.files && f.files.length) return true;
-        // An upload already stored for this item (main.js marks it from the
-        // state block): a file input cannot show it, but the answer is there.
-        if (f.dataset.fmrStored === '1') return true;
-    }
-    const named = g.querySelectorAll(
-        'input[name]:not([type=hidden]):not([type=radio]):not([type=checkbox]):not([type=file]), textarea[name], select[name]',
-    );
-    for (const el of named) {
-        if (el.readOnly || el.disabled) continue;       // readonly geopoint field doesn't count
-        if (String(el.value == null ? '' : el.value).trim() !== '') return true;
-    }
-    for (const h of g.querySelectorAll('input[type=hidden]')) {
-        if (h.name && h.name.startsWith('_item_views')) continue; // bookkeeping, not an answer
-        if (String(h.value == null ? '' : h.value).trim() !== '') return true;
-    }
-    return false;
-}
-
 // Friendly per-type message for a required-but-unanswered group.
 function requiredMsg(g) {
     if (g.classList.contains('item-bot_check')) return t('validation.bot_check', 'Please verify that you are human to continue.');
@@ -204,7 +175,7 @@ export function validatePageAndShowFeedback(pageEl) {
         // here mirrors the server's required check (UnitSession excludes 'submit')
         // and stops the page's own big submit button from blocking itself.
         && !g.classList.contains('item-submit')
-        && !nativeGroups.has(g) && !isAnswered(g));
+        && !nativeGroups.has(g) && !itemAnswered(g));
 
     if (offenders.length === 0 && unanswered.length === 0) return true;
 

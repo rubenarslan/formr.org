@@ -12,7 +12,7 @@
 // v1 armed on window load (one page per document); v2 arms when a page becomes
 // current and disarms when the participant leaves it, so timed pages measure
 // exposure to THAT page, not document age.
-import { isItemHidden } from '../lib/inputs.js';
+import { isItemHidden, itemAnswered } from '../lib/inputs.js';
 
 export function initAutoSubmit({ root, pages, getCurrentIndex, submitPage }) {
     let timers = [];
@@ -44,22 +44,12 @@ export function initAutoSubmit({ root, pages, getCurrentIndex, submitPage }) {
     };
 
     // "Answered" mirrors v1's interaction tracking: the change listener in
-    // main.js stamps `.item_answered` on first commit; value-presence covers
-    // prefills and back-navigation where no fresh change event fired.
+    // main.js stamps `.item_answered` on first commit. An answer already
+    // there (a prefill, a stored answer on a revisit, a scale's or a rank's
+    // hidden carrier) counts as the required check counts it.
     const groupAnswered = (group) => {
         const stamp = group.querySelector('.item_answered');
-        if (stamp && stamp.value) return true;
-        const inputs = group.querySelectorAll('input[name], select[name], textarea[name]');
-        for (const inp of inputs) {
-            if (!inp.name || inp.name.startsWith('_item_views')) continue;
-            if (inp.type === 'hidden') continue; // checkbox partners, plumbing
-            if (inp.type === 'checkbox' || inp.type === 'radio') {
-                if (inp.checked) return true;
-            } else if (inp.value != null && String(inp.value).trim() !== '') {
-                return true;
-            }
-        }
-        return false;
+        return !!(stamp && stamp.value) || itemAnswered(group);
     };
 
     // Same exclusion set as v1's completion check: notes, iframes, blocks and

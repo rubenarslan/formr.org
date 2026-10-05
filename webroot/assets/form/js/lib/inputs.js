@@ -112,6 +112,38 @@ export function isItemHidden(wrapper) {
         && (wrapper.hasAttribute('data-fmr-hidden') || wrapper.classList.contains('hidden')));
 }
 
+// Does an item's group hold an answer? Many item types own their value in an
+// input native Constraint Validation can't see — a hidden carrier (bot_check
+// token, VAS slider value, geopoint coords, audio/video/file recordings) or a
+// readonly field (geopoint) — so checkValidity never flags a required-but-empty
+// one. This generic check covers them uniformly: a real answer is a checked
+// option, a chosen file, a non-empty visible (non-readonly) named field, or a
+// non-empty value-carrier hidden input. The required check and the
+// all-answered auto-submit both ask it.
+export function itemAnswered(g) {
+    if (g.querySelector('input[type=radio]:checked, input[type=checkbox]:checked')) return true;
+    for (const f of g.querySelectorAll('input[type=file]')) {
+        if (f.files && f.files.length) return true;
+        // An upload already stored for this item (main.js marks it from the
+        // state block): a file input cannot show it, but the answer is there.
+        if (f.dataset.fmrStored === '1') return true;
+    }
+    const named = g.querySelectorAll(
+        'input[name]:not([type=hidden]):not([type=radio]):not([type=checkbox]):not([type=file]), textarea[name], select[name]',
+    );
+    for (const el of named) {
+        if (el.readOnly || el.disabled) continue;       // readonly geopoint field doesn't count
+        if (String(el.value == null ? '' : el.value).trim() !== '') return true;
+    }
+    for (const h of g.querySelectorAll('input[type=hidden]')) {
+        if (h.name && h.name.startsWith('_item_views')) continue; // bookkeeping, not an answer
+        // A check item's "0" partner: what an unticked box posts.
+        if (h.name && g.querySelector(`input[type=checkbox][name="${CSS.escape(h.name)}"]`)) continue;
+        if (String(h.value == null ? '' : h.value).trim() !== '') return true;
+    }
+    return false;
+}
+
 // The ids of the showif items currently hidden within `scope`: what a page
 // submit reports so the server records them as hidden (and its required
 // check skips them). Only showif items are reported; the server honours no
