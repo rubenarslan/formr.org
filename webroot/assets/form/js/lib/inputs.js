@@ -55,9 +55,14 @@ export function readField(inp, root) {
         value = Array.from(inp.selectedOptions).map((o) => o.value);
     } else if (isArray && inp.tagName !== 'SELECT') {
         // Several inputs sharing a `name[]` (a rank's rows) answer together,
-        // in document order — one of them alone is not the answer.
+        // in document order — one of them alone is not the answer. A choice
+        // among them answers only when ticked: an mc_multiple's group is read
+        // through its hidden `name[]` placeholder, which comes first, and its
+        // unticked boxes are no more part of the answer than in a native
+        // form post (`['', '2']`).
         value = Array.from(scope.querySelectorAll(`input[name="${esc(inp.name)}"], textarea[name="${esc(inp.name)}"]`))
-            .filter((el) => isAnswerInput(el) && el.type !== 'file')
+            .filter((el) => isAnswerInput(el) && el.type !== 'file'
+                && (el.checked || (el.type !== 'checkbox' && el.type !== 'radio')))
             .map((el) => el.value);
     } else {
         value = inp.value;
