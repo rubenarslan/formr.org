@@ -1,5 +1,5 @@
 // What v2 stores for items whose answer is not one plain input: the ticked
-// choices of an mc_multiple, a check_button, … Each case submits through the browser and
+// choices of an mc_multiple, a check_button, a revealed scale, … Each case submits through the browser and
 // reads the stored answer back. Everything is created here and deleted in
 // afterAll: one study, one run.
 
@@ -20,6 +20,8 @@ const ITEMS = [
     { type: 'mc_multiple', name: 'ia_req', label: 'Pick at least one', choice_list: 'abc', choices: ABC },
     { type: 'mc_multiple', name: 'ia_untouched', label: 'Leave me', optional: 1, choice_list: 'abc', choices: ABC },
     { type: 'check_button', name: 'ia_check', label: 'Agree', optional: 1 },
+    { type: 'mc', name: 'vs_gate', label: 'Rate it?', optional: 1, choice_list: 'yn', choices: { 1: 'yes', 2: 'no' } },
+    { type: 'visual_analog_scale', name: 'vs_scale', label: 'How much?', optional: 1, showif: 'vs_gate == 1', choice_list: 'poles', choices: { 1: 'none', 2: 'a lot' } },
     { type: 'submit', name: 'ia_s1', label: 'Done' },
 ];
 
@@ -85,5 +87,24 @@ test.describe('form_v2: what an item stores', () => {
         const { status, body } = await v2.submitV2(page);
         expect(status, JSON.stringify(body)).toBe(200);
         expect(stored(usid, 'ia_check')).toBe('1');
+    });
+
+    test('a visual analog scale revealed by its showif can be answered', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN, { baseURL });
+        await v2.waitForBundle(page);
+        const usid = await v2.unitSessionId(page);
+        const slider = page.locator('.item-visual_analog_scale .vas-display');
+        await expect(slider).toBeHidden();
+        await page.locator('input[name="vs_gate"][value="1"]').check({ force: true });
+        await expect(slider).toBeVisible();
+        await expect(slider).toBeEnabled();
+        // Off the midpoint: an untouched range already sits there, and a
+        // click that changes nothing fires no input.
+        const box = await slider.boundingBox();
+        await slider.click({ position: { x: box.width * 0.8, y: box.height / 2 } });
+        await page.locator('input[name="ia_req[]"][value="1"]').check({ force: true });
+        const { status, body } = await v2.submitV2(page);
+        expect(status, JSON.stringify(body)).toBe(200);
+        expect(Number(stored(usid, 'vs_scale'))).toBeGreaterThan(0);
     });
 });

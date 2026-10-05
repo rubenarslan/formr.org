@@ -47,6 +47,11 @@ class VisualAnalogScale_Item extends Range_Item {
         $displayAttrs = $this->input_attributes;
         unset($displayAttrs['name']);
         unset($displayAttrs['required']);
+        // Nor disabled: an item rendered hidden (a showif) disables what it
+        // would submit, the hidden sibling below, and its reveal enables that
+        // again; nothing enables a control without a name, so a disabled
+        // slider stayed disabled and the revealed item could not be answered.
+        unset($displayAttrs['disabled']);
         $displayAttrs['id'] = 'item' . $this->id . '_range';
         if ($isTouched) {
             $displayAttrs['value'] = $this->value_validated;
