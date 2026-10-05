@@ -80,6 +80,33 @@ test.describe('PWA items v2 — install stack', () => {
         expect(result, 'captured prompt routed to <pwa-install>').toBe('wired');
     });
 
+    test('add_to_home_screen: a dismissed install prompt is not offered again', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN(), { baseURL });
+        await expect(page.locator(v2.FORM_SELECTOR).first()).toBeVisible({ timeout: 20000 });
+        await v2.waitForBundle(page);
+        test.skip(!(await hasPwaItems(page)), 'fixture lacks PWA items');
+        await page.waitForTimeout(600);
+        const result = await page.evaluate(async () => {
+            const el = document.querySelector('pwa-install');
+            if (!el) return 'no-pwa-install';
+            const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+            const ev = new Event('beforeinstallprompt');
+            ev.prompt = () => {}; ev.userChoice = Promise.resolve({ outcome: 'dismissed' }); ev.preventDefault = () => {};
+            window.dispatchEvent(ev);
+            await sleep(100);
+            document.querySelector('.add-to-homescreen').click();
+            await sleep(150);
+            const offered = el.externalPromptEvent != null;
+            // The participant cancels the browser's prompt.
+            el.dispatchEvent(new CustomEvent('pwa-user-choice-result-event', { detail: { userChoiceResult: 'dismissed' } }));
+            await sleep(100);
+            return { offered, spent: el.externalPromptEvent == null };
+        });
+        test.skip(result === 'no-pwa-install', 'run has no manifest → no <pwa-install> (native path n/a)');
+        expect(result.offered, 'the captured prompt was offered').toBe(true);
+        expect(result.spent, 'and is not offered again once dismissed').toBe(true);
+    });
+
     test('push_notification: item + permission button present (subscribe is [BS-only])', async ({ page, baseURL }) => {
         await freshParticipant(page, RUN(), { baseURL });
         await expect(page.locator(v2.FORM_SELECTOR).first()).toBeVisible({ timeout: 20000 });

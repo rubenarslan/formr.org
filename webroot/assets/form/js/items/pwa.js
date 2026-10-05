@@ -82,6 +82,16 @@ export function initPwaItems({ root, runUrl }) {
         deferredInstallPrompt = e;
         if (pwaInstallEl) pwaInstallEl.externalPromptEvent = e;
     });
+    // A captured prompt can be shown once. Once its outcome is known it is
+    // spent: opened again, <pwa-install>'s Install button does nothing (the
+    // component drops its own copy after prompting) and the item's button
+    // stayed on "Processing…". The next tap takes the instructions path.
+    const spendInstallPrompt = () => {
+        deferredInstallPrompt = null;
+        if (pwaInstallEl) {
+            try { pwaInstallEl.externalPromptEvent = null; } catch (e) { /* noop */ }
+        }
+    };
     window.addEventListener('appinstalled', () => {
         deferredInstallPrompt = null;
         root.querySelectorAll('.add-to-homescreen-wrapper').forEach((w) => markAddedToHomeScreen(w, 'added'));
@@ -138,10 +148,12 @@ export function initPwaItems({ root, runUrl }) {
             if (deferredInstallPrompt) pwaInstallEl.externalPromptEvent = deferredInstallPrompt;
 
             pwaInstallEl.addEventListener('pwa-install-success-event', () => {
+                spendInstallPrompt();
                 root.querySelectorAll('.add-to-homescreen-wrapper').forEach((w) => markAddedToHomeScreen(w, 'added'));
                 try { pwaInstallEl.hideDialog(); } catch (e) {}
             });
             pwaInstallEl.addEventListener('pwa-install-fail-event', () => {
+                spendInstallPrompt();
                 root.querySelectorAll('.add-to-homescreen-wrapper').forEach((w) => {
                     setAtsStatus(w, 'not_added', t('pwa.install.failed', 'Installation didn\'t complete. You can try again or add to home screen manually from your browser menu.'));
                     const btn = w.querySelector('.add-to-homescreen');
@@ -150,6 +162,7 @@ export function initPwaItems({ root, runUrl }) {
                 try { pwaInstallEl.hideDialog(); } catch (e) {}
             });
             pwaInstallEl.addEventListener('pwa-user-choice-result-event', (e) => {
+                spendInstallPrompt();
                 const accepted = e?.detail?.userChoiceResult === 'accepted';
                 root.querySelectorAll('.add-to-homescreen-wrapper').forEach((w) => {
                     if (accepted) {
@@ -282,6 +295,14 @@ export function initPwaItems({ root, runUrl }) {
             if (prompted) {
                 setAtsStatus(wrapper, 'prompted', t('pwa.install.preparing', 'Preparing installation…'));
                 btn.innerHTML = iconLabel('fa-spinner fa-spin', t('pwa.processing', 'Processing…'));
+                // No outcome may ever come (the dialog closed with its ✕):
+                // give the button back after a while, as v1 did.
+                clearTimeout(btn.fmrInstallTimer);
+                btn.fmrInstallTimer = setTimeout(() => {
+                    if (btn.querySelector('.fa-spinner')) {
+                        btn.innerHTML = iconLabel('fa-plus-square', t('pwa.install.add_button', 'Add to Home Screen'));
+                    }
+                }, 15000);
             } else {
                 setAtsStatus(wrapper, 'not_prompted',
                     t('pwa.install.not_prompted', 'Your browser hasn\'t offered an install prompt. Try a supported browser (Chrome on Android, Edge on desktop, Safari on iOS).'));
