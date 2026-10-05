@@ -1,5 +1,5 @@
 // What v2 stores for items whose answer is not one plain input: the ticked
-// choices of an mc_multiple, … Each case submits through the browser and
+// choices of an mc_multiple, a check_button, … Each case submits through the browser and
 // reads the stored answer back. Everything is created here and deleted in
 // afterAll: one study, one run.
 
@@ -19,6 +19,7 @@ const ITEMS = [
     { type: 'mc_multiple', name: 'ia_multi', label: 'Pick some', optional: 1, choice_list: 'abc', choices: ABC },
     { type: 'mc_multiple', name: 'ia_req', label: 'Pick at least one', choice_list: 'abc', choices: ABC },
     { type: 'mc_multiple', name: 'ia_untouched', label: 'Leave me', optional: 1, choice_list: 'abc', choices: ABC },
+    { type: 'check_button', name: 'ia_check', label: 'Agree', optional: 1 },
     { type: 'submit', name: 'ia_s1', label: 'Done' },
 ];
 
@@ -64,5 +65,25 @@ test.describe('form_v2: what an item stores', () => {
         expect(stored(usid, 'ia_multi')).toBe('2');
         expect(stored(usid, 'ia_req')).toBe('1');
         expect(stored(usid, 'ia_untouched') || null).toBeNull();
+    });
+
+    test('a check_button can be seen and tapped, and stores its tick', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN, { baseURL });
+        await v2.waitForBundle(page);
+        const usid = await v2.unitSessionId(page);
+        const btn = page.locator('.item-check_button .btn[data-for]').first();
+        await expect(btn).toBeVisible();
+        // What a tap at the button's centre reaches: the button itself.
+        const reached = await btn.evaluate((b) => {
+            const r = b.getBoundingClientRect();
+            const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return !!el && (el === b || b.contains(el));
+        });
+        expect(reached, 'nothing covers the button and it takes pointer events').toBe(true);
+        await btn.click();
+        await page.locator('input[name="ia_req[]"][value="1"]').check({ force: true });
+        const { status, body } = await v2.submitV2(page);
+        expect(status, JSON.stringify(body)).toBe(200);
+        expect(stored(usid, 'ia_check')).toBe('1');
     });
 });

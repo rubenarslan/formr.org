@@ -595,6 +595,16 @@ body:has(.fmr-form-v2:not([data-layout="solo"])) .container-fluid > p {
         &::-moz-range-thumb { visibility: hidden; }
     }
 
+    // A check_button's wrapper carries v1's `btn-check` class, which
+    // Bootstrap 5 gives its visually hidden toggle inputs (absolute, clipped
+    // to nothing, no pointer events): the whole item vanished and its button
+    // could not be clicked.
+    .form-group.btn-check {
+        position: static;
+        clip: auto;
+        pointer-events: auto;
+    }
+
     // Rating/check button poles (v1 emits `.keep-label` spans either side of
     // the .btn-group). Flex the controls-inner so left-label + buttons +
     // right-label stay on one row instead of the right label wrapping below.
