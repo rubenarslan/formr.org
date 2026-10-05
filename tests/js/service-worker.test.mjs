@@ -43,3 +43,13 @@ test("activation drops this run's older caches, not another run's", () => {
     assert.equal(sw.isStaleCache('formr-v7-study.example.org-run'), false, 'a run whose name ends the same');
     assert.equal(sw.isStaleCache('workbox-precache'), false);
 });
+
+test("a run's worker speaks to its own windows only", () => {
+    const sw = loadWorker('https://study.example.org/myrun/service-worker');
+    const windows = [
+        { url: 'https://study.example.org/myrun/?code=abc&_pwa=true' },
+        { url: 'https://study.example.org/otherrun/' },
+        { url: 'https://study.example.org/myrun-two/' },
+    ];
+    assert.deepEqual(sw.inScope(windows).map((c) => c.url), ['https://study.example.org/myrun/?code=abc&_pwa=true']);
+});

@@ -145,9 +145,19 @@ function notificationOptions(data, bestIcon, timestamp) {
   };
 }
 
+// This run's windows. matchAll() with includeUncontrolled returns every
+// window of the origin, and on a path-routed study domain that is every
+// run's: a tap on run B's notification focused (and reloaded) run A's
+// window and never opened run B, and every push reloaded the other runs'
+// pages.
+function inScope(windows) {
+  const scope = self.registration.scope;
+  return windows.filter((c) => typeof c.url === 'string' && c.url.startsWith(scope));
+}
+
 // Helper function to find and sort clients, prioritizing PWA clients
 async function findAndSortClients() {
-  const clientsArr = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+  const clientsArr = inScope(await clients.matchAll({ type: 'window', includeUncontrolled: true }));
   return clientsArr.sort((a, b) => b.url.includes('_pwa=true') - a.url.includes('_pwa=true'));
 }
 
