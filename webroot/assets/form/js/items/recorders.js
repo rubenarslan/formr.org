@@ -19,6 +19,19 @@ const SETUPS = [
     ] },
 ];
 
+// Stop every recording still running in `scope` (a page about to be
+// submitted) and resolve once each one's file is in its input: a recording
+// stopped only when the page changes would be attached after the submit
+// that should carry it. Bounded, so a recorder that never reports its stop
+// cannot hold the submit.
+export function finishRecordings(scope) {
+    const pending = Array.from(scope.querySelectorAll('.record_audio, .record_video'))
+        .map((c) => (typeof c.fmrFinishRecording === 'function' ? c.fmrFinishRecording() : null))
+        .filter(Boolean);
+    if (!pending.length) return Promise.resolve();
+    return Promise.race([Promise.all(pending), new Promise((done) => setTimeout(done, 5000))]);
+}
+
 export function initMediaRecorders(root) {
     if (typeof MediaRecorder === 'undefined' || !navigator.mediaDevices?.getUserMedia) return;
 
@@ -70,6 +83,8 @@ function wireRecorder(container, fileInput, cfg) {
     let blob = null;
     let mimeType = '';
     let blobUrl = null;
+    // Resolves finishRecordings' wait once the stopped recording is attached.
+    let onAttached = null;
 
     const supportedMime = () => cfg.mimes.find((m) => MediaRecorder.isTypeSupported(m)) || '';
 
@@ -101,6 +116,7 @@ function wireRecorder(container, fileInput, cfg) {
         } catch (err) {
             console.warn('fmr-recorder: failed to attach blob to file input', err);
         }
+        if (onAttached) { onAttached(); onAttached = null; }
 
         if (cfg.kind === 'audio') {
             // One short-lived AudioContext per decode, always closed — iOS
@@ -162,6 +178,15 @@ function wireRecorder(container, fileInput, cfg) {
         mediaRecorder.start();
         recordBtn.querySelector('i').className = 'fa fa-stop';
     });
+
+    container.fmrFinishRecording = () => {
+        if (!mediaRecorder || mediaRecorder.state !== 'recording') return null;
+        return new Promise((resolve) => {
+            onAttached = resolve;
+            mediaRecorder.stop();
+            recordBtn.querySelector('i').className = `fa fa-${cfg.kind === 'video' ? 'video-camera' : 'microphone'}`;
+        });
+    };
 
     // Page navigation while recording: finalize what we have (onStop attaches
     // the partial recording) so the mic/camera isn't left hot on a page the

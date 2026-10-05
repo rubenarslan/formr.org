@@ -1,6 +1,6 @@
 // What v2 stores for items whose answer is not one plain input: the ticked
 // choices of an mc_multiple, a check_button, a revealed scale, a PWA item's
-// status, … Each case submits through the browser and
+// status, a recording, … Each case submits through the browser and
 // reads the stored answer back. Everything is created here and deleted in
 // afterAll: one study, one run.
 
@@ -24,6 +24,7 @@ const ITEMS = [
     { type: 'mc', name: 'vs_gate', label: 'Rate it?', optional: 1, choice_list: 'yn', choices: { 1: 'yes', 2: 'no' } },
     { type: 'visual_analog_scale', name: 'vs_scale', label: 'How much?', optional: 1, showif: 'vs_gate == 1', choice_list: 'poles', choices: { 1: 'none', 2: 'a lot' } },
     { type: 'add_to_home_screen', name: 'ia_home', label: 'Install it', optional: 1 },
+    { type: 'file', name: 'ia_voice', label: 'Say something', optional: 1, class: 'record_audio' },
     { type: 'submit', name: 'ia_s1', label: 'Next' },
     { type: 'text', name: 'ia_p2', label: 'Page two', optional: 1 },
     { type: 'submit', name: 'ia_s2', label: 'Done' },
@@ -114,6 +115,20 @@ test.describe('form_v2: what an item stores', () => {
         const { status, body } = await v2.submitV2(page);
         expect(status, JSON.stringify(body)).toBe(200);
         expect(Number(stored(usid, 'vs_scale'))).toBeGreaterThan(0);
+    });
+
+    test('a recording still running when the page is sent goes with it', async ({ page, baseURL }) => {
+        // Local Chromium records from a fake microphone (playwright.config.js).
+        await freshParticipant(page, RUN, { baseURL });
+        await v2.waitForBundle(page);
+        const usid = await v2.unitSessionId(page);
+        await page.locator('.record_audio .fmr-recorder-record').click();
+        await expect(page.locator('.record_audio .fmr-recorder-record i.fa-stop')).toBeVisible();
+        await page.waitForTimeout(1500);
+        await page.locator('input[name="ia_req[]"][value="1"]').check({ force: true });
+        const { status, body } = await v2.submitV2(page, { timeout: 20000 });
+        expect(status, JSON.stringify(body)).toBe(200);
+        expect(stored(usid, 'ia_voice') || '', 'the recording is stored with its page').not.toBe('');
     });
 
     test("a home-screen item comes back with its stored status", async ({ page, baseURL }) => {

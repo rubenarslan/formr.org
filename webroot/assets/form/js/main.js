@@ -38,7 +38,7 @@ import {
     entryState, entryIsDue, markRetryFailure, markNeedsAttention,
     STATE_PENDING, STATE_NEEDS_ATTENTION, STATE_BLOCKED,
 } from './offline/queue.js';
-import { initMediaRecorders } from './items/recorders.js';
+import { initMediaRecorders, finishRecordings } from './items/recorders.js';
 import { initButtonGroups } from './items/button-groups.js';
 import { initRadioDeselect } from './items/radio-deselect.js';
 import { initBotCheck, resetBotChecks } from './items/bot-check.js';
@@ -1144,6 +1144,9 @@ function initForm() {
     const submitPageInner = async () => {
         const page = pages[currentIndex];
         if (!gateSubmit(page)) return;
+        // A recording still running belongs to this page's answers: stop it
+        // and let its file land in the input before the page is checked.
+        await finishRecordings(page);
         // A page whose resolution failed asks once more before it goes, so
         // its R values are not submitted empty when the server is back.
         const ownNum = Number(page.dataset.fmrPage);
