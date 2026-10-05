@@ -29,6 +29,11 @@ function provisioner() {
         const study = studyByName(json.name, 'id, name, results_table, rendering_mode, use_paging');
         if (!study) throw new Error(`add_survey ${json.name}: HTTP ${res.status()} ${alertText(await res.text())}`);
         created.studies.push(json.name);
+        // The survey row exists even when its items were refused (and its
+        // results table does not): say why here, not as a missing table in
+        // the run.
+        const items = Number(dbQuery(`SELECT COUNT(*) AS n FROM survey_items WHERE study_id = ${Number(study.id)}`)[0].n);
+        if (!items) throw new Error(`add_survey ${json.name}: items not imported: ${alertText(await res.text())}`);
         if (study.rendering_mode !== engine) throw new Error(`${json.name} is on ${study.rendering_mode}, not ${engine}`);
         return study;
     }
