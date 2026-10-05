@@ -942,6 +942,16 @@ function initForm() {
             return target;
         }
         target.value = val;
+        // A visual analog scale keeps its answer in a hidden input and shows
+        // it on its slider. Written there alone, the value was posted while
+        // the scale looked untouched: show it, touched, as v1 renders a
+        // preset scale.
+        const vas = target.type === 'hidden' ? wrapper.querySelector('.vas-controls') : null;
+        if (vas) {
+            const slider = vas.querySelector('.vas-display');
+            if (slider) slider.value = val;
+            vas.classList.add('vas-touched');
+        }
         return target;
     };
     // A `hidden` item's one input, set to `raw`; null when it already holds it.
@@ -1015,7 +1025,9 @@ function initForm() {
             // revisit/reload and the next submit stored the default.
             const storedName = itemNameOf(wrapper);
             const stored = storedName ? store.items[storedName] : null;
-            const participantFacing = !!wrapper.querySelector('input[name]:not([type=hidden]):not([name^="_item_views"]), select[name], textarea[name]');
+            // Every item but a `hidden` one: a scale or a rank keeps its
+            // answer in hidden inputs and is the participant's all the same.
+            const participantFacing = !wrapper.classList.contains('item-hidden');
             // `saved`, not `answered`: an emptied field or a deselected
             // choice is stored with no value (answered: false; answered
             // implies saved).
