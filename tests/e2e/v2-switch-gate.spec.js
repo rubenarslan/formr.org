@@ -153,15 +153,22 @@ test.describe('switching a study to form_v2', () => {
         });
         try {
             expect(renderingMode(name), 'created on v2').toBe('v2');
-            let res = await switchTo(page, name, { target: 'v1' });
+            const res = await switchTo(page, name, { target: 'v1' });
             const html = await res.text();
             expect(html).toContain('Not switched');
             expect(html).toContain('written in one cell with semicolons');
             expect(html, 'the way past it is offered').toContain('Switch to v1 anyway');
             expect(renderingMode(name)).toBe('v2');
-            res = await switchTo(page, name, { target: 'v1', force: '1' });
-            expect(res.ok()).toBeTruthy();
-            expect(renderingMode(name), 'confirmed: switched').toBe('v1');
+            // The author confirms on the page: the refusal's own form, which
+            // the settings form must not swallow.
+            page.on('dialog', (d) => d.accept());
+            await page.goto(`${ADMIN_BASE}/admin/survey/${name}`);
+            await page.locator('button:has-text("Switch back to v1")').click();
+            const anyway = page.locator('button:has-text("Switch to v1 anyway")');
+            await expect(anyway).toBeVisible();
+            expect(await anyway.evaluate((b) => b.form && b.form.getAttribute('action'))).toMatch(/\/switch_rendering_mode\/?$/);
+            await anyway.click();
+            await expect.poll(() => renderingMode(name), { message: 'confirmed: switched' }).toBe('v1');
         } finally {
             deleteStudy(name);
         }

@@ -40,14 +40,15 @@
                             </div>
                         </div>
                     </div>
+                    <?php /* Above the settings form, not in it: an alert may carry a form of
+                       its own ("Switch to v1 anyway"), which a form inside a form loses. */ ?>
+                    <?php Template::loadChild('public/alerts'); ?>
                     <form role="form" method="post" action="<?php echo admin_study_url($study->name); ?>">
                         <div class="box-header with-border">
                             <h3 class="box-title">Survey Settings</h3>
                         </div>
 
                         <div class="box-body">
-                            <?php Template::loadChild('public/alerts'); ?>
-
                             <div class="callout callout-info">
                                 <p>These are some settings for advanced users. You'll mostly need the "Import items" and the "Export results" options to the left.</p>
                             </div>
