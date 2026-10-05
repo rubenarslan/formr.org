@@ -1246,7 +1246,18 @@ function initForm() {
         // page behind it instead of overtaking it (a later page carries a
         // newer hidden-item snapshot, and the final page ends the form).
         let queuedBehind = false;
+        // A final page of this form already waiting in the queue goes last
+        // (it ends the form): a page sent now — a revisit, a correction —
+        // must land before it. Draining first would end the form and refuse
+        // this page; it is queued behind instead, and the drain orders them.
+        let behindFinal = false;
         if (ownSyncUrl) {
+            const waitingNow = await queueGetAll().catch(() => []);
+            behindFinal = waitingNow.some((e) => isOwnEntry(e) && e.final && Number(e.page) !== pageNum);
+        }
+        if (behindFinal) {
+            queuedBehind = true;
+        } else if (ownSyncUrl) {
             const routed = drainRouted;
             await drainQueue('own');
             // The drain moved the participant: it reloads an out-of-date
@@ -1375,8 +1386,10 @@ function initForm() {
                 try { await queueRestampFinal(entry, entry.hidden); } catch (e) { /* best effort */ }
             }
             // The `online` event drains it on reconnect; a server error fires
-            // no `online` event, so also retry on a timer.
+            // no `online` event, so also retry on a timer. Queued behind a
+            // waiting final page, the two go now, in order.
             scheduleQueueRetry(15000);
+            if (behindFinal) drainQueue('own');
             setSaveState('offline', t('save.offline', 'Saved offline'), 2500);
             showQueueBanner(queuedBehind
                 ? t('queue.queued_behind', 'An earlier page is still waiting to be sent. This page is queued behind it and will be sent right after.')

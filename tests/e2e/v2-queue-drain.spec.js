@@ -115,6 +115,19 @@ test.describe('form_v2 offline queue drain', () => {
         expect(submits, 'the page is not sent again over the redirect').toBe(0);
     });
 
+    test('a page sent while the final page waits in the queue lands before it', async ({ page, baseURL }) => {
+        const ctx = await start(page, baseURL);
+        // The final page is queued; the participant corrects an earlier
+        // page (Previous) and sends it once the server is back.
+        const final = await seedEntry(page, ctx, { page: ctx.pageNum + 1, final: true });
+        const posted = await mockSync(page);
+        await fillAllVisible(page, V2_PAGE);
+        await page.locator('form.fmr-form-v2 section.fmr-page:not([hidden]) [data-fmr-next]').click();
+        await expect.poll(() => posted.length, { timeout: 15000 }).toBe(2);
+        expect(posted[1], 'the final page goes last').toBe(final);
+        expect(posted[0]).not.toBe(final);
+    });
+
     test('a page too large for the server is held at once, not retried for an hour', async ({ page, baseURL }) => {
         const ctx = await start(page, baseURL);
         await seedEntry(page, ctx);
