@@ -580,7 +580,8 @@ function initForm() {
     //             entry: retry the run later, don't count an attempt.
     //   session   403 "No active run session", or a 200 that isn't JSON (an
     //             auth redirect to a login page) — session gone for this run.
-    //   invalid   400 envelope error — permanent for this entry.
+    //   invalid   400 envelope error, 413 too large — permanent for this
+    //             entry.
     //   server    anything else (5xx, unexpected 4xx).
     const classifySyncResponse = (res, body) => {
         if (body && body.already_applied) return 'applied';
@@ -599,7 +600,9 @@ function initForm() {
         // fine, so retry later rather than asking the participant to sign in.
         if (res.status === 403 && body && body.closed) return 'server';
         if (res.status === 403) return 'session';
-        if (res.status === 400) return 'invalid';
+        // 413: the page is larger than the server takes (post_max_size) —
+        // re-posting the same bytes can never fit, as with a bad envelope.
+        if (res.status === 400 || res.status === 413) return 'invalid';
         return 'server';
     };
 

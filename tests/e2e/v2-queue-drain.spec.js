@@ -98,6 +98,14 @@ test.describe('form_v2 offline queue drain', () => {
         expect(await page.evaluate(IDB_GET_ALL)).toEqual([]);
     });
 
+    test('a page too large for the server is held at once, not retried for an hour', async ({ page, baseURL }) => {
+        const ctx = await start(page, baseURL);
+        await seedEntry(page, ctx);
+        await mockSync(page, () => ({ status: 413, contentType: 'application/json', body: JSON.stringify({ error: "The upload exceeds the server's maximum size." }) }));
+        await reloadAndDrain(page);
+        await expect.poll(async () => ((await page.evaluate(IDB_GET_ALL))[0] || {}).state, { timeout: 10000 }).toBe('blocked');
+    });
+
     test('a stuck entry of an earlier unit session does not block the current one', async ({ page, baseURL }) => {
         const ctx = await start(page, baseURL);
         const stale = entryFor(ctx, {
