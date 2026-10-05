@@ -122,6 +122,36 @@ test.describe('a v2 form open in two tabs', () => {
         await other.close();
     });
 
+    test('a stale tab reloads even with an answer waiting to be autosaved', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN, { baseURL });
+        await v2.waitForBundle(page);
+        // The first autosave is answered "stale" only once a second change
+        // is waiting for its own (the guard against leaving is then armed).
+        let release;
+        const held = new Promise((r) => { release = r; });
+        await page.route((u) => /\/form-save\/?$/.test(u.pathname), async (route) => {
+            await held;
+            await route.fulfill({ status: 409, contentType: 'application/json',
+                body: JSON.stringify({ error: 'stale', stale_document: true }) });
+        });
+        const field = page.locator('[name="st_a"]');
+        // A real click: browsers ask before leaving only a page the
+        // participant has interacted with.
+        await field.click();
+        await field.fill('first');
+        await field.dispatchEvent('change');
+        await field.fill('second');
+        await field.dispatchEvent('change');
+        // The alert is acknowledged; a "leave site?" prompt is answered
+        // Stay, as a participant may.
+        const prompts = [];
+        page.on('dialog', async (d) => { prompts.push(d.type()); await (d.type() === 'beforeunload' ? d.dismiss() : d.accept()); });
+        const reloaded = page.waitForEvent('load', { timeout: 15000 });
+        release();
+        await reloaded;
+        expect(prompts).not.toContain('beforeunload');
+    });
+
     test("a reloaded page is not stale for what its predecessor still sent", async ({ page, baseURL }) => {
         await freshParticipant(page, RUN, { baseURL });
         await v2.waitForBundle(page);

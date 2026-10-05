@@ -409,16 +409,22 @@ function initForm() {
     // Reload this document, once, saying `message` first when given: it is
     // out of date, and the server renders what is stored.
     let reloading = false;
+    // The "leave with unsaved changes?" guard is lifted first: a change
+    // still waiting for its autosave goes out with the pagehide beacon, and
+    // a participant who chose to stay kept a page whose writes were all
+    // refused (`reloading` set, Next dead).
     const reloadPage = (message) => {
         if (reloading) return;
         reloading = true;
         if (message) window.alert(message);
+        window.removeEventListener('beforeunload', beforeUnloadGuard);
         window.location.reload();
     };
     // Leave for `url`, once (the queue's redirect after its final page).
     const leavePage = (url) => {
         if (reloading) return;
         reloading = true;
+        window.removeEventListener('beforeunload', beforeUnloadGuard);
         window.location.href = url;
     };
     // Bumped when a drain takes the participant to a page of missing items:
