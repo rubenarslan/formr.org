@@ -109,6 +109,31 @@ async function manageBadge(count) {
   }
 }
 
+// The options of the notification a push shows. `badge` is the URL of the
+// small monochrome icon, never a count (the count is data.badgeCount, for
+// the Badging API): a number was taken as a URL relative to the worker, so
+// every notification made the browser fetch <run>/1 with the participant's
+// cookies, which runs their run session like a page load.
+function notificationOptions(data, bestIcon, timestamp) {
+  return {
+    body: data.body || '',
+    icon: data.icon ? new URL(data.icon, self.location.origin).href : bestIcon,
+    badge: typeof data.badge === 'string' && data.badge ? new URL(data.badge, self.location.origin).href : undefined,
+    tag: data.tag || `notification-${timestamp}`,
+    urgency: data.priority || 'normal',
+    vibrate: data.vibrate === false ? undefined : [100, 50, 100],
+    requireInteraction: !!data.requireInteraction,
+    renotify: !!data.renotify,
+    silent: !!data.silent,
+    data: {
+      clickTarget: data.clickTarget || self.location.href.replace(/\/service-worker$/, '/'),
+      badgeCount: Number.isInteger(data.badgeCount) ? data.badgeCount : undefined,
+      timestamp: timestamp,
+      expires: Number.isInteger(data.timeToLive) ? timestamp + data.timeToLive * 1000 : undefined
+    }
+  };
+}
+
 // Helper function to find and sort clients, prioritizing PWA clients
 async function findAndSortClients() {
   const clientsArr = await clients.matchAll({ type: 'window', includeUncontrolled: true });
@@ -442,25 +467,8 @@ self.addEventListener('push', event => {
       console.log('Push notification data:', data);
 
       const timestamp = Date.now();
-      const tag = data.tag || `notification-${timestamp}`;
-
-      const options = {
-        body: data.body || '',
-        icon: data.icon ? new URL(data.icon, self.location.origin).href : best_icon_any,
-        badge: data.badge || 1,
-        tag,
-        urgency: data.priority || 'normal',
-        vibrate: data.vibrate === false ? undefined : [100, 50, 100],
-        requireInteraction: !!data.requireInteraction,
-        renotify: !!data.renotify,
-        silent: !!data.silent,
-        data: {
-          clickTarget: data.clickTarget || self.location.href.replace(/\/service-worker$/, '/'),
-          badgeCount: Number.isInteger(data.badgeCount) ? data.badgeCount : undefined,
-          timestamp: timestamp,
-          expires: Number.isInteger(data.timeToLive) ? timestamp + data.timeToLive * 1000 : undefined
-        }
-      };
+      const options = notificationOptions(data, best_icon_any, timestamp);
+      const tag = options.tag;
 
       // Show the notification and AWAIT it — iOS Safari terminates push
       // subscriptions if showNotification() doesn't complete inside waitUntil().
