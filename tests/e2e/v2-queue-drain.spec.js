@@ -98,6 +98,23 @@ test.describe('form_v2 offline queue drain', () => {
         expect(await page.evaluate(IDB_GET_ALL)).toEqual([]);
     });
 
+    test('a live submit gives way to where the final page the drain sent leads', async ({ page, baseURL }) => {
+        const ctx = await start(page, baseURL);
+        // The final page, queued after a 5xx; the participant taps Submit
+        // on it again. The drain before the live submit sends it, and the
+        // run moves on (to an External's address, say).
+        await seedEntry(page, ctx, { final: true });
+        const target = new URL(`/fmr-test-done-${Date.now()}`, ctx.runUrl).href;
+        await page.route((u) => u.pathname.startsWith('/fmr-test-done-'), (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<p>DONE</p>' }));
+        await mockSync(page, () => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', items: {}, complete: true, redirect: target }) }));
+        let submits = 0;
+        page.on('request', (r) => { if (SUBMIT_RE.test(new URL(r.url()).pathname)) submits += 1; });
+        await fillAllVisible(page, V2_PAGE);
+        await page.locator('form.fmr-form-v2 section.fmr-page:not([hidden]) [data-fmr-next]').click();
+        await page.waitForURL(target, { timeout: 15000 });
+        expect(submits, 'the page is not sent again over the redirect').toBe(0);
+    });
+
     test('a page too large for the server is held at once, not retried for an hour', async ({ page, baseURL }) => {
         const ctx = await start(page, baseURL);
         await seedEntry(page, ctx);

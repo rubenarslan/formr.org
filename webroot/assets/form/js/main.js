@@ -415,6 +415,15 @@ function initForm() {
         if (message) window.alert(message);
         window.location.reload();
     };
+    // Leave for `url`, once (the queue's redirect after its final page).
+    const leavePage = (url) => {
+        if (reloading) return;
+        reloading = true;
+        window.location.href = url;
+    };
+    // Bumped when a drain takes the participant to a page of missing items:
+    // a live submit waiting for that drain must not carry on over it.
+    let drainRouted = 0;
     const staleDocumentMessage = () => t('error.stale_document', 'This form was continued in another tab or window. The page will reload to show what was saved there.');
     // Mark the file inputs whose item has an upload stored (the state block,
     // then every reply): see collectPayload and validation/feedback.js.
@@ -668,7 +677,10 @@ function initForm() {
             reloadPage(null);
             return;
         }
-        if (ownMissing) await routeToMissing(ownMissing);
+        if (ownMissing) {
+            drainRouted += 1;
+            await routeToMissing(ownMissing);
+        }
     };
 
     // Drain one group (a run's entries for one unit session) oldest-first.
@@ -793,7 +805,7 @@ function initForm() {
         // not keep the participant on a form the server has ended.
         const ownRemaining = remaining.filter(isOwnEntry);
         if (ownRedirect && !ownRemaining.length) {
-            window.location.href = ownRedirect;
+            leavePage(ownRedirect);
             return;
         }
         if (!remaining.length) {
@@ -1235,9 +1247,16 @@ function initForm() {
         // newer hidden-item snapshot, and the final page ends the form).
         let queuedBehind = false;
         if (ownSyncUrl) {
+            const routed = drainRouted;
             await drainQueue('own');
-            // The drain found this document out of date and is reloading it.
-            if (reloading) return;
+            // The drain moved the participant: it reloads an out-of-date
+            // document, follows the redirect of the final page it sent (an
+            // External's address, say), or shows the items that page found
+            // missing. Sending this page now would undo that.
+            if (reloading || drainRouted !== routed) {
+                savePill.classList.remove('is-visible');
+                return;
+            }
             const waiting = await queueGetAll().catch(() => []);
             queuedBehind = waiting.some((e) => isOwnEntry(e) && Number(e.page) !== pageNum);
         }
