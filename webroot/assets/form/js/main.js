@@ -1003,15 +1003,7 @@ function initForm() {
         && targetPage.querySelector('[data-fmr-fill-id], [data-fmr-label-id], [data-fmr-choice-id], [data-fmr-choice-item]'));
     // The POST behind a page's resolution, against the answers as they are
     // now. Resolves {res, body}; rejects on a network failure.
-    const fetchPageResolution = async (pageNum) => {
-        const res = await fetch(renderPageUrl, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify({ page: Number(pageNum), answers: collectAllAnswers() }),
-        });
-        return { res, body: await res.json().catch(() => null) };
-    };
+    const fetchPageResolution = async (pageNum) => postWrite(renderPageUrl, { page: Number(pageNum), answers: collectAllAnswers() });
     // `fetched`: a fetchPageResolution already under way for this page.
     // Resolves true once the page holds its resolved content (or has none),
     // false when the request failed.
@@ -1757,13 +1749,12 @@ function initForm() {
             // the durable path. Except one: another tab or window has written
             // the form since this page was rendered. Its page submit would be
             // refused as well, so it reloads now, not after a page of answers.
-            if (res && res.status === 409) {
-                const body = await res.json().catch(() => null);
-                if (body && body.stale_document) reloadPage(staleDocumentMessage());
-            } else if (res && res.ok) {
-                const body = await res.json().catch(() => null);
-                if (body && 'expires' in body) updateExpiry(body.expires);
-                if (body && body.status === 'saved') setSaveState('saved', t('save.saved', 'Saved'));
+            const reply = await res.json().catch(() => null);
+            if (res.status === 409) {
+                if (reply && reply.stale_document) reloadPage(staleDocumentMessage());
+            } else if (res.ok) {
+                if (reply && 'expires' in reply) updateExpiry(reply.expires);
+                if (reply && reply.status === 'saved') setSaveState('saved', t('save.saved', 'Saved'));
             }
         } catch (e) { /* best-effort; explicit submit + offline queue are the net */ }
         finally { saveInFlightRequest = null; }
