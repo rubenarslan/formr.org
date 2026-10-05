@@ -18,13 +18,22 @@
     // below from the local var, was migrated). Re-expose it for run_users.js.
     window.saAjaxUrl = saAjaxUrl;
 
+    // An account's email is text: FILTER_VALIDATE_EMAIL accepts markup in a
+    // quoted local part ("<form/action=//x>"@example.org).
+    var escapeHtml = function (s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    };
+
     jQuery(function ($) {
-        $('.reset-2fa-btn').click(function () {
+        $(document).on('click', '.reset-2fa-btn', function () {
             var userId = $(this).data('user');
-            var userEmail = $(this).data('email');
+            var userEmail = String($(this).data('email'));
 
             var template = $('#tpl-reset-2fa').html();
-            template = template.replace(/%{user}/g, userEmail);
+            // A function: a replacement string would expand `$&` and the like.
+            template = template.replace(/%{user}/g, function () { return escapeHtml(userEmail); });
 
             var $modal = $(template);
             $modal.modal('show');

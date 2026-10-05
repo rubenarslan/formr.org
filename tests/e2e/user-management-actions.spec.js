@@ -58,3 +58,29 @@ test('superadmin user-management row actions are wired (saAjaxUrl global present
         'no "saAjaxUrl is not defined" ReferenceError on row-action click'
     ).toEqual([]);
 });
+
+// An account's email is text in the Reset 2FA dialog: PHP's
+// FILTER_VALIDATE_EMAIL accepts a quoted local part with markup in it, so a
+// self-registered address could otherwise put elements into the
+// superadmin's page. A row button is added for such an address (the handler
+// is delegated, so it serves it like the listed ones).
+test('the Reset 2FA dialog shows an address with markup as text', async ({ page }) => {
+    await page.goto(ADMIN_BASE + '/admin/advanced/user_management', { waitUntil: 'domcontentloaded' });
+    const onSuperadminPage = await page.locator('#user-management-page').count();
+    test.skip(!onSuperadminPage, 'configured account is not superadmin; user_management 403s');
+
+    const email = '"<b id=fmr-injected>$&</b>"@example.org';
+    await page.evaluate((addr) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn reset-2fa-btn';
+        btn.id = 'fmr-test-reset';
+        btn.dataset.user = '0';
+        btn.dataset.email = addr;
+        document.querySelector('#user-management-page').appendChild(btn);
+    }, email);
+    await page.locator('#fmr-test-reset').click();
+    const dialog = page.locator('.modal:visible');
+    await expect(dialog).toContainText(email, { timeout: 5000 });
+    await expect(page.locator('#fmr-injected')).toHaveCount(0);
+});

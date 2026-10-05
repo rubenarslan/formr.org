@@ -2892,6 +2892,14 @@ function formr_in_console()
 
 function formr_search_highlight($search, $subject)
 {
+    // Both are text, and both reach HTML: the subject an account's email
+    // (FILTER_VALIDATE_EMAIL accepts a quoted local part like "<form>"@x.org),
+    // the search the admin's query from the URL.
+    $subject = h((string) $subject);
+    $search = h((string) $search);
+    if ($search === '') {
+        return $subject;
+    }
     return str_replace($search, '<span class="search-highlight">' . $search . '</span>', $subject);
 }
 
