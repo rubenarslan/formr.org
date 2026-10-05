@@ -1685,6 +1685,8 @@ function initForm() {
     const SAVE_MIN_INTERVAL = 20000;
     // How long a page submit waits for an autosave already on the wire.
     const AUTOSAVE_WAIT_MS = 5000;
+    // Under the browsers' 64 KiB keepalive budget, with room for others.
+    const KEEPALIVE_MAX_BYTES = 60000;
     let lastSaveAt = 0, saveTimer = null, savePending = false;
     // Every change the autosave listens to, counted (submitPageInner).
     let saveChanges = 0;
@@ -1742,7 +1744,11 @@ function initForm() {
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 body,
-                keepalive: true,
+                // Browsers refuse a keepalive request whose body (with the
+                // page's other ones in flight) exceeds 64 KiB: the fetch
+                // failed unsent, so a page of long answers was never
+                // autosaved. Such a page goes without keepalive.
+                keepalive: new Blob([body]).size < KEEPALIVE_MAX_BYTES,
             });
             const res = await saveInFlightRequest;
             // Surface a transient "Saved" pill on a real persist (the server

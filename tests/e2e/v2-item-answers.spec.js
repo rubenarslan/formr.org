@@ -1,7 +1,7 @@
 // What v2 stores for items whose answer is not one plain input: the ticked
 // choices of an mc_multiple, a check_button, a revealed scale, a PWA item's
 // status, a recording, an R preset, an upload in a showif, a stored
-// location, a rank dragged by touch, … Each case submits through the browser and
+// location, a rank dragged by touch, a long answer's autosave, … Each case submits through the browser and
 // reads the stored answer back. Everything is created here and deleted in
 // afterAll: two studies, two runs.
 
@@ -28,6 +28,7 @@ const ITEMS = [
     { type: 'file', name: 'ia_voice', label: 'Say something', optional: 1, class: 'record_audio' },
     { type: 'file', name: 'ia_photo', label: 'A photo', optional: 1 },
     { type: 'rank', name: 'ia_rank', label: 'Order these', optional: 1, choice_list: 'abc', choices: ABC },
+    { type: 'textarea', name: 'ia_long', label: 'Tell us everything', optional: 1 },
     { type: 'visual_analog_scale', name: 'vr_scale', label: 'Preset in R', optional: 1, value: '40 + 30', choice_list: 'poles', choices: { 1: 'none', 2: 'a lot' } },
     { type: 'submit', name: 'ia_s1', label: 'Next' },
     { type: 'text', name: 'ia_p2', label: 'Page two', optional: 1 },
@@ -215,6 +216,18 @@ test.describe('form_v2: what an item stores', () => {
         });
         expect(drag.lifted).toBe(true);
         expect(parseFloat(drag.top), `top ${drag.top}`).toBeCloseTo(drag.expected, 0);
+    });
+
+    test('a page of long answers is autosaved', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN, { baseURL });
+        await v2.waitForBundle(page);
+        const usid = await v2.unitSessionId(page);
+        const field = page.locator('[name="ia_long"]');
+        await field.fill('x'.repeat(70000));
+        const saved = page.waitForRequest((r) => /\/form-save\/?$/.test(new URL(r.url()).pathname), { timeout: 10000 });
+        await field.blur();
+        await saved;
+        await expect.poll(() => (stored(usid, 'ia_long') || '').length, { timeout: 10000 }).toBe(70000);
     });
 
     test("a home-screen item comes back with its stored status", async ({ page, baseURL }) => {
