@@ -348,19 +348,21 @@ self.addEventListener('activate', event => {
 /* 
  * Fetch event listener to cache assets
  */
-self.addEventListener('fetch', (event) => {
-  // Only handle GET requests
-  if (event.request.method !== 'GET') {
-    return;
-  }
+// Requests the worker answers cache-first: GETs of assets and the manifest
+// (isValidUrl), never a page. The URL test alone let every page of a run
+// named `manifest` (/manifest/, a valid run name) be cached on its first
+// load and served from then on: the run could not move on.
+function servesFromCache(request) {
+  return request.method === 'GET' && request.mode !== 'navigate' && isValidUrl(request.url);
+}
 
-  // Only handle valid URLs (which now must include /assets/). Everything
-  // else is left to the browser by NOT calling respondWith(). Never call
-  // fetch(event.request) here without respondWith: the browser still makes
-  // its own request, so that second fetch duplicated every in-scope GET —
-  // a navigation to the run URL (RunSession::execute twice),
+self.addEventListener('fetch', (event) => {
+  // Everything else is left to the browser by NOT calling respondWith().
+  // Never call fetch(event.request) here without respondWith: the browser
+  // still makes its own request, so that second fetch duplicated every
+  // in-scope GET — a navigation to the run URL (RunSession::execute twice),
   // /form-bot-challenge mints, cross-origin subresources.
-  if (!isValidUrl(event.request.url)) {
+  if (!servesFromCache(event.request)) {
     return;
   }
 

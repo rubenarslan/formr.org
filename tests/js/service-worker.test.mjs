@@ -72,3 +72,13 @@ test('a first install does not reload the open pages; an update does', async () 
     assert.deepEqual(await activate(['formr-v7-study.example.org-myrun']), ['STATE_INVALIDATED'], 'replacing v7');
     assert.deepEqual(await activate(['formr-v7-study.example.org-otherrun']), [], "another run's update is not this one");
 });
+
+test('pages are never served from the cache, a run named manifest included', () => {
+    const sw = loadWorker('https://study.example.org/manifest/service-worker');
+    const req = (url, mode = 'no-cors', method = 'GET') => ({ url, mode, method });
+    assert.equal(sw.servesFromCache(req('https://study.example.org/manifest/', 'navigate')), false);
+    assert.equal(sw.servesFromCache(req('https://study.example.org/manifest/?code=abc', 'navigate')), false);
+    assert.equal(sw.servesFromCache(req('https://study.example.org/manifest/manifest', 'cors')), true, 'the manifest itself');
+    assert.equal(sw.servesFromCache(req('https://study.example.org/assets/build/js/form.bundle.js')), true);
+    assert.equal(sw.servesFromCache(req('https://study.example.org/assets/x.js', 'no-cors', 'POST')), false);
+});
