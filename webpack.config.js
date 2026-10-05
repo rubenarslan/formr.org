@@ -162,9 +162,10 @@ module.exports = (env, argv) => {
                         info: { minimized: false },
                     },
                     // Altcha widget for the signup bot-check (registration.challenge
-                    // = 'altcha'): shipped as its prebuilt standalone module and
-                    // loaded via <script type=module> from the register template,
-                    // NOT webpack-bundled (its ESM plugin loader uses a dynamic
+                    // = 'altcha') and form_v2's bot_check item
+                    // (form/js/items/bot-check.js): shipped as its prebuilt
+                    // standalone module and loaded via <script type=module>, NOT
+                    // webpack-bundled (its ESM plugin loader uses a dynamic
                     // require webpack can't resolve). Self-hosted — no CDN, no
                     // third party. The external build does not inject styles at
                     // runtime, so its stylesheet ships alongside.
@@ -204,28 +205,6 @@ module.exports = (env, argv) => {
                         from: path.resolve(__dirname, 'node_modules/add-to-homescreen/dist/assets/img/'),
                         to: path.resolve(__dirname, outputDir + '/assets/img/'),
                         info: { minimized: false },
-                    },
-                    // Altcha (bot_check) memory-hard Argon2id Web Worker. Shipped
-                    // as a self-contained classic worker (inline WASM, no network)
-                    // and loaded by webroot/assets/form/js/items/bot-check.js as a
-                    // same-origin Worker. Copied verbatim rather than bundled
-                    // because the target is es5 and worker-chunk publicPath
-                    // resolution across build/ vs dev-build/ is fragile; a fixed
-                    // path next to the form bundle is robust and self-hosted.
-                    {
-                        from: path.resolve(__dirname, 'node_modules/altcha/dist/workers/argon2id.js'),
-                        to: path.resolve(__dirname, outputDir + '/js/altcha/argon2id.js'),
-                        info: { minimized: true },
-                    },
-                    // Altcha widget — shipped as its prebuilt standalone module
-                    // (dist/external) and loaded via a <script type=module> by
-                    // bot-check.js, NOT webpack-bundled: its ESM build's plugin
-                    // loader uses a dynamic require() webpack can't resolve. Self-
-                    // hosted next to the form bundle; no CDN, no third party.
-                    {
-                        from: path.resolve(__dirname, 'node_modules/altcha/dist/external/altcha.min.js'),
-                        to: path.resolve(__dirname, outputDir + '/js/altcha/altcha.min.js'),
-                        info: { minimized: true },
                     },
                 ],
             }),
