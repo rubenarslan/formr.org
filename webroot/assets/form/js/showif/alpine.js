@@ -68,7 +68,9 @@ export function contains(haystack, needle) {
     return String(haystack).indexOf(String(needle)) > -1;
 }
 
-export function registerFmrForm(Alpine) {
+// `storedValues`: the stored answers as name → value (the state block, as
+// main.js's store holds it), read when the component starts.
+export function registerFmrForm(Alpine, storedValues = () => ({})) {
     Alpine.data('fmrForm', () => ({
         isNA(v) { return isNA(v); },
         answered(v) { return !this.isNA(v); },
@@ -104,15 +106,7 @@ export function registerFmrForm(Alpine) {
             // input on the page owns (uploads, automatic items) so a
             // showif that reads one sees a value; a live input of the same
             // name always wins (the server renders the stored answer into it).
-            const state = this.$root.querySelector('script.fmr-state');
-            if (state) {
-                try {
-                    const items = (JSON.parse(state.textContent || '{}') || {}).items || {};
-                    const values = {};
-                    Object.keys(items).forEach((name) => { values[name] = items[name].value; });
-                    this._seed(values, true);
-                } catch (e) { /* malformed: skip */ }
-            }
+            this._seed(storedValues(), true);
             this.$root.addEventListener('input', (e) => this._syncInput(e.target));
             this.$root.addEventListener('change', (e) => this._syncInput(e.target));
             // `x-showif` dispatches this from the item wrapper on every

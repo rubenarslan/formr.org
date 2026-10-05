@@ -73,6 +73,10 @@ import {
     dispatchProgrammatic, claimPendingShowifControls,
 } from './lib/inputs.js';
 
+// The stored answers for the showif scope (registerFmrForm): the store's,
+// once initForm has read the state block, which it does before Alpine starts.
+let storedValues = () => ({});
+
 function initForm() {
     const root = document.querySelector('.fmr-form-v2');
     if (!root) return;
@@ -389,6 +393,7 @@ function initForm() {
     let stateBlock = {};
     try { stateBlock = JSON.parse((root.querySelector('script.fmr-state') || {}).textContent || '{}'); } catch (e) { /* malformed: empty */ }
     const store = createStore(stateBlock);
+    storedValues = () => store.values();
     const unitSessionId = store.unitSessionId;
     // Fixed for the document's life: its own writes it has seen.
     const formBase = Number.isInteger(stateBlock.version) ? stateBlock.version : null;
@@ -2061,7 +2066,7 @@ function initForm() {
 // load (so they're in place before Alpine.start() scans the DOM). One Alpine
 // scope on the outer <form>, one custom directive; everything else rides
 // built-ins.
-registerFmrForm(Alpine);
+registerFmrForm(Alpine, () => storedValues());
 registerXShowif(Alpine);
 
 window.Alpine = Alpine;
