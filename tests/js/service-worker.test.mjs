@@ -34,3 +34,12 @@ test('a notification asks for no badge image unless the push names one', () => {
     assert.equal(plain.tag, 'notification-1000');
     assert.equal(plain.data.clickTarget, 'https://study.example.org/myrun/');
 });
+
+test("activation drops this run's older caches, not another run's", () => {
+    const sw = loadWorker('https://study.example.org/myrun/service-worker');
+    assert.equal(sw.isStaleCache('formr-v7-study.example.org-myrun'), true, 'an earlier version of this run');
+    assert.equal(sw.isStaleCache('formr-v8-study.example.org-myrun'), false, 'the current cache');
+    assert.equal(sw.isStaleCache('formr-v7-study.example.org-otherrun'), false, 'another run on the domain');
+    assert.equal(sw.isStaleCache('formr-v7-study.example.org-run'), false, 'a run whose name ends the same');
+    assert.equal(sw.isStaleCache('workbox-precache'), false);
+});

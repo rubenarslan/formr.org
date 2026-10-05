@@ -6,7 +6,18 @@
 //      session code and credentials, on every install. Bumping also
 //      evicts the v7 cache still holding that response.
 const sw_version = 'v8';
-const CACHE_NAME = 'formr-' + sw_version + '-' + self.location.hostname + self.location.pathname.split('/').slice(0, -1).join('-');
+// One cache per run (its path) and version: on a path-routed study domain
+// every run's worker shares the origin's CacheStorage.
+const CACHE_SCOPE = self.location.hostname + self.location.pathname.split('/').slice(0, -1).join('-');
+const CACHE_NAME = 'formr-' + sw_version + '-' + CACHE_SCOPE;
+
+// A cache an earlier version of this run's worker left: dropped on
+// activation. Another run's cache is not this worker's to delete; deleting
+// it emptied that run's offline assets on every install or update here.
+function isStaleCache(name) {
+  const m = /^formr-v\d+-(.*)$/.exec(name);
+  return name !== CACHE_NAME && !!m && m[1] === CACHE_SCOPE;
+}
 
 console.log("SW loaded", CACHE_NAME);
 
@@ -295,11 +306,7 @@ self.addEventListener('activate', event => {
       // and serves stale assets — which is how an installed PWA can
       // keep running yesterday's frontend.bundle.js indefinitely.
       const allCacheNames = await caches.keys();
-      await Promise.all(
-        allCacheNames
-          .filter((name) => name !== CACHE_NAME && name.startsWith('formr-'))
-          .map((name) => caches.delete(name))
-      );
+      await Promise.all(allCacheNames.filter(isStaleCache).map((name) => caches.delete(name)));
 
       await clients.claim();
       await checkAndCloseExpiredNotifications();
