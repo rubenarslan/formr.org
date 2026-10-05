@@ -1,5 +1,6 @@
 import { t, escapeHtml } from '../lib/i18n.js';
 import { isItemHidden } from '../lib/inputs.js';
+import { progressPercent, setProgressBar, oncePerFrame } from '../lib/chrome.js';
 // Typeform-style "solo" step controller for form_v2 (layout=solo).
 //
 // Replaces an earlier CSS-scroll-snap skin, which broke down on
@@ -607,22 +608,14 @@ export function initSolo(opts) {
         const cur = steps(pages[getCurrentIndex()]);
         const within = Math.max(0, cur.indexOf(current));
         const globalIdx = before + within;
-        // Interpolate within the study's [from, to] progress window
-        // (add_percentage_points / displayed_percentage_maximum) — same
-        // cross-survey stitching as the default layout and v1.
-        const from = Number(root.dataset.fmrProgressFrom) || 0;
-        const to = Number(root.dataset.fmrProgressTo) || 100;
-        const pct = total > 0 ? Math.round(from + ((globalIdx + 1) / total) * (to - from)) : from;
+        const pct = progressPercent(root, total > 0 ? (globalIdx + 1) / total : 0);
         // Honest progress: showif can reveal/hide steps, which changes `total`
         // and would otherwise let the bar jump BACKWARD as new steps appear —
         // the misrepresentation the spec warns against. Clamp the bar so it only
         // ever moves forward. The "N of M" label still reflects the current
         // known totals (honest about what's left), but the bar never regresses.
         maxPct = Math.max(maxPct, pct);
-        if (progressBar) {
-            progressBar.style.width = maxPct + '%';
-            progressBar.setAttribute('aria-valuenow', String(maxPct));
-        }
+        setProgressBar(progressBar, maxPct);
         if (progressLabel) progressLabel.textContent = total > 0 ? t('progress.of', '%cur of %total', { cur: globalIdx + 1, total: total }) : '';
     }
 
@@ -664,18 +657,13 @@ export function initSolo(opts) {
     // condition the participant fixed via Back), re-seat on the nearest
     // navigable neighbour — forward first — instead of leaving an invisible
     // current step that needs a blind OK to escape.
-    // The nav/progress refresh is coalesced to one per frame (like main.js's):
-    // one answer can toggle many showifs, and each refresh snapshots the form.
-    let chromeRefreshQueued = false;
+    // The nav/progress refresh runs once a frame, as main.js's.
+    const refreshChrome = oncePerFrame(() => {
+        updateNav();
+        updateProgress();
+    });
     root.addEventListener('fmr:showif-toggled', (e) => {
-        if (!chromeRefreshQueued) {
-            chromeRefreshQueued = true;
-            requestAnimationFrame(() => {
-                chromeRefreshQueued = false;
-                updateNav();
-                updateProgress();
-            });
-        }
+        refreshChrome();
         if (!current || transitioning) return;
         if (e.target !== current || isNavigable(current)) return;
         const groups = directGroups(pages[getCurrentIndex()]);

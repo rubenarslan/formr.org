@@ -68,6 +68,7 @@ import {
 } from './showif/alpine.js';
 import { initSolo, blockedSubmitControl } from './solo/controller.js';
 import { createStore, pageState, readRememberedPage, rememberPage, forgetPage } from './state.mjs';
+import { progressPercent, setProgressBar, oncePerFrame } from './lib/chrome.js';
 import {
     collectAnswers, fieldKey, isAnswerInput, isItemHidden, hiddenShowifItemIds,
     dispatchProgrammatic, claimPendingShowifControls,
@@ -235,17 +236,7 @@ function initForm() {
     const updatePageProgress = (pageNum, ps = nav()) => {
         if (isSolo || !pageNum) return;
         const { index, total } = ps.progress(pageNum);
-        if (progressBar) {
-            // Interpolate within the study's [from, to] window
-            // (add_percentage_points / displayed_percentage_maximum) so
-            // runs stitching several surveys into one 0–100 bar keep
-            // their coordinated ranges — parity with v1's stretch math.
-            const from = Number(root.dataset.fmrProgressFrom) || 0;
-            const to = Number(root.dataset.fmrProgressTo) || 100;
-            const pct = Math.round(from + (index / Math.max(1, total)) * (to - from));
-            progressBar.style.width = pct + '%';
-            progressBar.setAttribute('aria-valuenow', String(pct));
-        }
+        setProgressBar(progressBar, progressPercent(root, index / Math.max(1, total)));
         if (progressLabel) {
             progressLabel.textContent = t('progress.page_of', 'Page %cur of %total', { cur: index, total });
         }
@@ -273,22 +264,14 @@ function initForm() {
         });
     };
     // A showif toggle can change which pages are shown (and so which is
-    // last, and how many there are); refresh the page's chrome.
-    // Coalesced to one refresh per frame: a single answer can toggle many
-    // showifs, and each refresh snapshots the whole form.
-    let navRefreshQueued = false;
-    root.addEventListener('fmr:showif-toggled', () => {
-        if (navRefreshQueued) return;
-        navRefreshQueued = true;
-        requestAnimationFrame(() => {
-            navRefreshQueued = false;
-            const p = pages[currentIndex];
-            if (!p) return;
-            const ps = nav();   // one snapshot of the form for both
-            applyNav(p, ps);
-            updatePageProgress(Number(p.dataset.fmrPage), ps);
-        });
-    });
+    // last, and how many there are); refresh the page's chrome, once a frame.
+    root.addEventListener('fmr:showif-toggled', oncePerFrame(() => {
+        const p = pages[currentIndex];
+        if (!p) return;
+        const ps = nav();   // one snapshot of the form for both
+        applyNav(p, ps);
+        updatePageProgress(Number(p.dataset.fmrPage), ps);
+    }));
 
     // Answered-timing: stamp on first value change per item. Suppressed while
     // resolveAndSubstitutePage writes server-computed deferred-fill values —
