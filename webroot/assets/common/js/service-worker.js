@@ -305,50 +305,44 @@ self.addEventListener('install', (event) => {
 });
 
 
-// Add activation event listener to check for expired notifications
+// Activation: drop the caches an earlier version of this run's worker left,
+// take control, close expired notifications — and when this worker replaced
+// such a version, tell the run's open pages to reload, or pages loaded
+// against the old sw_version keep running their old PWAInstaller.js. The
+// page-side STATE_INVALIDATED handler is what is re-used here (it's been in
+// every shipped sw_version); a fresh Date.now() timestamp passes the dedup
+// check in reload_invalidated. Not on a first install: the page that just
+// registered the worker is current, and a v1 page reloaded a moment after
+// a participant's first visit lost whatever they had typed.
+async function activateWorker() {
+  const stale = (await caches.keys()).filter(isStaleCache);
+  await Promise.all(stale.map((name) => caches.delete(name)));
+
+  await clients.claim();
+  await checkAndCloseExpiredNotifications();
+  console.log("SW: Activation complete, clients claimed");
+
+  if (!stale.length) return;
+  try {
+    const reloadTs = Date.now();
+    for (const client of await findAndSortClients()) {
+      try {
+        client.postMessage({ type: 'STATE_INVALIDATED', tag: 'sw-activate', timestamp: reloadTs });
+      } catch (err) {
+        console.warn('SW: activation reload broadcast failed for', client.id, err);
+      }
+    }
+  } catch (broadcastErr) {
+    console.warn('SW: activation reload broadcast skipped:', broadcastErr);
+  }
+}
+
 self.addEventListener('activate', event => {
   console.log('SW: Starting activation');
-  const activate = async () => {
-    try {
-      // Drop caches from previous sw_versions. Without this, bumping
-      // sw_version creates a new CACHE_NAME but the unscoped
-      // `caches.match()` in the fetch handler still hits the old cache
-      // and serves stale assets — which is how an installed PWA can
-      // keep running yesterday's frontend.bundle.js indefinitely.
-      const allCacheNames = await caches.keys();
-      await Promise.all(allCacheNames.filter(isStaleCache).map((name) => caches.delete(name)));
-
-      await clients.claim();
-      await checkAndCloseExpiredNotifications();
-      console.log("SW: Activation complete, clients claimed");
-
-      // Tell every already-open client to reload, otherwise pages that
-      // were loaded against the OLD sw_version keep running their old
-      // PWAInstaller.js (loaded before this SW activated). The page-side
-      // STATE_INVALIDATED handler is what we re-use here — it's been in
-      // every shipped sw_version, so the message is understood even by
-      // pages running pre-fix code. A fresh Date.now() timestamp passes
-      // the dedup check in reload_invalidated.
-      try {
-        const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
-        const reloadTs = Date.now();
-        for (const client of allClients) {
-          try {
-            client.postMessage({ type: 'STATE_INVALIDATED', tag: 'sw-activate', timestamp: reloadTs });
-          } catch (err) {
-            console.warn('SW: activation reload broadcast failed for', client.id, err);
-          }
-        }
-      } catch (broadcastErr) {
-        console.warn('SW: activation reload broadcast skipped:', broadcastErr);
-      }
-    } catch (error) {
-      console.error("Error during activation:", error);
-      throw error;
-    }
-  };
-  event.waitUntil(activate());
-  console.log('SW: Activation complete');
+  event.waitUntil(activateWorker().catch((error) => {
+    console.error("Error during activation:", error);
+    throw error;
+  }));
 });
 
 /* 

@@ -53,3 +53,22 @@ test("a run's worker speaks to its own windows only", () => {
     ];
     assert.deepEqual(sw.inScope(windows).map((c) => c.url), ['https://study.example.org/myrun/?code=abc&_pwa=true']);
 });
+
+async function activate(cacheNames) {
+    const sw = loadWorker('https://study.example.org/myrun/service-worker');
+    const told = [];
+    sw.caches = { keys: async () => cacheNames, delete: async () => true };
+    sw.clients = {
+        claim: async () => {},
+        matchAll: async () => [{ url: 'https://study.example.org/myrun/', postMessage: (m) => told.push(m.type) }],
+    };
+    sw.self.registration.getNotifications = async () => [];
+    await sw.activateWorker();
+    return told;
+}
+
+test('a first install does not reload the open pages; an update does', async () => {
+    assert.deepEqual(await activate([]), [], 'first install: the page that registered it is current');
+    assert.deepEqual(await activate(['formr-v7-study.example.org-myrun']), ['STATE_INVALIDATED'], 'replacing v7');
+    assert.deepEqual(await activate(['formr-v7-study.example.org-otherrun']), [], "another run's update is not this one");
+});
