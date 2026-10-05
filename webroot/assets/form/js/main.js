@@ -1211,6 +1211,10 @@ function initForm() {
             // The wait above may have raised "Saving…" (no autohide): nothing
             // is being saved.
             savePill.classList.remove('is-visible');
+            // In solo the errors sit on steps not on screen when the submit
+            // did not come from solo (a timed or all-answered auto-submit):
+            // take the participant to the first, as after a server's errors.
+            if (soloController) soloController.onErrors();
             return;
         }
         setSaveState('saving', t('save.saving', 'Saving…'), 0);
