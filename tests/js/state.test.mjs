@@ -41,6 +41,18 @@ test('without memory: first page with a visible answerable item lacking an answe
     assert.equal(pageState(snap, skipped, null, false).currentPage, 2, 'q1 left empty but stored with its page: not reopened');
 });
 
+test('without Previous, a remembered page already sent elsewhere is not reopened', () => {
+    // This device last showed page 1; pages 1 and 2 were then sent from
+    // another device.
+    const store = createStore(block({ q1: st(true), q3: st(true), q4: st(false) }));
+    assert.equal(pageState(snap, store, 1, false).currentPage, 3, 'Previous off: the first open page');
+    assert.equal(pageState(snap, store, 1, true).currentPage, 1, 'Previous on: where this device was');
+    assert.equal(pageState(snap, store, 3, false).currentPage, 3, 'the open page itself is remembered as is');
+    // On this device: page 1's answers autosaved, the page not sent yet.
+    const autosaved = createStore(block({ q1: st(true), q3: st(false), q4: st(false) }));
+    assert.equal(pageState(snap, autosaved, 1, false).currentPage, 1, 'an autosaved page is not left behind');
+});
+
 test('a fresh form opens on its first page, a page of notes included', () => {
     const s = [
         { page: 1, items: [it('intro', { answerable: false })] },

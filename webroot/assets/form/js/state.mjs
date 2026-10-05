@@ -77,7 +77,15 @@ export function pageState(snapshot, store, remembered, allowPrevious) {
 
     let current = null;
     const items = (store && store.items) || {};
-    if (remembered != null && isShown(remembered)) {
+    // Without Previous, a remembered page is not one the participant has
+    // left behind: this device may have last shown a page that was then
+    // sent from another one, and reopening it let them change answers the
+    // study does not let them revisit. A page is left behind when a later
+    // one holds an answer (on one device, without Previous, a later page is
+    // reached only by sending this one). An answer autosaved on the
+    // remembered page itself does not count.
+    const answeredAfter = (n) => shown.some((p) => p.page > n && p.items.some((it) => it.answerable && answered(it.name)));
+    if (remembered != null && isShown(remembered) && (allowPrevious || !answeredAfter(Number(remembered)))) {
         current = Number(remembered);
     } else if (!Object.keys(items).some((name) => items[name].answerable !== false && answered(name))) {
         // Nothing answered yet: a fresh form opens on its first shown page,
