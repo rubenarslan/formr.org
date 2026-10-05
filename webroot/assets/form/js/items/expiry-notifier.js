@@ -64,21 +64,18 @@ function showExpiredModal() {
     document.body.appendChild(overlay);
 }
 
+// The notice's timer, re-armed whenever the server names the deadline anew.
+let armExpiry = null;
+
+// A v2 form is one long-lived page whose deadline moves while it is open: an
+// invitation window ends at the first answer, an inactivity window slides
+// with each. Every write reply carries the deadline as it stands (`expires`,
+// RunController::formDeadline); null means none.
+export function updateExpiry(deadline) {
+    if (armExpiry) armExpiry(deadline);
+}
+
 export function initExpiryNotifier() {
-    if (!window.unit_session_expires) return;
-
-    let expiryDate;
-    try {
-        // Accept ISO 8601 (with timezone) and the legacy MySQL "YYYY-MM-DD HH:MM:SS"
-        // format the v1 path also normalized.
-        expiryDate = new Date(String(window.unit_session_expires).replace(' ', 'T'));
-    } catch (e) {
-        console.error('ExpiryNotifier: could not parse expiry date', window.unit_session_expires, e);
-        return;
-    }
-    const expiryMs = expiryDate.getTime();
-    if (!Number.isFinite(expiryMs)) return;
-
     let lastActivity = Date.now();
     const activityEvents = ['mousemove', 'keydown', 'scroll', 'touchstart'];
     activityEvents.forEach((evt) => {
@@ -100,8 +97,19 @@ export function initExpiryNotifier() {
         showExpiredModal();
     };
 
-    const delay = Math.max(expiryMs - Date.now(), 0);
-    if (delay < MAX_TIMEOUT_MS) {
-        setTimeout(handleExpiry, delay);
-    }
+    let timer = null;
+    armExpiry = (deadline) => {
+        if (timer) { clearTimeout(timer); timer = null; }
+        if (!deadline) return;
+        // Accept ISO 8601 (with timezone) and the legacy MySQL
+        // "YYYY-MM-DD HH:MM:SS" format the v1 path also normalized.
+        const expiryMs = new Date(String(deadline).replace(' ', 'T')).getTime();
+        if (!Number.isFinite(expiryMs)) {
+            console.error('ExpiryNotifier: could not parse expiry date', deadline);
+            return;
+        }
+        const delay = Math.max(expiryMs - Date.now(), 0);
+        if (delay < MAX_TIMEOUT_MS) timer = setTimeout(handleExpiry, delay);
+    };
+    armExpiry(window.unit_session_expires);
 }

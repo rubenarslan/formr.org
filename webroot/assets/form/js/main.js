@@ -50,7 +50,7 @@ import { initRequestCookie } from './items/request-cookie.js';
 import { initPwaItems } from './items/pwa.js';
 import { initRequestPhone } from './items/request-phone.js';
 import { initAdminPreview } from './items/admin-preview.js';
-import { initExpiryNotifier } from './items/expiry-notifier.js';
+import { initExpiryNotifier, updateExpiry } from './items/expiry-notifier.js';
 import { initAutoSubmit } from './items/auto-submit.js';
 import { t } from './lib/i18n.js';
 import {
@@ -1477,6 +1477,7 @@ function initForm() {
     // Merge a submit / sync reply into the store and the showif scope.
     const absorbReply = (body) => {
         if (!body || typeof body !== 'object') return;
+        if ('expires' in body) updateExpiry(body.expires);
         if (body.items) { store.merge(body.items); markStoredUploads(); }
         // A name an enabled input answers keeps that input's value, as at
         // load: the participant may have changed it since this write (a
@@ -1664,6 +1665,7 @@ function initForm() {
                 if (body && body.stale_document) reloadPage(staleDocumentMessage());
             } else if (res && res.ok) {
                 const body = await res.json().catch(() => null);
+                if (body && 'expires' in body) updateExpiry(body.expires);
                 if (body && body.status === 'saved') setSaveState('saved', t('save.saved', 'Saved'));
             }
         } catch (e) { /* best-effort; explicit submit + offline queue are the net */ }

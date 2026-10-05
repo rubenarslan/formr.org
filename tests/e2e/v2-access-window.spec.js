@@ -242,6 +242,25 @@ test.describe('a form_v2 Form whose survey has an access window', () => {
         expect(dbResultsRow(fx.invitation.results_table, usid)).toMatchObject({ win_q1: 'first', win_q2: 'second' });
     });
 
+    test('expire_invitation_after: once page 1 is in, the invitation deadline brings up no "Page expired"', async ({ page, baseURL }) => {
+        // The page is one long-lived document: the deadline it was rendered
+        // with (invitation + 60 min) ends with the first answer, as the
+        // server's own (Survey::getUnitSessionExpirationData); the reply
+        // says so and the notice is disarmed.
+        await page.clock.install();
+        await freshParticipant(page, RUNS.invitation, { baseURL });
+        await expectFormOnPage(page, 1);
+        const usid = await v2.unitSessionId(page);
+        // Started = a page saved more than 2 s after the invitation.
+        await expect.poll(() => dbNow() - queueOf(usid).created, { timeout: 10000, intervals: [500] }).toBeGreaterThan(2);
+        await answer(page, 1, 'first');
+        const r1 = await submitPage(page);
+        expect(r1.expires, 'no deadline once started (X only)').toBeNull();
+        await page.clock.fastForward('01:01:00');
+        await page.waitForTimeout(300);
+        await expect(page.locator('.fmr-expiry-modal')).toHaveCount(0);
+    });
+
     test('expire_after: after page 1 is in, a reload (now queued) still renders the form on page 2, and it completes', async ({ page, baseURL }) => {
         await freshParticipant(page, RUNS.inactivity, { baseURL });
         await expectFormOnPage(page, 1);

@@ -723,6 +723,9 @@ class RunController extends Controller {
         }
         if ($result['status'] === 'ok') {
             FormSubmissionService::recordSubmitSeq($unitSession->id, $payload['doc'], $payload['seq']);
+            if ($onV2 && empty($result['complete'])) {
+                $result['expires'] = $this->formDeadline($unitSession);
+            }
         }
         $this->sendJsonResponse($onV2 ? $this->withRunRedirect($result) : $this->leftV2Reply($result));
     }
@@ -849,6 +852,19 @@ class RunController extends Controller {
             'error' => 'This form was continued in another tab or window. Reload to continue.',
             'stale_document' => true,
         );
+    }
+
+    /**
+     * The unit session's deadline as it stands after a write, for the
+     * browser's "page expired" notice (items/expiry-notifier.js): a v2 form
+     * is one long-lived page, and its deadline moves while it is open — an
+     * invitation window ends at the first answer, an inactivity window slides
+     * with each (Survey::getUnitSessionExpirationData, as the queue computes
+     * it). ISO 8601, or null for none.
+     */
+    private function formDeadline(UnitSession $unitSession) {
+        $data = $unitSession->runUnit instanceof Survey ? $unitSession->runUnit->getUnitSessionExpirationData($unitSession) : array();
+        return !empty($data['expires']) ? date(DATE_ATOM, (int) $data['expires']) : null;
     }
 
     /**
@@ -1051,7 +1067,7 @@ class RunController extends Controller {
         }
         $withdrawn = $service->withdrawAnswers($withdraw);
         if (!$accepted) {
-            $this->sendJsonResponse(array('status' => $withdrawn ? 'saved' : 'noop'));
+            $this->sendJsonResponse($withdrawn ? array('status' => 'saved', 'expires' => $this->formDeadline($unitSession)) : array('status' => 'noop'));
             return;
         }
 
@@ -1066,7 +1082,11 @@ class RunController extends Controller {
         // nothing was stored, and the page must not be told "Saved".
         $stored = $unitSession->updateSurveyStudyRecord($posted, true, true, $items);
 
-        $this->sendJsonResponse(array('status' => ($stored || $withdrawn) ? 'saved' : 'noop'));
+        $reply = array('status' => ($stored || $withdrawn) ? 'saved' : 'noop');
+        if ($stored || $withdrawn) {
+            $reply['expires'] = $this->formDeadline($unitSession);
+        }
+        $this->sendJsonResponse($reply);
     }
 
     /**
@@ -1156,6 +1176,9 @@ class RunController extends Controller {
             return;
         }
         FormSubmissionService::recordSubmitSeq($unitSession->id, $payload['doc'], $payload['seq']);
+        if ($onV2 && empty($result['complete'])) {
+            $result['expires'] = $this->formDeadline($unitSession);
+        }
         $this->sendJsonResponse($onV2 ? $this->withRunRedirect($result) : $this->leftV2Reply($result));
     }
 
