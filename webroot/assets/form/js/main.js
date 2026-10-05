@@ -1223,6 +1223,8 @@ function initForm() {
         // `hidden`: every item the form hides right now, all pages. `final`:
         // no shown page follows this one, so the server may end the form
         // once every required item is answered.
+        // Changes made from here on are not in this page's answers.
+        const changesAtCollect = saveChanges;
         const payload = Object.assign(
             { page: pageNum, unit_session_id: unitSessionId, hidden: hiddenItemIds(), final: nextPage == null },
             collectPayload(page)
@@ -1504,7 +1506,13 @@ function initForm() {
                 .then((removed) => { if (removed) drainQueue(); })
                 .catch(() => {});
         }
-        cancelPendingAutosave();
+        // A change still waiting for its autosave is in these answers only
+        // when it was made on this page before they were collected; one made
+        // on another page, or while this submit was on the wire, still needs
+        // its autosave.
+        if (saveChanges === changesAtCollect && (!savePage || savePage === page)) {
+            cancelPendingAutosave();
+        }
         // The reply carries the stored state of what was just written: merge
         // it into the store and hand the values to the showif scope.
         absorbReply(body);
@@ -1658,7 +1666,12 @@ function initForm() {
         if (pageSubmitInFlight) return;
         pageSubmitInFlight = true;
         try { return await submitPageInner(); }
-        finally { pageSubmitInFlight = false; }
+        finally {
+            pageSubmitInFlight = false;
+            // An autosave that waited for this submit (flushPersist does not
+            // send while one is on the wire) goes now.
+            if (savePending && !saveTimer) schedulePersist();
+        }
     };
 
     // --- Incremental autosave (spec: persist on advance/blur, rate limited) ---
@@ -1673,6 +1686,8 @@ function initForm() {
     // How long a page submit waits for an autosave already on the wire.
     const AUTOSAVE_WAIT_MS = 5000;
     let lastSaveAt = 0, saveTimer = null, savePending = false;
+    // Every change the autosave listens to, counted (submitPageInner).
+    let saveChanges = 0;
     // The page the pending change was made on. The flush can come after the
     // participant has left it (Previous, solo Back, browser Back), and must
     // still save that page, not the one on screen.
@@ -1779,6 +1794,7 @@ function initForm() {
             if (t.name.startsWith('_item_views')) return;   // tracking inputs, not answers
             if (t.type === 'file') return;                  // files ride the explicit submit
             savePage = t.closest('[data-fmr-page]') || savePage;
+            saveChanges += 1;
             schedulePersist();
         });
         // A breakoff right before leaving must not lose the last unsaved change.

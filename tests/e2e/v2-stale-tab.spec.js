@@ -152,6 +152,27 @@ test.describe('a v2 form open in two tabs', () => {
         expect(prompts).not.toContain('beforeunload');
     });
 
+    test('a change made while its page is being sent is saved too', async ({ page, baseURL }) => {
+        // The change waits out the autosave's 20 s throttle.
+        test.setTimeout(90000);
+        await freshParticipant(page, RUN, { baseURL });
+        await v2.waitForBundle(page);
+        const usid = (await currentFormContext(page)).unitSessionId;
+        let release;
+        const held = new Promise((r) => { release = r; });
+        await page.route((u) => /\/form-page-submit\/?$/.test(u.pathname), async (route) => { await held; await route.continue(); });
+        const field = page.locator('[name="st_a"]');
+        await field.fill('sent');
+        await page.locator(NEXT).first().click();
+        // While the page is on the wire, the participant changes the answer.
+        await page.waitForTimeout(500);
+        await field.fill('changed');
+        // Committed now (blur fires its change), not when the page changes.
+        await field.blur();
+        release();
+        await expect.poll(() => display(usid, 'st_a').answer, { timeout: 45000 }).toBe('changed');
+    });
+
     test("a reloaded page is not stale for what its predecessor still sent", async ({ page, baseURL }) => {
         await freshParticipant(page, RUN, { baseURL });
         await v2.waitForBundle(page);
