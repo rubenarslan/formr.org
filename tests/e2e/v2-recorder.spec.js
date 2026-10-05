@@ -90,4 +90,17 @@ test.describe('form_v2: the audio recorder', () => {
         await page.locator(RECORD).click();
         await expect.poll(() => streamsLive(page), { message: 'stopped: no microphone left on' }).toEqual([false]);
     });
+
+    test('a deleted recording no longer answers the item', async ({ page, baseURL }) => {
+        await freshParticipant(page, RUN, { baseURL });
+        await v2.waitForBundle(page);
+        const more = page.locator('[name="sr_more"]');
+        await page.locator(RECORD).click();
+        await expect(page.locator(RECORDING)).toBeVisible();
+        await page.waitForTimeout(800);
+        await page.locator(RECORD).click();
+        await expect(more, 'answered(sr_voice)').toBeVisible({ timeout: 5000 });
+        await page.locator('.record_audio .fmr-recorder-delete').click();
+        await expect(more).toBeHidden();
+    });
 });

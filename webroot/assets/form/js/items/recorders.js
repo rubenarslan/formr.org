@@ -228,6 +228,8 @@ function wireRecorder(container, fileInput, cfg) {
         blob = null;
         if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
         fileInput.value = '';
+        // Announced like the recording was: showifs over the item follow.
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
         lengthEl.textContent = '';
         if (previewEl) {
             previewEl.removeAttribute('src');
