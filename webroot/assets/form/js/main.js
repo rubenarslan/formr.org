@@ -2002,6 +2002,17 @@ function initForm() {
         if (idx !== -1) showPage(idx);
     });
 
+    // A tapped push notification: the service worker focuses this window
+    // and asks it to reload (service-worker.js, notificationclick), as the
+    // run has usually moved on since the page was rendered. A push that
+    // merely arrives takes no page from under a participant answering it: a
+    // write after the run moved on is refused and goes to the run.
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', (e) => {
+            if (e.data && e.data.type === 'NOTIFICATION_CLICK' && e.data.action === 'reload') reloadPage();
+        });
+    }
+
     // RequestCookie + RequestPhone + admin "monkey bar" preview live in items/* modules.
     initRequestCookie(root);
     initRequestPhone(root);
