@@ -22,6 +22,13 @@
     visibility: hidden !important;
 }
 
+// The `hidden` item type is never shown. Its showif decides only whether
+// its value is kept, and showif/alpine.js records that decision in
+// `.hidden` / `data-fmr-hidden`, so a true showif takes `.hidden` away.
+.fmr-form-v2 .form-group.item-hidden {
+    display: none !important;
+}
+
 .hidden_debug_message {
     display: none !important;
 }

@@ -64,9 +64,11 @@ export function initAutoSubmit({ root, pages, getCurrentIndex, submitPage }) {
 
     // Same exclusion set as v1's completion check: notes, iframes, blocks and
     // the submit item itself don't need answers; showif-hidden items don't
-    // block (their inputs are disabled and they may never appear).
+    // block (their inputs are disabled and they may never appear), nor does
+    // the `hidden` type, which a true showif does not make answerable.
     const answerableGroups = (page) => Array.from(page.querySelectorAll('.form-group'))
         .filter((g) => !isItemHidden(g)
+            && !g.classList.contains('item-hidden')
             && !g.classList.contains('item-note')
             && !g.classList.contains('item-note_iframe')
             && !g.classList.contains('item-block')
