@@ -905,6 +905,9 @@ function initForm() {
     // (see resolvePage); after that the page goes as it is, and what could
     // not be loaded is submitted empty.
     const SUBMIT_RESOLVE_WAIT_MS = 15000;
+    // How long a page submit waits for the queue's drain to send the pages
+    // before it (submitPageInner).
+    const DRAIN_WAIT_MS = 10000;
     // Write one value into its item — a resolved `value` when its page is
     // shown, or a stored answer at load — and return the input to fire
     // input/change on, or null when nothing was written. Choice items are
@@ -1259,7 +1262,11 @@ function initForm() {
             queuedBehind = true;
         } else if (ownSyncUrl) {
             const routed = drainRouted;
-            await drainQueue('own');
+            // Bounded: the drain running may be uploading an earlier unit
+            // session's video over a slow line, or be stalled (no fetch has
+            // a timeout). After the wait, a page still waiting means this one
+            // queues behind it; a stalled drain must not leave Next dead.
+            await Promise.race([drainQueue('own'), new Promise((done) => setTimeout(done, DRAIN_WAIT_MS))]);
             // The drain moved the participant: it reloads an out-of-date
             // document, follows the redirect of the final page it sent (an
             // External's address, say), or shows the items that page found

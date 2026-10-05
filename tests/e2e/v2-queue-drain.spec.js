@@ -128,6 +128,19 @@ test.describe('form_v2 offline queue drain', () => {
         expect(posted[0]).not.toBe(final);
     });
 
+    test('a stalled drain does not leave Next dead', async ({ page, baseURL }) => {
+        test.setTimeout(60000);
+        const ctx = await start(page, baseURL);
+        await seedEntry(page, ctx, { page: ctx.pageNum + 1 });
+        // The server never answers the queued page.
+        await page.route(SYNC_ROUTE, () => {});
+        await fillAllVisible(page, V2_PAGE);
+        await page.locator('form.fmr-form-v2 section.fmr-page:not([hidden]) [data-fmr-next]').click();
+        // After the drain's wait the page is queued behind the stalled one.
+        await expect.poll(async () => (await page.evaluate(IDB_GET_ALL)).length, { timeout: 25000 }).toBe(2);
+        await expect(page.locator('.fmr-queue-banner')).toContainText('still waiting to be sent');
+    });
+
     test('a page too large for the server is held at once, not retried for an hour', async ({ page, baseURL }) => {
         const ctx = await start(page, baseURL);
         await seedEntry(page, ctx);
