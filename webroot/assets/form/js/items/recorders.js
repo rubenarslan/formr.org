@@ -81,6 +81,9 @@ function wireRecorder(container, fileInput, cfg) {
     // re-take started while the last one is still being finished (its audio
     // decoded) is neither stopped nor emptied by that one's cleanup.
     let current = null;
+    // A start waiting for the microphone: a second tap meanwhile would open
+    // a second stream, and the first would never be stopped.
+    let starting = false;
     let blob = null;
     let blobUrl = null;
     // Resolves finishRecordings' wait once the stopped recording is attached.
@@ -152,6 +155,16 @@ function wireRecorder(container, fileInput, cfg) {
             stopRecording();
             return;
         }
+        if (starting) return;
+        starting = true;
+        try {
+            await startRecording();
+        } finally {
+            starting = false;
+        }
+    });
+
+    const startRecording = async () => {
         const mimeType = supportedMime();
         if (!mimeType) {
             alert(cfg.kind === 'video'
@@ -183,7 +196,7 @@ function wireRecorder(container, fileInput, cfg) {
         current = rec;
         recorder.start();
         recordBtn.querySelector('i').className = 'fa fa-stop';
-    });
+    };
 
     container.fmrFinishRecording = () => {
         if (!recording()) return null;

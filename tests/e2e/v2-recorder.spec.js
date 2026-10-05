@@ -77,4 +77,17 @@ test.describe('form_v2: the audio recorder', () => {
         expect(await streamsLive(page), 'the first microphone off, the re-take on').toEqual([false, true]);
         await expect(page.locator(RECORDING)).toBeVisible();
     });
+
+    test('a second tap while the microphone opens starts one recording', async ({ page, baseURL }) => {
+        await instrument(page, { gumDelay: 700 });
+        await freshParticipant(page, RUN, { baseURL });
+        await v2.waitForBundle(page);
+        await page.locator(RECORD).click();
+        await page.locator(RECORD).click();
+        await expect(page.locator(RECORDING)).toBeVisible();
+        await page.waitForTimeout(1200);
+        expect(await page.evaluate(() => window.__streams.length), 'one microphone').toBe(1);
+        await page.locator(RECORD).click();
+        await expect.poll(() => streamsLive(page), { message: 'stopped: no microphone left on' }).toEqual([false]);
+    });
 });
