@@ -1996,6 +1996,10 @@ function initForm() {
             if (cur) { try { history.pushState(null, '', pageHref(cur)); } catch (e) { /* noop */ } }
             return;
         }
+        // A link to an anchor (#fn1, href="#") fires popstate too, on the
+        // page already shown: showing it again would scroll it to the top,
+        // or seat a solo page's first step.
+        if (p === cur) return;
         const idx = pageIndexOf(p);
         if (idx !== -1) showPage(idx);
     });
