@@ -191,7 +191,7 @@ function initForm() {
         pages.forEach((p, idx) => { p.hidden = (idx !== i); });
         currentIndex = i;
         const shownNum = pages[i] ? Number(pages[i].dataset.fmrPage) : NaN;
-        if (Number.isFinite(shownNum) && !requestedPages.has(shownNum)) resolvePage(shownNum);
+        if (Number.isFinite(shownNum)) resolveOnce(shownNum);
         // Let per-item widgets react to leaving a page (e.g. recorders stop
         // a live recording so the mic isn't left hot on an unseen page).
         if (changed) {
@@ -1178,8 +1178,8 @@ function initForm() {
         // A page whose resolution failed asks once more before it goes, so
         // its R values are not submitted empty when the server is back.
         const ownNum = Number(page.dataset.fmrPage);
-        if (!requestedPages.has(ownNum) && hasDynamicContent(page)) resolvePage(ownNum);
-        const inFlight = pageResolutions.get(ownNum);
+        if (hasDynamicContent(page)) resolveOnce(ownNum);
+        const inFlight = resolutionInFlight(ownNum);
         if (inFlight) {
             setSaveState('saving', t('save.saving', 'Saving…'), 0);
             await Promise.race([inFlight, new Promise((done) => setTimeout(done, SUBMIT_RESOLVE_WAIT_MS))]);
@@ -1563,28 +1563,35 @@ function initForm() {
     // note_iframe's R Markdown, a heavy label) keeps its placeholder and
     // fills in when it arrives. Every page works this way, the first one
     // included.
-    // The page's resolution, kept while in flight: a page is shown after at
-    // most PAGE_RESOLVE_WAIT_MS, and a submit must not go before the R values
-    // it carries (a hidden bridge item's) have arrived — the late reply would
-    // fill an input nothing sends again.
-    const pageResolutions = new Map();
-    // Pages whose resolution this document has asked for: showPage resolves
-    // any other page it opens (browser Back, solo Back, the queue banner's
-    // "Go to page"), so no way onto a page leaves its R content blank.
-    const requestedPages = new Set();
+    // Each page's resolution, from when this document asks for it: `p` its
+    // promise, `done` once it has succeeded. showPage resolves any page it
+    // opens (browser Back, solo Back, the queue banner's "Go to page"), so no
+    // way onto a page leaves its R content blank. A failed resolution
+    // (offline, a 5xx, a refused request) is dropped: the page's next
+    // showing, its submit or reconnecting asks again — or its R values would
+    // go out empty.
+    const resolutions = new Map();
     const resolvePage = (pageNum, fetched = null) => {
         const n = Number(pageNum);
-        requestedPages.add(n);
-        const p = resolveAndSubstitutePage(n, fetched).catch(() => false);
-        pageResolutions.set(n, p);
-        p.then((ok) => {
-            if (pageResolutions.get(n) === p) pageResolutions.delete(n);
-            // A failed resolution (offline, a 5xx, a refused request) is not
-            // done: the page's next showing, its submit or reconnecting asks
-            // again — or its R values would go out empty.
-            if (!ok && !pageResolutions.has(n)) requestedPages.delete(n);
+        const entry = { done: false };
+        entry.p = resolveAndSubstitutePage(n, fetched).catch(() => false);
+        resolutions.set(n, entry);
+        entry.p.then((ok) => {
+            if (resolutions.get(n) !== entry) return;
+            if (ok) entry.done = true;
+            else resolutions.delete(n);
         });
-        return p;
+        return entry.p;
+    };
+    // Resolve page `n` unless this document has asked for it already.
+    const resolveOnce = (n) => { if (!resolutions.has(n)) resolvePage(n); };
+    // The page's resolution while it is in flight, else null: a page is shown
+    // after at most PAGE_RESOLVE_WAIT_MS, and a submit must not go before the
+    // R values it carries (a hidden bridge item's) have arrived — the late
+    // reply would fill an input nothing sends again.
+    const resolutionInFlight = (n) => {
+        const entry = resolutions.get(n);
+        return entry && !entry.done ? entry.p : null;
     };
     // The history URL of a page: the current query with `page` set. The rest
     // of the query stays (a `?code=` link must remain the resumable link).
@@ -1832,7 +1839,7 @@ function initForm() {
         drainQueue();
         const shown = pages[currentIndex];
         const shownNum = shown ? Number(shown.dataset.fmrPage) : NaN;
-        if (pageShown && Number.isFinite(shownNum) && !requestedPages.has(shownNum)) resolvePage(shownNum);
+        if (pageShown && Number.isFinite(shownNum)) resolveOnce(shownNum);
     });
 
     // Service worker + add_to_home_screen / push_notification items.
@@ -1939,7 +1946,7 @@ function initForm() {
         // holds once the page's R values have arrived — a showif reading one
         // can reveal items.
         if (alpineStarted && ps.shownPages.length === 0) {
-            Promise.resolve(pageResolutions.get(landed)).then(() => setTimeout(() => {
+            Promise.resolve(resolutionInFlight(landed)).then(() => setTimeout(() => {
                 if (nav().shownPages.length === 0) submitPage();
             }, 0));
         }
