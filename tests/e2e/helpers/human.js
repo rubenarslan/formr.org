@@ -25,16 +25,29 @@ function human(page) {
     }
 
     // Scroll with the wheel until the target is comfortably in view (an
-    // element.scrollIntoView() would be a scroll nobody made).
+    // element.scrollIntoView() would be a scroll nobody made). The pointer
+    // goes to the page's margin first: over a focused number field the wheel
+    // changes the number instead of scrolling (v1's webshim), and the target
+    // never arrives.
     async function bringIntoView(locator) {
-        for (let i = 0; i < 12; i++) {
+        const vh = page.viewportSize().height;
+        const comfortable = (b) => b && b.y > 60 && b.y + b.height < vh - 60;
+        const visible = (b) => b && b.y >= 0 && b.y + b.height <= vh;
+        let parked = false;
+        for (let i = 0; i < 16; i++) {
             const b = await locator.boundingBox();
-            const vh = page.viewportSize().height;
-            if (b && b.y > 60 && b.y + b.height < vh - 60) return;
-            const dy = !b || b.y + b.height >= vh - 60 ? 220 : -220;
-            await page.mouse.wheel(0, dy);
+            if (comfortable(b)) return;
+            if (!parked) {
+                await moveTo(rnd(4, 14), rnd(vh * 0.3, vh * 0.6));
+                parked = true;
+            }
+            const before = await page.evaluate(() => window.scrollY);
+            await page.mouse.wheel(0, !b || b.y + b.height >= vh - 60 ? 220 : -220);
             await sleep(rnd(60, 140));
+            // A page that cannot scroll any further: near the edge is as good as it gets.
+            if (before === await page.evaluate(() => window.scrollY) && visible(await locator.boundingBox())) return;
         }
+        throw new Error('human: the wheel did not bring the target into view');
     }
 
     async function click(locator) {
