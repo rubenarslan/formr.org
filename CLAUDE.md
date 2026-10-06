@@ -187,6 +187,13 @@ UPDATE` over a bare `INSERT` so a re-run cannot double-write.
   `documentation/example_surveys/data_quality.xlsx` from
   `documentation/data_quality/texts.php`. Run it on the host after changing
   the consent paragraph, the question or the rows.
+- `bin/gen_data_quality_run.php` — regenerates the committed example run
+  for the data-quality items, `documentation/run_components/Data_Quality.json`
+  (Survey units) and `Data_Quality_v2.json` (Form units): consent survey,
+  skip, the two-page study, an analysis end page, a no-consent end page. The
+  analysis page's R markdown is `documentation/data_quality/example_analysis_page.md`
+  (`STUDY` becomes the study's name). Run it on the host after changing
+  either, then `node tests/e2e/setup/create-v2-fixtures.js --refresh`.
 - `bin/bot_check_smoke.php` — live-MariaDB smoke for the `bot_check`
   challenge (mint / verify / forged / re-bind / missing-key
   fail-closed). Invoke via `docker exec formr_app php
@@ -507,8 +514,17 @@ details out of the public documentation, which has one line pointing there.
   `rejectNonScalarReply()`, and `getReply()` cleans what is stored.
 - The record's format has a version (`RECORD_VERSION`, field `v`). Bump it
   when a field is added, dropped or changes meaning, and update the codebook
-  (`templates/admin/documentation/data_quality/codebook.php`) and
-  `documentation/data_quality/dq_agent.R`.
+  (`templates/admin/documentation/data_quality/codebook.php`) and the
+  functions that read it, which are in the formr R package (`dq_parse`,
+  `dq_flags`, `dq_flags_by_session`, `dq_rrt` in its `R/data_quality.R`,
+  from 1.3.0) — formr.org holds no copy of them.
+- **The example run's last page analyses the participant's own records**
+  (`dq_flags_by_session()` on `tail(<study>, 1)`), so OpenCPU needs formr
+  1.3.0 or later; `tests/e2e/data-quality-example.spec.js` walks both
+  engines to that page. Run R is handed only the survey columns it names
+  (`UnitSession::getRunDataNeeded`), which is why the page spells out the column
+  names and patterns although they are the function's defaults. For the
+  example only: a real study never shows participants what was flagged.
 - The consent paragraph and the plausible-deniability question live in
   `documentation/data_quality/texts.php` (shown on the admin page, written
   into the example survey by `bin/gen_data_quality_xlsx.php`).
@@ -569,6 +585,9 @@ inserting rows by hand.
   `Basic_Diary.json`, `Experience_sampling.json`,
   `Longitudinal_study.json`, `filter.json`, `Reminder.json`,
   `Text_message.json`, `Simple_Social_Network.json`.
+  `Data_Quality.json` / `Data_Quality_v2.json` (the data-quality example:
+  consent, two pages with every data-quality row, an analysis page; made by
+  `bin/gen_data_quality_run.php`, e2e runs `e2e-dq-example-v1` / `-v2`).
 - **Google Sheets via "Add a new survey → Import a Googlesheet":**
   All widgets `https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw`.
 

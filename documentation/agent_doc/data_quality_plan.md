@@ -17,8 +17,9 @@ documentation, with the codebook, is the admin-only page
 | v2 hookup | `form/js/items/data-quality.js`, called from `form/js/main.js` |
 | CSS | `common/css/custom_item_classes.css` (both bundles import it) |
 | Admin-only documentation | route `admin/documentation`, `AdminDocumentationController`, `templates/admin/documentation/` |
-| R helpers for reading records | `documentation/data_quality/dq_agent.R`, shown and downloadable in the admin docs |
+| R functions for reading records | the formr R package, 1.3.0 or later: `dq_parse()`, `dq_flags()`, `dq_flags_by_session()`, `dq_rrt()` (its `R/data_quality.R`). formr.org holds no copy. |
 | Example survey | `documentation/example_surveys/data_quality.xlsx` (`bin/gen_data_quality_xlsx.php`) |
+| Example run | `documentation/run_components/Data_Quality.json`, `Data_Quality_v2.json` (`bin/gen_data_quality_run.php`), downloadable from the admin page |
 
 No schema change: `survey_items.type` is a `varchar`, and the items store into
 the results table like any other.
@@ -133,6 +134,28 @@ checks, the rows to add, the consent paragraph, reading results (R), the
 codebook, what the tests showed, guardrails, the bot ecosystem, limits, why it
 is not fingerprinting, and how it relates to `bot_check`.
 
+## Example run
+
+`Data_Quality.json` / `Data_Quality_v2.json`, modelled on the prototype's
+weekend study. Five units: a consent survey (no `data_quality` item, so
+nothing is recorded; a survey of its own, so that on v2 the `browser` and
+`server` rows of the study are stored only after consent), a skip to the last
+page for those who decline, the study (part 1: five personality items, an open
+question, the `browser` and `server` rows; part 2: the plausible-deniability
+question, age, a second open question; each page ends with an `agent_probe`
+and a `data_quality` row), an end page with the analysis, and an end page for
+no consent.
+
+The analysis page is R markdown (`documentation/data_quality/example_analysis_page.md`):
+`dq_flags_by_session()` on `tail(<study>, 1)`, the participant's own row,
+shown as a table of what is flagged, what the hidden field holds and the
+answer to the three statements, with the code for a whole sample beside it.
+Run R receives only the survey columns it names (`UnitSession::getRunDataNeeded`
+matches names, and names without their trailing digits, as words in the
+code), so the page passes the column names and patterns explicitly. It exists
+for the researcher trying the example; the admin page says that a real study
+never shows participants what was flagged.
+
 ## Tests
 
 - PHPUnit: `DataQualityItemTest`, `AgentProbeItemTest` (rendering, always
@@ -146,6 +169,12 @@ is not fingerprinting, and how it relates to `bot_check`.
   the offline queue), no autosave without a change, and the consent page and a
   survey without the items stay inert. `e2e-dqskip-v1` / `-v2`
   (`setup/e2e_dq_skip.csv`): a page left with only the two items is skipped.
+- Playwright `tests/e2e/data-quality-example.spec.js` on `e2e-dq-example-v1`
+  / `-v2` (the example run, imported from its bundle): a human-like visit ends
+  on the analysis page with no input flag, a scripted one that fills the
+  hidden field is flagged for both, and without consent the run ends with
+  nothing of the study stored. The page is knitted by OpenCPU with the R
+  package, so this is also the check that the installation has formr 1.3.0.
 - `tests/e2e/admin-documentation.spec.js`: login required, `noindex`, 404,
   downloads, the header link, and the public documentation's one line.
 - The fixtures are made by `setup/create-v2-fixtures.js`.
@@ -168,12 +197,6 @@ is not fingerprinting, and how it relates to `bot_check`.
   real hands there.
 - Apple's Safari on a desktop: Playwright cannot drive it. The device run
   uses WebKit on macOS, and real Safari on the iPhone and iPad.
-- The R helpers are on their way into the formr R package
-  (rubenarslan/formr#52: `dq_parse()`, `dq_flags()`, `dq_flags_by_session()`,
-  `dq_rrt()`). Until a release has them, the admin page offers the file
-  `documentation/data_quality/dq_agent.R`. When it does, the page's R code
-  becomes `library(formr)` and `dq_flags_by_session(results)`; note that the
-  package's `flag` column is logical, the file's a marker character.
 - In v2 a `browser` or `server` item is stored when the form is first
   rendered, whichever page it is on (`FormRenderer` stores all automatic items
   then). The admin page tells authors to keep the consent in a survey of its

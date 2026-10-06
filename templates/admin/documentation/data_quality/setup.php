@@ -4,6 +4,17 @@
     types work in classic (v1) surveys and in v2 surveys. An example survey with all the rows is here:
     <a href="<?= admin_url('documentation/data-quality-example') ?>"><i class="fa fa-download"></i> data_quality.xlsx</a>.
 </p>
+<p>
+    There is also a whole example study to try out: a consent page, two pages of questions with all the rows below,
+    and a last page that shows what was recorded about your own visit. Create a run, choose <em>Import</em> in the
+    run editor and upload
+    <a href="<?= admin_url('documentation/data-quality-run') ?>"><i class="fa fa-download"></i> Data_Quality.json</a>
+    (classic surveys) or
+    <a href="<?= admin_url('documentation/data-quality-run-v2') ?>"><i class="fa fa-download"></i> Data_Quality_v2.json</a>
+    (v2 surveys), then open the run as a participant. The last page needs the formr R package 1.3.0 or later on this
+    installation's OpenCPU. <strong>It is there for you, not for your participants:</strong> a real study never shows
+    people what the checks found.
+</p>
 <p>On every page <strong>after the consent page</strong>, add these rows just above the page's submit button:</p>
 <div class="table-responsive">
 <table class="table table-bordered">

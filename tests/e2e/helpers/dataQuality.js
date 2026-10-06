@@ -14,7 +14,7 @@ const rowOf = (engine, tok) => db.dbQuery(
 )[0] || null;
 const record = (json) => (json ? JSON.parse(json) : null);
 
-// dq_flags() from documentation/data_quality/dq_agent.R, behaviour part: the
+// dq_flags() of the formr R package (R/data_quality.R there), behaviour part: the
 // indicators summed over the pages' records, with the same thresholds.
 function behaviourFlags(records) {
     const s = (k) => records.reduce((a, r) => a + (Number(r[k]) || 0), 0);

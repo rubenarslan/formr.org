@@ -1,25 +1,30 @@
 <h3 id="dq-results">Reading the results</h3>
 <p>
     Each <code>data_quality</code> column holds one record per page, as text that starts with <code>{"v":2</code>.
-    Download your results from formr as usual, save
-    <a href="<?= admin_url('documentation/data-quality-r') ?>"><i class="fa fa-download"></i> dq_agent.R</a>
-    into the same folder, and run this in R (it needs the <code>jsonlite</code> package). It prints, per participant,
-    only the indicators that were flagged. The helpers will move into the formr R package later.
+    The functions that read them are part of the <a href="https://rubenarslan.github.io/formr/">formr R package</a>,
+    version 1.3.0 or later (<code>remotes::install_github("rubenarslan/formr")</code>). Download your results from
+    formr as usual and run this in R:
 </p>
-<pre><code class="r">source("dq_agent.R")
-d &lt;- read.csv("results.csv")   # your formr results export
-for (i in seq_len(nrow(d))) {
-  pages &lt;- unlist(d[i, grep("^dq_p[0-9]+$", names(d))])
-  agent &lt;- unlist(d[i, grep("^dq_agent_p[0-9]+$", names(d))])
-  agent &lt;- paste(agent[!is.na(agent) &amp; agent != ""], collapse = " | ")
-  f &lt;- dq_flags(dq_parse(pages), probe = agent, srv_ua = d$dq_srv_ua[i], sig_agent = d$dq_sig_agent[i],
-                ch_platform = d$dq_ch_platform[i], ch_mobile = d$dq_ch_mobile[i])
-  cat("\n", d$session[i], ":", sum(nzchar(f$flag)), "flags\n")
-  print(f[nzchar(f$flag), ], row.names = FALSE)
-}
-dq_rrt(d$rrt_ai == 1)   # share of agents and AI-assisted responses (ai_share), if you used the twin question</code></pre>
-<p>Leave out the arguments for rows you did not add (<code>srv_ua</code> for the <code>browser</code> row,
-    <code>sig_agent</code>, <code>ch_platform</code> and <code>ch_mobile</code> for the <code>server</code> rows).</p>
+<pre><code class="r">library(formr)                               # 1.3.0 or later
+results &lt;- read.csv("results.csv")           # your formr results export
+flags &lt;- dq_flags_by_session(results)        # one row per session and flagged indicator
+flags
+table(flags$session, flags$group)            # how many flags of which kind per session
+dq_rrt(results$rrt_ai == 1)                  # the twin question: share of AI agents and AI help</code></pre>
+<p>
+    <code>dq_flags_by_session()</code> finds the columns by the names used on this page (<code>dq_p1</code>,
+    <code>dq_agent_p1</code>, <code>dq_srv_ua</code>, <code>dq_sig_agent</code>, <code>dq_ch_platform</code>,
+    <code>dq_ch_mobile</code>) and leaves out the comparisons whose rows you did not add. If you chose other names,
+    pass them (<code>pages</code>, <code>probes</code>, <code>srv_ua</code>, &hellip;). Each flag has a
+    <code>group</code>: <em>environment</em> (the browser and the request), <em>input</em> (how clicks and text were
+    made) or <em>attention</em> (context about a person). <code>flagged_only = FALSE</code> lists every indicator
+    with its value, and <code>dq_parse()</code> turns the records into a table of their own, one row per page.
+</p>
+<p>
+    To try it before you build your own study, import the example run
+    (<a href="<?= admin_url('documentation/data-quality-run') ?>"><i class="fa fa-download"></i> Data_Quality.json</a>,
+    see <a href="#dq-setup">above</a>): its last page runs the same function on your own visit and shows the result.
+</p>
 <div class="table-responsive">
 <table class="table table-bordered">
     <thead><tr><th>What you see</th><th>What it means</th><th>Weight</th></tr></thead>
@@ -57,7 +62,3 @@ dq_rrt(d$rrt_ai == 1)   # share of agents and AI-assisted responses (ai_share), 
         it with that page's answers: when the page is submitted, and with the answers saved in between. A page
         visited again (Previous, a reload) adds to its record; <code>ld</code> counts the visits.</li>
 </ul>
-<details>
-    <summary>The R helpers (<code>dq_agent.R</code>)</summary>
-    <pre><code class="r"><?= h($rHelpers) ?></code></pre>
-</details>

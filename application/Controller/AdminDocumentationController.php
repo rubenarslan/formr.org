@@ -25,9 +25,10 @@ class AdminDocumentationController extends AdminController {
     );
 
     /** What the data-quality page shows and offers for download. */
-    const DATA_QUALITY_R = 'documentation/data_quality/dq_agent.R';
     const DATA_QUALITY_TEXTS = 'documentation/data_quality/texts.php';
     const DATA_QUALITY_EXAMPLE = 'documentation/example_surveys/data_quality.xlsx';
+    const DATA_QUALITY_RUN = 'documentation/run_components/Data_Quality.json';
+    const DATA_QUALITY_RUN_V2 = 'documentation/run_components/Data_Quality_v2.json';
 
     public function indexAction($page = null) {
         if ($page !== null) {
@@ -40,7 +41,6 @@ class AdminDocumentationController extends AdminController {
         $texts = require APPLICATION_ROOT . self::DATA_QUALITY_TEXTS;
         return $this->page('data_quality', array(
             'title' => self::PAGES['data-quality']['title'],
-            'rHelpers' => (string) @file_get_contents(APPLICATION_ROOT . self::DATA_QUALITY_R),
             'agentNote' => AgentProbe_Item::NOTE_OPEN . AgentProbe_Item::NOTE . AgentProbe_Item::NOTE_CLOSE,
             'agentQuestion' => AgentProbe_Item::QUESTION,
             'consentText' => $texts['consent'],
@@ -48,14 +48,19 @@ class AdminDocumentationController extends AdminController {
         ));
     }
 
-    /** dq_agent.R as a file. */
-    public function dataQualityRAction() {
-        return $this->download(self::DATA_QUALITY_R, 'text/plain; charset=utf-8');
-    }
-
     /** The example survey as a file. */
     public function dataQualityExampleAction() {
         return $this->download(self::DATA_QUALITY_EXAMPLE, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    }
+
+    /** The example run (consent, two pages, an analysis page) as a bundle to import: classic surveys. */
+    public function dataQualityRunAction() {
+        return $this->download(self::DATA_QUALITY_RUN, 'application/json; charset=utf-8');
+    }
+
+    /** The same run as v2 surveys. */
+    public function dataQualityRunV2Action() {
+        return $this->download(self::DATA_QUALITY_RUN_V2, 'application/json; charset=utf-8');
     }
 
     private function download($file, $contentType) {

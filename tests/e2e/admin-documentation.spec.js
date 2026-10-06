@@ -23,7 +23,7 @@ test.beforeAll(async ({ browser }) => {
 test('logged out, every address of the area leads to the login', async ({ browser }) => {
     // An explicit empty state: test.use() above would log this context in.
     const ctx = await browser.newContext({ ignoreHTTPSErrors: true, storageState: { cookies: [], origins: [] } });
-    for (const path of ['', 'data-quality/', 'data-quality-r/', 'data-quality-example/', 'no-such-page/']) {
+    for (const path of ['', 'data-quality/', 'data-quality-example/', 'data-quality-run/', 'data-quality-run-v2/', 'no-such-page/']) {
         const res = await ctx.request.get(`${ADMIN_BASE}/admin/documentation/${path}`, { maxRedirects: 0 });
         expect(res.status(), path).toBe(302);
         expect(res.headers().location, path).toContain('/admin/account/login');
@@ -52,7 +52,8 @@ test('an admin reads the data-quality page, which is not for search engines', as
     await expect(body).toContainText('is paid regardless');
     await expect(body).toContainText('§ 25 TDDDG');
     await expect(body).toContainText('To check data quality, we record on each page');
-    await expect(body).toContainText('dq_flags(dq_parse(pages), probe = agent');
+    await expect(body).toContainText('flags <- dq_flags_by_session(results)');
+    await expect(body).toContainText('formr R package');
     await expect(body).toContainText('server HTTP_SIGNATURE_AGENT');
     await expect(body).toContainText('You have an identical twin.');
     expect(errors, 'console errors (the page runs under the admin CSP)').toEqual([]);
@@ -72,11 +73,22 @@ test('a page that does not exist is a 404, and the downloads are files', async (
     const missing = await page.request.get(`${ADMIN_BASE}/admin/documentation/no-such-page/`);
     expect(missing.status()).toBe(404);
 
-    const r = await page.request.get(`${ADMIN_BASE}/admin/documentation/data-quality-r/`);
-    expect(r.status()).toBe(200);
-    expect(r.headers()['content-disposition']).toContain('dq_agent.R');
-    expect(r.headers()['x-robots-tag']).toContain('noindex');
-    expect(await r.text()).toContain('dq_flags <- function');
+    // The example run, as a bundle for the run editor's Import, for each engine.
+    for (const [path, file, unit, study] of [
+        ['data-quality-run', 'Data_Quality.json', 'Survey', 'dq_weekend_study'],
+        ['data-quality-run-v2', 'Data_Quality_v2.json', 'Form', 'dq_weekend_study_v2'],
+    ]) {
+        const r = await page.request.get(`${ADMIN_BASE}/admin/documentation/${path}/`);
+        expect(r.status(), path).toBe(200);
+        expect(r.headers()['content-disposition'], path).toContain(file);
+        expect(r.headers()['x-robots-tag'], path).toContain('noindex');
+        const bundle = await r.json();
+        expect(bundle.units.map((u) => u.type), path).toEqual([unit, 'SkipForward', unit, 'Endpage', 'Endpage']);
+        expect(bundle.units[2].survey_data.name, path).toBe(study);
+        // The analysis page reads the study by its name, with the package's function.
+        expect(bundle.units[3].body, path).toContain(`tail(${study}, 1)`);
+        expect(bundle.units[3].body, path).toContain('dq_flags_by_session(');
+    }
 
     const xlsx = await page.request.get(`${ADMIN_BASE}/admin/documentation/data-quality-example/`);
     expect(xlsx.status()).toBe(200);
