@@ -414,7 +414,7 @@ show ✓ Connected). Use it for:
 
 ### Project-scoped subagent: `ui-playwright-tester`
 
-Defined at `.claude/agents/ui-playwright-tester.md` and auto-registered for any Claude Code session started in this repo. Use it via the Agent tool with `subagent_type: "ui-playwright-tester"` when:
+Defined at `.claude/agents/ui-playwright-tester.md` and auto-registered for any Claude Code session started in this repo. Its tool list is read when the session starts and must name the Playwright server's tools as that server exposes them: the script runner is `browser_run_code_unsafe` on current servers (`browser_run_code` on older ones; both are listed). Without it the agent cannot script pointer and keyboard timing, install init scripts or capture requests. Use it via the Agent tool with `subagent_type: "ui-playwright-tester"` when:
 
 - You just modified `templates/`, `webroot/assets/`, a view-rendering controller, or RunUnit rendering logic, AND
 - You want a real-browser E2E smoke test rather than only type-checks / unit tests / curl.
@@ -552,9 +552,13 @@ inserting rows by hand.
   `bin/gen_pwa_items_xlsx.php`). Both engines: `data_quality.xlsx` (a
   consent page, then two pages with an `agent_probe` and a `data_quality`
   item each, the `browser` item and the plausible-deniability question; see
-  `bin/gen_data_quality_xlsx.php`; e2e runs `e2e-dq-v1` / `e2e-dq-v2`; after
-  regenerating it, `node tests/e2e/setup/create-v2-fixtures.js --refresh`
-  uploads it into those runs' studies again).
+  `bin/gen_data_quality_xlsx.php`; e2e runs `e2e-dq-v1` / `e2e-dq-v2`).
+  After changing an example survey that an e2e run is made from (this one,
+  `all_widgets_v2.json`, the `tests/e2e/setup/` surveys),
+  `node tests/e2e/setup/create-v2-fixtures.js --refresh` gives each existing
+  study its file again — a spreadsheet through "upload items", a JSON survey
+  through a run import into a scratch run, since the admin takes a JSON only
+  for a new survey.
 - **`documentation/run_components/*.json`** — exportable run
   bundles. Import via the admin run editor's "Import" button.
   Notable: `Form_v2_Basic.json` (a Form unit + Endpage; the Form
