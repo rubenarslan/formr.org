@@ -23,6 +23,10 @@ module.exports = [
     { path: '/admin/account/two-factor', needs: null },
     { path: '/admin/account/setup-two-factor', needs: null },
 
+    // documentation for admins only (AdminDocumentationController)
+    { path: '/admin/documentation/', needs: null },
+    { path: '/admin/documentation/data-quality/', needs: null },
+
     // run — list + create form (no name needed)
     { path: '/admin/run', needs: null },
     { path: '/admin/run/add_run', needs: null },
