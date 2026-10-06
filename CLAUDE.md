@@ -183,6 +183,10 @@ UPDATE` over a bare `INSERT` so a re-run cannot double-write.
   (byte-identical sheets; `layout` is a study setting, not a column,
   so the pair exists to be uploaded twice with the setting flipped).
   Run it after changing the PWA item set; don't hand-edit the xlsx.
+- `bin/gen_data_quality_xlsx.php` — regenerates the committed
+  `documentation/example_surveys/data_quality.xlsx` from
+  `documentation/data_quality/texts.php`. Run it on the host after changing
+  the consent paragraph, the question or the rows.
 - `bin/bot_check_smoke.php` — live-MariaDB smoke for the `bot_check`
   challenge (mint / verify / forged / re-bind / missing-key
   fail-closed). Invoke via `docker exec formr_app php
@@ -202,7 +206,7 @@ UPDATE` over a bare `INSERT` so a re-run cannot double-write.
 builds `Site`, opens DB, hands off to `Router`. `Router` matches
 route slugs against a small table in `setup.php` (`admin`,
 `admin/run`, `admin/survey`, `admin/mail`, `admin/advanced`,
-`admin/account`, `public`, `api`, `run`) to a controller. Unmatched
+`admin/account`, `admin/documentation`, `public`, `api`, `run`) to a controller. Unmatched
 routes fall through to `PublicController` then `RunController::indexAction`
 — any unknown top-level path is assumed to be a run name. Actions
 derive from URL parts (`foo-bar` or `foo_bar` → `fooBarAction`).
@@ -460,6 +464,55 @@ Specific gotchas worth knowing when touching `feature/form_v2` code. Deep-dive r
 - **Webpack production builds skip the file-write when output is byte-identical.** `npx webpack --mode production` compiles and reports "compiled with N warnings in Xs" but does NOT update `webroot/assets/build/js/form.bundle.js`'s mtime if the resulting bytes match the previous build's. `ls -la` thus misleads: "bundle is old, my edits must not have landed." They did — the build decided it didn't need to write. Confirm by grepping the bundle for a distinctive string from your source (`grep fmrForm webroot/assets/build/js/form.bundle.js`), not by mtime. `touch main.js` + rerun doesn't force a write either unless the emitted bundle changes. The admin layout's `?v=<timestamp>` query appends cache-bust, so browser-side reloads are fine once the bundle does change.
 - **`bin/form_v2_compat_scan.php <study_id|study_name>`** classifies every non-empty `showif` / `value` in a study. The logic lives in `application/Spreadsheet/FormV2CompatScanner::scan()` so `AdminSurveyController::formV2CompatScanAction` can render the same report in the admin UI. Buckets follow the JS-only-showif rule: `showif` → `empty` / `js_ok` / `needs_js_rewrite` / `not_on_form`; `value` → `empty` / `literal` (numeric) / `r` (everything else, allowlisted and evaluated as R — never flagged); plus `unsupported` (blocks the switch; `SurveyStudy::formV2UnsupportedReason`, the rule the switch applies: column `type` for `Item::formV2Unsupported`, column `name` for an item named like a member of the v2 form, `Item::FORM_COMPONENT_NAMES`). Flagged rows carry a `suggested_fix` of `rewrite_in_js`, `bridge_hidden_item`, `use_hidden`, `rename_item` (the name), `edit_choices` (a `select_or_add_multiple` choice with a `;`, v2's answer separator — `SelectOrAddMultiple_Item::formV2Unsupported`) or `pack_with_semicolons` (v1 only: a select_or_add list written in one cell with commas, which v2 splits at `;` — `SelectOrAddOne_Item::unpackChoices`; soft-blocks the switch like a showif finding); the admin report and the CLI each map those to wording, so a new fix code needs both. The heuristic scans the showif as written for R (R-only calls incl. `current`/`tail`, `is.na`, `%…%` operators, single `&`/`|`, `TRUE`/`FALSE`, `::`, `NA`, `<-`, `$`) with comments and string literals stripped so tokens inside labels don't false-positive. Exits 0 if clean, 2 if anything flagged — usable as a CI gate. Informational only; doesn't mutate `survey_items.showif`. Use it before upgrading an existing v1 study to `rendering_mode='v2'`.
 
+## Data quality items (`data_quality`, `agent_probe`)
+
+Opt-in detection of AI agents and careless responding, on both engines.
+Design: `documentation/agent_doc/data_quality_plan.md`. What researchers
+read (the rows, the consent text, the R code, the codebook, the findings) is
+the **admin-only** page `/admin/documentation/data-quality`
+(`AdminDocumentationController`, `templates/admin/documentation/`): keep the
+details out of the public documentation, which has one line pointing there.
+
+- **One recorder, two adapters.** `webroot/assets/common/js/data-quality.js`
+  holds every check (`createRecorder`). v1: `survey.js` calls
+  `initDataQuality()`, one record per page load. v2:
+  `form/js/items/data-quality.js`; `main.js` calls `enter(page)` in
+  `showPage` and `write(page)` in `collectPayload`, one record per page.
+- **Inert without the item.** Importing the module does nothing, and no
+  recorder is created (no listeners, no `focus()` wrapper, no
+  MutationObserver, no DRM probe) unless a page holds
+  `input[data-fmr-dq]` — in v2 not before a page with it is shown, so a
+  consent page records nothing. `tests/e2e/data-quality.spec.js` holds this.
+- **Never write the record on a timer in v2, never with an event.** The
+  input is set with a plain `.value =` when the page's payload is collected.
+  An event would be taken for a change (autosave, `item_answered`).
+- **"Own code" is decided by the stack** (`callerKind`): the stack is taken
+  inside the recorder's `focus()` wrapper or listener, so its first frame is
+  the bundle itself. v2's widgets dispatch `change`/`input` themselves; those
+  are not counted, an agent's are. Keep `new Error().stack` written directly
+  in the wrapper or listener: moved into a helper, the first frame is the
+  helper and every call looks like the page's own.
+- **Do not read browser features straight from `window` in that module.**
+  The bundle is built with `useBuiltIns: 'usage'`: a property written out
+  (`[].findLast`) pulls in a polyfill and then answers yes in every browser.
+  `nativeFeatureRange()` reads them, by name, from a fresh iframe.
+- **Unseen items** (`Item::isUnseen()`, wrapper `data-fmr-unseen`): on the
+  page, never shown. They do not make a page appear (v1 renderers,
+  `snapshotPages`), are no solo step, are skipped by the all-answered
+  auto-submit, the page-change focus, "show hidden items" and the form
+  monkey. A new place that walks a page's items needs the same exception
+  (`isUnseenItem` in `form/js/lib/inputs.js`).
+- **Neither item may ever set `$item->error`**: a page must not be blocked by
+  something the participant cannot see. Both override
+  `rejectNonScalarReply()`, and `getReply()` cleans what is stored.
+- The record's format has a version (`RECORD_VERSION`, field `v`). Bump it
+  when a field is added, dropped or changes meaning, and update the codebook
+  (`templates/admin/documentation/data_quality/codebook.php`) and
+  `documentation/data_quality/dq_agent.R`.
+- The consent paragraph and the plausible-deniability question live in
+  `documentation/data_quality/texts.php` (shown on the admin page, written
+  into the example survey by `bin/gen_data_quality_xlsx.php`).
+
 ## Example surveys and run bundles
 
 The `documentation/` directory ships fixtures you can feed straight
@@ -479,7 +532,10 @@ inserting rows by hand.
   survey"; walked end to end by `v2-finish.spec.js` as run `e2e-awv2`),
   `pwa_items_default.xlsx` /
   `pwa_items_solo.xlsx` (the four PWA prompt items; see
-  `bin/gen_pwa_items_xlsx.php`).
+  `bin/gen_pwa_items_xlsx.php`). Both engines: `data_quality.xlsx` (a
+  consent page, then two pages with an `agent_probe` and a `data_quality`
+  item each, the `browser` item and the plausible-deniability question; see
+  `bin/gen_data_quality_xlsx.php`; e2e runs `e2e-dq-v1` / `e2e-dq-v2`).
 - **`documentation/run_components/*.json`** — exportable run
   bundles. Import via the admin run editor's "Import" button.
   Notable: `Form_v2_Basic.json` (a Form unit + Endpage; the Form
