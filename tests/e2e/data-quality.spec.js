@@ -430,3 +430,48 @@ for (const engine of ['v1', 'v2']) {
         });
     });
 }
+
+// The device checks, where a test can make a browser lie: its User-Agent.
+// (This lane's Chromium is itself an automated browser, so the flags for
+// that are in every record above.)
+test.describe('data quality: a browser that is not what it says', () => {
+    const CHROME = (v) => `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v}.0.0.0 Safari/537.36`;
+    const FIREFOX = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0';
+
+    // The record of page 2 of the classic run, as a browser with this User-Agent writes it.
+    async function recordAs(browser, baseURL, userAgent) {
+        const context = await browser.newContext({ ignoreHTTPSErrors: true, ...(userAgent ? { userAgent } : {}) });
+        const page = await context.newPage();
+        try {
+            await open(page, 'v1', baseURL);
+            await consent(page, 'v1', plain());
+            await page.waitForTimeout(1500);   // the record is written once a second
+            return record(await page.locator('input[data-fmr-dq]').inputValue());
+        } finally {
+            await context.close();
+        }
+    }
+
+    test('its own User-Agent raises neither the engine nor the version flag', async ({ browser, baseURL }) => {
+        const rec = await recordAs(browser, baseURL, null);
+        expect(rec.eng).toBe('blink');
+        expect(rec.eng_ua).toBe('blink');
+        expect(rec.eng_mm).toBe(0);
+        // The version is checked against the browser's own features, not the bundle's polyfills.
+        expect(rec.ver_mm).toBe(0);
+    });
+
+    test('a Chrome claiming a version its features rule out is flagged', async ({ browser, baseURL }) => {
+        const rec = await recordAs(browser, baseURL, CHROME(90));
+        expect(rec.eng_mm).toBe(0);
+        expect(rec.ver_mm).toBe(1);
+    });
+
+    test('a Chrome claiming to be Firefox is flagged by its engine', async ({ browser, baseURL }) => {
+        const rec = await recordAs(browser, baseURL, FIREFOX);
+        expect(rec.eng).toBe('blink');
+        expect(rec.eng_ua).toBe('gecko');
+        expect(rec.eng_mm).toBe(1);
+        expect(rec.fam).toBe('firefox');
+    });
+});
