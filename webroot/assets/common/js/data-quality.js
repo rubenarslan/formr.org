@@ -252,9 +252,17 @@ function readEnvironment() {
     E.fam = /Edg\//.test(ua) ? 'edge' : /OPR\//.test(ua) ? 'opera' : /Firefox\//.test(ua) ? 'firefox'
         : /Chrome\//.test(ua) ? 'chrome' : /Safari\//.test(ua) ? 'safari' : 'other';
     // A phone or a tablet: the checks that need a physical keyboard, a mouse
-    // or a window are off there. An iPad asks for the desktop site and calls
-    // itself a Mac; only its touch screen tells (platform.js).
-    E.mob = isMobileDevice(navigator) || (navigator.userAgentData && navigator.userAgentData.mobile) ? 1 : 0;
+    // or a window are off there. A tablet does not always say what it is. An
+    // iPad asks for the desktop site and calls itself a Mac; only its touch
+    // screen tells (platform.js). Chrome on a large Android tablet does the
+    // same and calls itself a Linux PC, down to its client hints; what it
+    // cannot hide is that its pointer is a finger and nothing hovers (a
+    // laptop with a touch screen still has its mouse first).
+    let touchFirst = false;
+    try {
+        touchFirst = (navigator.maxTouchPoints || 0) > 0 && matchMedia('(pointer: coarse)').matches && !matchMedia('(hover: hover)').matches;
+    } catch (e) { /* unsupported query */ }
+    E.mob = isMobileDevice(navigator) || (navigator.userAgentData && navigator.userAgentData.mobile) || touchFirst ? 1 : 0;
     E.ptr = matchMedia('(pointer: fine)').matches ? 'fine' : matchMedia('(pointer: coarse)').matches ? 'coarse' : 'none';
     E.wd = navigator.webdriver === true ? 1 : 0;
     E.wdt = 0;
@@ -385,6 +393,9 @@ export function createRecorder() {
     let mx = null, my = null, moveTimes = [];
     let hiddenSince = null, blurSince = null;
     let refocusT = -1e9, ownFocusT = -1e9, lastScrollGestureT = -1e9;
+    // A script-made event that is not the page's is being handled: what the
+    // page's own code does until that script is done is its reaction.
+    let reacting = false;
     let lastIW = innerWidth, lastIH = innerHeight, lastOW = outerWidth, lastOH = outerHeight;
 
     function leave() {
@@ -504,10 +515,13 @@ export function createRecorder() {
         if (noWindow()) cur.c.act_hid++;
         else if (!document.hasFocus()) cur.c.act_unf++;
     };
-    // A script-made event from the page's own code, and from nothing else:
-    // when it announces a value the page wrote into an item nobody touched (an
-    // R default), that value is the item's starting point, not an answer given
-    // without interaction. A widget set off by a foreign click is no such case.
+    // A script-made event from the page's own code, acting on its own: when
+    // it announces a value the page wrote into an item nobody touched (an R
+    // default), that value is the item's starting point, not an answer given
+    // without interaction. A widget set off by a foreign click is no such
+    // case. Chrome and Firefox show the foreign caller on the stack
+    // (callerKind "mixed"); WebKit shows no frame for code that has no file,
+    // so there it is known by the foreign event still being handled.
     const ownWrite = (el) => {
         const p = el && el.name ? pageOf(el) : null;
         if (p && p.touched.indexOf(group(el)) < 0) p.initialVal[el.name] = valueOf(el.name);
@@ -576,7 +590,13 @@ export function createRecorder() {
     // that click. Returns who made the event.
     const scriptMade = (stack) => {
         const kind = callerKind(stack, location.origin);
-        if (kind === 'foreign' || kind === 'none') cur.c.untr++;
+        if (kind === 'foreign' || kind === 'none') {
+            cur.c.untr++;
+            if (!reacting) {
+                reacting = true;
+                Promise.resolve().then(() => { reacting = false; });
+            }
+        }
         return kind;
     };
     document.addEventListener('pointerdown', (e) => {
@@ -674,7 +694,7 @@ export function createRecorder() {
     document.addEventListener('input', (e) => {
         if (!cur) return;
         const el = e.target;
-        if (!e.isTrusted) { if (scriptMade(new Error().stack) === 'own') ownWrite(el); return; }
+        if (!e.isTrusted) { if (scriptMade(new Error().stack) === 'own' && !reacting) ownWrite(el); return; }
         const c = cur.c;
         firstAction(); touch(el);
         if (!isTextField(el)) return;
@@ -687,7 +707,7 @@ export function createRecorder() {
     }, true);
     document.addEventListener('change', (e) => {
         if (!cur) return;
-        if (!e.isTrusted) { if (scriptMade(new Error().stack) === 'own') ownWrite(e.target); return; }
+        if (!e.isTrusted) { if (scriptMade(new Error().stack) === 'own' && !reacting) ownWrite(e.target); return; }
         touch(e.target);
     }, true);
 
