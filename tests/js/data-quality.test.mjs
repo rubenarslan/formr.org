@@ -86,6 +86,15 @@ test('code run in the page by an agent is foreign', () => {
     assert.equal(callerKind(chrome('    at run (https://evil.example/agent.js:1:1)'), PAGE), 'foreign');
 });
 
+test('the page\'s own code set off by an agent\'s is mixed: not counted again, and no page default', () => {
+    // An agent's element.click() runs a button group's handler, which announces the change itself.
+    const handler = `    at HTMLButtonElement.<anonymous> (${BUNDLE}:2:400)`;
+    assert.equal(callerKind(chrome(handler, '    at <anonymous>:1:38'), PAGE), 'mixed');
+    assert.equal(callerKind(firefox(`initButtonGroups/<@${BUNDLE}:2:400`, '@debugger eval code:1:20'), PAGE), 'mixed');
+    // Built-in frames have no place in a file and say nothing either way.
+    assert.equal(callerKind(chrome('    at Array.forEach (<anonymous>)', handler), PAGE), 'own');
+});
+
 test('an origin is matched whole, not as a prefix', () => {
     assert.equal(callerKind(chrome('    at run (https://study.example.org.evil.example/a.js:1:1)'), PAGE), 'foreign');
 });

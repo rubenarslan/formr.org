@@ -16,6 +16,8 @@
 // no mouse paths, no clipboard content, no IP address, no device fingerprint,
 // no full user agent, no list of extensions.
 
+import { isMobileDevice } from './platform.js';
+
 // Bumped whenever a field is added, dropped or changes meaning.
 export const RECORD_VERSION = 2;
 export const FIELD_SELECTOR = 'input[data-fmr-dq]';
@@ -131,8 +133,10 @@ const originOf = (url) => {
     return m ? m[1] : '';
 };
 
-// 'none': no script called (the browser did); 'own': the page's own code is on
-// the stack; 'foreign': scripts called, and none of them is the page's.
+// 'none': no script called (the browser did); 'own': only the page's own code
+// is on the stack; 'mixed': the page's own code, called by code that is not
+// (an agent's click() running a widget's handler); 'foreign': scripts called,
+// and none of them is the page's.
 export function callerKind(stack, pageOrigin) {
     const frames = String(stack || '').split('\n').filter((l) => FRAME_RX.test(l));
     const callers = frames.slice(1);
@@ -142,7 +146,8 @@ export function callerKind(stack, pageOrigin) {
         const url = frameUrl(line);
         return own.some((o) => url.indexOf(o + '/') === 0);
     };
-    return callers.some(isOwn) ? 'own' : 'foreign';
+    const mine = callers.filter(isOwn).length;
+    return mine === callers.length ? 'own' : mine ? 'mixed' : 'foreign';
 }
 
 // --- Small maths -----------------------------------------------------------
@@ -246,7 +251,10 @@ function readEnvironment() {
     try { brands = ((navigator.userAgentData && navigator.userAgentData.brands) || []).map((b) => b.brand); } catch (e) { /* none */ }
     E.fam = /Edg\//.test(ua) ? 'edge' : /OPR\//.test(ua) ? 'opera' : /Firefox\//.test(ua) ? 'firefox'
         : /Chrome\//.test(ua) ? 'chrome' : /Safari\//.test(ua) ? 'safari' : 'other';
-    E.mob = /Mobi|Android|iPhone|iPad/.test(ua) || (navigator.userAgentData && navigator.userAgentData.mobile) ? 1 : 0;
+    // A phone or a tablet: the checks that need a physical keyboard, a mouse
+    // or a window are off there. An iPad asks for the desktop site and calls
+    // itself a Mac; only its touch screen tells (platform.js).
+    E.mob = isMobileDevice(navigator) || (navigator.userAgentData && navigator.userAgentData.mobile) ? 1 : 0;
     E.ptr = matchMedia('(pointer: fine)').matches ? 'fine' : matchMedia('(pointer: coarse)').matches ? 'coarse' : 'none';
     E.wd = navigator.webdriver === true ? 1 : 0;
     E.wdt = 0;
@@ -496,9 +504,10 @@ export function createRecorder() {
         if (noWindow()) cur.c.act_hid++;
         else if (!document.hasFocus()) cur.c.act_unf++;
     };
-    // A script-made event from the page's own code: when it announces a value
-    // the page wrote into an item nobody touched (an R default), that value is
-    // the item's starting point, not an answer given without interaction.
+    // A script-made event from the page's own code, and from nothing else:
+    // when it announces a value the page wrote into an item nobody touched (an
+    // R default), that value is the item's starting point, not an answer given
+    // without interaction. A widget set off by a foreign click is no such case.
     const ownWrite = (el) => {
         const p = el && el.name ? pageOf(el) : null;
         if (p && p.touched.indexOf(group(el)) < 0) p.initialVal[el.name] = valueOf(el.name);
@@ -511,7 +520,7 @@ export function createRecorder() {
             try {
                 // Taken here, in the wrapper itself: see callerKind.
                 const kind = callerKind(new Error().stack, location.origin);
-                if (kind === 'own') ownFocusT = now();
+                if (kind === 'own' || kind === 'mixed') ownFocusT = now();
                 else if (kind === 'foreign' && cur) cur.c.foc_prog++;
             } catch (err) { /* no stack */ }
             return origFocus.apply(this, arguments);
@@ -562,11 +571,13 @@ export function createRecorder() {
         return false;
     };
     // Script-made events. `stack` is taken by the listener itself (callerKind):
-    // the page's own widgets make such events too, and those are not counted.
+    // the page's own widgets make such events too, and those are not counted —
+    // not even when a foreign click set the widget off, which was counted as
+    // that click. Returns who made the event.
     const scriptMade = (stack) => {
-        if (callerKind(stack, location.origin) === 'own') return true;
-        cur.c.untr++;
-        return false;
+        const kind = callerKind(stack, location.origin);
+        if (kind === 'foreign' || kind === 'none') cur.c.untr++;
+        return kind;
     };
     document.addEventListener('pointerdown', (e) => {
         if (!cur) return;
@@ -599,7 +610,7 @@ export function createRecorder() {
     }, { capture: true, passive: true });
     document.addEventListener('click', (e) => {
         if (!cur) return;
-        if (!e.isTrusted && scriptMade(new Error().stack)) return;
+        if (!e.isTrusted && /own|mixed/.test(scriptMade(new Error().stack))) return;
         // pointerId -1: the click came from code (element.click()) or a keyboard/assistive activation, not a pointer
         if (typeof e.pointerId === 'number' && e.pointerId === -1 && now() - activateT > 300) cur.c.clk_nopt++;
     }, true);
@@ -663,7 +674,7 @@ export function createRecorder() {
     document.addEventListener('input', (e) => {
         if (!cur) return;
         const el = e.target;
-        if (!e.isTrusted) { if (scriptMade(new Error().stack)) ownWrite(el); return; }
+        if (!e.isTrusted) { if (scriptMade(new Error().stack) === 'own') ownWrite(el); return; }
         const c = cur.c;
         firstAction(); touch(el);
         if (!isTextField(el)) return;
@@ -676,7 +687,7 @@ export function createRecorder() {
     }, true);
     document.addEventListener('change', (e) => {
         if (!cur) return;
-        if (!e.isTrusted) { if (scriptMade(new Error().stack)) ownWrite(e.target); return; }
+        if (!e.isTrusted) { if (scriptMade(new Error().stack) === 'own') ownWrite(e.target); return; }
         touch(e.target);
     }, true);
 
