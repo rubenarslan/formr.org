@@ -383,6 +383,11 @@ body:has(.fmr-form-v2:not([data-layout="solo"])) .container-fluid > p {
         max-width: 280px;
     }
     textarea.form-control {
+        // custom_item_classes.css (the classic engine's, shared) gives every
+        // textarea a fixed 500px, which is wider than a phone's screen and
+        // made the whole page scroll sideways. The column's width, up to the
+        // cap.
+        width: 100%;
         max-width: 560px;
     }
     input[type=range] {
