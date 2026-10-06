@@ -168,8 +168,12 @@ is not fingerprinting, and how it relates to `bot_check`.
   real hands there.
 - Apple's Safari on a desktop: Playwright cannot drive it. The device run
   uses WebKit on macOS, and real Safari on the iPhone and iPad.
-- The R helpers are a file (`documentation/data_quality/dq_agent.R`), not yet
-  part of the formr R package.
+- The R helpers are on their way into the formr R package
+  (rubenarslan/formr#52: `dq_parse()`, `dq_flags()`, `dq_flags_by_session()`,
+  `dq_rrt()`). Until a release has them, the admin page offers the file
+  `documentation/data_quality/dq_agent.R`. When it does, the page's R code
+  becomes `library(formr)` and `dq_flags_by_session(results)`; note that the
+  package's `flag` column is logical, the file's a marker character.
 - In v2 a `browser` or `server` item is stored when the form is first
   rendered, whichever page it is on (`FormRenderer` stores all automatic items
   then). The admin page tells authors to keep the consent in a survey of its
