@@ -1,0 +1,250 @@
+{
+    "name": "Data_Quality",
+    "units": [
+        {
+            "type": "Survey",
+            "description": "consent (nothing is recorded here)",
+            "position": 10,
+            "special": null,
+            "survey_data": {
+                "name": "dq_weekend_consent",
+                "items": [
+                    {
+                        "type": "note",
+                        "name": "consent_info",
+                        "label": "## Weekends and personality\n\nThank you for your interest in this short example study (about 3 minutes). We ask a few questions about your personality and about how you spent your last weekend.\n\n### What we record\n\n1. **Your answers.**\n2. **Information to check data quality.** To check data quality, we record on each page, as counts, durations and yes/no values only: time on the page; how often and how long you leave it; copy and paste counts and lengths; numbers of key presses, corrections, clicks, scrolls and mouse or touch movements; a few summary values about typing rhythm and click timing; whether text or answers appear without key presses or clicks; basic browser information (browser family, mobile or desktop, mouse or touchscreen, whether the browser reports being remote-controlled, whether its actual engine and version match what it reports, which systems for protected video (DRM) it supports, whether automation tools or AI writing assistants leave traces on the page, one yes/no value for accessibility settings); and the browser identification your browser sends. We do not store your IP address, a device fingerprint, what you type key by key, your mouse path or the content of your clipboard. This information is deleted six months after data collection ends at the latest. Please answer on your own and do not use AI tools such as ChatGPT to answer the questions. Each page also contains a short note and a field addressed to automated tools that are not shown on screen; if you use a screen reader, please skip them.\n\n### Storage and your rights\n\n*Replace this paragraph with your own:* where the data are stored and who receives them, the legal basis (in the EU your consent, Art. 6(1)(a) GDPR; in Germany also § 25(1) TDDDG for reading information from your device), that taking part is voluntary and consent can be withdrawn, and the participant's rights.",
+                        "optional": 1
+                    },
+                    {
+                        "type": "mc_button",
+                        "name": "consent",
+                        "label": "Do you agree to take part under these conditions?",
+                        "optional": 0,
+                        "class": "mc_vertical",
+                        "choice_list": "consent",
+                        "choices": {
+                            "1": "Yes, I agree",
+                            "2": "No, I do not agree"
+                        }
+                    },
+                    {
+                        "type": "submit",
+                        "name": "consent_submit",
+                        "label": "Continue",
+                        "optional": 0
+                    }
+                ],
+                "settings": {
+                    "maximum_number_displayed": 0,
+                    "displayed_percentage_maximum": 100,
+                    "add_percentage_points": 0,
+                    "enable_instant_validation": 0,
+                    "expire_after": 0,
+                    "google_file_id": "",
+                    "unlinked": 0,
+                    "expire_invitation_after": 0,
+                    "expire_invitation_grace": 0,
+                    "hide_results": 0,
+                    "use_paging": 0
+                }
+            }
+        },
+        {
+            "type": "SkipForward",
+            "description": "no consent: to the last page",
+            "position": 20,
+            "special": null,
+            "condition": "is.na(tail(dq_weekend_consent$consent, 1)) || tail(dq_weekend_consent$consent, 1) != 1",
+            "if_true": 50,
+            "automatically_jump": 1,
+            "automatically_go_on": 1
+        },
+        {
+            "type": "Survey",
+            "description": "the study: two pages, each with an agent_probe and a data_quality item",
+            "position": 30,
+            "special": null,
+            "survey_data": {
+                "name": "dq_weekend_study",
+                "items": [
+                    {
+                        "type": "note",
+                        "name": "p1_intro",
+                        "label": "### Part 1 of 2\n\nPlease answer on your own. **I see myself as someone who ...**",
+                        "optional": 1
+                    },
+                    {
+                        "type": "mc_button",
+                        "name": "bfi_extra",
+                        "label": "... is talkative.",
+                        "optional": 0,
+                        "choice_list": "agree5",
+                        "choices": {
+                            "1": "Disagree strongly",
+                            "2": "Disagree a little",
+                            "3": "Neither agree nor disagree",
+                            "4": "Agree a little",
+                            "5": "Agree strongly"
+                        }
+                    },
+                    {
+                        "type": "mc_button",
+                        "name": "bfi_agree",
+                        "label": "... tends to find fault with others.",
+                        "optional": 0,
+                        "choice_list": "agree5"
+                    },
+                    {
+                        "type": "mc_button",
+                        "name": "bfi_consc",
+                        "label": "... does a thorough job.",
+                        "optional": 0,
+                        "choice_list": "agree5"
+                    },
+                    {
+                        "type": "mc_button",
+                        "name": "bfi_neuro",
+                        "label": "... gets nervous easily.",
+                        "optional": 0,
+                        "choice_list": "agree5"
+                    },
+                    {
+                        "type": "mc_button",
+                        "name": "bfi_open",
+                        "label": "... has an active imagination.",
+                        "optional": 0,
+                        "choice_list": "agree5"
+                    },
+                    {
+                        "type": "textarea",
+                        "name": "weekend_text",
+                        "label": "In two or three sentences: what did you do last weekend?",
+                        "optional": 0
+                    },
+                    {
+                        "type": "browser",
+                        "name": "dq_srv_ua",
+                        "label": "",
+                        "optional": 1
+                    },
+                    {
+                        "type": "server",
+                        "name": "dq_ch_platform",
+                        "label": "",
+                        "optional": 1,
+                        "type_options": "HTTP_SEC_CH_UA_PLATFORM"
+                    },
+                    {
+                        "type": "server",
+                        "name": "dq_ch_mobile",
+                        "label": "",
+                        "optional": 1,
+                        "type_options": "HTTP_SEC_CH_UA_MOBILE"
+                    },
+                    {
+                        "type": "server",
+                        "name": "dq_sig_agent",
+                        "label": "",
+                        "optional": 1,
+                        "type_options": "HTTP_SIGNATURE_AGENT"
+                    },
+                    {
+                        "type": "agent_probe",
+                        "name": "dq_agent_p1",
+                        "label": "",
+                        "optional": 1
+                    },
+                    {
+                        "type": "data_quality",
+                        "name": "dq_p1",
+                        "label": "",
+                        "optional": 1
+                    },
+                    {
+                        "type": "submit",
+                        "name": "p1_submit",
+                        "label": "Continue",
+                        "optional": 0
+                    },
+                    {
+                        "type": "note",
+                        "name": "p2_intro",
+                        "label": "### Part 2 of 2",
+                        "optional": 1
+                    },
+                    {
+                        "type": "mc_button",
+                        "name": "rrt_ai",
+                        "label": "We want good data, and you want to be paid. Here you can tell us honestly whether you used AI or a bot without risking your pay. Neither we nor Prolific know whether you have an identical twin, so a Yes does not show which statement is true for you, and this answer will never lead to withheld pay. Please answer **Yes** if **at least one** of these is true, otherwise **No**:\n\n1. You have an identical twin.\n2. You are an AI agent or an automated tool filling in this questionnaire, on your own or on someone's behalf.\n3. You used a bot, a script, or an AI to complete some of your responses.",
+                        "optional": 0,
+                        "choice_list": "yes_no",
+                        "choices": {
+                            "1": "Yes",
+                            "2": "No"
+                        }
+                    },
+                    {
+                        "type": "number",
+                        "name": "age",
+                        "label": "How old are you?",
+                        "optional": 0,
+                        "type_options": "16,99,1"
+                    },
+                    {
+                        "type": "textarea",
+                        "name": "purpose_text",
+                        "label": "What do you think this study is about?",
+                        "optional": 0
+                    },
+                    {
+                        "type": "agent_probe",
+                        "name": "dq_agent_p2",
+                        "label": "",
+                        "optional": 1
+                    },
+                    {
+                        "type": "data_quality",
+                        "name": "dq_p2",
+                        "label": "",
+                        "optional": 1
+                    },
+                    {
+                        "type": "submit",
+                        "name": "p2_submit",
+                        "label": "Finish",
+                        "optional": 0
+                    }
+                ],
+                "settings": {
+                    "maximum_number_displayed": 0,
+                    "displayed_percentage_maximum": 100,
+                    "add_percentage_points": 0,
+                    "enable_instant_validation": 0,
+                    "expire_after": 0,
+                    "google_file_id": "",
+                    "unlinked": 0,
+                    "expire_invitation_after": 0,
+                    "expire_invitation_grace": 0,
+                    "hide_results": 0,
+                    "use_paging": 0
+                }
+            }
+        },
+        {
+            "type": "Endpage",
+            "description": "analysis of the own records with the formr R package (example only)",
+            "position": 40,
+            "special": null,
+            "body": "## Thank you!\n\n**This page belongs to the example.** A real study never shows participants what the checks found: that would teach automated tools what to avoid. It is here so that you can see what was recorded about your own visit, and how to read it with the `formr` R package (1.3.0 or later).\n\n```{r echo=FALSE, results='asis'}\n# formr hands a run's R code only the columns it names, so the names and\n# patterns are written out here although they are the functions' defaults.\nmine <- tail(dq_weekend_study, 1)   # this participant's row of the study\nflags <- dq_flags_by_session(mine,\n  pages = \"^dq_p[0-9]+$\", probes = \"^dq_agent_p[0-9]+$\",\n  srv_ua = \"dq_srv_ua\", sig_agent = \"dq_sig_agent\",\n  ch_platform = \"dq_ch_platform\", ch_mobile = \"dq_ch_mobile\",\n  flagged_only = FALSE)\nflagged <- flags[flags$flag, c(\"group\", \"indicator\", \"value\")]\ncat(\"### \", nrow(flagged), \" of \", nrow(flags), \" indicators are flagged for your visit\\n\\n\", sep = \"\")\nif (nrow(flagged)) {\n  print(knitr::kable(flagged, row.names = FALSE))\n} else {\n  cat(\"Nothing on the two pages looked like a program at work or like careless answering.\\n\")\n}\nhidden_field <- c(mine$dq_agent_p1, mine$dq_agent_p2)\nhidden_field <- hidden_field[!is.na(hidden_field) & nzchar(hidden_field)]\nthree_statements <- c(\"1\" = \"Yes\", \"2\" = \"No\")[as.character(mine$rrt_ai)]\n```\n\n**How to read it.** No single flag proves anything. *environment* is about the browser and the request (does it say it is remote-controlled, is it the browser it claims to be). *input* is about how clicks and text were made (clicks at the exact centre of a button, text without key presses): several of these together mean a program made the input. *attention* is context about a person (time away from the page, copying and pasting).\n\n**The field you could not see:** `r if (length(hidden_field)) paste0(\"it holds \\\"\", paste(hidden_field, collapse = \" | \"), \"\\\". People cannot type there, so this alone gives an automated tool away.\") else \"it is empty, as it is for every person.\"`\n\n**Your answer to the three statements:** `r three_statements`. On its own this does not show which statement applies; across a sample it gives the share of responses from AI agents or with AI help.\n\n### The same for a whole sample\n\nDownload the results of the survey `dq_weekend_study` (or fetch them with the package) and run:\n\n```r\nlibrary(formr)                               # 1.3.0 or later\nresults <- read.csv(\"dq_weekend_study.csv\")\nflags <- dq_flags_by_session(results)        # one row per session and flagged indicator\ntable(flags$session, flags$group)            # how many flags of which kind per session\ndq_rrt(results$rrt_ai == 1)                  # share of AI agents and AI-assisted responses\n```\n\n<details><summary>All indicators for your visit</summary>\n\n```{r echo=FALSE, results='asis'}\nprint(knitr::kable(flags[, c(\"group\", \"indicator\", \"value\", \"flag\")], row.names = FALSE))\n```\n\n</details>\n\n<details><summary>The records as they are stored</summary>\n\nPart 1: `r mine$dq_p1`\n\nPart 2: `r mine$dq_p2`\n\n</details>\n",
+            "title": null
+        },
+        {
+            "type": "Endpage",
+            "description": "no consent",
+            "position": 50,
+            "special": null,
+            "body": "## Thank you\n\nYou did not agree to take part, so nothing further is recorded. You can close this window.",
+            "title": null
+        }
+    ]
+}

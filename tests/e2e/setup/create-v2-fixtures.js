@@ -14,6 +14,12 @@
 //                   e2e-dqskip-v1 and e2e-dqskip-v2: a middle page whose one
 //                   question has a showif, beside an agent_probe and a
 //                   data_quality item (the showif is valid R and valid JS).
+//   dq_example      documentation/run_components/Data_Quality.json and
+//                   Data_Quality_v2.json, each imported whole (consent survey,
+//                   skip, the two-page study, the analysis page) → runs
+//                   e2e-dq-example-v1 and e2e-dq-example-v2
+//                   (data-quality-example.spec.js). Their analysis page needs
+//                   formr 1.3.0 in OpenCPU.
 // Idempotent: a fixture whose run already exists is skipped. Uses the robot
 // admin session that global-setup writes, so run any e2e spec once first.
 //
@@ -24,7 +30,9 @@
 // the survey's own "upload items". The admin takes a JSON survey only for a
 // new survey; a run import does take one for a survey that exists (it uploads
 // the items into the same-named survey), so a JSON fixture is imported into a
-// scratch run, which is then deleted — a run's surveys outlive it.
+// scratch run, which is then deleted — a run's surveys outlive it. A run made
+// from a bundle is deleted and imported again (an import into a run that has
+// units appends to them).
 //
 //   node tests/e2e/setup/create-v2-fixtures.js --refresh
 const fs = require('node:fs');
@@ -64,11 +72,55 @@ const MIME = {
     '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 };
 
+// Whole runs, imported from a run bundle.
+const BUNDLES = [
+    { run: 'e2e-dq-example-v1', bundle: '../../../documentation/run_components/Data_Quality.json' },
+    { run: 'e2e-dq-example-v2', bundle: '../../../documentation/run_components/Data_Quality_v2.json' },
+];
 const REFRESH = process.argv.includes('--refresh');
 
 async function main() {
     for (const f of FIXTURES) {
         await provision(f);
+    }
+    for (const b of BUNDLES) {
+        await provisionBundle(b);
+    }
+}
+
+const runId = (name) => { const r = db.dbQuery(`SELECT id FROM survey_runs WHERE name = '${name}'`)[0]; return r ? parseInt(r.id, 10) : null; };
+
+// A run made of everything a bundle holds: its surveys are created (or, when
+// the user has them already, get the bundle's items) and its units placed.
+async function provisionBundle({ run: RUN, bundle }) {
+    const file = path.resolve(__dirname, bundle);
+    const ctx = await request.newContext({ ignoreHTTPSErrors: true, storageState: STATE_PATH });
+    try {
+        if (runId(RUN) !== null) {
+            if (!REFRESH) {
+                console.log(`create-v2-fixtures: ${RUN} already exists — skipping.`);
+                return;
+            }
+            await ctx.post(`${ADMIN_BASE}/admin/run/${RUN}/delete_run/`, { form: { delete: 'true', delete_confirm: RUN } });
+            if (runId(RUN) !== null) throw new Error(`could not delete ${RUN} to import it again`);
+        }
+        let res = await ctx.post(`${ADMIN_BASE}/admin/run/add_run/`, { form: { run_name: RUN } });
+        const rid = runId(RUN);
+        if (!res.ok() || rid === null) throw new Error(`add_run ${RUN}: HTTP ${res.status()}`);
+        res = await ctx.post(`${ADMIN_BASE}/admin/run/${RUN}/import`, {
+            multipart: { run_file: { name: path.basename(file), mimeType: 'application/json', buffer: fs.readFileSync(file) } },
+        });
+        if (!res.ok()) throw new Error(`import into ${RUN}: HTTP ${res.status()}`);
+        const expected = JSON.parse(fs.readFileSync(file, 'utf8')).units.map((u) => `${u.position}:${u.type}`);
+        const placed = db.dbQuery(`SELECT ru.position, u.type FROM survey_run_units ru JOIN survey_units u ON u.id = ru.unit_id WHERE ru.run_id = ${rid} ORDER BY ru.position`)
+            .map((u) => `${u.position}:${u.type === 'Page' ? 'Endpage' : u.type}`);
+        if (JSON.stringify(placed) !== JSON.stringify(expected)) {
+            throw new Error(`${RUN}: units are ${JSON.stringify(placed)}, the bundle has ${JSON.stringify(expected)}`);
+        }
+        db.dbExecRaw(`UPDATE survey_runs SET public = 2, expiresOn = DATE_ADD(NOW(), INTERVAL 5 YEAR) WHERE id = ${rid}`);
+        console.log(`create-v2-fixtures: run ${RUN} (id ${rid}) imported from ${path.basename(file)}: ${placed.join(', ')}.`);
+    } finally {
+        await ctx.dispose();
     }
 }
 
