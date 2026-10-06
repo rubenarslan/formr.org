@@ -1168,6 +1168,8 @@ class SurveyStudy extends Model
         // older v1 survey must upload (Item::allowLegacyHelperName). The
         // switch to v2 refuses a study that has one (formV2UnsupportedItems).
 
+        $inFileOrder = array();
+
         foreach ($reader->survey as $row_number => $row) {
             $item = $itemFactory->make($row);
             if (!$item) {
@@ -1178,6 +1180,7 @@ class SurveyStudy extends Model
             if ($this->rendering_mode !== 'v2') {
                 $item->allowLegacyHelperName();
             }
+            $inFileOrder[] = $item;
 
             if (!$this->collectItemValidation($item)) {
                 unset($reader->survey[$row_number]);
@@ -1214,7 +1217,34 @@ class SurveyStudy extends Model
             $addStmt->execute();
         }
 
+        $this->warnings = array_merge($this->warnings, self::repeatedDataQualityItems($inFileOrder));
+
         return $ret;
+    }
+
+    /**
+     * A page takes one data_quality item: it holds the page's record, and a
+     * second would store a copy of it. One warning per further item, for
+     * items in file order (a submit ends the page).
+     *
+     * @param Item[] $items
+     * @return string[]
+     */
+    public static function repeatedDataQualityItems(array $items)
+    {
+        $warnings = array();
+        $onPage = null;
+        foreach ($items as $item) {
+            if ($item->type === 'submit') {
+                $onPage = null;
+            } elseif ($item instanceof DataQuality_Item) {
+                if ($onPage !== null) {
+                    $warnings[] = __("'%s': this page already has a data_quality item ('%s'). One per page is enough: both would store the same record.", $item->name, $onPage);
+                }
+                $onPage = $item->name;
+            }
+        }
+        return $warnings;
     }
 
     public function getItemsWithChoices($columns = null, $whereIn = null)

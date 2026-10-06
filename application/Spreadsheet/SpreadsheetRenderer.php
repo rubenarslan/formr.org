@@ -88,16 +88,21 @@ class SpreadsheetRenderer {
             if (!$items) {
                 continue;
             }
-            $lastItem = end($items);
-
-            // If no items ended up to be on the page but for a submit button, make it hidden and continue
+            // If nothing ended up on the page but its submit button — and
+            // items participants never see (Item::isUnseen: data_quality,
+            // agent_probe), which do not make a page — hide those and continue,
             // else render processed items
-            if (count($items) == 1 && $lastItem->type === 'submit') {
-                $sess_item = array(
-                    'session_id' => $this->unitSession->id,
-                    'item_id' => $lastItem->id,
-                );
-                $this->db->update('survey_items_display', array('hidden' => 1), $sess_item);
+            $shown = array_filter($items, function ($item) {
+                return $item->type !== 'submit' && !$item->isUnseen();
+            });
+            if (!$shown) {
+                foreach ($items as $leftover) {
+                    $sess_item = array(
+                        'session_id' => $this->unitSession->id,
+                        'item_id' => $leftover->id,
+                    );
+                    $this->db->update('survey_items_display', array('hidden' => 1), $sess_item);
+                }
                 continue;
             } else {
                 $this->toRender = $this->processDynamicLabelsAndChoices($items);
@@ -563,7 +568,9 @@ NULL
                         continue; // don't increment counter
                     }
                 }
-                $definitelyShownItems++; // track whether there are any items certain to be shown
+                if (!$item->isUnseen()) {
+                    $definitelyShownItems++; // track whether there are any items certain to be shown
+                }
             }
 
             if ($visibilityUpdates) {

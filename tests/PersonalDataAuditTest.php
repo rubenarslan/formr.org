@@ -57,6 +57,9 @@ class PersonalDataAuditTest extends PHPUnit\Framework\TestCase {
         $this->assertSame('uploads', PersonalDataAudit::classify('file', 'cv', '')['category']);
         $this->assertSame('technical', PersonalDataAudit::classify('ip', 'ip', '')['category']);
         $this->assertSame('technical', PersonalDataAudit::classify('browser', 'ua', '')['category']);
+        $this->assertSame('technical', PersonalDataAudit::classify('data_quality', 'dq_p1', '')['category']);
+        // An agent's self-description is not a person's data.
+        $this->assertNull(PersonalDataAudit::classify('agent_probe', 'dq_agent_p1', ''));
         $this->assertStringContainsString('item type', PersonalDataAudit::classify('email', 'q17', '')['reason']);
     }
 

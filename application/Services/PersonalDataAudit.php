@@ -33,6 +33,9 @@ class PersonalDataAudit {
         'server' => 'technical',
         'referrer' => 'technical',
         'push_notification' => 'technical',
+        // The page's record of browser traits and input behaviour: counts
+        // and yes/no values, read from the participant's device.
+        'data_quality' => 'technical',
     );
 
     /**

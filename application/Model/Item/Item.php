@@ -206,6 +206,22 @@ class Item {
     protected $v2_only = false;
 
     /**
+     * An item participants never see, although it is on the page and posted
+     * with it (data_quality, agent_probe). It takes no part in deciding
+     * whether a page has anything to show: a page of nothing else is skipped
+     * (v1: SpreadsheetRenderer, PagedSpreadsheetRenderer; v2: the wrapper's
+     * `data-fmr-unseen`, read by snapshotPages in main.js), and it is no solo
+     * step, no item to answer for the all-answered auto-submit and none in
+     * the progress bar. A `hidden` item is not one of these: it keeps its
+     * page, as it always has.
+     */
+    protected $unseen = false;
+
+    public function isUnseen() {
+        return (bool) $this->unseen;
+    }
+
+    /**
      * Can the form show this item's stored answer as a preset when it is
      * rendered again? Not an upload (a file input takes no value), a
      * bot_check (its stored marker is not a token) or a submit button.
@@ -713,6 +729,9 @@ class Item {
         $this->classes_wrapper = array_unique($this->classes_wrapper);
         if ($this->data_showif) {
             $this->parent_attributes['data-showif'] = $this->js_showif;
+        }
+        if ($this->unseen) {
+            $this->parent_attributes['data-fmr-unseen'] = '1';
         }
         $template = '
 			<div class="%{classes_wrapper}" %{parent_attributes}>
