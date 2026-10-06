@@ -13,11 +13,13 @@ export function initAdminPreview({ root, getCurrentPage }) {
 
     // "Show hidden items" — un-hide showif-hidden form-groups for inspection.
     const showHiddenBtn = monkeyBar.querySelector('.show_hidden_items');
-    if (showHiddenBtn && root.querySelector('.form-group.hidden, .form-group[style*="display: none"], .form-group[style*="display:none"]')) {
+    // Not the items nobody is meant to see (data_quality, agent_probe).
+    const seen = ':not([data-fmr-unseen])';
+    if (showHiddenBtn && root.querySelector(`.form-group.hidden${seen}, .form-group[style*="display: none"]${seen}, .form-group[style*="display:none"]${seen}`)) {
         showHiddenBtn.disabled = false;
         showHiddenBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            root.querySelectorAll('.form-group, .item').forEach((el) => {
+            root.querySelectorAll(`.form-group${seen}, .item${seen}`).forEach((el) => {
                 el.classList.remove('hidden');
                 el.style.display = '';
                 // Only what the showif disabled (the directive's marker) —
@@ -89,7 +91,7 @@ function fillPageWithMonkey(page) {
         tel: '+441234567890',
     };
     const visibleItems = page.querySelectorAll(
-        '.form-group.form-row:not(.hidden):not(.item-submit):not(.item-note):not(.item-block):not(.item-note_iframe)'
+        '.form-group.form-row:not(.hidden):not(.item-submit):not(.item-note):not(.item-block):not(.item-note_iframe):not([data-fmr-unseen])'
     );
     visibleItems.forEach((group) => {
         const realInputs = [...group.querySelectorAll('input[name], select[name], textarea[name]')]

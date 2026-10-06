@@ -8,6 +8,7 @@ import { initializePWAInstaller, initializePushNotifications, initializeRequestP
 import { initializeExpiryNotifier } from './components/ExpiryNotifier';
 import { initializeSelect2Components } from './components/Select2Initializer';
 import { FormMonkey } from './components/FormMonkey';
+import { initDataQuality } from './data-quality.js';
 
 var is = {
     na: function(x) {
@@ -128,6 +129,8 @@ function ajaxifyForm(i, elm) {
         initializePushNotifications();
         initializeExpiryNotifier();
         initializeSelect2Components();
+        // Records nothing unless the page has a data_quality item.
+        initDataQuality(document);
         this.initializeCounters();
         this.initializeFormValidation();
         this.initializeFormSubmission();
@@ -172,7 +175,8 @@ function ajaxifyForm(i, elm) {
         // This function will be called by survey.update() if the button exists
         this.checkCompletionAndSubmit = function() {
             // Find all form groups that are visible and are not notes, the submit button or iframes.
-            var $visibleItems = $(".form-group:not(.hidden):not(.item-note):not(.item-note_iframe):not(.item-block):not(.item-submit)");
+            // Items participants never see (data_quality, agent_probe) are not theirs to answer.
+            var $visibleItems = $(".form-group:not(.hidden):not(.item-note):not(.item-note_iframe):not(.item-block):not(.item-submit):not([data-fmr-unseen])");
             // From those, find the ones that have been answered
             // The .formr_answered class is added in initializeItemTracking
             var $answeredItems = $visibleItems.filter('.formr_answered');
@@ -557,9 +561,9 @@ function ajaxifyForm(i, elm) {
             survey.update();
         });
 
-        if ($(".form-row.hidden").length > 0) {
+        if ($(".form-row.hidden:not([data-fmr-unseen])").length > 0) {
             $(".show_hidden_items").on('click', function () {
-                $('.form-row.hidden').removeClass("hidden");
+                $('.form-row.hidden:not([data-fmr-unseen])').removeClass("hidden");
                 return false;
             });
             $(".show_hidden_items").attr('disabled', false);

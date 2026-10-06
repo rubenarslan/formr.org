@@ -112,6 +112,14 @@ export function isItemHidden(wrapper) {
         && (wrapper.hasAttribute('data-fmr-hidden') || wrapper.classList.contains('hidden')));
 }
 
+// An item participants never see although it is on the page (data_quality,
+// agent_probe: Item::isUnseen renders the attribute). It does not make its
+// page one to show, is no solo step, nothing to answer for the all-answered
+// auto-submit, and the admin's preview tools leave it alone.
+export function isUnseenItem(wrapper) {
+    return !!(wrapper && wrapper.hasAttribute && wrapper.hasAttribute('data-fmr-unseen'));
+}
+
 // Does an item's group hold an answer? Many item types own their value in an
 // input native Constraint Validation can't see — a hidden carrier (bot_check
 // token, VAS slider value, geopoint coords, audio/video/file recordings) or a
