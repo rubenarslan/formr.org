@@ -19,10 +19,12 @@
 //
 //   node tests/e2e/setup/create-v2-fixtures.js
 //
-// With --refresh, a spreadsheet fixture whose run exists is uploaded into its
-// study again (the survey's own "upload items"), so a changed example survey
-// reaches the dev instance. A JSON survey cannot be uploaded into an existing
-// study and stays as it is.
+// With --refresh, a fixture whose run exists gets its survey file again, so a
+// changed example survey reaches the dev instance. A spreadsheet goes through
+// the survey's own "upload items". The admin takes a JSON survey only for a
+// new survey; a run import does take one for a survey that exists (it uploads
+// the items into the same-named survey), so a JSON fixture is imported into a
+// scratch run, which is then deleted — a run's surveys outlive it.
 //
 //   node tests/e2e/setup/create-v2-fixtures.js --refresh
 const fs = require('node:fs');
@@ -70,25 +72,54 @@ async function main() {
     }
 }
 
-// Upload the fixture's spreadsheet into its existing study.
-async function refresh({ run: RUN, study: STUDY, json }) {
+// Give the fixture's existing study its survey file again.
+async function refresh({ run: RUN, study: STUDY, json, engine = 'v2' }) {
     const SURVEY = path.resolve(__dirname, json);
     const ext = path.extname(SURVEY);
-    if (ext === '.json' || !db.studyByName(STUDY)) {
+    const study = db.studyByName(STUDY);
+    if (!study) {
         console.log(`create-v2-fixtures: ${RUN} already exists — skipping.`);
         return;
     }
+    const sid = parseInt(study.id, 10);
+    const items = () => db.dbQuery(`SELECT COUNT(*) AS n FROM survey_items WHERE study_id = ${sid} AND deleted IS NULL`)[0].n;
     const ctx = await request.newContext({ ignoreHTTPSErrors: true, storageState: STATE_PATH });
     try {
-        const before = db.dbQuery(`SELECT COUNT(*) AS n FROM survey_items WHERE study_id = ${parseInt(db.studyByName(STUDY).id, 10)} AND deleted IS NULL`)[0].n;
-        const res = await ctx.post(`${ADMIN_BASE}/admin/survey/${STUDY}/upload_items`, {
-            multipart: { uploaded: { name: `${STUDY}${ext}`, mimeType: MIME[ext], buffer: fs.readFileSync(SURVEY) } },
-        });
-        if (!res.ok()) throw new Error(`upload_items ${STUDY}: HTTP ${res.status()}`);
-        const after = db.dbQuery(`SELECT COUNT(*) AS n FROM survey_items WHERE study_id = ${parseInt(db.studyByName(STUDY).id, 10)} AND deleted IS NULL`)[0].n;
-        console.log(`create-v2-fixtures: ${RUN} — ${STUDY} uploaded again (${before} → ${after} items).`);
+        const before = items();
+        if (ext === '.json') {
+            await importIntoScratchRun(ctx, STUDY, JSON.parse(fs.readFileSync(SURVEY, 'utf8')), engine);
+        } else {
+            const res = await ctx.post(`${ADMIN_BASE}/admin/survey/${STUDY}/upload_items`, {
+                multipart: { uploaded: { name: `${STUDY}${ext}`, mimeType: MIME[ext], buffer: fs.readFileSync(SURVEY) } },
+            });
+            if (!res.ok()) throw new Error(`upload_items ${STUDY}: HTTP ${res.status()}`);
+        }
+        const still = db.studyByName(STUDY);
+        if (!still || parseInt(still.id, 10) !== sid) throw new Error(`${STUDY}: the study is not the one it was (id ${sid})`);
+        console.log(`create-v2-fixtures: ${RUN} — ${STUDY} uploaded again (${before} → ${items()} items).`);
     } finally {
         await ctx.dispose();
+    }
+}
+
+// A run import uploads a unit's survey_data into the same-named survey of the
+// importing user. The scratch run it needs is deleted again, whatever happens.
+async function importIntoScratchRun(ctx, STUDY, survey, engine) {
+    if (survey.name !== STUDY) throw new Error(`${STUDY}: the JSON names another survey ("${survey.name}")`);
+    const scratch = `e2e-refresh-${Date.now().toString(36)}`;
+    let res = await ctx.post(`${ADMIN_BASE}/admin/run/add_run/`, { form: { run_name: scratch } });
+    if (!res.ok() || !db.dbQuery(`SELECT id FROM survey_runs WHERE name = '${scratch}'`).length) throw new Error(`add_run ${scratch}: HTTP ${res.status()}`);
+    try {
+        const bundle = { name: scratch, units: [{ type: engine === 'v2' ? 'Form' : 'Survey', description: STUDY, position: 10, special: null, survey_data: survey }] };
+        res = await ctx.post(`${ADMIN_BASE}/admin/run/${scratch}/import`, {
+            multipart: { run_file: { name: `${scratch}.json`, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(bundle)) } },
+        });
+        if (!res.ok()) throw new Error(`import into ${scratch}: HTTP ${res.status()}`);
+    } finally {
+        res = await ctx.post(`${ADMIN_BASE}/admin/run/${scratch}/delete_run/`, { form: { delete: 'true', delete_confirm: scratch } });
+        if (db.dbQuery(`SELECT id FROM survey_runs WHERE name = '${scratch}'`).length) {
+            console.error(`create-v2-fixtures: could not delete the scratch run ${scratch} (HTTP ${res.status()}) — delete it by hand.`);
+        }
     }
 }
 
@@ -96,7 +127,7 @@ async function provision({ run: RUN, study: STUDY, json, after, engine = 'v2' })
     const SURVEY = path.resolve(__dirname, json);
     const ext = path.extname(SURVEY);
     if (db.dbQuery(`SELECT id FROM survey_runs WHERE name = '${RUN}'`).length) {
-        if (REFRESH) return refresh({ run: RUN, study: STUDY, json });
+        if (REFRESH) return refresh({ run: RUN, study: STUDY, json, engine });
         console.log(`create-v2-fixtures: ${RUN} already exists — skipping.`);
         return;
     }
