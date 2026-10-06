@@ -3,7 +3,7 @@
 # Admin documentation: /admin/documentation/data-quality on your formr instance.
 #
 # dq_parse(x): character vector of JSON records (one per page) -> data.frame, one row per page
-# dq_flags(d, probe, srv_ua): data.frame of indicators summed over pages, with a flag column
+# dq_flags(d, probe, srv_ua, ...): data.frame of indicators summed over pages, with a flag column
 # dq_rrt(yes): share of agents and AI-assisted responses from the randomised-response question
 dq_parse <- function(x) {
   x <- x[!is.na(x) & nzchar(x)]
@@ -40,9 +40,25 @@ dq_rrt <- function(yes, p = 0.008) {
   c(n = n, yes_rate = lambda, ai_share = est, se = se, lower = est - 1.96 * se, upper = est + 1.96 * se)
 }
 
-# srv_ua: the User-Agent header stored by a formr `browser` item (optional)
+# The operating system a User-Agent names, and the one the Sec-CH-UA-Platform client hint names
+dq_ua_os <- function(ua) {
+  if (grepl("Windows", ua)) "win" else if (grepl("Android", ua)) "android" else if (grepl("iPhone|iPad|iPod", ua)) "ios"
+  else if (grepl("CrOS", ua)) "cros" else if (grepl("Macintosh|Mac OS X", ua)) "mac" else if (grepl("Linux", ua)) "linux" else "other"
+}
+dq_hint_os <- function(hint) {
+  h <- gsub('"', "", trimws(hint))
+  known <- c(macOS = "mac", Windows = "win", Linux = "linux", Android = "android", iOS = "ios", "Chrome OS" = "cros", "Chromium OS" = "cros")
+  if (h %in% names(known)) known[[h]] else ""
+}
+
+# What the server stored about the request, all optional (formr `browser` and `server` items):
+# srv_ua: the User-Agent header (`browser`)
+# sig_agent: the Signature-Agent header (`server HTTP_SIGNATURE_AGENT`); AI agents that identify themselves send it
+# ch_platform, ch_mobile: the client hints Sec-CH-UA-Platform and Sec-CH-UA-Mobile (`server HTTP_SEC_CH_UA_PLATFORM`,
+#   `server HTTP_SEC_CH_UA_MOBILE`); Chromium browsers send them beside the User-Agent, and a User-Agent rewritten on
+#   the way leaves them as they were
 # probe: what was typed into the agent_probe fields (people never see them, so any text is a flag)
-dq_flags <- function(d, probe = NA, srv_ua = NA) {
+dq_flags <- function(d, probe = NA, srv_ua = NA, sig_agent = NA, ch_platform = NA, ch_mobile = NA) {
   if (!nrow(d)) return(data.frame(indicator = "no dq record", value = NA, flag = NA))
   s <- function(k) sum(as.numeric(d[[k]]), na.rm = TRUE)
   mx <- function(k) max(as.numeric(d[[k]]), na.rm = TRUE)
@@ -56,6 +72,12 @@ dq_flags <- function(d, probe = NA, srv_ua = NA) {
   js_uah <- unique(stats::na.omit(as.character(d$uah)))
   ua_diff <- nzchar(last(srv_ua)) && length(js_uah) > 0 && !(dq_adler32(last(srv_ua)) %in% js_uah)
   probe_txt <- if (length(probe) && !is.na(probe[1]) && nzchar(probe[1])) probe[1] else ""
+  ua <- last(srv_ua); sig <- last(sig_agent); hint_os <- dq_hint_os(last(ch_platform)); hint_mob <- trimws(last(ch_mobile))
+  ua_os <- if (nzchar(ua)) dq_ua_os(ua) else ""
+  # Android reports itself as Linux in places, as the page's own check allows too
+  os_diff <- nzchar(ua_os) && nzchar(hint_os) && ua_os != "other" && ua_os != hint_os &&
+    !(ua_os %in% c("android", "linux") && hint_os %in% c("android", "linux"))
+  mob_diff <- nzchar(ua) && hint_mob %in% c("?0", "?1") && (hint_mob == "?1") != grepl("Mobi", ua)
   rows <- list(
     # automation environment
     c("navigator.webdriver true", mx("wd"), mx("wd") > 0),
@@ -75,6 +97,10 @@ dq_flags <- function(d, probe = NA, srv_ua = NA) {
     c("agent_probe field filled", probe_txt, nzchar(probe_txt)),
     c("user-agent incoherent (UA vs platform vs client hints)", txt("uac"), nzchar(txt("uac"))),
     c("User-Agent header differs from navigator.userAgent", if (nzchar(last(srv_ua))) as.integer(ua_diff) else NA, ua_diff),
+    c("request signed by an agent (Signature-Agent header)", sig, nzchar(sig)),
+    c("client hints name another system than the User-Agent header (header / hint)",
+      if (nzchar(ua_os) && nzchar(hint_os)) paste(ua_os, hint_os, sep = " / ") else NA, os_diff),
+    c("client hints and User-Agent header disagree about mobile (hint)", if (nzchar(ua) && nzchar(hint_mob)) hint_mob else NA, mob_diff),
     c("real JS engine differs from the engine the UA claims (real vs claimed)", paste(txt("eng"), txt("eng_ua"), sep = " vs "), mx("eng_mm") > 0),
     c("UA Chrome version outside the range its JS features allow", mx("ver_mm"), mx("ver_mm") > 0),
     c("claims Google Chrome but has no Widevine (automation launch or non-Google build)", mx("chr_nowv"), mx("chr_nowv") > 0),

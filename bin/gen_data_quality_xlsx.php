@@ -9,8 +9,10 @@
  *   1  consent     a note with the consent paragraph and an "I agree" button.
  *                  No data_quality item: nothing is recorded on this page.
  *   2  questions   three ratings and an open text question, the `browser`
- *                  item (User-Agent header), an agent_probe and the page's
- *                  data_quality item, just above the submit button.
+ *                  item (User-Agent header) and three `server` items (two
+ *                  client hints and the Signature-Agent header), an
+ *                  agent_probe and the page's data_quality item, just above
+ *                  the submit button.
  *   3  questions   the plausible-deniability question (`rrt_ai`), a number,
  *                  an optional text, an agent_probe and a data_quality item.
  *
@@ -53,6 +55,10 @@ $rows = [
     // Page 2. The agent_probe's label and choice1 are empty: its default
     // question and note are used. The data_quality item comes last.
     $row('browser', 'dq_srv_ua', '', '*'),
+    // What else the request says about the browser, and whether an agent signed it.
+    $row('server HTTP_SEC_CH_UA_PLATFORM', 'dq_ch_platform', '', '*'),
+    $row('server HTTP_SEC_CH_UA_MOBILE', 'dq_ch_mobile', '', '*'),
+    $row('server HTTP_SIGNATURE_AGENT', 'dq_sig_agent', '', '*'),
     $row('mc_button', 'weekend_rested', 'Last weekend I felt rested.', '', $scale),
     $row('mc_button', 'weekend_social', 'Last weekend I spent time with other people.', '', $scale),
     $row('mc_button', 'weekend_outdoors', 'Last weekend I was outdoors.', '', $scale),

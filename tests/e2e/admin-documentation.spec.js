@@ -52,6 +52,7 @@ test('an admin reads the data-quality page, which is not for search engines', as
     await expect(body).toContainText('§ 25 TDDDG');
     await expect(body).toContainText('To check data quality, we record on each page');
     await expect(body).toContainText('dq_flags(dq_parse(pages), probe = agent');
+    await expect(body).toContainText('server HTTP_SIGNATURE_AGENT');
     await expect(body).toContainText('You have an identical twin.');
     expect(errors, 'console errors (the page runs under the admin CSP)').toEqual([]);
 });

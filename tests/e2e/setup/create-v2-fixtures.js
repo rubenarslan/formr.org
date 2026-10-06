@@ -18,6 +18,13 @@
 // admin session that global-setup writes, so run any e2e spec once first.
 //
 //   node tests/e2e/setup/create-v2-fixtures.js
+//
+// With --refresh, a spreadsheet fixture whose run exists is uploaded into its
+// study again (the survey's own "upload items"), so a changed example survey
+// reaches the dev instance. A JSON survey cannot be uploaded into an existing
+// study and stays as it is.
+//
+//   node tests/e2e/setup/create-v2-fixtures.js --refresh
 const fs = require('node:fs');
 const path = require('node:path');
 const { request } = require('@playwright/test');
@@ -55,9 +62,33 @@ const MIME = {
     '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 };
 
+const REFRESH = process.argv.includes('--refresh');
+
 async function main() {
     for (const f of FIXTURES) {
         await provision(f);
+    }
+}
+
+// Upload the fixture's spreadsheet into its existing study.
+async function refresh({ run: RUN, study: STUDY, json }) {
+    const SURVEY = path.resolve(__dirname, json);
+    const ext = path.extname(SURVEY);
+    if (ext === '.json' || !db.studyByName(STUDY)) {
+        console.log(`create-v2-fixtures: ${RUN} already exists — skipping.`);
+        return;
+    }
+    const ctx = await request.newContext({ ignoreHTTPSErrors: true, storageState: STATE_PATH });
+    try {
+        const before = db.dbQuery(`SELECT COUNT(*) AS n FROM survey_items WHERE study_id = ${parseInt(db.studyByName(STUDY).id, 10)} AND deleted IS NULL`)[0].n;
+        const res = await ctx.post(`${ADMIN_BASE}/admin/survey/${STUDY}/upload_items`, {
+            multipart: { uploaded: { name: `${STUDY}${ext}`, mimeType: MIME[ext], buffer: fs.readFileSync(SURVEY) } },
+        });
+        if (!res.ok()) throw new Error(`upload_items ${STUDY}: HTTP ${res.status()}`);
+        const after = db.dbQuery(`SELECT COUNT(*) AS n FROM survey_items WHERE study_id = ${parseInt(db.studyByName(STUDY).id, 10)} AND deleted IS NULL`)[0].n;
+        console.log(`create-v2-fixtures: ${RUN} — ${STUDY} uploaded again (${before} → ${after} items).`);
+    } finally {
+        await ctx.dispose();
     }
 }
 
@@ -65,6 +96,7 @@ async function provision({ run: RUN, study: STUDY, json, after, engine = 'v2' })
     const SURVEY = path.resolve(__dirname, json);
     const ext = path.extname(SURVEY);
     if (db.dbQuery(`SELECT id FROM survey_runs WHERE name = '${RUN}'`).length) {
+        if (REFRESH) return refresh({ run: RUN, study: STUDY, json });
         console.log(`create-v2-fixtures: ${RUN} already exists — skipping.`);
         return;
     }

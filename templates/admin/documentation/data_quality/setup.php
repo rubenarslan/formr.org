@@ -31,9 +31,25 @@
                 identification was changed on the way. Leave the row out if you do not need that comparison: it is
                 the most identifying value of all.</td>
         </tr>
+        <tr>
+            <td><code>server HTTP_SIGNATURE_AGENT</code></td><td><code>dq_sig_agent</code></td><td><em>leave empty</em></td>
+            <td>Stores the signature note that an AI agent which identifies itself sends with every request (ChatGPT
+                agent sends <code>"https://chatgpt.com"</code>). Empty for people and for agents that do not say who
+                they are. Anything in it is a strong sign, and costs the participant nothing.</td>
+        </tr>
+        <tr>
+            <td><code>server HTTP_SEC_CH_UA_PLATFORM</code><br><code>server HTTP_SEC_CH_UA_MOBILE</code></td>
+            <td><code>dq_ch_platform</code><br><code>dq_ch_mobile</code></td><td><em>leave empty</em></td>
+            <td>Chrome-like browsers send, beside the User-Agent, their operating system and whether they are a mobile
+                browser. A program that rewrites the User-Agent on the way to the server usually leaves these two as
+                they were, so the R code compares them with the <code>browser</code> row. They only make sense
+                together with that row. Firefox and Safari do not send them; the columns then stay empty.</td>
+        </tr>
     </tbody>
 </table>
 </div>
+<p>These rows are stored by the server; nothing is read from the participant's device for them. In the type column,
+    write the type and the name after it in one cell, as shown.</p>
 <ul>
     <li>Number the names by page: <code>dq_p1</code> and <code>dq_agent_p1</code> on the first such page,
         <code>dq_p2</code> and <code>dq_agent_p2</code> on the second, and so on. You may choose other names, but the
@@ -46,9 +62,9 @@
         these two rows alone never make a page appear.</li>
     <li>Add the rows before data collection starts, so that every participant has a record.</li>
     <li>Make sure there is at least one open text question that asks for two or three sentences.</li>
-    <li>In a v2 survey, a <code>browser</code> row is stored as soon as the survey is opened, whichever page it is on
-        (v2 stores all rows that need no input then). If your consent page is the first page of the same v2 survey,
-        put the consent into a survey of its own, or leave the <code>browser</code> row out.</li>
+    <li>In a v2 survey, the <code>browser</code> and <code>server</code> rows are stored as soon as the survey is
+        opened, whichever page they are on (v2 stores all rows that need no input then). If your consent page is the
+        first page of the same v2 survey, put the consent into a survey of its own, or leave these rows out.</li>
 </ul>
 
 <h4>The invisible note and field (<code>agent_probe</code>)</h4>

@@ -6,7 +6,8 @@
 <pre class="fmr-doc-wrap"><?= h($consentText) ?></pre>
 <ul>
     <li>Leave out the last sentence if you do not use <code>agent_probe</code> rows.</li>
-    <li>Leave out "and the browser identification your browser sends" if you do not use the <code>browser</code> row.</li>
+    <li>Leave out "and the browser identification your browser sends" if you use neither the <code>browser</code> row
+        nor the <code>server</code> rows.</li>
     <li>Adjust the deletion period to your own plan.</li>
     <li>Keep the sentence asking people not to use AI tools: in our tests it made Claude and ChatGPT agents refuse to
         fill in the survey.</li>

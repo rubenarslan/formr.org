@@ -12,12 +12,14 @@ for (i in seq_len(nrow(d))) {
   pages &lt;- unlist(d[i, grep("^dq_p[0-9]+$", names(d))])
   agent &lt;- unlist(d[i, grep("^dq_agent_p[0-9]+$", names(d))])
   agent &lt;- paste(agent[!is.na(agent) &amp; agent != ""], collapse = " | ")
-  f &lt;- dq_flags(dq_parse(pages), probe = agent, srv_ua = d$dq_srv_ua[i])
+  f &lt;- dq_flags(dq_parse(pages), probe = agent, srv_ua = d$dq_srv_ua[i], sig_agent = d$dq_sig_agent[i],
+                ch_platform = d$dq_ch_platform[i], ch_mobile = d$dq_ch_mobile[i])
   cat("\n", d$session[i], ":", sum(nzchar(f$flag)), "flags\n")
   print(f[nzchar(f$flag), ], row.names = FALSE)
 }
 dq_rrt(d$rrt_ai == 1)   # share of agents and AI-assisted responses (ai_share), if you used the twin question</code></pre>
-<p>Leave out <code>srv_ua = ...</code> if you have no <code>browser</code> row.</p>
+<p>Leave out the arguments for rows you did not add (<code>srv_ua</code> for the <code>browser</code> row,
+    <code>sig_agent</code>, <code>ch_platform</code> and <code>ch_mobile</code> for the <code>server</code> rows).</p>
 <div class="table-responsive">
 <table class="table table-bordered">
     <thead><tr><th>What you see</th><th>What it means</th><th>Weight</th></tr></thead>
@@ -28,6 +30,8 @@ dq_rrt(d$rrt_ai == 1)   # share of agents and AI-assisted responses (ai_share), 
         <tr><td>Several behaviour flags together (clicks exactly in the centre, text without key presses, keys faster
                 than 12 ms apart)</td>
             <td>The input came from a program, not from hands.</td><td>Strong</td></tr>
+        <tr><td>"Request signed by an agent"</td>
+            <td>An AI agent that says who it is (ChatGPT agent does) made the request.</td><td>Strong</td></tr>
         <tr><td>"Claims Google Chrome but has no Widevine" or "real engine differs from the one claimed"</td>
             <td>An automated or disguised browser.</td><td>Medium alone, strong together with behaviour flags</td></tr>
         <tr><td>Yes on the twin question</td>
