@@ -13,6 +13,7 @@ const { ADMIN_BASE, STATE_PATH, ensureAdminState } = require('./helpers/admin');
 const PHP_ERROR = /Fatal error|Parse error|Uncaught|Undefined (variable|array key|property)|Call to (a member|undefined)/i;
 const PAGE = `${ADMIN_BASE}/admin/documentation/data-quality/`;
 
+test.skip(process.env.BROWSERSTACK_AUTOMATION === 'true', 'admin-UI spec; nothing device-specific — local chromium only');
 test.use({ storageState: STATE_PATH, ignoreHTTPSErrors: true });
 
 test.beforeAll(async ({ browser }) => {

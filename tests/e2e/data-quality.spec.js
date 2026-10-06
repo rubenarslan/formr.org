@@ -13,7 +13,7 @@
 // page queued offline carries its record; and a page without the item is
 // left entirely alone.
 
-const { test, expect } = require('./helpers/test');
+const { test, expect, RUNNING_ON_BS } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const { human, plain } = require('./helpers/human');
@@ -24,6 +24,11 @@ const db = require('./helpers/db');
 
 const RUNS = require('./setup/runs.json');
 const V2_PAGE = 'form.fmr-form-v2 section.fmr-page:not([hidden])';
+
+// Local Chromium only: it judges input made through Playwright's mouse and
+// keyboard, opens contexts of its own, reroutes requests and goes offline.
+// The lane for real devices and other engines is data-quality-devices.spec.js.
+test.skip(RUNNING_ON_BS, 'local Chromium only; the device lane is data-quality-devices.spec.js');
 
 const ENGINES = {
     v1: {
@@ -401,7 +406,9 @@ test.describe('data quality: what the request itself says', () => {
             await consent(page, engine, plain());
             await answerPage2(page, engine, plain(), tok);
             await ENGINES[engine].next(page, plain());
-            return rowOf(engine, tok);
+            let row = null;
+            await expect.poll(() => { row = rowOf(engine, tok); return row && row.dq_p1; }, { timeout: 15000 }).toBeTruthy();
+            return row;
         } finally {
             await context.close();
         }
