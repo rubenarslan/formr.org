@@ -679,12 +679,26 @@
             "item_order": 68
         },
         {
+            "type": "agent_probe",
+            "name": "u_agent_probe",
+            "optional": 1,
+            "order": 69,
+            "item_order": 69
+        },
+        {
+            "type": "data_quality",
+            "name": "u_data_quality",
+            "optional": 1,
+            "order": 70,
+            "item_order": 70
+        },
+        {
             "type": "submit",
             "name": "page_done",
             "label": "Finish",
             "optional": 1,
-            "order": 69,
-            "item_order": 69
+            "order": 71,
+            "item_order": 71
         }
     ]
 }

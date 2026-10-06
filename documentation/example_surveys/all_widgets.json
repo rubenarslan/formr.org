@@ -1350,6 +1350,36 @@
             "value": "",
             "block_order": null,
             "item_order": 89
+        },
+        {
+            "type": "agent_probe",
+            "choice_list": null,
+            "type_options": null,
+            "name": "agent_probe_demo",
+            "label": "",
+            "label_parsed": null,
+            "optional": 1,
+            "class": "",
+            "showif": "",
+            "showif_js": null,
+            "value": "",
+            "block_order": null,
+            "item_order": 90
+        },
+        {
+            "type": "data_quality",
+            "choice_list": null,
+            "type_options": null,
+            "name": "data_quality_demo",
+            "label": "",
+            "label_parsed": null,
+            "optional": 1,
+            "class": "",
+            "showif": "",
+            "showif_js": null,
+            "value": "",
+            "block_order": null,
+            "item_order": 91
         }
     ],
     "settings": {

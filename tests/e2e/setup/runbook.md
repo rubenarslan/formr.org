@@ -2,7 +2,10 @@
 
 One-time admin setup that produces the six core persistent test runs on the
 dev instance, plus `tests/e2e/setup/runs.json` (committed). `runs.json` lists
-more fixtures than these six: `e2e-dyn-v2`, `e2e-inputs-v2` and `e2e-awv2` are
+more fixtures than these six: `e2e-dyn-v2`, `e2e-inputs-v2`, `e2e-awv2`, the
+data-quality runs `e2e-dq-v1` / `e2e-dq-v2` (the example survey
+`documentation/example_surveys/data_quality.xlsx` on each engine) and
+`e2e-dqskip-v1` / `e2e-dqskip-v2` (`e2e_dq_skip.csv`) are
 created by `setup/create-v2-fixtures.js` during global setup; the solo and
 text-solo runs by `setup/create-solo-fixture.sh` / `create-text-fixture.sh`;
 bot_check, crosspage and rank are uploaded from `e2e_bot_check.xlsx`,

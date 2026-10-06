@@ -6,6 +6,14 @@
 //   v2_hidden   e2e_v2_hidden.json  → run e2e-hidden-v2  (v2-hidden-pages.spec.js)
 //   all_widgets_v2  documentation/example_surveys/all_widgets_v2.json
 //                   → run e2e-awv2    (v2-finish.spec.js)
+//   dq              documentation/example_surveys/data_quality.xlsx, once on
+//                   each engine → runs e2e-dq-v1 and e2e-dq-v2
+//                   (data-quality.spec.js); `engine: 'v1'` makes the unit a
+//                   classic Survey.
+//   dq_skip         e2e_dq_skip.csv, once on each engine → runs
+//                   e2e-dqskip-v1 and e2e-dqskip-v2: a middle page whose one
+//                   question has a showif, beside an agent_probe and a
+//                   data_quality item (the showif is valid R and valid JS).
 // Idempotent: a fixture whose run already exists is skipped. Uses the robot
 // admin session that global-setup writes, so run any e2e spec once first.
 //
@@ -32,7 +40,20 @@ const FIXTURES = [
     // The committed example itself, not a copy: the walk-through test keeps
     // the showcase honest.
     { run: 'e2e-awv2', study: 'all_widgets_v2', json: '../../../documentation/example_surveys/all_widgets_v2.json' },
+    { run: 'e2e-dq-v1', study: 'e2e_dq_v1', json: '../../../documentation/example_surveys/data_quality.xlsx', engine: 'v1' },
+    {
+        run: 'e2e-dq-v2', study: 'e2e_dq_v2', json: '../../../documentation/example_surveys/data_quality.xlsx',
+        // Previous: the spec goes back to a page whose record is stored.
+        after: (sid) => `UPDATE survey_studies SET allow_previous = 1 WHERE id = ${sid}`,
+    },
+    { run: 'e2e-dqskip-v1', study: 'e2e_dq_skip_v1', json: 'e2e_dq_skip.csv', engine: 'v1' },
+    { run: 'e2e-dqskip-v2', study: 'e2e_dq_skip_v2', json: 'e2e_dq_skip.csv' },
 ];
+const MIME = {
+    '.csv': 'text/csv',
+    '.json': 'application/json',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+};
 
 async function main() {
     for (const f of FIXTURES) {
@@ -40,8 +61,9 @@ async function main() {
     }
 }
 
-async function provision({ run: RUN, study: STUDY, json, after }) {
+async function provision({ run: RUN, study: STUDY, json, after, engine = 'v2' }) {
     const SURVEY = path.resolve(__dirname, json);
+    const ext = path.extname(SURVEY);
     if (db.dbQuery(`SELECT id FROM survey_runs WHERE name = '${RUN}'`).length) {
         console.log(`create-v2-fixtures: ${RUN} already exists — skipping.`);
         return;
@@ -51,8 +73,8 @@ async function provision({ run: RUN, study: STUDY, json, after }) {
         let study = db.studyByName(STUDY);
         if (!study) {
             const res = await ctx.post(`${ADMIN_BASE}/admin/survey/add_survey/`, {
-                // Engine v2: the survey's engine decides that its unit is a Form.
-                multipart: { engine: 'v2', uploaded: { name: `${STUDY}.json`, mimeType: 'application/json', buffer: fs.readFileSync(SURVEY) } },
+                // The survey's engine decides whether its unit is a Form (v2) or a Survey.
+                multipart: { engine, uploaded: { name: `${STUDY}${ext}`, mimeType: MIME[ext], buffer: fs.readFileSync(SURVEY) } },
             });
             if (!res.ok()) throw new Error(`add_survey: HTTP ${res.status()}`);
             study = db.studyByName(STUDY);
@@ -80,10 +102,11 @@ async function provision({ run: RUN, study: STUDY, json, after }) {
         db.dbExecRaw(`UPDATE survey_runs SET public = 2, expiresOn = DATE_ADD(NOW(), INTERVAL 5 YEAR) WHERE id = ${rid}`);
         if (after) db.dbExecRaw(after(sid));
         const linked = db.dbQuery(`SELECT ru.unit_id, u.type, s.rendering_mode FROM survey_run_units ru JOIN survey_units u ON u.id = ru.unit_id JOIN survey_studies s ON s.id = ru.unit_id WHERE ru.id = ${parseInt(form.run_unit_id, 10)}`)[0];
-        if (!linked || parseInt(linked.unit_id, 10) !== sid || linked.type !== 'Form' || linked.rendering_mode !== 'v2') {
-            throw new Error(`Form unit not linked as v2: ${JSON.stringify(linked)}`);
+        const unitType = engine === 'v2' ? 'Form' : 'Survey';
+        if (!linked || parseInt(linked.unit_id, 10) !== sid || linked.type !== unitType || (linked.rendering_mode === 'v2') !== (engine === 'v2')) {
+            throw new Error(`${unitType} unit not linked as ${engine}: ${JSON.stringify(linked)}`);
         }
-        console.log(`create-v2-fixtures: run ${RUN} (id ${rid}) → Form → study ${STUDY} (id ${sid}), v2.`);
+        console.log(`create-v2-fixtures: run ${RUN} (id ${rid}) → ${unitType} → study ${STUDY} (id ${sid}), ${engine}.`);
     } finally {
         await ctx.dispose();
     }

@@ -41,5 +41,13 @@
   },
   "all_widgets_v2": {
     "v2": { "run": "e2e-awv2", "study": "all_widgets_v2" }
+  },
+  "dq": {
+    "v1": { "run": "e2e-dq-v1", "study": "e2e_dq_v1" },
+    "v2": { "run": "e2e-dq-v2", "study": "e2e_dq_v2" }
+  },
+  "dq_skip": {
+    "v1": { "run": "e2e-dqskip-v1", "study": "e2e_dq_skip_v1" },
+    "v2": { "run": "e2e-dqskip-v2", "study": "e2e_dq_skip_v2" }
   }
 }
