@@ -31,10 +31,14 @@
     <li>Screen-reader users hear the hidden note on every page, followed by the request to skip it.</li>
 </ul>
 <p>
-    <strong>Untested on phones and tablets.</strong> All our tests used desktop browsers. Some checks are switched off
-    on phones and tablets (key-hold time, Shift, umlauts, DRM and window size), but phone keyboards with word
-    suggestions or swipe typing may still trigger typing flags. Review flags from mobile participants with extra
-    care.
+    <strong>Phones and tablets: read their flags with extra care.</strong> formr recognises a phone or tablet, also an
+    iPad or an Android tablet that asks for the desktop version of a page and so claims to be a computer. On these,
+    the checks that need a physical keyboard, a mouse or a window are switched off (key-hold time, Shift, umlauts, DRM
+    and window size). We ran the items on real devices (an iPhone, an iPad, an Android phone and an Android tablet)
+    and in Firefox and in Safari's engine on a desktop: the record is written and stored, the real browser is
+    recognised, and nothing wrongly says that the browser lies about itself. What these runs could not show is how a
+    person's typing and tapping look there, because test devices are driven by a program and their on-screen keyboard
+    stays down. Phone keyboards with word suggestions or swipe typing may still trigger typing flags.
 </p>
 <p>
     <strong>No IP or network checks.</strong> Bot-protection services such as Cloudflare Turnstile also check the

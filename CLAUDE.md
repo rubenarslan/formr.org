@@ -512,6 +512,23 @@ details out of the public documentation, which has one line pointing there.
 - The consent paragraph and the plausible-deniability question live in
   `documentation/data_quality/texts.php` (shown on the admin page, written
   into the example survey by `bin/gen_data_quality_xlsx.php`).
+- **`callerKind` has four answers.** `own` (only the page's code on the
+  stack), `mixed` (a widget's handler set off by a foreign script's click:
+  not counted again as script-made, but no "page default" either), `foreign`,
+  `none`. Only a pure `own` write re-bases an untouched item — and not while
+  a foreign event is still being handled (`reacting`): WebKit shows no stack
+  frame for code without a file, so there `mixed` reads as `own`.
+- **A phone or tablet is `mob`, whatever it says.** An iPad calls itself a
+  Mac (`platform.js` `isMobileDevice` knows it by its touch screen); Chrome
+  on a large Android tablet calls itself a Linux PC, client hints included,
+  and is known by a coarse pointer that cannot hover. The checks that need a
+  physical keyboard, a mouse or a window are off there, and the DRM question
+  is not asked. Do not go back to the User-Agent alone.
+- **Other devices and engines:** `npm run test:bs:dq` runs
+  `tests/e2e/data-quality-devices.spec.js` on the BrowserStack spread in
+  `browserstack.data-quality.yml` (phones, tablets, Firefox, WebKit). It
+  cannot show how a person types on a phone: the soft keyboard does not come
+  up under automation.
 
 ## Example surveys and run bundles
 
@@ -535,7 +552,9 @@ inserting rows by hand.
   `bin/gen_pwa_items_xlsx.php`). Both engines: `data_quality.xlsx` (a
   consent page, then two pages with an `agent_probe` and a `data_quality`
   item each, the `browser` item and the plausible-deniability question; see
-  `bin/gen_data_quality_xlsx.php`; e2e runs `e2e-dq-v1` / `e2e-dq-v2`).
+  `bin/gen_data_quality_xlsx.php`; e2e runs `e2e-dq-v1` / `e2e-dq-v2`; after
+  regenerating it, `node tests/e2e/setup/create-v2-fixtures.js --refresh`
+  uploads it into those runs' studies again).
 - **`documentation/run_components/*.json`** — exportable run
   bundles. Import via the admin run editor's "Import" button.
   Notable: `Form_v2_Basic.json` (a Form unit + Endpage; the Form

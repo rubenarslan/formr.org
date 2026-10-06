@@ -14,7 +14,7 @@
             <td>Signs of a browser without a window: headless identification, Chrome without its usual objects, no plugins, no languages, a contradictory notification permission, graphics drawn in software</td></tr>
         <tr><td><code>glob</code>, <code>ext</code>, <code>ext_res</code>, <code>aib</code></td>
             <td>Names of automation tools found in the page (from a fixed list); names of agent or AI-assistant tools found in elements added to the page (fixed list); number of files a browser extension added to the page; AI-browser name</td></tr>
-        <tr><td><code>fam</code>, <code>mob</code>, <code>ptr</code></td><td>Browser family, phone or tablet, mouse or touchscreen</td></tr>
+        <tr><td><code>fam</code>, <code>mob</code>, <code>ptr</code></td><td>Browser family; phone or tablet (also one that claims to be a desktop computer: its pointer is a finger); mouse or touchscreen</td></tr>
         <tr><td><code>fx0</code>, <code>vis0</code></td><td>Whether the window had focus and was visible at the start</td></tr>
         <tr><td><code>uac</code>, <code>uah</code></td><td>Which parts of the browser's identification contradict each other; a checksum of that identification, compared in R with the <code>browser</code> row</td></tr>
         <tr><td><code>eng</code>, <code>eng_ua</code>, <code>eng_mm</code>, <code>ver_mm</code></td>
@@ -50,7 +50,7 @@
         <tr><td><code>tap</code>, <code>tap_r1</code></td><td>Touches; touches with a contact area of one pixel or less</td></tr>
         <tr><td><code>scr</code>, <code>scr_nogest</code>, <code>foc_nogest</code></td><td>Scroll steps; without wheel, touch or key; focus moved into a field without click or key</td></tr>
         <tr><td><code>foc_prog</code>, <code>clk_nopt</code></td>
-            <td>A field was focused by code that is not the page's own (a tool running code inside the page); clicks made without a pointer and without Enter or Space</td></tr>
+            <td>A field was focused by code that is not the page's own (a tool running code inside the page); clicks made without a pointer and without Enter or Space (Safari on the iPhone and iPad we tested, iOS 17 and 16, does not report this one)</td></tr>
         <tr><td><code>rsz</code>, <code>rsz_side</code>, <code>rsz_bar</code></td><td>Window resizes; a side panel opened; an information bar opened</td></tr>
 
         <tr><th colspan="2">Input that did not come from a person's hands</th></tr>

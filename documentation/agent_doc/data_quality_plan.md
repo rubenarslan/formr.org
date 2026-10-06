@@ -51,7 +51,10 @@ v1's item-count bar counts them the way it counts notes and `hidden` items.
 Neither takes a `value` (refused at upload).
 
 The randomised-response question is a documented `mc_button` row, not a type.
-The `browser` item is documented as the source of the User-Agent header.
+The `browser` item is documented as the source of the User-Agent header, and
+`server` items (`Server_Item::VARIABLES`) as the source of two client hints and
+of the `Signature-Agent` header an AI agent that identifies itself sends; the
+R helpers compare the hints with the User-Agent header.
 
 Registration points (checked): `ItemFactory` finds the classes by name, so the
 spreadsheet reader, the JSON upload and the API structure import (`createFromData`
@@ -107,6 +110,17 @@ checks and thresholds; what changes is what bundling and v2 force:
   source, Apache templates, traefik config, live response headers), so real
   Chrome keeps Widevine. If a policy ever disallows `encrypted-media`, the probe
   is skipped and the record says `drm: "blocked"` instead of flagging.
+- **Phones and tablets that do not say so.** The prototype read "mobile"
+  from the User-Agent. An iPad calls itself a Mac and Chrome on a large
+  Android tablet a Linux PC (both seen on the BrowserStack devices), which
+  left the keyboard, window and DRM checks on. `mob` now also takes a "Mac"
+  with a touch screen and a device whose pointer is coarse and cannot hover.
+- **A widget set off by a script is not the page acting.** v2's button
+  groups announce their change themselves. When a foreign `click()` set one
+  off, that own event must not re-base the item (the answer was given
+  without a touch). Chrome and Firefox show the foreign caller on the stack
+  (`callerKind` "mixed"); WebKit shows no frame for code without a file, so
+  the recorder also remembers that a foreign event is being handled.
 - Record format `v: 2` (v1 = the prototype). Data minimisation unchanged.
 
 ## Admin-only documentation
@@ -136,16 +150,27 @@ is not fingerprinting, and how it relates to `bot_check`.
   downloads, the header link, and the public documentation's one line.
 - The fixtures are made by `setup/create-v2-fixtures.js`.
 
+- `tests/e2e/data-quality-devices.spec.js` on BrowserStack
+  (`npm run test:bs:dq`, `browserstack.data-quality.yml`): an iPhone and an
+  Android phone, an iPad and an Android tablet, Firefox on Windows and WebKit
+  on macOS. It holds what a device run can show — the record is stored, the
+  real engine is recognised and nothing says the browser lies, a phone or
+  tablet is known as one, script-made input is told from formr's own in each
+  engine's stack format, nothing of the probe shows and the page fits the
+  screen.
+
 ## Not done
 
-- No test on a phone or tablet, and none in Firefox or Safari (the e2e lane
-  is Chromium): the recorder's mobile exemptions are the prototype's, as is.
+- How a person's typing and tapping look on a phone or tablet. Under
+  automation the on-screen keyboard does not come up and taps come through
+  the bridge, so the device run cannot tell; the typing checks that need a
+  physical keyboard are off on phones and tablets, the rest is untested with
+  real hands there.
+- Apple's Safari on a desktop: Playwright cannot drive it. The device run
+  uses WebKit on macOS, and real Safari on the iPhone and iPad.
 - The R helpers are a file (`documentation/data_quality/dq_agent.R`), not yet
   part of the formr R package.
-- `server` items still take only their fixed list of request headers, so the
-  signed-agent headers (`Signature-Agent`, as ChatGPT agent sends) and the
-  client-hint headers cannot be stored yet.
-- In v2 a `browser` item is stored when the form is first rendered, whichever
-  page it is on (`FormRenderer` stores all automatic items then). The admin
-  page tells authors to keep the consent in a survey of its own, or to leave
-  the row out.
+- In v2 a `browser` or `server` item is stored when the form is first
+  rendered, whichever page it is on (`FormRenderer` stores all automatic items
+  then). The admin page tells authors to keep the consent in a survey of its
+  own, or to leave the rows out.
