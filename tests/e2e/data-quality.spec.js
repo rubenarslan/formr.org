@@ -18,6 +18,7 @@ const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const { human, plain } = require('./helpers/human');
 const { IDB_GET_ALL } = require('./helpers/idbQueue');
+const { token, resultsTable, rowOf, record, adler32, behaviourFlags } = require('./helpers/dataQuality');
 const v2 = require('./helpers/v2Form');
 const db = require('./helpers/db');
 
@@ -51,13 +52,6 @@ const ENGINES = {
     },
 };
 
-const token = () => 'tok' + Math.random().toString(36).replace(/[^a-z]/g, '').slice(0, 8);
-const resultsTable = (engine) => db.studyByName(RUNS.dq[engine].study).results_table;
-// The participant's row, found by the token typed into the open question.
-const rowOf = (engine, tok) => db.dbQuery(
-    `SELECT * FROM \`${resultsTable(engine)}\` WHERE weekend_text LIKE ${db.sqlStr('%' + tok + '%')} ORDER BY session_id DESC LIMIT 1`,
-)[0] || null;
-const record = (json) => (json ? JSON.parse(json) : null);
 
 async function open(page, engine, baseURL) {
     await freshParticipant(page, runName('dq', engine), { baseURL });
@@ -93,46 +87,6 @@ async function walk(page, engine, input, tok, { probe = null } = {}) {
     await input.click(scope.locator('.item-mc_button .btn[data-for]').nth(1));
     await input.typeInto(scope.locator('.item-number input:visible').first(), '6');
     await E.next(page, input, { last: true });
-}
-
-// dq_flags() from documentation/data_quality/dq_agent.R, behaviour part: the
-// indicators summed over the pages' records, with the same thresholds.
-function behaviourFlags(records) {
-    const s = (k) => records.reduce((a, r) => a + (Number(r[k]) || 0), 0);
-    const pd = s('pd'), ins = s('ins_nokey_ch'), tch = s('txt_ch'), kn = s('kn'), keys = s('keys'), mv = s('mv'), scr = s('scr');
-    const kcv = Math.min(...records.map((r) => r.kcv).filter((x) => x >= 0), Infinity);
-    const checks = {
-        untr: s('untr') > 0,
-        prog: s('prog') > 0,
-        fld_nokey: s('fld_nokey') > 0,
-        ins_nokey: ins >= 20 && ins > 0.5 * tch,
-        keys_share: tch >= 20 && keys < 0.5 * tch,
-        kfast: kn >= 10 && s('kfast') > 0.3 * kn,
-        kdwf: kn >= 10 && s('kdwf') > 0.5 * keys,
-        kcv: kcv < 0.15,
-        klp: s('klp') >= 8 && s('kwc') > 0 && s('klp_ws') / s('klp') < 1.3 * s('kws') / s('kwc'),
-        kcap: s('kcap_ns') + s('kcap_nosk') > 0,
-        ins_na: s('ins_na') > 0,
-        kcode0: s('kcode0') >= 3,
-        pd_ctr: pd >= 3 && s('pd_ctr') > 0.5 * pd,
-        pd_fewmv: pd >= 3 && s('pd_fewmv') > 0.8 * pd,
-        pd_scr: pd >= 1 && s('pd_scr') === pd,
-        pd_newview: pd >= 2 && s('pd_newview') > 0.3 * pd,
-        mv_mz: mv >= 10 && s('mv_mz') > 0.5 * mv,
-        mv_jump: mv > 0 && s('mv_jump') > 0.3 * mv,
-        scr_nogest: scr >= 3 && s('scr_nogest') > 0.8 * scr,
-        foc_nogest: s('foc_nogest') > 1,
-        foc_prog: s('foc_prog') > 0,
-        clk_nopt: s('clk_nopt') > 0,
-        act: s('act_hid') + s('act_unf') > 0,
-    };
-    return Object.keys(checks).filter((k) => checks[k]);
-}
-// The checksum the record holds of navigator.userAgent (adler32 in data-quality.js).
-function adler32(text) {
-    let a = 1, b = 0;
-    for (let i = 0; i < text.length; i++) { a = (a + text.charCodeAt(i)) % 65521; b = (b + a) % 65521; }
-    return (b * 65536 + a).toString(16);
 }
 
 for (const engine of ['v1', 'v2']) {
@@ -431,6 +385,53 @@ for (const engine of ['v1', 'v2']) {
     });
 }
 
+// What the server stores about the request (`server` items of the example
+// survey): two client hints, and the header with which an AI agent that
+// identifies itself signs its requests.
+test.describe('data quality: what the request itself says', () => {
+    const WINDOWS_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36';
+
+    async function rowAs(browser, baseURL, engine, prepare) {
+        const context = await browser.newContext({ ignoreHTTPSErrors: true });
+        const page = await context.newPage();
+        try {
+            await prepare(context, page);
+            const tok = token();
+            await open(page, engine, baseURL);
+            await consent(page, engine, plain());
+            await answerPage2(page, engine, plain(), tok);
+            await ENGINES[engine].next(page, plain());
+            return rowOf(engine, tok);
+        } finally {
+            await context.close();
+        }
+    }
+
+    for (const engine of ['v1', 'v2']) {
+        test(`${engine}: an agent's Signature-Agent header is stored; a browser's client hints are`, async ({ browser, baseURL }) => {
+            const signed = await rowAs(browser, baseURL, engine, (context) => context.setExtraHTTPHeaders({ 'Signature-Agent': '"https://chatgpt.com"' }));
+            expect(signed.dq_sig_agent).toBe('"https://chatgpt.com"');
+
+            const unsigned = await rowAs(browser, baseURL, engine, async () => {});
+            expect(unsigned.dq_sig_agent || '').toBe('');
+            // This lane's Chromium, on this host.
+            expect(unsigned.dq_ch_platform).toBe('"Linux"');
+            expect(unsigned.dq_ch_mobile).toBe('?0');
+            expect(unsigned.dq_srv_ua).toMatch(/Linux/);
+        });
+    }
+
+    test('a User-Agent rewritten on the way shows against the page and against the client hints', async ({ browser, baseURL }) => {
+        // What a proxy or a header-rewriting extension does: the header changes, the browser does not.
+        const row = await rowAs(browser, baseURL, 'v1', (context) => context.route('**/*', (route) => {
+            route.continue({ headers: { ...route.request().headers(), 'user-agent': WINDOWS_UA } });
+        }));
+        expect(row.dq_srv_ua).toBe(WINDOWS_UA);
+        expect(row.dq_ch_platform).toBe('"Linux"');
+        expect(record(row.dq_p1).uah, 'the page read another User-Agent than the server got').not.toBe(adler32(WINDOWS_UA));
+    });
+});
+
 // The device checks, where a test can make a browser lie: its User-Agent.
 // (This lane's Chromium is itself an automated browser, so the flags for
 // that are in every record above.)
@@ -474,4 +475,32 @@ test.describe('data quality: a browser that is not what it says', () => {
         expect(rec.eng_mm).toBe(1);
         expect(rec.fam).toBe('firefox');
     });
+});
+
+// A phone's screen. v2's textarea had the classic engine's fixed 500px and
+// pushed the whole page sideways; the hidden field must not do that either.
+test.describe('data quality: on a narrow screen', () => {
+    test.use({ viewport: { width: 375, height: 800 } });
+
+    for (const engine of ['v1', 'v2']) {
+        test(`${engine}: the page fits, with the open question and the hidden field on it`, async ({ page, baseURL }) => {
+            await open(page, engine, baseURL);
+            await consent(page, engine, plain());
+            const fit = await page.evaluate((scope) => {
+                const root = document.querySelector(scope);
+                const box = (el) => el.getBoundingClientRect();
+                return {
+                    sideways: document.documentElement.scrollWidth - window.innerWidth,
+                    textareaRight: Math.round(box(root.querySelector('textarea[name=weekend_text]')).right),
+                    textareaWidth: Math.round(box(root.querySelector('textarea[name=weekend_text]')).width),
+                    probe: [box(root.querySelector('.item-agent_probe')).width, box(root.querySelector('.item-agent_probe')).height],
+                    screen: window.innerWidth,
+                };
+            }, ENGINES[engine].scope);
+            expect(fit.sideways, JSON.stringify(fit)).toBeLessThanOrEqual(0);
+            expect(fit.textareaRight).toBeLessThanOrEqual(fit.screen);
+            expect(fit.textareaWidth, 'still a field to write in').toBeGreaterThan(200);
+            expect(fit.probe).toEqual([1, 1]);
+        });
+    }
 });
