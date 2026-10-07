@@ -51,6 +51,16 @@ them alone. v2's progress is by page and by solo step, so they are not in it;
 v1's item-count bar counts them the way it counts notes and `hidden` items.
 Neither takes a `value` (refused at upload).
 
+Nothing a participant cannot see may block a page, and `Item::$unseen` is
+where that is kept: the constructor makes such an item optional whatever the
+sheet says, `rejectNonScalarReply()` refuses nothing for it (each item's
+`getReply()` cleans what is stored) and `alwaysInvalid()` leaves it alone.
+On the classic engine an unseen item takes none of a page's places under
+*Items Per Page* and is never what a page is cut at
+(`SpreadsheetRenderer::withinItemsPerPage`): it stays with the last items
+shown, so a page shown as several screens still takes its record, on the
+last of them.
+
 The randomised-response question is a documented `mc_button` row, not a type.
 The `browser` item is documented as the source of the User-Agent header, and
 `server` items (`Server_Item::VARIABLES`) as the source of two client hints and
@@ -73,11 +83,16 @@ One module, `createRecorder()`, used by both engines. It keeps the prototype's
 checks and thresholds; what changes is what bundling and v2 force:
 
 - **Inert without the item.** Importing does nothing. Each adapter looks for
-  `input[data-fmr-dq]` and creates a recorder only when it finds one; the
-  recorder is what adds listeners, wraps `HTMLElement.prototype.focus`, starts
-  the MutationObserver and the DRM probe. In v2 that happens when a page with
-  the item is first shown, so a consent page earlier in the same form records
-  nothing; on a page without the item the handlers return at once.
+  `input[data-fmr-dq]` and creates a recorder only when it finds one in use;
+  the recorder is what adds listeners, wraps `HTMLElement.prototype.focus` and
+  `Element.prototype.scrollIntoView`, lets error stacks run to 50 frames,
+  starts the MutationObserver and the DRM probe. In v2 that happens when a
+  page with the item is first shown, so a consent page earlier in the same
+  form records nothing; on a page without the item the handlers return at
+  once. A row with a showif is in use only while the showif shows it
+  (`liveFields`: hidden, its input is disabled, as for any withdrawn item):
+  v2 asks again when a showif of the page on screen toggles, v1 after
+  `Survey.update()` has run the page's showifs.
 - **One record per page.** v1: per page load, written into the input every
   second and on submit, as in the prototype. v2: counters are kept per page
   (`<section data-fmr-page>`); `showPage` tells the recorder which page is on
@@ -86,7 +101,10 @@ checks and thresholds; what changes is what bundling and v2 force:
   `.value =` — no event, no timer, so it never triggers an autosave. A page
   shown again (Previous) keeps counting into the same record; after a reload
   the stored record, rendered into the input, is the base the new counts are
-  added to (`mergeRecords`).
+  added to (`mergeRecords`). The record is stored with the participant's
+  answers, not instead of them: an autosave of which nothing but the record
+  was accepted is a `noop` (`FormSubmissionService::holdsAnAnswer`), so the
+  page does not say "Saved" for an answer that was refused.
 - **Whose code called?** `foc_prog` counted `focus()` calls with no frame from
   `location.origin`, and left out the script's own frame by its URL. In a
   bundle, the wrapper and formr's own callers share one file, and the bundle
@@ -121,7 +139,38 @@ checks and thresholds; what changes is what bundling and v2 force:
   off, that own event must not re-base the item (the answer was given
   without a touch). Chrome and Firefox show the foreign caller on the stack
   (`callerKind` "mixed"); WebKit shows no frame for code without a file, so
-  the recorder also remembers that a foreign event is being handled.
+  the recorder also remembers that a foreign event is being handled. With no
+  such event, a "mixed" call that code other than the page's began
+  (`startedByOwn`: the stack's last frame) is that code acting through the
+  page's own, as with the classic engine's global jQuery (`$(el).click()`),
+  and counts as its act (`actor`). The `input` and `change` a browser fires
+  for a script's `click()` on a radio button or checkbox are trusted; while
+  that script's event is being handled they do not touch the item.
+- **The survey's own markup is not a tool.** Ids and classes inside the form,
+  and the classic engine's `study-name-…` block around it, hold names an
+  author chose: the study's, a choice's key in an input's id, an item's
+  classes, a label's HTML. The scan for tool names (`ext`) reads tags and
+  attribute names everywhere, ids and classes only outside that markup
+  (`OWN_MARKUP`, `elementNames`).
+- **Clicks the browser makes itself.** A click on a label is passed on to its
+  control as a second click; Enter, Space and the arrow keys (in a group of
+  radio buttons) click what has the focus. All are trusted clicks without a
+  pointer, and `clk_nopt` counts none of them.
+- **Text written on the visit.** `txt_ch` and `fld_nokey` go by the characters
+  that are new against what a field held when the page was shown
+  (`newChars`): a stored answer that comes back with its page, or a default,
+  was not written now. Only fields a person types into count
+  (`isTypedField`): not a geopoint's read-only field, the input behind a
+  `select_or_add` list or the clickable map's. `txt_ch` adds up over visits,
+  as `keys` does.
+- **Where a word starts** (`startsWord`): after a space or punctuation, on a
+  new line, and with the first key in another field. A long pause there is
+  where people pause.
+- **The page's own scroll to an item** (`scrollIntoView`, to what a server
+  reply found wrong) is not the participant scrolling without a gesture; the
+  wrapper tells whose call it is the way the `focus()` wrapper does.
+- **Brave** keeps Widevine off until a page asks, and then offers to install
+  it: the DRM question is not put there (`drm: "na"`).
 - Record format `v: 2` (v1 = the prototype). Data minimisation unchanged.
 
 ## Admin-only documentation

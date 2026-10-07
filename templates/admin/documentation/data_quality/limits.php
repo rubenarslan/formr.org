@@ -3,10 +3,13 @@
 <ul>
     <li><strong>Not stored:</strong> IP address, keystrokes, mouse paths, clipboard contents, a device fingerprint.</li>
     <li><strong>Most identifying item:</strong> the browser identification stored by the <code>browser</code> row.
-        Leave that row out if you do not need the comparison it allows.</li>
+        Leave that row out if you do not need the comparison it allows. Each record still keeps a checksum of that
+        identification (<code>uah</code>): not the text itself, but the same for everyone with the same browser
+        version on the same system.</li>
     <li><strong>Why this is not fingerprinting:</strong> the device checks use similar techniques, but each stores
-        only a yes/no answer that already follows from the browser's own identification. Nothing is combined into an
-        identifier or used to recognise a device later. Deliberately left out: canvas, audio or graphics-card hashes,
+        only a yes/no answer, a count or a name from a short fixed list (the browser family, for example), and apart
+        from the checksum above nothing that the browser's own identification does not already say. Nothing is
+        combined into an identifier or used to recognise a device later. Deliberately left out: canvas, audio or graphics-card hashes,
         font lists, exact versions. The DRM check only asks whether a system exists; it requests no licence and reads
         no device identifier.</li>
     <li><strong>Accessibility:</strong> one combined yes/no for settings such as high contrast, used only to avoid
@@ -33,12 +36,18 @@
 <p>
     <strong>Phones and tablets: read their flags with extra care.</strong> formr recognises a phone or tablet, also an
     iPad or an Android tablet that asks for the desktop version of a page and so claims to be a computer. On these,
-    the checks that need a physical keyboard, a mouse or a window are switched off (key-hold time, Shift, umlauts, DRM
-    and window size). We ran the items on real devices (an iPhone, an iPad, an Android phone and an Android tablet)
+    the checks that need a physical keyboard, a mouse or a window are switched off (key-hold time, Shift, umlauts, DRM,
+    window size, and a window's side panels and information bars). We ran the items on real devices (an iPhone, an iPad, an Android phone and an Android tablet)
     and in Firefox and in Safari's engine on a desktop: the record is written and stored, the real browser is
     recognised, and nothing wrongly says that the browser lies about itself. What these runs could not show is how a
     person's typing and tapping look there, because test devices are driven by a program and their on-screen keyboard
     stays down. Phone keyboards with word suggestions or swipe typing may still trigger typing flags.
+</p>
+<p>
+    <strong>Full screen and kiosk mode.</strong> One sign of an emulated browser is that a click has the same position
+    on the screen as on the page (<code>pd_scr</code>, "mouse presses with screen == client coordinates"). That is
+    also so whenever the page fills the whole screen: in full-screen mode (F11) and in the kiosk mode some labs use.
+    We have not run a lab that way ourselves; expect this one flag for everyone there, and leave it out of your count.
 </p>
 <p>
     <strong>No IP or network checks.</strong> Bot-protection services such as Cloudflare Turnstile also check the

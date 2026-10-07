@@ -315,7 +315,7 @@ These items don't require the user to do anything, so including them simply mean
         server var
     </dt>
     <dd>
-        saves the <a href="https://us1.php.net/manual/en/reserved.variables.server.php">$_SERVER</a> value with the index given by var. Can be used to store one of 'HTTP_USER_AGENT', 'HTTP_ACCEPT', 'HTTP_ACCEPT_CHARSET', 'HTTP_ACCEPT_ENCODING', 'HTTP_ACCEPT_LANGUAGE', 'HTTP_CONNECTION', 'HTTP_HOST', 'QUERY_STRING', 'REQUEST_TIME', 'REQUEST_TIME_FLOAT', 'HTTP_SEC_CH_UA', 'HTTP_SEC_CH_UA_MOBILE', 'HTTP_SEC_CH_UA_PLATFORM', 'HTTP_SIGNATURE_AGENT', 'HTTP_SIGNATURE_INPUT', 'HTTP_SIGNATURE'. In English: the browser, some stuff about browser language information, some server stuff, access time, what Chrome-like browsers say about themselves beside the user-agent string (their name and version, mobile or not, their operating system), and the signature with which an AI agent that identifies itself signs its requests.
+        saves the <a href="https://us1.php.net/manual/en/reserved.variables.server.php">$_SERVER</a> value with the index given by var. Can be used to store one of '<?= implode("', '", array_map('h', Server_Item::VARIABLES)) ?>'. In English: the browser, some stuff about browser language information, some server stuff, access time, what Chrome-like browsers say about themselves beside the user-agent string (their name and version, mobile or not, their operating system), and the signature with which an AI agent that identifies itself signs its requests.
     </dd>
     <dt>
         browser

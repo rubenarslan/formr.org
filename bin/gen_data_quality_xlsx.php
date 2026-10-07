@@ -4,10 +4,16 @@
  * Regenerates the committed example survey for the data_quality and
  * agent_probe items: documentation/example_surveys/data_quality.xlsx.
  *
- * Three pages, no R and no showif, so the same sheet runs on both engines:
+ * Three pages, no R and no showif, so the same sheet runs on both engines
+ * (the e2e fixtures e2e-dq-v1 and e2e-dq-v2 are made from it). As a study's
+ * survey it suits the classic engine only: form_v2 stores the `browser` and
+ * `server` rows of page 2 when the form is first rendered, that is, with the
+ * consent page on screen. A v2 study keeps its consent in a survey of its
+ * own, as the example run does (bin/gen_data_quality_run.php); the admin
+ * page says so beside the download.
  *
  *   1  consent     a note with the consent paragraph and an "I agree" button.
- *                  No data_quality item: nothing is recorded on this page.
+ *                  No data_quality item: the recorder stays off on this page.
  *   2  questions   three ratings and an open text question, the `browser`
  *                  item (User-Agent header) and three `server` items (two
  *                  client hints and the Signature-Agent header), an
@@ -47,7 +53,7 @@ $row = function ($type, $name, $label = '', $optional = '', array $choices = [])
 };
 
 $rows = [
-    // Page 1: consent. Nothing is recorded here.
+    // Page 1: consent. No data_quality row: the recorder stays off here.
     $row('note', 'consent_text', "## Before you start\n\nThis short example study asks about your last weekend.\n\n" . $texts['consent']),
     $row('mc_button', 'consent', 'Do you agree to take part?', '', ['Yes, I agree']),
     $row('submit', 'to_questions', 'Continue'),

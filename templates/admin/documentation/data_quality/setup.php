@@ -3,6 +3,10 @@
     Everything is done in your survey spreadsheet; there is nothing to paste into the run's settings. Both item
     types work in classic (v1) surveys and in v2 surveys. An example survey with all the rows is here:
     <a href="<?= admin_url('documentation/data-quality-example') ?>"><i class="fa fa-download"></i> data_quality.xlsx</a>.
+    Its consent page and its <code>browser</code> and <code>server</code> rows are in one survey, which suits a
+    classic (v1) survey only: uploaded as a v2 survey, those rows would be stored as soon as the survey is opened,
+    before anyone has agreed (see the last point of the list below). For v2, use the example study that follows, or
+    delete the consent page or these rows from the sheet.
 </p>
 <p>
     There is also a whole example study to try out: a consent page, two pages of questions with all the rows below,
@@ -71,6 +75,11 @@
         They take no <code>value</code>.</li>
     <li>If every question on a page is hidden by its <code>showif</code>, formr skips the page as it always did:
         these two rows alone never make a page appear.</li>
+    <li>A <code>data_quality</code> row with a <code>showif</code> of its own records only while the
+        <code>showif</code> shows it.</li>
+    <li>If a classic (v1) survey limits the <em>Items Per Page</em> in its settings, a page with more questions than
+        that is shown as several screens, and the two rows go with the last of them: only that screen is recorded.
+        Keep the limit at 0, or pages no longer than it.</li>
     <li>Add the rows before data collection starts, so that every participant has a record.</li>
     <li>Make sure there is at least one open text question that asks for two or three sentences.</li>
     <li>In a v2 survey, the <code>browser</code> and <code>server</code> rows are stored as soon as the survey is

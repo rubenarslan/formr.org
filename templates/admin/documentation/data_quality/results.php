@@ -39,6 +39,13 @@ dq_rrt(results$rrt_ai == 1)                  # the twin question: share of AI ag
             <td>An AI agent that says who it is (ChatGPT agent does) made the request.</td><td>Strong</td></tr>
         <tr><td>"Claims Google Chrome but has no Widevine" or "real engine differs from the one claimed"</td>
             <td>An automated or disguised browser.</td><td>Medium alone, strong together with behaviour flags</td></tr>
+        <tr><td>"User-Agent header differs" or client hints that name another system</td>
+            <td>The identification was changed on the way to the server. Or the survey was opened on one device and
+                filled in on another: the <code>browser</code> and <code>server</code> rows are stored once, when
+                their page is first reached (in a v2 survey, when the survey is first opened), and are empty when the
+                survey was first reached without the participant's browser, for example after a pause that ended on
+                its own.</td>
+            <td>Medium; look at whether the session changed device</td></tr>
         <tr><td>Yes on the twin question</td>
             <td>An agent, someone who used AI help, or one of the 0.8% of people with an identical twin.</td>
             <td>Only as a share across the whole sample</td></tr>

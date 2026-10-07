@@ -486,10 +486,15 @@ details out of the public documentation, which has one line pointing there.
   `form/js/items/data-quality.js`; `main.js` calls `enter(page)` in
   `showPage` and `write(page)` in `collectPayload`, one record per page.
 - **Inert without the item.** Importing the module does nothing, and no
-  recorder is created (no listeners, no `focus()` wrapper, no
-  MutationObserver, no DRM probe) unless a page holds
-  `input[data-fmr-dq]` — in v2 not before a page with it is shown, so a
-  consent page records nothing. `tests/e2e/data-quality.spec.js` holds this.
+  recorder is created (no listeners, no wrappers around `focus()` and
+  `scrollIntoView()`, no longer error stacks — `Error.stackTraceLimit` 50 —
+  no MutationObserver, no DRM probe) unless a page holds an
+  `input[data-fmr-dq]` that is in use — in v2 not before a page with it is
+  shown, so a consent page records nothing. A row its showif has switched
+  off is not in use (`liveFields`: the input is disabled); recording starts
+  and stops with it (v2: `fmr:showif-toggled`, v1: `Survey.update()`).
+  `tests/e2e/data-quality.spec.js` and `data-quality-people.spec.js` hold
+  this.
 - **Never write the record on a timer in v2, never with an event.** The
   input is set with a plain `.value =` when the page's payload is collected.
   An event would be taken for a change (autosave, `item_answered`).
@@ -498,10 +503,26 @@ details out of the public documentation, which has one line pointing there.
   the bundle itself. v2's widgets dispatch `change`/`input` themselves; those
   are not counted, an agent's are. Keep `new Error().stack` written directly
   in the wrapper or listener: moved into a helper, the first frame is the
-  helper and every call looks like the page's own.
-- **Do not read browser features straight from `window` in that module.**
-  The bundle is built with `useBuiltIns: 'usage'`: a property written out
-  (`[].findLast`) pulls in a polyfill and then answers yes in every browser.
+  helper and every call looks like the page's own. The listeners ask
+  `actor()`, not `callerKind` directly: page code with a foreign caller
+  (`mixed`) is the page reacting only while that caller's event is being
+  handled; otherwise, when the call did not begin in page code
+  (`startedByOwn`), it is a script acting through the page's own code
+  (v1's global jQuery, `$(el).click()`) and counts as foreign.
+- **What a person does with ordinary items is not a flag.** Not counted:
+  the click a browser passes on from a label, or makes for an arrow key in a
+  radio group (`clk_nopt`); ids and classes inside the survey's own markup
+  when looking for tool names (`OWN_MARKUP`: a study or a choice may be
+  called `chatgpt`); text a field held when the page was shown, and fields
+  a widget fills (`newChars`, `isTypedField`: `txt_ch`, `fld_nokey`); the
+  page's own scroll to an item (`scr_nogest`). `data-quality-people.spec.js`
+  (runs `e2e-dqitems-*`, `e2e-dqshowif-*`) holds these; a new check needs
+  its own "a person does this too" case there.
+- **Do not ask that module whether a JavaScript built-in exists by writing
+  it out.** The bundle is built with `useBuiltIns: 'usage'`: a built-in that
+  core-js knows (`[].findLast`) pulls in a polyfill when written out, and
+  then answers yes in every browser. (`navigator`, `screen` and the like are
+  not polyfilled and are read directly.)
   `nativeFeatureRange()` reads them, by name, from a fresh iframe.
 - **Unseen items** (`Item::isUnseen()`, wrapper `data-fmr-unseen`): on the
   page, never shown. They do not make a page appear (v1 renderers,
@@ -510,14 +531,26 @@ details out of the public documentation, which has one line pointing there.
   monkey. A new place that walks a page's items needs the same exception
   (`isUnseenItem` in `form/js/lib/inputs.js`).
 - **Neither item may ever set `$item->error`**: a page must not be blocked by
-  something the participant cannot see. Both override
-  `rejectNonScalarReply()`, and `getReply()` cleans what is stored.
+  something the participant cannot see. `Item::$unseen` sees to it: always
+  optional, no reply refused (`rejectNonScalarReply`), never
+  `alwaysInvalid()`; each item's `getReply()` cleans what is stored.
+- **Unseen items take no place on a classic page.** Under "Items Per Page"
+  they are not counted and not what a page is cut at
+  (`SpreadsheetRenderer::withinItemsPerPage`), and when an upload changes a
+  showif, what a skipped page was left with comes back with its questions
+  (`SurveyStudy::pageLeftovers`).
+- **The record alone is no autosave.** It goes out with every v2 autosave of
+  its page; `/form-save` stores it only beside an answer of the
+  participant's (`FormSubmissionService::holdsAnAnswer`), so "Saved" still
+  means that an answer was saved.
 - The record's format has a version (`RECORD_VERSION`, field `v`). Bump it
   when a field is added, dropped or changes meaning, and update the codebook
   (`templates/admin/documentation/data_quality/codebook.php`) and the
   functions that read it, which are in the formr R package (`dq_parse`,
   `dq_flags`, `dq_flags_by_session`, `dq_rrt` in its `R/data_quality.R`,
-  from 1.3.0) — formr.org holds no copy of them.
+  from 1.3.0) — formr.org holds no copy of them, bar the specs' own
+  `behaviourFlags` (`tests/e2e/helpers/dataQuality.js`), which repeats the
+  package's input rules to assert on records and has to follow them.
 - **The example run's last page analyses the participant's own records**
   (`dq_flags_by_session()` on `tail(<study>, 1)`), so OpenCPU needs formr
   1.3.0 or later; `tests/e2e/data-quality-example.spec.js` walks both
@@ -527,7 +560,10 @@ details out of the public documentation, which has one line pointing there.
   example only: a real study never shows participants what was flagged.
 - The consent paragraph and the plausible-deniability question live in
   `documentation/data_quality/texts.php` (shown on the admin page, written
-  into the example survey by `bin/gen_data_quality_xlsx.php`).
+  into the example survey by `bin/gen_data_quality_xlsx.php` and the example
+  run by `bin/gen_data_quality_run.php`). The consent paragraph has to name
+  every kind of reading the recorder makes: a new check may need a word
+  there.
 - **`callerKind` has four answers.** `own` (only the page's code on the
   stack), `mixed` (a widget's handler set off by a foreign script's click:
   not counted again as script-made, but no "page default" either), `foreign`,
@@ -565,12 +601,16 @@ inserting rows by hand.
   survey"; walked end to end by `v2-finish.spec.js` as run `e2e-awv2`),
   `pwa_items_default.xlsx` /
   `pwa_items_solo.xlsx` (the four PWA prompt items; see
-  `bin/gen_pwa_items_xlsx.php`). Both engines: `data_quality.xlsx` (a
+  `bin/gen_pwa_items_xlsx.php`). `data_quality.xlsx` (a
   consent page, then two pages with an `agent_probe` and a `data_quality`
-  item each, the `browser` item and the plausible-deniability question; see
-  `bin/gen_data_quality_xlsx.php`; e2e runs `e2e-dq-v1` / `e2e-dq-v2`).
+  item each, the `browser` and `server` items and the plausible-deniability
+  question; see `bin/gen_data_quality_xlsx.php`). It runs on both engines
+  (e2e runs `e2e-dq-v1` / `e2e-dq-v2`), but as a study's survey it is for
+  the classic engine: v2 stores the `browser` and `server` rows when the
+  form is first rendered, with the consent page on screen — a v2 study
+  keeps its consent in a survey of its own, as `Data_Quality_v2.json` does.
   After changing an example survey that an e2e run is made from (this one,
-  `all_widgets_v2.json`, the `tests/e2e/setup/` surveys),
+  `all_widgets_v2.json`, the surveys in that script's `FIXTURES`),
   `node tests/e2e/setup/create-v2-fixtures.js --refresh` gives each existing
   study its file again — a spreadsheet through "upload items", a JSON survey
   through a run import into a scratch run, since the admin takes a JSON only
