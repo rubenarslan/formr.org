@@ -4,8 +4,10 @@ One-time admin setup that produces the six core persistent test runs on the
 dev instance, plus `tests/e2e/setup/runs.json` (committed). `runs.json` lists
 more fixtures than these six: `e2e-dyn-v2`, `e2e-inputs-v2`, `e2e-awv2`, the
 data-quality runs `e2e-dq-v1` / `e2e-dq-v2` (the example survey
-`documentation/example_surveys/data_quality.xlsx` on each engine) and
-`e2e-dqskip-v1` / `e2e-dqskip-v2` (`e2e_dq_skip.csv`), and the data-quality
+`documentation/example_surveys/data_quality.xlsx` on each engine),
+`e2e-dqskip-v1` / `e2e-dqskip-v2` (`e2e_dq_skip.csv`), `e2e-dqitems-v1` /
+`e2e-dqitems-v2` (`e2e_dq_items.csv`) and `e2e-dqshowif-v1` / `e2e-dqshowif-v2`
+(`e2e_dq_showif.csv`), and the data-quality
 example runs `e2e-dq-example-v1` / `e2e-dq-example-v2` (imported whole from
 `documentation/run_components/Data_Quality.json` and `Data_Quality_v2.json`;
 their last page needs the formr R package 1.3.0 in OpenCPU) are

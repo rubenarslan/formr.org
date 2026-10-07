@@ -89,7 +89,15 @@ function human(page) {
         await type(text);
     }
 
-    return { click, typeInto, moveTo };
+    // On to the next field by keyboard, and into it after the moment it
+    // takes to read the question.
+    async function tabAndType(text) {
+        await key('Tab');
+        await sleep(rnd(650, 950));
+        await type(text);
+    }
+
+    return { click, type, typeInto, tabAndType };
 }
 
 // What an off-the-shelf agent does: Playwright's own actions.

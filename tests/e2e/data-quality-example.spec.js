@@ -17,13 +17,11 @@ const { test, expect, RUNNING_ON_BS } = require('./helpers/test');
 const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const { human, plain } = require('./helpers/human');
-const { token, record } = require('./helpers/dataQuality');
+const { SCOPE, NEXT, token, record, rowOf } = require('./helpers/dataQuality');
 const v2 = require('./helpers/v2Form');
 const db = require('./helpers/db');
 
 const RUNS = require('./setup/runs.json');
-const SCOPE = { v1: 'form.main_formr_survey', v2: 'form.fmr-form-v2 section.fmr-page:not([hidden])' };
-const NEXT = { v1: '.item-submit button', v2: '[data-fmr-next]' };
 const ANALYSIS = '.rmarkdown_iframe iframe';
 
 test.skip(RUNNING_ON_BS, 'local Chromium only: it judges input made through Playwright\'s mouse and keyboard');
@@ -76,9 +74,7 @@ async function analysis(page) {
     ).catch(() => []);
     return { text, flagged: heading ? Number(heading[1]) : null, of: heading ? Number(heading[2]) : null, rows };
 }
-const storedRow = (engine, tok) => db.dbQuery(
-    `SELECT * FROM \`${db.studyByName(RUNS.dq_example[engine].study).results_table}\` WHERE weekend_text LIKE ${db.sqlStr('%' + tok + '%')} ORDER BY session_id DESC LIMIT 1`,
-)[0] || null;
+const storedRow = (engine, tok) => rowOf(engine, tok, 'dq_example');
 
 for (const engine of ['v1', 'v2']) {
     test.describe(`data-quality example run, ${engine}`, () => {

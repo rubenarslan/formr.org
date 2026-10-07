@@ -1,0 +1,18 @@
+type,name,label,optional,class,showif,choice1,choice2,choice3
+mc,it_pick,Which of these do you use most?,,,,ChatGPT,Claude,Neither
+check,it_agree,I have read the question above,*,,,,,
+select_or_add_one,it_country,Where do you live?,*,manuscript,,United Kingdom of Great Britain,Federal Republic of Germany,Kingdom of the Netherlands
+text,it_w1,Your first name,*,,,,,
+text,it_w2,The town you live in,*,,,,,
+text,it_w3,Your job,*,,,,,
+text,it_w4,Your first language,*,,,,,
+text,it_w5,A hobby,*,,,,,
+text,it_w6,A town you would like to visit,*,,,,,
+text,it_w7,A vegetable,*,,,,,
+text,it_w8,A month,*,,,,,
+text,it_w9,An instrument,*,,,,,
+text,it_w10,A word of your own,*,,,,,
+data_quality,it_dq,,*,,,,,
+submit,it_p1,Next,,,,,,
+text,it_last,The last page,*,,,,,
+submit,it_p2,Finish,,,,,,

@@ -281,6 +281,12 @@ function initForm() {
         applyNav(p, ps);
         updatePageProgress(Number(p.dataset.fmrPage), ps);
     }));
+    // A showif can also switch the page's data_quality row on or off while
+    // the page is on screen: its recording starts and stops with the row
+    // (inert in a form without the item).
+    root.addEventListener('fmr:showif-toggled', oncePerFrame(() => {
+        if (pageShown) dataQuality.enter(pages[currentIndex]);
+    }));
 
     // Answered-timing: stamp on first value change per item. Suppressed while
     // resolveAndSubstitutePage writes server-computed deferred-fill values —

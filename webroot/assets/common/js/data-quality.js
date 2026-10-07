@@ -4,10 +4,12 @@
 // renders <input type="hidden" data-fmr-dq>). Importing the module does
 // nothing. The two adapters — initDataQuality() at the end of this file for the
 // classic engine, form/js/items/data-quality.js for form_v2 — look for that
-// input first and create a recorder only when they find one. A recorder is what
-// adds the listeners, wraps HTMLElement.prototype.focus, observes DOM changes
-// and asks which DRM key systems exist. A study without the item is untouched,
-// and so is a consent page, which never carries one.
+// input first and create a recorder only when they find one in use (liveFields:
+// a row its showif has switched off is not). A recorder is what adds the
+// listeners, wraps HTMLElement.prototype.focus and Element.prototype
+// .scrollIntoView, lets error stacks run to 50 frames, observes DOM changes and
+// asks which DRM key systems exist. A study without the item is untouched, and
+// so is a consent page, which never carries one.
 //
 // A recorder keeps one record per page: a flat object of counts, durations,
 // yes/no values and a few names from fixed lists (the codebook is on the
@@ -21,6 +23,12 @@ import { isMobileDevice } from './platform.js';
 // Bumped whenever a field is added, dropped or changes meaning.
 export const RECORD_VERSION = 2;
 export const FIELD_SELECTOR = 'input[data-fmr-dq]';
+// The data_quality inputs within `scope` that are in use. A showif that hides
+// an item disables its inputs (both engines: the item is withdrawn, and
+// nothing of it is posted); such a row records nothing either.
+export function liveFields(scope) {
+    return Array.prototype.filter.call(scope.querySelectorAll(FIELD_SELECTOR), (field) => !field.disabled);
+}
 
 // Tool names looked for in page globals and in elements/attributes injected into the page.
 const TOOL_RX = /playwright|puppeteer|selenium|webdriver|cdc_|\$wdc_|phantom|nightmare|cypress|claude|anthropic|browser-?use|stagehand|skyvern|nanobrowser|multion|harpa|comet|perplexity|chatgpt|openai|manus/i;
@@ -29,6 +37,11 @@ const AI_BROWSER_RX = /comet|atlas|chatgpt|openai|perplexity|genspark|fellou|\bd
 // solver's status box) and AI writing-assistant extensions.
 const AGENT_MARK_RX = /^unique_id$|__pw-cursor|__v3_cursor|prolific-ai-status/i;
 const AI_EXT_RX = /(?:^|[\s_#.:-])(merlin|sider|maxai|monica|quillbot|jetwriter|magical|c4g)(?=$|[\s_.:-])/i;
+// formr's own survey markup: the form and, on the classic engine, the block
+// around it, which carries the study's name as a class. Ids and classes in
+// there hold names an author chose (the study's, a choice's key in an input's
+// id, an item's classes, a label's HTML): a study about ChatGPT is not a tool.
+export const OWN_MARKUP = 'form.main_formr_survey, form.fmr-form-v2, [class*="study-name-"]';
 const EXT_IDS = { camppjleccjaphfdbohjdohecfnoikec: 'merlin' };
 const KNOWN_GLOBALS = ['__playwright__binding__', '__pwInitScripts', '__playwright_evaluation_script__',
     '__puppeteer_evaluation_script__', 'callPhantom', '_phantom', '__nightmare', 'domAutomation',
@@ -42,6 +55,21 @@ const KNOWN_GLOBALS = ['__playwright__binding__', '__pwInitScripts', '__playwrig
 const VERSION_FEATURES = [[97, 'Array.prototype.findLast'], [98, 'structuredClone'], [110, 'Array.prototype.toSorted'],
     [117, 'Object.groupBy'], [119, 'Promise.withResolvers'], [121, 'Array.fromAsync'], [122, 'Set.prototype.union'],
     [128, 'Promise.try'], [129, 'Intl.DurationFormat'], [135, 'Float16Array'], [136, 'RegExp.escape']];
+
+// The tool names (lower case) that a tag, an id, a class or an attribute's name holds.
+export function toolNames(str) {
+    const m = str.match(TOOL_RX) || str.match(AGENT_MARK_RX), x = str.match(AI_EXT_RX), names = [];
+    if (m) names.push(m[0].toLowerCase());
+    if (x) names.push(x[1].toLowerCase());
+    return names;
+}
+// What of an element is read for tool names: its tag wherever it is, its id
+// and classes only outside the survey's own markup (OWN_MARKUP). The names of
+// its attributes are read everywhere (checkEl): a tool that marks the survey's
+// inputs does it with an attribute.
+export function elementNames(el) {
+    return el.closest && el.closest(OWN_MARKUP) ? el.tagName : el.tagName + ' ' + (el.id || '') + ' ' + (el.getAttribute('class') || '');
+}
 
 // A record with nothing counted, in the order its fields are stored.
 export function blankRecord() {
@@ -86,7 +114,7 @@ const FLAGS = ['wd', 'wdt', 'hl', 'nochr', 'plg0', 'lang0', 'ow0', 'scrvp', 'swg
 // Lists of names: joined.
 const LISTS = ['glob', 'ext', 'uac'];
 // Read as they are now, or handled below.
-const AS_NOW = ['v', 'fx0', 'txt_ch', 't1', 'kcv', 'kwb', 'mv_coal'];
+const AS_NOW = ['v', 'fx0', 't1', 'kcv', 'kwb', 'mv_coal'];
 
 // What a page's record is once `live` (this document's visit) is added to
 // `base` (the record stored for the page before: a reload, a page shown again
@@ -138,16 +166,27 @@ const originOf = (url) => {
 // (an agent's click() running a widget's handler); 'foreign': scripts called,
 // and none of them is the page's.
 export function callerKind(stack, pageOrigin) {
-    const frames = String(stack || '').split('\n').filter((l) => FRAME_RX.test(l));
-    const callers = frames.slice(1);
+    const callers = callersOwn(stack, pageOrigin);
     if (!callers.length) return 'none';
-    const own = [originOf(frameUrl(frames[0])), pageOrigin].filter(Boolean);
-    const isOwn = (line) => {
+    const mine = callers.filter(Boolean).length;
+    return mine === callers.length ? 'own' : mine ? 'mixed' : 'foreign';
+}
+// Did the page's own code begin the call? A stack's last frame is where it
+// began: a handler or a timer of the page's, or code that is not the page's
+// (an agent's evaluate) and may then have gone through the page's own code to
+// act, as with the classic engine's global jQuery: $(el).click().
+export function startedByOwn(stack, pageOrigin) {
+    const callers = callersOwn(stack, pageOrigin);
+    return callers.length > 0 && callers[callers.length - 1];
+}
+// Every frame of a stack but the first (the recorder's own): is it the page's?
+function callersOwn(stack, pageOrigin) {
+    const frames = String(stack || '').split('\n').filter((l) => FRAME_RX.test(l));
+    const own = [originOf(frameUrl(frames[0] || '')), pageOrigin].filter(Boolean);
+    return frames.slice(1).map((line) => {
         const url = frameUrl(line);
         return own.some((o) => url.indexOf(o + '/') === 0);
-    };
-    const mine = callers.filter(isOwn).length;
-    return mine === callers.length ? 'own' : mine ? 'mixed' : 'foreign';
+    });
 }
 
 // --- Small maths -----------------------------------------------------------
@@ -230,8 +269,10 @@ function userAgentIncoherence(ua) {
     if (npOS && npOS !== uaOS && !(npOS === 'linux' && /android|cros|linux/.test(uaOS)) && !(npOS === 'mac' && uaOS === 'ios')) fails.push('platform');
     const uad = navigator.userAgentData, cm = ua.match(/Chrome\/(\d+)/);
     if (cm && !/Firefox\//.test(ua) && window.isSecureContext) {
-        if (!uad || !uad.brands || !uad.brands.length) fails.push('nohints');
-        else {
+        if (!uad || !uad.brands || !uad.brands.length) {
+            // (a Chrome before 90 has no client hints to give)
+            if (+cm[1] >= 90) fails.push('nohints');
+        } else {
             const chromium = uad.brands.filter((b) => b.brand === 'Chromium')[0];
             if (chromium && chromium.version !== cm[1]) fails.push('version');
             const hp = { macOS: 'mac', Windows: 'win', Linux: 'linux', Android: 'android', 'Chrome OS': 'cros', 'Chromium OS': 'cros' }[uad.platform];
@@ -302,12 +343,15 @@ function readEnvironment() {
     // device identifier). Google Chrome loads Widevine; a Chrome launched by
     // Playwright or browser-use, Chrome for Testing and CloakBrowser lack it.
     // Desktop Blink and WebKit only: Firefox shows a "this site needs DRM" bar
-    // when DRM is off, Android Chrome may prompt. A Permissions-Policy that
-    // disallows encrypted-media would make every Chrome look like one without
-    // Widevine, so then nothing is asked and nothing flagged.
+    // when DRM is off, Android Chrome may prompt. Not Brave either: Widevine
+    // is off there until asked for, and asking makes Brave offer to install
+    // it (it does not claim to be Google Chrome, so nothing is lost). A
+    // Permissions-Policy that disallows encrypted-media would make every
+    // Chrome look like one without Widevine, so then nothing is asked and
+    // nothing flagged.
     E.drm = 'na';
     E.chr_nowv = 0;
-    if (!E.mob && (E.eng === 'blink' || E.eng === 'webkit') && window.isSecureContext && navigator.requestMediaKeySystemAccess) {
+    if (!E.mob && !navigator.brave && (E.eng === 'blink' || E.eng === 'webkit') && window.isSecureContext && navigator.requestMediaKeySystemAccess) {
         let allowed = true;
         try {
             const policy = document.permissionsPolicy || document.featurePolicy;
@@ -333,6 +377,9 @@ function readEnvironment() {
             const dbg = gl.getExtension('WEBGL_debug_renderer_info');
             const rend = String(gl.getParameter(dbg ? dbg.UNMASKED_RENDERER_WEBGL : gl.RENDERER) || '');
             E.swgl = /swiftshader|llvmpipe|softpipe|software|basic render/i.test(rend) ? 1 : 0;
+            // The context was only made to ask: give its memory back now.
+            const lose = gl.getExtension('WEBGL_lose_context');
+            if (lose) lose.loseContext();
         }
     } catch (e) { /* no WebGL */ }
     E.perm = 0;
@@ -350,6 +397,29 @@ function readEnvironment() {
 
 const isTextField = (el) => !!el && (el.tagName === 'TEXTAREA'
     || (el.tagName === 'INPUT' && /^(text|search|email|number|tel|url|password)?$/i.test(el.type || '')));
+// A text field a person types the answer into: not one that a widget of the
+// page fills (a geopoint's read-only coordinates, the input behind a
+// select_or_add's list, the clickable map's).
+const isTypedField = (el) => isTextField(el) && !el.readOnly
+    && !(el.matches && el.matches('.select2add, .clickable_map input'));
+// How much of a text is new: its length less what it still shares, at its
+// start and at its end, with the text it started from. A stored answer that
+// comes back with its page, or a default, was not written on this visit.
+export function newChars(text, before) {
+    const max = Math.min(text.length, before.length);
+    let head = 0, tail = 0;
+    while (head < max && text.charCodeAt(head) === before.charCodeAt(head)) head++;
+    while (tail < max - head && text.charCodeAt(text.length - 1 - tail) === before.charCodeAt(before.length - 1 - tail)) tail++;
+    const fresh = text.slice(head, text.length - tail);
+    // What is left of a text that parts were taken from, at both ends, is not new either.
+    return text.length <= before.length && before.indexOf(fresh) >= 0 ? 0 : fresh.length;
+}
+// Does a key pressed after `prevKey`, in the field `sameField` says, start a
+// word? After a space or punctuation, on a new line, and in another field
+// than the key before: people pause there.
+export function startsWord(prevKey, sameField) {
+    return !sameField || prevKey === 'Enter' || /^[\s.,;:!?]$/.test(prevKey);
+}
 // The item an element belongs to.
 const group = (el) => (el && el.closest ? el.closest('.form-group, fieldset') || el : null);
 // The inputs that hold answers (not ours, not the bookkeeping ones).
@@ -374,6 +444,11 @@ const valueOf = (name) => {
 //                       page for automation traces.
 export function createRecorder() {
     const now = () => performance.now();
+    // callerKind and startedByOwn ask who began a call: the last frames of a
+    // stack. V8 keeps ten unless told otherwise, fewer than a widget's way
+    // from its API to the event it makes (tom-select's setValue), and the
+    // caller would be cut off.
+    try { if (typeof Error.stackTraceLimit === 'number' && Error.stackTraceLimit < 50) Error.stackTraceLimit = 50; } catch (e) { /* not settable */ }
     const env = readEnvironment();
     const tools = {}, extHits = {};
     const pages = [];
@@ -388,14 +463,23 @@ export function createRecorder() {
 
     // Document-wide timing state.
     let lastGestureT = -1e9, lastKeyT = 0, lastKeydownT = -1e9, composing = false;
-    let keyDown = {}, prevKey = '', downT = null;
+    let keyDown = {}, prevKey = '', prevKeyEl = null, downT = null;
     let shiftDownT = -1, shiftUpT = 0, deadT = -1e9, lastKeyName = '', activateT = -1e9;
     let mx = null, my = null, moveTimes = [];
     let hiddenSince = null, blurSince = null;
-    let refocusT = -1e9, ownFocusT = -1e9, lastScrollGestureT = -1e9;
+    let refocusT = -1e9, ownFocusT = -1e9, ownScrollT = -1e9, lastScrollGestureT = -1e9;
     // A script-made event that is not the page's is being handled: what the
     // page's own code does until that script is done is its reaction.
     let reacting = false;
+    // Whose act a stack says it is (callerKind). The page's own code with a
+    // caller that is not the page's ('mixed') is the page reacting while that
+    // caller's event is being handled. With no such event, and the call begun
+    // by code that is not the page's, it is that code acting through the
+    // page's own (the classic engine's global jQuery: $(el).click()): foreign.
+    const actor = (stack) => {
+        const kind = callerKind(stack, location.origin);
+        return kind === 'mixed' && !reacting && !startedByOwn(stack, location.origin) ? 'foreign' : kind;
+    };
     let lastIW = innerWidth, lastIH = innerHeight, lastOW = outerWidth, lastOH = outerHeight;
 
     function leave() {
@@ -444,17 +528,22 @@ export function createRecorder() {
             ['webdriver', 'selenium', 'driver'].forEach((a) => { if (document.documentElement.hasAttribute(a)) tools['html@' + a] = 1; });
         } catch (e) { /* unreadable */ }
     }
+    // The same few names come up for every element and on every scan: each is
+    // matched once.
+    const namesRead = new Set();
     const markName = (str) => {
-        const m = str.match(TOOL_RX) || str.match(AGENT_MARK_RX), x = str.match(AI_EXT_RX);
-        if (m) extHits[m[0].toLowerCase()] = 1;
-        if (x) extHits[x[1].toLowerCase()] = 1;
+        if (namesRead.has(str)) return;
+        namesRead.add(str);
+        toolNames(str).forEach((name) => { extHits[name] = 1; });
     };
     const seenRes = typeof WeakSet === 'function' ? new WeakSet() : null;
     function checkEl(el, top) {
         if (!el || el.nodeType !== 1) return;
         const p = counting();
-        markName(el.tagName + ' ' + (el.id || '') + ' ' + (el.getAttribute('class') || ''));
-        for (let i = 0; i < el.attributes.length; i++) markName(el.attributes[i].name);
+        markName(elementNames(el));
+        // (as strings where the browser gives them: no attribute objects to make for every element)
+        if (el.getAttributeNames) el.getAttributeNames().forEach((name) => markName(name));
+        else for (let i = 0; i < el.attributes.length; i++) markName(el.attributes[i].name);
         // resources an extension injected into the page (counted; only known AI-tool IDs are named)
         const res = el.getAttribute('src') || el.getAttribute('href') || '';
         const em = res.match(/^(?:chrome|moz|safari-web)-extension:\/\/([a-z0-9-]+)/i);
@@ -533,11 +622,24 @@ export function createRecorder() {
         HTMLElement.prototype.focus = function () {
             try {
                 // Taken here, in the wrapper itself: see callerKind.
-                const kind = callerKind(new Error().stack, location.origin);
+                const kind = actor(new Error().stack);
                 if (kind === 'own' || kind === 'mixed') ownFocusT = now();
                 else if (kind === 'foreign' && cur) cur.c.foc_prog++;
             } catch (err) { /* no stack */ }
             return origFocus.apply(this, arguments);
+        };
+    } catch (e) { /* not patchable */ }
+    // The page's own scroll to something (the item a server reply found
+    // wrong) is not the participant scrolling without a gesture.
+    try {
+        const origScrollIntoView = Element.prototype.scrollIntoView;
+        Element.prototype.scrollIntoView = function () {
+            try {
+                // Taken here, in the wrapper itself: see callerKind.
+                const kind = actor(new Error().stack);
+                if (kind === 'own' || kind === 'mixed') ownScrollT = now();
+            } catch (err) { /* no stack */ }
+            return origScrollIntoView.apply(this, arguments);
         };
     } catch (e) { /* not patchable */ }
 
@@ -564,7 +666,8 @@ export function createRecorder() {
                 if (en.isIntersecting) { if (!seenSince.has(en.target)) seenSince.set(en.target, now()); } else seenSince.delete(en.target);
             });
         });
-        Array.prototype.forEach.call(document.querySelectorAll('form button, form input, form textarea, form select, form label, form .btn'), (el) => {
+        // (not the hidden inputs: nothing of theirs can come into view or be clicked)
+        Array.prototype.forEach.call(document.querySelectorAll('form button, form input:not([type=hidden]), form textarea, form select, form label, form .btn'), (el) => {
             observed.set(el, 1); io.observe(el);
         });
     } catch (e) { seenSince = null; }
@@ -587,9 +690,9 @@ export function createRecorder() {
     // Script-made events. `stack` is taken by the listener itself (callerKind):
     // the page's own widgets make such events too, and those are not counted —
     // not even when a foreign click set the widget off, which was counted as
-    // that click. Returns who made the event.
+    // that click. Returns who made the event (actor).
     const scriptMade = (stack) => {
-        const kind = callerKind(stack, location.origin);
+        const kind = actor(stack);
         if (kind === 'foreign' || kind === 'none') {
             cur.c.untr++;
             if (!reacting) {
@@ -628,11 +731,26 @@ export function createRecorder() {
             if (typeof tt.radiusX === 'number' && tt.radiusX <= 1 && tt.radiusY <= 1) cur.c.tap_r1++;
         }
     }, { capture: true, passive: true });
+    // The control of the label a pointer last clicked, and when: the browser
+    // passes that click on to the control, as a second click of its own.
+    let labelControl = null, labelT = -1e9;
     document.addEventListener('click', (e) => {
         if (!cur) return;
         if (!e.isTrusted && /own|mixed/.test(scriptMade(new Error().stack))) return;
-        // pointerId -1: the click came from code (element.click()) or a keyboard/assistive activation, not a pointer
-        if (typeof e.pointerId === 'number' && e.pointerId === -1 && now() - activateT > 300) cur.c.clk_nopt++;
+        if (typeof e.pointerId !== 'number') return;
+        const t = now();
+        if (e.pointerId !== -1) {
+            const label = e.isTrusted && e.target && e.target.closest ? e.target.closest('label') : null;
+            labelControl = label ? label.control : null;
+            labelT = t;
+            return;
+        }
+        // pointerId -1: the click came from code (element.click()) or from an
+        // activation without a pointer. Not counted: the click a label passes
+        // on, and the browser's own click for a key (Enter, Space, and the
+        // arrow keys that move the choice in a group of radio buttons).
+        if (e.isTrusted && labelControl && e.target === labelControl && t - labelT < 100) return;
+        if (t - activateT > 300) cur.c.clk_nopt++;
     }, true);
 
     // ---------- keyboard and text ----------
@@ -648,7 +766,9 @@ export function createRecorder() {
         if (key === 'Backspace' || key === 'Delete') c.bksp++;
         if (key === 'Shift') shiftDownT = t;
         if (key === 'Dead' || key === 'Compose') deadT = t;
-        if (key === 'Enter' || key === ' ') activateT = t;
+        // Keys for which the browser itself clicks what has the focus: Enter and
+        // Space, and the arrow keys in a group of radio buttons.
+        if (key === 'Enter' || key === ' ' || key.indexOf('Arrow') === 0) activateT = t;
         lastKeyName = key;
         if (!env.mob && key.length === 1) {
             if (!e.code) c.kcode0++;
@@ -661,23 +781,27 @@ export function createRecorder() {
         }
         if (e.repeat || /^(Shift|Control|Alt|Meta|CapsLock|Process|Unidentified|Dead)$/.test(key)) return;
         // Where do long pauses fall? People pause before starting a new word; humanised bots pause on random keys.
-        if (lastKeyT && key.length === 1 && /\S/.test(key)) {
-            const gap = t - lastKeyT, wordStart = /^[\s.,;:!?]$/.test(prevKey);
-            c.kwc++;
-            if (wordStart) c.kws++;
-            if (gap >= 500 && gap <= 5000) { c.klp++; if (wordStart) c.klp_ws++; }
-        }
-        if (lastKeyT && t - lastKeyT < 1000) { // within a typing burst
-            cur.keyIntervals.push(t - lastKeyT);
-            c.kn++;
-            if (t - lastKeyT < 12) c.kfast++;
-            // people pause longer before starting a new word than between letters of a word
-            if (key.length === 1 && /\S/.test(key)) {
-                if (/^[\s.,;:!?]$/.test(prevKey)) cur.ivBoundary.push(t - lastKeyT);
-                else if (prevKey.length === 1) cur.ivWord.push(t - lastKeyT);
+        if (lastKeyT) {
+            const gap = t - lastKeyT, printable = key.length === 1 && /\S/.test(key);
+            const wordStart = startsWord(prevKey, e.target === prevKeyEl);
+            if (printable) {
+                c.kwc++;
+                if (wordStart) c.kws++;
+                if (gap >= 500 && gap <= 5000) { c.klp++; if (wordStart) c.klp_ws++; }
+            }
+            if (gap < 1000) { // within a typing burst
+                cur.keyIntervals.push(gap);
+                c.kn++;
+                if (gap < 12) c.kfast++;
+                // people pause longer before starting a new word than between letters of a word
+                if (printable) {
+                    if (wordStart) cur.ivBoundary.push(gap);
+                    else if (prevKey.length === 1) cur.ivWord.push(gap);
+                }
             }
         }
         prevKey = key;
+        prevKeyEl = e.target;
         lastKeyT = t;
         keyDown[e.code || e.key] = t;
     }, true);
@@ -696,7 +820,10 @@ export function createRecorder() {
         const el = e.target;
         if (!e.isTrusted) { if (scriptMade(new Error().stack) === 'own' && !reacting) ownWrite(el); return; }
         const c = cur.c;
-        firstAction(); touch(el);
+        // The input (and change) the browser itself fires for a script's
+        // click() on a radio button or a checkbox is trusted, and not a
+        // person's: no first action, and the item stays untouched.
+        if (!reacting) { firstAction(); touch(el); }
         if (!isTextField(el)) return;
         const it = e.inputType || '', len = (e.data || '').length;
         if (!env.mob && it === 'insertText' && len === 1 && /[^\x00-\x7F]/.test(e.data) && !composing && lastKeyName !== e.data
@@ -708,12 +835,12 @@ export function createRecorder() {
     document.addEventListener('change', (e) => {
         if (!cur) return;
         if (!e.isTrusted) { if (scriptMade(new Error().stack) === 'own' && !reacting) ownWrite(e.target); return; }
-        touch(e.target);
+        if (!reacting) touch(e.target);
     }, true);
 
     // ---------- focus, scroll ----------
-    window.addEventListener('focus', (e) => { if (e.target === window) refocusT = now(); }, true);
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refocusT = now(); });
+    // (refocusT, when the window or the tab came back, is set where leaving
+    // the page is counted, below.)
     // Not counted: a field focused as the page appears, by the window coming
     // back (the browser re-focuses the last field), or by the page's own code.
     document.addEventListener('focusin', (e) => {
@@ -729,7 +856,9 @@ export function createRecorder() {
         if (!cur) return;
         const t = now();
         cur.c.scr++;
-        if (t - lastScrollGestureT > 1000 && t - cur.enteredAt > 1000) cur.c.scr_nogest++;
+        // Not counted: as the page appears, and while the page's own scroll to
+        // an item runs (ownScrollT; a smooth scroll takes up to a second).
+        if (t - lastScrollGestureT > 1000 && t - cur.enteredAt > 1000 && t - ownScrollT > 1500) cur.c.scr_nogest++;
     }, { capture: true, passive: true });
 
     // ---------- copy / paste ----------
@@ -737,7 +866,9 @@ export function createRecorder() {
         if (!cur) return;
         const c = cur.c, ae = document.activeElement;
         c.copy++;
-        if (isTextField(ae) && typeof ae.selectionStart === 'number') c.copy_ch += Math.abs(ae.selectionEnd - ae.selectionStart);
+        // A copy made in a field is not one of question text. An email or a
+        // number field does not say how much of it is selected.
+        if (isTextField(ae)) c.copy_ch += typeof ae.selectionStart === 'number' ? Math.abs(ae.selectionEnd - ae.selectionStart) : 0;
         else { c.copy_q++; c.copy_ch += String(window.getSelection ? window.getSelection() : '').length; }
     }, true);
     document.addEventListener('cut', () => { if (cur) cur.c.cut++; }, true);
@@ -755,26 +886,34 @@ export function createRecorder() {
 
     // ---------- leaving the page, resizing ----------
     document.addEventListener('visibilitychange', () => {
+        const hidden = document.visibilityState === 'hidden';
+        if (!hidden) refocusT = now();
         if (!cur) return;
-        if (document.visibilityState === 'hidden') { cur.c.hid_n++; hiddenSince = now(); }
+        if (hidden) { cur.c.hid_n++; hiddenSince = now(); }
         else if (hiddenSince !== null) { cur.c.hid_ms += now() - hiddenSince; hiddenSince = null; }
     });
     window.addEventListener('blur', (e) => {
         if (e.target !== window) return;
         setTimeout(() => {
             const ae = document.activeElement;
-            if (!cur || (ae && ae.tagName === 'IFRAME')) return; // focus moved into an embedded frame, not away
+            // Not away: the focus moved into an embedded frame, or is back
+            // already (a dialog of the page's: its blur and focus arrive
+            // together, before this timer).
+            if (!cur || document.hasFocus() || (ae && ae.tagName === 'IFRAME')) return;
             if (blurSince === null) { cur.c.blur_n++; blurSince = now(); }
         }, 0);
     });
     window.addEventListener('focus', (e) => {
-        if (e.target !== window || !cur) return;
-        if (blurSince !== null) { cur.c.blur_ms += now() - blurSince; blurSince = null; }
-    });
+        if (e.target !== window) return;
+        refocusT = now();
+        if (cur && blurSince !== null) { cur.c.blur_ms += now() - blurSince; blurSince = null; }
+    }, true);
     window.addEventListener('resize', () => {
         if (cur) {
             cur.c.rsz++;
-            if (outerWidth === lastOW && outerHeight === lastOH) {
+            // A window's panels and bars: not on a phone or tablet, where the
+            // browser's own toolbar and the keyboard resize the page.
+            if (!env.mob && outerWidth === lastOW && outerHeight === lastOH) {
                 if (innerWidth < lastIW - 50 && innerHeight === lastIH) cur.c.rsz_side++; // side panel opened
                 if (innerHeight < lastIH - 20 && innerWidth === lastIW) cur.c.rsz_bar++;  // info bar opened
             }
@@ -797,18 +936,22 @@ export function createRecorder() {
         live.hid_ms = Math.round(p.c.hid_ms + (shown && hiddenSince !== null ? t - hiddenSince : 0));
         live.blur_ms = Math.round(p.c.blur_ms + (shown && blurSince !== null ? t - blurSince : 0));
         live.kcv = variation(p.keyIntervals);
-        live.kwb = p.ivBoundary.length >= 5 && p.ivWord.length >= 20 ? Math.round(median(p.ivBoundary) / median(p.ivWord) * 10) / 10 : -1;
+        // (-1 also when the keys within words came with no time between them:
+        // nothing to divide by, and no number a record can hold)
+        const withinWord = p.ivBoundary.length >= 5 && p.ivWord.length >= 20 ? median(p.ivWord) : 0;
+        live.kwb = withinWord > 0 ? Math.round(median(p.ivBoundary) / withinWord * 10) / 10 : -1;
         let txt = 0, prog = 0, fld = 0;
         const seen = {};
         controls(p.scope).forEach((el) => {
             // an input that appeared after the page did starts from what it holds now
             if (!(el.name in p.initialVal)) p.initialVal[el.name] = valueOf(el.name);
-            if (isTextField(el)) {
-                const len = (el.value || '').length;
-                txt += len;
-                // a text answer of 10+ characters that mostly did not come from key presses or a paste into it
-                if (len >= 10 && valueOf(el.name) !== p.initialVal[el.name]
-                    && countIn(p.keysIn, el) + countIn(p.pastedIn, el) < 0.5 * len) fld++;
+            if (isTypedField(el)) {
+                // What was written into the field on this visit: not the
+                // stored answer a page comes back with, nor a default.
+                const fresh = newChars(valueOf(el.name), p.initialVal[el.name]);
+                txt += fresh;
+                // a text answer of 10+ new characters that mostly did not come from key presses or a paste into it
+                if (fresh >= 10 && countIn(p.keysIn, el) + countIn(p.pastedIn, el) < 0.5 * fresh) fld++;
             }
             if (!seen[el.name]) {
                 seen[el.name] = 1;
@@ -831,20 +974,32 @@ export function createRecorder() {
 // The page's record is written into its data_quality input every second and
 // when the form is submitted. A page rendered again after a validation error
 // comes back with its record in the input, and counting goes on from there.
+//
+// Returns null on a page without the item, else { start }: a row whose showif
+// has switched it off (liveFields) records nothing, and survey.js asks again
+// once the page's showifs have run (Survey.update).
 export function initDataQuality(doc = document) {
-    const targets = doc.querySelectorAll(FIELD_SELECTOR);
-    if (!targets.length) return null;
-    const recorder = createRecorder();
-    recorder.enter(doc, parseRecord(targets[0].value));
+    if (!doc.querySelector(FIELD_SELECTOR)) return null;
+    let recorder = null;
     const flush = (final) => {
+        const fields = liveFields(doc);
+        if (!fields.length) return;
         const json = JSON.stringify(recorder.record(doc, final));
-        for (let i = 0; i < targets.length; i++) targets[i].value = json;
+        fields.forEach((field) => { field.value = json; });
     };
-    flush(false);
-    setInterval(() => flush(false), 1000);
-    doc.addEventListener('submit', () => flush(true), true);
-    doc.addEventListener('click', (e) => {
-        if (e.target && e.target.closest && e.target.closest('button[type="submit"], input[type="submit"]')) flush(true);
-    }, true);
-    return recorder;
+    const start = () => {
+        if (recorder) return;
+        const fields = liveFields(doc);
+        if (!fields.length) return;
+        recorder = createRecorder();
+        recorder.enter(doc, parseRecord(fields[0].value));
+        flush(false);
+        setInterval(() => flush(false), 1000);
+        doc.addEventListener('submit', () => flush(true), true);
+        doc.addEventListener('click', (e) => {
+            if (e.target && e.target.closest && e.target.closest('button[type="submit"], input[type="submit"]')) flush(true);
+        }, true);
+    };
+    start();
+    return { start };
 }

@@ -21,14 +21,19 @@
 // record. After a reload the input holds the record stored before
 // (FormRenderer renders stored answers), and this document's counts are added
 // to it.
-import { createRecorder, parseRecord, FIELD_SELECTOR } from '../../../common/js/data-quality.js';
+//
+// A data_quality row with a showif is in use only while the showif shows it:
+// hidden, its input is disabled (liveFields), and the page counts as one
+// without the input. main.js calls enter() again when a showif of the page on
+// screen has toggled, so recording starts and stops with the row.
+import { createRecorder, parseRecord, liveFields, FIELD_SELECTOR } from '../../../common/js/data-quality.js';
 
 const INERT = { enter() {}, write() {}, names: [] };
 
 export function initDataQuality(root) {
     const fields = root.querySelectorAll(FIELD_SELECTOR);
     if (!fields.length) return INERT;
-    const fieldsOf = (pageEl) => (pageEl ? Array.from(pageEl.querySelectorAll(FIELD_SELECTOR)) : []);
+    const fieldsOf = (pageEl) => (pageEl ? liveFields(pageEl) : []);
     let recorder = null;
     return {
         enter(pageEl) {

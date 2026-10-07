@@ -18,44 +18,16 @@ const { runName } = require('./helpers/runs');
 const { freshParticipant } = require('./helpers/participant');
 const { human, plain } = require('./helpers/human');
 const { IDB_GET_ALL } = require('./helpers/idbQueue');
-const { token, resultsTable, rowOf, record, adler32, behaviourFlags } = require('./helpers/dataQuality');
+const { SCOPE, ENGINES, token, resultsTable, rowOf, record, adler32, behaviourFlags, spy, probeSpy } = require('./helpers/dataQuality');
 const v2 = require('./helpers/v2Form');
 const db = require('./helpers/db');
 
-const RUNS = require('./setup/runs.json');
-const V2_PAGE = 'form.fmr-form-v2 section.fmr-page:not([hidden])';
+const V2_PAGE = SCOPE.v2;
 
 // Local Chromium only: it judges input made through Playwright's mouse and
 // keyboard, opens contexts of its own, reroutes requests and goes offline.
 // The lane for real devices and other engines is data-quality-devices.spec.js.
 test.skip(RUNNING_ON_BS, 'local Chromium only; the device lane is data-quality-devices.spec.js');
-
-const ENGINES = {
-    v1: {
-        scope: 'form.main_formr_survey',
-        ready: (page) => page.waitForSelector('form.main_formr_survey .item-submit button'),
-        // Every page is its own document.
-        next: async (page, input) => {
-            await Promise.all([
-                page.waitForNavigation({ waitUntil: 'load' }),
-                input.click(page.locator('form.main_formr_survey .item-submit button')),
-            ]);
-        },
-    },
-    v2: {
-        scope: V2_PAGE,
-        ready: (page) => v2.waitForBundle(page),
-        next: async (page, input, { last = false } = {}) => {
-            const before = await v2.visiblePageNum(page);
-            await input.click(page.locator(`${V2_PAGE} [data-fmr-next]`));
-            if (last) await page.waitForFunction(() => !document.querySelector('form.fmr-form-v2'), null, { timeout: 30000 });
-            else await page.waitForFunction((b) => {
-                const sec = document.querySelector('form.fmr-form-v2 section.fmr-page:not([hidden])');
-                return sec && Number(sec.dataset.fmrPage) !== b;
-            }, before, { timeout: 30000 });
-        },
-    },
-};
 
 
 async function open(page, engine, baseURL) {
@@ -173,13 +145,13 @@ for (const engine of ['v1', 'v2']) {
             await open(page, engine, baseURL);
             expect(await page.locator('input[data-fmr-dq]:visible, .item-agent_probe:visible').count()).toBe(0);
             await page.waitForTimeout(1200);
-            expect(await probeSpy(page)).toEqual({ listeners: 0, drm: 0, focusNative: true });
+            expect(await probeSpy(page)).toEqual({ listeners: 0, drm: 0, native: true });
 
             // Page 2 has the item: now, and only now, the checks run.
             await consent(page, engine, plain());
             await expect.poll(async () => (await probeSpy(page)).listeners).toBeGreaterThan(0);
             const active = await probeSpy(page);
-            expect(active.focusNative).toBe(false);
+            expect(active.native).toBe(false);
             expect(active.drm).toBeGreaterThan(0);
             // People do not see the probe, cannot tab into it, and it is still there for a machine.
             const probe = page.locator(`${ENGINES[engine].scope} .item-agent_probe`);
@@ -193,29 +165,6 @@ for (const engine of ['v1', 'v2']) {
         });
     });
 }
-
-// Counts what a recorder would add to a page: its listeners on the document
-// (`copy` is one nothing else in formr listens for), questions about DRM, and
-// the wrapper around focus().
-async function spy(page) {
-    await page.addInitScript(() => {
-        const seen = window.__dqSpy = { listeners: 0, drm: 0 };
-        const add = EventTarget.prototype.addEventListener;
-        EventTarget.prototype.addEventListener = function (type, ...rest) {
-            if (this === document && type === 'copy') seen.listeners++;
-            return add.call(this, type, ...rest);
-        };
-        if (navigator.requestMediaKeySystemAccess) {
-            const ask = navigator.requestMediaKeySystemAccess.bind(navigator);
-            navigator.requestMediaKeySystemAccess = (...args) => { seen.drm++; return ask(...args); };
-        }
-    });
-}
-const probeSpy = (page) => page.evaluate(() => ({
-    listeners: window.__dqSpy.listeners,
-    drm: window.__dqSpy.drm,
-    focusNative: /\[native code\]/.test(Function.prototype.toString.call(HTMLElement.prototype.focus)),
-}));
 
 test.describe('data quality: a survey without the items', () => {
     // Runs that have no data_quality item: the bundle carries the recorder, and it must stay asleep.
@@ -231,7 +180,7 @@ test.describe('data quality: a survey without the items', () => {
             if (engine === 'v2') await v2.waitForBundle(page);
             await page.waitForTimeout(1500);
             expect(await page.locator('input[data-fmr-dq]').count()).toBe(0);
-            expect(await probeSpy(page)).toEqual({ listeners: 0, drm: 0, focusNative: true });
+            expect(await probeSpy(page)).toEqual({ listeners: 0, drm: 0, native: true });
         });
     }
 });
@@ -289,11 +238,18 @@ test.describe('data quality, v2: one record per page', () => {
         expect(record(await page.locator('input[name=dq_p1]').inputValue()).ld, 'the stored record is back in its input').toBe(2);
         await v2.goPrevious(page);
         await expect.poll(() => v2.visiblePageNum(page)).toBe(2);
+        // The stored answer came back with its page. A few words added to it
+        // by hand are typed text: what was there already needs no keys now.
+        const added = ' and then home';
+        await human(page).typeInto(page.locator(`${V2_PAGE} textarea[name=weekend_text]`), added);
         await ENGINES.v2.next(page, input);
         const reloaded = record(stored(usid).dq_p1);
         expect(reloaded.ld).toBe(3);
         expect(reloaded.pd).toBeGreaterThan(again.pd);
         expect(reloaded.t).toBeGreaterThan(again.t);
+        expect(reloaded.keys - again.keys).toBeGreaterThanOrEqual(added.length);
+        expect(reloaded.txt_ch - again.txt_ch, 'the characters written on this visit').toBe(added.length);
+        expect(reloaded.fld_nokey, 'a stored answer with a few words added is no text without keys').toBe(again.fld_nokey);
     });
 
     test('nothing is autosaved without a change, and an autosave carries the record', async ({ page, baseURL }) => {
@@ -382,7 +338,7 @@ for (const engine of ['v1', 'v2']) {
             await E.next(page, plain());
             await E.ready(page);
             await expect(page.locator(`${E.scope} input[name=sk_last]`)).toBeVisible();
-            const table = db.studyByName(RUNS.dq_skip[engine].study).results_table;
+            const table = resultsTable(engine, 'dq_skip');
             const row = db.dbQuery(`SELECT sk_dq, sk_agent FROM \`${table}\` WHERE sk_middle = ${db.sqlStr(tok)}`)[0];
             expect(record(row.sk_dq).v).toBe(2);
             expect(row.sk_agent).toBeNull();
@@ -453,8 +409,10 @@ test.describe('data quality: a browser that is not what it says', () => {
         try {
             await open(page, 'v1', baseURL);
             await consent(page, 'v1', plain());
-            await page.waitForTimeout(1500);   // the record is written once a second
-            return record(await page.locator('input[data-fmr-dq]').inputValue());
+            // Written as the page starts (and every second after that).
+            const field = page.locator('input[data-fmr-dq]');
+            await expect.poll(() => field.inputValue()).not.toBe('');
+            return record(await field.inputValue());
         } finally {
             await context.close();
         }

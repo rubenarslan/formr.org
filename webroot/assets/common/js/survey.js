@@ -129,8 +129,8 @@ function ajaxifyForm(i, elm) {
         initializePushNotifications();
         initializeExpiryNotifier();
         initializeSelect2Components();
-        // Records nothing unless the page has a data_quality item.
-        initDataQuality(document);
+        // Records nothing unless the page has a data_quality item (null then).
+        this.dataQuality = initDataQuality(document);
         this.initializeCounters();
         this.initializeFormValidation();
         this.initializeFormSubmission();
@@ -384,6 +384,12 @@ function ajaxifyForm(i, elm) {
                 } else {
                     iterations++;
                 }
+            }
+
+            // A data_quality row that a showif kept switched off starts
+            // recording once the showif shows it.
+            if (survey.dataQuality) {
+                survey.dataQuality.start();
             }
 
             if (survey.checkCompletionAndSubmit) {

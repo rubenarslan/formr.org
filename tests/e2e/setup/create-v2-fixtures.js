@@ -14,6 +14,16 @@
 //                   e2e-dqskip-v1 and e2e-dqskip-v2: a middle page whose one
 //                   question has a showif, beside an agent_probe and a
 //                   data_quality item (the showif is valid R and valid JS).
+//   dq_items        e2e_dq_items.csv, once on each engine → runs
+//                   e2e-dqitems-v1 and e2e-dqitems-v2: ordinary items beside a
+//                   data_quality item (radio buttons with labels, a checkbox,
+//                   a select_or_add list, ten short text fields). The studies
+//                   are named e2e_dq_chatgpt_v1 / _v2 on purpose, and one item
+//                   has the class `manuscript`: names of the survey's own that
+//                   hold a tool's name.
+//   dq_showif       e2e_dq_showif.csv, once on each engine → runs
+//                   e2e-dqshowif-v1 and e2e-dqshowif-v2: a data_quality row
+//                   with a showif on an answer of its own page.
 //   dq_example      documentation/run_components/Data_Quality.json and
 //                   Data_Quality_v2.json, each imported whole (consent survey,
 //                   skip, the two-page study, the analysis page) → runs
@@ -40,8 +50,22 @@ const path = require('node:path');
 const { request } = require('@playwright/test');
 const db = require('../helpers/db');
 const { ADMIN_BASE, STATE_PATH } = require('../helpers/admin');
+const { alertText } = require('../helpers/provision');
 
 const AJAX = { 'X-Requested-With': 'XMLHttpRequest' };
+// The admin answers 200 also when it refuses a file, so the status says
+// nothing: it went through when the page it leads to says so (`said`). (A
+// danger alert alone does not tell: the upload page of a study that has
+// results always shows one, about deleting them.)
+async function confirmed(res, what, said) {
+    if (!res.ok()) throw new Error(`${what}: HTTP ${res.status()}`);
+    const html = await res.text();
+    if (!said.test(html)) {
+        const why = alertText(html);
+        throw new Error(`${what}: the admin did not confirm it${why ? ` ("${why}")` : ''}`);
+    }
+}
+const UPLOADED = /Survey items uploaded|identical to last uploaded item table/;
 const FIXTURES = [
     { run: 'e2e-dyn-v2', study: 'e2e_v2_dynamic', json: 'e2e_v2_dynamic.json' },
     {
@@ -65,6 +89,10 @@ const FIXTURES = [
     },
     { run: 'e2e-dqskip-v1', study: 'e2e_dq_skip_v1', json: 'e2e_dq_skip.csv', engine: 'v1' },
     { run: 'e2e-dqskip-v2', study: 'e2e_dq_skip_v2', json: 'e2e_dq_skip.csv' },
+    { run: 'e2e-dqitems-v1', study: 'e2e_dq_chatgpt_v1', json: 'e2e_dq_items.csv', engine: 'v1' },
+    { run: 'e2e-dqitems-v2', study: 'e2e_dq_chatgpt_v2', json: 'e2e_dq_items.csv' },
+    { run: 'e2e-dqshowif-v1', study: 'e2e_dq_showif_v1', json: 'e2e_dq_showif.csv', engine: 'v1' },
+    { run: 'e2e-dqshowif-v2', study: 'e2e_dq_showif_v2', json: 'e2e_dq_showif.csv' },
 ];
 const MIME = {
     '.csv': 'text/csv',
@@ -130,7 +158,7 @@ async function refresh({ run: RUN, study: STUDY, json, engine = 'v2' }) {
     const ext = path.extname(SURVEY);
     const study = db.studyByName(STUDY);
     if (!study) {
-        console.log(`create-v2-fixtures: ${RUN} already exists — skipping.`);
+        console.log(`create-v2-fixtures: ${RUN} exists, its study ${STUDY} does not — nothing to upload again.`);
         return;
     }
     const sid = parseInt(study.id, 10);
@@ -144,7 +172,7 @@ async function refresh({ run: RUN, study: STUDY, json, engine = 'v2' }) {
             const res = await ctx.post(`${ADMIN_BASE}/admin/survey/${STUDY}/upload_items`, {
                 multipart: { uploaded: { name: `${STUDY}${ext}`, mimeType: MIME[ext], buffer: fs.readFileSync(SURVEY) } },
             });
-            if (!res.ok()) throw new Error(`upload_items ${STUDY}: HTTP ${res.status()}`);
+            await confirmed(res, `upload_items ${STUDY}`, UPLOADED);
         }
         const still = db.studyByName(STUDY);
         if (!still || parseInt(still.id, 10) !== sid) throw new Error(`${STUDY}: the study is not the one it was (id ${sid})`);
@@ -167,6 +195,10 @@ async function importIntoScratchRun(ctx, STUDY, survey, engine) {
             multipart: { run_file: { name: `${scratch}.json`, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(bundle)) } },
         });
         if (!res.ok()) throw new Error(`import into ${scratch}: HTTP ${res.status()}`);
+        // The run page does not say how an import went: the unit having
+        // arrived in the scratch run is what tells.
+        const placed = db.dbQuery(`SELECT u.type FROM survey_run_units ru JOIN survey_units u ON u.id = ru.unit_id JOIN survey_runs r ON r.id = ru.run_id WHERE r.name = '${scratch}'`);
+        if (placed.length !== 1) throw new Error(`import of ${STUDY} into ${scratch}: ${placed.length} units arrived, not 1`);
     } finally {
         res = await ctx.post(`${ADMIN_BASE}/admin/run/${scratch}/delete_run/`, { form: { delete: 'true', delete_confirm: scratch } });
         if (db.dbQuery(`SELECT id FROM survey_runs WHERE name = '${scratch}'`).length) {
