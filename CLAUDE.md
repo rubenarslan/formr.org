@@ -508,7 +508,11 @@ details out of the public documentation, which has one line pointing there.
   (`mixed`) is the page reacting only while that caller's event is being
   handled; otherwise, when the call did not begin in page code
   (`startedByOwn`), it is a script acting through the page's own code
-  (v1's global jQuery, `$(el).click()`) and counts as foreign.
+  (v1's global jQuery, `$(el).click()`) and counts as foreign. Only the
+  calls running now are read (`ASYNC_FRAME_RX`): V8 lists the functions that
+  await, and Firefox, when a tool drives it, appends the whole stack from
+  before an await (`async*f@…`), down to a script's click — which made the
+  page's own focus after a page change look like that script's.
 - **What a person does with ordinary items is not a flag.** Not counted:
   the click a browser passes on from a label, or makes for an arrow key in a
   radio group (`clk_nopt`); ids and classes inside the survey's own markup

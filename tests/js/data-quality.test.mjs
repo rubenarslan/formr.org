@@ -162,6 +162,39 @@ test('who began a mixed call: the last frame of the stack', () => {
     assert.equal(startedByOwn(chrome(), PAGE), false, 'no caller at all');
 });
 
+test('only the calls running now say whose act it is, not what led to them before an await', () => {
+    // Firefox 155 driven by Playwright, as captured on a v2 form: a script
+    // clicked Next, the page awaited the server's reply, showed the next page
+    // and focused its first field. The stack goes on past the awaits, down to
+    // the script's click.
+    const afterAwait = firefox(
+        `showPage@${BUNDLE}:35873:23`,
+        `goToPage@${BUNDLE}:37421:13`,
+        `async*submitPageInner@${BUNDLE}:37313:13`,
+        `async*submitPage@${BUNDLE}:37455:20`,
+        `initForm/</<@${BUNDLE}:37690:7`,
+        '@debugger eval code line 311 > eval:2:52',
+        'evaluate@debugger eval code:313:16',
+        '@debugger eval code:1:44',
+    );
+    assert.equal(callerKind(afterAwait, PAGE), 'own');
+    assert.equal(startedByOwn(afterAwait, PAGE), true);
+    // The same before the await is the script's click running the page's handler.
+    const duringClick = firefox(`initForm/</<@${BUNDLE}:37690:7`, '@debugger eval code line 311 > eval:2:52', 'evaluate@debugger eval code:313:16');
+    assert.equal(callerKind(duringClick, PAGE), 'mixed');
+    assert.equal(startedByOwn(duringClick, PAGE), false);
+    // Other causes Firefox names: a timer, a promise, where a listener was registered.
+    for (const cause of ['setTimeout handler', 'promise callback', 'EventListener.handleEvent']) {
+        assert.equal(callerKind(firefox(`later@${BUNDLE}:9:9`, `${cause}*@debugger eval code:1:20`), PAGE), 'own', cause);
+    }
+    // V8 names only the functions that await; an awaiting script is no caller either.
+    const v8 = chrome(`    at showPage (${BUNDLE}:2:99)`, `    at async submitPage (${BUNDLE}:2:500)`, '    at async <anonymous>:1:38');
+    assert.equal(callerKind(v8, PAGE), 'own');
+    // A script's own call, with nothing of the page's running, stays the script's.
+    assert.equal(callerKind(firefox('@debugger eval code:1:20', `async*submitPage@${BUNDLE}:37455:20`), PAGE), 'foreign');
+    assert.equal(callerKind(chrome('    at <anonymous>:1:38', `    at async submitPage (${BUNDLE}:2:500)`), PAGE), 'foreign');
+});
+
 test('an origin is matched whole, not as a prefix', () => {
     assert.equal(callerKind(chrome('    at run (https://study.example.org.evil.example/a.js:1:1)'), PAGE), 'foreign');
 });

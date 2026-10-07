@@ -146,6 +146,11 @@ checks and thresholds; what changes is what bundling and v2 force:
   and counts as its act (`actor`). The `input` and `change` a browser fires
   for a script's `click()` on a radio button or checkbox are trusted; while
   that script's event is being handled they do not touch the item.
+  A stack is read only as far as the calls that are running now
+  (`ASYNC_FRAME_RX`): V8 goes on with the functions that await, and Firefox,
+  when a tool drives or debugs it, with the whole stack from before an await,
+  a timer or a listener's registration. What the page does after awaiting a
+  reply is the page's own act in every engine.
 - **The survey's own markup is not a tool.** Ids and classes inside the form,
   and the classic engine's `study-name-…` block around it, hold names an
   author chose: the study's, a choice's key in an input's id, an item's

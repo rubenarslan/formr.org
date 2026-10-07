@@ -179,9 +179,20 @@ export function startedByOwn(stack, pageOrigin) {
     const callers = callersOwn(stack, pageOrigin);
     return callers.length > 0 && callers[callers.length - 1];
 }
+// Where a stack stops being the calls that are running now. An engine may go
+// on with what led to them, before an await, a timer or an event: V8 names
+// the functions that await ("at async f (…)"); Firefox, when a tool drives or
+// debugs it, appends the whole earlier stack, its first frame marked with
+// the cause ("async*f@…", "setTimeout handler*f@…",
+// "EventListener.handleEvent*@…"). Whose act a call is, is decided by the
+// calls running now: a page that shows its next page after an await is not
+// called by the script whose click it awaited the reply to.
+const ASYNC_FRAME_RX = /^\s*at async |^(?!\s*at )[^@]*\*[^@]*@/;
 // Every frame of a stack but the first (the recorder's own): is it the page's?
 function callersOwn(stack, pageOrigin) {
-    const frames = String(stack || '').split('\n').filter((l) => FRAME_RX.test(l));
+    let frames = String(stack || '').split('\n').filter((l) => FRAME_RX.test(l));
+    const earlier = frames.findIndex((l, i) => i > 0 && ASYNC_FRAME_RX.test(l));
+    if (earlier > 0) frames = frames.slice(0, earlier);
     const own = [originOf(frameUrl(frames[0] || '')), pageOrigin].filter(Boolean);
     return frames.slice(1).map((line) => {
         const url = frameUrl(line);
