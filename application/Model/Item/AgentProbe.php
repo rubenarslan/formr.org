@@ -37,20 +37,20 @@ class AgentProbe_Item extends Textarea_Item {
     public $type = 'agent_probe';
     public $mysql_field = 'TEXT DEFAULT NULL';
     public $optional = 1;
+    // Always optional, never refused, never made invalid: Item::$unseen.
     protected $unseen = true;
     // The first choice, if given, is the note's wording — not an answer option.
     protected $choicesOptional = true;
 
     public function __construct($options = array()) {
-        $options['optional'] = 1;
-        // The type takes no options: nothing in the cell limits the answer.
+        // The type takes no options: nothing in the cell limits the answer
+        // (a text item's would become its maxlength or pattern).
         unset($options['type_options']);
         parent::__construct($options);
     }
 
     protected function setMoreOptions() {
         parent::setMoreOptions();
-        unset($this->input_attributes['required'], $this->input_attributes['maxlength'], $this->input_attributes['pattern']);
         $this->input_attributes['tabindex'] = '-1';
         $this->input_attributes['autocomplete'] = 'off';
     }
@@ -62,15 +62,31 @@ class AgentProbe_Item extends Textarea_Item {
         return parent::validate();
     }
 
-    /** The note's sentence: the first choice, as plain text, else NOTE. */
-    public function noteText() {
-        foreach ((array) $this->choices as $label) {
-            $text = trim(html_entity_decode(strip_tags((string) $label), ENT_QUOTES, 'UTF-8'));
-            if ($text !== '') {
-                return $text;
+    /**
+     * form_v2 resolves R in a choice in the browser, into an element of its
+     * own. The note is plain text on the page, with nothing to resolve into:
+     * with R in it, the page would carry the default note instead, and its
+     * promise of pay. Refused at upload into a v2 study and at the switch.
+     */
+    public function formV2Unsupported() {
+        if ($why = parent::formV2Unsupported()) {
+            return $why;
+        }
+        foreach ((array) $this->choices as $choice) {
+            if (knitting_needed((string) $choice)) {
+                return "'{$this->name}': in v2, the note of an agent_probe item (choice1) cannot contain R: it is written into the page as it is. Write the sentence out.";
             }
         }
-        return self::NOTE;
+        return null;
+    }
+
+    /**
+     * The note's sentence: the first choice, as plain text (read the way a
+     * pattern item's message is, Text_Item::patternMessage), else NOTE.
+     */
+    public function noteText() {
+        $text = $this->patternMessage();
+        return $text !== null ? $text : self::NOTE;
     }
 
     protected function render_label() {
@@ -85,11 +101,7 @@ class AgentProbe_Item extends Textarea_Item {
         );
     }
 
-    /** Never refused: an agent's answer is evidence, whatever its shape. */
-    public function rejectNonScalarReply($reply, $message = null) {
-        return false;
-    }
-
+    /** Nothing posted is refused (Item::$unseen): an agent's answer is evidence, whatever its shape. */
     public function validateInput($reply) {
         $this->reply = self::cleanAnswer($reply);
         return $this->reply;

@@ -1076,7 +1076,8 @@ class SurveyStudy extends Model
     protected function invalidateShowifVerdicts(array $old_showifs)
     {
         $changed = array();
-        foreach ($this->getItems('id, name, showif') as $item) {
+        $items = (array) $this->getItems('id, name, type, showif');
+        foreach ($items as $item) {
             $old = array_key_exists($item['name'], $old_showifs) ? $old_showifs[$item['name']] : null;
             if (self::showifChanged($old, $item['showif'])) {
                 $changed[(int) $item['id']] = $item['name'];
@@ -1084,6 +1085,20 @@ class SurveyStudy extends Model
         }
         if (!$changed) {
             return 0;
+        }
+
+        // What those pages were left with comes back with their questions:
+        // hidden with the page, it has no verdict of its own to forget.
+        $leftovers = self::pageLeftovers($items, array_keys($changed));
+        if ($leftovers) {
+            $this->db->exec(
+                "UPDATE `survey_items_display` d
+                   JOIN `survey_unit_sessions` s ON s.id = d.session_id
+                  SET d.`hidden` = NULL
+                  WHERE d.item_id IN (" . implode(',', $leftovers) . ") AND d.`hidden` IS NOT NULL AND d.`saved` IS NULL
+                    AND s.unit_id = :study_id AND s.ended IS NULL AND s.expired IS NULL",
+                array('study_id' => (int) $this->id)
+            );
         }
 
         $ids = implode(',', array_keys($changed)); // ints, from the DB
@@ -1102,6 +1117,43 @@ class SurveyStudy extends Model
             $this->messages[] = "The showif of {$names} changed: {$reset} pending item view(s) in unfinished sessions (including a test you may have open) will re-evaluate it on their next page.";
         }
         return $reset;
+    }
+
+    /**
+     * What a page of the classic engine is left with when a showif hides its
+     * questions: its submit button and the items nobody sees (Item::isUnseen:
+     * data_quality, agent_probe). SpreadsheetRenderer::processItems hides
+     * them with the page, for good. When the showif of a question changes,
+     * they have to come back with it: the page would otherwise return
+     * without its record, and run into the next page.
+     *
+     * @param array $rows the study's items in sheet order: id, name, type
+     * @param int[] $changedIds the items whose showif changed
+     * @return int[] ids of the submit and unseen items on the pages of those
+     */
+    public static function pageLeftovers(array $rows, array $changedIds)
+    {
+        $factory = new ItemFactory(array());
+        $changedIds = array_map('intval', $changedIds);
+        $out = array();
+        $page = array();
+        $touched = false;
+        foreach ($rows as $row) {
+            $id = (int) $row['id'];
+            if (in_array($id, $changedIds, true)) {
+                $touched = true;
+            } elseif ($row['type'] === 'submit') {
+                $page[] = $id;
+            } elseif (($item = $factory->make($row)) && $item->isUnseen()) {
+                $page[] = $id;
+            }
+            if ($row['type'] === 'submit') { // a submit ends the page
+                $out = $touched ? array_merge($out, $page) : $out;
+                $page = array();
+                $touched = false;
+            }
+        }
+        return $touched ? array_merge($out, $page) : $out;
     }
 
     /**

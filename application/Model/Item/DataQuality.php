@@ -29,17 +29,10 @@ class DataQuality_Item extends Item {
     public $mysql_field = 'MEDIUMTEXT DEFAULT NULL';
     public $input_attributes = array('type' => 'hidden');
     public $optional = 1;
+    // Always optional, never refused, never made invalid: Item::$unseen.
     protected $unseen = true;
 
-    public function __construct($options = array()) {
-        // Always optional: a required one could never be answered where
-        // JavaScript does not run, and would block the page.
-        $options['optional'] = 1;
-        parent::__construct($options);
-    }
-
     protected function setMoreOptions() {
-        unset($this->input_attributes['required']);
         // What the recorder looks for (FIELD_SELECTOR).
         $this->input_attributes['data-fmr-dq'] = '1';
         $this->classes_wrapper[] = 'hidden';
@@ -65,11 +58,7 @@ class DataQuality_Item extends Item {
         return null;
     }
 
-    /** Never refused: getReply() stores NULL for what is not a record. */
-    public function rejectNonScalarReply($reply, $message = null) {
-        return false;
-    }
-
+    /** Nothing posted is refused (Item::$unseen): what is not a record is stored as NULL. */
     public function validateInput($reply) {
         $this->reply = self::cleanRecord($reply);
         return $this->reply;
@@ -106,9 +95,6 @@ class DataQuality_Item extends Item {
             } elseif (is_string($value)) {
                 $clean[$key] = mb_substr($value, 0, self::MAX_TEXT, 'UTF-8');
             }
-        }
-        if (!isset($clean['v'])) {
-            return null;
         }
         $json = json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         return $json === false ? null : $json;

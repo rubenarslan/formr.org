@@ -504,6 +504,26 @@ class FormSubmissionService {
     }
 
     /**
+     * Is any of these accepted autosave values an answer of the
+     * participant's? A page's data_quality record goes out with every
+     * autosave of the page (main.js collectPayload) and is always accepted;
+     * alone, it is nothing to write, and no reason to tell the page that its
+     * answers were saved.
+     *
+     * @param array $accepted name => value, from filterAutosaveAnswers
+     * @param array $items name => Item
+     * @return bool
+     */
+    public static function holdsAnAnswer(array $accepted, array $items) {
+        foreach ($accepted as $name => $value) {
+            if (!(isset($items[$name]) && $items[$name] instanceof DataQuality_Item)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * The subset of $data (name => value) that autosave may persist: only
      * names that resolve to an eligible item AND whose value passes that
      * item's validateInput(). Validation runs on a clone so the study's item

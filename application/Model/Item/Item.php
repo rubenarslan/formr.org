@@ -211,9 +211,16 @@ class Item {
      * whether a page has anything to show: a page of nothing else is skipped
      * (v1: SpreadsheetRenderer, PagedSpreadsheetRenderer; v2: the wrapper's
      * `data-fmr-unseen`, read by snapshotPages in main.js), and it is no solo
-     * step, no item to answer for the all-answered auto-submit and none in
-     * the progress bar. A `hidden` item is not one of these: it keeps its
-     * page, as it always has.
+     * step and no item to answer for the all-answered auto-submit. v2's
+     * progress bar goes by pages and solo steps, so it is not in it; the
+     * classic engine's counts items, and counts this one as it counts a note.
+     * A `hidden` item is not one of these: it keeps its page, as it always
+     * has.
+     *
+     * A page must not be blocked by something the participant cannot see:
+     * such an item is always optional (the constructor), no reply to it is
+     * refused (rejectNonScalarReply; the item's getReply() cleans what is
+     * stored) and it is never made invalid (alwaysInvalid).
      */
     protected $unseen = false;
 
@@ -347,6 +354,11 @@ class Item {
     protected $_minimizedAttributeFormat = '%s="%s"';
 
     public function __construct($options = array()) {
+        if ($this->unseen) {
+            // Always optional, whatever the sheet says: required, it could
+            // never be answered where JavaScript does not run.
+            $options['optional'] = 1;
+        }
         // Load options to object
         $optional = $this->optional;
         foreach ($options as $property => $value) {
@@ -623,7 +635,9 @@ class Item {
      * caller (it is the "missed required" / optional-empty case).
      */
     public function rejectNonScalarReply($reply, $message = null) {
-        if ($reply === null || is_scalar($reply) || $this->accepts_array_reply) {
+        // (An item nobody sees refuses nothing: its getReply() stores NULL
+        // for what it cannot use.)
+        if ($reply === null || is_scalar($reply) || $this->accepts_array_reply || $this->unseen) {
             return false;
         }
         $this->reply = null;
@@ -798,6 +812,11 @@ class Item {
     }
 
     public function alwaysInvalid() {
+        if ($this->unseen) {
+            // The page's other items carry the error; a field nobody sees
+            // does not.
+            return;
+        }
         $this->error = _('There were problems with openCPU.');
         if (!isset($this->input_attributes['class'])) {
             $this->input_attributes['class'] = '';

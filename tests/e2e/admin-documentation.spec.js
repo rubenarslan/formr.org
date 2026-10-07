@@ -72,6 +72,9 @@ test('the admin header links to it, next to Help', async ({ page }) => {
 test('a page that does not exist is a 404, and the downloads are files', async ({ page }) => {
     const missing = await page.request.get(`${ADMIN_BASE}/admin/documentation/no-such-page/`);
     expect(missing.status()).toBe(404);
+    // Nor is a page the controller inherits from the admin area (admin/compute) one of these.
+    const inherited = await page.request.get(`${ADMIN_BASE}/admin/documentation/compute/`);
+    expect(inherited.status()).toBe(404);
 
     // The example run, as a bundle for the run editor's Import, for each engine.
     for (const [path, file, unit, study] of [

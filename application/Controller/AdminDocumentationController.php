@@ -37,6 +37,14 @@ class AdminDocumentationController extends AdminController {
         return $this->page('index', array('pages' => self::PAGES));
     }
 
+    /**
+     * AdminController's own page (admin/compute) is inherited with the class
+     * and is no page of this area: the address is unknown, like any other.
+     */
+    public function computeAction() {
+        return $this->indexAction('compute');
+    }
+
     public function dataQualityAction() {
         $texts = require APPLICATION_ROOT . self::DATA_QUALITY_TEXTS;
         return $this->page('data_quality', array(
