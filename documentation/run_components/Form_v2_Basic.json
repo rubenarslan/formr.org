@@ -1,0 +1,114 @@
+{
+    "name": "Form_v2_Basic",
+    "units": [
+        {
+            "type": "Form",
+            "description": "form_v2_basic",
+            "position": 10,
+            "special": null,
+            "survey_data": {
+                "name": "form_v2_basic",
+                "items": [
+                    {
+                        "name": "intro",
+                        "type": "note",
+                        "label": "## A form_v2 demo\n\nThis short form is rendered by a **Form** unit (`rendering_mode = v2`). The whole form lives in one document: items appear and disappear in your browser, without a page reload.",
+                        "order": 1,
+                        "item_order": 1
+                    },
+                    {
+                        "name": "mood",
+                        "type": "mc",
+                        "label": "How are you feeling right now?",
+                        "choice_list": "mood",
+                        "order": 2,
+                        "item_order": 2,
+                        "choices": {
+                            "1": "Bad",
+                            "2": "So-so",
+                            "3": "Good"
+                        }
+                    },
+                    {
+                        "name": "mood_why",
+                        "type_options": "200",
+                        "type": "textarea",
+                        "label": "Nice! What made it a good day?",
+                        "showif": "mood == 3",
+                        "optional": 1,
+                        "order": 3,
+                        "item_order": 3
+                    },
+                    {
+                        "name": "priorities",
+                        "type_options": "random touch",
+                        "type": "rank",
+                        "label": "Drag these into the order that matters most to you, most important at the top. The arrow buttons and the keyboard work too.",
+                        "choice_list": "priorities",
+                        "order": 4,
+                        "item_order": 4,
+                        "choices": {
+                            "1": "Sleep",
+                            "2": "Friends",
+                            "3": "Work",
+                            "4": "Exercise"
+                        }
+                    },
+                    {
+                        "name": "confidence",
+                        "type_options": "0,100,1",
+                        "type": "visual_analog_scale",
+                        "label": "How sure are you about that order?",
+                        "choice_list": "confidence",
+                        "order": 5,
+                        "item_order": 5,
+                        "choices": {
+                            "1": "Not at all sure",
+                            "2": "Completely sure"
+                        }
+                    },
+                    {
+                        "name": "human",
+                        "type": "bot_check",
+                        "label": "Please confirm that a person, not a script, is filling this in.",
+                        "order": 6,
+                        "item_order": 6
+                    },
+                    {
+                        "name": "save",
+                        "type": "submit",
+                        "label": "Save my answers",
+                        "order": 7,
+                        "item_order": 7
+                    }
+                ],
+                "settings": {
+                    "maximum_number_displayed": 0,
+                    "displayed_percentage_maximum": 100,
+                    "add_percentage_points": 0,
+                    "enable_instant_validation": 0,
+                    "expire_after": 0,
+                    "google_file_id": "",
+                    "unlinked": 0,
+                    "expire_invitation_after": 0,
+                    "expire_invitation_grace": 0,
+                    "hide_results": 0,
+                    "use_paging": 0,
+                    "rendering_mode": "v2",
+                    "offline_mode": 1,
+                    "allow_previous": 0,
+                    "layout": "default",
+                    "language": "en"
+                }
+            }
+        },
+        {
+            "type": "Endpage",
+            "description": "end of study",
+            "position": 20,
+            "special": null,
+            "body": "## Thanks!\n\nYour answers were saved. This Stop unit is where the run ends.\n\nThe form above was rendered by a **Form** unit (form_v2): one document, client-side `showif`s, and the v2-only `rank` and `bot_check` items.",
+            "title": null
+        }
+    ]
+}

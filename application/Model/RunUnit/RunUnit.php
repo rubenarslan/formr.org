@@ -2,7 +2,7 @@
 
 class RunUnitFactory {
 
-    const SupportedUnits = array('Survey', 'Pause', 'Email', 'PushMessage', 'External', 'Page', 'SkipBackward', 'SkipForward', 'Shuffle', 'Wait');
+    const SupportedUnits = array('Survey', 'Form', 'Pause', 'Email', 'PushMessage', 'External', 'Page', 'SkipBackward', 'SkipForward', 'Shuffle', 'Wait');
 
     /**
      * Create a RunUnit object based on supported types
@@ -94,14 +94,73 @@ class RunUnit extends Model {
      * @param Run $run
 	 * @param array $props
      */
+    /**
+     * Properties a props array may never set, whoever built it. The
+     * constructor's $props usually come straight from a request
+     * (ajax_save_run_unit, ajax_get_unit, a structure import) and
+     * Model::assignProperties() assigns ANY declared property — so a POST
+     * of `run=1` replaced the authorised Run object (find() then looked up
+     * run_id NULL and create() inserted a placement with no run), and
+     * `valid` / `surveyStudy` could pre-empt the run-scoped lookup's
+     * verdict. Identity fields (id, unit_id, run_unit_id) stay assignable
+     * here: find() is what validates them. Content columns are whatever
+     * the subclass declares.
+     */
+    // Properties a props array must never set, whoever built it — a
+    // RunUnit's props usually come straight from a request, and
+    // Model::assignProperties() assigns ANY declared public property, so a
+    // POST of run=1 replaced the authorised Run object (find() then looked
+    // up run_id NULL and create() inserted a placement with no run).
+    //
+    // Deliberately NOT here: `valid` and `body_parsed`. Both are written
+    // through assignProperties() by trusted internal hydration — find()
+    // sets `valid` (v1.10.3 stripped it and left every find()-loaded unit
+    // valid=false, so runTo()/deleteRunUnitAction() failed on a placed
+    // unit — v1.10.4), and each subclass constructor sets `body_parsed`
+    // from its own table. A request `valid` is inert anyway: find()/
+    // forgetIdentity() overwrite it whenever an id is present.
+    const UNASSIGNABLE_PROPS = ['run', 'surveyStudy', 'errors', 'messages', 'export_attribs', 'icon', 'retryOutput', 'outputData'];
+
+    protected function assignProperties($props) {
+        if ($props && is_array($props)) {
+            foreach (self::UNASSIGNABLE_PROPS as $prop) {
+                unset($props[$prop]);
+            }
+        }
+        return parent::assignProperties($props);
+    }
+
     public function __construct(Run $run, array $props = []) {
         parent::__construct();
         $this->run = $run;
         $this->assignProperties($props);
         
         if ($this->id && empty($props['importing'])) {
-            $this->find($this->id, $this->special, $props);
+            if ($this->find($this->id, $this->special, $props) === false) {
+                // Not placed in this run. `id` / `unit_id` / `run_unit_id`
+                // came from the caller — often straight from a request
+                // (ajax_get_unit, ajax_save_run_unit, delete_run_unit, a
+                // structure import, a reminder id) — and keeping them would
+                // let the subclass constructors load, and create() /
+                // modify() / removeFromRun() write, another user's rows by
+                // bare id. find() is the only run-scoped lookup, so its
+                // verdict is final.
+                $this->forgetIdentity();
+            }
         }
+    }
+
+    /**
+     * Drop every caller-supplied identifier after find() failed to place
+     * the unit in $this->run. The object stays usable for create() (which
+     * then inserts a fresh unit) but can no longer address an existing row.
+     */
+    protected function forgetIdentity() {
+        $this->id = null;
+        $this->unit_id = null;
+        $this->run_unit_id = null;
+        $this->surveyStudy = null;
+        $this->valid = false;
     }
 
     /**
@@ -111,6 +170,14 @@ class RunUnit extends Model {
      * @return RunUnit
      */
     public function create($props = []) {
+        // Identity is established ONLY by the constructor's run-scoped find()
+        // (which forgetIdentity()s a foreign id). create()'s argument must
+        // not be able to re-introduce id / unit_id / run_unit_id — otherwise
+        // a caller that passes the same untrusted payload to both make() and
+        // create() (or any direct model caller) would resurrect the rejected
+        // id here and modify()/insert_update another run's row. Content
+        // fields still come from $props.
+        unset($props['id'], $props['unit_id'], $props['run_unit_id']);
         $this->assignProperties($props);
         
         if ($this->id) {
@@ -159,21 +226,19 @@ class RunUnit extends Model {
         return $this;
     }
     
-    public function updateUnitId() {
-        return $this->db->update(
-                'survey_run_units', 
-                array('unit_id' => $this->id), 
-                array('id' => $this->run_unit_id), 
-                array('int'), 
-                array('int')
-        );
-    }
-
     public function modify($options = []) {
         $change = array('modified' => mysql_now());
-        $table = empty($options['special']) ? 'survey_run_units' : 'survey_run_special_units';
+        // A special unit resolved by find()'s fallback (bare unit_id, no
+        // `special` posted) carries $this->special from its row; without
+        // this the description UPDATE would target survey_run_units by the
+        // special's id and rename an unrelated placement in this run.
+        $special = !empty($options['special']) ? $options['special'] : $this->special;
+        $table = empty($special) ? 'survey_run_units' : 'survey_run_special_units';
         if ($this->id && isset($options['description'])):
-            $this->db->update($table, array("description" => $options['description']), array('id' => $this->run_unit_id));
+            // run_unit_id is a public property and so assignable from a
+            // posted/imported payload; the run_id predicate keeps a foreign
+            // placement from being renamed through this run.
+            $this->db->update($table, array("description" => $options['description']), array('id' => $this->run_unit_id, 'run_id' => $this->run->id));
             $this->description = $options['description'];
         endif;
         
@@ -184,10 +249,54 @@ class RunUnit extends Model {
     public function removeFromRun($special = null) {
         // todo: set run modified
         if ($special !== null) {
-            return $this->db->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special));
+            return $this->db->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special, 'run_id' => $this->run->id));
         } else {
-            return $this->db->delete('survey_run_units', array('id' => $this->run_unit_id));
+            // Audit F22/F7 (2026-07): terminate live unit sessions at this
+            // placement BEFORE unlinking it. This base (placement-scoped)
+            // removeFromRun is used by Survey/Email/PushMessage — deleting
+            // the survey_run_units row left their in-flight sessions open
+            // (ended/expired NULL) with a now-dangling run_unit_id (no FK),
+            // stranding participants and littering every audit. run_unit_id
+            // still resolves here because the delete happens after.
+            $this->endLiveSessionsAtPlacement();
+            // Scoped to the run: run_unit_id may have been posted
+            // (delete_run_unit, ajax_remove_run_unit_from_run).
+            return $this->db->delete('survey_run_units', array('id' => $this->run_unit_id, 'run_id' => $this->run->id));
         }
+    }
+
+    /**
+     * Expire live (ended IS NULL AND expired IS NULL) unit sessions bound
+     * to THIS placement (survey_run_units.id) and dequeue them. Used when
+     * a unit is unlinked from a run so participants aren't stranded on a
+     * placement that no longer exists. Audit F22/F7 (2026-07).
+     */
+    protected function endLiveSessionsAtPlacement() {
+        if (!$this->run_unit_id || !$this->run || !$this->run->id) {
+            return 0;
+        }
+        // Legacy arm (review 2026-07, item 13): pre-047 rows and the 048
+        // backfill's intentional NULLs carry run_unit_id NULL, which the
+        // equality above can never match — they'd survive the unlink live
+        // and resume spliced. Match them by unit within this run (the same
+        // D1 fallback convention used across the engine).
+        return $this->db->exec(
+            "UPDATE `survey_unit_sessions` us
+             LEFT JOIN `survey_run_sessions` rs ON rs.id = us.run_session_id
+             SET us.`expired` = NOW(), us.`queued` = 0,
+                 us.`result` = COALESCE(us.`result`, 'unit_removed_from_run'),
+                 us.`state` = :state
+             WHERE us.`ended` IS NULL AND us.`expired` IS NULL
+               AND rs.run_id = :run_id
+               AND (us.`run_unit_id` = :run_unit_id
+                    OR (us.`run_unit_id` IS NULL AND us.`unit_id` = :unit_id))",
+            [
+                'run_unit_id' => $this->run_unit_id,
+                'unit_id'     => $this->id,
+                'run_id'      => $this->run->id, // both arms run-scoped: run_unit_id may be caller-supplied
+                'state'       => UnitSessionQueue::STATE_EXPIRED,
+            ]
+        );
     }
 
     public function getExportUnit() {
@@ -266,12 +375,14 @@ OVERVIEW_BODY
      * @return \UnitSession[]
      */
     protected function getSampleSessions() {
-        // Select a maximum of 20 random sessions that are on or have passed this unit
+        // Select a maximum of 20 recent sessions that are on or have passed
+        // this unit (was ORDER BY RAND(), which materialized+sorted the whole
+        // matching set before LIMIT could drop anything)
         $results = [];
         $rs = [];
         $rows = $this->db->select('session, id, position')
                         ->from('survey_run_sessions')
-                        ->order('position', 'desc')->order('RAND')
+                        ->order('position', 'desc')->order('id', 'desc')
                         ->where(array('run_id' => $this->run->id, 'position >=' => $this->position))
                         ->limit(20)->fetchAll();
         
@@ -295,10 +406,11 @@ OVERVIEW_BODY
      * @return UnitSession|null
      */
     protected function grabRandomSession() {
-        // Select a random run session that has past this unit's position
+        // Select the most recent run session that has past this unit's
+        // position (was ORDER BY RAND(), see getSampleSessions)
         $row = $this->db->select('session, id, position')
                     ->from('survey_run_sessions')
-                    ->order('position', 'desc')->order('RAND')
+                    ->order('position', 'desc')->order('id', 'desc')
                     ->where(['run_id' => $this->run->id, 'position >=' => $this->position])
                     ->limit(1)
                     ->fetch();
@@ -362,8 +474,13 @@ OVERVIEW_BODY
     public function delete($special = null) {
         // todo: set run modified
         if ($special !== null) {
-            return $this->db->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special));
+            return $this->db->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special, 'run_id' => $this->run->id));
         } else {
+            // NOTE: this deletes the unit DEFINITION, and
+            // survey_unit_sessions.unit_id is FK ON DELETE CASCADE, so every
+            // participant's session for this unit goes with it. That is
+            // correct for "delete this unit", and catastrophic for "remove it
+            // from the run" — see removeFromRun().
             $affected = $this->db->delete('survey_units', array('id' => $this->id));
             if ($affected) { // remove from all runs
                 $affected += $this->db->delete('survey_run_units', array('unit_id' => $this->id));
@@ -405,10 +522,43 @@ OVERVIEW_BODY
             }
             
             $unit = $select->bindParams($params)->limit(1)->fetch();
+
+            if ($unit === false) {
+                // Special units (ReminderEmail, ServiceMessagePage,
+                // OverviewScriptPage) have no survey_run_units row. Callers
+                // that only know the survey_units id — the email queue
+                // executing a reminder's unit session, RunSession hydrating
+                // one — arrive here without $special, so try the run's
+                // special units before declaring the id missing. This is
+                // what the failure being non-fatal used to paper over.
+                // Still scoped to $this->run.
+                $fallback = $this->db->select("
+                    `survey_run_special_units`.`id` AS run_unit_id,
+                    `survey_run_special_units`.`run_id`,
+                    `survey_run_special_units`.`type` AS special,
+                    `survey_run_special_units`.`description`,
+                    `survey_units`.id,
+                    `survey_units`.type,
+                    `survey_units`.created,
+                    `survey_units`.modified")
+                                ->from('survey_run_special_units')
+                                ->leftJoin('survey_units', "survey_units.id = `survey_run_special_units`.`id`")
+                                ->where('survey_run_special_units.run_id = :run_id')
+                                ->where("`survey_run_special_units`.`id` = :id");
+                if (!empty($props['run_unit_id'])) {
+                    // Honour the caller's placement filter like the primary
+                    // query does (special rows have id == run_unit_id).
+                    $fallback->where('survey_run_special_units.id = :run_unit_id');
+                }
+                $unit = $fallback->bindParams($params)->limit(1)->fetch();
+            }
         } else {
             $specials = array('ServiceMessagePage', 'OverviewScriptPage', 'ReminderEmail');
             if (!in_array($special, $specials)) {
-                die("Special unit not allowed");
+                // `special` is a public property and arrives straight from
+                // request params; an unknown value is "not in this run",
+                // not a reason to die() mid-response with a plain-text 200.
+                return false;
             }
 
             $select = $this->db->select("
@@ -430,7 +580,14 @@ OVERVIEW_BODY
             }
             
             $unit = $select->bindParams($params)->limit(1)->fetch();
-            $unit["special"] = $special;
+            // Only tag a row that exists: `$unit["special"] = …` on a false
+            // fetch silently converts false to an array, so the `=== false`
+            // verdict below never fired and a request-supplied `special`
+            // kept a foreign id alive (cross-tenant read/write via
+            // ajax_get_unit / ajax_save_run_unit / delete_run_unit).
+            if ($unit !== false) {
+                $unit["special"] = $special;
+            }
         }
 
         if ($unit === false) { // or maybe we've got a problem
@@ -460,10 +617,18 @@ OVERVIEW_BODY
      * @param array $params
      * @return RunUnit
      */
-    public static function findByRunUnitId($id, $params = []) {
-        $row = DB::getInstance()->findRow('survey_run_units', ['id' => $id]);
+    public static function findByRunUnitId($id, $params = [], Run $run = null) {
+        // With $run given the lookup is scoped to that run. Without it the
+        // unit's own run is loaded from the row — which proves nothing about
+        // the caller's rights, so request-driven callers must pass the run
+        // they were authorised for.
+        $where = ['id' => (int) $id];
+        if ($run !== null) {
+            $where['run_id'] = (int) $run->id;
+        }
+        $row = DB::getInstance()->findRow('survey_run_units', $where);
         if ($row) {
-            $run = new Run(null, $row['run_id']);
+            $run = $run ?: new Run(null, $row['run_id']);
             if (!$row['unit_id'] && isset($params['ignore_missing'])) {
                 $row['run_unit_id'] = $id;
                 $row['id'] = null;
@@ -538,8 +703,20 @@ OVERVIEW_BODY
         // At this stage we are sure to have an OpenCPU_Session in $ocpu. If there is an error in the session return FALSE
         if (empty($ocpu)) {
             $this->errors['log'] = $this->getLogMessage('error_opencpu_down', 'OpenCPU is probably down or inaccessible.');
-            
+
             alert('OpenCPU is probably down or inaccessible. Please retry in a few minutes.', 'alert-danger');
+
+            // The R-error branch below notifies with the session's own
+            // error; this branch has no session — opencpu_last_error()
+            // carries the transport note the failed wrapper just left (X3).
+            // Without this, only Page had a channel here, and its message
+            // was built before the note existed (X4).
+            if ($unitSession) {
+                $error = (string) opencpu_last_error();
+                $message = 'OpenCPU was unreachable while rendering ' . $this->type . ' at position ' . $this->position
+                    . ($error ? ': ' . $error : '.');
+                notify_study_admin($unitSession, $message, 'error');
+            }
             return false;
         } elseif ($ocpu->hasError()) {
             $this->errors['log'] = $this->getLogMessage('error_opencpu_r', 'OpenCPU R error. Fix code.' . opencpu_redact_secrets($ocpu->getError()));
@@ -625,5 +802,40 @@ OVERVIEW_BODY
     
     protected function noTestSession() {
         return alert('No data to compare to yet. Create some test data by sending guinea pigs through the run using the "Test run" function on the left.', 'alert-info');
+    }
+
+    /**
+     * Re-arm a transient failure with a delay instead of leaving the row
+     * hot (v1.7.1 for Email; shared here in v1.8.0 because External's
+     * failed R-address evaluation needs the identical re-arm).
+     *
+     * A failed side-effect returns neither `end_session` nor `move_on` —
+     * correct: the participant must not be advanced past an email or an
+     * R call that never happened. But leaving `queued`/`expires` untouched
+     * meant the daemon's pickup poll (`expires <= NOW()`) re-selected the
+     * row on the very next pass (~15 s) and every pass after that: a hot
+     * loop that re-knitted content through OpenCPU and re-fired
+     * notify_study_admin on every tick. The +10 min re-arm turns that into
+     * ~144 attempts/day, and lines up with the admin-notification throttle
+     * so the error mail collapses to roughly one per retry. Retrying
+     * rather than giving up is deliberate: a rate-limit window drains and
+     * an outage ends, whereas moving on would silently drop the unit's
+     * side effect.
+     *
+     * KNOWN LIMITATION (tracked for feature/form_v2): this is a FLAT tier,
+     * not the escalating/capped backoff Pause/Branch rechecks get from
+     * UnitSession::recheckBackoffExpression(). A permanently-broken unit
+     * therefore retries ~144x/day indefinitely rather than degrading to a
+     * few per day. Sharing that mechanism is blocked on the same schema
+     * work as the reverted F19 streak rework; +10 min flat is the safe
+     * interim (strictly better than the hot loop it replaces). Because the
+     * tier lives HERE, upgrading it upgrades Email and External together.
+     */
+    protected function retryBackoffQueue() {
+        $extension = Config::get('unit_session.queue_expiration_extension', '+10 minutes');
+        return [
+            'expires' => mysql_datetime(strtotime($extension)),
+            'queued' => UnitSessionQueue::QUEUED_TO_EXECUTE,
+        ];
     }
 }

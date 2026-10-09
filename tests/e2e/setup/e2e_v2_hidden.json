@@ -1,0 +1,104 @@
+{
+    "name": "e2e_v2_hidden",
+    "settings": {},
+    "items": [
+        {
+            "type": "hidden",
+            "name": "h_group",
+            "optional": 1,
+            "label": "leading hidden-only page: a draw no answer changes",
+            "value": "sample(c(10, 20), 1)"
+        },
+        {
+            "type": "submit",
+            "name": "h_p1",
+            "label": "Next"
+        },
+        {
+            "type": "text",
+            "name": "h_gate",
+            "optional": 1,
+            "label": "Shown only once h_group has its value",
+            "showif": "h_group >= 10"
+        },
+        {
+            "type": "submit",
+            "name": "h_p2",
+            "label": "Next"
+        },
+        {
+            "type": "number",
+            "name": "h_q1",
+            "optional": 0,
+            "type_options": "0,100,1",
+            "label": "Pick a number"
+        },
+        {
+            "type": "submit",
+            "name": "h_p3",
+            "label": "Next"
+        },
+        {
+            "type": "hidden",
+            "name": "h_double",
+            "optional": 1,
+            "label": "middle hidden-only page",
+            "value": "h_q1 * 2"
+        },
+        {
+            "type": "submit",
+            "name": "h_p4",
+            "label": "Next"
+        },
+        {
+            "type": "note",
+            "name": "h_big",
+            "optional": 1,
+            "label": "Twice your number is above 10",
+            "showif": "h_double > 10"
+        },
+        {
+            "type": "select_or_add_multiple",
+            "name": "h_places",
+            "choice_list": "places",
+            "optional": 1,
+            "label": "Places",
+            "choices": {
+                "1": "Berlin, Germany",
+                "2": "Paris"
+            }
+        },
+        {
+            "type": "select_or_add_one",
+            "name": "h_colours",
+            "choice_list": "colours",
+            "optional": 1,
+            "label": "A list written in one cell",
+            "choices": {
+                "1": "red;green;blue"
+            }
+        },
+        {
+            "type": "select_or_add_one",
+            "name": "h_city",
+            "choice_list": "city",
+            "optional": 1,
+            "label": "One choice with a comma",
+            "choices": {
+                "1": "Berlin, Germany"
+            }
+        },
+        {
+            "type": "submit",
+            "name": "h_p5",
+            "label": "Next"
+        },
+        {
+            "type": "hidden",
+            "name": "h_sum",
+            "optional": 1,
+            "label": "trailing hidden-only page",
+            "value": "h_q1 + 100"
+        }
+    ]
+}

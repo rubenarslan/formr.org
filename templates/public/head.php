@@ -10,8 +10,7 @@
 <meta name="author" content="<?php echo $meta['author']; ?>" />
 
 <?php
-// --- Determine Favicon and OG/Twitter Image URLs ---
-$favicon_url = site_url('favicon.ico'); // Default favicon
+// --- Determine the OG/Twitter image (the favicon: public/pwa_head) ---
 $og_image_url = asset_url('build/img/formr-og.png'); // Default OG/Twitter image
 
 // Check if run context exists and has PWA path set
@@ -27,13 +26,6 @@ if (isset($run) && $run instanceof Run) {
                 $og_image_url = $pwa_icon_base_url_for_head . 'icon-512x512.png';
             } elseif (file_exists($webroot_pwa_path . 'icon.png')) {
                 $og_image_url = $pwa_icon_base_url_for_head . 'icon.png';
-            }
-
-            // Check for Favicon (prioritize specific, then generic)
-            if (file_exists($webroot_pwa_path . 'favicon.png')) {
-                $favicon_url = $pwa_icon_base_url_for_head . 'favicon.png';
-            } elseif (file_exists($webroot_pwa_path . 'icon.png')) {
-                $favicon_url = $pwa_icon_base_url_for_head . 'icon.png';
             }
         }
     }
@@ -94,56 +86,7 @@ if (isset($run) && $run instanceof Run) {
 </script>
 
 
-<link rel="icon" href="<?php echo $favicon_url; ?>">
-
-<?php 
-if (isset($run) && $run instanceof Run && $run->getManifestJSONPath()): 
-    // Determine base path for PWA icons if not already done (or re-verify)
-    $pwa_icon_base_url_for_head = asset_url('pwa/', false); // Default path
-    $run_pwa_icon_path_val = $run->getPwaIconPath(); 
-    if ($run_pwa_icon_path_val) { 
-        $webroot_pwa_path = APPLICATION_ROOT . 'webroot/' . $run_pwa_icon_path_val;
-        if (is_dir($webroot_pwa_path)) {
-            $pwa_icon_base_url_for_head = asset_url(trim($run_pwa_icon_path_val, '/') . '/');
-        }
-    } // Note: $pwa_icon_base_url_for_head might be re-calculated here if the first check didn't run or needs update
-?>
-    <?php
-    // Personalize the manifest URL with ?code=<participant_session> when
-    // there's an active RunSession for this request. iOS captures
-    // start_url at PWA install time and never re-fetches the manifest, so
-    // the icon URL embeds whatever start_url was personalized at the
-    // moment of "Add to Home Screen". Without ?code= here, the captured
-    // start_url is the clean public one, leaving the cookie as the only
-    // session recovery — which iOS evicts via ITP / storage pressure.
-    $manifest_url = run_url($run->name) . 'manifest';
-    if (isset($run->activeRunSession) && $run->activeRunSession instanceof RunSession
-            && $run->activeRunSession->id && $run->activeRunSession->session) {
-        $manifest_url .= '?code=' . urlencode($run->activeRunSession->session);
-    }
-    ?>
-    <link rel="manifest" href="<?php echo h($manifest_url); ?>">
-    
-    <!-- Safari specific icons -->
-    <link rel="apple-touch-icon" href="<?php echo $pwa_icon_base_url_for_head . 'apple-touch-icon.png'; ?>"> <!-- General, e.g. 180x180 -->
-    <link rel="apple-touch-icon" sizes="152x152" href="<?php echo $pwa_icon_base_url_for_head . 'apple-touch-icon-152x152.png'; ?>">
-    <link rel="apple-touch-icon" sizes="167x167" href="<?php echo $pwa_icon_base_url_for_head . 'apple-touch-icon-167x167.png'; ?>">
-    <link rel="apple-touch-icon" sizes="192x192" href="<?php echo $pwa_icon_base_url_for_head . 'apple-touch-icon-192x192.png'; ?>">
-    <!-- Add more apple-touch-icon sizes if provided by user, e.g., apple-touch-icon-76x76.png -->
-    
-    <!-- Safari specific meta tags -->
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="application-name" content="<?php echo h($run->name); ?>">
-    <meta name="apple-mobile-web-app-title" content="<?php echo h($run->title ?: $run->name); ?>">
-    <meta name="theme-color" content="#2196F3">
-    <meta name="msapplication-navbutton-color" content="#2196F3">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="msapplication-starturl" content="<?php echo run_url($run->name); ?>">
-
-
-    
-<?php endif; ?>
+<?php Template::loadChild('public/pwa_head', array('run' => isset($run) ? $run : null)); ?>
 
 
 <?php

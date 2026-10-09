@@ -1,0 +1,7 @@
+type,name,label,optional,value,showif,class
+note,cp_intro,"Cross-page showif fixture. Page 1 sets cp_a; page 2 sets cp_b. The follow-up reveals only when cp_a (a PREVIOUS-page answer) == 1 AND cp_b (current page) == 3. v2 resolves this live (all pages share one Alpine scope); v1 cannot (cp_a is not in page 2's client context).",1,,,
+text,cp_a,"Page 1 — type 1",1,,,
+submit,cp_page1,Continue,1,,,
+text,cp_b,"Page 2 — type 3",1,,,
+text,cp_followup,"Follow-up — appears when cp_a == 1 (prev page) AND cp_b == 3 (this page)",1,,cp_a == 1 && cp_b == 3,
+submit,cp_page2,Finish,1,,,

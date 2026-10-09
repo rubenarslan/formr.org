@@ -25,6 +25,8 @@ Template::loadChild('public/header');
                     <li><a href="#sample_survey_sheet" data-toggle="tab" aria-expanded="false">Survey Spreadsheet</a></li>
                     <li><a href="#sample_choices_sheet" data-toggle="tab" aria-expanded="false">Choices Spreadsheet</a></li>
                     <li><a href="#available_items" data-toggle="tab" aria-expanded="false">Item types</a></li>
+                    <li><a href="#css_classes" data-toggle="tab" aria-expanded="false">CSS classes</a></li>
+                    <li><a href="#form_v2" data-toggle="tab" aria-expanded="false">Form (v2)</a></li>
                     <li><a href="#knitr_markdown" data-toggle="tab" aria-expanded="false">Knit R &amp; Markdown</a></li>
                     <li><a href="#r_helpers" data-toggle="tab" aria-expanded="false">R Helpers</a></li>
                     <li><a href="#features" data-toggle="tab" aria-expanded="false">Features</a></li>
@@ -48,6 +50,12 @@ Template::loadChild('public/header');
                 </div>
                 <div class="tab-pane fade" id="available_items">
                     <?php Template::loadChild('public/documentation/item_types'); ?>
+                </div>
+                <div class="tab-pane fade" id="css_classes">
+                    <?php Template::loadChild('public/documentation/css_classes'); ?>
+                </div>
+                <div class="tab-pane fade" id="form_v2">
+                    <?php Template::loadChild('public/documentation/form_v2'); ?>
                 </div>
                 <div class="tab-pane fade" id="knitr_markdown">
                     <?php Template::loadChild('public/documentation/knitr_markdown'); ?>

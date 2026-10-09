@@ -6,7 +6,7 @@ $resultCount = $study->getResultCount();
 <div class="content-wrapper">
 
     <section class="content-header">
-        <h1><?= $study->name ?> <small>Survey ID: <?= $study->id ?></small></h1>
+        <h1><?= $study->name ?> <?= study_engine_badge($study) ?> <small>Survey ID: <?= $study->id ?></small></h1>
     </section>
 
     <section class="content">
@@ -39,7 +39,7 @@ $resultCount = $study->getResultCount();
                                         <strong>Always back up your data, before doing the latter.</strong>
                                     </li>
                                     <li>
-                                        <i class="fa-li fa fa-lock"></i> The name you chose for this survey is now locked.
+                                        <i class="fa-li fa fa-lock"></i> The name you chose for this survey is now locked. To change it, use <a href="<?= admin_study_url($study->name, 'rename_study') ?>">Rename Study</a> in the <strong>Danger Zone</strong> menu.
                                         <ul class="fa-ul">
                                             <li>
                                                 <i class="fa-li fa fa-check"></i> The uploaded file's name has to match <code><?= $study->name ?></code>, so you cannot accidentally upload the wrong item table.
@@ -60,7 +60,7 @@ $resultCount = $study->getResultCount();
 
                             <h4>
                                 Or use 	<?php if (!empty($google['id'])): ?>
-                                    <a href="<?php echo $google['link']; ?>" target="_blank" title="Go to your Google sheet, check if this is the right one">this</a>
+                                    <a href="<?php echo h($google['link']); ?>" target="_blank" title="Go to your Google sheet, check if this is the right one">this</a>
                                 <?php else: ?>
                                     a
                                 <?php endif; ?> Googlesheet

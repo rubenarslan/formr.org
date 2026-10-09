@@ -1,0 +1,50 @@
+{
+  "name": "rescov-wait",
+  "units": [
+    {
+      "type": "Wait",
+      "description": "parked; any participant request jumps to 30",
+      "position": 10,
+      "special": null,
+      "wait_until_time": null,
+      "wait_until_date": null,
+      "wait_minutes": 120,
+      "relative_to": null,
+      "body": 30
+    },
+    {
+      "type": "Pause",
+      "description": "marker: a pause_waiting row here means the jump to 30 failed",
+      "position": 20,
+      "special": null,
+      "wait_until_time": null,
+      "wait_until_date": null,
+      "wait_minutes": 240,
+      "relative_to": null,
+      "body": "Should not be reached."
+    },
+    {
+      "type": "Endpage",
+      "description": "the Wait body target",
+      "position": 30,
+      "special": null,
+      "body": "Wait jumped here.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-wait/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-wait/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-wait/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

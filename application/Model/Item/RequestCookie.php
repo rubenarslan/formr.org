@@ -4,6 +4,7 @@ class RequestCookie_Item extends Item {
     public $type = 'request_cookie';
     public $no_user_input_required = false;
     public $hasChoices = true;
+    public $choicesOptional = true;
     public $mysql_field = "VARCHAR(20) DEFAULT NULL";
 
     // Use same classes as other button-style items

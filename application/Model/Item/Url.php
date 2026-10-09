@@ -8,6 +8,9 @@ class Url_Item extends Text_Item {
     protected $prepend = 'fa-link';
 
     public function validateInput($reply) {
+        if ($this->rejectNonScalarReply($reply, __('The URL is not valid'))) {
+            return null;
+        }
         if ($this->optional && trim($reply) == ''):
             return parent::validateInput($reply);
         else:

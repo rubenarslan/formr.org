@@ -27,7 +27,7 @@
         <ul class="nav nav-pills nav-stacked">
             <li><a target="_blank" rel="noopener" href="<?php echo admin_run_url($run->name, 'create_new_test_code'); ?>" title="Test run with a new guinea pig account. You'll start from the beginning and have extended debugging ability."><i class="fa fa-stethoscope"></i> Test Run</a></li>
 
-            <li><a href="<?php echo admin_run_url($run->name, 'user_overview?session=XXX'); ?>" title="See a list of existing guinea pigs/test sessions and continue testing."><i class="fa fa-wheelchair"></i> Old Guinea Pigs</a></li>
+            <li><a href="<?php echo admin_run_url($run->name, 'user_overview?testing=1'); ?>" title="See a list of existing guinea pigs/test sessions and continue testing."><i class="fa fa-wheelchair"></i> Old Guinea Pigs</a></li>
 
             <li><a href="<?php echo admin_run_url($run->name, 'user_overview'); ?>" title="Here you can monitor users' progress, send them to a different position and send them manual reminders."><i class="fa fa-users"></i> Users</a></li>
 

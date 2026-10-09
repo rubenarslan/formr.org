@@ -23,8 +23,19 @@
 const { defineConfig } = require('@playwright/test');
 const dotenv = require('dotenv');
 const path = require('node:path');
+const fs = require('node:fs');
 
-dotenv.config({ path: path.resolve(__dirname, '../../../.env.dev') });
+// ../../../.env.dev assumes the checkout sits inside formr-docker, which is
+// true for formr_source but not for a release worktree (/home/admin/formr_1.8.0
+// resolves to /home/admin/.env.dev — no file, dotenv reports "injected env (0)",
+// and the first spec dies on a missing password rather than on anything it
+// tests). Take the first candidate that exists, overridable for other hosts.
+const ENV_CANDIDATES = [
+    process.env.FORMR_ENV_FILE,
+    path.resolve(__dirname, '../../../.env.dev'),
+    '/home/admin/formr-docker/.env.dev',
+].filter(Boolean);
+dotenv.config({ path: ENV_CANDIDATES.find((p) => fs.existsSync(p)) || ENV_CANDIDATES[0] });
 
 // Detect "we're under the SDK runner" so the local-only SW-block hack
 // doesn't suppress SW behaviour on real devices, where SW is the whole
@@ -33,17 +44,20 @@ const RUNNING_ON_BS = process.env.BROWSERSTACK_AUTOMATION === 'true';
 
 module.exports = defineConfig({
     testDir: '.',
-    // No globalSetup on this branch — the PWA-persistence specs target a
-    // public dev run and a pre-existing test session code, no admin
-    // login / test-code minting needed. Cherry-pick form_v2's
-    // setup/global-setup.js if a future spec here needs admin auth.
+    globalSetup: require.resolve('./setup/global-setup.js'),
+    globalTeardown: require.resolve('./setup/global-teardown.js'),
     timeout: 120 * 1000,
     expect: { timeout: 15 * 1000 },
     // BS sessions occasionally drop the websocket bridge or the device
     // returns ERR_CONNECTION_CLOSED on a navigation; one retry absorbs
     // those without papering over real test failures (a real failure
-    // reproduces on retry). Local stays at 0.
-    retries: RUNNING_ON_BS ? 1 : 0,
+    // reproduces on retry). The same reasoning now applies locally: a
+    // 30-40 minute full run on the long-lived dev box occasionally eats a
+    // host-level network blip (net::ERR_NETWORK_CHANGED took out three
+    // adjacent files' navigations in one window on 2026-08-17), and with
+    // retries: 0 any blip is a hard failure. One retry; deterministic
+    // failures still fail.
+    retries: 1,
     workers: 1,
     reporter: [
         ['list'],
@@ -73,7 +87,45 @@ module.exports = defineConfig({
     projects: [
         {
             name: 'local-chromium',
-            use: { browserName: 'chromium' },
+            // sw-*.spec.js need a live service worker: the sw-chromium project.
+            ...(RUNNING_ON_BS ? {} : { testIgnore: /(^|\/)sw-[^/]*\.spec\.js$/ }),
+            // Under BS, the SDK monkey-patches one project per platform in
+            // browserstack.yml and uses this base project's `use` block as the
+            // template. iOS Safari works without further wiring because BS
+            // overrides browserName to webkit. Android Chrome on real devices
+            // requires `channel: 'chrome'` so Playwright hands the session off
+            // to the device's stock Chrome rather than trying to launch a
+            // bundled chromium binary that isn't there — without it BS returns
+            // `browserType.connect: Malformed endpoint`. We set channel only
+            // under BS so plain `npm run test:e2e` keeps using the bundled
+            // chromium and doesn't need a system Chrome install.
+            // See https://www.browserstack.com/docs/automate/playwright/playwright-android/nodejs.
+            use: {
+                browserName: 'chromium',
+                ...(RUNNING_ON_BS ? { channel: 'chrome' } : {}),
+                // Local headless Chromium has no camera/mic, so getUserMedia
+                // can't return a stream and the record_audio/record_video item
+                // tests can't exercise the recorder. These flags supply a fake
+                // media device and auto-accept the permission prompt. NOT under
+                // BS — real devices have real media and a real permission flow.
+                ...(RUNNING_ON_BS ? {} : {
+                    launchOptions: {
+                        args: [
+                            '--use-fake-device-for-media-stream',
+                            '--use-fake-ui-for-media-stream',
+                        ],
+                    },
+                }),
+            },
         },
+        // Service workers allowed, locally. The default headless shell hangs
+        // on SW-controlled pages (why local-chromium blocks them); the full
+        // Chromium build (`channel: 'chromium'`) runs them. Only sw-*.spec.js
+        // run here — `npm run test:e2e:sw`.
+        ...(RUNNING_ON_BS ? [] : [{
+            name: 'sw-chromium',
+            testMatch: /(^|\/)sw-[^/]*\.spec\.js$/,
+            use: { browserName: 'chromium', channel: 'chromium', serviceWorkers: 'allow' },
+        }]),
     ],
 });

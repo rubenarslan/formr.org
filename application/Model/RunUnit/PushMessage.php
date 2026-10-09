@@ -174,23 +174,66 @@ class PushMessage extends RunUnit {
                 // in PENDING. All four exits below get the same fix.
                 $output['end_session'] = true;
                 $output['move_on'] = true;
+                // Audit F14 (2026-07): resolve the claim row. Only
+                // sendPushMessage's logPushSuccess/Failure updated it, so
+                // these early returns left push_logs stuck at 'queued'
+                // forever — the "extremely common" no_subscription case
+                // buried genuine daemon-kill losses in indistinguishable
+                // stuck rows. Now the claim carries the real outcome.
+                $this->resolveClaim($idempotency_key, 'no_subscription');
                 return $output;
             }
 
             // Parse message with run data
             $message = $this->getMessage($unitSession);
             if (!$message) {
+                // v1.8.0: these two branches are terminal — the claim is
+                // resolved and the run advances, so the participant never gets
+                // this prompt and no retry is possible. That is defensible for
+                // genuinely broken content but NOT for a transient OpenCPU
+                // blip, which produces exactly the same falsy parse result.
+                // Making it visible is the safe half of the fix: previously
+                // the prompt vanished in silence.
+                //
+                // The unsafe half — retrying — is deliberately not done here.
+                // Push delivery is not freely retryable: iOS terminates a
+                // subscription after ~3 pushes it considers silent, so a retry
+                // loop on a permanently-broken message would cost the
+                // participant their subscription entirely, which is worse than
+                // the dropped prompt. Doing it properly needs a bounded,
+                // persisted attempt budget (like survey_email_log.tries, patch
+                // 071) plus a transient-vs-permanent signal from the parse
+                // step. Tracked for the queue-hardening follow-up.
+                notify_study_admin($unitSession, 'Push unit: message could not be parsed (OpenCPU may have failed); the participant will not receive this notification and the run moves on.', 'error');
                 $output['log']['result'] = 'message_parse_failed';
                 $output['end_session'] = true;
                 $output['move_on'] = true;
+                $this->resolveClaim($idempotency_key, 'message_parse_failed');
                 return $output;
             }
 
+            // v1.8.0: an ABSENT title is not a failure. The admin field is
+            // labelled "Optional title for message categorization", and
+            // getTitle() returns the raw topic when no knitting is needed —
+            // so an author who left it blank produced a falsy value here and
+            // the guard below dropped their notification entirely and
+            // advanced the run, while emailing them that OpenCPU may have
+            // failed. PushNotificationService already carries a
+            // `$options['title'] ?? 'Notification'` fallback; this guard was
+            // the only thing making it unreachable. Same for a title that
+            // legitimately knits to "" or "0".
+            //
+            // A title that was SUPPOSED to be knitted and came back null is
+            // still a genuine parse failure, so the two cases are separated
+            // rather than merged.
             $title = $this->getTitle($unitSession);
-            if (!$title) {
+            if (!$title && knitting_needed($this->topic)) {
+                notify_study_admin($unitSession, 'Push unit: title could not be parsed (OpenCPU may have failed); the participant will not receive this notification and the run moves on.', 'error');
                 $output['log']['result'] = 'title_parse_failed';
+                $output['log']['result_log'] = 'The title R code returned nothing. Push not sent; the run moved on.';
                 $output['end_session'] = true;
                 $output['move_on'] = true;
+                $this->resolveClaim($idempotency_key, 'title_parse_failed');
                 return $output;
             }
 
@@ -232,9 +275,28 @@ class PushMessage extends RunUnit {
             $output['log']['result_log'] = $e->getMessage();
             $output['end_session'] = true;
             $output['move_on'] = true;
+            // Audit F14: resolve the claim even when the throw happened
+            // after the claim INSERT but before sendPushMessage updated it.
+            $this->resolveClaim($idempotency_key, 'error');
         }
 
         return $output;
+    }
+
+    /**
+     * Audit F14 (2026-07): move a push_logs claim row off 'queued' to a
+     * terminal status on the branches that never reach
+     * PushNotificationService::logPushSuccess/logPushFailure. Keeps the
+     * push audit trail meaningful so genuinely-lost sends (daemon killed
+     * mid-send, claim stuck at 'queued') are distinguishable from the
+     * routine no-subscription/parse-fail exits.
+     */
+    protected function resolveClaim($idempotency_key, $status) {
+        $this->db->exec(
+            "UPDATE `push_logs` SET `status` = :status
+             WHERE `idempotency_key` = :k AND `status` = 'queued' LIMIT 1",
+            ['status' => $status, 'k' => $idempotency_key]
+        );
     }
 
     protected function getMessage(UnitSession $unitsession) {

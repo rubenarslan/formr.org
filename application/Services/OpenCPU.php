@@ -134,16 +134,61 @@ class OpenCPU {
      * @throws OpenCPU_Exception
      */
     private function call($uri = '', $params = array(), $method = CURL::HTTP_METHOD_GET) {
+        list($url, $body, $curl_opts, $request) = $this->prepareCall($uri, $params, $method);
+        $this->request = $request;
+        $this->curl_info = array();
+        // Maybe something bad happen in CURL request just throw it with OpenCPU_Exception with message returned from CURL
+        try {
+            $results = CURL::HttpRequest($url, $body, $method, $curl_opts, $this->curl_info);
+        } catch (Exception $e) {
+            throw new OpenCPU_Exception($e->getMessage(), -1, $e);
+        }
+        return $this->finishCall($uri, $params, $method, $url, $request, $results, $this->curl_info);
+    }
+
+    /**
+     * POST several requests to OpenCPU at once (CURL::HttpRequestMany).
+     *
+     * @param array $calls key => [uri, params], as for post()
+     * @return array key => ['session' => OpenCPU_Session|null,
+     *   'failure' => OpenCPU_Exception|null, 'seconds' => the request's time]
+     */
+    public function postMany(array $calls) {
+        $prepared = $requests = array();
+        foreach ($calls as $key => $call) {
+            $prepared[$key] = $this->prepareCall($call[0], $call[1], CURL::HTTP_METHOD_POST);
+            list($url, $body, $curl_opts) = $prepared[$key];
+            $requests[$key] = array($url, $body, CURL::HTTP_METHOD_POST, $curl_opts);
+        }
+        $out = array();
+        foreach (CURL::HttpRequestMany($requests) as $key => $answer) {
+            list($url, , , $request) = $prepared[$key];
+            $this->request = $request;
+            $this->curl_info = $answer['info'];
+            $seconds = isset($answer['info']['total_time']) ? (float) $answer['info']['total_time'] : 0.0;
+            if ($answer['error'] !== null) {
+                $out[$key] = array('session' => null, 'failure' => new OpenCPU_Exception($answer['error'], -1), 'seconds' => $seconds);
+                continue;
+            }
+            try {
+                $session = $this->finishCall($calls[$key][0], $calls[$key][1], CURL::HTTP_METHOD_POST, $url, $request, $answer['body'], $answer['info']);
+                $out[$key] = array('session' => $session, 'failure' => null, 'seconds' => $seconds);
+            } catch (OpenCPU_Exception $e) {
+                $out[$key] = array('session' => null, 'failure' => $e, 'seconds' => $seconds);
+            }
+        }
+        return $out;
+    }
+
+    /** The URL, encoded body, cURL options and request record of one call. */
+    private function prepareCall($uri, $params, $method) {
         if ($uri && strstr($uri, $this->localUrl) === false) {
             $uri = "/" . ltrim($uri, "/");
             $url = $this->localUrl . $this->libUri . $uri;
         } else {
             $url = $uri;
         }
-
-        // set global props
-        $this->curl_info = array();
-        $this->request = new OpenCPU_Request($url, $method, $params);
+        $request = new OpenCPU_Request($url, $method, $params);
 
         $curl_opts = $this->curl_opts;
         // encode request
@@ -154,14 +199,18 @@ class OpenCPU {
                     'Content-Length: ' . strlen($params),
             ));
         }
+        return array($url, $params, $curl_opts, $request);
+    }
 
-        // Maybe something bad happen in CURL request just throw it with OpenCPU_Exception with message returned from CURL
-        try {
-            $results = CURL::HttpRequest($url, $params, $method, $curl_opts, $this->curl_info);
-        } catch (Exception $e) {
-            throw new OpenCPU_Exception($e->getMessage(), -1, $e);
-        }
-
+    /**
+     * The session a call's answer opened (call(), postMany()); its request
+     * and cURL info are the instance's from here until the next call.
+     *
+     * @throws OpenCPU_Exception
+     */
+    private function finishCall($uri, $params, $method, $url, OpenCPU_Request $request, $results, array $info) {
+        $this->request = $request;
+        $this->curl_info = $info;
         if ($this->curl_info['http_code'] == 400) {
             $results = "R Error: $results";
             return new OpenCPU_Session(null, null, $results, $this);
@@ -258,11 +307,22 @@ class OpenCPU_Session {
      */
     private $object_length = null;
 
+    /** @var OpenCPU_Request|null the request that opened this session */
+    private $request = null;
+    /** @var array the cURL info of that request (http_code, content_type, …) */
+    private $info = array();
+
     public function __construct($location, $key, $raw_result, OpenCPU $ocpu = null) {
         $this->raw_result = $raw_result;
         $this->key = $key;
         $this->location = $location;
         $this->ocpu = $ocpu;
+        // Its own call's, not whichever the instance made last: postMany
+        // opens several sessions at once.
+        if ($ocpu !== null) {
+            $this->request = $ocpu->getRequest();
+            $this->info = (array) $ocpu->getRequestInfo();
+        }
 
         // Track this session globally
         opencpu_session($this);
@@ -281,11 +341,11 @@ class OpenCPU_Session {
      * @return OpenCPU_Request
      */
     public function getRequest() {
-        return $this->ocpu->getRequest();
+        return $this->request;
     }
 
     public function isJSONResult() {
-        return ($this->ocpu->getRequestInfo("content_type") === "application/json");
+        return (isset($this->info['content_type']) ? $this->info['content_type'] : null) === "application/json";
     }
 
     /**
@@ -420,7 +480,7 @@ class OpenCPU_Session {
     }
 
     public function hasError() {
-        return $this->ocpu->getRequestInfo('http_code') >= 400;
+        return (isset($this->info['http_code']) ? $this->info['http_code'] : null) >= 400;
     }
 
     public function getError() {
@@ -437,8 +497,26 @@ class OpenCPU_Session {
         return $this->ocpu;
     }
 
+    /**
+     * The response headers of the call that opened this session — its own,
+     * like getRequest() and hasError(), not the instance's last call's
+     * (postMany opens several sessions at once).
+     */
     public function getResponseHeaders() {
-        return $this->caller()->getResponseHeaders();
+        if (isset($this->info[CURL::RESPONSE_HEADERS])) {
+            return $this->info[CURL::RESPONSE_HEADERS];
+        } elseif (isset($this->info['raw_header'])) {
+            return http_parse_headers($this->info['raw_header']);
+        }
+        return null;
+    }
+
+    /** The cURL info of the call that opened this session (http_code, request_header, …). */
+    public function getRequestInfo($item = null) {
+        if ($item === null) {
+            return $this->info;
+        }
+        return isset($this->info[$item]) ? $this->info[$item] : null;
     }
 
     public function getPublicUrl() {

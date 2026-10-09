@@ -7,6 +7,10 @@ class Submit_Item extends Item {
     public $mysql_field = null;
     public $save_in_results_table = false;
 
+    public function rendersStoredAnswer() {
+        return false;
+    }
+
     protected function setMoreOptions() {
         $this->classes_input[] = 'btn';
         $this->classes_input[] = 'btn-lg';

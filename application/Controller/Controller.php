@@ -82,6 +82,7 @@ abstract class Controller {
             'study' => $this->study,
             'meta' => $this->generateMetaInfo(),
             'jsConfig' => $this->getJsConfig(),
+            'cspNonce' => $this->site->getCspNonce(),
         );
 
         $variables = array_merge($global, $this->vars, $vars);
@@ -89,6 +90,7 @@ abstract class Controller {
     }
 
     protected function sendResponse($content = null) {
+        $this->applyCspHeader();
         if ($content === null && $this->view) {
             $content = $this->view->render();
         }
@@ -97,6 +99,26 @@ abstract class Controller {
         }
 
         $this->response->send();
+    }
+
+    /**
+     * Emit the (Report-Only) CSP header on admin HTML responses. Gated to the
+     * admin area and to text/html so JSON / file-download / AJAX responses are
+     * left untouched. Headers are safe to set here: the body is rendered into a
+     * buffered string and only echoed in Response::send().
+     */
+    protected function applyCspHeader() {
+        if (!Csp::isEnabled() || !$this->site->inAdminArea()) {
+            return;
+        }
+        $ct = $this->response->getContentType();
+        if ($ct !== null && stripos($ct, 'text/html') === false) {
+            return; // explicit non-HTML response (JSON, file download)
+        }
+        $header = Csp::headerName();
+        if ($header) {
+            $this->response->setHeader($header, Csp::buildPolicy($this->site->getCspNonce()));
+        }
     }
 
     protected function getPrivateAction($name, $separator = '_', $protected = false) {
@@ -213,7 +235,14 @@ abstract class Controller {
         if ($cookieconsent && ($decoded = json_decode($cookieconsent, true))) {
             $config['cookieconsent'] = $decoded;
         }
-        
+        // form_v2 offline-queue blob cap. Hardcoded to 10MB in the bundle
+        // until now; expose via instance config so deployments running
+        // long-form audio/video can raise it. Per-study override is a
+        // future enhancement (would mean a column on survey_studies).
+        $config['form_v2'] = array(
+            'offline_blob_max_mb' => (int) Config::get('form_v2_offline_blob_max_mb', 10),
+        );
+
         return $config;
     }
 

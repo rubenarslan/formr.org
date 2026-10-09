@@ -11,6 +11,7 @@ TO: %{recipient}
 %{message}
 </small>
 
+Instance: %{instance}
 
 Best regards,
 formr robots

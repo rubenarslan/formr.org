@@ -4,6 +4,7 @@ import QRCodeStyling from "qr-code-styling";
 import 'add-to-homescreen/dist/add-to-homescreen.min.css';
 import AddToHomeScreen from 'add-to-homescreen/dist/add-to-homescreen.min.js';
 import '@khmyznikov/pwa-install';
+import { isIOSDevice, isIOSPushCapable, isMobileDevice } from '../platform.js';
     
 // Add German translations to window.formrLanguage
 window.formrTranslations.de = {
@@ -139,19 +140,7 @@ const PushNotificationManager = {
 
     // Check iOS version compatibility
     isIOSCompatible: function() {
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        if (!isIOS) return true;
-        
-        // Extract iOS version from user agent
-        const versionMatch = navigator.userAgent.match(/OS (\d+)_(\d+)/);
-        if (versionMatch && versionMatch[1] && versionMatch[2]) {
-            const majorVersion = parseInt(versionMatch[1]);
-            const minorVersion = parseInt(versionMatch[2]);
-            
-            // Return true if iOS 16.4 or later
-            return (majorVersion > 16) || (majorVersion === 16 && minorVersion >= 4);
-        }
-        return false; // If we can't determine version, assume incompatible
+        return isIOSPushCapable();
     },
 
     // Get existing service worker registration using navigator.serviceWorker.ready
@@ -243,10 +232,6 @@ const PushNotificationManager = {
 // Add browser detection helper functions
 async function isBraveBrowser() {
     return (navigator.brave && await navigator.brave.isBrave()) || false;
-}
-
-function isIOSDevice() {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 }
 
 // Update the state of installation button and related UI elements
@@ -907,7 +892,7 @@ function showNotificationHelp($wrapper) {
                     <li>${t('After changing settings, please reload this page and try again')}</li>
                 </ol>
             </div>`;
-    } else if (/macintosh/.test(userAgent)) {
+    } else if (/macintosh/.test(userAgent) && !isIOSDevice()) {
         helpContent = `
             <div class="notification-help">
                 <p>${t('On macOS, notifications might be blocked by:')}</p>
@@ -934,7 +919,7 @@ function showNotificationHelp($wrapper) {
                     <li>${t('After changing settings, please reload this page and try again')}</li>
                 </ol>
             </div>`;
-    } else if (/iphone|ipad|ipod/.test(userAgent)) {
+    } else if (isIOSDevice()) {
         helpContent = `
             <div class="notification-help">
                 <p>${t('On iOS, notifications might be blocked by:')}</p>
@@ -1137,12 +1122,6 @@ async function handleUnsubscribe($wrapper, registration) {
         $status.html(t('There was an error disabling push notifications. Please try again later.'));
         $wrapper.find('.unsubscribe-notification-button').html(`<i class="fa fa-bell-slash"></i> ${t('Disable Notifications')}`);
     }
-}
-
-// Function to detect if the user is on a mobile device
-function isMobileDevice() {
-    const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
-    return mobileRegex.test(navigator.userAgent);
 }
 
 // Function to generate the redirect link with code parameter if needed

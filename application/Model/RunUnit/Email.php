@@ -10,6 +10,8 @@ class Email extends RunUnit {
     
     protected $mail_queued = false;
     protected $mail_sent = false;
+    /** set by sendNow() when the mail guard refused the recipient (terminal, no retry) */
+    protected $mail_guard_refused = false;
     protected $body = null;
     protected $body_parsed = null;
     protected $account_id = null;
@@ -44,31 +46,35 @@ class Email extends RunUnit {
     public function create($options = []) {
         parent::create($options);
 
-        // The email account must belong to the run owner. Without this
-        // check, a structure-import body or AdminAjaxController::ajax_save_
-        // run_unit POST can re-point a Run's Email unit at any other
-        // admin's survey_email_accounts row by id, and subsequent send-
-        // mail dispatches would go through the victim's SMTP credentials.
-        // Run::importUnits also nulls account_id pre-emptively (cross-
-        // server portability), but this is the canonical gate so the
-        // admin-AJAX path is also covered.
-        if (!empty($options['account_id']) && is_numeric($options['account_id'])
-                && !$this->isOwnedBy(
-                    'survey_email_accounts',
-                    (int) $options['account_id'],
-                    (int) $this->run->user_id
-                )) {
-            $options['account_id'] = null;
-        }
-
         $parsedown = new ParsedownExtra();
         if (isset($options['body'])) {
             if (isset($options['account_id']) && is_numeric($options['account_id'])) {
                $options['account_id'] = (int) $options['account_id'];
             }
-            $options['cron_only'] = (int)isset($options['cron_only']);
+            // `(int) isset(...)` read PRESENCE, not value. That works for the
+            // admin form, which posts the checkbox only when it is ticked, but
+            // it inverts every caller that sends the field explicitly: the v1
+            // API, a run import, the MCP. `cron_only: 0` became 1. And since
+            // cron_only is in $export_attribs, exporting a run and importing it
+            // back turned every Email in it cron-only — after which a
+            // participant who reached one in their browser was skipped with
+            // `email_skipped_user_active` instead of being mailed. Absence
+            // still means 0, so the form behaves exactly as before.
+            $options['cron_only'] = isset($options['cron_only']) ? (int) (bool) $options['cron_only'] : 0;
             $options['html'] = 1;
             $this->assignProperties($options);
+        }
+
+        // The email account must belong to the run owner: a structure-import
+        // body or an ajax_save_run_unit POST could otherwise re-point this
+        // unit at any other admin's survey_email_accounts row by id and have
+        // sendMail() dispatch through the victim's SMTP credentials. One gate
+        // for every source — posted (parent::create() assigned it), imported,
+        // or re-assigned from $options in the body branch above. sendMail()
+        // scopes its own load to the run owner as well, for rows written
+        // before this gate existed.
+        if ($this->account_id !== null && !$this->isOwnedBy('survey_email_accounts', (int) $this->account_id, (int) $this->run->user_id)) {
+            $this->account_id = null;
         }
 
         if ($this->account_id === null) {
@@ -115,12 +121,18 @@ class Email extends RunUnit {
     }
     
     protected function getPotentialRecipientFields() {
+        // Walk from the run's units to their studies: a Survey or Form unit
+        // IS its study (survey_run_units.unit_id = survey_studies.id).
+        // DISTINCT: a study placed twice in the run must not list its email
+        // item twice. An item removed from the survey (soft-deleted, patch
+        // 112) is no column R sees any more: as recipient it is always NULL.
         $stmt = $this->db->prepare("
-            SELECT survey_studies.name AS survey,survey_items.name AS item FROM survey_items
-                LEFT JOIN survey_studies ON survey_studies.id = survey_items.study_id
-                LEFT JOIN survey_run_units ON survey_studies.id = survey_run_units.unit_id
-                LEFT JOIN survey_runs ON survey_runs.id = survey_run_units.run_id
-            WHERE survey_runs.id = :run_id AND survey_items.type = 'email'"
+            SELECT DISTINCT survey_studies.name AS survey, survey_items.name AS item
+            FROM survey_run_units
+                INNER JOIN survey_studies ON survey_studies.id = survey_run_units.unit_id
+                INNER JOIN survey_items ON survey_items.study_id = survey_studies.id
+            WHERE survey_run_units.run_id = :run_id AND survey_items.type = 'email'
+              AND survey_items.deleted IS NULL"
         );
         
         // fixme: if the last reported email thing is known to work, show only linked email addresses here.
@@ -179,8 +191,15 @@ class Email extends RunUnit {
 
 
 
-    public function sendMail(UnitSession $unitSession, $who = null) {
-        $this->mail_queued = $this->mail_sent = false;
+    /**
+     * @param bool $isTest true when the admin's "Test" button drives this.
+     *   The test borrows a REAL participant's unit session for R context
+     *   (grabRandomSession) but sends to the admin, so the resulting
+     *   survey_email_log row must not carry that participant's session_id —
+     *   see queueNow().
+     */
+    public function sendMail(UnitSession $unitSession, $who = null, $isTest = false) {
+        $this->mail_queued = $this->mail_sent = $this->mail_guard_refused = false;
         $this->recipient = $who !== null ? $who : $unitSession->runSession->getRecipientEmail($this->recipient_field, false, $unitSession);
 
         if ($this->recipient == null) {
@@ -204,7 +223,16 @@ class Email extends RunUnit {
         $run_session = $unitSession->runSession;
         $testing = !$run_session || $run_session->isTesting();
 
-        $acc = new EmailAccount($this->account_id, null);
+        // Scoped to the run owner: create()'s gate only covers rows written
+        // since it existed, and this is where the account's SMTP credentials
+        // are actually decrypted and used.
+        $acc = new EmailAccount($this->account_id, $this->run ? (int) $this->run->user_id : null);
+        if (!$acc->valid) {
+            alert("The email account selected for this unit does not belong to the study owner. Select one of your own accounts in the email unit.", 'alert-danger');
+            $this->errors['log'] = $this->getLogMessage('no_sender', "The email account selected for this unit does not belong to the study owner.");
+            notify_study_admin($unitSession, 'Email unit: the sender account is not owned by the study owner', 'error');
+            return false;
+        }
         $mailing_themselves = (is_array($acc->account) && $acc->account["from"] === $this->recipient) ||
                 (($user = Site::getCurrentUser()) && $user->email === $this->recipient) ||
                 ($this->run && $this->run->getOwner()->email === $this->recipient);
@@ -251,15 +279,38 @@ class Email extends RunUnit {
 
         // if formr is configured to use the email queue then add mail to queue and return
         if (Config::get('email.use_queue', false) === true) {
-            return $this->queueNow($acc, $subject, $body, $unitSession);
+            return $this->queueNow($acc, $subject, $body, $unitSession, $isTest);
         } else {
-            return $this->sendNow($acc, $subject, $body, $unitSession);
+            return $this->sendNow($acc, $subject, $body, $unitSession, $isTest);
         }
 
         
     }
 
-    protected function queueNow(EmailAccount $acc, string $subject, string $body, UnitSession $unitSession) {
+    protected function queueNow(EmailAccount $acc, string $subject, string $body, UnitSession $unitSession, $isTest = false) {
+        // v1.8.0: a test send must not be attributed to the participant whose
+        // unit session it borrowed for R context. EmailQueue::logResult()
+        // UPDATEs survey_unit_sessions by session_id alone — no unit_id, no
+        // `ended IS NULL` — so the daemon would stamp result='email_sent',
+        // result_log=NULL onto that participant's row, ended or not. On a row
+        // that had recorded email_skipped_user_disabled that is a false record
+        // of mailing someone who opted out; on a row still inside its retry
+        // window it also matches getUnitSessionOutput()'s terminal-result
+        // allowlist, so the run daemon then ADVANCES that participant past an
+        // email never sent to them. A null session_id makes the daemon skip
+        // the unit-session UPDATE entirely (its `if ($session_id)` guard).
+        //
+        // The key is randomised for the same reason: keyed on the borrowed
+        // session it would collide with that participant's real email and
+        // report a phantom success (affected = 0 still sets mail_queued).
+        if ($isTest) {
+            $session_id = null;
+            $idempotency_key = "emailtest:{$this->id}:" . crypto_token(16);
+        } else {
+            $session_id = $unitSession->id;
+            $idempotency_key = null; // set below
+        }
+
         // Track A A4 — closes R5. The idempotency_key is unique per
         // (unit_session, email_id), so a SIGKILL'd daemon's restart
         // re-attempt collides on UNIQUE and the second INSERT is a
@@ -269,7 +320,9 @@ class Email extends RunUnit {
         // getUnitSessionOutput catches the case where this row INSERTed
         // and result was set; this guard catches the gap between row
         // INSERT and result UPDATE. See REFACTOR_QUEUE_PLAN.md A4.
-        $idempotency_key = "email:{$unitSession->id}:{$this->id}";
+        if ($idempotency_key === null) {
+            $idempotency_key = "email:{$unitSession->id}:{$this->id}";
+        }
 
         $affected = $this->db->exec(
             "INSERT INTO `survey_email_log`
@@ -279,7 +332,7 @@ class Email extends RunUnit {
              ON DUPLICATE KEY UPDATE `id` = `id`",
             [
                 'subject'         => $subject,
-                'session_id'      => $unitSession->id,
+                'session_id'      => $session_id,
                 'email_id'        => $this->id,
                 'message'         => $body,
                 'recipient'       => $this->recipient,
@@ -300,7 +353,38 @@ class Email extends RunUnit {
         return $this->mail_queued;
     }
 
-    protected function sendNow(EmailAccount $acc, string $subject, string $body, UnitSession $unitSession) {
+    protected function sendNow(EmailAccount $acc, string $subject, string $body, UnitSession $unitSession, $isTest = false) {
+        // Audit F21 (2026-07): claim before sending, mirroring queueNow,
+        // so a crash between $mail->Send() and the audit write cannot
+        // permit a duplicate send on retry. The claim row IS the log row
+        // (idempotency_key = "email:{unit_session}:{email_id}", the same
+        // UNIQUE key queueNow uses). Claimed at STATUS_SENDING — NOT 0 —
+        // because the mail daemon polls status=0 and would otherwise pick
+        // the claim up during the SMTP window and send the same email a
+        // second time (use_queue=false host with the daemon running).
+        // 'handled' = the row is already SENT, or QUEUED (daemon owns it).
+        //
+        // v1.8.0: same reasoning as queueNow() — a test send borrows a real
+        // participant's unit session for R context but must not be recorded
+        // against it, and must not adopt or collide with that participant's
+        // claim (which would report a phantom success via 'handled').
+        $idempotency_key = $isTest
+            ? "emailtest:{$this->id}:" . crypto_token(16)
+            : "email:{$unitSession->id}:{$this->id}";
+        $claim = EmailQueue::claimSyncSend([
+            'subject'         => $subject,
+            'session_id'      => $isTest ? null : $unitSession->id,
+            'email_id'        => $this->id,
+            'message'         => $body,
+            'recipient'       => $this->recipient,
+            'account_id'      => (int) $this->account_id,
+            'idempotency_key' => $idempotency_key,
+        ]);
+        if ($claim === 'handled') {
+            $this->mail_sent = true;
+            return true;
+        }
+
         $mail = $acc->makeMailer();
 
 //		if($this->html)
@@ -309,7 +393,7 @@ class Email extends RunUnit {
         $mail->AddAddress($this->recipient);
         $mail->Subject = $subject;
         $mail->Body = $body;
-        
+
         foreach ($this->images as $image_id => $image) {
             $local_image = APPLICATION_ROOT . 'tmp/' . uniqid() . $image_id;
             copy($image, $local_image);
@@ -317,15 +401,49 @@ class Email extends RunUnit {
                 unlink($local_image);
             });
 
-            if (!$mail->AddEmbeddedImage($local_image, $image_id, $image_id, 'base64', 'image/png')) {
+            // The knitted HTML references the figure as cid:<URLencode(basename)>
+            // (see opencpu_knit_email's upload.fun), so the Content-ID we
+            // register must be the encoded form too. Registering the raw file
+            // name broke every figure whose chunk label contained a space
+            // ("my picture" -> cid:my%20picture-1.png vs "my picture-1.png"; #290).
+            $cid = self::embeddedImageCid($image_id);
+            if (!$mail->AddEmbeddedImage($local_image, $cid, $image_id, 'base64', 'image/png')) {
                 alert("Could not embed image with id '{$image_id}'", 'alert-danger');
             }
         }
-        
+
         if ($mail->Send()) {
             $this->mail_sent = true;
-            $this->logMail($unitSession); 
+            // Mark the claim row sent for the audit trail (sent stamp
+            // mirrors the daemon's logResult).
+            $this->db->exec(
+                "UPDATE `survey_email_log` SET `status` = " . EmailQueue::STATUS_SENT . ", `sent` = NOW()
+                 WHERE `idempotency_key` = :k LIMIT 1",
+                ['k' => $idempotency_key]
+            );
+        } elseif (!empty($mail->guard_blocked)) {
+            // Refused by the mail guard (suppressed recipient / dead domain):
+            // terminal, exactly as the daemon path records it — retrying
+            // can't change the verdict, so the claim is kept as the audit
+            // row rather than released into a backoff loop.
+            $this->mail_guard_refused = true;
+            $this->db->exec(
+                "UPDATE `survey_email_log` SET `status` = " . EmailQueue::STATUS_INVALID_RECIPIENT . "
+                 WHERE `idempotency_key` = :k AND `status` = " . EmailQueue::STATUS_SENDING . " LIMIT 1",
+                ['k' => $idempotency_key]
+            );
+            $this->errors['log'] = $this->getLogMessage('error_email_guard_refused', (string) $mail->guard_outcome);
+            alert('Email with the subject "' . h($mail->Subject) . '" was not sent to ' . h($this->recipient) . ':<br>' . $mail->ErrorInfo, 'alert-danger');
+            if (!$isTest) {
+                notify_study_admin($unitSession, 'Email unit: the mail guard refused sending to ' . $this->recipient . ' (' . $mail->guard_outcome . '); the participant moved on.', 'error');
+            }
         } else {
+            // Release the claim so a later retry can send (the failure
+            // was delivery, not a duplicate). Only drop OUR in-flight claim.
+            $this->db->exec(
+                "DELETE FROM `survey_email_log` WHERE `idempotency_key` = :k AND `status` = " . EmailQueue::STATUS_SENDING . " LIMIT 1",
+                ['k' => $idempotency_key]
+            );
             alert('Email with the subject "' . h($mail->Subject) . '" was not sent to ' . h($this->recipient) . ':<br>' . $mail->ErrorInfo, 'alert-danger');
         }
 
@@ -384,7 +502,7 @@ class Email extends RunUnit {
         $output .= $this->getParsedBody($this->body, $unitSession, ['admin' => true]);
 
         $output .= "<h4>Attempt to send email</h4>";
-        if ($this->sendMail($unitSession, $receiver)) {
+        if ($this->sendMail($unitSession, $receiver, true)) {
             $output .= "<p>An email was sent to your own email address (" . h($receiver) . ").</p>";
         } else {
             $output .= "<p>No email sent.</p>";
@@ -455,8 +573,28 @@ class Email extends RunUnit {
 
         // Check if user is enabled to receive emails
         if (!$unitSession->runSession->canReceiveMails()) {
+            // A disabled recipient is a terminal SKIP: end the unit session and
+            // advance, exactly as the cron_only skip above does.
+            //
+            // v1.8.0: this branch used to return log+content only. That halted
+            // the run — executeUnitSession() returns the content as the page
+            // body BEFORE reaching its fall-through moveOn(), leaving the row
+            // at queued=0, which the daemon pickup cannot see. On the web path
+            // the participant got a dead-end page; on a CRON cascade nothing
+            // rescheduled it at all, so every snoozed / no_email participant
+            // parked on their Email unit until bin/sweep_stalled_unit_sessions
+            // healed it (~30-100 min where that job is scheduled — hourly via
+            // ofelia in the docker stack — and never on installs driven by
+            // config/formr_crontab, which does not schedule the sweep).
+            //
+            // The cron_only sibling avoids this only because it sets NO
+            // `content`, so it falls through to the final moveOn(). Setting
+            // move_on explicitly is clearer than relying on that, and matches
+            // the send-success branch below. The `content` string is dropped
+            // deliberately: it was participant-facing debug text, and with
+            // move_on set it is unreachable anyway (move_on is tested first).
             $data['log'] = $this->getLogMessage('email_skipped_user_disabled', "User {$unitSession->runSession->session} disabled receiving emails at this time");
-            $data['content'] = "<p>User <code>{$unitSession->runSession->session}</code> disabled receiving emails at this time </p>";
+            $data['end_session'] = $data['move_on'] = true;
             return $data;
         }
 
@@ -466,12 +604,50 @@ class Email extends RunUnit {
             $log = array_val($this->messages, 'log', ['result_log' => null]);
             $data['log'] = $this->getLogMessage(($this->mail_queued ? 'email_queued' : 'email_sent'), $log['result_log']);
             $data['end_session'] = $data['move_on'] = true;
+        } elseif ($this->mail_guard_refused) {
+            // A guard verdict is terminal for this recipient: the queued path
+            // has already moved the participant on by the time the daemon
+            // records the same refusal, so the synchronous path ends the unit
+            // the same way instead of re-arming a backoff that can't succeed.
+            $data['log'] = $this->errors['log'];
+            $data['end_session'] = $data['move_on'] = true;
         } else {
             $data['log'] = array_val($this->errors, 'log', $this->getLogMessage('error_email'));
             $data['content'] = $err;
+            $data['queue'] = $this->retryBackoffQueue();
         }
-  
+
         return $data;
     }
 
+    // retryBackoffQueue() moved to RunUnit in v1.8.0 — External's failed
+    // R-address re-arm uses the identical flat tier, and keeping one copy
+    // means upgrading the backoff upgrades both unit types together.
+    // Email-specific context for the v1.7.1 rationale: a rate-limited
+    // recipient (thresholds are per address, instance-wide: 1/min, 10/day,
+    // 60/week — an ESM design or a shared lab address reaches them
+    // legitimately), an SMTP outage, or a missing recipient all used to
+    // produce the ~15 s hot loop the shared docblock describes.
+
+    /**
+     * Content-ID under which a knitted figure is embedded. Mirrors R's
+     * URLencode(basename(x)) used by opencpu_knit_email's upload.fun, so the
+     * cid: reference in the HTML and the registered attachment agree even
+     * when the chunk label (and hence the file name) contains a space.
+     *
+     * Not rawurlencode(): R's URLencode(reserved = FALSE) leaves the RFC 3986
+     * reserved set (!$&'()*+,;=:/?@#) and square brackets alone as well as the unreserved
+     * characters, whereas rawurlencode() escapes everything outside
+     * A-Za-z0-9-._~. A chunk label such as "plot(1)" would otherwise be
+     * referenced as cid:plot(1)-1.png but registered as plot%281%29-1.png.
+     */
+    public static function embeddedImageCid($imageId) {
+        return preg_replace_callback(
+            '/[^A-Za-z0-9._~!$&\'()*+,;=:\/?@#\[\]-]/',
+            function ($m) {
+                return sprintf('%%%02X', ord($m[0]));
+            },
+            (string) $imageId
+        );
+    }
 }

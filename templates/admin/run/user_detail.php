@@ -43,7 +43,7 @@
                                 <label class="sr-only">Name</label>
                                 <div class="input-group" style="width: 350px;">
                                     <div class="input-group-addon">SEARCH <i class="fa fa-user"></i></div>
-                                    <input name="session" value="<?= h(array_val($_GET, 'session')) ?>" type="text" class="form-control" placeholder="Session code">
+                                    <input name="session" value="<?= h(array_val($_GET, 'session')) ?>" type="text" class="form-control" placeholder="Session code (starts with…)" title="Matches session codes that start with what you type (not a substring).">
                                 </div>
 
                                 <label class="sr-only" title="This refers to the user's current position!">Position</label>
@@ -114,10 +114,10 @@
                                                 else if (!empty($row['result_log'])) $label_class = "label-warning";
                                                 ?>
 
-                                                <small class="label <?=$label_class?> hastooltip" title="<?php echo h($row['result_log']); ?>"><?php echo $row['result'];?></small>
+                                                <small class="label <?=$label_class?> hastooltip" title="<?php echo h($row['result_log']); ?>"><?php echo h($row['result']);?></small>
                                             </td>
                                             <td>
-                                                <a data-href="<?php echo admin_run_url($row['run_name'], 'ajax_delete_unit_session', array('session_id' => $row['session_id'])); ?>" href="javascript:void(0);" class="hastooltip delete-user-unit-session" title="<?= h($row['delete_title']) ?>"  data-msg="<?= h($row['delete_msg']) ?>" class="delete-user-unit-session"><i class="fa fa-trash"></i></a>
+                                                <a data-href="<?php echo admin_run_url($row['run_name'], 'ajax_delete_unit_session', array('session_id' => $row['session_id'])); ?>" href="#" class="hastooltip delete-user-unit-session" title="<?= h($row['delete_title']) ?>"  data-msg="<?= h($row['delete_msg']) ?>" class="delete-user-unit-session"><i class="fa fa-trash"></i></a>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>

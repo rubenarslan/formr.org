@@ -1,6 +1,20 @@
 <?php
 
 class File_Item extends Item {
+    protected $accepts_array_reply = true;
+    // Validating an upload moves it into place.
+    protected $validation_has_side_effects = true;
+
+    // A file input takes no value, and an upload's path is not shipped to
+    // the browser.
+    public function rendersStoredAnswer() {
+        return false;
+    }
+
+    public function storedValueForClient($answer) {
+        return null;
+    }
+
 
     public $type = 'file';
     public $input_attributes = array('type' => 'file', 'accept' => "image/*,video/*,audio/*,text/*");
@@ -103,6 +117,32 @@ class File_Item extends Item {
             8 => 'A PHP extension stopped the file upload.',
         );
         
+        // An empty optional file/image/audio/video item submits a scalar ''
+        // (or null) rather than the $_FILES dict — no file was chosen. Mirror
+        // v1's UPLOAD_ERR_NO_FILE handling: treat as a (valid) non-answer so the
+        // page can complete; a required-but-empty file is barred client-side and,
+        // if it ever reaches here, parent::validateInput raises the missing error.
+        //
+        // '' / null is the ONLY legitimate non-array shape: the v2 client
+        // (webroot/assets/form/js/main.js collectPayload) posts '' exclusively
+        // for an empty optional file input, and a chosen file always rides the
+        // multipart/FormData path into the $_FILES-shaped array handled below —
+        // there is no client code path that re-posts existing embed markup or
+        // any other non-empty scalar. Trusting an arbitrary non-empty scalar
+        // here would let a participant store unescaped text into a column that
+        // is otherwise only ever server-generated embed markup (see
+        // getEscapedResult below), so reject it the same way a failed upload
+        // is rejected rather than passing it through verbatim.
+        if (!is_array($reply)) {
+            if ($reply === '' || $reply === null) {
+                $this->reply = parent::validateInput(null);
+            } else {
+                $this->error = __("Invalid file upload.");
+                $this->reply = parent::validateInput(null);
+            }
+            return $this->reply;
+        }
+
         if ($reply['error'] === 0) { // verify maximum length and no errors
             if (filesize($reply['tmp_name']) < $this->max_size) {
                 $finfo = new finfo(FILEINFO_MIME_TYPE);
@@ -145,6 +185,36 @@ class File_Item extends Item {
 
     public function getReply($reply) {
         return $this->reply;
+    }
+
+    /**
+     * File/Audio/Video/Image store the embed markup validateInput() builds
+     * via sprintf($this->embed_html, asset_url('tmp/user_uploaded_files/…')).
+     * That markup is server-generated (the src is an asset_url() over a
+     * crypto_token() filename, never participant text), so it must render
+     * unescaped for the player/preview — escaping would show tag source.
+     *
+     * BUT the admin results view dispatches by the item's CURRENT type, so a
+     * column holding data written under a different type (a restored backup
+     * after a text→file retype; an import) would otherwise be passed through
+     * raw here — turning a participant's stored `<img onerror=…>` into script
+     * on the admin origin (review 2026-07, item 19). So prove the value IS
+     * this item's own embed shape before trusting it: reconstruct an anchored
+     * pattern from $this->embed_html (each subclass's template drives its own
+     * check), where the %s slot is a URL into our upload dir carrying no HTML
+     * metacharacters. A full-string match of that fixed template has no room
+     * for an event handler or extra attribute, so nothing that matches can
+     * carry script; anything else falls back to h() (base behaviour).
+     */
+    public function getEscapedResult($reply) {
+        if ($reply === null) {
+            return null;
+        }
+        // %s -> an upload URL: any non-metachar prefix, our upload path, a
+        // crypto_token()+ext filename ([A-Za-z0-9_~-] plus '.').
+        $urlSlot = '[^"\'<>\s]*tmp/user_uploaded_files/[\w.~-]+';
+        $pattern = '#^' . str_replace('%s', $urlSlot, preg_quote($this->embed_html, '#')) . '$#';
+        return preg_match($pattern, (string) $reply) ? $reply : h($reply);
     }
 
     /**

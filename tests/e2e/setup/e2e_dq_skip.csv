@@ -1,0 +1,9 @@
+type,name,label,optional,showif,choice1,choice2
+mc_button,sk_branch,Show the middle page?,,,yes,no
+submit,sk_p1,Next,,,,
+text,sk_middle,Only for those who said yes,*,sk_branch == 1,,
+agent_probe,sk_agent,,*,,,
+data_quality,sk_dq,,*,,,
+submit,sk_p2,Next,,,,
+text,sk_last,The last page,*,,,
+submit,sk_p3,Finish,,,,

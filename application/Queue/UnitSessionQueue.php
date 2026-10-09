@@ -32,7 +32,7 @@ class UnitSessionQueue extends Queue {
     /**
      * Map a queued unit-session to its named state based on the runUnit type.
      * Used by addItem() to dual-write the state column. The split:
-     *   - Survey / External / Page: WAITING_USER
+     *   - Survey (incl. Form, see Survey::TYPES) / External / Page: WAITING_USER
      *     (interactive units; the participant is the next actor; the
      *     queue's expires deadline is the fallback timer for inactivity)
      *   - everything else (Pause, Wait, Branch, SkipForward/Backward, Shuffle,
@@ -41,7 +41,7 @@ class UnitSessionQueue extends Queue {
      *     is the next actor)
      */
     public static function stateForQueuedUnit(RunUnit $runUnit) {
-        if (in_array($runUnit->type, ['Survey', 'External', 'Page', 'Endpage'], true)) {
+        if (in_array($runUnit->type, array_merge(Survey::TYPES, ['External', 'Page', 'Endpage']), true)) {
             return self::STATE_WAITING_USER;
         }
         return self::STATE_WAITING_TIMER;
@@ -72,6 +72,12 @@ class UnitSessionQueue extends Queue {
                 // loop until terminated but with taking some nap
                 $sleeps = 0;
                 while (!$this->out && $this->rested()) {
+                    // Audit F16 (2026-07): re-sync the session time_zone to
+                    // PHP's current offset each pass so this long-lived
+                    // connection tracks a DST transition instead of
+                    // comparing NOW() at a stale offset against
+                    // PHP-computed deadlines.
+                    DB::getInstance()->syncSessionTimezone();
                     if ($this->processQueue() === false) {
                         // if there is nothing to process in the queue sleep for sometime
 //                        $this->dbg("Sleeping because nothing was found in queue");
@@ -134,6 +140,13 @@ class UnitSessionQueue extends Queue {
     }
 
     protected function processQueue() {
+        // The long-read memos (a results table's columns, item types) are
+        // request-scoped; this process lives across many uploads, so start
+        // every pass from what the database says now. A stale column list
+        // would SELECT a column an upload has since dropped.
+        SurveyStudy::forgetAllWideTableColumns();
+        SurveyStudy::forgetColumnTypes();
+
         $sessionsStmt = $this->getSessionsStatement();
 		
 		$this->dbg('Count: ' . $sessionsStmt->rowCount());

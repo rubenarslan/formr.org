@@ -1384,6 +1384,38 @@ address, ul, ol, a {
 .documentation-content .tab-pane a {
 	color: #337ab7;
 }
+/* Heading rhythm inside the documentation tabs only.
+   The site-wide rule above (h1-h6 { margin: 0 0 30px 0 }) drops the top
+   margin Bootstrap gives headings, so a heading crowds the block above it
+   and then floats 30px away from its own content. Bootstrap's scale also
+   puts h5 at 14px, below this theme's 16px body text, so the ~19 h5
+   subheadings across these pages render smaller than the paragraphs they
+   introduce. Scoped to .documentation-content so participant-facing survey
+   pages, which share this stylesheet, are untouched. */
+.documentation-content h4 {
+	margin: 2.2em 0 0.6em;
+	font-weight: 500;
+}
+.documentation-content h5 {
+	font-size: 17px;
+	font-weight: 500;
+	margin: 1.8em 0 0.5em;
+}
+.documentation-content h5 small {
+	font-size: 80%;
+}
+.documentation-content h3:first-child,
+.documentation-content h4:first-child,
+.documentation-content h5:first-child {
+	margin-top: 0;
+}
+/* Readable body text in the docs. */
+.documentation-content {
+	color: #484c50;
+}
+.documentation-content .text-muted {
+	color: #66737f;
+}
 #fmr-header.fmr-small-header {
 	height: 70px;
 	background: #333;

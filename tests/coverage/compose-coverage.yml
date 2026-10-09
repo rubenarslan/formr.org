@@ -1,0 +1,15 @@
+# The coverage pass (tests/coverage/README.md): formr_app with Xdebug in
+# coverage mode and prepend.php loaded, so every web request and every
+# `docker exec formr_app php …` the e2e suite makes records its lines into
+# .coverage/php/e2e.json. Dev-remote stacks only (code bind-mounted from
+# ./formr_source); paths are relative to the formr-docker project dir.
+# Recreate formr_app without this file afterwards: coverage mode slows
+# every request.
+services:
+  formr_app:
+    environment:
+      XDEBUG_MODE: "develop,debug,trace,coverage"
+      FORMR_COVERAGE_DIR: /var/www/formr/.coverage/php
+      FORMR_COVERAGE_LABEL: e2e
+    volumes:
+      - ./formr_source/tests/coverage/coverage.ini:/usr/local/etc/php/conf.d/zz-coverage.ini:ro

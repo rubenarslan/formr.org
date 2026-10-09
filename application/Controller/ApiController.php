@@ -129,6 +129,30 @@ class ApiController extends Controller
         $this->respond($data['statusCode'], $data['statusText'], $data['response']);
     }
 
+    /**
+     * Collector for browser CSP violation reports (report-uri target).
+     * Unauthenticated by design — browsers POST these with no session.
+     * Reached directly by the router (method_exists gate), so it never goes
+     * through authenticate(). Logs to csp.log and returns 204; no DB, no body,
+     * no reflection of input — abuse-safe.
+     */
+    public function cspReportAction()
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            http_response_code(405);
+            exit;
+        }
+        $raw = file_get_contents('php://input');
+        if (strlen($raw) <= 16384) {
+            $report = json_decode($raw, true);
+            if (is_array($report)) {
+                formr_csp_log(Csp::extractReportFields($report));
+            }
+        }
+        http_response_code(204);
+        exit;
+    }
+
     public function oauthAction($action = null)
     {
         if (!$this->isValidAction('oauth', $action)) {
@@ -171,90 +195,22 @@ class ApiController extends Controller
         $this->doAction($this->get, $action);
     }
 
-    /**
-     * OSF Integration Handler.
-     * * Manages the OAuth2 flow with the Open Science Framework. Handles:
-     * 1. Login redirection.
-     * 2. Authorization code exchange.
-     * 3. Error handling for denied access.
-     *
-     * @param string $do The specific action to perform (e.g., 'login').
-     * @return void Redirects user based on authentication outcome.
-     */
-    public function osfAction($do = '')
-    {
-        $user = Site::getCurrentUser();
-        if (!$user->loggedIn()) {
-            alert('You need to login to access this section', 'alert-warning');
-            redirect_to('admin/account/login');
-        }
-
-        $osfconfg = Config::get('osf');
-        $osfconfg['state'] = $user->user_code;
-
-        $osf = new OSF($osfconfg);
-
-        // Case 1: User wants to login to give formr authorization
-        // If user has a valid access token then just use it (i.e redirect to where access token is needed
-        if ($do === 'login') {
-            $redirect = $this->request->getParam('redirect', 'admin/osf') . '#osf';
-            if ($token = OSF::getUserAccessToken($user)) {
-                // redirect user to where he came from and get access token from there for current user
-                alert('You have authorized FORMR to act on your behalf on the OSF', 'alert-success');
-            } else {
-                Session::set('formr_redirect', $redirect);
-                // redirect user to login link
-                $redirect = $osf->getLoginUrl();
-            }
-            redirect_to($redirect);
-        }
-
-        // Case 2: User is oauth2-ing. Handle authorization code exchange
-        if ($code = $this->request->getParam('code')) {
-            if ($this->request->getParam('state') != $user->user_code) {
-                throw new Exception("Invalid OSF-OAUTH 2.0 request");
-            }
-
-            $params = $this->request->getParams();
-            try {
-                $logged = $osf->login($params);
-            } catch (Exception $e) {
-                formr_log_exception($e, 'OSF');
-                $logged = array('error' => $e->getMessage());
-            }
-
-            if (!empty($logged['access_token'])) {
-                // save this access token for this user
-                // redirect user to where osf actions need to happen (@todo pass this in a 'redirect session parameter'
-                OSF::setUserAccessToken($user, $logged);
-                alert('You have authorized FORMR to act on your behalf on the OSF', 'alert-success');
-                if ($redirect = Session::get('formr_redirect')) {
-                    Session::delete('formr_redirect');
-                } else {
-                    $redirect = 'admin/osf';
-                }
-                redirect_to($redirect);
-            } else {
-                $error = !empty($logged['error']) ? $logged['error'] : 'Access token could not be obtained';
-                alert('OSF API Error: ' . $error, 'alert-danger');
-                redirect_to('admin');
-            }
-        }
-
-        // Case 3: User is oauth2-ing. Handle case when user cancels authorization
-        if ($error = $this->request->getParam('error')) {
-            alert('Access was denied at OSF-Formr with error code: ' . $error, 'alert-danger');
-            redirect_to('admin');
-        }
-
-        redirect_to('index');
-    }
 
     protected function doAction(Request $request, $action)
     {
         try {
             $this->authenticate($action); // only proceed if authenticated, if not exit via response
-            $token_data = $this->oauthServer->getAccessTokenData(OAuth2\Request::createFromGlobals());
+            // authenticate() deliberately returns without building an OAuth
+            // server for $unrestrictedActions, so resolving token data
+            // unconditionally fataled with "Call to a member function
+            // getAccessTokenData() on null" — swallowed by the Throwable catch
+            // below into a JSON 500. That is every call to the one endpoint
+            // declared unrestricted (end-last-external), which is why v1.8.0's
+            // fix to the TypeError further down never showed: the request died
+            // here, before ApiV0 was ever constructed.
+            $token_data = $this->oauthServer
+                ? $this->oauthServer->getAccessTokenData(OAuth2\Request::createFromGlobals())
+                : null;
             $method = $this->getPrivateAction($action, '-', true);
 
             $api = new ApiV0($request, $this->fdb, $token_data);

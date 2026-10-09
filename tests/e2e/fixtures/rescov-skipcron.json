@@ -1,0 +1,49 @@
+{
+  "name": "rescov-skipcron",
+  "units": [
+    {
+      "type": "Pause",
+      "description": "parks them so the skip below is reached BY CRON",
+      "position": 10,
+      "special": null,
+      "wait_until_time": null,
+      "wait_until_date": null,
+      "wait_minutes": 1,
+      "relative_to": null,
+      "body": "One minute."
+    },
+    {
+      "type": "SkipForward",
+      "description": "legacy automatically_jump=0: under cron this records waiting_deprecated",
+      "position": 20,
+      "special": null,
+      "condition": "TRUE",
+      "if_true": 40,
+      "automatically_jump": 0,
+      "automatically_go_on": 0
+    },
+    {
+      "type": "Endpage",
+      "description": "the skip target",
+      "position": 40,
+      "special": null,
+      "body": "Done.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-skipcron/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-skipcron/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-skipcron/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

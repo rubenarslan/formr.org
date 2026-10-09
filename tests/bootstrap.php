@@ -15,6 +15,10 @@
  */
 require_once __DIR__ . '/../setup.php';
 
+// The e2e suite's notification pause (Notification::paused) is a marker in
+// the code tree; the unit lane must not depend on whether one is running.
+define('FORMR_UNIT_TESTS', true);
+
 Config::initialize(array(
     'database' => (object) array(
         'driver' => 'sqlite',

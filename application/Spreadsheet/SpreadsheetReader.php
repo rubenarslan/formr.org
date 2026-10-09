@@ -3,6 +3,18 @@
 class SpreadsheetReader
 {
 
+    /**
+     * Upper bound on rows read from a survey/choices sheet. A stray styled cell
+     * (e.g. at the Excel max row 1048576) inflates getHighestDataRow(), and the
+     * row iterator with setIterateOnlyExistingCells(false) then materializes a
+     * Cell object per row/column until PHP runs out of memory — a fatal error
+     * that no try/catch can recover. We refuse the upload above this ceiling
+     * instead. Real survey/choices sheets are far smaller than this.
+     */
+    const MAX_DATA_ROWS = 50000;
+    /** Rows of a `settings` sheet read at most (readSettingsSheet). */
+    const MAX_SETTINGS_ROWS = 1000;
+
     private $choices_columns = array('list_name', 'name', 'label');
     private $survey_columns = array('name', 'type', 'type_options', 'choice_list', 'label', 'optional', 'class', 'showif', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14', 'value', 'order', 'block_order', 'item_order');
     private $internal_columns = array('choice_list', 'type_options', 'label_parsed');
@@ -10,8 +22,18 @@ class SpreadsheetReader
     public $messages = array();
     public $errors = array();
     public $warnings = array();
+    /** @var string[] headed columns of either sheet that formr does not read */
+    private $ignoredColumns = array();
     public $survey = array();
     public $choices = array();
+    /**
+     * The `settings` sheet (two columns, `item` and `value`, the shape the
+     * xlsx export writes), as name => value. Only a NEW survey takes them,
+     * through SurveyStudy::importableSettings.
+     *
+     * @var array<string, string>
+     */
+    public $settings = array();
     public static $exportFormats = array('csv', 'csv_german', 'tsv', 'xlsx', 'xls', 'json');
 
     public $parsedown;
@@ -36,7 +58,11 @@ class SpreadsheetReader
         $objWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($objPhpSpreadsheet, 'Csv');
         /** @var \PhpOffice\PhpSpreadsheet\Writer\Csv $objWriter */
         $objWriter->setDelimiter("\t");
-        $objWriter->setEnclosure("");
+        // Quote only a field holding a tab, a quote or a newline — anything
+        // else stays bare, as before; without quoting at all such an answer
+        // split its row. R's read.delim reads both.
+        $objWriter->setEnclosure('"');
+        $objWriter->setEnclosureRequired(false);
 
         try {
             $objWriter->save($filename);
@@ -59,7 +85,7 @@ class SpreadsheetReader
             return $objPhpSpreadsheet;
         }
         array_unshift($array, array_keys($current));
-        $objPhpSpreadsheet->getSheet(0)->fromArray($array);
+        $objPhpSpreadsheet->getSheet(0)->fromArray($array, null, 'A1', true);
 
         return $objPhpSpreadsheet;
     }
@@ -171,7 +197,10 @@ class SpreadsheetReader
             header('Content-Disposition: attachment;filename="' . $filename . '.json"');
             header('Cache-Control: max-age=0');
             header('Content-type: application/json; charset=utf-8');
-            echo json_encode($object, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK);
+            // No JSON_NUMERIC_CHECK: it turns text that looks like a number
+            // ("007", "1.50") into a number — a run bundle carries labels,
+            // values and choice labels, and they must come back as written.
+            echo json_encode($object, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE);
             exit;
         }
     }
@@ -187,7 +216,9 @@ class SpreadsheetReader
             /** @var \PhpOffice\PhpSpreadsheet\Writer\Csv $phpSpreadsheetWriter */
             $phpSpreadsheetWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($phpSpreadsheet, 'Csv');
             $phpSpreadsheetWriter->setDelimiter("\t");
-            $phpSpreadsheetWriter->setEnclosure("");
+            // See backupTSV: quote a field only when it needs it.
+            $phpSpreadsheetWriter->setEnclosure('"');
+            $phpSpreadsheetWriter->setEnclosureRequired(false);
 
             if ($savefile === null) {
                 header('Content-Disposition: attachment;filename="' . $filename . '.tab"');
@@ -298,7 +329,7 @@ class SpreadsheetReader
             $objPhpSpreadsheet->getSheet($sheet_index)->getColumnDimension('B')->setWidth(20); # name
             $objPhpSpreadsheet->getSheet($sheet_index)->getColumnDimension('C')->setWidth(30); # label
 
-            $objPhpSpreadsheet->getSheet($sheet_index)->fromArray($choices);
+            $objPhpSpreadsheet->getSheet($sheet_index)->fromArray($choices, null, 'A1', true);
             $objPhpSpreadsheet->getSheet($sheet_index)->setTitle('choices');
             $objPhpSpreadsheet->getSheet($sheet_index)->getStyle('A1:C1')->applyFromArray(array('font' => array('bold' => true)));
         endif;
@@ -316,7 +347,7 @@ class SpreadsheetReader
             $objPhpSpreadsheet->getSheet($sheet_index)->getColumnDimension('A')->setWidth(20); # item
             $objPhpSpreadsheet->getSheet($sheet_index)->getColumnDimension('B')->setWidth(20); # value
 
-            $objPhpSpreadsheet->getSheet($sheet_index)->fromArray($sttgs);
+            $objPhpSpreadsheet->getSheet($sheet_index)->fromArray($sttgs, null, 'A1', true);
             $objPhpSpreadsheet->getSheet($sheet_index)->setTitle('settings');
             $objPhpSpreadsheet->getSheet($sheet_index)->getStyle('A1:C1')->applyFromArray(array('font' => array('bold' => true)));
         endif;
@@ -328,7 +359,7 @@ class SpreadsheetReader
         $objPhpSpreadsheet->getSheet(0)->getColumnDimension('D')->setWidth(3);  # optional
         $objPhpSpreadsheet->getSheet(0)->getStyle('D1')->getAlignment()->setWrapText(false);
 
-        $objPhpSpreadsheet->getSheet(0)->fromArray($items);
+        $objPhpSpreadsheet->getSheet(0)->fromArray($items, null, 'A1', true);
         $objPhpSpreadsheet->getSheet(0)->setTitle('survey');
         $objPhpSpreadsheet->getSheet(0)->getStyle('A1:H1')->applyFromArray(array('font' => array('bold' => true)));
 
@@ -408,7 +439,9 @@ class SpreadsheetReader
         $filename = $study->name;
 
         foreach ($items as $i => $val) {
-            unset($items[$i]['id'], $items[$i]['study_id']);
+            // `deleted` (patch 112) is internal: getItems() returns live items
+            // only, and an import on a host without the column rejects it.
+            unset($items[$i]['id'], $items[$i]['study_id'], $items[$i]['deleted']);
             if (isset($val["choice_list"]) && isset($choices[$val["choice_list"]])) {
                 $items[$i]["choices"] = $choices[$val["choice_list"]];
                 $items[$i]["choice_list"] = $items[$i]["name"];
@@ -434,13 +467,25 @@ class SpreadsheetReader
         header('Content-type: application/json; charset=utf-8');
 
         try {
-            echo json_encode($object, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK);
+            // As written: see exportJSON on JSON_NUMERIC_CHECK.
+            echo json_encode($object, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE);
             exit;
         } catch (Exception $e) {
             formr_log_exception($e, __CLASS__);
             alert("Couldn't save file.", 'alert-danger');
             return false;
         }
+    }
+
+    /**
+     * Columns a survey item row may carry. Lets callers (e.g.
+     * SurveyStudy::createFromData) strip export-only fields such as `showif_js`
+     * from a JSON survey export before addSurveyItem(), which otherwise rejects
+     * any unrecognised column.
+     */
+    public function getAllowedColumns()
+    {
+        return array_merge($this->survey_columns, $this->internal_columns);
     }
 
     public function addSurveyItem(array $row)
@@ -460,11 +505,125 @@ class SpreadsheetReader
         $this->survey[] = $row;
     }
 
+    /**
+     * Ranges of merged cells on the given worksheets, as "<sheet>!A1:B2"
+     * strings, or [] if none. Only the sheets readItemTableFile() goes on
+     * to parse are inspected: a merge on a notes or instructions tab
+     * swallows nothing we read, so it must not block the upload.
+     *
+     * The Xlsx reader drops merge information under setReadDataOnly(true),
+     * which we keep because it is what makes large uploads affordable, so
+     * for .xlsx the ranges are read straight from the worksheet XML inside
+     * the zip (PhpSpreadsheet's Xlsx reader already requires ext-zip). The
+     * part is located through workbook.xml and its rels rather than by
+     * assuming "sheetN.xml" is the N-th tab: Excel keeps the part number
+     * a sheet was created with, so after reordering or deleting tabs the
+     * numbers no longer follow the visible order. Ods records a merge
+     * regardless whenever its anchor cell holds a value, which is the only
+     * case in which a merge hides data, so the loaded workbook answers
+     * there. The legacy BIFF .xls reader drops them under read-data-only
+     * and is not covered.
+     *
+     * @param \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet[] $worksheets
+     */
+    private function findMergedCells($filepath, $filetype, array $worksheets)
+    {
+        $found = array();
+        if ($filetype !== 'Xlsx') {
+            foreach ($worksheets as $ws) {
+                foreach (array_keys($ws->getMergeCells()) as $range) {
+                    $found[] = $ws->getTitle() . '!' . $range;
+                }
+            }
+            return $found;
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($filepath) !== true) {
+            return $found;
+        }
+        $wanted = array();
+        foreach ($worksheets as $ws) {
+            $wanted[$ws->getTitle()] = true;
+        }
+        foreach ($this->xlsxWorksheetParts($zip) as $title => $part) {
+            if (!isset($wanted[$title])) {
+                continue;
+            }
+            $xml = $zip->getFromName($part);
+            if ($xml !== false && strpos($xml, '<mergeCell') !== false
+                    && preg_match_all('/<mergeCell\s[^>]*\bref="([^"]+)"/', $xml, $mm)) {
+                foreach ($mm[1] as $ref) {
+                    $found[] = $title . '!' . $ref;
+                }
+            }
+        }
+        $zip->close();
+        return $found;
+    }
+
+    /**
+     * Map of sheet title => worksheet part name ("xl/worksheets/sheet1.xml")
+     * for an open .xlsx zip, resolved via xl/workbook.xml and its rels.
+     */
+    private function xlsxWorksheetParts(\ZipArchive $zip)
+    {
+        $parts = array();
+        $workbook = $zip->getFromName('xl/workbook.xml');
+        $rels = $zip->getFromName('xl/_rels/workbook.xml.rels');
+        if ($workbook === false || $rels === false) {
+            return $parts;
+        }
+        $targets = array();
+        if (preg_match_all('/<Relationship\s[^>]*>/', $rels, $rm)) {
+            foreach ($rm[0] as $rel) {
+                if (preg_match('/\bId="([^"]+)"/', $rel, $id) && preg_match('/\bTarget="([^"]+)"/', $rel, $target)) {
+                    $path = $target[1];
+                    $path = ($path !== '' && $path[0] === '/') ? ltrim($path, '/') : 'xl/' . $path;
+                    $targets[$id[1]] = $path;
+                }
+            }
+        }
+        if (preg_match_all('/<sheet\s[^>]*>/', $workbook, $sm)) {
+            foreach ($sm[0] as $sheet) {
+                if (preg_match('/\bname="([^"]*)"/', $sheet, $name) && preg_match('/\br:id="([^"]+)"/', $sheet, $rid) && isset($targets[$rid[1]])) {
+                    $parts[html_entity_decode($name[1], ENT_QUOTES | ENT_XML1, 'UTF-8')] = $targets[$rid[1]];
+                }
+            }
+        }
+        return $parts;
+    }
+
+    /**
+     * Read a `settings` sheet: column A the setting's name, column B its
+     * value; a header row (`item` / `value`) and blank rows are skipped.
+     * Nothing is validated here — SurveyStudy::importableSettings does that.
+     */
+    protected function readSettingsSheet($sheet)
+    {
+        // A settings sheet is a short list of name/value rows. Its first two
+        // columns of at most MAX_SETTINGS_ROWS rows are read: a stray cell
+        // far down (what MAX_DATA_ROWS guards on the other sheets) made
+        // toArray() build every row up to it — a memory fatal no catch can
+        // stop, and this sheet is read first.
+        $rows = min((int) $sheet->getHighestDataRow(), self::MAX_SETTINGS_ROWS);
+        if ($rows < 1) {
+            return;
+        }
+        foreach ($sheet->rangeToArray('A1:B' . $rows, null, true, false, false) as $i => $row) {
+            $name = trim((string) ($row[0] ?? ''));
+            if ($name === '' || ($i === 0 && strtolower($name) === 'item')) {
+                continue;
+            }
+            $this->settings[$name] = trim((string) ($row[1] ?? ''));
+        }
+    }
+
     public function readItemTableFile($filepath)
     {
         ini_set('max_execution_time', 360);
 
-        $this->errors = $this->messages = $this->warnings = array();
+        $this->errors = $this->messages = $this->warnings = $this->ignoredColumns = array();
         if (!file_exists($filepath)) {
             $this->errors[] = 'Item table file does not exist';
             return;
@@ -488,21 +647,110 @@ class SpreadsheetReader
 
             if ($phpSpreadsheet->sheetNameExists('choices') && $phpSpreadsheet->getSheetCount() > 1) {
                 $choicesSheet = $phpSpreadsheet->getSheetByName('choices');
-            } elseif ($phpSpreadsheet->getSheetCount() > 1) {
+            } elseif ($phpSpreadsheet->getSheetCount() > 1
+                    && strtolower($phpSpreadsheet->getSheet(1)->getTitle()) !== 'settings') {
+                // An unnamed second sheet is the choices — but not the
+                // settings sheet an export of a survey without choices
+                // writes in second place.
                 $choicesSheet = $phpSpreadsheet->getSheet(1);
+            }
+            if ($phpSpreadsheet->sheetNameExists('settings')) {
+                $this->readSettingsSheet($phpSpreadsheet->getSheetByName('settings'));
+            }
+
+            // Merged cells silently swallow whatever sat in the covered
+            // cells, so a merged header or label row reads as blanks and the
+            // errors that follow point at the wrong place (#111). Refuse the
+            // upload and name the ranges instead.
+            $merged = $this->findMergedCells($filepath, $filetype, isset($choicesSheet) ? array($surveySheet, $choicesSheet) : array($surveySheet));
+            if ($merged) {
+                $this->errors[] = __('Your spreadsheet contains merged cells (%s). formr cannot read merged cells: unmerge them and re-upload.', implode(', ', $merged));
+                return;
             }
 
             if (isset($choicesSheet)) {
                 $this->readChoicesSheet($choicesSheet);
             }
 
-            $this->readSurveySheet($surveySheet);
-        } catch (\PhpOffice\PhpSpreadsheet\Exception $e) {
-            $this->errors[] = "An error occured reading your excel file. Please check your file or report to admin";
-            $this->errors[] = $e->getMessage();
+            // Short-circuit if the choices sheet already failed. The survey loop's
+            // "if ($this->errors)" guard cannot distinguish errors it raises itself
+            // from ones carried over from the choices sheet, so it would re-wrap and
+            // re-throw the choices error on the very first cell — yielding duplicate,
+            // misattributed messages ("Error in cell B2 (Survey Sheet): <choices
+            // error>"). A failed choices sheet also makes the survey sheet (which
+            // references those choice lists) unreadable anyway.
+            if (!$this->errors) {
+                $this->readSurveySheet($surveySheet);
+            }
+            if (!$this->errors) {
+                // One line on what was read; problems are warnings of their own.
+                $lists = count(array_unique(array_column($this->choices, 'list_name')));
+                $items = count($this->survey);
+                $ignored = array_unique(array_filter(array_map('strval', $this->ignoredColumns), 'strlen'));
+                $this->messages[] = ($items === 1 ? __('Read 1 item') : __('Read %d items', $items))
+                    . ($lists ? ($lists === 1 ? __(' and 1 choice list') : __(' and %d choice lists', $lists)) : '') . '.'
+                    . ($ignored ? ' ' . __('Columns formr does not use were ignored: %s.', implode(', ', $ignored)) : '');
+            }
+        } catch (\Throwable $e) {
+            // Widened from PhpSpreadsheet\Exception to \Throwable so TypeErrors
+            // and other reader internals surface as a graceful error rather than
+            // a 500. Note: a PHP memory-exhaustion fatal is NOT a Throwable and
+            // cannot be caught here — the row cap in read*Sheet() guards that.
+            if ($e instanceof SpreadsheetCellException) {
+                // One of our own cell-located errors: readSurveySheet() /
+                // readChoicesSheet() push the row message onto $this->errors
+                // and then throw a message that already wraps every entry
+                // with its cell address. Reporting the bare row message, a
+                // generic line AND the wrapped copy showed one mistake three
+                // times (#385); keep only the located copy. Dispatching on
+                // the type rather than on "$this->errors is non-empty" keeps
+                // an unrelated reader exception from swallowing errors that
+                // were pushed before it fired.
+                $this->errors = array($e->getMessage());
+            } else {
+                $this->errors[] = "An error occurred reading your spreadsheet. Please check your file or report to admin";
+                $this->errors[] = $e->getMessage();
+            }
             formr_log_exception($e, __CLASS__, $filepath);
             return;
         }
+    }
+
+    /**
+     * A row's values in the columns of interest (column number => name), as
+     * the row loops read them: normalised and trimmed strings.
+     *
+     * @return array<string, string>
+     */
+    private static function rowValues(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $worksheet, $rowNumber, array $columns)
+    {
+        $values = array();
+        foreach ($columns as $colNumber => $colName) {
+            // Of two columns with one heading, the first counts, as in the
+            // cell loop that reads the row (a choices table pasted beside the
+            // items brings a second `name` and `label`).
+            if (array_key_exists($colName, $values)) {
+                continue;
+            }
+            $cell = $worksheet->getCell(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colNumber) . $rowNumber);
+            $values[$colName] = trim(hardTrueFalse(Normalizer::normalize((string) $cell->getValue(), Normalizer::FORM_C)));
+        }
+        return $values;
+    }
+
+    /**
+     * "Row 3 <singular>" / "Rows 3, 5 <plural>", naming at most ten rows.
+     */
+    private static function rowList(array $rows, $singular, $plural)
+    {
+        if (count($rows) === 1) {
+            return __('Row %s %s', reset($rows), $singular);
+        }
+        $shown = implode(', ', array_slice($rows, 0, 10));
+        if (count($rows) > 10) {
+            $shown = __('%s and %d more', $shown, count($rows) - 10);
+        }
+        return __('Rows %s %s', $shown, $plural);
     }
 
     private function readChoicesSheet(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $worksheet)
@@ -513,6 +761,11 @@ class SpreadsheetReader
         $lastListName = null;
         $colCount = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($worksheet->getHighestDataColumn());
         $rowCount = $worksheet->getHighestDataRow();
+
+        if ($rowCount > self::MAX_DATA_ROWS) {
+            $this->errors[] = __('The choices worksheet "%s" reports %s rows, which exceeds the maximum of %s. This is usually caused by a stray (often empty but styled) cell far down the sheet. Please delete the empty rows below your data and re-upload.', $worksheet->getTitle(), number_format($rowCount), number_format(self::MAX_DATA_ROWS));
+            return false;
+        }
 
         for ($i = 1; $i <= $colCount; $i++) {
             $cellCoordinate = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i) . '1';
@@ -539,14 +792,11 @@ class SpreadsheetReader
             return false;
         }
 
-        if ($skippedColumns) {
-            $this->warnings[] = sprintf('Choices worksheet "%s" <strong>skipped</strong> columns: %s', $worksheet->getTitle(), implode(", ", $skippedColumns));
-        }
-        $this->messages[] = sprintf('Choices worksheet "%s" <strong>used</strong> columns: %s', $worksheet->getTitle(), implode(", ", $columns));
+        $this->ignoredColumns = array_merge($this->ignoredColumns, array_values($skippedColumns));
 
         $data = array();
         $choiceNames = array();
-        $inheritedListNames = array();
+        $skippedRows = array();
 
         // Iterate only up to the last column of interest. The end column must be
         // computed once, outside the row loop: getHighestDataColumn() scans the
@@ -564,6 +814,11 @@ class SpreadsheetReader
             }
             if ($rowNumber > $rowCount)
                 break;
+            // A blank row (a spreadsheet app's trailing rows, a spacer) is no
+            // choice and nothing to report.
+            if (!array_filter(self::rowValues($worksheet, $rowNumber, $columns), 'strlen')) {
+                continue;
+            }
 
             $data[$rowNumber] = array();
             $cellIterator = $row->getCellIterator('A', $endColumn);
@@ -588,15 +843,12 @@ class SpreadsheetReader
                     }
 
                     if (!$cellValue && !isset($lastListName)) {
-                        $this->warnings[] = __('Skipping Row %s of choices sheet', $rowNumber);
+                        $skippedRows[] = $rowNumber;
                         unset($data[$rowNumber]);
                         continue 2;
                     } elseif (!$cellValue && isset($lastListName)) {
+                        // An empty list name continues the list above.
                         $cellValue = $lastListName;
-                        if (!isset($inheritedListNames[$cellValue])) {
-                            $inheritedListNames[$cellValue] = array();
-                        }
-                        $inheritedListNames[$cellValue][] = $rowNumber;
                     }
 
                     if (!in_array($cellValue, $this->existing_choice_lists)) {
@@ -611,14 +863,7 @@ class SpreadsheetReader
                     $lastListName = $cellValue;
                 } elseif ($colName == 'name') {
                     if (!is_formr_truthy($cellValue)) {
-                        $this->warnings[] = __("Skipping Row %s of choices sheet: Choice name empty, but content in other columns.", $rowNumber);
-                        if (isset($inheritedListNames[$data[$rowNumber]['list_name']])) {
-                            // remove this row from bookmarks
-                            $bmk = &$inheritedListNames[$data[$rowNumber]['list_name']];
-                            if (($key = array_search($rowNumber, $bmk)) !== false) {
-                                unset($bmk[$key]);
-                            }
-                        }
+                        $skippedRows[] = $rowNumber;
                         unset($data[$rowNumber]);
                         continue 2;
                     }
@@ -636,7 +881,7 @@ class SpreadsheetReader
                 // Stop processing if we have any errors
                 if ($this->errors) {
                     $error = sprintf("Error in cell %s%s (Choices sheet): \n %s", $cell->getColumn(), $rowNumber, implode("\n", $this->errors));
-                    throw new \PhpOffice\PhpSpreadsheet\Exception($error);
+                    throw new SpreadsheetCellException($error);
                 }
 
                 // Save cell value
@@ -654,13 +899,8 @@ class SpreadsheetReader
             $choiceNames[$row['list_name']][$row['name']] = $row['label'];
         }
 
-        // Announce rows that inherited list_names
-        $msgs = array();
-        foreach ($inheritedListNames as $name => $rows) {
-            $msgs[] = $rows ? sprintf("%s: This list name was assigned to rows %s - %s automatically, because they had an empty list name and followed in this list.", $name, min($rows), max($rows)) : null;
-        }
-        if ($msgs = array_filter($msgs)) {
-            $this->messages[] = '<ul><li>' . implode('</li><li>', $msgs) . '</li></ul>';
+        if ($skippedRows) {
+            $this->warnings[] = __('Choices sheet: %s.', self::rowList($skippedRows, 'has no list name or no choice name, so it was skipped', 'have no list name or no choice name, so they were skipped'));
         }
 
         $this->choices = $data;
@@ -668,25 +908,29 @@ class SpreadsheetReader
 
     private function readSurveySheet(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $worksheet)
     {
-        $callStartTime = microtime(true);
         // non-allowed columns will be ignored, allows to specify auxiliary information if needed
 
         $skippedColumns = $columns = array();
         $colCount = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($worksheet->getHighestDataColumn());
         $rowCount = $worksheet->getHighestDataRow();
 
+        if ($rowCount > self::MAX_DATA_ROWS) {
+            $this->errors[] = __('The survey worksheet "%s" reports %s rows, which exceeds the maximum of %s. This is usually caused by a stray (often empty but styled) cell far down the sheet. Please delete the empty rows below your data and re-upload.', $worksheet->getTitle(), number_format($rowCount), number_format(self::MAX_DATA_ROWS));
+            return false;
+        }
+
         if ($colCount > 30) {
             $this->warnings[] = __('Only the first 30 columns out of %d were read.', $colCount);
             $colCount = 30;
         }
 
-        $blankColCount = 0; // why should this be set to 1 by default? 
         for ($i = 1; $i <= $colCount; $i++) {
             $cellCoordinate = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i) . '1';
             $colName = mb_strtolower((string)$worksheet->getCell($cellCoordinate)->getValue());
 
+            // A column without a heading is not read (a Google Sheet always
+            // has 26 of them).
             if (!$colName) {
-                $blankColCount++;
                 continue;
             }
             if (in_array($colName, $this->survey_columns)) {
@@ -701,14 +945,9 @@ class SpreadsheetReader
             }
         }
 
-        if ($blankColCount) {
-            $this->warnings[] = __('Your survey sheet appears to contain %d columns without names (given in the first row).', $blankColCount);
-        }
-        if ($skippedColumns) {
-            $this->warnings[] = __('These survey sheet columns were <strong>skipped</strong>: %s', implode(', ', $skippedColumns));
-        }
+        $this->ignoredColumns = array_merge($this->ignoredColumns, array_values($skippedColumns));
 
-        $data = $skippedRows = $emptyRows = $variableNames = array();
+        $data = $skippedRows = $variableNames = array();
 
         // Iterate only up to the last column of interest (≤ the 30-column cap),
         // computed once outside the row loop: getHighestDataColumn() scans the
@@ -726,6 +965,16 @@ class SpreadsheetReader
             }
             if ($rowNumber > $rowCount)
                 break;
+            // A row without a variable name is no item. It is worth a warning
+            // only if it looks like one (a type or a label): anything else —
+            // a blank row, a column filled down past the items — is not.
+            $values = self::rowValues($worksheet, $rowNumber, $columns);
+            if (($values['name'] ?? '') === '') {
+                if (($values['type'] ?? '') !== '' || ($values['label'] ?? '') !== '') {
+                    $skippedRows[] = $rowNumber;
+                }
+                continue;
+            }
 
             $data[$rowNumber] = array();
             $cellIterator = $row->getCellIterator('A', $endColumn);
@@ -749,19 +998,16 @@ class SpreadsheetReader
                 $cellValue = trim(hardTrueFalse(Normalizer::normalize((string)$cell->getValue(), Normalizer::FORM_C)));
 
                 if ($colName == 'name') {
-                    if (!$cellValue) {
-                        if (!empty($data[$rowNumber])) {
-                            $skippedRows[] = $rowNumber;
-                        } else {
-                            $emptyRows[] = $rowNumber;
-                        }
-                        unset($data[$rowNumber]);
-                        continue 2; // Skip row with no item name
-                    } elseif (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]{1,64}$/', $cellValue)) {
+                    if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]{1,64}$/', $cellValue)) {
                         $this->errors[] = __("The variable name '%s' is invalid. It has to be between 1 and 64 characters. It needs to start with a letter and can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.", $cellValue);
                     }
 
-                    if (in_array($cellValue, array('session_id', 'created', 'modified', 'ended', 'id', 'study_id', 'iteration'))) {
+                    // The results table's own columns. The form_v2 showif helper
+                    // names (the rest of Item::RESERVED_NAMES) are judged by
+                    // Item::validate() at SurveyStudy::addItems, which knows
+                    // whether the study already has such an item (see
+                    // Item::allowLegacyHelperName).
+                    if (Item::isResultColumnName($cellValue)) {
                         $this->errors[] = __("Row %s: variable name '%s' is not permitted.", $rowNumber, $cellValue);
                     }
 
@@ -771,6 +1017,18 @@ class SpreadsheetReader
                         $this->errors[] = __("Row %s: Variable name '%s' already appeared in row %s", $rowNumber, $cellValue, $existingRow);
                     }
                 } elseif ($colName == 'type') {
+                    // A separate `type_options` column carries exactly what used to be
+                    // written after the first space of the `type` cell. Fold it back in
+                    // before splitting, so both spellings go through the one parser below
+                    // and a named choice list is recognised either way.
+                    if ($cellValue !== '' && ($optionsColumn = array_search('type_options', $columns, true)) !== false) {
+                        $optionsCoordinate = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($optionsColumn) . $rowNumber;
+                        $optionsValue = trim(hardTrueFalse(Normalizer::normalize((string) $worksheet->getCell($optionsCoordinate)->getValue(), Normalizer::FORM_C)));
+                        if ($optionsValue !== '') {
+                            $cellValue .= ' ' . $optionsValue;
+                        }
+                    }
+
                     if (mb_strpos($cellValue, ' ') !== false) {
                         $typeOptions = explode(' ', trim(preg_replace('/\s+/', ' ', $cellValue))); // get real type and options
                         $type = $typeOptions[0];
@@ -790,16 +1048,26 @@ class SpreadsheetReader
                                 'rating_button',
                                 'submit'
                             )) &&
-                            preg_match('/^[A-Za-z0-9_]{1,20}$/', trim($typeOptions[1]))
+                            preg_match('/^[A-Za-z0-9_]{1,20}$/', trim($typeOptions[1])) &&
+                            // `rank random touch` with inline choice columns: the first
+                            // token is an option keyword, not a choice-list name.
+                            !($type === 'rank' && Rank_Item::isOptionKeyword($typeOptions[1])) &&
+                            // `bot_check 3` is the PoW difficulty (BotCheck::chosenDifficulty
+                            // reads the numeric type_options), not a choice-list name; a
+                            // list relabelling the widget is `bot_check mylist`.
+                            !($type === 'bot_check' && ctype_digit(trim($typeOptions[1]))) &&
+                            // A list already given in a `choice_list` column to
+                            // the left: the token is an option, not a list —
+                            // dropping it lost the option.
+                            (!isset($data[$rowNumber]['choice_list']) || trim((string) $data[$rowNumber]['choice_list']) === '')
                         ) {
-                            if (!isset($data[$rowNumber]['choice_list']) || trim((string) $data[$rowNumber]['choice_list']) === '') {
-                                $data[$rowNumber]['choice_list'] = trim($typeOptions[1]);
-                            }
+                            $data[$rowNumber]['choice_list'] = trim($typeOptions[1]);
                             unset($typeOptions[1]);
                         }
-                        if (!isset($data[$rowNumber]['type_options']) || trim((string) $data[$rowNumber]['type_options']) === '') {
-                            $data[$rowNumber]['type_options'] = implode(' ', $typeOptions);
-                        }
+                        // Unconditional: any `type_options` column value is already merged
+                        // into $cellValue above, so what is left here is authoritative even
+                        // when that column sits to the left of `type` and was read first.
+                        $data[$rowNumber]['type_options'] = implode(' ', $typeOptions);
                         $cellValue = $type;
                     }
 
@@ -814,8 +1082,10 @@ class SpreadsheetReader
                     } else {
                         $cellValue = null;
                     }
-                } elseif (strpos($colName, 'choice') === 0 && is_formr_truthy($cellValue) && isset($data[$rowNumber])) {
-                    $choiceValue = substr($colName, 6);
+                } elseif (preg_match('/^choice(\d+)$/', $colName, $choiceMatch) && is_formr_truthy($cellValue) && isset($data[$rowNumber])) {
+                    // choice1…choice14 only: a bare prefix match took the
+                    // `choice_list` column for an inline choice named "_list".
+                    $choiceValue = $choiceMatch[1];
                     $this->choices[] = array(
                         'list_name' => $data[$rowNumber]['name'],
                         'name' => $choiceValue,
@@ -832,10 +1102,16 @@ class SpreadsheetReader
                 // Stop processing if we have any errors
                 if ($this->errors) {
                     $error = sprintf("Error in cell %s%s (Survey Sheet): \n %s", $cell->getColumn(), $rowNumber, implode("\n", $this->errors));
-                    throw new \PhpOffice\PhpSpreadsheet\Exception($error);
+                    throw new SpreadsheetCellException($error);
                 }
 
-                // Save cell value
+                // Save cell value. A blank `choice_list` cell is "no list": store
+                // null so Item::validate() doesn't read it as choices on a text
+                // item, and so the inline-choice branch above (keyed on isset)
+                // still defaults the list name to the item name.
+                if ($colName === 'choice_list' && $cellValue === '') {
+                    $cellValue = null;
+                }
                 $data[$rowNumber][$colName] = $cellValue;
             } // Cell Loop
 
@@ -846,16 +1122,15 @@ class SpreadsheetReader
             }
         } // Rows Loop
 
-        $callEndTime = microtime(true);
-        $callTime = $callEndTime - $callStartTime;
-        $this->messages[] = 'Survey <abbr title="Call time to read survey sheet was ' . sprintf('%.4f', $callTime) . ' seconds">worksheet</abbr> - ' . $worksheet->getTitle() . ' (' . count($data) . ' non-empty rows, ' . $colCount . ' columns). These columns were <strong>used</strong>: ' . implode(", ", $columns);
-
-        if (!empty($emptyRows)) {
-            $this->messages[] = __('Empty rows (no variable name): %s', implode(", ", $emptyRows));
-        }
-
-        if (!empty($skippedRows)) {
-            $this->warnings[] = __('Skipped rows (no variable name): %s. Variable name empty, but other columns had content. Double-check that you did not forget to define a variable name for a proper item.', implode(", ", $skippedRows));
+        if (!$data) {
+            // Nothing to upload: saving would leave the survey with no items
+            // and report success.
+            $this->errors[] = $skippedRows
+                ? __('The survey sheet has no items: no row has a variable name in the <code>name</code> column. %s — give each item a name.', self::rowList($skippedRows, 'looks like an item but has no name', 'look like items but have no name'))
+                : __('The survey sheet has no items.');
+        } elseif ($skippedRows) {
+            $this->warnings[] = self::rowList($skippedRows, 'looks like an item but has no name, so it was skipped', 'look like items but have no name, so they were skipped')
+                . '. ' . __('Give each item a name in the <code>name</code> column.');
         }
 
         $this->survey = $data;

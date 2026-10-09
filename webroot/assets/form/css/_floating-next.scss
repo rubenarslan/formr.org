@@ -1,0 +1,44 @@
+// Floating Next button on mobile (default layout only).
+//
+// On phones, the page Next/Submit button can sit below the on-screen
+// keyboard with no way to reach it without scrolling away from the
+// answer field. Pin it to the bottom of the viewport on narrow
+// widths, full-width inside a translucent bar so it stays visually
+// connected to the page content.
+//
+// Solo layout opts out — its scroll-snap container already gives the
+// Next/Submit button its own full-viewport screen.
+
+@media (max-width: 767px) {
+    .fmr-form-v2:not([data-layout="solo"]) {
+        // Leave room at the bottom of the page so the last item isn't
+        // hidden behind the pinned bar.
+        section.fmr-page:not([hidden]) {
+            padding-bottom: 5.5rem;
+        }
+
+        // Pin the .fmr-page-nav row to the viewport bottom.
+        .fmr-page-nav {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 0.75rem 1rem;
+            // Respect iOS safe areas (notch + home-indicator gap).
+            padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+            margin-top: 0;
+            background: var(--bs-body-bg, #fff);
+            border-top: 1px solid var(--bs-border-color, #dee2e6);
+            box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.04);
+            z-index: 50;
+        }
+
+        // Make the Next/Submit button stretch — it's the primary
+        // affordance and easier to tap full-width.
+        .fmr-page-nav [data-fmr-next] {
+            flex: 1;
+            min-height: 2.75rem;
+            font-weight: 500;
+        }
+    }
+}

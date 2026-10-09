@@ -78,8 +78,24 @@ class Number_Item extends Item {
     }
 
     public function validateInput($reply) { // fixme: input is not re-displayed after this
+        // A number item's input is always scalar; a participant posting
+        // age[]=1 (or any other array/object payload) can't be trim()'d
+        // without a TypeError. Reject it instead of fataling. (Not via
+        // parent::validateInput(null): for a required item that overwrote
+        // the message with "You missed entering some required information".)
+        if ($this->rejectNonScalarReply($reply, __("This is not a valid number."))) {
+            return null;
+        }
+        if ($reply === null) {
+            // nothing to normalise; parent decides required/optional
+            return parent::validateInput($reply);
+        }
+
         $reply = trim(str_replace(",", ".", $reply));
-        if (!$reply && $reply !== 0 && $this->optional) {
+        // Only an empty field is "no answer": "0" is falsy in PHP, and the old
+        // `!$reply` check turned an optional number/slider/VAS answered 0 into
+        // NULL in both the long and the wide table.
+        if ($reply === '' && $this->optional) {
             return null;
         }
 
@@ -104,7 +120,7 @@ class Number_Item extends Item {
             return null;
         }
         $reply = trim(str_replace(",", ".", $reply));
-        if (!$reply && $reply !== 0 && $this->optional) {
+        if ($reply === '' && $this->optional) {
             return null;
         }
         return $reply;

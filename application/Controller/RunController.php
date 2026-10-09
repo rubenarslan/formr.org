@@ -47,6 +47,30 @@ class RunController extends Controller {
         // OR if cookie is expired then logout
         $this->user = $this->loginUser();
 
+        // Force a fresh session when the URL carries ?_new_session=1. This
+        // lets a *static* link / QR code (which cannot embed a per-rater session
+        // code) start a clean traversal on every visit: e.g. an external
+        // rating run scanned by many people, or one person rating several
+        // targets in turn. We mint a new random code and 302 to its
+        // ?code= form, dropping _new_session and keeping any other params
+        // (so a target like ?rated=P1 survives to the survey's get items).
+        // Access is still governed by Run::exec()'s public>=2 gate on the
+        // redirected request, so this grants no capability a plain
+        // no-cookie visit doesn't already have. Runs before the cookie
+        // self-heal below so a fresh code wins over resuming the cookie's
+        // session; the redirect consumes the trigger exactly once.
+        if ($pageNo === null && Request::isHTTPGetRequest()
+                && $this->run->valid
+                && !empty($_GET['_new_session'])) {
+            $params = array('code' => crypto_token(48));
+            foreach ($_GET as $k => $v) {
+                if (in_array($k, array('route', 'run_name', 'code', '_new_session'), true)) continue;
+                $params[$k] = $v;
+            }
+            $this->request->redirect(run_url($this->run->name) . '?' . http_build_query($params));
+            return;
+        }
+
         // Migration self-heal for existing PWA installs that captured a
         // pre-tokenization start_url. If the request has no ?code= query
         // but the cookie identifies a participant who already has a
@@ -115,7 +139,12 @@ class RunController extends Controller {
         $asset_vars = $this->filterAssets($run_vars);
         unset($run_vars['css'], $run_vars['js']);
 
-        $this->setView('run/index', array_merge($run_vars, $asset_vars));
+        // form_v2 units render through a minimal standalone view that loads only
+        // the form bundle. Falls through to run/index.php for Survey units and all
+        // other unit types.
+        $view = !empty($run_vars['form_v2']) ? 'run/form_index' : 'run/index';
+
+        $this->setView($view, array_merge($run_vars, $asset_vars));
 
         return $this->sendResponse();
     }
@@ -230,7 +259,10 @@ class RunController extends Controller {
                 $url = admin_run_url($this->run->name, 'create_new_test_code');
             }
         }
-        formr_error(200, 'OK', $text, $hint, $url, 'Start New Session');
+        // The page deletes the run's offline queue on the device (the
+        // run's path: on a study subdomain, the whole origin's).
+        $runPath = rtrim((string) parse_url(run_url($this->run->name), PHP_URL_PATH), '/') . '/';
+        formr_error(200, 'OK', $text, $hint, $url, 'Start New Session', array('wipe_queue' => $runPath));
     }
 
     protected function monkeyBarAction($action = '') {
@@ -648,6 +680,729 @@ class RunController extends Controller {
     }
 
     /**
+     * form_v2 page-submit endpoint.
+     *
+     * URL: POST /{runName}/form-page-submit
+     * Body: JSON or multipart, see FormSubmissionService::readPayload.
+     *
+     * The gates live here (formWriteContext); FormSubmissionService::apply
+     * stores the page and answers with the stored state of what it wrote —
+     * `{status:'ok', items}` — which the browser merges into its state block
+     * and derives the next page from. When the browser flagged the page as
+     * the form's last (`final`), the unit session has been ended and the
+     * reply carries `redirect` so the run can advance, or `missing` (name →
+     * message) when a required item is still unanswered. Validation errors
+     * are `{status:'errors', errors:{name: msg}}` and nothing was written.
+     */
+    public function formPageSubmitAction() {
+        if (!Request::isHTTPPostRequest()) {
+            $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
+            return;
+        }
+        $payload = $this->readFormPayload();
+        if ($payload === null) {
+            return;
+        }
+        $context = $this->formWriteContext($payload['unit_session_id'], array(), 'write', true);
+        if (!$context) {
+            return;
+        }
+        list(, $unitSession, $study, $onV2) = $context;
+        if (!$onV2) {
+            $payload['final'] = false;
+        }
+        try {
+            $result = (new FormSubmissionService($unitSession, $study))->apply($payload);
+        } catch (Throwable $e) {
+            // Not the participant's doing (see FormSubmissionService::apply):
+            // a 5xx, which the browser queues and retries like an outage.
+            formr_log_exception($e, __METHOD__);
+            $this->sendJsonResponse(array('error' => 'The page could not be stored.'), 500);
+            return;
+        }
+        if ($result['status'] === 'stale') {
+            $this->sendJsonResponse($this->staleDocumentReply(), 409);
+            return;
+        }
+        if ($result['status'] === 'ok') {
+            FormSubmissionService::recordSubmitSeq($unitSession->id, $payload['doc'], $payload['seq']);
+            if ($onV2 && empty($result['complete'])) {
+                $result['expires'] = $this->formDeadline($unitSession);
+            }
+        }
+        $this->sendJsonResponse($onV2 ? $this->withRunRedirect($result) : $this->leftV2Reply($result));
+    }
+
+    /**
+     * The body of a v2 write (FormSubmissionService::readPayload), or null
+     * once the error reply has been sent.
+     *
+     * A body over post_max_size reaches PHP with $_POST and $_FILES empty —
+     * the multipart transport of a page with a large file. Read as-is it is
+     * an empty page, which apply() would store as a success: the answers and
+     * the file gone, every hidden item un-hidden, `final` lost. It is refused
+     * instead, as Survey::getUnitSessionOutput does for v1; a 413 is a 4xx,
+     * so the browser reports it rather than queueing a retry that can never
+     * fit.
+     *
+     * @return array|null
+     */
+    private function readFormPayload() {
+        if (PageSubmission::bodyExceedsPostMaxSize()) {
+            $this->sendJsonResponse(array('error' => "The upload exceeds the server's maximum size."), 413);
+            return null;
+        }
+        $payload = FormSubmissionService::readPayload(
+            isset($_SERVER['CONTENT_TYPE']) ? $_SERVER['CONTENT_TYPE'] : '',
+            file_get_contents('php://input'), $_POST, $_FILES
+        );
+        if ($payload === null) {
+            $this->sendJsonResponse(array('error' => 'Invalid JSON body'), 400);
+        }
+        return $payload;
+    }
+
+    /**
+     * The gates every v2 write shares: an active run session, the write
+     * rate limit, a current unit session that is a v2 Form, and — when the
+     * browser names the unit session its page was rendered for — that it is
+     * still the current one (a page rendered for an earlier unit session of
+     * a repeated Form / diary must not write into the new one). Sends the
+     * error reply and returns null when a gate fails; otherwise
+     * [$runSession, $unitSession, $study].
+     *
+     * @param int|null $claimedUnitSessionId the unit session a write was
+     *   made in (its page's state block): anything else, a missing one (0)
+     *   included, is refused as stale; null for a request that writes no
+     *   answers (the bot_check mint, form-render-page)
+     * @param array $extra409 keys merged into every 409 reply (the sync
+     *   endpoint adds drop_entry so the queue stops retrying the entry)
+     * @param string $rateBucket 'write' (form writes), 'rcall' (R calls) or
+     *   'bot' (bot_check challenges)
+     * @return array|null
+     */
+    private function formWriteContext($claimedUnitSessionId, array $extra409 = array(), $rateBucket = 'write', $acceptLeftV2 = false) {
+        if ($this->previewContext !== null) {
+            return $this->previewWriteContext($claimedUnitSessionId, $extra409, $rateBucket);
+        }
+        $this->run = $this->getRun();
+        $this->user = $this->loginUser();
+        $runSession = new RunSession($this->user->user_code, $this->run, array('user' => $this->user));
+        if (!$runSession->id) {
+            $this->sendJsonResponse(array('error' => 'No active run session'), 403);
+            return null;
+        }
+        // The run's access rule, as for the page (Run::exec): a run closed
+        // while a form was open takes no more answers from it. `closed` lets
+        // the browser reload into the run's service message.
+        if (!$this->run->admits($runSession, $this->user)) {
+            $this->sendJsonResponse(array('error' => 'This study is not open', 'closed' => true), 403);
+            return null;
+        }
+        // What a page load does for its participant (indexAction, Run::exec):
+        // slide the session cookie by the run's expire_cookie, and note the
+        // activity. A v2 form is one page load whose answers all come here,
+        // so a form filled in for longer than expire_cookie lost its cookie,
+        // and so its run session, half way.
+        Session::setSessionLifetime($this->run->expire_cookie);
+        $runSession->setLastAccess();
+        if (!$this->rateAllowed($rateBucket, (int) $runSession->id)) {
+            $this->sendJsonResponse(array('error' => 'Rate limit exceeded'), 429);
+            return null;
+        }
+        $unitSession = $runSession->getCurrentUnitSession();
+        if (!$unitSession || !$unitSession->runUnit) {
+            $this->sendJsonResponse(array('error' => 'No current unit session') + $extra409, 409);
+            return null;
+        }
+        $study = $this->formV2Study($unitSession->runUnit);
+        $onV2 = true;
+        if (!$study && $acceptLeftV2 && $claimedUnitSessionId !== null
+                && (int) $claimedUnitSessionId === (int) $unitSession->id
+                && $unitSession->runUnit instanceof Survey
+                && $unitSession->runUnit->surveyStudy && $unitSession->runUnit->surveyStudy->valid) {
+            // The survey was switched back to v1 while this page was open, or
+            // while its pages waited in the offline queue. The unit session is
+            // still the one the page was rendered for, and both engines keep
+            // its answers in the same rows: they are stored, and the
+            // participant continues on v1 (the caller sends them there).
+            $study = $unitSession->runUnit->surveyStudy;
+            $onV2 = false;
+        }
+        if (!$study) {
+            $this->sendJsonResponse(array('error' => 'Current unit is not a v2 form') + $extra409, 409);
+            return null;
+        }
+        if ($claimedUnitSessionId !== null && (int) $claimedUnitSessionId !== (int) $unitSession->id) {
+            $this->sendJsonResponse(array(
+                'error' => 'This form was rendered for a different session (continued elsewhere or a new entry started). Reload to continue.',
+                'stale_session' => true,
+            ) + $extra409, 409);
+            return null;
+        }
+        BotCheckChallenge::bindTo($unitSession->id);
+        return array($runSession, $unitSession, $study, $onV2);
+    }
+
+    /**
+     * The 409 for a write from a document that has not seen the latest
+     * write of its form (FormSubmissionService::claimWrite): another tab or
+     * window has written since it was rendered. Nothing was stored; the
+     * browser reloads it.
+     */
+    private function staleDocumentReply() {
+        return array(
+            'error' => 'This form was continued in another tab or window. Reload to continue.',
+            'stale_document' => true,
+        );
+    }
+
+    /**
+     * The unit session's deadline as it stands after a write, for the
+     * browser's "page expired" notice (items/expiry-notifier.js): a v2 form
+     * is one long-lived page, and its deadline moves while it is open — an
+     * invitation window ends at the first answer, an inactivity window slides
+     * with each (Survey::getUnitSessionExpirationData, as the queue computes
+     * it). ISO 8601, or null for none.
+     */
+    private function formDeadline(UnitSession $unitSession) {
+        $data = $unitSession->runUnit instanceof Survey ? $unitSession->runUnit->getUnitSessionExpirationData($unitSession) : array();
+        return !empty($data['expires']) ? date(DATE_ATOM, (int) $data['expires']) : null;
+    }
+
+    /**
+     * A v2 page written for a unit session whose survey has gone back to v1
+     * (formWriteContext's $onV2 false): its answers are stored, but it ends
+     * nothing — v1 ends a survey itself once every item is answered — and
+     * the reply sends the browser to the run URL, where v1 shows the rest.
+     */
+    private function leftV2Reply(array $result) {
+        if ($result['status'] === 'ok') {
+            $result['redirect'] = run_url($this->run->name);
+            $result['engine_changed'] = true;
+        }
+        return $result;
+    }
+
+    /**
+     * A completed form's reply sends the browser back to the run URL, where
+     * Run::exec shows the unit the run moved on to — or to where that unit
+     * sends the participant (an External's address, a paged survey's first
+     * page; set by FormSubmissionService::apply).
+     */
+    private function withRunRedirect(array $result) {
+        if ($this->previewContext !== null) {
+            if (!empty($result['complete'])) {
+                $result['redirect'] = $this->previewContext['runUrl'];
+            }
+        } elseif (!empty($result['complete']) && empty($result['redirect'])) {
+            $result['redirect'] = run_url($this->run->name);
+        }
+        return $result;
+    }
+
+    /**
+     * A "Test Survey" preview of a v2 study (SurveyTestController): the
+     * unit session comes from the preview's own session slot, not from a
+     * participant's run session. Set by dispatchFormV2Preview.
+     *
+     * @var array{run: Run, unitSession: UnitSession, runUrl: string}|null
+     */
+    private $previewContext = null;
+
+    /** The v2 actions a preview may call (see SurveyTestController). */
+    const FORM_V2_PREVIEW_ACTIONS = array(
+        'form-page-submit' => 'formPageSubmitAction',
+        'form-sync' => 'formSyncAction',
+        'form-save' => 'formSaveAction',
+        'form-render-page' => 'formRenderPageAction',
+        'form-bot-challenge' => 'formBotChallengeAction',
+    );
+
+    /**
+     * Run one v2 endpoint for a "Test Survey" preview. The action is the
+     * very one participants hit; only the gate (formWriteContext) takes the
+     * preview's unit session instead of looking up a run session, so the
+     * preview exercises the same code as a real run.
+     *
+     * @param string $action a key of FORM_V2_PREVIEW_ACTIONS
+     * @param array $context run (the TEST_RUN), unitSession, runUrl
+     *   (where a completed form redirects: the preview URL)
+     */
+    public function dispatchFormV2Preview($action, array $context) {
+        if (!isset(self::FORM_V2_PREVIEW_ACTIONS[$action])) {
+            formr_error(404, 'Not Found', 'The requested URL was not found');
+            return null;
+        }
+        $this->previewContext = $context;
+        $this->run = $context['run'];
+        $method = self::FORM_V2_PREVIEW_ACTIONS[$action];
+        return $this->$method();
+    }
+
+    /**
+     * formWriteContext for a preview: the same checks, against the preview's
+     * unit session. Rate limits are keyed by the unit session (every preview
+     * shares the dummy run session id -1).
+     */
+    private function previewWriteContext($claimedUnitSessionId, array $extra409, $rateBucket) {
+        $unitSession = $this->previewContext['unitSession'];
+        $study = $this->formV2Study($unitSession ? $unitSession->runUnit : null);
+        $bucketId = -1 * (int) ($unitSession ? $unitSession->id : 0);
+        if (!$this->rateAllowed($rateBucket, $bucketId)) {
+            $this->sendJsonResponse(array('error' => 'Rate limit exceeded'), 429);
+            return null;
+        }
+        if (!$unitSession || $unitSession->ended !== null || !$study) {
+            $this->sendJsonResponse(array('error' => 'No current unit session') + $extra409, 409);
+            return null;
+        }
+        if ($claimedUnitSessionId !== null && (int) $claimedUnitSessionId !== (int) $unitSession->id) {
+            $this->sendJsonResponse(array(
+                'error' => 'This preview was rendered for a different test session. Reload to continue.',
+                'stale_session' => true,
+            ) + $extra409, 409);
+            return null;
+        }
+        BotCheckChallenge::bindTo($unitSession->id);
+        return array($unitSession->runSession, $unitSession, $study, true);
+    }
+    /**
+     * form_v2: incremental ("autosave") persistence.
+     *
+     * URL: POST /{runName}/form-save  — JSON only: {data:{...}, item_views:{...}}.
+     *
+     * Writes the answers the participant has entered so far WITHOUT
+     * page-completion semantics: no required-gating (unanswered items are just
+     * not in the payload), no page advance, no redirect. So a mid-page breakoff
+     * (close tab, lose signal, walk away) still yields partial data — the
+     * spec's "persist on advance/blur, not only on explicit submit."
+     * Idempotent: updateSurveyStudyRecord upserts survey_items_display by
+     * (session_id, item_id) and the results row by (study_id, session_id), so a
+     * later validated page-submit cleanly overwrites. Best-effort by design —
+     * the client rate-limits these and treats failures as non-fatal (the
+     * explicit submit + offline queue are the durable path).
+     *
+     * Every autosaved value goes through the item's own validateInput() first,
+     * exactly as on page-submit: a value that fails validation is dropped (not
+     * saved, not an error: autosave is best-effort), and items whose
+     * validation has side effects or must only ever be judged at submit —
+     * bot_check, file/image/audio/video uploads — are never autosaved at all
+     * (see FormSubmissionService::autosaveEligible()). Otherwise anyone could persist an unverified
+     * bot_check token, an out-of-range choice or an arbitrary file string.
+     *
+     * An autosaved item gets `survey_items_display.saved` stamped like a
+     * submitted one: `saved` is the per-item "when this answer was stored"
+     * timestamp, nothing more. Which page the participant is on is the
+     * browser's business (state.mjs), so an autosaved item is rendered and
+     * editable exactly as before a reload.
+     */
+    public function formSaveAction() {
+        if (!Request::isHTTPPostRequest()) {
+            $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
+            return;
+        }
+        $payload = $this->readFormPayload();
+        if ($payload === null) {
+            return;
+        }
+        $data = $payload['data'];
+        $itemViews = $payload['item_views'];
+
+        // Keep only actually-answered fields. The client's collectPayload also
+        // emits the empty hidden placeholder of each mc/mc_multiple item
+        // (name=..., value=""), and writing "" raw to a typed results column
+        // (e.g. a TINYINT mc) errors; it would also mark an unanswered REQUIRED
+        // item as saved and let the participant bypass it. So empties are not
+        // stored as answers; an empty value instead withdraws an answer stored
+        // earlier (FormSubmissionService::withdrawnNames / withdrawAnswers).
+        $clean = array();
+        foreach ($data as $k => $v) {
+            if (is_array($v)) {
+                $v = array_values(array_filter($v, function ($x) { return $x !== '' && $x !== null; }));
+                if ($v) $clean[$k] = $v;
+            } elseif ($v !== '' && $v !== null) {
+                $clean[$k] = $v;
+            }
+        }
+        if (!$data) {
+            $this->sendJsonResponse(array('status' => 'noop'));
+            return;
+        }
+
+        // Same gates as form-page-submit, including the stale-tab one. Autosave
+        // is best-effort, so the client treats a 409 as non-fatal — except
+        // stale_document (claimWrite, below), on which it reloads.
+        $context = $this->formWriteContext($payload['unit_session_id'], array(), 'write', true);
+        if (!$context) {
+            return;
+        }
+        list(, $unitSession, $study) = $context;
+        // Started before a page submit of the same document that has since
+        // landed: its answers are older than the stored ones.
+        if (FormSubmissionService::autosaveIsStale($unitSession->id, $payload['doc'], $payload['seq'])) {
+            $this->sendJsonResponse(array('status' => 'stale'));
+            return;
+        }
+
+        // Keep only values that (a) belong to an item this study actually has,
+        // (b) belong to an item type that may be autosaved, and (c) pass that
+        // item's own validateInput(). Anything else is silently dropped — the
+        // explicit page-submit is where the participant sees errors.
+        $items = $study->getItemsWithChoices(null, array(
+            'field' => 'name',
+            'values' => array_keys($data),
+        ));
+        // An emptied field or a deselected choice withdraws the answer
+        // autosave stored before; the rest are answers to store.
+        $withdraw = FormSubmissionService::withdrawnNames($data, $items);
+        $accepted = FormSubmissionService::filterAutosaveAnswers($clean, $items);
+        // The page's data_quality record comes with every autosave. It is
+        // stored with the participant's answers, not instead of them: when
+        // none of theirs was accepted, nothing was saved.
+        if (!FormSubmissionService::holdsAnAnswer($accepted, $items)) {
+            $accepted = array();
+        }
+        if (!$withdraw && !$accepted) {
+            $this->sendJsonResponse(array('status' => 'noop'));
+            return;
+        }
+        $service = new FormSubmissionService($unitSession, $study);
+        // A document that has not seen the latest write would withdraw the
+        // answers given since in another tab: it is refused, and reloads.
+        if (!$service->claimWrite($payload['doc'], $payload['base'], $payload['prev'])) {
+            $this->sendJsonResponse($this->staleDocumentReply(), 409);
+            return;
+        }
+        $withdrawn = $service->withdrawAnswers($withdraw);
+        if (!$accepted) {
+            $this->sendJsonResponse($withdrawn ? array('status' => 'saved', 'expires' => $this->formDeadline($unitSession)) : array('status' => 'noop'));
+            return;
+        }
+
+        // survey_items_display rows already exist from the GET render; we only
+        // UPDATE them. validate=true → the same per-item checks as page-submit
+        // (every value here already passed them, so this cannot fail on
+        // validation); quiet=true → a lost race is silent (no user error, no
+        // admin email).
+        $posted = $accepted;
+        $posted['_item_views'] = $itemViews;
+        // quiet: a failed write returns false without a user error — then
+        // nothing was stored, and the page must not be told "Saved".
+        $stored = $unitSession->updateSurveyStudyRecord($posted, true, true, $items);
+
+        $reply = array('status' => ($stored || $withdrawn) ? 'saved' : 'noop');
+        if ($stored || $withdrawn) {
+            $reply['expires'] = $this->formDeadline($unitSession);
+        }
+        $this->sendJsonResponse($reply);
+    }
+
+    /**
+     * The SurveyStudy behind $runUnit if — and only if — the form_v2 endpoints
+     * may serve it: a Form unit whose study renders in v2. Only
+     * Form::getUnitSessionOutput renders v2 (a placement is a Form while its
+     * study is on v2: SurveyStudy::syncUnitType). v1 pages submit through
+     * RunController::indexAction and must not be reachable through the v2
+     * AJAX paths, which skip v1's own gating.
+     *
+     * @return SurveyStudy|null
+     */
+    private function formV2Study($runUnit) {
+        return $runUnit instanceof Form ? $runUnit->v2Study() : null;
+    }
+
+    /**
+     * form_v2: offline-queue sync endpoint.
+     *
+     * URL: POST /{runName}/form-sync
+     * Body: as form-page-submit (FormSubmissionService::readPayload), plus the
+     * queue entry's `uuid` and `client_ts`.
+     *
+     * Accepts one queued submission. Idempotent via `survey_form_submissions.uuid`:
+     * a retry with the same uuid returns `{status:'ok', already_applied:true}`
+     * without re-applying. Otherwise the same gates and the same apply path as
+     * form-page-submit; the uuid is recorded once the page is applied
+     * (FormSubmissionService::applyQueued), and a request applying the same
+     * entry at that moment is answered 429, which the queue retries. The envelope
+     * (uuid / page / unit_session_id / client_ts — every field that lands in a
+     * typed ledger column) is validated by FormSyncPayload before any state
+     * change; a bad value is a 400, never a 500 halfway through. 409 replies
+     * carry drop_entry so the queue stops retrying an entry that can never
+     * apply (session ended, participant moved on to another Form). A page
+     * whose document has not seen the latest write of the form is stored
+     * without its hidden list (FormSubmissionService::apply, `stale`).
+     */
+    public function formSyncAction() {
+        if (!Request::isHTTPPostRequest()) {
+            $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
+            return;
+        }
+        $payload = $this->readFormPayload();
+        if ($payload === null) {
+            return;
+        }
+        $envelope = FormSyncPayload::validate(
+            $payload['uuid'], $payload['raw_page'], $payload['raw_unit_session_id'], $payload['client_ts']
+        );
+        if (!$envelope['ok']) {
+            $this->sendJsonResponse(array('error' => $envelope['error'], 'field' => $envelope['field']), 400);
+            return;
+        }
+        $uuid = $envelope['uuid'];
+        $clientTs = $envelope['client_ts'];
+        $payload['page'] = $envelope['page'];
+        $payload['unit_session_id'] = $envelope['unit_session_id'];
+
+        $context = $this->formWriteContext($payload['unit_session_id'], array('drop_entry' => true), 'write', true);
+        if (!$context) {
+            return;
+        }
+        list(, $unitSession, $study, $onV2) = $context;
+        if (!$onV2) {
+            $payload['final'] = false;
+        }
+
+        // Once per entry (FormSubmissionService::applyQueued): an entry
+        // refused for validation errors, or one whose write failed, is not
+        // recorded, so the participant's corrected resend or the retry
+        // applies it.
+        try {
+            $result = (new FormSubmissionService($unitSession, $study))->applyQueued($uuid, $clientTs, $payload);
+        } catch (Throwable $e) {
+            formr_log_exception($e, __METHOD__);
+            $this->sendJsonResponse(array('error' => 'The page could not be stored.'), 500);
+            return;
+        }
+        if ($result['status'] === 'busy') {
+            // Another request is applying this entry. A 429 keeps it queued
+            // and counts no attempt; the browser retries it later.
+            $this->sendJsonResponse(array('error' => 'This page is being saved by another request'), 429);
+            return;
+        }
+        if ($result['status'] !== 'ok' || !empty($result['already_applied'])) {
+            $this->sendJsonResponse($result);
+            return;
+        }
+        FormSubmissionService::recordSubmitSeq($unitSession->id, $payload['doc'], $payload['seq']);
+        if ($onV2 && empty($result['complete'])) {
+            $result['expires'] = $this->formDeadline($unitSession);
+        }
+        $this->sendJsonResponse($onV2 ? $this->withRunRedirect($result) : $this->leftV2Reply($result));
+    }
+
+    /**
+     * bot_check (Altcha): mint a fresh, session-bound proof-of-work challenge.
+     *
+     * URL: GET /{runName}/form-bot-challenge?item=<bot_check item name>
+     *
+     * The difficulty is the SERVER's call: `item` names a bot_check item of the
+     * current unit session's (v2) study, and its `bot_check N` type_options —
+     * not anything else in the request — set the PoW difficulty. verify()
+     * re-derives the floor from the item as well, so even a genuinely signed
+     * easier challenge is refused at submit.
+     *
+     * The <altcha-widget challenge="…/form-bot-challenge"> fetches this lazily
+     * when it mounts (NOT at form render), so the challenge is fresh when the
+     * participant reaches the bot_check — sidestepping the form_v2 "render every
+     * page at once" staleness bug. The challenge is bound to the current
+     * participant (user_code folded into the signed `data`); the same session
+     * cookie is present here as at submit time, so BotCheckChallenge::subject()
+     * resolves identically. Everything is computed on this server — no third
+     * party, no PII leaves the box.
+     *
+     * Gated like the other form_v2 endpoints: an active run session is required
+     * and the mint is rate limited per run session. A challenge minted without a
+     * session was never usable anyway — it binds to the empty subject, and by
+     * submit time subject() is a real user_code, so verify() rejects it — but as
+     * an open endpoint it was a free HMAC-minting oracle for anyone who knew a
+     * run name.
+     */
+    public function formBotChallengeAction() {
+        if (!Request::isHTTPGetRequest()) {
+            $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
+            return;
+        }
+        // Ownership: only a participant with a live session in this run may
+        // mint, and only for a v2 form's own bot_check items — the same gates
+        // as the other form_v2 endpoints (the challenge binds to THIS
+        // session), with the challenge bucket for the rate limit. The widget
+        // only ever mounts inside a rendered form, which already requires a
+        // session, so this costs no legitimate caller anything. A "Test
+        // Survey" preview reaches it through /survey-test/<token>/ with the
+        // preview's unit session (dispatchFormV2Preview).
+        $context = $this->formWriteContext(null, array(), 'bot');
+        if (!$context) {
+            return;
+        }
+        list(, $unitSession, $study) = $context;
+        $itemName = isset($_GET['item']) && is_string($_GET['item']) ? trim($_GET['item']) : '';
+        if ($itemName === '' || !preg_match('/^[A-Za-z0-9_]{1,255}$/', $itemName)) {
+            $this->sendJsonResponse(array('error' => 'Missing or invalid bot_check item name'), 400);
+            return;
+        }
+        $items = $study->getItemsWithChoices(null, array('field' => 'name', 'values' => array($itemName)));
+        $item = isset($items[$itemName]) ? $items[$itemName] : null;
+        if (!($item instanceof BotCheck_Item)) {
+            $this->sendJsonResponse(array('error' => 'No such bot_check item in this form'), 404);
+            return;
+        }
+
+        $challenge = BotCheckChallenge::mint($item);
+        if ($challenge === null) {
+            // Server can't sign (no crypto key / unreadable key file). This is a
+            // misconfiguration, not a participant problem — but it fails CLOSED:
+            // verify() refuses every token while the secret is missing, so the
+            // bot_check item blocks the page rather than waving everyone through.
+            // Log it loudly; it is otherwise invisible until participants report
+            // being stuck.
+            formr_log(
+                'bot_check unavailable: BotCheckChallenge cannot sign (no bot_check_secret and no readable '
+                . 'encryption key file). Participants on a bot_check item are blocked until this is fixed. run='
+                . (string) $this->run->name,
+                'bot_check'
+            );
+            $this->sendJsonResponse(array('error' => 'bot_check_unavailable'), 503);
+            return;
+        }
+        // Discourage caching/proxy storage of a one-shot challenge.
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        $this->sendJsonResponse($challenge);
+    }
+
+    /**
+     * form_v2 page-transition resolver.
+     *
+     * URL: POST /{runName}/form-render-page
+     * Body: JSON `{"page": int, "answers": {name: value, ...}}`
+     *
+     * Resolves all dynamic values (`survey_r_calls.slot='value'`) and dynamic
+     * labels (`slot='label'`) for items on the requested page in one batched
+     * OpenCPU pass. Returns:
+     *
+     *   { "values": { "<call_id>": <scalar>, ... },
+     *     "labels": { "<call_id>": "<rendered html>", ... } }
+     *
+     * Called by the browser for every page it is about to show — the one it
+     * lands on and each one it moves to (state.mjs decides which) — with the
+     * form's current answers (so hidden-field values resolve against the
+     * latest state). The client substitutes labels into the wrapper
+     * innerHTML and writes values into the matching `data-fmr-fill-id`
+     * inputs. This is the only R a v2 form runs; FormRenderer runs none. It
+     * stores no answers (only its own result cache).
+     *
+     * `choices` (R in choice labels): call id => {html, item_id, values}.
+     *
+     * The `answers` payload also enables a "retrigger" use case: a client
+     * could re-POST with hypothetical answers to refresh dynamic content
+     * without leaving the page.
+     */
+    public function formRenderPageAction() {
+        if (!Request::isHTTPPostRequest()) {
+            $this->sendJsonResponse(array('error' => 'Method Not Allowed'), 405);
+            return;
+        }
+        $payload = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($payload) || !isset($payload['page'])) {
+            $this->sendJsonResponse(array('error' => 'Missing page'), 400);
+            return;
+        }
+        $pageNum = (int) $payload['page'];
+        if ($pageNum < 1) {
+            $this->sendJsonResponse(array('error' => 'Invalid page number'), 400);
+            return;
+        }
+        $answers = (isset($payload['answers']) && is_array($payload['answers'])) ? $payload['answers'] : array();
+
+        // The r-call rate bucket: page resolutions are OpenCPU calls.
+        $context = $this->formWriteContext(null, array(), 'rcall');
+        if (!$context) {
+            return;
+        }
+        list(, $unitSession, $study) = $context;
+        // Release the PHP session lock before the OpenCPU work: the browser
+        // fetches the next page's content alongside the page submit, and
+        // with the lock held the submit would wait for this request's R.
+        // Nothing below writes the session.
+        Session::over();
+
+        $service = new RCallService($unitSession, $study);
+
+        // The service scopes calls to items actually scheduled on that page
+        // in THIS unit-session and applies the allowlist revocation check.
+        $calls = $service->callsForPage($pageNum);
+        if (empty($calls['value']) && empty($calls['label']) && empty($calls['choice_label'])) {
+            $this->sendJsonResponse(array('values' => array(), 'labels' => array(), 'choices' => array()));
+            return;
+        }
+
+        // Values, labels and every note_iframe at once (RCallService::resolvePage).
+        $resolved = $service->resolvePage($calls, $answers);
+        $values = $resolved['values'];
+        $labels = $resolved['labels'];
+        $choiceLabels = $resolved['choices'];
+
+        $valuesOut = $follows = array();
+        foreach ($values as $callId => $val) {
+            $valuesOut[(string) $callId] = RCallService::rResultToScalarString($val);
+            $call = $calls['value'][$callId];
+            if ($service->valueFollowsAnswers($call['expr'], isset($call['item_name']) ? $call['item_name'] : '')
+                    && $service->answersChangedFor($callId)) {
+                $follows[] = (string) $callId;
+            }
+        }
+        $labelsOut = array();
+        foreach ($labels as $callId => $html) {
+            $labelsOut[(string) $callId] = $html;
+        }
+        // Choice labels also name the item and the choice values they label:
+        // a placeholder span can't live inside an <option>, so the client
+        // reaches options by value instead.
+        $choicesOut = array();
+        foreach ($choiceLabels as $callId => $html) {
+            $choicesOut[(string) $callId] = array(
+                'html' => $html,
+                'item_id' => $calls['choice_label'][$callId]['item_id'],
+                'values' => $calls['choice_label'][$callId]['values'],
+            );
+        }
+
+        // `follows`: the value calls whose R reads the form's answers
+        // (RCallService::valueFollowsAnswers) and was evaluated for answers
+        // that changed since (answersChangedFor).
+        $this->sendJsonResponse(array('values' => $valuesOut, 'follows' => $follows, 'labels' => $labelsOut, 'choices' => $choicesOut));
+    }
+
+    /**
+     * Per-run-session budgets for the v2 endpoints, each its own bucket so a
+     * burst on one can never eat another's budget:
+     * - 'rcall' (form-render-page): one bucket for all R resolution, so a
+     *   hostile client can't multiply its budget by alternating endpoints;
+     *   30/min is generous for a participant paging through a long form.
+     * - 'write' (form-page-submit, form-save, form-sync): wide headroom —
+     *   autosave is client-throttled to 1/20s and a fast participant submits
+     *   well under a page a second — but it stops a scripted client from
+     *   hammering DB writes indefinitely.
+     * - 'bot' (/form-bot-challenge): one mint per bot_check item, fetched
+     *   only on click; 20/min is far more than any human produces while
+     *   bounding a scripted client to something that can't be used as a free
+     *   HMAC-minting oracle.
+     * - 'beacon' (/pwa-beacon): unauthenticated, keyed by IP.
+     * Override via $settings['form_v2_rate_limits'][<config key>].
+     */
+    private function rateAllowed($bucket, $id) {
+        static $buckets = array(
+            'rcall' => array('rcall', 'rcall_per_min', 30),
+            'write' => array('formwrite', 'write_per_min', 90),
+            'bot' => array('botchallenge', 'bot_challenge_per_min', 20),
+            'beacon' => array('beacon', 'beacon_per_min', 10),
+        );
+        list($prefix, $key, $default) = isset($buckets[$bucket]) ? $buckets[$bucket] : $buckets['write'];
+        $max = (int) Config::get('form_v2_rate_limits.' . $key, $default);
+        return FixedWindowRateLimiter::allow($prefix . ':' . $id, $max, 60);
+    }
+
+    /**
      * Service-worker / PWA telemetry beacon. Endpoint exists so SW
      * install / activate failures surface in formr's error log instead
      * of dying silently in the participant's browser console (where we
@@ -663,6 +1418,16 @@ class RunController extends Controller {
     {
         if (!Request::isHTTPPostRequest()) {
             http_response_code(405);
+            return;
+        }
+        // Unauthenticated endpoint — rate limit per IP so it can't be used to
+        // flood formr_log / disk. Fail-open like the other buckets. An IPv6
+        // client owns its whole /64 and could send each beacon from a new
+        // address: those are counted per /64 (MailGuardService::subnetKey).
+        $ip = MailGuardService::clientIp();
+        $bucket = ($ip !== null && strpos($ip, ':') !== false) ? MailGuardService::subnetKey($ip) : ($ip ?: 'unknown');
+        if (!$this->rateAllowed('beacon', $bucket)) {
+            http_response_code(429);
             return;
         }
         $raw = file_get_contents('php://input');

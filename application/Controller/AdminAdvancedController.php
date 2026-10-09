@@ -30,8 +30,114 @@ class AdminAdvancedController extends AdminController {
         return $this->sendResponse();
     }
 
+    /**
+     * Issue / revoke single-use registration invites from the admin UI. An
+     * invite lets one person register past the registration.mode gate
+     * ('invite' mode, or as a per-person exception to 'domains') — the
+     * in-app answer to "my collaborator's email domain isn't on the list".
+     * Tokens are shown exactly once, at issuance; only hashes are stored.
+     */
+    public function registrationInvitesAction() {
+        $issued = array();
+        if ($this->request->isHTTPPostRequest()) {
+            $post = new Request($_POST);
+            if ($post->str('do') === 'issue') {
+                $issued = RegistrationGuard::issueInvites(
+                    $post->str('count', 1), $post->str('expires_days', 30),
+                    'admin:' . $this->user->email);
+                alert(count($issued) . ' invitation token(s) issued. Copy them now — they cannot be shown again.', 'alert-success');
+            } elseif ($post->str('do') === 'revoke') {
+                $revoked = RegistrationGuard::revokeInviteById($post->str('id'));
+                alert($revoked ? 'Invite revoked.' : 'No unused invite with that id.', $revoked ? 'alert-info' : 'alert-danger');
+            }
+        }
+        $this->setView('advanced/registration_invites', array(
+            'issued' => $issued,
+            'invites' => RegistrationGuard::listInvites(),
+            'mode' => Config::get('registration.mode', 'open'),
+        ));
+        return $this->sendResponse();
+    }
+
+    /** Outbound-mail guard status: refusal counts, recent refusals, suppression list. */
+    public function mailGuardAction() {
+        $hours = (int) $this->request->str('hours');
+        if ($hours < 1 || $hours > 24 * 30) {
+            $hours = 24;
+        }
+        try {
+            $vars = array(
+                'hours' => $hours,
+                'summary' => MailGuardService::summary($hours),
+                'ceiling_tripped' => MailGuardService::globalCeilingTripped($hours),
+                'recent_refusals' => MailGuardService::recentRefusals(50),
+                'suppressions' => MailGuardService::listSuppressions(),
+                'guard_error' => null,
+            );
+        } catch (Throwable $e) {
+            // e.g. the 076 migration has not run yet
+            $vars = array('hours' => $hours, 'summary' => array(), 'ceiling_tripped' => false,
+                'recent_refusals' => array(), 'suppressions' => array(),
+                'guard_error' => $e->getMessage());
+        }
+        $this->setView('advanced/mail_guard', $vars);
+        return $this->sendResponse();
+    }
+
+    /**
+     * Who collects (probably) personal data, in which runs. Heuristic over
+     * item types and names; see PersonalDataAudit for what it can't see.
+     */
+    public function personalDataAction() {
+        try {
+            $vars = array('report' => PersonalDataAudit::report(), 'audit_error' => null);
+        } catch (Throwable $e) {
+            $vars = array('report' => PersonalDataAudit::emptyReport(), 'audit_error' => $e->getMessage());
+        }
+        $vars['category_labels'] = PersonalDataAudit::categoryLabels();
+        $this->setView('advanced/personal_data', $vars);
+        return $this->sendResponse();
+    }
+
     public function testOpencpuSpeedAction() {
         $this->setView('advanced/test_opencpu_speed');
+        return $this->sendResponse();
+    }
+
+    /**
+     * Issue #608: instance-wide compute/runtime usage — per study admin and
+     * per run — so superadmins can spot resource-hungry studies. Per-user
+     * (own-runs) view lives at admin/compute.
+     */
+    public function computeUsageAction() {
+        // Superadmin-only setting of a per-user monthly compute limit (issue #608).
+        // Blank clears the override (user inherits the global default); a number is
+        // seconds (0 = unlimited). Users cannot change their own limit, so this lives
+        // here behind the superadmin gate. Plain PRG form post — no inline JS (CSP).
+        if (Request::isHTTPPostRequest() && $this->request->getParam('set_compute_limit_user_id')) {
+            $uid = (int) $this->request->getParam('set_compute_limit_user_id');
+            $raw = trim((string) $this->request->getParam('compute_limit_monthly'));
+            if ($raw === '') {
+                $value = null;
+            } elseif (is_numeric($raw) && (float) $raw >= 0) {
+                $value = (float) $raw;
+            } else {
+                alert('Compute limit must be blank (inherit default) or a non-negative number of seconds.', 'alert-danger');
+                $this->request->redirect('admin/advanced/compute_usage');
+                return;
+            }
+            $this->fdb->update('survey_users', array('compute_limit_monthly' => $value), array('id' => $uid));
+            alert('Monthly compute limit updated for user #' . $uid . '.', 'alert-success');
+            $this->request->redirect('admin/advanced/compute_usage');
+            return;
+        }
+
+        $this->setView('advanced/compute_usage', array(
+            'totals' => ComputeUsageHelper::totalsForInstance(),
+            'users' => ComputeUsageHelper::usageByUser(),
+            'runs' => ComputeUsageHelper::topRuns(50),
+            'monthly_default' => ComputeUsageHelper::monthlyDefault(),
+        ));
         return $this->sendResponse();
     }
 
@@ -147,7 +253,10 @@ class AdminAdvancedController extends AdminController {
             // from their own account page if needed (well — currently
             // labels are immutable; future-friendly default).
             $label = 'admin-issued-' . date('Ymd-His');
-            $client = $helper->createClient($user, $label);
+            // createClient() refuses an empty scope list (an empty client
+            // scope is "unrestricted" to bshaffer); an admin-issued credential
+            // is granted every known scope, the effective grant it had before.
+            $client = $helper->createClient($user, $label, $helper->listScopes());
             if (!$client) {
                 return array('success' => false, 'message' => 'Unable to create client');
             }
@@ -210,15 +319,17 @@ class AdminAdvancedController extends AdminController {
 
     public function runsManagementAction() {
         if (Request::isHTTPPostRequest()) {
-            // process post request and redirect
+            // process post request and redirect. One batched CASE UPDATE keyed
+            // on run id instead of a round trip per submitted run (audit SQ-33).
+            $rows = array();
             foreach ($this->request->arr('runs') as $id => $data) {
-                $update = array(
+                $rows[(int) $id] = array(
                     'cron_active' => (int) isset($data['cron_active']),
-                    'cron_fork' => (int) isset($data['cron_fork']),
-                    'locked' => (int) isset($data['locked']),
+                    'cron_fork'   => (int) isset($data['cron_fork']),
+                    'locked'      => (int) isset($data['locked']),
                 );
-                $this->fdb->update('survey_runs', $update, array('id' => (int) $id));
             }
+            $this->fdb->batchUpdateByKey('survey_runs', 'id', $rows);
             alert('Changes saved', 'alert-success');
             $qs = $this->request->page ? '/?page=' . $this->request->page : null;
             $this->request->redirect('admin/advanced/runs-management' . $qs);
@@ -293,7 +404,7 @@ class AdminAdvancedController extends AdminController {
 
         if ($this->request->session) {
             $session = str_replace("…", "", $this->request->session);
-            $queryparams['session'] = "%" . $session . "%";
+            $queryparams['session'] = $session . "%";
             $querystring['session'] = $session;
         }
 
@@ -316,7 +427,8 @@ class AdminAdvancedController extends AdminController {
                 $userx['ended'] = $userx['expired'] . ' (expired)';
             }
 
-            if ($userx['unit_type'] != 'Survey') {
+            // Survey and Form (v2) sessions both hold participant data.
+            if (!in_array($userx['unit_type'], Survey::TYPES, true)) {
                 $userx['delete_msg'] = "Are you sure you want to delete this unit session?";
                 $userx['delete_title'] = "Delete this waypoint";
             } else {
@@ -354,8 +466,12 @@ class AdminAdvancedController extends AdminController {
 
         if(count($query) > 0 ) {
             $where = "WHERE " . implode(' AND ', $query);
+            $order = "`survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC";
         } else {
+            // unfiltered browse: newest unit sessions first — index-ordered
+            // (PRIMARY, backwards) instead of filesorting the whole table
             $where = "";
+            $order = "`survey_unit_sessions`.id DESC";
         }
 
         $itemsQuery = "SELECT 
@@ -371,14 +487,14 @@ class AdminAdvancedController extends AdminController {
                 `survey_unit_sessions`.expires,
                 `survey_unit_sessions`.`queued`,
                 `survey_unit_sessions`.result,
-                `survey_unit_sessions`.result_log
+                LEFT(`survey_unit_sessions`.result_log, 1000) AS result_log
             FROM `survey_unit_sessions`
             LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
             LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
             LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
             LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
             {$where}
-            ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC LIMIT 1000
+            ORDER BY {$order} LIMIT 1000
         ";
 
         return array(

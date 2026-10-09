@@ -14,6 +14,13 @@
  */
 class HashedTokenOAuth2StoragePdo extends \OAuth2\Storage\Pdo
 {
+    /**
+     * Scope handed to a non-internal client whose stored scope is empty. No
+     * oauth_scopes row has this name, so no requested scope can satisfy it
+     * and a token minted from it passes no ApiBase::checkScope().
+     */
+    const DENY_ALL_SCOPE = 'formr:none';
+
 
     private function hashToken($token)
     {
@@ -65,6 +72,22 @@ class HashedTokenOAuth2StoragePdo extends \OAuth2\Storage\Pdo
             // callers. The bshaffer grant flow only needs client_secret via
             // checkClientCredentials, which we handle above.
             unset($details['client_secret']);
+        }
+        if ($details && trim((string) ($details['scope'] ?? '')) === ''
+                && ($details['label'] ?? '') !== OAuthHelper::INTERNAL_LABEL) {
+            // bshaffer reads an empty client scope as "unrestricted": the
+            // token endpoint validates an explicit scope request only
+            // against the globally-known set (`if ($clientScope = …)` /
+            // `elseif (scopeExists(...))`), and the client_credentials grant
+            // adopts the client scope as the token's. A user credential
+            // stored with scope '' — every admin-issued one before v1.10.2,
+            // and any created with no scope ticked — was therefore fully
+            // privileged. Patch 078 closed the no-scope-requested path; this
+            // closes the explicit one. parent::getClientScope() reads
+            // through this method, so both see the deny scope. The
+            // auto-managed internal client keeps its empty scope (its tokens
+            // are scoped at issuance and never pass through the endpoint).
+            $details['scope'] = self::DENY_ALL_SCOPE;
         }
         return $details;
     }

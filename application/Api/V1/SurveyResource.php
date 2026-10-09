@@ -71,24 +71,13 @@ class SurveyResource extends BaseResource
     private function listSurveys()
     {
         $allowed = $this->allowedRunIds();
+        $select = $this->db->select('id, name, created, modified, results_table')
+            ->from('survey_studies')
+            ->where(['user_id' => $this->user->id]);
         if (!empty($allowed)) {
-            // Restricted clients see only surveys that appear as units
-            // in one of their allowlisted runs. survey-type units share
-            // their id with survey_studies.id (same join used by
-            // Run::getAllSurveys); DISTINCT collapses surveys reused
-            // across multiple allowlisted runs.
-            $select = $this->db->select(
-                'DISTINCT survey_studies.id, survey_studies.name, survey_studies.created,'
-                . ' survey_studies.modified, survey_studies.results_table'
-            )
-                ->from('survey_studies')
-                ->join('survey_run_units', 'survey_run_units.unit_id = survey_studies.id')
-                ->where(['survey_studies.user_id' => $this->user->id]);
-            $select->whereIn('survey_run_units.run_id', $allowed);
-        } else {
-            $select = $this->db->select('id, name, created, modified, results_table')
-                ->from('survey_studies')
-                ->where(['user_id' => $this->user->id]);
+            // Restricted clients see only surveys that appear as units in
+            // one of their allowlisted runs (ApiBase::placedStudiesSql).
+            $select->where(self::placedStudiesSql($allowed));
         }
 
         if ($nameFilter = $this->request->getParam('name')) {

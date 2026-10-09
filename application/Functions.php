@@ -19,6 +19,24 @@ function formr_log($msg, $type = '')
     error_log($msg . "\n", 3, get_log_file('errors.log'));
 }
 
+/**
+ * Append a CSP violation report (assoc array of the interesting fields) to a
+ * dedicated csp.log, one JSON object per line. Used by the Report-Only sweep.
+ *
+ * The report endpoint is unauthenticated (browsers POST with no session), so
+ * growth must be bounded: past 20 MB the log rotates once to csp.log.1
+ * (overwritten on the next rotation), capping total disk at ~40 MB.
+ */
+function formr_csp_log($report)
+{
+    $file = get_log_file('csp.log');
+    if (is_file($file) && filesize($file) > 20 * 1024 * 1024) {
+        @rename($file, $file . '.1');
+    }
+    $line = date('Y-m-d H:i:s') . ' ' . json_encode($report) . "\n";
+    error_log($line, 3, $file);
+}
+
 function formr_log_exception(Throwable $e, $prefix = '', $debug_data = null)
 {
     // Accept Throwable (not just Exception) so PHP Errors — type errors,
@@ -81,14 +99,11 @@ function notify_user_error($error, $public_message = '')
     $message = $date . ': ' . $public_message . "<br>";
 
     // Show the actual error body whenever the viewer isn't a real
-    // participant. That's: cron/queue daemons, test sessions, and
-    // admin contexts that have no run_session at all (e.g. the
-    // OverviewScriptPage render path). The participant-facing case
-    // — a regular run_session that isn't cron and isn't testing —
-    // still gets only the public_message, so internal error text
-    // doesn't leak through a survey page. Matches the same logic
-    // that drives $show_errors='TRUE' in the OpenCPU knit chunks.
-    if (!$run_session || $run_session->isCron() || $run_session->isTesting()) {
+    // participant (RunSession::authorFacing: cron/queue daemons, test and
+    // preview sessions, admin contexts with no run_session at all). A
+    // participant gets only the public_message, so internal error text
+    // doesn't leak through a survey page.
+    if (RunSession::authorFacing($run_session)) {
         if ($error instanceof Exception) {
             $message .= opencpu_redact_secrets($error->getMessage());
         } else {
@@ -100,6 +115,13 @@ function notify_user_error($error, $public_message = '')
 
 function print_hidden_opencpu_debug_message($ocpu_req, $public_message = '')
 {
+    // The message is an alert, kept in the PHP session. Once the session is
+    // closed (form_v2's form-render-page releases it before its OpenCPU
+    // work, Session::over) it can no longer be kept, so don't build it:
+    // opencpu_debug() makes several requests of its own to OpenCPU.
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        return;
+    }
     $run_session = Site::getInstance()->getRunSession();
     if ($run_session && !$run_session->isCron() && $run_session->isTesting()) {
         $date = date('Y-m-d H:i:s');
@@ -155,7 +177,7 @@ function session_over($site, $user)
     return true;
 }
 
-function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could not be processed', $hint = null, $link = null, $link_text = null)
+function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could not be processed', $hint = null, $link = null, $link_text = null, $vars = array())
 {
     $code = $code ? $code : 500;
     $text = str_replace(APPLICATION_ROOT, '', $text);
@@ -172,13 +194,13 @@ function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could
         exit;
     }
 
-    $view = new View('public/error', array(
+    $view = new View('public/error', array_merge($vars, array(
         'code' => $code,
         'title' => $hint ? $hint : $title,
         'text' => $text,
         'link' => $link,
         'link_text' => $link_text,
-    ));
+    )));
 
     $response = new Response();
     $response->setStatusCode($code, $title)->setContent($view->render())->send();
@@ -819,6 +841,32 @@ function mysql_now()
 }
 
 /**
+ * A timestamp the browser sent, in the server's time zone like every other
+ * timestamp formr stores (mysql_now). Browsers send UTC, `YYYY-MM-DD
+ * HH:MM:SS` from Date#toISOString (v1's mysql_datetime in
+ * common/js/main.js, v2's mysqlDatetime in form/js/lib/time.js), whatever
+ * the participant's own time zone.
+ *
+ * @param mixed $value
+ * @return string|null null when $value is not such a timestamp
+ */
+function client_time($value)
+{
+    if (!is_string($value) || !preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $value)) {
+        return null;
+    }
+    $time = DateTime::createFromFormat('!Y-m-d H:i:s', $value, new DateTimeZone('UTC'));
+    if ($time === false || $time->format('Y-m-d H:i:s') !== $value) {
+        return null; // out of range, e.g. 2026-02-30 or 24:00:00
+    }
+    $local = $time->setTimezone(new DateTimeZone(date_default_timezone_get()))->format('Y-m-d H:i:s');
+    // What a DATETIME column takes (years 1000 to 9999), checked after the
+    // conversion: 9999-12-31 23:30 UTC is in the year 10000 east of UTC, and
+    // a column that refuses it fails the whole page write.
+    return preg_match('/^[1-9]\d{3}-/', $local) ? $local : null;
+}
+
+/**
  * Returns formatted strings equivalent to expressions like NOW() + INTERVAL 2 DAY
  *
  * @param string A string defining an interval accepted by PHP's strtotime() function
@@ -917,6 +965,24 @@ function run_url($name = '', $action = '', $params = array())
     return $url;
 }
 
+/**
+ * A label naming the engine a study renders on: form_v2 (Form units) or the
+ * classic v1 engine (Survey units). Shown next to the study name on every
+ * survey admin page, in the survey list and on "Test Survey", because the
+ * same item table behaves very differently on the two.
+ *
+ * @param SurveyStudy|array|string $study a study, a survey_studies row, or a rendering_mode
+ */
+function study_engine_badge($study)
+{
+    $mode = is_string($study) ? $study
+        : (is_array($study) ? ($study['rendering_mode'] ?? 'v1') : ($study->rendering_mode ?? 'v1'));
+    if ($mode === 'v2') {
+        return '<span class="label label-primary fmr-engine-badge" title="Runs on v2. Add it to a run with a Form unit."><i class="fa fa-wpforms"></i> v2</span>';
+    }
+    return '<span class="label label-default fmr-engine-badge" title="Runs on the classic v1 engine. Add it to a run with a Survey unit.">v1</span>';
+}
+
 function admin_study_url($name = '', $action = '', $params = array())
 {
     if ($action) {
@@ -957,8 +1023,15 @@ function determine_session_context()
     $study_name = null;
     $is_admin = false;
 
-    // Determine if we're on admin path
-    if ($first_segment === 'admin') {
+    // Token-gated survey preview render (SurveyTestController). Lives on the
+    // admin host but OUTSIDE /admin/, so it inherits neither the admin CSP
+    // (Site::inAdminArea() is false) nor the /admin/-scoped admin cookies.
+    // Give it its own cookie path so its throwaway test session cannot collide
+    // with the admin session at /admin/.
+    if ($first_segment === 'survey-test') {
+        $session_path = '/survey-test/';
+        $session_context = 'survey_test';
+    } elseif ($first_segment === 'admin') {
         if (strpos($current_domain, $admin_domain) !== false) {
             $session_path = '/admin/';
             $session_context = 'admin';
@@ -1161,7 +1234,7 @@ function opencpu_get($location, $return_format = 'json', $return_session = false
 function opencpu_prepare_api_access($code, &$variables)
 {
     // Bridge participates in: opencpu_knit_iframe, opencpu_knit2html
-    // wrappers (knitdisplay / knitadmin / knit_email).
+    // wrappers (knitdisplay_request / knitadmin / knit_email).
     // NOT participating: opencpu_knit_plaintext / opencpu_evaluate.
     // Plaintext rendering is for short string interpolation (email
     // subjects, push titles, item label_parsed); live API authentication
@@ -1514,17 +1587,96 @@ function opencpu_validate_r_code(string $code): array {
  * @param bool $return_session Should OpenCPU_Session object be returned
  * @return string|OpenCPU_Session|null Returns null if an error occured so check the return value using the equivalence operator (===)
  */
+/**
+ * Is this R code effectively empty — nothing but whitespace and comments?
+ *
+ * Comments are stripped line by line. That can only ever make the string
+ * look emptier, and any working expression leaves non-comment characters
+ * behind (`x <- 1 # note` becomes `x <- 1`, and even a bare `"#"` becomes
+ * `"`), so it cannot misclassify real code as empty. Deliberately not a
+ * parser: the only decision it drives is "don't bother OpenCPU".
+ */
+function opencpu_code_is_empty($code)
+{
+    $stripped = preg_replace('/#.*$/m', '', (string) $code);
+    return trim((string) $stripped) === '';
+}
+
+/**
+ * Leave a note for opencpu_last_error() when an HTTP call died before an
+ * OpenCPU_Session existed. Without it the fallback in opencpu_last_error()
+ * reads the PREVIOUS session — whose hasError() consults the singleton's
+ * curl_info, which the failed request just overwrote (X3 in
+ * documentation/agent_doc/LOG_STATE_AUDIT.md). A session-borne R error
+ * needs no note: the failed session registered itself as the fallback
+ * when it was constructed.
+ */
+function opencpu_note_transport_failure(OpenCPU_Exception $e)
+{
+    $GLOBALS['opencpu_local_error'] = 'OpenCPU request failed: ' . opencpu_redact_secrets($e->getMessage());
+}
+
 function opencpu_evaluate($code, $variables = null, $return_format = 'json', $context = null, $return_session = false)
 {
+    $GLOBALS['opencpu_local_error'] = null;
+    opencpu_forget_session();
+
+    // An empty expression must never reach OpenCPU. The request body below
+    // wraps the author's code in a closure that opens with
+    // `library(formr)`, so when $code contributes no expression the
+    // closure's value is that call's own return value — and R's library()
+    // returns the names of the attached packages. Evaluation therefore
+    // "succeeded" with the string "formr" rather than failing.
+    //
+    // That is not cosmetic. strtotime('formr') is false, so a Pause/Wait
+    // anchor fell through to its check_failed path, but Branch/Skip
+    // coerces its result with (bool) — and (bool) 'formr' is TRUE, so an
+    // empty skip condition silently jumped every time, with no error
+    // recorded anywhere. Returning null instead routes every caller
+    // through the "could not evaluate" handling it already has.
+    //
+    // Not applied when a session is requested: that path feeds
+    // opencpu_debug(), which expects a session object, and it serves the
+    // admin "Test" button rather than participant-facing evaluation.
+    if ($return_session !== true && opencpu_code_is_empty($code)) {
+        $GLOBALS['opencpu_local_error'] = 'The R expression is empty — it contains only whitespace or comments, so there is nothing to evaluate.';
+        return null;
+    }
+
     if ($return_session !== true && ($result = shortcut_without_opencpu($code, $variables)) !== null) {
         return current($result);
     }
 
-    $temp_token_to_delete = opencpu_prepare_api_access($code, $variables);
+    $request = opencpu_evaluate_request($code, $variables, $return_format, $context);
+    $session = $failure = null;
+    try {
+        $session = OpenCPU::getInstance()->post($request['uri'], $request['params']);
+    } catch (OpenCPU_Exception $e) {
+        $failure = $e;
+    } finally {
+        opencpu_cleanup($request);
+    }
+    return opencpu_evaluate_outcome($session, $failure, $return_format, $return_session);
+}
+
+/**
+ * The request opencpu_evaluate sends: the code in a closure after the run's
+ * prelude and variables. Its `cleanup` (a temporary API token) runs once
+ * the request is answered (opencpu_cleanup, opencpu_post_many).
+ *
+ * @return array{uri: string, params: array, cleanup: callable|null}
+ */
+function opencpu_evaluate_request($code, $variables = null, $return_format = 'json', $context = null, $scan = null)
+{
+    // $scan: the text read for formr_api_authenticate() and secret
+    // references, when $code also carries data (participants' answers)
+    // that must not ask for either.
+    $scan = $scan === null ? $code : $scan;
+    $temp_token_to_delete = opencpu_prepare_api_access($scan, $variables);
 
     $r_variables = is_string($variables) ? $variables : opencpu_define_vars($variables, $context);
 
-    $r_prelude = opencpu_run_prelude($code);
+    $r_prelude = opencpu_run_prelude($scan);
 
     $params = ['x' => '{
 (function() {
@@ -1533,10 +1685,20 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 	' . $code . '
 })() }'];
 
-    $uri = '/base/R/identity/' . $return_format;
-    try {
-        $session = OpenCPU::getInstance()->post($uri, $params);
+    return array('uri' => '/base/R/identity/' . $return_format, 'params' => $params,
+        'cleanup' => opencpu_token_cleanup($temp_token_to_delete));
+}
 
+/**
+ * What opencpu_evaluate returns for its request's answer: the session or its
+ * result, or null once the error is reported.
+ */
+function opencpu_evaluate_outcome(OpenCPU_Session $session = null, OpenCPU_Exception $failure = null, $return_format = 'json', $return_session = false)
+{
+    try {
+        if ($failure !== null) {
+            throw $failure;
+        }
         if ($session->hasError()) {
             throw new OpenCPU_Exception(opencpu_debug($session));
         } else {
@@ -1545,12 +1707,53 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 
         return $return_session ? $session : ($return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format));
     } catch (OpenCPU_Exception $e) {
+        if ($session === null) {
+            opencpu_note_transport_failure($e);
+        }
         notify_user_error($e, "There was a computational error.");
         opencpu_log($e);
         return null;
+    }
+}
+
+/** A temporary API token's deletion, as a request's `cleanup`. */
+function opencpu_token_cleanup($token)
+{
+    return $token ? function () use ($token) {
+        OAuthHelper::getInstance()->deleteAccessToken($token);
+    } : null;
+}
+
+/** Run a request's cleanup (opencpu_*_request) once it is answered. */
+function opencpu_cleanup(array $request)
+{
+    if (!empty($request['cleanup'])) {
+        ($request['cleanup'])();
+    }
+}
+
+/**
+ * Send several opencpu_*_request()s to OpenCPU at once (OpenCPU::postMany)
+ * and run their cleanups. Each answer goes to the request's own outcome
+ * function (opencpu_evaluate_outcome, opencpu_knit_outcome).
+ *
+ * @param array $requests key => request
+ * @return array key => ['session' => OpenCPU_Session|null,
+ *   'failure' => OpenCPU_Exception|null, 'seconds' => float]
+ */
+function opencpu_post_many(array $requests)
+{
+    $GLOBALS['opencpu_local_error'] = null;
+    opencpu_forget_session();
+    $calls = array();
+    foreach ($requests as $key => $request) {
+        $calls[$key] = array($request['uri'], $request['params']);
+    }
+    try {
+        return $calls ? OpenCPU::getInstance()->postMany($calls) : array();
     } finally {
-        if ($temp_token_to_delete) {
-            OAuthHelper::getInstance()->deleteAccessToken($temp_token_to_delete);
+        foreach ($requests as $request) {
+            opencpu_cleanup($request);
         }
     }
 }
@@ -1587,21 +1790,62 @@ function shortcut_without_opencpu($code, $data)
  */
 function opencpu_knit($code, $return_format = 'json', $self_contained = 1, $return_session = false)
 {
-    $params = array('text' => "'" . addslashes($code) . "'");
-    $uri = '/knitr/R/knit/' . $return_format;
+    return opencpu_post_knit('/knitr/R/knit/' . $return_format, array('text' => "'" . addslashes($code) . "'"),
+        $return_format, $return_session, "There was a problem dynamically knitting something using openCPU.");
+}
 
+/**
+ * The shared envelope of the knit calls: POST to $uri, and either hand back
+ * the session ($return_session, for callers that inspect ->hasError()
+ * themselves) or its result; on an error, note it, tell the user $message
+ * and return null.
+ *
+ * @return OpenCPU_Session|mixed|null
+ */
+function opencpu_post_knit($uri, array $params, $return_format, $return_session, $message)
+{
+    // This call's outcome must be what opencpu_last_error() reports — never
+    // a predecessor's note (X3): knit paths used to leave the global alone,
+    // so a stale "expression is empty" from an earlier evaluate survived.
+    $GLOBALS['opencpu_local_error'] = null;
+    opencpu_forget_session();
+
+    $session = $failure = null;
     try {
         $session = OpenCPU::getInstance()->post($uri, $params);
+    } catch (OpenCPU_Exception $e) {
+        $failure = $e;
+    }
+    return opencpu_knit_outcome($session, $failure, $return_format, $return_session, $message);
+}
+
+/**
+ * What a knit returns for its request's answer (opencpu_post_knit,
+ * opencpu_knit_iframe): the session or its result, or null once the error
+ * is reported with $message.
+ */
+function opencpu_knit_outcome(OpenCPU_Session $session = null, OpenCPU_Exception $failure = null, $return_format = 'json', $return_session = false, $message = '')
+{
+    try {
+        if ($failure !== null) {
+            throw $failure;
+        }
+        // Callers asking for the raw session expect to inspect ->hasError()
+        // themselves (e.g. RunUnit::getParsedBody distinguishes "server
+        // down" from "R error" by exactly this check). Return early before
+        // the throw-on-error branch so a session-or-null contract is kept.
         if ($return_session === true) {
             return $session;
         }
-
         if ($session->hasError()) {
             throw new OpenCPU_Exception(opencpu_debug($session));
         }
         return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
     } catch (OpenCPU_Exception $e) {
-        notify_user_error($e, "There was a problem dynamically knitting something using openCPU.");
+        if ($session === null) {
+            opencpu_note_transport_failure($e);
+        }
+        notify_user_error($e, $message);
         opencpu_log($e);
         return null;
     }
@@ -1643,11 +1887,26 @@ opts_knit$set(base.url="' . OpenCPU::TEMP_BASE_URL . '")
 }
 
 /**
+ * The request that knits R Markdown to *Markdown* (not HTML) via OpenCPU: it
+ * runs the R chunks / inline `r ...` through knitr but does NOT invoke
+ * rmarkdown::render / pandoc. The caller turns the returned Markdown into HTML
+ * PHP-side with ParsedownExtra (RCallService), which avoids the pandoc
+ * subprocess + temp-file IO that dominate short-label render cost; it has
+ * opencpu_knit2html_call's shape, so a caller can take either. (form_v2
+ * dynamic labels — issue #608 follow-up.)
+ */
+function opencpu_knit2markdown_call($source)
+{
+    return array('uri' => '/formr/R/formr_knit/json', 'params' => array('text' => "'" . addslashes($source) . "'"),
+        'message' => "There was a problem knitting something using openCPU.");
+}
+
+/**
  * Knit R markdown to HTML via the formr_inline_render endpoint.
  *
  * Plain HTTP wrapper around the OpenCPU call. Variable injection and
  * formr_api_authenticate() bridging are the caller's job — each of
- * opencpu_knitdisplay / opencpu_knitadmin / opencpu_knit_email bakes
+ * opencpu_knitdisplay_request / opencpu_knitadmin / opencpu_knit_email bakes
  * its own settings chunk (with library(formr) + $variables) and runs
  * opencpu_prepare_api_access before doing so, which is the only ordering
  * where the injected .formr$ assignments can resolve.
@@ -1660,29 +1919,16 @@ opts_knit$set(base.url="' . OpenCPU::TEMP_BASE_URL . '")
  */
 function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1, $return_session = false)
 {
-    $params = array('text' => "'" . addslashes($source) . "'", 'self_contained' => $self_contained);
-    $uri = '/formr/R/formr_inline_render/' . $return_format;
-    try {
-        $session = OpenCPU::getInstance()->post($uri, $params);
+    $call = opencpu_knit2html_call($source, $return_format, $self_contained);
+    return opencpu_post_knit($call['uri'], $call['params'], $return_format, $return_session, $call['message']);
+}
 
-        // Callers asking for the raw session expect to inspect ->hasError()
-        // themselves (e.g. RunUnit::getParsedBody distinguishes "server
-        // down" from "R error" by exactly this check). Return early before
-        // the throw-on-error branch so a session-or-null contract is kept.
-        if ($return_session === true) {
-            return $session;
-        }
-
-        if ($session->hasError()) {
-            throw new OpenCPU_Exception(opencpu_debug($session));
-        }
-
-        return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
-    } catch (OpenCPU_Exception $e) {
-        notify_user_error($e, "There was a problem dynamically knitting something to HTML using openCPU.");
-        opencpu_log($e);
-        return null;
-    }
+/** The request opencpu_knit2html sends. */
+function opencpu_knit2html_call($source, $return_format = 'json', $self_contained = 1)
+{
+    return array('uri' => '/formr/R/formr_inline_render/' . $return_format,
+        'params' => array('text' => "'" . addslashes($source) . "'", 'self_contained' => $self_contained),
+        'message' => "There was a problem dynamically knitting something to HTML using openCPU.");
 }
 
 /**
@@ -1704,6 +1950,31 @@ function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1
  * @return OpenCPU_Session|mixed|null Returns the JSON object (usually array) containing the iframe data, the Session object, or null on error.
  */
 function opencpu_knit_iframe($source, $variables = null, $return_session = false, $context = null, $description = '', $footer_text = '')
+{
+    // See opencpu_knit: this call owns the local-error note from here on.
+    $GLOBALS['opencpu_local_error'] = null;
+    opencpu_forget_session();
+
+    $request = opencpu_knit_iframe_request($source, $variables, $context, $description, $footer_text);
+    $session = $failure = null;
+    try {
+        $session = OpenCPU::getInstance()->post($request['uri'], $request['params']);
+    } catch (OpenCPU_Exception $e) {
+        $failure = $e;
+    } finally {
+        opencpu_cleanup($request);
+    }
+    return opencpu_knit_outcome($session, $failure, 'json', $return_session, $request['message']);
+}
+
+/**
+ * The request opencpu_knit_iframe sends: the document after a settings chunk
+ * with the run's prelude and variables. Its `cleanup` (a temporary API
+ * token) runs once the request is answered.
+ *
+ * @return array{uri: string, params: array, message: string, cleanup: callable|null}
+ */
+function opencpu_knit_iframe_request($source, $variables = null, $context = null, $description = '', $footer_text = '')
 {
     $temp_token_to_delete = opencpu_prepare_api_access($source, $variables);
 
@@ -1762,36 +2033,27 @@ opts_chunk$set(warning=' . $show_warnings . ',message=' . $show_warnings . ',err
 
     $params = array('text' => "'" . addslashes($source) . "'");
 
-    $uri = '/formr/R/formr_render/';
-
-    try {
-        $session = OpenCPU::getInstance()->post($uri, $params);
-        if ($return_session === true) {
-            return $session;
-        }
-
-        if ($session->hasError()) {
-            throw new OpenCPU_Exception(opencpu_debug($session));
-        }
-
-        return $session->getJSONObject();
-    } catch (OpenCPU_Exception $e) {
-        notify_user_error($e, "There was a computational error.");
-        opencpu_log($e);
-        return null;
-    } finally {
-        if ($temp_token_to_delete) {
-            OAuthHelper::getInstance()->deleteAccessToken($temp_token_to_delete);
-        }
-    }
+    return array('uri' => '/formr/R/formr_render/', 'params' => $params,
+        'message' => "There was a computational error.",
+        'cleanup' => opencpu_token_cleanup($temp_token_to_delete));
 }
 
-function opencpu_knitdisplay($source, $variables = null, $return_session = false, $context = null)
+/**
+ * The knit request for text a participant sees: the source after a settings
+ * chunk with the run's prelude and variables, knitted to markdown or HTML.
+ * Sent alone or with others (opencpu_post_many); its `cleanup` runs once it is
+ * answered.
+ *
+ * @return array{uri: string, params: array, message: string, cleanup: callable|null}
+ */
+function opencpu_knitdisplay_request($source, $variables = null, $context = null, $to = 'html', $scan = null)
 {
+    // $scan: as in opencpu_evaluate_request.
+    $scan = $scan === null ? $source : $scan;
     // Bridge formr_api_authenticate() before stringifying $variables so the
     // .formr$ assignments land inside the settings chunk below, after
     // library(formr) and before the user's chunks run.
-    $temp_token_to_delete = opencpu_prepare_api_access($source, $variables);
+    $temp_token_to_delete = opencpu_prepare_api_access($scan, $variables);
     if (!is_string($variables)) {
         $variables = opencpu_define_vars($variables, $context);
     }
@@ -1805,7 +2067,7 @@ function opencpu_knitdisplay($source, $variables = null, $return_session = false
         $show_warnings = 'TRUE';
     }
 
-    $r_prelude = opencpu_run_prelude($source);
+    $r_prelude = opencpu_run_prelude($scan);
 
     $source = '```{r settings,warning=' . $show_warnings . ',message=' . $show_warnings . ',error=' . $show_errors . ',echo=F}
 library(knitr); library(formr)
@@ -1817,13 +2079,9 @@ opts_knit$set(base.url="' . OpenCPU::TEMP_BASE_URL . '")
 ' .
         $source;
 
-    try {
-        return opencpu_knit2html($source, 'json', 0, $return_session);
-    } finally {
-        if ($temp_token_to_delete) {
-            OAuthHelper::getInstance()->deleteAccessToken($temp_token_to_delete);
-        }
-    }
+    $call = $to === 'markdown' ? opencpu_knit2markdown_call($source) : opencpu_knit2html_call($source, 'json', 0);
+    $call['cleanup'] = opencpu_token_cleanup($temp_token_to_delete);
+    return $call;
 }
 
 function opencpu_knitadmin($source, $variables = null, $return_session = false)
@@ -1914,6 +2172,54 @@ function opencpu_string_key_parsing($strings)
 }
 
 /**
+ * Knit several R Markdown strings in one OpenCPU call, against the data the
+ * unit session's run sees: joined with OpenCPU::STRING_DELIMITER, knitted,
+ * and split again. $prelude (a hidden chunk) goes before the first string.
+ * $to 'html' renders through pandoc, which turns the delimiter into
+ * STRING_DELIMITER_PARSED; 'markdown' leaves it as it was.
+ *
+ * @param string[] $sources
+ * @param OpenCPU_Session|null $session set to the knit's session
+ * @return string[]|null the knitted strings, in order; null if the knit failed
+ */
+function opencpu_knit_strings(UnitSession $unitSession, $studyName, array $sources, $to = 'html', $prelude = '', &$session = null)
+{
+    $request = opencpu_knit_strings_request($unitSession, $studyName, $sources, $to, $prelude);
+    try {
+        $session = opencpu_post_knit($request['uri'], $request['params'], 'json', true, $request['message']);
+    } finally {
+        opencpu_cleanup($request);
+    }
+    return opencpu_knit_strings_result($session, $to);
+}
+
+/** The request opencpu_knit_strings sends (for opencpu_post_many). */
+function opencpu_knit_strings_request(UnitSession $unitSession, $studyName, array $sources, $to = 'html', $prelude = '', $scanPrelude = null)
+{
+    $markdown = $prelude . implode(OpenCPU::STRING_DELIMITER, $sources);
+    // What the data, API access and secrets are chosen by: the prelude
+    // without the data it carries ($scanPrelude), when it carries some.
+    $scan = ($scanPrelude === null ? $prelude : $scanPrelude) . implode(OpenCPU::STRING_DELIMITER, $sources);
+    return opencpu_knitdisplay_request($markdown, $unitSession->getRunData($scan, $studyName), $studyName, $to, $scan);
+}
+
+/**
+ * The knitted strings in a knit's session, in order; null if the knit
+ * failed.
+ */
+function opencpu_knit_strings_result(OpenCPU_Session $session = null, $to = 'html')
+{
+    if (!$session || $session->hasError()) {
+        return null;
+    }
+    $knitted = $session->getJSONObject();
+    if (!is_string($knitted)) {
+        return null;
+    }
+    return explode($to === 'html' ? OpenCPU::STRING_DELIMITER_PARSED : OpenCPU::STRING_DELIMITER, $knitted);
+}
+
+/**
  * Parse a bulk of strings in ocpu
  *
  * @param UnitSession $unitSession Unit session containing the data needed
@@ -1923,14 +2229,10 @@ function opencpu_string_key_parsing($strings)
 function opencpu_multistring_parse(UnitSession $unitSession, array $string_templates)
 {
     $survey = $unitSession->runUnit->surveyStudy;
-    $markdown = implode(OpenCPU::STRING_DELIMITER, $string_templates);
-    $opencpu_vars = $unitSession->getRunData($markdown, $survey->name);
-    $session = opencpu_knitdisplay($markdown, $opencpu_vars, true, $survey->name);
+    $strings = opencpu_knit_strings($unitSession, $survey->name, $string_templates, 'html', '', $session);
 
-    if ($session && !$session->hasError()) {
+    if ($strings !== null) {
         print_hidden_opencpu_debug_message($session, "OpenCPU debugger for dynamic values and showifs.");
-        $parsed_strings = $session->getJSONObject();
-        $strings = explode(OpenCPU::STRING_DELIMITER_PARSED, $parsed_strings);
         $strings = array_map("remove_tag_wrapper", $strings);
         return opencpu_string_key_parsing($strings);
     } else {
@@ -2087,8 +2389,7 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json')
             $reponse_headers = $session->getResponseHeaders();
             $debug['Response Headers'] = pre_htmlescape(print_r($reponse_headers, 1));
 
-            $reponse_info = $session->caller()->getRequestInfo();
-            $debug['Request Headers'] = pre_htmlescape(print_r($reponse_info['request_header'], 1));
+            $debug['Request Headers'] = pre_htmlescape(print_r($session->getRequestInfo('request_header'), 1));
         } catch (Exception $e) {
             $debug['Response'] = 'An error occured: ' . $e->getMessage();
         }
@@ -2151,9 +2452,38 @@ function opencpu_session(OpenCPU_Session $session = null)
     return $opencpu_session;
 }
 
+/**
+ * Forget the session of the previous OpenCPU call.
+ *
+ * opencpu_last_error() falls back to the global session's error when no
+ * local note is set, and the session is only replaced when a call actually
+ * opens one. shortcut_without_opencpu() answers a bare `survey$x` from the
+ * data set without OpenCPU, and an unanswered item makes it yield null —
+ * the same value a genuine R error produces — so in the run daemon and in
+ * the Test view's loop over sample sessions, participant A's R error was
+ * reported as B's ("OpenCPU error evaluating condition. <A's error>")
+ * instead of "returned NA". Every entry point forgets it alongside the
+ * local note, so an error can only describe the call it came from.
+ */
+function opencpu_forget_session()
+{
+    global $opencpu_session;
+    $opencpu_session = null;
+}
+
 function opencpu_last_error()
 {
     global $opencpu_session;
+    // A pre-flight failure (see opencpu_evaluate) or a transport failure
+    // (see opencpu_note_transport_failure) never opens a session, so it has
+    // nowhere else to report from — and without this the caller would
+    // either see nothing or, worse, the error from some earlier call still
+    // sitting in the global. opencpu_evaluate and every knit wrapper clear
+    // it on entry and forget the previous session (opencpu_forget_session),
+    // so neither can outlive the call it describes (X3).
+    if (!empty($GLOBALS['opencpu_local_error'])) {
+        return $GLOBALS['opencpu_local_error'];
+    }
     if ($opencpu_session !== null) {
         return opencpu_redact_secrets($opencpu_session->getError());
     }
@@ -2298,10 +2628,32 @@ function google_get_sheet_id($link)
 {
     $matches = array();
     preg_match('/spreadsheets\/d\/(.*)\/edit/', $link, $matches);
-    if (!empty($matches[1])) {
+    if (!empty($matches[1]) && google_is_valid_sheet_id($matches[1])) {
         return $matches[1];
     }
     return null;
+}
+
+/**
+ * A Google Drive file id is base64url — letters, digits, `-` and `_`.
+ *
+ * Validated at this choke point (v1.7.1) because the id is interpolated
+ * into a *filesystem* path by google_download_survey_sheet()
+ * ("googledownload-{$id}.xlsx" under survey_upload_dir), so `../` inside
+ * an id is a write-outside-the-upload-dir primitive — and the greedy
+ * `(.*)` above will happily hand one back. Both callers already treat a
+ * null id as "not a usable sheet link", so a malformed id degrades to
+ * the existing error path rather than a new failure mode. Host-level
+ * SSRF was never reachable here (the id lands in the path segment of a
+ * fixed docs.google.com URL), but the file write was, and it is reached
+ * from the admin settings form as well as from run-bundle import.
+ *
+ * @param string $id
+ * @return bool
+ */
+function google_is_valid_sheet_id($id)
+{
+    return (bool) preg_match('/^[A-Za-z0-9_-]{5,128}$/', (string) $id);
 }
 
 /**
@@ -2540,7 +2892,40 @@ function formr_in_console()
 
 function formr_search_highlight($search, $subject)
 {
+    // Both are text, and both reach HTML: the subject an account's email
+    // (FILTER_VALIDATE_EMAIL accepts a quoted local part like "<form>"@x.org),
+    // the search the admin's query from the URL.
+    $subject = h((string) $subject);
+    $search = h((string) $search);
+    if ($search === '') {
+        return $subject;
+    }
     return str_replace($search, '<span class="search-highlight">' . $search . '</span>', $subject);
+}
+
+/**
+ * Absolute base URL of the admin site, resolved from the `admin_domain` config
+ * rather than the request (issue #608). Safe in CLI/cron context, where
+ * WEBROOT/site_url() have no SERVER_NAME and collapse to a bare scheme.
+ */
+function formr_admin_base_url() {
+    $admin_domain = Config::get('admin_domain');
+    if (!empty($admin_domain)) {
+        $scheme = strpos($admin_domain, '://') === false ? 'https://' : '';
+        return $scheme . rtrim($admin_domain, '/');
+    }
+    return rtrim(site_url(), '/');
+}
+
+/**
+ * Human label identifying this formr instance for emails and logs (issue #608):
+ * the configured sender name plus the admin URL, e.g. "Formr (https://formr.example.com)".
+ * Every outbound .ftpl email should state which instance it came from.
+ */
+function formr_instance_label() {
+    $email = Config::get('email');
+    $name = (is_array($email) && !empty($email['from_name'])) ? $email['from_name'] : 'formr';
+    return $name . ' (' . formr_admin_base_url() . ')';
 }
 
 function notify_study_admin(UnitSession $unitSession, string $message, string $type = 'error') {

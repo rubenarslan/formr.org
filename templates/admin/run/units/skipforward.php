@@ -11,6 +11,8 @@
         <input type="number" class="form-control" style="width:70px" name="if_true" max="32000" min="<?= ($position + 2) ?>" step="1" value="<?= h($ifTrue) ?>">
     </label><br /><br/> 
     
+    <p><small class="text-muted"><strong>Advanced:</strong> if your R code returns a position number of <strong>2 or higher</strong> instead of TRUE/FALSE, the participant jumps straight to that position. Consult the documentation for more details. A unit created before formr v1.10.3 has its condition wrapped in <code>as.logical({ … })</code>, which keeps the TRUE/FALSE reading it always had (any non-zero number counts as TRUE, a past date TRUE, a future date FALSE); remove the wrapper to return a position.</small></p>
+
     <?php if (!$jump || !$goOn): ?>
     <b style="display: block; margin-bottom: 7px;">How should participant skip?</b>
     <strong>Skip &nbsp; </strong>

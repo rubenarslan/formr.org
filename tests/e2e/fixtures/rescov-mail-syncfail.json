@@ -1,0 +1,39 @@
+{
+  "name": "rescov-mail-syncfail",
+  "units": [
+    {
+      "type": "Email",
+      "description": "account 22 points at smtp.invalid; with use_queue=false the send fails in-request",
+      "position": 10,
+      "special": null,
+      "subject": "rescov coverage",
+      "account_id": 22,
+      "recipient_field": "paste0('e2etesting+rescov-sync-', as.integer(Sys.time()), '@researchmixtape.com')",
+      "body": "Body.",
+      "cron_only": 0
+    },
+    {
+      "type": "Endpage",
+      "description": "only reachable if the email goes out",
+      "position": 20,
+      "special": null,
+      "body": "Done.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-mail-syncfail/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-mail-syncfail/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-mail-syncfail/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

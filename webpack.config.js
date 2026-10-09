@@ -1,6 +1,7 @@
 const path = require('path');
 const webpack = require('webpack');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = (env, argv) => {
     const isWatchMode = argv.watch || false;
@@ -10,10 +11,20 @@ module.exports = (env, argv) => {
     return {
         target: ['web', 'es5'],
         mode: isWatchMode ? 'development' : 'production',
+        // Dev (watch) mode defaults to devtool:'eval', which wraps every module
+        // in eval() — blocked by the admin enforce-mode CSP (script-src has no
+        // 'unsafe-eval'; see application/Csp.php). Use a non-eval source map so
+        // dev-build/ bundles comply with the same CSP as prod build/ (which is
+        // devtool:false). Keeps CSP enforcement exercised in dev. Prod stays
+        // eval-free and unmapped.
+        devtool: isWatchMode ? 'cheap-module-source-map' : false,
         entry: {
             material: './webroot/assets/site/js/material.js',
             frontend: './webroot/assets/site/js/main.js',
             admin: './webroot/assets/admin/js/main.js',
+            form: './webroot/assets/form/js/main.js',
+            // The participant's logout page: deletes the run's offline queue.
+            logout: './webroot/assets/form/js/logout.js',
         },
         output: {
             filename: 'js/[name].bundle.js',
@@ -61,9 +72,37 @@ module.exports = (env, argv) => {
                       }
                     }
                   },
+                // CSS pipeline. Default is style-loader (CSS injected at
+                // runtime via <style> tags from the JS bundle). The form
+                // bundle gets MiniCssExtractPlugin instead so the CSS lands
+                // in a separate file and form_index.php can <link> it in
+                // <head>, killing the flash-of-unstyled-content on iOS
+                // Safari that style-loader caused. Other bundles keep
+                // style-loader so their currently-working flow doesn't
+                // change.
                 {
                     test: /\.css$/,
-                    use: ['style-loader', 'css-loader'],
+                    oneOf: [
+                        {
+                            issuer: /[\\/]webroot[\\/]assets[\\/]form[\\/]/,
+                            use: [MiniCssExtractPlugin.loader, 'css-loader'],
+                        },
+                        {
+                            use: ['style-loader', 'css-loader'],
+                        },
+                    ],
+                },
+                {
+                    test: /\.s[ac]ss$/,
+                    oneOf: [
+                        {
+                            issuer: /[\\/]webroot[\\/]assets[\\/]form[\\/]/,
+                            use: [MiniCssExtractPlugin.loader, 'css-loader', 'sass-loader'],
+                        },
+                        {
+                            use: ['style-loader', 'css-loader', 'sass-loader'],
+                        },
+                    ],
                 },
                 {
                     test: /add-to-homescreen.*\.css$/,
@@ -94,6 +133,13 @@ module.exports = (env, argv) => {
             ],
         },
         plugins: [
+            // CSS extraction for the form bundle (see CSS rule above).
+            // filename uses [name] which becomes 'form' from the entry key,
+            // landing the file at css/form.bundle.css next to the JS.
+            new MiniCssExtractPlugin({
+                filename: 'css/[name].bundle.css',
+            }),
+
             // Jquery and Bootstrap
             new webpack.ProvidePlugin({
                 $: 'jquery',
@@ -116,6 +162,33 @@ module.exports = (env, argv) => {
                         from: path.resolve(__dirname, 'node_modules/webshim/js-webshim/minified/shims'),
                         to: path.resolve(__dirname, outputDir + '/js/shims'),
                         info: { minimized: false },
+                    },
+                    // Altcha widget for the signup bot-check (registration.challenge
+                    // = 'altcha') and form_v2's bot_check item
+                    // (form/js/items/bot-check.js): shipped as its prebuilt
+                    // standalone module and loaded via <script type=module>, NOT
+                    // webpack-bundled (its ESM plugin loader uses a dynamic
+                    // require webpack can't resolve). Self-hosted — no CDN, no
+                    // third party. The external build does not inject styles at
+                    // runtime, so its stylesheet ships alongside.
+                    {
+                        from: path.resolve(__dirname, 'node_modules/altcha/dist/external/altcha.min.js'),
+                        to: path.resolve(__dirname, outputDir + '/js/altcha/altcha.min.js'),
+                        info: { minimized: true },
+                    },
+                    {
+                        from: path.resolve(__dirname, 'node_modules/altcha/dist/external/altcha.css'),
+                        to: path.resolve(__dirname, outputDir + '/js/altcha/altcha.css'),
+                        info: { minimized: true },
+                    },
+                    // Memory-hard Argon2id Web Worker (inline WASM, no network):
+                    // the widget's solver for the challenges AltchaChallenge
+                    // mints. Copied verbatim — es5 target + worker-chunk
+                    // publicPath make bundling it fragile.
+                    {
+                        from: path.resolve(__dirname, 'node_modules/altcha/dist/workers/argon2id.js'),
+                        to: path.resolve(__dirname, outputDir + '/js/altcha/argon2id.js'),
+                        info: { minimized: true },
                     },
                     // Site Images
                     {

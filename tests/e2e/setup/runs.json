@@ -1,0 +1,65 @@
+{
+  "all_widgets": {
+    "v1": { "run": "e2e-aw-v1" },
+    "v2": { "run": "e2e-aw-v2" }
+  },
+  "all_widgets_solo": {
+    "v2": { "run": "e2e-aw-solo-v2", "study": "e2e_all_widgets_solo_v2" }
+  },
+  "text_solo": {
+    "v2": { "run": "e2e-text-solo-v2", "study": "e2e_text_solo_v2" }
+  },
+  "all_widgets_req": {
+    "v2": { "run": "e2e-aw-req-v2", "study": "e2e_all_widgets_req_v2" }
+  },
+  "pwa_high": {
+    "v1": { "run": "e2e-pwa-h-v1" },
+    "v2": { "run": "e2e-pwa-h-v2" }
+  },
+  "pwa_low": {
+    "v1": { "run": "e2e-pwa-l-v1" },
+    "v2": { "run": "e2e-pwa-l-v2" }
+  },
+  "bot_check": {
+    "v2": { "run": "e2e-botcheck-v2", "study": "e2e_bot_check" }
+  },
+  "crosspage_showif": {
+    "v1": { "run": "e2e-crosspage-v1", "study": "e2e_crosspage_showif" },
+    "v2": { "run": "e2e-crosspage-v2", "study": "e2e_crosspage_showif_v2" }
+  },
+  "rank": {
+    "v2": { "run": "e2e-rank-v2", "study": "e2e_rank" }
+  },
+  "v2_dynamic": {
+    "v2": { "run": "e2e-dyn-v2", "study": "e2e_v2_dynamic" }
+  },
+  "v2_inputs": {
+    "v2": { "run": "e2e-inputs-v2", "study": "e2e_v2_inputs" }
+  },
+  "v2_hidden": {
+    "v2": { "run": "e2e-hidden-v2", "study": "e2e_v2_hidden" }
+  },
+  "all_widgets_v2": {
+    "v2": { "run": "e2e-awv2", "study": "all_widgets_v2" }
+  },
+  "dq": {
+    "v1": { "run": "e2e-dq-v1", "study": "e2e_dq_v1" },
+    "v2": { "run": "e2e-dq-v2", "study": "e2e_dq_v2" }
+  },
+  "dq_example": {
+    "v1": { "run": "e2e-dq-example-v1", "study": "dq_weekend_study" },
+    "v2": { "run": "e2e-dq-example-v2", "study": "dq_weekend_study_v2" }
+  },
+  "dq_skip": {
+    "v1": { "run": "e2e-dqskip-v1", "study": "e2e_dq_skip_v1" },
+    "v2": { "run": "e2e-dqskip-v2", "study": "e2e_dq_skip_v2" }
+  },
+  "dq_items": {
+    "v1": { "run": "e2e-dqitems-v1", "study": "e2e_dq_chatgpt_v1" },
+    "v2": { "run": "e2e-dqitems-v2", "study": "e2e_dq_chatgpt_v2" }
+  },
+  "dq_showif": {
+    "v1": { "run": "e2e-dqshowif-v1", "study": "e2e_dq_showif_v1" },
+    "v2": { "run": "e2e-dqshowif-v2", "study": "e2e_dq_showif_v2" }
+  }
+}

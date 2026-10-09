@@ -69,7 +69,24 @@ class External extends RunUnit {
     }
 
     public function removeFromRun($special = null) {
-        return $this->delete($special);
+        // v1.8.0: unlink the placement, do NOT delete the unit definition.
+        //
+        // This override used to be `return $this->delete($special)`, and
+        // delete() drops the survey_units row — which
+        // survey_unit_sessions.unit_id references ON DELETE CASCADE. So
+        // removing one of these units from a run silently deleted every
+        // participant's unit session for it: not a strand, an erasure of the
+        // history an admin was still looking at. Six of the nine unit types
+        // did this (Page/Endpage, Pause, External, Branch, SkipForward,
+        // SkipBackward, Shuffle); the three that use the base removeFromRun
+        // (Survey, Email, PushMessage) only ever unlinked, which is why the
+        // difference went unnoticed.
+        //
+        // The base ends live sessions at the placement first (audit F22/F7)
+        // and then deletes only the survey_run_units row. An orphaned unit
+        // definition is the price, and the admin UI already has a path for
+        // those ("Just delete orphan units", AdminAjaxController).
+        return parent::removeFromRun($special);
     }
 
     private function isR($address) {
@@ -144,9 +161,19 @@ class External extends RunUnit {
             $result = opencpu_evaluate($this->address, $opencpu_vars);
 
             if ($result === null) {
-                $error = (string) opencpu_last_error(); 
+                $error = (string) opencpu_last_error();
                 $data['log'] = $this->getLogMessage('error_opencpu', "OpenCPU error. Fix R code. \n\n" . $error);
                 $data['wait_opencpu'] = true; // don't go anywhere, wait for the error to be fixed!
+                // v1.8.0: re-arm so the row is retried. wait_opencpu alone left
+                // it inert at queued=0 — and this unit type is the one case the
+                // stalled-session sweep deliberately skips (its docblock
+                // reasons that an External waits for a callback or for the
+                // participant's browser, which is true of api_end and address
+                // externals but NOT of one whose R address failed to evaluate:
+                // that waits for neither). So the participant parked here
+                // forever unless the run set expire_after, and the R
+                // side-effect — an SMS, an API call — silently never happened.
+                $data['queue'] = $this->retryBackoffQueue();
 
                 notify_study_admin($unitSession, 'External unit: OpenCPU error in R address evaluation. ' . $error, 'error');
                 return $data;
@@ -179,8 +206,27 @@ class External extends RunUnit {
             } else {
                 $data['log'] = $this->getLogMessage('external_wait_for_api');
             }
+        } else {
+            // v1.8.0: the daemon is only ever here because the OpenCPU-error
+            // branch above armed QUEUED_TO_EXECUTE on a previous pass — and
+            // the address has now evaluated. Nothing downstream clears that
+            // arming: executeUnitSession() returns at its formr_in_console()
+            // guard before it touches the queue, so the row would keep its
+            // past-due `expires` and be re-executed on EVERY daemon pass,
+            // re-firing whatever the address does (an SMS, an API POST) for
+            // as long as the participant sits on this unit. Hand the queue
+            // this unit's ordinary expiry verdict instead: expire_after
+            // re-arms QUEUED_TO_END so abandonment stays bounded, and no
+            // expire_after dequeues the row (addItem() removes on an empty
+            // `expires`). Either way the participant still gets the redirect
+            // on their next visit — a cron cascade deliberately does not
+            // follow one (Audit F5).
+            $data['queue'] = [
+                'expires' => array_val($expired, 'expires', null),
+                'queued' => array_val($expired, 'queued', UnitSessionQueue::QUEUED_NOT),
+            ];
         }
-        
+
         return $data;
     }
 }

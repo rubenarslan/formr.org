@@ -5,6 +5,9 @@ class McHeading_Item extends Mc_Item {
     public $type = 'mc_heading';
     public $mysql_field = null;
     public $save_in_results_table = false;
+    // Header row only (radios disabled/hidden); not an operable group, so no
+    // radiogroup role — announcing an empty radiogroup would mislead SR users.
+    protected $group_role = null;
 
     protected function setMoreOptions() {
         $this->input_attributes['disabled'] = 'disabled';

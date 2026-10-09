@@ -1,0 +1,338 @@
+# E2E test setup runbook
+
+One-time admin setup that produces the six core persistent test runs on the
+dev instance, plus `tests/e2e/setup/runs.json` (committed). `runs.json` lists
+more fixtures than these six: `e2e-dyn-v2`, `e2e-inputs-v2`, `e2e-awv2`, the
+data-quality runs `e2e-dq-v1` / `e2e-dq-v2` (the example survey
+`documentation/example_surveys/data_quality.xlsx` on each engine),
+`e2e-dqskip-v1` / `e2e-dqskip-v2` (`e2e_dq_skip.csv`), `e2e-dqitems-v1` /
+`e2e-dqitems-v2` (`e2e_dq_items.csv`) and `e2e-dqshowif-v1` / `e2e-dqshowif-v2`
+(`e2e_dq_showif.csv`), and the data-quality
+example runs `e2e-dq-example-v1` / `e2e-dq-example-v2` (imported whole from
+`documentation/run_components/Data_Quality.json` and `Data_Quality_v2.json`;
+their last page needs the formr R package 1.3.0 in OpenCPU) are
+created by `setup/create-v2-fixtures.js` (run it with `--refresh` after
+changing one of their survey files or bundles: it gives each existing study
+its file again, and deletes and re-imports a run made from a bundle); the solo and
+text-solo runs by `setup/create-solo-fixture.sh` / `create-text-fixture.sh`;
+bot_check, crosspage and rank are uploaded from `e2e_bot_check.xlsx`,
+`e2e_crosspage_showif.csv` and `e2e_rank.json` in `tests/e2e/setup/` and wired
+up the same way as below. `e2e-aw-req-v2` (the all_widgets catalogue with every
+item required) has no provisioning script yet. After this runs once,
+`npm run test:e2e` exercises the runs without needing the admin UI again.
+
+The runbook is written for a human or for the `ui-playwright-tester` agent.
+The agent should follow it verbatim and emit the final `runs.json` payload
+when done. Re-running is idempotent in spirit: if a study or run with the
+target name already exists, **skip and verify**, do not duplicate.
+
+## Inputs
+
+- Dev URL: `https://formr.researchmixtape.com` (admin), `https://study.researchmixtape.com` (participant)
+- Admin credentials: `cat /home/admin/formr-docker/.env.dev` (`FORMR_DEV_ADMIN_EMAIL`, `FORMR_DEV_ADMIN_PASSWORD`). **Never paste them into chat or commit them.**
+- Three fixtures (Google Sheets):
+    - `all_widgets`: `https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw/`
+    - `pwa_high`:    `https://docs.google.com/spreadsheets/d/1F60bSMCrwleqEoz5GW7H1CJMUB3MjbAvfdiV7pvz2Tw/`
+    - `pwa_low`:     `https://docs.google.com/spreadsheets/d/1ZsEOFstOZB4Nl86OIYg4YnTtfnRLm56hbrNc95XA91Y/`
+
+## Outputs
+
+Six core runs and one JSON file:
+
+| Suite         | Variant | Study name (pick on import)   | Run name        |
+| ------------- | ------- | ----------------------------- | --------------- |
+| `all_widgets` | `v1`    | `e2e_all_widgets`             | `e2e-aw-v1`     |
+| `all_widgets` | `v2`    | `e2e_all_widgets_v2` (\*)     | `e2e-aw-v2`     |
+| `pwa_high`    | `v1`    | `e2e_pwa_high`                | `e2e-pwa-h-v1`  |
+| `pwa_high`    | `v2`    | `e2e_pwa_high_v2`             | `e2e-pwa-h-v2`  |
+| `pwa_low`     | `v1`    | `e2e_pwa_low`                 | `e2e-pwa-l-v1`  |
+| `pwa_low`     | `v2`    | `e2e_pwa_low_v2`              | `e2e-pwa-l-v2`  |
+
+(\*) The specs find the study behind `e2e-aw-v2` through the run
+(`helpers/db.js` `studyOfRun`), so its name may differ — on the dev instance it
+is `all_widgets`. Study lookups by name are scoped to the suite's admin account
+(`studyByName`), since study names are unique per user only.
+
+**Naming conventions (formr-enforced, learned the hard way):**
+- **Study names** allow underscores (`a-zA-Z0-9_`).
+- **Run names** allow hyphens but NOT underscores. The validator regex
+  rejects `_` in run names; use `-` instead. Pick names that match
+  the table above so the spec files (which hard-depend on the names in
+  `runs.json`) keep working.
+
+## 0. Login
+
+1. `browser_navigate` to `https://formr.researchmixtape.com/admin/account/login`.
+2. **Dismiss the cookie-consent dialog first.** vanilla-cookieconsent obscures the form. Click `#cc-main .cm__btn[data-role="necessary"]` (the banner's buttons carry `data-role`; `helpers/participant.js` `acceptCookieConsent` does this).
+3. Fill `email` + `password` from `.env.dev`. Submit.
+4. Confirm landing on `/admin/run/`.
+5. **The login account must have NO monthly compute limit.** It owns every
+   fixture *and* generates all the compute a suite run burns, so a
+   `survey_users.compute_limit_monthly > 0` lets `ComputeLimitCron` (hourly)
+   close *all* its fixtures mid-suite (`public=0, cron_active=0`) once usage
+   crosses the budget — the whole suite then fails with 20 s "form never
+   rendered" timeouts that look like unrelated frontend bugs. Keep it unlimited:
+   ```bash
+   docker exec -i formr_db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE" \
+     -e "UPDATE survey_users SET compute_limit_monthly=NULL WHERE email=\"robot@researchmixtapes.com\";"'
+   ```
+   If it *already* closed the fixtures, reopen them from the audit columns (exact
+   prior state is preserved there):
+   ```bash
+   docker exec -i formr_db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE" \
+     -e "UPDATE survey_runs SET public=compute_closed_from, cron_active=compute_closed_cron_active, \
+         compute_closed_from=NULL, compute_closed_cron_active=NULL WHERE compute_closed_from IS NOT NULL;"'
+   ```
+   The compute-limit tests (`test_compute_limit_smoke`, `e2e-compute-limit`) use
+   their own scoped users, so unlimiting the driver account doesn't weaken them.
+
+## 1. Import the three studies, twice each (six SurveyStudy rows)
+
+For each `(suite, variant)` pair, do this once.
+
+1. Go to `https://formr.researchmixtape.com/admin/survey/`.
+2. Click **"Add a new survey"** (or open `/admin/survey/add_survey/` directly).
+3. **"Import a Googlesheet"** box: paste the sheet URL for the suite into the textarea `name="google_sheet"`. Submit. The dev server can reach Google; this is the canonical path. **The sheet must be shared "anyone with the link → Viewer"** — without it, Google returns 401 and the import alerts "could not be downloaded" (this happens to apparent network failure, but the actual cause is the sheet's link-share setting).
+4. The study name is auto-derived from the sheet/file source filename
+   (`AdminSurveyController.php:106`). After import, the study appears in the list at `/admin/survey/`.
+5. **Rename to the standard name** so the run-create step is unambiguous: open the study (`/admin/survey/<auto_name>/`), find the rename action, set `new_name` to the value from the table above (e.g. `e2e_all_widgets_v2`).
+   - The PHP endpoint is `POST /admin/survey/<old_name>/rename` with `new_name=<value>` (see `AdminSurveyController::renameAction` ~line 414). Either the UI button or a direct admin POST works.
+6. After both v1 and v2 imports of the same source, you have two studies (e.g. `e2e_all_widgets` and `e2e_all_widgets_v2`).
+
+If the target name is already taken (you've previously run this), skip the
+import + rename step for that pair.
+
+## 2. Create the six core runs
+
+For each `(suite, variant)` pair:
+
+1. Go to `https://formr.researchmixtape.com/admin/run/` and click **"Create a new run"** (or `/admin/run/add/`).
+2. Set the run **name** to the table value (e.g. `e2e-aw-v2` — hyphens, no underscores). Title can match.
+3. Submit. Land on the run editor (`/admin/run/<name>/`).
+4. **Add the body unit:**
+   - **For v1:** click **"Add Survey"**. From the dropdown/picker, choose the corresponding study (e.g. `e2e_all_widgets`).
+   - **For v2:** the study must already be on v2 (uploaded with **Engine: v2**, or **Move to v2** on its settings page). Click **"Add Survey"** and choose it (listed as e.g. `e2e_all_widgets_v2 (v2)`); the unit is a Form because the study is on v2.
+5. **Add a Stop unit** at the end (click **"Add Stop"**). This is load-bearing:
+   - Without a Stop, the participant session dangles after the form ("Oops, creator forgot a Stop"), and v2 POST endpoints 409 because `getCurrentUnitSession()` filters ended sessions.
+6. Verify the run page lists the body unit and Stop unit.
+
+### 2a. Verify v2 rendering mode
+
+After creating the v2 runs, sanity-check the rendering mode. Quick way:
+
+```bash
+docker exec formr_db sh -c \
+    'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE" -e "SELECT id, name, rendering_mode FROM survey_studies WHERE name LIKE \"e2e_%\""'
+```
+
+All `_v2` studies should show `rendering_mode='v2'`. If any v2 study still
+reads `'v1'`, force-flip it:
+
+```bash
+docker exec formr_db sh -c \
+    'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE" -e "UPDATE survey_studies SET rendering_mode=\"v2\" WHERE name=\"e2e_<study>_v2\""'
+```
+
+## 3. PWA setup for `pwa_high` and `pwa_low` runs (4 runs)
+
+The `pwa_high` and `pwa_low` fixtures need the run-level PWA wiring so the
+manifest endpoint, VAPID public key, and apple-touch-icons surface on the
+participant page.
+
+For each of `e2e-pwa-h-v1`, `e2e-pwa-h-v2`, `e2e-pwa-l-v1`, `e2e-pwa-l-v2`:
+
+1. Open `/admin/run/<name>/settings` (or whichever tab the run editor exposes for **PWA / Push** settings).
+2. Enable PWA install (toggle / "App installable").
+3. Upload a placeholder icon (PNG, ≥512px square). The Appstinence run already has icons — copy via the admin UI if available, or upload any solid-color test PNG. Required so `apple-touch-icon-*` files exist on disk.
+4. Enable **push notifications** (generates a VAPID key for the run if one doesn't exist).
+5. Verify by hitting `https://study.researchmixtape.com/<run>/manifest` in a browser tab — should return a JSON object with `name`, `start_url`, `scope`, `icons[]`.
+
+If the admin UI doesn't expose every setting on a single page, the PWA admin
+slice lives under `/admin/run/<name>/pwa` (see `Run::getPwaIconPath` /
+`Run::getVapidPublicKey` references in `templates/run/form_index.php`).
+
+## 4. Emit `runs.json`
+
+After all six core runs verify, write **`tests/e2e/setup/runs.json`** with the
+exact run names you used:
+
+```json
+{
+  "all_widgets": {
+    "v1": { "run": "e2e-aw-v1" },
+    "v2": { "run": "e2e-aw-v2" }
+  },
+  "pwa_high": {
+    "v1": { "run": "e2e-pwa-h-v1" },
+    "v2": { "run": "e2e-pwa-h-v2" }
+  },
+  "pwa_low": {
+    "v1": { "run": "e2e-pwa-l-v1" },
+    "v2": { "run": "e2e-pwa-l-v2" }
+  }
+}
+```
+
+Commit it with the changeset that adds the runbook + specs.
+
+## 5. Smoke verify
+
+From the repo root:
+
+```bash
+cd formr_source
+npm run test:e2e -- --grep "manifest endpoint"
+```
+
+If the four manifest checks pass, the runs are wired. Then run the full suite:
+
+```bash
+npm run test:e2e
+```
+
+Expect green for `all_widgets v1`, `all_widgets v2`, both `PWA … v1/v2`
+local-chromium tests, and skips on the `[BS-only]` slices.
+
+## Cleanup
+
+Don't delete these runs after a session — they are persistent fixtures.
+Other test runs will reuse them. If a run becomes corrupted (e.g. its
+participant session gets stuck in a state the form can't render past), reset
+sessions with the participant subdomain DELETE shortcut documented in the
+top-level CLAUDE.md "form_v2 development notes" section, **not** by
+deleting the run itself.
+
+## Fixture: all_widgets_solo (`e2e-aw-solo-v2`)
+
+The solo-layout specs (`solo-layout`, `solo-real-device`, `solo-keyboard-reserve`,
+`v2-finish`'s solo test) used to flip `survey_studies.layout` to `solo` in the DB
+around each test. That breaks under the BrowserStack SDK (it wraps the Node
+process and severs `execFileSync`'s stdin pipe to mariadb). So solo is now its
+own **static** fixture — a layout='solo' clone of `e2e-aw-v2` — and the tests
+never mutate the DB.
+
+Create it once (after the `all_widgets` v2 fixture exists), idempotent:
+
+```bash
+bash tests/e2e/setup/create-solo-fixture.sh
+```
+
+That clones the `e2e-aw-v2` run → `e2e-aw-solo-v2` (study `e2e_all_widgets_solo_v2`,
+`layout='solo'`) at the DB level (host-side, NOT in a test). It's already in
+`runs.json` as `all_widgets_solo.v2`. Re-run is a no-op if it exists.
+
+## Fixture: text_solo (`e2e-text-solo-v2`)
+
+A tiny **TEXT-ONLY** solo v2 study for BrowserStack device/screenshot tests.
+`all_widgets` is OpenCPU-heavy (feedback plots, plotly `note_iframe`, R
+values/showifs); rendering it repeatedly on a resource-limited dev box can crash
+OpenCPU mid-run and the device shots then show "problem evaluating showifs"
+banners. `text_solo` has only plain text inputs (`abode`/`yourstory`/`your_email`/
+`teeth` + a submit) — zero OpenCPU calls, ~0.7s renders. Used by
+`solo-keyboard-reserve.spec.js`. Create once (idempotent):
+
+```bash
+bash tests/e2e/setup/create-text-fixture.sh
+```
+
+Clones `e2e-aw-v2` then trims the items to the text set. In `runs.json` as
+`text_solo.v2`.
+
+## Fixture: bot_check (`e2e-botcheck-v2`)
+
+For `bot-check-v2.spec.js` — the local-only proof-of-work "are you human"
+item. One v2-only fixture; no v1 run yet (the v1 participant bundle doesn't
+import the solver widget).
+
+1. Upload the survey: `/admin/survey/` → "Add a new survey" → upload
+   `tests/e2e/setup/e2e_bot_check.xlsx`.
+   The study name is derived from the filename → `e2e_bot_check`. It has four
+   items: `intro` (note), `human_check` (**bot_check, required**), `feeling`
+   (text), `go` (submit).
+2. Create run `e2e-botcheck-v2`. Put the `e2e_bot_check` survey on v2
+   (**Move to v2** on its settings page), add it with **Add Survey** (it is a
+   Form unit because the survey is on v2), then add a **Stop** unit.
+3. In run settings set a data-retention/expiry date + a privacy policy (public
+   runs require both), then toggle **public = 2** ("Anyone with the link").
+4. Verify the Form unit linked: `survey_run_units.unit_id` for the run's
+   position-10 unit must equal the `e2e_bot_check` study id, that
+   `survey_units` row's type must be `Form`, and
+   `survey_studies.rendering_mode` must be `v2`.
+
+Backend mint/verify is unit-tested separately by `bin/bot_check_smoke.php`
+(run: `docker exec formr_app php /var/www/formr/bin/bot_check_smoke.php`).
+
+## Fixture: crosspage_showif (`e2e-crosspage-v1` + `e2e-crosspage-v2`)
+
+For `crosspage-showif.spec.js` — proves a showif that references a
+**previous-page** answer **and** a current-page answer reveals its item live in
+v2 but not v1. Needs BOTH a v1 and a v2 run of the same little 2-page survey.
+
+Survey source: `tests/e2e/setup/e2e_crosspage_showif.csv` (page 1: `cp_a`;
+page 2: `cp_b` + `cp_followup` with showif `cp_a == 1 && cp_b == 3`).
+
+1. Upload the CSV **twice** at `/admin/survey/` → "Add a new survey" (upload
+   field, not the Google-sheet box). Rename the two studies to
+   `e2e_crosspage_showif` (for v1) and `e2e_crosspage_showif_v2` (for v2).
+2. Create run **`e2e-crosspage-v1`**: **Add Survey** → `e2e_crosspage_showif`,
+   then **Add Stop**.
+3. Create run **`e2e-crosspage-v2`**: put `e2e_crosspage_showif_v2` on v2
+   (**Move to v2** on its settings page), then **Add Survey** → that study,
+   then **Add Stop**.
+4. Make both runs reachable for a fresh participant the same way the other
+   fixtures are (public / link-accessible), and verify
+   `e2e_crosspage_showif_v2.rendering_mode = 'v2'` (see §2a).
+
+In `runs.json` as `crosspage_showif.v1` / `.v2`.
+
+## Fixture: rank (`e2e-rank-v2`)
+
+For `rank-item-v2.spec.js` — the form_v2-only drag-and-drop `rank` item.
+Survey source: `tests/e2e/setup/e2e_rank.json` (a JSON survey export; the
+upload field accepts `.json` as well as `.xlsx`). Page 1: `rank_plain`
+(required, five fruits, authored order) and `rank_random` (optional,
+`type_options: random`, six colours); page 2: `rank_touch` (required,
+`type_options: touch`, four animals — the hidden inputs stay empty until the
+participant moves or taps a row).
+
+1. Upload the survey: `/admin/survey/` → "Add a new survey" → upload
+   `tests/e2e/setup/e2e_rank.json`. The study name comes from the JSON
+   (`e2e_rank`). Check the item list shows the three `rank` rows with their
+   `type_options` intact (`random` / `touch` must NOT have been consumed as a
+   choice-list name).
+2. Create run `e2e-rank-v2`. Put the `e2e_rank` survey on v2 (**Move to v2**
+   on its settings page), add it with **Add Survey**, then add a **Stop** unit.
+3. Set an expiry date, then toggle **public = 2** ("Anyone with the link").
+4. Verify as for bot_check: the position-10 unit's `unit_id` equals the
+   `e2e_rank` study id and `survey_studies.rendering_mode = 'v2'`.
+
+Scripted equivalent (what was actually used on dev): the admin endpoints are
+`POST /admin/survey/add_survey/` (multipart `uploaded`), `POST
+/admin/run/add_run/` (`run_name`), `POST /admin/run/<run>/ajax_create_run_unit?type=Form&position=10`
+followed by `ajax_save_run_unit` with `{unit_id, run_unit_id, type: 'Form',
+position, study_id}` to link the study, and `ajax_create_run_unit?type=Page&position=20`
+for the Stop (the unit type is `Page`, not `Endpage`; both ajax calls need
+`X-Requested-With: XMLHttpRequest`). Results land in `s<studyId>_e2e_rank`.
+
+In `runs.json` as `rank.v2`.
+
+## v2_dynamic / v2_inputs (form_v2 resolution path and input behaviour)
+
+Two small JSON surveys, scripted end to end — the steps above, automated:
+
+    node tests/e2e/setup/create-v2-fixtures.js
+
+It needs the robot admin session global-setup writes (run any e2e spec once
+first) and skips a fixture whose run already exists.
+
+- `e2e_v2_dynamic.json` → run `e2e-dyn-v2` (`v2-dynamic.spec.js`): dynamic
+  values (including hidden items with an R value), labels, R in choice labels and a `note_iframe`
+  on two pages, so the first page and a later page are checked for the same
+  resolution path; plus a showif over a page-1 answer after a reload.
+- `e2e_v2_inputs.json` → run `e2e-inputs-v2` (`v2-inputs.spec.js`):
+  deselectable optional radios and button groups (#377), a `text` pattern
+  whose first choice is its message (#269), an email field (#327), and the
+  study's own button wording — the script sets `next_button_label = 'Onward'`
+  and `submit_button_label = 'Finish now'` (#322).
+
+In `runs.json` as `v2_dynamic.v2` and `v2_inputs.v2`.

@@ -1,0 +1,58 @@
+// Validation feedback — softer than Bootstrap's default red wash.
+//
+// Bootstrap's `.is-invalid` lights up the whole input AND the surrounding
+// form-group via parent selectors, which on long-question rows looks like
+// "everything broke". Here:
+//   - Only the input gets the red border + the small inline message.
+//   - The wrapper gets a subtle left-border accent (not a full wash).
+//   - The error message itself is calmer typography, less SHOUTY.
+
+.fmr-form-v2 {
+
+    // The wrapper-level accent: a 3px left border on the form-group when
+    // one of its inputs is invalid. Drops a visible cue without coloring
+    // the entire label or row.
+    .form-group:has(.is-invalid),
+    .form-group.is-invalid {
+        border-left: 3px solid var(--bs-danger, #dc3545);
+        padding-left: 0.75rem;
+        margin-left: -0.75rem; // keep the content aligned where it was
+        transition: border-color 150ms ease-out;
+    }
+
+    // Bootstrap's `.is-invalid` paints a heavy red border + adds a
+    // ::after icon. Tone down: thinner border, no icon (we have the
+    // wrapper accent + inline message).
+    .fmr-form-v2 .is-invalid,
+    .form-control.is-invalid,
+    select.form-control.is-invalid,
+    textarea.form-control.is-invalid {
+        border-color: var(--bs-danger, #dc3545);
+        background-image: none;
+        padding-right: 0.75rem;
+    }
+    .form-control.is-invalid:focus,
+    select.form-control.is-invalid:focus,
+    textarea.form-control.is-invalid:focus {
+        box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.2);
+    }
+
+    // Inline error message: smaller, slightly muted danger, not bold.
+    .fmr-invalid-feedback,
+    .fmr-btn-feedback,
+    .invalid-feedback {
+        color: var(--bs-danger, #dc3545);
+        font-size: 0.875rem;
+        font-weight: 400;
+        margin-top: 0.25rem;
+    }
+
+    // The page-top error banner (unplaced server errors). Bootstrap's
+    // alert-danger is fine but feels too tall; tighten padding.
+    .fmr-error-banner,
+    .fmr-error-messages {
+        padding: 0.625rem 0.875rem;
+        font-size: 0.9375rem;
+        line-height: 1.45;
+    }
+}

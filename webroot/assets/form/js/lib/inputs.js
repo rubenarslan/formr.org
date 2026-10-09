@@ -1,0 +1,221 @@
+// form_v2: the one reader of a form input's answer.
+//
+// Three consumers need "what does this input currently answer": the page
+// submit (collectPayload), the answers overlaid on R (collectAllAnswers)
+// and the showif scope (fmrForm._syncInput). They used to carry their own
+// copies of the rules for `name[]` fields, unchecked choices, a Check_Item's
+// hidden "0" partner and multi-selects; a drift meant a showif deciding on
+// a value that was never submitted. This module holds the rules once; the
+// consumers only differ in what they do with an empty answer.
+
+// A field's key and shape from its input name: `name[]` is an array field.
+export function fieldKey(rawName) {
+    const raw = rawName || '';
+    return raw.endsWith('[]') ? { key: raw.slice(0, -2), isArray: true } : { key: raw, isArray: false };
+}
+
+// Inputs that carry no answer: unnamed, the item-view timestamps, disabled
+// (a showif-hidden item's inputs are disabled, so its answer is withdrawn).
+export function isAnswerInput(inp) {
+    return !!(inp && inp.name) && !inp.name.startsWith('_item_views') && !inp.disabled;
+}
+
+// The answer one input contributes, resolved against its group in `root`:
+//   { key, isArray, value } — value is a string, an array of strings, or
+//   null when the input answers nothing (an unchecked radio group, a
+//   checkbox array with nothing ticked).
+// A single Check_Item shares its name with a hidden "0" partner: unchecked
+// it answers that partner's value ($_POST scalar-last-wins gives the server
+// "0"), so a showif like `mycheck == 0` agrees with what is stored.
+// File inputs are not answers (their bytes ride the multipart path); the
+// caller decides what an empty optional file posts.
+export function readField(inp, root) {
+    if (!isAnswerInput(inp) || inp.type === 'file') return null;
+    const { key, isArray } = fieldKey(inp.name);
+    // A group (radios, a checkbox array, a check's hidden partner) lives in
+    // its item's wrapper: searching that, not the whole form, keeps reading
+    // every answer linear in the form's size.
+    const scope = (inp.closest && inp.closest('.form-group')) || root || inp.form || document;
+    const esc = (s) => (window.CSS && CSS.escape ? CSS.escape(s) : s.replace(/["\\]/g, '\\$&'));
+    let value;
+    if (inp.type === 'checkbox') {
+        if (isArray) {
+            value = Array.from(scope.querySelectorAll(`input[type=checkbox][name="${esc(inp.name)}"]:checked`))
+                .filter((b) => !b.disabled).map((b) => b.value);
+        } else if (inp.checked) {
+            value = inp.value;
+        } else {
+            const partner = scope.querySelector(`input[type=hidden][name="${esc(inp.name)}"]`);
+            value = partner && !partner.disabled ? partner.value : null;
+        }
+    } else if (inp.type === 'radio') {
+        const checked = scope.querySelector(`input[type=radio][name="${esc(inp.name)}"]:checked`);
+        value = checked && !checked.disabled ? checked.value : null;
+    } else if (inp.tagName === 'SELECT' && inp.multiple) {
+        value = Array.from(inp.selectedOptions).map((o) => o.value);
+    } else if (isArray && inp.tagName !== 'SELECT') {
+        // Several inputs sharing a `name[]` (a rank's rows) answer together,
+        // in document order — one of them alone is not the answer. A choice
+        // among them answers only when ticked: an mc_multiple's group is read
+        // through its hidden `name[]` placeholder, which comes first, and its
+        // unticked boxes are no more part of the answer than in a native
+        // form post (`['', '2']`).
+        value = Array.from(scope.querySelectorAll(`input[name="${esc(inp.name)}"], textarea[name="${esc(inp.name)}"]`))
+            .filter((el) => isAnswerInput(el) && el.type !== 'file'
+                && (el.checked || (el.type !== 'checkbox' && el.type !== 'radio')))
+            .map((el) => el.value);
+    } else {
+        value = inp.value;
+    }
+    return { key, isArray: isArray || (inp.tagName === 'SELECT' && inp.multiple), value };
+}
+
+// Every answer within `scope` as a flat name → value map, in document order
+// with $_POST semantics: array fields accumulate, scalar fields are
+// last-wins, and an input that answers nothing adds no key. A radio group
+// or a `name[]` group (checkboxes, a rank's rows) is read once, through its
+// first input — readField answers for the whole group.
+export function collectAnswers(scope, root) {
+    const out = {};
+    const seenGroups = new Set();
+    scope.querySelectorAll('input[name], select[name], textarea[name]').forEach((inp) => {
+        if (inp.type === 'radio' || (inp.name.endsWith('[]') && inp.tagName !== 'SELECT')) {
+            if (seenGroups.has(inp.name)) return;
+            seenGroups.add(inp.name);
+        }
+        const field = readField(inp, root);
+        if (!field || field.value === null) return;
+        if (field.isArray) {
+            // PHP: `x[]` after a scalar `x` replaces it with an array. A
+            // geopoint renders a hidden `geo` (the fix as JSON) before its
+            // visible `geo[]`; `(out.geo || []).concat(...)` on that string
+            // was String#concat and posted '{"coords":…}lat:…/long:…'.
+            const prev = Array.isArray(out[field.key]) ? out[field.key] : [];
+            out[field.key] = prev.concat(field.value);
+        } else {
+            out[field.key] = field.value;
+        }
+    });
+    return out;
+}
+
+// Is an item hidden? One definition for every consumer. The server renders
+// every showif item with the `.hidden` class (so nothing flashes before
+// Alpine runs), so a showif that never evaluates — leftover R, a syntax
+// error — reads as hidden, as the participant sees it. Alpine's directive
+// (showif/alpine.js applyVisibility) toggles the class and records its
+// decision in `data-fmr-hidden`; the admin preview's "Show hidden items"
+// removes only the class, so an item revealed for inspection still counts
+// as hidden and a test submit records what the showif decided.
+export function isItemHidden(wrapper) {
+    return !!(wrapper && wrapper.classList
+        && (wrapper.hasAttribute('data-fmr-hidden') || wrapper.classList.contains('hidden')));
+}
+
+// An item participants never see although it is on the page (data_quality,
+// agent_probe: Item::isUnseen renders the attribute). It does not make its
+// page one to show, is no solo step, nothing to answer for the all-answered
+// auto-submit, and the admin's preview tools leave it alone.
+export function isUnseenItem(wrapper) {
+    return !!(wrapper && wrapper.hasAttribute && wrapper.hasAttribute('data-fmr-unseen'));
+}
+
+// Does an item's group hold an answer? Many item types own their value in an
+// input native Constraint Validation can't see — a hidden carrier (bot_check
+// token, VAS slider value, geopoint coords, audio/video/file recordings) or a
+// readonly field (geopoint) — so checkValidity never flags a required-but-empty
+// one. This generic check covers them uniformly: a real answer is a checked
+// option, a chosen file, a non-empty visible (non-readonly) named field, or a
+// non-empty value-carrier hidden input. The required check and the
+// all-answered auto-submit both ask it.
+export function itemAnswered(g) {
+    if (g.querySelector('input[type=radio]:checked, input[type=checkbox]:checked')) return true;
+    for (const f of g.querySelectorAll('input[type=file]')) {
+        if (f.files && f.files.length) return true;
+        // An upload already stored for this item (main.js marks it from the
+        // state block): a file input cannot show it, but the answer is there.
+        if (f.dataset.fmrStored === '1') return true;
+    }
+    const named = g.querySelectorAll(
+        'input[name]:not([type=hidden]):not([type=radio]):not([type=checkbox]):not([type=file]), textarea[name], select[name]',
+    );
+    for (const el of named) {
+        if (el.readOnly || el.disabled) continue;       // readonly geopoint field doesn't count
+        if (String(el.value == null ? '' : el.value).trim() !== '') return true;
+    }
+    for (const h of g.querySelectorAll('input[type=hidden]')) {
+        if (h.name && h.name.startsWith('_item_views')) continue; // bookkeeping, not an answer
+        // A check item's "0" partner: what an unticked box posts.
+        if (h.name && g.querySelector(`input[type=checkbox][name="${CSS.escape(h.name)}"]`)) continue;
+        if (String(h.value == null ? '' : h.value).trim() !== '') return true;
+    }
+    return false;
+}
+
+// The ids of the showif items currently hidden within `scope`: what a page
+// submit reports so the server records them as hidden (and its required
+// check skips them). Only showif items are reported; the server honours no
+// other claim.
+export function hiddenShowifItemIds(scope) {
+    return Array.from(scope.querySelectorAll('[data-showif], [x-showif]'))
+        .filter(isItemHidden)
+        .map((el) => {
+            const v = el.querySelector('.item_shown');
+            const m = v && v.name && v.name.match(/\[(\d+)\]/);
+            return m ? Number(m[1]) : null;
+        })
+        .filter((id) => id != null);
+}
+
+// A value the page itself wrote into an input (an R-resolved `value`, a PWA
+// item's stored status) is announced the way a typed answer is — the showif
+// scope and the autosave listen for input/change — but with the events
+// marked `fmrProgrammatic`, so the listeners that act only on a participant's
+// answer (the timed / all-answered auto-submit, solo auto-advance) skip it.
+export function dispatchProgrammatic(inp) {
+    ['input', 'change'].forEach((type) => {
+        const ev = new Event(type, { bubbles: true });
+        ev.fmrProgrammatic = true;
+        inp.dispatchEvent(ev);
+    });
+}
+
+// Write a status into an item's input and announce it (above) — only when it
+// changes, so a status re-established on every load (consent already given,
+// the same push subscription) does not autosave the page each time.
+export function setProgrammaticValue(inp, value) {
+    if (!inp) return;
+    const v = String(value);
+    if (inp.value === v) return;
+    inp.value = v;
+    dispatchProgrammatic(inp);
+}
+
+// A showif disables a hidden item's named controls (its answer is withdrawn)
+// and on reveal re-enables only the ones it disabled itself, recorded in
+// `data-fmr-showif-disabled`. A control the item's own code disabled on
+// purpose — a push button on a browser that cannot push, an installed app's
+// Add-to-Home-Screen button — stays disabled when the item is revealed.
+export function showifControls(wrapper) {
+    return Array.from(wrapper.querySelectorAll('input, select, textarea, button'))
+        .filter((inp) => inp.name && !inp.name.startsWith('_item_views'));
+}
+
+// Before any item code runs: a showif item renders hidden with its controls
+// disabled (Item::hideByDefaultPendingClient), so those are the showif's to
+// re-enable on the first reveal.
+export function claimPendingShowifControls(root) {
+    root.querySelectorAll('[data-showif]').forEach((wrapper) => {
+        showifControls(wrapper).forEach((inp) => {
+            if (inp.disabled) inp.dataset.fmrShowifDisabled = '1';
+        });
+    });
+}
+
+// Item code disabling one of its own controls on purpose: a later showif
+// reveal must leave it disabled.
+export function disableOwnControl(ctrl) {
+    if (!ctrl) return;
+    ctrl.disabled = true;
+    delete ctrl.dataset.fmrShowifDisabled;
+}

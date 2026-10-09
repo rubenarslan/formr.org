@@ -59,11 +59,81 @@ class AdminSurveyController extends AdminController {
             }
             
             
+            // The engine chosen on the form, if any; otherwise the file's own
+            // settings decide (a JSON "settings" / a spreadsheet's
+            // `settings` sheet), and without one the survey is classic v1.
+            // The choice is offered where the operator has enabled form_v2
+            // authoring (form_v2_enabled, like the run editor's Add Form).
+            // Where it is off, every upload arrives on v1, whatever the file
+            // says: a v2 survey could not be placed in any run (Survey units
+            // refuse it, and Add Form is hidden).
+            $engine = in_array($_POST['engine'] ?? '', array('v1', 'v2'), true) ? $_POST['engine'] : null;
+            if (!Config::get('form_v2_enabled')) {
+                $engine = 'v1';
+            }
+
             if ($this->validateUploadedFile($file)) {
+                // JSON survey export → import via createFromData (the same path
+                // run-structure imports use). Only reached for new surveys; the
+                // edit/re-upload path stays spreadsheet-only.
+                if (strtolower(pathinfo($file['name'], PATHINFO_EXTENSION)) === 'json') {
+                    $data = json_decode(file_get_contents($file['tmp_name']));
+                    if (!is_object($data) || empty($data->name) || empty($data->items)) {
+                        alert('<strong>Error:</strong> That is not a valid survey JSON export (it must have "name" and "items").', 'alert-danger');
+                        delete_tmp_file($file);
+                        return $this->request->redirect('admin/survey');
+                    }
+                    // The study is named by the JSON's "name", not by the file
+                    // name validateUploadedFile() checked, so apply the one
+                    // name rule here too — createFromFile() would otherwise
+                    // strip "foo-v2" to "foo" or store a NULL name for "My survey".
+                    if (!SurveyStudy::isValidName($data->name)) {
+                        alert('<strong>Error:</strong> The survey name in the JSON ("name": "' . h(is_scalar($data->name) ? (string) $data->name : '') . '") can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. It has to be 3 to 65 characters long and start with a letter.', 'alert-danger');
+                        delete_tmp_file($file);
+                        return $this->request->redirect('admin/survey');
+                    }
+                    // createFromData reuses (and re-uploads items into) a
+                    // same-named study of the current user — the run-import
+                    // semantics. This form only creates, so refuse instead of
+                    // silently rewriting an existing survey's item table.
+                    $existing = SurveyStudy::loadByUserAndName($this->user, $data->name);
+                    if ($existing->valid) {
+                        alert('<strong>Error:</strong> You already have a survey named "' . h($data->name) . '". Rename it in the JSON ("name"), or upload the items into the existing survey from its page.', 'alert-danger');
+                        delete_tmp_file($file);
+                        return $this->request->redirect('admin/survey');
+                    }
+                    if ($engine !== null) {
+                        if (!isset($data->settings) || !is_object($data->settings)) {
+                            $data->settings = new stdClass();
+                        }
+                        if (($data->settings->rendering_mode ?? null) === 'v2' && $engine === 'v1') {
+                            alert('The file is set to v2, but the survey was created on v1'
+                                . (Config::get('form_v2_enabled') ? ', as you chose.' : ', because v2 is not available on this formr server.'), 'alert-warning');
+                        }
+                        $data->settings->rendering_mode = $engine;
+                    }
+                    if (($created = SurveyStudy::createFromData($data, array('user_id' => $this->user->id)))) {
+                        alert('<strong>Success!</strong> New survey created from JSON!', 'alert-success');
+                        $redirect = admin_study_url($created->name, 'show_item_table');
+                    } elseif (($orphan = SurveyStudy::loadByUserAndName($this->user, $data->name)) && $orphan->valid) {
+                        // createFromData creates the survey before it loads the
+                        // items, so a refused item table leaves it behind, empty
+                        // — and a second try is refused above as a duplicate
+                        // name. Say so and go to it, as the spreadsheet path does.
+                        alert('<strong>Bugger!</strong> The survey "' . h($orphan->name) . '" was created, but its items could not be imported (see the messages above). Upload a corrected item table here, or delete the survey and upload the JSON again.', 'alert-danger');
+                        $redirect = admin_study_url($orphan->name, 'upload_items');
+                    } else {
+                        alert('<strong>Bugger!</strong> The survey JSON could not be imported. See the messages above.', 'alert-danger');
+                        $redirect = 'admin/survey';
+                    }
+                    delete_tmp_file($file);
+                    return $this->request->redirect($redirect);
+                }
+
                 $study = new SurveyStudy(null);
                 if ($study->createFromFile($file)) {
                     // upload items
-                    if ($study->uploadItems($file, true, true)) {
+                    if ($study->uploadItems($file, true, true, $engine !== null ? array('rendering_mode' => $engine) : array())) {
                         alert('<strong>Success!</strong> New survey created!', 'alert-success');
                         $redirect = admin_study_url($study->name, 'show_item_table');
                     } else {
@@ -93,20 +163,32 @@ class AdminSurveyController extends AdminController {
             return false;
         }
 
-        // Define the list of allowed extensions
+        // Define the list of allowed extensions. A .json survey export is
+        // accepted only when adding a NEW survey (createFromData); the edit /
+        // re-upload-items path runs the spreadsheet reader, which can't parse it.
         $allowedExtensions = array('xls', 'xlsx', 'ods', 'xml', 'txt', 'csv');
+        if (!$editing) {
+            $allowedExtensions[] = 'json';
+        }
         // Get the file extension
         $fileExtension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         // Check if the extension is in the allowed list
         if(!in_array($fileExtension, $allowedExtensions)){
-            alert("<strong>Error:</strong> The format must be one of .xls, .xlsx, .ods, .xml, .txt, or .csv.", 'alert-danger');
+            $formats = $editing ? '.xls, .xlsx, .ods, .xml, .txt, or .csv' : '.xls, .xlsx, .ods, .xml, .txt, .csv, or .json';
+            alert("<strong>Error:</strong> The format must be one of {$formats}.", 'alert-danger');
             return false;
         }
         
+        // A spreadsheet names the survey by its file name. A JSON export
+        // names it by its "name", which the JSON path checks (validity, and
+        // that this user has no survey of that name), so its file name may be
+        // anything: `pilot.json` renamed inside to pilot_copy, or a browser's
+        // `pilot (1).json`.
+        $isJson = $fileExtension === 'json';
         $name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", basename($file['name']));
-        if (!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/", (string)$name)) {
-            alert("<strong>Error:</strong> The study name (the name of the file or Google sheet you uploaded, \"".(string)$file['name']."\") can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.
-                    The name has to at least 2, at most 64 characters long. It needs to start with a letter. No dots, no spaces, no dashes, no umlauts please. 
+        if (!$isJson && !SurveyStudy::isValidName((string) $name)) {
+            alert("<strong>Error:</strong> The study name (the name of the file or Google sheet you uploaded, \"" . h((string) $file['name']) . "\") can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.
+                    The name has to be at least 3, at most 65 characters long. It needs to start with a letter. No dots, no spaces, no dashes, no umlauts please. 
                     The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>, but they will be ignored.", 'alert-danger');
             return false;
         }
@@ -117,7 +199,7 @@ class AdminSurveyController extends AdminController {
             return false;
         }
         
-        if ($this->fdb->entry_exists('survey_studies', array('name' => $name, 'user_id' => $this->user->id)) && $editing === false) {
+        if (!$isJson && $this->fdb->entry_exists('survey_studies', array('name' => $name, 'user_id' => $this->user->id)) && $editing === false) {
             alert(__("<strong>Error:</strong> The survey name %s is already taken.", h($name)), 'alert-danger');
             return false;
         }
@@ -205,45 +287,21 @@ class AdminSurveyController extends AdminController {
     }
 
     private function accessAction() {
-        Session::set('test_study_data', array(
-            'study_id' => $this->study->id,
-            'study_name' => $this->study->name,
-            'unit_id' => $this->study->id,
-            'data' => $this->study->getItems('id, name, type'),
-        ));
-
-        alert("<strong>Go ahead.</strong> You can test the study " . $this->study->name . " now.", 'alert-info');
-        $this->request->redirect(admin_study_url($this->study->name, 'test_run'));
-    }
-
-    private function testRunAction() {
-        // Create a test run instance using the TEST_RUN constant
-        $testRun = new Run(Run::TEST_RUN);
-
-        // Execute the test run. This internally calls testStudy() using session data.
-        $run_vars = $testRun->exec($this->user);
-        if (!$run_vars) {
-            formr_error(500, 'Invalid Execution', 'The execution generated no output');
+        // The survey test render lives OUTSIDE /admin/ (SurveyTestController),
+        // so it escapes the admin CSP (which would break live showif's
+        // new Function()) and is never sent the /admin/-scoped admin cookies.
+        // Hand the survey identity off via a short-lived signed token in the
+        // URL instead of the admin Session — the /survey-test/ path can't read
+        // that session (different cookie path).
+        $token = SurveyTestController::mintToken($this->study->name, $this->user->id);
+        if ($token === null) {
+            // A name stored under the old, unanchored rename check can't be
+            // minted into the token; sending an empty token only yields a
+            // bare 403 on /survey-test/ with no explanation.
+            alert('This survey cannot be tested until it is renamed to a plain identifier (letters, digits and underscores, starting with a letter).', 'alert-danger');
+            $this->request->redirect(admin_study_url($this->study->name, 'rename_study'));
         }
-        
-        // Set the body CSS class
-        $run_vars['bodyClass'] = 'fmr-run';
-        
-        // If a redirect is specified in run_vars, perform it
-        if (!empty($run_vars['redirect'])) {
-            return $this->request->redirect(admin_study_url($this->study->name, 'test_run'));
-        }
-        
-        // Populate CSS and JS assets from config:
-        $assets = Config::get('assets.frontend');
-        $run_vars['js'] = [ array_val($assets, 'js', []) ];
-        
-        // Replace old URL with the admin URL in run_content
-        $run_vars['run_content'] = str_replace(run_url(Run::TEST_RUN), admin_study_url($this->study->name, 'test_run'), $run_vars['run_content']);
-        
-        // Set the view with the run_vars
-        $this->setView('run/index', $run_vars, false);
-        return $this->sendResponse();
+        $this->request->redirect(site_url('survey-test/' . $token));
     }
 
     private function showItemTableAction() {
@@ -303,6 +361,7 @@ class AdminSurveyController extends AdminController {
         $this->setView('survey/show_itemdisplay', array(
             'resultCount' => $this->study->getResultCount(),
             'results' => $totalCount ? $this->study->getResultsByItemsPerSession(null, $filter, $paginate) : array(),
+            'resultItems' => $this->study->getItemsWithChoices(),
             'pagination' => $pagination,
             'study_name' => $this->study->name,
             //'session' => $session,
@@ -347,6 +406,7 @@ class AdminSurveyController extends AdminController {
         $this->setView('survey/show_results', array(
             'resultCount' => $count,
             'results' => $totalCount <= 0 ? array() : $this->study->getResults(null, $filter, $paginate),
+            'resultItems' => $this->study->getItemsWithChoices(),
             'pagination' => $pagination,
             'study_name' => $this->study->name,
             'session' => $this->request->str('session'),
@@ -415,7 +475,10 @@ class AdminSurveyController extends AdminController {
         $old_name = $study->name;
 
         if ($new_name && $new_name !== $study->name) {
-            if (!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/", $new_name) || 
+            // Anchored: unanchored, any name *containing* a word passed, so a
+            // rename could smuggle `|`-separated fields into the survey-test
+            // token (SurveyTestController) or arbitrary characters into URLs.
+            if (!SurveyStudy::isValidName($new_name) ||
                     $this->fdb->entry_exists('survey_studies', array('name' => $new_name, 'user_id' => $this->user->id))) {
 
                 alert('A study with this name already exists', 'alert-danger');
@@ -542,24 +605,44 @@ class AdminSurveyController extends AdminController {
             'expire_invitation_after', 'expire_invitation_grace',
             'enable_instant_validation', 'hide_results', 'use_paging',
             'unlinked', 'google_file_id',
+            // form_v2 per-study flags. Without these in the allowlist the
+            // array_intersect_key below would strip them before the v2
+            // handling block runs and the saves would silently rewrite
+            // the columns to their false/null defaults.
+            'offline_mode', 'allow_previous', 'layout', 'language',
+            'next_button_label', 'submit_button_label',
         ];
         $settings = array_intersect_key($settings, array_flip($allowed));
-        array_walk($settings, function (&$value, $key) {
-            if ($key !== 'google_file_id') {
+        // String-typed columns must opt out of the int cast — google_file_id
+        // is a Drive ID; layout is an ENUM('default','solo'); language is a
+        // BCP 47 tag.
+        $stringCols = ['google_file_id', 'layout', 'language', 'next_button_label', 'submit_button_label'];
+        array_walk($settings, function (&$value, $key) use ($stringCols) {
+            if (!in_array($key, $stringCols, true)) {
                 $value = (int) $value;
             }
         });
-        if (isset($settings['maximum_number_displayed']) && $settings['maximum_number_displayed'] > 3000 || $settings['maximum_number_displayed'] < 0) {
+        // google_file_id is the one non-integer setting, so it must be
+        // validated explicitly — otherwise arbitrary text (quotes, angle
+        // brackets) is stored and echoed into admin views. Empty clears it.
+        if (isset($settings['google_file_id']) && $settings['google_file_id'] !== ''
+                && !google_is_valid_sheet_id($settings['google_file_id'])) {
+            alert('The Google Sheet ID is not valid.', 'alert-warning');
+            $errors = true;
+        }
+        // Range checks: the isset() must cover both bounds, otherwise a POST
+        // that omits a key reads an undefined index on the `||` side.
+        if (isset($settings['maximum_number_displayed']) && ($settings['maximum_number_displayed'] > 3000 || $settings['maximum_number_displayed'] < 0)) {
             alert("Maximum number displayed has to be between 1 and 3000", 'alert-warning');
             $errors = true;
         }
 
-        if (isset($settings['displayed_percentage_maximum']) && $settings['displayed_percentage_maximum'] > 100 || $settings['displayed_percentage_maximum'] < 1) {
+        if (isset($settings['displayed_percentage_maximum']) && ($settings['displayed_percentage_maximum'] > 100 || $settings['displayed_percentage_maximum'] < 1)) {
             alert("Percentage maximum has to be between 1 and 100.", 'alert-warning');
             $errors = true;
         }
 
-        if (isset($settings['add_percentage_points']) && $settings['add_percentage_points'] > 100 || $settings['add_percentage_points'] < 0) {
+        if (isset($settings['add_percentage_points']) && ($settings['add_percentage_points'] > 100 || $settings['add_percentage_points'] < 0)) {
             alert("Percentage points added has to be between 0 and 100.", 'alert-warning');
             $errors = true;
         }
@@ -568,6 +651,24 @@ class AdminSurveyController extends AdminController {
         $settings['hide_results'] = (int) (isset($settings['hide_results']) && $settings['hide_results'] === 1);
         $settings['use_paging'] = (int) (isset($settings['use_paging']) && $settings['use_paging'] === 1);
         $settings['unlinked'] = (int) (isset($settings['unlinked']) && $settings['unlinked'] === 1);
+        // form_v2 per-study flags — accept only when the study is on the v2
+        // pipeline, so checkboxes on a v1 study can't silently mutate data the
+        // v1 renderer doesn't read. offline_mode defaults to 1 (opt-out),
+        // allow_previous defaults to 0 (opt-in).
+        if ($this->study->rendering_mode === 'v2') {
+            // The rules an import applies (SurveyStudy::validateEngineSettings),
+            // with the form's fallbacks: an unchecked box posts nothing and is
+            // off; a layout or language it cannot use (BCP 47-ish, patch 114)
+            // is the default rather than an error; an empty label is the
+            // built-in wording (#322).
+            $settings = SurveyStudy::validateEngineSettings(array_merge(array(
+                'offline_mode' => 0, 'allow_previous' => 0,
+                'next_button_label' => null, 'submit_button_label' => null,
+            ), $settings)) + array('layout' => 'default', 'language' => 'en');
+        } else {
+            unset($settings['offline_mode'], $settings['allow_previous'], $settings['layout'], $settings['language'],
+                $settings['next_button_label'], $settings['submit_button_label']);
+        }
 
         // user can't revert unlinking
         if ($settings['unlinked'] < $this->study->unlinked) {
@@ -599,6 +700,124 @@ class AdminSurveyController extends AdminController {
         $this->study->update($settings);
 
         alert('Survey settings updated', 'alert-success', true);
+    }
+
+    /**
+     * Switch a study between the v1 and v2 rendering engines. Every
+     * placement shares the study's survey_units row, whose type follows the
+     * engine (SurveyStudy::save / adoptFormV2), so the switch moves every
+     * placement at once: v1 → v2 makes them Form units, v2 → v1 Survey units.
+     * Participants mid-form continue on the other engine from where they
+     * are; both read and write the same survey_items_display rows. While
+     * form_v2 is an alpha, v1 → v2 is refused as long as any run uses the
+     * study as a Survey (SurveyStudy::runsUsingAsSurvey).
+     */
+    private function switchRenderingModeAction() {
+        if (!Request::isHTTPPostRequest()) {
+            formr_error(405, 'Method Not Allowed');
+        }
+        $target = isset($_POST['target']) ? (string) $_POST['target'] : '';
+        if (!in_array($target, ['v1', 'v2'], true)) {
+            formr_error(400, 'Bad Request', 'target must be v1 or v2');
+        }
+
+        $toV2 = $target === 'v2' && $this->study->rendering_mode !== 'v2';
+        // Upgrading switches the engine of every run that uses the study as a
+        // Survey — live runs included. The alpha refuses it while any does:
+        // copy the survey (download it, upload it as a new one) to try v2.
+        if ($toV2 && !Config::get('form_v2_enabled')) {
+            alert('<strong>Not switched.</strong> v2 is not available on this formr server.', 'alert-danger');
+            $this->request->redirect(admin_study_url($this->study->name));
+            return;
+        }
+        if ($toV2 && ($usedBy = $this->study->runsUsingAsSurvey())) {
+            alert('<strong>Not switched.</strong> This survey runs as a classic Survey in: <strong>' . implode(', ', array_map('h', $usedBy))
+                . '</strong>. Switching it would change the engine for those runs\' participants. To try form_v2, copy the survey — download it and upload it as a new survey — and use the copy in a Form unit.', 'alert-danger');
+            $this->request->redirect(admin_study_url($this->study->name));
+            return;
+        }
+        $unsupported = $toV2 ? $this->study->formV2UnsupportedItems() : array();
+        // The way back has its own rule: items only v2 can run (bot_check,
+        // rank: Item::v1Unsupported) are refused at upload into a v1 study,
+        // and a switch must not bring them there either — a required
+        // bot_check could never be answered on v1.
+        $toV1 = $target === 'v1' && $this->study->rendering_mode === 'v2';
+        $v1Unsupported = $toV1 ? $this->study->v1UnsupportedItems() : array();
+        // And a choice list written in one cell with semicolons, which v1
+        // would not split (it splits at commas), stops it unless confirmed,
+        // as a comma list does on the way to v2.
+        $v1ListFindings = ($toV1 && !$v1Unsupported && empty($_POST['force'])) ? $this->study->semicolonListItems() : array();
+        // A showif the browser cannot evaluate (leftover R, a name that is not
+        // on the form) keeps its item hidden for good, silently — the one
+        // place v1 studies break on the way to v2. So the scan's showif
+        // findings stop the switch too, unless the author confirms them
+        // (`force`: the scan is a heuristic and can be wrong).
+        // A choice list written in one cell with commas stops it the same way:
+        // v2 splits such a list at semicolons, so it would become one choice
+        // — unless it is one (`Berlin, Germany`), which the author confirms.
+        $showifFindings = $listFindings = array();
+        if (!$unsupported && $toV2 && empty($_POST['force'])) {
+            foreach (FormV2CompatScanner::scan((int) $this->study->id)['flagged'] as $f) {
+                if (!FormV2CompatScanner::overridable($f)) {
+                    continue;
+                }
+                $finding = "'{$f['name']}': " . implode('; ', $f['problems']);
+                if ($f['column'] === 'showif') {
+                    $showifFindings[] = $finding;
+                } else {
+                    $listFindings[] = $finding;
+                }
+            }
+        }
+        if ($unsupported) {
+            alert('<strong>Not switched.</strong> This survey has items that v2 cannot run:<ul><li>'
+                . implode('</li><li>', array_map('h', $unsupported)) . '</li></ul>', 'alert-danger');
+        } elseif ($showifFindings) {
+            alert('<strong>Not switched.</strong> These showifs do not work in v2, so their items would stay hidden. The <a href="' . admin_study_url($this->study->name, 'form_v2_compat_scan') . '">compatibility check</a> shows how to fix them, and lets you move the survey anyway if the check is wrong.<ul><li>'
+                . implode('</li><li>', array_map('h', $showifFindings)) . '</li></ul>', 'alert-danger');
+        } elseif ($listFindings) {
+            alert('<strong>Not switched.</strong> These choice lists are written in one cell with commas. v2 separates such a list with semicolons, so each would become a single choice. The <a href="' . admin_study_url($this->study->name, 'form_v2_compat_scan') . '">compatibility check</a> shows how to fix them, and lets you move the survey anyway if a cell is meant as one choice.<ul><li>'
+                . implode('</li><li>', array_map('h', $listFindings)) . '</li></ul>', 'alert-danger');
+        } elseif ($toV2) {
+            $this->study->adoptFormV2();
+            alert('The survey now runs on v2. Test it before participants start.', 'alert-success');
+        } elseif ($v1Unsupported) {
+            alert('<strong>Not switched.</strong> This survey has items that only v2 can run:<ul><li>'
+                . implode('</li><li>', array_map('h', $v1Unsupported)) . '</li></ul>', 'alert-danger');
+        } elseif ($v1ListFindings) {
+            alert('<strong>Not switched.</strong> These choice lists are written in one cell with semicolons. v1 separates such a list with commas, so each would become a single choice. Give each choice its own row, or switch anyway if a cell is meant as one choice.<ul><li>'
+                . implode('</li><li>', array_map('h', $v1ListFindings)) . '</li></ul>'
+                . '<form method="post" action="' . admin_study_url($this->study->name, 'switch_rendering_mode') . '">'
+                . '<input type="hidden" name="target" value="v1"><input type="hidden" name="force" value="1">'
+                . '<button type="submit" class="btn btn-warning btn-sm"><i class="fa fa-exclamation-triangle"></i> Switch to v1 anyway</button></form>', 'alert-danger');
+        } elseif ($toV1) {
+            $this->study->update(['rendering_mode' => 'v1']);
+            alert('Study switched back to the v1 engine; its Form units are Survey units again.', 'alert-success');
+        } else {
+            alert('Study is already on the requested engine.', 'alert-info');
+        }
+        $this->request->redirect(admin_study_url($this->study->name));
+    }
+
+    /**
+     * form_v2 compatibility scan: classify each showif/value expression on the
+     * current study (FormV2CompatScanner's buckets: showifs that work as JS,
+     * need a rewrite or read names not on the form; values; items v2 cannot
+     * run). Rendered on the survey settings page (survey/index) via the
+     * "Run v2 compatibility scan" button — reachable for BOTH engines so authors can check
+     * readiness BEFORE upgrading. Reuses FormV2CompatScanner so the admin
+     * view and the CLI (bin/form_v2_compat_scan.php) agree.
+     */
+    private function formV2CompatScanAction() {
+        if (!$this->study || !$this->study->valid) {
+            formr_error(404, 'Not Found', 'Study not found');
+        }
+        $report = FormV2CompatScanner::scan($this->study->id);
+        $this->setView('survey/form_v2_compat_scan', [
+            'study' => $this->study,
+            'report' => $report,
+        ]);
+        return $this->sendResponse();
     }
 
     private function setStudy($name) {

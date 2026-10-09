@@ -89,12 +89,20 @@ class AdminAjaxController {
        $run = $this->controller->run;
 
         if ($id = $this->request->getParam('unit_id')) {
-            $params = $this->request->getParams();
+            $params = $this->unitParamsFromRequest();
             $params['id'] = (int) $id;
             $unit = RunUnitFactory::make($run, $params);
+            if (!$unit->id) {
+                // find() could not place unit_id in this run (the
+                // constructor forgot the identity) — nothing to render.
+                formr_error(404, 'Not Found', 'Requested Run Unit was not found in this run');
+            }
             $content = $unit->displayForRun();
         } elseif($this->request->getParam('run_unit_id')) {
-            $unit = RunUnit::findByRunUnitId($this->request->getParam('run_unit_id'), ['ignore_missing' => true]);
+            $unit = RunUnit::findByRunUnitId($this->request->getParam('run_unit_id'), ['ignore_missing' => true], $run);
+            if (!$unit) {
+                formr_error(404, 'Not Found', 'Requested Run Unit was not found in this run');
+            }
             $unit->type = 'missing';
             $dialog = Template::get($unit->getTemplatePath('missing'));
             $content = $unit->displayForRun($dialog);
@@ -127,8 +135,7 @@ class AdminAjaxController {
         $run = $this->controller->run;
         
         // find the last email unit
-        $emailSession = $run->getReminderSession($this->request->getParam('reminder'), $this->request->getParam('session'), $this->request->getParam('run_session_id'));
-        if ($emailSession->execute() === false) {
+        if ($run->sendReminder($this->request->getParam('reminder'), $this->request->getParam('session'), $this->request->getParam('run_session_id')) === false) {
             alert('<strong>Something went wrong with the reminder.</strong> Run: ' . $run->name, 'alert-danger');
         } else {
             alert('Reminder sent!', 'alert-success');
@@ -189,7 +196,11 @@ class AdminAjaxController {
 
         $run_session = new RunSession($this->request->getParam('session'), $run);
 
-        if (!$run_session->endCurrentUnitSession()) {
+        // Audit F3 (2026-07): this used to endCurrentUnitSession() and
+        // never advance — a cron-only participant was left with nothing
+        // current and nothing queued, permanently stalled. forceMoveOn
+        // ends + moves on under the run-session lock.
+        if (!$run_session->forceMoveOn('moved')) {
             alert('<strong>Something went wrong with the unpause.</strong> in run ' . $run->name, 'alert-danger');
             $this->response->setStatusCode(500, 'Bad Request');
         }
@@ -289,9 +300,11 @@ class AdminAjaxController {
 
         if (($run_unit_id = $this->request->getParam('run_unit_id'))) {
 
-            $params = $this->request->getParams();
+            $params = $this->unitParamsFromRequest();
             $params['ignore_missing'] = true;
-            $unit = RunUnit::findByRunUnitId($run_unit_id, $params);
+            // Scoped to the run setRun() authorised — findByRunUnitId
+            // otherwise builds the unit's OWN run from the row.
+            $unit = RunUnit::findByRunUnitId($run_unit_id, $params, $run);
 
             if (!$unit) {
                 formr_error(404, 'Not Found', 'Requested Run Unit was not found');
@@ -337,13 +350,14 @@ class AdminAjaxController {
 
         $run = $this->controller->run;
         $positions = $this->request->arr('position');
-        if ($positions) {
-            $unit = $run->reorder($positions);
+        if ($positions && $run->reorder($positions)) {
             $content = '';
         } else {
             $this->response->setStatusCode(500, 'Bad Request');
             $msg = '<strong>Sorry.</strong> Re-ordering run units failed.';
-            $msg .= !empty($unit) ? implode("\n", $unit->errors) : '';
+            // Audit F10/F12 (2026-07): surface the validation reason
+            // (duplicate position) instead of a bare 500.
+            $msg .= !empty($run->errors) ? ' ' . implode("\n", $run->errors) : '';
             alert($msg, 'alert-danger');
             $content = $this->site->renderAlerts();
         }
@@ -409,13 +423,18 @@ class AdminAjaxController {
         $content = '';
 
         if ($id = $this->request->getParam('unit_id')) {
-            $params = $this->request->getParams();
+            $params = $this->unitParamsFromRequest();
             $params['id'] = (int) $id;
             if (!empty($params['position']) && is_array($params['position'])) {
                 $params['position'] = array_shift($params['position']);
             }
 
             $unit = RunUnitFactory::make($run, $params);
+            if (!$unit->id) {
+                // unit_id (and run_unit_id) are posted; find() could not
+                // place them in this run, so there is nothing to save.
+                formr_error(404, 'Not Found', 'Requested Run Unit was not found in this run');
+            }
             $unit->create($params);
 
             if ($unit->valid) {
@@ -449,8 +468,9 @@ class AdminAjaxController {
             ]);
         }
 
-        $unit = RunUnit::findByRunUnitId($run_unit_id, ['ignore_missing' => true]);
-        if (!$unit || $unit->type !== 'Survey' || (int) $unit->run->id !== (int) $this->controller->run->id) {
+        $unit = RunUnit::findByRunUnitId($run_unit_id, ['ignore_missing' => true], $this->controller->run);
+        // Survey or its v2 subclass Form — both resolve their study via getStudy().
+        if (!$unit || !($unit instanceof Survey) || (int) $unit->run->id !== (int) $this->controller->run->id) {
             $this->response->setStatusCode(400, 'Bad Request');
             return $this->response->setJsonContent([
                 'success' => false,
@@ -589,7 +609,10 @@ class AdminAjaxController {
         }
 
         if ($run_unit_id = $this->request->getParam('run_unit_id')) {
-            $unit = RunUnit::findByRunUnitId($run_unit_id, $this->request->getParams());
+            $unit = RunUnit::findByRunUnitId($run_unit_id, $this->unitParamsFromRequest(), $this->controller->run);
+            if (!$unit) {
+                formr_error(404, 'Not Found', 'Requested Run Unit was not found in this run');
+            }
             $test_content = $unit->test();
             $content = $this->site->renderAlerts();
             $content .= $test_content;
@@ -617,6 +640,15 @@ class AdminAjaxController {
             return $this->response->setContent('Missing Parameters');
         }
 
+        // positionSessions/sendReminder do several queries + locks per session
+        // inside this one request — an unbounded selection turns into
+        // thousands of sequential round trips (audit SQ-39/SQ-43)
+        $maxBulk = (int) Config::get('max_bulk_session_actions', 500);
+        if (count($sessions) > $maxBulk) {
+            $this->response->setStatusCode(422, 'Unprocessable Entity');
+            return $this->response->setContent("Bulk actions are limited to {$maxBulk} sessions per request; you selected " . count($sessions) . ". Please narrow your selection.");
+        }
+
         if ($action === 'toggleTest') {
             $count = RunSession::toggleTestingStatus($sessions, $this->controller->run->id);
             alert("{$count} selected session(s) were successfully modified", 'alert-success');
@@ -624,16 +656,17 @@ class AdminAjaxController {
         } elseif ($action === 'sendReminder') {
             $run = $this->controller->run;
             $count = 0;
+            $lastSession = null;
             foreach ($sessions as $sess) {
-                $emailSession = $run->getReminderSession($this->request->int('reminder'), $sess, null);
-                if ($emailSession->execute() !== false) {
+                $emailSession = $run->sendReminder($this->request->int('reminder'), $sess, null);
+                if ($emailSession !== false) {
                     $count++;
+                    $lastSession = $emailSession;
                 }
-                //$email->end();
             }
 
-            if ($count) {
-                alert("{$count} session(s) have been sent the reminder '{$emailSession->runUnit->getSubject($emailSession)}'", 'alert-success');
+            if ($count && $lastSession) {
+                alert("{$count} session(s) have been sent the reminder '{$lastSession->runUnit->getSubject($lastSession)}'", 'alert-success');
                 $res['success'] = true;
             } else {
                 $res['error'] = $this->site->renderAlerts();
@@ -761,8 +794,22 @@ class AdminAjaxController {
         return $action;
     }
 
+    /**
+     * Request params for constructing a RunUnit. `importing` is a
+     * model-internal flag (Run::importUnits, SurveyStudy::createFromData)
+     * that makes the RunUnit constructor skip its run-scoped find() — the
+     * only thing that forgets a caller-supplied id — so a client that posts
+     * importing=1 with a foreign unit_id would load and overwrite another
+     * user's unit definition by bare id.
+     */
+    private function unitParamsFromRequest() {
+        $params = $this->request->getParams();
+        unset($params['importing']);
+        return $params;
+    }
+
     protected function getSessionRemindersSent($run_session_id) {
-        return RunSession::getSentRemindersBySessionId($run_session_id);
+        return RunSession::getSentRemindersBySessionId($run_session_id, $this->controller->run->id);
     }
 
 }

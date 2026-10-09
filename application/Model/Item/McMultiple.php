@@ -5,21 +5,21 @@
  * 
  */
 class McMultiple_Item extends Mc_Item {
+    protected $accepts_array_reply = true;
+
 
     public $type = 'mc_multiple';
     public $input_attributes = array('type' => 'checkbox');
     public $optional = 1;
     public $mysql_field = 'VARCHAR(40) DEFAULT NULL';
+    protected $group_role = 'group'; // checkboxes: role=group, not radiogroup
 
     protected function setMoreOptions() {
         $this->input_attributes['name'] = $this->name . '[]';
     }
 
     protected function chooseResultFieldBasedOnChoices() {
-        $choices = array_keys($this->choices);
-        $max = implode(", ", array_filter($choices));
-        $maxlen = strlen($max);
-        $this->mysql_field = 'VARCHAR (' . $maxlen . ') DEFAULT NULL';
+        $this->mysql_field = 'VARCHAR (' . self::joinedChoicesLength(array_keys($this->choices)) . ') DEFAULT NULL';
     }
 
     protected function render_input() {
@@ -81,7 +81,7 @@ class McMultiple_Item extends Mc_Item {
 
     public function getReply($reply) {
         if (is_array($reply)) {
-            $reply = implode(", ", array_filter($reply));
+            $reply = implode(", ", $this->replyValues($reply));
         }
         return $reply;
     }

@@ -38,6 +38,16 @@ class Run extends Model
     public $user_id = null;
     public $being_serviced = false;
     public $locked = false;
+
+    /**
+     * Why the last importUnits()/replaceUnits() call failed, one entry per
+     * problem, naming the unit ("unit 2 (Branch at position 20): ...").
+     * Protected so Model::assignProperties / save() never touch it.
+     */
+    protected $importErrors = [];
+    // The import failed on the server's side (a database error), not on the
+    // payload: the API answers 5xx, and the SQL detail stays in the log.
+    protected $importServerFault = false;
     public $created = null;
     public $modified = null;
     public $errors = array();
@@ -49,7 +59,6 @@ class Run extends Model
     public $header_image_path = null;
     public $title = null;
     public $description = null;
-    public $osf_project_id = null;
     public $footer_text = null;
     public $public_blurb = null;
     public $use_material_design = false;
@@ -87,7 +96,6 @@ class Run extends Model
         "custom_r",
         "manifest_json",
         "cron_active",
-        "osf_project_id",
         "use_material_design",
         "expire_cookie",
         "expire_cookie_value",
@@ -137,7 +145,7 @@ class Run extends Model
             return;
         }
 
-        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, custom_r_path, manifest_json_path, osf_project_id, use_material_design, expire_cookie, expiresOn, vapid_public_key, vapid_private_key, pwa_icon_path";
+        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, custom_r_path, manifest_json_path, use_material_design, expire_cookie, expiresOn, vapid_public_key, vapid_private_key, pwa_icon_path";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
 
@@ -153,20 +161,6 @@ class Run extends Model
                 $this->pwa_icon_path .= '/';
             }
         }
-    }
-
-    public function getCronDues()
-    {
-        $sessions = $this->db->select('session')
-            ->from('survey_run_sessions')
-            ->where(array('run_id' => $this->id))
-            ->order('RAND')
-            ->statement();
-        $dues = array();
-        while ($run_session = $sessions->fetch(PDO::FETCH_ASSOC)) {
-            $dues[] = $run_session['session'];
-        }
-        return $dues;
     }
 
     /**
@@ -247,10 +241,45 @@ class Run extends Model
         }
     }
 
+    /**
+     * Take the run's units with it: its placements and special units (the
+     * service message, reminder email, overview script) and the units
+     * themselves, whose own tables and unit sessions cascade. A unit is kept
+     * when it is a survey (its row is its study's, patch 116, and the study
+     * outlives the run) or when another run still uses it.
+     */
     public function deleteUnits()
     {
+        $id = array('id' => (int) $this->id);
+        $units = array_merge(
+            array_column((array) $this->db->execute('SELECT unit_id FROM survey_run_units WHERE run_id = :id', $id), 'unit_id'),
+            array_column((array) $this->db->execute('SELECT id FROM survey_run_special_units WHERE run_id = :id', $id), 'id'),
+            array_values(array_filter((array) $this->db->execute(
+                'SELECT reminder_email, service_message, overview_script, deactivated_page FROM survey_runs WHERE id = :id', $id, false, true)))
+        );
         $this->db->delete('survey_run_special_units', array('run_id' => $this->id));
         $this->db->delete('survey_run_units', array('run_id' => $this->id));
+        // The run row's own references to its units (older runs): one
+        // cascades to the run, two would block deleting the unit.
+        $this->db->exec('UPDATE survey_runs SET reminder_email = NULL, service_message = NULL, overview_script = NULL, deactivated_page = NULL WHERE id = :id', $id);
+
+        foreach (array_chunk(array_values(array_unique(array_map('intval', array_filter($units)))), 500) as $chunk) {
+            $marks = $params = array();
+            foreach ($chunk as $i => $unitId) {
+                $marks[] = ':u' . $i;
+                $params['u' . $i] = $unitId;
+            }
+            // A survey's unit row is its study's (patch 116) and stays with
+            // it; a Survey or Form unit that was never linked has none.
+            $this->db->exec(
+                'DELETE FROM survey_units WHERE id IN (' . implode(',', $marks) . ')
+                   AND NOT EXISTS (SELECT 1 FROM survey_studies s WHERE s.id = survey_units.id)
+                   AND NOT EXISTS (SELECT 1 FROM survey_run_units ru WHERE ru.unit_id = survey_units.id)
+                   AND NOT EXISTS (SELECT 1 FROM survey_run_special_units su WHERE su.id = survey_units.id)
+                   AND NOT EXISTS (SELECT 1 FROM survey_runs r WHERE survey_units.id IN (r.reminder_email, r.service_message, r.overview_script, r.deactivated_page))',
+                $params
+            );
+        }
     }
 
     public function togglePublic($public)
@@ -517,7 +546,9 @@ class Run extends Model
 
     public function deleteFile($id, $filename)
     {
-        $where = array('id' => (int) $id, 'original_file_name' => $filename);
+        // Both id and name come from the request; scope to this run so
+        // another run's asset can't be unlinked and deleted through it.
+        $where = array('id' => (int) $id, 'original_file_name' => $filename, 'run_id' => (int) $this->id);
         $filepath = $this->db->findValue('survey_uploaded_files', $where, 'new_file_path');
         $deleted = $this->db->delete('survey_uploaded_files', $where);
         $physicalfile = APPLICATION_ROOT . "webroot/" . $filepath;
@@ -549,16 +580,84 @@ class Run extends Model
 
     public function reorder($positions)
     {
-        $run_unit_id = null;
-        $pos = null;
-        $update = "UPDATE `survey_run_units` SET position = :position WHERE run_id = :run_id AND id = :run_unit_id";
-        $reorder = $this->db->prepare($update);
-        $reorder->bindParam(':run_id', $this->id);
-        $reorder->bindParam(':run_unit_id', $run_unit_id);
-        $reorder->bindParam(':position', $pos);
-
+        // Audit F10/F12 (2026-07): validate before writing. Duplicate positions
+        // make traversal non-deterministic (two unordered LIMIT-1 lookups can
+        // disagree) and patch 064's UNIQUE(run_id, position) would reject them
+        // with a raw 23000 — surface a clear message instead. Any single
+        // integer position is otherwise legal: 0 is a valid slot (a unit there
+        // must start the run, not brick it — the null-checks elsewhere in the
+        // engine handle that) and negative positions are occasionally used, so
+        // only duplicates within the batch are rejected.
+        $seen = [];
         foreach ($positions as $run_unit_id => $pos) {
-            $reorder->execute();
+            $pos = (int) $pos;
+            if (isset($seen[$pos])) {
+                $this->errors[] = "Two units share position {$pos}; positions must be unique.";
+                return false;
+            }
+            $seen[$pos] = true;
+        }
+
+        // Two-phase apply so a permutation that transiently reuses a live
+        // position (a swap, a rotation) doesn't trip the UNIQUE key. InnoDB
+        // checks UNIQUE per row *within* a statement (no deferred constraints),
+        // and for a cyclic permutation no row order — and no single CASE
+        // UPDATE — avoids a transient duplicate. So park every affected row in
+        // a band strictly above every position currently in the run AND every
+        // requested target (guaranteeing the parked values collide with
+        // neither the not-yet-moved rows in phase 1 nor the finals in phase 2),
+        // then write the finals. Two batched UPDATEs, one transaction.
+        if (!$positions) {
+            return true;
+        }
+        $ids = array_map('intval', array_keys($positions));
+        $targets = array_map('intval', array_values($positions));
+        $currentMax = (int) $this->db->execute(
+            "SELECT COALESCE(MAX(position), 0) FROM survey_run_units WHERE run_id = :rid",
+            ['rid' => $this->id], true
+        );
+        $base = max(max($targets), $currentMax) + 1;
+
+        $this->db->beginTransaction();
+        try {
+            // Phase 1: park each affected row at base, base+1, … (all distinct,
+            // all above every real/target position). Keyed by id via a CASE so
+            // it is a single statement.
+            $parkCases = '';
+            $rank = 0;
+            $parkParams = ['rid' => $this->id];
+            foreach ($ids as $i => $ruid) {
+                $parkCases .= " WHEN :pid{$i} THEN :ppos{$i}";
+                $parkParams["pid{$i}"] = $ruid;
+                $parkParams["ppos{$i}"] = $base + $rank;
+                $rank++;
+            }
+            $idList = implode(',', $ids); // $ids is already int-cast
+            $this->db->exec(
+                "UPDATE `survey_run_units` SET position = CASE id{$parkCases} END
+                 WHERE run_id = :rid AND id IN ({$idList})",
+                $parkParams
+            );
+
+            // Phase 2: write the requested final positions.
+            $finalCases = '';
+            $finalParams = ['rid' => $this->id];
+            foreach ($ids as $i => $ruid) {
+                $finalCases .= " WHEN :fid{$i} THEN :fpos{$i}";
+                $finalParams["fid{$i}"] = $ruid;
+                $finalParams["fpos{$i}"] = $targets[$i];
+            }
+            $this->db->exec(
+                "UPDATE `survey_run_units` SET position = CASE id{$finalCases} END
+                 WHERE run_id = :rid AND id IN ({$idList})",
+                $finalParams
+            );
+
+            $this->db->commit();
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            $this->errors[] = 'Re-ordering failed: ' . $e->getMessage();
+            return false;
         }
         return true;
     }
@@ -763,12 +862,59 @@ class Run extends Model
 
     public function getReminderSession($reminder_id, $session, $run_session_id)
     {
-        // create a unit_session here and get a session_id and pass it when making the unit
-        $runUnit = RunUnitFactory::make($this, ['id' => $reminder_id]);
+        // Both ids arrive from the request (ajax_remind, bulk actions, the
+        // monkey bar). The reminder must be one of THIS run's ReminderEmail
+        // special units — resolved by bare survey_units id it could be any
+        // user's email unit, rendered and sent through their SMTP account —
+        // and RunSession::load() scopes the run_session_id lookup to $this,
+        // so a foreign id yields an invalid session, not another run's
+        // participant.
+        $runUnit = $this->getSpecialUnit('ReminderEmail', $reminder_id);
+        if (!$runUnit || !($runUnit instanceof Email) || !$runUnit->valid) {
+            return null;
+        }
         $runSession = new RunSession($session, $this, ['id' => $run_session_id]);
+        if (!$runSession->valid) {
+            return null;
+        }
+        // create a unit_session here and get a session_id and pass it when making the unit
         $runSession->createUnitSession($runUnit, false);
 
         return $runSession->currentUnitSession;
+    }
+
+    /**
+     * Create, execute AND terminate a reminder email session. Audit F1b
+     * (2026-07): callers used to execute() the session and leave it
+     * un-ended forever — those live off-position rows were the raw
+     * material of the F1 placement hijack and litter every stalled-
+     * session audit. end(null) preserves the execute() result
+     * ('email_queued'/'email_sent'); the email queue's post-send result
+     * update is a raw UPDATE by id and still lands after end().
+     *
+     * @return UnitSession|false the ended session, or false if execute() failed
+     */
+    public function sendReminder($reminder_id, $session, $run_session_id)
+    {
+        // Review 2026-07 (item 9): fail SOFT on any session-creation failure.
+        // A stale/deleted reminder id makes RunUnitFactory::make throw
+        // (RuntimeException: no unit type), and a DB error / non-adoptable
+        // UNIQUE collision makes createUnitSession install NULL — either way
+        // ->execute() then fataled, 500ing the single-reminder button and
+        // aborting whole bulk-reminder requests on the first bad session.
+        // Callers already alert on false and bulk loops continue.
+        try {
+            $emailSession = $this->getReminderSession($reminder_id, $session, $run_session_id);
+        } catch (Throwable $e) {
+            formr_log_exception($e, __METHOD__, ['reminder_id' => $reminder_id, 'run_session_id' => $run_session_id]);
+            return false;
+        }
+        if (!$emailSession || !$emailSession->id) {
+            return false;
+        }
+        $result = $emailSession->execute();
+        $emailSession->end();
+        return $result === false ? false : $emailSession;
     }
 
     public function getCustomCSS()
@@ -1009,38 +1155,71 @@ class Run extends Model
         return true;
     }
 
+    /**
+     * Every SurveyStudy placed in this run, one row per study
+     * (results_table, name, id, rendering_mode). A Survey or Form unit shares
+     * its id with its study (survey_studies.id is an FK onto that
+     * survey_units row), so the placement's unit_id is the study id.
+     */
     public function getAllSurveys()
     {
-        // first, generate a master list of the search set (all the surveys that are part of the run)
-        return $this->db->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
-            ->from('survey_studies')
-            ->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
-            ->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
-            ->where('survey_runs.id = :run_id')
-            ->bindParams(array('run_id' => $this->id))
-            ->fetchAll();
+        return $this->selectRunSurveys('');
     }
 
     public function getAllLinkedSurveys()
     {
-        // first, generate a master list of the search set (all the surveys that are part of the run)
-        return $this->db->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
-            ->from('survey_studies')
-            ->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
-            ->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
-            ->where('survey_runs.id = :run_id')
-            ->where('survey_studies.unlinked = 0')
-            ->bindParams(array('run_id' => $this->id))
-            ->fetchAll();
+        return $this->selectRunSurveys(' AND `survey_studies`.`unlinked` = 0');
+    }
+
+    private function selectRunSurveys($extraWhere)
+    {
+        $stmt = $this->db->prepare("SELECT DISTINCT
+                COALESCE(`survey_studies`.`results_table`, `survey_studies`.`name`) AS `results_table`,
+                `survey_studies`.`name`, `survey_studies`.`id`, `survey_studies`.`rendering_mode`
+            FROM `survey_run_units`
+            INNER JOIN `survey_studies` ON `survey_studies`.`id` = `survey_run_units`.`unit_id`
+            WHERE `survey_run_units`.`run_id` = :run_id" . $extraWhere);
+        $stmt->bindValue(':run_id', (int) $this->id, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function getData($rstmt = false)
     {
         ini_set('memory_limit', Config::get('memory_limit.run_get_data'));
 
-        $collect = $this->db->prepare("SELECT 
+        // D1 fan-out fix (v1.7.1). The old run_units join was
+        //     LEFT JOIN `survey_run_units` ON `survey_studies`.id = `survey_run_units`.unit_id
+        // — keyed on the STUDY id (which equals the unit id only for legacy v1
+        // Survey units, where the unit shares the study's primary key) and with
+        // NO run_id predicate. So this export duplicated EVERY item-display row
+        // once per placement of that study anywhere in the database: a survey
+        // slotted twice in this run doubled the whole xlsx/csv, and the same
+        // survey reused in someone else's run added another copy on top, with
+        // `unit_position` differing between the copies. Rows were never dropped,
+        // only multiplied — but a duplicated row set is indistinguishable from
+        // real repeated measurements to whoever analyses the export.
+        // Two-alias form (see RunHelper::PLACEMENT_JOIN, the canonical wording):
+        // `sru_own` pins the row to the placement its own unit session ran at
+        // (survey_unit_sessions.run_unit_id, patch 047 — indexed PK lookup, at
+        // most one row, and correct for v2 Form units too, whose unit id does
+        // NOT equal their study id); `sru_fallback` fires only when that misses
+        // — rows predating 047, plus the multi-position rows the 048 backfill
+        // intentionally left NULL — and keeps the legacy study-id match, now
+        // scoped to this run so foreign runs can no longer contribute copies.
+        // Unlike UnitSession::getRunData()'s two-alias join, the fallback arm
+        // pins to ONE placement (lowest id) rather than matching them all: for
+        // a legacy row the true placement is unknowable, and duplicating every
+        // item-display row of the export N times IS the bug being fixed, so a
+        // best-effort unit_position on a single row beats N wrong rows. Without
+        // the pick the fix would only help sessions created after 047 (26% of
+        // the unit sessions on this instance's oldest run still have a NULL
+        // run_unit_id). survey_run_units holds a few hundred rows instance-wide
+        // and the subquery is served by (run_id) + (unit_id), so the cost is
+        // negligible next to the item-display scan this export already does.
+        $collect = $this->db->prepare("SELECT
 			`survey_studies`.name AS survey_name,
-			`survey_run_units`.position AS unit_position,
+			COALESCE(`sru_own`.`position`, `sru_fallback`.`position`) AS unit_position,
 			`survey_unit_sessions`.id AS unit_session_id,
 			`survey_run_sessions`.session AS session,
 			`survey_items`.type,
@@ -1063,8 +1242,14 @@ class Run extends Model
 			LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
 			LEFT JOIN `survey_items` ON `survey_items_display`.item_id = `survey_items`.id
 			LEFT JOIN `survey_studies` ON `survey_items`.study_id = `survey_studies`.id
-			LEFT JOIN `survey_run_units` ON `survey_studies`.id = `survey_run_units`.unit_id
-			WHERE `survey_run_sessions`.run_id = :id 
+			LEFT JOIN `survey_run_units` AS `sru_own` ON `sru_own`.id = `survey_unit_sessions`.run_unit_id
+			LEFT JOIN `survey_run_units` AS `sru_fallback` ON `sru_own`.id IS NULL
+				AND `sru_fallback`.id = (
+					SELECT MIN(`ru_pick`.id) FROM `survey_run_units` AS `ru_pick`
+					WHERE `ru_pick`.unit_id = `survey_studies`.id
+					  AND `ru_pick`.run_id = `survey_run_sessions`.run_id
+				)
+			WHERE `survey_run_sessions`.run_id = :id
 			AND `survey_studies`.unlinked = 0");
         $collect->bindValue(":id", $this->id);
         $collect->execute();
@@ -1081,11 +1266,43 @@ class Run extends Model
 
     public function getRandomGroups()
     {
-        $g_users = $this->db->prepare("SELECT 
+        // D1 fan-out fix (v1.7.1). The old run_units join was
+        //     LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
+        // — keyed on the unit DEFINITION and, uniquely among the D1 sites, with
+        // NO run_id predicate at all. Two defects fell out of that: (a) a
+        // Shuffle slotted at N positions in THIS run multiplied every shuffle
+        // unit-session row by N (N different `position` values, group counts
+        // N-fold inflated in the randomisation admin page and its CSV export);
+        // (b) with no run_id constraint, a unit reused in ANOTHER run matched
+        // that run's placement too, so `run_name` and `position` could be read
+        // off a foreign run entirely — the participant rows stayed correct
+        // (they are scoped by survey_run_sessions.run_id) but the columns
+        // describing WHERE in the flow they happened did not.
+        // Two-alias form (see RunHelper::PLACEMENT_JOIN, the canonical wording):
+        // `sru_own` pins the row to its OWN placement via
+        // survey_unit_sessions.run_unit_id (patch 047 — indexed PK lookup, at
+        // most one row); `sru_fallback` fires only when that misses — rows
+        // predating 047, plus the multi-position rows the 048 backfill
+        // intentionally left NULL — and keeps the legacy unit_id match, now
+        // correctly scoped to this participant's run (the pick is keyed on
+        // survey_run_sessions.run_id, which is what closes defect (b)).
+        // Unlike UnitSession::getRunData()'s two-alias join, the fallback arm
+        // here pins to ONE placement (lowest id) rather than matching them all.
+        // For a legacy row the true placement is unknowable, and this feeds a
+        // row-per-randomisation admin table and CSV: listing the assignment N
+        // times under N positions IS the bug being fixed, so a best-effort
+        // position on a single row beats N wrong rows. Without the pick the fix
+        // would only help sessions created after 047 (26% of the unit sessions
+        // on this instance's oldest run still have a NULL run_unit_id).
+        // survey_run_units holds a few hundred rows instance-wide and the
+        // subquery is served by (run_id) + (unit_id), so the cost is negligible.
+        // The survey_runs join follows whichever arm matched, so `run_name` is
+        // always the run the session actually belongs to.
+        $g_users = $this->db->prepare("SELECT
 			`survey_run_sessions`.session,
 			`survey_unit_sessions`.id AS session_id,
 			`survey_runs`.name AS run_name,
-			`survey_run_units`.position,
+			COALESCE(`sru_own`.`position`, `sru_fallback`.`position`) AS position,
 			`survey_units`.type AS unit_type,
 			`survey_unit_sessions`.created,
 			`survey_unit_sessions`.ended,
@@ -1095,8 +1312,14 @@ class Run extends Model
 		LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 		LEFT JOIN `survey_users` ON `survey_users`.id = `survey_run_sessions`.user_id
 		LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
-		LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
-		LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
+		LEFT JOIN `survey_run_units` AS `sru_own` ON `sru_own`.id = `survey_unit_sessions`.run_unit_id
+		LEFT JOIN `survey_run_units` AS `sru_fallback` ON `sru_own`.id IS NULL
+			AND `sru_fallback`.id = (
+				SELECT MIN(`ru_pick`.id) FROM `survey_run_units` AS `ru_pick`
+				WHERE `ru_pick`.unit_id = `survey_unit_sessions`.unit_id
+				  AND `ru_pick`.run_id = `survey_run_sessions`.run_id
+			)
+		LEFT JOIN `survey_runs` ON `survey_runs`.id = COALESCE(`sru_own`.run_id, `sru_fallback`.run_id)
 		WHERE `survey_run_sessions`.run_id = :run_id AND `survey_units`.type = 'Shuffle'
 		ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC;");
 
@@ -1110,9 +1333,41 @@ class Run extends Model
         return $this->name === self::TEST_RUN;
     }
 
+    /**
+     * Which study this TEST_RUN instance previews. Set by
+     * SurveyTestController (the only TEST_RUN driver) from the identity the
+     * preview token carries, so the session slot below is keyed PER STUDY —
+     * two previews in two tabs no longer clobber each other's in-flight
+     * test state (review 2026-07, item 17).
+     */
+    public $test_study_id = null;
+
+    /** Per-study session key for the in-flight preview state. */
+    private function testStudyKey()
+    {
+        return 'test_study_data_' . (int) $this->test_study_id;
+    }
+
+    /**
+     * The unit a "Test Survey" preview runs: a Form for a study on the
+     * form_v2 engine — so the preview renders exactly what participants get,
+     * through the same v2 endpoints (SurveyTestController routes them) —
+     * and the classic Survey otherwise.
+     */
+    public function testStudyUnit(array $data)
+    {
+        $study = new SurveyStudy((int) $data['study_id']);
+        if ($study->valid && $study->rendering_mode === 'v2') {
+            $form = new Form($this, $data);
+            $form->surveyStudy = $study;
+            return $form;
+        }
+        return (new Survey($this, $data))->load();
+    }
+
     private function testStudy()
     {
-        if (!($data = Session::get('test_study_data'))) {
+        if (!($data = Session::get($this->testStudyKey()))) {
             formr_error(404, 'Not Found', 'Nothing to Test-Drive');
         }
 
@@ -1120,17 +1375,26 @@ class Run extends Model
             $data['id'] = $data['unit_id'];
         }
 
-        $runUnit = (new Survey($this, $data))->load();
-        $runSession = RunSession::getTestSession($this);
+        $runUnit = $this->testStudyUnit($data);
+        // One code for the whole preview (the test run stores no run
+        // session), so R reads the same user_id on every page and in a v2
+        // form's endpoints (SurveyTestController::formV2Endpoint).
+        $runSession = RunSession::getTestSession($this, isset($data['test_code']) ? $data['test_code'] : null);
+        $output = null;
         if (!isset($data['unit_session_id'])) {
             $runSession->createUnitSession($runUnit);
             $data['unit_session_id'] = $runSession->currentUnitSession->id;
-            Session::set('test_study_data', $data);
+            $data['test_code'] = $runSession->session;
+            Session::set($this->testStudyKey(), $data);
         } else {
             $unitSession = new UnitSession($runSession, $runUnit, ['id' => $data['unit_session_id'], 'load' => true]);
             $runSession->currentUnitSession = $unitSession;
         }
-        $output = $runSession->execute();
+        // A v2 form is ended by its final page submit (FormSubmissionService),
+        // not by a GET; the redirect that follows lands here and finishes.
+        if (!($runUnit instanceof Form) || $runSession->currentUnitSession->ended === null) {
+            $output = $runSession->execute();
+        }
 
         if (!$output) {
             $output = [
@@ -1141,7 +1405,7 @@ class Run extends Model
 					<a href='" . admin_study_url($data['study_name']) . "'>Back to the admin control panel.</a>"
             ];
 
-            Session::delete('test_study_data');
+            Session::delete($this->testStudyKey());
         }
 
         return compact("output", "runSession");
@@ -1149,6 +1413,10 @@ class Run extends Model
 
     public function exec(User $user)
     {
+        // The one way a participant's page (or a survey preview) reaches the
+        // engine: what it posted is a submission, for the unit session its
+        // form names (PageSubmission).
+        PageSubmission::capture();
         if (!$this->valid) {
             formr_error(404, 'Not Found', __("Run '%s' is broken or does not exist.", $this->name), 'Study Not Found');
             return false;
@@ -1159,11 +1427,7 @@ class Run extends Model
 
             $runSession = run_session(new RunSession($user->user_code, $this, ['user' => $user]));
 
-            if (($this->getOwner()->user_code == $user->user_code || // owner always has access
-                    $runSession->isTesting()) || // testers always have access
-                ($this->public >= 1 && $runSession->id) || // already enrolled
-                ($this->public >= 2)
-            ) { // anyone with link can access
+            if ($this->admits($runSession, $user)) {
 
                 if ($runSession->id === null) {
                     $runSession->create($user->user_code, (int) $user->created($this));
@@ -1237,6 +1501,7 @@ class Run extends Model
             'run_session' => $runSession,
             'run_content' => $run_content,
             'redirect' => array_val($output, 'redirect'),
+            'form_v2' => array_val($output, 'form_v2'),
             'run' => $this,
         );
     }
@@ -1254,9 +1519,23 @@ class Run extends Model
         $SPR = new SpreadsheetReader();
         // Save run units
         foreach ($units as $i => &$unit) {
-            if ($inc_survey && $unit->type === 'Survey') {
-                $survey = SurveyStudy::loadById($unit->unit_id);
-                $unit->survey_data = $SPR->exportItemTableJSON($survey, true);
+            if ($inc_survey && in_array($unit->type, Survey::TYPES, true)) {
+                // The export dialog posts the unit list from the browser, so
+                // `unit_id` (a Survey or Form unit's study id) is
+                // caller-supplied: attach items only for a study the run's
+                // owner actually owns. Without this check any admin could read
+                // another user's item table by editing the POST.
+                $study_id = (int) $unit->unit_id;
+                if ($this->isOwnedBy('survey_studies', $study_id, $this->user_id)) {
+                    $survey = SurveyStudy::loadById($study_id);
+                    $unit->survey_data = $SPR->exportItemTableJSON($survey, true);
+                } else {
+                    // A legacy placement of a colleague's study (or one a
+                    // superadmin re-assigned): still exported as a skeleton,
+                    // but say so — silently, the bundle looked complete and
+                    // only failed to link a study on import.
+                    alert('The ' . strtolower($unit->type) . ' unit at position ' . (int) $unit->position . ' points to a study you do not own, so its items were not included in the export.', 'alert-warning');
+                }
             }
             unset($unit->unit_id, $unit->run_unit_id);
         }
@@ -1342,10 +1621,20 @@ class Run extends Model
 
         $units = (array) $json->units;
         $createdUnits = [];
-
         foreach ($units as $unitData) {
             // Cast to object to be safe, though json_decode usually returns objects
             $unit = (object)$unitData;
+
+            // Never trust identity or linkage fields from an import payload.
+            // A legitimate export carries none of them (Run::export unsets
+            // unit_id / run_unit_id, and export_attribs never include id),
+            // while a crafted one could name another user's survey_units /
+            // survey_run_units row and have create() modify(), insert_update
+            // or addToRun() it. Imports always create fresh rows; the
+            // Survey/Form branch below re-adds `importing` itself.
+            foreach (['id', 'unit_id', 'run_unit_id', 'run_id', 'add_to_run', 'importing', 'valid', 'run', 'user_id'] as $identityField) {
+                unset($unit->$identityField);
+            }
 
             // 3. Skip invalid units (missing type or position)
             if (!isset($unit->position) || empty($unit->type)) {
@@ -1374,6 +1663,11 @@ class Run extends Model
             //                  $options['survey_data']->settings is
             //                  allowlisted in SurveyStudy::createFromData
             //                  (987cfba8).
+            //   Form         — a Survey unit whose study is on v2: Form has
+            //                  no create() of its own, so study_id and
+            //                  survey_data take exactly the Survey path
+            //                  above (Survey::create's isOwnedBy check, the
+            //                  createFromData allowlist + engineGate).
             //   Email        — $options['account_id'] is gated by
             //                  Email::create's isOwnedBy check (5783f101).
             //   Pause, Page, External, Shuffle, Branch, Privacy,
@@ -1403,6 +1697,19 @@ class Run extends Model
                     break;
 
                 case 'Survey':
+                case 'Form':
+                    // A Form unit is a survey on v2: an exported one says so
+                    // in its settings, and one that does not is put on v2 by
+                    // its unit type (upload rules apply: engineGate, items v2
+                    // cannot run).
+                    if ($unit->type === 'Form' && isset($unit->survey_data) && is_object($unit->survey_data)) {
+                        if (!isset($unit->survey_data->settings) || !is_object($unit->survey_data->settings)) {
+                            $unit->survey_data->settings = new stdClass();
+                        }
+                        if (!isset($unit->survey_data->settings->rendering_mode)) {
+                            $unit->survey_data->settings->rendering_mode = 'v2';
+                        }
+                    }
                     $options = (array)$unit;
                     $options['importing'] = true;
                     $options['run'] = $this;
@@ -1437,13 +1744,20 @@ class Run extends Model
             unset($unitVars['user_id']);
             $options = array_merge($options, $unitVars);
 
-            $unitObj = RunUnitFactory::make($this, $options);
-
-            if ($unitObj) {
-                $unitObj->create($options);
-                if ($unitObj->valid) {
-                    $createdUnits[$unitObj->position] = $unitObj->displayForRun(Site::getInstance()->renderAlerts());
+            try {
+                $unitObj = RunUnitFactory::make($this, $options);
+                if ($unitObj) {
+                    $unitObj->create($options);
+                    if ($unitObj->valid) {
+                        $createdUnits[$unitObj->position] = $unitObj->displayForRun(Site::getInstance()->renderAlerts());
+                    }
                 }
+            } catch (Throwable $e) {
+                // Name the unit: without this the API caller only sees a
+                // unit-count mismatch and has to bisect the payload.
+                $this->importErrors[] = "unit {$unit->type} at position {$unit->position}: "
+                    . ($e instanceof PDOException ? 'a database error occurred' : $e->getMessage());
+                throw $e;
             }
         }
 
@@ -1456,6 +1770,22 @@ class Run extends Model
     }
 
     /**
+     * May this participant use the run? The owner and testers always; an
+     * enrolled participant while the run is not private (public >= 1);
+     * anyone with the link when it is open (public >= 2). One rule for the
+     * page (exec) and form_v2's write endpoints (RunController::
+     * formWriteContext).
+     */
+    public function admits(RunSession $runSession, $user)
+    {
+        // Free checks first: the owner check loads a User.
+        return ($this->public >= 1 && $runSession->id)           // already enrolled
+            || $this->public >= 2                                // anyone with the link
+            || $runSession->isTesting()                          // testers always have access
+            || $this->getOwner()->user_code == $user->user_code; // owner always has access
+    }
+
+    /**
      * API SPECIFIC: Replaces all run units with the provided JSON structure.
      * This makes the operation idempotent (PUT request compliant).
      * * @param string $json_string JSON string of run units
@@ -1463,12 +1793,52 @@ class Run extends Model
      */
     public function replaceUnits($json_string)
     {
+        // Refuse a payload importUnits() would fail on BEFORE the DELETE
+        // below. The transaction cannot be relied on to undo a half-done
+        // import: DB::beginTransaction/commit are flattened, so the first
+        // Survey unit's SurveyStudy::saveUploadedItemsFromReader() commit()
+        // (and any results-table DDL, an implicit commit) makes the DELETE
+        // durable, and a later unit's failure leaves the run truncated.
+        $this->importErrors = $this->preflightImport($json_string);
+        if ($this->importErrors) {
+            return false;
+        }
+
         $this->db->beginTransaction();
 
         try {
+            // Audit F8/F7 (2026-07): terminate in-flight participant unit
+            // sessions for THIS run before wiping the structure. The wipe
+            // below re-creates survey_run_units with new ids, so every
+            // live session's run_unit_id would otherwise dangle and the
+            // participant would resume spliced onto whatever unit now
+            // occupies their stored position. Expiring them (in the same
+            // transaction) gives a clean terminal state; on their next
+            // request the recovery branch advances them from their numeric
+            // position through the NEW structure instead.
+            // Scope by the RUN, not the placement (review 2026-07, item 13):
+            // when the whole structure is wiped, EVERY live session of this
+            // run's participants dangles — including legacy rows whose
+            // run_unit_id is NULL (pre-047, and the 048 backfill's
+            // intentional NULLs), which the old INNER JOIN on run_unit_id
+            // could never match and therefore left live to resume spliced
+            // onto the new structure. The ru arm keeps covering stray
+            // stamped rows without a run session.
+            $this->db->exec(
+                "UPDATE `survey_unit_sessions` us
+                 LEFT JOIN `survey_run_sessions` rs ON rs.id = us.run_session_id
+                 LEFT JOIN `survey_run_units` ru ON ru.id = us.run_unit_id
+                 SET us.`expired` = NOW(), us.`queued` = 0,
+                     us.`result` = COALESCE(us.`result`, 'run_structure_replaced'),
+                     us.`state` = :state
+                 WHERE (rs.run_id = :run_id OR ru.run_id = :run_id2)
+                   AND us.`ended` IS NULL AND us.`expired` IS NULL",
+                ['run_id' => $this->id, 'run_id2' => $this->id, 'state' => UnitSessionQueue::STATE_EXPIRED]
+            );
+
             // 1. Wipe the existing structure for this run.
             // We delete the links in 'run_units'. This effectively "empties" the run structure.
-            // Note: This does not delete the actual Unit definitions (surveys) or data, 
+            // Note: This does not delete the actual Unit definitions (surveys) or data,
             // it just unlinks them from this specific Run.
             $delete = $this->db->prepare("DELETE FROM survey_run_units WHERE run_id = :run_id");
             $delete->bindParam(':run_id', $this->id);
@@ -1490,14 +1860,93 @@ class Run extends Model
 
             $this->db->commit();
             return $imported;
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
+            // Throwable, not Exception: a TypeError from item/choice parsing
+            // (e.g. a choice given as an object) otherwise escapes the
+            // rollback and reaches the API dispatcher as a bare 500.
             $this->db->rollBack();
-            // The caller (StructureResource::importStructure) infers failure
-            // from a unit-count mismatch and the alert buffer; log so the
-            // root cause is visible in tmp/logs/errors.log.
+            $this->importServerFault = $e instanceof PDOException;
+            if (!$this->importErrors) {
+                $this->importErrors[] = $this->importServerFault ? 'a database error occurred' : $e->getMessage();
+            }
             formr_log_exception($e, __METHOD__);
             return false;
         }
+    }
+
+    /** @return string[] why the last import failed ([] if it did not) */
+    public function getImportErrors()
+    {
+        return $this->importErrors;
+    }
+
+    /** Did the last import fail on the server's side (see $importServerFault)? */
+    public function importFailedOnServer()
+    {
+        return $this->importServerFault;
+    }
+
+    /**
+     * Checks that need no writes: every unit's type is importable, jump
+     * targets are numeric, inline choices are plain labels. Mirrors the
+     * checks importUnits() would otherwise fail on mid-way.
+     *
+     * @return string[] one message per problem
+     */
+    protected function preflightImport($json_string)
+    {
+        $json = json_decode($json_string);
+        if (json_last_error() !== JSON_ERROR_NONE || empty($json->units)) {
+            return ['Invalid JSON or no units.'];
+        }
+        $supported = RunUnitFactory::getSupportedUnits();
+        $errors = [];
+        $n = 0;
+        // A payload value as message text: a malformed one (an object where
+        // a string belongs) is the client's mistake to be told about (400),
+        // not an Error thrown while describing it (500).
+        $text = function ($value) {
+            return is_scalar($value) ? (string) $value : '?';
+        };
+        foreach ((array) $json->units as $unit) {
+            // A counter, not the key: importUnits() also takes `units` as an
+            // object, whose string keys cannot be numbered.
+            $n++;
+            $unit = (object) $unit;
+            $type = isset($unit->type) ? $text($unit->type) : '';
+            $label = "unit " . $n . " (" . ($type ?: '?') . " at position " . $text($unit->position ?? '?') . ")";
+            if ($type === 'Endpage') {
+                $type = 'Page';
+            }
+            if (!in_array($type, $supported, true)) {
+                $hint = [
+                    'Branch' => ' Branch is the internal base class; use SkipForward (jump when condition is TRUE) or SkipBackward (loop back).',
+                    'Privacy' => ' Privacy/ToS text is a run setting (privacy, tos), not an importable unit.',
+                ][$type] ?? '';
+                $errors[] = "$label: unsupported unit type '$type'. Importable types: " . implode(', ', $supported) . ".$hint";
+                continue;
+            }
+            if (!isset($unit->position) || !is_numeric($unit->position)) {
+                $errors[] = "$label: position must be numeric.";
+            }
+            if (in_array($type, ['SkipForward', 'SkipBackward'], true)
+                && (!isset($unit->if_true) || !is_numeric($unit->if_true))) {
+                $errors[] = "$label: if_true must be a numeric position.";
+            }
+            if (in_array($type, Survey::TYPES, true) && isset($unit->survey_data->items)) {
+                foreach ((array) $unit->survey_data->items as $item) {
+                    if (!is_object($item)) {
+                        continue;
+                    }
+                    foreach ((array) ($item->choices ?? []) as $key => $choice) {
+                        if (!is_scalar($choice) && $choice !== null) {
+                            $errors[] = "$label: item '" . $text($item->name ?? '?') . "', choice '$key' must be a plain label string, not an object.";
+                        }
+                    }
+                }
+            }
+        }
+        return $errors;
     }
 
     protected function setExpireCookieUnits()
@@ -1624,11 +2073,16 @@ class Run extends Model
             $pwa_icon_base_path_for_manifest = '/' . trim($run_pwa_icon_path_val, '/') . '/';
         }
 
-        // Replace placeholders
+        // Replace placeholders. The protocol_handlers scheme suffix must be
+        // ASCII letters only ("web+" schemes reject digits/dashes — Chrome
+        // drops the whole entry with a manifest warning otherwise), so run
+        // names like "e2e-pwa-l-v2" are squeezed to their letters.
+        $protocol_suffix = strtolower(preg_replace('/[^a-zA-Z]/', '', $this->name));
         $manifest_string = str_replace(
-            array('{APP_NAME}', '{DESCRIPTION}', '{SCOPE}', '{ID}', '{START_URL}', '{PWA_ICON_BASE_PATH}'),
+            array('{APP_NAME}', '{APP_PROTOCOL_SUFFIX}', '{DESCRIPTION}', '{SCOPE}', '{ID}', '{START_URL}', '{PWA_ICON_BASE_PATH}'),
             array(
                 $this->name,
+                $protocol_suffix,
                 $this->description ?: '',
                 run_url($this->name),
                 run_url($this->name),

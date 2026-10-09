@@ -1,0 +1,37 @@
+{
+  "name": "rescov-exterr",
+  "units": [
+    {
+      "type": "External",
+      "description": "R address cannot evaluate -> error_opencpu, parks and re-arms",
+      "position": 10,
+      "special": null,
+      "address": "no_such_function_rescov(1)",
+      "api_end": 0,
+      "expire_after": 0
+    },
+    {
+      "type": "Endpage",
+      "description": "unreachable while the R address is broken",
+      "position": 20,
+      "special": null,
+      "body": "Should not be reached.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-exterr/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-exterr/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-exterr/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

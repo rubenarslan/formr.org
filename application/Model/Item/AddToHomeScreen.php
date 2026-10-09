@@ -4,6 +4,7 @@ class AddToHomeScreen_Item extends Item {
     public $type = 'add_to_home_screen';
     public $no_user_input_required = false;
     public $hasChoices = true;
+    public $choicesOptional = true;
     public $mysql_field = 'VARCHAR(20) DEFAULT NULL';
     protected $classes_input = array('btn', 'btn-primary', 'add-to-homescreen');
 
@@ -21,9 +22,15 @@ class AddToHomeScreen_Item extends Item {
 
     protected function render_input() {
         // Create hidden input with same name as button
+        // The stored status when there is one (FormRenderer renders a v2
+        // item's stored answer, v1 the posted one after a validation error):
+        // a page that always said `not_requested` saved that over the
+        // participant's status with its next autosave.
+        $status = ($this->value_validated !== null && $this->value_validated !== '') ? (string) $this->value_validated : 'not_requested';
         $hidden_input = sprintf(
-            '<input type="text" name="%s" value="not_requested" id="%s" style="display: none;" />',
+            '<input type="text" name="%s" value="%s" id="%s" style="display: none;" />',
             $this->name,
+            h($status),
             $this->name
         );
 
@@ -50,7 +57,7 @@ class AddToHomeScreen_Item extends Item {
     }
 
     public function validateInput($reply) {
-        if (in_array($reply, array('added', 'ios_not_prompted', 'not_requested', 'not_prompted', 'already_added', 'no_support', 'not_added'))) {
+        if (in_array($reply, array('added', 'ios_not_prompted', 'not_requested', 'not_prompted', 'prompted', 'already_added', 'no_support', 'not_added'))) {
             return $reply;
         }
         return null;

@@ -8,7 +8,15 @@
 class SpreadsheetRenderer {
 
     /**
-     * 
+     * Prefix of the sibling element every tryCatch-wrapped showif / dynamic
+     * value writes its conditionMessage() into, so a single broken author
+     * expression stays isolated *and* stays loud. See
+     * processDynamicValuesAndShowIfs() and reportRExpressionErrors().
+     */
+    const R_ERROR_PREFIX = 'fmr_err.';
+
+    /**
+     *
      * @var Run
      */
     protected $run;
@@ -80,16 +88,21 @@ class SpreadsheetRenderer {
             if (!$items) {
                 continue;
             }
-            $lastItem = end($items);
-
-            // If no items ended up to be on the page but for a submit button, make it hidden and continue
+            // If nothing ended up on the page but its submit button — and
+            // items participants never see (Item::isUnseen: data_quality,
+            // agent_probe), which do not make a page — hide those and continue,
             // else render processed items
-            if (count($items) == 1 && $lastItem->type === 'submit') {
-                $sess_item = array(
-                    'session_id' => $this->unitSession->id,
-                    'item_id' => $lastItem->id,
-                );
-                $this->db->update('survey_items_display', array('hidden' => 1), $sess_item);
+            $shown = array_filter($items, function ($item) {
+                return $item->type !== 'submit' && !$item->isUnseen();
+            });
+            if (!$shown) {
+                // one batched hidden-update, as for the showif results below
+                $rows = array();
+                foreach ($items as $leftover) {
+                    $rows[(int) $leftover->id] = array('hidden' => 1);
+                }
+                $this->db->batchUpdateByKey('survey_items_display', 'item_id', $rows,
+                    array(), array('session_id' => $this->unitSession->id));
                 continue;
             } else {
                 $this->toRender = $this->processDynamicLabelsAndChoices($items);
@@ -274,8 +287,9 @@ class SpreadsheetRenderer {
 				`survey_items_display`.answered')
                 ->from('survey_items')
                 ->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-                ->where('(survey_items.study_id = :study_id) AND 
-				     (survey_items_display.saved IS null) AND 
+                ->where('(survey_items.study_id = :study_id) AND
+				     (survey_items.deleted IS NULL) AND
+				     (survey_items_display.saved IS null) AND
 				     (survey_items_display.hidden IS NULL OR survey_items_display.hidden = 0)')
                 ->order('`survey_items_display`.`display_order`', 'asc')
                 ->order('survey_items.`order`', 'asc') // only needed for transfer
@@ -346,13 +360,62 @@ class SpreadsheetRenderer {
     }
 
     /**
-     * Process show-ifs and dynamic values for a given set of items in survey
-     * @note: All dynamic values are processed (even for those we don't know if they will be shown)
+     * Process show-ifs and dynamic values for a given set of items in survey.
+     *
+     * @note All dynamic values are processed (even for those we don't know if
+     *       they will be shown).
+     *
+     * Error handling — two competing requirements, both load-bearing:
+     *
+     *  1. **Isolation.** Before v1.9.4 the generated R was a batch of bare
+     *     closures, so one author mistake (`if (NA)`, object-not-found, a typo'd
+     *     column) failed the *whole* OpenCPU call: hasError() fired, every item
+     *     on the page went alwaysInvalid() and participants got a raw
+     *     "problem evaluating showifs" banner. Each expression is therefore
+     *     wrapped in its own tryCatch().
+     *  2. **Loudness.** A bare `error = function(.e) NA` traded that for silence:
+     *     a broken `value` expression resolved to NA and was then persisted as a
+     *     NULL answer with no signal anywhere. So the handler returns
+     *     conditionMessage(.e) into a sibling `fmr_err.` element instead of
+     *     discarding `.e`.
+     *
+     * The resulting contract per expression:
+     *  - showif: `si.<name>` is pre-seeded NA and overwritten on success; on
+     *    failure it stays NA (the ordinary unresolved-visibility path) and
+     *    `fmr_err.si.<name>` holds the message.
+     *  - value: `<name>` is assigned only on success, so a failed expression is
+     *    *absent* from the results and is never persisted as NULL;
+     *    `fmr_err.<name>` holds the message, and in a debug context the item is
+     *    marked alwaysInvalid() so the page cannot be submitted past it.
+     *  - Both kinds are always written to the log; admin / test / cron viewers
+     *    additionally get the messages on screen (reportRExpressionErrors()).
      *
      * @param Item[] $items
      * @return array
      */
     protected function processDynamicValuesAndShowIfs(&$items) {
+        $code = $this->buildShowIfAndValueRCode($items);
+
+        if (!$code) {
+            return $items;
+        }
+
+        return $this->applyShowIfAndValueResults($items, $code);
+    }
+
+    /**
+     * Build the R statements for one batch of show-ifs and dynamic values.
+     *
+     * Split out of processDynamicValuesAndShowIfs() so the generated source —
+     * in particular its per-expression error capture, which is the whole
+     * difference between "one broken showif is reported" and "one broken showif
+     * silently persists a NULL answer" — can be asserted without an OpenCPU
+     * round trip. See that method's docblock for the contract.
+     *
+     * @param Item[] $items
+     * @return array<string,string> R statements keyed by the name they assign
+     */
+    protected function buildShowIfAndValueRCode(&$items) {
         // In this loop we gather all show-ifs and dynamic-values that need processing and all values.
         $code = array();
         $study = $this->study;
@@ -367,10 +430,30 @@ class SpreadsheetRenderer {
             $showif = $item->getShowIf();
             if ($showif) {
                 $siname = "si.{$name}";
+                $errName = self::R_ERROR_PREFIX . $siname;
                 $showif = str_replace("\n", "\n\t", $showif);
-                $code[$siname] = "{$siname} = (function(){
+                // tryCatch: a single erroring showif (object not found, if(NA)
+                // inside author code, …) must degrade to NA — the normal
+                // unresolved-visibility path — not fail the whole batch, which
+                // marked every item invalid and showed raw R error banners to
+                // the participant.
+                //
+                // The error is NOT swallowed though: the handler returns
+                // conditionMessage(.e) into a sibling `fmr_err.si.<name>`
+                // element, so PHP can log it and show it to admin/test sessions
+                // (see reportRExpressionErrors()). `si.<name>` is pre-seeded to
+                // NA and only overwritten on success — tryCatch() evaluates its
+                // expression in *this* environment, so the assignment lands in
+                // the within() frame. On success the handler never runs and the
+                // fmr_err element stays NULL, which within() drops from the
+                // returned list.
+                $code[$siname] = "{$siname} = NA
+{$errName} = tryCatch({
+	{$siname} <- (function(){
 	{$showif}
-})()";
+})()
+NULL
+}, error = function(.e) conditionMessage(.e))";
             }
 
             // 2. Check item's value
@@ -380,18 +463,42 @@ class SpreadsheetRenderer {
 {$val}
 })()";
                 if ($showif) {
-                    $code[$name] = "if({$siname}) {
+                    // if(NA) is an R error, so gate on a definite truthy result:
+                    // an unresolved showif skips the value (same as FALSE).
+                    $code[$name] = "if (isTRUE(as.logical(({$siname})[1]))) {
 	" . $code[$name] . "
 }";
                 }
-                // If item is to be shown (rendered), return evaluated dynamic value, else keep dynamic value as string
+                // If item is to be shown (rendered), return evaluated dynamic value, else keep dynamic value as string.
+                //
+                // Same per-expression isolation as the showif above, and the
+                // same error capture — but deliberately NO fallback assignment:
+                // when the expression throws, `<name>` is never created, so it
+                // is absent from $results, array_key_exists() below is false and
+                // updateSurveyStudyRecord() does not persist a NULL answer for a
+                // broken expression. The error surfaces through
+                // fmr_err.<name> instead.
+                $code[$name] = self::R_ERROR_PREFIX . "{$name} = tryCatch({
+" . $code[$name] . "
+NULL
+}, error = function(.e) conditionMessage(.e))";
             }
         }
+        unset($item);
 
-        if (!$code) {
-            return $items;
-        }
+        return $code;
+    }
 
+    /**
+     * Run one built batch through OpenCPU and fold the results back into the
+     * items: visibility, dynamic values, the batched hidden-update, and the
+     * per-expression error reporting.
+     *
+     * @param Item[] $items
+     * @param array<string,string> $code
+     * @return array
+     */
+    protected function applyShowIfAndValueResults(&$items, array $code) {
         $ocpu_session = opencpu_multiparse_showif($this->unitSession, $code, true);
         if (!$ocpu_session || $ocpu_session->hasError()) {
             notify_user_error(opencpu_debug($ocpu_session), "There was a problem evaluating showifs using openCPU.");
@@ -401,13 +508,32 @@ class SpreadsheetRenderer {
         } else {
             print_hidden_opencpu_debug_message($ocpu_session, "OpenCPU debugger for dynamic values and showifs.");
             $results = $ocpu_session->getJSONObject();
-            $updateVisibility = $this->db->prepare("UPDATE `survey_items_display` SET hidden = :hidden WHERE item_id = :item_id AND session_id = :session_id");
-            $updateVisibility->bindValue(":session_id", $this->unitSession->id);
+
+            // Per-expression R errors. The batch as a whole succeeded (that is
+            // what the tryCatch wrappers buy us), but individual author
+            // expressions may still have thrown — each left its message in a
+            // `fmr_err.` sibling. Log them and, for admin/test/cron viewers,
+            // show them; a value expression that threw additionally marks its
+            // item always-invalid so a test session cannot submit past a broken
+            // calculation.
+            $rErrors = $this->collectRExpressionErrors($results);
+            $this->reportRExpressionErrors($rErrors);
+            $valueErrors = $rErrors['value'];
 
             $save = array();
+            $visibilityUpdates = array(); // item_id => hidden (int|null), flushed in one UPDATE below
 
             $definitelyShownItems = 0;
             foreach ($items as $item_name => &$item) {
+                // A `value` expression that threw must not silently render as an
+                // empty/NA answer. In a debug context (admin, test session, cron)
+                // make the item always-invalid, matching the pre-tryCatch
+                // hasError() behaviour, so the breakage is impossible to miss.
+                // Real participants are never blocked by an author's R bug —
+                // they just get no dynamic value, and the log carries the error.
+                if (isset($valueErrors[$item->name]) && $this->isDebugViewer()) {
+                    $item->alwaysInvalid();
+                }
                 // set show-if visibility for items
                 $siname = "si.{$item->name}";
                 $isVisible = $item->setVisibility(array_val($results, $siname));
@@ -419,9 +545,9 @@ class SpreadsheetRenderer {
                 } else {
                     $hidden = (int) !$isVisible;
                 }
-                $updateVisibility->bindValue(":item_id", $item->id);
-                $updateVisibility->bindValue(":hidden", $hidden);
-                $updateVisibility->execute();
+                // one batched hidden-update after the loop instead of a round
+                // trip per item on the hottest render path (audit SQ-41)
+                $visibilityUpdates[(int) $item->id] = $hidden;
 
                 if ($hidden === 1) { // gone for good
                     unset($item->parent_attributes['data-show']);
@@ -442,9 +568,21 @@ class SpreadsheetRenderer {
                         continue; // don't increment counter
                     }
                 }
-                $definitelyShownItems++; // track whether there are any items certain to be shown
+                if (!$item->isUnseen()) {
+                    $definitelyShownItems++; // track whether there are any items certain to be shown
+                }
             }
-            
+
+            if ($visibilityUpdates) {
+                // one batched hidden-update; null stays SQL NULL (3-state kept)
+                $rows = array();
+                foreach ($visibilityUpdates as $itemId => $hidden) {
+                    $rows[(int) $itemId] = array('hidden' => $hidden);
+                }
+                $this->db->batchUpdateByKey('survey_items_display', 'item_id', $rows,
+                    array(), array('session_id' => $this->unitSession->id));
+            }
+
             // @TODO remove items from unanswerd if this is successfull
             if ($this->unitSession->updateSurveyStudyRecord($save, false)) {
                 $this->answered($save);
@@ -452,6 +590,92 @@ class SpreadsheetRenderer {
         }
 
         return $items;
+    }
+
+    /**
+     * Whether the current viewer may see internal error detail: an admin
+     * context with no run session at all, a cron/queue run, or a test session.
+     * Real participants must never get an R stack detail (or a page-top error
+     * banner) because a study author's expression is broken.
+     *
+     * @return bool
+     */
+    protected function isDebugViewer() {
+        return RunSession::authorFacing(Site::getInstance()->getRunSession());
+    }
+
+    /**
+     * Pull the per-expression R errors out of an opencpu_multiparse_showif()
+     * result. Every showif / dynamic value is emitted as a tryCatch whose error
+     * handler returns conditionMessage(.e) into a sibling element named
+     * `fmr_err.si.<item>` (showif) or `fmr_err.<item>` (value); on success that
+     * element is NULL and within() drops it, so a key here means "this
+     * expression threw".
+     *
+     * @param mixed $results Decoded JSON object returned by the batch
+     * @return array{showif: array<string,string>, value: array<string,string>}
+     */
+    protected function collectRExpressionErrors($results) {
+        $errors = array('showif' => array(), 'value' => array());
+        if (!is_array($results)) {
+            return $errors;
+        }
+
+        $prefixLength = strlen(self::R_ERROR_PREFIX);
+        foreach ($results as $key => $value) {
+            if (!is_string($key) || strpos($key, self::R_ERROR_PREFIX) !== 0) {
+                continue;
+            }
+            // jsonlite boxes length-1 vectors, so the message arrives as ["…"]
+            $message = is_array($value) ? (string) reset($value) : (string) $value;
+            $message = trim($message);
+            if ($message === '') {
+                continue;
+            }
+            $name = substr($key, $prefixLength);
+            if (strpos($name, 'si.') === 0) {
+                $errors['showif'][substr($name, 3)] = $message;
+            } else {
+                $errors['value'][$name] = $message;
+            }
+        }
+        return $errors;
+    }
+
+    /**
+     * Make per-expression R errors loud. Always logged server-side; shown in
+     * full to admin / test / cron viewers via notify_user_error(), which is the
+     * same gate NoteIframe_Item uses for its failed knits. Participants get
+     * nothing — the tryCatch isolation exists precisely so one broken
+     * expression doesn't paint the whole survey red for them.
+     *
+     * @param array{showif: array<string,string>, value: array<string,string>} $errors
+     * @return void
+     */
+    protected function reportRExpressionErrors(array $errors) {
+        $lines = array();
+        foreach ($errors['showif'] as $name => $message) {
+            $lines[] = "showif of item '{$name}': {$message}";
+        }
+        foreach ($errors['value'] as $name => $message) {
+            $lines[] = "value of item '{$name}': {$message}";
+        }
+        if (!$lines) {
+            return;
+        }
+
+        $detail = implode("\n", $lines);
+        formr_log(sprintf(
+            "R expression errors in study '%s' (unit session %s):\n%s",
+            $this->study->name, (string) $this->unitSession->id, $detail
+        ));
+
+        if ($this->isDebugViewer()) {
+            notify_user_error(
+                nl2br(h($detail)),
+                sprintf(_('%d expression(s) in this survey could not be evaluated in R.'), count($lines))
+            );
+        }
     }
 
     protected function processDynamicLabelsAndChoices(&$items) {
@@ -517,37 +741,60 @@ class SpreadsheetRenderer {
         return $items;
     }
 
+    /**
+     * The items of a page that one request shows, given the survey's "Items
+     * Per Page" (maximum_number_displayed; 0: no limit).
+     *
+     * Items participants never see (Item::isUnseen: data_quality,
+     * agent_probe) take none of the page's places and are not what a page is
+     * cut at: they stay with the last items shown. Counted and cut off, the
+     * two would be left alone with the submit button, a page that
+     * processItems() skips, and the page's record would never be taken.
+     *
+     * @param Item[] $items the page's items, in order
+     * @param int $limit
+     * @return Item[]
+     */
+    public static function withinItemsPerPage(array $items, $limit) {
+        $limit = (int) $limit;
+        $displayed = 0;
+        $rendered = array();
+        foreach ($items as $item) {
+            if ($limit && $limit === $displayed && !$item->isUnseen()) {
+                break;
+            }
+            if ($item->isRendered()) {
+                if (!$item->hidden && !$item->isUnseen()) {
+                    $displayed++;
+                }
+                $rendered[] = $item;
+            }
+        }
+        return $rendered;
+    }
+
     protected function getRenderedStudyItems() {
         $study = $this->study;
 
+        $renderedItems = self::withinItemsPerPage($this->toRender, $study->maximum_number_displayed);
+        // collect the display-count bump; one batched UPDATE below
+        // instead of a round trip per rendered item (audit SQ-42)
+        $renderedItemIds = array();
+        foreach ($renderedItems as $item) {
+            $renderedItemIds[] = (int) $item->id;
+        }
+
         $this->db->beginTransaction();
 
-        $view_query = "
-			UPDATE `survey_items_display`
-			SET displaycount = COALESCE(displaycount,0) + 1, created = COALESCE(created, NOW())
-			WHERE item_id = :item_id AND session_id = :session_id";
-        $view_update = $this->db->prepare($view_query);
-        $view_update->bindValue(":session_id", $this->unitSession->id);
-
-        $itemsDisplayed = 0;
-
-        $renderedItems = array();
-
         try {
-            foreach ($this->toRender as &$item) {
-                if ($study->maximum_number_displayed && $study->maximum_number_displayed === $itemsDisplayed) {
-                    break;
-                } else if ($item->isRendered()) {
-                    // if it's rendered, we send it along here or update display count
-                    $view_update->bindParam(":item_id", $item->id);
-                    $view_update->execute();
-
-                    if (!$item->hidden) {
-                        $itemsDisplayed++;
-                    }
-
-                    $renderedItems[] = $item;
-                }
+            if ($renderedItemIds) {
+                $in = implode(',', $renderedItemIds);
+                $this->db->exec(
+                    "UPDATE `survey_items_display`
+                     SET displaycount = COALESCE(displaycount,0) + 1, created = COALESCE(created, NOW())
+                     WHERE session_id = :session_id AND item_id IN ($in)",
+                    array('session_id' => $this->unitSession->id)
+                );
             }
 
             $this->db->commit();
@@ -567,6 +814,7 @@ class SpreadsheetRenderer {
                 ->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
                 ->where('survey_items_display.session_id IS NOT NULL')
                 ->where('survey_items.study_id = :study_id')
+                ->where('survey_items.deleted IS NULL')   // soft-deleted items don't count toward progress (patch 112)
                 ->where("survey_items.type NOT IN ('submit')")
                 ->where("`survey_items_display`.saved IS NOT NULL")
                 ->bindParams(array('session_id' => $this->unitSession->id, 'study_id' => $study->id))

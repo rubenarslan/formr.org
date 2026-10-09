@@ -1,0 +1,215 @@
+#!/usr/bin/php
+<?php
+/**
+ * Recovery sweep for stalled unit sessions (audit F6, 2026-07).
+ *
+ * The moveOn cascade is a chain of autocommit writes with no outbox: a
+ * daemon SIGKILL or exception between "dequeue current" and "enqueue
+ * successor" leaves a live auto-advancing session at queued=0 — a state
+ * the daemon's pickup SELECT can never see, so the participant silently
+ * drops out of the automated schedule. This sweep finds those rows on
+ * cron-active runs and:
+ *
+ *   - if the row IS the run session's current unit session: re-executes
+ *     the run session (under its lock) so the cascade resumes;
+ *   - otherwise (stale non-current litter — e.g. legacy reminder rows,
+ *     historic fan-out): terminal-stamps it expired so it stops counting
+ *     as live in every audit, preserving its result for the trail.
+ *
+ * External units are deliberately excluded: api_end externals wait for a
+ * callback and address externals wait for the participant's browser —
+ * both by design (see executeUnitSession's F5 guard).
+ *
+ * Usage: php bin/sweep_stalled_unit_sessions.php [--dry-run] [--limit=N]
+ *        [--min-age-minutes=N] [--reexec-max-days=N]
+ * Scheduled hourly via config/formr_crontab. Safe to re-run; bounded by
+ * --limit (default 500) per invocation.
+ *
+ * Re-execution is bounded to sessions parked within --reexec-max-days
+ * (default 7): recent crash residue is resumed, but an ancient stuck
+ * current session is terminal-stamped instead of re-executed, so the
+ * sweep never fires a weeks-stale push/email as a side effect.
+ */
+require_once dirname(__FILE__) . '/../setup.php';
+
+$opts = getopt('', ['dry-run', 'limit::', 'min-age-minutes::', 'reexec-max-days::', 'run-id::']);
+$dry = isset($opts['dry-run']);
+$limit = isset($opts['limit']) ? max(1, (int) $opts['limit']) : 500;
+$minAge = isset($opts['min-age-minutes']) ? max(1, (int) $opts['min-age-minutes']) : 30;
+$reexecMaxDays = isset($opts['reexec-max-days']) ? max(0, (int) $opts['reexec-max-days']) : 7;
+$runFilter = isset($opts['run-id']) ? (int) $opts['run-id'] : 0; // 0 = all runs
+
+$lock = fopen(APPLICATION_ROOT . 'tmp/sweep_stalled_unit_sessions.lock', 'c');
+if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
+    fwrite(STDERR, "sweep: another instance is running, exiting\n");
+    exit(0);
+}
+
+$db = DB::getInstance();
+// Branch is deliberately absent: it is an internal base class
+// (SkipForward/SkipBackward extend it), never a `survey_units.type` value,
+// so listing it would match nothing. Its two concrete subclasses are here.
+$types = "'Pause','Wait','Shuffle','SkipForward','SkipBackward','Email','PushMessage'";
+
+$runWhere = $runFilter > 0 ? " AND r.id = " . $runFilter : "";
+$rows = $db->execute("
+    SELECT us.id, us.run_session_id, us.result, us.created, rs.session,
+           rs.current_unit_session_id, r.id AS run_id, r.name AS run_name, u.type
+    FROM survey_unit_sessions us
+    JOIN survey_units u ON u.id = us.unit_id
+    JOIN survey_run_sessions rs ON rs.id = us.run_session_id
+    JOIN survey_runs r ON r.id = rs.run_id
+    WHERE us.ended IS NULL AND us.expired IS NULL AND us.queued = 0
+      AND u.type IN ({$types})
+      AND us.created < NOW() - INTERVAL :min_age MINUTE
+      AND rs.ended IS NULL
+      AND r.cron_active = 1{$runWhere}
+    ORDER BY us.id ASC
+    LIMIT {$limit}", ['min_age' => $minAge]);
+
+if (!$rows) {
+    // No stalled auto-advancing rows — but still fall through to the
+    // reconciliation steps below (push_logs, and the Survey-orphan re-arm),
+    // which key off different state and must run even when the main sweep is
+    // empty. (Pre-v1.10.3 this `exit(0)`'d here, so those never ran on an
+    // otherwise-idle instance.)
+    fwrite(STDERR, "sweep: no stalled auto-advancing rows\n");
+    $rows = [];
+}
+
+$runs = [];
+$executed = $stamped = $skipped = $pointerProtected = 0;
+
+foreach ($rows as $row) {
+    if (!isset($runs[$row['run_id']])) {
+        $runs[$row['run_id']] = new Run(null, $row['run_id']);
+    }
+    $run = $runs[$row['run_id']];
+    if (!$run->valid) {
+        $skipped++;
+        continue;
+    }
+
+    $runSession = new RunSession($row['session'], $run);
+    if (!$runSession->id) {
+        $skipped++;
+        continue;
+    }
+    $runSession->user->cron = true;
+
+    $current = $runSession->getCurrentUnitSession();
+    $recentEnough = $reexecMaxDays === 0
+        || (strtotime($row['created']) >= strtotime("-{$reexecMaxDays} days"));
+    if ($current && (int) $current->id === (int) $row['id'] && $recentEnough) {
+        $executed++;
+        fwrite(STDERR, "sweep: re-execute run_session {$row['run_session_id']} ({$row['run_name']}, {$row['type']}#{$row['id']})" . ($dry ? ' [dry-run]' : '') . "\n");
+        if (!$dry) {
+            $runSession->execute();
+        }
+    } elseif ((int) $row['current_unit_session_id'] === (int) $row['id']) {
+        // Review 2026-07 (item 18a): the run session's POINTER designates this
+        // row as current even though the position-derived lookup disagrees —
+        // legacy position drift (pre-D1 adoption). Terminal-stamping the
+        // participant's real current session would make the recovery branch
+        // advance them from the drifted position, skipping un-elapsed gates.
+        // Leave it and report: this needs heal_duplicate_pause_sessions-style
+        // repair, not sweeping.
+        $pointerProtected++;
+        fwrite(STDERR, "sweep: POINTER-PROTECTED run_session {$row['run_session_id']} ({$row['run_name']}, {$row['type']}#{$row['id']}): current_unit_session_id designates this row but the position lookup disagrees — position drift, needs repair (not stamped)\n");
+    } else {
+        $stamped++;
+        if (!$dry) {
+            $db->exec(
+                "UPDATE `survey_unit_sessions`
+                 SET `expired` = NOW(),
+                     `result` = COALESCE(`result`, 'swept_stale'),
+                     `state` = :state
+                 WHERE `id` = :id AND `ended` IS NULL AND `expired` IS NULL LIMIT 1",
+                [
+                    'id' => $row['id'],
+                    'state' => UnitSessionQueue::STATE_EXPIRED,
+                ]
+            );
+        }
+    }
+}
+
+fwrite(STDERR, sprintf(
+    "sweep: %d candidates — %d re-executed, %d terminal-stamped, %d pointer-protected, %d skipped%s\n",
+    count($rows), $executed, $stamped, $pointerProtected, $skipped, $dry ? ' (dry-run, nothing written)' : ''
+));
+
+// Audit F14 (2026-07): reconcile push_logs claim rows genuinely stuck at
+// 'queued' — the daemon-killed-mid-send case that no code path can
+// resolve in-band (the send outcome is unknown). Mark them 'unknown'
+// after a generous grace so operators can distinguish real loss from the
+// routine no-subscription/parse-fail exits (which now self-resolve). The
+// unit sessions themselves are handled by the sweep above.
+try {
+    $stuck = (int) $db->execute(
+        "SELECT COUNT(*) FROM `push_logs`
+         WHERE `status` = 'queued' AND `created` < NOW() - INTERVAL 6 HOUR",
+        [], true
+    );
+    if ($stuck > 0) {
+        fwrite(STDERR, "sweep: reconciling {$stuck} push_logs claim(s) stuck >6h -> 'unknown'" . ($dry ? ' [dry-run]' : '') . "\n");
+        if (!$dry) {
+            $db->exec(
+                "UPDATE `push_logs` SET `status` = 'unknown'
+                 WHERE `status` = 'queued' AND `created` < NOW() - INTERVAL 6 HOUR"
+            );
+        }
+    }
+} catch (Exception $e) {
+    // push_logs absent on pre-044 instances — non-fatal.
+    fwrite(STDERR, "sweep: push_logs reconciliation skipped (" . $e->getMessage() . ")\n");
+}
+
+// v1.10.3: clean up Survey sessions left with a phantom past `expires`. When a
+// survey has a start window but no post-access deadline (expire_invitation_after
+// > 0, grace = 0, expire_after = 0), a participant who starts keeps the stored
+// PRE-access deadline on the row even though it no longer applies; the row was
+// dequeued to queued=0 with that stale `expires` in place, so the admin overview
+// showed a phantom "expires in Xh ago" and the participant's client kept firing
+// the expiry modal. A live participant self-heals on their next request (the
+// render clears it), but an abandoned session never does — the daemon's pickup
+// needs queued>0 and the main sweep above excludes Survey. Re-arm such rows to
+// QUEUED_TO_END so the daemon re-evaluates them under the fixed
+// revalidateQueueVerdict()/isExpired() and CLEARS the phantom `expires` (it does
+// not expire them — a started participant is entitled to finish). Scoped to rows
+// that still carry a real past `expires`, so a no-expiry Survey is never touched
+// and a cleared row is not re-picked. Bounded by --limit; idempotent.
+try {
+    $orphans = $db->execute(
+        "SELECT us.id, u.type
+         FROM survey_unit_sessions us
+         JOIN survey_units u ON u.id = us.unit_id
+         JOIN survey_run_sessions rs ON rs.id = us.run_session_id
+         JOIN survey_runs r ON r.id = rs.run_id
+         WHERE us.queued = 0 AND us.ended IS NULL AND us.expired IS NULL
+           AND us.expires IS NOT NULL AND us.expires < NOW()
+           AND u.type IN (" . Survey::typesSql() . ")
+           AND rs.ended IS NULL AND r.cron_active = 1{$runWhere}
+         ORDER BY us.id ASC
+         LIMIT {$limit}", []
+    );
+    $rearmed = 0;
+    foreach (($orphans ?: []) as $o) {
+        fwrite(STDERR, "sweep: re-arm orphaned {$o['type']} unit-session #{$o['id']} (queued=0 with a past deadline) -> QUEUED_TO_END" . ($dry ? ' [dry-run]' : '') . "\n");
+        if (!$dry) {
+            $db->exec(
+                "UPDATE `survey_unit_sessions` SET `queued` = :q
+                 WHERE `id` = :id AND `queued` = 0 AND `ended` IS NULL AND `expired` IS NULL",
+                ['q' => UnitSessionQueue::QUEUED_TO_END, 'id' => (int) $o['id']]
+            );
+            $rearmed++;
+        }
+    }
+    if ($orphans) {
+        fwrite(STDERR, "sweep: re-armed " . ($dry ? count($orphans) . ' (dry-run)' : $rearmed) . " orphaned Survey session(s)\n");
+    }
+} catch (Exception $e) {
+    fwrite(STDERR, "sweep: survey-orphan reconciliation skipped (" . $e->getMessage() . ")\n");
+}
+
+exit(0);

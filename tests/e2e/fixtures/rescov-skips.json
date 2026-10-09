@@ -1,0 +1,68 @@
+{
+  "name": "rescov-skips",
+  "units": [
+    {
+      "type": "SkipForward",
+      "description": "FALSE -> skip_false, continue to 20",
+      "position": 10,
+      "special": null,
+      "condition": "FALSE",
+      "if_true": 40,
+      "automatically_jump": 1,
+      "automatically_go_on": 1
+    },
+    {
+      "type": "SkipForward",
+      "description": "TRUE -> skip_true, jump to 40 (30 must stay unvisited)",
+      "position": 20,
+      "special": null,
+      "condition": "TRUE",
+      "if_true": 40,
+      "automatically_jump": 1,
+      "automatically_go_on": 1
+    },
+    {
+      "type": "SkipForward",
+      "description": "condition returns 60 -> skip_to, computed jump (50 must stay unvisited)",
+      "position": 40,
+      "special": null,
+      "condition": 60,
+      "if_true": 70,
+      "automatically_jump": 1,
+      "automatically_go_on": 1
+    },
+    {
+      "type": "SkipForward",
+      "description": "condition returns 999, no unit there -> skip_to_invalid, continue to 70",
+      "position": 60,
+      "special": null,
+      "condition": 999,
+      "if_true": 70,
+      "automatically_jump": 1,
+      "automatically_go_on": 1
+    },
+    {
+      "type": "Endpage",
+      "description": "ends the run session",
+      "position": 70,
+      "special": null,
+      "body": "All skips traversed.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-skips/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-skips/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-skips/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

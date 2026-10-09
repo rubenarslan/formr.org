@@ -22,7 +22,12 @@ class ItemFactory {
             if (isset($this->choice_lists[$item['choice_list']])) { // if this choice_list exists
                 $item['choices'] = $this->choice_lists[$item['choice_list']]; // take it
                 $this->used_choice_lists[] = $item['choice_list']; // check it as used
-            } else {
+            } elseif ($item['choice_list'] !== '*') {
+                // '*' is the wildcard sentinel for items that supply their own
+                // choices (e.g. timezone → timezone_identifiers_list()). It
+                // legitimately has no entry in the choices sheet, so don't treat
+                // it as a missing list — this is what lets a JSON survey export
+                // (which stores choice_list="*") round-trip back in.
                 $item['val_errors'] = array(__("Choice list %s does not exist, but is specified for item %s", $item['choice_list'], $item['name']));
             }
         }
@@ -60,6 +65,79 @@ class ItemFactory {
  */
 class Item {
 
+    /**
+     * The helpers a transpiled showif may call in the browser (the fmrForm
+     * component's methods, webroot/assets/form/js/showif/alpine.js). One
+     * list: RESERVED_NAMES reserves them as item names and
+     * FormV2CompatScanner treats them as known identifiers.
+     */
+    const SHOWIF_HELPERS = array('isNA', 'answered', 'contains', 'containsWord', 'startsWith', 'endsWith', 'last');
+
+    /**
+     * The wide results table's own columns (SurveyStudy::getResultsTableSyntax).
+     * MariaDB compares column names without regard to case, so `Created` is
+     * the `created` column as well.
+     */
+    const RESULTS_TABLE_COLUMNS = array('session_id', 'study_id', 'iteration', 'created', 'modified', 'ended', 'expired');
+
+    /** Never an item name, on any engine: the results table's columns, and `id`. */
+    const RESULT_COLUMN_NAMES = array(...self::RESULTS_TABLE_COLUMNS, 'id');
+
+    /** Is $name one of RESULT_COLUMN_NAMES — a results table column in any case? */
+    public static function isResultColumnName($name) {
+        $name = (string) $name;
+        return in_array($name, self::RESULT_COLUMN_NAMES, true)
+            || in_array(strtolower($name), self::RESULTS_TABLE_COLUMNS, true);
+    }
+
+    /**
+     * Item names that may never be used. Item::validate() (per item, JSON
+     * imports included) checks against this list; SpreadsheetReader (per
+     * row, at upload) checks the RESULT_COLUMN_NAMES part.
+     *
+     * Two groups:
+     *   - results-table / session columns (`id`, `session_id`, `created`,
+     *     `modified`, `ended`, `expired`, `study_id`, `iteration`, in any case
+     *     but `id`) — an item of that name would collide with the wide
+     *     results table's own columns.
+     *   - the JS helpers the form_v2 showif evaluator exposes
+     *     (webroot/assets/form/js/showif/alpine.js). Item values are top-level
+     *     fields on the same Alpine component as those helpers, because the
+     *     transpiled showif references item names bare. An item named
+     *     `answered` would shadow the method, every showif calling it would
+     *     throw, and — since the directive treats an unevaluable expression as
+     *     "keep the server's decision" — those showifs would silently freeze.
+     *     `isNA` is on the list because that is what `is.na()` transpiles to.
+     */
+    const RESERVED_NAMES = array(
+        ...self::RESULT_COLUMN_NAMES,
+        ...self::FORM_COMPONENT_NAMES,
+    );
+
+    /**
+     * What a v2 item's value would shadow on the form's Alpine component
+     * (alpine.js RESERVED_FIELD_NAMES, which never writes such a field): the
+     * showif helpers and the component's own init(). A showif reading an
+     * item of such a name reads the method instead. Reserved on v2 only
+     * (legacyHelperName).
+     */
+    const FORM_COMPONENT_NAMES = array(...self::SHOWIF_HELPERS, 'init');
+
+    /**
+     * The showif helper names (`last`, `answered`, …) are reserved on form_v2
+     * only: a v1 study never runs those helpers, so SurveyStudy::addItems
+     * sets this for every item of a v1 study and validate() then checks only
+     * RESULT_COLUMN_NAMES. On v2 they stay reserved, and the switch to v2
+     * refuses a study that has one (SurveyStudy::formV2UnsupportedItems).
+     *
+     * @var bool
+     */
+    protected $legacyHelperName = false;
+
+    public function allowLegacyHelperName() {
+        $this->legacyHelperName = true;
+    }
+
     public $id = null;
     public $name = null;
     public $type = null;
@@ -78,6 +156,135 @@ class Item {
     public $item_order = null;
     public $displaycount = null;
     public $error = null;
+
+    /**
+     * Whether a reply may be an array (several values). False for every
+     * scalar input; the multi-valued types (mc_multiple, select_multiple,
+     * select_or_add_multiple, file, geopoint) set it to true. Consulted by
+     * rejectNonScalarReply(), which UnitSession runs on every posted value
+     * before validateInput() / getReply() see it.
+     */
+    protected $accepts_array_reply = false;
+
+    public function acceptsArrayReply() {
+        return (bool) $this->accepts_array_reply;
+    }
+
+    /**
+     * Validating a reply has side effects: a bot_check spends its one-shot
+     * token, an upload is moved into place. Such an item is judged once, at
+     * a submit, after everything else posted has passed
+     * (UnitSession::updateSurveyStudyRecord), and never on autosave
+     * (FormSubmissionService::autosaveEligible).
+     */
+    protected $validation_has_side_effects = false;
+
+    public function validationHasSideEffects() {
+        return (bool) $this->validation_has_side_effects;
+    }
+
+    /**
+     * The answer to store instead of validating this reply again: one the
+     * unit session already holds that settles the item (BotCheck_Item: a
+     * check passed once). null validates the reply as usual. Asked of an
+     * item whose validation has side effects, before it runs.
+     */
+    public function settledAnswer(UnitSession $unitSession) {
+        return null;
+    }
+
+    /**
+     * After a write that validated this item's reply with side effects:
+     * $stored says whether the page was stored. An item whose page was not
+     * stored undoes what its validation did (BotCheck_Item gives its token
+     * back).
+     */
+    public function finishSideEffects($stored) {
+    }
+
+    /** Only the form_v2 engine can run this item type (v1Unsupported). */
+    protected $v2_only = false;
+
+    /**
+     * An item participants never see, although it is on the page and posted
+     * with it (data_quality, agent_probe). It takes no part in deciding
+     * whether a page has anything to show: a page of nothing else is skipped
+     * (v1: SpreadsheetRenderer, PagedSpreadsheetRenderer; v2: the wrapper's
+     * `data-fmr-unseen`, read by snapshotPages in main.js), and it is no solo
+     * step and no item to answer for the all-answered auto-submit. v2's
+     * progress bar goes by pages and solo steps, so it is not in it; the
+     * classic engine's counts items, and counts this one as it counts a note.
+     * A `hidden` item is not one of these: it keeps its page, as it always
+     * has.
+     *
+     * A page must not be blocked by something the participant cannot see:
+     * such an item is always optional (the constructor), no reply to it is
+     * refused (rejectNonScalarReply; the item's getReply() cleans what is
+     * stored) and it is never made invalid (alwaysInvalid).
+     */
+    protected $unseen = false;
+
+    public function isUnseen() {
+        return (bool) $this->unseen;
+    }
+
+    /**
+     * Can the form show this item's stored answer as a preset when it is
+     * rendered again? Not an upload (a file input takes no value), a
+     * bot_check (its stored marker is not a token) or a submit button.
+     */
+    public function rendersStoredAnswer() {
+        return (bool) $this->save_in_results_table;
+    }
+
+    /**
+     * A stored answer (survey_items_display.answer) in the shape the live
+     * inputs produce, for the form_v2 state block: a multi-valued reply is
+     * stored joined by ", " and goes back as an array.
+     *
+     * @param string|null $answer
+     * @return mixed
+     */
+    public function storedValueForClient($answer) {
+        if ($answer !== null && $this->acceptsArrayReply()) {
+            return ($answer === '') ? array() : explode(', ', (string) $answer);
+        }
+        return $answer;
+    }
+    /**
+     * Set on the items of a form_v2 study when they are made
+     * (SurveyStudy::getItemsWithChoices, FormRenderer). v2 stores a multiple
+     * choice's value "0" (replyValues); v1 keeps dropping it, as it always
+     * has, so results of running v1 studies do not change shape. A choice
+     * list written in one cell is split at ";" in v2, at "," in v1
+     * (SelectOrAddOne_Item::unpackChoices).
+     */
+    public $formV2 = false;
+
+    /**
+     * The values of a multi-valued reply that are answers: the empty
+     * placeholder the form posts is never one. On v2 "0" is a value like any
+     * other; v1 drops it too (array_filter), which is how its results have
+     * always looked.
+     */
+    protected function replyValues(array $reply) {
+        if (!$this->formV2) {
+            return array_filter($reply);
+        }
+        return array_values(array_filter($reply, function ($v) {
+            return $v !== '' && $v !== null;
+        }));
+    }
+
+    /**
+     * Width of a column that stores every choice key joined by ", " — the
+     * longest a multiple-choice answer can be. "0" counts (v2 stores it).
+     */
+    protected static function joinedChoicesLength(array $keys) {
+        $keys = array_filter($keys, function ($k) { return $k !== '' && $k !== null; });
+        return max(1, strlen(implode(', ', $keys)));
+    }
+
     public $dont_validate = null;
     public $reply = null;
     public $val_errors = array();
@@ -100,6 +307,10 @@ class Item {
     protected $append = null;
     protected $type_options_array = array();
     protected $hasChoices = false;
+    // Choices may be provided (e.g. to override a button label) but are not
+    // required — exempts the item from both directions of the choices
+    // validation. Used by the PWA prompt items.
+    protected $choicesOptional = false;
     protected $classes_controls = array('controls');
     protected $classes_wrapper = array('form-group', 'form-row');
     protected $classes_input = array();
@@ -107,6 +318,15 @@ class Item {
     protected $presetValues = array();
     protected $probably_render = null;
     protected $js_hidden = false;
+    // a11y: when an item is a group of related controls sharing one stem
+    // (radio / checkbox sets), choice subclasses set this to 'radiogroup' or
+    // 'group'. render_inner() then puts the role + aria-labelledby (pointing at
+    // the stem label's id) on the .controls wrapper so a screen reader announces
+    // the group stem on entry. Literal <fieldset>/<legend> would fight the
+    // BS3-derived flex/grid CSS and the button-group/showif JS that target the
+    // current .control-label/.controls structure, so we use ARIA grouping
+    // instead — same SR outcome, no layout/JS breakage.
+    protected $group_role = null;
 
     /**
      * Minimized attributes
@@ -134,12 +354,24 @@ class Item {
     protected $_minimizedAttributeFormat = '%s="%s"';
 
     public function __construct($options = array()) {
+        if ($this->unseen) {
+            // Always optional, whatever the sheet says: required, it could
+            // never be answered where JavaScript does not run.
+            $options['optional'] = 1;
+        }
         // Load options to object
         $optional = $this->optional;
         foreach ($options as $property => $value) {
             if (property_exists($this, $property)) {
                 $this->{$property} = $value;
             }
+        }
+        // A blank choice_list — from a sheet cell, a JSON export, or a DB row
+        // the pre-fix reader wrote — means "no list". Only null reads that way
+        // in validate(), which would otherwise reject every non-choice item in a
+        // sheet that merely has the column.
+        if ($this->choice_list === '') {
+            $this->choice_list = null;
         }
 
         // Assign needed defaults
@@ -219,27 +451,44 @@ class Item {
         }
 
         if ($this->showif) {
-            // primitive R to JS translation
-            $this->js_showif = preg_replace("/current\(\s*(\w+)\s*\)/", "$1", $this->showif); // remove current function
-            $this->js_showif = preg_replace("/tail\(\s*(\w+)\s*, 1\)/", "$1", $this->js_showif); // remove current function, JS evaluation is always in session			
-            // all other R functions may break
-            $this->js_showif = preg_replace("/(^|[^&])(\&)([^&]|$)/", "$1&$3", $this->js_showif); // & operators, only single ones need to be doubled
-            $this->js_showif = preg_replace("/(^|[^|])(\|)([^|]|$)/", "$1|$3", $this->js_showif); // | operators, only single ones need to be doubled
-            $this->js_showif = preg_replace("/FALSE/", "false", $this->js_showif); // uppercase, R, FALSE, to lowercase, JS, false
-            $this->js_showif = preg_replace("/TRUE/", "true", $this->js_showif); // uppercase, R, TRUE, to lowercase, JS, true
-            $quoted_string = "([\"'])((\\\\{2})*|(.*?[^\\\\](\\\\{2})*))\\1";
-            $this->js_showif = preg_replace("/\s*\%contains\%\s*" . $quoted_string . "/", ".toString().indexOf($1$2$1) > -1", $this->js_showif);
-            $this->js_showif = preg_replace("/\s*\%contains_word\%\s*" . $quoted_string . "/", ".toString().match(/\\b$2\\b/) !== null", $this->js_showif);
-            $this->js_showif = preg_replace("/\s*\%begins_with\%\s*" . $quoted_string . "/", ".toString().indexOf($1$2$1) === 0", $this->js_showif);
-            $this->js_showif = preg_replace("/\s*\%starts_with\%\s*" . $quoted_string . "/", ".toString().indexOf($1$2$1) === 0", $this->js_showif);
-            $this->js_showif = preg_replace("/\s*\%ends_with\%\s*" . $quoted_string . "/", ".toString().endsWith($1$2$1)", $this->js_showif);
-            $this->js_showif = preg_replace("/\s*stringr::str_length\(([a-zA-Z0-9_'\"]+)\)/", "$1.length", $this->js_showif);
-            $this->js_showif = preg_replace("/\s*is.na\(([a-zA-Z0-9_'\"]+)\)/", "(typeof($1) === 'undefined')", $this->js_showif);
-
-            if ($this->showif && strstr($this->showif, "//js_only") !== false) {
+            $this->js_showif = self::showifToJs($this->showif);
+            if (strstr($this->showif, "//js_only") !== false) {
                 $this->setVisibility(array(null));
             }
         }
+    }
+
+    /**
+     * v1's live preview of an R showif: a regex translation of the common R
+     * idioms into JS (survey.js evaluates it; the server evaluates the R).
+     * Anything else passes through and fails in JS. form_v2 does not use it
+     * — there a showif IS JavaScript (useVerbatimShowif).
+     */
+    public static function showifToJs($showif) {
+        $js = preg_replace("/current\(\s*(\w+)\s*\)/", "$1", $showif); // remove current function
+        $js = preg_replace("/tail\(\s*(\w+)\s*, 1\)/", "$1", $js); // remove current function, JS evaluation is always in session
+        // all other R functions may break
+        $js = preg_replace("/(^|[^&])(\&)([^&]|$)/", "$1&$3", $js); // & operators, only single ones need to be doubled
+        $js = preg_replace("/(^|[^|])(\|)([^|]|$)/", "$1|$3", $js); // | operators, only single ones need to be doubled
+        $js = preg_replace("/FALSE/", "false", $js); // uppercase, R, FALSE, to lowercase, JS, false
+        $js = preg_replace("/TRUE/", "true", $js); // uppercase, R, TRUE, to lowercase, JS, true
+        $quoted_string = "([\"'])((\\\\{2})*|(.*?[^\\\\](\\\\{2})*))\\1";
+        $js = preg_replace("/\s*\%contains\%\s*" . $quoted_string . "/", ".toString().indexOf($1$2$1) > -1", $js);
+        $js = preg_replace("/\s*\%contains_word\%\s*" . $quoted_string . "/", ".toString().match(/\\b$2\\b/) !== null", $js);
+        $js = preg_replace("/\s*\%begins_with\%\s*" . $quoted_string . "/", ".toString().indexOf($1$2$1) === 0", $js);
+        $js = preg_replace("/\s*\%starts_with\%\s*" . $quoted_string . "/", ".toString().indexOf($1$2$1) === 0", $js);
+        $js = preg_replace("/\s*\%ends_with\%\s*" . $quoted_string . "/", ".toString().endsWith($1$2$1)", $js);
+        $js = preg_replace("/\s*stringr::str_length\(([a-zA-Z0-9_'\"]+)\)/", "$1.length", $js);
+        $js = preg_replace("/\s*is.na\(([a-zA-Z0-9_'\"]+)\)/", "(typeof($1) === 'undefined')", $js);
+        return $js;
+    }
+
+    /**
+     * form_v2: the showif column is JavaScript, used as written — no R
+     * translation (FormRenderer calls this on every item it renders).
+     */
+    public function useVerbatimShowif() {
+        $this->js_showif = trim((string) $this->showif) !== '' ? (string) $this->showif : null;
     }
 
     public function refresh($options = array(), $properties = array()) {
@@ -279,12 +528,25 @@ class Item {
                 $this->mysql_field = str_replace('UNSIGNED ', '', $this->mysql_field);
             }
 
-            if (abs($min) > 32767 OR abs($max) > 32767) {
-                $this->mysql_field = str_replace("TINYINT", "MEDIUMINT", $this->mysql_field);
-            } elseif (abs($min) > 126 OR abs($min) > 126) {
-                $this->mysql_field = str_replace("TINYINT", "SMALLINT", $this->mysql_field);
-            } elseif (count(array_filter($choices, "is_float"))) {
+            if (count(array_filter($choices, function ($c) { return (float) $c != (int) $c; }))) {
+                // Choice keys are ints or strings ("0.5" stays a string key),
+                // so is_float never matched and decimal codes were rounded.
+                // Checked first: a decimal code of any size needs a FLOAT
+                // (150.5 must not land in the SMALLINT branch below).
                 $this->mysql_field = str_replace("TINYINT", "FLOAT", $this->mysql_field);
+            } elseif (abs($min) > 2147483647 OR abs($max) > 2147483647) {
+                $this->mysql_field = str_replace("TINYINT", "BIGINT", $this->mysql_field);
+            } elseif (abs($min) > 8388607 OR abs($max) > 8388607) {
+                // A "refused" 99999999 or a date code 20260101 needs an INT
+                // (signed MEDIUMINT ends at 8,388,607).
+                $this->mysql_field = str_replace("TINYINT", "INT", $this->mysql_field);
+            } elseif (abs($min) > 32767 OR abs($max) > 32767) {
+                $this->mysql_field = str_replace("TINYINT", "MEDIUMINT", $this->mysql_field);
+            } elseif (abs($min) > 126 OR abs($max) > 126) {
+                // ($max, not $min twice: choices 1..3 + a 999 "don't know"
+                // code got a TINYINT, and choosing 999 failed the whole page
+                // write under STRICT_ALL_TABLES.)
+                $this->mysql_field = str_replace("TINYINT", "SMALLINT", $this->mysql_field);
             }
         } else {
             $lengths = array_map("strlen", $choices);
@@ -298,7 +560,11 @@ class Item {
     }
 
     public function getResultField() {
-        if (!empty($this->choices)) {
+        // Only choices that are answer options decide the column type. A
+        // pattern item's first choice is its mismatch message (#269), not an
+        // option; typing its column from that "choice" made a text answer a
+        // TINYINT and every save fail.
+        if (!empty($this->choices) && $this->hasChoices) {
             $this->chooseResultFieldBasedOnChoices();
         }
 
@@ -310,9 +576,9 @@ class Item {
     }
 
     public function validate() {
-        if (!$this->hasChoices && ($this->choice_list !== null || count($this->choices))) {
+        if (!$this->hasChoices && !$this->choicesOptional && ($this->choice_list !== null || count($this->choices))) {
             $this->val_errors[] = "'{$this->name}' You defined choices for this item, even though this type doesn't have choices.";
-        } elseif ($this->hasChoices && ($this->choice_list === null && count($this->choices) === 0) && $this->type !== "select_or_add_multiple") {
+        } elseif ($this->hasChoices && !$this->choicesOptional && ($this->choice_list === null && count($this->choices) === 0) && $this->type !== "select_or_add_multiple") {
             $this->val_errors[] = "'{$this->name}' You forgot to define choices for this item.";
         } elseif ($this->hasChoices && count(array_unique($this->choices)) < count($this->choices)) {
             $dups = implode(", ", array_diff_assoc($this->choices, array_unique($this->choices)));
@@ -321,6 +587,11 @@ class Item {
 
         if (!preg_match('/^[A-Za-z][A-Za-z0-9_]+$/', (string)$this->name)) {
             $this->val_errors[] = "'{$this->name}' The variable name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. It needs to start with a letter. You cannot use spaces, dots, or dashes.";
+        }
+
+        $reserved = $this->legacyHelperName ? self::RESULT_COLUMN_NAMES : self::RESERVED_NAMES;
+        if (in_array((string)$this->name, $reserved, true) || self::isResultColumnName($this->name)) {
+            $this->val_errors[] = "'{$this->name}' is a reserved variable name and cannot be used for an item. Reserved names are: " . implode(', ', $reserved) . ".";
         }
 
         if (trim($this->type) == '') {
@@ -336,7 +607,51 @@ class Item {
         return array('val_errors' => $this->val_errors, 'val_warnings' => $this->val_warnings);
     }
 
+    /**
+     * validate() without its "this type doesn't have choices" check, for
+     * items whose choices are not answer options but text (a pattern item's
+     * mismatch message, a bot_check's relabelling). The choices are restored
+     * afterwards for rendering.
+     */
+    protected function validateIgnoringChoices() {
+        $choices = $this->choices;
+        $choiceList = $this->choice_list;
+        $this->choices = array();
+        $this->choice_list = null;
+        $result = self::validate();
+        $this->choices = $choices;
+        $this->choice_list = $choiceList;
+        return $result;
+    }
+
+    /**
+     * Reject a non-scalar reply on an item whose input is a single value.
+     *
+     * A client can post `name[]=x` against any item; the string functions
+     * the scalar items then call on the reply (trim, strlen, filter_var,
+     * strtotime, preg_match, htmlspecialchars) TypeError on PHP 8 and the
+     * survey page turns into a 500. Sets the error and returns true when
+     * the reply is unusable — the caller returns null. Null is left to the
+     * caller (it is the "missed required" / optional-empty case).
+     */
+    public function rejectNonScalarReply($reply, $message = null) {
+        // (An item nobody sees refuses nothing: its getReply() stores NULL
+        // for what it cannot use.)
+        if ($reply === null || is_scalar($reply) || $this->accepts_array_reply || $this->unseen) {
+            return false;
+        }
+        $this->reply = null;
+        $this->error = $message !== null ? $message : __("This is not a valid answer.");
+        return true;
+    }
+
     public function validateInput($reply) {
+        // Scalar by default: a select_one / timezone / hidden item that does
+        // not override validateInput() would otherwise pass `name[]=x`
+        // through to be stored as a JSON array in a single-value column.
+        if ($this->rejectNonScalarReply($reply)) {
+            return null;
+        }
         $this->reply = $reply;
 
         if (!$this->optional && (($reply === null || $reply === false || $reply === array() || $reply === '') || (is_array($reply) && count($reply) === 1 && current($reply) === ''))) {
@@ -353,7 +668,7 @@ class Item {
     }
 
     protected function render_label() {
-        $template = '<label class="%{class}" for="item%{id}">%{error} %{text} </label>';
+        $template = '<label class="%{class}" id="item%{id}-label" for="item%{id}">%{error} %{text} </label>';
 
         return Template::replace($template, array(
                     'class' => implode(' ', $this->classes_label),
@@ -384,7 +699,7 @@ class Item {
     protected function render_inner() {
         $template = $this->render_label();
         $template .= '
-			<div class="%{classes_controls}">
+			<div class="%{classes_controls}" %{group_attrs}>
 				<div class="controls-inner">
 					%{input_group_open}
 						%{prepended} %{input} %{appended}
@@ -394,8 +709,13 @@ class Item {
 		';
 
         $inputgroup = isset($this->prepend) || isset($this->append);
+        // a11y group semantics for radio/checkbox sets (see $group_role).
+        $group_attrs = $this->group_role
+            ? sprintf('role="%s" aria-labelledby="item%d-label"', $this->group_role, (int) $this->id)
+            : '';
         return Template::replace($template, array(
                     'classes_controls' => implode(' ', $this->classes_controls),
+                    'group_attrs' => $group_attrs,
                     'input_group_open' => $inputgroup ? '<div class="input-group">' : '',
                     'input_group_close' => $inputgroup ? '</div>' : '',
                     'prepended' => $this->render_prepended(),
@@ -423,6 +743,9 @@ class Item {
         $this->classes_wrapper = array_unique($this->classes_wrapper);
         if ($this->data_showif) {
             $this->parent_attributes['data-showif'] = $this->js_showif;
+        }
+        if ($this->unseen) {
+            $this->parent_attributes['data-fmr-unseen'] = '1';
         }
         $template = '
 			<div class="%{classes_wrapper}" %{parent_attributes}>
@@ -470,7 +793,30 @@ class Item {
         }
     }
 
+    /**
+     * Render the item visually hidden (CSS `.hidden` + disabled input) by DEFAULT
+     * WITHOUT marking it server-side hidden (`$this->hidden` stays as-is, normally
+     * null). form_v2 uses this for an NA showif (the dependency isn't answered yet,
+     * or it references a server-only var): the item is hidden until the client
+     * (Alpine x-showif) reveals it if the showif evaluates true — matching v1,
+     * where an unevaluable showif defaults to hidden (survey.js `_hide = true`).
+     * Keeping `$this->hidden` null leaves it in the unanswered set so the client
+     * owns its visibility; the disabled input keeps it out of the POST until then.
+     */
+    public function hideByDefaultPendingClient() {
+        if (!in_array('hidden', $this->classes_wrapper, true)) {
+            $this->classes_wrapper[] = 'hidden';
+        }
+        $this->data_showif = true;
+        $this->input_attributes['disabled'] = true;
+    }
+
     public function alwaysInvalid() {
+        if ($this->unseen) {
+            // The page's other items carry the error; a field nobody sees
+            // does not.
+            return;
+        }
         $this->error = _('There were problems with openCPU.');
         if (!isset($this->input_attributes['class'])) {
             $this->input_attributes['class'] = '';
@@ -508,6 +854,18 @@ class Item {
         }
 
         return true;
+    }
+
+    /**
+     * Is this item's value R (not empty, not a number)? Unlike
+     * needsDynamicValue(), which prepares the item for rendering on the way
+     * (trims the value, sets a numeric default, drops the preset of an empty
+     * one), this only reads: for checks of items that are then rendered or
+     * judged (formV2Unsupported).
+     */
+    public function hasDynamicValue() {
+        $value = trim((string) $this->value);
+        return is_formr_truthy($value) && !is_numeric($value);
     }
 
     public function evaluateDynamicValue(SurveyStudy $survey) {
@@ -614,6 +972,44 @@ class Item {
     }
 
     /**
+     * Why this item cannot be part of a form_v2 study, or null when it can.
+     *
+     * form_v2 runs R only for what the participant's browser asks for (a
+     * page's dynamic values and labels), never as the server's own
+     * computation. So an item whose value only the server could compute — a
+     * `calculate`, or any other item that takes no input but carries R in
+     * `value` — has no place in v2. What the form needs is a `hidden` item
+     * with the same `value` (resolved when its page is shown and submitted
+     * with it); a score or group for feedback or later units belongs in the
+     * R of those units. One rule, used by the upload into a v2 study, the
+     * switch to v2 and the compatibility scan.
+     *
+     * @return string|null
+     */
+    public function formV2Unsupported() {
+        if (!$this->requiresUserInput() && $this->hasDynamicValue()) {
+            return "'{$this->name}': in v2, a {$this->type} item cannot have R code as its value. Clear the value, or use a hidden item with that value.";
+        }
+        return null;
+    }
+
+    /**
+     * Why this item cannot run on the classic v1 engine, or null. `bot_check`
+     * (its proof-of-work widget ships only in the form_v2 bundle — a
+     * required one could never be answered) and `rank` (v1 would store the
+     * author's order untouched) are form_v2 items. Refused at upload into a
+     * v1 study; the upload form's Engine choice puts a new survey on v2.
+     *
+     * @return string|null
+     */
+    public function v1Unsupported() {
+        if ($this->v2_only) {
+            return "'{$this->name}': {$this->type} items only work in v2. Choose v2 when you upload the survey, or move the survey to v2 first.";
+        }
+        return null;
+    }
+
+    /**
      * Is an element hidden in DOM but rendered?
      *
      * @return boolean
@@ -628,6 +1024,25 @@ class Item {
 
     public function getReply($reply) {
         return $reply;
+    }
+
+    /**
+     * Render a stored result value for safe display inside the admin
+     * results tables (show_results / show_itemdisplay), which echo cells
+     * as raw HTML.
+     *
+     * Escaped by default: the overwhelming majority of item types store
+     * free participant text (open-ended answers), and Server/Referrer/
+     * Browser items store the User-Agent / Referer request headers, which
+     * are fully attacker-controlled. Without escaping, a participant can
+     * store `<img src=x onerror=…>` and run script in the admin's session
+     * on admin_domain when results are viewed — crossing the admin/study
+     * security boundary. Item types whose stored value is trusted,
+     * self-generated HTML (the File/Audio/Video/Image embed markup)
+     * override this to pass their markup through unescaped.
+     */
+    public function getEscapedResult($reply) {
+        return h($reply);
     }
 
     /**

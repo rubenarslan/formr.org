@@ -28,7 +28,15 @@ class EmailAccount extends Model {
     }
 
     protected function load() {
-        $this->account = $this->db->findRow('survey_email_accounts', array('id' => $this->id));
+        // When a user id was supplied (admin edit/delete/test), only load an
+        // account that belongs to them; the id alone is caller-controlled.
+        // Callers that legitimately load by id (Email::sendMail dispatch)
+        // pass user_id 0, which skips the predicate.
+        $where = array('id' => $this->id);
+        if ($this->user_id) {
+            $where['user_id'] = $this->user_id;
+        }
+        $this->account = $this->db->findRow('survey_email_accounts', $where);
         if ($this->account) {
             $this->valid = true;
             $this->user_id = (int) $this->account['user_id'];
@@ -84,13 +92,22 @@ class EmailAccount extends Model {
     public function test() {
         $receiver = $this->account['from'];
         $mail = $this->makeMailer();
+        // Researcher-initiated self-test to the account's own from-address;
+        // repeatable on purpose, so not 'transactional'.
+        $mail->guard_category = MailGuardService::CATEGORY_SYSTEM;
+        $mail->guard_type = 'account_test';
 
         $mail->AddAddress($receiver);
         $mail->Subject = 'formr: account test success';
         $mail->Body = Template::get_replace('email/test-account.ftpl', array('site_url' => site_url()));
 
         if (!$mail->Send()) {
-            $this->invalidate();
+            // A guard refusal (e.g. the duplicate window after two quick
+            // clicks) says nothing about the SMTP credentials, so the
+            // account's verified state is left alone.
+            if (empty($mail->guard_blocked)) {
+                $this->invalidate();
+            }
             alert('Account Test Failed: ' . $mail->ErrorInfo, 'alert-danger');
             return false;
         } else {
@@ -101,7 +118,12 @@ class EmailAccount extends Model {
     }
 
     public function makeMailer() {
-        $mail = new PHPMailer();
+        $mail = new GuardedMailer();
+        // Study mail through a researcher-owned account: suppression + domain
+        // check + guard log; pacing stays with RateLimitService.
+        $mail->guard_category = MailGuardService::CATEGORY_STUDY;
+        $mail->guard_type = 'study';
+        $mail->guard_user_id = $this->user_id ?? null;
         $mail->SetLanguage("de", "/");
 
         $mail->IsSMTP();  // telling the class to use SMTP

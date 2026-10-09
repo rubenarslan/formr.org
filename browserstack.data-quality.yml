@@ -1,0 +1,56 @@
+# Dedicated browserstack-node-sdk config for the data_quality device checks
+# (tests/e2e/data-quality-devices.spec.js). Kept SEPARATE from the main
+# browserstack.yml so this device spread does not multiply the whole e2e
+# suite.
+#
+# Run with: npm run test:bs:dq
+#   (sets BROWSERSTACK_CONFIG_FILE=browserstack.data-quality.yml and greps the spec)
+#
+# The spread is what the recorder was NOT built on (desktop Chrome): a phone
+# and a tablet of each kind, and the two other engines on a desktop.
+#   - iPhone and iPad: real Safari. Every iOS browser is WebKit, and an iPad
+#     asks for the desktop site, so it calls itself a Mac.
+#   - Pixel and Galaxy Tab: real Chrome on Android.
+#   - Firefox on Windows: Playwright's Firefox build (Gecko).
+#   - "Safari" on macOS: Playwright cannot drive Apple's Safari on a desktop;
+#     playwright-webkit is the same engine on macOS, and the iPhone and iPad
+#     above are the real Safari.
+#
+# See browserstack.yml for the shared conventions (empty userName/accessKey →
+# env, testReporting: false).
+
+userName: ''
+accessKey: ''
+
+projectName: formr data quality
+buildName: data quality devices
+buildIdentifier: '#${DATE_TIME}'
+
+platforms:
+  - browserName: safari
+    osVersion: 17
+    deviceName: iPhone 15 Pro Max
+  - browserName: chrome
+    osVersion: 14
+    deviceName: Google Pixel 8
+  - browserName: safari
+    osVersion: 16
+    deviceName: iPad Pro 12.9 2022
+  - browserName: chrome
+    osVersion: 13
+    deviceName: Samsung Galaxy Tab S9
+  - os: Windows
+    osVersion: 11
+    browserName: playwright-firefox
+    browserVersion: latest
+  - os: OS X
+    osVersion: Sonoma
+    browserName: playwright-webkit
+    browserVersion: latest
+
+parallelsPerPlatform: 1
+browserstackLocal: false
+debug: false
+networkLogs: false
+consoleLogs: errors
+testReporting: false

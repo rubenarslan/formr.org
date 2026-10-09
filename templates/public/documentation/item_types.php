@@ -41,6 +41,30 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         displays a multi-line input field
     </dd>
     <dt>
+        tel
+    </dt>
+    <dd>
+        a single-line input for telephone numbers. Phones show the numeric keypad; no format is enforced.
+    </dd>
+    <dt>
+        url
+    </dt>
+    <dd>
+        a single-line input for a web address; the browser and the server both check that it is a URL.
+    </dd>
+    <dt>
+        cc
+    </dt>
+    <dd>
+        a single-line input for a card-style number; validated with the Luhn checksum.
+    </dd>
+    <dt>
+        blank
+    </dt>
+    <dd>
+        renders the label as plain content with no input and no note styling. Useful for markup that should not be wrapped like a note.
+    </dd>
+    <dt>
         number <i>min, max, step</i>
     </dt>
     <dd>
@@ -65,13 +89,19 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         range <i>min,max,step</i>
     </dt>
     <dd>
-        these are sliders. The numeric value chosen is not displayed. Text to be shown to the left and right of the slider can be defined using the choice1 and choice2 fields. Defaults are <code>1,100,1</code>.
+        these are sliders. The numeric value chosen is not displayed. The text shown to the left and right of the slider is defined using the choice1 and choice2 fields — every slider needs those two labels, an item without them is rejected when you upload the sheet. Defaults are <code>1,100,1</code>.
     </dd>
     <dt>
         range_ticks <i>min,max,step</i>
     </dt>
     <dd>
-        like range but the individual steps are visually indicated using ticks and the chosen number is shown to the right. 
+        like range but the individual steps are visually indicated using ticks and the chosen number is shown to the right.
+    </dd>
+    <dt>
+        visual_analog_scale <i>min,max,step</i>
+    </dt>
+    <dd>
+        like range but with no default — the slider thumb is hidden until the participant interacts with it, and required items stay invalid until the participant actively chooses a position. The value submitted is empty (rather than the midpoint) if the participant never moves the slider; once it is moved, a whole number between min and max is stored. The end labels come from choice1 and choice2, exactly as for range (and are just as mandatory). Defaults are <code>0,100,1</code>. Works in both survey and Form (v2) units.
     </dd>
 </dl>
 
@@ -87,7 +117,43 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         time <i>min,max</i>
     </dt>
     <dd>
-        for times (displays an input with hours and minutes). Input can also be constrained using min,max, e.g. <code>12:00,17:00</code>
+        for times (displays an input with hours and minutes). Input can also be constrained using min,max, e.g. <code>12:00,17:00</code>. Stored as a time (<code>HH:MM:SS</code>), so in R you get a string, not a number.
+    </dd>
+    <dt>
+        datetime_local <i>min,max</i>
+    </dt>
+    <dd>
+        date and time in one input (the browser's <code>datetime-local</code> control). Stored as a DATETIME.
+    </dd>
+    <dt>
+        datetime <i>min,max</i>
+    </dt>
+    <dd>
+        like datetime_local; kept for older sheets. Browsers have dropped the plain <code>datetime</code> control, so prefer datetime_local.
+    </dd>
+    <dt>
+        yearmonth <i>min,max</i>
+    </dt>
+    <dd>
+        a year and month, entered as <code>yyyy-mm</code>. Stored as a DATE on the first of that month.
+    </dd>
+    <dt>
+        month <i>min,max</i>
+    </dt>
+    <dd>
+        like yearmonth, but uses the browser's native month picker where one exists.
+    </dd>
+    <dt>
+        week <i>min,max</i>
+    </dt>
+    <dd>
+        an ISO week, entered as <code>yyyy-Www</code>. Stored as text.
+    </dd>
+    <dt>
+        year <i>min,max</i>
+    </dt>
+    <dd>
+        a four-digit year. Stored as a YEAR.
     </dd>
 </dl>
 <h4><i class="fa fa-fw fa-magic"></i> Fancy family</h4>
@@ -166,6 +232,12 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         a dropdown, you can choose only one
     </dd>
     <dt>
+        timezone
+    </dt>
+    <dd>
+        a dropdown listing every IANA time zone (e.g. <code>Europe/Berlin</code>). No choice list needed; the chosen zone name is stored as text.
+    </dd>
+    <dt>
         select_multiple <i>choice_list</i>
     </dt>
     <dd>
@@ -181,7 +253,16 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         select_or_add_multiple <br><i>choice_list, maxType, <br>maxChoose</i>
     </dt>
     <dd>
-        like select_multiple and select_or_add_one, allows users to add options not given. <i>maxChoose</i> can be used to place an upper limit on the number of chooseable options.
+        like select_multiple and select_or_add_one, allows users to add options not given. <i>maxChoose</i> can be used to place an upper limit on the number of chooseable options. In a v2 survey, the answers are stored joined by a semicolon (<code>Berlin, Germany;Paris</code>, <code>strsplit(x, ";")</code> in R), so a choice must not contain one; the classic engine joins them by commas. Both select_or_add types also take their whole choice list in one cell, separated by semicolons in v2 (<code>red;green;blue</code>) and by commas in the classic engine.
+    </dd>
+    <dt>
+        rank <br><i>choice_list, random, touch</i>
+    </dt>
+    <dd>
+        rank order by drag and drop (as in Qualtrics): the choices are shown as a list that participants reorder by dragging (mouse or touch), with the ▲/▼ buttons on each row, or with the keyboard (focus a row, then use Arrow Up/Down, Home/End). Stored as the choice <em>names</em> in their final order, joined by a comma, e.g. <code>3, 1, 2</code> for "3 ranked first" — <code>strsplit(rank, ", ")</code> in R recovers the ranking.<br>
+        Options after the choice list: <code>random</code> (or <code>shuffle</code>) shuffles the starting order on every page load (so an untouched submit does not silently store your authored order); <code>touch</code> (or <code>require_change</code>) counts the item as answered only once the participant has actually interacted with it (dragged, tapped a row, or used the buttons/keyboard) — combine with a required item to force an explicit choice. Without <code>touch</code>, submitting stores the order as displayed, like Qualtrics. E.g. <code>rank fruits random touch</code>.<br>
+        Participants always rank <em>all</em> the choices: a partial or repeated order is rejected. An answer given earlier (or a <code>value</code> you set in the sheet) becomes the starting order when the item is shown again, so going back does not scramble what someone already did. Only an optional item may be left unranked.<br>
+        <strong>Form (v2) units only.</strong> In a v1 survey unit the drag-and-drop widget is not loaded.
     </dd>
     <dt>
         mc_heading <i>choice_list</i>
@@ -193,7 +274,20 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
     </dd>
 </dl>
 
-
+<h4><i class="fa fa-fw fa-shield"></i> Bot check</h4>
+<p>A gate you can put in front of (or at the end of) a form to raise the cost of automated submissions. It is a proof-of-work puzzle that is created and checked <strong>on your own formr server</strong> — nothing about the participant is sent anywhere else, so it adds no third party to your data processing agreement, unlike a hosted captcha. It makes scripted mass responding expensive, but it is friction, not identity: a person filling out your survey by hand — including a paid one — will pass it.</p>
+<dl class="dl-horizontal dl-wider">
+    <dt>
+        bot_check
+    </dt>
+    <dd>
+        shows a checkbox the participant ticks ("Verify you are human" by default). Ticking it makes the browser solve a small puzzle, which usually takes about a second. The page cannot be submitted until that has succeeded, so put it where a blocked submit is what you want. If you mark the item <strong>optional</strong>, participants may leave the box unticked and continue (the variable then stays empty); a puzzle that was attempted but failed still blocks. <code>bot_check 2</code> or <code>bot_check 3</code> makes the puzzle two or three times the work (difficulty 1–3, default from the server settings).<br>
+        Only the word <code>verified</code> is stored, never the token itself, so there is nothing participant-identifying in your results table.<br>
+        The wording is yours: the <strong>label</strong> is the prompt above the box, <strong>choice1</strong> replaces the text next to the checkbox, <strong>choice2</strong> the confirmation shown afterwards, and <strong>choice3</strong> the text shown while it is working. That makes it usable as an "I am answering this myself" affirmation, e.g. choice1 = <em>I confirm I am completing this survey myself, without automation.</em> All three are optional; leave them empty for the English defaults.<br>
+        <strong>Form (v2) units only.</strong>
+    </dd>
+</dl>
+<p>Two further item types, <code>data_quality</code> and <code>agent_probe</code>, record signs of automated or careless responding without blocking anyone; they are described in the <a href="<?= admin_url('documentation/data-quality') ?>">admin documentation</a> (login required).</p>
 
 <h4><i class="fa fa-fw fa-eye-slash"></i> Hidden family</h4>
 These items don't require the user to do anything, so including them simply means that the relevant value will be stored. If you have exclusively hidden items in a form, things will wrap up immediately and move to the next element in the run. This can be useful for hooking up with other software which sends data over the query string i.e. <?= h(run_url('run_name', '', ['param1' => 10, 'user_id' => 29])) ?>
@@ -202,7 +296,8 @@ These items don't require the user to do anything, so including them simply mean
         calculate
     </dt>
     <dd>
-        in the <strong>value</strong> column you can specify an R expression, the result of which will be saved into this variable. Useful to pull in external data or to forestall recalculating something repeatedly that you want to refer to later. If the calculation is based on values from the same module, you can insert the calculate item in the last line of the sheet behind the last submit button and its result will be stored in the database for use in further modules.
+        in the <strong>value</strong> column you can specify an R expression, the result of which will be saved into this variable. Useful to pull in external data or to forestall recalculating something repeatedly that you want to refer to later. If the calculation is based on values from the same module, you can insert the calculate item in the last line of the sheet behind the last submit button and its result will be stored in the database for use in further modules.<br>
+        <strong>Classic Survey units only.</strong> A Form (v2) does no server-side computation, so a study with a calculate item cannot be put on v2: use a <code>hidden</code> item with the same <code>value</code> when the form needs the result, or compute it in the R of the unit that uses it.
     </dd>
     <dt>
         ip
@@ -220,7 +315,13 @@ These items don't require the user to do anything, so including them simply mean
         server var
     </dt>
     <dd>
-        saves the <a href="https://us1.php.net/manual/en/reserved.variables.server.php">$_SERVER</a> value with the index given by var. Can be used to store one of 'HTTP_USER_AGENT', 'HTTP_ACCEPT', 'HTTP_ACCEPT_CHARSET', 'HTTP_ACCEPT_ENCODING', 'HTTP_ACCEPT_LANGUAGE', 'HTTP_CONNECTION', 'HTTP_HOST', 'QUERY_STRING', 'REQUEST_TIME', 'REQUEST_TIME_FLOAT'. In English: the browser, some stuff about browser language information, some server stuff, and access time.
+        saves the <a href="https://us1.php.net/manual/en/reserved.variables.server.php">$_SERVER</a> value with the index given by var. Can be used to store one of '<?= implode("', '", array_map('h', Server_Item::VARIABLES)) ?>'. In English: the browser, some stuff about browser language information, some server stuff, access time, what Chrome-like browsers say about themselves beside the user-agent string (their name and version, mobile or not, their operating system), and the signature with which an AI agent that identifies itself signs its requests.
+    </dd>
+    <dt>
+        browser
+    </dt>
+    <dd>
+        saves the participant's user-agent string. Same as <code>server HTTP_USER_AGENT</code>.
     </dd>
     <dt>
         get var

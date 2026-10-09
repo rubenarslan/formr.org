@@ -280,7 +280,14 @@ class SessionResource extends BaseResource
                 if ($runSession->endLastExternal()) {
                     return $this->response(200, 'External unit ended successfully');
                 }
-                return $this->error(400, 'Could not end external unit (maybe none active?)');
+                // Idempotent no-op (review 2026-07, item 16): external
+                // services retry callbacks and deliver late — a repeat
+                // end_external after the unit already ended must not read
+                // as failure to third-party retry/alert handlers (pre-F20
+                // this always answered 200). endLastExternal()'s false
+                // stays the honest internal signal; the response body says
+                // what actually happened.
+                return $this->response(200, 'No active external unit to end — nothing to do');
 
             case 'toggle_testing':
                 $status = !empty($body['testing']) ? 1 : 0;
@@ -302,12 +309,25 @@ class SessionResource extends BaseResource
                 return $this->response(200, 'Session executed successfully.');
 
             case 'advance':
-                if ($runSession->endCurrentUnitSession()) {
-                    $runSession->moveOn(); 
-                    
+                // v1.8.0: go through forceMoveOn() instead of driving
+                // endCurrentUnitSession()+moveOn() by hand. This was the last
+                // caller still advancing a run session WITHOUT the run-session
+                // lock (the F3 class, fixed for the admin AJAX path but missed
+                // here): racing a daemon cascade, both sides could end and
+                // advance from a stale position, duplicating downstream unit
+                // sessions and re-sending their emails/pushes. forceMoveOn
+                // takes the lock, reloadFromDb()s inside it, and refuses on an
+                // already-ended run session.
+                //
+                // Label change: forceMoveOn records the current unit session as
+                // ended with result='moved', where the old path expire()d a
+                // Survey/Form/External. 'moved' is the more accurate label — an
+                // operator-forced advance is not an access window lapsing — and
+                // it now matches what the admin UI records for the same action.
+                if ($runSession->forceMoveOn()) {
                     return $this->response(200, 'Session advanced successfully.');
                 }
-                return $this->error(400, 'Could not advance session. The current unit might not support manual ending.');
+                return $this->error(400, 'Could not advance session: it has no current unit, has already ended, or another process is executing it right now (try again).');
             
             default:
                 return $this->error(400, "Invalid action: '$action'. Supported: end_external, toggle_testing, move_to_position, execute, advance");

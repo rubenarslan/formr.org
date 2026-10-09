@@ -79,9 +79,6 @@
     </li>
 
     <li>
-        a better API (some basics are there)
-    </li>
-    <li>
         social networks, round robin studies - at the moment they can be implemented, but are a bit bothersome at first. There is a dedicated module already which might also get released as open source if there's time. 
     </li>
     <li>

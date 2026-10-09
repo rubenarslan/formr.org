@@ -5,10 +5,16 @@
  */
 
 class Check_Item extends McMultiple_Item {
+    // A checkbox is one value (0/1) even though it extends McMultiple.
+    protected $accepts_array_reply = false;
+
 
     public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
     public $choice_list = NULL;
     protected $hasChoices = false;
+    // Single checkbox: its stem label uses for="item{id}_1", which already
+    // associates the control — no group role needed (would be a group of one).
+    protected $group_role = null;
 
     protected function setMoreOptions() {
         parent::setMoreOptions();
@@ -27,6 +33,9 @@ class Check_Item extends McMultiple_Item {
     }
 
     public function validateInput($reply) {
+        if ($this->rejectNonScalarReply($reply)) {
+            return 0;
+        }
         if (!in_array($reply, array(0, 1))) {
             $this->error = __("You chose an option '%s' that is not permitted.", h($reply));
         }

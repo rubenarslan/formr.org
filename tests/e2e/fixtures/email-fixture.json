@@ -1,0 +1,108 @@
+{
+  "name": "email-fixture",
+  "units": [
+    {
+      "type": "Survey",
+      "description": "rescov_contact2",
+      "position": 10,
+      "special": null,
+      "survey_data": {
+        "name": "rescov_contact2",
+        "items": [
+          {
+            "type": "email",
+            "choice_list": null,
+            "type_options": null,
+            "name": "contact_email",
+            "label": "Your email address",
+            "label_parsed": "Your email address",
+            "optional": 0,
+            "class": null,
+            "showif": null,
+            "value": null,
+            "block_order": null,
+            "item_order": null
+          },
+          {
+            "type": "submit",
+            "choice_list": null,
+            "type_options": null,
+            "name": "page1_done",
+            "label": "Continue",
+            "label_parsed": "Continue",
+            "optional": 0,
+            "class": null,
+            "showif": null,
+            "value": null,
+            "block_order": null,
+            "item_order": null
+          },
+          {
+            "type": "push_notification",
+            "choice_list": "push_sub",
+            "type_options": null,
+            "name": "push_sub",
+            "label": "Allow notifications",
+            "label_parsed": "Allow notifications",
+            "optional": 1,
+            "class": null,
+            "showif": null,
+            "value": null,
+            "block_order": null,
+            "item_order": null,
+            "choices": {
+              "1": "Allow"
+            }
+          }
+        ],
+        "settings": {
+          "maximum_number_displayed": 0,
+          "displayed_percentage_maximum": 100,
+          "add_percentage_points": 0,
+          "enable_instant_validation": 0,
+          "expire_after": 0,
+          "google_file_id": null,
+          "unlinked": 0,
+          "expire_invitation_after": 0,
+          "expire_invitation_grace": 0,
+          "hide_results": 0,
+          "use_paging": 0
+        }
+      }
+    },
+    {
+      "type": "Email",
+      "description": null,
+      "position": 20,
+      "special": null,
+      "subject": "Brief nicht versendet",
+      "account_id": 14,
+      "recipient_field": null,
+      "body": "Test",
+      "cron_only": 0
+    },
+    {
+      "type": "Endpage",
+      "description": null,
+      "position": 30,
+      "special": null,
+      "body": null,
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/email-fixture/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/email-fixture/terms_of_service/). [Settings](https://study.researchmixtape.com/email-fixture/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

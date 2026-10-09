@@ -104,6 +104,13 @@ $settings['display_errors_when_live'] = 0;
 $settings['display_errors'] = 0;
 $settings['error_to_stderr'] = 0;
 
+// Content-Security-Policy for the admin area: 'off' | 'report-only' | 'enforce'.
+// Default 'enforce' (blocks violating scripts). If the admin UI misbehaves on
+// your instance (e.g. a browser-side call to a non-default OpenCPU origin),
+// set this to 'report-only' to observe + report without blocking, fix the
+// policy in application/Csp.php, then switch back. 'off' disables it entirely.
+$settings['csp_mode'] = 'enforce';
+
 // how many emails can be maximally sent to one email address during certain time periods
 $settings['email_thresholds'] = [
 	'in_last_1m' => 1,
@@ -116,6 +123,89 @@ $settings['email_thresholds'] = [
 	'in_last_1d_testing' => 100,
 	'in_last_1w' => 60
 ];
+
+/*
+ * Outbound-mail abuse guard.
+ *
+ * Failure mode this prevents: bots submit the signup / forgot-password form
+ * with strangers' addresses (subscription bombing); formr mails each one; the
+ * recipients complain; your provider disables SMTP for the whole mailbox.
+ * Every send is checked against the suppression list (bin/suppression.php)
+ * and logged in survey_mail_guard_log; unauthenticated "transactional" mail
+ * (verification, password reset) is additionally subject to a duplicate-send
+ * window and the rate ceilings below. Study/cron mail keeps its own limits
+ * (email_thresholds above) and is never capped by these ceilings.
+ * Status page: admin/advanced/mail_guard.
+ *
+ * The defaults are deliberately generous for humans and tight for bots: a
+ * lab will never notice them, a bombing run is capped at tens of messages
+ * per hour instead of thousands. Set a limit to 0 to disable that limit.
+ */
+$settings['mail_guard'] = array(
+	'enabled' => true,
+	// refuse a second verification / password-reset mail to the same address
+	// within this window (a repeat request within it is almost always abuse)
+	'duplicate_window_hours' => 24,
+	'ip_limit_per_hour' => 10,       // transactional mail per source IP
+	'subnet_limit_per_hour' => 20,   // …per /24 (IPv4) or /64 (IPv6)
+	'global_limit_per_hour' => 50,   // …instance-wide; hitting it is surfaced in the admin UI
+	// Signups bearing a valid referral/invite token are almost never spam, so
+	// they SKIP the per-IP and per-/24 limits above (this is what lets a whole
+	// workshop or course cohort sign up from one institutional NAT). They are
+	// still bounded by this separate, higher instance-wide ceiling, so a leaked
+	// token can't be used to bomb without limit.
+	'trusted_global_limit_per_hour' => 200,
+	// refuse addresses whose domain has no MX and no A/AAAA record (or a
+	// null MX). Only an authoritative "no such record" fails closed; a
+	// transient resolver failure (SERVFAIL, timeout) sends anyway, logs, and
+	// is not cached.
+	'mx_check' => true,
+	'mx_cache_hours' => 24,
+	// keep survey_mail_guard_log rows this long (daily prune from the
+	// cleanup cron; 0 = keep forever). Longest rate-limit window is a week.
+	'log_retention_days' => 90,
+	// optional blocklist file: one domain per line, # comments. Empty default.
+	'disposable_domains_file' => null,
+	// HMAC secret for the signup form's signed timestamp and the Altcha
+	// challenge; derived from the instance crypto key when null.
+	'form_secret' => null,
+);
+
+/*
+ * Who may register an account at all. Most lab instances need accounts for a
+ * handful of researchers and hand participants session links — for those,
+ * 'domains' or 'closed' removes the signup attack surface entirely. Be
+ * honest with yourself: 'open' on a public instance means accepting
+ * signup-mail abuse as a cost of doing business.
+ *
+ *   'open'     anyone (current behaviour, default)
+ *   'domains'  only emails under 'allowed_domains' (whole domains, subdomains
+ *              included) OR ending in an 'allowed_tlds' entry (e.g. only .edu).
+ *              A single-use invitation token (issued by a superadmin under
+ *              admin/advanced/registration_invites, or via
+ *              bin/registration_invite.php) overrides the restriction for
+ *              one person — the escape hatch for legitimate exceptions.
+ *   'invite'   only with such a single-use invitation token
+ *   'closed'   nobody
+ *
+ * Independent of the DB-backed signup:allow switch in the admin UI — both
+ * must allow a signup. The honeypot + signed-timestamp bot check on the form
+ * is always on; 'challenge' adds a proof-of-work widget on top:
+ *   'altcha'    self-hosted, no third party, no data-protection questions
+ *               (recommended if you need a challenge)
+ *   'turnstile' Cloudflare — sends visitor data to a third party, which your
+ *               privacy policy must then document; needs both keys below
+ */
+$settings['registration'] = array(
+	'mode' => 'open',
+	'allowed_domains' => array(), // ('domains' mode) whole domains, e.g. array('uni-example.edu', 'example.org')
+	'allowed_tlds' => array(),    // ('domains' mode) accept any address ending in these TLDs, e.g. array('edu', 'ac.uk')
+	'min_form_seconds' => 3,      // submissions faster than this are bots
+	'form_token_ttl' => 43200,    // signed form timestamp validity (12 h)
+	'challenge' => null,          // null | 'altcha' | 'turnstile'
+	'turnstile_site_key' => '',
+	'turnstile_secret_key' => '',
+);
 
 // What regular expression should the user codes match? Make sure your RegEx allows 64 character base64 like ^[A-Za-z0-9+-_~]{64}, as these are the codes formr generates. You can generate shorter/longer codes yourself though.
 $settings['user_code_regular_expression'] = "/^[A-Za-z0-9+-_~]{64}$/";
@@ -209,17 +299,6 @@ $settings['social_share'] = array(
 	),
 );
 
-// Settings for the OSF API
-$settings['osf'] = array(
-	'client_id' => 'xxxxxxxxx',
-	'client_secret' => 'xxxxxxx-secret',
-	'redirect_url' => 'https://formr.org/api/osf',
-	'scope' => 'osf.full_write',
-	'token_uri' => 'https://accounts.osf.io/oauth2/token',
-	'authorization_uri' => 'https://accounts.osf.io/oauth2/authorize',
-	'api' => 'https://api.osf.io/v2',
-	'site_url' => 'https://osf.io/myprojects/'
-);
 
 // Default time lengths for email subscriptions
 $settings['email_subscriptions'] = array(
@@ -265,8 +344,18 @@ $settings['encryption_key_file'] = null;
 // Before using this, make sure xsendfile is installed and configured correctly with apache
 $settings['use_xsendfile'] = true;
 
-// Reserved run names which users are not allowed to use
-$settings['reserved_run_names'] = array('api', 'test', 'delegate');
+// Reserved run names which users are not allowed to use. Must cover every
+// top-level router slug (setup.php routes): in path-based (non-subdomain)
+// deployments the router matches the first URL segment against the route
+// table BEFORE falling through to "treat it as a run name" — a run claiming
+// a slug like `survey-test` would be unreachable (participants get the
+// preview controller's 403 instead of the study). isReservedName() blocks
+// the name and its `name-*` prefixes, case-insensitively.
+$settings['reserved_run_names'] = array(
+    'api', 'test', 'delegate',
+    'admin', 'run', 'public', 'survey-test',
+    'formr-test-run', // Run::TEST_RUN, the internal preview pseudo-run
+);
 
 // Flag indicating whether formr is in maintenance mode
 // If this is set to true, then users will see a maintenance message and cron jobs will not run
@@ -289,6 +378,121 @@ $settings['disabled_features'] = array(
     // RUN.controller_method_name
     // SURVEY.controller_method_name
 );
+
+// Enable form_v2 authoring.
+// When true, admins can add the "Form" RunUnit type to a run and pick the
+// form_v2 engine when adding a new survey. Existing Form units and studies
+// already on v2 continue to load and run regardless of this flag; only those
+// two ways in (the run editor's "Add Form", the "Engine" choice on "Add a new
+// survey") are gated by it.
+$settings['form_v2_enabled'] = false;
+
+// Per-study wide-table dual-write for survey responses.
+// Historically formr writes every answer twice: once into the long-form
+// survey_items_display table, once into a per-study wide table named
+// survey_NN. This flag controls only the wide write — the long path is
+// always taken (it's the source of truth for form_v2's pivoted export
+// and the v1 API's /api/v1/runs/{name}/results endpoint).
+//
+// Leave on (default): v1 studies read the wide table (see
+// form_v2_long_reads below), and it is the fallback for v2's. As of patch 108
+// the readers that still go to the wide table when form_v2_long_reads
+// is false are:
+//   - UnitSession::getRunData (OpenCPU R overlay — tail(survey, 1))
+//   - SurveyStudy::getResultCount (admin survey page "begun/finished")
+//   - SurveyStudy::getAverageTimeItTakes
+//   - AdminRunController::backup (per-run TSV)
+// Form_v2 exports (admin CSV/XLSX) pivot from the long table regardless
+// and are not affected by this flag. Do NOT turn this off while
+// form_v2_long_reads is false: the wide table would stop filling and
+// every reader above would go stale.
+$settings['form_v2_dual_write_results'] = true;
+
+// Long-format reads for v1 studies (opt-in). form_v2 studies always read
+// their answers from the long format (survey_items_display +
+// survey_unit_sessions): the OpenCPU R overlay (UnitSession::getRunData),
+// admin result counts / average time, getResults (exports, the results
+// page, the per-run backup TSV). A v1 study reads its own results table,
+// exactly as before this release, unless this is true. The long read
+// re-types each column from the item definition, so R code sees the same
+// data either way; turning it on for v1 is for instances that want one
+// read path — keep form_v2_dual_write_results on either way.
+$settings['form_v2_long_reads'] = false;
+
+// form_v2 offline-queue per-file blob cap (megabytes). Pages with file
+// uploads above this size are NOT queued offline — the participant gets a
+// "submission too large to queue offline" error and is asked to retry once
+// online. Default 10MB matches what the bundle hardcoded historically.
+// Raise for studies that routinely collect long-form audio/video.
+$settings['form_v2_offline_blob_max_mb'] = 10;
+
+// form_v2 endpoint rate limits, per fixed 60s window (FixedWindowRateLimiter,
+// patch 113; buckets keyed by run session, beacon by IP; fail-open when the
+// table is missing so a misapplied patch never locks participants out).
+//   rcall_per_min  — /form-render-page (it triggers OpenCPU work)
+//   write_per_min  — /form-page-submit + /form-save + /form-sync (DB writes)
+//   beacon_per_min — /pwa-beacon (unauthenticated logging endpoint)
+//   bot_challenge_per_min — /form-bot-challenge (bot_check nonce minting;
+//                    own bucket so challenge fetches can't eat the write
+//                    budget, or vice versa)
+$settings['form_v2_rate_limits'] = array(
+    'rcall_per_min' => 30,
+    'write_per_min' => 90,
+    'beacon_per_min' => 10,
+    'bot_challenge_per_min' => 20,
+);
+
+// Per-slot TTLs (seconds) for the survey_r_call_results cache. Values,
+// labels and choice labels resolve once per page show, so they tolerate a
+// long TTL; lower them if edited R should take effect sooner. A slot missing
+// here keeps its built-in default (RCallService::ttlForSlot).
+$settings['form_v2_rcall_ttl'] = array(
+    'value' => 300,
+    'label' => 300,
+    'choice_label' => 300,
+);
+
+// ---------------------------------------------------------------------------
+// `bot_check` item — self-hosted Altcha + Argon2id proof-of-work (form_v2).
+// Read by application/Services/BotCheckChallenge.php. Every key below has a
+// working built-in default, so an install that sets none of them still gets a
+// functioning, fail-closed bot check. Uncomment only what you want to change.
+// The per-window limit on the mint endpoint is NOT here — it lives in
+// $settings['form_v2_rate_limits']['bot_challenge_per_min'] above.
+// See documentation/agent_doc/bot_check_altcha.md for the threat model.
+// ---------------------------------------------------------------------------
+
+// HMAC secret the challenge signature is derived from. Never sent to the
+// client. Default (unset or empty string): derived from the instance's
+// at-rest crypto key (`Crypto::getKeyFile()`), which every formr install has —
+// so you normally leave this alone. If neither is available the item fails
+// CLOSED: mint 503s, verify() refuses every token, and the participant sees
+// "Human verification is temporarily unavailable". Set it only if you want a
+// secret independent of the crypto key (rotating it invalidates outstanding
+// challenges; participants just get a fresh one).
+// $settings['bot_check_secret'] = '';
+
+// Proof-of-work difficulty, 1..3: how many times bot_check_argon_memory each
+// hash takes (~256 hashes are expected at any difficulty), so 2 is about twice
+// the work of 1. Out-of-range values clamp. An item can override per-question
+// with `bot_check N` in its type column — the server always decides, never
+// the request.
+// $settings['bot_check_difficulty'] = 1;
+
+// Argon2id memory cost in KiB. This is what makes the work memory-hard
+// (GPU/ASIC-resistant). The server only ever computes ONE verification hash
+// (~7 ms), so raising it costs an attacker, not you. Values below 256 are
+// ignored and fall back to the default.
+// $settings['bot_check_argon_memory'] = 4096;
+
+// Argon2id iterations (passes). Values below 1 fall back to the default.
+// $settings['bot_check_argon_time'] = 1;
+
+// How long a minted challenge stays valid, in seconds. The token is bound to
+// the participant's session and burned after a successful verify, so a long
+// window grants an attacker nothing — the default is generous so a diary page
+// left open overnight still verifies. Values below 60 fall back to the default.
+// $settings['bot_check_ttl'] = 86400;
 
 // Brand
 $settings['brand'] = '<span>f</span>orm<span>{`r}</span>';
@@ -314,12 +518,29 @@ $settings['run_session'] = array(
     'lock_timeout' => array(
         'queue' => 0.1,  // Queue should fail fast (0.1 seconds)
         'user' => 10.0   // Users can wait longer (10 seconds)
-    )
+    ),
+    // Maximum automated units executed back-to-back in ONE request. Exceeding
+    // it halts the request WITHOUT ending the run session (a misconfigured
+    // skip cycle stays cheap per request; a genuine catch-up continues on the
+    // next request). If your design legitimately chains more automated units,
+    // raise this.
+    'max_execution_count' => 10,
 );
 
 // How long to keep study data, i.e. what is the maxmimum expiry that can be set in a run
 // To allow users to keep study data indefinitely, set this to INF
 $settings['keep_study_data_for_months_maximum'] = 84;
+
+// Issue #608: instance-wide default monthly compute budget per study admin,
+// in SECONDS of unit-session execution time (incl. OpenCPU/R) summed across
+// all their runs in the current calendar month. 0 = unlimited (the default,
+// so nothing is limited out of the box). When a user exceeds their effective
+// limit, ComputeLimitCron sets their active runs non-public and disables their
+// automatic actions (cron_active = 0). Compute-closed runs are NOT reopened
+// automatically — the owner must republish them (and re-enable cron) once usage
+// is addressed. A superadmin can override this per user via
+// survey_users.compute_limit_monthly; users cannot change their own limit.
+$settings['compute_limit_monthly_default'] = 0;
 
 // Notification settings for sending notifications to study administrators about issues with their study in minutes
 $settings['notification'] = array(

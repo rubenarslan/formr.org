@@ -26,6 +26,14 @@
                 <p class="back"> <a href="<?= $link ?>"><?= $link_text ?></a> </p>
             <?php endif; ?>
         </div>
+        <?php if (!empty($wipe_queue)):
+            // A participant's logout (RunController::logoutAction): the
+            // run's offline queue is deleted on the device.
+            $logoutBundleDir = is_file(APPLICATION_ROOT . 'webroot/assets/dev-build/js/logout.bundle.js') ? 'dev-build' : 'build';
+        ?>
+            <div hidden data-fmr-wipe-queue="<?= h($wipe_queue) ?>"></div>
+            <script src="<?= asset_url($logoutBundleDir . '/js/logout.bundle.js') ?>"></script>
+        <?php endif; ?>
 
     </body>
 </html>

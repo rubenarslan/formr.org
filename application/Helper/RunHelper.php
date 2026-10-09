@@ -65,8 +65,17 @@ class RunHelper {
     }
 
     public function remind() {
-        $emailSession = $this->run->getReminderSession($this->request->reminder_id, $this->request->session, $this->request->run_session_id);
-        if ($emailSession->execute() === false) {
+        // Monkey-bar authority is the gated (testing) session that passed
+        // RunController::monkeyBarAction — a reminder may only be fired for
+        // THAT session, not an arbitrary run_session_id in the run, which a
+        // shared test link would otherwise let a non-admin aim at a real
+        // participant. Symmetric with deleteUser().
+        if (!$this->runSession || !$this->runSession->valid
+                || (int) $this->request->run_session_id !== (int) $this->runSession->id) {
+            $this->errors[] = 'Something went wrong with the reminder. in run ' . $this->run->name;
+            return false;
+        }
+        if ($this->run->sendReminder($this->request->reminder_id, $this->request->session, $this->runSession->id) === false) {
             $this->errors[] = 'Something went wrong with the reminder. in run ' . $this->run->name;
             return false;
         }
@@ -82,7 +91,9 @@ class RunHelper {
         if (!$us) {
             $this->message = 'No unit session found';
             return false;
-        } else if($us->end('moved') && $this->runSession->moveOn()) {
+        } else if ($this->runSession->forceMoveOn('moved')) {
+            // Audit F3 (2026-07): end + moveOn now run under the
+            // run-session lock instead of racing a daemon cascade.
             $this->message = 'Move done';
             return true;
         } else {
@@ -93,7 +104,17 @@ class RunHelper {
 
     public function deleteUser() {
         $session = $this->request->session;
-        if (($deleted = $this->db->delete('survey_run_sessions', array('id' => $this->request->run_session_id, 'run_id' => $this->run->id)))) {
+        // The monkey bar's authority is the (testing) session code that
+        // passed RunController::monkeyBarAction's gate, so only that
+        // session may be deleted — not an arbitrary run_session_id in the
+        // run, which would let anyone holding a shared test link delete
+        // real participants.
+        if (!$this->runSession || !$this->runSession->valid
+                || (int) $this->request->run_session_id !== (int) $this->runSession->id) {
+            $this->errors[] = "User with session '{$session}' could not be deleted";
+            return;
+        }
+        if (($deleted = $this->db->delete('survey_run_sessions', array('id' => $this->runSession->id, 'run_id' => $this->run->id)))) {
             $this->message = "User with session '{$session}' was deleted";
         } else {
             $this->errors[] = "User with session '{$session}' could not be deleted";
@@ -146,6 +167,13 @@ class RunHelper {
             $query[] = ' `survey_run_sessions`.session IN (' . implode( ',', $queryParams['sessions']) . ') ';
         }
 
+        // isset, not !empty: testing=0 ("real users only") is a valid filter.
+        // Backed by idx_run_testing_last_access (patch 074) so the guinea-pig
+        // view stays a range scan on a run with many real sessions.
+        if (isset($queryParams['testing'])) {
+            $query[] = ' `survey_run_sessions`.testing = :testing ';
+        }
+
         if (!empty($queryParams['position'])) {
             $query[] = " `survey_run_sessions`.position {$queryParams['position_operator']} :position ";
         }
@@ -158,9 +186,8 @@ class RunHelper {
 
         $pagination = new Pagination($count, 200, true);
         $limits = $pagination->getLimits();
-        $queryParams['admin_code'] = $adminCode;
 
-        $itemsQuery = 
+        $selectAndJoins =
             "SELECT
                 `survey_run_sessions`.id AS run_session_id,
                 `survey_run_sessions`.session,
@@ -172,7 +199,6 @@ class RunHelper {
                 `survey_run_sessions`.current_unit_session_id,
                 `survey_runs`.name AS run_name,
                 `survey_units`.type AS unit_type,
-                `survey_run_sessions`.last_access,
                 `us`.result,
                 `us`.result_log,
                 `us`.expires
@@ -181,13 +207,47 @@ class RunHelper {
             LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
             LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
             LEFT JOIN `survey_unit_sessions` us ON  `survey_run_sessions`.current_unit_session_id = `us`.id
-            WHERE {$where}
-            ORDER BY `survey_run_sessions`.session != :admin_code, `survey_run_sessions`.last_access DESC
+            ";
+
+        $itemsQuery = $selectAndJoins . " WHERE {$where}
+            ORDER BY `survey_run_sessions`.last_access DESC
             LIMIT $limits
         ";
 
+        $data = $this->db->execute($itemsQuery, $queryParams);
+
+        // Pin the admin's own test session to row 1 of page 1 (the "find my
+        // test session" workflow). The old query did this with an unindexable
+        // `ORDER BY session != :admin_code` expression sort over the whole run;
+        // the main query now sorts by the indexed last_access DESC and stops at
+        // LIMIT, so the admin row may not be in the fetched page at all. Restore
+        // the global pin with one cheap indexed point-lookup on the first,
+        // unfiltered page: move it up if already present, else prepend it.
+        $firstPage = strpos((string) $limits, '0,') === 0;
+        $unfiltered = empty($queryParams['session']) && empty($queryParams['sessions'])
+            && empty($queryParams['position']) && !isset($queryParams['testing']);
+        if ($adminCode && $firstPage && $unfiltered) {
+            $data = $data ?: array();
+            $present = false;
+            $pinned = $rest = array();
+            foreach ($data as $row) {
+                if ($row['session'] === $adminCode) { $pinned[] = $row; $present = true; }
+                else { $rest[] = $row; }
+            }
+            if (!$present) {
+                $adminRow = $this->db->execute(
+                    $selectAndJoins . " WHERE `survey_run_sessions`.run_id = :run_id
+                        AND `survey_run_sessions`.session = :admin_code LIMIT 1",
+                    array('run_id' => $queryParams['run_id'], 'admin_code' => $adminCode),
+                    false, true
+                );
+                if ($adminRow) { $pinned[] = $adminRow; }
+            }
+            $data = array_merge($pinned, $rest);
+        }
+
         return array(
-            'data' => $this->db->execute($itemsQuery, $queryParams),
+            'data' => $data,
             'pagination' => $pagination,
         );
     }
@@ -209,13 +269,61 @@ class RunHelper {
             LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
             LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
             LEFT JOIN `survey_unit_sessions` us ON  `survey_run_sessions`.current_unit_session_id = `us`.id
-            WHERE `survey_run_sessions`.run_id = :run_id ORDER BY `survey_run_sessions`.session != :admin_code,`survey_run_sessions`.last_access DESC
+            WHERE `survey_run_sessions`.run_id = :run_id ORDER BY `survey_run_sessions`.last_access DESC
         ";
+        unset($queryParams['admin_code']);
         $stmt = $this->db->prepare($query);
         $stmt->execute($queryParams);
 
         return $stmt;
     }
+
+    /**
+     * D1 fan-out fix (v1.7.1) — shared placement join for every query that
+     * pairs a unit session with its run placement.
+     *
+     * Joining `survey_run_units` on `unit_id` alone multiplies each unit
+     * session by the number of positions that unit occupies in the run,
+     * with a different `position` on each copy: the admin tables showed
+     * one visit as two or three, the export duplicated rows, and the
+     * pagination count had to be deliberately made wrong in the same way
+     * to keep the page count matching (see RunMetrics::reconcileRunMetrics).
+     *
+     * `survey_unit_sessions.run_unit_id` (patch 047) pins a session to the
+     * placement it actually ran at, so `sru_own` is an indexed PK lookup
+     * that resolves it exactly. `sru_fallback` fires only when that misses
+     * — rows predating 047, and the multi-position rows the 048 backfill
+     * intentionally left NULL — and keeps the legacy unit_id match so no
+     * row silently drops out of an admin view.
+     *
+     * Unlike UnitSession::getRunData()'s two-alias join, the fallback arm
+     * here pins to ONE placement (lowest id) instead of matching them all.
+     * For a legacy row the placement is genuinely unknowable, and these are
+     * row-per-session views: listing the session three times under three
+     * positions is the bug being fixed, so a best-effort position on a
+     * single row beats N wrong rows. It matters in practice — 26% of the
+     * unit sessions on the dev instance's oldest run still have a NULL
+     * run_unit_id, and without this the fix would only help sessions
+     * created after patch 047. `survey_run_units` holds a few hundred rows
+     * instance-wide and the subquery is served by (run_id) + (unit_id), so
+     * the cost is negligible.
+     *
+     * Callers must read placement columns through the COALESCE constants
+     * below, in SELECT *and* WHERE, or the arms disagree.
+     */
+    private const PLACEMENT_JOIN = "
+            LEFT JOIN `survey_run_units` AS `sru_own`
+                ON `sru_own`.id = `survey_unit_sessions`.run_unit_id
+            LEFT JOIN `survey_run_units` AS `sru_fallback`
+                ON `sru_own`.id IS NULL
+                AND `sru_fallback`.id = (
+                    SELECT MIN(`ru_pick`.id) FROM `survey_run_units` AS `ru_pick`
+                    WHERE `ru_pick`.unit_id = `survey_unit_sessions`.unit_id
+                      AND `ru_pick`.run_id = `survey_run_sessions`.run_id
+                )";
+    private const PLACEMENT_POSITION = "COALESCE(`sru_own`.`position`, `sru_fallback`.`position`)";
+    private const PLACEMENT_DESCRIPTION = "COALESCE(`sru_own`.`description`, `sru_fallback`.`description`)";
+    private const PLACEMENT_RUN_ID = "COALESCE(`sru_own`.`run_id`, `sru_fallback`.`run_id`)";
 
     public function getUserDetailTable($queryParams, $page = null) {
         $query = array(' `survey_run_sessions`.run_id = :run_id ');
@@ -224,30 +332,40 @@ class RunHelper {
         }
 
         if (!empty($queryParams['position'])) {
-            $query[] = " `survey_run_units`.position {$queryParams['position_operator']} :position ";
+            $query[] = ' ' . self::PLACEMENT_POSITION . " {$queryParams['position_operator']} :position ";
         }
         unset($queryParams['position_operator']);
 
-        $where = implode(' AND ', $query);
-        $count_query = "SELECT COUNT(`survey_unit_sessions`.id) AS count FROM `survey_unit_sessions` 
-			LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-			LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.`unit_id` = `survey_run_units`.`unit_id`
-            WHERE {$where}
-        ";
-        $count = $this->db->execute($count_query, $queryParams, true);
-        $pagination = new Pagination($count, 200, true);
-        $limits = $pagination->getLimits();
-
-        $query[] = ' `survey_runs`.id = :run_id2 ';
+        // Requiring the resolved placement to belong to this run keeps the
+        // pre-existing inner-join semantic (sessions of special/removed
+        // units stay excluded) now that the join itself is a LEFT JOIN pair.
+        $query[] = ' ' . self::PLACEMENT_RUN_ID . ' = :run_id2 ';
         $queryParams['run_id2'] = $queryParams['run_id'];
         $where = implode(' AND ', $query);
 
-        $itemsQuery = "SELECT 
+        // Unfiltered pagination count comes from the reconcile-maintained rollup
+        // (audit SQ-06); a session/position filter needs the live filtered count.
+        $count = null;
+        if (empty($queryParams['session']) && empty($queryParams['position'])) {
+            $count = RunMetrics::count((int) $queryParams['run_id'], 'n_unit_sessions');
+        }
+        if ($count === null) {
+            $count_query = "SELECT COUNT(`survey_unit_sessions`.id) AS count FROM `survey_unit_sessions`
+                LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id"
+                . self::PLACEMENT_JOIN . "
+                WHERE {$where}
+            ";
+            $count = $this->db->execute($count_query, $queryParams, true);
+        }
+        $pagination = new Pagination($count, 200, true);
+        $limits = $pagination->getLimits();
+
+        $itemsQuery = "SELECT
                 `survey_run_sessions`.session,
                 `survey_unit_sessions`.id AS session_id,
                 `survey_runs`.name AS run_name,
-                `survey_run_units`.position,
-                `survey_run_units`.description,
+                " . self::PLACEMENT_POSITION . " AS position,
+                " . self::PLACEMENT_DESCRIPTION . " AS description,
                 `survey_units`.type AS unit_type,
                 `survey_unit_sessions`.created,
                 `survey_unit_sessions`.ended,
@@ -258,9 +376,9 @@ class RunHelper {
                 `survey_unit_sessions`.result_log
             FROM `survey_unit_sessions`
             LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-            LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
-            LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
-            LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
+            LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id"
+            . self::PLACEMENT_JOIN . "
+            LEFT JOIN `survey_runs` ON `survey_runs`.id = " . self::PLACEMENT_RUN_ID . "
             WHERE {$where}
             ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC LIMIT {$limits}
         ";
@@ -275,19 +393,54 @@ class RunHelper {
         $query = "
             SELECT
                 `survey_unit_sessions`.id AS session_id,
-                `survey_run_units`.position,
+                " . self::PLACEMENT_POSITION . " AS position,
 			    `survey_units`.type AS unit_type,
-			    `survey_run_units`.description,
+			    " . self::PLACEMENT_DESCRIPTION . " AS description,
 			    `survey_run_sessions`.session,
 			    `survey_unit_sessions`.created AS entered,
-			    IF (`survey_unit_sessions`.ended > 0, UNIX_TIMESTAMP(`survey_unit_sessions`.ended)-UNIX_TIMESTAMP(`survey_unit_sessions`.created), UNIX_TIMESTAMP(NOW())-UNIX_TIMESTAMP(`survey_unit_sessions`.created)) AS 'seconds_stayed',
+			    -- Upstream PR #703 (Tim Seidel): fall back to `expired` before
+			    -- NOW(). A unit session that EXPIRED rather than ended has
+			    -- `ended` NULL, so every expired row took the NOW() branch and
+			    -- the column reported 'time since the participant entered this
+			    -- unit, as of the moment Export was clicked' instead of a
+			    -- duration — a number that grows on every re-export of the same
+			    -- session and contradicts the web view, which renders the raw
+			    -- timestamps. It hit exactly the rows an export gets pulled to
+			    -- investigate: Survey inactivity expiry and elapsed Pause/Wait.
+			    -- NOW() now applies only to sessions still genuinely open,
+			    -- where 'elapsed so far' is the intended meaning. Rows with
+			    -- `ended` set are unaffected.
+			    UNIX_TIMESTAMP(
+			        CASE
+			            WHEN `survey_unit_sessions`.ended   > 0 THEN `survey_unit_sessions`.ended
+			            WHEN `survey_unit_sessions`.expired > 0 THEN `survey_unit_sessions`.expired
+			            ELSE NOW()
+			        END
+			    ) - UNIX_TIMESTAMP(`survey_unit_sessions`.created) AS 'seconds_stayed',
 				`survey_unit_sessions`.ended AS 'left',
-			    `survey_unit_sessions`.expired
+			    `survey_unit_sessions`.expired,
+			    -- The export carried only created/ended/expired while
+			    -- templates/admin/run/user_detail.php additionally renders
+			    -- `expires` (bolded while queued > 0) and `result` with
+			    -- `result_log` as its tooltip. That gap made this class of bug
+			    -- undiagnosable from an export alone: a Pause/Wait's computed
+			    -- deadline lives only in `expires`, so an export showing a
+			    -- 10-minute Wait that ended after 1 second gives no way to tell
+			    -- a miscomputed deadline from a correct one being ignored.
+			    -- Appended AFTER the existing nine columns so positional
+			    -- parsers of the old format keep working.
+			    `survey_unit_sessions`.expires,
+			    `survey_unit_sessions`.queued,
+			    `survey_unit_sessions`.result,
+			    `survey_unit_sessions`.result_log
 			FROM `survey_unit_sessions`
 			LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 			LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
-			LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
-			LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
+			-- This one had no run_id predicate on the placement join at all,
+			-- so a unit shared with another run pulled that run's rows in
+			-- alongside the duplicates (D1 fan-out).
+			" . self::PLACEMENT_JOIN . "
+			LEFT JOIN `survey_runs` ON `survey_runs`.id = " . self::PLACEMENT_RUN_ID . "
 			WHERE `survey_runs`.id = :run_id AND `survey_run_sessions`.run_id = :run_id2
 			ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC;
         ";
@@ -298,14 +451,18 @@ class RunHelper {
     }
 
     public function getEmailLogTable($queryParams) {
-        $count_query = "
-            SELECT COUNT(`survey_email_log`.id) AS count
-            FROM `survey_email_log`
-            LEFT JOIN `survey_unit_sessions` ON `survey_unit_sessions`.id = `survey_email_log`.session_id 
-            LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
-            WHERE `survey_run_sessions`.run_id = :run_id
-        ";
-        $count = $this->db->execute($count_query, $queryParams, true);
+        // reconcile-maintained per-run email-log count (audit SQ-37), live fallback
+        $count = RunMetrics::count((int) $queryParams['run_id'], 'n_email_logs');
+        if ($count === null) {
+            $count_query = "
+                SELECT COUNT(`survey_email_log`.id) AS count
+                FROM `survey_email_log`
+                LEFT JOIN `survey_unit_sessions` ON `survey_unit_sessions`.id = `survey_email_log`.session_id
+                LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
+                WHERE `survey_run_sessions`.run_id = :run_id
+            ";
+            $count = $this->db->execute($count_query, $queryParams, true);
+        }
         $pagination = new Pagination($count, 75, true);
         $limits = $pagination->getLimits();
 
@@ -348,12 +505,15 @@ class RunHelper {
         $pagination = new Pagination($count, 100, true);
         $limits = $pagination->getLimits();
 
+        // session count comes from the maintained per-run rollup (audit SQ-13)
+        // instead of a live GROUP BY over the whole survey_run_sessions table
         $itemsQuery = "
-            SELECT survey_runs.id AS run_id, name, survey_runs.user_id, cron_active, cron_fork, locked, count(survey_run_sessions.id) AS sessions, survey_users.email
-			FROM survey_runs 
-			LEFT JOIN survey_users ON survey_users.id = survey_runs.user_id 
-			LEFT JOIN survey_run_sessions ON survey_run_sessions.run_id = survey_runs.id 
-			GROUP BY survey_run_sessions.run_id
+            SELECT survey_runs.id AS run_id, name, survey_runs.user_id, cron_active, cron_fork, locked,
+                   survey_runs.public, survey_runs.compute_closed_from,
+                   COALESCE(m.n_run_sessions, 0) AS sessions, survey_users.email
+			FROM survey_runs
+			LEFT JOIN survey_users ON survey_users.id = survey_runs.user_id
+			LEFT JOIN survey_run_metrics m ON m.run_id = survey_runs.id
             ORDER BY survey_runs.name ASC LIMIT $limits
         ";
         
@@ -368,27 +528,45 @@ class RunHelper {
     }
 
     public function getPushMessageLogTable($params) {
-        $sql = "SELECT 
+        // reconcile-maintained per-run push-log count (audit SQ-14), live fallback
+        $count = RunMetrics::count((int) $params['run_id'], 'n_push_logs');
+        if ($count === null) {
+            $count = $this->db->count('push_logs', array('run_id' => $params['run_id']));
+        }
+        $pagination = new Pagination($count, 50, true);
+        $limits = $pagination->getLimits();
+
+        $sql = "SELECT
                     pl.*,
-                    sru.position as position_in_run,
+                    COALESCE(sru_own.position, sru_fallback.position) as position_in_run,
                     pm.message as template_message,
                     pm.topic,
                     pm.priority,
                     rs.session as `session`
                 FROM push_logs pl
-                LEFT JOIN survey_unit_sessions sus ON pl.unit_session_id = sus.id 
+                LEFT JOIN survey_unit_sessions sus ON pl.unit_session_id = sus.id
                 LEFT JOIN survey_run_sessions rs ON rs.id = sus.run_session_id
-                LEFT JOIN survey_run_units sru ON sus.unit_id = sru.unit_id AND sru.run_id = pl.run_id
+                -- D1 fan-out: matching the placement by unit_id alone
+                -- duplicated every push-log row for a unit slotted at
+                -- several positions. Same two-alias resolution as
+                -- self::PLACEMENT_JOIN, spelled out here because this query
+                -- uses its own table aliases.
+                LEFT JOIN survey_run_units sru_own ON sru_own.id = sus.run_unit_id
+                LEFT JOIN survey_run_units sru_fallback ON sru_own.id IS NULL
+                    AND sru_fallback.id = (
+                        SELECT MIN(ru_pick.id) FROM survey_run_units ru_pick
+                        WHERE ru_pick.unit_id = sus.unit_id AND ru_pick.run_id = pl.run_id
+                    )
                 LEFT JOIN push_messages pm ON sus.unit_id = pm.id
-                WHERE pl.run_id = :run_id 
-                ORDER BY pl.created DESC";
-                
+                WHERE pl.run_id = :run_id
+                ORDER BY pl.created DESC LIMIT {$limits}";
+
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
-        
+
         return array(
             'data' => $stmt->fetchAll(PDO::FETCH_ASSOC),
-            'pagination' => new Pagination($stmt->rowCount(), 50)
+            'pagination' => $pagination
         );
     }
 

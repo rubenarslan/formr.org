@@ -1,5 +1,7 @@
 window.formr = window.formr || {};
 
+// UTC, whatever the participant's time zone; the server stores it in its
+// own (client_time in application/Functions.php).
 export function mysql_datetime() {
 	return (new Date()).toISOString().slice(0, 19).replace('T', ' ');
 }
@@ -169,8 +171,20 @@ export function cookies_enabled() {
 					var collapsible = hash;
 					$(collapsible, context).collapse("show");
 					var parent_tab = $(collapsible, context).parents('.tab-pane');
-					if (parent_tab && !parent_tab.hasClass("active")) {
-						$('a[href=#' + parent_tab.attr('id') + ']').tab('show');
+					if (parent_tab.length && !parent_tab.hasClass("active")) {
+						$('a[href="#' + parent_tab.attr('id') + '"][data-toggle="tab"]').tab('show');
+					}
+				} else if (hash) {
+					// An anchor inside a tab (e.g. documentation#form_v2_enable):
+					// show the tab that holds it, then the anchor itself.
+					var target = document.getElementById(hash.substring(1));
+					var pane = target ? $(target).closest('.tab-pane') : $();
+					if (pane.length && !pane.hasClass("active")) {
+						// Scroll once the tab is shown: while it fades in the
+						// anchor has no layout to scroll to.
+						$('a[href="#' + pane.attr('id') + '"][data-toggle="tab"]')
+							.one('shown.bs.tab', function () { target.scrollIntoView(); })
+							.tab('show');
 					}
 				}
 			};

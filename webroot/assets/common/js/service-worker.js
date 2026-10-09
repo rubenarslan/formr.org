@@ -1,9 +1,23 @@
-// Bumped to v7 alongside the time-bound handling-reload fix in
-// PWAInstaller.js. Without a sw_version bump installed PWAs would keep
-// serving the old frontend.bundle.js out of the SW cache and the fix
-// wouldn't reach participants.
-const sw_version = 'v7';
-const CACHE_NAME = 'formr-' + sw_version + '-' + self.location.hostname + self.location.pathname.split('/').slice(0, -1).join('-');
+// Bump sw_version whenever a change must reach already-installed PWAs:
+// without it they keep serving the old bundle out of the SW cache.
+// v7 — time-bound handling-reload fix in PWAInstaller.js.
+// v8 — stop precaching manifest.start_url (see the install handler): the
+//      old worker fetched the participant's own run URL, with their
+//      session code and credentials, on every install. Bumping also
+//      evicts the v7 cache still holding that response.
+const sw_version = 'v8';
+// One cache per run (its path) and version: on a path-routed study domain
+// every run's worker shares the origin's CacheStorage.
+const CACHE_SCOPE = self.location.hostname + self.location.pathname.split('/').slice(0, -1).join('-');
+const CACHE_NAME = 'formr-' + sw_version + '-' + CACHE_SCOPE;
+
+// A cache an earlier version of this run's worker left: dropped on
+// activation. Another run's cache is not this worker's to delete; deleting
+// it emptied that run's offline assets on every install or update here.
+function isStaleCache(name) {
+  const m = /^formr-v\d+-(.*)$/.exec(name);
+  return name !== CACHE_NAME && !!m && m[1] === CACHE_SCOPE;
+}
 
 console.log("SW loaded", CACHE_NAME);
 
@@ -13,8 +27,10 @@ function isValidUrl(url) {
     const urlObj = new URL(url);
     
     // For other assets, only allow URLs from our origin or HTTPS URLs, and only paths containing /assets/
-    return (urlObj.protocol === 'https:' || urlObj.origin === self.location.origin) 
-           && (urlObj.pathname.includes('/assets/') || urlObj.pathname.includes('/manifest'));
+    // `/manifest` must be the last path segment: a bare substring match
+    // made every page of a run named e.g. "manifesto" cache-first.
+    return (urlObj.protocol === 'https:' || urlObj.origin === self.location.origin)
+           && (urlObj.pathname.includes('/assets/') || /\/manifest(\.json)?\/?$/.test(urlObj.pathname));
   } catch {
     return false;
   }
@@ -31,7 +47,11 @@ async function fetchManifest() {
       console.log("SW: Fetching manifest from", url);
       
       const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch manifest.');
+      if (!response.ok) {
+        const err = new Error('Failed to fetch manifest.');
+        err.status = response.status;
+        throw err;
+      }
       
       manifestData = await response.json();
     } catch (err) {
@@ -100,9 +120,44 @@ async function manageBadge(count) {
   }
 }
 
+// The options of the notification a push shows. `badge` is the URL of the
+// small monochrome icon, never a count (the count is data.badgeCount, for
+// the Badging API): a number was taken as a URL relative to the worker, so
+// every notification made the browser fetch <run>/1 with the participant's
+// cookies, which runs their run session like a page load.
+function notificationOptions(data, bestIcon, timestamp) {
+  return {
+    body: data.body || '',
+    icon: data.icon ? new URL(data.icon, self.location.origin).href : bestIcon,
+    badge: typeof data.badge === 'string' && data.badge ? new URL(data.badge, self.location.origin).href : undefined,
+    tag: data.tag || `notification-${timestamp}`,
+    urgency: data.priority || 'normal',
+    vibrate: data.vibrate === false ? undefined : [100, 50, 100],
+    requireInteraction: !!data.requireInteraction,
+    renotify: !!data.renotify,
+    silent: !!data.silent,
+    data: {
+      clickTarget: data.clickTarget || self.location.href.replace(/\/service-worker$/, '/'),
+      badgeCount: Number.isInteger(data.badgeCount) ? data.badgeCount : undefined,
+      timestamp: timestamp,
+      expires: Number.isInteger(data.timeToLive) ? timestamp + data.timeToLive * 1000 : undefined
+    }
+  };
+}
+
+// This run's windows. matchAll() with includeUncontrolled returns every
+// window of the origin, and on a path-routed study domain that is every
+// run's: a tap on run B's notification focused (and reloaded) run A's
+// window and never opened run B, and every push reloaded the other runs'
+// pages.
+function inScope(windows) {
+  const scope = self.registration.scope;
+  return windows.filter((c) => typeof c.url === 'string' && c.url.startsWith(scope));
+}
+
 // Helper function to find and sort clients, prioritizing PWA clients
 async function findAndSortClients() {
-  const clientsArr = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+  const clientsArr = inScope(await clients.matchAll({ type: 'window', includeUncontrolled: true }));
   return clientsArr.sort((a, b) => b.url.includes('_pwa=true') - a.url.includes('_pwa=true'));
 }
 
@@ -203,17 +258,46 @@ self.addEventListener('install', (event) => {
   const pre_cache = async () => {
     try {
       const manifest = await fetchManifest();
-      const assetsToCache = [...new Set([manifest.start_url, ...manifest.icons.map(icon => icon.src)])];
+      // v1.8.0: precache ICONS ONLY — never manifest.start_url.
+      //
+      // start_url is not a static asset: RunController::personalizeManifest
+      // sets it to the participant's own run URL WITH their session code
+      // (run_url($run) . '?code=' . $code). safeAddAll fetches every entry
+      // with credentials:'same-origin', so precaching it fired an
+      // authenticated GET on the participant's run — i.e.
+      // RunController::indexAction -> RunSession::execute() in a WEB
+      // context (isCron() is purely $user->cron, which only the queue sets).
+      // Every service-worker install therefore silently advanced the
+      // participant's run: a parked Wait saw !isExecutedByCron(), took its
+      // "participant came back early" branch and jumped to `body`. Reported
+      // from the field as a Wait after a PushMessage ending by itself — a
+      // push wakes the SW, skipWaiting() installs the new one, and the
+      // install fetch lands within a second of the push. It also stamped
+      // activity, created unit sessions and rendered surveys unbidden; Wait
+      // was merely where it became visible.
+      //
+      // Nothing is lost by dropping it: the fetch handler only serves URLs
+      // passing isValidUrl() (paths containing /assets/ or /manifest), and
+      // the run URL matches neither — so the cached entry could never be
+      // read. It was write-only. Navigations go to the network exactly as
+      // they did before.
+      const assetsToCache = [...new Set((manifest.icons || []).map(icon => icon.src))];
       const cache = await caches.open(CACHE_NAME);
       console.log('SW: Caching assets:', assetsToCache);
       return await safeAddAll(cache, assetsToCache);
     } catch (error) {
-      console.error('Install failed:', error);
-      // Wait on the beacon so it actually goes out before the SW
-      // transitions to redundant — once the install handler rejects,
-      // the SW has roughly no time to make outbound requests.
-      await beaconLifecycleFailure('install', error);
-      throw error;
+      // Pre-caching is best-effort: never fail the install over it. A run
+      // without a manifest (/manifest 404s) can still have this worker — an
+      // earlier bundle registered it on every v2 study with the offline
+      // queue on. Rejecting here made the install fail, the registration
+      // vanish, and the next page load re-register, fail and beacon again —
+      // and left navigator.serviceWorker.ready (push) pending forever.
+      // Beacon so the maintainer still gets a signal — except for the
+      // ordinary "this run has no manifest" 404, which is not a failure.
+      console.warn('SW: pre-cache skipped', error);
+      if (!(error && error.status === 404)) {
+        await beaconLifecycleFailure('install', error);
+      }
     }
   };
   event.waitUntil(pre_cache());
@@ -221,68 +305,65 @@ self.addEventListener('install', (event) => {
 });
 
 
-// Add activation event listener to check for expired notifications
+// Activation: drop the caches an earlier version of this run's worker left,
+// take control, close expired notifications — and when this worker replaced
+// such a version, tell the run's open pages to reload, or pages loaded
+// against the old sw_version keep running their old PWAInstaller.js. The
+// page-side STATE_INVALIDATED handler is what is re-used here (it's been in
+// every shipped sw_version); a fresh Date.now() timestamp passes the dedup
+// check in reload_invalidated. Not on a first install: the page that just
+// registered the worker is current, and a v1 page reloaded a moment after
+// a participant's first visit lost whatever they had typed.
+async function activateWorker() {
+  const stale = (await caches.keys()).filter(isStaleCache);
+  await Promise.all(stale.map((name) => caches.delete(name)));
+
+  await clients.claim();
+  await checkAndCloseExpiredNotifications();
+  console.log("SW: Activation complete, clients claimed");
+
+  if (!stale.length) return;
+  try {
+    const reloadTs = Date.now();
+    for (const client of await findAndSortClients()) {
+      try {
+        client.postMessage({ type: 'STATE_INVALIDATED', tag: 'sw-activate', timestamp: reloadTs });
+      } catch (err) {
+        console.warn('SW: activation reload broadcast failed for', client.id, err);
+      }
+    }
+  } catch (broadcastErr) {
+    console.warn('SW: activation reload broadcast skipped:', broadcastErr);
+  }
+}
+
 self.addEventListener('activate', event => {
   console.log('SW: Starting activation');
-  const activate = async () => {
-    try {
-      // Drop caches from previous sw_versions. Without this, bumping
-      // sw_version creates a new CACHE_NAME but the unscoped
-      // `caches.match()` in the fetch handler still hits the old cache
-      // and serves stale assets — which is how an installed PWA can
-      // keep running yesterday's frontend.bundle.js indefinitely.
-      const allCacheNames = await caches.keys();
-      await Promise.all(
-        allCacheNames
-          .filter((name) => name !== CACHE_NAME && name.startsWith('formr-'))
-          .map((name) => caches.delete(name))
-      );
-
-      await clients.claim();
-      await checkAndCloseExpiredNotifications();
-      console.log("SW: Activation complete, clients claimed");
-
-      // Tell every already-open client to reload, otherwise pages that
-      // were loaded against the OLD sw_version keep running their old
-      // PWAInstaller.js (loaded before this SW activated). The page-side
-      // STATE_INVALIDATED handler is what we re-use here — it's been in
-      // every shipped sw_version, so the message is understood even by
-      // pages running pre-fix code. A fresh Date.now() timestamp passes
-      // the dedup check in reload_invalidated.
-      try {
-        const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
-        const reloadTs = Date.now();
-        for (const client of allClients) {
-          try {
-            client.postMessage({ type: 'STATE_INVALIDATED', tag: 'sw-activate', timestamp: reloadTs });
-          } catch (err) {
-            console.warn('SW: activation reload broadcast failed for', client.id, err);
-          }
-        }
-      } catch (broadcastErr) {
-        console.warn('SW: activation reload broadcast skipped:', broadcastErr);
-      }
-    } catch (error) {
-      console.error("Error during activation:", error);
-      throw error;
-    }
-  };
-  event.waitUntil(activate());
-  console.log('SW: Activation complete');
+  event.waitUntil(activateWorker().catch((error) => {
+    console.error("Error during activation:", error);
+    throw error;
+  }));
 });
 
 /* 
  * Fetch event listener to cache assets
  */
-self.addEventListener('fetch', (event) => {
-  // Only handle GET requests
-  if (event.request.method !== 'GET') {
-    return;
-  }
+// Requests the worker answers cache-first: GETs of assets and the manifest
+// (isValidUrl), never a page. The URL test alone let every page of a run
+// named `manifest` (/manifest/, a valid run name) be cached on its first
+// load and served from then on: the run could not move on.
+function servesFromCache(request) {
+  return request.method === 'GET' && request.mode !== 'navigate' && isValidUrl(request.url);
+}
 
-  // Only handle valid URLs (which now must include /assets/)
-  if (!isValidUrl(event.request.url)) {
-    return fetch(event.request);  // Don't cache, just fetch normally
+self.addEventListener('fetch', (event) => {
+  // Everything else is left to the browser by NOT calling respondWith().
+  // Never call fetch(event.request) here without respondWith: the browser
+  // still makes its own request, so that second fetch duplicated every
+  // in-scope GET — a navigation to the run URL (RunSession::execute twice),
+  // /form-bot-challenge mints, cross-origin subresources.
+  if (!servesFromCache(event.request)) {
+    return;
   }
 
   event.respondWith((async () => {
@@ -325,34 +406,55 @@ self.addEventListener('fetch', (event) => {
 
 // Add message event listener to handle asset caching
 self.addEventListener('message', (event) => {
-  // Handle CACHE_ASSETS message
-  if (event.data.type === 'CACHE_ASSETS') {
-    // Filter and deduplicate assets
-    const validAssets = [...new Set(
-      [
-        ...event.data.assets.filter(isValidUrl)
-      ]
-    )].filter(isValidUrl);
-    
-    console.log('Service worker received assets to cache:', validAssets);
-    
-    // Return the Promise chain directly instead of using event.waitUntil
-    event.ports[0]?.postMessage(
-      (async () => {
-        try {
-          const cache = await caches.open(CACHE_NAME);
-          console.log("SW: Caching assets:", validAssets);
-          // Use the same per-URL resilience as the install handler so
-          // one missing CSS file doesn't reject the whole batch and
-          // leave the postMessage caller hanging on a never-resolved
-          // promise.
-          return await safeAddAll(cache, validAssets);
-        } catch (error) {
-          console.error('Error caching assets:', error);
-          throw error; // Propagate to caller
+  const msg = event.data;
+  if (!msg || typeof msg !== 'object') return;
+  const reply = event.ports && event.ports[0];
+  // Test diagnostic: dump cache state via reply port. The page-side
+  // `caches.keys()` is partitioned away from the SW's caches under iOS
+  // Safari + automation, so the e2e cache test (tests/e2e/helpers/pwa.js
+  // swReportedCaches) asks the SW directly.
+  if (msg.type === 'FMR_DUMP_CACHES') {
+    event.waitUntil((async () => {
+      try {
+        const keys = await caches.keys();
+        const entries = {};
+        for (const name of keys) {
+          const c = await caches.open(name);
+          entries[name] = (await c.keys()).length;
         }
-      })()
-    );
+        reply?.postMessage({ keys, entries, cacheName: CACHE_NAME });
+      } catch (err) {
+        reply?.postMessage({ error: String((err && err.message) || err) });
+      }
+    })());
+    return;
+  }
+  // Handle CACHE_ASSETS message
+  if (msg.type === 'CACHE_ASSETS') {
+    // Filter and deduplicate assets
+    const validAssets = [...new Set(Array.isArray(msg.assets) ? msg.assets : [])].filter(isValidUrl);
+
+    console.log('Service worker received assets to cache:', validAssets);
+
+    // Do the caching unconditionally and keep the worker alive for it.
+    // (It used to be the ARGUMENT of `event.ports[0]?.postMessage(...)`:
+    // pwa-register posts without a port, so the optional chain
+    // short-circuited and the caching never ran — and with a port, posting
+    // a Promise throws DataCloneError.) The reply, when a port was given,
+    // is a plain result.
+    event.waitUntil((async () => {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        console.log("SW: Caching assets:", validAssets);
+        // Same per-URL resilience as the install handler: one missing CSS
+        // file doesn't reject the whole batch.
+        const results = await safeAddAll(cache, validAssets);
+        reply?.postMessage({ ok: true, results });
+      } catch (error) {
+        console.error('Error caching assets:', error);
+        reply?.postMessage({ error: String((error && error.message) || error) });
+      }
+    })());
   }
 });
 
@@ -378,25 +480,8 @@ self.addEventListener('push', event => {
       console.log('Push notification data:', data);
 
       const timestamp = Date.now();
-      const tag = data.tag || `notification-${timestamp}`;
-
-      const options = {
-        body: data.body || '',
-        icon: data.icon ? new URL(data.icon, self.location.origin).href : best_icon_any,
-        badge: data.badge || 1,
-        tag,
-        urgency: data.priority || 'normal',
-        vibrate: data.vibrate === false ? undefined : [100, 50, 100],
-        requireInteraction: !!data.requireInteraction,
-        renotify: !!data.renotify,
-        silent: !!data.silent,
-        data: {
-          clickTarget: data.clickTarget || self.location.href.replace(/\/service-worker$/, '/'),
-          badgeCount: Number.isInteger(data.badgeCount) ? data.badgeCount : undefined,
-          timestamp: timestamp,
-          expires: Number.isInteger(data.timeToLive) ? timestamp + data.timeToLive * 1000 : undefined
-        }
-      };
+      const options = notificationOptions(data, best_icon_any, timestamp);
+      const tag = options.tag;
 
       // Show the notification and AWAIT it — iOS Safari terminates push
       // subscriptions if showNotification() doesn't complete inside waitUntil().

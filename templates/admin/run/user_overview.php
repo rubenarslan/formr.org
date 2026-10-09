@@ -49,7 +49,7 @@
                                 <span class="sessions-search-switch" data-active="<?php echo !empty($_GET['sessions']) ? 'multiple' : 'single'; ?>"><i class="fa fa-retweet"></i></span>
                                 <div class="input-group single <?php if (!empty($_GET['sessions'])) echo 'hidden'; ?>">
                                     <div class="input-group-addon">SEARCH <i class="fa fa-user"></i></div>
-                                    <input name="session" value="<?= h(array_val($_GET, 'session')) ?>" type="text" class="form-control" placeholder="Session code"  style="width: 250px;">
+                                    <input name="session" value="<?= h(array_val($_GET, 'session')) ?>" type="text" class="form-control" placeholder="Session code (starts with…)" title="Matches session codes that start with what you type (not a substring)." style="width: 250px;">
                                 </div>
                                 <div class="input-group multiple <?php if (empty($_GET['sessions'])) echo 'hidden'; ?>">
                                     <div class="input-group-addon">SEARCH <i class="fa fa-users"></i></div>
@@ -76,6 +76,23 @@
                                     <option value="=" <?= ($position_lt == '=') ? 'selected' : ''; ?>>=</option>
                                     <option value="&lt;" <?= ($position_lt == '<') ? 'selected' : ''; ?>>&lt;</option>
                                     <option value="&gt;" <?= ($position_lt == '>') ? 'selected' : ''; ?>>&gt;</option>
+                                </select>
+                            </div>
+
+                            <?php
+                            // The run menu's "Old Guinea Pigs" link lands here with testing=1.
+                            // Surfacing it as a form control means the filter is visible (an
+                            // otherwise empty-looking table is explained) and reversible.
+                            $testing_filter = array_val($_GET, 'testing');
+                            $testing_filter = ($testing_filter === '') ? '' : (string) (int) (bool) $testing_filter;
+                            ?>
+                            <label class="sr-only">Test sessions</label>
+                            <div class="input-group">
+                                <div class="input-group-addon hastooltip" title="Guinea pigs are sessions carrying the testing flag — created via Test Run, or switched on with the stethoscope button below."><i class="fa fa-stethoscope"></i></div>
+                                <select class="form-control" name="testing">
+                                    <option value="" <?= ($testing_filter === '') ? 'selected' : ''; ?>>Everyone</option>
+                                    <option value="1" <?= ($testing_filter === '1') ? 'selected' : ''; ?>>Guinea pigs only</option>
+                                    <option value="0" <?= ($testing_filter === '0') ? 'selected' : ''; ?>>Real users only</option>
                                 </select>
                             </div>
 
@@ -140,7 +157,7 @@
                                                 ?>
 
                                                 <small class="label <?=$label_class?> hastooltip" title="<?php echo h($user['result_log']); ?>">
-                                                    <?php echo $user['result']; ?>
+                                                    <?php echo h($user['result']); ?>
                                                 </small>
                                                 <?php if(!empty( $user['expires'])) { ?>
                                                     <small class="label label-info hastooltip" title="<?php echo $user['expires']; ?>">
@@ -157,7 +174,7 @@
                                                         <a class='btn hastooltip link-ajax' href='<?= site_url("admin/run/{$user['run_name']}/ajax_toggle_testing?toggle_on=" . ($user['testing'] ? 0 : 1) . "&amp;run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])) ?>' 
                                                            title='Toggle testing status'><i class='fa <?= ($user['testing'] ? 'fa-stethoscope' : 'fa-heartbeat') ?>'></i></a>
 
-                                                        <a class="btn hastooltip remind-run-session" href="javascript:void(0)" data-href="<?php echo admin_run_url($user['run_name'], "ajax_remind?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Remind this user" data-session="<?php echo h($user['session']); ?>"><i class='fa fa-bullhorn'></i></a>
+                                                        <a class="btn hastooltip remind-run-session" href="#" data-href="<?php echo admin_run_url($user['run_name'], "ajax_remind?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Remind this user" data-session="<?php echo h($user['session']); ?>"><i class='fa fa-bullhorn'></i></a>
                                                         <button type="submit" class="btn hastooltip" title="Send this user to that position"><i class="fa fa-hand-o-right"></i></button>
                                                     </span>
                                                     <input type="hidden" name="session" value="<?php echo $user['session']; ?>" />
@@ -170,7 +187,7 @@
                                                         <?php endforeach; ?>
                                                     </select>
                                                     <span class='input-group-btn link-ajax-modal'>
-                                                        <a class="btn hastooltip delete-run-session" href="javascript:void(0)" data-href="<?php echo admin_run_url($user['run_name'], "ajax_delete_user?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Delete this user and all their data (you'll have to confirm)" data-session="<?php echo h($user['session']); ?>"><i class='fa fa-trash-o'></i></a>
+                                                        <a class="btn hastooltip delete-run-session" href="#" data-href="<?php echo admin_run_url($user['run_name'], "ajax_delete_user?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Delete this user and all their data (you'll have to confirm)" data-session="<?php echo h($user['session']); ?>"><i class='fa fa-trash-o'></i></a>
                                                         <a class="btn hastooltip" href="<?php echo admin_run_url($user['run_name'], "user_detail?session=" . urlencode(substr($user['session'], 0, 15))); ?>" title="Go to user detail"><i class="fa fa-list"></i></a>
                                                     </span>
                                                 </span>
@@ -186,8 +203,8 @@
                                 <span class="input-group">
                                     <span class="input-group-btn">
                                         <a class="btn hastooltip ba" data-action="toggleTest" title="Toggle testing status for selected users"><i class="fa fa-heartbeat"></i></a>
-                                        <a class="btn hastooltip ba" data-action="sendReminder" href="javascript:void(0)" title="Remind selected users"><i class='fa fa-bullhorn'></i></a>
-                                        <a class="btn hastooltip ba" data-action="deleteSessions" href="javascript:void(0)" title="Delete selected users and all their data (you'll have to confirm)"><i class='fa fa-trash-o'></i></a>
+                                        <a class="btn hastooltip ba" data-action="sendReminder" href="#" title="Remind selected users"><i class='fa fa-bullhorn'></i></a>
+                                        <a class="btn hastooltip ba" data-action="deleteSessions" href="#" title="Delete selected users and all their data (you'll have to confirm)"><i class='fa fa-trash-o'></i></a>
                                         <a class="btn hastooltip ba" data-action="positionSessions" title="Send users to selected position"><i class="fa fa-hand-o-right"></i></a>
                                     </span>
                                     <select name="ba_new_position" class="form-control position_monkey">

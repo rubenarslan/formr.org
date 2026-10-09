@@ -25,6 +25,7 @@
 // `freshParticipant` calls `clearBrowserState(page)` before navigating.
 
 const base = require('@playwright/test');
+const jsCoverage = require('./jsCoverage');
 
 const RUNNING_ON_BS = process.env.BROWSERSTACK_AUTOMATION === 'true';
 
@@ -52,8 +53,20 @@ const test = RUNNING_ON_BS
         page: async ({ bsPage }, use) => {
             await use(bsPage);
         },
+
+        // Same proxy treatment for the `context` fixture. Without this,
+        // a test that destructures `{ page, context }` triggers
+        // Playwright's default test-scoped context fixture which calls
+        // browser.newContext() — and BS iOS rejects with
+        // "Only one browser context is allowed". Worker-scoped bsPage's
+        // context is the only context BS lets us have, so hand that
+        // back instead.
+        context: async ({ bsPage }, use) => {
+            await use(bsPage.context());
+        },
     })
-    : base.test;
+    // FORMR_JS_COVERAGE: record bundle coverage per test (helpers/jsCoverage.js).
+    : (jsCoverage.enabled ? base.test.extend(jsCoverage.fixtures) : base.test);
 
 // page.evaluate workaround for BrowserStack Selenium bridge.
 //

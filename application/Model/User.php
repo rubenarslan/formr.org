@@ -17,7 +17,14 @@ class User extends Model {
     public $admin = false;
     public $referrer_code = null;
     // todo: time zone, etc.
-    
+
+    /**
+     * Request-scoped: set by the registration controller when the signup
+     * carries a valid referral/invite token, so the verification mail relaxes
+     * the mail guard's per-source rate limits. Not a DB column.
+     */
+    public $signup_trusted = false;
+
     protected $table = "survey_users";
 
     public function __construct($id = null, $user_code = null, $options = []) {
@@ -113,9 +120,7 @@ class User extends Model {
             return false;
         }
 
-        if ($this->user_code === null) {
-            $this->user_code = crypto_token(48);
-        }
+        $this->user_code = $this->signupUserCode();
 
         $this->referrer_code = $referrer_code;
 
@@ -143,10 +148,39 @@ class User extends Model {
         }
     }
 
+    /**
+     * The code a new account gets: the visitor's session code, so surveys
+     * taken before signing up stay linked — unless an account already owns
+     * it. A second signup from the same browser session (a typo'd address
+     * that never got its verification mail, say) used to collide on
+     * user_code_UNIQUE and die with a 500.
+     *
+     * @return string
+     */
+    public function signupUserCode() {
+        if ($this->user_code !== null && !$this->db->entry_exists('survey_users', array('user_code' => $this->user_code))) {
+            return $this->user_code;
+        }
+        return crypto_token(48);
+    }
+
+    /**
+     * (Re)send the verification mail. The stored hash is only rotated once
+     * the new link has actually left: a refused or failed send must not
+     * invalidate a link that was mailed earlier. A brand-new account has no
+     * earlier link, so its hash is written up front — the login page's
+     * "Resend" button identifies the account by that hash.
+     *
+     * @return bool whether the mail was sent
+     */
     public function needToVerifyMail() {
+        $row = $this->db->findRow('survey_users', array('id' => $this->id), array('email_verification_hash', 'referrer_code'));
+        $existingHash = $row ? $row['email_verification_hash'] : null;
         $token = crypto_token(48);
         $token_hash = password_hash($token, PASSWORD_DEFAULT);
-        $this->db->update('survey_users', array('email_verification_hash' => $token_hash, 'email_verified' => 0), array('id' => $this->id));
+        if (!$existingHash) {
+            $this->db->update('survey_users', array('email_verification_hash' => $token_hash, 'email_verified' => 0), array('id' => $this->id));
+        }
 
         $verify_link = site_url('verify_email', array(
             'email' => $this->email,
@@ -154,6 +188,11 @@ class User extends Model {
         ));
 
         $mail = Site::getInstance()->makeAdminMailer();
+        $mail->guard_type = 'verification';
+        $mail->guard_user_id = $this->id;
+        // A re-send keeps the trust its signup earned (referral code, invite).
+        $mail->guard_trusted = (bool) $this->signup_trusted
+            || RegistrationGuard::accountIsTrusted($this->id, $row ? $row['referrer_code'] : null);
         $mail->AddAddress($this->email);
         $mail->Subject = 'formr: confirm your email address';
         $mail->Body = Template::get_replace('email/verify-email.ftpl', array(
@@ -162,12 +201,17 @@ class User extends Model {
             'verify_link' => $verify_link,
         ));
 
-        if (!$mail->Send()) {
+        $sent = (bool) $mail->Send();
+        if (!$sent) {
             alert($mail->ErrorInfo, 'alert-danger');
         } else {
+            if ($existingHash) {
+                $this->db->update('survey_users', array('email_verification_hash' => $token_hash, 'email_verified' => 0), array('id' => $this->id));
+            }
             alert('An email has been sent to you. Please check your email and verify your account.', 'alert-info');
         }
         $this->id = null;
+        return $sent;
     }
 
     public function login($info) {
@@ -179,7 +223,18 @@ class User extends Model {
                         ->where(array('email' => $email))
                         ->limit(1)->fetch();
 
-        if ($user && !$user['email_verified']) {
+        // One bcrypt verification per attempt: both branches below need the
+        // verdict, and verifying twice doubled login latency and the CPU a
+        // credential-stuffing burst can pin.
+        $password_ok = $user && password_verify($password, $user['password']);
+
+        if ($password_ok && !$user['email_verified']) {
+            // Only reveal the unverified state — and the verification token —
+            // to someone who has proved the password. Before this guard the
+            // branch ran on any known email regardless of password, which
+            // both leaked an account-exists/unverified oracle and handed the
+            // email_verification_hash (a live resend token) to an anonymous
+            // caller.
             $verification_link = site_url('verify-email', array('token' => $user['email_verification_hash']));
             $this->id = $user['id'];
             $this->email = $email;
@@ -188,7 +243,7 @@ class User extends Model {
                 <a class="btn btn-raised btn-default" href="%s">Resend Link</a>', 
             $verification_link);
             return false;
-        } elseif ($user && password_verify($password, $user['password'])) {
+        } elseif ($password_ok) {
             if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
                 /* Store new hash in db */
@@ -261,35 +316,48 @@ class User extends Model {
         }
     }
 
+    /**
+     * Mail a password-reset link if the account exists. Says nothing to the
+     * visitor either way — no alert, no redirect — because every difference
+     * between "exists" and "doesn't" (a different message, a 302 vs a 200, a
+     * guard refusal that only existing accounts can trigger) is an
+     * account-existence oracle. The controller renders one neutral response
+     * for all outcomes; delivery problems go to the log.
+     *
+     * @return bool whether a reset mail was sent
+     */
     public function forgotPassword($email) {
         $user_exists = $this->db->entry_exists('survey_users', array('email' => $email));
-
-        if ($user_exists) {
-            $token = crypto_token(48);
-            $hash = password_hash($token, PASSWORD_DEFAULT);
-
-            $this->db->update('survey_users', array('reset_token_hash' => $hash, 'reset_token_expiry' => mysql_interval('+2 days')), array('email' => $email));
-
-            $reset_link = site_url('reset_password', array(
-                'email' => $email,
-                'reset_token' => $token
-            ));
-
-            $mail = Site::getInstance()->makeAdminMailer();
-            $mail->AddAddress($email);
-            $mail->Subject = 'formr: forgot password';
-            $mail->Body = Template::get_replace('email/forgot-password.ftpl', array(
-                'site_url' => site_url(),
-                'reset_link' => $reset_link,
-            ));
-
-            if (!$mail->Send()) {
-                alert($mail->ErrorInfo, 'alert-danger');
-            } else {
-                alert("If the provided email was registered with us, you will receive an email with instructions on how to reset your password.", 'alert-info');
-                redirect_to("admin/account/forgot-password");
-            }
+        if (!$user_exists) {
+            return false;
         }
+
+        $token = crypto_token(48);
+        $hash = password_hash($token, PASSWORD_DEFAULT);
+
+        $this->db->update('survey_users', array('reset_token_hash' => $hash, 'reset_token_expiry' => mysql_interval('+2 days')), array('email' => $email));
+
+        $reset_link = site_url('reset_password', array(
+            'email' => $email,
+            'reset_token' => $token
+        ));
+
+        $mail = Site::getInstance()->makeAdminMailer();
+        $mail->guard_type = 'password_reset';
+        $mail->AddAddress($email);
+        $mail->Subject = 'formr: forgot password';
+        $mail->Body = Template::get_replace('email/forgot-password.ftpl', array(
+            'site_url' => site_url(),
+            'reset_link' => $reset_link,
+        ));
+
+        if (!$mail->Send()) {
+            if (empty($mail->guard_blocked)) {
+                formr_log('Password reset mail could not be sent: ' . $mail->ErrorInfo, 'MailGuard');
+            }
+            return false;
+        }
+        return true;
     }
 
     function logout() {
@@ -394,9 +462,14 @@ class User extends Model {
             return false;
         }
 
-        $reset_token_hash = $this->db->findValue('survey_users', array('email' => $email), array('reset_token_hash'));
+        $reset_row = $this->db->findRow('survey_users', array('email' => $email), 'reset_token_hash, reset_token_expiry');
+        $reset_token_hash = $reset_row ? $reset_row['reset_token_hash'] : null;
+        // The expiry was written at request time (+2 days) but never
+        // enforced, so a reset link stayed valid indefinitely until used.
+        $reset_not_expired = $reset_row && !empty($reset_row['reset_token_expiry'])
+            && strtotime($reset_row['reset_token_expiry']) > time();
 
-        if ($reset_token_hash) {
+        if ($reset_token_hash && $reset_not_expired) {
             if (password_verify($token, $reset_token_hash)) {
                 $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
                 $this->db->update(
@@ -423,7 +496,10 @@ class User extends Model {
         $verify_data = $this->db->findRow('survey_users', array('email' => $email), array('email_verification_hash', 'referrer_code'));
 
         if (Site::getSettings("signup:enable_referral_token", 'true') === 'true' &&
-            in_array($verify_data['referrer_code'], Config::get('referrer_codes'))) {
+            // strict compare (a loose one let `array(0)` promote every
+            // verifier), but the column is VARCHAR so a numeric code
+            // configured as an int literal must still match.
+            in_array((string) $verify_data['referrer_code'], array_map('strval', (array) Config::get('referrer_codes')), true)) {
             $this->db->update('survey_users', array('admin' => 1), array('email' => $email));
             $this->id = (int) $this->db->findValue('survey_users', array('email' => $email), array('id'));
             $this->load();
@@ -431,8 +507,13 @@ class User extends Model {
 
             alert('You now have the rights to create your own studies!', 'alert-success');
         } else {
-            alert('Your email verification token was invalid or oudated. Please try copy-pasting the link in your email and removing any spaces.', 'alert-danger');
-            return false;
+            // Reaching here means the account has no valid referral token, so
+            // it stays participant-level — the normal outcome of a plain
+            // signup, NOT a verification failure. Verification already
+            // succeeded above (email_verified = 1); the old "token invalid or
+            // outdated" alert here was simply wrong and contradicted the
+            // success message shown moments earlier.
+            alert('Your account is a participant account; ask an administrator for study-creation rights.', 'alert-info');
         }
         return true;
     }
@@ -573,8 +654,11 @@ class User extends Model {
         $backup_codes = $this->get2FABackupCodes();
         if(!empty($backup_codes)) {
             $backup_codes_array = explode(';', $backup_codes);
-            if (in_array($code, $backup_codes_array)) {
-                $key = array_search($code, $backup_codes_array);
+            // Strict comparison: a loose in_array/array_search lets PHP
+            // type-juggling (e.g. an INF-parsing "9E9999" vs a stored
+            // "2E4567") satisfy the check and bypass the second factor.
+            if (in_array($code, $backup_codes_array, true)) {
+                $key = array_search($code, $backup_codes_array, true);
                 unset($backup_codes_array[$key]);
                 $this->set2FABackupCodes(implode(';', $backup_codes_array));
                 return true;

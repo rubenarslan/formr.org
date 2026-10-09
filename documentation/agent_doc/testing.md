@@ -5,6 +5,12 @@ This document is a companion to the `## Commands` section in
 tests run where, what's deferred, and what would be needed to close
 each gap.
 
+> **See also `regression_prevention_plan.md`** (post-v1.7.1): the
+> agreed six-layer plan for why the v1.7.0 hardening bugs escaped
+> these lanes and what to build, in order. The live-MariaDB CI lane
+> designed below is its Layer 4 — with two corrections (seed with the
+> fixture-clean smoke subset only; some smokes can never be hermetic).
+
 ## Two lanes
 
 | Lane | Script | What runs | Database |
@@ -15,6 +21,34 @@ each gap.
 The unit lane is the CI gate and must stay green. The integration
 lane is exploratory until the bootstrap supports a real-DB switch
 (see below).
+
+## Playwright projects
+
+`tests/e2e/playwright.config.js` has two local projects. `local-chromium`
+(`npm run test:e2e`) blocks service workers: the default headless shell
+hangs on SW-controlled pages. `sw-chromium` (`npm run test:e2e:sw`) runs
+only `sw-*.spec.js`, with service workers allowed, on the full Chromium
+build (`channel: 'chromium'`) — the service worker itself (fetch handler,
+install without a manifest, `CACHE_ASSETS`, `FMR_DUMP_CACHES`) and which
+pages register one. The offline queue drains
+page-side, so its specs (`v2-queue-drain`, `pwa-queue-rejection`, seeding
+IndexedDB through `helpers/idbQueue.js`) run in `local-chromium`.
+
+## Admin notifications during e2e
+
+The e2e suite pauses study-admin notifications (`Notification::paused`): its
+fixtures fail on purpose (`rescov-*` runs with broken R, dead SMTP, …) and
+would mail the run owner. `setup/global-setup.js` writes
+`.notifications_paused` at the repo root with an expiry (4 h),
+`setup/global-teardown.js` removes it; a run that dies in between stops
+pausing at the expiry. The app and both daemons read it; a daemon started
+before `Notification::paused` existed needs a restart.
+
+## Coverage pass
+
+`tests/coverage/run.sh` measures what the unit lane, the smokes and the e2e
+suite (server and browser) execute, merged, into `.coverage/`. It is a map of
+untested code, not a target; see `tests/coverage/README.md`.
 
 ## What's tagged `@group integration`
 

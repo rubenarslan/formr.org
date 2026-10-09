@@ -1,0 +1,317 @@
+import { t } from '../lib/i18n.js';
+import { isItemHidden, itemAnswered } from '../lib/inputs.js';
+// Native Constraint Validation feedback rendering for v2.
+//
+// v1 used webshim to surface consistent inline messages. v2 has neither
+// webshim nor jQuery; we read `validity` from each `<input>`/`<select>`/
+// `<textarea>` and render `.fmr-invalid-feedback` / `.fmr-btn-feedback` next
+// to the offender. Native browser tooltips don't render reliably on iOS
+// Safari (clipped, hidden behind sticky headers, sometimes skipped); inline
+// feedback is the fallback that actually appears.
+//
+// applyErrors() pushes a server response error map onto the same surface so
+// `.fmr-invalid-feedback` is the single rendering path.
+
+// The message for an invalid field. For a format mismatch the item's `title`
+// wins: it is the author's own wording (a pattern item's first choice, #269)
+// or the server's default for the type (email). Browsers treat `title` as a
+// mere hint and often leave it out of validationMessage.
+function invalidMessage(el, fallback) {
+    const v = el.validity || {};
+    if ((v.patternMismatch || v.typeMismatch) && el.title) return el.title;
+    return el.validationMessage || fallback;
+}
+
+// Clear ONLY the customValidity values that `applyErrors` wrote (server-
+// side validation responses). Init-armed customValidity from gating items
+// (AddToHomeScreen, PushNotification, RequestCookie, …) must persist —
+// otherwise the participant can advance past a required gate without
+// completing it. Server-set inputs are tagged with `data-fmr-server-validity`.
+export function clearCustomValidity(pageEl) {
+    pageEl.querySelectorAll(
+        'input[data-fmr-server-validity], select[data-fmr-server-validity], textarea[data-fmr-server-validity]'
+    ).forEach((inp) => {
+        inp.setCustomValidity('');
+        delete inp.dataset.fmrServerValidity;
+    });
+}
+
+// An inline `.fmr-invalid-feedback` row with `msg`, placed after the field's
+// `.controls` / `.form-group` (or right after the field).
+function insertFeedback(el, msg) {
+    const fb = document.createElement('div');
+    fb.className = 'invalid-feedback fmr-invalid-feedback d-block';
+    fb.textContent = msg;
+    const anchor = el.closest('.controls, .form-group') || el.parentElement;
+    if (anchor && anchor.parentElement) {
+        anchor.parentElement.insertBefore(fb, anchor.nextSibling);
+    } else {
+        el.insertAdjacentElement('afterend', fb);
+    }
+    return fb;
+}
+
+export function findErrorTarget(pageEl, name) {
+    // A form control first: a widget element can carry the item's name too
+    // (bot_check's <altcha-widget name=…>), and it has no setCustomValidity.
+    const controls = (n) => `input[name="${CSS.escape(n)}"], select[name="${CSS.escape(n)}"], textarea[name="${CSS.escape(n)}"]`;
+    return pageEl.querySelector(controls(name))
+        || pageEl.querySelector(controls(name + '[]'))
+        || pageEl.querySelector(`[name="${CSS.escape(name)}"]`);
+}
+
+// Apply a server `errors` map to inputs. Items the server can't pin to a
+// specific input land in a top banner; everything else gets inline.
+export function applyErrors(pageEl, errors) {
+    pageEl.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
+    pageEl.querySelectorAll('.fmr-invalid-feedback').forEach((el) => el.remove());
+
+    const unplaced = [];
+    let firstErrorEl = null;
+    Object.entries(errors).forEach(([name, msg]) => {
+        const el = findErrorTarget(pageEl, name);
+        if (!el) {
+            unplaced.push({ name, msg: String(msg) });
+            return;
+        }
+        if (typeof el.setCustomValidity === 'function') el.setCustomValidity(String(msg));
+        el.dataset.fmrServerValidity = '1';
+        el.classList.add('is-invalid');
+        insertFeedback(el, String(msg));
+        if (!firstErrorEl) {
+            firstErrorEl = el;
+            // A choice item's first named input is its hidden placeholder,
+            // which has no box to scroll to: scroll to its item instead.
+            const scrollTo = el.type === 'hidden' ? (el.closest('.form-group') || el) : el;
+            scrollTo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+
+    // The banner lists this reply's unplaced errors only: an earlier reply's
+    // must not outlive the submit that fixed them.
+    let banner = pageEl.querySelector('.fmr-error-banner');
+    if (banner && !unplaced.length) banner.remove();
+    if (unplaced.length) {
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.className = 'alert alert-danger fmr-error-banner';
+            banner.setAttribute('role', 'alert');
+            pageEl.insertBefore(banner, pageEl.firstChild);
+        }
+        // Build rows with textContent (matching the inline path above) — no
+        // HTML interpretation of server messages, so a future unescaped
+        // message can't become a participant-input XSS vector here.
+        banner.replaceChildren(...unplaced.map((e) => {
+            const row = document.createElement('div');
+            const strong = document.createElement('strong');
+            strong.textContent = `${e.name}:`;
+            row.append(strong, ` ${e.msg}`);
+            return row;
+        }));
+    }
+
+    // No reportValidity() here: the inline .fmr-invalid-feedback rows already
+    // carry the messages, and the browser's native focus-first-invalid can
+    // land on a 0×0 control (tom-select's hidden input, button-group radios)
+    // and yank the scroll position to the wrong end of a long page.
+    if (firstErrorEl) {
+        try { firstErrorEl.focus({ preventScroll: true }); } catch { /* non-focusable target */ }
+    }
+}
+
+// Friendly per-type message for a required-but-unanswered group.
+function requiredMsg(g) {
+    if (g.classList.contains('item-bot_check')) return t('validation.bot_check', 'Please verify that you are human to continue.');
+    if (g.classList.contains('item-visual_analog_scale')) return t('validation.scale', 'Please choose a point on the scale to continue.');
+    if (g.classList.contains('item-geopoint')) return t('validation.location', 'Please provide your location to continue.');
+    if (g.matches('.item-file, .item-image, .item-audio, .item-video')) return t('validation.file', 'Please add a file to continue.');
+    if (g.classList.contains('item-rank')) return t('validation.rank', 'Please rank the options to continue.');
+    return t('validation.required', "We'll need this to continue.");
+}
+
+// Returns true if the page is valid and submit may proceed; false if we
+// surfaced any inline errors (caller should bail).
+export function validatePageAndShowFeedback(pageEl) {
+    pageEl.querySelectorAll('.fmr-invalid-feedback').forEach((el) => el.remove());
+    // Reset stale validation state on BOTH descendants AND pageEl itself. In the
+    // solo layout `validate(current)` passes a single `.form-group` as pageEl, so
+    // an `is-invalid` on that form-group survives `querySelectorAll`
+    // (descendants only) and, on the next attempt, makes the unanswered loop
+    // `return` early before rendering feedback — i.e. an invalid required field
+    // silently blocks with no message on the 2nd OK. Clearing pageEl too
+    // closes that leak.
+    pageEl.classList.remove('is-invalid');
+    pageEl.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
+
+    const fields = Array.from(pageEl.querySelectorAll('input[name], select[name], textarea[name]'))
+        .filter((el) => !el.disabled && !el.name.startsWith('_item_views'));
+
+    const offenders = [];
+    fields.forEach((el) => {
+        if (!el.willValidate) return;
+        if (el.checkValidity()) return;
+        offenders.push(el);
+    });
+
+    // Generic required-but-unanswered gate. Catches every item whose required-ness
+    // native validation can't see (bot_check, visual_analog_scale, geopoint,
+    // file/image/audio/video, …) so a required-but-empty one is blocked client-side
+    // with a message instead of silently bouncing off the server. Scope: the page
+    // section in default layout, or the single seated group in solo (where
+    // `validate(current)` passes one .form-group). Skip groups already flagged by
+    // native validation above (no double message) and showif-hidden ones.
+    const nativeGroups = new Set(offenders.map((el) => el.closest('.form-group')).filter(Boolean));
+    const scope = (pageEl.matches && pageEl.matches('.form-group'))
+        ? [pageEl]
+        : Array.from(pageEl.querySelectorAll('.form-group'));
+    // Rendered, or a solo step waiting off screen (solo shows one step at a
+    // time; its page-level check must still reach the others).
+    const soloStep = (g) => !!(g.parentElement && g.parentElement.matches('.fmr-page')
+        && g.closest('.fmr-form-v2[data-layout="solo"]'));
+    const unanswered = scope.filter((g) => g.classList.contains('required')
+        && !isItemHidden(g) && (g.offsetParent !== null || soloStep(g))
+        // A submit item carries `required` (it's not "optional") but is a button,
+        // not an answerable field — it can never be "answered", so excluding it
+        // here mirrors the server's required check (UnitSession excludes 'submit')
+        // and stops the page's own big submit button from blocking itself.
+        && !g.classList.contains('item-submit')
+        && !nativeGroups.has(g) && !itemAnswered(g));
+
+    if (offenders.length === 0 && unanswered.length === 0) return true;
+
+    let firstFocusTarget = null;
+    const seen = new Set();   // one message per wrapper
+    offenders.forEach((el) => {
+        const wrapper = el.closest('.form-group') || el.parentElement;
+        if (wrapper) {
+            if (seen.has(wrapper)) return;
+            seen.add(wrapper);
+        }
+
+        // A `block` item is a display-only guard (e.g. "you can't spend > $100")
+        // enforced by a hidden required checkbox that can't be ticked. Its own
+        // red message IS the explanation — don't append a misleading "please
+        // check this box". Still counts as an offender, so the submit is blocked.
+        if (wrapper && wrapper.classList.contains('item-block')) {
+            wrapper.classList.add('is-invalid');
+            if (!firstFocusTarget) firstFocusTarget = wrapper;
+            return;
+        }
+
+        // A `bot_check` is gated by Altcha's own required checkbox, whose native
+        // message ("Please check this box…") is generic and doesn't match the
+        // server's BotCheckChallenge::verify message. Show the domain message so
+        // client and server agree, regardless of the browser's wording.
+        if (wrapper && wrapper.classList.contains('item-bot_check')) {
+            el.classList.add('is-invalid');
+            wrapper.classList.add('is-invalid');
+            if (!wrapper.querySelector('.fmr-invalid-feedback, .fmr-btn-feedback')) {
+                const fb = document.createElement('div');
+                fb.className = 'invalid-feedback fmr-invalid-feedback d-block fmr-botcheck-feedback';
+                fb.textContent = requiredMsg(wrapper);
+                const anchor = wrapper.querySelector('.fmr-botcheck') || el.closest('.controls') || el;
+                anchor.insertAdjacentElement('afterend', fb);
+            }
+            if (!firstFocusTarget) firstFocusTarget = wrapper.querySelector('.fmr-botcheck-box, input[type=checkbox]') || el;
+            return;
+        }
+
+        const btnGroup = wrapper && wrapper.querySelector('.btn-group');
+        const isHiddenInput = el.type === 'hidden'
+            || el.style.display === 'none'
+            || (el.offsetParent === null && el.type !== 'radio' && el.type !== 'checkbox');
+
+        if (btnGroup && (isHiddenInput || el.type === 'radio' || el.type === 'checkbox')) {
+            if (!wrapper.querySelector('.fmr-btn-feedback')) {
+                const fb = document.createElement('div');
+                fb.className = 'invalid-feedback fmr-btn-feedback d-block';
+                // Prefer the browser's contextual message (e.g. for malformed
+                // input formats); fall back to friendlier copy.
+                fb.textContent = el.validationMessage || t('validation.pick_option', 'Please pick an option to continue.');
+                btnGroup.insertAdjacentElement('afterend', fb);
+            }
+            wrapper.classList.add('is-invalid');
+            if (!firstFocusTarget) firstFocusTarget = btnGroup.querySelector('.btn') || btnGroup;
+            return;
+        }
+
+        el.classList.add('is-invalid');
+        insertFeedback(el, invalidMessage(el, t('validation.required', "We'll need this to continue.")));
+        if (!firstFocusTarget) firstFocusTarget = el;
+    });
+
+    unanswered.forEach((g) => {
+        if (g.classList.contains('is-invalid')) return;
+        g.classList.add('is-invalid');
+        if (!g.querySelector('.fmr-invalid-feedback, .fmr-btn-feedback')) {
+            // Keep the type-specific feedback classes some tests/styles key on.
+            const extra = g.classList.contains('item-visual_analog_scale') ? ' fmr-vas-feedback'
+                : g.classList.contains('item-bot_check') ? ' fmr-botcheck-feedback' : '';
+            const fb = document.createElement('div');
+            fb.className = 'invalid-feedback fmr-invalid-feedback d-block' + extra;
+            fb.textContent = requiredMsg(g);
+            // Anchor the message just after the widget/control area.
+            const anchor = g.querySelector('.vas-controls, .fmr-botcheck, .controls-inner, .controls') || g;
+            anchor.insertAdjacentElement('afterend', fb);
+        }
+        if (!firstFocusTarget) {
+            firstFocusTarget = g.querySelector(
+                'input:not([type=hidden]):not([disabled]), textarea, select, .fmr-botcheck-box, .vas-display, .btn[data-for], .fmr-rank-item[tabindex]',
+            ) || g;
+        }
+    });
+
+    if (firstFocusTarget) {
+        try { firstFocusTarget.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch {}
+        try { firstFocusTarget.focus({ preventScroll: true }); } catch {}
+    }
+    return false;
+}
+
+// Inline validation on blur (focusout). Surfaces FORMAT errors (malformed
+// email, out-of-range number/date) the moment a filled field loses focus, per
+// the spec's "validate on blur, not on every keystroke." Deliberately does NOT
+// flag empty required fields on blur — nagging about every field the
+// participant tabs past is a breakoff driver; required-ness is caught at
+// submit. One delegated focusout listener (blur doesn't bubble; focusout does).
+export function installBlurValidation(root) {
+    root.addEventListener('focusout', (e) => {
+        const el = e.target;
+        if (!el || !el.matches || !el.matches('input, select, textarea')) return;
+        if (el.disabled || !el.willValidate) return;
+        if (el.name && el.name.startsWith('_item_views')) return;
+        // Skip button-group radios/checkboxes — blur on those is noisy and they
+        // surface via .fmr-btn-feedback at submit instead.
+        if (el.type === 'radio' || el.type === 'checkbox') return;
+
+        const wrapper = el.closest('.form-group');
+        const clear = () => {
+            el.classList.remove('is-invalid');
+            if (wrapper) wrapper.querySelectorAll('.fmr-invalid-feedback').forEach((x) => x.remove());
+        };
+        // Empty → not our job on blur (required handled at submit).
+        if (el.value == null || el.value === '') { clear(); return; }
+        if (el.checkValidity()) { clear(); return; }
+
+        // Invalid + non-empty → show the inline message next to the field.
+        if (wrapper && wrapper.querySelector('.fmr-invalid-feedback')) return; // already shown
+        el.classList.add('is-invalid');
+        insertFeedback(el, invalidMessage(el, t('validation.check_entry', 'Please check this entry.')));
+    });
+}
+
+// Clear inline feedback on any input change so participants don't see stale
+// "Please fill in this field" after they type. One delegated listener.
+export function installFeedbackClearer(root) {
+    root.addEventListener('input', (e) => {
+        const wrapper = e.target.closest('.form-group');
+        if (!wrapper) return;
+        wrapper.querySelectorAll('.fmr-invalid-feedback, .fmr-btn-feedback').forEach((el) => el.remove());
+        wrapper.classList.remove('is-invalid');
+        wrapper.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
+        if (e.target.dataset?.fmrServerValidity) {
+            try { e.target.setCustomValidity(''); } catch {}
+            delete e.target.dataset.fmrServerValidity;
+        }
+    });
+}

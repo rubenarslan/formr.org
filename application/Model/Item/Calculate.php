@@ -11,4 +11,8 @@ class Calculate_Item extends Item {
         return $this->render_input();
     }
 
+    public function formV2Unsupported() {
+        return "'{$this->name}': v2 has no calculate items. Use a hidden item with the same value instead, or compute the value where you use it (in a later unit or in feedback).";
+    }
+
 }

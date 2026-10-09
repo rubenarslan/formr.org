@@ -54,6 +54,11 @@ SQL);
             CREATE TABLE IF NOT EXISTS survey_unit_sessions (
                 id INTEGER PRIMARY KEY,
                 unit_id INTEGER NOT NULL,
+                -- patch 047; the placement this session actually ran at.
+                -- The resource resolves `position` through it (v1.7.1) so
+                -- that a unit slotted at several positions stops
+                -- multiplying its unit sessions across the page.
+                run_unit_id INTEGER,
                 run_session_id INTEGER NOT NULL,
                 iteration INTEGER,
                 created TEXT NOT NULL,
@@ -150,6 +155,40 @@ SQL);
         $data = $result->getData();
         $this->assertSame(200, $data['statusCode']);
         return $data['response'];
+    }
+
+    /**
+     * D1 fan-out (v1.7.1): a unit slotted at more than one position used to
+     * multiply every one of its unit sessions — once per placement, each
+     * copy carrying a different `position`. Here that turned 4 rows into 6.
+     * It was worse than cosmetic on this endpoint, because the duplicates
+     * are produced before LIMIT/OFFSET, so they consumed page slots and
+     * pushed real rows off the end of the last page entirely.
+     */
+    public function testMultiPositionUnitDoesNotDuplicateSessions()
+    {
+        // unit 100 (Intake) now also sits at position 30.
+        self::$pdo->exec("INSERT INTO survey_run_units (id, run_id, unit_id, position, description) VALUES
+            (3, 1, 100, 30, 'Intake again')");
+        try {
+            $rows = $this->rows($this->makeFixture());
+            $this->assertCount(4, $rows, 'one row per unit session, not one per placement');
+
+            $ids = array_column($rows, 'unit_session_id');
+            $this->assertSame($ids, array_unique($ids));
+
+            // These fixture rows predate patch 047 (run_unit_id NULL), so the
+            // fallback arm resolves them — it must pick exactly one placement.
+            $intake = array_values(array_filter($rows, function ($r) {
+                return (int) $r['unit_id'] === 100;
+            }));
+            $this->assertCount(2, $intake);
+            foreach ($intake as $row) {
+                $this->assertSame(10, (int) $row['position']);
+            }
+        } finally {
+            self::$pdo->exec("DELETE FROM survey_run_units WHERE id = 3");
+        }
     }
 
     public function testReturnsAllUnitSessionsOrderedBySessionThenCreated()

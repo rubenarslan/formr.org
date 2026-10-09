@@ -156,7 +156,7 @@
 							<tr>
 								<td><?= $r['unit_id'] ?></td>
 								<td><?= $r['description'] ?></td>
-								<td><a href="javascript:void(0);" data-reminder="<?= $r['unit_id'] ?>" class="send btn btn-default"><i class="fa fa-paper-plane"></i> send</a></td>
+								<td><a href="#" data-reminder="<?= $r['unit_id'] ?>" class="send btn btn-default"><i class="fa fa-paper-plane"></i> send</a></td>
 								<td class="reminder-row-count reminder-row-count-<?= $r['unit_id'] ?>"></td>
 							</tr>
 						<?php endforeach ?>

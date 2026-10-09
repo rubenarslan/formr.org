@@ -1,0 +1,146 @@
+<?php
+
+/**
+ * Content-Security-Policy for the admin area (Report-Only first).
+ *
+ * Phase 1 targets admin_domain only. Scripts are nonce-gated
+ * (script-src 'self' 'nonce-…', no 'unsafe-inline'); inline styles are
+ * permitted pragmatically (style-src 'unsafe-inline'). External origins the
+ * admin UI legitimately reaches (OpenCPU, R-fiddle, Google Sheets) are
+ * allowlisted for connect/frame/form-action. worker-src blob: is required by
+ * the Ace code editors. Deliberately NO 'unsafe-eval': the prod build/ bundles
+ * have none (only the dev-build/ webpack bundles use eval).
+ *
+ * Mode is driven by the `csp_mode` setting: 'off' | 'report-only' | 'enforce'.
+ */
+class Csp {
+
+    /** Browser-facing origins the admin UI talks to via fetch/XHR. */
+    const CONNECT_SRC = 'https://public.opencpu.org https://fiddle.rforms.org https://docs.google.com';
+
+    /** Origins framed by the admin UI (OpenCPU knit output, fiddle). */
+    const FRAME_SRC = 'https://public.opencpu.org https://fiddle.rforms.org https://docs.google.com';
+
+    /** Cross-origin form POST targets (social share). */
+    const FORM_ACTION = 'https://www.facebook.com https://twitter.com';
+
+    /** Endpoint that receives violation reports (admin-domain relative). */
+    const REPORT_URI = '/api/csp-report';
+
+    /** @var array<string,string[]> directive => extra origins registered for this request */
+    protected static $extra = array();
+
+    /**
+     * Allow an extra origin in named directives for the current request.
+     * Registered by code that emits third-party markup (e.g. the Turnstile
+     * widget) before the header is sent; the static list only widens the
+     * policy for the request that actually renders that markup.
+     *
+     * @param string $origin e.g. 'https://challenges.cloudflare.com'
+     * @param string[] $directives e.g. array('script-src', 'frame-src')
+     */
+    public static function allow($origin, array $directives) {
+        foreach ($directives as $directive) {
+            if (!isset(self::$extra[$directive])) {
+                self::$extra[$directive] = array();
+            }
+            if (!in_array($origin, self::$extra[$directive], true)) {
+                self::$extra[$directive][] = $origin;
+            }
+        }
+    }
+
+    /** Forget extra origins (tests). */
+    public static function resetExtra() {
+        self::$extra = array();
+    }
+
+    protected static function extra($directive) {
+        return empty(self::$extra[$directive]) ? '' : ' ' . implode(' ', self::$extra[$directive]);
+    }
+
+    /**
+     * @return string one of 'off' | 'report-only' | 'enforce'
+     */
+    public static function mode() {
+        // Default-block: an absent setting enforces. To not block, set
+        // csp_mode explicitly to 'report-only' or 'off'. An unrecognized
+        // value coerces to 'report-only' (gentle on a typo — observe, don't
+        // break the admin UI, and don't silently disable either).
+        $mode = Config::get('csp_mode', 'enforce');
+        return in_array($mode, array('off', 'report-only', 'enforce'), true) ? $mode : 'report-only';
+    }
+
+    public static function isEnabled() {
+        return self::mode() !== 'off';
+    }
+
+    /**
+     * Response header name for the current mode (null when disabled).
+     *
+     * @return string|null
+     */
+    public static function headerName() {
+        switch (self::mode()) {
+            case 'enforce':
+                return 'Content-Security-Policy';
+            case 'report-only':
+                return 'Content-Security-Policy-Report-Only';
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Build the policy string for a given per-request nonce.
+     *
+     * @param string $nonce base64url nonce from Site::getCspNonce()
+     * @return string
+     */
+    public static function buildPolicy($nonce) {
+        $n = "'nonce-" . $nonce . "'";
+        $directives = array(
+            "default-src 'self'",
+            "base-uri 'self'",
+            "object-src 'none'",
+            "script-src 'self' " . $n . self::extra('script-src'),
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob:",
+            "font-src 'self' data:",
+            "worker-src 'self' blob:",
+            "connect-src 'self' " . self::CONNECT_SRC . self::extra('connect-src'),
+            "frame-src 'self' " . self::FRAME_SRC . self::extra('frame-src'),
+            "form-action 'self' " . self::FORM_ACTION,
+            "frame-ancestors 'self'",
+            "report-uri " . self::REPORT_URI,
+        );
+        return implode('; ', $directives);
+    }
+
+    /**
+     * Normalize a decoded violation report into the fields we log. Accepts
+     * the CSP Level 2 shape ({"csp-report": {kebab-case keys}}), the
+     * Reporting API shape ({"type": "csp-violation", "body": {camelCase
+     * keys}}), and a flat body in either casing. Unknown fields are dropped;
+     * missing fields come back null.
+     *
+     * @param array $report decoded JSON request body
+     * @return array
+     */
+    public static function extractReportFields($report) {
+        if (isset($report['csp-report']) && is_array($report['csp-report'])) {
+            $r = $report['csp-report'];
+        } elseif (isset($report['body']) && is_array($report['body'])) {
+            $r = $report['body'];
+        } else {
+            $r = $report;
+        }
+        return array(
+            'document-uri'       => $r['document-uri']       ?? ($r['documentURL'] ?? null),
+            'violated-directive' => $r['violated-directive'] ?? ($r['effectiveDirective'] ?? null),
+            'blocked-uri'        => $r['blocked-uri']        ?? ($r['blockedURL'] ?? null),
+            'source-file'        => $r['source-file']        ?? ($r['sourceFile'] ?? null),
+            'line-number'        => $r['line-number']        ?? ($r['lineNumber'] ?? null),
+        );
+    }
+}

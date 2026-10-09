@@ -22,27 +22,69 @@
 userName: ''
 accessKey: ''
 
-projectName: formr.org PWA
-buildName: pwa-reload-fix
+projectName: formr v2 parity smoke
+buildName: formr v2 parity smoke
 buildIdentifier: '#${DATE_TIME}'
 
-# Single iOS target — the platform where the bug manifested. Adding more
-# platforms multiplies BS minute usage; expand only when there's a
-# regression worth catching on a second device.
+# Real-device matrix. Keep tight: each platform burns one parallel slot per
+# test, and the open-source plan we have only allots 5.
+#
+# iOS Safari for the WebKit-only PWA install / IndexedDB / SW edge cases
+# (also covers the pwa-reload-fix regression).
+#
+# Pixel 8 / Android Chrome was tried with `channel: 'chrome'` set
+# conditionally on RUNNING_ON_BS in playwright.config.js (matches the
+# BS Android sample at
+# https://www.browserstack.com/docs/automate/playwright/playwright-android/nodejs)
+# AND a bump of browserstack-node-sdk to 1.53.2. Browser-context tests
+# still fail with `browserType.connect: Malformed endpoint` from the
+# SDK's mock-process — only `request`-fixture (HTTP-only) tests pass.
+# The BS docs note Playwright 1.57 migrated tests from Chromium to
+# Chrome-for-Testing, which may be what's incompatible with the BS
+# Android wsEndpoint transport. Re-add this platform when either:
+#   (a) we bump @playwright/test to a version BS confirms works for
+#       Android Chrome (or pin DOWN to 1.56.1 if upstream doesn't fix
+#       1.58/1.59), or
+#   (b) BS support resolves the malformed endpoint issue at SDK level.
+# UPDATE 2026-06-15: path (b) landed. Bumping browserstack-node-sdk
+# 1.53.2 -> 1.56.3 fixes the `Malformed endpoint`: a Google Pixel 8
+# (Android 14, browserName: chrome) ran a real browser-context test
+# (solo-keyboard-reserve.spec.js, via browserstack.keyboard.yml) cleanly
+# and captured screenshots. @playwright/test stays pinned at 1.57.
+# Android can now be re-added below — left iOS-only here for now because
+# the FULL suite hasn't been validated on Android (do that on its own run
+# before widening the main matrix). The keyboard config already includes
+# the Pixel as the proof.
 platforms:
   - browserName: safari
     osVersion: 17
     deviceName: iPhone 15 Pro Max
+  # Android Chrome, re-added now that SDK 1.56.3 fixes the browser-context
+  # transport (see the note above). browserName: chrome + the conditional
+  # channel: 'chrome' in playwright.config.js hands the session to the device's
+  # stock Chrome. NOTE: specs that call the db.js helpers DURING the test
+  # (setLayout, backdate*, etc.) still fail on BS — the SDK wraps the Node
+  # process and breaks execFileSync's stdin pipe to mariadb (ERROR 2026 TLS/SSL
+  # broken pipe). Those specs need the host-side toggle pattern (see
+  # tests/e2e/setup/solo-layout.sh) or a BS-safe db helper before they're green
+  # on either platform. The no-DB specs (bs-smoke, pwa-*, the render smokes) run
+  # fine.
+  - browserName: chrome
+    osVersion: 14
+    deviceName: Google Pixel 8
 
 parallelsPerPlatform: 1
 
 # study.researchmixtape.com is publicly reachable so we don't need a
-# BrowserStack Local tunnel.
+# BrowserStack Local tunnel. Flip to true if a future build runs against
+# localhost.
 browserstackLocal: false
 
+# Debugging hooks — useful for the first few BS runs where we're still
+# tuning. networkLogs adds noticeable session weight; trim to false once
+# the suite stabilises.
 debug: false
-networkLogs: false
+networkLogs: true
 consoleLogs: errors
 
-# See above — testHub serialization bug mangles iOS Safari errors.
 testReporting: false

@@ -17,6 +17,9 @@ class Notification {
      */
     protected $pdo;
 
+    /** @var bool the last deliver() was refused by the mail guard (not an SMTP failure) */
+    protected $lastSendGuardRefused = false;
+
     public function __construct()
     {
         $this->config = Config::get('notification', [
@@ -33,6 +36,23 @@ class Notification {
     }
 
     /**
+     * Study-admin notifications are paused while the e2e suite runs
+     * (tests/e2e/setup/global-setup.js writes the file, global-teardown.js
+     * removes it): its fixtures fail on purpose and would mail the run
+     * owner once per throttle window. The file holds a unix expiry, so a
+     * crashed run cannot leave them off for good. It sits in the code tree
+     * because the app and both daemons see that, and the test runner on the
+     * host can write it.
+     */
+    public static function paused(): bool {
+        if (defined('FORMR_UNIT_TESTS')) {
+            return false;
+        }
+        $file = APPLICATION_ROOT . '.notifications_paused';
+        return is_file($file) && (int) @file_get_contents($file) > time();
+    }
+
+    /**
      * Notify the study administrator about an issue
      * 
      * @param UnitSession $unitSession The run session where the issue occurred
@@ -44,16 +64,64 @@ class Notification {
         if (!$unitSession || !$unitSession->runSession || !$unitSession->runSession->getRun()) {
             return false;
         }
+        if (self::paused()) {
+            return false;
+        }
 
         $studyOwner = $unitSession->runSession->getRun()->getOwner();
         if (!$studyOwner) {
             return false;
         }
 
-        if (!$this->canBeSent($unitSession, $type)) {
+        // Issue #608: don't email study admins about errors in test sessions
+        // WHILE THEY ARE LOOKING AT THEM. Admins routinely break R code while
+        // building a run interactively (previewing, the survey-test harness) —
+        // there the on-screen alert already tells them, and email would bury
+        // real participant-facing errors in noise. But in console/cron context
+        // (review 2026-07, item 11) email is the ONLY channel: a researcher
+        // piloting their run as a testing session before launch must hear
+        // about the daemon hitting their broken relative_to at night, or the
+        // study launches with the fault undiscovered. Muted by design, not
+        // throttled — so no suppression row: recording every preview error
+        // would grow survey_notifications with rows nobody was owed.
+        if ($unitSession->runSession->isTesting() && !formr_in_console()) {
             return false;
         }
 
+        if (!$this->canBeSent($unitSession, $type)) {
+            // Record the suppression: after the fact, silence must be
+            // distinguishable from "no errors" (X4 in LOG_STATE_AUDIT.md).
+            $this->logNotification($unitSession, $message, $type, $studyOwner, true);
+            return false;
+        }
+
+        // Fold what the throttle swallowed since the last delivered email
+        // about this unit into the one that does go out.
+        $suppressedCount = $this->countSuppressedSinceLastSent($unitSession, $type, $studyOwner);
+        if ($suppressedCount > 0) {
+            $message .= "\n\n(" . $suppressedCount . ' similar notification' . ($suppressedCount === 1 ? '' : 's')
+                . ' about this unit ' . ($suppressedCount === 1 ? 'was' : 'were')
+                . ' suppressed by throttling since the last email.)';
+        }
+
+        $delivered = $this->deliver($studyOwner, $unitSession, $message, $type);
+        if ($delivered || $this->lastSendGuardRefused) {
+            // A guard refusal (owner's address suppressed, dead domain,
+            // duplicate window) is not going to resolve on the next cron
+            // pass, so it anchors the throttle exactly like a delivery
+            // would; otherwise every recurrence re-hits the guard and fills
+            // its log. The refusal itself is in survey_mail_guard_log.
+            $this->logNotification($unitSession, $message, $type, $studyOwner);
+        }
+        return $delivered;
+    }
+
+    /**
+     * Actually send the notification email. Split out of notifyStudyAdmin
+     * so the throttle/bookkeeping policy is testable without SMTP.
+     */
+    protected function deliver(User $studyOwner, UnitSession $unitSession, string $message, string $type): bool {
+        $this->lastSendGuardRefused = false;
         // Get the owner's email account
         $emailAccounts = $studyOwner->getEmailAccounts();
         if (empty($emailAccounts)) {
@@ -71,6 +139,10 @@ class Notification {
         if (!$mailer) {
             return false;
         }
+        // Admin-error notification to the study owner's own address — not
+        // participant mail, so 'system' semantics in the guard log.
+        $mailer->guard_category = MailGuardService::CATEGORY_SYSTEM;
+        $mailer->guard_type = 'notification';
 
         // Prepare email
         $mailer->IsHTML(true);
@@ -82,6 +154,7 @@ class Notification {
         $formattedMessage = Template::get_replace('email/notification.ftpl', [
             'typeColor' => $typeColor,
             'message' => $message,
+            'instance' => formr_instance_label(),
             'run_name' => $unitSession->runSession->getRun()->name,
             'run_unit' => $unitSession->runUnit->position . '. ' . $unitSession->runUnit->type,
             'session' => $unitSession->runSession->session,
@@ -89,15 +162,39 @@ class Notification {
         ]);
 
         $mailer->Body = $formattedMessage;
-        
-        // Send the notification
-        if ($mailer->Send()) {
-            // Log the notification
-            $this->logNotification($unitSession, $message, $type, $studyOwner);
-            return true;
-        }
-        
-        return false;
+
+        $sent = (bool) $mailer->Send();
+        $this->lastSendGuardRefused = !$sent && !empty($mailer->guard_blocked);
+        return $sent;
+    }
+
+    /**
+     * One throttle bucket per unit and notification type (X4). Keyed by
+     * survey_units.id, so a repeat of the SAME unit's problem is throttled
+     * while a different unit's problem still gets its own email.
+     */
+    protected function fingerprint(UnitSession $unitSession, string $errorCode): string {
+        $unitId = $unitSession->runUnit->id ?? 0;
+        return $errorCode . ':u' . (int) $unitId;
+    }
+
+    /**
+     * How many notifications with this fingerprint were throttled away
+     * since the last one that was actually delivered.
+     */
+    protected function countSuppressedSinceLastSent(UnitSession $unitSession, string $errorCode, User $recipient): int {
+        $runId = $unitSession->runSession->getRun()->id;
+        $fingerprint = $this->fingerprint($unitSession, $errorCode);
+        $stmt = $this->pdo->prepare("
+            SELECT COUNT(*) FROM survey_notifications
+            WHERE run_id = ? AND recipient_id = ? AND fingerprint = ? AND suppressed = 1
+              AND id > COALESCE((
+                SELECT MAX(id) FROM survey_notifications
+                WHERE run_id = ? AND recipient_id = ? AND fingerprint = ? AND suppressed = 0
+              ), 0)
+        ");
+        $stmt->execute([$runId, $recipient->id, $fingerprint, $runId, $recipient->id, $fingerprint]);
+        return (int) $stmt->fetchColumn();
     }
     
     /**
@@ -107,15 +204,20 @@ class Notification {
      * @param string $message The notification message
      * @param string $type The type of notification (error, warning, info)
      * @param User $recipient The recipient of the notification
+     * @param bool $suppressed True when the throttle swallowed it — recorded
+     *                         for the digest and post-hoc diagnosis, but it
+     *                         does not restart the throttle window
      */
-    protected function logNotification(UnitSession $unitSession, string $message, string $type, User $recipient): void {
+    protected function logNotification(UnitSession $unitSession, string $message, string $type, User $recipient, bool $suppressed = false): void {
         DB::getInstance()->insert('survey_notifications', [
             'run_id' => $unitSession->runSession->getRun()->id,
             'session_id' => $unitSession->id,
             'message' => $message,
             'type' => $type,
             'created' => mysql_datetime(),
-            'recipient_id' => $recipient->id
+            'recipient_id' => $recipient->id,
+            'fingerprint' => $this->fingerprint($unitSession, $type),
+            'suppressed' => (int) $suppressed
         ]);
     }
 
@@ -137,6 +239,9 @@ class Notification {
         if (!$unitSession || !$unitSession->runSession || !$unitSession->runSession->getRun()) {
             return false;
         }
+        // The interactive-testing mute lives in notifyStudyAdmin (a muted
+        // notification is by design and leaves no suppression row); this
+        // method answers only the throttle question.
         $owner = $unitSession->runSession->getRun()->getOwner();
         if (!$owner) {
             return false;
@@ -144,15 +249,20 @@ class Notification {
 
         $throttleMinutes = $this->getThrottleMinutes($errorCode) ?? 0;
 
-        // Check last notification of this type for this run+recipient
+        // Check the last DELIVERED notification for this unit (fingerprint =
+        // type + unit id). Keying on run + type alone gave the whole run one
+        // email slot per window, silencing distinct problems (X4). Suppressed
+        // rows don't count — they must not extend the window. Legacy rows
+        // (fingerprint NULL) aren't consulted: at most one extra email per
+        // unit in the first window after upgrading.
         $stmt = $this->pdo->prepare("
             SELECT created
             FROM survey_notifications
-            WHERE run_id = ? AND recipient_id = ? AND type = ?
+            WHERE run_id = ? AND recipient_id = ? AND fingerprint = ? AND suppressed = 0
             ORDER BY id DESC
             LIMIT 1
         ");
-        $stmt->execute([$unitSession->runSession->getRun()->id, $owner->id, $errorCode]);
+        $stmt->execute([$unitSession->runSession->getRun()->id, $owner->id, $this->fingerprint($unitSession, $errorCode)]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         $now = new DateTime();

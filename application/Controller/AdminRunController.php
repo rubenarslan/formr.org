@@ -97,8 +97,30 @@ class AdminRunController extends AdminController
 
         if ($this->request->session) {
             $session = str_replace("…", "", $this->request->session);
-            $queryparams['session'] = "%" . $session . "%";
+            $queryparams['session'] = $session . "%";
             $querystring['session'] = $session;
+        }
+
+        // Filter by the test-session flag. `testing=1` is what the run menu's
+        // "Old Guinea Pigs" link passes.
+        //
+        // That link used to pass `session=XXX` instead, which worked only
+        // because the session search was a substring match: test codes are
+        // <animalname>XXX<token>, so "XXX" never occurs at the start. 890ba81e
+        // dropped the leading wildcard so the search could use the index on
+        // `session`, which silently turned that link into "codes starting with
+        // XXX" — permanently empty. `survey_run_sessions`.testing is the flag
+        // the stethoscope toggle and getTestSession() already maintain, so
+        // filter on it rather than on a naming convention.
+        //
+        // Note this is narrower than the old link in one respect:
+        // getNamedSession() also appends XXX to a *named real* session, so
+        // `session=XXX` used to list those too. They are not guinea pigs and
+        // are excluded here; `testing=0` lists them (and everyone else).
+        $testing = $this->request->getParam('testing');
+        if ($testing !== null && $testing !== '') {
+            $queryparams['testing'] = (int) (bool) $testing;
+            $querystring['testing'] = $queryparams['testing'];
         }
 
         if ($this->request->position) {
@@ -138,7 +160,7 @@ class AdminRunController extends AdminController
     private function exportUserOverviewAction()
     {
         $helper = new RunHelper($this->run, $this->fdb, $this->request);
-        $queryParams = array('run_id' => $this->run->id, 'admin_code' => $this->user->user_code);
+        $queryParams = array('run_id' => $this->run->id);
         $exportStmt = $helper->getUserOverviewExportPdoStatement($queryParams);
         $SPR = new SpreadsheetReader();
         $download_successfull = $SPR->exportInRequestedFormat($exportStmt, $this->run->name . '_user_overview', $this->request->str('format'));
@@ -162,7 +184,7 @@ class AdminRunController extends AdminController
 
         if ($this->request->session) {
             $session = str_replace("…", "", $this->request->session);
-            $queryparams['session'] = "%" . $session . "%";
+            $queryparams['session'] = $session . "%";
             $querystring['session'] = $session;
         }
 
@@ -186,7 +208,8 @@ class AdminRunController extends AdminController
                 $userx['ended'] = $userx['expired'] . ' (expired)';
             }
 
-            if ($userx['unit_type'] != 'Survey') {
+            // Survey and Form (v2) sessions both hold participant data.
+            if (!in_array($userx['unit_type'], Survey::TYPES, true)) {
                 $userx['delete_msg'] = "Are you sure you want to delete this unit session?";
                 $userx['delete_title'] = "Delete this waypoint";
             } else {
@@ -290,28 +313,8 @@ class AdminRunController extends AdminController
 
     private function settingsAction()
     {
-        $osf_projects = array();
-
-        if (($token = OSF::getUserAccessToken($this->user))) {
-            $osf = new OSF(Config::get('osf'));
-            $osf->setAccessToken($token);
-            $response = $osf->getProjects();
-
-            if ($response->hasError()) {
-                alert($response->getError(), 'alert-danger');
-                $token = null;
-            } else {
-                foreach ($response->getJSON()->data as $project) {
-                    $osf_projects[] = array('id' => $project->id, 'name' => $project->attributes->title);
-                }
-            }
-        }
-
         $this->setView('run/settings', array(
-            'osf_token' => $token,
             'run_selected' => $this->request->getParam('run'),
-            'osf_projects' => $osf_projects,
-            'osf_project' => $this->run->osf_project_id,
             'run_id' => $this->run->id,
             'reminders' => $this->run->getSpecialUnits(true, 'ReminderEmail'),
             'service_messages' => $this->run->getSpecialUnits(true, 'ServiceMessagePage'),
@@ -654,7 +657,9 @@ class AdminRunController extends AdminController
     private function importAction()
     {
         if ($run_file = $this->request->getParam('run_file_name')) {
-            $file = Config::get('run_exports_dir') . '/' . $run_file;
+            // basename() keeps run_file_name inside run_exports_dir — without
+            // it a "../.." value reads any JSON-parsable file on the host.
+            $file = Config::get('run_exports_dir') . '/' . basename($run_file);
         } elseif (!empty($_FILES['run_file'])) {
             $file = $_FILES['run_file']['tmp_name'];
         }

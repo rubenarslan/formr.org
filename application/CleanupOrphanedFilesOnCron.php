@@ -5,6 +5,18 @@ class CleanupOrphanedFilesOnCron extends Cron {
 
     protected function process(): void {
         $this->cleanupOrphanedFiles();
+        $this->pruneMailGuard();
+    }
+
+    /**
+     * Daily retention for the mail guard's send log and domain cache — hosted
+     * here so the existing daily job covers it with no scheduler change.
+     */
+    private function pruneMailGuard() {
+        $deleted = MailGuardService::prune();
+        if ($deleted['log'] || $deleted['domain_cache']) {
+            formr_log("Mail guard prune: {$deleted['log']} log rows, {$deleted['domain_cache']} domain-cache rows deleted", 'CRON_INFO');
+        }
     }
 
     private function cleanupOrphanedFiles() {

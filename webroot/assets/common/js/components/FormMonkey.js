@@ -19,7 +19,8 @@ export class FormMonkey {
 
         this.survey.dont_update = true;
 
-        var items_left = $("form.main_formr_survey .form-row:not(.hidden):not(.formr_answered):not(.item-submit)");
+        // Not the items participants never see: a monkey filling the agent_probe would look like an agent.
+        var items_left = $("form.main_formr_survey .form-row:not(.hidden):not(.formr_answered):not(.item-submit):not([data-fmr-unseen])");
         var date = new Date();
         var dateString = date.toISOString().split('T')[0];
         var defaultByType = {

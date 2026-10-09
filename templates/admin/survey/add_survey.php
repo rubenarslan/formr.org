@@ -14,7 +14,7 @@
             <h4>Please keep this in mind when uploading surveys!</h4>
             <ul class="fa-ul fa-ul-more-padding">
                 <li>
-                    <i class="fa-li fa fa-table"></i> The format must be one of <abbr title="" data-original-title="Old-style Excel spreadsheets">.xls</abbr>, <abbr title="" data-original-title="New-style Excel spreadsheets, Office Open XML">.xlsx</abbr>, <abbr title="" data-original-title="OpenOffice spreadsheets / Open document format for Office Applications">.ods</abbr>, <abbr title="" data-original-title="extensible markup language">.xml</abbr>, <abbr title="" data-original-title="text files">.txt</abbr>, or <abbr title="" data-original-title=".csv-files (comma-separated value) have to use the comma as a separator, &quot;&quot; as escape characters and UTF-8 as the charset. Because there are inconsistencies when creating CSV files using various spreadsheet programs (e.g. German excel), you should probably steer clear of this.">.csv</abbr>.
+                    <i class="fa-li fa fa-table"></i> The format must be one of <abbr title="" data-original-title="Old-style Excel spreadsheets">.xls</abbr>, <abbr title="" data-original-title="New-style Excel spreadsheets, Office Open XML">.xlsx</abbr>, <abbr title="" data-original-title="OpenOffice spreadsheets / Open document format for Office Applications">.ods</abbr>, <abbr title="" data-original-title="extensible markup language">.xml</abbr>, <abbr title="" data-original-title="text files">.txt</abbr>, <abbr title="" data-original-title=".csv-files (comma-separated value) have to use the comma as a separator, &quot;&quot; as escape characters and UTF-8 as the charset. Because there are inconsistencies when creating CSV files using various spreadsheet programs (e.g. German excel), you should probably steer clear of this.">.csv</abbr>, or <abbr title="" data-original-title="A survey exported as JSON (the Export → JSON link of any survey, or a file like documentation/example_surveys/all_widgets_v2.json)">.json</abbr>.
                 </li>
 
                 <li>
@@ -47,6 +47,17 @@
                             <input required name="uploaded" type="file" id="file_upload">
                             <small class="help-block"><i class="fa fa-info-circle"></i> Did you know, that on many computers you can also drag and drop a file on this box instead of navigating there through the file browser?</small>
                         </div>
+                        <?php if (Config::get('form_v2_enabled')): ?>
+                        <div class="form-group">
+                            <label for="engine_upload">Engine</label>
+                            <select name="engine" id="engine_upload" class="form-control">
+                                <option value="" selected>As set in the file (v1 if the file does not say)</option>
+                                <option value="v2">v2 (add it to a run with a Form unit)</option>
+                                <option value="v1">v1, the classic engine (add it to a run with a Survey unit)</option>
+                            </select>
+                            <small class="help-block"><i class="fa fa-info-circle"></i> A survey you exported from formr remembers its engine. <a href="<?= site_url('documentation#form_v2_enable') ?>" target="_blank">What changes in v2</a></small>
+                        </div>
+                        <?php endif; ?>
                     </div>
                     <!-- /.box-body -->
 
@@ -76,6 +87,17 @@
                             <textarea name="google_sheet" class="form-control" rows="3" placeholder="Enter Googlesheet share link"></textarea>
                             <small class="help-block"><i class="fa fa-info-circle"></i> Make sure this sheet is accessible by anyone with the link</small>
                         </div>
+                        <?php if (Config::get('form_v2_enabled')): ?>
+                        <div class="form-group">
+                            <label for="engine_google">Engine</label>
+                            <select name="engine" id="engine_google" class="form-control">
+                                <option value="" selected>As set in the file (v1 if the file does not say)</option>
+                                <option value="v2">v2 (add it to a run with a Form unit)</option>
+                                <option value="v1">v1, the classic engine (add it to a run with a Survey unit)</option>
+                            </select>
+                            <small class="help-block"><i class="fa fa-info-circle"></i> A survey you exported from formr remembers its engine. <a href="<?= site_url('documentation#form_v2_enable') ?>" target="_blank">What changes in v2</a></small>
+                        </div>
+                        <?php endif; ?>
                         <div class="form-group has-warning">
                             <small class="help-block"><i class="fa fa-warning"></i> Previously, we let you specify the name of the survey above. Since formr v0.22.0, we take the name directly from the Google sheet's name. This name is then also checked and compared, when you update items. We made this change to ensure you do not accidentally overwrite a survey with a different one, and so your files are named consistently with your study.</small>
                         </div>

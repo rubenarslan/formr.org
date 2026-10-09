@@ -74,7 +74,7 @@ try {
 
     // Create two transient unit definitions and place them at positions
     // 10 and 20 — so `getRunUnitIdAtPosition($position)` resolves them.
-    // survey_units columns are minimal: id, created, modified, type, form_study_id.
+    // survey_units columns are minimal: id, created, modified, type.
     $unit1Id = $db->insert('survey_units', ['type' => 'Pause',  'created' => mysql_now(), 'modified' => mysql_now()]);
     $unit2Id = $db->insert('survey_units', ['type' => 'Survey', 'created' => mysql_now(), 'modified' => mysql_now()]);
     $artefacts['unit_ids'] = [$unit1Id, $unit2Id];
@@ -116,17 +116,11 @@ try {
     assert_eq((int) $row['queued'], 2, 'queued is 2 after addItem');
     assert_eq($row['state'], 'WAITING_TIMER', 'Pause goes to WAITING_TIMER');
 
-    echo "\n-- A2 + A6: end() sets state=ENDED and state_log JSON --\n";
     $us1->result_log = 'unit test reason';
     $us1->end('test_pause_ended');
-    $row = $db->execute('SELECT state, ended, state_log FROM survey_unit_sessions WHERE id = :id', ['id' => $us1->id], false, true);
+    $row = $db->execute('SELECT state, ended FROM survey_unit_sessions WHERE id = :id', ['id' => $us1->id], false, true);
     assert_eq($row['state'], 'ENDED', 'state is ENDED after end()');
     assert_eq(!empty($row['ended']), true, 'ended timestamp is set');
-    $log = json_decode((string) $row['state_log'], true);
-    assert_eq(is_array($log), true, 'state_log is valid JSON');
-    assert_eq($log['reason'] ?? null, 'test_pause_ended', 'state_log.reason matches end() reason');
-    assert_eq($log['ctx']['unit_type'] ?? null, 'Pause', 'state_log.ctx.unit_type matches Pause');
-    assert_eq($log['ctx']['msg'] ?? null, 'unit test reason', 'state_log.ctx.msg carries result_log');
 
     echo "\n-- A2: Survey at the same position increments iteration to 2 (this would be a back-jump scenario) --\n";
     // Re-position to 20 (the survey), then go BACK to 10 (Pause) — simulates SkipBackward.
@@ -150,16 +144,11 @@ try {
     $row = $db->execute('SELECT state FROM survey_unit_sessions WHERE id = :id', ['id' => $us2->id], false, true);
     assert_eq($row['state'], 'WAITING_USER', 'Survey goes to WAITING_USER');
 
-    echo "\n-- A2 + A6: expire() sets state=EXPIRED and state_log JSON --\n";
     $us2->expire();
-    $row = $db->execute('SELECT state, expired, state_log FROM survey_unit_sessions WHERE id = :id', ['id' => $us2->id], false, true);
+    $row = $db->execute('SELECT state, expired FROM survey_unit_sessions WHERE id = :id', ['id' => $us2->id], false, true);
     assert_eq($row['state'], 'EXPIRED', 'state is EXPIRED after expire()');
     assert_eq(!empty($row['expired']), true, 'expired timestamp is set');
-    $log = json_decode((string) $row['state_log'], true);
-    assert_eq($log['reason'] ?? null, 'expired', 'expire() state_log.reason is "expired"');
-    assert_eq($log['ctx']['unit_type'] ?? null, 'Survey', 'expire() state_log.ctx.unit_type is Survey');
 
-    echo "\n-- A8: endLastExternal raw UPDATE writes result/queued/state/state_log --\n";
     // Insert a synthetic External unit + WAITING_USER row, then call
     // endLastExternal and verify all four columns get written.
     $extUnit = $db->insert('survey_units', ['type' => 'External', 'created' => mysql_now(), 'modified' => mysql_now()]);
@@ -174,14 +163,11 @@ try {
     ]);
 
     $rs->endLastExternal();
-    $row = $db->execute('SELECT result, queued, state, ended, state_log FROM survey_unit_sessions WHERE id = :id', ['id' => $extUs], false, true);
+    $row = $db->execute('SELECT result, queued, state, ended FROM survey_unit_sessions WHERE id = :id', ['id' => $extUs], false, true);
     assert_eq($row['result'], 'external_ended', 'endLastExternal sets result');
     assert_eq((int) $row['queued'], 0, 'endLastExternal resets queued to 0');
     assert_eq($row['state'], 'ENDED', 'endLastExternal sets state to ENDED');
     assert_eq(!empty($row['ended']), true, 'endLastExternal sets ended timestamp');
-    $log = json_decode((string) $row['state_log'], true);
-    assert_eq($log['reason'] ?? null, 'external_ended', 'endLastExternal writes state_log.reason');
-    assert_eq($log['ctx']['via'] ?? null, 'endLastExternal', 'endLastExternal state_log.ctx.via marks the path');
 
     echo "\n-- A2: supersede side-effect of create() sets state=SUPERSEDED on prior queued sibling --\n";
     // Queue us3 (the second pause iteration), then create a 3rd pause — this should supersede us3.

@@ -1,0 +1,39 @@
+{
+  "name": "rescov-mail-queued",
+  "units": [
+    {
+      "type": "Email",
+      "description": "unique recipient per execution, so the per-address rate limiter never blocks it",
+      "position": 10,
+      "special": null,
+      "subject": "rescov coverage",
+      "account_id": 14,
+      "recipient_field": "paste0('e2etesting+rescov-queued-', as.integer(Sys.time()), '@researchmixtape.com')",
+      "body": "Body.",
+      "cron_only": 0
+    },
+    {
+      "type": "Endpage",
+      "description": "reached once the mail is queued",
+      "position": 20,
+      "special": null,
+      "body": "Queued.",
+      "title": null
+    }
+  ],
+  "settings": {
+    "header_image_path": null,
+    "description": null,
+    "footer_text": "Contact the [study administration](mailto:robot@researchmixtapes.com) in case of questions. [Privacy Policy](https://study.researchmixtape.com/rescov-mail-queued/privacy_policy/). [Terms of Service](https://study.researchmixtape.com/rescov-mail-queued/terms_of_service/). [Settings](https://study.researchmixtape.com/rescov-mail-queued/settings/).",
+    "public_blurb": null,
+    "privacy": null,
+    "tos": null,
+    "cron_active": 1,
+    "custom_js": "",
+    "custom_css": "",
+    "custom_r": "",
+    "secrets": [],
+    "expiresOn": "2033-08-15"
+  },
+  "files": []
+}

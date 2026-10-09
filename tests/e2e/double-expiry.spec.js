@@ -96,12 +96,17 @@ test.describe.serial('Duplicate cascade ("double expiry") prevention', () => {
             'Endpage created exactly once despite two near-simultaneous requests'
         ).toBe(1);
 
-        // The Pause itself should have been processed exactly once — its
-        // expired column gets set, ended stays NULL (expire path).
+        // The Pause itself should have been processed exactly once. An elapsed
+        // Pause deadline is a terminal END, not an expire: since 80e89dcb /
+        // audit F23 the QUEUED_TO_END path stamps ended + result='pause_ended'
+        // and deliberately leaves expired NULL (expire() is reserved for
+        // Survey/External access-window expiry).
         const pauseCount = countAtPosition(f.run_session_id, 15);
         expect(pauseCount, 'Pause unit-session count unchanged by race').toBe(1);
         const pauseRow = dbState(pauseUsId);
-        expect(pauseRow.expired, 'Pause expired by first cascade').not.toBeNull();
+        expect(pauseRow.ended, 'Pause ended by first cascade').not.toBeNull();
+        expect(pauseRow.result, 'Pause terminal result is pause_ended').toBe('pause_ended');
+        expect(pauseRow.expired, 'Pause deadline ends, not expires (F23)').toBeNull();
     });
 
     test('D2/D3 — Email/PushMessage idempotency guards are covered by phpunit', async () => {

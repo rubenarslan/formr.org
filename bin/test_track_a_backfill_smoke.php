@@ -108,7 +108,7 @@ try {
     // create() set iteration=1/state=PENDING; the backfill expects those
     // to be NULL/PENDING-ish on the historical tail.
     $db->exec(
-        'UPDATE survey_unit_sessions SET run_unit_id = NULL, iteration = NULL, state = NULL, state_log = NULL
+        'UPDATE survey_unit_sessions SET run_unit_id = NULL, iteration = NULL, state = NULL
          WHERE id IN (:a, :b, :c, :d, :e)',
         ['a' => $us_a_p1, 'b' => $us_a_p2, 'c' => $us_a_s1, 'd' => $us_b_1, 'e' => $us_b_2]
     );
@@ -118,16 +118,30 @@ try {
     // Strip line-comments — the bare ';' splitter doesn't reason about
     // them, so leaving them in confuses statement boundaries.
     $sql = preg_replace('/^--[^\n]*$/m', '', $sql);
-    foreach (preg_split('/;\s*\n/', $sql) as $stmt) {
-        $stmt = trim($stmt);
-        if ($stmt === '') continue;
-        $db->exec($stmt);
-    }
-    echo "  applied 3 backfill statements\n";
+    // Replay the patch on the fixture rows only. A live database keeps
+    // legacy rows with run_unit_id NULL (a unit placed at several positions
+    // is unresolvable), and re-running the patch over them collides with
+    // the UNIQUE (run_session_id, run_unit_id, iteration) key. The
+    // state_log statement is skipped: that column was dropped in v1.8.0.
+    $fixture_ids = implode(',', array_map('intval', [$us_a_p1, $us_a_p2, $us_a_s1, $us_b_1, $us_b_2]));
+    $applyBackfill = function () use ($db, $sql, $fixture_ids) {
+        $applied = 0;
+        foreach (preg_split('/;\s*\n/', $sql) as $stmt) {
+            $stmt = trim($stmt);
+            if ($stmt === '' || stripos($stmt, 'state_log') !== false) continue;
+            $scope = (strpos($stmt, '`us`') !== false ? '`us`.`id`' : '`id`') . " IN ({$fixture_ids})";
+            $stmt = preg_match('/\bWHERE\b/i', $stmt) ? preg_replace('/\bWHERE\b/i', "WHERE {$scope} AND", $stmt, 1) : "{$stmt} WHERE {$scope}";
+            $db->exec($stmt);
+            $applied++;
+        }
+        return $applied;
+    };
+    $applied = $applyBackfill();
+    echo "  applied {$applied} backfill statements (scoped to the fixture rows)\n";
 
     echo "\n-- Run A (unique-position): all 3 rows backfilled, iterations correct --\n";
     $rows = $db->execute(
-        'SELECT id, run_unit_id, iteration, state_log FROM survey_unit_sessions WHERE id IN (:a, :b, :c) ORDER BY id',
+        'SELECT id, run_unit_id, iteration FROM survey_unit_sessions WHERE id IN (:a, :b, :c) ORDER BY id',
         ['a' => $us_a_p1, 'b' => $us_a_p2, 'c' => $us_a_s1]
     );
     assert_eq((int) $rows[0]['run_unit_id'], (int) $ru_a_pause,  'first pause: run_unit_id resolves to pause-position-10');
@@ -136,30 +150,22 @@ try {
     assert_eq((int) $rows[1]['iteration'],   2,                  'second pause: iteration=2');
     assert_eq((int) $rows[2]['run_unit_id'], (int) $ru_a_survey, 'survey: run_unit_id resolves to survey-position-20');
     assert_eq((int) $rows[2]['iteration'],   1,                  'survey: iteration=1');
-    assert_eq($rows[0]['state_log'], null, 'first pause has no ambiguity flag');
 
-    echo "\n-- Run B (multi-position): both rows stay NULL with state_log ambiguity --\n";
+    echo "\n-- Run B (multi-position): both rows stay NULL (run_unit_id ambiguous) --\n";
     $rows = $db->execute(
-        'SELECT id, run_unit_id, iteration, state_log FROM survey_unit_sessions WHERE id IN (:a, :b) ORDER BY id',
+        'SELECT id, run_unit_id, iteration FROM survey_unit_sessions WHERE id IN (:a, :b) ORDER BY id',
         ['a' => $us_b_1, 'b' => $us_b_2]
     );
     assert_eq($rows[0]['run_unit_id'], null, 'multi-position row 1: run_unit_id stays NULL');
     assert_eq($rows[1]['run_unit_id'], null, 'multi-position row 2: run_unit_id stays NULL');
-    $log = json_decode($rows[0]['state_log'], true);
-    assert_eq(is_array($log) && ($log['backfill'] ?? null) === 'run_unit_id_ambiguous', true, 'state_log carries backfill ambiguity flag');
     assert_eq((int) $rows[0]['iteration'], 1, 'multi-position row 1: iteration=1 (best-effort by unit_id)');
     assert_eq((int) $rows[1]['iteration'], 2, 'multi-position row 2: iteration=2');
 
     echo "\n-- Backfill is idempotent: re-applying 048 produces no changes --\n";
     $idsCsv = implode(',', [$us_a_p1, $us_a_p2, $us_a_s1, $us_b_1, $us_b_2]);
-    $before = $db->execute("SELECT id, run_unit_id, iteration, state, state_log FROM survey_unit_sessions WHERE id IN ($idsCsv) ORDER BY id");
-    $sql2 = preg_replace('/^--[^\n]*$/m', '', file_get_contents('/var/www/formr/sql/patches/048_uxec_track_a_backfill.sql'));
-    foreach (preg_split('/;\s*\n/', $sql2) as $stmt) {
-        $stmt = trim($stmt);
-        if ($stmt === '') continue;
-        $db->exec($stmt);
-    }
-    $after = $db->execute("SELECT id, run_unit_id, iteration, state, state_log FROM survey_unit_sessions WHERE id IN ($idsCsv) ORDER BY id");
+    $before = $db->execute("SELECT id, run_unit_id, iteration, state FROM survey_unit_sessions WHERE id IN ($idsCsv) ORDER BY id");
+    $applyBackfill();
+    $after = $db->execute("SELECT id, run_unit_id, iteration, state FROM survey_unit_sessions WHERE id IN ($idsCsv) ORDER BY id");
     assert_eq($before === $after, true, 'backfill SQL is idempotent: re-run leaves fixture rows unchanged');
 
     echo "\n";

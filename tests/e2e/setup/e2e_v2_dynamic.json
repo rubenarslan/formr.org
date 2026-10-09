@@ -1,0 +1,66 @@
+{
+    "name": "e2e_v2_dynamic",
+    "settings": {},
+    "items": [
+        {
+            "type": "note", "name": "d_intro", "optional": 1,
+            "label": "Dynamic label on page one: `r 2 * 3`"
+        },
+        {
+            "type": "number", "name": "d_num", "optional": 0, "type_options": "0,100,1",
+            "label": "Pick a number"
+        },
+        {
+            "type": "text", "name": "d_default", "optional": 1,
+            "label": "Pre-filled by R", "value": "paste(\"pre\", \"filled\")"
+        },
+        {
+            "type": "hidden", "name": "d_calc_false", "optional": 1,
+            "label": "hidden returning FALSE", "value": "1 > 2"
+        },
+        {
+            "type": "hidden", "name": "d_calc_seed", "optional": 1,
+            "label": "hidden returning 7", "value": "3 + 4"
+        },
+        {
+            "type": "text", "name": "d_after_calc", "optional": 1,
+            "label": "Shown because a hidden item on this page resolved to 7", "showif": "d_calc_seed == 7"
+        },
+        {
+            "type": "mc", "name": "d_mc", "choice_list": "dynlist", "optional": 1,
+            "label": "A choice with an R label",
+            "choices": {"1": "`r 10 + 1`", "2": "static two"}
+        },
+        {
+            "type": "submit", "name": "d_p1", "label": "Next"
+        },
+        {
+            "type": "note", "name": "d_label2", "optional": 1,
+            "label": "You picked `r d_num`"
+        },
+        {
+            "type": "text", "name": "d_default2", "optional": 1,
+            "label": "Twice your number", "value": "d_num * 2"
+        },
+        {
+            "type": "hidden", "name": "d_calc2", "optional": 1,
+            "label": "hidden over a page-1 answer", "value": "d_num > 5"
+        },
+        {
+            "type": "mc", "name": "d_mc2", "choice_list": "dynlist2", "optional": 1,
+            "label": "Choices that depend on page one",
+            "choices": {"1": "`r d_num + 100`", "2": "static"}
+        },
+        {
+            "type": "text", "name": "d_show2", "optional": 1,
+            "label": "Shown when the page-one number is above 5", "showif": "d_num > 5"
+        },
+        {
+            "type": "note_iframe", "name": "d_iframe", "optional": 1,
+            "label": "Iframe says `r d_num`"
+        },
+        {
+            "type": "submit", "name": "d_p2", "label": "Done"
+        }
+    ]
+}

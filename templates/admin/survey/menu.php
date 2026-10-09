@@ -11,7 +11,7 @@
             <li><a href="<?= admin_study_url($study->name, 'upload_items') ?>"><i class="fa fa-upload"></i> Import Items</a></li>
             <li><a href="<?= admin_study_url($study->name, 'show_item_table') ?>"><i class="fa fa-th"></i> Items Table</a></li>
             <?php if (!empty($google['id'])): ?>
-                <li><a href="<?php echo $google['link']; ?>" target="_blank"><i class="fa fa-google"></i> Open Google Sheet</a></li>
+                <li><a href="<?php echo h($google['link']); ?>" target="_blank"><i class="fa fa-google"></i> Open Google Sheet</a></li>
             <?php endif; ?>
         </ul>
     </div>
@@ -29,7 +29,7 @@
     </div>
     <div class="box-body no-padding context-menu">
         <ul class="nav nav-pills nav-stacked">
-            <li><a target="_blank" href="<?= admin_study_url($study->name, 'access') ?>" class="hastooltip" title="Simply click this link to test this survey. But remember that it's not in the broader context of a run, so if you refer to other surveys, that will cause problems."><i class="fa fa-play"></i> Test Survey</a></li>
+            <li><a target="_blank" href="<?= admin_study_url($study->name, 'access') ?>" class="hastooltip" title="Simply click this link to test this survey on the engine it is set to (<?= $study->rendering_mode === 'v2' ? 'v2, as in a Form unit' : 'v1, as in a Survey unit' ?>). But remember that it's not in the broader context of a run, so if you refer to other surveys, that will cause problems."><i class="fa fa-play"></i> Test Survey <?= study_engine_badge($study) ?></a></li>
             <?php if (!$study->hide_results): ?>
                 <li><a href="<?= admin_study_url($study->name, 'show_results') ?>"><i class="fa fa-file-text-o"></i> Show Results</a></li>
                 <li class="dropdown"><a  href="#" data-toggle="dropdown" aria-expanded="false" class="dropdown-toggle"><i class="fa fa-save"></i> Export Results</a>

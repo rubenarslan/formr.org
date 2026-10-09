@@ -105,6 +105,18 @@ class OAuthHelper
             error_log('OAuthHelper::createClient label validation failed for user ' . $formrUser->id);
             return false;
         }
+        // A user credential MUST declare at least one scope. bshaffer treats
+        // an empty client scope as "no restriction": with no scope in the
+        // token request it hands out the default scopes, and an explicit
+        // request is validated only against the globally-supported set — so
+        // a "no permissions" credential is in fact a full-permissions one.
+        // (The auto-managed internal client legitimately has empty scope but
+        // is created via createClientInternal, which this guard doesn't gate,
+        // and its tokens are explicitly scoped at issuance.)
+        if (empty($scopes)) {
+            error_log('OAuthHelper::createClient refused empty scope for user ' . $formrUser->id);
+            return false;
+        }
         return $this->createClientInternal($formrUser, $label, $scopes, $runIds);
     }
 
@@ -129,13 +141,27 @@ class OAuthHelper
             ':internal' => self::INTERNAL_LABEL,
         ]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Fetch every client's run allowlist in one query instead of one per
+        // client (audit SQ-30), then group in PHP.
+        $allowlists = [];
+        if ($rows) {
+            $clientIds = array_column($rows, 'client_id');
+            $placeholders = implode(',', array_fill(0, count($clientIds), '?'));
+            $allow = $db->prepare("SELECT client_id, run_id FROM oauth_client_runs WHERE client_id IN ($placeholders)");
+            $allow->execute($clientIds);
+            foreach ($allow->fetchAll(PDO::FETCH_ASSOC) as $ar) {
+                $allowlists[$ar['client_id']][] = (int) $ar['run_id'];
+            }
+        }
+
         $clients = [];
         foreach ($rows as $row) {
             $clients[] = [
                 'client_id' => $row['client_id'],
                 'label' => $row['label'],
                 'scopes' => $this->parseScopeString($row['scope'] ?? ''),
-                'run_ids' => $this->getRunAllowlist($row['client_id']),
+                'run_ids' => $allowlists[$row['client_id']] ?? [],
             ];
         }
         return $clients;
@@ -496,6 +522,22 @@ class OAuthHelper
      * @param string[] $scopes
      * @return string[]|false
      */
+    /**
+     * Every scope the instance knows (oauth_scopes rows). The admin-issued
+     * credential path grants all of them — the effective grant such a
+     * credential had before v1.10.2, when an empty client scope fell back
+     * to the (then all-default) scope table.
+     *
+     * @return string[]
+     */
+    public function listScopes()
+    {
+        $db = Site::getDb();
+        $stmt = $db->prepare("SELECT DISTINCT scope FROM {$this->config['scope_table']} ORDER BY scope");
+        $stmt->execute();
+        return array_values(array_filter($stmt->fetchAll(PDO::FETCH_COLUMN, 0), 'strlen'));
+    }
+
     protected function validateScopes(array $scopes)
     {
         $scopes = array_values(array_unique(array_filter(array_map('strval', $scopes), 'strlen')));

@@ -4,6 +4,9 @@
         <meta charset="utf-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <title>formr admin</title>
+        <?php if (!empty($noindex)): ?>
+        <meta name="robots" content="noindex, nofollow">
+        <?php endif; ?>
         <!-- Tell the browser to be responsive to screen width -->
         <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
         <?php
@@ -11,7 +14,7 @@
             print_stylesheets($files, $id);
         }
         ?>
-        <script>
+        <script nonce="<?= h($cspNonce ?? '') ?>">
             window.formr = <?php echo !empty($jsConfig) ? json_encode($jsConfig) : '{}' ?>;
         </script>
         <?php
@@ -19,6 +22,13 @@
             print_scripts($files, $id);
         }
         ?>
+        <?php /* loaded in the head, not the footer: the delegated [data-confirm]
+                 guard must be active before any delete link can be clicked
+                 (several deletes execute on plain GET). Not defer: a deferred
+                 script runs only once the whole document is parsed, while the
+                 links above the fold are painted and clickable long before
+                 that on a big page (results, user overview). */ ?>
+        <script src="<?= asset_url('admin/js/admin-ui.js') ?>"></script>
 
         <?php
         if (!isset($runs) || !isset($studies)) {
@@ -89,8 +99,14 @@
                                        <li><a href="<?php echo site_url('admin/advanced/active_users'); ?>"><i class="fa fa-users fa-fw"></i> Active Admins</a></li>
                                        <li><a href="<?php echo site_url('admin/advanced/info'); ?>"><i class="fa fa-list fa-fw"></i> PHP Info</a></li>
                                        <li><a href="<?php echo site_url('admin/advanced/runs_management'); ?>"><i class="fa fa-list fa-fw"></i> Manage Runs</a></li>
+                                       <li><a href="<?php echo site_url('admin/advanced/compute_usage'); ?>"><i class="fa fa-clock-o fa-fw"></i> Compute Usage</a></li>
+                                       <li><a href="<?php echo site_url('admin/advanced/personal_data'); ?>"><i class="fa fa-user-secret fa-fw"></i> Personal Data</a></li>
+                                       <?php $mail_guard_tripped = MailGuardService::globalCeilingTripped(24); ?>
+                                       <li><a href="<?php echo site_url('admin/advanced/registration_invites'); ?>"><i class="fa fa-ticket fa-fw"></i> Registration Invites</a></li>
+                                       <li><a href="<?php echo site_url('admin/advanced/mail_guard'); ?>"><i class="fa fa-shield fa-fw"></i> Mail Guard
+                                           <?php if ($mail_guard_tripped): ?><span class="label label-danger">ceiling hit</span><?php endif; ?></a></li>
                                        <li><a href="<?php echo site_url('admin/advanced/cron_log'); ?>"><i class="fa fa-list fa-fw"></i> Cron Log</a></li>
-                                        
+
                                     </ul>
                                 </li>
                                 <?php endif; ?>
@@ -100,6 +116,9 @@
                             <ul class="nav navbar-nav navbar-right">
                                 <li><a href="<?php echo site_url('account'); ?>"><i class="fa fa-user"></i> <span><?= $user->email; ?> </span></a></li>
                                 <li><a href="<?php echo site_url('documentation/#help'); ?>"><i class="fa fa-question-circle"></i> <span>Help</span></a></li>
+                                <?php if ($user->isAdmin()): // documentation for admins only: AdminDocumentationController ?>
+                                <li><a href="<?php echo admin_url('documentation'); ?>"><i class="fa fa-book"></i> <span>Admin docs</span></a></li>
+                                <?php endif; ?>
                                 <li><a href="<?php echo site_url(); ?>"><i class="fa fa-globe"></i> <span>Go to site</span></a></li>
                                 <li><a href="<?php echo site_url('logout'); ?>"><i class="fa fa-power-off"></i> <span>Logout</span></a></li>
                             </ul>

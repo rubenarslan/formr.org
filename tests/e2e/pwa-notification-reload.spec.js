@@ -51,6 +51,9 @@
 // reload every ~500ms until the clock catches up.
 
 const { test, expect } = require('./helpers/test');
+const { runName } = require('./helpers/runs');
+const { freshParticipant } = require('./helpers/participant');
+const v2 = require('./helpers/v2Form');
 
 const RUN = process.env.PWA_TEST_RUN || 'e2e-pwa-h-v1';
 
@@ -134,6 +137,25 @@ test.describe('PWA notification reload', () => {
             localStorage.setItem('handling-reload', 'true');
             localStorage.setItem('last-reload-timestamp', String(stale));
         });
+
+        await page.evaluate(() => {
+            const ev = new MessageEvent('message', {
+                data: { type: 'NOTIFICATION_CLICK', action: 'reload', timestamp: Date.now() }
+            });
+            navigator.serviceWorker.dispatchEvent(ev);
+        });
+
+        await waitForReload(page);
+    });
+});
+
+// A form_v2 page has its own listener (form bundle, main.js): it reloads on
+// a tapped notification only.
+test.describe('PWA notification reload — form_v2', () => {
+    test('NOTIFICATION_CLICK message reloads a v2 form', async ({ page, baseURL }) => {
+        await freshParticipant(page, runName('pwa_low', 'v2'), { baseURL });
+        await v2.waitForBundle(page);
+        await setBeforeReloadMarkers(page);
 
         await page.evaluate(() => {
             const ev = new MessageEvent('message', {

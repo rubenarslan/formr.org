@@ -1,5 +1,16 @@
 <?php echo $prepend; ?>
 
+<?php if ($survey && ($survey->rendering_mode ?? 'v1') === 'v2'): ?>
+<div class="alert alert-info" role="alert" style="margin-bottom: 1em;">
+    <i class="fa fa-wpforms"></i>
+    <strong>v2 (beta):</strong>
+    this survey runs on v2: answers are saved as participants go, items show and
+    hide instantly, a lost connection does not lose a page, and there is a
+    one-item-at-a-time layout for phones. You set these options on the survey's
+    settings page. <a href="<?= site_url('documentation#form_v2') ?>" target="_blank" class="alert-link"><i class="fa fa-question-circle"></i> v2 guide</a>
+</div>
+<?php endif; ?>
+
 <?php if ($studies): ?>
 
     <div class="form-group">
@@ -10,14 +21,14 @@
                 $study = (object) $study;
                 $selected = ($survey && $survey->id == $study->id) ? 'selected = "selected"' : '';
                 ?>
-                <option value="<?= $study->id ?>" <?= $selected ?>><?= $study->name ?></option>
+                <option value="<?= $study->id ?>" <?= $selected ?>><?= h($study->name) ?><?= ($study->rendering_mode ?? 'v1') === 'v2' ? ' (v2)' : '' ?></option>
             <?php endforeach; ?>
         </select>
 
         <?php if ($survey && $survey->id): ?>
             <p>
                 <?= (int) $resultCount['finished'] ?> complete results,
-                <?= (int) $resultCount['begun'] ?> begun <abbr class="hastooltip" title="Median duration participants needed to complete the survey">(in ~ <?= $time ?>m)</abbr>
+                <?= (int) $resultCount['begun'] ?> begun<?php if (!empty($geomMeanMinutes)): ?> <abbr class="hastooltip" title="Geometric mean of completion time (typical duration; robust to outliers)">(~ <?= $geomMeanMinutes ?>m typical)</abbr><?php endif; ?>
             </p>
             <?php if (!empty($expirationSettings)): ?>
                 <p class="text-muted">

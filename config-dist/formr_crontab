@@ -9,3 +9,9 @@
 
 # Cleanup orphaned files at 03:15 o'clock
 15 3 * * * php /var/www/formr/bin/cron_cleanup_orphaned_files.php 1>&2
+
+# Nightly reconciliation of the metrics rollups (write-time metrics accounting).
+# Write hooks keep study response counts fresh between runs; this is the only
+# full history scan, off-peak at 03:23. No-ops when metrics_reconcile_enabled
+# is false (an instance that doesn't watch compute).
+23 3 * * * php /var/www/formr/bin/cron_reconcile_metrics.php 1>&2
