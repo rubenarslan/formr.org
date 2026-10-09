@@ -183,6 +183,17 @@ UPDATE` over a bare `INSERT` so a re-run cannot double-write.
   (byte-identical sheets; `layout` is a study setting, not a column,
   so the pair exists to be uploaded twice with the setting flipped).
   Run it after changing the PWA item set; don't hand-edit the xlsx.
+- `bin/gen_data_quality_xlsx.php` — regenerates the committed
+  `documentation/example_surveys/data_quality.xlsx` from
+  `documentation/data_quality/texts.php`. Run it on the host after changing
+  the consent paragraph, the question or the rows.
+- `bin/gen_data_quality_run.php` — regenerates the committed example run
+  for the data-quality items, `documentation/run_components/Data_Quality.json`
+  (Survey units) and `Data_Quality_v2.json` (Form units): consent survey,
+  skip, the two-page study, an analysis end page, a no-consent end page. The
+  analysis page's R markdown is `documentation/data_quality/example_analysis_page.md`
+  (`STUDY` becomes the study's name). Run it on the host after changing
+  either, then `node tests/e2e/setup/create-v2-fixtures.js --refresh`.
 - `bin/bot_check_smoke.php` — live-MariaDB smoke for the `bot_check`
   challenge (mint / verify / forged / re-bind / missing-key
   fail-closed). Invoke via `docker exec formr_app php
@@ -202,7 +213,7 @@ UPDATE` over a bare `INSERT` so a re-run cannot double-write.
 builds `Site`, opens DB, hands off to `Router`. `Router` matches
 route slugs against a small table in `setup.php` (`admin`,
 `admin/run`, `admin/survey`, `admin/mail`, `admin/advanced`,
-`admin/account`, `public`, `api`, `run`) to a controller. Unmatched
+`admin/account`, `admin/documentation`, `public`, `api`, `run`) to a controller. Unmatched
 routes fall through to `PublicController` then `RunController::indexAction`
 — any unknown top-level path is assumed to be a run name. Actions
 derive from URL parts (`foo-bar` or `foo_bar` → `fooBarAction`).
@@ -410,7 +421,7 @@ show ✓ Connected). Use it for:
 
 ### Project-scoped subagent: `ui-playwright-tester`
 
-Defined at `.claude/agents/ui-playwright-tester.md` and auto-registered for any Claude Code session started in this repo. Use it via the Agent tool with `subagent_type: "ui-playwright-tester"` when:
+Defined at `.claude/agents/ui-playwright-tester.md` and auto-registered for any Claude Code session started in this repo. Its tool list is read when the session starts and must name the Playwright server's tools as that server exposes them: the script runner is `browser_run_code_unsafe` on current servers (`browser_run_code` on older ones; both are listed). Without it the agent cannot script pointer and keyboard timing, install init scripts or capture requests. Use it via the Agent tool with `subagent_type: "ui-playwright-tester"` when:
 
 - You just modified `templates/`, `webroot/assets/`, a view-rendering controller, or RunUnit rendering logic, AND
 - You want a real-browser E2E smoke test rather than only type-checks / unit tests / curl.
@@ -460,6 +471,121 @@ Specific gotchas worth knowing when touching `feature/form_v2` code. Deep-dive r
 - **Webpack production builds skip the file-write when output is byte-identical.** `npx webpack --mode production` compiles and reports "compiled with N warnings in Xs" but does NOT update `webroot/assets/build/js/form.bundle.js`'s mtime if the resulting bytes match the previous build's. `ls -la` thus misleads: "bundle is old, my edits must not have landed." They did — the build decided it didn't need to write. Confirm by grepping the bundle for a distinctive string from your source (`grep fmrForm webroot/assets/build/js/form.bundle.js`), not by mtime. `touch main.js` + rerun doesn't force a write either unless the emitted bundle changes. The admin layout's `?v=<timestamp>` query appends cache-bust, so browser-side reloads are fine once the bundle does change.
 - **`bin/form_v2_compat_scan.php <study_id|study_name>`** classifies every non-empty `showif` / `value` in a study. The logic lives in `application/Spreadsheet/FormV2CompatScanner::scan()` so `AdminSurveyController::formV2CompatScanAction` can render the same report in the admin UI. Buckets follow the JS-only-showif rule: `showif` → `empty` / `js_ok` / `needs_js_rewrite` / `not_on_form`; `value` → `empty` / `literal` (numeric) / `r` (everything else, allowlisted and evaluated as R — never flagged); plus `unsupported` (blocks the switch; `SurveyStudy::formV2UnsupportedReason`, the rule the switch applies: column `type` for `Item::formV2Unsupported`, column `name` for an item named like a member of the v2 form, `Item::FORM_COMPONENT_NAMES`). Flagged rows carry a `suggested_fix` of `rewrite_in_js`, `bridge_hidden_item`, `use_hidden`, `rename_item` (the name), `edit_choices` (a `select_or_add_multiple` choice with a `;`, v2's answer separator — `SelectOrAddMultiple_Item::formV2Unsupported`) or `pack_with_semicolons` (v1 only: a select_or_add list written in one cell with commas, which v2 splits at `;` — `SelectOrAddOne_Item::unpackChoices`; soft-blocks the switch like a showif finding); the admin report and the CLI each map those to wording, so a new fix code needs both. The heuristic scans the showif as written for R (R-only calls incl. `current`/`tail`, `is.na`, `%…%` operators, single `&`/`|`, `TRUE`/`FALSE`, `::`, `NA`, `<-`, `$`) with comments and string literals stripped so tokens inside labels don't false-positive. Exits 0 if clean, 2 if anything flagged — usable as a CI gate. Informational only; doesn't mutate `survey_items.showif`. Use it before upgrading an existing v1 study to `rendering_mode='v2'`.
 
+## Data quality items (`data_quality`, `agent_probe`)
+
+Opt-in detection of AI agents and careless responding, on both engines.
+Design: `documentation/agent_doc/data_quality_plan.md`. What researchers
+read (the rows, the consent text, the R code, the codebook, the findings) is
+the **admin-only** page `/admin/documentation/data-quality`
+(`AdminDocumentationController`, `templates/admin/documentation/`): keep the
+details out of the public documentation, which has one line pointing there.
+
+- **One recorder, two adapters.** `webroot/assets/common/js/data-quality.js`
+  holds every check (`createRecorder`). v1: `survey.js` calls
+  `initDataQuality()`, one record per page load. v2:
+  `form/js/items/data-quality.js`; `main.js` calls `enter(page)` in
+  `showPage` and `write(page)` in `collectPayload`, one record per page.
+- **Inert without the item.** Importing the module does nothing, and no
+  recorder is created (no listeners, no wrappers around `focus()` and
+  `scrollIntoView()`, no longer error stacks — `Error.stackTraceLimit` 50 —
+  no MutationObserver, no DRM probe) unless a page holds an
+  `input[data-fmr-dq]` that is in use — in v2 not before a page with it is
+  shown, so a consent page records nothing. A row its showif has switched
+  off is not in use (`liveFields`: the input is disabled); recording starts
+  and stops with it (v2: `fmr:showif-toggled`, v1: `Survey.update()`).
+  `tests/e2e/data-quality.spec.js` and `data-quality-people.spec.js` hold
+  this.
+- **Never write the record on a timer in v2, never with an event.** The
+  input is set with a plain `.value =` when the page's payload is collected.
+  An event would be taken for a change (autosave, `item_answered`).
+- **"Own code" is decided by the stack** (`callerKind`): the stack is taken
+  inside the recorder's `focus()` wrapper or listener, so its first frame is
+  the bundle itself. v2's widgets dispatch `change`/`input` themselves; those
+  are not counted, an agent's are. Keep `new Error().stack` written directly
+  in the wrapper or listener: moved into a helper, the first frame is the
+  helper and every call looks like the page's own. The listeners ask
+  `actor()`, not `callerKind` directly: page code with a foreign caller
+  (`mixed`) is the page reacting only while that caller's event is being
+  handled; otherwise, when the call did not begin in page code
+  (`startedByOwn`), it is a script acting through the page's own code
+  (v1's global jQuery, `$(el).click()`) and counts as foreign. Only the
+  calls running now are read (`ASYNC_FRAME_RX`): V8 lists the functions that
+  await, and Firefox, when a tool drives it, appends the whole stack from
+  before an await (`async*f@…`), down to a script's click — which made the
+  page's own focus after a page change look like that script's.
+- **What a person does with ordinary items is not a flag.** Not counted:
+  the click a browser passes on from a label, or makes for an arrow key in a
+  radio group (`clk_nopt`); ids and classes inside the survey's own markup
+  when looking for tool names (`OWN_MARKUP`: a study or a choice may be
+  called `chatgpt`); text a field held when the page was shown, and fields
+  a widget fills (`newChars`, `isTypedField`: `txt_ch`, `fld_nokey`); the
+  page's own scroll to an item (`scr_nogest`). `data-quality-people.spec.js`
+  (runs `e2e-dqitems-*`, `e2e-dqshowif-*`) holds these; a new check needs
+  its own "a person does this too" case there.
+- **Do not ask that module whether a JavaScript built-in exists by writing
+  it out.** The bundle is built with `useBuiltIns: 'usage'`: a built-in that
+  core-js knows (`[].findLast`) pulls in a polyfill when written out, and
+  then answers yes in every browser. (`navigator`, `screen` and the like are
+  not polyfilled and are read directly.)
+  `nativeFeatureRange()` reads them, by name, from a fresh iframe.
+- **Unseen items** (`Item::isUnseen()`, wrapper `data-fmr-unseen`): on the
+  page, never shown. They do not make a page appear (v1 renderers,
+  `snapshotPages`), are no solo step, are skipped by the all-answered
+  auto-submit, the page-change focus, "show hidden items" and the form
+  monkey. A new place that walks a page's items needs the same exception
+  (`isUnseenItem` in `form/js/lib/inputs.js`).
+- **Neither item may ever set `$item->error`**: a page must not be blocked by
+  something the participant cannot see. `Item::$unseen` sees to it: always
+  optional, no reply refused (`rejectNonScalarReply`), never
+  `alwaysInvalid()`; each item's `getReply()` cleans what is stored.
+- **Unseen items take no place on a classic page.** Under "Items Per Page"
+  they are not counted and not what a page is cut at
+  (`SpreadsheetRenderer::withinItemsPerPage`), and when an upload changes a
+  showif, what a skipped page was left with comes back with its questions
+  (`SurveyStudy::pageLeftovers`).
+- **The record alone is no autosave.** It goes out with every v2 autosave of
+  its page; `/form-save` stores it only beside an answer of the
+  participant's (`FormSubmissionService::holdsAnAnswer`), so "Saved" still
+  means that an answer was saved.
+- The record's format has a version (`RECORD_VERSION`, field `v`). Bump it
+  when a field is added, dropped or changes meaning, and update the codebook
+  (`templates/admin/documentation/data_quality/codebook.php`) and the
+  functions that read it, which are in the formr R package (`dq_parse`,
+  `dq_flags`, `dq_flags_by_session`, `dq_rrt` in its `R/data_quality.R`,
+  from 1.3.0) — formr.org holds no copy of them, bar the specs' own
+  `behaviourFlags` (`tests/e2e/helpers/dataQuality.js`), which repeats the
+  package's input rules to assert on records and has to follow them.
+- **The example run's last page analyses the participant's own records**
+  (`dq_flags_by_session()` on `tail(<study>, 1)`), so OpenCPU needs formr
+  1.3.0 or later; `tests/e2e/data-quality-example.spec.js` walks both
+  engines to that page. Run R is handed only the survey columns it names
+  (`UnitSession::getRunDataNeeded`), which is why the page spells out the column
+  names and patterns although they are the function's defaults. For the
+  example only: a real study never shows participants what was flagged.
+- The consent paragraph and the plausible-deniability question live in
+  `documentation/data_quality/texts.php` (shown on the admin page, written
+  into the example survey by `bin/gen_data_quality_xlsx.php` and the example
+  run by `bin/gen_data_quality_run.php`). The consent paragraph has to name
+  every kind of reading the recorder makes: a new check may need a word
+  there.
+- **`callerKind` has four answers.** `own` (only the page's code on the
+  stack), `mixed` (a widget's handler set off by a foreign script's click:
+  not counted again as script-made, but no "page default" either), `foreign`,
+  `none`. Only a pure `own` write re-bases an untouched item — and not while
+  a foreign event is still being handled (`reacting`): WebKit shows no stack
+  frame for code without a file, so there `mixed` reads as `own`.
+- **A phone or tablet is `mob`, whatever it says.** An iPad calls itself a
+  Mac (`platform.js` `isMobileDevice` knows it by its touch screen); Chrome
+  on a large Android tablet calls itself a Linux PC, client hints included,
+  and is known by a coarse pointer that cannot hover. The checks that need a
+  physical keyboard, a mouse or a window are off there, and the DRM question
+  is not asked. Do not go back to the User-Agent alone.
+- **Other devices and engines:** `npm run test:bs:dq` runs
+  `tests/e2e/data-quality-devices.spec.js` on the BrowserStack spread in
+  `browserstack.data-quality.yml` (phones, tablets, Firefox, WebKit). It
+  cannot show how a person types on a phone: the soft keyboard does not come
+  up under automation.
+
 ## Example surveys and run bundles
 
 The `documentation/` directory ships fixtures you can feed straight
@@ -479,7 +605,20 @@ inserting rows by hand.
   survey"; walked end to end by `v2-finish.spec.js` as run `e2e-awv2`),
   `pwa_items_default.xlsx` /
   `pwa_items_solo.xlsx` (the four PWA prompt items; see
-  `bin/gen_pwa_items_xlsx.php`).
+  `bin/gen_pwa_items_xlsx.php`). `data_quality.xlsx` (a
+  consent page, then two pages with an `agent_probe` and a `data_quality`
+  item each, the `browser` and `server` items and the plausible-deniability
+  question; see `bin/gen_data_quality_xlsx.php`). It runs on both engines
+  (e2e runs `e2e-dq-v1` / `e2e-dq-v2`), but as a study's survey it is for
+  the classic engine: v2 stores the `browser` and `server` rows when the
+  form is first rendered, with the consent page on screen — a v2 study
+  keeps its consent in a survey of its own, as `Data_Quality_v2.json` does.
+  After changing an example survey that an e2e run is made from (this one,
+  `all_widgets_v2.json`, the surveys in that script's `FIXTURES`),
+  `node tests/e2e/setup/create-v2-fixtures.js --refresh` gives each existing
+  study its file again — a spreadsheet through "upload items", a JSON survey
+  through a run import into a scratch run, since the admin takes a JSON only
+  for a new survey.
 - **`documentation/run_components/*.json`** — exportable run
   bundles. Import via the admin run editor's "Import" button.
   Notable: `Form_v2_Basic.json` (a Form unit + Endpage; the Form
@@ -490,6 +629,9 @@ inserting rows by hand.
   `Basic_Diary.json`, `Experience_sampling.json`,
   `Longitudinal_study.json`, `filter.json`, `Reminder.json`,
   `Text_message.json`, `Simple_Social_Network.json`.
+  `Data_Quality.json` / `Data_Quality_v2.json` (the data-quality example:
+  consent, two pages with every data-quality row, an analysis page; made by
+  `bin/gen_data_quality_run.php`, e2e runs `e2e-dq-example-v1` / `-v2`).
 - **Google Sheets via "Add a new survey → Import a Googlesheet":**
   All widgets `https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw`.
 

@@ -12,7 +12,7 @@
 // v1 armed on window load (one page per document); v2 arms when a page becomes
 // current and disarms when the participant leaves it, so timed pages measure
 // exposure to THAT page, not document age.
-import { isItemHidden, itemAnswered } from '../lib/inputs.js';
+import { isItemHidden, isUnseenItem, itemAnswered } from '../lib/inputs.js';
 
 export function initAutoSubmit({ root, pages, getCurrentIndex, submitPage }) {
     let timers = [];
@@ -58,6 +58,7 @@ export function initAutoSubmit({ root, pages, getCurrentIndex, submitPage }) {
     // the `hidden` type, which a true showif does not make answerable.
     const answerableGroups = (page) => Array.from(page.querySelectorAll('.form-group'))
         .filter((g) => !isItemHidden(g)
+            && !isUnseenItem(g)
             && !g.classList.contains('item-hidden')
             && !g.classList.contains('item-note')
             && !g.classList.contains('item-note_iframe')

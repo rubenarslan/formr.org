@@ -1,0 +1,7 @@
+type,name,label,optional,showif,choice1,choice2
+mc_button,sw_on,Record this page?,,,yes,no
+text,sw_text,Anything you like,*,,,
+data_quality,sw_dq,,*,sw_on == 1,,
+submit,sw_p1,Next,,,,
+text,sw_last,The last page,*,,,
+submit,sw_p2,Finish,,,,

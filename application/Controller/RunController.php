@@ -1057,6 +1057,12 @@ class RunController extends Controller {
         // autosave stored before; the rest are answers to store.
         $withdraw = FormSubmissionService::withdrawnNames($data, $items);
         $accepted = FormSubmissionService::filterAutosaveAnswers($clean, $items);
+        // The page's data_quality record comes with every autosave. It is
+        // stored with the participant's answers, not instead of them: when
+        // none of theirs was accepted, nothing was saved.
+        if (!FormSubmissionService::holdsAnAnswer($accepted, $items)) {
+            $accepted = array();
+        }
         if (!$withdraw && !$accepted) {
             $this->sendJsonResponse(array('status' => 'noop'));
             return;

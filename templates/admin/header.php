@@ -4,6 +4,9 @@
         <meta charset="utf-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <title>formr admin</title>
+        <?php if (!empty($noindex)): ?>
+        <meta name="robots" content="noindex, nofollow">
+        <?php endif; ?>
         <!-- Tell the browser to be responsive to screen width -->
         <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
         <?php
@@ -113,6 +116,9 @@
                             <ul class="nav navbar-nav navbar-right">
                                 <li><a href="<?php echo site_url('account'); ?>"><i class="fa fa-user"></i> <span><?= $user->email; ?> </span></a></li>
                                 <li><a href="<?php echo site_url('documentation/#help'); ?>"><i class="fa fa-question-circle"></i> <span>Help</span></a></li>
+                                <?php if ($user->isAdmin()): // documentation for admins only: AdminDocumentationController ?>
+                                <li><a href="<?php echo admin_url('documentation'); ?>"><i class="fa fa-book"></i> <span>Admin docs</span></a></li>
+                                <?php endif; ?>
                                 <li><a href="<?php echo site_url(); ?>"><i class="fa fa-globe"></i> <span>Go to site</span></a></li>
                                 <li><a href="<?php echo site_url('logout'); ?>"><i class="fa fa-power-off"></i> <span>Logout</span></a></li>
                             </ul>

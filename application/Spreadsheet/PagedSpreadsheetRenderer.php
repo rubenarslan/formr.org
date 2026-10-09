@@ -415,7 +415,7 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
      */
     protected function displayedItemExists(&$items) {
         foreach ($items as $item) {
-            if ($item->isRendered() && !$item->hidden && $item->type !== 'submit') {
+            if ($item->isRendered() && !$item->hidden && $item->type !== 'submit' && !$item->isUnseen()) {
                 return true;
             }
         }

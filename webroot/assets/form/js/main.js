@@ -52,6 +52,7 @@ import { initRequestPhone } from './items/request-phone.js';
 import { initAdminPreview } from './items/admin-preview.js';
 import { initExpiryNotifier, updateExpiry } from './items/expiry-notifier.js';
 import { initAutoSubmit } from './items/auto-submit.js';
+import { initDataQuality } from './items/data-quality.js';
 import { t } from './lib/i18n.js';
 import {
     clearCustomValidity,
@@ -70,7 +71,7 @@ import { initSolo, blockedSubmitControl } from './solo/controller.js';
 import { createStore, pageState, readRememberedPage, rememberPage, forgetPage } from './state.mjs';
 import { progressPercent, setProgressBar, oncePerFrame } from './lib/chrome.js';
 import {
-    collectAnswers, fieldKey, isAnswerInput, isItemHidden, hiddenShowifItemIds,
+    collectAnswers, fieldKey, isAnswerInput, isItemHidden, isUnseenItem, hiddenShowifItemIds,
     dispatchProgrammatic, claimPendingShowifControls,
 } from './lib/inputs.js';
 
@@ -88,6 +89,9 @@ function initForm() {
     // First, before any item code disables a control of its own: what the
     // server rendered disabled in a showif item is the showif's to restore.
     claimPendingShowifControls(root);
+
+    // The pages' data_quality records (inert in a form without the item).
+    const dataQuality = initDataQuality(root);
 
     let currentIndex = 0;
     // No page has been shown yet: the first showPage announces its page
@@ -190,6 +194,9 @@ function initForm() {
         pageShown = true;
         pages.forEach((p, idx) => { p.hidden = (idx !== i); });
         currentIndex = i;
+        // Before the scroll and the focus move below, which are the page's
+        // own and not the participant's.
+        dataQuality.enter(pages[i]);
         const shownNum = pages[i] ? Number(pages[i].dataset.fmrPage) : NaN;
         if (Number.isFinite(shownNum)) resolveOnce(shownNum);
         // Let per-item widgets react to leaving a page (e.g. recorders stop
@@ -213,8 +220,10 @@ function initForm() {
             // a11y: move focus into the new page so keyboard + screen-
             // reader users continue from a sensible anchor rather than
             // hanging on the now-hidden previous page's button.
-            const focusTarget = p.querySelector('.fmr-page-title, h1, h2, h3, h4')
-                || p.querySelector('input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])');
+            // Never into an item nobody sees (the agent_probe's field).
+            const firstSeen = (sel) => Array.from(p.querySelectorAll(sel)).find((el) => !el.closest('[data-fmr-unseen]'));
+            const focusTarget = firstSeen('.fmr-page-title, h1, h2, h3, h4')
+                || firstSeen('input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])');
             if (focusTarget) {
                 // Headings aren't focusable by default — give a temporary
                 // tabindex so they can receive focus, then remove it on blur.
@@ -272,6 +281,12 @@ function initForm() {
         applyNav(p, ps);
         updatePageProgress(Number(p.dataset.fmrPage), ps);
     }));
+    // A showif can also switch the page's data_quality row on or off while
+    // the page is on screen: its recording starts and stops with the row
+    // (inert in a form without the item).
+    root.addEventListener('fmr:showif-toggled', oncePerFrame(() => {
+        if (pageShown) dataQuality.enter(pages[currentIndex]);
+    }));
 
     // Answered-timing: stamp on first value change per item. Suppressed while
     // resolveAndSubstitutePage writes server-computed deferred-fill values —
@@ -309,6 +324,8 @@ function initForm() {
     const formDocId = genUuid();
     let writeSeq = 0;
     const collectPayload = (pageEl) => {
+        // The page's data_quality record goes out with its answers.
+        dataQuality.write(pageEl);
         // Answers: lib/inputs.js holds the rules (arrays, choice groups, the
         // Check_Item partner, disabled = withdrawn); this only adds what a
         // page submit needs on top.
@@ -470,7 +487,7 @@ function initForm() {
                 const showifHidden = (el.hasAttribute('x-showif') || el.hasAttribute('data-showif')) && isItemHidden(el);
                 return {
                     name,
-                    visible: !typeHidden && !isItemHidden(el),
+                    visible: !typeHidden && !isUnseenItem(el) && !isItemHidden(el),
                     answerable: !!(name && store.items[name] && store.items[name].answerable),
                     automatic: typeHidden && !!name && !showifHidden,
                 };
@@ -1118,6 +1135,7 @@ function initForm() {
     const collectAllAnswers = () => {
         const out = {};
         const answers = collectAnswers(root, root);
+        dataQuality.names.forEach((name) => { delete answers[name]; });
         Object.keys(answers).forEach((key) => {
             const v = answers[key];
             out[key] = Array.isArray(v) ? v.filter((x) => x !== '') : (v === '' ? null : v);

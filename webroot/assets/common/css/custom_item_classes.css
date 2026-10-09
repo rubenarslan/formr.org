@@ -794,3 +794,26 @@ form.form-horizontal div.form-group.vertical_range div.controls div.controls-inn
 .vas-controls:not(.vas-touched) input[type="range"].vas-display::-ms-thumb {
 	visibility: hidden;
 }
+
+/* data_quality and agent_probe: on the page, never seen (Item::isUnseen).
+   Keyed on the item types rather than on .hidden, a class that scripts add
+   and remove, and !important so no layout rule of either engine — the solo
+   layout's included — undoes it. */
+.form-group.item-data_quality {
+	display: none !important;
+}
+/* Clipped to one pixel, not display:none: the note and the field stay in the
+   DOM and in the accessibility tree, which is what an agent reads. */
+.form-group.item-agent_probe {
+	display: block !important;
+	position: absolute !important;
+	width: 1px !important;
+	height: 1px !important;
+	min-height: 0 !important;
+	padding: 0 !important;
+	margin: -1px !important;
+	overflow: hidden !important;
+	clip: rect(0, 0, 0, 0) !important;
+	white-space: nowrap !important;
+	border: 0 !important;
+}

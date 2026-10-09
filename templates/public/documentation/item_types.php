@@ -287,6 +287,7 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
         <strong>Form (v2) units only.</strong>
     </dd>
 </dl>
+<p>Two further item types, <code>data_quality</code> and <code>agent_probe</code>, record signs of automated or careless responding without blocking anyone; they are described in the <a href="<?= admin_url('documentation/data-quality') ?>">admin documentation</a> (login required).</p>
 
 <h4><i class="fa fa-fw fa-eye-slash"></i> Hidden family</h4>
 These items don't require the user to do anything, so including them simply means that the relevant value will be stored. If you have exclusively hidden items in a form, things will wrap up immediately and move to the next element in the run. This can be useful for hooking up with other software which sends data over the query string i.e. <?= h(run_url('run_name', '', ['param1' => 10, 'user_id' => 29])) ?>
@@ -314,7 +315,7 @@ These items don't require the user to do anything, so including them simply mean
         server var
     </dt>
     <dd>
-        saves the <a href="https://us1.php.net/manual/en/reserved.variables.server.php">$_SERVER</a> value with the index given by var. Can be used to store one of 'HTTP_USER_AGENT', 'HTTP_ACCEPT', 'HTTP_ACCEPT_CHARSET', 'HTTP_ACCEPT_ENCODING', 'HTTP_ACCEPT_LANGUAGE', 'HTTP_CONNECTION', 'HTTP_HOST', 'QUERY_STRING', 'REQUEST_TIME', 'REQUEST_TIME_FLOAT'. In English: the browser, some stuff about browser language information, some server stuff, and access time.
+        saves the <a href="https://us1.php.net/manual/en/reserved.variables.server.php">$_SERVER</a> value with the index given by var. Can be used to store one of '<?= implode("', '", array_map('h', Server_Item::VARIABLES)) ?>'. In English: the browser, some stuff about browser language information, some server stuff, access time, what Chrome-like browsers say about themselves beside the user-agent string (their name and version, mobile or not, their operating system), and the signature with which an AI agent that identifies itself signs its requests.
     </dd>
     <dt>
         browser

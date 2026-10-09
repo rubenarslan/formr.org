@@ -1,5 +1,5 @@
 import { t, escapeHtml } from '../lib/i18n.js';
-import { isItemHidden } from '../lib/inputs.js';
+import { isItemHidden, isUnseenItem } from '../lib/inputs.js';
 import { progressPercent, setProgressBar, oncePerFrame } from '../lib/chrome.js';
 // Typeform-style "solo" step controller for form_v2 (layout=solo).
 //
@@ -71,7 +71,8 @@ export function initSolo(opts) {
         // The `hidden` item type shows nothing: never a blank step of its
         // own. (Items that take no input — get, random, ip, … — and an mc
         // matrix's heading row are not in a v2 document at all.)
-        return !el.classList.contains('item-hidden');
+        // Nor is an item nobody sees (data_quality, agent_probe).
+        return !el.classList.contains('item-hidden') && !isUnseenItem(el);
     }
     function steps(pageEl) { return directGroups(pageEl).filter(isNavigable); }
     function nextStep(el) {

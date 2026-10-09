@@ -88,16 +88,21 @@ class SpreadsheetRenderer {
             if (!$items) {
                 continue;
             }
-            $lastItem = end($items);
-
-            // If no items ended up to be on the page but for a submit button, make it hidden and continue
+            // If nothing ended up on the page but its submit button — and
+            // items participants never see (Item::isUnseen: data_quality,
+            // agent_probe), which do not make a page — hide those and continue,
             // else render processed items
-            if (count($items) == 1 && $lastItem->type === 'submit') {
-                $sess_item = array(
-                    'session_id' => $this->unitSession->id,
-                    'item_id' => $lastItem->id,
-                );
-                $this->db->update('survey_items_display', array('hidden' => 1), $sess_item);
+            $shown = array_filter($items, function ($item) {
+                return $item->type !== 'submit' && !$item->isUnseen();
+            });
+            if (!$shown) {
+                // one batched hidden-update, as for the showif results below
+                $rows = array();
+                foreach ($items as $leftover) {
+                    $rows[(int) $leftover->id] = array('hidden' => 1);
+                }
+                $this->db->batchUpdateByKey('survey_items_display', 'item_id', $rows,
+                    array(), array('session_id' => $this->unitSession->id));
                 continue;
             } else {
                 $this->toRender = $this->processDynamicLabelsAndChoices($items);
@@ -563,7 +568,9 @@ NULL
                         continue; // don't increment counter
                     }
                 }
-                $definitelyShownItems++; // track whether there are any items certain to be shown
+                if (!$item->isUnseen()) {
+                    $definitelyShownItems++; // track whether there are any items certain to be shown
+                }
             }
 
             if ($visibilityUpdates) {
@@ -734,33 +741,52 @@ NULL
         return $items;
     }
 
+    /**
+     * The items of a page that one request shows, given the survey's "Items
+     * Per Page" (maximum_number_displayed; 0: no limit).
+     *
+     * Items participants never see (Item::isUnseen: data_quality,
+     * agent_probe) take none of the page's places and are not what a page is
+     * cut at: they stay with the last items shown. Counted and cut off, the
+     * two would be left alone with the submit button, a page that
+     * processItems() skips, and the page's record would never be taken.
+     *
+     * @param Item[] $items the page's items, in order
+     * @param int $limit
+     * @return Item[]
+     */
+    public static function withinItemsPerPage(array $items, $limit) {
+        $limit = (int) $limit;
+        $displayed = 0;
+        $rendered = array();
+        foreach ($items as $item) {
+            if ($limit && $limit === $displayed && !$item->isUnseen()) {
+                break;
+            }
+            if ($item->isRendered()) {
+                if (!$item->hidden && !$item->isUnseen()) {
+                    $displayed++;
+                }
+                $rendered[] = $item;
+            }
+        }
+        return $rendered;
+    }
+
     protected function getRenderedStudyItems() {
         $study = $this->study;
 
+        $renderedItems = self::withinItemsPerPage($this->toRender, $study->maximum_number_displayed);
+        // collect the display-count bump; one batched UPDATE below
+        // instead of a round trip per rendered item (audit SQ-42)
+        $renderedItemIds = array();
+        foreach ($renderedItems as $item) {
+            $renderedItemIds[] = (int) $item->id;
+        }
+
         $this->db->beginTransaction();
 
-        $itemsDisplayed = 0;
-
-        $renderedItems = array();
-        $renderedItemIds = array();
-
         try {
-            foreach ($this->toRender as &$item) {
-                if ($study->maximum_number_displayed && $study->maximum_number_displayed === $itemsDisplayed) {
-                    break;
-                } else if ($item->isRendered()) {
-                    // collect the display-count bump; one batched UPDATE below
-                    // instead of a round trip per rendered item (audit SQ-42)
-                    $renderedItemIds[] = (int) $item->id;
-
-                    if (!$item->hidden) {
-                        $itemsDisplayed++;
-                    }
-
-                    $renderedItems[] = $item;
-                }
-            }
-
             if ($renderedItemIds) {
                 $in = implode(',', $renderedItemIds);
                 $this->db->exec(
